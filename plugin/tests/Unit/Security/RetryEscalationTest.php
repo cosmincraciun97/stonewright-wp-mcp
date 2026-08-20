@@ -60,4 +60,51 @@ final class RetryEscalationTest extends TestCase {
 		self::assertStringNotContainsString( 'STOP', $out->get_error_message() );
 		self::assertSame( $err->get_error_message(), $out->get_error_message() );
 	}
+
+	public function test_fifth_repeat_appends_learning_record_guidance(): void {
+		$args = [
+			'error_code' => 'stonewright_spec_invalid',
+			'message'    => 'Spec rejected: missing sections array.',
+		];
+		$this->observe_times( 'stonewright/design-validate-spec', $args, 5 );
+
+		$escalated = ErrorPatterns::escalate_error(
+			'stonewright/design-validate-spec',
+			new \WP_Error( 'stonewright_spec_invalid', 'Spec rejected: missing sections array.' ),
+			$args
+		);
+
+		self::assertStringContainsString( 'STOP:', $escalated->get_error_message() );
+		self::assertStringContainsString(
+			'This failure repeated 5 times. Record the working fix with stonewright-learning-record or stonewright-incident-repair-record so future sessions avoid it.',
+			$escalated->get_error_message()
+		);
+	}
+
+	public function test_fourth_repeat_stop_does_not_nudge_learning_record(): void {
+		$args = [
+			'error_code' => 'stonewright_spec_invalid',
+			'message'    => 'Spec rejected: missing sections array.',
+		];
+		$this->observe_times( 'stonewright/design-validate-spec', $args, 4 );
+
+		$escalated = ErrorPatterns::escalate_error(
+			'stonewright/design-validate-spec',
+			new \WP_Error( 'stonewright_spec_invalid', 'Spec rejected: missing sections array.' ),
+			$args
+		);
+
+		self::assertStringContainsString( 'STOP:', $escalated->get_error_message() );
+		self::assertStringNotContainsString( 'stonewright-learning-record', $escalated->get_error_message() );
+		self::assertStringNotContainsString( 'This failure repeated', $escalated->get_error_message() );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 */
+	private function observe_times( string $ability, array $args, int $times ): void {
+		for ( $i = 0; $i < $times; $i++ ) {
+			ErrorPatterns::observe( $ability, 'error', $args );
+		}
+	}
 }

@@ -100,6 +100,51 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertSame( 'repair_proposed', $store[ $sig ]['state'] ?? null );
 	}
 
+	public function test_tenth_repeat_writes_draft_reference_lesson_not_active(): void {
+		Memory::maybe_install_table();
+		delete_option( 'stonewright_error_patterns' );
+
+		$args = [
+			'error_code' => 'stonewright_spec_invalid',
+			'message'    => 'Spec rejected: missing sections array.',
+		];
+		for ( $i = 0; $i < 9; $i++ ) {
+			ErrorPatterns::observe( 'stonewright/design-validate-spec', 'error', $args );
+		}
+
+		self::assertSame( [], Memory::list_by_type( 'reference', 50, 0 ) );
+
+		ErrorPatterns::observe( 'stonewright/design-validate-spec', 'error', $args );
+
+		$sig  = ErrorPatterns::signature( 'stonewright/design-validate-spec', $args );
+		$rows = Memory::list_by_type( 'reference', 50, 0 );
+		self::assertCount( 1, $rows );
+		$row = $rows[0];
+		self::assertSame( 'draft', $row['status'] );
+		self::assertSame( 'audit', $row['scope'] );
+		self::assertSame( 'draft-lesson-' . $sig, $row['memory_key'] );
+		self::assertNotSame( 'active', $row['status'] );
+		$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+		self::assertSame( $sig, (string) ( $value['signature'] ?? '' ) );
+		self::assertNotEmpty( (string) ( $value['proposed_remediation'] ?? '' ) );
+	}
+
+	public function test_expected_safety_block_at_ten_does_not_write_draft_lesson(): void {
+		Memory::maybe_install_table();
+		delete_option( 'stonewright_error_patterns' );
+
+		$args = [
+			'error_code' => 'stonewright_php_code_file_write_blocked',
+			'message'    => 'blocked',
+		];
+		for ( $i = 0; $i < 10; $i++ ) {
+			ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
+		}
+
+		self::assertSame( [], Memory::list_by_type( 'reference', 50, 0 ) );
+		self::assertSame( [], Memory::list_by_type( 'feedback', 50, 0 ) );
+	}
+
 	public function test_agent_supplied_recipe_without_canonical_receipt_does_not_promote(): void {
 		Memory::maybe_install_table();
 		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
@@ -242,6 +287,18 @@ final class ErrorPatternsPromotionTest extends TestCase {
 					];
 				}
 				return $out;
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				if ( str_contains( $query, 'WHERE id' ) ) {
+					$id = (int) ( $this->last_prepare_args[0] ?? 0 );
+					foreach ( $this->rows as $row ) {
+						if ( (int) $row['id'] === $id ) {
+							return $row;
+						}
+					}
+				}
+				return null;
 			}
 		};
 	}

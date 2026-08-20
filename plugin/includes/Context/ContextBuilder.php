@@ -140,21 +140,28 @@ final class ContextBuilder {
 	/**
 	 * Top recurring audit-error patterns for task-start warnings.
 	 *
-	 * @return list<array{ability:string,message:string,count:int,warning:string}>
+	 * @return list<array{ability:string,error_code:string,message:string,count:int,repair:string,warning:string}>
 	 */
 	private static function recurring_error_warnings(): array {
 		$patterns = ErrorPatterns::recurring( 3 );
 		$out      = [];
 		foreach ( $patterns as $p ) {
-			$out[] = [
-				'ability' => (string) ( $p['ability'] ?? '' ),
-				'message' => (string) ( $p['message'] ?? '' ),
-				'count'   => (int) ( $p['count'] ?? 0 ),
-				'warning' => sprintf(
+			$ability = (string) ( $p['ability'] ?? '' );
+			$code    = (string) ( $p['error_code'] ?? '' );
+			$message = (string) ( $p['message'] ?? '' );
+			$count   = (int) ( $p['count'] ?? 0 );
+			$repair  = (string) ( $p['repair'] ?? '' );
+			$out[]   = [
+				'ability'    => $ability,
+				'error_code' => $code,
+				'message'    => $message,
+				'count'      => $count,
+				'repair'     => $repair,
+				'warning'    => sprintf(
 					'Recurring failure on %s (%dx): %s. Avoid repeating the same args without fixing the cause.',
-					(string) ( $p['ability'] ?? 'ability' ),
-					(int) ( $p['count'] ?? 0 ),
-					(string) ( $p['message'] ?? 'error' )
+					'' !== $ability ? $ability : 'ability',
+					$count,
+					'' !== $message ? $message : 'error'
 				),
 			];
 		}

@@ -530,12 +530,16 @@ final class WorkflowPreflight extends AbilityKernel {
 					}
 					$code    = (string) ( $row['error_code'] ?? '' );
 					$ability = (string) ( $row['ability'] ?? '' );
+					$repair  = (string) ( $row['repair'] ?? '' );
+					if ( '' === $repair && '' !== $code ) {
+						$repair = \Stonewright\WpMcp\Security\RemediationHints::for_code( $code, $ability );
+					}
 					return [
 						'ability'    => $ability,
 						'error_code' => $code,
 						'message'    => (string) ( $row['message'] ?? '' ),
 						'count'      => (int) ( $row['count'] ?? 0 ),
-						'repair'     => (string) ( $row['repair'] ?? \Stonewright\WpMcp\Security\RemediationHints::for_code( $code, $ability ) ),
+						'repair'     => $repair,
 					];
 				},
 				$errors

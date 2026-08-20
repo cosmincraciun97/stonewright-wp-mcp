@@ -92,6 +92,43 @@ final class ContextUserContextTest extends TestCase {
 		self::assertStringStartsWith( 'Ship only in-season produce.', (string) ( $custom['text'] ?? '' ) );
 	}
 
+	public function test_recurring_errors_keep_error_code_and_repair_in_compact_task_start(): void {
+		$args = [
+			'error_code' => 'stonewright_spec_invalid',
+			'message'    => 'Spec rejected: missing sections array.',
+		];
+		\Stonewright\WpMcp\Security\ErrorPatterns::observe( 'stonewright/design-validate-spec', 'error', $args );
+		\Stonewright\WpMcp\Security\ErrorPatterns::observe( 'stonewright/design-validate-spec', 'error', $args );
+
+		$built = ContextBuilder::build( 'Validate a design spec', 'elementor', 'read' );
+		self::assertNotEmpty( $built['recurring_errors'] );
+		$full = $built['recurring_errors'][0];
+		self::assertSame( 'stonewright_spec_invalid', $full['error_code'] );
+		self::assertNotSame( '', (string) $full['repair'] );
+		self::assertStringContainsString( 'Validate the design spec', (string) $full['repair'] );
+
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'         => 'Validate a design spec',
+				'surface'      => 'elementor',
+				'intent'       => 'read',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $start );
+		$compact = is_array( $start['context']['recurring_errors'] ?? null )
+			? $start['context']['recurring_errors']
+			: [];
+		self::assertNotEmpty( $compact );
+		self::assertSame( 'stonewright_spec_invalid', $compact[0]['error_code'] );
+		self::assertSame( $full['repair'], $compact[0]['repair'] );
+		self::assertStringNotContainsString(
+			'If it recurs, record it with stonewright/learning-record.',
+			(string) $compact[0]['repair']
+		);
+	}
+
 	public function test_compact_task_start_includes_custom_instruction_text(): void {
 		$start = ( new TaskStart() )->execute(
 			[

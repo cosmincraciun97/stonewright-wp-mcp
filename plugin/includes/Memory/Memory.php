@@ -331,7 +331,7 @@ final class Memory {
 			'topic'      => sanitize_text_field( (string) ( $metadata['topic'] ?? $name ) ),
 			'version_fingerprint' => sanitize_text_field( (string) ( $metadata['version_fingerprint'] ?? '' ) ),
 			'expires_at' => self::sanitize_expiry( $metadata['expires_at'] ?? null ),
-			'status'     => in_array( $metadata['status'] ?? 'active', [ 'active', 'stale', 'rejected' ], true ) ? (string) ( $metadata['status'] ?? 'active' ) : 'active',
+			'status'     => self::sanitize_status( $metadata['status'] ?? 'active', 'active' ),
 			'precedence' => max( -1000, min( 1000, (int) ( $metadata['precedence'] ?? 0 ) ) ),
 			'created_by' => get_current_user_id(),
 		];
@@ -560,7 +560,7 @@ final class Memory {
 				$data['expires_at'] = self::sanitize_expiry( $changes['expires_at'] );
 				$formats[]          = '%s';
 			} elseif ( 'status' === $field ) {
-				$data['status'] = in_array( $changes['status'], [ 'active', 'stale', 'rejected' ], true ) ? (string) $changes['status'] : 'stale';
+				$data['status'] = self::sanitize_status( $changes['status'], 'stale' );
 				$formats[]      = '%s';
 			} elseif ( 'precedence' === $field ) {
 				$data['precedence'] = max( -1000, min( 1000, (int) $changes['precedence'] ) );
@@ -596,6 +596,11 @@ final class Memory {
 		}
 		$expires_at = trim( (string) ( $entry['expires_at'] ?? '' ) );
 		return '' === $expires_at || ( strtotime( $expires_at . ' UTC' ) ?: 0 ) > time();
+	}
+
+	private static function sanitize_status( mixed $status, string $fallback = 'active' ): string {
+		$status = (string) $status;
+		return in_array( $status, [ 'active', 'draft', 'stale', 'rejected' ], true ) ? $status : $fallback;
 	}
 
 	private static function sanitize_expiry( mixed $value ): ?string {
