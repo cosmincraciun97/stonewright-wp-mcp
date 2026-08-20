@@ -235,7 +235,7 @@ final class NativePlanner {
 		}
 
 		if ( 'gutenberg' === $target || 'fse' === $target ) {
-			$block = self::gutenberg_block( $role );
+			$block = self::gutenberg_block( $role, $node );
 			if ( '' === $block ) {
 				return new \WP_Error(
 					'stonewright_native_block_unavailable',
@@ -296,7 +296,9 @@ final class NativePlanner {
 		};
 	}
 
-	private static function gutenberg_block( string $role ): string {
+	private static function gutenberg_block( string $role, array $node = [] ): string {
+		$content_model = isset( $node['content_model'] ) && is_array( $node['content_model'] ) ? $node['content_model'] : [];
+
 		return match ( $role ) {
 			'section', 'group', 'container' => 'core/group',
 			'heading'               => 'core/heading',
@@ -305,6 +307,8 @@ final class NativePlanner {
 			'gallery', 'carousel'   => 'core/gallery',
 			'button', 'cta', 'link' => 'core/button',
 			'navigation'            => 'core/navigation',
+			'query'                 => 'core/query',
+			'repeated-cards'        => 'dynamic' === ( $content_model['mode'] ?? '' ) ? 'core/query' : 'core/group',
 			'icon-list'             => 'core/list',
 			'video'                 => 'core/video',
 			'header', 'footer'      => 'core/template-part',

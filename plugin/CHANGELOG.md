@@ -6,6 +6,8 @@
 
 - Add Codex in ChatGPT Desktop, Codex CLI, ChatGPT, Claude.ai, and Antigravity
   CLI to the shared OAuth and Application Password client choosers.
+- Add typed query-loop, FSE navigation, and synced-pattern update/delete/category
+  abilities, plus a child-theme theme.json handoff that stops at human approval.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
 - Add a browser-assisted Gutenberg block finalizer: queue `{name, attributes,
@@ -22,6 +24,12 @@
   mode.
 - Restrict REST ability execution to the active tool profile unless confirmed,
   and require a confirmation token to toggle abilities over REST.
+
+### Changed
+
+- Harden pattern creates and FSE global-style/template writes with the same
+  backup, confirmation, sanitization, and audit envelope as the canonical
+  write abilities. Keep the older update-* names as compatibility wrappers.
 
 ### Fixed
 

@@ -444,4 +444,50 @@ final class GutenbergRendererTest extends TestCase {
 		$this->assertSame( 'core/heading', $result[0]['innerBlocks'][0]['blockName'] );
 		$this->assertEmpty( $diag );
 	}
+
+	public function test_gallery_query_and_navigation_nodes_are_not_dropped(): void {
+		$diag = [];
+		$gallery = Renderer::render_block(
+			[
+				'type'   => 'gallery',
+				'images' => [
+					[ 'url' => 'https://example.com/a.jpg', 'alt' => 'A' ],
+					[ 'url' => 'https://example.com/b.jpg', 'alt' => 'B' ],
+				],
+			],
+			's0.b0',
+			$diag
+		);
+		$query = Renderer::render_block(
+			[
+				'type'      => 'query',
+				'post_type' => 'post',
+				'count'     => 3,
+			],
+			's0.b1',
+			$diag
+		);
+		$navigation = Renderer::render_block(
+			[
+				'type'    => 'navigation',
+				'ref'     => 12,
+				'links'   => [
+					[ 'label' => 'Home', 'url' => 'https://example.test/' ],
+				],
+			],
+			's0.b2',
+			$diag
+		);
+
+		$this->assertIsArray( $gallery );
+		$this->assertSame( 'core/gallery', $gallery['blockName'] );
+		$this->assertNotEmpty( $gallery['innerBlocks'] );
+		$this->assertIsArray( $query );
+		$this->assertSame( 'core/query', $query['blockName'] );
+		$this->assertSame( 'core/post-template', $query['innerBlocks'][0]['blockName'] );
+		$this->assertIsArray( $navigation );
+		$this->assertSame( 'core/navigation', $navigation['blockName'] );
+		$this->assertSame( 12, $navigation['attrs']['ref'] );
+		$this->assertEmpty( $diag );
+	}
 }

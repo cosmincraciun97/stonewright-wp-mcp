@@ -726,6 +726,17 @@ final class ContractTest extends TestCase {
 					'_elementor_edit_mode' => 'builder',
 				],
 			],
+			8 => (object) [
+				'ID'           => 8,
+				'post_type'    => 'wp_block',
+				'post_status'  => 'publish',
+				'post_title'   => 'Contract Pattern',
+				'post_content' => '<!-- wp:paragraph --><p>Contract</p><!-- /wp:paragraph -->',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-pattern',
+				'meta'         => [],
+			],
 		];
 	}
 }

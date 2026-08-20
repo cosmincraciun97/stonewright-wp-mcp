@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
  * Abstract base for FSE template write abilities.
@@ -55,8 +56,11 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 	final protected function write( array $args ): array|\WP_Error {
 		$slug    = (string) ( $args['template_slug'] ?? '' );
 		$theme   = (string) ( $args['theme'] ?? '' );
-		$content = (string) ( $args['content'] ?? '' );
-		$desc    = (string) ( $args['description'] ?? '' );
+		$content = BlockMarkup::sanitize( (string) ( $args['content'] ?? '' ) );
+		if ( is_wp_error( $content ) ) {
+			return $content;
+		}
+		$desc = (string) ( $args['description'] ?? '' );
 
 		if ( '' === $slug || ! preg_match( '/^[a-z0-9_-]+$/', $slug ) ) {
 			return $this->error( 'invalid_slug', __( 'template_slug must match ^[a-z0-9_-]+$.', 'stonewright' ) );

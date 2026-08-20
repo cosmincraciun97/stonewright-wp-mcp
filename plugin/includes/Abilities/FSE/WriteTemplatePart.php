@@ -6,6 +6,10 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 /**
  * Ability: stonewright/fse.write_template_part
  *
+ * Canonical FSE template-part writer. `stonewright/fse-create-template-part`
+ * remains the id-lite create wrapper; both sanitize content and share the
+ * backup + confirmation envelope of {@see AbstractTemplateWriter}.
+ *
  * Same as WriteTemplate but targets wp_template_part and adds the `area` field.
  *
  * @stonewright-status stable

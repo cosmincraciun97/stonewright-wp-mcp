@@ -8,12 +8,15 @@ use Stonewright\WpMcp\Gutenberg\Renderer\Buttons;
 use Stonewright\WpMcp\Gutenberg\Renderer\Columns;
 use Stonewright\WpMcp\Gutenberg\Renderer\Cover;
 use Stonewright\WpMcp\Gutenberg\Renderer\Embed;
+use Stonewright\WpMcp\Gutenberg\Renderer\Gallery;
 use Stonewright\WpMcp\Gutenberg\Renderer\Group;
 use Stonewright\WpMcp\Gutenberg\Renderer\Heading;
 use Stonewright\WpMcp\Gutenberg\Renderer\Image;
 use Stonewright\WpMcp\Gutenberg\Renderer\ListBlock;
 use Stonewright\WpMcp\Gutenberg\Renderer\MediaText;
+use Stonewright\WpMcp\Gutenberg\Renderer\Navigation;
 use Stonewright\WpMcp\Gutenberg\Renderer\Paragraph;
+use Stonewright\WpMcp\Gutenberg\Renderer\Query;
 use Stonewright\WpMcp\Gutenberg\Renderer\Quote;
 use Stonewright\WpMcp\Gutenberg\Renderer\Reusable;
 use Stonewright\WpMcp\Gutenberg\Renderer\Separator;
@@ -84,6 +87,17 @@ final class Renderer {
 
 			case 'image':
 				return Image::render( $block, $path, $resolver );
+
+			case 'gallery':
+			case 'image-gallery':
+				return Gallery::render( $block, $path, $resolver );
+
+			case 'query':
+				return Query::render( $block, $path );
+
+			case 'navigation':
+			case 'nav-menu':
+				return Navigation::render( $block, $path );
 
 			case 'columns':
 				return Columns::render( $block, $path, $diagnostics, $resolver );
