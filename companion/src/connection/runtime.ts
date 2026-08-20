@@ -727,7 +727,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				: runtime.profile;
 			const tools = proxyToolNamesForProfile(
 				// coerce via names lookup; unknown falls to current
-				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1 }
+				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, 'discover-execute': 1 }
 					? (requested as ProxyToolProfile)
 					: runtime.profile,
 			);

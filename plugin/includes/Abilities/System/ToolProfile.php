@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -19,14 +20,20 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_names(): array {
-		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
+		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'discover-execute', 'full' ];
 	}
 
 	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
 		$surface = strtolower( trim( $surface ) );
 		$query   = self::normalise( $task . ' ' . $surface . ' ' . $intent );
+		$gutenberg_first = self::gutenberg_first_signal( $query );
+		$elementor_active = self::elementor_is_active();
 
-		if ( in_array( $surface, [ 'elementor', 'theme-builder' ], true ) || self::has_any_term( $query, [ 'elementor', 'theme builder', 'theme-builder', 'figma', 'design', 'pixel', 'landing page', 'section' ] ) ) {
+		if ( in_array( $surface, [ 'elementor', 'theme-builder' ], true ) ) {
+			return 'elementor-design';
+		}
+
+		if ( self::has_any_term( $query, [ 'elementor', 'theme builder', 'theme-builder' ] ) ) {
 			return 'elementor-design';
 		}
 
@@ -53,8 +60,12 @@ final class ToolProfile extends AbilityKernel {
 			return 'content-model';
 		}
 
-		if ( 'gutenberg' === $surface || self::has_any_term( $query, [ 'block', 'block theme', 'fse', 'gutenberg', 'theme json', 'template part' ] ) ) {
+		if ( 'gutenberg' === $surface || $gutenberg_first || self::has_any_term( $query, [ 'block', 'block theme', 'block library', 'fse', 'gutenberg', 'theme json', 'template part', 'blocksy', 'kadence' ] ) ) {
 			return 'gutenberg';
+		}
+
+		if ( self::has_any_term( $query, [ 'figma', 'pixel', 'design', 'landing page', 'section' ] ) ) {
+			return ( $elementor_active && ! $gutenberg_first ) ? 'elementor-design' : 'gutenberg';
 		}
 
 		if ( 'wp-cli' === $surface || self::has_any_term( $query, [ 'cache', 'cli', 'plugin', 'rewrite', 'wp cli' ] ) ) {
@@ -818,6 +829,12 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
 			],
+			'discover-execute' => [
+				'stonewright/discover-abilities',
+				'stonewright/get-ability-info',
+				'stonewright/execute-ability',
+				'stonewright/security-issue-confirmation-token',
+			],
 				'site-admin' => [
 					'stonewright/site-info',
 					'stonewright/security-audit-reconcile',
@@ -891,8 +908,9 @@ final class ToolProfile extends AbilityKernel {
 		// low-tools stays tiny (strict client caps). wp-cli skips blueprints.
 		// All other profiles put blueprints right after startup so client caps keep them.
 		$with_blueprints = match ( $profile ) {
-			'low-tools', 'wp-cli' => array_merge( $startup, $direction_writes, $rest ),
-			default               => array_merge( $startup, $direction_writes, $blueprints, $rest ),
+			'discover-execute'            => array_merge( $startup, $rest ),
+			'low-tools', 'wp-cli'         => array_merge( $startup, $direction_writes, $rest ),
+			default                       => array_merge( $startup, $direction_writes, $blueprints, $rest ),
 		};
 
 		return array_values( array_unique( $with_blueprints ) );
@@ -948,6 +966,9 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/task-start' => 'Issue the task token and choose the compact task-aware fast path in one call.',
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
+			'stonewright/discover-abilities' => 'List compact ability names without dumping the full MCP catalog.',
+			'stonewright/get-ability-info' => 'Read one ability bounded schema and permission notes before calling it.',
+			'stonewright/execute-ability' => 'Run one enabled ability through the same permission, confirmation, backup, and audit gates as MCP.',
 			'stonewright/skills-get' => 'Load one matched site playbook on demand instead of injecting every skill into startup context.',
 			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
@@ -1040,7 +1061,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	private static function tool_group_name( string $name ): string {
-		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get', 'stonewright/discover-abilities', 'stonewright/get-ability-info', 'stonewright/execute-ability' ], true ) ) {
 			return 'startup';
 		}
 
@@ -1142,6 +1163,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-job-start',
 			],
+			'discover-execute' => [
+				'stonewright/discover-abilities',
+				'stonewright/get-ability-info',
+				'stonewright/execute-ability',
+			],
 			default => [],
 		};
 		$preferred_groups = match ( $profile ) {
@@ -1149,6 +1175,7 @@ final class ToolProfile extends AbilityKernel {
 			'content-model' => [ 'runtime', 'content_media', 'wp_cli', 'site_admin', 'startup' ],
 			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'runtime', 'startup' ],
 			'wp-cli' => [ 'wp_cli', 'runtime', 'site_admin', 'startup' ],
+			'discover-execute' => [ 'startup', 'runtime', 'site_admin' ],
 			'site-admin' => [ 'site_admin', 'runtime', 'wp_cli', 'startup' ],
 			default => [ 'startup', 'runtime', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
 		};
@@ -1241,6 +1268,11 @@ final class ToolProfile extends AbilityKernel {
 			$rules[] = 'Read theme.json, templates, registered blocks, and block supports before writing blocks or FSE templates.';
 		}
 
+		if ( 'discover-execute' === $profile ) {
+			$rules[] = 'Discover abilities, read one bounded schema, then execute the named ability; do not expand to the full MCP catalog.';
+			$rules[] = 'execute-ability uses the same permission, confirmation, backup, and audit gates as a direct MCP call. php-execute stays off this profile and remains available on full.';
+		}
+
 		return $rules;
 	}
 
@@ -1313,6 +1345,45 @@ final class ToolProfile extends AbilityKernel {
 				'footer template',
 				'elementor template',
 				'apply template',
+			]
+		);
+	}
+
+	private static function elementor_is_active(): bool {
+		foreach ( IntegrationCatalog::inspect() as $row ) {
+			if ( 'elementor' === (string) ( $row['id'] ?? '' ) && 'unavailable' !== (string) ( $row['status'] ?? 'unavailable' ) ) {
+				return true;
+			}
+		}
+
+		return defined( 'ELEMENTOR_VERSION' );
+	}
+
+	private static function gutenberg_first_signal( string $query ): bool {
+		if ( self::has_any_term(
+			$query,
+			[ 'blocksy', 'kadence', 'block theme', 'block library', 'gutenberg', 'fse', 'full site editing', 'generateblocks', 'spectra' ]
+		) ) {
+			return true;
+		}
+
+		$theme = self::normalise(
+			(string) get_stylesheet()
+			. ' ' . (string) get_template()
+			. ' ' . (string) get_option( 'stylesheet', '' )
+		);
+
+		return self::has_any_term(
+			$theme,
+			[
+				'blocksy',
+				'kadence',
+				'twentytwentythree',
+				'twentytwentyfour',
+				'twentytwentyfive',
+				'spectra one',
+				'generatepress',
+				'block theme',
 			]
 		);
 	}

@@ -143,6 +143,23 @@ describe('tool profile resolve + client cap', () => {
 		);
 	});
 
+	it('discover-execute fallback is a protocol surface without php-execute', () => {
+		expect(coerceProxyToolProfile('discover-execute')).toBe('discover-execute');
+		const names = proxyToolNamesForProfile('discover-execute');
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'stonewright-task-start',
+				'stonewright-tool-profile',
+				'stonewright-discover-abilities',
+				'stonewright-get-ability-info',
+				'stonewright-execute-ability',
+				'stonewright-security-issue-confirmation-token',
+			]),
+		);
+		expect(names).not.toContain('stonewright-php-execute');
+		expect(names.length).toBeLessThanOrEqual(16);
+	});
+
 	it('fallback content-model includes wc reads', () => {
 		const names = proxyToolNamesForProfile('content-model');
 		expect(names).toEqual(

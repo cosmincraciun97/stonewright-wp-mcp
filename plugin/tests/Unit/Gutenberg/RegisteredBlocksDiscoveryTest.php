@@ -60,7 +60,12 @@ final class RegisteredBlocksDiscoveryTest extends TestCase {
 	}
 
 	public function test_lists_registered_third_party_blocks_with_inserter_metadata(): void {
-		$result = ( new ListRegisteredBlocks() )->execute( [ 'namespace' => 'vendor' ] );
+		$result = ( new ListRegisteredBlocks() )->execute(
+			[
+				'namespace'    => 'vendor',
+				'responseMode' => 'full',
+			]
+		);
 
 		self::assertIsArray( $result );
 		self::assertSame( 'vendor/card', $result['blocks'][0]['name'] );
@@ -70,6 +75,20 @@ final class RegisteredBlocksDiscoveryTest extends TestCase {
 		self::assertTrue( $result['blocks'][0]['is_dynamic'] );
 		self::assertSame( [ 'card', 'vendor' ], $result['blocks'][0]['keywords'] );
 		self::assertSame( [ 'attributes' => [ 'title' => 'Example card', 'tone' => 'dark' ] ], $result['blocks'][0]['example'] );
+	}
+
+	public function test_summary_default_returns_name_and_title_only(): void {
+		$result = ( new ListRegisteredBlocks() )->execute( [ 'namespace' => 'vendor' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'summary', $result['response_mode'] );
+		self::assertSame( 'vendor/card', $result['blocks'][0]['name'] );
+		self::assertSame( 'Vendor Card', $result['blocks'][0]['title'] );
+		self::assertArrayNotHasKey( 'category', $result['blocks'][0] );
+		self::assertArrayNotHasKey( 'icon', $result['blocks'][0] );
+		self::assertArrayNotHasKey( 'keywords', $result['blocks'][0] );
+		self::assertArrayNotHasKey( 'example', $result['blocks'][0] );
+		self::assertArrayNotHasKey( 'supports', $result['blocks'][0] );
 	}
 
 	public function test_get_schema_returns_attributes_supports_and_variations(): void {

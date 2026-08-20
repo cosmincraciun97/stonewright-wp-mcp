@@ -176,6 +176,9 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\System\DiscoverAbilities;
+use Stonewright\WpMcp\Abilities\System\ExecuteAbility;
+use Stonewright\WpMcp\Abilities\System\GetAbilityInfo;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
@@ -519,6 +522,9 @@ final class AbilityRegistry {
 			KnowledgeExport::class,
 			KnowledgeImport::class,
 			AbilitiesList::class,
+			DiscoverAbilities::class,
+			GetAbilityInfo::class,
+			ExecuteAbility::class,
 			ToolProfile::class,
 			WorkflowPreflight::class,
 

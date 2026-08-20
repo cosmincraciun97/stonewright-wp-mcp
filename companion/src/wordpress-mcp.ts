@@ -151,7 +151,8 @@ export type ProxyToolProfile =
 	| 'content-model'
 	| 'gutenberg'
 	| 'wp-cli'
-	| 'site-admin';
+	| 'site-admin'
+	| 'discover-execute';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -362,6 +363,14 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-site-info',
 		'stonewright-site-plugins-list',
 	],
+	'discover-execute': [
+		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+		'stonewright-tool-profile',
+		'stonewright-discover-abilities',
+		'stonewright-get-ability-info',
+		'stonewright-execute-ability',
+		'stonewright-security-issue-confirmation-token',
+	],
 	'site-admin': [
 		...BASE_PROXY_TOOL_NAMES,
 		...BLUEPRINT_PROXY_TOOL_NAMES,
@@ -476,6 +485,9 @@ const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
 	'admin': 'site-admin',
 	'site': 'site-admin',
 	'settings': 'site-admin',
+	'discover': 'discover-execute',
+	'discover-execute': 'discover-execute',
+	'protocol': 'discover-execute',
 };
 
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {
