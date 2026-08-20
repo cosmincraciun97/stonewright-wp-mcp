@@ -25,7 +25,7 @@ final class PatternSupport {
 			);
 		}
 		$post = get_post( $id );
-		if ( ! $post || 'wp_block' !== (string) ( $post->post_type ?? '' ) ) {
+		if ( ! $post || 'wp_block' !== (string) $post->post_type ) {
 			return new \WP_Error(
 				'stonewright_not_found',
 				__( 'Pattern not found.', 'stonewright' ),
@@ -81,10 +81,10 @@ final class PatternSupport {
 			);
 			if ( is_array( $terms ) ) {
 				foreach ( $terms as $term ) {
-					if ( is_object( $term ) && isset( $term->slug ) ) {
-						$found[] = (string) $term->slug;
-					} elseif ( is_string( $term ) ) {
+					if ( is_string( $term ) ) {
 						$found[] = $term;
+					} elseif ( is_object( $term ) && isset( $term->slug ) ) {
+						$found[] = (string) $term->slug;
 					}
 				}
 			}
