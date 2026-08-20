@@ -15,6 +15,9 @@ development builds were never stable releases.
 
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
+- Add a browser-assisted Gutenberg block finalizer so static and third-party
+  blocks serialize in the live editor, then persist through Stonewright's
+  existing backup, confirmation, and audit gates.
 
 ### Fixed
 

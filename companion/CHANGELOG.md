@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add Gutenberg block-finalizer tools to the companion gutenberg profile catalog.
+
 ### Changed
 
 - Alias `codex-cli` to the existing Codex TOML adapter so CLI connect commands

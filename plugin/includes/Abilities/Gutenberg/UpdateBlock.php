@@ -4,6 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Gutenberg\AttributeValidator;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
@@ -51,7 +54,11 @@ final class UpdateBlock extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'post_id'     => [ 'type' => 'integer' ],
-				'snapshot_id' => [ 'type' => 'string' ],
+				'snapshot_id'   => [ 'type' => 'string' ],
+				'queued'        => [ 'type' => 'boolean' ],
+				'change_id'     => [ 'type' => 'string' ],
+				'status'        => [ 'type' => 'string' ],
+				'finalizer_url' => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -71,13 +78,48 @@ final class UpdateBlock extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
 				$blocks      = parse_blocks( $post->post_content );
 				$path        = array_map( 'intval', (array) $args['path'] );
+				$existing    = BlockTree::get( $blocks, $path );
+				if ( null === $existing ) {
+					return $this->error( 'invalid_path', __( 'Block path not found.', 'stonewright' ) );
+				}
 
 				$mutation = [];
 				if ( isset( $args['attrs'] ) && is_array( $args['attrs'] ) ) {
-					$mutation['attrs'] = $args['attrs'];
+					$existing_attrs    = isset( $existing['attrs'] ) && is_array( $existing['attrs'] ) ? $existing['attrs'] : [];
+					$mutation['attrs'] = array_merge( $existing_attrs, $args['attrs'] );
+					$name              = (string) ( $existing['blockName'] ?? '' );
+					$valid             = AttributeValidator::validate( $name, $mutation['attrs'] );
+					if ( $valid instanceof \WP_Error ) {
+						return $valid;
+					}
+					if ( BlockQueue::requires_finalizer( $name ) ) {
+						$queued = BlockQueue::enqueue(
+							[
+								'post_id'               => $post_id,
+								'expected_content_hash' => hash( 'sha256', (string) $post->post_content ),
+								'action'                => 'update',
+								'path'                  => $path,
+								'block_spec'            => [
+									'name'        => $name,
+									'attributes'  => $mutation['attrs'],
+									'innerBlocks' => [],
+								],
+							]
+						);
+						if ( $queued instanceof \WP_Error ) {
+							return $queued;
+						}
+						return [
+							'post_id'       => $post_id,
+							'snapshot_id'   => '',
+							'queued'        => true,
+							'change_id'     => (string) $queued['id'],
+							'status'        => (string) $queued['status'],
+							'finalizer_url' => FinalizerPage::url(),
+						];
+					}
 				}
 				if ( isset( $args['innerHTML'] ) ) {
 					$mutation['innerHTML']    = (string) $args['innerHTML'];
@@ -89,7 +131,8 @@ final class UpdateBlock extends AbilityKernel {
 					return $this->error( 'invalid_path', __( 'Block path not found.', 'stonewright' ) );
 				}
 
-				$html   = BlockSerializer::serialize( $mutated );
+				$snapshot_id = Backup::snapshot_post( $post_id );
+				$html        = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(
 					[
 						'ID'           => $post_id,

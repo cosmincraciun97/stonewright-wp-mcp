@@ -5,6 +5,9 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Gutenberg\AttributeValidator;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
@@ -106,6 +109,9 @@ final class BlocksBatchMutate extends AbilityKernel {
 				'preview_summary'     => [ 'type' => 'object' ],
 				'full_mode_hint'      => [ 'type' => 'string' ],
 				'preview'             => [ 'type' => 'array' ],
+				'queued'              => [ 'type' => 'boolean' ],
+				'change_id'           => [ 'type' => 'string' ],
+				'finalizer_url'       => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -165,6 +171,77 @@ final class BlocksBatchMutate extends AbilityKernel {
 
 				$parsed  = parse_blocks( (string) $post->post_content );
 				$working = is_array( $parsed ) ? $parsed : [];
+				if ( $this->operations_need_finalizer( $operations, $working ) ) {
+					$attr_error = $this->validate_finalizer_attributes( $operations );
+					if ( $attr_error instanceof \WP_Error ) {
+						return $attr_error;
+					}
+					if ( $dry_run ) {
+						return [
+							'ok'                  => true,
+							'post_id'             => $post_id,
+							'dry_run'             => true,
+							'queued'              => true,
+							'before_hash'         => $before_hash,
+							'after_hash'          => $before_hash,
+							'readback_hash'       => '',
+							'snapshot_id'         => '',
+							'applied'             => 0,
+							'items'               => [],
+							'verification_status' => 'planned',
+							'rollback_status'     => 'not_needed',
+							'write_receipt'       => $this->receipt( $post_id, $args, true, $before_hash, $before_hash ),
+							'preview_omitted'     => true,
+							'preview_summary'     => [
+								'root_block_count' => count( $working ),
+								'block_count'      => self::block_count( $working ),
+								'block_names'      => self::block_names( $working, 25 ),
+							],
+							'full_mode_hint'      => 'Static or third-party blocks must go through stonewright/blocks-queue-change and the browser finalizer.',
+							'finalizer_url'       => FinalizerPage::url(),
+						];
+					}
+					$spec = $this->first_finalizer_spec( $operations, $working );
+					if ( $spec instanceof \WP_Error ) {
+						return $spec;
+					}
+					$queued = BlockQueue::enqueue(
+						[
+							'post_id'               => $post_id,
+							'expected_content_hash' => $before_hash,
+							'action'                => 'insert',
+							'block_spec'            => $spec,
+						]
+					);
+					if ( $queued instanceof \WP_Error ) {
+						return $queued;
+					}
+					return [
+						'ok'                  => true,
+						'post_id'             => $post_id,
+						'dry_run'             => false,
+						'queued'              => true,
+						'change_id'           => (string) $queued['id'],
+						'before_hash'         => $before_hash,
+						'after_hash'          => $before_hash,
+						'readback_hash'       => '',
+						'snapshot_id'         => '',
+						'applied'             => 0,
+						'items'               => [],
+						'verification_status' => 'queued',
+						'rollback_status'     => 'not_needed',
+						'write_receipt'       => $this->receipt( $post_id, $args, true, $before_hash, $before_hash ),
+						'preview_omitted'     => true,
+						'preview_summary'     => [
+							'root_block_count' => count( $working ),
+							'block_count'      => self::block_count( $working ),
+							'block_names'      => self::block_names( $working, 25 ),
+						],
+						'full_mode_hint'      => '',
+						'finalizer_url'       => FinalizerPage::url(),
+					];
+				}
+
 				$items   = [];
 				foreach ( $operations as $index => $raw ) {
 					$operation = is_array( $raw ) ? $raw : [];
@@ -857,70 +934,122 @@ final class BlocksBatchMutate extends AbilityKernel {
 		}
 
 		if ( ! is_object( $registered ) ) {
-			return $this->error( 'unregistered_block', __( 'The block type is not registered on this site.', 'stonewright' ), [ 'status' => 400, 'path' => $context, 'block_name' => $name ] );
+			return null;
 		}
 		$attribute_schemas = isset( $registered->attributes ) && is_array( $registered->attributes ) ? $registered->attributes : [];
 		$attributes        = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
-		foreach ( $attributes as $attribute => $value ) {
-			if ( ! is_string( $attribute ) || ! array_key_exists( $attribute, $attribute_schemas ) || ! is_array( $attribute_schemas[ $attribute ] ) ) {
-				return $this->error(
-					'invalid_block_attributes',
-					__( 'A block attribute is not declared by the registered block schema.', 'stonewright' ),
-					[ 'status' => 400, 'path' => $context . '.attrs.' . (string) $attribute, 'block_name' => $name ]
-				);
+		$validated         = AttributeValidator::validate( $name, $attributes, $attribute_schemas );
+		if ( $validated instanceof \WP_Error ) {
+			$data = (array) $validated->get_error_data();
+			$data['path'] = $context;
+			$code         = preg_replace( '/^stonewright_/', '', (string) $validated->get_error_code() );
+			return $this->error( is_string( $code ) && '' !== $code ? $code : 'invalid_block_attributes', $validated->get_error_message(), $data );
+		}
+		return null;
+	}
+
+	/** @param array<int,mixed> $operations @param array<int,array<string,mixed>> $blocks */
+	private function operations_need_finalizer( array $operations, array $blocks ): bool {
+		foreach ( $operations as $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
 			}
-			$schema = $attribute_schemas[ $attribute ];
-			if ( ! self::schema_type_matches( $value, $schema['type'] ?? null ) || ( isset( $schema['enum'] ) && is_array( $schema['enum'] ) && ! in_array( $value, $schema['enum'], true ) ) ) {
-				return $this->error(
-					'invalid_block_attributes',
-					__( 'A block attribute does not match the registered block schema.', 'stonewright' ),
-					[ 'status' => 400, 'path' => $context . '.attrs.' . $attribute, 'block_name' => $name ]
-				);
+			$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
+			if ( 'insert' === $action ) {
+				$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+				$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
+				if ( BlockQueue::requires_finalizer( $name ) ) {
+					return true;
+				}
 			}
-			if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
-				return $this->error( 'block_schema_validator_unavailable', __( 'WordPress block schema validation is unavailable.', 'stonewright' ), [ 'status' => 500, 'path' => $context ] );
+			if ( 'update' === $action ) {
+				$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
+				$existing = BlockTree::get( $blocks, $path );
+				$name     = is_array( $existing ) ? (string) ( $existing['blockName'] ?? '' ) : '';
+				if ( '' !== $name && BlockQueue::requires_finalizer( $name ) ) {
+					return true;
+				}
 			}
-			try {
-				$valid = rest_validate_value_from_schema( $value, $schema, $context . '.attrs.' . $attribute );
-			} catch ( \Throwable $throwable ) {
-				return $this->error( 'invalid_block_attributes', __( 'A block attribute could not be validated safely.', 'stonewright' ), [ 'status' => 400, 'path' => $context . '.attrs.' . $attribute, 'detail' => $throwable->getMessage() ] );
+		}
+		return false;
+	}
+
+	/** @param array<int,mixed> $operations */
+	private function validate_finalizer_attributes( array $operations ): ?\WP_Error {
+		foreach ( $operations as $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
 			}
-			$validation_code = $valid instanceof \WP_Error ? $valid->get_error_code() : '';
-			if ( true !== $valid ) {
-				return $this->error(
-					'invalid_block_attributes',
-					__( 'A block attribute does not match the registered block schema.', 'stonewright' ),
-					[
-						'status'          => 400,
-						'path'            => $context . '.attrs.' . $attribute,
-						'block_name'      => $name,
-						'validation_code' => $validation_code,
-					]
-				);
+			$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+			$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
+			$attrs = [];
+			if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
+				$attrs = $block['attributes'];
+			} elseif ( isset( $block['attrs'] ) && is_array( $block['attrs'] ) ) {
+				$attrs = $block['attrs'];
+			} elseif ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
+				$attrs = $operation['attrs'];
+			}
+			$inner = isset( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ? $block['innerBlocks'] : [];
+			if ( '' === $name && isset( $operation['attrs'] ) ) {
+				continue;
+			}
+			if ( '' === $name ) {
+				continue;
+			}
+			$valid = AttributeValidator::validate_tree( $name, $attrs, $inner );
+			if ( $valid instanceof \WP_Error ) {
+				return $valid;
 			}
 		}
 		return null;
 	}
 
-	private static function schema_type_matches( mixed $value, mixed $type ): bool {
-		if ( is_array( $type ) ) {
-			foreach ( $type as $candidate ) {
-				if ( self::schema_type_matches( $value, $candidate ) ) {
-					return true;
+	/**
+	 * @param array<int,mixed>                   $operations
+	 * @param array<int,array<string,mixed>>     $blocks
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function first_finalizer_spec( array $operations, array $blocks ): array|\WP_Error {
+		foreach ( $operations as $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
+			}
+			$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
+			if ( 'insert' === $action ) {
+				$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+				$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
+				$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
+				if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
+					$attrs = $block['attributes'];
+				}
+				$inner = isset( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ? $block['innerBlocks'] : [];
+				if ( BlockQueue::requires_finalizer( $name ) ) {
+					return [
+						'name'        => $name,
+						'attributes'  => $attrs,
+						'innerBlocks' => $inner,
+					];
 				}
 			}
-			return false;
+			if ( 'update' === $action ) {
+				$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
+				$existing = BlockTree::get( $blocks, $path );
+				$name     = is_array( $existing ) ? (string) ( $existing['blockName'] ?? '' ) : '';
+				if ( '' !== $name && BlockQueue::requires_finalizer( $name ) ) {
+					$attrs = is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [];
+					if ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
+						$attrs = array_merge( $attrs, $operation['attrs'] );
+					}
+					return [
+						'name'        => $name,
+						'attributes'  => $attrs,
+						'innerBlocks' => [],
+					];
+				}
+			}
 		}
-		return match ( $type ) {
-			'null'    => null === $value,
-			'boolean' => is_bool( $value ),
-			'integer' => is_int( $value ),
-			'number'  => is_int( $value ) || is_float( $value ),
-			'string'  => is_string( $value ),
-			'array'   => is_array( $value ) && array_is_list( $value ),
-			'object'  => is_array( $value ) || is_object( $value ),
-			default   => true,
-		};
+		return $this->error( 'finalizer_queue_required', __( 'No static or third-party block spec was found to queue.', 'stonewright' ), [ 'status' => 400 ] );
 	}
 
 	/** @param array<string,mixed> $block @return array<string,mixed>|\WP_Error */

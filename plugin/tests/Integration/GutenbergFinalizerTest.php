@@ -1,0 +1,276 @@
+<?php
+declare( strict_types=1 );
+
+namespace Stonewright\WpMcp\Tests\Integration;
+
+use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizationUrl;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch;
+use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
+use Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+
+/**
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizationUrl
+ * @covers \Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock
+ */
+final class GutenbergFinalizerTest extends TestCase {
+
+	protected function setUp(): void {
+		$GLOBALS['stonewright_test_options']         = [ 'stonewright_mode' => 'development' ];
+		$GLOBALS['stonewright_test_current_user_id'] = 3;
+		$GLOBALS['stonewright_test_user_logged_in']  = true;
+		$GLOBALS['stonewright_test_user_caps']       = [
+			'edit_posts'      => true,
+			'edit_post'       => true,
+			'manage_options'  => true,
+		];
+		$GLOBALS['stonewright_test_rest_routes']     = [];
+		$GLOBALS['stonewright_test_actions']         = [];
+		$GLOBALS['stonewright_test_submenu_pages']   = [];
+		$GLOBALS['stonewright_test_enqueued_scripts'] = [];
+		$GLOBALS['stonewright_test_posts']           = [
+			42 => (object) [
+				'ID'           => 42,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Finalizer target',
+				'post_content' => '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->',
+				'post_excerpt' => '',
+				'meta'         => [],
+			],
+		];
+		$GLOBALS['stonewright_test_registered_blocks'] = [
+			'core/paragraph' => (object) [
+				'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+			],
+			'core/latest-posts' => (object) [
+				'attributes'      => [ 'postsToShow' => [ 'type' => 'integer' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
+			],
+		];
+	}
+
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options']           = [];
+		$GLOBALS['stonewright_test_posts']             = [];
+		$GLOBALS['stonewright_test_user_caps']         = [];
+		$GLOBALS['stonewright_test_user_logged_in']    = false;
+		$GLOBALS['stonewright_test_current_user_id']   = 0;
+		$GLOBALS['stonewright_test_rest_routes']       = [];
+		$GLOBALS['stonewright_test_actions']           = [];
+		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+	}
+
+	public function test_queue_block_change_stores_normalized_spec_not_html(): void {
+		$result = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Queued' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+		$stored = BlockQueue::get( (string) $result['change_id'] );
+		self::assertSame( 'vendor/card', $stored['block_spec']['name'] );
+		self::assertSame( [ 'title' => 'Queued' ], $stored['block_spec']['attributes'] );
+		self::assertSame( [], $stored['block_spec']['innerBlocks'] );
+		self::assertArrayNotHasKey( 'innerHTML', $stored['block_spec'] );
+	}
+
+	public function test_pending_batch_and_runtime_omit_full_block_spec(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'hidden-from-list' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$pending = ( new GetPendingBatch() )->execute( [] );
+		self::assertIsArray( $pending );
+		$encoded = (string) wp_json_encode( $pending );
+		self::assertStringNotContainsString( 'hidden-from-list', $encoded );
+		self::assertArrayHasKey( 'items', $pending );
+		self::assertArrayNotHasKey( 'block_spec', $pending['items'][0] );
+
+		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $runtime );
+		self::assertSame( 1, $runtime['queued_count'] );
+		self::assertStringNotContainsString( 'hidden-from-list', (string) wp_json_encode( $runtime ) );
+
+		$url = ( new GetFinalizationUrl() )->execute( [] );
+		self::assertIsArray( $url );
+		self::assertStringContainsString( 'stonewright-block-finalizer', (string) $url['url'] );
+	}
+
+	public function test_finalize_batch_rejects_html_that_did_not_come_from_the_queue(): void {
+		$rejected = ( new FinalizeBatch() )->execute(
+			[
+				'post_id' => 42,
+				'html'    => '<!-- wp:paragraph --><p>smuggled</p><!-- /wp:paragraph -->',
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $rejected );
+		self::assertSame( 'stonewright_finalizer_queue_required', $rejected->get_error_code() );
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][42]->post_content );
+
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Card' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$not_ready = ( new FinalizeBatch() )->execute(
+			[ 'change_ids' => [ $queued['change_id'] ] ]
+		);
+		self::assertInstanceOf( \WP_Error::class, $not_ready );
+		self::assertSame( 'stonewright_finalizer_not_serialized', $not_ready->get_error_code() );
+	}
+
+	public function test_finalize_batch_persists_only_hashed_serialized_html_from_the_queue(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Card' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html = '<!-- wp:vendor/card {"title":"Card"} --><div class="card">Card</div><!-- /wp:vendor/card -->';
+		$stored = BlockQueue::store_serialized( (string) $queued['change_id'], $html, hash( 'sha256', $html ) );
+		self::assertTrue( $stored );
+
+		$result = ( new FinalizeBatch() )->execute(
+			[ 'change_ids' => [ $queued['change_id'] ] ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertNotSame( '', $result['snapshot_id'] );
+		self::assertStringContainsString( $html, (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+		self::assertStringContainsString( 'Before', (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+		self::assertNotEmpty( $GLOBALS['stonewright_test_posts'][42]->meta['_stonewright_backups'] ?? [] );
+	}
+
+	public function test_hmac_token_invalid_returns_403(): void {
+		FinalizerPage::register();
+		do_action( 'rest_api_init' );
+
+		$route = $this->find_route( '/block-finalizer/pending' );
+		self::assertNotNull( $route );
+		$permission = $route['args']['permission_callback'];
+		self::assertIsCallable( $permission );
+
+		$request = new \WP_REST_Request( 'GET', '/stonewright/v1/block-finalizer/pending' );
+		$request->set_params( [ 'token' => 'not-a-real-hmac' ] );
+		$result = $permission( $request );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 403, (int) ( $result->get_error_data()['status'] ?? 0 ) );
+	}
+
+	public function test_insert_block_queues_static_third_party_instead_of_server_serializing(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][42]->post_content;
+		$result = ( new InsertBlock() )->execute(
+			[
+				'post_id' => 42,
+				'block'   => [
+					'name'       => 'vendor/card',
+					'attributes' => [ 'title' => 'Queued insert' ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][42]->post_content );
+		$stored = BlockQueue::get( (string) $result['change_id'] );
+		self::assertSame( 'vendor/card', $stored['block_spec']['name'] );
+		self::assertArrayNotHasKey( 'innerHTML', $stored['block_spec'] );
+	}
+
+	public function test_insert_block_keeps_server_fast_path_for_dynamic_blocks(): void {
+		$result = ( new InsertBlock() )->execute(
+			[
+				'post_id' => 42,
+				'block'   => [
+					'name'  => 'core/latest-posts',
+					'attrs' => [ 'postsToShow' => 3 ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'queued', $result );
+		self::assertNotSame( '', $result['snapshot_id'] );
+		self::assertStringContainsString( 'latest-posts', (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+	}
+
+	public function test_finalizer_page_is_hidden_and_asks_to_keep_the_session_open(): void {
+		if ( ! defined( 'STONEWRIGHT_URL' ) ) {
+			define( 'STONEWRIGHT_URL', 'https://example.test/wp-content/plugins/stonewright/' );
+		}
+		FinalizerPage::register();
+		do_action( 'admin_menu' );
+
+		$slug = FinalizerPage::SLUG;
+		self::assertArrayHasKey( $slug, $GLOBALS['stonewright_test_submenu_pages'] );
+		self::assertSame( '', $GLOBALS['stonewright_test_submenu_pages'][ $slug ]['parent'] );
+
+		$_GET['page'] = $slug;
+		ob_start();
+		FinalizerPage::render();
+		$html = (string) ob_get_clean();
+		self::assertStringContainsString( 'Keep this page open while a session runs', $html );
+		self::assertStringContainsString( 'queued', strtolower( $html ) );
+	}
+
+	/**
+	 * @return array<string, mixed>|null
+	 */
+	private function find_route( string $route ): ?array {
+		foreach ( $GLOBALS['stonewright_test_rest_routes'] as $entry ) {
+			if ( $route === (string) ( $entry['route'] ?? '' ) ) {
+				return $entry;
+			}
+		}
+		return null;
+	}
+
+	private function current_hash(): string {
+		return hash( 'sha256', (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+	}
+}

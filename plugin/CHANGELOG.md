@@ -8,6 +8,9 @@
   CLI to the shared OAuth and Application Password client choosers.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
+- Add a browser-assisted Gutenberg block finalizer: queue `{name, attributes,
+  innerBlocks}` specs, serialize them with the live editor registry, and persist
+  only hashed HTML through a guarded finalize ability.
 
 ### Fixed
 

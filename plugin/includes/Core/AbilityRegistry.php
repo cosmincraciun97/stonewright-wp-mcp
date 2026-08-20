@@ -127,8 +127,13 @@ use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
 use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
 use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
+use Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizationUrl;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
+use Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange;
 use Stonewright\WpMcp\Abilities\Gutenberg\RenderBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ListRegisteredBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ParseBlocks;
@@ -357,6 +362,11 @@ final class AbilityRegistry {
 			UpdateBlock::class,
 			RemoveBlock::class,
 			BlocksBatchMutate::class,
+			QueueBlockChange::class,
+			GetFinalizerRuntime::class,
+			GetPendingBatch::class,
+			FinalizeBatch::class,
+			GetFinalizationUrl::class,
 			RenderBlocks::class,
 			GutenbergApplyToPost::class,
 
