@@ -755,21 +755,35 @@ if ( ! function_exists( 'is_ssl' ) ) {
 
 if ( ! function_exists( 'wp_get_theme' ) ) {
 	function wp_get_theme(): object {
-		return new class() {
+		$stylesheet = (string) ( $GLOBALS['stonewright_test_stylesheet'] ?? 'stonewright-theme' );
+		$template   = (string) ( $GLOBALS['stonewright_test_template'] ?? $stylesheet );
+		$version    = (string) ( $GLOBALS['stonewright_test_theme_version'] ?? '1.0.0' );
+
+		return new class( $stylesheet, $template, $version ) {
+			public function __construct(
+				private string $stylesheet,
+				private string $template,
+				private string $version
+			) {}
+
 			public function get( string $field ): string {
-				return 'Version' === $field ? '1.0.0' : 'Stonewright Theme';
+				return 'Version' === $field ? $this->version : $this->stylesheet;
 			}
 
 			public function get_template(): string {
-				return 'stonewright-theme';
+				return $this->template;
 			}
 
 			public function get_stylesheet(): string {
-				return 'stonewright-theme';
+				return $this->stylesheet;
 			}
 
 			public function parent(): object|false {
 				return false;
+			}
+
+			public function exists(): bool {
+				return true;
 			}
 		};
 	}
@@ -2166,6 +2180,17 @@ if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
 					'icon'        => 'layout',
 					'supports'    => [],
 				],
+				'generateblocks/container' => (object) [
+					'title'       => 'Container',
+					'category'    => 'generateblocks',
+					'description' => '',
+					'attributes'  => [
+						'uniqueId' => [
+							'type'    => 'string',
+							'default' => '',
+						],
+					],
+				],
 			];
 		}
 
@@ -2835,6 +2860,13 @@ if ( ! function_exists( 'get_theme_mod' ) ) {
 			return $GLOBALS['stonewright_test_theme_mods'][ $name ];
 		}
 		return $default;
+	}
+}
+
+if ( ! function_exists( 'get_theme_mods' ) ) {
+	/** @return array<string, mixed> */
+	function get_theme_mods(): array {
+		return (array) ( $GLOBALS['stonewright_test_theme_mods'] ?? [] );
 	}
 }
 

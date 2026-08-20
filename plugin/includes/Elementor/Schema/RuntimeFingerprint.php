@@ -8,15 +8,27 @@ namespace Stonewright\WpMcp\Elementor\Schema;
  */
 final class RuntimeFingerprint {
 
+	private const COMPONENT_ALIASES = [
+		'elementor' => 'elementor_core',
+	];
+
 	/** @param array<string, mixed> $constraints */
 	public static function matches_constraints( array $constraints ): bool {
 		$components = (array) ( self::describe()['components'] ?? [] );
 		foreach ( $constraints as $component => $expression ) {
 			$expression = trim( (string) $expression );
-			if ( '' === $expression || in_array( strtolower( $expression ), [ '*', 'optional' ], true ) ) {
+			$key        = self::COMPONENT_ALIASES[ (string) $component ] ?? (string) $component;
+			$version    = trim( (string) ( $components[ $key ] ?? '' ) );
+			$expr       = strtolower( $expression );
+			if ( '' === $expression || in_array( $expr, [ '*', 'optional' ], true ) ) {
 				continue;
 			}
-			$version = trim( (string) ( $components[ (string) $component ] ?? '' ) );
+			if ( 'required' === $expr ) {
+				if ( '' === $version ) {
+					return false;
+				}
+				continue;
+			}
 			if ( '' === $version || ! self::matches_expression( $version, $expression ) ) {
 				return false;
 			}
@@ -56,6 +68,15 @@ final class RuntimeFingerprint {
 			'plugins'        => $plugins,
 			'features'       => $features,
 		];
+		if ( class_exists( \Stonewright\WpMcp\Expertise\IntegrationCatalog::class ) ) {
+			foreach ( \Stonewright\WpMcp\Expertise\IntegrationCatalog::inspect() as $row ) {
+				$id = (string) ( $row['id'] ?? '' );
+				if ( '' === $id || isset( $payload[ $id ] ) ) {
+					continue;
+				}
+				$payload[ $id ] = (string) ( $row['version'] ?? '' );
+			}
+		}
 
 		return [
 			'hash'       => hash( 'sha256', (string) wp_json_encode( $payload ) ),

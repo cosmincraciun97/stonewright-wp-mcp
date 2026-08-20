@@ -24,6 +24,9 @@ final class VisualDirectionSkillTest extends TestCase {
 	private mixed $original_wpdb;
 
 	protected function setUp(): void {
+		if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
+			define( 'ELEMENTOR_VERSION', '3.24.0' );
+		}
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_user_caps']       = [ 'read' => true, 'manage_options' => true ];

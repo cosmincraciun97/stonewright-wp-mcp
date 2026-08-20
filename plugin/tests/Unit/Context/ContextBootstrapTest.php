@@ -66,7 +66,8 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertStringStartsWith( 'swctx_', (string) $result['context_token'] );
 		self::assertNotEmpty( $result['matched_skill_playbooks'] );
 		self::assertSame( 'stonewright-elementor-v3-builder', $result['matched_skill_playbooks'][0]['slug'] );
-		self::assertStringContainsString( 'Use native Elementor widgets', $result['matched_skill_playbooks'][0]['content'] );
+		self::assertArrayNotHasKey( 'content', $result['matched_skill_playbooks'][0], 'Playbook bodies stay behind stonewright/skills-get.' );
+		self::assertSame( 'stonewright/skills-get', $result['matched_skill_playbooks'][0]['body_tool'] );
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
 		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );

@@ -1,0 +1,6 @@
+{
+    "args": {
+        "theme": "blocksy"
+    },
+    "expect_permission_error": true
+}

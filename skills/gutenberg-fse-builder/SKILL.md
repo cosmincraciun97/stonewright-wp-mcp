@@ -16,6 +16,12 @@ All write operations that touch post content or theme.json take a snapshot first
 Use this workflow when the user asks for a Gutenberg-only page, a block theme,
 or Full Site Editing work:
 
+For **Spectra One** and other block themes, stay on this pack. Do not create a
+parallel Spectra One playbook. Discover the theme with `stonewright/site-theme`
+and `stonewright/site-capabilities`, then use theme.json, templates, template
+parts, and patterns below. If Spectra (the `uagb/*` plugin) is also active,
+load `spectra-build-page` for plugin blocks and keep FSE chrome here.
+
 1. Discover active theme state with `stonewright/site-theme`,
    `stonewright/site-capabilities`, `stonewright/fse-get-theme-json`, and
    `stonewright/blocks-list-registered`.

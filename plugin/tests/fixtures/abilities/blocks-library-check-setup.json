@@ -1,0 +1,6 @@
+{
+    "args": {
+        "library": "generateblocks"
+    },
+    "expect": "ok"
+}

@@ -42,9 +42,10 @@ final class IntegrationCatalog {
 			self::definition( 'wpbakery', 'WPBakery Page Builder', 'P2', 'discovery', [ 'WPB_VC_VERSION', 'plugin:js_composer/js_composer.php' ] ),
 			self::definition( 'etch', 'Etch', 'P2', 'discovery', [ 'ETCH_VERSION', 'class:Etch\\Plugin', 'plugin:etch/etch.php' ] ),
 			self::definition( 'mosaic', 'Mosaic', 'P2', 'discovery', [ 'MOSAIC_VERSION', 'class:Mosaic\\Database\\MosaicDB', 'plugin:mosaic/mosaic.php' ] ),
-			self::definition( 'generatepress', 'GeneratePress', 'P2', 'discovery', [ 'function:generate_get_option', 'theme:generatepress' ] ),
+			self::definition( 'generatepress', 'GeneratePress', 'P2', 'typed', [ 'function:generate_get_option', 'theme:generatepress' ] ),
 			self::definition( 'astra', 'Astra', 'P2', 'discovery', [ 'theme:astra' ] ),
-			self::definition( 'kadence', 'Kadence', 'P2', 'discovery', [ 'class:Kadence\\Theme', 'theme:kadence' ] ),
+			self::definition( 'kadence', 'Kadence', 'P2', 'typed', [ 'class:Kadence\\Theme', 'theme:kadence' ] ),
+			self::definition( 'blocksy', 'Blocksy', 'P2', 'typed', [ 'theme:blocksy', 'BLOCKSY_VERSION' ] ),
 			self::definition( 'avada', 'Avada', 'P2', 'discovery', [ 'theme:Avada' ] ),
 			self::definition( 'oceanwp', 'OceanWP', 'P2', 'discovery', [ 'theme:oceanwp' ] ),
 			self::definition( 'spectra-one', 'Spectra One', 'P2', 'discovery', [ 'theme:spectra-one' ] ),
@@ -97,8 +98,11 @@ final class IntegrationCatalog {
 				if ( function_exists( 'wp_get_theme' ) ) {
 					$theme = wp_get_theme();
 					if (
-						$theme instanceof \WP_Theme
-						&& in_array( strtolower( $stylesheet ), [ strtolower( $theme->get_stylesheet() ), strtolower( $theme->get_template() ) ], true )
+						is_object( $theme )
+						&& method_exists( $theme, 'get_stylesheet' )
+						&& method_exists( $theme, 'get_template' )
+						&& method_exists( $theme, 'get' )
+						&& in_array( strtolower( $stylesheet ), [ strtolower( (string) $theme->get_stylesheet() ), strtolower( (string) $theme->get_template() ) ], true )
 					) {
 						return sanitize_text_field( (string) $theme->get( 'Version' ) );
 					}

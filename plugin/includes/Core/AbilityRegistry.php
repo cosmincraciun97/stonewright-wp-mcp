@@ -144,6 +144,9 @@ use Stonewright\WpMcp\Abilities\Gutenberg\RemoveBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\SerializeBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\TransformHtml;
 use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryCheckSetup;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryGetBlockSchema;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryListBlocks;
 use Stonewright\WpMcp\Abilities\Memory\FeedbackCapture;
 use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
@@ -231,6 +234,8 @@ use Stonewright\WpMcp\Abilities\Settings\SettingsGet;
 use Stonewright\WpMcp\Abilities\Settings\SettingsUpdate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeActivate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
+use Stonewright\WpMcp\Abilities\Themes\ThemeChromeGet;
+use Stonewright\WpMcp\Abilities\Themes\ThemeChromeUpdate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\Abilities\Themes\ThemeBackupRestore;
@@ -364,6 +369,9 @@ final class AbilityRegistry {
 			ListRegisteredBlocks::class,
 			EditorSnapshotAbility::class,
 			GetBlockSchema::class,
+			LibraryCheckSetup::class,
+			LibraryListBlocks::class,
+			LibraryGetBlockSchema::class,
 			ParseBlocks::class,
 			SerializeBlocks::class,
 			TransformHtml::class,
@@ -609,6 +617,8 @@ final class AbilityRegistry {
 			ThemeList::class,
 			ThemeActivate::class,
 			ThemeCustomCss::class,
+			ThemeChromeGet::class,
+			ThemeChromeUpdate::class,
 			ThemeFileRead::class,
 			ThemeFilePatch::class,
 			ThemeBackupRestore::class,

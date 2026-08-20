@@ -101,6 +101,7 @@ final class Skills {
 				self::list( true ),
 				static fn( array $skill ): bool => 'active' === (string) ( $skill['status'] ?? 'active' )
 					&& (bool) ( $skill['enable_agentic'] ?? true )
+					&& self::runtime_visible( $skill )
 			)
 		);
 	}
@@ -116,8 +117,23 @@ final class Skills {
 				self::list( true ),
 				static fn( array $skill ): bool => 'active' === (string) ( $skill['status'] ?? 'active' )
 					&& (bool) ( $skill['enable_prompt'] ?? true )
+					&& self::runtime_visible( $skill )
 			)
 		);
+	}
+
+	/**
+	 * Hide agent-facing skills whose version constraints are not satisfied.
+	 *
+	 * @param array<string, mixed> $skill
+	 */
+	public static function runtime_visible( array $skill ): bool {
+		$constraints = $skill['version_constraints'] ?? [];
+		if ( ! is_array( $constraints ) || [] === $constraints ) {
+			return true;
+		}
+
+		return \Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint::matches_constraints( $constraints );
 	}
 
 	/**
