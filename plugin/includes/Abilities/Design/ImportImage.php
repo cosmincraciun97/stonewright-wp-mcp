@@ -34,6 +34,7 @@ final class ImportImage extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'url'             => [ 'type' => 'string', 'format' => 'uri' ],
 				'attachment_id'   => [ 'type' => 'integer', 'minimum' => 1 ],
 				'base64'          => [ 'type' => 'string' ],
@@ -51,6 +52,11 @@ final class ImportImage extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$token_error = $this->require_production_safe_token( $args );
+		if ( $token_error instanceof \WP_Error ) {
+			return $token_error;
+		}
+
 		$url = (string) ( $args['url'] ?? '' );
 		if ( ! empty( $args['attachment_id'] ) ) {
 			$resolved = wp_get_attachment_url( (int) $args['attachment_id'] );

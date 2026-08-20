@@ -32,6 +32,7 @@ final class AcfValueUpdate extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'post_id', 'selector' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'  => [ 'type' => 'integer', 'minimum' => 1 ],
 				'selector' => [ 'type' => 'string', 'minLength' => 1 ],
 				'value'    => [],
@@ -52,7 +53,7 @@ final class AcfValueUpdate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			static function ( array $args ) {
 				if ( ! AcfRuntime::is_active() || ! function_exists( 'update_field' ) ) {

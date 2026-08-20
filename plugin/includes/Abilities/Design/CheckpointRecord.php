@@ -59,6 +59,7 @@ final class CheckpointRecord extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'post_id', 'section_id', 'approved' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'    => [
 					'type'        => 'integer',
 					'description' => 'Post whose first section the user approved.',
@@ -136,7 +137,7 @@ final class CheckpointRecord extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit( $args, fn( array $args ): array|\WP_Error => $this->run( $args ) );
+		return $this->audit_write( $args, fn( array $args ): array|\WP_Error => $this->run( $args ) );
 	}
 
 	/**

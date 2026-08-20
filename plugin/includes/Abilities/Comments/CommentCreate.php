@@ -21,6 +21,7 @@ final class CommentCreate extends AbilityKernel {
 			'type' => 'object',
 			'additionalProperties' => false,
 			'properties' => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id' => [ 'type' => 'integer', 'minimum' => 1 ],
 				'content' => [ 'type' => 'string' ],
 				'parent'  => [ 'type' => 'integer', 'minimum' => 0 ],
@@ -34,7 +35,7 @@ final class CommentCreate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::edit_posts(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit( $args, static function ( array $args ) {
+		return $this->audit_write( $args, static function ( array $args ) {
 			$id = wp_insert_comment( [
 				'comment_post_ID' => (int) $args['post_id'],
 				'comment_content' => (string) $args['content'],

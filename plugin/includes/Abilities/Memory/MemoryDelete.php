@@ -36,6 +36,7 @@ final class MemoryDelete extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'id' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id' => [
 					'type'    => 'integer',
 					'minimum' => 1,
@@ -60,7 +61,7 @@ final class MemoryDelete extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array {
 				$result = Memory::delete_by_id( (int) $a['id'] );

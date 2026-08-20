@@ -36,6 +36,7 @@ final class StockImageImport extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'url' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'url'           => [
 					'type'        => 'string',
 					'format'      => 'uri',
@@ -115,7 +116,7 @@ final class StockImageImport extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$image_url = isset( $args['url'] ) ? esc_url_raw( (string) $args['url'] ) : '';

@@ -34,6 +34,7 @@ final class OptimizeMedia extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id' => [ 'type' => 'integer', 'minimum' => 1 ],
 			],
 			'required'             => [ 'id' ],
@@ -56,7 +57,7 @@ final class OptimizeMedia extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				require_once ABSPATH . 'wp-admin/includes/image.php';

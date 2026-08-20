@@ -145,6 +145,7 @@ final class ToolProfile extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'action'    => [
 					'type'        => 'string',
 					'default'     => 'activate',
@@ -382,6 +383,11 @@ final class ToolProfile extends AbilityKernel {
 				'truncation_hint'      => self::truncation_hint( $dropped_names, $max_tools ),
 				'tools_changed'        => false,
 			];
+		}
+
+		$token_error = $this->require_production_safe_token( $args );
+		if ( $token_error instanceof \WP_Error ) {
+			return $token_error;
 		}
 
 		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );

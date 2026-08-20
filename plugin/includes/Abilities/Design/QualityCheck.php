@@ -64,6 +64,7 @@ final class QualityCheck extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'evidence' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'evidence' => [
 					'type'        => 'object',
 					'description' => 'Measurements taken from the rendered page: viewports, element boxes, resolved colors, fonts, spacing, and interaction states.',
@@ -127,7 +128,7 @@ final class QualityCheck extends AbilityKernel {
 			return $this->run( $args );
 		}
 
-		return $this->audit( $args, fn( array $args ): array|\WP_Error => $this->run( $args ) );
+		return $this->audit_write( $args, fn( array $args ): array|\WP_Error => $this->run( $args ) );
 	}
 
 	/**

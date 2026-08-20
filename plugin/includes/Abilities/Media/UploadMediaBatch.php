@@ -34,6 +34,7 @@ final class UploadMediaBatch extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'items'         => [
 					'type'     => 'array',
 					'minItems' => 1,
@@ -79,7 +80,7 @@ final class UploadMediaBatch extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$items = isset( $args['items'] ) && is_array( $args['items'] ) ? array_values( $args['items'] ) : [];

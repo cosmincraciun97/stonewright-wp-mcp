@@ -34,6 +34,7 @@ final class CommentUpdate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id'      => [ 'type' => 'integer', 'minimum' => 1 ],
 				'content' => [ 'type' => 'string' ],
 				'status'  => [
@@ -62,7 +63,7 @@ final class CommentUpdate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			static function ( array $args ) {
 				$id = (int) $args['id'];

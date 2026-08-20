@@ -34,6 +34,7 @@ final class InstructionsSet extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'text'    => [
 					'type'      => 'string',
 					'maxLength' => 4000,
@@ -62,7 +63,7 @@ final class InstructionsSet extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array {
 				$text = mb_substr( $a['text'], 0, 4000 );

@@ -32,6 +32,7 @@ final class SeoMetaUpdate extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'post_id' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'       => [ 'type' => 'integer', 'minimum' => 1 ],
 				'title'         => [ 'type' => 'string' ],
 				'description'   => [ 'type' => 'string' ],
@@ -51,7 +52,7 @@ final class SeoMetaUpdate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			static function ( array $args ) {
 				$post_id = (int) $args['post_id'];

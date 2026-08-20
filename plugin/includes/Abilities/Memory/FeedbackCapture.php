@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Memory;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -35,6 +36,7 @@ final class FeedbackCapture extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'correction' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'correction' => [
 					'type'        => 'string',
 					'minLength'   => 1,
@@ -85,7 +87,7 @@ final class FeedbackCapture extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array|\WP_Error {
 				$correction = sanitize_textarea_field( (string) ( $a['correction'] ?? '' ) );
@@ -98,17 +100,22 @@ final class FeedbackCapture extends AbilityKernel {
 					$topic = mb_substr( $correction, 0, 80 );
 				}
 
-				$result = ( new LearningRecord() )->execute(
-					[
-						'topic'      => $topic,
-						'correction' => $correction,
-						'scope'      => (string) ( $a['scope'] ?? 'project' ),
-						'trigger'    => (string) ( $a['trigger'] ?? '' ),
-						'severity'  => (string) ( $a['severity'] ?? 'high' ),
-						'source'     => 'user-correction',
-						'lesson'     => (string) ( $a['lesson'] ?? $correction ),
-					]
-				);
+				$learn_args = [
+					'topic'      => $topic,
+					'correction' => $correction,
+					'scope'      => (string) ( $a['scope'] ?? 'project' ),
+					'trigger'    => (string) ( $a['trigger'] ?? '' ),
+					'severity'   => (string) ( $a['severity'] ?? 'high' ),
+					'source'     => 'user-correction',
+					'lesson'     => (string) ( $a['lesson'] ?? $correction ),
+				];
+				if ( Permissions::is_production_safe() ) {
+					$learn_args['confirmation_token'] = ConfirmationToken::issue(
+						'stonewright/learning-record',
+						$learn_args
+					);
+				}
+				$result = ( new LearningRecord() )->execute( $learn_args );
 
 				if ( $result instanceof \WP_Error ) {
 					return $result;
