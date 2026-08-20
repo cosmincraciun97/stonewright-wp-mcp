@@ -273,6 +273,149 @@ final class ContextUserContextTest extends TestCase {
 		self::assertSame( 'object', $schema['properties']['design_direction_ref']['type'] ?? null );
 	}
 
+	public function test_matched_memory_surfaces_high_precedence_user_row_beyond_newest_fifty(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] = true;
+		$rows = [
+			$this->memory_row( 1, 'user', 'elementor', 'keep-native-widgets', 'Keep native widgets', 900, 'active' ),
+		];
+		for ( $id = 2; $id <= 60; $id++ ) {
+			$rows[] = $this->memory_row( $id, 'generic', 'other', 'filler-' . $id, 'Filler ' . $id, 0, 'active' );
+		}
+		$GLOBALS['wpdb'] = $this->make_matching_wpdb( $rows );
+
+		$built = ContextBuilder::build( 'Build Elementor pages with native widgets', 'elementor', 'write' );
+
+		self::assertContains( 'keep-native-widgets', array_column( $built['memory_entries'], 'memory_key' ) );
+		self::assertSame( 'stonewright/memory-get', $built['memory_entries'][0]['body_tool'] ?? null );
+	}
+
+	public function test_compact_task_start_memory_refs_keep_body_tool(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] = true;
+		$GLOBALS['wpdb'] = $this->make_matching_wpdb(
+			[
+				$this->memory_row( 9, 'user', 'elementor', 'no-html-widgets', 'No HTML widgets', 10, 'active' ),
+			]
+		);
+
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'         => 'Build an Elementor hero using native widgets, not HTML.',
+				'surface'      => 'elementor',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $start );
+		$refs = is_array( $start['context']['memory_refs'] ?? null ) ? $start['context']['memory_refs'] : [];
+		self::assertNotEmpty( $refs );
+		self::assertSame( 'no-html-widgets', $refs[0]['memory_key'] ?? null );
+		self::assertSame( 'stonewright/memory-get', $refs[0]['body_tool'] ?? null );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function memory_row( int $id, string $type, string $scope, string $key, string $name, int $precedence, string $status ): array {
+		return [
+			'id'                  => (string) $id,
+			'type'                => $type,
+			'scope'               => $scope,
+			'memory_key'          => $key,
+			'name'                => $name,
+			'value_json'          => wp_json_encode( $name ),
+			'confidence'          => '1.0000',
+			'topic'               => $name,
+			'version_fingerprint' => '',
+			'expires_at'          => '',
+			'status'              => $status,
+			'precedence'          => (string) $precedence,
+			'created_by'          => '1',
+			'created_at'          => '2026-01-01 00:00:00',
+			'updated_at'          => '2026-01-01 00:00:00',
+			'last_retrieved_at'   => '',
+		];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $memory_rows
+	 */
+	private function make_matching_wpdb( array $memory_rows ): object {
+		return new class( $memory_rows ) {
+			public string $prefix = 'wp_';
+			/** @var array<int, array<string, mixed>> */
+			public array $memory_rows;
+			/** @var array<int, mixed> */
+			public array $last_prepare_args = [];
+
+			/** @param array<int, array<string, mixed>> $memory_rows */
+			public function __construct( array $memory_rows ) {
+				$this->memory_rows = $memory_rows;
+			}
+
+			public function get_var( string $query ): string {
+				return 'table_exists';
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->last_prepare_args = $args;
+				return $query;
+			}
+
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<string, mixed> $where
+			 */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				return 1;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				if ( str_contains( $query, 'stonewright_skills' ) || str_contains( $query, 'stonewright_design_direction' ) ) {
+					return [];
+				}
+				$rows = $this->memory_rows;
+				if ( str_contains( $query, 'status' ) ) {
+					$status = 'active';
+					foreach ( $this->last_prepare_args as $arg ) {
+						if ( is_string( $arg ) && in_array( $arg, [ 'active', 'draft', 'stale', 'rejected' ], true ) ) {
+							$status = $arg;
+							break;
+						}
+					}
+					$rows = array_values(
+						array_filter(
+							$rows,
+							static fn( array $row ): bool => ( $row['status'] ?? 'active' ) === $status
+						)
+					);
+				}
+				if ( str_contains( $query, 'ORDER BY precedence' ) ) {
+					usort(
+						$rows,
+						static fn( array $a, array $b ): int => ( (int) ( $b['precedence'] ?? 0 ) <=> (int) ( $a['precedence'] ?? 0 ) )
+							?: ( (int) $b['id'] <=> (int) $a['id'] )
+					);
+				} else {
+					usort(
+						$rows,
+						static fn( array $a, array $b ): int => (int) $b['id'] <=> (int) $a['id']
+					);
+				}
+				$ints = [];
+				foreach ( $this->last_prepare_args as $arg ) {
+					if ( is_int( $arg ) || ( is_numeric( $arg ) && (string) (int) $arg === (string) $arg ) ) {
+						$ints[] = (int) $arg;
+					}
+				}
+				$limit  = $ints[0] ?? 100;
+				$offset = $ints[1] ?? 0;
+				return array_slice( $rows, $offset, $limit );
+			}
+		};
+	}
+
 	private function make_wpdb(): object {
 		return new class() {
 			public string $prefix = 'wp_';

@@ -129,6 +129,25 @@ final class MemoryInstructionsPageTest extends TestCase {
 		);
 	}
 
+	public function test_enable_checkboxes_post_hidden_zero_so_uncheck_persists(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/<input[^>]+type="hidden"[^>]+name="stonewright_custom_instructions_enabled"[^>]+value="0"[^>]*>.*'
+			. '<input[^>]+type="checkbox"[^>]+name="stonewright_custom_instructions_enabled"[^>]+value="1"/s',
+			$html
+		);
+		self::assertMatchesRegularExpression(
+			'/<input[^>]+type="hidden"[^>]+name="stonewright_memory_enabled"[^>]+value="0"[^>]*>.*'
+			. '<input[^>]+type="checkbox"[^>]+name="stonewright_memory_enabled"[^>]+value="1"/s',
+			$html
+		);
+	}
+
 	public function test_draft_rows_render_approve_and_discard_actions(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows(
 			[

@@ -170,6 +170,7 @@ final class MemoryInstructionsPage {
 					<?php settings_fields( self::OPT_GROUP ); ?>
 					<p>
 						<label>
+							<input type="hidden" name="stonewright_custom_instructions_enabled" value="0" />
 							<input
 								type="checkbox"
 								name="stonewright_custom_instructions_enabled"
@@ -264,6 +265,7 @@ final class MemoryInstructionsPage {
 						<form method="post" action="options.php" class="stonewright-compact-form sw-actions">
 							<?php settings_fields( self::OPT_GROUP ); ?>
 							<label class="sw-check">
+								<input type="hidden" name="stonewright_memory_enabled" value="0" />
 								<input
 									type="checkbox"
 									name="stonewright_memory_enabled"

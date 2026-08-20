@@ -697,6 +697,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'memory_key' => (string) ( $entry['memory_key'] ?? '' ),
 				'name'       => (string) ( $entry['name'] ?? '' ),
 				'value_hash' => self::hash_value( $value ),
+				'body_tool'  => (string) ( $entry['body_tool'] ?? 'stonewright/memory-get' ),
 			];
 		}
 		return $out;

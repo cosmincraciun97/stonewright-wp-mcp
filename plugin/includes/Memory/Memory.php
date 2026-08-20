@@ -431,6 +431,51 @@ final class Memory {
 	}
 
 	/**
+	 * Active rows for task-start scoring, newest-50 recency window excluded.
+	 *
+	 * Filters status=active and prefers the requested scope, then precedence.
+	 * Bounded so scoring can see older high-priority user memory.
+	 *
+	 * @param string $scope Surface/scope hint used to prefer matching rows.
+	 * @param int    $limit Max rows, capped at 500.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function list_active_for_matching( string $scope = '', int $limit = 500 ): array {
+		global $wpdb;
+		$table = self::table_name();
+		$limit = max( 1, min( 500, $limit ) );
+		$scope = sanitize_text_field( $scope );
+		$select = "SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at, last_retrieved_at FROM {$table}";
+
+		if ( '' !== $scope ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"{$select} WHERE status = %s ORDER BY precedence DESC, CASE WHEN scope = %s THEN 0 ELSE 1 END ASC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+					'active',
+					$scope,
+					$limit
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"{$select} WHERE status = %s ORDER BY precedence DESC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+					'active',
+					$limit
+				),
+				ARRAY_A
+			);
+		}
+
+		$out = [];
+		foreach ( (array) $rows as $row ) {
+			$out[] = self::decode_row( $row );
+		}
+		return $out;
+	}
+
+	/**
 	 * Build a compact memory index for MCP discovery instructions.
 	 */
 	public static function instructions_block(): string {

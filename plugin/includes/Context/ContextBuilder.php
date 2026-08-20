@@ -275,7 +275,7 @@ final class ContextBuilder {
 			return [];
 		}
 
-		$entries = Memory::list_all( 50, 0 );
+		$entries = Memory::list_active_for_matching( $surface, 500 );
 		$query   = self::normalise( $task . ' ' . $surface );
 		$user_rows    = [];
 		$project_rows = [];

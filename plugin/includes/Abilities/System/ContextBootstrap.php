@@ -325,6 +325,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'confidence'  => (float) ( $entry['confidence'] ?? 0 ),
 				'updated_at'  => (string) ( $entry['updated_at'] ?? '' ),
 				'value_hash'  => self::hash_value( $value ),
+				'body_tool'   => (string) ( $entry['body_tool'] ?? 'stonewright/memory-get' ),
 			];
 		}
 		return $out;

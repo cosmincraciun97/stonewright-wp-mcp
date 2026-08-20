@@ -87,6 +87,13 @@ final class MemorySave extends AbilityKernel {
 					(float) ( $a['confidence'] ?? 1.0 )
 				);
 
+				if ( $id <= 0 ) {
+					return $this->error(
+						'memory_save_failed',
+						__( 'Failed to save memory entry.', 'stonewright' )
+					);
+				}
+
 				return [
 					'ok' => true,
 					'id' => $id,

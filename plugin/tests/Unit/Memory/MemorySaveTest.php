@@ -56,4 +56,59 @@ final class MemorySaveTest extends TestCase {
 			$dev instanceof \WP_Error && 'stonewright_confirmation_required' === $dev->get_error_code()
 		);
 	}
+
+	public function test_insert_failure_returns_memory_save_failed_not_ok_id_zero(): void {
+		$original_wpdb = $GLOBALS['wpdb'] ?? null;
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix     = 'wp_';
+			public string $last_error = 'Table does not exist';
+			public int $insert_id     = 0;
+
+			public function get_var( string $query ): mixed {
+				return null;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [];
+			}
+
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<int, string>   $format
+			 */
+			public function insert( string $table, array $data, array $format = [] ): bool {
+				return false;
+			}
+		};
+
+		try {
+			$result = ( new MemorySave() )->execute(
+				[
+					'type'  => 'user',
+					'scope' => 'project',
+					'key'   => 'example-save-fail',
+					'name'  => 'Example save fail',
+					'value' => 'never persisted',
+				]
+			);
+		} finally {
+			if ( null !== $original_wpdb ) {
+				$GLOBALS['wpdb'] = $original_wpdb;
+			} else {
+				unset( $GLOBALS['wpdb'] );
+			}
+		}
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_memory_save_failed', $result->get_error_code() );
+		self::assertNotSame(
+			[ 'ok' => true, 'id' => 0 ],
+			is_array( $result ) ? $result : null
+		);
+	}
 }
