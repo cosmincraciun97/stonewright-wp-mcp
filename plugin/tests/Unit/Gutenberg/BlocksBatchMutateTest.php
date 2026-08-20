@@ -49,6 +49,15 @@ final class BlocksBatchMutateTest extends TestCase {
 				'render_callback' => static fn(): string => '',
 				'is_dynamic'      => true,
 			],
+			'vendor/alpha'   => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
+			'vendor/beta'    => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
+			'vendor/gamma'   => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
 		];
 	}
 
@@ -550,7 +559,7 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 
-	public function test_unregistered_inserted_block_is_queued_for_finalizer(): void {
+	public function test_unregistered_inserted_block_is_rejected(): void {
 		$result = ( new BlocksBatchMutate() )->execute(
 			[
 				'post_id'    => 801,
@@ -559,9 +568,8 @@ final class BlocksBatchMutateTest extends TestCase {
 			]
 		);
 
-		self::assertIsArray( $result );
-		self::assertTrue( $result['queued'] );
-		self::assertTrue( $result['dry_run'] );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_block_not_registered', $result->get_error_code() );
 		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 

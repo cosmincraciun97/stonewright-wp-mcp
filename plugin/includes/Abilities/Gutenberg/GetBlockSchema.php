@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -74,6 +75,7 @@ final class GetBlockSchema extends AbilityKernel {
 			'variations'       => isset( $type->variations ) ? (array) $type->variations : [],
 			'is_dynamic'       => is_callable( $type->render_callback ?? null ),
 			'api_version'      => isset( $type->api_version ) ? (int) $type->api_version : 2,
+			'likely_partial'   => AttributeValidator::is_schema_likely_partial( $name ),
 		];
 	}
 }

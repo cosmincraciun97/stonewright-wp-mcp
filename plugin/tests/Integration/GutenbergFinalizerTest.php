@@ -61,6 +61,9 @@ final class GutenbergFinalizerTest extends TestCase {
 				'render_callback' => static fn(): string => '',
 				'is_dynamic'      => true,
 			],
+			'vendor/card' => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
 		];
 	}
 
@@ -506,6 +509,57 @@ final class GutenbergFinalizerTest extends TestCase {
 		$response = FinalizerPage::rest_result( $request );
 		self::assertInstanceOf( \WP_Error::class, $response );
 		self::assertSame( 'stonewright_finalizer_hash_mismatch', $response->get_error_code() );
+	}
+
+	public function test_queue_block_change_rejects_unregistered_blocks(): void {
+		$result = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'    => 42,
+				'block_spec' => [
+					'name'        => 'missing/block',
+					'attributes'  => [ 'foo' => true ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_block_not_registered', $result->get_error_code() );
+	}
+
+	public function test_queue_block_change_warns_instead_of_rejecting_partial_schema_unknown_keys(): void {
+		$GLOBALS['stonewright_test_registered_blocks']['kadence/row'] = (object) [
+			'attributes' => [
+				'uniqueID' => [ 'type' => 'string' ],
+			],
+		];
+
+		$result = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'kadence/row',
+					'attributes'  => [
+						'uniqueID'       => 'row-1',
+						'kadenceDynamic' => [ 'enable' => true ],
+					],
+					'innerBlocks' => [],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+		$codes = [];
+		foreach ( (array) ( $result['warnings'] ?? [] ) as $warning ) {
+			if ( is_string( $warning ) ) {
+				$codes[] = $warning;
+			} elseif ( is_array( $warning ) && isset( $warning['code'] ) ) {
+				$codes[] = (string) $warning['code'];
+			}
+		}
+		self::assertContains( 'likely_partial_schema', $codes );
 	}
 
 	/**

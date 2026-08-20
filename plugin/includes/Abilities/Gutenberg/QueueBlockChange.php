@@ -60,6 +60,10 @@ final class QueueBlockChange extends AbilityKernel {
 				'post_id'      => [ 'type' => 'integer' ],
 				'block_name'    => [ 'type' => 'string' ],
 				'finalizer_url' => [ 'type' => 'string' ],
+				'warnings'      => [
+					'type'  => 'array',
+					'items' => [ 'type' => 'object' ],
+				],
 			],
 		];
 	}
@@ -80,11 +84,12 @@ final class QueueBlockChange extends AbilityKernel {
 				} elseif ( isset( $spec['attrs'] ) && is_array( $spec['attrs'] ) ) {
 					$attrs = $spec['attrs'];
 				}
-				$inner  = isset( $spec['innerBlocks'] ) && is_array( $spec['innerBlocks'] ) ? $spec['innerBlocks'] : [];
-				$valid  = AttributeValidator::validate_tree( $name, $attrs, $inner );
+				$inner = isset( $spec['innerBlocks'] ) && is_array( $spec['innerBlocks'] ) ? $spec['innerBlocks'] : [];
+				$valid = AttributeValidator::validate_tree( $name, $attrs, $inner, 'finalizer' );
 				if ( $valid instanceof \WP_Error ) {
 					return $valid;
 				}
+				$warnings = is_array( $valid ) ? (array) ( $valid['warnings'] ?? [] ) : [];
 
 				$queued = BlockQueue::enqueue( $args );
 				if ( $queued instanceof \WP_Error ) {
@@ -99,6 +104,7 @@ final class QueueBlockChange extends AbilityKernel {
 					'post_id'       => (int) $queued['post_id'],
 					'block_name'    => (string) $queued['block_name'],
 					'finalizer_url' => FinalizerPage::url(),
+					'warnings'      => $warnings,
 				];
 			}
 		);

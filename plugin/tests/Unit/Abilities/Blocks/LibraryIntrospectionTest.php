@@ -104,5 +104,6 @@ final class LibraryIntrospectionTest extends TestCase {
 		self::assertSame( 'uagb/container', $result['name'] );
 		self::assertArrayHasKey( 'block_id', $result['attributes'] );
 		self::assertArrayNotHasKey( 'inventedPadding', $result['attributes'] );
+		self::assertTrue( $result['likely_partial'] );
 	}
 }

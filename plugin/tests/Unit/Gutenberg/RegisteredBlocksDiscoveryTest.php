@@ -99,5 +99,20 @@ final class RegisteredBlocksDiscoveryTest extends TestCase {
 		self::assertSame( [ 'wide', 'full' ], $result['supports']['align'] );
 		self::assertSame( 'feature', $result['variations'][0]['name'] );
 		self::assertSame( [ 'attributes' => [ 'title' => 'Example card', 'tone' => 'dark' ] ], $result['example'] );
+		self::assertFalse( $result['likely_partial'] );
+	}
+
+	public function test_get_schema_marks_known_partial_namespaces(): void {
+		$GLOBALS['stonewright_test_registered_blocks']['kadence/row'] = (object) [
+			'title'      => 'Row',
+			'attributes' => [
+				'uniqueID' => [ 'type' => 'string' ],
+			],
+		];
+
+		$result = ( new GetBlockSchema() )->execute( [ 'name' => 'kadence/row' ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['likely_partial'] );
 	}
 }
