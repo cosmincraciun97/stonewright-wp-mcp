@@ -17,9 +17,10 @@ final class SparseSettingsNormalizer {
 	 * @param array<string, array<string, mixed>> $controls Live schema controls.
 	 * @param array<string, mixed>                $supplied Agent-supplied settings.
 	 * @param list<string>                        $required Keys Elementor requires.
+	 * @param bool                                $strip_schema_defaults Remove known widget defaults.
 	 * @return array<string, mixed>
 	 */
-	public static function normalize( array $settings, array $controls, array $supplied, array $required = [] ): array {
+	public static function normalize( array $settings, array $controls, array $supplied, array $required = [], bool $strip_schema_defaults = false ): array {
 		$out = [];
 		foreach ( $settings as $key => $value ) {
 			$key = (string) $key;
@@ -34,8 +35,13 @@ final class SparseSettingsNormalizer {
 				$out[ $key ] = $value;
 				continue;
 			}
-			if ( ! in_array( $key, $required, true ) && self::is_empty_default_object( $value ) ) {
-				continue;
+			if ( ! in_array( $key, $required, true ) ) {
+				$control = self::control_for_key( $key, $controls );
+				if ( self::is_empty_default_object( $value )
+					|| ( $strip_schema_defaults && is_array( $control ) && array_key_exists( 'default', $control ) && $value === $control['default'] )
+				) {
+					continue;
+				}
 			}
 			$out[ $key ] = $value;
 		}
@@ -58,7 +64,8 @@ final class SparseSettingsNormalizer {
 			$validated,
 			(array) ( $schema['controls'] ?? [] ),
 			$supplied,
-			array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) )
+			array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) ),
+			! in_array( $widget_or_element_type, [ 'container', 'section', 'column' ], true )
 		);
 	}
 
@@ -79,8 +86,16 @@ final class SparseSettingsNormalizer {
 	 * @param array<string, array<string, mixed>> $controls
 	 */
 	private static function is_allowlisted( string $key, array $controls ): bool {
+		return null !== self::control_for_key( $key, $controls );
+	}
+
+	/**
+	 * @param array<string, array<string, mixed>> $controls
+	 * @return array<string, mixed>|null
+	 */
+	private static function control_for_key( string $key, array $controls ): ?array {
 		if ( isset( $controls[ $key ] ) ) {
-			return true;
+			return $controls[ $key ];
 		}
 		foreach ( [ '_widescreen', '_laptop', '_tablet_extra', '_tablet', '_mobile_extra', '_mobile' ] as $suffix ) {
 			if ( ! str_ends_with( $key, $suffix ) ) {
@@ -88,10 +103,10 @@ final class SparseSettingsNormalizer {
 			}
 			$base = substr( $key, 0, -strlen( $suffix ) );
 			if ( isset( $controls[ $base ] ) ) {
-				return true;
+				return $controls[ $base ];
 			}
 		}
-		return false;
+		return null;
 	}
 
 	private static function is_empty_default_object( mixed $value ): bool {

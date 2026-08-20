@@ -274,7 +274,7 @@ final class SparseSettingsNormalizerTest extends TestCase {
 	}
 
 	public function test_default_heavy_widget_fixture_normalizes_from_nineteen_keys_to_exactly_five(): void {
-		$validated = [
+		$settings = [
 			'title'                 => 'Launch faster',
 			'header_size'           => 'h2',
 			'align'                 => 'center',
@@ -295,23 +295,23 @@ final class SparseSettingsNormalizerTest extends TestCase {
 			'hide_tablet'           => '',
 			'hide_mobile'           => '',
 		];
-		$supplied = array_intersect_key(
-			$validated,
-			array_flip( [ 'title', 'header_size', 'align', 'title_color', 'typography_typography' ] )
-		);
-		$controls = array_fill_keys( array_keys( $validated ), [ 'type' => 'text' ] );
 
-		$normalized = SparseSettingsNormalizer::normalize(
-			$validated,
-			$controls,
-			$supplied,
-			[ 'title' ]
+		$result = ( new AddWidget() )->execute(
+			[
+				'post_id'     => 821,
+				'parent_id'   => 'root',
+				'widget_type' => 'sparse-card',
+				'settings'    => $settings,
+			]
 		);
 
-		self::assertCount( 19, $validated );
+		self::assertCount( 19, $settings );
+		self::assertIsArray( $result, (string) ( is_wp_error( $result ) ? $result->get_error_message() : '' ) );
+		$tree   = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][821]->meta['_elementor_data'] ), true );
+		$widget = $tree[0]['elements'][1];
 		self::assertSame(
 			[ 'title', 'header_size', 'align', 'title_color', 'typography_typography' ],
-			array_keys( $normalized )
+			array_keys( $widget['settings'] )
 		);
 	}
 
@@ -384,27 +384,45 @@ final class SparseCardWidget {
 	/** @return array<string, array<string, mixed>> */
 	public function get_controls(): array {
 		return [
-			'title'    => [
+			'title'                 => [
 				'type'    => 'text',
 				'label'   => 'Title',
 				'tab'     => 'content',
 				'section' => 'content',
 			],
-			'flex_gap' => [
+			'header_size'           => [ 'type' => 'select', 'options' => [ 'h2' => 'H2', 'div' => 'DIV' ], 'default' => 'div' ],
+			'align'                 => [ 'type' => 'choose', 'options' => [ 'left' => 'Left', 'center' => 'Center' ], 'default' => '' ],
+			'title_color'           => [ 'type' => 'color', 'default' => '' ],
+			'typography_typography' => [ 'type' => 'select', 'options' => [ '' => 'Default', 'custom' => 'Custom' ], 'default' => '' ],
+			'link'                  => [ 'type' => 'url', 'default' => [ 'url' => '', 'is_external' => '', 'nofollow' => '', 'custom_attributes' => '' ] ],
+			'size'                  => [ 'type' => 'select', 'options' => [ 'default' => 'Default' ], 'default' => 'default' ],
+			'view'                  => [ 'type' => 'select', 'options' => [ 'traditional' => 'Traditional' ], 'default' => 'traditional' ],
+			'text_stroke_text_stroke' => [ 'type' => 'text', 'default' => '' ],
+			'text_shadow_text_shadow_type' => [ 'type' => 'text', 'default' => '' ],
+			'blend_mode'            => [ 'type' => 'text', 'default' => '' ],
+			'margin'                => [ 'type' => 'dimensions', 'default' => [ 'top' => '', 'right' => '', 'bottom' => '', 'left' => '', 'unit' => 'px', 'isLinked' => true ] ],
+			'padding'               => [
+				'type'       => 'dimensions',
+				'label'      => 'Padding',
+				'tab'        => 'advanced',
+				'section'    => 'layout',
+				'responsive' => true,
+				'default'    => [ 'top' => '', 'right' => '', 'bottom' => '', 'left' => '', 'unit' => 'px', 'isLinked' => true ],
+			],
+			'animation'             => [ 'type' => 'text', 'default' => '' ],
+			'animation_duration'    => [ 'type' => 'text', 'default' => '' ],
+			'animation_delay'       => [ 'type' => 'text', 'default' => '' ],
+			'hide_desktop'          => [ 'type' => 'switcher', 'default' => '' ],
+			'hide_tablet'           => [ 'type' => 'switcher', 'default' => '' ],
+			'hide_mobile'           => [ 'type' => 'switcher', 'default' => '' ],
+			'flex_gap'              => [
 				'type'       => 'slider',
 				'label'      => 'Gap',
 				'tab'        => 'content',
 				'section'    => 'content',
 				'responsive' => true,
 			],
-			'padding'  => [
-				'type'       => 'dimensions',
-				'label'      => 'Padding',
-				'tab'        => 'advanced',
-				'section'    => 'layout',
-				'responsive' => true,
-			],
-			'subtitle' => [
+			'subtitle'              => [
 				'type'    => 'text',
 				'label'   => 'Subtitle',
 				'tab'     => 'content',
