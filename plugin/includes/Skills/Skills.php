@@ -137,6 +137,30 @@ final class Skills {
 	}
 
 	/**
+	 * Name constrained components that are absent or version-incompatible.
+	 *
+	 * @param array<string, mixed> $skill
+	 * @return list<string>
+	 */
+	public static function unavailable_components( array $skill ): array {
+		$constraints = $skill['version_constraints'] ?? [];
+		if ( ! is_array( $constraints ) || [] === $constraints ) {
+			return [];
+		}
+
+		$unavailable = [];
+		foreach ( $constraints as $component => $expression ) {
+			$candidate                        = $skill;
+			$candidate['version_constraints'] = [ (string) $component => $expression ];
+			if ( ! self::runtime_visible( $candidate ) ) {
+				$unavailable[] = (string) $component;
+			}
+		}
+
+		return $unavailable;
+	}
+
+	/**
 	 * Get a single skill by slug. Returns null if not found.
 	 *
 	 * @return array<string, mixed>|null

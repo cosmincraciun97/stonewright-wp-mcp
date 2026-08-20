@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Skills;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
@@ -57,6 +58,33 @@ final class SkillPresenceGateTest extends TestCase {
 
 		self::assertContains( 'generic-skill', $slugs );
 		self::assertNotContains( 'woo-skill', $slugs );
+	}
+
+	public function test_skills_get_rejects_body_when_required_component_is_absent(): void {
+		$GLOBALS['wpdb'] = $this->wpdb_with_rows(
+			[
+				$this->row( 'woo-skill', [ 'woocommerce' => 'required' ] ),
+			]
+		);
+
+		$result = ( new SkillsGet() )->execute( [ 'slug' => 'woo-skill' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_skill_unavailable', $result->get_error_code() );
+		self::assertSame( 'woocommerce', $result->get_error_data()['missing_component'] ?? null );
+		self::assertStringNotContainsString( 'SECRET BODY', $result->get_error_message() );
+	}
+
+	public function test_skills_get_returns_unconstrained_user_skill_body(): void {
+		$row              = $this->row( 'user-skill', [] );
+		$row['source']    = 'user';
+		$GLOBALS['wpdb'] = $this->wpdb_with_rows( [ $row ] );
+
+		$result = ( new SkillsGet() )->execute( [ 'slug' => 'user-skill' ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['found'] );
+		self::assertSame( 'SECRET BODY', $result['skill']['content'] );
 	}
 
 	public function test_discover_mode_returns_only_slug_and_description(): void {
@@ -180,6 +208,11 @@ final class SkillPresenceGateTest extends TestCase {
 			/** @return list<array<string, string>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
 				return $this->rows;
+			}
+
+			/** @return array<string, string>|null */
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				return $this->rows[0] ?? null;
 			}
 		};
 	}
