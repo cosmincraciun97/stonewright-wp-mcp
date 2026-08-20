@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Alias `codex-cli` to the existing Codex TOML adapter so CLI connect commands
+  keep working after the ChatGPT Desktop vs Codex CLI split.
+
 ## [1.0.0-beta.10] - 2026-08-12
 
 ### Added

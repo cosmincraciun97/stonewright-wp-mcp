@@ -1,0 +1,37 @@
+{
+  "slug": "antigravity-cli",
+  "label": "Antigravity CLI",
+  "kind": "cli",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/.gemini/config/mcp_config.json",
+    "linux": "~/.gemini/config/mcp_config.json",
+    "windows": "%USERPROFILE%\\.gemini\\config\\mcp_config.json",
+    "wsl": "~/.gemini/config/mcp_config.json"
+  },
+  "notes": "Add Stonewright and Playwright entries, then start Antigravity CLI and confirm with /mcp. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-08-20",
+  "secret_storage": "user-level",
+  "config_path": "~/.gemini/config/mcp_config.json",
+  "transport": "stdio",
+  "config_format": "json-mcp",
+  "official_cli_update": "",
+  "official_cli_remove": "",
+  "oauth_support": true,
+  "app_password_support": true,
+  "relist_behavior": "restart-session",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "low-tools",
+  "support_tier": "unknown",
+  "certification_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "untested",
+    "stdio": "untested",
+    "restart_required": true,
+    "certification_report": ""
+  }
+}

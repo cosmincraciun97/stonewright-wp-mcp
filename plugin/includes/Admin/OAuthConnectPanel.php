@@ -71,6 +71,17 @@ final class OAuthConnectPanel {
 	}
 
 	/**
+	 * Render a clickable Cursor (or other custom-scheme) install button.
+	 */
+	public static function render_deeplink_button( string $deeplink, string $label ): void {
+		if ( '' === $deeplink ) {
+			return;
+		}
+		echo '<p><a class="button button-primary" href="' . esc_url( $deeplink, [ 'cursor' ] ) . '">';
+		echo esc_html( sprintf( __( 'One-click install in %s', 'stonewright' ), $label ) ) . '</a></p>';
+	}
+
+	/**
 	 * @param array<string, mixed> $config Config entry.
 	 */
 	private static function render_config( string $slug, string $label, array $config, string $server_name ): void {
@@ -88,8 +99,7 @@ final class OAuthConnectPanel {
 		}
 		$deeplink = (string) ( $config['deeplink'] ?? '' );
 		if ( '' !== $deeplink ) {
-			echo '<p><a class="button button-primary" href="' . esc_url( $deeplink ) . '">';
-			echo esc_html( sprintf( __( 'One-click install in %s', 'stonewright' ), $label ) ) . '</a></p>';
+			self::render_deeplink_button( $deeplink, $label );
 		}
 
 		$steps = $config['steps'] ?? [];

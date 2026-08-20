@@ -35,6 +35,29 @@ final class ConnectClientConfig {
 		return $clients;
 	}
 
+	/**
+	 * Ordered client chooser shared with the OAuth panel.
+	 *
+	 * @return array<int, array{slug: string, label: string, config_path: string, kind: string, notes: string, snippet_kind: string}>
+	 */
+	public static function chooser_clients(): array {
+		$clients = [];
+		foreach ( OAuthClientConfig::client_labels() as $slug => $label ) {
+			$meta    = ClientCatalog::get( $slug );
+			$notes   = (string) ( $meta['notes'] ?? '' );
+			$clients[] = [
+				'slug'         => $slug,
+				'label'        => $label,
+				'config_path'  => (string) ( $meta['config_path'] ?? '' ),
+				'kind'         => (string) ( $meta['kind'] ?? 'editor' ),
+				'notes'        => $notes . ' ' . McpUsePolicy::client_note_suffix(),
+				'snippet_kind' => (string) ( $meta['snippet_kind'] ?? 'json' ),
+			];
+		}
+
+		return $clients;
+	}
+
 	private static function site_url(): string {
 		return function_exists( 'get_site_url' ) ? (string) get_site_url() : '';
 	}
@@ -158,7 +181,14 @@ final class ConnectClientConfig {
 		string $app_password = '',
 		string $transport = 'stdio'
 	): array|\WP_Error {
-		$known_slugs = array_column( self::clients(), 'slug' );
+		$known_slugs = array_values(
+			array_unique(
+				array_merge(
+					array_column( self::clients(), 'slug' ),
+					array_keys( OAuthClientConfig::client_labels() )
+				)
+			)
+		);
 		if ( ! in_array( $client_slug, $known_slugs, true ) ) {
 			return new \WP_Error(
 				'stonewright_unknown_client',
@@ -166,7 +196,9 @@ final class ConnectClientConfig {
 			);
 		}
 
-		if ( 'claude-code' === $client_slug ) {
+		$resolved = self::resolve_client_slug( $client_slug );
+
+		if ( 'claude-code' === $resolved ) {
 			$server_name = self::mcp_server_name();
 			if ( 'http' === $transport ) {
 				$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
@@ -179,7 +211,7 @@ final class ConnectClientConfig {
 					),
 				];
 			}
-			$tool_profile = self::profile_for_client( $client_slug );
+			$tool_profile = self::profile_for_client( $resolved );
 			return [
 				'command' => sprintf(
 					'claude mcp add %s --env STONEWRIGHT_MODE=plugin --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=%s -- npx -y --package %s stonewright-mcp',
@@ -193,22 +225,35 @@ final class ConnectClientConfig {
 			];
 		}
 
-		if ( 'codex' === $client_slug ) {
+		if ( in_array( $resolved, [ 'codex', 'codex-cli' ], true ) ) {
 			return [
-				'toml' => self::codex_toml_snippet( $username, $app_password, self::profile_for_client( $client_slug ) ),
+				'toml' => self::codex_toml_snippet( $username, $app_password, self::profile_for_client( $resolved ) ),
 			];
 		}
 
 		$snippet = 'http' === $transport
-			? self::http_snippet( $username, $app_password )
-			: self::native_stdio_snippet( $username, $app_password, self::profile_for_client( $client_slug ) );
+			? self::http_snippet_for( $resolved, $username, $app_password )
+			: self::native_stdio_snippet( $username, $app_password, self::profile_for_client( $resolved ) );
 
-		if ( in_array( $client_slug, [ 'vscode-copilot', 'github-copilot' ], true ) ) {
-			return [ 'servers' => $snippet['mcpServers'] ];
+		if ( in_array( $resolved, [ 'vscode', 'vscode-copilot', 'github-copilot' ], true ) ) {
+			if ( isset( $snippet['mcpServers'] ) ) {
+				$snippet = [ 'servers' => $snippet['mcpServers'] ];
+			}
 		}
 
-		if ( 'zed' === $client_slug ) {
+		if ( 'zed' === $resolved && isset( $snippet['mcpServers'] ) ) {
 			return [ 'context_servers' => $snippet['mcpServers'] ];
+		}
+
+		if ( 'cursor' === $resolved ) {
+			$servers = $snippet['mcpServers'] ?? $snippet['servers'] ?? [];
+			if ( is_array( $servers ) && [] !== $servers ) {
+				$name  = (string) array_key_first( $servers );
+				$inner = $servers[ $name ] ?? null;
+				if ( '' !== $name && is_array( $inner ) ) {
+					$snippet['deeplink'] = OAuthClientConfig::cursor_deeplink( $name, $inner );
+				}
+			}
 		}
 
 		return $snippet;
@@ -220,8 +265,8 @@ final class ConnectClientConfig {
 	 * their bounded override because they cannot safely accept the full catalog.
 	 */
 	public static function recommended_startup_profile( string $client_slug = '' ): string {
-		$client_slug = sanitize_key( $client_slug );
-		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
+		$client_slug = self::resolve_client_slug( sanitize_key( $client_slug ) );
+		if ( in_array( $client_slug, [ 'antigravity', 'antigravity-cli', 'gemini-cli' ], true ) ) {
 			return 'essential-static';
 		}
 		return AbilityRegistry::mcp_surface();
@@ -291,11 +336,54 @@ final class ConnectClientConfig {
 	}
 
 	private static function profile_for_client( string $client_slug ): string {
-		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
+		$client_slug = self::resolve_client_slug( $client_slug );
+		if ( in_array( $client_slug, [ 'antigravity', 'antigravity-cli', 'gemini-cli' ], true ) ) {
 			return 'low-tools';
 		}
 		// Follow the explicit site surface unless the client has a strict cap.
 		return self::recommended_startup_profile( $client_slug );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function http_snippet_for( string $client_slug, string $username, string $app_password ): array {
+		$base        = self::http_snippet( $username, $app_password );
+		$server_name = self::mcp_server_name();
+		$entry       = $base['mcpServers'][ $server_name ];
+		$url         = (string) ( $entry['url'] ?? self::mcp_endpoint_url() );
+
+		if ( 'windsurf' === $client_slug ) {
+			unset( $entry['url'] );
+			$entry['serverUrl'] = $url;
+			$base['mcpServers'][ $server_name ] = $entry;
+			return $base;
+		}
+
+		if ( 'gemini-cli' === $client_slug ) {
+			unset( $entry['url'] );
+			$entry['httpUrl'] = $url;
+			$base['mcpServers'][ $server_name ] = $entry;
+			return $base;
+		}
+
+		if ( in_array( $client_slug, [ 'vscode', 'vscode-copilot', 'github-copilot' ], true ) ) {
+			$entry['type'] = 'http';
+			return [ 'servers' => [ $server_name => $entry ] ];
+		}
+
+		return $base;
+	}
+
+	private static function resolve_client_slug( string $client_slug ): string {
+		$map = [
+			'vscode'    => 'vscode-copilot',
+			'vs-code'   => 'vscode-copilot',
+			'codex-cli' => 'codex',
+			'claude'    => 'claude-desktop',
+		];
+		$client_slug = sanitize_key( $client_slug );
+		return $map[ $client_slug ] ?? $client_slug;
 	}
 
 	/**

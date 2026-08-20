@@ -1,0 +1,37 @@
+{
+  "slug": "claude-ai",
+  "label": "Claude.ai",
+  "kind": "desktop",
+  "snippet_kind": "mixed",
+  "preferred_method": "http",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "Claude.ai Settings → Connectors",
+    "linux": "Claude.ai Settings → Connectors",
+    "windows": "Claude.ai Settings → Connectors",
+    "wsl": "Claude.ai Settings → Connectors"
+  },
+  "notes": "Add Stonewright as a custom connector. Prefer OAuth when the site is public. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-08-20",
+  "secret_storage": "user-level",
+  "config_path": "Claude.ai Settings → Connectors",
+  "transport": "http",
+  "config_format": "json-mcp",
+  "official_cli_update": "",
+  "official_cli_remove": "",
+  "oauth_support": true,
+  "app_password_support": true,
+  "relist_behavior": "reload-or-restart",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential",
+  "support_tier": "community",
+  "certification_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "unsupported",
+    "restart_required": true,
+    "certification_report": ""
+  }
+}

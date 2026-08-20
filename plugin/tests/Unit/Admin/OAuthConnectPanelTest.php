@@ -31,4 +31,23 @@ final class OAuthConnectPanelTest extends TestCase {
 		self::assertStringContainsString( 'Manage connected apps', $html );
 		self::assertStringNotContainsString( 'Novamira', $html );
 	}
+
+	public function test_cursor_deeplink_renders_as_clickable_anchor(): void {
+		$GLOBALS['stonewright_test_home_url'] = 'https://example.com/';
+
+		ob_start();
+		OAuthConnectPanel::render(
+			'https://example.test/wp-json/mcp/stonewright-oauth',
+			'stonewright-example'
+		);
+		$html = (string) ob_get_clean();
+
+		unset( $GLOBALS['stonewright_test_home_url'] );
+
+		self::assertMatchesRegularExpression(
+			'/<a class="button button-primary" href="cursor:\\/\\/anysphere\\.cursor-deeplink\\/mcp\\/install\\?[^"]+">/',
+			$html
+		);
+		self::assertStringContainsString( 'One-click install in Cursor', $html );
+	}
 }

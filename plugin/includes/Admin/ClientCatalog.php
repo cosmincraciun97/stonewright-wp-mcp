@@ -100,8 +100,14 @@ final class ClientCatalog {
 	 */
 	public static function get( string $slug ): ?array {
 		$slug = sanitize_key( $slug );
+		$aliases = [
+			'vscode'  => 'vscode-copilot',
+			'vs-code' => 'vscode-copilot',
+			'claude'  => 'claude-desktop',
+		];
+		$resolved = $aliases[ $slug ] ?? $slug;
 		foreach ( self::all() as $client ) {
-			if ( (string) $client['slug'] === $slug ) {
+			if ( (string) $client['slug'] === $resolved || (string) $client['slug'] === $slug ) {
 				return $client;
 			}
 		}

@@ -4,11 +4,15 @@
 
 ### Added
 
+- Add Codex in ChatGPT Desktop, Codex CLI, ChatGPT, Claude.ai, and Antigravity
+  CLI to the shared OAuth and Application Password client choosers.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
 
 ### Fixed
 
+- Encode Cursor MCP install deeplinks as base64url and keep them as clickable
+  `cursor://` links on both OAuth and Application Password setup.
 - Store backup snapshots and restores through a slash-safe post-meta boundary so
   Elementor documents containing escaped JSON round-trip byte-faithfully; the
   snapshot integrity hash check now passes for legitimate writes and still fails

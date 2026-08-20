@@ -1,8 +1,19 @@
 # Getting Started With Codex
 
-Codex CLI and the Codex IDE extension share MCP configuration. Use
-`~/.codex/config.toml` for user-level setup, or `.codex/config.toml` inside a
-trusted project when the Stonewright connection should be project-specific.
+Stonewright treats **Codex in ChatGPT Desktop** and **Codex CLI** as separate
+clients. Pick the surface you actually use.
+
+## Codex CLI
+
+Codex CLI uses `~/.codex/config.toml` (or `.codex/config.toml` in a trusted
+project) plus `codex mcp add` / `codex mcp login` for OAuth HTTP.
+
+## Codex in ChatGPT Desktop
+
+The ChatGPT Desktop app stores GUI MCP servers in
+`~/Library/Application Support/ChatGPT/mcp_config.json` (`mcpServers` JSON with
+`url` for remote HTTP, or `command`/`args` for local stdio). Do not paste CLI
+TOML into that file.
 
 ## Add Stonewright
 

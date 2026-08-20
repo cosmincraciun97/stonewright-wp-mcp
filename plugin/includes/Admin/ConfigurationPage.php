@@ -969,7 +969,14 @@ final class ConfigurationPage {
 
 	private static function selected_setup_client( int $user_id ): string {
 		$default = 'claude-desktop';
-		$known   = ClientCatalog::slugs();
+		$known   = array_values(
+			array_unique(
+				array_merge(
+					ClientCatalog::slugs(),
+					array_column( ConnectClientConfig::chooser_clients(), 'slug' )
+				)
+			)
+		);
 		if ( [] === $known ) {
 			return $default;
 		}
@@ -1010,6 +1017,7 @@ final class ConfigurationPage {
 	 * @param array<string, mixed> $snippet Snippet payload from ConnectClientConfig.
 	 */
 	private static function format_snippet_display( array $snippet ): string {
+		unset( $snippet['deeplink'] );
 		if ( isset( $snippet['command'] ) && is_string( $snippet['command'] ) ) {
 			return $snippet['command'];
 		}
@@ -1028,7 +1036,7 @@ final class ConfigurationPage {
 		string $selected_slug,
 		string $selected_method
 	): void {
-		$clients = ClientCatalog::all();
+		$clients = ConnectClientConfig::chooser_clients();
 		$slugs   = array_map(
 			static fn( array $client ): string => (string) $client['slug'],
 			$clients
@@ -1133,12 +1141,16 @@ final class ConfigurationPage {
 						$code_id     = 'sw-client-snippet-' . $slug . '-' . $method;
 						$display     = self::format_snippet_display( $snippet );
 						$method_show = $method === $selected_method;
+						$deeplink    = (string) ( $snippet['deeplink'] ?? '' );
 						?>
 						<div
 							class="sw-method-snippet"
 							data-stonewright-method-snippet="<?php echo esc_attr( $method ); ?>"
 							<?php echo $method_show ? '' : 'hidden'; ?>
 						>
+							<?php if ( '' !== $deeplink ) : ?>
+								<?php OAuthConnectPanel::render_deeplink_button( $deeplink, (string) $client['label'] ); ?>
+							<?php endif; ?>
 							<?php if ( 'http' === $method ) : ?>
 								<p class="description">
 									<?php esc_html_e( 'Streamable HTTP against the WordPress MCP endpoint. Keep the companion only when you need local WP-CLI workflows.', 'stonewright' ); ?>

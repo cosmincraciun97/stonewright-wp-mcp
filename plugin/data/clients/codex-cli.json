@@ -1,6 +1,6 @@
 {
-  "slug": "codex",
-  "label": "Codex",
+  "slug": "codex-cli",
+  "label": "Codex CLI",
   "kind": "cli",
   "snippet_kind": "toml",
   "preferred_method": "stdio",
@@ -11,8 +11,8 @@
     "windows": "%USERPROFILE%\\.codex\\config.toml",
     "wsl": "~/.codex/config.toml"
   },
-  "notes": "Prefer `codex mcp add` when available; raw TOML is the advanced fallback. Restart Codex or reload the IDE MCP session after changes. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
-  "verified_against_docs_on": "2026-07-16",
+  "notes": "Prefer `codex mcp add` then `codex mcp login` for OAuth HTTP. Raw TOML is the advanced fallback. Restart Codex CLI after changes. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-08-20",
   "secret_storage": "user-level",
   "config_path": "~/.codex/config.toml",
   "transport": "stdio",

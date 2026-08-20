@@ -873,7 +873,14 @@ if ( ! function_exists( 'esc_textarea' ) ) {
 }
 
 if ( ! function_exists( 'esc_url' ) ) {
-	function esc_url( string $url ): string {
+	function esc_url( string $url, ?array $protocols = null ): string {
+		if ( '' === $url ) {
+			return '';
+		}
+		$protocols ??= [ 'http', 'https', 'ftp', 'ftps', 'mailto', 'news', 'irc', 'gopher', 'nntp', 'feed', 'telnet', 'mms', 'rtsp', 'sms', 'svn', 'tel', 'fax', 'xmpp', 'webcal', 'urn' ];
+		if ( preg_match( '/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $url, $matches ) && ! in_array( strtolower( $matches[1] ), $protocols, true ) ) {
+			return '';
+		}
 		return filter_var( $url, FILTER_SANITIZE_URL ) ?: '';
 	}
 }
