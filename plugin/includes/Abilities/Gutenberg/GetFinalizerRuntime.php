@@ -48,6 +48,19 @@ final class GetFinalizerRuntime extends AbilityKernel {
 				'keep_open'    => [ 'type' => 'boolean' ],
 				'session_id'   => [ 'type' => 'string' ],
 				'scripts'      => [ 'type' => 'array' ],
+				'online'       => [ 'type' => 'boolean' ],
+				'targets'      => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'post_id'          => [ 'type' => 'integer' ],
+							'change_id'        => [ 'type' => 'string' ],
+							'status'           => [ 'type' => 'string' ],
+							'editor_frame_url' => [ 'type' => 'string' ],
+						],
+					],
+				],
 			],
 		];
 	}
@@ -63,7 +76,9 @@ final class GetFinalizerRuntime extends AbilityKernel {
 			'queued_count' => BlockQueue::pending_count(),
 			'keep_open'    => true,
 			'session_id'   => $issued['session_id'],
-			'scripts'      => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element' ],
+			'scripts'      => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-block-library' ],
+			'online'       => FinalizerPage::is_online(),
+			'targets'      => FinalizerPage::pending_targets(),
 		];
 	}
 

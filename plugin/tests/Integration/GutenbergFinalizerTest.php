@@ -37,6 +37,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$GLOBALS['stonewright_test_actions']         = [];
 		$GLOBALS['stonewright_test_submenu_pages']   = [];
 		$GLOBALS['stonewright_test_enqueued_scripts'] = [];
+		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_posts']           = [
 			42 => (object) [
 				'ID'           => 42,
@@ -69,6 +70,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$GLOBALS['stonewright_test_rest_routes']       = [];
 		$GLOBALS['stonewright_test_actions']           = [];
 		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
 	public function test_queue_block_change_stores_normalized_spec_not_html(): void {
@@ -256,6 +258,144 @@ final class GutenbergFinalizerTest extends TestCase {
 		$html = (string) ob_get_clean();
 		self::assertStringContainsString( 'Keep this page open while a session runs', $html );
 		self::assertStringContainsString( 'queued', strtolower( $html ) );
+	}
+
+	public function test_client_side_block_is_not_server_serialized_and_runtime_exposes_editor_frame_url(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][42]->post_content;
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Client only' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+
+		self::assertIsArray( $queued );
+		self::assertTrue( $queued['queued'] );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][42]->post_content );
+
+		$stored = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $stored );
+		self::assertSame( '', (string) ( $stored['serialized_html'] ?? '' ) );
+		self::assertSame( 'queued', $stored['status'] );
+
+		$server_html = \Stonewright\WpMcp\Support\BlockSerializer::serialize(
+			[
+				[
+					'blockName'    => 'vendor/card',
+					'attrs'        => [ 'title' => 'Client only' ],
+					'innerHTML'    => '',
+					'innerContent' => [ '' ],
+					'innerBlocks'  => [],
+				],
+			]
+		);
+		self::assertStringNotContainsString( $server_html, (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+
+		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $runtime );
+		self::assertIsBool( $runtime['online'] );
+		self::assertArrayHasKey( 'targets', $runtime );
+		self::assertNotEmpty( $runtime['targets'] );
+		self::assertSame( 42, (int) $runtime['targets'][0]['post_id'] );
+		self::assertSame(
+			'https://example.test/wp-admin/post.php?post=42&action=edit',
+			(string) $runtime['targets'][0]['editor_frame_url']
+		);
+		self::assertStringNotContainsString( 'Client only', (string) wp_json_encode( $runtime ) );
+
+		FinalizerPage::register();
+		do_action( 'rest_api_init' );
+		$issued  = BlockQueue::issue_token();
+		$request = new \WP_REST_Request( 'GET', '/stonewright/v1/block-finalizer/pending' );
+		$request->set_params( [ 'token' => $issued['token'] ] );
+		$response = FinalizerPage::rest_pending( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		$data = $response->get_data();
+		self::assertIsArray( $data );
+		self::assertSame(
+			'https://example.test/wp-admin/post.php?post=42&action=edit',
+			(string) ( $data['items'][0]['editor_url'] ?? '' )
+		);
+		self::assertSame( 'vendor/card', (string) ( $data['items'][0]['block_spec']['name'] ?? '' ) );
+
+		$_GET['page'] = FinalizerPage::SLUG;
+		if ( ! defined( 'STONEWRIGHT_URL' ) ) {
+			define( 'STONEWRIGHT_URL', 'https://example.test/wp-content/plugins/stonewright/' );
+		}
+		ob_start();
+		FinalizerPage::render();
+		$html = (string) ob_get_clean();
+		self::assertStringContainsString( 'id="stonewright-finalizer-frame"', $html );
+	}
+
+	public function test_result_endpoint_recomputes_hash_when_client_flags_hash_unavailable(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Card' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html     = '<!-- wp:vendor/card {"title":"Card"} --><div class="card">Card</div><!-- /wp:vendor/card -->';
+		$request  = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+		$request->set_json_params(
+			[
+				'change_id'         => $queued['change_id'],
+				'html'              => $html,
+				'html_hash'         => '',
+				'hash_unavailable'  => true,
+			]
+		);
+		$response = FinalizerPage::rest_result( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		$data = $response->get_data();
+		self::assertTrue( $data['ok'] );
+		self::assertSame( 'serialized', $data['status'] );
+
+		$stored = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $stored );
+		self::assertSame( 'serialized', $stored['status'] );
+		self::assertSame( $html, $stored['serialized_html'] );
+		self::assertSame( hash( 'sha256', $html ), $stored['serialized_html_hash'] );
+	}
+
+	public function test_result_endpoint_still_rejects_empty_hash_without_unavailable_flag(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Card' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html     = '<!-- wp:vendor/card {"title":"Card"} --><div class="card">Card</div><!-- /wp:vendor/card -->';
+		$request  = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+		$request->set_json_params(
+			[
+				'change_id' => $queued['change_id'],
+				'html'      => $html,
+				'html_hash' => 'pending',
+			]
+		);
+		$response = FinalizerPage::rest_result( $request );
+		self::assertInstanceOf( \WP_Error::class, $response );
+		self::assertSame( 'stonewright_finalizer_hash_mismatch', $response->get_error_code() );
 	}
 
 	/**

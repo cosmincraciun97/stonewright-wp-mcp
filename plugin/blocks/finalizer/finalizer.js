@@ -6,6 +6,15 @@
 	var token = config.token || '';
 	var restBase = config.restBase || '/wp-json/stonewright/v1/block-finalizer/';
 
+	function FinalizerError(code, blockName, message) {
+		this.name = 'FinalizerError';
+		this.code = code || 'finalizer_error';
+		this.block = blockName || '';
+		this.message = message || code || 'finalizer error';
+	}
+	FinalizerError.prototype = Object.create(Error.prototype);
+	FinalizerError.prototype.constructor = FinalizerError;
+
 	function compactError(err) {
 		if (!err) {
 			return { message: 'unknown' };
@@ -20,32 +29,247 @@
 		};
 	}
 
-	function toBlock(spec) {
-		spec = spec || {};
-		var inner = (spec.innerBlocks || []).map(toBlock);
-		return wp.blocks.createBlock(spec.name, spec.attributes || {}, inner);
+	function specOf(item) {
+		return (item && (item.block_spec || item.spec)) || {};
 	}
 
-	function serializeSpec(spec) {
-		var errors = [];
-		var type = wp.blocks.getBlockType(spec.name);
-		if (!type) {
-			errors.push({
-				code: 'unregistered_block',
-				message: 'Block is not in the live editor registry.',
-				block: spec.name,
+	function toBlock(blocksApi, spec) {
+		spec = spec || {};
+		var inner = (spec.innerBlocks || []).map(function (child) {
+			return toBlock(blocksApi, child);
+		});
+		return blocksApi.createBlock(spec.name, spec.attributes || {}, inner);
+	}
+
+	function waitFor(predicate, timeoutMs) {
+		return new Promise(function (resolve, reject) {
+			var started = Date.now();
+			function tick() {
+				try {
+					if (predicate()) {
+						resolve(true);
+						return;
+					}
+				} catch (err) {
+					/* Not ready yet. */
+				}
+				if (Date.now() - started >= timeoutMs) {
+					reject(new Error('timeout'));
+					return;
+				}
+				window.setTimeout(tick, 100);
+			}
+			tick();
+		});
+	}
+
+	function rafTwice() {
+		return new Promise(function (resolve) {
+			window.requestAnimationFrame(function () {
+				window.requestAnimationFrame(function () {
+					resolve();
+				});
 			});
-			return { html: '', errors: errors };
+		});
+	}
+
+	function sleep(ms) {
+		return new Promise(function (resolve) {
+			window.setTimeout(resolve, ms);
+		});
+	}
+
+	function isValidBlock(result) {
+		if (true === result) {
+			return true;
 		}
+		if (false === result) {
+			return false;
+		}
+		if (Array.isArray(result)) {
+			return result[0] === true;
+		}
+		return true;
+	}
+
+	function navigateFrame(frame, url) {
+		return new Promise(function (resolve, reject) {
+			var settled = false;
+			function cleanup() {
+				frame.removeEventListener('load', onLoad);
+				window.clearTimeout(timeoutId);
+			}
+			function onLoad() {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				cleanup();
+				resolve();
+			}
+			var timeoutId = window.setTimeout(function () {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				cleanup();
+				reject(new FinalizerError('editor_frame_timeout', '', 'The editor iframe did not finish loading.'));
+			}, 30000);
+			frame.addEventListener('load', onLoad);
+			frame.src = url;
+		});
+	}
+
+	function frameWindow(frame) {
 		try {
-			var block = toBlock(spec);
-			var html = wp.blocks.serialize([block]);
-			wp.blocks.parse(html);
-			return { html: html, errors: [] };
+			return frame && frame.contentWindow ? frame.contentWindow : null;
 		} catch (err) {
-			errors.push(compactError(err));
-			return { html: '', errors: errors };
+			return null;
 		}
+	}
+
+	async function settle(win, ms) {
+		await rafTwice();
+		await sleep(ms);
+		var select = win.wp.data.select('core/block-editor');
+		if (!select || typeof select.getBlocks !== 'function') {
+			return;
+		}
+		var previous = '';
+		var deadline = Date.now() + Math.max(ms, 500);
+		while (Date.now() < deadline) {
+			var snapshot = win.wp.blocks.serialize(select.getBlocks() || []);
+			if (snapshot !== '' && snapshot === previous) {
+				return;
+			}
+			previous = snapshot;
+			await sleep(100);
+		}
+	}
+
+	async function mountAndSerialize(win, spec) {
+		var created = toBlock(win.wp.blocks, spec);
+		var dataApi = win.wp.data;
+		var blockDispatch = dataApi.dispatch('core/block-editor');
+		var blockSelect = dataApi.select('core/block-editor');
+		var editorSelect = dataApi.select('core/editor');
+		var editorDispatch = dataApi.dispatch('core/editor');
+
+		var readyDeadline = Date.now() + 30000;
+		while (Date.now() < readyDeadline) {
+			var ready = editorSelect && typeof editorSelect.__unstableIsEditorReady === 'function'
+				? editorSelect.__unstableIsEditorReady()
+				: blockSelect && typeof blockSelect.getBlocks === 'function' && blockSelect.getBlocks().length > 0;
+			if (ready) {
+				break;
+			}
+			await sleep(200);
+		}
+
+		try {
+			if (editorDispatch && typeof editorDispatch.lockPostAutosaving === 'function') {
+				editorDispatch.lockPostAutosaving('stonewright-block-finalizer');
+			}
+			if (editorDispatch && typeof editorDispatch.lockPostSaving === 'function') {
+				editorDispatch.lockPostSaving('stonewright-block-finalizer');
+			}
+		} catch (lockErr) {
+			/* Older editors may lack save locks; serialization still proceeds. */
+		}
+
+		if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
+			editorDispatch.resetEditorBlocks([created]);
+		} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
+			blockDispatch.resetBlocks([created]);
+		}
+
+		await settle(win, 500);
+		var settled = blockSelect.getBlocks()[0];
+		if (!settled) {
+			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+		}
+		var valid = win.wp.blocks.validateBlock
+			? isValidBlock(win.wp.blocks.validateBlock(settled))
+			: true;
+		var html = win.wp.blocks.serialize(settled);
+		var parsed = win.wp.blocks.parse(html);
+		var parsedName = parsed && parsed[0] ? parsed[0].name : '';
+		if (!valid || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
+			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+		}
+		return html;
+	}
+
+	async function serializeInEditor(item) {
+		var spec = specOf(item);
+		var frame = document.getElementById('stonewright-finalizer-frame');
+		if (!frame || !item.editor_url) {
+			throw new FinalizerError('editor_frame_unavailable', spec.name);
+		}
+		if (frame.dataset.post !== String(item.post_id)) {
+			await navigateFrame(frame, item.editor_url);
+			frame.dataset.post = String(item.post_id);
+		}
+		var win = frameWindow(frame);
+		if (!win) {
+			throw new FinalizerError('editor_frame_unavailable', spec.name);
+		}
+		await waitFor(function () {
+			return win.wp && win.wp.blocks && win.wp.data
+				&& typeof win.wp.blocks.createBlock === 'function'
+				&& typeof win.wp.blocks.serialize === 'function'
+				&& typeof win.wp.blocks.parse === 'function'
+				&& typeof win.wp.blocks.getBlockType === 'function';
+		}, 30000).catch(function () {
+			throw new FinalizerError('editor_frame_unavailable', spec.name);
+		});
+		await waitFor(function () {
+			return win.wp.blocks.getBlockType(spec.name);
+		}, 15000).catch(function () {
+			throw new FinalizerError('block_not_registered', spec.name);
+		});
+		return mountAndSerialize(win, spec);
+	}
+
+	function serializeFallback(spec) {
+		if (window.wp && wp.blockLibrary && typeof wp.blockLibrary.registerCoreBlocks === 'function') {
+			wp.blockLibrary.registerCoreBlocks();
+		}
+		if (!spec.name || spec.name.indexOf('core/') !== 0) {
+			throw new FinalizerError('block_not_registered', spec.name);
+		}
+		var blocksApi = window.wp && wp.blocks;
+		if (!blocksApi || typeof blocksApi.getBlockType !== 'function') {
+			throw new FinalizerError('block_not_registered', spec.name);
+		}
+		if (!blocksApi.getBlockType(spec.name)) {
+			throw new FinalizerError('block_not_registered', spec.name);
+		}
+		var block = toBlock(blocksApi, spec);
+		var html = blocksApi.serialize([block]);
+		var parsed = blocksApi.parse(html);
+		if (!parsed.length || parsed[0].name !== spec.name) {
+			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+		}
+		return html;
+	}
+
+	function serializeItem(item) {
+		return serializeInEditor(item).then(function (html) {
+			return { html: html, errors: [] };
+		}).catch(function (err) {
+			if (err && err.code === 'block_not_registered') {
+				return { html: '', errors: [compactError(err)] };
+			}
+			if (err && (err.code === 'editor_frame_timeout' || err.code === 'editor_frame_unavailable')) {
+				try {
+					return { html: serializeFallback(specOf(item)), errors: [] };
+				} catch (fallbackErr) {
+					return { html: '', errors: [compactError(fallbackErr)] };
+				}
+			}
+			return { html: '', errors: [compactError(err)] };
+		});
 	}
 
 	function headers() {
@@ -73,42 +297,20 @@
 				countEl.textContent = String(data.queued_count);
 			}
 			var items = (data && data.items) || [];
-			return Promise.all(items.filter(function (item) {
-				return item && item.status === 'queued' && item.block_spec;
-			}).map(function (item) {
-				var result = serializeSpec(item.block_spec);
-				return postResult(item.id, result);
-			}));
-		});
-	}
-
-	function postResult(changeId, result) {
-		var body = {
-			token: token,
-			change_id: changeId,
-			html: result.html || '',
-			html_hash: result.html ? sha256Fallback(result.html) : '',
-			errors: (result.errors || []).slice(0, 20).map(compactError),
-		};
-		if (window.wp && wp.apiFetch) {
-			return wp.apiFetch({
-				path: '/stonewright/v1/block-finalizer/result',
-				method: 'POST',
-				data: body,
-			});
-		}
-		return fetch(restBase + 'result', {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
-			body: JSON.stringify(body),
+			return items.filter(function (item) {
+				return item && item.status === 'queued' && (item.block_spec || item.spec);
+			}).reduce(function (chain, item) {
+				return chain.then(function () {
+					return serializeItem(item).then(function (result) {
+						return postResult(item.id, result);
+					});
+				});
+			}, Promise.resolve());
 		});
 	}
 
 	function sha256Fallback(text) {
-		if (window.crypto && crypto.subtle && window.TextEncoder) {
-			return 'pending';
-		}
+		void text;
 		return '';
 	}
 
@@ -123,6 +325,54 @@
 		});
 	}
 
+	function hashPayload(html) {
+		if (!html) {
+			return Promise.resolve({ html_hash: '', hash_unavailable: false });
+		}
+		if (!window.crypto || !crypto.subtle || !window.TextEncoder) {
+			sha256Fallback(html);
+			return Promise.resolve({ html_hash: '', hash_unavailable: true });
+		}
+		return digest(html).then(function (hash) {
+			if (hash) {
+				return { html_hash: hash, hash_unavailable: false };
+			}
+			sha256Fallback(html);
+			return { html_hash: '', hash_unavailable: true };
+		}).catch(function () {
+			sha256Fallback(html);
+			return { html_hash: '', hash_unavailable: true };
+		});
+	}
+
+	function postResult(changeId, result) {
+		return hashPayload(result.html || '').then(function (hashing) {
+			var body = {
+				token: token,
+				change_id: changeId,
+				html: result.html || '',
+				html_hash: hashing.html_hash,
+				errors: (result.errors || []).slice(0, 20).map(compactError),
+			};
+			if (hashing.hash_unavailable) {
+				body.hash_unavailable = true;
+			}
+			if (window.wp && wp.apiFetch) {
+				return wp.apiFetch({
+					path: '/stonewright/v1/block-finalizer/result',
+					method: 'POST',
+					data: body,
+				});
+			}
+			return fetch(restBase + 'result', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+				body: JSON.stringify(body),
+			});
+		});
+	}
+
 	function tick() {
 		poll().catch(function () {
 			/* Keep polling; the operator was asked to leave this page open. */
@@ -130,23 +380,6 @@
 	}
 
 	function boot() {
-		if (!window.wp || !wp.blocks) {
-			return;
-		}
-		var originalPost = postResult;
-		postResult = function (changeId, result) {
-			if (!result.html) {
-				return originalPost(changeId, result);
-			}
-			return digest(result.html).then(function (hash) {
-				result = Object.assign({}, result);
-				return originalPost(changeId, {
-					html: result.html,
-					errors: result.errors,
-					html_hash: hash,
-				});
-			});
-		};
 		tick();
 		setInterval(tick, 2000);
 	}

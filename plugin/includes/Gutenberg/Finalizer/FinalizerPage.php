@@ -49,7 +49,7 @@ final class FinalizerPage {
 		wp_enqueue_script(
 			'stonewright-block-finalizer',
 			$src,
-			[ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-dom-ready' ],
+			[ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-dom-ready', 'wp-block-library' ],
 			$version,
 			true
 		);
@@ -69,6 +69,7 @@ final class FinalizerPage {
 		$count   = BlockQueue::pending_count();
 		$rest    = rest_url( 'stonewright/v1/block-finalizer/' );
 		$ajax    = admin_url( 'admin-ajax.php' );
+		self::mark_online();
 		$config = [
 			'token'       => $token,
 			'restBase'    => $rest,
@@ -83,7 +84,7 @@ final class FinalizerPage {
 		echo '<p>' . esc_html__( 'Keep this page open while a session runs. It serializes queued block specs with the live editor registry; Stonewright still persists through the guarded finalize ability.', 'stonewright' ) . '</p></div></header>';
 		echo '<p class="stonewright-finalizer-count"><strong>' . esc_html__( 'Queued changes:', 'stonewright' ) . '</strong> ';
 		echo '<span id="stonewright-finalizer-queued-count">' . esc_html( (string) $count ) . '</span></p>';
-		echo '<iframe class="stonewright-block-finalizer-frame" hidden title="' . esc_attr( __( 'Block serializer', 'stonewright' ) ) . '"></iframe>';
+		echo '<iframe id="stonewright-finalizer-frame" class="stonewright-block-finalizer-frame" hidden title="' . esc_attr( __( 'Block serializer', 'stonewright' ) ) . '"></iframe>';
 		echo '<script>window.stonewrightBlockFinalizer = ' . wp_json_encode( $config ) . ';</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON config.
 		echo '</div>';
 		AdminShell::close();
@@ -142,7 +143,8 @@ final class FinalizerPage {
 		if ( $verified instanceof \WP_Error ) {
 			return $verified;
 		}
-		$items = BlockQueue::pending_for_session( $verified['s'], true );
+		self::mark_online();
+		$items = self::with_editor_urls( BlockQueue::pending_for_session( $verified['s'], true ) );
 		return rest_ensure_response(
 			[
 				'items'        => $items,
@@ -156,10 +158,12 @@ final class FinalizerPage {
 		if ( [] === $body ) {
 			$body = $request->get_params();
 		}
-		$change_id = sanitize_text_field( (string) ( $body['change_id'] ?? '' ) );
-		$html      = (string) ( $body['html'] ?? '' );
-		$hash      = (string) ( $body['html_hash'] ?? $body['hash'] ?? '' );
-		$errors    = isset( $body['errors'] ) && is_array( $body['errors'] ) ? $body['errors'] : [];
+		$change_id        = sanitize_text_field( (string) ( $body['change_id'] ?? '' ) );
+		$html             = (string) ( $body['html'] ?? '' );
+		$hash             = (string) ( $body['html_hash'] ?? $body['hash'] ?? '' );
+		$hash_unavailable = ! empty( $body['hash_unavailable'] );
+		$hash             = self::resolve_html_hash( $html, $hash, $hash_unavailable );
+		$errors           = isset( $body['errors'] ) && is_array( $body['errors'] ) ? $body['errors'] : [];
 		if ( [] !== $errors ) {
 			$first = $errors[0];
 			$message = is_array( $first ) ? (string) ( $first['message'] ?? 'validation failed' ) : (string) $first;
@@ -195,9 +199,10 @@ final class FinalizerPage {
 			wp_send_json_error( [ 'code' => 'stonewright_finalizer_forbidden' ], 403 );
 			return;
 		}
+		self::mark_online();
 		wp_send_json_success(
 			[
-				'items'        => BlockQueue::pending_for_session( $verified['s'], true ),
+				'items'        => self::with_editor_urls( BlockQueue::pending_for_session( $verified['s'], true ) ),
 				'queued_count' => BlockQueue::pending_count(),
 			]
 		);
@@ -214,10 +219,12 @@ final class FinalizerPage {
 			wp_send_json_error( [ 'code' => 'stonewright_finalizer_forbidden' ], 403 );
 			return;
 		}
-		$change_id = isset( $_POST['change_id'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['change_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$html      = isset( $_POST['html'] ) ? wp_unslash( (string) $_POST['html'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$hash      = isset( $_POST['html_hash'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['html_hash'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$stored    = BlockQueue::store_serialized( $change_id, $html, $hash );
+		$change_id        = isset( $_POST['change_id'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['change_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$html             = isset( $_POST['html'] ) ? wp_unslash( (string) $_POST['html'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$hash             = isset( $_POST['html_hash'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['html_hash'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$hash_unavailable = ! empty( $_POST['hash_unavailable'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$hash             = self::resolve_html_hash( $html, $hash, $hash_unavailable );
+		$stored           = BlockQueue::store_serialized( $change_id, $html, $hash );
 		if ( $stored instanceof \WP_Error ) {
 			wp_send_json_error( [ 'code' => $stored->get_error_code(), 'message' => $stored->get_error_message() ], 400 );
 			return;
@@ -236,5 +243,61 @@ final class FinalizerPage {
 			],
 			admin_url( 'admin.php' )
 		);
+	}
+
+	public static function editor_url_for_post( int $post_id ): string {
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+		return admin_url( 'post.php?post=' . $post_id . '&action=edit' );
+	}
+
+	public static function is_online(): bool {
+		$beat = get_transient( 'stonewright_block_finalizer_online' );
+		return false !== $beat && is_numeric( $beat );
+	}
+
+	/**
+	 * @return list<array<string, mixed>>
+	 */
+	public static function pending_targets(): array {
+		$targets = [];
+		foreach ( BlockQueue::list() as $item ) {
+			$status = (string) ( $item['status'] ?? '' );
+			if ( in_array( $status, [ 'persisted', 'failed', 'cancelled' ], true ) ) {
+				continue;
+			}
+			$post_id   = (int) ( $item['post_id'] ?? 0 );
+			$targets[] = [
+				'post_id'          => $post_id,
+				'change_id'        => (string) ( $item['id'] ?? '' ),
+				'status'           => $status,
+				'editor_frame_url' => self::editor_url_for_post( $post_id ),
+			];
+		}
+		return $targets;
+	}
+
+	private static function mark_online(): void {
+		set_transient( 'stonewright_block_finalizer_online', time(), defined( 'MINUTE_IN_SECONDS' ) ? (int) MINUTE_IN_SECONDS : 60 );
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $items
+	 * @return list<array<string, mixed>>
+	 */
+	private static function with_editor_urls( array $items ): array {
+		foreach ( $items as $index => $item ) {
+			$post_id = (int) ( $item['post_id'] ?? 0 );
+			$items[ $index ]['editor_url'] = self::editor_url_for_post( $post_id );
+		}
+		return $items;
+	}
+
+	private static function resolve_html_hash( string $html, string $hash, bool $hash_unavailable ): string {
+		if ( $hash_unavailable && ( '' === $hash || 'pending' === $hash ) ) {
+			return hash( 'sha256', $html );
+		}
+		return $hash;
 	}
 }
