@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
+use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\Skills\Skills;
 
 /**
@@ -31,6 +32,7 @@ final class SkillPresenceGateTest extends TestCase {
 		} else {
 			unset( $GLOBALS['wpdb'] );
 		}
+		unset( $GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] );
 	}
 
 	public function test_required_constraint_fails_when_component_absent(): void {
@@ -43,6 +45,51 @@ final class SkillPresenceGateTest extends TestCase {
 		self::assertTrue(
 			RuntimeFingerprint::matches_constraints( [ 'elementor' => '>=3.16' ] )
 		);
+	}
+
+	public function test_gte_operator_compares_live_version_beyond_the_elementor_alias(): void {
+		// ELEMENTOR_VERSION is 3.24.0. The alias test only proves >=3.16 succeeds.
+		self::assertTrue( RuntimeFingerprint::matches_constraints( [ 'elementor_core' => '>=3.16' ] ) );
+		self::assertFalse( RuntimeFingerprint::matches_constraints( [ 'elementor_core' => '>=3.31' ] ) );
+	}
+
+	public function test_any_of_passes_when_one_listed_component_is_present(): void {
+		self::assertTrue(
+			RuntimeFingerprint::matches_constraints(
+				[
+					'any_of' => [
+						'woocommerce' => 'required',
+						'elementor'   => 'required',
+					],
+				]
+			)
+		);
+		self::assertTrue(
+			RuntimeFingerprint::matches_constraints( [ 'any_of' => 'woocommerce|elementor' ] )
+		);
+	}
+
+	public function test_any_of_fails_when_no_listed_component_is_present(): void {
+		self::assertFalse(
+			RuntimeFingerprint::matches_constraints(
+				[
+					'any_of' => [
+						'woocommerce' => 'required',
+						'acf'         => 'required',
+					],
+				]
+			)
+		);
+		self::assertFalse(
+			RuntimeFingerprint::matches_constraints( [ 'any_of' => 'woocommerce|acf' ] )
+		);
+	}
+
+	public function test_build_page_catalog_ids_resolve_in_integration_catalog(): void {
+		$ids = array_column( IntegrationCatalog::definitions(), 'id' );
+		foreach ( [ 'blocksy', 'kadence-blocks', 'generateblocks', 'spectra' ] as $id ) {
+			self::assertContains( $id, $ids );
+		}
 	}
 
 	public function test_unconstrained_skill_stays_visible(): void {
@@ -58,6 +105,23 @@ final class SkillPresenceGateTest extends TestCase {
 
 		self::assertContains( 'generic-skill', $slugs );
 		self::assertNotContains( 'woo-skill', $slugs );
+	}
+
+	public function test_list_prompt_and_instructions_index_hide_gated_skills(): void {
+		$GLOBALS['wpdb'] = $this->wpdb_with_rows(
+			[
+				$this->row( 'generic-skill', [] ),
+				$this->row( 'woo-skill', [ 'woocommerce' => 'required' ] ),
+			]
+		);
+
+		$prompt = array_column( Skills::list_prompt(), 'slug' );
+		self::assertContains( 'generic-skill', $prompt );
+		self::assertNotContains( 'woo-skill', $prompt );
+
+		$index = Skills::instructions_block();
+		self::assertStringContainsString( 'generic-skill', $index );
+		self::assertStringNotContainsString( 'woo-skill', $index );
 	}
 
 	public function test_skills_get_rejects_body_when_required_component_is_absent(): void {
@@ -160,6 +224,79 @@ final class SkillPresenceGateTest extends TestCase {
 		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/../skills/spectra-one/SKILL.md' );
 		$body = (string) file_get_contents( dirname( __DIR__, 3 ) . '/../skills/gutenberg-fse-builder/SKILL.md' );
 		self::assertStringContainsString( 'Spectra One', $body );
+	}
+
+	public function test_elementor_v3_builder_requires_elementor(): void {
+		$decoded = $this->skill_constraints( 'elementor-v3-builder' );
+		self::assertSame( 'required', $decoded['elementor'] ?? null );
+	}
+
+	public function test_elementor_v4_atomic_requires_elementor_3_31(): void {
+		$decoded = $this->skill_constraints( 'elementor-v4-atomic' );
+		self::assertSame( '>=3.31', $decoded['elementor'] ?? null );
+	}
+
+	public function test_elementor_site_clone_requires_elementor_and_has_description(): void {
+		$body = $this->skill_body( 'elementor-site-clone' );
+		self::assertStringStartsWith( '---', ltrim( $body ) );
+		self::assertMatchesRegularExpression( '/^description:\s*\S/m', $body );
+		preg_match( '/^description:\s*(.+)$/m', $body, $match );
+		self::assertNotSame( '', trim( (string) ( $match[1] ?? '' ) ) );
+
+		$decoded = $this->skill_constraints( 'elementor-site-clone' );
+		self::assertSame( 'required', $decoded['elementor'] ?? null );
+	}
+
+	public function test_content_model_integrations_any_of_field_plugins(): void {
+		$decoded = $this->skill_constraints( 'content-model-integrations' );
+		self::assertArrayHasKey( 'any_of', $decoded );
+
+		$ids = $this->any_of_component_ids( $decoded['any_of'] );
+		foreach ( [ 'acf', 'acpt', 'meta-box', 'ase', 'pods' ] as $id ) {
+			self::assertContains( $id, $ids );
+		}
+	}
+
+	private function skill_body( string $directory ): string {
+		$path = dirname( __DIR__, 3 ) . '/../skills/' . $directory . '/SKILL.md';
+		self::assertFileExists( $path );
+
+		return (string) file_get_contents( $path );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function skill_constraints( string $directory ): array {
+		$body = $this->skill_body( $directory );
+		self::assertMatchesRegularExpression( '/^version_constraints:\s*(\{.+\})$/m', $body );
+		preg_match( '/^version_constraints:\s*(\{.+\})$/m', $body, $match );
+		$decoded = json_decode( (string) ( $match[1] ?? '' ), true );
+		self::assertIsArray( $decoded );
+
+		return $decoded;
+	}
+
+	/**
+	 * @param mixed $any_of
+	 * @return list<string>
+	 */
+	private function any_of_component_ids( mixed $any_of ): array {
+		if ( is_string( $any_of ) ) {
+			$parts = preg_split( '/[|,]/', $any_of ) ?: [];
+
+			return array_values( array_filter( array_map( 'trim', $parts ) ) );
+		}
+
+		if ( ! is_array( $any_of ) ) {
+			return [];
+		}
+
+		if ( array_is_list( $any_of ) ) {
+			return array_values( array_filter( array_map( 'strval', $any_of ) ) );
+		}
+
+		return array_map( 'strval', array_keys( $any_of ) );
 	}
 
 	/**

@@ -1,3 +1,9 @@
+---
+name: elementor-site-clone
+description: Use when cloning, duplicating, migrating, or rebuilding an Elementor page or section into a new draft with typed Stonewright tools.
+version_constraints: {"elementor": "required"}
+---
+
 # Elementor site clone
 
 Clone an existing Elementor page into a new draft using **typed Stonewright tools only**. Never improvise with `php-execute` writes or HTML widgets.

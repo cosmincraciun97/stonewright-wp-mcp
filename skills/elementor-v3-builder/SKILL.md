@@ -5,6 +5,7 @@ description: >
   screenshots, images, or briefs, plus pages, widgets, Loop Grid, templates,
   kit styles, responsive edits, and safe batch mutations. Use whenever a task
   reads, plans, builds, or repairs an Elementor V3 page or template.
+version_constraints: {"elementor": "required"}
 ---
 
 # Elementor V3 Builder

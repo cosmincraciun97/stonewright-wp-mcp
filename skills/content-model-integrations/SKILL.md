@@ -1,6 +1,7 @@
 ---
 name: content-model-integrations
 description: Use Stonewright for ACF, ACPT, Meta Box, ASE, Pods, custom fields, custom post types, taxonomies, option pages, field groups, repeaters, relationships, and content-model audits or migrations.
+version_constraints: {"any_of": "acf|acpt|meta-box|ase|pods"}
 ---
 
 # Content Model Integrations
