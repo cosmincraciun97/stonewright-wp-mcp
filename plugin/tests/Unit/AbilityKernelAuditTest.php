@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * Verifies that AbilityKernel redacts confirmation_token (and other sensitive
@@ -37,6 +38,23 @@ final class AbilityKernelAuditTest extends TestCase {
 			public function execute( array $args ): array|\WP_Error {
 				// Delegate to $this->audit() so we exercise the full redaction pipeline.
 				return $this->audit( $args, fn( array $a ) => [ 'ok' => true ] );
+			}
+
+			/**
+			 * @param array<string, mixed> $args
+			 * @param array<string, mixed>|null $verify_args
+			 */
+			public function expose_require_production_safe_token( array $args, ?array $verify_args = null ): ?\WP_Error {
+				return $this->require_production_safe_token( $args, $verify_args );
+			}
+
+			/**
+			 * @param array<string, mixed> $args
+			 * @param callable             $callback
+			 * @return array<string, mixed>|\WP_Error
+			 */
+			public function expose_audit_write( array $args, callable $callback ) {
+				return $this->audit_write( $args, $callback );
 			}
 
 			/**
@@ -194,5 +212,29 @@ final class AbilityKernelAuditTest extends TestCase {
 			'raw Elementor'         => [ 'stonewright_raw_elementor_mutation' ],
 			'migration loss'        => [ 'stonewright_v4_migration_has_loss' ],
 		];
+	}
+
+	public function test_require_production_safe_token_is_null_in_development(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		self::assertNull( $this->kernel->expose_require_production_safe_token( [ 'title' => 'x' ] ) );
+	}
+
+	public function test_require_production_safe_token_errors_without_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$error = $this->kernel->expose_require_production_safe_token( [ 'title' => 'x' ] );
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_confirmation_required', $error->get_error_code() );
+	}
+
+	public function test_audit_write_accepts_a_matching_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$GLOBALS['stonewright_test_current_user_id']            = 1;
+		$GLOBALS['stonewright_test_transients']                 = [];
+		$args = [ 'title' => 'x' ];
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/test-audit', $args );
+
+		$result = $this->kernel->expose_audit_write( $args, static fn( array $a ): array => [ 'ok' => true, 'title' => $a['title'] ] );
+		self::assertIsArray( $result );
+		self::assertSame( 'x', $result['title'] );
 	}
 }

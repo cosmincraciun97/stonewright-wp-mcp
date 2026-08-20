@@ -37,6 +37,7 @@ final class BulkUpsertPosts extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_type' => [ 'type' => 'string', 'default' => 'post' ],
 				'items'     => [
 					'type'     => 'array',
@@ -130,7 +131,7 @@ final class BulkUpsertPosts extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );

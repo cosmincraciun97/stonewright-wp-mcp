@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities;
 
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -138,6 +139,59 @@ abstract class AbilityKernel implements Ability {
 			\Stonewright\WpMcp\Security\ErrorPatterns::observe_verified_repair( $this->name(), $result );
 		}
 		return $result;
+	}
+
+	/**
+	 * Production-safe confirmation-token gate for write execute paths.
+	 *
+	 * Returns null when the mode is not production-safe or the token verifies.
+	 * Returns a WP_Error when the token is missing or invalid.
+	 *
+	 * @param array<string, mixed>      $args        Full ability args (used to extract confirmation_token).
+	 * @param array<string, mixed>|null $verify_args Args signed when the token was issued. Defaults to $args;
+	 *                                               ConfirmationToken strips confirmation_token before hashing.
+	 */
+	protected function require_production_safe_token( array $args, ?array $verify_args = null ): ?\WP_Error {
+		if ( ! Permissions::is_production_safe() ) {
+			return null;
+		}
+
+		$token = isset( $args['confirmation_token'] ) ? (string) $args['confirmation_token'] : '';
+		if ( '' === $token ) {
+			return new \WP_Error(
+				'stonewright_confirmation_required',
+				__( 'Production-safe mode requires a confirmation_token.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		$result = ConfirmationToken::verify_or_error( $token, $this->name(), $verify_args ?? $args );
+		if ( $result instanceof \WP_Error ) {
+			return $result;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Audit wrapper that requires a production-safe confirmation token before
+	 * the write callback runs. Read abilities must keep using audit().
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_write( array $args, callable $callback ) {
+		return $this->audit(
+			$args,
+			function ( array $args ) use ( $callback ) {
+				$token_error = $this->require_production_safe_token( $args );
+				if ( $token_error instanceof \WP_Error ) {
+					return $token_error;
+				}
+				return $callback( $args );
+			}
+		);
 	}
 
 	private static function is_blocked_error_code( string $code ): bool {

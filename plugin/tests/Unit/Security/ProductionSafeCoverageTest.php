@@ -227,7 +227,9 @@ final class ProductionSafeCoverageTest extends TestCase {
 			|| str_contains( $source, 'ConfirmationToken::verify_or_error' )
 			|| str_contains( $source, 'ConfirmationToken::verify(' )
 			|| str_contains( $source, 'require_sandbox_confirmation(' )
-			|| str_contains( $source, 'require_confirmation(' );
+			|| str_contains( $source, 'require_confirmation(' )
+			|| str_contains( $source, 'require_production_safe_token(' )
+			|| str_contains( $source, 'audit_write(' );
 	}
 
 	private function is_hard_blocked_in_production_safe( string $source ): bool {
