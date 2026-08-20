@@ -266,6 +266,104 @@ final class SkillPresenceGateTest extends TestCase {
 		}
 	}
 
+	/**
+	 * @return list<array{0: string}>
+	 */
+	public static function p0_stack_playbook_provider(): array {
+		return [
+			[ 'acf-build-fields' ],
+			[ 'seo-optimize' ],
+			[ 'forms-inventory' ],
+		];
+	}
+
+	/**
+	 * @dataProvider p0_stack_playbook_provider
+	 */
+	public function test_p0_stack_playbook_is_gated_and_discoverable_by_slug_and_description( string $directory ): void {
+		$body = $this->skill_body( $directory );
+		self::assertStringStartsWith( '---', ltrim( $body ) );
+		self::assertMatchesRegularExpression( '/^name:\s*' . preg_quote( $directory, '/' ) . '\s*$/m', $body );
+		self::assertMatchesRegularExpression( '/^description:\s*\S/m', $body );
+		preg_match( '/^description:\s*(.+)$/m', $body, $match );
+		self::assertNotSame( '', trim( (string) ( $match[1] ?? '' ) ) );
+
+		$decoded = $this->skill_constraints( $directory );
+		self::assertNotSame( [], $decoded );
+
+		// Discover lists slug+description only. Gate enforcement is the file
+		// constraints plus runtime_visible(); this row is unconstrained so the
+		// listing still appears when the component is absent in PHPUnit.
+		$GLOBALS['wpdb'] = $this->wpdb_with_rows(
+			[
+				$this->row( 'stonewright-' . $directory, [] ),
+			]
+		);
+
+		$result = ( new SkillsList() )->execute( [ 'mode' => 'discover' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'discover', $result['mode'] );
+		self::assertCount( 1, $result['skills'] );
+		self::assertSame( [ 'slug', 'description' ], array_keys( $result['skills'][0] ) );
+		self::assertSame( 'stonewright-' . $directory, $result['skills'][0]['slug'] );
+		self::assertArrayNotHasKey( 'content', $result['skills'][0] );
+		self::assertArrayNotHasKey( 'title', $result['skills'][0] );
+	}
+
+	public function test_acf_build_fields_requires_acf(): void {
+		$decoded = $this->skill_constraints( 'acf-build-fields' );
+		self::assertSame( 'required', $decoded['acf'] ?? null );
+
+		$body = $this->skill_body( 'acf-build-fields' );
+		self::assertStringContainsString( 'stonewright-acf-field-group-list', $body );
+		self::assertStringContainsString( 'stonewright-acf-field-group-get', $body );
+		self::assertStringContainsString( 'stonewright-acf-field-group-save', $body );
+		self::assertStringContainsString( 'stonewright-acf-values-get', $body );
+		self::assertStringContainsString( 'stonewright-acf-value-update', $body );
+	}
+
+	public function test_seo_optimize_any_of_uses_catalog_seo_ids(): void {
+		$decoded = $this->skill_constraints( 'seo-optimize' );
+		self::assertArrayHasKey( 'any_of', $decoded );
+		self::assertIsString( $decoded['any_of'] );
+
+		$ids     = $this->any_of_component_ids( $decoded['any_of'] );
+		$catalog = array_column( IntegrationCatalog::definitions(), 'id' );
+		foreach ( [ 'yoast-seo', 'rank-math', 'all-in-one-seo' ] as $id ) {
+			self::assertContains( $id, $ids );
+			self::assertContains( $id, $catalog );
+		}
+
+		$body = $this->skill_body( 'seo-optimize' );
+		self::assertStringContainsString( 'stonewright-seo-status', $body );
+		self::assertStringContainsString( 'stonewright-seo-meta-get', $body );
+		self::assertStringContainsString( 'stonewright-seo-meta-update', $body );
+		self::assertStringContainsString( 'stonewright-settings-get', $body );
+		self::assertStringContainsString( 'stonewright-settings-update', $body );
+	}
+
+	public function test_forms_inventory_any_of_uses_catalog_form_ids_and_stays_read_honest(): void {
+		$decoded = $this->skill_constraints( 'forms-inventory' );
+		self::assertArrayHasKey( 'any_of', $decoded );
+		self::assertIsString( $decoded['any_of'] );
+
+		$ids     = $this->any_of_component_ids( $decoded['any_of'] );
+		$catalog = array_column( IntegrationCatalog::definitions(), 'id' );
+		foreach ( [ 'wpforms', 'contact-form-7', 'gravity-forms', 'fluent-forms', 'ninja-forms', 'formidable-forms' ] as $id ) {
+			self::assertContains( $id, $ids );
+			self::assertContains( $id, $catalog );
+		}
+
+		$body = $this->skill_body( 'forms-inventory' );
+		self::assertStringContainsString( 'stonewright-site-shortcodes-discover', $body );
+		self::assertStringContainsString( 'stonewright-blocks-queue-change', $body );
+		self::assertStringContainsString( 'stonewright-blocks-finalize-batch', $body );
+		self::assertStringContainsString( 'stonewright-form-delivery-diagnostic', $body );
+		self::assertMatchesRegularExpression( '/no typed form-builder writes/i', $body );
+		self::assertMatchesRegularExpression( '/must not fake them through php-execute/i', $body );
+	}
+
 	private function skill_body( string $directory ): string {
 		$path = dirname( __DIR__, 3 ) . '/../skills/' . $directory . '/SKILL.md';
 		self::assertFileExists( $path );
