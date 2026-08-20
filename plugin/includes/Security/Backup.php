@@ -171,13 +171,15 @@ final class Backup {
 		}
 
 		$post_result = wp_update_post(
-			[
-				'ID'           => $post_id,
-				'post_title'   => $expected['post']['post_title'],
-				'post_status'  => $expected['post']['post_status'],
-				'post_content' => $expected['post']['post_content'],
-				'post_excerpt' => $expected['post']['post_excerpt'],
-			],
+			wp_slash(
+				[
+					'ID'           => $post_id,
+					'post_title'   => $expected['post']['post_title'],
+					'post_status'  => $expected['post']['post_status'],
+					'post_content' => $expected['post']['post_content'],
+					'post_excerpt' => $expected['post']['post_excerpt'],
+				]
+			),
 			true
 		);
 		$operations_verified = ! $post_result instanceof \WP_Error && $post_id === (int) $post_result;
@@ -307,11 +309,12 @@ final class Backup {
 	}
 
 	private static function update_meta( int $post_id, string $key, mixed $value ): int|bool {
+		$slashed = wp_slash( $value );
 		if ( 'revision' === get_post_type( $post_id ) ) {
-			return update_metadata( 'post', $post_id, $key, $value );
+			return update_metadata( 'post', $post_id, $key, $slashed );
 		}
 
-		return update_post_meta( $post_id, $key, $value );
+		return update_post_meta( $post_id, $key, $slashed );
 	}
 
 	private static function delete_meta( int $post_id, string $key ): bool {
@@ -395,14 +398,9 @@ final class Backup {
 			return null;
 		}
 		$meta_state = [];
-		foreach ( $expected_meta as $key => $expected ) {
+		foreach ( array_keys( $expected_meta ) as $key ) {
 			$exists = self::meta_exists( $post_id, $key );
 			$value  = $exists ? get_post_meta( $post_id, $key, true ) : null;
-			if ( $exists && $expected['exists'] && self::values_match( $value, $expected['value'] ) ) {
-				// Normalize the unit-test stub's slashed readback to the same value
-				// real WordPress returns after update_metadata() unslashes writes.
-				$value = $expected['value'];
-			}
 			$meta_state[ $key ] = [
 				'exists' => $exists,
 				'value'  => $value,

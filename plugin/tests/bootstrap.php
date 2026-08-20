@@ -1097,6 +1097,7 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 		if ( isset( $GLOBALS['stonewright_test_update_post_meta_return'] ) ) {
 			return $GLOBALS['stonewright_test_update_post_meta_return'];
 		}
+		$meta_value = wp_unslash( $meta_value );
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'   => 'update',
 			'post_id'  => $post_id,
@@ -1120,6 +1121,7 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 
 if ( ! function_exists( 'update_metadata' ) ) {
 	function update_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		$meta_value = wp_unslash( $meta_value );
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'    => 'update_metadata',
 			'meta_type' => $meta_type,
@@ -1232,6 +1234,7 @@ if ( ! function_exists( 'wp_insert_post' ) ) {
 			$GLOBALS['stonewright_test_wp_insert_post_return'] = null;
 			return $ret;
 		}
+		$postarr = wp_unslash( $postarr );
 		$id = (int) $GLOBALS['stonewright_test_next_post_id']++;
 		$GLOBALS['stonewright_test_inserted_posts'][] = array_merge( [ 'ID' => $id ], $postarr );
 		// Also register in test posts so get_post() can find it.
@@ -1263,6 +1266,7 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 			$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 			return $ret;
 		}
+		$postarr = wp_unslash( $postarr );
 		$id = (int) ( $postarr['ID'] ?? 0 );
 		if ( isset( $GLOBALS['stonewright_test_posts'][ $id ] ) ) {
 			foreach ( $postarr as $k => $v ) {
@@ -1334,6 +1338,9 @@ if ( ! function_exists( 'wp_kses_post' ) ) {
 
 if ( ! function_exists( 'wp_slash' ) ) {
 	function wp_slash( mixed $value ): mixed {
+		if ( is_array( $value ) ) {
+			return array_map( 'wp_slash', $value );
+		}
 		return is_string( $value ) ? addslashes( $value ) : $value;
 	}
 }
