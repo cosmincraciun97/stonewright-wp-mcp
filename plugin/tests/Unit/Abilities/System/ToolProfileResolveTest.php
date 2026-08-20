@@ -205,6 +205,24 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'apply an elementor theme builder template' ) );
 	}
 
+	public function test_suggest_profile_classic_theme_elementor_respects_gutenberg_hints(): void {
+		if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
+			define( 'ELEMENTOR_VERSION', '3.24.0' );
+		}
+
+		$GLOBALS['stonewright_test_stylesheet'] = 'astra';
+		$GLOBALS['stonewright_test_template']   = 'astra';
+		$GLOBALS['stonewright_test_options']['stylesheet'] = 'astra';
+
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'design a landing page' ) );
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'build a hero section' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a landing page', 'gutenberg' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a block-based landing page' ) );
+
+		unset( $GLOBALS['stonewright_test_stylesheet'], $GLOBALS['stonewright_test_template'] );
+		unset( $GLOBALS['stonewright_test_options']['stylesheet'] );
+	}
+
 	public function test_discover_execute_is_a_named_profile(): void {
 		self::assertContains( 'discover-execute', ToolProfile::profile_names() );
 		$names = ToolProfile::profile_tools( 'discover-execute' );

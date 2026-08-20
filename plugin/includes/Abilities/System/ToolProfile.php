@@ -60,12 +60,13 @@ final class ToolProfile extends AbilityKernel {
 			return 'content-model';
 		}
 
-		if ( 'gutenberg' === $surface || $gutenberg_first || self::has_any_term( $query, [ 'block', 'block theme', 'block library', 'fse', 'gutenberg', 'theme json', 'template part', 'blocksy', 'kadence' ] ) ) {
+		$gutenberg_signal = self::gutenberg_profile_signal( $surface, $query, $gutenberg_first );
+		if ( $gutenberg_signal ) {
 			return 'gutenberg';
 		}
 
 		if ( self::has_any_term( $query, [ 'figma', 'pixel', 'design', 'landing page', 'section' ] ) ) {
-			return ( $elementor_active && ! $gutenberg_first ) ? 'elementor-design' : 'gutenberg';
+			return self::design_ambiguous_profile( $elementor_active, $gutenberg_signal );
 		}
 
 		if ( 'wp-cli' === $surface || self::has_any_term( $query, [ 'cache', 'cli', 'plugin', 'rewrite', 'wp cli' ] ) ) {
@@ -132,7 +133,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows.', 'stonewright' );
+		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -1271,6 +1272,7 @@ final class ToolProfile extends AbilityKernel {
 		if ( 'discover-execute' === $profile ) {
 			$rules[] = 'Discover abilities, read one bounded schema, then execute the named ability; do not expand to the full MCP catalog.';
 			$rules[] = 'execute-ability uses the same permission, confirmation, backup, and audit gates as a direct MCP call. php-execute stays off this profile and remains available on full.';
+			$rules[] = 'discover-execute remains opt-in: auto routing never selects it; activate this profile explicitly when bounded ability discovery is required.';
 		}
 
 		return $rules;
@@ -1357,6 +1359,23 @@ final class ToolProfile extends AbilityKernel {
 		}
 
 		return defined( 'ELEMENTOR_VERSION' );
+	}
+
+	private static function gutenberg_profile_signal( string $surface, string $query, bool $gutenberg_first ): bool {
+		return 'gutenberg' === $surface
+			|| $gutenberg_first
+			|| self::has_any_term(
+				$query,
+				[ 'block', 'block theme', 'block library', 'fse', 'gutenberg', 'theme json', 'template part', 'blocksy', 'kadence' ]
+			);
+	}
+
+	private static function design_ambiguous_profile( bool $elementor_active, bool $gutenberg_signal ): string {
+		if ( $gutenberg_signal ) {
+			return 'gutenberg';
+		}
+
+		return $elementor_active ? 'elementor-design' : 'gutenberg';
 	}
 
 	private static function gutenberg_first_signal( string $query ): bool {
