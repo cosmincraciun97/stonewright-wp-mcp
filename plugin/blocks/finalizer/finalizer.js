@@ -154,6 +154,9 @@
 		var blockSelect = dataApi.select('core/block-editor');
 		var editorSelect = dataApi.select('core/editor');
 		var editorDispatch = dataApi.dispatch('core/editor');
+		var lockKey = 'stonewright-block-finalizer';
+		var autosavingLocked = false;
+		var savingLocked = false;
 
 		var readyDeadline = Date.now() + 30000;
 		while (Date.now() < readyDeadline) {
@@ -166,38 +169,61 @@
 			await sleep(200);
 		}
 
+		var originalBlocks = blockSelect.getBlocks();
 		try {
 			if (editorDispatch && typeof editorDispatch.lockPostAutosaving === 'function') {
-				editorDispatch.lockPostAutosaving('stonewright-block-finalizer');
+				editorDispatch.lockPostAutosaving(lockKey);
+				autosavingLocked = true;
 			}
 			if (editorDispatch && typeof editorDispatch.lockPostSaving === 'function') {
-				editorDispatch.lockPostSaving('stonewright-block-finalizer');
+				editorDispatch.lockPostSaving(lockKey);
+				savingLocked = true;
 			}
 		} catch (lockErr) {
 			/* Older editors may lack save locks; serialization still proceeds. */
 		}
 
-		if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
-			editorDispatch.resetEditorBlocks([created]);
-		} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
-			blockDispatch.resetBlocks([created]);
-		}
+		try {
+			if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
+				editorDispatch.resetEditorBlocks([created]);
+			} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
+				blockDispatch.resetBlocks([created]);
+			}
 
-		await settle(win, 500);
-		var settled = blockSelect.getBlocks()[0];
-		if (!settled) {
-			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+			await settle(win, 500);
+			var settled = blockSelect.getBlocks()[0];
+			if (!settled) {
+				throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+			}
+			var valid = win.wp.blocks.validateBlock
+				? isValidBlock(win.wp.blocks.validateBlock(settled))
+				: true;
+			var html = win.wp.blocks.serialize(settled);
+			var parsed = win.wp.blocks.parse(html);
+			var parsedName = parsed && parsed[0] ? parsed[0].name : '';
+			if (!valid || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
+				throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+			}
+			return html;
+		} finally {
+			try {
+				if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
+					editorDispatch.resetEditorBlocks(originalBlocks);
+				} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
+					blockDispatch.resetBlocks(originalBlocks);
+				}
+			} finally {
+				try {
+					if (savingLocked && typeof editorDispatch.unlockPostSaving === 'function') {
+						editorDispatch.unlockPostSaving(lockKey);
+					}
+				} finally {
+					if (autosavingLocked && typeof editorDispatch.unlockPostAutosaving === 'function') {
+						editorDispatch.unlockPostAutosaving(lockKey);
+					}
+				}
+			}
 		}
-		var valid = win.wp.blocks.validateBlock
-			? isValidBlock(win.wp.blocks.validateBlock(settled))
-			: true;
-		var html = win.wp.blocks.serialize(settled);
-		var parsed = win.wp.blocks.parse(html);
-		var parsedName = parsed && parsed[0] ? parsed[0].name : '';
-		if (!valid || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
-			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
-		}
-		return html;
 	}
 
 	async function serializeInEditor(item) {

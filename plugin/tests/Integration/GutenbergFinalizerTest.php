@@ -336,6 +336,15 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertStringContainsString( 'id="stonewright-finalizer-frame"', $html );
 	}
 
+	public function test_editor_iframe_serialization_restores_blocks_and_save_locks_in_finally(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 2 ) . '/blocks/finalizer/finalizer.js' );
+
+		self::assertMatchesRegularExpression(
+			'/var originalBlocks = blockSelect\.getBlocks\(\);.*try \{.*resetEditorBlocks\(\[created\]\).*finally \{.*resetEditorBlocks\(originalBlocks\).*unlockPostSaving\(lockKey\).*unlockPostAutosaving\(lockKey\)/s',
+			$script
+		);
+	}
+
 	public function test_result_endpoint_recomputes_hash_when_client_flags_hash_unavailable(): void {
 		$queued = ( new QueueBlockChange() )->execute(
 			[
