@@ -38,10 +38,10 @@ final class AbilitiesPage {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
 		}
 
-		$abilities          = AbilityRegistry::all_abilities();
+		$abilities          = AbilityHubCatalog::collect();
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
-		$groups             = self::group_by_category( $abilities );
+		$groups             = AbilityHubCatalog::grouped();
 		$stats              = self::compute_stats( $abilities, $disabled_abilities );
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only admin notice flag.
 		$notice             = isset( $_GET['stonewright_toggled'] )
@@ -102,7 +102,7 @@ final class AbilitiesPage {
 
 				<select name="stonewright_bulk_category" form="stonewright-bulk-form">
 					<option value=""><?php esc_html_e( 'Category', 'stonewright' ); ?></option>
-					<?php foreach ( array_keys( $groups ) as $category ) : ?>
+					<?php foreach ( self::category_options( $groups ) as $category ) : ?>
 						<option value="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( self::category_label( $category ) ); ?></option>
 					<?php endforeach; ?>
 				</select>
@@ -134,68 +134,113 @@ final class AbilitiesPage {
 			</div>
 
 			<div class="stonewright-provider-group-list sw-abilities-list">
-				<?php foreach ( $groups as $category => $category_abilities ) : ?>
+				<?php foreach ( $groups as $provider => $provider_group ) : ?>
 					<?php
-					$cat_enabled = 0;
-					foreach ( $category_abilities as $ability ) {
+					$provider_abilities = [];
+					foreach ( $provider_group['categories'] as $category_abilities ) {
+						foreach ( $category_abilities as $ability ) {
+							$provider_abilities[] = $ability;
+						}
+					}
+					$provider_enabled = 0;
+					foreach ( $provider_abilities as $ability ) {
 						if ( ! in_array( (string) $ability['name'], $disabled_abilities, true ) ) {
-							++$cat_enabled;
+							++$provider_enabled;
 						}
 					}
 					?>
-					<details
-						class="sw-ability-category stonewright-provider-group"
-						data-provider="stonewright"
-						data-category="<?php echo esc_attr( $category ); ?>"
-						open
+					<div
+						class="stonewright-provider-group"
+						data-provider="<?php echo esc_attr( (string) $provider ); ?>"
 					>
-						<summary class="sw-ability-category__summary stonewright-provider-group__header">
-							<div class="sw-ability-category__title">
-								<span class="stonewright-provider-name"><?php esc_html_e( 'Stonewright', 'stonewright' ); ?></span>
-								<h2><?php echo esc_html( self::category_label( $category ) ); ?></h2>
+						<div class="stonewright-provider-group__header">
+							<div>
+								<span class="stonewright-provider-name"><?php echo esc_html( (string) $provider_group['label'] ); ?></span>
+								<?php if ( ! $provider_group['registered'] ) : ?>
+									<p class="description"><?php esc_html_e( 'Not registered', 'stonewright' ); ?></p>
+								<?php endif; ?>
 							</div>
 							<span class="sw-badge sw-badge--neutral">
 								<?php
 								printf(
-									/* translators: 1: enabled in category, 2: total in category */
+									/* translators: 1: enabled in provider, 2: total in provider */
 									esc_html__( '%1$d / %2$d', 'stonewright' ),
-									(int) $cat_enabled,
-									(int) count( $category_abilities )
+									(int) $provider_enabled,
+									(int) count( $provider_abilities )
 								);
 								?>
 							</span>
-							<span class="sw-ability-category__actions sw-actions">
-								<button
-									type="submit"
-									form="stonewright-bulk-form"
-									class="sw-btn sw-btn--ghost sw-btn--sm"
-									data-sw-bulk-action="enable_category"
-									data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
-								><?php esc_html_e( 'Enable all', 'stonewright' ); ?></button>
-								<button
-									type="submit"
-									form="stonewright-bulk-form"
-									class="sw-btn sw-btn--ghost sw-btn--sm"
-									data-sw-bulk-action="disable_category"
-									data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
-								><?php esc_html_e( 'Disable all', 'stonewright' ); ?></button>
-							</span>
-						</summary>
-
-						<div class="stonewright-ability-table" role="table">
-							<div class="stonewright-ability-table__head" role="row">
-								<span></span>
-								<span><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
-								<span><?php esc_html_e( 'MCP tool', 'stonewright' ); ?></span>
-								<span><?php esc_html_e( 'Kind', 'stonewright' ); ?></span>
-								<span><?php esc_html_e( 'Enabled', 'stonewright' ); ?></span>
-								<span><?php esc_html_e( 'Details', 'stonewright' ); ?></span>
-							</div>
-							<?php foreach ( $category_abilities as $index => $ability ) : ?>
-								<?php self::render_ability_row( $ability, $disabled_abilities, $category, $index ); ?>
-							<?php endforeach; ?>
 						</div>
-					</details>
+
+						<?php if ( [] === $provider_group['categories'] ) : ?>
+							<?php if ( $provider_group['registered'] ) : ?>
+								<p class="description"><?php esc_html_e( 'No abilities in this provider.', 'stonewright' ); ?></p>
+							<?php endif; ?>
+						<?php else : ?>
+							<?php foreach ( $provider_group['categories'] as $category => $category_abilities ) : ?>
+								<?php
+								$cat_enabled = 0;
+								foreach ( $category_abilities as $ability ) {
+									if ( ! in_array( (string) $ability['name'], $disabled_abilities, true ) ) {
+										++$cat_enabled;
+									}
+								}
+								?>
+								<details
+									class="sw-ability-category"
+									data-provider="<?php echo esc_attr( (string) $provider ); ?>"
+									data-category="<?php echo esc_attr( $category ); ?>"
+									open
+								>
+									<summary class="sw-ability-category__summary">
+										<div class="sw-ability-category__title">
+											<h2><?php echo esc_html( self::category_label( $category ) ); ?></h2>
+										</div>
+										<span class="sw-badge sw-badge--neutral">
+											<?php
+											printf(
+												/* translators: 1: enabled in category, 2: total in category */
+												esc_html__( '%1$d / %2$d', 'stonewright' ),
+												(int) $cat_enabled,
+												(int) count( $category_abilities )
+											);
+											?>
+										</span>
+										<span class="sw-ability-category__actions sw-actions">
+											<button
+												type="submit"
+												form="stonewright-bulk-form"
+												class="sw-btn sw-btn--ghost sw-btn--sm"
+												data-sw-bulk-action="enable_category"
+												data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
+											><?php esc_html_e( 'Enable all', 'stonewright' ); ?></button>
+											<button
+												type="submit"
+												form="stonewright-bulk-form"
+												class="sw-btn sw-btn--ghost sw-btn--sm"
+												data-sw-bulk-action="disable_category"
+												data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
+											><?php esc_html_e( 'Disable all', 'stonewright' ); ?></button>
+										</span>
+									</summary>
+
+									<div class="stonewright-ability-table" role="table">
+										<div class="stonewright-ability-table__head" role="row">
+											<span></span>
+											<span><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
+											<span><?php esc_html_e( 'MCP tool', 'stonewright' ); ?></span>
+											<span><?php esc_html_e( 'Kind', 'stonewright' ); ?></span>
+											<span><?php esc_html_e( 'Enabled', 'stonewright' ); ?></span>
+											<span><?php esc_html_e( 'Details', 'stonewright' ); ?></span>
+										</div>
+										<?php foreach ( $category_abilities as $index => $ability ) : ?>
+											<?php self::render_ability_row( $ability, $disabled_abilities, $category, $index ); ?>
+										<?php endforeach; ?>
+									</div>
+								</details>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</div>
 				<?php endforeach; ?>
 			</div>
 		</div>
@@ -218,7 +263,7 @@ final class AbilitiesPage {
 		$kind       = self::kind_for( $name );
 		$row_id     = 'stonewright-ability-' . sanitize_html_class( str_replace( '/', '-', $name ) );
 		$form_id    = $row_id . '-form-' . $index;
-		$tool_name  = AbilityRegistry::mcp_tool_name( $name );
+		$tool_name  = (string) ( $ability['mcp_tool_name'] ?? AbilityRegistry::mcp_tool_name( $name ) );
 		?>
 		<form id="<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="stonewright_toggle_ability"/>
@@ -346,6 +391,22 @@ final class AbilitiesPage {
 	}
 
 	/**
+	 * @param array<string, array{categories: array<string, list<array<string, mixed>>>}> $groups
+	 * @return list<string>
+	 */
+	private static function category_options( array $groups ): array {
+		$categories = [];
+		foreach ( $groups as $group ) {
+			foreach ( array_keys( $group['categories'] ) as $category ) {
+				$categories[ $category ] = true;
+			}
+		}
+		$keys = array_keys( $categories );
+		sort( $keys );
+		return $keys;
+	}
+
+	/**
 	 * @param array<int, array<string, mixed>> $abilities
 	 * @return array<string, array<int, array<string, mixed>>>
 	 */
@@ -438,8 +499,8 @@ final class AbilitiesPage {
 			? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['stonewright_abilities'] ) )
 			: [];
 
-		$all      = AbilityRegistry::all_abilities();
-		$known    = array_column( $all, 'name' );
+		$all      = AbilityHubCatalog::collect();
+		$known    = AbilityHubCatalog::names();
 		$disabled = array_values( array_intersect( (array) get_option( 'stonewright_disabled_abilities', [] ), $known ) );
 		$targets  = in_array( $action, [ 'enable_category', 'disable_category' ], true )
 			? self::ability_names_for_category( $all, $category )

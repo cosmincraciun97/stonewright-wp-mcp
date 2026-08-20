@@ -96,6 +96,8 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect Your AI Client', $html );
 		self::assertStringContainsString( 'Setup diagnostics', $html );
+		self::assertStringContainsString( 'Run diagnostics', $html );
+		self::assertStringContainsString( 'value="stonewright_run_diagnostics"', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
 		self::assertStringContainsString( 'communicates with it through standard input/output', $html );

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Pages\ContextPage;
+use Stonewright\WpMcp\Admin\Pages\DesignPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
@@ -34,6 +36,8 @@ final class AdminBootstrap {
 		// Design Library admin UI (Design Studio / Visual Workspace / Blueprints)
 		// is intentionally not registered. Typed design abilities remain available
 		// over MCP; storage tables/options are preserved.
+		DesignPage::register();
+		ContextPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
@@ -154,6 +158,8 @@ final class AdminBootstrap {
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
+			'stonewright-design'        => 'skills-memory.css',
+			'stonewright-context'       => 'skills-memory.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {

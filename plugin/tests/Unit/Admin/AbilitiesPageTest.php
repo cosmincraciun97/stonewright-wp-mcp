@@ -37,6 +37,7 @@ final class AbilitiesPageTest extends TestCase {
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_filters']   = [];
 		$_GET = [];
 	}
 
@@ -56,6 +57,32 @@ final class AbilitiesPageTest extends TestCase {
 		self::assertStringContainsString( 'stonewright-schema-table-wrap', $html );
 		self::assertStringContainsString( 'stonewright/ping', $html );
 		self::assertStringNotContainsString( 'onclick=', $html );
+		self::assertStringContainsString( 'data-provider="stonewright"', $html );
+		self::assertStringContainsString( 'data-provider="elementor"', $html );
+		self::assertStringContainsString( 'Not registered', $html );
+	}
+
+	public function test_render_groups_external_abilities_by_provider(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_abilities_hub_external'] = static function ( array $abilities ): array {
+			$abilities[] = [
+				'name'          => 'yoast-seo/get-head',
+				'label'         => 'Get head',
+				'description'   => 'Read Yoast head data.',
+				'category'      => 'seo',
+				'mcp_tool_name' => 'yoast-seo-get-head',
+				'input_schema'  => [],
+				'enabled'       => true,
+			];
+			return $abilities;
+		};
+
+		ob_start();
+		AbilitiesPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'data-provider="yoast-seo"', $html );
+		self::assertStringContainsString( 'yoast-seo/get-head', $html );
+		self::assertStringContainsString( 'Yoast Seo', $html );
 	}
 
 	public function test_render_includes_sticky_filters_stats_and_switches(): void {

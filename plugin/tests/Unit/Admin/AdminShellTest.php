@@ -42,7 +42,11 @@ final class AdminShellTest extends TestCase {
 		self::assertContains( 'stonewright-memory', $slugs );
 		self::assertContains( 'stonewright-audit-log', $slugs );
 		self::assertContains( 'stonewright-status', $slugs );
+		self::assertContains( 'stonewright-design', $slugs );
+		self::assertContains( 'stonewright-context', $slugs );
 		self::assertSame( 'Setup', $pages['stonewright'] );
+		self::assertSame( 'Design', $pages['stonewright-design'] );
+		self::assertSame( 'Context', $pages['stonewright-context'] );
 	}
 
 	public function test_menu_groups_are_at_most_six_and_cover_all_page_slugs(): void {

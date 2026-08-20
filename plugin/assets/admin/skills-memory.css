@@ -3,7 +3,9 @@
  */
 
 .sw-skills-page,
-.sw-memory-page {
+.sw-memory-page,
+.sw-design-page,
+.sw-context-page {
 	max-width: var(--sw-shell-content-max, 1200px);
 	width: 100%;
 	min-width: 0;

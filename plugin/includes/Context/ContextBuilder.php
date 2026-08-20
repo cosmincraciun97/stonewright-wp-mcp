@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
@@ -63,13 +64,15 @@ final class ContextBuilder {
 			),
 			'matched_skill_playbooks'  => array_map(
 				static fn( array $skill ): array => [
-					'slug'    => (string) ( $skill['slug'] ?? '' ),
-					'title'   => (string) ( $skill['title'] ?? '' ),
-					'content' => (string) ( $skill['content'] ?? '' ),
+					'slug'        => (string) ( $skill['slug'] ?? '' ),
+					'title'       => (string) ( $skill['title'] ?? '' ),
+					'description' => (string) ( $skill['description'] ?? '' ),
+					'body_tool'   => 'stonewright/skills-get',
 				],
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
+			'user_context'             => UserContext::get(),
 			'custom_instructions'      => self::custom_instructions(),
 			'recurring_errors'         => self::recurring_error_warnings(),
 			'incident_actions'         => IncidentActions::rank( IncidentStore::recent( 50 ), $surface, 3 ),
@@ -89,11 +92,21 @@ final class ContextBuilder {
 	 * @return array{enabled:bool,text:string}
 	 */
 	private static function custom_instructions(): array {
+		$user    = UserContext::get();
 		$enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
-		$text    = $enabled ? (string) get_option( 'stonewright_custom_instructions', '' ) : '';
+		$text    = $enabled ? trim( (string) get_option( 'stonewright_custom_instructions', '' ) ) : '';
+		$parts   = [];
+		if ( $user['enabled'] && '' !== $user['text'] ) {
+			$parts[] = $user['text'];
+		}
+		if ( '' !== $text ) {
+			$parts[] = $text;
+		}
+		$combined = implode( "\n\n", $parts );
+
 		return [
-			'enabled' => $enabled && '' !== trim( $text ),
-			'text'    => mb_substr( $text, 0, 1200 ),
+			'enabled' => '' !== $combined,
+			'text'    => mb_substr( $combined, 0, 2400 ),
 		];
 	}
 
@@ -392,6 +405,7 @@ final class ContextBuilder {
 	 */
 	private static function visual_quality_contract(): array {
 		return [
+			'anti_slop_floor'                  => QualityRuleRegistry::floor(),
 			'hard_stop_if_browser_unavailable' => true,
 			'section_batching'                 => self::section_batching_contract(),
 			'playwright_mcp_gate'              => [

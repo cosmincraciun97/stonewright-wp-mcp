@@ -30,6 +30,7 @@ final class ConfigurationPage {
 			'admin_post_stonewright_revoke_application_password',
 			[ self::class, 'handle_revoke_application_password' ]
 		);
+		add_action( 'admin_post_stonewright_run_diagnostics', [ self::class, 'handle_run_diagnostics' ] );
 		add_action( 'wp_ajax_stonewright_set_setup_client', [ self::class, 'handle_set_setup_client' ] );
 		add_action( 'wp_ajax_stonewright_apply_mcp_surface', [ self::class, 'handle_apply_mcp_surface' ] );
 	}
@@ -87,6 +88,46 @@ final class ConfigurationPage {
 				'transport_truth' => __( 'The surface revision is current. Dynamic clients pick it up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response. Clients that cache tools permanently still need one restart.', 'stonewright' ),
 			]
 		);
+	}
+
+	public static function handle_run_diagnostics(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_run_diagnostics' );
+
+		$report = SetupDiagnostics::report( [ 'probe' => true ] );
+		update_option( 'stonewright_diagnostics_last', $report, false );
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'                     => self::SLUG,
+					'stonewright_diagnostics'  => '1',
+				],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * @return array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>}
+	 */
+	private static function diagnostics_report(): array {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only flag after nonce-checked admin-post.
+		$show_last = isset( $_GET['stonewright_diagnostics'] )
+			&& '1' === sanitize_key( wp_unslash( (string) $_GET['stonewright_diagnostics'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( $show_last ) {
+			$last = get_option( 'stonewright_diagnostics_last' );
+			if ( is_array( $last ) && isset( $last['checks'] ) && is_array( $last['checks'] ) ) {
+				/** @var array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>} $last */
+				return $last;
+			}
+		}
+
+		return SetupDiagnostics::report();
 	}
 
 	/**
@@ -331,7 +372,7 @@ final class ConfigurationPage {
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
-		$setup_diagnostics   = SetupDiagnostics::report();
+		$setup_diagnostics   = self::diagnostics_report();
 		$has_app_password    = [] !== $app_passwords;
 		$oauth_available     = Transport::allowed();
 		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
@@ -395,6 +436,13 @@ final class ConfigurationPage {
 						</li>
 					<?php endforeach; ?>
 				</ul>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-diagnostics-run">
+					<input type="hidden" name="action" value="stonewright_run_diagnostics"/>
+					<?php wp_nonce_field( 'stonewright_run_diagnostics' ); ?>
+					<button type="submit" class="button button-primary">
+						<?php esc_html_e( 'Run diagnostics', 'stonewright' ); ?>
+					</button>
+				</form>
 				<p class="description">
 					<?php
 					echo esc_html(

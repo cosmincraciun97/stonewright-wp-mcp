@@ -27,7 +27,12 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 
 		self::assertArrayHasKey( 'ready', $report );
-		self::assertCount( 8, $report['checks'] );
+		self::assertGreaterThanOrEqual( 11, count( $report['checks'] ) );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'connection' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'endpoint' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'tool_surface' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'connection_probe' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'waf' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_transport' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_endpoint' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_discovery' )['status'] );
@@ -37,19 +42,17 @@ final class SetupDiagnosticsTest extends TestCase {
 	}
 
 	public function test_tool_budget_passes_at_essential_maximum(): void {
-		// Essential profile fills ESSENTIAL_MAX_TOOLS=30 exactly.
-		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode']    = true;
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode']     = true;
 		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [];
 
 		$report = SetupDiagnostics::report();
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
-		self::assertSame( 30, $report['versions']['tool_count'] );
-		self::assertSame( 'ok', $budget['status'], '30 tools is within ESSENTIAL_MAX_TOOLS and must pass.' );
+		self::assertSame( 29, $report['versions']['tool_count'] );
+		self::assertSame( 'ok', $budget['status'], 'The committed essential set is within ESSENTIAL_MAX_TOOLS and must pass.' );
 	}
 
 	public function test_tool_budget_fails_above_essential_maximum(): void {
-		// Pad essential profile past 30 (30 base + 2 extras).
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [
 			'stonewright/ping',
@@ -59,8 +62,35 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
-		self::assertSame( 32, $report['versions']['tool_count'] );
+		self::assertSame( 31, $report['versions']['tool_count'] );
 		self::assertNotSame( 'ok', $budget['status'] );
+	}
+
+	public function test_probe_maps_loopback_and_waf_without_production_hostnames(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => false,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [
+						[
+							'id'     => 'initialize',
+							'status' => 'failed',
+							'detail' => 'MCP initialize rejected authentication (HTTP 403).',
+						],
+					],
+				],
+			]
+		);
+
+		$probe = $this->find_check( $report['checks'], 'connection_probe' );
+		$waf   = $this->find_check( $report['checks'], 'waf' );
+
+		self::assertSame( 'error', $probe['status'] );
+		self::assertSame( 'error', $waf['status'] );
+		self::assertStringContainsString( 'example.test', $probe['detail'] );
+		self::assertStringNotContainsString( 'wp.test', $probe['detail'] );
 	}
 
 	/**

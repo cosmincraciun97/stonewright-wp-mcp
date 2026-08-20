@@ -13,6 +13,12 @@ development builds were never stable releases.
 
 ### Added
 
+- Add a discover-execute MCP profile with three protocol tools for catalog discovery and gated execution without exposing the full tool list.
+- Default Gutenberg block parse, registered-block list, and theme.json reads to bounded summaries, with `responseMode=full` restoring the previous dumps.
+- Add read-only GenerateBlocks, Kadence Blocks, Spectra, and Blocksy library
+  introspection, plus Blocksy/Kadence/GeneratePress theme chrome get/update.
+- Add presence-gated Blocksy, Kadence, GenerateBlocks, and Spectra build-page
+  skills that compose through the Gutenberg finalizer.
 - Add typed query-loop, FSE navigation, and synced-pattern update/delete/category
   abilities, plus a child-theme theme.json handoff that stops at human approval.
 - Add a read-only Elementor performance audit ability reporting bounded document,
@@ -41,6 +47,10 @@ development builds were never stable releases.
 
 ### Changed
 
+- Route ambiguous design, landing-page, and section tasks to Gutenberg when Elementor is inactive or a block theme such as Blocksy is the stronger signal.
+- Discover skills as slug plus one-line description; load playbook bodies only
+  through `stonewright/skills-get`, and hide skills whose required integrations
+  are absent.
 - Harden pattern creates and FSE global-style/template writes with the same
   backup, confirmation, sanitization, and audit envelope as the canonical
   write abilities. Keep the older update-* names as compatibility wrappers.

@@ -44,6 +44,7 @@ final class AdminShell {
 				'pages' => [
 					'stonewright-sandbox' => __( 'Sandbox', 'stonewright' ),
 					'stonewright-prompts' => __( 'Prompts', 'stonewright' ),
+					'stonewright-design'  => __( 'Design', 'stonewright' ),
 				],
 			],
 			[
@@ -53,6 +54,7 @@ final class AdminShell {
 					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
 					'stonewright-memory'    => __( 'Memory', 'stonewright' ),
 					'stonewright-skills'    => __( 'Skills', 'stonewright' ),
+					'stonewright-context'   => __( 'Context', 'stonewright' ),
 				],
 			],
 		];
