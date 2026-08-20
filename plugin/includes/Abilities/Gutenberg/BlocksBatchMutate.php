@@ -177,6 +177,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 					if ( $attr_error instanceof \WP_Error ) {
 						return $attr_error;
 					}
+					$items = $this->finalizer_queue_items( $operations, $working, $post_id, $before_hash );
+					if ( $items instanceof \WP_Error ) {
+						return $items;
+					}
 					if ( $dry_run ) {
 						return [
 							'ok'                  => true,
@@ -201,10 +205,6 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'full_mode_hint'      => 'Static or third-party blocks must go through stonewright/blocks-queue-change and the browser finalizer.',
 							'finalizer_url'       => FinalizerPage::url(),
 						];
-					}
-					$items = $this->finalizer_queue_items( $operations, $working, $post_id, $before_hash );
-					if ( $items instanceof \WP_Error ) {
-						return $items;
 					}
 					$queued = BlockQueue::enqueue_many( $items );
 					if ( $queued instanceof \WP_Error ) {
@@ -1012,76 +1012,174 @@ final class BlocksBatchMutate extends AbilityKernel {
 	 * @return list<array<string, mixed>>|\WP_Error
 	 */
 	private function finalizer_queue_items( array $operations, array $blocks, int $post_id, string $before_hash ): array|\WP_Error {
-		$items = [];
-		foreach ( $operations as $operation ) {
+		$items   = [];
+		$working = $blocks;
+		foreach ( $operations as $index => $operation ) {
 			if ( ! is_array( $operation ) ) {
 				continue;
 			}
 			$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
 			if ( 'insert' === $action ) {
-				$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
-				$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
-				if ( ! BlockQueue::requires_finalizer( $name ) ) {
-					continue;
+				$queued = $this->queue_finalizer_insert( $operation, $working, $post_id, $before_hash, (int) $index );
+				if ( $queued instanceof \WP_Error ) {
+					return $queued;
 				}
-				$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
-				if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
-					$attrs = $block['attributes'];
-				}
-				$spec = [
-					'name'       => $name,
-					'attributes' => $attrs,
-				];
-				if ( array_key_exists( 'innerBlocks', $block ) && is_array( $block['innerBlocks'] ) ) {
-					$spec['innerBlocks'] = $block['innerBlocks'];
-				}
-				$path   = self::path( $operation['path'] ?? [] );
-				$target = $this->insert_target( $blocks, $path, $operation );
-				if ( $target instanceof \WP_Error ) {
-					return $target;
-				}
-				[ $parent_path, $position ] = $target;
-				$items[]                    = [
-					'post_id'               => $post_id,
-					'expected_content_hash' => $before_hash,
-					'action'                => 'insert',
-					'path'                  => $parent_path,
-					'position'              => $position,
-					'block_spec'            => $spec,
-				];
+				$items[] = $queued['item'];
+				$working = $queued['working'];
+				continue;
 			}
 			if ( 'update' === $action ) {
-				$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
-				$existing = BlockTree::get( $blocks, $path );
-				$name     = is_array( $existing ) ? (string) ( $existing['blockName'] ?? '' ) : '';
-				if ( '' === $name || ! BlockQueue::requires_finalizer( $name ) ) {
-					continue;
+				$queued = $this->queue_finalizer_update( $operation, $working, $post_id, $before_hash, (int) $index );
+				if ( $queued instanceof \WP_Error ) {
+					return $queued;
 				}
-				$attrs = is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [];
-				if ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
-					$attrs = array_merge( $attrs, $operation['attrs'] );
-				}
-				$spec = [
-					'name'       => $name,
-					'attributes' => $attrs,
-				];
-				$from_block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
-				if ( array_key_exists( 'innerBlocks', $from_block ) && is_array( $from_block['innerBlocks'] ) ) {
-					$spec['innerBlocks'] = $from_block['innerBlocks'];
-				}
-				$items[] = [
-					'post_id'               => $post_id,
-					'expected_content_hash' => $before_hash,
-					'action'                => 'update',
-					'path'                  => $path,
-					'block_spec'            => $spec,
-				];
+				$items[] = $queued['item'];
+				$working = $queued['working'];
+				continue;
 			}
+			if ( in_array( $action, [ 'move', 'remove' ], true ) ) {
+				return $this->mixed_finalizer_batch_error( (int) $index, $action );
+			}
+			return $this->error( 'invalid_action', __( 'Use insert, update, move, or remove for Gutenberg block batches.', 'stonewright' ), [ 'status' => 400 ] );
 		}
 		if ( [] === $items ) {
 			return $this->error( 'finalizer_queue_required', __( 'No static or third-party block spec was found to queue.', 'stonewright' ), [ 'status' => 400 ] );
 		}
 		return $items;
+	}
+
+	/**
+	 * @param array<string, mixed>              $operation
+	 * @param array<int, array<string, mixed>>  $working
+	 * @return array{item:array<string,mixed>,working:array<int,array<string,mixed>>}|\WP_Error
+	 */
+	private function queue_finalizer_insert( array $operation, array $working, int $post_id, string $before_hash, int $index ): array|\WP_Error {
+		$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+		$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
+		if ( ! BlockQueue::requires_finalizer( $name ) ) {
+			return $this->mixed_finalizer_batch_error( $index, 'insert' );
+		}
+		$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
+		if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
+			$attrs = $block['attributes'];
+		}
+		$spec = [
+			'name'       => $name,
+			'attributes' => $attrs,
+		];
+		if ( array_key_exists( 'innerBlocks', $block ) && is_array( $block['innerBlocks'] ) ) {
+			$spec['innerBlocks'] = $block['innerBlocks'];
+		}
+		$path   = self::path( $operation['path'] ?? [] );
+		$target = $this->insert_target( $working, $path, $operation );
+		if ( $target instanceof \WP_Error ) {
+			return $target;
+		}
+		[ $parent_path, $position ] = $target;
+		$position                   = min( $position, self::sibling_count( $working, $parent_path ) );
+		$next                       = $this->tree_insert( $working, $parent_path, $position, $this->finalizer_placeholder_block( $spec ) );
+		if ( $next instanceof \WP_Error ) {
+			return $next;
+		}
+		return [
+			'item'    => [
+				'post_id'               => $post_id,
+				'expected_content_hash' => $before_hash,
+				'action'                => 'insert',
+				'path'                  => $parent_path,
+				'position'              => $position,
+				'block_spec'            => $spec,
+			],
+			'working' => $next,
+		];
+	}
+
+	/**
+	 * @param array<string, mixed>              $operation
+	 * @param array<int, array<string, mixed>>  $working
+	 * @return array{item:array<string,mixed>,working:array<int,array<string,mixed>>}|\WP_Error
+	 */
+	private function queue_finalizer_update( array $operation, array $working, int $post_id, string $before_hash, int $index ): array|\WP_Error {
+		$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
+		$existing = BlockTree::get( $working, $path );
+		if ( null === $existing ) {
+			return $this->error( 'invalid_path', __( 'Block update path not found.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		$name = (string) ( $existing['blockName'] ?? '' );
+		if ( '' === $name || ! BlockQueue::requires_finalizer( $name ) ) {
+			return $this->mixed_finalizer_batch_error( $index, 'update' );
+		}
+		$attrs = is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [];
+		if ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
+			$attrs = array_merge( $attrs, $operation['attrs'] );
+		}
+		$spec = [
+			'name'       => $name,
+			'attributes' => $attrs,
+		];
+		$from_block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+		if ( array_key_exists( 'innerBlocks', $from_block ) && is_array( $from_block['innerBlocks'] ) ) {
+			$spec['innerBlocks'] = $from_block['innerBlocks'];
+		}
+		$mutation = [ 'attrs' => $attrs ];
+		if ( isset( $spec['innerBlocks'] ) ) {
+			$mutation['innerBlocks'] = $this->finalizer_placeholder_block( $spec )['innerBlocks'];
+		}
+		$next = $this->tree_update( $working, $path, $mutation );
+		if ( $next instanceof \WP_Error ) {
+			return $next;
+		}
+		return [
+			'item'    => [
+				'post_id'               => $post_id,
+				'expected_content_hash' => $before_hash,
+				'action'                => 'update',
+				'path'                  => $path,
+				'block_spec'            => $spec,
+			],
+			'working' => $next,
+		];
+	}
+
+	/** @param array<string, mixed> $spec @return array<string, mixed> */
+	private function finalizer_placeholder_block( array $spec ): array {
+		$children = [];
+		if ( isset( $spec['innerBlocks'] ) && is_array( $spec['innerBlocks'] ) ) {
+			foreach ( $spec['innerBlocks'] as $child ) {
+				if ( ! is_array( $child ) ) {
+					continue;
+				}
+				$child_spec = [
+					'name'       => (string) ( $child['name'] ?? $child['blockName'] ?? '' ),
+					'attributes' => isset( $child['attributes'] ) && is_array( $child['attributes'] )
+						? $child['attributes']
+						: ( isset( $child['attrs'] ) && is_array( $child['attrs'] ) ? $child['attrs'] : [] ),
+				];
+				if ( array_key_exists( 'innerBlocks', $child ) && is_array( $child['innerBlocks'] ) ) {
+					$child_spec['innerBlocks'] = $child['innerBlocks'];
+				}
+				$children[] = $this->finalizer_placeholder_block( $child_spec );
+			}
+		}
+		return [
+			'blockName'    => (string) ( $spec['name'] ?? '' ),
+			'attrs'        => isset( $spec['attributes'] ) && is_array( $spec['attributes'] ) ? $spec['attributes'] : [],
+			'innerHTML'    => '',
+			'innerContent' => [] === $children ? [] : array_fill( 0, count( $children ), null ),
+			'innerBlocks'  => $children,
+		];
+	}
+
+	private function mixed_finalizer_batch_error( int $index, string $action ): \WP_Error {
+		return $this->error(
+			'mixed_finalizer_batch',
+			__( 'This batch mixes finalizer-queued block changes with native insert, update, move, or remove. Split the batch so every operation can persist.', 'stonewright' ),
+			[
+				'status' => 400,
+				'index'  => $index,
+				'action' => $action,
+			]
+		);
 	}
 
 	/** @param array<string,mixed> $block @return array<string,mixed>|\WP_Error */

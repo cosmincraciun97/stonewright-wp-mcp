@@ -463,6 +463,93 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 
+	public function test_mixed_finalizer_and_native_ops_reject_closed(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][801]->post_content;
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 1,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'A' ] ],
+					],
+					[
+						'action' => 'update',
+						'path'   => [ 0 ],
+						'attrs'  => [ 'className' => 'native' ],
+					],
+					[
+						'action'   => 'move',
+						'path'     => [ 0 ],
+						'position' => 1,
+					],
+					[
+						'action' => 'remove',
+						'path'   => [ 0 ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_mixed_finalizer_batch', $result->get_error_code() );
+		self::assertSame( 400, (int) ( $result->get_error_data()['status'] ?? 0 ) );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][801]->post_content );
+		self::assertSame( [], BlockQueue::list() );
+	}
+
+	public function test_finalizer_insert_then_update_resolves_path_against_working_tree(): void {
+		$GLOBALS['stonewright_test_registered_blocks']['core/paragraph'] = (object) [
+			'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+		];
+
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 0,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'Inserted' ] ],
+					],
+					[
+						'action' => 'update',
+						'path'   => [ 1 ],
+						'attrs'  => [ 'className' => 'shifted-original' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+
+		$queued = [];
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			$queued[] = $record;
+		}
+
+		self::assertCount( 2, $queued );
+		self::assertSame( 'insert', $queued[0]['action'] );
+		self::assertSame( 0, $queued[0]['position'] );
+		self::assertSame( 'vendor/alpha', $queued[0]['block_spec']['name'] );
+		self::assertSame( 'update', $queued[1]['action'] );
+		self::assertSame( [ 1 ], $queued[1]['path'] );
+		self::assertSame( 'core/paragraph', $queued[1]['block_spec']['name'] );
+		self::assertSame( 'shifted-original', $queued[1]['block_spec']['attributes']['className'] );
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
+	}
+
 	public function test_unregistered_inserted_block_is_queued_for_finalizer(): void {
 		$result = ( new BlocksBatchMutate() )->execute(
 			[
