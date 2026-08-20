@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Context\ContextBuilder;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
@@ -42,6 +43,9 @@ final class ContextUserContextTest extends TestCase {
 		}
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		if ( is_object( $this->original_wpdb ) && property_exists( $this->original_wpdb, 'direction_rows' ) ) {
+			$this->original_wpdb->direction_rows = [];
+		}
 	}
 
 	public function test_custom_instructions_prepend_enabled_user_context(): void {
@@ -88,6 +92,89 @@ final class ContextUserContextTest extends TestCase {
 		self::assertStringStartsWith( 'Ship only in-season produce.', (string) ( $custom['text'] ?? '' ) );
 	}
 
+	public function test_compact_task_start_includes_custom_instruction_text(): void {
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Inspect plugins',
+				'surface' => 'wordpress',
+				'intent'  => 'read',
+			]
+		);
+
+		self::assertIsArray( $start );
+		self::assertSame( 'compact', $start['response_mode'] ?? null );
+		$context = is_array( $start['context'] ?? null ) ? $start['context'] : [];
+		$custom  = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
+		self::assertTrue( (bool) ( $custom['enabled'] ?? false ) );
+		self::assertArrayHasKey( 'text', $custom, 'Compact custom_instructions must carry text, not a presence flag only.' );
+		self::assertNotSame( [ 'enabled' => true ], $custom );
+		self::assertStringStartsWith( 'Ship only in-season produce.', (string) ( $custom['text'] ?? '' ) );
+		self::assertLessThanOrEqual( 400, mb_strlen( (string) $custom['text'] ) );
+	}
+
+	public function test_compact_task_start_includes_design_direction_ref_when_active(): void {
+		$wpdb = $this->original_wpdb;
+		if ( ! is_object( $wpdb ) || ! property_exists( $wpdb, 'direction_rows' ) ) {
+			self::markTestSkipped( 'The test wpdb double does not expose direction_rows.' );
+		}
+
+		$GLOBALS['wpdb'] = $wpdb;
+		$contract        = [
+			'identity'  => [ 'name' => 'Quarry' ],
+			'readiness' => [ 'ready' => true, 'sync_ready' => false, 'issues' => [] ],
+		];
+		$hash            = DesignDirectionService::hash( $contract );
+		$wpdb->direction_rows = [
+			73 => [
+				'id'               => 73,
+				'slug'             => 'quarry',
+				'status'           => 'ready',
+				'contract_json'    => (string) wp_json_encode( $contract ),
+				'contract_hash'    => $hash,
+				'source_type'      => 'manual',
+				'source_refs_json' => '[]',
+				'revision'         => 3,
+				'created_at'       => '2026-07-01 00:00:00',
+				'updated_at'       => '2026-07-02 00:00:00',
+			],
+		];
+		$GLOBALS['stonewright_test_options'][ DesignDirectionService::ACTIVE_OPTION ] = 73;
+
+		$built = ContextBuilder::build( 'Inspect plugins', 'wordpress', 'read' );
+		self::assertArrayHasKey( 'design_direction_ref', $built );
+		self::assertTrue( (bool) $built['design_direction_ref']['active'] );
+		self::assertSame( 73, $built['design_direction_ref']['id'] );
+		self::assertSame( 'quarry', $built['design_direction_ref']['slug'] );
+		self::assertSame( 'Quarry', $built['design_direction_ref']['name'] );
+		self::assertSame( $hash, $built['design_direction_ref']['contract_hash'] );
+		self::assertSame( 'stonewright-design-direction-brief', $built['design_direction_ref']['tool'] );
+
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Inspect plugins',
+				'surface' => 'wordpress',
+				'intent'  => 'read',
+			]
+		);
+		self::assertIsArray( $start );
+		$ref = is_array( $start['context']['design_direction_ref'] ?? null )
+			? $start['context']['design_direction_ref']
+			: [];
+		self::assertSame(
+			[
+				'active'        => true,
+				'id'            => 73,
+				'slug'          => 'quarry',
+				'name'          => 'Quarry',
+				'contract_hash' => $hash,
+				'tool'          => 'stonewright-design-direction-brief',
+			],
+			$ref
+		);
+		self::assertArrayNotHasKey( 'contract', $ref );
+		self::assertContains( 'read_design_direction_brief', $start['context']['required_actions'] ?? [] );
+	}
+
 	public function test_visual_quality_contract_includes_anti_slop_floor(): void {
 		$built = ContextBuilder::build( 'Build a landing page from a screenshot', 'elementor', 'write' );
 
@@ -95,6 +182,42 @@ final class ContextUserContextTest extends TestCase {
 		$ids = array_column( $built['visual_quality_contract']['anti_slop_floor'], 'id' );
 		self::assertContains( 'contrast.text', $ids );
 		self::assertContains( 'overflow.horizontal', $ids );
+	}
+
+	public function test_compact_task_start_includes_anti_slop_floor_for_visual_profiles(): void {
+		$task    = 'Build a landing page from a screenshot';
+		$built   = ContextBuilder::build( $task, 'elementor', 'write' );
+		$expected = array_column( $built['visual_quality_contract']['anti_slop_floor'], 'id' );
+
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'    => $task,
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $start );
+		self::assertTrue( (bool) ( $start['fast_path']['task_profile']['visual'] ?? false ) );
+		$contract = is_array( $start['context']['visual_quality_contract'] ?? null )
+			? $start['context']['visual_quality_contract']
+			: [];
+		self::assertArrayHasKey( 'anti_slop_floor', $contract );
+		$floor = $contract['anti_slop_floor'];
+		self::assertIsArray( $floor );
+		$ids = array_column( $floor, 'id' );
+		if ( [] === $ids ) {
+			$ids = array_values( array_map( 'strval', $floor ) );
+		}
+		self::assertSame( $expected, $ids, 'Compact anti_slop_floor must project the same ContextBuilder floor ids.' );
+	}
+
+	public function test_context_bootstrap_output_schema_lists_design_direction_ref(): void {
+		$schema = ( new ContextBootstrap() )->output_schema();
+
+		self::assertArrayHasKey( 'properties', $schema );
+		self::assertArrayHasKey( 'design_direction_ref', $schema['properties'] );
+		self::assertSame( 'object', $schema['properties']['design_direction_ref']['type'] ?? null );
 	}
 
 	private function make_wpdb(): object {

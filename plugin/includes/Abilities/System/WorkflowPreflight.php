@@ -29,6 +29,11 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private const BATCHING_RULE_ID = 'batch-related-mutations';
 
+	/**
+	 * Compact custom-instruction text budget. Trim here before dropping the field.
+	 */
+	private const COMPACT_CUSTOM_INSTRUCTIONS_CHARS = 400;
+
 	public function name(): string {
 		return 'stonewright/workflow-preflight';
 	}
@@ -341,6 +346,19 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 		];
 
+		if ( is_array( $context['design_direction_ref'] ?? null ) ) {
+			$response['context']['design_direction_ref'] = $context['design_direction_ref'];
+		}
+
+		$visual_contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		if ( is_array( $visual_contract['anti_slop_floor'] ?? null ) && [] !== $visual_contract['anti_slop_floor'] ) {
+			$response['context']['visual_quality_contract'] = [
+				'anti_slop_floor' => $visual_contract['anti_slop_floor'],
+			];
+		}
+
 		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
 			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
 		}
@@ -442,6 +460,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		$custom = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
 		$incident_actions = array_values( array_slice( (array) ( $context['incident_actions'] ?? [] ), 0, 3 ) );
+		$direction_ref    = is_array( $context['design_direction_ref'] ?? null ) ? $context['design_direction_ref'] : [];
+		$direction_active = ! empty( $direction_ref['active'] );
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
 			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
@@ -449,6 +469,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'expertise_refs'   => self::compact_expertise_refs( $context['expertise_packs'] ?? [] ),
 			'required_actions' => array_values( array_filter( [
 				[] !== $incident_actions || [] !== $errors ? 'repair_open_incidents_first' : null,
+				$direction_active ? 'read_design_direction_brief' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
@@ -462,8 +483,34 @@ final class WorkflowPreflight extends AbilityKernel {
 			$compact_context['expertise_body_tool'] = 'stonewright/expertise-get';
 		}
 		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
-			// Presence flag only — full instructions live in admin/memory.
-			$compact_context['custom_instructions'] = [ 'enabled' => true ];
+			$compact_context['custom_instructions'] = [
+				'enabled' => true,
+				'text'    => self::truncate_compact_chars(
+					(string) $custom['text'],
+					self::COMPACT_CUSTOM_INSTRUCTIONS_CHARS
+				),
+			];
+		}
+		if ( $direction_active ) {
+			$compact_context['design_direction_ref'] = [
+				'active'        => true,
+				'id'            => (int) ( $direction_ref['id'] ?? 0 ),
+				'slug'          => (string) ( $direction_ref['slug'] ?? '' ),
+				'name'          => (string) ( $direction_ref['name'] ?? '' ),
+				'contract_hash' => (string) ( $direction_ref['contract_hash'] ?? '' ),
+				'tool'          => 'stonewright-design-direction-brief',
+			];
+		}
+		$quality_contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		$anti_slop_floor  = is_array( $quality_contract['anti_slop_floor'] ?? null )
+			? $quality_contract['anti_slop_floor']
+			: [];
+		if ( [] !== $anti_slop_floor && ! empty( $profile['needs_visual_check'] ) ) {
+			$compact_context['visual_quality_contract'] = [
+				'anti_slop_floor' => self::compact_anti_slop_floor( $anti_slop_floor ),
+			];
 		}
 		if ( [] !== $errors ) {
 			$compact_context['recurring_errors'] = array_map(
@@ -1249,6 +1296,39 @@ final class WorkflowPreflight extends AbilityKernel {
 			return $task;
 		}
 		return rtrim( substr( $task, 0, 157 ) ) . '...';
+	}
+
+	/**
+	 * Project the visual quality floor to ids so compact task-start stays under budget.
+	 *
+	 * @param list<array<string, mixed>> $floor
+	 * @return list<array{id:string}>
+	 */
+	private static function compact_anti_slop_floor( array $floor ): array {
+		$out = [];
+		foreach ( $floor as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id = (string) ( $row['id'] ?? '' );
+			if ( '' === $id ) {
+				continue;
+			}
+			$out[] = [ 'id' => $id ];
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Truncate compact context copy on a Unicode character boundary.
+	 */
+	private static function truncate_compact_chars( string $text, int $limit ): string {
+		if ( $limit < 1 || mb_strlen( $text ) <= $limit ) {
+			return $text;
+		}
+
+		return mb_substr( $text, 0, $limit - 1 ) . '…';
 	}
 
 	private static function normalise( string $text ): string {
