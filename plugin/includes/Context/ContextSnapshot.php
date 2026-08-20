@@ -58,6 +58,7 @@ final class ContextSnapshot {
 				'safety_rules'        => GlobalRules::ids_for_severity( 'hard' ),
 				'user_context'        => $built['user_context'] ?? UserContext::get(),
 				'custom_instructions' => $built['custom_instructions'] ?? [ 'enabled' => false, 'text' => '' ],
+				'instructions'        => (string) ( $built['instructions'] ?? '' ),
 				'target_context'      => $target,
 			]
 		);

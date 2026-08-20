@@ -6,6 +6,8 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
+use Stonewright\WpMcp\Design\Direction\DirectionSummary;
 use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
@@ -33,8 +35,9 @@ final class ContextBuilder {
 
 		$visual_quality_contract = $is_visual ? self::visual_quality_contract() : self::visual_context_stub();
 		$visual_build_gate       = $is_visual ? self::visual_build_gate() : self::visual_build_gate_stub();
+		$design_direction_ref    = self::design_direction_ref();
 
-		return [
+		$packet = [
 			'ok'                       => true,
 			'context_token'            => $token['token'],
 			'expires_at'               => $token['expires_at'],
@@ -84,6 +87,30 @@ final class ContextBuilder {
 			'design_implementation_contract' => ImplementationContract::contract(),
 			'required_followups'             => self::required_followups( $surface, $intent, $is_visual ),
 		];
+
+		if ( is_array( $design_direction_ref ) ) {
+			$packet['design_direction_ref'] = $design_direction_ref;
+		}
+
+		return $packet;
+	}
+
+	/**
+	 * Compact pointer to the active design direction, omitted when none is active.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function design_direction_ref(): ?array {
+		$record = ( new DesignDirectionService() )->active();
+		if ( ! is_array( $record ) ) {
+			return null;
+		}
+
+		$id          = (int) ( $record['id'] ?? 0 );
+		$ref         = DirectionSummary::row( $record, $id );
+		$ref['tool'] = 'stonewright-design-direction-brief';
+
+		return $ref;
 	}
 
 	/**
