@@ -395,7 +395,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			);
 		}
 		// Prefer ordered profile tools when available; keep compact payload small.
-		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 6 ) );
+		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 4 ) );
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -542,7 +542,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		// Compact mode restates the instruction in short form rather than carrying
 		// the full-mode prose; the remediation detail lives in the docs.
 		$re_list            = $tools_changed
-			? 'Re-list tools now (tools/list). More tools are available. If a tool is still missing, restart the MCP client.'
+			? 'Re-list tools (tools/list). Restart the MCP client if a required tool is missing.'
 			: '';
 
 		$site = is_array( $response['site'] ?? null ) ? $response['site'] : [];
@@ -550,7 +550,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			? $response['target_context']
 			: [];
 
-		return [
+		$compact_response = [
 			'ok'                  => (bool) ( $response['ok'] ?? false ),
 			'context_token'       => (string) ( $response['context_token'] ?? '' ),
 			'expires_at'          => (string) ( $response['expires_at'] ?? '' ),
@@ -572,7 +572,6 @@ final class WorkflowPreflight extends AbilityKernel {
 			'payload_hashes'      => $payload_hashes,
 			'changed_keys'        => $changed,
 			'unchanged_keys'      => $unchanged,
-			'tool_profile'        => $profile_name,
 			'configured_mcp_surface' => (string) ( $response['configured_mcp_surface'] ?? $profile_name ),
 			'session_tool_profile' => (string) ( $response['session_tool_profile'] ?? $profile_name ),
 			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
@@ -584,30 +583,43 @@ final class WorkflowPreflight extends AbilityKernel {
 				'backend'           => (string) ( $target_context['backend'] ?? 'plugin' ),
 				'normalized_url'    => (string) ( $target_context['normalized_url'] ?? '' ),
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
-				'environment_type'  => (string) ( $target_context['environment_type'] ?? 'unknown' ),
-				'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
 			],
 		];
+		if ( [] === $compact_response['auth_guidance'] ) {
+			unset( $compact_response['auth_guidance'] );
+			unset( $compact_response['payload_hashes']['auth_guidance'] );
+		}
+		if ( false === $compact_response['elementor']['included'] ) {
+			unset( $compact_response['elementor'] );
+		}
+		if ( [] === $compact_response['unchanged_keys'] ) {
+			unset( $compact_response['unchanged_keys'] );
+		}
+		if ( [] === $known_hashes ) {
+			unset( $compact_response['changed_keys'] );
+		}
+
+		return $compact_response;
 	}
 
 	/**
 	 * Compact expertise references.
 	 *
-	 * Drops the fields a client cannot act on (`status`, `activation`) and the
-	 * per-entry `body_tool`, which is constant and named once on the context.
+	 * The id selects the pack and the hash supports cache validation. Other
+	 * metadata is available from the named body tool.
 	 *
 	 * @param mixed $packs Full-mode expertise packs.
 	 * @return list<array<string, mixed>>
 	 */
 	private static function compact_expertise_refs( $packs ): array {
 		$refs = [];
-		foreach ( array_slice( (array) $packs, 0, 2 ) as $pack ) {
+		foreach ( array_slice( (array) $packs, 0, 1 ) as $pack ) {
 			if ( ! is_array( $pack ) ) {
 				continue;
 			}
 			$refs[] = array_intersect_key(
 				$pack,
-				array_flip( [ 'id', 'version', 'hash', 'cached', 'trigger' ] )
+				array_flip( [ 'id', 'hash' ] )
 			);
 		}
 
@@ -648,10 +660,8 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private static function compact_object_ref( string $key, mixed $value ): array {
 		return [
-			'compact' => true,
-			'key'     => $key,
-			'hash'    => self::hash_value( $value ),
-			'length'  => strlen( wp_json_encode( $value ) ?: '' ),
+			'key'  => $key,
+			'hash' => self::hash_value( $value ),
 		];
 	}
 
@@ -1299,10 +1309,10 @@ final class WorkflowPreflight extends AbilityKernel {
 	}
 
 	/**
-	 * Project the visual quality floor to ids so compact task-start stays under budget.
+	 * Keep the actionable visual quality contract while omitting non-contract keys.
 	 *
 	 * @param list<array<string, mixed>> $floor
-	 * @return list<array{id:string}>
+	 * @return list<array{id:string,summary:string,severity:string,guidance:mixed}>
 	 */
 	private static function compact_anti_slop_floor( array $floor ): array {
 		$out = [];
@@ -1310,11 +1320,22 @@ final class WorkflowPreflight extends AbilityKernel {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			$id = (string) ( $row['id'] ?? '' );
-			if ( '' === $id ) {
+			$id       = (string) ( $row['id'] ?? '' );
+			$summary  = (string) ( $row['summary'] ?? '' );
+			$severity = (string) ( $row['severity'] ?? '' );
+			if ( '' === $id || '' === $summary || '' === $severity || ! array_key_exists( 'guidance', $row ) ) {
 				continue;
 			}
-			$out[] = [ 'id' => $id ];
+			$guidance = $row['guidance'];
+			if ( is_string( $guidance ) ) {
+				$guidance = self::truncate_compact_chars( $guidance, 100 );
+			}
+			$out[] = [
+				'id'       => $id,
+				'summary'  => $summary,
+				'severity' => $severity,
+				'guidance' => $guidance,
+			];
 		}
 
 		return $out;
