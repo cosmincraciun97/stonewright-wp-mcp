@@ -19,17 +19,17 @@
 </p>
 
 <!-- supported-release:start -->
-<p align="center"><strong>Current release: 1.0.0-beta.10 — Public Beta</strong></p>
+<p align="center"><strong>Current release: 1.0.0-beta.11 — Public Beta</strong></p>
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-1.0.0-beta.10.zip">Download Plugin</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/stonewright-1.0.0-beta.11.zip">Download Plugin</a>
   ·
   <a href="docs/installation.md">Installation guide</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-companion-1.0.0-beta.10.tgz">Companion</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/stonewright-companion-1.0.0-beta.11.tgz">Companion</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/SHA256SUMS.txt">Checksums</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/SHA256SUMS.txt">Checksums</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.10">Release notes</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.11">Release notes</a>
 </p>
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->

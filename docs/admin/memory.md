@@ -29,6 +29,12 @@ The instructions are also included in the output of the
 `stonewright-system-abilities-list` MCP tool so agents can read them
 programmatically.
 
+Enabled Context page text (`Stonewright → Context`) is prepended to this
+block before it reaches agents. Compact `stonewright-task-start` includes up
+to 400 characters of that combined text in `context.custom_instructions.text`.
+The rest is available with `responseMode=full`. Pluginless Direct mode never
+sees wp-admin Context or custom instructions.
+
 ### Enabling and disabling
 
 The toggle saves to `stonewright_custom_instructions_enabled` (boolean). When

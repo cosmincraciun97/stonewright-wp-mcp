@@ -2,14 +2,27 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.11] - 2026-08-21
+
 ### Added
 
 - Add Gutenberg block-finalizer tools to the companion gutenberg profile catalog.
+- Add a `discover-execute` companion profile catalog for the three protocol tools.
 
 ### Changed
 
 - Alias `codex-cli` to the existing Codex TOML adapter so CLI connect commands
   keep working after the ChatGPT Desktop vs Codex CLI split.
+- Split paste-to-agent `--profile` from `--wp-surface` so compact versus full
+  surfaces stay explicit.
+- Persist the MCP surface from Apply now and report when a session has widened
+  beyond compact.
+- Align the companion package version with plugin 1.0.0-beta.11.
+
+### Fixed
+
+- Separate Codex Desktop from Codex CLI in Connect and dedupe generated MCP
+  server names.
 
 ## [1.0.0-beta.10] - 2026-08-12
 

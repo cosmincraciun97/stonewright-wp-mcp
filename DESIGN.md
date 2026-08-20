@@ -237,6 +237,7 @@ This is the release checklist for every Stonewright-owned wp-admin surface.
 | --- | --- | --- | --- |
 | Dashboard | Scan current operating state | One compact summary band, two evidence panels, metrics at 20px or below | Long mode, URL, and activity values must wrap without changing cell width |
 | Setup | Connect and update safely | Numbered steps, grouped choices, readable code, explicit verification receipts | Release checks must bypass stale caches; secrets never enter examples |
+| Troubleshoot | Diagnose a failed AI client connection | Diagnostic cards, status pills, in-place Run diagnostics with a loading spinner | JavaScript path must not reload the page; no-JS form remains a fallback |
 | AI Abilities | Search and gate tools | Sticky filters, compact grouped rows, semantic switches and buttons | Category actions must not depend on inline click handlers |
 | Sandbox | Review code before activation | Clear tabs, readable file badges, explicit primary/destructive actions | Status text and payloads must remain legible at narrow widths |
 | Design Studio | Capture and validate direction | Same sans hierarchy and shared tokens as the rest of the product | Rich editing must not introduce a second visual language |
@@ -246,6 +247,8 @@ This is the release checklist for every Stonewright-owned wp-admin surface.
 | Code Approval | Issue a scoped grant | Clearly labeled token, copy action, binding receipt | Token content must never be obscured, logged, or persisted accidentally |
 | Audit Log | Diagnose and understand outcomes | Filter panel, responsive rows, full-width readable payload | Payload, cause, and repair copy must never escape or collapse the table |
 | Memory | Manage durable site knowledge | Compact table, explicit lifecycle/status, edit/delete actions | Fresh installs start empty; updates preserve user data |
+| Context | Persist operator Context for every MCP agent | Two-column system/user layout, collapsible generated snapshot | Compact task-start must carry truncated user context text |
+| Design | Persist the active Design Direction | Shared tokens and compact direction list/editor | Compact task-start points at design-direction-brief; do not inline the full contract |
 | Skills | Manage reusable instructions | Catalog/editor split, clear provenance and lifecycle | Fresh installs include only product defaults; user data survives updates |
 
 ### Cross-page release checks

@@ -11,21 +11,34 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.11] - 2026-08-21
+
 ### Added
 
-- Add a discover-execute MCP profile with three protocol tools for catalog discovery and gated execution without exposing the full tool list.
-- Default Gutenberg block parse, registered-block list, and theme.json reads to bounded summaries, with `responseMode=full` restoring the previous dumps.
+- Add a Connect → Troubleshoot page that runs connection diagnostics in place
+  with a loading state, result cards, a copyable support report, bot/WAF
+  probes, OAuth registration checks, and a clipboard fallback.
+- Add a discover-execute MCP profile with three protocol tools for catalog
+  discovery and gated execution without exposing the full tool list.
+- Default Gutenberg block parse, registered-block list, and theme.json reads to
+  bounded summaries, with `responseMode=full` restoring the previous dumps.
 - Add read-only GenerateBlocks, Kadence Blocks, Spectra, and Blocksy library
   introspection, plus Blocksy/Kadence/GeneratePress theme chrome get/update.
 - Add presence-gated Blocksy, Kadence, GenerateBlocks, and Spectra build-page
-  skills that compose through the Gutenberg finalizer.
+  skills that compose through the Gutenberg finalizer, plus builder operating
+  manuals and ACF, SEO, and forms skills.
 - Add typed query-loop, FSE navigation, and synced-pattern update/delete/category
   abilities, plus a child-theme theme.json handoff that stops at human approval.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
-- Add a browser-assisted Gutenberg block finalizer so static and third-party
-  blocks serialize in the live editor, then persist through Stonewright's
-  existing backup, confirmation, and audit gates.
+- Add a browser-assisted Gutenberg block finalizer that serializes queued block
+  specs in the live editor iframe, persists path-aware hashed HTML through
+  existing backup, confirmation, and audit gates, and shows a Block Editor Queue
+  with heartbeat status. Partial block schemas stay marked as live-editor
+  validated.
+- Add Elementor list-widgets summary mode and optional full Design Direction
+  document loading from `stonewright/design-direction-brief`.
+- Add reviewable draft lessons when the same recurring error reaches ten repeats.
 
 ### Security
 
@@ -37,25 +50,73 @@ development builds were never stable releases.
   mode.
 - Restrict REST ability execution to the active tool profile unless confirmed,
   and require a confirmation token to toggle abilities over REST.
+- Require production-safe confirmation tokens on remaining content, Elementor,
+  Gutenberg, site, and admin-domain writers.
 
 ### Fixed
 
+- Stop Run diagnostics from refreshing the whole admin page when JavaScript is
+  available, and keep the no-JS form as a fallback.
+- Detect the skills table through wrapped `$wpdb` handles so packaged
+  landing-page playbooks actually retire on seed.
+- Keep local-site Connect tabs actionable: ChatGPT and Claude.ai now show the
+  Desktop/mcp-remote bridge instead of an empty notice.
+- Hide inactive OAuth client panels so tab switches actually change the visible
+  config.
+- Allow `cursor://` one-click install links through WordPress URL sanitization
+  and add a copy-link fallback.
+- Stop Setup diagnostics from claiming a companion contract mismatch when plugin
+  SemVer and the HTTP contract share major 1.
+- Reseed packaged skills when the plugin version changes so file copies without
+  reactivation still refresh the catalog.
+- Treat an Elementor elements manager that cannot list types as offline instead
+  of failing closed on a stub or half-booted runtime.
 - Store backup snapshots and restores through a slash-safe post-meta boundary so
   Elementor documents containing escaped JSON round-trip byte-faithfully; the
   snapshot integrity hash check now passes for legitimate writes and still fails
   closed on genuine storage corruption.
+- Separate Codex Desktop from Codex CLI in Connect and dedupe generated MCP
+  server names.
+- Hide Elementor V4 tools when the atomic toggle is off, persist the MCP surface
+  from Apply now, and report when a session has widened beyond compact.
+- Surface audit-row error code, message, target, and repair, and make occurrence
+  links filter correctly.
+- Harden memory save failures, checkbox uncheck, matching window, and
+  `body_tool` routing.
+- Split paste-to-agent `--profile` from `--wp-surface` so compact versus full
+  surfaces stay explicit.
+- Normalize sparse container settings on the standalone Elementor add-container
+  path.
+- Restore editor iframe state after finalizer serialize, reject mixed finalizer
+  batches, and honor block path, position, and update semantics on persist.
 
 ### Changed
 
-- Route ambiguous design, landing-page, and section tasks to Gutenberg when Elementor is inactive or a block theme such as Blocksy is the stronger signal.
+- Style Application Password client pickers with the same button tabs as OAuth.
+- Keep compact `stonewright-task-start` under the anti-slop byte budget with
+  truncated Context, `design_direction_ref`, and the visual quality floor, and
+  expose `stonewright/design-direction-brief` on the essential MCP surface.
+- Rebuild the Context admin page into side-by-side system and user sections,
+  with collapsible generated instructions and an on/off inject toggle.
+- Route ambiguous design, landing-page, and section tasks to Gutenberg when
+  Elementor is inactive or a block theme such as Blocksy is the stronger signal.
 - Discover skills as slug plus one-line description; load playbook bodies only
-  through `stonewright/skills-get`, and hide skills whose required integrations
-  are absent.
+  through `stonewright/skills-get`, presence-gate skill bodies as well as the
+  catalog, and hide skills whose required integrations are absent.
 - Harden pattern creates and FSE global-style/template writes with the same
   backup, confirmation, sanitization, and audit envelope as the canonical
   write abilities. Keep the older update-* names as compatibility wrappers.
 - Require an explicit, SemVer-compatible release channel and expose the
   supported public beta through one validated README download path.
+- Clear the admin header of mode and version, mark Troubleshoot, Context,
+  Design, and Block Editor Queue as Experimental, and move Memory, Skills, and
+  Context under Workflows.
+- Expose the generated **381**-ability Plugin and **101**-tool Direct contracts.
+
+### Removed
+
+- Remove packaged industry landing-page playbooks from the skills catalog.
+  Already-seeded playbook rows are retired on seed and on plugin upgrade.
 
 ## [1.0.0-beta.10] - 2026-08-12
 
@@ -116,30 +177,9 @@ development builds were never stable releases.
   are withheld while the receipt retains the server name, change state, backup
   state, support tier, and browser consent metadata.
 
-## [1.0.0-beta.6] - 2026-08-12
-
-### Changed
-
-- Make the installed-plugin setup prompt choose one transport, require a unique
-  alias and `plugin-only` policy for companion stdio, and reuse an existing
-  credential through `connect repair --mode` instead of creating a generic or
-  duplicate server entry.
-- Add a synthetic, privacy-safe Dashboard overview to the main documentation.
-
-### Fixed
-
-- Keep domain-lock recovery forms outside the Settings API form so **Save
-  Settings** returns to Stonewright Setup instead of leaving the user on
-  `/wp-admin/options.php`.
-- Treat `STONEWRIGHT_SITE_ALIAS` as the startup routing authority, replacing
-  stale inherited WordPress environment values before Plugin/Direct mode is
-  selected and failing closed when its credential cannot be resolved.
-- Collapse duplicate legacy aliases for the same canonical site/environment
-  during secure v1 migration, and allow `connect repair --mode plugin-only` to
-  update a named client entry without requesting the saved password again.
-
 ## Older releases
 
+- [1.0.0-beta.6](docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](docs/releases/1.0.0-beta.5.md)
 - [1.0.0-beta.4](docs/releases/1.0.0-beta.4.md)
 - [1.0.0-beta.3](docs/releases/1.0.0-beta.3.md)

@@ -30,7 +30,18 @@ It routes the agent to the right specialized skill and MCP tools.
    version-incompatible guidance.
 5. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
-   direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
+   direct `stonewright-wp-cli-*` tools only when WP-CLI is needed. Ask the
+   operator to run **Stonewright → Troubleshoot** when the client never sees
+   tools, fails auth, or cannot reach the site.
+
+Honor site policy from compact `stonewright-task-start`:
+
+- `context.custom_instructions.text` is Context page text plus custom
+  instructions (truncated to 400 characters). Treat it as binding. Use
+  `responseMode=full` when you need the rest.
+- `context.design_direction_ref` means a Design Direction is active. Call
+  `stonewright-design-direction-brief` before visual writes. Pluginless Direct
+  cannot see wp-admin Context or Design.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full

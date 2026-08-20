@@ -81,6 +81,11 @@ verified. Search filters the list in place. Inspect opens a drawer with the
 body, lint findings, trust findings, and history. Export downloads normalized
 Markdown with provenance and a content hash.
 
+Packaged industry landing-page playbooks (`Landing page — Agency`, SaaS, Law
+firm, Healthcare, Nonprofit, Real estate, Restaurant) are no longer shipped.
+Already-seeded playbook rows for those slugs are retired on seed. Presence-gated
+Blocksy, Kadence, GenerateBlocks, and Spectra build-page skills remain.
+
 **Editor.** Creating and editing a skill is a nonce-checked form that works
 with JavaScript disabled. It is the only write path on the page that does not
 go through the REST routes.
