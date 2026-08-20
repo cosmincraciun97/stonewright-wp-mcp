@@ -47,6 +47,8 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 		self::assertTrue( $result['session_profile_applied'] );
 		self::assertSame( 'session_transient_written', $result['session_profile_reason'] );
 		self::assertTrue( $result['tools_changed'] );
+		self::assertSame( 'essential', $result['configured_mcp_surface'] );
+		self::assertNotSame( $result['configured_mcp_surface'], $result['session_tool_profile'] );
 
 		$session = AbilityRegistry::session_tool_profile();
 		self::assertIsArray( $session );

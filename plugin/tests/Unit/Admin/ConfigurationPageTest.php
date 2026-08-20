@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\ConfigurationPage
@@ -67,6 +69,10 @@ final class ConfigurationPageTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_login'] = 'admin';
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_app_passwords'] = [];
+		$GLOBALS['stonewright_test_json_response'] = null;
+		$_POST = [];
+		$_GET  = [];
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 	}
 
 	public function test_render_outputs_guided_connect_wizard_controls(): void {
@@ -459,6 +465,98 @@ final class ConfigurationPageTest extends TestCase {
 			$html
 		);
 		self::assertStringContainsString( 'id="stonewright_mode_help"', $html );
+	}
+
+	public function test_apply_now_persists_mcp_surface_and_bumps_surface_revision(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']        = 'essential';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_surface_revision']   = 7;
+		$GLOBALS['stonewright_test_json_response']                            = null;
+		$_POST = [
+			'nonce'               => wp_create_nonce( 'stonewright_setup_client' ),
+			'surface'             => 'full',
+			'mode'                => 'staging',
+			'enabled'             => '0',
+			'elementor_v4_atomic' => '0',
+		];
+
+		ConfigurationPage::handle_apply_mcp_surface();
+
+		self::assertSame( 'full', get_option( 'stonewright_mcp_surface' ) );
+		self::assertSame( 8, AbilityRegistry::surface_revision() );
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame( 'full', $response['data']['surface'] );
+		self::assertSame( 8, $response['data']['surface_revision'] );
+	}
+
+	public function test_apply_now_returns_honest_client_refresh_notice(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'essential';
+		$GLOBALS['stonewright_test_json_response']                     = null;
+		$_POST = [
+			'nonce'   => wp_create_nonce( 'stonewright_setup_client' ),
+			'surface' => 'bootstrap',
+		];
+
+		ConfigurationPage::handle_apply_mcp_surface();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			(string) ( $response['data']['message'] ?? '' )
+		);
+	}
+
+	public function test_settings_saved_shows_honest_surface_refresh_notice(): void {
+		$_GET['settings-updated'] = 'true';
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			$html
+		);
+		self::assertStringContainsString( 'id="stonewright-mcp-surface-status"', $html );
+	}
+
+	public function test_diagnostics_show_configured_and_active_session_when_widened(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'essential';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
+
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'config-page-session-union';
+		$configured_count               = count( AbilityRegistry::enabled_abilities() );
+		self::assertSame( 30, $configured_count );
+
+		self::assertTrue(
+			AbilityRegistry::set_session_tool_profile(
+				'elementor-design',
+				ToolProfile::profile_tools( 'elementor-design' )
+			)
+		);
+		$session_count = count( AbilityRegistry::enabled_abilities() );
+		self::assertGreaterThan( $configured_count, $session_count );
+
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			sprintf( 'Configured: essential (%d)', $configured_count ),
+			$html
+		);
+		self::assertStringContainsString(
+			sprintf( 'Active session: elementor-design (%d)', $session_count ),
+			$html
+		);
 	}
 
 	public function test_admin_bootstrap_does_not_register_settings_page(): void {

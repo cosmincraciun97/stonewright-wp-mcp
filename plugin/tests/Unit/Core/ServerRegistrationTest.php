@@ -4,6 +4,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\ServerRegistration;
 
 /**
@@ -20,7 +22,15 @@ final class ServerRegistrationTest extends TestCase {
 			'stonewright_disabled_abilities'           => [],
 			'stonewright_essential_tools_mode'         => true,
 			'stonewright_essential_extra_abilities'    => [],
+			'stonewright_mcp_surface'                  => 'essential',
 		];
+		$GLOBALS['stonewright_test_transients'] = [];
+	}
+
+	protected function tearDown(): void {
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		$GLOBALS['stonewright_test_options']    = [];
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
 	public function test_register_server_uses_compact_startup_description_without_duplicate_custom_instructions(): void {
@@ -65,6 +75,26 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertNotContains( 'stonewright/sandbox-write', $tools );
 		self::assertContains( 'stonewright/design-direction-brief', $tools );
 		self::assertCount( 30, $tools );
+	}
+
+	public function test_session_widened_surface_registers_union_tools(): void {
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'server-registration-session-union';
+		self::assertTrue(
+			AbilityRegistry::set_session_tool_profile(
+				'elementor-design',
+				ToolProfile::profile_tools( 'elementor-design' )
+			)
+		);
+
+		$adapter = new CapturingMcpAdapter();
+		ServerRegistration::register_server( $adapter );
+
+		$tools = $this->created_server_argument( $adapter, 9 );
+
+		self::assertIsArray( $tools );
+		self::assertGreaterThan( 30, count( $tools ) );
+		self::assertContains( 'stonewright/site-pulse', $tools );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $tools );
 	}
 
 	public function test_registers_separate_application_password_and_oauth_servers(): void {

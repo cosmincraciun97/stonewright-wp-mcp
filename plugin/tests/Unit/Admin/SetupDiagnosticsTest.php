@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Admin\SetupDiagnostics;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\SetupDiagnostics
@@ -25,6 +27,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$GLOBALS['stonewright_test_options']        = [];
 		$GLOBALS['stonewright_test_transients']     = [];
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 	}
 
 	public function test_report_is_compact_and_versioned(): void {
@@ -86,6 +89,36 @@ final class SetupDiagnosticsTest extends TestCase {
 			sprintf( 'Full surface selected — %d tools. Compact profiles reduce agent token cost.', $count ),
 			$budget['detail']
 		);
+	}
+
+	public function test_tool_surface_reports_configured_and_active_session_when_widened(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'essential';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
+
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'setup-diag-session-union';
+		$configured_count               = count( AbilityRegistry::enabled_abilities() );
+		self::assertTrue(
+			AbilityRegistry::set_session_tool_profile(
+				'elementor-design',
+				ToolProfile::profile_tools( 'elementor-design' )
+			)
+		);
+		$session_count = count( AbilityRegistry::enabled_abilities() );
+		self::assertGreaterThan( $configured_count, $session_count );
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+
+		$report = SetupDiagnostics::report();
+		$card   = $this->find_check( $report['checks'], 'tool_surface' );
+
+		self::assertSame(
+			sprintf(
+				'Configured: essential (%d) · Active session: elementor-design (%d)',
+				$configured_count,
+				$session_count
+			),
+			$card['detail']
+		);
+		self::assertSame( $configured_count, $report['versions']['tool_count'] );
 	}
 
 	public function test_probe_maps_loopback_and_waf_without_production_hostnames(): void {

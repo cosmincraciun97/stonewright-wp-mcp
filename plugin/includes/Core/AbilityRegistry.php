@@ -302,6 +302,7 @@ use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
  */
 final class AbilityRegistry {
 	private const SESSION_PROFILE_TRANSIENT_PREFIX = 'stonewright_mcp_session_profile_';
+	private const SESSION_PROFILE_INDEX_OPTION     = 'stonewright_mcp_session_profile_index';
 	private const SESSION_PROFILE_TTL              = 3600;
 	private const SESSION_TASK_STARTED_PREFIX      = 'stonewright_mcp_task_started_';
 	/** Align with ContextToken / Direct latch (30 minutes). */
@@ -1387,6 +1388,7 @@ final class AbilityRegistry {
 		);
 		if ( $updated ) {
 			self::bump_surface_revision();
+			self::index_session_profile_key( $key );
 		}
 
 		return $updated;
@@ -1412,6 +1414,99 @@ final class AbilityRegistry {
 		];
 	}
 
+	/**
+	 * Configured MCP surface vs any live session that has widened it.
+	 *
+	 * Admin diagnostics have no MCP session header, so this also reads indexed
+	 * session transients written by set_session_tool_profile().
+	 *
+	 * @return array{configured:string,configured_count:int,session_profile:?string,session_count:?int,widened:bool}
+	 */
+	public static function surface_session_view(): array {
+		$configured       = self::mcp_surface();
+		$configured_count = self::count_enabled_for_surface( $configured, null );
+		$widest_profile   = null;
+		$widest_count     = $configured_count;
+		$candidates       = self::active_session_profiles();
+		$current          = self::session_tool_profile();
+		if ( is_array( $current ) ) {
+			array_unshift( $candidates, $current );
+		}
+
+		foreach ( $candidates as $session ) {
+			$count = self::count_enabled_for_surface( $configured, $session );
+			if ( $count > $widest_count ) {
+				$widest_count   = $count;
+				$widest_profile = (string) $session['profile'];
+			}
+		}
+
+		$widened = null !== $widest_profile && $widest_count > $configured_count;
+
+		return [
+			'configured'       => $configured,
+			'configured_count' => $configured_count,
+			'session_profile'  => $widened ? $widest_profile : null,
+			'session_count'    => $widened ? $widest_count : null,
+			'widened'          => $widened,
+		];
+	}
+
+	/**
+	 * @return list<array{profile:string, ability_names:list<string>}>
+	 */
+	public static function active_session_profiles(): array {
+		$profiles = [];
+		foreach ( self::session_profile_index() as $key ) {
+			$value = get_transient( $key );
+			if ( ! is_array( $value ) || ! is_string( $value['profile'] ?? null ) || ! is_array( $value['ability_names'] ?? null ) ) {
+				continue;
+			}
+			$profiles[] = [
+				'profile'       => strtolower( trim( $value['profile'] ) ),
+				'ability_names' => array_values( array_map( 'strval', $value['ability_names'] ) ),
+			];
+		}
+
+		return $profiles;
+	}
+
+	private static function index_session_profile_key( string $key ): void {
+		$index = self::session_profile_index();
+		if ( in_array( $key, $index, true ) ) {
+			return;
+		}
+		$index[] = $key;
+		if ( count( $index ) > 32 ) {
+			$index = array_slice( $index, -32 );
+		}
+		update_option( self::SESSION_PROFILE_INDEX_OPTION, $index, false );
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function session_profile_index(): array {
+		$raw = get_option( self::SESSION_PROFILE_INDEX_OPTION, [] );
+		if ( ! is_array( $raw ) ) {
+			return [];
+		}
+
+		return array_values(
+			array_filter(
+				$raw,
+				static fn( mixed $key ): bool => is_string( $key ) && str_starts_with( $key, self::SESSION_PROFILE_TRANSIENT_PREFIX )
+			)
+		);
+	}
+
+	/**
+	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 */
+	private static function count_enabled_for_surface( string $surface, ?array $session ): int {
+		return count( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ) );
+	}
+
 	private static function session_profile_transient_key(): ?string {
 		$session_id = isset( $_SERVER['HTTP_MCP_SESSION_ID'] ) && is_string( $_SERVER['HTTP_MCP_SESSION_ID'] )
 			? trim( $_SERVER['HTTP_MCP_SESSION_ID'] )
@@ -1427,9 +1522,15 @@ final class AbilityRegistry {
 	 * @return array<int, class-string<Ability>>
 	 */
 	private static function public_classes(): array {
+		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile() );
+	}
+
+	/**
+	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function classes_for_surface( string $surface, ?array $session ): array {
 		$classes = self::list();
-		$session = self::session_tool_profile();
-		$surface = self::mcp_surface();
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
 			return self::filter_disabled_v4_abilities( $classes );
@@ -1450,21 +1551,7 @@ final class AbilityRegistry {
 				true
 			);
 
-			return self::filter_disabled_v4_abilities(
-				array_values(
-					array_filter(
-						$classes,
-						static function ( string $class ) use ( $allowed ): bool {
-							if ( ! class_exists( $class ) ) {
-								return false;
-							}
-							/** @var Ability $ability */
-							$ability = new $class();
-							return isset( $allowed[ $ability->name() ] );
-						}
-					)
-				)
-			);
+			return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
 		}
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
@@ -1476,20 +1563,27 @@ final class AbilityRegistry {
 			true
 		);
 
-		return self::filter_disabled_v4_abilities(
-			array_values(
-				array_filter(
-					$classes,
-					static function ( string $class ) use ( $allowed ): bool {
-						if ( ! class_exists( $class ) ) {
-							return false;
-						}
+		return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+	}
 
-						/** @var Ability $ability */
-						$ability = new $class();
-						return isset( $allowed[ $ability->name() ] );
+	/**
+	 * @param array<int, class-string<Ability>> $classes
+	 * @param array<string, true>               $allowed
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_classes_by_allowed_names( array $classes, array $allowed ): array {
+		return array_values(
+			array_filter(
+				$classes,
+				static function ( string $class ) use ( $allowed ): bool {
+					if ( ! class_exists( $class ) ) {
+						return false;
 					}
-				)
+
+					/** @var Ability $ability */
+					$ability = new $class();
+					return isset( $allowed[ $ability->name() ] );
+				}
 			)
 		);
 	}

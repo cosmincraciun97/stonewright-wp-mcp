@@ -49,6 +49,22 @@ final class SetupDiagnostics {
 
 		$connection_ok = $enabled && '' !== $endpoint;
 		$surface_ok    = in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true );
+		$surface_view  = AbilityRegistry::surface_session_view();
+		$surface_detail = $surface_view['widened']
+			? sprintf(
+				/* translators: 1: configured MCP surface, 2: configured tool count, 3: live session profile, 4: session tool count */
+				__( 'Configured: %1$s (%2$d) · Active session: %3$s (%4$d)', 'stonewright' ),
+				$surface_view['configured'],
+				$surface_view['configured_count'],
+				(string) $surface_view['session_profile'],
+				(int) $surface_view['session_count']
+			)
+			: sprintf(
+				/* translators: 1: MCP surface, 2: tool count */
+				__( 'Profile %1$s with %2$d tools exposed.', 'stonewright' ),
+				$surface,
+				$tool_count
+			);
 
 		$checks = [
 			self::check( 'plugin', $enabled, __( 'Stonewright abilities', 'stonewright' ), $enabled ? __( 'Enabled.', 'stonewright' ) : __( 'Enable Stonewright in step 1.', 'stonewright' ) ),
@@ -72,12 +88,7 @@ final class SetupDiagnostics {
 				'tool_surface',
 				$surface_ok,
 				__( 'Tool surface', 'stonewright' ),
-				sprintf(
-					/* translators: 1: MCP surface, 2: tool count */
-					__( 'Profile %1$s with %2$d tools exposed.', 'stonewright' ),
-					$surface,
-					$tool_count
-				)
+				$surface_detail
 			),
 			self::compact_tool_surface_check( $surface, $tool_count ),
 			self::check(

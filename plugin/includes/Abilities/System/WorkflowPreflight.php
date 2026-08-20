@@ -265,11 +265,16 @@ final class WorkflowPreflight extends AbilityKernel {
 			$session_reason = 'bootstrap_profile_needs_no_expansion';
 		}
 		// Always signal re-list when the effective profile is not bootstrap, OR when
-		// the admin-configured surface is already essential/full. Stdio companions
-		// that started on env bootstrap must expand even if the WP surface is full
-		// and no session transient was written (session_profile_applied stays false).
-		$tools_changed = ( 'bootstrap' !== $session_profile )
-			|| ( 'bootstrap' !== $configured_surface );
+		// the admin-configured surface is already essential/full, OR when a session
+		// profile widened past the configured surface. Stdio companions that started
+		// on env bootstrap must expand even if the WP surface is full and no session
+		// transient was written (session_profile_applied stays false). Apply-now
+		// bumps surface_revision; we cannot push tools/list to a stdio client
+		// mid-session — the companion re-lists on this flag.
+		$session_widened = $session_applied && $session_profile !== $configured_surface;
+		$tools_changed   = ( 'bootstrap' !== $session_profile )
+			|| ( 'bootstrap' !== $configured_surface )
+			|| $session_widened;
 		if ( $tools_changed ) {
 			$re_list = 'Re-list tools now (tools/list). New tools are available for this session. '
 				. 'If your client ignores tools/list_changed, call tools/list again before continuing. '

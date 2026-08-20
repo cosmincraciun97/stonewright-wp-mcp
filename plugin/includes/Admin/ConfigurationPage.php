@@ -59,6 +59,13 @@ final class ConfigurationPage {
 		);
 	}
 
+	public static function surface_saved_notice(): string {
+		return __(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			'stonewright'
+		);
+	}
+
 	/**
 	 * Apply every runtime-affecting Step 1 control without a page reload.
 	 */
@@ -104,12 +111,12 @@ final class ConfigurationPage {
 		}
 		wp_send_json_success(
 			[
-				'surface'         => (string) $state['mcp_surface'],
-				'mcp_surface'     => (string) $state['mcp_surface'],
+				'surface'          => (string) $state['mcp_surface'],
+				'mcp_surface'      => (string) $state['mcp_surface'],
 				'surface_revision' => \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision(),
-				'setup_state'     => $state,
-				'message'         => __( 'Step 1 settings applied and verified.', 'stonewright' ),
-				'transport_truth' => __( 'The surface revision is current. Dynamic clients pick it up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response. Clients that cache tools permanently still need one restart.', 'stonewright' ),
+				'setup_state'      => $state,
+				'message'          => self::surface_saved_notice(),
+				'transport_truth'  => '',
 			]
 		);
 	}
@@ -562,7 +569,16 @@ final class ConfigurationPage {
 								</button>
 							</div>
 							<p class="description" id="stonewright-mcp-surface-status" data-sw-mcp-surface-status role="status" aria-live="polite">
-								<?php esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' ); ?>
+								<?php
+								$settings_updated = isset( $_GET['settings-updated'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice selector after options.php.
+									? sanitize_key( (string) wp_unslash( $_GET['settings-updated'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+									: '';
+								if ( in_array( $settings_updated, [ 'true', '1' ], true ) ) {
+									echo esc_html( self::surface_saved_notice() );
+								} else {
+									esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' );
+								}
+								?>
 							</p>
 						</div>
 						<div class="sw-field">
