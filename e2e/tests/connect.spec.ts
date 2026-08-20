@@ -98,13 +98,46 @@ test.describe('Connect wizard interactions', () => {
 		const fullPrompt = await prompt.getAttribute('data-stonewright-text-full');
 		expect(fullPrompt).toContain('stonewright connect add');
 		expect(fullPrompt).toContain('--mode plugin-only');
+		expect(fullPrompt).toContain('--profile essential-static');
+		expect(fullPrompt).toContain('--wp-surface essential');
+		expect(fullPrompt).not.toContain('--wp-surface essential-static');
+		expect(fullPrompt).toContain('recommended when local WP-CLI is needed');
+		expect(fullPrompt).not.toContain('or Direct fallback is needed');
+		expect(fullPrompt).toContain(
+			'For automatic Direct fallback use `--mode auto` instead.',
+		);
+		expect(fullPrompt).toContain(
+			'--env <local|development|staging|production|other>',
+		);
+		expect(fullPrompt).toContain(
+			'cursor, claude-desktop, vscode-copilot, codex, generic-mcp',
+		);
+		expect(fullPrompt).toContain(
+			'ChatGPT Desktop / Claude.ai connect via the OAuth HTTP method, not the local installer.',
+		);
+		expect(fullPrompt).toContain('site_alias');
+		expect(fullPrompt).not.toContain('active alias');
+		expect(fullPrompt).toContain(
+			'call it first with a non-empty task; pass surface and intent when known',
+		);
+		expect(fullPrompt).toContain(
+			'If the connection fails, open Stonewright → Troubleshoot in wp-admin and run diagnostics.',
+		);
+		expect(fullPrompt).toContain(
+			'`--profile discover-execute` exposes a minimal 3-tool protocol surface.',
+		);
+		expect(fullPrompt).toContain(
+			'Static or third-party block writes finalize through the Block Editor Queue page; keep it open when asked.',
+		);
 		expect(fullPrompt).toContain(
 			'stonewright connect repair <alias> --client <client> --mode plugin-only',
 		);
 		expect(fullPrompt).toContain('Choose exactly one transport');
 		expect(fullPrompt).toContain('/wp-json/mcp/stonewright-oauth');
 		expect(fullPrompt).not.toContain('MCP server name: stonewright');
-		expect(fullPrompt).not.toContain(WP_USER);
+		// Default wp-env user is "admin"; the prompt names wp-admin as the
+		// Troubleshoot location, so strip that path before the credential check.
+		expect(fullPrompt.replaceAll('wp-admin', '')).not.toContain(WP_USER);
 		expect(fullPrompt).not.toContain(WP_BASE_URL);
 		// wp-env's login password is literally "password", so a raw substring
 		// check would reject legitimate guidance such as "Application Password".

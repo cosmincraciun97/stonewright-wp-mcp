@@ -108,6 +108,9 @@ final class AppPasswordRestTest extends TestCase {
 		self::assertStringContainsString( 'hidden prompt', $prompt );
 		self::assertStringContainsString( '--password-env', $prompt );
 		self::assertDoesNotMatchRegularExpression( '/STONEWRIGHT_MCP_TOOL_PROFILE=full\b/', $prompt );
+		self::assertStringContainsString( '--profile essential-static', $prompt );
+		self::assertStringContainsString( '--wp-surface essential', $prompt );
+		self::assertStringNotContainsString( '--wp-surface essential-static', $prompt );
 	}
 
 	public function test_generate_path_form_supports_rest_intercept_attributes(): void {
