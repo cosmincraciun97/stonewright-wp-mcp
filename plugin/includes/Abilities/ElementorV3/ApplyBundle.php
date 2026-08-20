@@ -74,7 +74,7 @@ final class ApplyBundle extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$writes = isset( $args['writes'] ) && is_array( $args['writes'] ) ? array_values( $args['writes'] ) : [];

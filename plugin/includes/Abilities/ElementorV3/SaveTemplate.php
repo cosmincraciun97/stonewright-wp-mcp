@@ -35,6 +35,7 @@ final class SaveTemplate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'       => [ 'type' => 'integer', 'minimum' => 1 ],
 				'title'         => [ 'type' => 'string', 'maxLength' => 255 ],
 				'template_type' => [ 'type' => 'string', 'enum' => [ 'page', 'section', 'container', 'header', 'footer' ], 'default' => 'section' ],
@@ -59,7 +60,7 @@ final class SaveTemplate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_id = (int) $args['post_id'];

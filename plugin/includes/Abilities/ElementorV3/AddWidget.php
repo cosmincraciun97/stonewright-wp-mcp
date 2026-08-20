@@ -39,6 +39,7 @@ final class AddWidget extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'     => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'   => [ 'type' => 'string' ],
 				'widget_type' => [ 'type' => 'string' ],
@@ -83,7 +84,7 @@ final class AddWidget extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$widget_type = isset( $args['widget_type'] ) ? (string) $args['widget_type'] : '';

@@ -45,6 +45,7 @@ final class UpdateElement extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'    => [ 'type' => 'integer', 'minimum' => 1 ],
 				'element_id' => [ 'type' => 'string' ],
 				'settings'   => [ 'type' => 'object' ],
@@ -78,7 +79,7 @@ final class UpdateElement extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_id = (int) $args['post_id'];

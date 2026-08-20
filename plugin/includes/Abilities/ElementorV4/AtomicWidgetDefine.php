@@ -56,6 +56,7 @@ final class AtomicWidgetDefine extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'slug', 'template' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'slug'     => [
 					'type'    => 'string',
 					'pattern' => '^[a-z0-9-]+$',
@@ -115,7 +116,7 @@ final class AtomicWidgetDefine extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array|\WP_Error {
 				$slug = (string) ( $a['slug'] ?? '' );
