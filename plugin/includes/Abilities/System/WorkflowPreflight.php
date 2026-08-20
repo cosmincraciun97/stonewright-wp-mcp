@@ -864,7 +864,6 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		if ( $profile['needs_wp_cli_discovery'] ) {
 			$tools[] = 'stonewright/site-plugins-list';
-			$tools[] = 'stonewright/php-execute';
 			$tools[] = 'stonewright/wp-cli-status';
 			$tools[] = 'stonewright/wp-cli-discover';
 			if ( $profile['is_write'] ) {

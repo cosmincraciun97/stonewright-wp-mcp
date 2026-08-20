@@ -19,6 +19,17 @@ development builds were never stable releases.
   blocks serialize in the live editor, then persist through Stonewright's
   existing backup, confirmation, and audit gates.
 
+### Security
+
+- Enforce php-execute read-only at runtime, block concatenated protected meta
+  keys and direct database writes to core tables, and keep php-execute off the
+  default compact MCP surfaces.
+- Sign one-time admin login links, bind them to IP and User-Agent, rate-limit
+  issuance, skip remember-me cookies, and require confirmation in production-safe
+  mode.
+- Restrict REST ability execution to the active tool profile unless confirmed,
+  and require a confirmation token to toggle abilities over REST.
+
 ### Fixed
 
 - Store backup snapshots and restores through a slash-safe post-meta boundary so

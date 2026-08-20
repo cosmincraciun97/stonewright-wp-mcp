@@ -262,8 +262,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-model-loop-grid-flow', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/php-execute', $result['recommended_tools'] );
-		self::assertContains( 'stonewright-php-execute', $result['recommended_mcp_tools'] );
+		self::assertNotContains( 'stonewright/php-execute', $result['recommended_tools'] );
+		self::assertNotContains( 'stonewright-php-execute', $result['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['recommended_mcp_tools'] );
 		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
 	}
@@ -312,7 +312,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'low-tools', $result['profiles_available'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/task-start', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/php-execute', $result['recommended_tools'] );
+		self::assertNotContains( 'stonewright/php-execute', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
@@ -328,7 +328,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $result['tool_groups']['elementor_design']['mcp_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['tool_groups']['content_media']['abilities'] );
 		self::assertContains( 'stonewright/wp-cli-job-start', $result['tool_groups']['wp_cli']['abilities'] );
-		self::assertContains( 'stonewright/php-execute', $result['tool_groups']['runtime']['abilities'] );
+		self::assertNotContains( 'stonewright/php-execute', $result['tool_groups']['runtime']['abilities'] ?? [] );
 		self::assertSame( 'Use tool_groups before system-abilities-list or full tools/list discovery.', $result['discovery_policy'][0] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['next_best_tools'][0]['ability'] );
 		self::assertSame( 'stonewright-elementor-v3-build-page-from-spec', $result['next_best_tools'][0]['mcp_tool'] );
@@ -339,6 +339,30 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertNotContains( 'stonewright/blocks-get-schema', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/elementor-describe-widget', $result['recommended_tools'] );
 		self::assertContains( 'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.', $result['token_rules'] );
+	}
+
+	public function test_tool_profile_full_still_recommends_php_execute(): void {
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'full',
+				'task'      => 'Inspect the WordPress runtime with a short PHP snippet.',
+				'surface'   => 'wordpress',
+				'intent'    => 'read',
+				'max_tools' => 200,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'full', $result['profile'] );
+		$recommended = array_merge(
+			(array) ( $result['recommended_tools'] ?? [] ),
+			(array) ( $result['truncated_tools'] ?? [] )
+		);
+		self::assertContains( 'stonewright/php-execute', $recommended );
 	}
 
 	public function test_workflow_preflight_returns_single_call_fast_path(): void {
@@ -506,7 +530,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/skills-get', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-discover', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
-		self::assertContains( 'stonewright/php-execute', $result['fast_path']['recommended_tools'] );
+		self::assertNotContains( 'stonewright/php-execute', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['fast_path']['recommended_mcp_tools'] );
 		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
 	}

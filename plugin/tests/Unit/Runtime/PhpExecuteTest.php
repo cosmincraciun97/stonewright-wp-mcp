@@ -37,7 +37,7 @@ final class PhpExecuteTest extends TestCase {
 		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
-	public function test_php_execute_is_registered_and_visible_in_essential_mode(): void {
+	public function test_php_execute_is_registered_but_hidden_from_essential_surface(): void {
 		$registered = array_map(
 			static fn( string $class ): string => ( new $class() )->name(),
 			AbilityRegistry::list()
@@ -45,6 +45,15 @@ final class PhpExecuteTest extends TestCase {
 		$visible = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
 		self::assertContains( 'stonewright/php-execute', $registered );
+		self::assertNotContains( 'stonewright/php-execute', $visible );
+	}
+
+	public function test_php_execute_is_visible_on_full_surface(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'full';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = false;
+
+		$visible = array_column( AbilityRegistry::enabled_abilities(), 'name' );
+
 		self::assertContains( 'stonewright/php-execute', $visible );
 	}
 
@@ -180,6 +189,78 @@ final class PhpExecuteTest extends TestCase {
 		);
 		self::assertIsArray( $ok );
 		self::assertTrue( $ok['ok'] );
+	}
+
+	public function test_read_only_schema_is_enforced_not_advisory(): void {
+		$schema = ( new PhpExecute() )->input_schema();
+		$description = (string) ( $schema['properties']['read_only']['description'] ?? '' );
+
+		self::assertStringNotContainsStringIgnoringCase( 'advisory', $description );
+		self::assertMatchesRegularExpression( '/enforc/i', $description );
+	}
+
+	public function test_read_only_runtime_blocks_aliased_wpdb_mutation(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code'      => 'global $wpdb; $db = $wpdb; $db->update("options", ["option_value" => "mutated-by-php-execute"], ["option_name" => "blogname"]); return true;',
+				'read_only' => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertTrue(
+			in_array(
+				$blocked->get_error_code(),
+				[ 'stonewright_php_read_only_violation', 'stonewright_php_core_table_write_blocked' ],
+				true
+			)
+		);
+		self::assertNotSame( 'mutated-by-php-execute', get_option( 'blogname' ) );
+	}
+
+	public function test_runtime_blocks_concatenated_elementor_meta_key_write(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code' => 'update_post_meta(1, "_elementor" . "_data", "[]"); return true;',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_php_elementor_raw_write_blocked', $blocked->get_error_code() );
+	}
+
+	public function test_runtime_blocks_wpdb_update_on_postmeta_table(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code' => 'global $wpdb; $wpdb->update("postmeta", ["meta_value" => "[]"], ["meta_key" => "_elementor" . "_data"]); return true;',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertTrue(
+			in_array(
+				$blocked->get_error_code(),
+				[ 'stonewright_php_elementor_raw_write_blocked', 'stonewright_php_core_table_write_blocked' ],
+				true
+			)
+		);
+	}
+
+	public function test_runtime_blocks_wpdb_update_on_prefixed_postmeta_table(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code' => 'global $wpdb; $wpdb->update($wpdb->prefix . "postmeta", ["meta_value" => "[]"], ["meta_key" => "_elementor" . "_data"]); return true;',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertTrue(
+			in_array(
+				$blocked->get_error_code(),
+				[ 'stonewright_php_elementor_raw_write_blocked', 'stonewright_php_core_table_write_blocked' ],
+				true
+			)
+		);
 	}
 
 	public function test_blocks_direct_elementor_data_helper_bypass(): void {

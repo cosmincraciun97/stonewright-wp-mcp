@@ -332,6 +332,8 @@ if ( ! function_exists( 'get_option' ) ) {
 
 if ( ! function_exists( 'update_option' ) ) {
 	function update_option( string $option, mixed $value, bool|string $autoload = true ): bool {
+		$old   = $GLOBALS['stonewright_test_options'][ $option ] ?? false;
+		$value = apply_filters( 'pre_update_option', $value, $option, $old );
 		$GLOBALS['stonewright_test_options'][ $option ] = $value;
 		return true;
 	}
@@ -432,6 +434,10 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 	$GLOBALS['wpdb'] = new class() {
 		public string $prefix = 'wptests_';
 		public string $options = 'wptests_options';
+		public string $posts = 'wptests_posts';
+		public string $postmeta = 'wptests_postmeta';
+		public string $users = 'wptests_users';
+		public string $usermeta = 'wptests_usermeta';
 		public int $insert_id = 1;
 
 		/** @var array<int, array<string, mixed>> */
@@ -1104,6 +1110,10 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 		if ( isset( $GLOBALS['stonewright_test_update_post_meta_return'] ) ) {
 			return $GLOBALS['stonewright_test_update_post_meta_return'];
 		}
+		$check = apply_filters( 'update_post_metadata', null, $post_id, $meta_key, $meta_value, $prev_value );
+		if ( null !== $check ) {
+			return (bool) $check;
+		}
 		$meta_value = wp_unslash( $meta_value );
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'   => 'update',
@@ -1128,6 +1138,10 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 
 if ( ! function_exists( 'update_metadata' ) ) {
 	function update_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		$check = apply_filters( "update_{$meta_type}_metadata", null, $object_id, $meta_key, $meta_value, $prev_value );
+		if ( null !== $check ) {
+			return (bool) $check;
+		}
 		$meta_value = wp_unslash( $meta_value );
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'    => 'update_metadata',
@@ -1149,6 +1163,10 @@ if ( ! function_exists( 'update_metadata' ) ) {
 
 if ( ! function_exists( 'add_post_meta' ) ) {
 	function add_post_meta( int $post_id, string $meta_key, mixed $meta_value, bool $unique = false ): int|bool {
+		$check = apply_filters( 'add_post_metadata', null, $post_id, $meta_key, $meta_value, $unique );
+		if ( null !== $check ) {
+			return (bool) $check;
+		}
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'   => 'add',
 			'post_id'  => $post_id,
@@ -1161,6 +1179,10 @@ if ( ! function_exists( 'add_post_meta' ) ) {
 
 if ( ! function_exists( 'delete_post_meta' ) ) {
 	function delete_post_meta( int $post_id, string $meta_key, mixed $meta_value = '' ): bool {
+		$check = apply_filters( 'delete_post_metadata', null, $post_id, $meta_key, $meta_value, false );
+		if ( null !== $check ) {
+			return (bool) $check;
+		}
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
 			'action'   => 'delete',
 			'post_id'  => $post_id,

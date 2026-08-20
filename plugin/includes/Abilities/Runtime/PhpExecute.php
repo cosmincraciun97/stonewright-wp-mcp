@@ -6,9 +6,11 @@ namespace Stonewright\WpMcp\Abilities\Runtime;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\GuardedRuntimeWriteException;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedFilesystemWriteGuard;
+use Stonewright\WpMcp\Security\ProtectedWpdbWriteGuard;
 
 /**
  * Executes short, guarded PHP snippets inside the loaded WordPress runtime.
@@ -76,7 +78,7 @@ final class PhpExecute extends AbilityKernel {
 				'read_only'          => [
 					'type'        => 'boolean',
 					'default'     => false,
-					'description' => 'Advisory read-oriented mode: static inspection rejects common mutation APIs and runtime filters block post-meta/option writes. It is not a full sandbox — prefer typed abilities for production mutations. Useful for Elementor document reads.',
+					'description' => 'Enforced read-oriented mode: runtime hooks block option, post-meta, core-table, and other state mutations. Concatenated or aliased writes are still intercepted. Prefer typed abilities for any intended mutation.',
 				],
 				'decode_escaped_layout' => [
 					'type'        => 'boolean',
@@ -209,12 +211,16 @@ final class PhpExecute extends AbilityKernel {
 		$original_time_limit = self::current_time_limit();
 		$buffer_level        = ob_get_level();
 		$write_guards        = ProtectedElementorWriteGuard::install( $read_only );
+		$wpdb_original       = ProtectedWpdbWriteGuard::install( $read_only );
 
 		self::apply_time_limit( $timeout_seconds );
 		ob_start();
 		try {
 			$result = self::evaluate( $code );
 			$stdout = self::close_execution_buffers( $buffer_level );
+		} catch ( GuardedRuntimeWriteException $guarded ) {
+			self::close_execution_buffers( $buffer_level );
+			return $guarded->to_wp_error();
 		} catch ( \ParseError $parse_error ) {
 			$stdout         = self::close_execution_buffers( $buffer_level );
 			$stdout_payload = self::limit_string( $stdout, $max_output_bytes );
@@ -272,6 +278,7 @@ final class PhpExecute extends AbilityKernel {
 				]
 			);
 		} finally {
+			ProtectedWpdbWriteGuard::uninstall( $wpdb_original );
 			ProtectedElementorWriteGuard::uninstall( $write_guards );
 			self::restore_time_limit( $original_time_limit );
 		}

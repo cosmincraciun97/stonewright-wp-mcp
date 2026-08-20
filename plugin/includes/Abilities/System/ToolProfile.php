@@ -634,7 +634,6 @@ final class ToolProfile extends AbilityKernel {
 			// Task start hands out a rule digest; every profile must be able to
 			// resolve it into the actual rules.
 			'stonewright/rules-get',
-			'stonewright/php-execute',
 		];
 		$blueprints = [
 			'stonewright/blueprint-list',
