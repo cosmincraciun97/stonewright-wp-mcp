@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -82,7 +83,7 @@ final class AddContainer extends AbilityKernel {
 				if ( $validated instanceof \WP_Error ) {
 					return $validated;
 				}
-				$settings = $validated['settings'];
+				$settings = SparseSettingsNormalizer::for_new_write( $validated['settings'], 'container', $validated['settings'] );
 
 				$element = [
 					'id'       => ElementorData::generate_id(),

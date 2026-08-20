@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Elementor\Schema;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
@@ -13,6 +14,7 @@ use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer
+ * @covers \Stonewright\WpMcp\Abilities\ElementorV3\AddContainer
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\AddWidget
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement
@@ -247,6 +249,70 @@ final class SparseSettingsNormalizerTest extends TestCase {
 		self::assertSame( 'sparse-card', $widget['widgetType'] );
 		self::assertSame( 'New card', $widget['settings']['title'] );
 		self::assertArrayNotHasKey( 'flex_gap', $widget['settings'] );
+	}
+
+	public function test_add_container_persists_sparse_new_settings_only(): void {
+		$result = ( new AddContainer() )->execute(
+			[
+				'post_id'  => 821,
+				'settings' => [
+					'layout'   => 'flex',
+					'flex_gap' => [
+						'unit'  => 'px',
+						'size'  => '',
+						'sizes' => [],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, (string) ( is_wp_error( $result ) ? $result->get_error_message() : '' ) );
+		$tree      = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][821]->meta['_elementor_data'] ), true );
+		$container = $tree[1];
+		self::assertSame( [ 'container_type', 'flex_direction' ], array_keys( $container['settings'] ) );
+		self::assertSame( 'flex', $container['settings']['container_type'] );
+	}
+
+	public function test_default_heavy_widget_fixture_normalizes_from_nineteen_keys_to_exactly_five(): void {
+		$validated = [
+			'title'                 => 'Launch faster',
+			'header_size'           => 'h2',
+			'align'                 => 'center',
+			'title_color'           => '#112233',
+			'typography_typography' => 'custom',
+			'link'                  => [ 'url' => '', 'is_external' => '', 'nofollow' => '', 'custom_attributes' => '' ],
+			'size'                  => 'default',
+			'view'                  => 'traditional',
+			'text_stroke_text_stroke' => '',
+			'text_shadow_text_shadow_type' => '',
+			'blend_mode'            => '',
+			'margin'                => [ 'top' => '', 'right' => '', 'bottom' => '', 'left' => '', 'unit' => 'px', 'isLinked' => true ],
+			'padding'               => [ 'top' => '', 'right' => '', 'bottom' => '', 'left' => '', 'unit' => 'px', 'isLinked' => true ],
+			'animation'             => '',
+			'animation_duration'    => '',
+			'animation_delay'       => '',
+			'hide_desktop'          => '',
+			'hide_tablet'           => '',
+			'hide_mobile'           => '',
+		];
+		$supplied = array_intersect_key(
+			$validated,
+			array_flip( [ 'title', 'header_size', 'align', 'title_color', 'typography_typography' ] )
+		);
+		$controls = array_fill_keys( array_keys( $validated ), [ 'type' => 'text' ] );
+
+		$normalized = SparseSettingsNormalizer::normalize(
+			$validated,
+			$controls,
+			$supplied,
+			[ 'title' ]
+		);
+
+		self::assertCount( 19, $validated );
+		self::assertSame(
+			[ 'title', 'header_size', 'align', 'title_color', 'typography_typography' ],
+			array_keys( $normalized )
+		);
 	}
 
 	public function test_batch_mutate_add_widget_strips_empty_defaults_from_new_payload(): void {
