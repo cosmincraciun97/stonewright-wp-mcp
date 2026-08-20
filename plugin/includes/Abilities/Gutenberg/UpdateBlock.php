@@ -102,9 +102,8 @@ final class UpdateBlock extends AbilityKernel {
 								'action'                => 'update',
 								'path'                  => $path,
 								'block_spec'            => [
-									'name'        => $name,
-									'attributes'  => $mutation['attrs'],
-									'innerBlocks' => [],
+									'name'       => $name,
+									'attributes' => $mutation['attrs'],
 								],
 							]
 						);

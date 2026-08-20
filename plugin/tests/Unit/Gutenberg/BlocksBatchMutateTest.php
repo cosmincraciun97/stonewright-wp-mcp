@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Gutenberg;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
@@ -395,6 +396,71 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_data()['root_error_code'] );
 		self::assertSame( [ 'undeclared' ], $result->get_error_data()['items'][0]['error']['data']['offending_keys'] );
+	}
+
+	public function test_three_finalizer_ops_queue_three_items_not_a_single_insert(): void {
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 0,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'A' ] ],
+					],
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 1,
+						'block'    => [ 'blockName' => 'vendor/beta', 'attrs' => [ 'title' => 'B' ] ],
+					],
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 2,
+						'block'    => [ 'blockName' => 'vendor/gamma', 'attrs' => [ 'title' => 'C' ] ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+
+		$queued_names = [];
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			if ( isset( $record['operations'] ) && is_array( $record['operations'] ) ) {
+				foreach ( $record['operations'] as $operation ) {
+					$queued_names[] = (string) ( $operation['block_spec']['name'] ?? '' );
+					self::assertSame( 'insert', (string) ( $operation['action'] ?? '' ) );
+					self::assertArrayHasKey( 'position', $operation );
+				}
+				continue;
+			}
+			$queued_names[] = (string) ( $record['block_spec']['name'] ?? '' );
+			self::assertSame( 'insert', (string) ( $record['action'] ?? '' ) );
+		}
+
+		self::assertSame( [ 'vendor/alpha', 'vendor/beta', 'vendor/gamma' ], $queued_names );
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			if ( isset( $record['operations'] ) && is_array( $record['operations'] ) ) {
+				continue;
+			}
+			self::assertNotNull( $record['position'] );
+		}
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 
 	public function test_unregistered_inserted_block_is_queued_for_finalizer(): void {

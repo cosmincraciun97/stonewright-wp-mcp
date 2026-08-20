@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange;
+use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 
@@ -20,7 +21,9 @@ use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
  * @covers \Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime
  * @covers \Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizationUrl
  * @covers \Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage
+ * @covers \Stonewright\WpMcp\Gutenberg\Finalizer\BlockSource
  * @covers \Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock
+ * @covers \Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock
  */
 final class GutenbergFinalizerTest extends TestCase {
 
@@ -368,6 +371,104 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertSame( 'serialized', $stored['status'] );
 		self::assertSame( $html, $stored['serialized_html'] );
 		self::assertSame( hash( 'sha256', $html ), $stored['serialized_html_hash'] );
+	}
+
+	public function test_finalize_update_on_nested_path_preserves_outside_bytes_and_existing_children(): void {
+		$child   = '<!-- wp:paragraph --><p>KEEP_CHILD_INNER</p><!-- /wp:paragraph -->';
+		$target  = '<!-- wp:vendor/card {"title":"Old"} --><div class="card-wrap">' . $child . '</div><!-- /wp:vendor/card -->';
+		$sibling = '<!-- wp:vendor/hero {"z": 1, "a": 2} --><div data-keep="SIBLING_BYTE_MARK">Hero</div><!-- /wp:vendor/hero -->';
+		$other   = '<!-- wp:paragraph --><p>Keep me too</p><!-- /wp:paragraph -->';
+		$content = '<!-- wp:group --><div class="wp-block-group">' . $target . $sibling . '</div><!-- /wp:group -->' . $other;
+		$GLOBALS['stonewright_test_posts'][42]->post_content = $content;
+
+		$queued = BlockQueue::enqueue(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => hash( 'sha256', $content ),
+				'action'                => 'update',
+				'path'                  => [ 0, 0 ],
+				'block_spec'            => [
+					'name'       => 'vendor/card',
+					'attributes' => [ 'title' => 'New' ],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html = '<!-- wp:vendor/card {"title":"New"} --><div class="card">New</div><!-- /wp:vendor/card -->';
+		self::assertTrue( BlockQueue::store_serialized( (string) $queued['id'], $html, hash( 'sha256', $html ) ) );
+
+		$result = ( new FinalizeBatch() )->execute( [ 'change_ids' => [ $queued['id'] ] ] );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+
+		$after = (string) $GLOBALS['stonewright_test_posts'][42]->post_content;
+		self::assertStringContainsString( $sibling, $after );
+		self::assertStringContainsString( '{"z": 1, "a": 2}', $after );
+		self::assertStringContainsString( $other, $after );
+		self::assertStringNotContainsString( '"title":"Old"', $after );
+		self::assertMatchesRegularExpression(
+			'/<!-- wp:vendor\/card \{"title":"New"\} -->.*KEEP_CHILD_INNER.*<!-- \/wp:vendor\/card -->/s',
+			$after
+		);
+	}
+
+	public function test_finalize_insert_at_position_two_in_parent_path_lands_at_index_two(): void {
+		$a       = '<!-- wp:paragraph --><p>A</p><!-- /wp:paragraph -->';
+		$b       = '<!-- wp:paragraph --><p>B</p><!-- /wp:paragraph -->';
+		$c       = '<!-- wp:paragraph --><p>C</p><!-- /wp:paragraph -->';
+		$content = '<!-- wp:group --><div class="wp-block-group">' . $a . $b . $c . '</div><!-- /wp:group -->';
+		$GLOBALS['stonewright_test_posts'][42]->post_content = $content;
+
+		$queued = BlockQueue::enqueue(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => hash( 'sha256', $content ),
+				'action'                => 'insert',
+				'path'                  => [ 0 ],
+				'position'              => 2,
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Mid' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html = '<!-- wp:vendor/card {"title":"Mid"} --><div class="card">Mid</div><!-- /wp:vendor/card -->';
+		self::assertTrue( BlockQueue::store_serialized( (string) $queued['id'], $html, hash( 'sha256', $html ) ) );
+
+		$result = ( new FinalizeBatch() )->execute( [ 'change_ids' => [ $queued['id'] ] ] );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+
+		$after = (string) $GLOBALS['stonewright_test_posts'][42]->post_content;
+		self::assertMatchesRegularExpression(
+			'/<!-- wp:paragraph --><p>A<\/p><!-- \/wp:paragraph -->.*<!-- wp:paragraph --><p>B<\/p><!-- \/wp:paragraph -->.*<!-- wp:vendor\/card \{"title":"Mid"\} -->.*<!-- wp:paragraph --><p>C<\/p><!-- \/wp:paragraph -->/s',
+			$after
+		);
+		self::assertStringNotContainsString(
+			$c . '<!-- wp:vendor/card {"title":"Mid"} -->',
+			$after
+		);
+	}
+
+	public function test_update_block_omits_inner_blocks_when_caller_does_not_supply_them(): void {
+		$result = ( new UpdateBlock() )->execute(
+			[
+				'post_id' => 42,
+				'path'    => [ 0 ],
+				'attrs'   => [ 'className' => 'updated' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+		$stored = BlockQueue::get( (string) $result['change_id'] );
+		self::assertIsArray( $stored );
+		self::assertSame( 'update', $stored['action'] );
+		self::assertArrayNotHasKey( 'innerBlocks', $stored['block_spec'] );
 	}
 
 	public function test_result_endpoint_still_rejects_empty_hash_without_unavailable_flag(): void {

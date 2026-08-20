@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockSource;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -132,7 +133,7 @@ final class FinalizeBatch extends AbilityKernel {
 						return $this->error(
 							'finalizer_not_serialized',
 							__( 'The queue record has not been serialized by the browser finalizer.', 'stonewright' ),
-							[ 'status' => 409, 'change_id' => (string) $id, 'status' => (string) $record['status'] ]
+							[ 'status' => 409, 'change_id' => (string) $id, 'queue_status' => (string) $record['status'] ]
 						);
 					}
 					$html = (string) ( $record['serialized_html'] ?? '' );
@@ -187,13 +188,16 @@ final class FinalizeBatch extends AbilityKernel {
 
 				$content = (string) $post->post_content;
 				foreach ( $records as $record ) {
-					$html = (string) $record['serialized_html'];
-					$action = (string) ( $record['action'] ?? 'insert' );
-					if ( 'replace' === $action ) {
-						$content = $html;
-					} else {
-						$content = rtrim( $content );
-						$content = ( '' === $content ? $html : $content . "\n" . $html );
+					$html    = (string) $record['serialized_html'];
+					$content = BlockSource::apply( $content, $record, $html );
+					if ( $content instanceof \WP_Error ) {
+						$data = (array) $content->get_error_data();
+						$code = preg_replace( '/^stonewright_/', '', (string) $content->get_error_code() );
+						return $this->error(
+							is_string( $code ) && '' !== $code ? $code : 'invalid_path',
+							$content->get_error_message(),
+							$data
+						);
 					}
 				}
 

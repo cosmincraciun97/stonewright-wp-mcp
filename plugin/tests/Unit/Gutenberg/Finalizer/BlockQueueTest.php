@@ -142,6 +142,28 @@ final class BlockQueueTest extends TestCase {
 		self::assertSame( 42, $list[0]['post_id'] );
 	}
 
+	public function test_omitted_inner_blocks_are_stored_as_absent_not_empty_array(): void {
+		$result = BlockQueue::enqueue(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'action'                => 'update',
+				'path'                  => [ 0, 1 ],
+				'block_spec'            => [
+					'name'       => 'vendor/card',
+					'attributes' => [ 'title' => 'No children supplied' ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		$stored = BlockQueue::get( (string) $result['id'] );
+		self::assertIsArray( $stored );
+		self::assertArrayNotHasKey( 'innerBlocks', $stored['block_spec'] );
+		self::assertSame( 'update', $stored['action'] );
+		self::assertSame( [ 0, 1 ], $stored['path'] );
+	}
+
 	public function test_refuses_all_raw_html_without_allow_raw_html(): void {
 		$result = BlockQueue::enqueue(
 			[

@@ -54,7 +54,29 @@ final class BlockQueue {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function enqueue( array $args ): array|\WP_Error {
-		$post_id = (int) ( $args['post_id'] ?? 0 );
+		$queued = self::enqueue_many( [ $args ] );
+		if ( $queued instanceof \WP_Error ) {
+			return $queued;
+		}
+		return $queued[0];
+	}
+
+	/**
+	 * Atomically queue every finalizer-needing op for one post.
+	 *
+	 * @param list<array<string, mixed>> $batch
+	 * @return list<array<string, mixed>>|\WP_Error
+	 */
+	public static function enqueue_many( array $batch ): array|\WP_Error {
+		if ( [] === $batch ) {
+			return new \WP_Error(
+				'stonewright_invalid_block_spec',
+				__( 'A block spec object with name, attributes, and innerBlocks is required.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		$post_id = (int) ( $batch[0]['post_id'] ?? 0 );
 		$post    = $post_id > 0 ? get_post( $post_id ) : null;
 		if ( ! $post ) {
 			return new \WP_Error(
@@ -64,25 +86,42 @@ final class BlockQueue {
 			);
 		}
 
-		$allow_raw = ! empty( $args['allow_raw_html'] );
-		$spec      = self::normalize_spec( $args['block_spec'] ?? null, $allow_raw );
-		if ( $spec instanceof \WP_Error ) {
-			return $spec;
-		}
-
 		$current_hash = hash( 'sha256', (string) $post->post_content );
-		$expected     = (string) ( $args['expected_content_hash'] ?? '' );
-		if ( '' !== $expected && ! hash_equals( $expected, $current_hash ) ) {
-			return new \WP_Error(
-				'stonewright_content_conflict',
-				__( 'The post content changed after planning; parse it again before queueing.', 'stonewright' ),
-				[
-					'status'                => 409,
-					'expected_content_hash' => $expected,
-					'current_content_hash'  => $current_hash,
-					'retryable'             => true,
-				]
-			);
+		$prepared     = [];
+		foreach ( $batch as $args ) {
+			if ( (int) ( $args['post_id'] ?? 0 ) !== $post_id ) {
+				return new \WP_Error(
+					'stonewright_finalizer_mixed_targets',
+					__( 'A finalize batch must target a single post.', 'stonewright' ),
+					[ 'status' => 400 ]
+				);
+			}
+
+			$allow_raw = ! empty( $args['allow_raw_html'] );
+			$spec      = self::normalize_spec( $args['block_spec'] ?? null, $allow_raw );
+			if ( $spec instanceof \WP_Error ) {
+				return $spec;
+			}
+
+			$expected = (string) ( $args['expected_content_hash'] ?? '' );
+			if ( '' !== $expected && ! hash_equals( $expected, $current_hash ) ) {
+				return new \WP_Error(
+					'stonewright_content_conflict',
+					__( 'The post content changed after planning; parse it again before queueing.', 'stonewright' ),
+					[
+						'status'                => 409,
+						'expected_content_hash' => $expected,
+						'current_content_hash'  => $current_hash,
+						'retryable'             => true,
+					]
+				);
+			}
+
+			$prepared[] = [
+				'args'     => $args,
+				'spec'     => $spec,
+				'expected' => $expected,
+			];
 		}
 
 		$pending = self::pending_for_target( $post_id );
@@ -98,27 +137,33 @@ final class BlockQueue {
 			);
 		}
 
-		$state = self::state();
-		$id    = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : substr( hash( 'sha256', uniqid( 'finalizer-', true ) ), 0, 36 );
-		$record = [
-			'id'                    => $id,
-			'post_id'               => $post_id,
-			'status'                => 'queued',
-			'block_spec'            => $spec,
-			'action'                => sanitize_key( (string) ( $args['action'] ?? 'insert' ) ),
-			'path'                  => isset( $args['path'] ) && is_array( $args['path'] ) ? array_values( array_map( 'intval', $args['path'] ) ) : [],
-			'position'              => isset( $args['position'] ) ? (int) $args['position'] : null,
-			'expected_content_hash' => '' !== $expected ? $expected : $current_hash,
-			'serialized_html'       => '',
-			'serialized_html_hash'  => '',
-			'session_id'            => self::session_id( $state ),
-			'created_at'            => time(),
-			'allow_raw_html'        => $allow_raw,
-		];
-		$state['changes'][ $id ] = $record;
+		$state   = self::state();
+		$session = self::session_id( $state );
+		$out     = [];
+		foreach ( $prepared as $item ) {
+			$args     = $item['args'];
+			$id       = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : substr( hash( 'sha256', uniqid( 'finalizer-', true ) ), 0, 36 );
+			$record   = [
+				'id'                    => $id,
+				'post_id'               => $post_id,
+				'status'                => 'queued',
+				'block_spec'            => $item['spec'],
+				'action'                => sanitize_key( (string) ( $args['action'] ?? 'insert' ) ),
+				'path'                  => isset( $args['path'] ) && is_array( $args['path'] ) ? array_values( array_map( 'intval', $args['path'] ) ) : [],
+				'position'              => array_key_exists( 'position', $args ) && null !== $args['position'] ? (int) $args['position'] : null,
+				'expected_content_hash' => '' !== $item['expected'] ? $item['expected'] : $current_hash,
+				'serialized_html'       => '',
+				'serialized_html_hash'  => '',
+				'session_id'            => $session,
+				'created_at'            => time(),
+				'allow_raw_html'        => ! empty( $args['allow_raw_html'] ),
+			];
+			$state['changes'][ $id ] = $record;
+			$out[]                   = self::compact( $record );
+		}
 		self::save( $state );
 
-		return self::compact( $record );
+		return $out;
 	}
 
 	/**
@@ -182,9 +227,9 @@ final class BlockQueue {
 	}
 
 	/**
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function store_serialized( string $id, string $html, string $hash ): true|\WP_Error {
+	public static function store_serialized( string $id, string $html, string $hash ): bool|\WP_Error {
 		$record = self::get( $id );
 		if ( null === $record ) {
 			return new \WP_Error(
@@ -357,21 +402,32 @@ final class BlockQueue {
 			$attributes = $raw['attrs'];
 		}
 
+		$spec = [
+			'name'       => sanitize_text_field( $name ),
+			'attributes' => $attributes,
+		];
+		if ( ! array_key_exists( 'innerBlocks', $raw ) || null === $raw['innerBlocks'] ) {
+			return $spec;
+		}
+		if ( ! is_array( $raw['innerBlocks'] ) ) {
+			return new \WP_Error(
+				'stonewright_invalid_block_spec',
+				__( 'A block spec object with name, attributes, and innerBlocks is required.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
+
 		$children = [];
-		$inner    = isset( $raw['innerBlocks'] ) && is_array( $raw['innerBlocks'] ) ? $raw['innerBlocks'] : [];
-		foreach ( $inner as $child ) {
+		foreach ( $raw['innerBlocks'] as $child ) {
 			$normalized = self::normalize_spec( $child, $allow_raw_html );
 			if ( $normalized instanceof \WP_Error ) {
 				return $normalized;
 			}
 			$children[] = $normalized;
 		}
+		$spec['innerBlocks'] = $children;
 
-		return [
-			'name'        => sanitize_text_field( $name ),
-			'attributes'  => $attributes,
-			'innerBlocks' => $children,
-		];
+		return $spec;
 	}
 
 	/** @param array<string, mixed> $raw */

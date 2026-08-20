@@ -111,6 +111,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 				'preview'             => [ 'type' => 'array' ],
 				'queued'              => [ 'type' => 'boolean' ],
 				'change_id'           => [ 'type' => 'string' ],
+				'change_ids'          => [ 'type' => 'array' ],
 				'finalizer_url'       => [ 'type' => 'string' ],
 			],
 		];
@@ -201,27 +202,27 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'finalizer_url'       => FinalizerPage::url(),
 						];
 					}
-					$spec = $this->first_finalizer_spec( $operations, $working );
-					if ( $spec instanceof \WP_Error ) {
-						return $spec;
+					$items = $this->finalizer_queue_items( $operations, $working, $post_id, $before_hash );
+					if ( $items instanceof \WP_Error ) {
+						return $items;
 					}
-					$queued = BlockQueue::enqueue(
-						[
-							'post_id'               => $post_id,
-							'expected_content_hash' => $before_hash,
-							'action'                => 'insert',
-							'block_spec'            => $spec,
-						]
-					);
+					$queued = BlockQueue::enqueue_many( $items );
 					if ( $queued instanceof \WP_Error ) {
 						return $queued;
 					}
+					$change_ids = array_values(
+						array_map(
+							static fn( array $record ): string => (string) $record['id'],
+							$queued
+						)
+					);
 					return [
 						'ok'                  => true,
 						'post_id'             => $post_id,
 						'dry_run'             => false,
 						'queued'              => true,
-						'change_id'           => (string) $queued['id'],
+						'change_id'           => (string) ( $change_ids[0] ?? '' ),
+						'change_ids'          => $change_ids,
 						'before_hash'         => $before_hash,
 						'after_hash'          => $before_hash,
 						'readback_hash'       => '',
@@ -1006,11 +1007,12 @@ final class BlocksBatchMutate extends AbilityKernel {
 	}
 
 	/**
-	 * @param array<int,mixed>                   $operations
-	 * @param array<int,array<string,mixed>>     $blocks
-	 * @return array<string,mixed>|\WP_Error
+	 * @param array<int, mixed>               $operations
+	 * @param array<int, array<string, mixed>> $blocks
+	 * @return list<array<string, mixed>>|\WP_Error
 	 */
-	private function first_finalizer_spec( array $operations, array $blocks ): array|\WP_Error {
+	private function finalizer_queue_items( array $operations, array $blocks, int $post_id, string $before_hash ): array|\WP_Error {
+		$items = [];
 		foreach ( $operations as $operation ) {
 			if ( ! is_array( $operation ) ) {
 				continue;
@@ -1019,37 +1021,67 @@ final class BlocksBatchMutate extends AbilityKernel {
 			if ( 'insert' === $action ) {
 				$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
 				$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
+				if ( ! BlockQueue::requires_finalizer( $name ) ) {
+					continue;
+				}
 				$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
 				if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
 					$attrs = $block['attributes'];
 				}
-				$inner = isset( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ? $block['innerBlocks'] : [];
-				if ( BlockQueue::requires_finalizer( $name ) ) {
-					return [
-						'name'        => $name,
-						'attributes'  => $attrs,
-						'innerBlocks' => $inner,
-					];
+				$spec = [
+					'name'       => $name,
+					'attributes' => $attrs,
+				];
+				if ( array_key_exists( 'innerBlocks', $block ) && is_array( $block['innerBlocks'] ) ) {
+					$spec['innerBlocks'] = $block['innerBlocks'];
 				}
+				$path   = self::path( $operation['path'] ?? [] );
+				$target = $this->insert_target( $blocks, $path, $operation );
+				if ( $target instanceof \WP_Error ) {
+					return $target;
+				}
+				[ $parent_path, $position ] = $target;
+				$items[]                    = [
+					'post_id'               => $post_id,
+					'expected_content_hash' => $before_hash,
+					'action'                => 'insert',
+					'path'                  => $parent_path,
+					'position'              => $position,
+					'block_spec'            => $spec,
+				];
 			}
 			if ( 'update' === $action ) {
 				$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
 				$existing = BlockTree::get( $blocks, $path );
 				$name     = is_array( $existing ) ? (string) ( $existing['blockName'] ?? '' ) : '';
-				if ( '' !== $name && BlockQueue::requires_finalizer( $name ) ) {
-					$attrs = is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [];
-					if ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
-						$attrs = array_merge( $attrs, $operation['attrs'] );
-					}
-					return [
-						'name'        => $name,
-						'attributes'  => $attrs,
-						'innerBlocks' => [],
-					];
+				if ( '' === $name || ! BlockQueue::requires_finalizer( $name ) ) {
+					continue;
 				}
+				$attrs = is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [];
+				if ( isset( $operation['attrs'] ) && is_array( $operation['attrs'] ) ) {
+					$attrs = array_merge( $attrs, $operation['attrs'] );
+				}
+				$spec = [
+					'name'       => $name,
+					'attributes' => $attrs,
+				];
+				$from_block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+				if ( array_key_exists( 'innerBlocks', $from_block ) && is_array( $from_block['innerBlocks'] ) ) {
+					$spec['innerBlocks'] = $from_block['innerBlocks'];
+				}
+				$items[] = [
+					'post_id'               => $post_id,
+					'expected_content_hash' => $before_hash,
+					'action'                => 'update',
+					'path'                  => $path,
+					'block_spec'            => $spec,
+				];
 			}
 		}
-		return $this->error( 'finalizer_queue_required', __( 'No static or third-party block spec was found to queue.', 'stonewright' ), [ 'status' => 400 ] );
+		if ( [] === $items ) {
+			return $this->error( 'finalizer_queue_required', __( 'No static or third-party block spec was found to queue.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		return $items;
 	}
 
 	/** @param array<string,mixed> $block @return array<string,mixed>|\WP_Error */
