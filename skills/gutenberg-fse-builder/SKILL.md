@@ -99,9 +99,12 @@ were `is_dynamic: true` **and** are actually server-rendered:
 reported `is_dynamic: true` because they have render callbacks. Still queue
 those. PHP serialize will drop editor-owned HTML.
 
-`stonewright-blocks-insert` already routes `BlockQueue::requires_finalizer`
-blocks into the queue. Prefer calling `stonewright-blocks-queue-change`
-yourself for visual sections so the spec is explicit.
+`BlockQueue::requires_finalizer` treats `is_dynamic` as the PHP path, not
+the queue. On the introspection site that includes `core/cover`,
+`core/heading`, and `core/button` — the same names in the hero and CTA
+recipes. Calling `stonewright-blocks-insert` or `stonewright-blocks-update`
+for those blocks PHP-serializes and drops editor-owned HTML. For every
+visual section call `stonewright-blocks-queue-change` explicitly.
 
 ## Pending-change pipeline
 
@@ -404,8 +407,8 @@ persist. `stonewright/fse-update-global-styles` and
 | `stonewright-blocks-finalizer-runtime` | `online`, pending count, Queue URL, editor frame URLs |
 | `stonewright-blocks-pending-batch` | Compact queued ids (no full spec) |
 | `stonewright-blocks-finalize-batch` | Persist hashed HTML after snapshot |
-| `stonewright/blocks-insert` | Immediate insert for `save:null` only; otherwise queues |
-| `stonewright/blocks-update` | Update attrs for `save:null`; otherwise queues |
+| `stonewright/blocks-insert` | Server insert — true `save:null` only; queue visual sections |
+| `stonewright/blocks-update` | Server update — true `save:null` only; queue visual sections |
 | `stonewright/blocks-remove` | Remove block at path |
 | `stonewright/blocks-serialize` | Server serialize — `save:null` only |
 | `stonewright/blocks-transform-html` | Raw HTML -> block markup |

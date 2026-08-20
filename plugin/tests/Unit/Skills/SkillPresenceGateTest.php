@@ -233,6 +233,7 @@ final class SkillPresenceGateTest extends TestCase {
 		self::assertStringContainsString( 'Block Editor Queue', $body );
 		self::assertStringContainsString( 'save:null', $body );
 		self::assertStringContainsString( 'likely_partial', $body );
+		self::assertStringNotContainsString( 'otherwise queues', $body );
 	}
 
 	public function test_elementor_v3_builder_requires_elementor(): void {
