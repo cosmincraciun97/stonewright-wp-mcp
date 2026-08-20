@@ -1569,6 +1569,7 @@ final class AbilityRegistry {
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
 			'stonewright/design-native-plan',
+			'stonewright/design-direction-brief',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',

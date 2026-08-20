@@ -58,11 +58,12 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertContains( 'stonewright/context-bootstrap', $tools );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $tools );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $tools );
-		self::assertContains( 'stonewright/php-execute', $tools );
+		self::assertNotContains( 'stonewright/php-execute', $tools );
 		self::assertContains( 'stonewright/security-issue-confirmation-token', $tools );
 		self::assertNotContains( 'stonewright/wp-cli-run', $tools );
 		self::assertNotContains( 'stonewright/elementor-v3-save-template', $tools );
 		self::assertNotContains( 'stonewright/sandbox-write', $tools );
+		self::assertContains( 'stonewright/design-direction-brief', $tools );
 		self::assertCount( 30, $tools );
 	}
 

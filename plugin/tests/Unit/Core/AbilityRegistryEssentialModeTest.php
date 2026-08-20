@@ -56,6 +56,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 				'stonewright/elementor-post-write-verify',
 				'stonewright/site-pulse',
 				'stonewright/learning-record',
+				'stonewright/design-direction-brief',
 			] as $name
 		) {
 			self::assertContains( $name, $names, $name . ' missing from essential profile' );
