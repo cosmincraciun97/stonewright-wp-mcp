@@ -5,17 +5,14 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
-use Stonewright\WpMcp\Admin\SettingsPage;
 
 /**
  * Tests for the sanitize callbacks registered by the settings pages.
  *
- * These callbacks are defined inline in ConfigurationPage::register_settings()
- * and SettingsPage::register_settings(). We extract and test them directly to
- * verify the whitelist/scheme/min-length rules.
+ * These callbacks are defined inline in ConfigurationPage::register_settings().
+ * We extract and test them directly to verify the whitelist/scheme/min-length rules.
  *
  * @covers \Stonewright\WpMcp\Admin\ConfigurationPage::register_settings
- * @covers \Stonewright\WpMcp\Admin\SettingsPage::register_settings
  */
 final class SettingsSanitizerTest extends TestCase {
 
@@ -203,22 +200,13 @@ final class SettingsSanitizerTest extends TestCase {
 		$this->assertFalse( (bool) get_option( 'stonewright_essential_tools_mode' ) );
 	}
 
-	public function test_settings_page_registers_essential_tools_mode_setting(): void {
-		$GLOBALS['stonewright_test_registered_settings'] = [];
-
-		SettingsPage::register_settings();
-
-		$options = array_column( $GLOBALS['stonewright_test_registered_settings'], 'option' );
-		$this->assertContains( 'stonewright_essential_tools_mode', $options );
-	}
-
 	// -------------------------------------------------------------------------
 	// Private helpers — replicate the sanitize callbacks inline
 	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns a closure equivalent to the mode sanitize_callback registered in
-	 * ConfigurationPage and SettingsPage.
+	 * ConfigurationPage.
 	 *
 	 * @return callable(mixed): string
 	 */

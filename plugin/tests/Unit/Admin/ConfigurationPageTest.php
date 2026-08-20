@@ -436,4 +436,35 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertFalse( $response['success'] );
 		self::assertSame( 403, $response['status'] );
 	}
+
+	public function test_render_includes_mode_consequence_help_text(): void {
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			'no confirmation tokens required; use only on disposable sites',
+			$html
+		);
+		self::assertStringContainsString(
+			'same gates as development; identifies the site as staging',
+			$html
+		);
+		self::assertStringContainsString(
+			'destructive and bulk writes require a fresh confirmation token per operation; Elementor V4 writes are blocked',
+			$html
+		);
+		self::assertStringContainsString( 'id="stonewright_mode_help"', $html );
+	}
+
+	public function test_admin_bootstrap_does_not_register_settings_page(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		$registration = (string) file_get_contents( $plugin_root . '/includes/Core/PluginRegistration.php' );
+		$bootstrap    = (string) file_get_contents( $plugin_root . '/includes/Admin/AdminBootstrap.php' );
+
+		self::assertStringNotContainsString( 'SettingsPage::register', $registration );
+		self::assertStringNotContainsString( 'SettingsPage::register', $bootstrap );
+		self::assertStringContainsString( 'ConfigurationPage::register', $registration );
+		self::assertFileDoesNotExist( $plugin_root . '/includes/Admin/SettingsPage.php' );
+	}
 }

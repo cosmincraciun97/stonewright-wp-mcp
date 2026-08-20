@@ -522,6 +522,13 @@ final class ConfigurationPage {
 									<?php esc_html_e( 'Production-safe', 'stonewright' ); ?>
 								</option>
 							</select>
+							<p class="description stonewright-mode-help" id="stonewright_mode_help">
+								<?php esc_html_e( 'Development — no confirmation tokens required; use only on disposable sites.', 'stonewright' ); ?>
+								<br />
+								<?php esc_html_e( 'Staging — same gates as development; identifies the site as staging.', 'stonewright' ); ?>
+								<br />
+								<?php esc_html_e( 'Production-safe — destructive and bulk writes require a fresh confirmation token per operation; Elementor V4 writes are blocked.', 'stonewright' ); ?>
+							</p>
 						</div>
 						<div class="stonewright-risk-notice <?php echo esc_attr( $risk_class ); ?>">
 							<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
