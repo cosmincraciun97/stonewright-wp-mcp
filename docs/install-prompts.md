@@ -18,9 +18,9 @@ when changing versions.
 ## Default Plugin path
 
 1. Install and activate the current Plugin ZIP.
-2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow.
+2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
-4. Confirm `stonewright-task-start` is visible and call it first. Use `essential` for normal work; `bootstrap` is diagnostics only.
+4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
 
 The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
 
@@ -121,7 +121,8 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   call the task complete until its frontend assertions pass and desktop,
   tablet, and mobile browser measurements/screenshots are accepted.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
-- Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.
+- Use stonewright-php-execute for short runtime PHP (full profile only); keep WP-CLI tokenized via stonewright-wp-cli-*.
+- For a client that cannot hold the full catalog, activate opt-in discover-execute (discover-abilities → get-ability-info → execute-ability). php-execute stays off that profile.
 ```
 
 ## Option B — Without the plugin (Direct mode, any live WordPress)
@@ -139,9 +140,10 @@ Local sites with tokenized WP-CLI can also inspect and update Elementor document
 data with mandatory file backup. This is not remote pluginless Elementor engine
 parity.
 
-Plugin-only: php-execute, Elementor engines, DesignSpec render pipelines,
-production-safe confirmation tokens, CPT/field-group registration, and the
-wp-admin skills/memory/audit UI.
+Plugin-only: php-execute (full profile), Elementor engines, DesignSpec render
+pipelines, production-safe confirmation tokens, CPT/field-group registration,
+and the wp-admin skills/memory/audit UI. Opt-in `discover-execute` is also
+plugin-backed.
 
 Optional interactive setup:
 
@@ -225,12 +227,26 @@ After reload:
 
 For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).
 
+## Codex Desktop vs CLI
+
+Treat these as two clients. `--client codex` aliases to CLI; prefer the
+canonical slugs:
+
+| Surface | Flag | Config |
+|---|---|---|
+| Codex CLI | `--client codex-cli` | `~/.codex/config.toml` |
+| Codex in ChatGPT Desktop | `--client chatgpt-desktop` | `~/Library/Application Support/ChatGPT/mcp_config.json` |
+
+Do not paste CLI TOML into the Desktop JSON file. See
+[getting-started/codex.md](getting-started/codex.md).
+
 ## Certified vs compatible clients
 
-- **Tier-1 certification targets:** Codex, Claude Code/Desktop, Cursor, VS Code /
-  GitHub Copilot — maintained first, but not called certified without a passing
-  acceptance report; use
+- **Tier-1 certification targets:** Codex CLI (`--client codex-cli`), Claude
+  Code/Desktop, Cursor, VS Code / GitHub Copilot — maintained first, but not
+  called certified without a passing acceptance report; use
   [client-acceptance-template.md](releases/client-acceptance-template.md).
+  Codex in ChatGPT Desktop is a separate client (`--client chatgpt-desktop`).
 - **Compatible:** other catalog clients may work with the same stdio/HTTP
   snippets but are not fully certified until an acceptance report passes.
 - Certification priority, operational support, and evidence live in

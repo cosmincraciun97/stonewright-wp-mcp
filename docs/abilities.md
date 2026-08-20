@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**362** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**381** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -12,25 +12,28 @@ matrix after changing the registry.
 
 | Category | Count | Scope |
 |---|---:|---|
-| Security | 2 | Confirmation tokens and one-time links. |
+| Security | 5 | Confirmation tokens, audit reconcile, runtime purge, incident repair, and one-time links. |
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
-| Gutenberg | 12 | Parse, render, serialize, insert, update, remove, apply, and transact blocks. |
-| Patterns | 2 | List and create block patterns. |
-| Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
-| Elementor V3 | 32 | Structure editing, transactions, document health, performance audit, legacy-debt report, post-write frontend verification, specs, kit globals, preflight, and batch mutation. |
+| Gutenberg | 13 | Parse, render, serialize, insert, update, remove, query-loop, apply, and transact dynamic blocks. |
+| Finalizer abilities | 5 | Queue, runtime, pending batch, finalize, and finalizer URL for static or third-party blocks. |
+| Patterns | 5 | List, create, update, delete, and categorize synced patterns. |
+| Full Site Editing | 12 | theme.json, templates, template parts, global styles, navigation, and child-theme handoff. |
+| Elementor V3 | 34 | Structure editing, transactions, document health, performance audit, legacy-debt report, post-write frontend verification, specs, kit globals, preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 14 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 4 | Custom Elementor widget project helpers. |
 | Elementor Widgets | 94 | Deprecated generated per-widget compatibility builders. |
 | Design | 28 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
-| Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime. |
+| Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime (full profile only). |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Memory | 6 | Persistent memory, generalization, corrections, and learned records. |
 | System | 11 | Task start, native rules, profiles, preflight, instructions, ability list, and knowledge transfer. |
+| System discover-execute | 3 | Compact catalog, bounded schema, and gated execute without exposing the full MCP tool list. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics. |
 | Content Model | 4 | CPT/ACF Loop Grid flow, CPT register/list, and taxonomy registration. |
+| Blocks library introspection | 3 | GenerateBlocks, Kadence Blocks, or Spectra setup, registered names, and block.json schema. |
 | Blueprints | 3 | Blueprint listing, inspection, and guarded application. |
 | Brand Kits | 2 | Reusable brand-kit reads and writes. |
 | Skills | 3 | Agent skill listing, reads, and saves. |
@@ -41,7 +44,9 @@ matrix after changing the registry.
 | Users | 6 | User and application-password administration. |
 | Widgets | 4 | WordPress widget-area reads and writes. |
 | Settings | 2 | Site settings reads and guarded updates. |
-| Themes | 6 | Theme discovery, install, activation, file reads, and scoped writes. |
+| Themes | 6 | Theme discovery, activation, Customizer CSS, file reads, and scoped writes. |
+| Theme chrome | 2 | Blocksy, Kadence Theme, or GeneratePress global color, typography, header, and footer. |
+| Custom Code | 1 | Typed dry-run then human-approval apply for WPCode / Code Snippets / equivalent providers. |
 | Plugins Manage | 3 | Plugin install, activate, and deactivate operations. |
 | Revisions | 3 | Revision listing, inspection, and restore. |
 | Search | 2 | WordPress search and OpenSearch discovery. |
@@ -74,8 +79,8 @@ sentinel: if it is missing, the Stonewright MCP server did not load.
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
 the task needs to switch or verify a low-token execution profile. It returns
 compact profiles such as `low-tools`, `elementor-design`, `content-model`,
-`gutenberg`, and `wp-cli` with the hyphenated MCP tool names agents should keep
-using before broad discovery. It also returns `tool_groups`,
+`gutenberg`, `wp-cli`, and opt-in `discover-execute` with the hyphenated MCP
+tool names agents should keep using before broad discovery. It also returns `tool_groups`,
 `next_best_tools`, and `discovery_policy` so agents can pick the next Elementor,
 content/media, Gutenberg/FSE, WP-CLI, or site-admin tool without reading the
 full ability matrix. Use `low-tools` for Antigravity, Gemini API, or other
@@ -122,13 +127,32 @@ companion through `query-local-stonewright.js`, create action scripts such as
 source to reverse-engineer tool schemas, or hand-roll JSON-RPC to reach this
 runner when `stonewright-context-bootstrap` is missing.
 
+## Discover-execute
+
+`discover-execute` is an opt-in MCP profile. Auto routing never selects it.
+Activate it with `stonewright-tool-profile` when the client cannot hold the
+full catalog but still needs one typed ability.
+
+The three protocol tools are:
+
+| Ability | MCP tool | Purpose |
+|---|---|---|
+| `stonewright/discover-abilities` | `stonewright-discover-abilities` | Compact catalog (name, MCP tool, label, description, category, enabled). No schemas. |
+| `stonewright/get-ability-info` | `stonewright-get-ability-info` | Bounded input/output schema plus permission and mode notes for one ability. |
+| `stonewright/execute-ability` | `stonewright-execute-ability` | Runs that named ability through the same permission, confirmation, backup, audit, and context gates as a direct MCP call. |
+
+`execute-ability` cannot invoke itself. Disabled abilities stay disabled.
+`stonewright/php-execute` is not on this profile; it remains on `full`.
+
 ## Runtime
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
-inside the loaded WordPress runtime. It has access to WordPress functions,
+inside the loaded WordPress runtime. It is on the **full** tool profile only —
+bootstrap and essential do not expose it. It has access to WordPress functions,
 loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
-database inspection is the shorter correct path.
+database inspection is the shorter correct path. Runtime `$wpdb` and protected
+meta writes are blocked; see [Security](security.md#php-execute-runtime-guards).
 
 ## WP-CLI
 

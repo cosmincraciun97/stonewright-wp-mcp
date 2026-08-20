@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **362 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **381 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -71,7 +71,7 @@ Not every operation needs every gate. Stonewright selects the controls required 
 ## Start in four steps
 
 1. Download the current Plugin ZIP and install it in **Plugins → Add New → Upload Plugin**.
-2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow.
+2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow. If the client still cannot connect, open **Stonewright → Troubleshoot** and run diagnostics (the page stays put and shows a loading state).
 3. Fully restart the client and run the generated connection verification. A saved or parseable config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first with the real task. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
 
@@ -89,7 +89,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **362** abilities
+### Plugin mode — **381** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -102,15 +102,20 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
-| Gutenberg + FSE + patterns | 24 | Blocks, theme.json, templates, global styles, transactional block batches |
+| Gutenberg | 13 | Parse, insert, update, batch-mutate, query-loop, render/apply |
+| Finalizer abilities | 5 | Queue, runtime, pending, finalize, and finalizer URL for static/third-party blocks |
+| FSE + patterns | 17 | theme.json, templates, navigation, pattern CRUD |
+| Blocks library introspection | 3 | GenerateBlocks / Kadence / Spectra setup, list, and schema |
 | Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
 | ACF + SEO | 8 | Field groups/values, multi-plugin SEO |
-| Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops |
+| Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops (themes row excludes chrome) |
+| Theme chrome | 2 | Blocksy / Kadence Theme / GeneratePress color, type, header, footer |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
 | Security + sandbox | 13 | Tokens, one-time links, incident repair receipts, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
+| System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
 | Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
 ### Direct mode — **101** tools (pluginless)
@@ -432,7 +437,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **362** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **381** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -465,8 +470,8 @@ repository follow the common MCP server JSON shape used by several clients.
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
-Prompts, Skills, Memory, Sandbox, and Audit Log. The Audit Log is the single
+Plugin mode admin pages include Setup, Troubleshoot, Dashboard (Site Pulse),
+Abilities, Prompts, Design, Skills, Memory, Context, Sandbox, and Audit Log. The Audit Log is the single
 responsive incident view; Sandbox does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,
 component contracts, responsive rules, and page-by-page release checklist live

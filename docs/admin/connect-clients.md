@@ -108,7 +108,7 @@ plugin, `plugin-only` is the correct policy:
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a --url https://site-a.example --username editor \
-  --env production --mode plugin-only --client codex \
+  --env production --mode plugin-only --client cursor \
   --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
@@ -116,10 +116,10 @@ If `site-a` already exists, do not register another alias or request the
 password again:
 
 ```bash
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client cursor --mode plugin-only
 ```
 
-Restart the client and run `stonewright connect verify site-a --client codex`.
+Restart the client and run `stonewright connect verify site-a --client cursor`.
 The result must identify the requested alias, `configured_mode=plugin-only`,
 `active_mode=plugin`, task-start/status, and the expected companion. If it
 identifies another site or Direct mode, stop; the wrong named entry is active.
@@ -187,13 +187,27 @@ by the companion.
 
 ## Codex
 
-Codex CLI and the Codex IDE extension share MCP config from
-`~/.codex/config.toml`. Trusted projects can also use `.codex/config.toml`.
-Use the installer above with `--client codex`; it writes the alias-specific
-TOML block transactionally. Do not paste a second generic block by hand.
+Codex in ChatGPT Desktop and Codex CLI are **separate** clients. Do not paste
+CLI TOML into the Desktop `mcp_config.json`.
 
-Restart Codex or reload the MCP session. In the Codex TUI, use `/mcp` after
-restart to confirm the named Stonewright entry is active.
+| Surface | Installer flag | Config |
+|---|---|---|
+| Codex CLI | `--client codex-cli` | `~/.codex/config.toml` (or trusted project `.codex/config.toml`) |
+| Codex in ChatGPT Desktop | `--client chatgpt-desktop` | `~/Library/Application Support/ChatGPT/mcp_config.json` |
+
+`--client codex` still aliases to `codex-cli`. Prefer the canonical slugs.
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --env production --mode plugin-only --client codex-cli \
+  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
+```
+
+The CLI installer writes the alias-specific TOML block transactionally. Do not
+paste a second generic block by hand. Restart Codex or reload the MCP session.
+In the Codex TUI, use `/mcp` after restart to confirm the named Stonewright
+entry is active.
 
 After every Stonewright release or skill sync, run `stonewright-setup-profile`
 and `stonewright-wordpress-mcp-status`. Check `companion_version`,
@@ -201,7 +215,8 @@ and `stonewright-wordpress-mcp-status`. Check `companion_version`,
 package or required tools are stale, Codex is still running an old companion
 process or cached tool list.
 
-See [Updating Stonewright](../updates.md) for the plugin/companion version
+See [Getting started with Codex](../getting-started/codex.md) and
+[Updating Stonewright](../updates.md) for the plugin/companion version
 matrix, replacement steps, and persistence guarantees.
 
 ---

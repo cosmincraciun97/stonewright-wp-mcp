@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.10
+Version: 1.0.0-beta.11
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: [AGPL-3.0-or-later](../LICENSE)
@@ -126,9 +126,9 @@ and `companion_wp_cli_run`, or the direct `stonewright-wp-cli-*` aliases.
 
 Public tool surface for MCP clients: `bootstrap` | `essential` | `full`.
 
-- **bootstrap** — minimal first-call set (task-start / profile / recovery).
+- **bootstrap** — minimal first-call set (task-start / profile / recovery). `php-execute` is not on bootstrap.
 - **essential** — compact day-to-day Elementor/content fast path (default for new installs when set on activation).
-- **full** — entire enabled ability registry.
+- **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface.
 
 Toggle in **Stonewright → Setup**. Contracts for the public ability list live in
 `docs/contracts/public-api-v1.json` (regenerate with `composer contracts:generate`).
@@ -137,7 +137,14 @@ Toggle in **Stonewright → Setup**. Contracts for the public ability list live 
 
 **Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
 (initialize → tools/list → task-start). Preflight alone does not prove a live
-client session. Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
+client session.
+
+**Stonewright → Troubleshoot** (also on Setup) runs the same class of probes
+from **Run diagnostics** without reloading the admin page when JavaScript is
+available. Use it when a client never lists Stonewright tools, fails auth, or
+cannot reach the site. Copy the report for support; it never includes secrets.
+
+Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
 credentials, REST index/namespaces, REST auth, and MCP initialize without
 printing secrets.
 
@@ -159,15 +166,16 @@ final admin page.
 ### Prompt library
 
 Searchable outcome-tagged prompts ship in `data/prompts/catalog.json` and appear
-on Setup. Agents still start with `stonewright-task-start` (skill refs only) —
-do not inline the full library into task-start payloads.
+on Setup. Agents still start with `stonewright-task-start` (skill refs, truncated
+Context text, and a Design Direction pointer — not the full libraries).
 
 ### Persistent Skills And Memory
 
 The plugin stores site skills and memory in WordPress tables. Agents must call
 MCP tool `stonewright-task-start` at the start of every task and follow the
-returned skills, memory, custom instructions, capability gates, and next tool
-path. `stonewright-context-bootstrap` and `stonewright-workflow-preflight`
+returned skills, memory, custom instructions (including Context page text),
+active Design Direction pointer, capability gates, and next tool path.
+`stonewright-context-bootstrap` and `stonewright-workflow-preflight`
 remain compatibility paths.
 
 If neither `stonewright-task-start` nor compatibility
@@ -268,9 +276,11 @@ Library labels Plugin/Direct support and includes requirements plus verification
 
 ### Design abilities (MCP)
 
-Design Studio / Visual Workspace / Blueprints admin pages are not registered in
-this build. Typed design, blueprint, and brand-kit abilities remain available
-over MCP; storage tables and options are preserved.
+The **Design** tab (`stonewright-design`) is registered under Workflows and
+edits Design Directions. The `design-library` admin group is not: Design Studio,
+Visual Workspace, and Blueprints pages stay unregistered. Typed design,
+blueprint, and brand-kit abilities remain available over MCP; storage tables
+and options are preserved.
 
 For Figma-derived work, call `stonewright-design-direction-brief` once and
 reuse its compact tokens and translated density/variance/motion guidance across

@@ -46,6 +46,36 @@ The bundled shard supplies verified fallback knowledge such as
 `required_for_render`; live controls always win. An unregistered third-party
 widget is blocked with `capture_required=true` instead of being written raw.
 
+## Sparse LLM schema
+
+`stonewright-elementor-schema` runs live controls through
+`PlainLlmSchemaConverter` before returning them. That converter unwraps
+`{$$type, value}` envelopes, collapses duplicate union branches, enriches enums
+from control options, and omits Elementor Pro controls when Pro is inactive.
+`mode=summary` returns type/description only. Compatibility
+`stonewright-elementor-v3-get-widget-schema` defaults to compact Content/Style/
+Advanced groups (`defaults_omitted: true`); use `responseMode=full` only when
+defaults are required for the next write.
+
+Agents should plan against that compact schema, then send only the settings they
+actually intend to change.
+
+## Sparse writes
+
+After schema and evidence validation, `SparseSettingsNormalizer` sparsifies the
+**agent-supplied patch**, not the live document:
+
+- New widget/container payloads drop empty default objects and, for widgets,
+  known schema defaults that were not required for render.
+- Updates merge the sparsified patch onto existing element settings. Live keys
+  the agent did not send stay in place.
+- Unknown keys are left in the payload so `SettingsValidator` remains the
+  rejection gate. The normalizer never strips unknown settings to “pass”
+  validation.
+
+Use surgical `elementor-v3-batch-mutate` (or the typed add/update abilities).
+Do not full-tree rewrite a document to fix one control.
+
 ## Compatibility
 
 `stonewright/elementor-v3-get-widget-schema` and

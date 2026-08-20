@@ -224,10 +224,12 @@ avoid broad discovery.
 For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 `~/.gemini/config/mcp_config.json` and the dedicated
 [Antigravity setup guide](getting-started/antigravity.md).
-For Codex CLI or the Codex IDE extension, use
-[`~/.codex/config.toml`](getting-started/codex.md) or a trusted project
-`.codex/config.toml`; installer-managed Codex MCP entries use alias-specific
-TOML tables such as `[mcp_servers.stonewright-site-a]`, not JSON.
+For Codex CLI, use [`--client codex-cli`](getting-started/codex.md) and
+`~/.codex/config.toml` (or a trusted project `.codex/config.toml`). For Codex
+in ChatGPT Desktop, use [`--client chatgpt-desktop`](getting-started/codex.md)
+and `~/Library/Application Support/ChatGPT/mcp_config.json`. Do not paste CLI
+TOML into the Desktop JSON file. Installer-managed Codex CLI entries use
+alias-specific TOML tables such as `[mcp_servers.stonewright-site-a]`.
 
 Before the first WordPress task, verify the client tool list includes
 `stonewright-task-start` (canonical) or compatibility
