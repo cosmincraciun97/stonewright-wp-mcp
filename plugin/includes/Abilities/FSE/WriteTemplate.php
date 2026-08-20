@@ -4,7 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\FSE;
 
 /**
- * Ability: stonewright/fse.write_template
+ * Ability: stonewright/fse-write-template
+ *
+ * Canonical FSE template writer. `stonewright/fse-update-template` is a
+ * compatibility wrapper around this envelope (confirmation, backup,
+ * can_manage_fse, sanitized content) while keeping the id-based input shape.
  *
  * Inserts or updates a wp_template post. Backups existing before overwrite.
  * Requires confirmation token in production-safe mode.

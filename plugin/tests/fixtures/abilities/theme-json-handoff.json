@@ -1,0 +1,20 @@
+{
+    "args": {
+        "dry_run": true,
+        "theme_json": {
+            "version": 3,
+            "settings": {
+                "color": {
+                    "palette": [
+                        { "slug": "primary", "color": "#0073aa", "name": "Primary" }
+                    ]
+                }
+            }
+        },
+        "native_gap": {
+            "reason": "User global styles cannot own child-theme theme.json tokens.",
+            "methods_tried": ["typed_api", "admin_form"]
+        }
+    },
+    "expect": "ok"
+}

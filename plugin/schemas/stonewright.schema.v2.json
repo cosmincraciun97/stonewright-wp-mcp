@@ -543,6 +543,8 @@
             "text-editor",
             "image-gallery",
             "gallery",
+            "query",
+            "navigation",
             "countdown",
             "nav-menu",
             "icon-list",

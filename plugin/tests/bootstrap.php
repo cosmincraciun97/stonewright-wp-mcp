@@ -107,6 +107,23 @@ spl_autoload_register(
 	}
 );
 
+// Load this checkout's includes even when vendor/ is a symlink into another tree.
+spl_autoload_register(
+	static function ( string $class ): void {
+		$prefix = 'Stonewright\\WpMcp\\';
+		if ( 0 !== strpos( $class, $prefix ) || 0 === strpos( $class, 'Stonewright\\WpMcp\\Tests\\' ) ) {
+			return;
+		}
+		$relative = substr( $class, strlen( $prefix ) );
+		$file     = dirname( __DIR__ ) . '/includes/' . str_replace( '\\', '/', $relative ) . '.php';
+		if ( is_file( $file ) ) {
+			require_once $file;
+		}
+	},
+	true,
+	true
+);
+
 $composer_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
 if ( file_exists( $composer_autoload ) ) {
 	require_once $composer_autoload;
@@ -1373,7 +1390,75 @@ if ( ! function_exists( 'wp_set_post_tags' ) ) {
 
 if ( ! function_exists( 'wp_set_object_terms' ) ) {
 	function wp_set_object_terms( int $object_id, string|int|array $terms, string $taxonomy, bool $append = false ): array|\WP_Error {
-		return (array) $terms;
+		$terms = array_values( array_map( 'strval', (array) $terms ) );
+		$store = $GLOBALS['stonewright_test_object_terms'] ?? [];
+		if ( $append && isset( $store[ $object_id ][ $taxonomy ] ) && is_array( $store[ $object_id ][ $taxonomy ] ) ) {
+			$terms = array_values( array_unique( array_merge( $store[ $object_id ][ $taxonomy ], $terms ) ) );
+		}
+		$store[ $object_id ][ $taxonomy ] = $terms;
+		$GLOBALS['stonewright_test_object_terms'] = $store;
+		foreach ( $terms as $term ) {
+			$GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $term ] = (object) [
+				'term_id' => crc32( $taxonomy . ':' . $term ),
+				'name'    => (string) $term,
+				'slug'    => (string) $term,
+			];
+		}
+		return $terms;
+	}
+}
+
+if ( ! function_exists( 'get_the_terms' ) ) {
+	/**
+	 * @return array<int, object>|false
+	 */
+	function get_the_terms( int|object $post, string $taxonomy ) {
+		$id = is_object( $post ) ? (int) ( $post->ID ?? 0 ) : (int) $post;
+		$slugs = $GLOBALS['stonewright_test_object_terms'][ $id ][ $taxonomy ] ?? [];
+		if ( [] === $slugs ) {
+			return false;
+		}
+		$out = [];
+		foreach ( (array) $slugs as $slug ) {
+			$out[] = $GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $slug ] ?? (object) [
+				'term_id' => 0,
+				'name'    => (string) $slug,
+				'slug'    => (string) $slug,
+			];
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'get_terms' ) ) {
+	/**
+	 * @param array<string, mixed>|string $args
+	 * @return array<int, object>
+	 */
+	function get_terms( array|string $args = [] ): array {
+		if ( is_string( $args ) ) {
+			$args = [ 'taxonomy' => $args ];
+		}
+		$taxonomy = (string) ( $args['taxonomy'] ?? '' );
+		$rows     = $GLOBALS['stonewright_test_terms'][ $taxonomy ] ?? [];
+		return array_values( $rows );
+	}
+}
+
+if ( ! function_exists( 'wp_insert_term' ) ) {
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array{term_id:int,term_taxonomy_id:int}|\WP_Error
+	 */
+	function wp_insert_term( string $term, string $taxonomy, array $args = [] ) {
+		$slug = sanitize_title( (string) ( $args['slug'] ?? $term ) );
+		$id   = (int) sprintf( '%u', crc32( $taxonomy . ':' . $slug ) );
+		$GLOBALS['stonewright_test_terms'][ $taxonomy ][ $slug ] = (object) [
+			'term_id' => $id,
+			'name'    => $term,
+			'slug'    => $slug,
+		];
+		return [ 'term_id' => $id, 'term_taxonomy_id' => $id ];
 	}
 }
 
@@ -2038,11 +2123,29 @@ if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
 					'icon'        => 'editor-paragraph',
 					'supports'    => [],
 				],
+				'core/query' => (object) [
+					'title'       => 'Query Loop',
+					'category'    => 'theme',
+					'description' => '',
+					'icon'        => 'loop',
+					'supports'    => [],
+				],
+				'core/post-template' => (object) [
+					'title'       => 'Post Template',
+					'category'    => 'theme',
+					'description' => '',
+					'icon'        => 'layout',
+					'supports'    => [],
+				],
 			];
 		}
 
 		public function get_registered( string $name ): ?object {
 			return $this->get_all_registered()[ $name ] ?? null;
+		}
+
+		public function is_registered( string $name ): bool {
+			return isset( $this->get_all_registered()[ $name ] );
 		}
 	}
 }

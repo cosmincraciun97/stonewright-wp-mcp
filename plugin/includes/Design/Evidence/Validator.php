@@ -22,6 +22,7 @@ final class Validator {
 		'text',
 		'image',
 		'gallery',
+		'query',
 		'button',
 		'cta',
 		'link',

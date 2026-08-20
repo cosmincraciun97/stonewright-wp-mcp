@@ -1,0 +1,8 @@
+{
+    "args": {
+        "action": "create",
+        "title": "Primary",
+        "content": "<!-- wp:navigation-link {\"label\":\"Home\",\"url\":\"https://example.test/\"} /-->"
+    },
+    "expect": "ok"
+}

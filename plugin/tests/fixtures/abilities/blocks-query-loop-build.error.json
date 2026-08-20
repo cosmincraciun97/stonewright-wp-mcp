@@ -1,0 +1,6 @@
+{
+    "args": {
+        "post_type": "not-registered"
+    },
+    "expect": "wp_error"
+}

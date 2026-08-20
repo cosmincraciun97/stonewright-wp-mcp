@@ -1,0 +1,8 @@
+{
+    "args": {
+        "theme_json": {
+            "version": "not-an-integer"
+        }
+    },
+    "expect": "wp_error"
+}

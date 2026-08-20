@@ -8,26 +8,26 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 
 /**
- * Contract decision: keep output_schema aligned to the handler response shape.
+ * Updates a user synced pattern (wp_block). Compatibility fields stay closed.
  *
- * Write envelope: Permissions, Backup::snapshot_post after insert, ConfirmationGuard
- * in production-safe, sanitized post_content, AbilityKernel::audit().
+ * Envelope: Permissions, Backup::snapshot_post, ConfirmationGuard in
+ * production-safe, sanitized post_content, AbilityKernel::audit().
  *
  * @stonewright-status stable
  */
-final class CreatePattern extends AbilityKernel {
+final class UpdatePattern extends AbilityKernel {
 	use ConfirmationGuard;
 
 	public function name(): string {
-		return 'stonewright/patterns-create';
+		return 'stonewright/patterns-update';
 	}
 
 	public function label(): string {
-		return __( 'Create synced pattern', 'stonewright' );
+		return __( 'Update synced pattern', 'stonewright' );
 	}
 
 	public function description(): string {
-		return __( 'Creates a synced pattern (wp_block CPT) from block content.', 'stonewright' );
+		return __( 'Updates a user-defined synced pattern (wp_block CPT). Snapshots before write.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -39,13 +39,13 @@ final class CreatePattern extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'id'                 => [ 'type' => 'integer', 'minimum' => 1 ],
 				'title'              => [ 'type' => 'string', 'maxLength' => 255 ],
 				'content'            => [ 'type' => 'string' ],
-				'slug'               => [ 'type' => 'string', 'maxLength' => 200 ],
-				'status'             => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private' ], 'default' => 'publish' ],
+				'status'             => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private' ] ],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
-			'required'             => [ 'title', 'content' ],
+			'required'             => [ 'id' ],
 		];
 	}
 
@@ -57,6 +57,7 @@ final class CreatePattern extends AbilityKernel {
 				'slug'        => [ 'type' => 'string' ],
 				'snapshot_id' => [ 'type' => 'string' ],
 			],
+			'required'   => [ 'id', 'snapshot_id' ],
 		];
 	}
 
@@ -75,31 +76,36 @@ final class CreatePattern extends AbilityKernel {
 					return $token_error;
 				}
 
-				$content = PatternSupport::sanitize_content( (string) $args['content'] );
-				if ( is_wp_error( $content ) ) {
-					return $content;
+				$post = PatternSupport::require_pattern( (int) ( $args['id'] ?? 0 ) );
+				if ( is_wp_error( $post ) ) {
+					return $post;
 				}
 
-				$id = wp_insert_post(
-					[
-						'post_title'   => sanitize_text_field( (string) $args['title'] ),
-						'post_name'    => isset( $args['slug'] ) ? sanitize_title( (string) $args['slug'] ) : '',
-						'post_content' => $content,
-						'post_status'  => (string) ( $args['status'] ?? 'publish' ),
-						'post_type'    => 'wp_block',
-					],
-					true
-				);
-
-				if ( is_wp_error( $id ) ) {
-					return $id;
+				$payload = [ 'ID' => (int) $post->ID ];
+				if ( isset( $args['title'] ) ) {
+					$payload['post_title'] = sanitize_text_field( (string) $args['title'] );
+				}
+				if ( isset( $args['status'] ) ) {
+					$payload['post_status'] = (string) $args['status'];
+				}
+				if ( isset( $args['content'] ) ) {
+					$content = PatternSupport::sanitize_content( (string) $args['content'] );
+					if ( is_wp_error( $content ) ) {
+						return $content;
+					}
+					$payload['post_content'] = $content;
 				}
 
-				$snapshot_id = Backup::snapshot_post( (int) $id );
-				$post        = get_post( (int) $id );
+				$snapshot_id = Backup::snapshot_post( (int) $post->ID );
+				$result      = wp_update_post( $payload, true );
+				if ( is_wp_error( $result ) ) {
+					return $result;
+				}
+
+				$fresh = get_post( (int) $post->ID );
 				return [
-					'id'          => (int) $id,
-					'slug'        => $post ? (string) $post->post_name : '',
+					'id'          => (int) $post->ID,
+					'slug'        => $fresh ? (string) $fresh->post_name : (string) $post->post_name,
 					'snapshot_id' => $snapshot_id,
 				];
 			}

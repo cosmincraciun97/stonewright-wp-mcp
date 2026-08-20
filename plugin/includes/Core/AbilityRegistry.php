@@ -117,8 +117,10 @@ use Stonewright\WpMcp\Abilities\ElementorV4\UpdateVariable;
 use Stonewright\WpMcp\Abilities\FSE\CreateTemplatePart;
 use Stonewright\WpMcp\Abilities\FSE\GetThemeJson;
 use Stonewright\WpMcp\Abilities\FSE\ListTemplates;
+use Stonewright\WpMcp\Abilities\FSE\Navigation as FseNavigation;
 use Stonewright\WpMcp\Abilities\FSE\ReadGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\ReadTemplate;
+use Stonewright\WpMcp\Abilities\FSE\ThemeJsonHandoff;
 use Stonewright\WpMcp\Abilities\FSE\UpdateGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\UpdateTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteGlobalStyles;
@@ -129,6 +131,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
 use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
+use Stonewright\WpMcp\Abilities\Gutenberg\QueryLoopBuild;
 use Stonewright\WpMcp\Abilities\Gutenberg\RenderBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ListRegisteredBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ParseBlocks;
@@ -256,7 +259,10 @@ use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
 use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
 use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
+use Stonewright\WpMcp\Abilities\Patterns\DeletePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
+use Stonewright\WpMcp\Abilities\Patterns\PatternCategories;
+use Stonewright\WpMcp\Abilities\Patterns\UpdatePattern;
 use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
@@ -354,6 +360,7 @@ final class AbilityRegistry {
 			SerializeBlocks::class,
 			TransformHtml::class,
 			InsertBlock::class,
+			QueryLoopBuild::class,
 			UpdateBlock::class,
 			RemoveBlock::class,
 			BlocksBatchMutate::class,
@@ -363,6 +370,9 @@ final class AbilityRegistry {
 			// Patterns.
 			ListPatterns::class,
 			CreatePattern::class,
+			UpdatePattern::class,
+			DeletePattern::class,
+			PatternCategories::class,
 
 			// FSE.
 			GetThemeJson::class,
@@ -375,6 +385,8 @@ final class AbilityRegistry {
 			WriteTemplate::class,
 			WriteTemplatePart::class,
 			WriteGlobalStyles::class,
+			FseNavigation::class,
+			ThemeJsonHandoff::class,
 
 			// Elementor V3.
 			ElementorStatus::class,

@@ -4,14 +4,21 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
- * Contract decision: keep output_schema aligned to the handler response shape.
+ * Compatibility create wrapper around the FSE template-part write envelope.
+ *
+ * Content is sanitized via BlockMarkup. Permission matches write-*:
+ * can_manage_fse(). Confirmation is required in production-safe mode.
+ * Prefer {@see WriteTemplatePart} for the canonical slug/theme contract.
  *
  * @stonewright-status stable
  */
 final class CreateTemplatePart extends AbilityKernel {
+	use ConfirmationGuard;
 
 	public function name(): string {
 		return 'stonewright/fse-create-template-part';
@@ -22,7 +29,7 @@ final class CreateTemplatePart extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates a wp_template_part (header, footer, sidebar, uncategorized).', 'stonewright' );
+		return __( 'Creates a wp_template_part (header, footer, sidebar, uncategorized). Compatibility wrapper around fse-write-template-part sanitization and confirmation.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -34,10 +41,11 @@ final class CreateTemplatePart extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
-				'slug'    => [ 'type' => 'string', 'maxLength' => 200 ],
-				'title'   => [ 'type' => 'string', 'maxLength' => 255 ],
-				'content' => [ 'type' => 'string' ],
-				'area'    => [ 'type' => 'string', 'enum' => [ 'header', 'footer', 'sidebar', 'uncategorized' ], 'default' => 'uncategorized' ],
+				'slug'               => [ 'type' => 'string', 'maxLength' => 200 ],
+				'title'              => [ 'type' => 'string', 'maxLength' => 255 ],
+				'content'            => [ 'type' => 'string' ],
+				'area'               => [ 'type' => 'string', 'enum' => [ 'header', 'footer', 'sidebar', 'uncategorized' ], 'default' => 'uncategorized' ],
+				'confirmation_token' => [ 'type' => 'string' ],
 			],
 			'required'             => [ 'slug', 'title', 'content' ],
 		];
@@ -54,13 +62,25 @@ final class CreateTemplatePart extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_theme_options();
+		return Permissions::can_manage_fse();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
+				$verify = $args;
+				unset( $verify['confirmation_token'] );
+				$token_error = $this->confirmation_token_error( $args, $verify );
+				if ( null !== $token_error ) {
+					return $token_error;
+				}
+
+				$content = BlockMarkup::sanitize( (string) $args['content'] );
+				if ( is_wp_error( $content ) ) {
+					return $content;
+				}
+
 				$slug = sanitize_title( (string) $args['slug'] );
 				$area = isset( $args['area'] ) ? (string) $args['area'] : 'uncategorized';
 
@@ -70,7 +90,7 @@ final class CreateTemplatePart extends AbilityKernel {
 						'post_status'  => 'publish',
 						'post_name'    => $slug,
 						'post_title'   => sanitize_text_field( (string) $args['title'] ),
-						'post_content' => (string) $args['content'],
+						'post_content' => $content,
 						'tax_input'    => [
 							'wp_theme'              => [ get_stylesheet() ],
 							'wp_template_part_area' => [ $area ],
@@ -92,5 +112,12 @@ final class CreateTemplatePart extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token' ] );
 	}
 }

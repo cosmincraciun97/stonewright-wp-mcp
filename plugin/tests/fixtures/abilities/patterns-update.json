@@ -1,0 +1,7 @@
+{
+    "args": {
+        "id": 8,
+        "content": "<!-- wp:paragraph --><p>Updated</p><!-- /wp:paragraph -->"
+    },
+    "expect": "ok"
+}

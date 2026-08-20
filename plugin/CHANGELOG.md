@@ -4,8 +4,16 @@
 
 ### Added
 
+- Add typed query-loop, FSE navigation, and synced-pattern update/delete/category
+  abilities, plus a child-theme theme.json handoff that stops at human approval.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
+
+### Changed
+
+- Harden pattern creates and FSE global-style/template writes with the same
+  backup, confirmation, sanitization, and audit envelope as the canonical
+  write abilities. Keep the older update-* names as compatibility wrappers.
 
 ### Fixed
 

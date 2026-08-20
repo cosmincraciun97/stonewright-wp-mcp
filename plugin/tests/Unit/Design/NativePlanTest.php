@@ -259,6 +259,48 @@ final class NativePlanTest extends TestCase {
 		self::assertContains( 'measured_target_viewport_unknown', array_column( $result->get_error_data()['diagnostics'], 'code' ) );
 	}
 
+	public function test_gutenberg_gallery_query_and_navigation_map_to_core_blocks(): void {
+		$evidence = self::evidence();
+		$evidence['nodes'][0]['children'][] = [
+			'id'     => 'hero-gallery',
+			'role'   => 'gallery',
+			'bounds' => [ 'x' => 80, 'y' => 80, 'width' => 600, 'height' => 200 ],
+		];
+		$evidence['nodes'][0]['children'][] = [
+			'id'            => 'hero-cards',
+			'role'          => 'repeated-cards',
+			'bounds'        => [ 'x' => 80, 'y' => 300, 'width' => 600, 'height' => 200 ],
+			'content_model' => [ 'mode' => 'dynamic', 'post_type' => 'post' ],
+		];
+		$evidence['nodes'][0]['children'][] = [
+			'id'      => 'hero-nav',
+			'role'    => 'navigation',
+			'bounds'  => [ 'x' => 0, 'y' => 0, 'width' => 1440, 'height' => 64 ],
+			'menu_id' => 7,
+			'links'   => [ [ 'label' => 'Home', 'url' => 'https://example.test/' ] ],
+		];
+
+		$plan = NativePlanner::plan( $evidence, 'gutenberg' );
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
+		self::assertTrue( $plan['ok'], wp_json_encode( $plan['blockers'] ?? [] ) );
+
+		$mapped = [];
+		foreach ( $plan['native_phase']['operations'] as $op ) {
+			$mapped[ (string) $op['node_id'] ] = (string) ( $op['native_mapping']['name'] ?? '' );
+		}
+		self::assertSame( 'core/gallery', $mapped['hero-gallery'] );
+		self::assertSame( 'core/query', $mapped['hero-cards'] );
+		self::assertSame( 'core/navigation', $mapped['hero-nav'] );
+
+		$diag = [];
+		foreach ( [ 'gallery', 'query', 'navigation' ] as $type ) {
+			$rendered = \Stonewright\WpMcp\Gutenberg\Renderer::render_block( [ 'type' => $type, 'ref' => 1, 'count' => 2, 'images' => [ [ 'url' => 'https://example.com/a.jpg', 'alt' => 'A' ] ] ], 's0.' . $type, $diag );
+			self::assertIsArray( $rendered, $type . ' was dropped' );
+			self::assertSame( 'core/' . $type, $rendered['blockName'] );
+		}
+		self::assertEmpty( $diag );
+	}
+
 	public function test_dynamic_content_templates_and_forms_need_real_behavior_contracts(): void {
 		$evidence = self::evidence();
 		$evidence['nodes'] = [
