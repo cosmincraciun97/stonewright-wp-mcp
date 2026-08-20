@@ -836,6 +836,10 @@
 		return found;
 	}
 
+	function hasServerCatalog( panel ) {
+		return !!( panel && panel.querySelector( '[data-sw-skills-ssr="catalog"]' ) );
+	}
+
 	function pending( panel, message ) {
 		clear( panel ).appendChild( el( 'p', { className: 'sw-skills-panel__loading', text: message } ) );
 	}
@@ -988,6 +992,9 @@
 
 	function renderCatalog( panel ) {
 		if ( ! state.loaded ) {
+			if ( hasServerCatalog( panel ) ) {
+				return;
+			}
 			pending( panel, 'Loading the catalog…' );
 			return;
 		}

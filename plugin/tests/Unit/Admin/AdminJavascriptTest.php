@@ -165,6 +165,52 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'restoreAppPasswordSnippetPlaceholders()', $clear_body );
 	}
 
+	public function test_context_toggle_badge_syncs_on_checkbox_change(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initContextToggleBadge', $script );
+		self::assertStringContainsString( 'initContextToggleBadge();', $script );
+		self::assertStringContainsString( 'data-sw-context-state', $script );
+		self::assertStringContainsString( 'stonewright_user_context_enabled', $script );
+
+		$start = strpos( $script, 'function initContextToggleBadge()' );
+		$end   = strpos( $script, 'document.addEventListener( \'DOMContentLoaded\'', false === $start ? 0 : $start );
+		self::assertNotFalse( $start );
+		self::assertNotFalse( $end );
+		$body = substr( $script, (int) $start, (int) $end - (int) $start );
+
+		self::assertStringContainsString( "'change'", $body );
+		self::assertStringContainsString( 'checkbox.checked', $body );
+		self::assertStringContainsString( 'data-context-on', $body );
+		self::assertStringContainsString( 'data-context-off', $body );
+	}
+
+	public function test_skills_catalog_preserves_server_render_until_rest_load(): void {
+		$page = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/SkillsPage.php' );
+		$js   = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/skills.js' );
+
+		self::assertStringContainsString( 'render_catalog_panel', $page );
+		self::assertStringContainsString( 'data-sw-skills-ssr', $page );
+		self::assertStringContainsString( 'data-sw-skills-list', $page );
+
+		self::assertStringContainsString( 'data-sw-skills-ssr', $js );
+		self::assertStringContainsString( 'hasServerCatalog', $js );
+
+		$start = strpos( $js, 'function renderCatalog( panel )' );
+		$end   = strpos( $js, 'function renderTrash( panel )', false === $start ? 0 : $start );
+		self::assertNotFalse( $start );
+		self::assertNotFalse( $end );
+		$body = substr( $js, (int) $start, (int) $end - (int) $start );
+
+		self::assertStringContainsString( 'hasServerCatalog( panel )', $body );
+		self::assertStringContainsString( "pending( panel, 'Loading the catalog…' )", $body );
+		self::assertMatchesRegularExpression(
+			'/if\s*\(\s*!\s*state\.loaded\s*\)[\s\S]*hasServerCatalog\( panel \)/',
+			$body,
+			'Catalog should keep server-rendered markup until REST hydration completes.'
+		);
+	}
+
 	public function test_password_inventory_creates_table_when_empty_state(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

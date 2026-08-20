@@ -79,6 +79,14 @@ final class ContextPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-context-page', $html );
 		self::assertStringContainsString( 'System context', $html );
 		self::assertStringContainsString( 'User context', $html );
+		self::assertStringContainsString( 'Show full system context', $html );
+		self::assertStringContainsString( 'Stonewright build discipline', $html );
+		self::assertStringContainsString( 'sw-toggle', $html );
+		self::assertStringContainsString( 'data-sw-context-state', $html );
+		self::assertStringContainsString( 'data-context-on="On"', $html );
+		self::assertStringContainsString( 'data-context-off="Off"', $html );
+		self::assertStringContainsString( '>On<', $html );
+		self::assertStringContainsString( 'id="stonewright_user_context_enabled"', $html );
 		self::assertStringContainsString( 'name="stonewright_user_context"', $html );
 		self::assertStringContainsString( 'name="stonewright_user_context_enabled"', $html );
 		self::assertStringContainsString( 'This bakery ships sourdough on Tuesdays.', $html );
@@ -102,6 +110,17 @@ final class ContextPageTest extends TestCase {
 		self::assertSame( '[redacted-id]', $redacted['post_id'] );
 		self::assertStringNotContainsString( 'secret.example.test', (string) $redacted['note'] );
 		self::assertStringNotContainsString( '4321', (string) $redacted['note'] );
+	}
+
+	public function test_render_shows_off_badge_when_user_context_disabled(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '>Off<', $html );
+		self::assertStringNotContainsString( '>On<', $html );
 	}
 
 	public function test_save_persists_user_context_options(): void {

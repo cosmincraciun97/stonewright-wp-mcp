@@ -1594,6 +1594,28 @@
 		form.addEventListener( 'submit', runDiagnostics );
 	}
 
+	function initContextToggleBadge() {
+		var checkbox = document.getElementById( 'stonewright_user_context_enabled' );
+		var badge = document.querySelector( '[data-sw-context-state]' );
+
+		if ( ! checkbox || ! badge ) {
+			return;
+		}
+
+		var onLabel = badge.getAttribute( 'data-context-on' ) || 'On';
+		var offLabel = badge.getAttribute( 'data-context-off' ) || 'Off';
+
+		function syncBadge() {
+			var label = checkbox.checked ? onLabel : offLabel;
+			while ( badge.firstChild ) {
+				badge.removeChild( badge.firstChild );
+			}
+			badge.appendChild( document.createTextNode( label ) );
+		}
+
+		checkbox.addEventListener( 'change', syncBadge );
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
 		initDeleteConfirm();
 		initAutoDismissNotices();
@@ -1613,6 +1635,7 @@
 		initApplyMcpSurface();
 		initRunDiagnostics();
 		initAppPasswordForm();
+		initContextToggleBadge();
 	} );
 
 	function initPromptLibrary() {
