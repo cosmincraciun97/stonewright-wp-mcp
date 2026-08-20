@@ -756,6 +756,7 @@ final class AuditLog {
 				'severity'            => 'severity',
 				'event_type'          => 'event_type',
 				'root_error_code'     => 'root_error_code',
+				'error_code'          => 'error_code',
 			] as $filter_key => $column
 		) {
 			$value = isset( $filters[ $filter_key ] ) ? sanitize_key( (string) $filters[ $filter_key ] ) : '';

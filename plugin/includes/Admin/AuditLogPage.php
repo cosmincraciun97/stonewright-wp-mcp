@@ -130,8 +130,19 @@ final class AuditLogPage {
 			$msg     = (string) ( $p['message'] ?? '' );
 			$code    = (string) ( $p['error_code'] ?? '' );
 			$repair  = (string) ( $p['repair'] ?? '' );
-			$sig     = (string) ( $p['signature'] ?? '' );
-			$view    = admin_url( 'admin.php?page=' . self::SLUG . '&status=error&ability=' . rawurlencode( $ability ) );
+			$sig      = (string) ( $p['signature'] ?? '' );
+			$view_args = [
+				'page'     => self::SLUG,
+				'status'   => 'error',
+				'ability'  => $ability,
+			];
+			if ( '' !== $code ) {
+				$view_args['error_code'] = $code;
+			}
+			if ( '' !== $sig ) {
+				$view_args['signature'] = $sig;
+			}
+			$view = add_query_arg( $view_args, admin_url( 'admin.php' ) );
 			echo '<li class="sw-recurring-errors__item">';
 			echo '<div class="sw-recurring-errors__main">';
 			echo '<code>' . esc_html( $ability ) . '</code> ';
@@ -151,7 +162,7 @@ final class AuditLogPage {
 			echo '<input type="hidden" name="action" value="stonewright_dismiss_error_pattern" />';
 			echo '<input type="hidden" name="signature" value="' . esc_attr( $sig ) . '" />';
 			wp_nonce_field( 'stonewright_dismiss_error_pattern' );
-			echo '<button type="submit" class="sw-btn sw-btn--ghost sw-btn--sm">' . esc_html__( 'Dismiss', 'stonewright' ) . '</button>';
+			echo '<button type="submit" class="sw-btn sw-btn--ghost sw-btn--sm" data-confirm="' . esc_attr( __( 'Dismiss this recurring error pattern? It will no longer appear in the summary.', 'stonewright' ) ) . '">' . esc_html__( 'Dismiss', 'stonewright' ) . '</button>';
 			echo '</form>';
 			echo '</div>';
 			echo '</li>';
@@ -204,9 +215,15 @@ final class AuditLogPage {
 		if ( ! empty( $source['to'] ) ) {
 			$filters['to'] = sanitize_text_field( wp_unslash( (string) $source['to'] ) );
 		}
-		foreach ( [ 'backend', 'operation_class', 'verification_status', 'rollback_status', 'severity', 'event_type', 'root_error_code' ] as $key ) {
+		foreach ( [ 'backend', 'operation_class', 'verification_status', 'rollback_status', 'severity', 'event_type', 'root_error_code', 'error_code' ] as $key ) {
 			if ( ! empty( $source[ $key ] ) ) {
 				$filters[ $key ] = sanitize_key( wp_unslash( (string) $source[ $key ] ) );
+			}
+		}
+		if ( ! empty( $source['signature'] ) ) {
+			$signature = strtolower( sanitize_text_field( wp_unslash( (string) $source['signature'] ) ) );
+			if ( 1 === preg_match( '/^[a-f0-9]{64}$/', $signature ) ) {
+				$filters['signature'] = $signature;
 			}
 		}
 		if ( ! empty( $source['change_set_id'] ) ) {
@@ -256,6 +273,12 @@ final class AuditLogPage {
 			<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
 			<?php if ( isset( $filters['view'] ) ) : ?>
 				<input type="hidden" name="view" value="<?php echo esc_attr( (string) $filters['view'] ); ?>"/>
+			<?php endif; ?>
+			<?php if ( isset( $filters['error_code'] ) ) : ?>
+				<input type="hidden" name="error_code" value="<?php echo esc_attr( (string) $filters['error_code'] ); ?>"/>
+			<?php endif; ?>
+			<?php if ( isset( $filters['signature'] ) ) : ?>
+				<input type="hidden" name="signature" value="<?php echo esc_attr( (string) $filters['signature'] ); ?>"/>
 			<?php endif; ?>
 			<label>
 				<span class="screen-reader-text"><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
@@ -366,7 +389,9 @@ final class AuditLogPage {
 	private static function render_log_table( array $rows, int $page, int $per_page, array $filters = [], ?int $total = null, array $incident_states = [] ): void {
 		if ( empty( $rows ) ) {
 			echo '<div class="sw-empty-state stonewright-empty-state">';
-			if ( [] === $filters && [] === $incident_states ) {
+			if ( self::is_pruned_pattern_view( $filters ) ) {
+				echo '<p>' . esc_html__( 'Events for this pattern were pruned by retention — the pattern summary above is the surviving record', 'stonewright' ) . '</p>';
+			} elseif ( [] === $filters && [] === $incident_states ) {
 				echo '<p>' . esc_html__( 'No audit entries have been recorded.', 'stonewright' ) . '</p>';
 			} else {
 				echo '<p>' . esc_html__( 'No audit entries match this view and filter set.', 'stonewright' ) . '</p>';
@@ -532,6 +557,31 @@ final class AuditLogPage {
 		}
 
 		return '';
+	}
+
+	/**
+	 * True when this view is a recurring-pattern occurrence list whose audit rows
+	 * are gone (retention) while the pattern summary is still on the page.
+	 *
+	 * @param array<string, mixed> $filters
+	 */
+	private static function is_pruned_pattern_view( array $filters ): bool {
+		$code = isset( $filters['error_code'] ) ? sanitize_key( (string) $filters['error_code'] ) : '';
+		$sig  = isset( $filters['signature'] ) ? strtolower( sanitize_text_field( (string) $filters['signature'] ) ) : '';
+		if ( '' === $code && 1 !== preg_match( '/^[a-f0-9]{64}$/', $sig ) ) {
+			return false;
+		}
+		foreach ( ErrorPatterns::recurring( 10 ) as $pattern ) {
+			$pattern_sig  = (string) ( $pattern['signature'] ?? '' );
+			$pattern_code = (string) ( $pattern['error_code'] ?? '' );
+			if ( 64 === strlen( $sig ) && 64 === strlen( $pattern_sig ) && hash_equals( $pattern_sig, $sig ) ) {
+				return true;
+			}
+			if ( '' !== $code && $pattern_code === $code ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** @param array<string, mixed> $filters @return array<string, int> */

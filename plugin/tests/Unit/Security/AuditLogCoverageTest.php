@@ -190,11 +190,19 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertStringNotContainsString( 'sentinel-private-example-secret', (string) wp_json_encode( $details ) );
 	}
 
+	public function test_recent_and_count_filter_by_error_code(): void {
+		AuditLog::recent( 20, 1, [ 'error_code' => 'stonewright_spec_invalid' ] );
+		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
+		AuditLog::count( [ 'error_code' => 'stonewright_spec_invalid' ] );
+		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';
 			public string $last_error = '';
 			public int $row_count = 0;
+			public string $last_query = '';
 			private bool $insert_ok;
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];
@@ -207,14 +215,17 @@ final class AuditLogCoverageTest extends TestCase {
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {
+				$this->last_query = $query;
 				return $query;
 			}
 
 			public function get_var( string $query = '' ): int|string|null {
+				$this->last_query = $query;
 				return $this->row_count;
 			}
 
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				$this->last_query = $query;
 				return [];
 			}
 

@@ -5,9 +5,11 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\AuditLogPage
+ * @covers \Stonewright\WpMcp\Security\AuditLog
  */
 final class AuditLogPageTest extends TestCase {
 
@@ -242,5 +244,112 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( '&quot;remediation&quot;', $html );
 		self::assertStringContainsString( 'Validate the design spec', $html );
 		self::assertStringNotContainsString( 'sentinel-private', $html );
+	}
+
+	public function test_view_occurrences_url_includes_error_code_and_list_filters_by_it(): void {
+		$pattern = $this->seed_recurring_pattern();
+		$wpdb    = $this->make_audit_wpdb( [], 0 );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		ob_start();
+		AuditLogPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'View occurrences', $html );
+		self::assertStringContainsString( 'error_code=' . rawurlencode( $pattern['error_code'] ), $html );
+		self::assertStringContainsString( 'signature=' . rawurlencode( $pattern['signature'] ), $html );
+
+		$_GET = [
+			'status'     => 'error',
+			'ability'    => $pattern['ability'],
+			'error_code' => $pattern['error_code'],
+			'signature'  => $pattern['signature'],
+		];
+		$wpdb->queries = [];
+		ob_start();
+		AuditLogPage::render();
+		$filtered = (string) ob_get_clean();
+
+		$audit_sql = implode( "\n", $wpdb->queries );
+		self::assertStringContainsString( 'error_code = %s', $audit_sql );
+		self::assertStringContainsString( 'Events for this pattern were pruned by retention — the pattern summary above is the surviving record', $filtered );
+		self::assertStringNotContainsString( 'No audit entries match this view.', $filtered );
+	}
+
+	public function test_dismiss_recurring_pattern_requires_js_confirm(): void {
+		$this->seed_recurring_pattern();
+		$GLOBALS['wpdb'] = $this->make_audit_wpdb( [], 0 );
+
+		ob_start();
+		AuditLogPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm=")/i',
+			$html
+		);
+		self::assertMatchesRegularExpression(
+			'/<button[^>]*data-confirm="[^"]+"[^>]*>\s*Dismiss/i',
+			$html
+		);
+	}
+
+	/**
+	 * @return array{ability:string,error_code:string,signature:string}
+	 */
+	private function seed_recurring_pattern(): array {
+		$ability = 'stonewright/design-validate-spec';
+		$args    = [
+			'_meta' => [
+				'error_code'    => 'stonewright_spec_invalid',
+				'error_message' => 'Spec failed at tokens.color',
+			],
+		];
+		ErrorPatterns::observe( $ability, 'error', $args );
+		ErrorPatterns::observe( $ability, 'error', $args );
+
+		return [
+			'ability'    => $ability,
+			'error_code' => 'stonewright_spec_invalid',
+			'signature'  => ErrorPatterns::signature( $ability, $args, 'error' ),
+		];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $rows
+	 */
+	private function make_audit_wpdb( array $rows, int $count ): object {
+		return new class( $rows, $count ) {
+			public string $prefix = 'wp_';
+			/** @var list<string> */
+			public array $queries = [];
+			/** @var array<int, array<string, mixed>> */
+			private array $rows;
+			private int $count;
+
+			public function __construct( array $rows, int $count ) {
+				$this->rows  = $rows;
+				$this->count = $count;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->queries[] = $query;
+				return $query;
+			}
+
+			public function get_var( string $query = '' ): string|int|null {
+				$this->queries[] = $query;
+				return $this->count;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				$this->queries[] = $query;
+				if ( str_contains( $query, 'stonewright_oauth_clients' ) ) {
+					return [];
+				}
+				return $this->rows;
+			}
+		};
 	}
 }
