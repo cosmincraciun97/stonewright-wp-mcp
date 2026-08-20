@@ -276,9 +276,12 @@ final class SetupDiagnostics {
 	 * @return array{id: string, status: string, label: string, detail: string, ticket?: string}
 	 */
 	private static function bot_filter_check( array $args, string $endpoint ): array {
-		$label = __( 'Bot / WAF user-agent filter', 'stonewright' );
-		$uas   = [ 'python-httpx', 'node', 'Go-http-client' ];
-		$hits  = [];
+		$label            = __( 'Bot / WAF user-agent filter', 'stonewright' );
+		$uas              = [ 'python-httpx', 'node', 'Go-http-client' ];
+		$hits             = [];
+		$transport_errors = [];
+		$server_errors    = [];
+		$reached          = false;
 
 		foreach ( $uas as $ua ) {
 			$response = self::http(
@@ -292,32 +295,77 @@ final class SetupDiagnostics {
 					'headers'     => [ 'User-Agent' => $ua ],
 				]
 			);
-			$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+			if ( is_wp_error( $response ) ) {
+				$transport_errors[] = sprintf( '%s: %s', $ua, $response->get_error_message() );
+				continue;
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
 			if ( 403 === $code || 406 === $code ) {
 				$hits[] = sprintf( '%s (HTTP %d)', $ua, $code );
+				continue;
+			}
+			if ( $code >= 500 ) {
+				$body            = trim( (string) wp_remote_retrieve_body( $response ) );
+				$server_errors[] = sprintf(
+					'%s (HTTP %d)%s',
+					$ua,
+					$code,
+					'' !== $body ? ': ' . $body : ''
+				);
+				continue;
+			}
+			if ( $code > 0 ) {
+				$reached = true;
 			}
 		}
 
-		if ( [] === $hits ) {
+		if ( [] !== $hits ) {
+			$site = (string) get_site_url();
 			return [
 				'id'     => 'bot_filter',
-				'status' => 'ok',
+				'status' => 'warn',
 				'label'  => $label,
-				'detail' => __( 'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.', 'stonewright' ),
+				'detail' => sprintf(
+					/* translators: %s: User-Agent and HTTP status list */
+					__( 'Hosting bot filter blocked MCP User-Agents: %s.', 'stonewright' ),
+					implode( ', ', $hits )
+				),
+				'ticket' => self::hosting_ticket( $site, $endpoint, $hits ),
 			];
 		}
 
-		$site = (string) get_site_url();
+		if ( [] !== $transport_errors ) {
+			return [
+				'id'     => 'bot_filter',
+				'status' => 'warn',
+				'label'  => $label,
+				'detail' => sprintf(
+					/* translators: %s: User-Agent and transport error list */
+					__( 'Bot-filter probe failed to reach the MCP endpoint: %s.', 'stonewright' ),
+					implode( '; ', $transport_errors )
+				),
+			];
+		}
+
+		if ( [] !== $server_errors && ! $reached ) {
+			return [
+				'id'     => 'bot_filter',
+				'status' => 'warn',
+				'label'  => $label,
+				'detail' => sprintf(
+					/* translators: %s: User-Agent and HTTP error list */
+					__( 'Bot-filter probe received an error from the MCP endpoint: %s.', 'stonewright' ),
+					implode( '; ', $server_errors )
+				),
+			];
+		}
+
 		return [
 			'id'     => 'bot_filter',
-			'status' => 'warn',
+			'status' => 'ok',
 			'label'  => $label,
-			'detail' => sprintf(
-				/* translators: %s: User-Agent and HTTP status list */
-				__( 'Hosting bot filter blocked MCP User-Agents: %s.', 'stonewright' ),
-				implode( ', ', $hits )
-			),
-			'ticket' => self::hosting_ticket( $site, $endpoint, $hits ),
+			'detail' => __( 'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.', 'stonewright' ),
 		];
 	}
 
@@ -326,8 +374,11 @@ final class SetupDiagnostics {
 	 * @return array{id: string, status: string, label: string, detail: string}
 	 */
 	private static function oauth_registration_check( array $args ): array {
-		$label    = __( 'OAuth dynamic registration', 'stonewright' );
-		$url      = rest_url( 'stonewright/v1/oauth/register' );
+		$label = __( 'OAuth dynamic registration', 'stonewright' );
+		$url   = rest_url( 'stonewright/v1/oauth/register' );
+		$token = bin2hex( random_bytes( 16 ) );
+		set_transient( 'stonewright_oauth_selftest_' . hash( 'sha256', $token ), '1', 30 );
+
 		$response = self::http(
 			$args,
 			'POST',
@@ -335,8 +386,9 @@ final class SetupDiagnostics {
 			[
 				'timeout' => 5,
 				'headers' => [
-					'Content-Type' => 'application/json',
-					'Accept'       => 'application/json',
+					'Content-Type'            => 'application/json',
+					'Accept'                  => 'application/json',
+					'x-stonewright-self-test' => $token,
 				],
 				'body'    => '{}',
 			]
@@ -352,6 +404,21 @@ final class SetupDiagnostics {
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 429 === $code || 503 === $code ) {
+			$body = trim( (string) wp_remote_retrieve_body( $response ) );
+			return [
+				'id'     => 'oauth_registration',
+				'status' => 'warn',
+				'label'  => $label,
+				'detail' => sprintf(
+					/* translators: 1: HTTP status, 2: response body suffix */
+					__( 'OAuth registration endpoint responded with HTTP %1$d%2$s', 'stonewright' ),
+					$code,
+					'' !== $body ? ': ' . $body : '.'
+				),
+			];
+		}
+
 		return [
 			'id'     => 'oauth_registration',
 			'status' => 'ok',

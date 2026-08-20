@@ -12,15 +12,19 @@ use Stonewright\WpMcp\Admin\SetupDiagnostics;
 final class SetupDiagnosticsTest extends TestCase {
 
 	protected function setUp(): void {
-		$GLOBALS['stonewright_test_options'] = [
+		$GLOBALS['stonewright_test_options']         = [
 			'stonewright_enabled'              => true,
 			'site_url'                         => 'https://example.test',
 			'stonewright_essential_tools_mode' => true,
 		];
+		$GLOBALS['stonewright_test_transients']      = [];
+		$GLOBALS['stonewright_test_transient_ttls']  = [];
 	}
 
 	protected function tearDown(): void {
-		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_options']        = [];
+		$GLOBALS['stonewright_test_transients']     = [];
+		$GLOBALS['stonewright_test_transient_ttls'] = [];
 	}
 
 	public function test_report_is_compact_and_versioned(): void {
@@ -187,6 +191,193 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( 5, (int) $posts[0]['timeout'] );
 		self::assertSame( 'warn', $oauth['status'] );
 		self::assertStringContainsString( 'cURL error 28: Connection timed out after 5001 milliseconds', (string) $oauth['detail'] );
+	}
+
+	public function test_oauth_registration_probe_sets_self_test_transient_and_header_before_post(): void {
+		$captured = [];
+		$report   = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [],
+				],
+				'http'     => static function ( string $method, string $url, array $args ) use ( &$captured ): array {
+					if ( 'POST' === strtoupper( $method ) ) {
+						$headers = (array) ( $args['headers'] ?? [] );
+						$token   = (string) ( $headers['x-stonewright-self-test'] ?? $headers['X-Stonewright-Self-Test'] ?? '' );
+						$key     = 'stonewright_oauth_selftest_' . hash( 'sha256', $token );
+						$captured = [
+							'url'        => $url,
+							'token'      => $token,
+							'transient'  => $GLOBALS['stonewright_test_transients'][ $key ] ?? null,
+							'ttl'        => $GLOBALS['stonewright_test_transient_ttls'][ $key ] ?? null,
+							'key_exists' => array_key_exists( $key, $GLOBALS['stonewright_test_transients'] ?? [] ),
+						];
+						return [
+							'response' => [ 'code' => 400 ],
+							'body'     => '{"error":"invalid_request"}',
+						];
+					}
+
+					return [
+						'response' => [ 'code' => 200 ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+
+		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
+
+		self::assertNotSame( '', $captured['token'] ?? '' );
+		self::assertTrue( (bool) ( $captured['key_exists'] ?? false ), 'Self-test transient must be set before POST.' );
+		self::assertSame( '1', (string) ( $captured['transient'] ?? '' ) );
+		self::assertSame( 30, (int) ( $captured['ttl'] ?? 0 ) );
+		self::assertSame( 'ok', $oauth['status'] );
+		self::assertStringContainsString( 'HTTP 400', (string) $oauth['detail'] );
+	}
+
+	/**
+	 * @dataProvider oauth_unavailable_status_provider
+	 */
+	public function test_oauth_registration_probe_warns_on_unavailable_http_status( int $code, string $body ): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [],
+				],
+				'http'     => static function ( string $method, string $url, array $args ) use ( $code, $body ): array {
+					if ( 'POST' === strtoupper( $method ) ) {
+						return [
+							'response' => [ 'code' => $code ],
+							'body'     => $body,
+						];
+					}
+
+					return [
+						'response' => [ 'code' => 200 ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+
+		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
+
+		self::assertSame( 'warn', $oauth['status'] );
+		self::assertStringContainsString( (string) $code, (string) $oauth['detail'] );
+		self::assertStringContainsString( $body, (string) $oauth['detail'] );
+	}
+
+	/**
+	 * @return array<string, array{0: int, 1: string}>
+	 */
+	public static function oauth_unavailable_status_provider(): array {
+		return [
+			'too many requests'      => [ 429, 'Too many registrations' ],
+			'temporarily unavailable' => [ 503, 'Client cap reached' ],
+		];
+	}
+
+	public function test_bot_filter_probe_warns_on_wp_error_instead_of_ok_reached(): void {
+		$error  = 'cURL error 28: Connection timed out after 5001 milliseconds';
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [],
+				],
+				'http'     => static function ( string $method ) use ( $error ): array|\WP_Error {
+					if ( 'GET' === strtoupper( $method ) ) {
+						return new \WP_Error( 'http_request_failed', $error );
+					}
+
+					return [
+						'response' => [ 'code' => 400 ],
+						'body'     => '{}',
+					];
+				},
+			]
+		);
+
+		$bot = $this->find_check( $report['checks'], 'bot_filter' );
+
+		self::assertSame( 'warn', $bot['status'] );
+		self::assertStringContainsString( $error, (string) $bot['detail'] );
+		self::assertStringNotContainsString(
+			'reached the MCP endpoint without a 403/406 block',
+			(string) $bot['detail']
+		);
+	}
+
+	public function test_bot_filter_probe_warns_on_5xx_without_success(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [],
+				],
+				'http'     => static function ( string $method ): array {
+					if ( 'GET' === strtoupper( $method ) ) {
+						return [
+							'response' => [ 'code' => 502 ],
+							'body'     => 'Bad Gateway',
+						];
+					}
+
+					return [
+						'response' => [ 'code' => 400 ],
+						'body'     => '{}',
+					];
+				},
+			]
+		);
+
+		$bot = $this->find_check( $report['checks'], 'bot_filter' );
+
+		self::assertSame( 'warn', $bot['status'] );
+		self::assertStringContainsString( '502', (string) $bot['detail'] );
+		self::assertStringContainsString( 'Bad Gateway', (string) $bot['detail'] );
+		self::assertStringNotContainsString(
+			'reached the MCP endpoint without a 403/406 block',
+			(string) $bot['detail']
+		);
+	}
+
+	public function test_bot_filter_probe_ok_reached_copy_only_for_http_responses(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [],
+				],
+				'http'     => static function ( string $method ): array {
+					return [
+						'response' => [ 'code' => 200 ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+
+		$bot = $this->find_check( $report['checks'], 'bot_filter' );
+
+		self::assertSame( 'ok', $bot['status'] );
+		self::assertSame(
+			'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.',
+			(string) $bot['detail']
+		);
 	}
 
 	/**
