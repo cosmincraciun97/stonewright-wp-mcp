@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\PlainLlmSchemaConverter;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -54,10 +55,14 @@ final class ListWidgets extends AbilityKernel {
 				'source_plugin'  => (string) $widget['source_plugin'],
 				'source_version' => (string) $widget['source_version'],
 				'schema_hash'    => (string) $widget['schema_hash'],
+				'pro_required'   => (bool) ( $widget['pro_required'] ?? false ),
 			],
 			$result['items']
 		);
 
-		return [ 'widgets' => $widgets, 'runtime_fingerprint' => $result['fingerprint'] ];
+		return [
+			'widgets'             => PlainLlmSchemaConverter::convert_widget_list( $widgets ),
+			'runtime_fingerprint' => $result['fingerprint'],
+		];
 	}
 }

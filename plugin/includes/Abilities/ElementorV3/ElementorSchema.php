@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\PlainLlmSchemaConverter;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -97,6 +98,7 @@ final class ElementorSchema extends AbilityKernel {
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
+		$schema['controls'] = PlainLlmSchemaConverter::convert( (array) $schema['controls'] );
 		$base = [
 			'mode'                => $mode,
 			'widget_type'         => $widget_type,

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 
 /**
  * Synthetic public-safe pixel-parity fixture for native Elementor parity.
@@ -110,5 +111,35 @@ final class NativeParityFixtureTest extends TestCase {
 		];
 		self::assertCount( 3, $notes );
 		self::assertStringContainsString( '1140', $notes['desktop'] );
+	}
+
+	public function test_sparse_new_writes_tolerate_smaller_key_sets_than_rendered_defaults(): void {
+		$diagnostics = [];
+		$tree        = Renderer::render( $this->fixture_spec(), $diagnostics );
+		self::assertNotEmpty( $tree );
+
+		$settings = is_array( $tree[0]['settings'] ?? null ) ? $tree[0]['settings'] : [];
+		$supplied = array_intersect_key( $settings, array_flip( [ 'flex_direction', 'content_width' ] ) );
+		$supplied['empty_gap'] = [
+			'unit'  => 'px',
+			'size'  => '',
+			'sizes' => [],
+		];
+		$controls = [];
+		foreach ( array_keys( $settings ) as $key ) {
+			$controls[ (string) $key ] = [ 'type' => 'text' ];
+		}
+		$controls['empty_gap'] = [ 'type' => 'slider' ];
+
+		$normalized = SparseSettingsNormalizer::normalize(
+			$settings + $supplied,
+			$controls,
+			$supplied
+		);
+
+		self::assertArrayNotHasKey( 'empty_gap', $normalized );
+		foreach ( array_keys( $normalized ) as $key ) {
+			self::assertArrayHasKey( (string) $key, $supplied );
+		}
 	}
 }

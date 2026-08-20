@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -116,7 +117,7 @@ final class AddWidget extends AbilityKernel {
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
-					$settings_in = $validated['settings'];
+					$settings_in = SparseSettingsNormalizer::for_new_write( $validated['settings'], $widget_type, $validated['settings'] );
 				}
 
 				$post_id = (int) $args['post_id'];
