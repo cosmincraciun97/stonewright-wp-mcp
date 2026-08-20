@@ -266,63 +266,17 @@
 	text-decoration: none;
 }
 
-.sw-shell__meta {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--sw-space-3);
-	flex-shrink: 1;
-	flex-wrap: wrap;
-	min-width: 0;
-	margin-left: auto;
-	max-width: 100%;
-}
-
-/* Mode pill sits on the always-dark header, so its labels stay light. */
-.sw-mode-pill {
-	display: inline-flex;
-	align-items: center;
-	height: 28px;
-	padding: 0 var(--sw-space-3);
-	border-radius: var(--sw-radius-pill);
-	font-size: var(--sw-text-xs);
-	font-weight: 600;
-	letter-spacing: 0.03em;
-	text-transform: lowercase;
-	background: rgba(255, 255, 255, 0.1);
-	color: #f3f4f6;
-	border: 1px solid rgba(255, 255, 255, 0.18);
-	outline: none;
+/* Inline Experimental marker: heavier/brighter than the tab, never a chip. */
+.sw-shell__exp {
+	font-weight: 700;
+	color: var(--sw-shell-header-fg);
+	background: none;
+	border: none;
 	box-shadow: none;
-}
-
-.sw-mode-pill:focus,
-.sw-mode-pill:focus-visible {
-	outline: none;
-	box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.55);
-}
-
-.sw-mode-pill--development {
-	background: rgba(99, 102, 241, 0.35);
-	color: #e0e7ff;
-	border-color: rgba(165, 180, 252, 0.55);
-}
-
-.sw-mode-pill--staging {
-	background: rgba(245, 158, 11, 0.28);
-	color: #fef3c7;
-	border-color: rgba(251, 191, 36, 0.45);
-}
-
-.sw-mode-pill--production-safe {
-	background: rgba(34, 197, 94, 0.28);
-	color: #dcfce7;
-	border-color: rgba(74, 222, 128, 0.45);
-}
-
-.sw-shell__version {
-	font-size: var(--sw-text-xs);
-	color: var(--sw-shell-header-muted);
-	font-family: var(--sw-font-mono);
+	text-shadow: none;
+	padding: 0;
+	margin: 0;
+	border-radius: 0;
 }
 
 .sw-shell__content {
@@ -798,10 +752,6 @@ html.sw-has-shell {
 		box-sizing: border-box;
 	}
 
-	.sw-shell__version {
-		display: none;
-	}
-
 	.sw-shell__nav,
 	.sw-shell__header-inner {
 		max-width: 100%;
@@ -839,11 +789,6 @@ html.sw-has-shell {
 		height: 28px;
 		padding: 0 var(--sw-space-2);
 		font-size: var(--sw-text-xs);
-	}
-
-	.sw-shell__meta {
-		flex-wrap: wrap;
-		max-width: 100%;
 	}
 
 	.sw-shell pre,

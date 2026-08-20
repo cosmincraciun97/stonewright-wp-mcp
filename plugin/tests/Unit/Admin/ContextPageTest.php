@@ -51,17 +51,17 @@ final class ContextPageTest extends TestCase {
 		$_POST = [];
 	}
 
-	public function test_slug_lives_in_safety_group(): void {
+	public function test_slug_lives_in_workflows_group(): void {
 		self::assertSame( 'stonewright-context', ContextPage::SLUG );
 		self::assertSame( 'manage_options', ContextPage::CAPABILITY );
 		self::assertContains( ContextPage::SLUG, array_keys( AdminShell::pages() ) );
-		$safety = [];
+		$workflows = [];
 		foreach ( AdminShell::menu_groups() as $group ) {
-			if ( 'safety-diagnostics' === $group['id'] ) {
-				$safety = array_keys( $group['pages'] );
+			if ( 'workflows' === $group['id'] ) {
+				$workflows = array_keys( $group['pages'] );
 			}
 		}
-		self::assertContains( ContextPage::SLUG, $safety );
+		self::assertContains( ContextPage::SLUG, $workflows );
 	}
 
 	public function test_render_refuses_users_without_manage_options(): void {

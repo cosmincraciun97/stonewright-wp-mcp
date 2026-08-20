@@ -208,13 +208,30 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertSame( 'edit_posts', $registered['capability'] );
 
 		$workflows = [];
+		$safety    = [];
 		foreach ( AdminShell::menu_groups() as $group ) {
 			if ( 'workflows' === $group['id'] ) {
 				$workflows = $group['pages'];
 			}
+			if ( 'safety-diagnostics' === $group['id'] ) {
+				$safety = $group['pages'];
+			}
 		}
+		$this->assertSame(
+			[
+				'stonewright-context',
+				'stonewright-skills',
+				'stonewright-memory',
+				'stonewright-design',
+				'stonewright-sandbox',
+				'stonewright-block-finalizer',
+				'stonewright-prompts',
+			],
+			array_keys( $workflows )
+		);
 		$this->assertArrayHasKey( 'stonewright-sandbox', $workflows );
 		$this->assertSame( 'Sandbox', $workflows['stonewright-sandbox'] );
 		$this->assertSame( 'Block Editor Queue', $workflows[ $slug ] ?? null );
+		$this->assertSame( [ 'stonewright-audit-log' => 'Audit Log' ], $safety );
 	}
 }

@@ -97,13 +97,33 @@ final class AdminShellTest extends TestCase {
 		);
 
 		$workflows = [];
+		$safety    = [];
 		foreach ( $groups as $group ) {
 			if ( 'workflows' === $group['id'] ) {
 				$workflows = $group['pages'];
 			}
+			if ( 'safety-diagnostics' === $group['id'] ) {
+				$safety = $group['pages'];
+			}
 		}
-		self::assertSame( 'Sandbox', $workflows['stonewright-sandbox'] ?? null );
-		self::assertSame( 'Block Editor Queue', $workflows['stonewright-block-finalizer'] ?? null );
+		self::assertSame(
+			[
+				'stonewright-context'         => 'Context',
+				'stonewright-skills'          => 'Skills',
+				'stonewright-memory'          => 'Memory',
+				'stonewright-design'          => 'Design',
+				'stonewright-sandbox'         => 'Sandbox',
+				'stonewright-block-finalizer' => 'Block Editor Queue',
+				'stonewright-prompts'         => 'Prompts',
+			],
+			$workflows
+		);
+		self::assertSame(
+			[
+				'stonewright-audit-log' => 'Audit Log',
+			],
+			$safety
+		);
 
 		$overview = [];
 		$capabilities = [];
@@ -121,7 +141,7 @@ final class AdminShellTest extends TestCase {
 		self::assertSame( 'AI Abilities', $capabilities['pages']['stonewright-abilities'] ?? null );
 	}
 
-	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {
+	public function test_open_and_close_produce_shell_markup_without_header_meta(): void {
 		ob_start();
 		AdminShell::open( 'stonewright' );
 		echo '<p class="sw-notice">Stonewright notice</p>';
@@ -133,18 +153,22 @@ final class AdminShellTest extends TestCase {
 		self::assertStringContainsString( 'sw-shell__nav', $html );
 		self::assertStringContainsString( 'sw-shell__nav-group', $html );
 		self::assertStringContainsString( 'data-sw-nav-group="connect"', $html );
+		self::assertStringContainsString( 'data-sw-nav-group="workflows"', $html );
 		self::assertStringContainsString( 'data-sw-nav-group="safety-diagnostics"', $html );
 		self::assertStringContainsString( 'sw-shell__content', $html );
 		self::assertStringContainsString( 'sw-notice-drawer', $html );
 		self::assertStringContainsString( 'aria-current="page"', $html );
 		self::assertStringContainsString( 'admin.php?page=stonewright-abilities', $html );
-		self::assertStringContainsString( 'sw-mode-pill', $html );
-		self::assertStringContainsString( 'staging', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill', $html );
+		self::assertStringNotContainsString( 'sw-shell__meta', $html );
+		self::assertStringNotContainsString( 'sw-shell__version', $html );
+		self::assertStringNotContainsString( '0.0.0-test', $html );
 		self::assertStringContainsString( 'Stonewright notice', $html );
 		self::assertStringContainsString( '</div><!-- .sw-shell -->', $html );
+		$this->assert_experimental_nav_markup( $html );
 	}
 
-	public function test_open_marks_current_nav_item_and_escapes_mode_value(): void {
+	public function test_open_marks_current_nav_item_and_omits_mode_from_header(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 
 		ob_start();
@@ -156,9 +180,49 @@ final class AdminShellTest extends TestCase {
 			'/<a[^>]+href="[^"]*page=stonewright-status"[^>]*aria-current="page"/',
 			$html
 		);
-		self::assertStringContainsString( 'sw-mode-pill--production-safe', $html );
-		self::assertStringContainsString( 'production-safe', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill--production-safe', $html );
+		self::assertStringNotContainsString( 'sw-shell__meta', $html );
 		self::assertStringNotContainsString( '<script>', $html );
+	}
+
+	/**
+	 * Experimental is inline text on the same nav line — not a pill or chip.
+	 */
+	private function assert_experimental_nav_markup( string $html ): void {
+		$experimental = [
+			'stonewright-troubleshoot'  => 'Troubleshoot',
+			'stonewright-context'       => 'Context',
+			'stonewright-design'        => 'Design',
+			'stonewright-block-finalizer' => 'Block Editor Queue',
+		];
+		foreach ( $experimental as $slug => $label ) {
+			self::assertMatchesRegularExpression(
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>' . preg_quote( $label, '/' ) . ' <span class="sw-shell__exp">Experimental<\/span><\/a>/',
+				$html
+			);
+		}
+
+		$plain = [
+			'stonewright'               => 'Setup',
+			'stonewright-status'        => 'Dashboard',
+			'stonewright-abilities'     => 'AI Abilities',
+			'stonewright-skills'        => 'Skills',
+			'stonewright-memory'        => 'Memory',
+			'stonewright-sandbox'       => 'Sandbox',
+			'stonewright-prompts'       => 'Prompts',
+			'stonewright-audit-log'     => 'Audit Log',
+		];
+		foreach ( $plain as $slug => $label ) {
+			self::assertMatchesRegularExpression(
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>' . preg_quote( $label, '/' ) . '<\/a>/',
+				$html
+			);
+		}
+
+		self::assertSame( 4, substr_count( $html, 'class="sw-shell__exp"' ) );
+		self::assertStringNotContainsString( 'sw-shell__exp--pill', $html );
+		self::assertStringNotContainsString( 'sw-exp-chip', $html );
 	}
 
 }

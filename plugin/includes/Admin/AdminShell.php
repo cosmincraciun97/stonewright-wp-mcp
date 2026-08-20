@@ -4,11 +4,23 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 /**
- * Shared premium admin shell: sticky header, tab nav, and mode pill.
+ * Shared premium admin shell: sticky header and tab nav.
  *
  * Presentation only — form handlers and ability gates stay on their pages.
  */
 final class AdminShell {
+
+	/**
+	 * Nav slugs that carry an inline Experimental label (not a pill or chip).
+	 *
+	 * @var list<string>
+	 */
+	private const EXPERIMENTAL_SLUGS = [
+		'stonewright-troubleshoot',
+		'stonewright-context',
+		'stonewright-design',
+		'stonewright-block-finalizer',
+	];
 
 	/**
 	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
@@ -43,10 +55,13 @@ final class AdminShell {
 				'id'    => 'workflows',
 				'label' => __( 'Workflows', 'stonewright' ),
 				'pages' => [
+					'stonewright-context'         => __( 'Context', 'stonewright' ),
+					'stonewright-skills'          => __( 'Skills', 'stonewright' ),
+					'stonewright-memory'          => __( 'Memory', 'stonewright' ),
+					'stonewright-design'          => __( 'Design', 'stonewright' ),
 					'stonewright-sandbox'         => __( 'Sandbox', 'stonewright' ),
 					'stonewright-block-finalizer' => __( 'Block Editor Queue', 'stonewright' ),
 					'stonewright-prompts'         => __( 'Prompts', 'stonewright' ),
-					'stonewright-design'          => __( 'Design', 'stonewright' ),
 				],
 			],
 			[
@@ -54,9 +69,6 @@ final class AdminShell {
 				'label' => __( 'Safety & Diagnostics', 'stonewright' ),
 				'pages' => [
 					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
-					'stonewright-memory'    => __( 'Memory', 'stonewright' ),
-					'stonewright-skills'    => __( 'Skills', 'stonewright' ),
-					'stonewright-context'   => __( 'Context', 'stonewright' ),
 				],
 			],
 		];
@@ -86,19 +98,7 @@ final class AdminShell {
 	 */
 	public static function open( string $current_slug, array $args = [] ): void {
 		$groups  = self::menu_groups();
-		$mode    = (string) get_option( 'stonewright_mode', 'development' );
-		if ( ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
-			$mode = 'development';
-		}
-		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
 		$classes = [ 'sw-shell', 'wrap', 'stonewright-admin-shell' ];
-
-		$mode_class = 'sw-mode-pill--' . $mode;
-		$mode_label = match ( $mode ) {
-			'production-safe' => __( 'production-safe', 'stonewright' ),
-			'staging'         => __( 'staging', 'stonewright' ),
-			default           => __( 'development', 'stonewright' ),
-		};
 
 		?>
 		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell>
@@ -143,26 +143,19 @@ final class AdminShell {
 							<span class="sw-shell__nav-group-label" aria-hidden="true"><?php echo esc_html( $group['label'] ); ?></span>
 							<?php foreach ( $group['pages'] as $slug => $label ) : ?>
 								<?php
-								$url     = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
-								$current = ( $slug === $current_slug );
+								$url          = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
+								$current      = ( $slug === $current_slug );
+								$experimental = in_array( $slug, self::EXPERIMENTAL_SLUGS, true );
 								?>
 								<a
 									class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
 									href="<?php echo esc_url( $url ); ?>"
 									<?php echo $current ? ' aria-current="page"' : ''; ?>
-								><?php echo esc_html( $label ); ?></a>
+								><?php echo esc_html( $label ) . ( $experimental ? ' <span class="sw-shell__exp">' . esc_html__( 'Experimental', 'stonewright' ) . '</span>' : '' ); ?></a>
 							<?php endforeach; ?>
 						</div>
 					<?php endforeach; ?>
 				</nav>
-				<div class="sw-shell__meta">
-					<span class="sw-mode-pill <?php echo esc_attr( $mode_class ); ?>" title="<?php esc_attr_e( 'Operating mode', 'stonewright' ); ?>">
-						<?php echo esc_html( $mode_label ); ?>
-					</span>
-					<?php if ( '' !== $version ) : ?>
-						<span class="sw-shell__version" aria-hidden="true"><?php echo esc_html( $version ); ?></span>
-					<?php endif; ?>
-				</div>
 			</header>
 
 			<details class="sw-notice-drawer" data-sw-notice-drawer hidden>
