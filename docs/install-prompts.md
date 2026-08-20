@@ -21,6 +21,7 @@ when changing versions.
 2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
+5. **Stonewright > Design** and **Context** tabs hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
 
 The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
 
