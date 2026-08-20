@@ -265,6 +265,10 @@ final class ConfigurationPageTest extends TestCase {
 			. '<input[^>]+type="checkbox"[^>]+name="stonewright_elementor_v4_atomic"[^>]+value="1"/s',
 			$html
 		);
+		self::assertStringContainsString(
+			'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.',
+			$html
+		);
 	}
 
 	public function test_v4_toggle_reflects_enabled_option(): void {

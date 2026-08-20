@@ -581,6 +581,9 @@ final class ConfigurationPage {
 								/>
 								<span><?php esc_html_e( 'Enable Elementor V4 atomic abilities', 'stonewright' ); ?></span>
 							</label>
+							<p class="description">
+								<?php esc_html_e( 'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.', 'stonewright' ); ?>
+							</p>
 						</div>
 						<div class="sw-field">
 							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Ability;
+use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -124,6 +125,68 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
 		self::assertContains( 'stonewright/sandbox-write', $names );
+	}
+
+	public function test_v4_abilities_hidden_when_flag_off_on_every_surface(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
+
+		foreach ( [ 'bootstrap', 'essential', 'full' ] as $surface ) {
+			$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = $surface;
+			$public = self::public_ability_names();
+			$mcp    = AbilityRegistry::mcp_server_ability_names();
+			$this->assert_experimental_v4_abilities_hidden( $public, 'public_classes on ' . $surface );
+			$this->assert_experimental_v4_abilities_hidden( $mcp, 'mcp_server_ability_names on ' . $surface );
+			if ( 'full' === $surface ) {
+				self::assertContains( 'stonewright/elementor-v4-status', $public );
+				self::assertContains( 'stonewright/elementor-v4-status', $mcp );
+			}
+		}
+
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'essential';
+		$GLOBALS['stonewright_test_transients'] = [];
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'v4-flag-off-session';
+		try {
+			self::assertTrue( AbilityRegistry::set_session_tool_profile( 'full', [] ) );
+			$public = self::public_ability_names();
+			$this->assert_experimental_v4_abilities_hidden( $public, 'public_classes on essential with session full' );
+			$this->assert_experimental_v4_abilities_hidden(
+				AbilityRegistry::mcp_server_ability_names(),
+				'mcp_server_ability_names on essential with session full'
+			);
+			self::assertContains( 'stonewright/elementor-v4-status', $public );
+		} finally {
+			unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+			$GLOBALS['stonewright_test_transients'] = [];
+		}
+	}
+
+	public function test_enabling_v4_flag_restores_abilities_and_bumps_surface_revision(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'full';
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
+		$GLOBALS['stonewright_test_registered_settings']                         = [];
+
+		self::assertNotContains( 'stonewright/elementor-v4-update-node', AbilityRegistry::mcp_server_ability_names() );
+
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = true;
+		$names = AbilityRegistry::mcp_server_ability_names();
+		self::assertContains( 'stonewright/elementor-v4-status', $names );
+		self::assertContains( 'stonewright/elementor-v4-update-node', $names );
+		self::assertContains( 'stonewright/elementor-v4-read-atomic-tree', $names );
+
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
+		ConfigurationPage::register_settings();
+		$setting = array_values(
+			array_filter(
+				$GLOBALS['stonewright_test_registered_settings'],
+				static fn( array $registered ): bool => 'stonewright_elementor_v4_atomic' === $registered['option']
+			)
+		)[0];
+		$sanitize = $setting['args']['sanitize_callback'];
+		$start    = AbilityRegistry::surface_revision();
+		self::assertTrue( $sanitize( true ) );
+		self::assertSame( $start + 1, AbilityRegistry::surface_revision() );
 	}
 
 	public function test_empty_schema_properties_encode_as_json_objects(): void {
@@ -254,6 +317,38 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 				self::collect_invalid_schema_fragments( $fragment, $path . '.' . $key . '.' . $index, $errors );
 			}
 		}
+	}
+
+	/**
+	 * @param list<string> $names
+	 */
+	private function assert_experimental_v4_abilities_hidden( array $names, string $surface ): void {
+		$leaked = array_values(
+			array_filter(
+				$names,
+				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/elementor-v4-' )
+					&& 'stonewright/elementor-v4-status' !== $name
+			)
+		);
+		self::assertSame( [], $leaked, 'experimental V4 abilities leaked on ' . $surface . ': ' . implode( ', ', $leaked ) );
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function public_ability_names(): array {
+		$method = new \ReflectionMethod( AbilityRegistry::class, 'public_classes' );
+		$names  = [];
+		foreach ( $method->invoke( null ) as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+			/** @var Ability $ability */
+			$ability = new $class();
+			$names[] = $ability->name();
+		}
+
+		return $names;
 	}
 
 	/**

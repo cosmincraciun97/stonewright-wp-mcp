@@ -1432,11 +1432,11 @@ final class AbilityRegistry {
 		$surface = self::mcp_surface();
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
-			return $classes;
+			return self::filter_disabled_v4_abilities( $classes );
 		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
-				return $classes;
+				return self::filter_disabled_v4_abilities( $classes );
 			}
 			// Session profiles only add tools on top of the configured surface.
 			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
@@ -1450,17 +1450,19 @@ final class AbilityRegistry {
 				true
 			);
 
-			return array_values(
-				array_filter(
-					$classes,
-					static function ( string $class ) use ( $allowed ): bool {
-						if ( ! class_exists( $class ) ) {
-							return false;
+			return self::filter_disabled_v4_abilities(
+				array_values(
+					array_filter(
+						$classes,
+						static function ( string $class ) use ( $allowed ): bool {
+							if ( ! class_exists( $class ) ) {
+								return false;
+							}
+							/** @var Ability $ability */
+							$ability = new $class();
+							return isset( $allowed[ $ability->name() ] );
 						}
-						/** @var Ability $ability */
-						$ability = new $class();
-						return isset( $allowed[ $ability->name() ] );
-					}
+					)
 				)
 			);
 		}
@@ -1474,17 +1476,46 @@ final class AbilityRegistry {
 			true
 		);
 
+		return self::filter_disabled_v4_abilities(
+			array_values(
+				array_filter(
+					$classes,
+					static function ( string $class ) use ( $allowed ): bool {
+						if ( ! class_exists( $class ) ) {
+							return false;
+						}
+
+						/** @var Ability $ability */
+						$ability = new $class();
+						return isset( $allowed[ $ability->name() ] );
+					}
+				)
+			)
+		);
+	}
+
+	/**
+	 * Experimental V4 abilities stay off the public MCP surface until the
+	 * operator enables `stonewright_elementor_v4_atomic`. Status remains the
+	 * always-visible probe.
+	 *
+	 * @param array<int, class-string<Ability>> $classes
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_disabled_v4_abilities( array $classes ): array {
+		if ( (bool) get_option( 'stonewright_elementor_v4_atomic', false ) ) {
+			return $classes;
+		}
+
 		return array_values(
 			array_filter(
 				$classes,
-				static function ( string $class ) use ( $allowed ): bool {
-					if ( ! class_exists( $class ) ) {
-						return false;
+				static function ( string $class ): bool {
+					if ( ElementorV4Status::class === $class ) {
+						return true;
 					}
 
-					/** @var Ability $ability */
-					$ability = new $class();
-					return isset( $allowed[ $ability->name() ] );
+					return ! str_starts_with( $class, 'Stonewright\\WpMcp\\Abilities\\ElementorV4\\' );
 				}
 			)
 		);

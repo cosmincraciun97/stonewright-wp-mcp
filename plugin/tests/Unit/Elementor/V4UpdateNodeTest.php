@@ -20,6 +20,7 @@ final class V4UpdateNodeTest extends TestCase {
 			'stonewright_mode'               => 'development',
 			'stonewright_elementor_v4_atomic' => true,
 		];
+		\Stonewright\WpMcp\Elementor\V4\V4FeatureGate::set_atomic_module_present_for_tests( true );
 		$GLOBALS['stonewright_test_user_caps']      = [ 'edit_post' => true, 'edit_posts' => true ];
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
@@ -94,6 +95,7 @@ final class V4UpdateNodeTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Stonewright\WpMcp\Elementor\V4\V4FeatureGate::set_atomic_module_present_for_tests( null );
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options']         = [];
