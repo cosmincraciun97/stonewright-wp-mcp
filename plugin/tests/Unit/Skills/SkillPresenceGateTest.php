@@ -226,6 +226,15 @@ final class SkillPresenceGateTest extends TestCase {
 		self::assertStringContainsString( 'Spectra One', $body );
 	}
 
+	public function test_gutenberg_fse_builder_routes_static_writes_through_the_finalizer(): void {
+		$body = $this->skill_body( 'gutenberg-fse-builder' );
+		self::assertStringContainsString( 'stonewright-blocks-queue-change', $body );
+		self::assertStringContainsString( 'stonewright-blocks-finalize-batch', $body );
+		self::assertStringContainsString( 'Block Editor Queue', $body );
+		self::assertStringContainsString( 'save:null', $body );
+		self::assertStringContainsString( 'likely_partial', $body );
+	}
+
 	public function test_elementor_v3_builder_requires_elementor(): void {
 		$decoded = $this->skill_constraints( 'elementor-v3-builder' );
 		self::assertSame( 'required', $decoded['elementor'] ?? null );
