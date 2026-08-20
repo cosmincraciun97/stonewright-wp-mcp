@@ -33,25 +33,54 @@ final class PlainLlmSchemaConverter {
 
 	/**
 	 * @param list<array<string, mixed>> $items Widget list rows.
+	 * @param array{elementor_pro_active?:bool, mode?:string}|bool|null $options
 	 * @return list<array<string, mixed>>
 	 */
-	public static function convert_widget_list( array $items, ?bool $elementor_pro_active = null ): array {
-		$pro_active = null === $elementor_pro_active ? ProGate::active() : $elementor_pro_active;
+	public static function convert_widget_list( array $items, array|bool|null $options = null ): array {
+		if ( is_bool( $options ) ) {
+			$options = [ 'elementor_pro_active' => $options ];
+		}
+		$options    = is_array( $options ) ? $options : [];
+		$pro_active = array_key_exists( 'elementor_pro_active', $options )
+			? (bool) $options['elementor_pro_active']
+			: ProGate::active();
+		$mode       = (string) ( $options['mode'] ?? 'full' );
 		$out        = [];
 		foreach ( $items as $item ) {
-			if ( ! is_array( $item ) ) {
-				continue;
-			}
-			$item = self::convert_node( $item, $pro_active );
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
 			if ( ! $pro_active && self::is_pro_marked( $item ) ) {
 				continue;
 			}
+			if ( 'summary' === $mode ) {
+				$item = self::summarize_widget_item( $item );
+			} else {
+				$item = self::convert_node( $item, $pro_active );
+			}
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
 			$out[] = $item;
 		}
 		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $item
+	 * @return array{type:string, title:string, description:string}
+	 */
+	private static function summarize_widget_item( array $item ): array {
+		$description = (string) ( $item['description'] ?? '' );
+		if ( '' === $description && isset( $item['categories'] ) && is_array( $item['categories'] ) ) {
+			$description = implode( ', ', array_map( 'strval', $item['categories'] ) );
+		}
+
+		return [
+			'type'        => (string) ( $item['type'] ?? $item['name'] ?? $item['widget_type'] ?? '' ),
+			'title'       => (string) ( $item['title'] ?? '' ),
+			'description' => $description,
+		];
 	}
 
 	/**

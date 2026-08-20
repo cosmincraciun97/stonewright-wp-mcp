@@ -302,16 +302,78 @@ final class PlainLlmSchemaConverterTest extends TestCase {
 		self::assertSame( [ 'plain-heading', 'form' ], array_column( $kept, 'name' ) );
 	}
 
-	public function test_list_widgets_emits_converted_plain_items(): void {
+	public function test_list_widgets_summary_mode_returns_type_title_description_only(): void {
 		$result = ( new ListWidgets() )->execute( [] );
 
 		self::assertIsArray( $result );
+		self::assertSame( 'summary', $result['response_mode'] );
+		$heading = null;
+		foreach ( (array) $result['widgets'] as $widget ) {
+			if ( 'plain-heading' === (string) ( $widget['type'] ?? '' ) ) {
+				$heading = $widget;
+				break;
+			}
+		}
+		self::assertIsArray( $heading );
+		self::assertSame( [ 'type', 'title', 'description' ], array_keys( $heading ) );
+		self::assertSame( 'plain-heading', $heading['type'] );
+		self::assertSame( 'Plain Heading', $heading['title'] );
+		self::assertSame( 'basic', $heading['description'] );
+		self::assertArrayNotHasKey( 'controls', $heading );
+		self::assertArrayNotHasKey( 'schema_hash', $heading );
+		self::assertStringNotContainsString( '$$type', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_list_widgets_full_mode_keeps_metadata_output(): void {
+		$result = ( new ListWidgets() )->execute( [ 'responseMode' => 'full' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'full', $result['response_mode'] );
 		$names = array_map(
 			static fn( array $widget ): string => (string) ( $widget['name'] ?? $widget['widget_type'] ?? '' ),
 			(array) $result['widgets']
 		);
 		self::assertContains( 'plain-heading', $names );
+		$heading = null;
+		foreach ( (array) $result['widgets'] as $widget ) {
+			if ( 'plain-heading' === (string) ( $widget['name'] ?? '' ) ) {
+				$heading = $widget;
+				break;
+			}
+		}
+		self::assertIsArray( $heading );
+		self::assertArrayHasKey( 'categories', $heading );
+		self::assertArrayHasKey( 'schema_hash', $heading );
+		self::assertArrayNotHasKey( 'controls', $heading );
 		self::assertStringNotContainsString( '$$type', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_convert_widget_list_summary_mode_maps_widget_metadata(): void {
+		$summary = PlainLlmSchemaConverter::convert_widget_list(
+			[
+				[
+					'name'         => 'plain-heading',
+					'title'        => 'Plain Heading',
+					'categories'   => [ 'basic' ],
+					'pro_required' => false,
+				],
+			],
+			[
+				'elementor_pro_active' => false,
+				'mode'                 => 'summary',
+			]
+		);
+
+		self::assertSame(
+			[
+				[
+					'type'        => 'plain-heading',
+					'title'       => 'Plain Heading',
+					'description' => 'basic',
+				],
+			],
+			$summary
+		);
 	}
 }
 
