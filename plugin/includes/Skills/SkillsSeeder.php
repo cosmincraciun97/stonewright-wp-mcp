@@ -14,8 +14,23 @@ final class SkillsSeeder {
 	/** @var string Absolute path to the external skills directory */
 	private static string $skills_dir = '';
 
+	/** Packaged slugs that must leave already-seeded sites. */
+	private const RETIRED_PACKAGED_SLUGS = [
+		'playbook-landing-page-agency',
+		'playbook-landing-page-saas',
+		'playbook-landing-page-law-firm',
+		'playbook-landing-page-healthcare',
+		'playbook-landing-page-nonprofit',
+		'playbook-landing-page-real-estate',
+		'playbook-landing-page-restaurant',
+	];
+
 	public static function seed(): void {
 		self::$skills_dir = rtrim( dirname( __DIR__, 3 ), '/\\' ) . '/skills';
+
+		foreach ( self::RETIRED_PACKAGED_SLUGS as $slug ) {
+			Skills::retire_packaged_slug( $slug );
+		}
 
 		// Seed each subdirectory that contains a SKILL.md.
 		if ( is_dir( self::$skills_dir ) ) {

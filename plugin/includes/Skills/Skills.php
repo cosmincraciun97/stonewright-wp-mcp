@@ -608,6 +608,51 @@ final class Skills {
 	}
 
 	/**
+	 * Remove a packaged skill Stonewright no longer ships.
+	 *
+	 * Protected source=playbook and source=builtin rows cannot go through
+	 * destroy(). File delete is not enough either: seed() only upserts, so
+	 * already-seeded packaged rows would stay forever. This path deletes the
+	 * row only when the live source is playbook or builtin. User, uploaded,
+	 * and candidate rows with the same slug are left alone.
+	 */
+	public static function retire_packaged_slug( string $slug ): bool {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return false;
+		}
+
+		$slug = sanitize_title( $slug );
+		if ( '' === $slug ) {
+			return false;
+		}
+
+		$skill = self::get( $slug );
+		if ( null === $skill ) {
+			return false;
+		}
+
+		$source = (string) ( $skill['source'] ?? '' );
+		if ( ! in_array( $source, self::PROTECTED_SOURCES, true ) ) {
+			return false;
+		}
+
+		$table = SkillsTable::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$result = $wpdb->delete(
+			$table,
+			[
+				'slug'   => $slug,
+				'source' => $source,
+			],
+			[ '%s', '%s' ]
+		);
+
+		return false !== $result && $result > 0;
+	}
+
+	/**
 	 * Load a skill the site is allowed to change, or explain why it cannot.
 	 *
 	 * @return array<string, mixed>|\WP_Error
@@ -682,17 +727,31 @@ final class Skills {
 	private static function table_exists(): bool {
 		global $wpdb;
 
-		// If wpdb is not a real wpdb instance (e.g. anonymous-class stub in
-		// unit tests), ask its get_var() directly — it'll return null when the
-		// stub says "no table" or a truthy value when the stub says "yes table".
-		if ( ! ( $wpdb instanceof \wpdb ) ) {
-			$table = SkillsTable::table_name();
-			return null !== $wpdb->get_var( '' );
+		if ( ! is_object( $wpdb ) ) {
+			return false;
 		}
 
 		$table = SkillsTable::table_name();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+		// is_callable, not method_exists: php-execute wraps $wpdb in a proxy
+		// that forwards prepare/get_var through __call.
+		if ( is_callable( [ $wpdb, 'prepare' ] ) && is_callable( [ $wpdb, 'get_var' ] ) ) {
+			$prepared = $wpdb->prepare( 'SHOW TABLES LIKE %s', $table );
+			if ( is_string( $prepared ) && '' !== $prepared ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+				$found = $wpdb->get_var( $prepared );
+				if ( null !== $found && false !== $found && '' !== $found ) {
+					return true;
+				}
+			}
+		}
+
+		// Unit-test stubs that are not wpdb: empty SQL is their "table present" signal.
+		if ( ! ( $wpdb instanceof \wpdb ) && is_callable( [ $wpdb, 'get_var' ] ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			return null !== $wpdb->get_var( '' );
+		}
+
+		return false;
 	}
 
 	/**
