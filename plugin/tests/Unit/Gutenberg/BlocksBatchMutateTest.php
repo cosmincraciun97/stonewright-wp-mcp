@@ -31,16 +31,22 @@ final class BlocksBatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 		$GLOBALS['stonewright_test_registered_blocks']     = [
 			'core/paragraph' => (object) [
-				'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+				'attributes'      => [ 'className' => [ 'type' => 'string' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
 			],
 			'core/heading'   => (object) [
-				'attributes' => [
+				'attributes'      => [
 					'className' => [ 'type' => 'string' ],
 					'level'     => [ 'type' => 'integer', 'enum' => [ 1, 2, 3, 4, 5, 6 ] ],
 				],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
 			],
 			'core/group'     => (object) [
-				'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+				'attributes'      => [ 'className' => [ 'type' => 'string' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
 			],
 		];
 	}
@@ -387,10 +393,11 @@ final class BlocksBatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_invalid_block_attributes', $result->get_error_data()['root_error_code'] );
+		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_data()['root_error_code'] );
+		self::assertSame( [ 'undeclared' ], $result->get_error_data()['items'][0]['error']['data']['offending_keys'] );
 	}
 
-	public function test_unregistered_inserted_block_fails_closed(): void {
+	public function test_unregistered_inserted_block_is_queued_for_finalizer(): void {
 		$result = ( new BlocksBatchMutate() )->execute(
 			[
 				'post_id'    => 801,
@@ -399,8 +406,10 @@ final class BlocksBatchMutateTest extends TestCase {
 			]
 		);
 
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_unregistered_block', $result->get_error_data()['root_error_code'] );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+		self::assertTrue( $result['dry_run'] );
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 
 	public function test_immediate_compare_and_swap_recheck_blocks_a_racing_write(): void {

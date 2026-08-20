@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add Gutenberg block-finalizer tools to the companion gutenberg profile catalog.
+
 ## [1.0.0-beta.10] - 2026-08-12
 
 ### Added

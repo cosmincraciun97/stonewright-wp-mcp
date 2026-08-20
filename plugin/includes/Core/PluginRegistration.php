@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
@@ -147,6 +148,7 @@ final class PluginRegistration {
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
+		FinalizerPage::register();
 		AbilitiesPage::register();
 		SandboxPage::register();
 		SkillsPage::register();

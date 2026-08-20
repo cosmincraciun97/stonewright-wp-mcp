@@ -18,7 +18,10 @@ The adapter is intentionally separate from the PHP Gutenberg renderer. The PHP
 abilities remain the server-side path for content automation; Visual owns only
 the already-open editor session, so persistence is never performed twice.
 
-For server-side content batches, use `stonewright/blocks-batch-mutate`. It
-validates and applies insert, update, move, and remove operations in memory,
-then performs one snapshot/write/readback closure with one rollback owner.
-See [Permanent remediation contracts](permanent-remediation-contracts.md).
+For server-side content batches, use `stonewright/blocks-batch-mutate`. Dynamic
+blocks (`save: null` / `render_callback`) still serialize in PHP. Static and
+third-party blocks are queued as `{name, attributes, innerBlocks}` for the hidden
+`stonewright-block-finalizer` admin page, which runs the live editor `save()` and
+posts hashed HTML back. Persist stays in `stonewright/blocks-finalize-batch`
+(snapshot, confirmation in production-safe, audit, readback). List/status tools
+never return the full spec. See [Permanent remediation contracts](permanent-remediation-contracts.md).
