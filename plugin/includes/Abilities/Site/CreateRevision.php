@@ -34,6 +34,7 @@ final class CreateRevision extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id' => [ 'type' => 'integer', 'minimum' => 1 ],
 			],
 			'required'             => [ 'post_id' ],
@@ -55,11 +56,16 @@ final class CreateRevision extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		$post_id     = (int) $args['post_id'];
-		$revision_id = wp_save_post_revision( $post_id );
-		if ( ! $revision_id ) {
-			return $this->error( 'revision_failed', __( 'Failed to create revision.', 'stonewright' ) );
-		}
-		return [ 'revision_id' => (int) $revision_id ];
+		return $this->audit_write(
+			$args,
+			function ( array $args ) {
+				$post_id     = (int) $args['post_id'];
+				$revision_id = wp_save_post_revision( $post_id );
+				if ( ! $revision_id ) {
+					return $this->error( 'revision_failed', __( 'Failed to create revision.', 'stonewright' ) );
+				}
+				return [ 'revision_id' => (int) $revision_id ];
+			}
+		);
 	}
 }

@@ -37,6 +37,7 @@ final class QueueBlockChange extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'               => [ 'type' => 'integer', 'minimum' => 1 ],
 				'expected_content_hash' => [ 'type' => 'string' ],
 				'allow_raw_html'        => [ 'type' => 'boolean', 'default' => false ],
@@ -73,7 +74,7 @@ final class QueueBlockChange extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$spec = is_array( $args['block_spec'] ?? null ) ? $args['block_spec'] : [];

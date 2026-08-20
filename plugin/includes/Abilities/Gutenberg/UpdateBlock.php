@@ -40,6 +40,7 @@ final class UpdateBlock extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'   => [ 'type' => 'integer', 'minimum' => 1 ],
 				'path'      => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
 				'attrs'     => [ 'type' => 'object' ],
@@ -69,7 +70,7 @@ final class UpdateBlock extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_id = (int) $args['post_id'];

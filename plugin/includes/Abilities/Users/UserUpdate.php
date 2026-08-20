@@ -19,6 +19,7 @@ final class UserUpdate extends AbilityKernel {
 			'type'=>'object',
 			'additionalProperties'=>false,
 			'properties'=>[
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id'=>[ 'type'=>'integer', 'minimum'=>1 ],
 				'user_email'=>[ 'type'=>'string' ],
 				'display_name'=>[ 'type'=>'string' ],
@@ -33,7 +34,7 @@ final class UserUpdate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::edit_users(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_write($args, static function ( array $args ) {
 			$data=[ 'ID'=> (int) $args['id'] ];
 			foreach ( [ 'user_email', 'display_name', 'role', 'user_pass' ] as $k ) {
 if ( isset($args[ $k ]) ) {

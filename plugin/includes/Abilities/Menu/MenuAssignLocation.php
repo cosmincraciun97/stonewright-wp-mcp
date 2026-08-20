@@ -49,6 +49,7 @@ final class MenuAssignLocation extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'location' => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 200 ],
 				'menu_id'  => [ 'type' => 'integer', 'minimum' => 1 ],
 			],
@@ -74,7 +75,7 @@ final class MenuAssignLocation extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$location = (string) $args['location'];

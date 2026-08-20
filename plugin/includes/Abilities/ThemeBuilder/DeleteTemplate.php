@@ -38,6 +38,7 @@ final class DeleteTemplate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'template_id' => [ 'type' => 'integer', 'minimum' => 1 ],
 				'force'       => [ 'type' => 'boolean', 'default' => false ],
 			],
@@ -62,7 +63,7 @@ final class DeleteTemplate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$id   = (int) $args['template_id'];

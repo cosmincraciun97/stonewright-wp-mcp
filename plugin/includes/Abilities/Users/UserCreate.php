@@ -19,6 +19,7 @@ final class UserCreate extends AbilityKernel {
 			'type'=>'object',
 			'additionalProperties'=>false,
 			'properties'=>[
+				'confirmation_token' => [ 'type' => 'string' ],
 				'user_login'=>[ 'type'=>'string' ],
 				'user_email'=>[ 'type'=>'string' ],
 				'user_pass'=>[ 'type'=>'string', 'minLength'=>12 ],
@@ -33,7 +34,7 @@ final class UserCreate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::create_users(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_write($args, static function ( array $args ) {
 			$data=[ 'user_login'=> (string) $args['user_login'],'user_email'=> (string) $args['user_email'],'user_pass'=> (string) $args['user_pass'] ];
 			if ( isset($args['role']) ) {
 $data['role']= (string) $args['role'];
