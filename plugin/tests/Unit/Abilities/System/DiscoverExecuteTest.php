@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\System\GetAbilityInfo;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\System\DiscoverAbilities
@@ -20,6 +21,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 final class DiscoverExecuteTest extends TestCase {
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_disabled_abilities'   => [],
 			'stonewright_essential_tools_mode' => true,
@@ -38,6 +40,7 @@ final class DiscoverExecuteTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_user_logged_in']  = false;

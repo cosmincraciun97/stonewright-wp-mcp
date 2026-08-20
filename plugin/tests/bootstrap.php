@@ -316,9 +316,12 @@ if ( ! function_exists( 'check_ajax_referer' ) ) {
 }
 $GLOBALS['stonewright_test_transients'] ??= [];
 
+$GLOBALS['stonewright_test_transient_ttls'] ??= [];
+
 if ( ! function_exists( 'set_transient' ) ) {
 	function set_transient( string $transient, mixed $value, int $expiration = 0 ): bool {
-		$GLOBALS['stonewright_test_transients'][ $transient ] = $value;
+		$GLOBALS['stonewright_test_transients'][ $transient ]     = $value;
+		$GLOBALS['stonewright_test_transient_ttls'][ $transient ] = $expiration;
 		return true;
 	}
 }
@@ -331,7 +334,7 @@ if ( ! function_exists( 'get_transient' ) ) {
 
 if ( ! function_exists( 'delete_transient' ) ) {
 	function delete_transient( string $transient ): bool {
-		unset( $GLOBALS['stonewright_test_transients'][ $transient ] );
+		unset( $GLOBALS['stonewright_test_transients'][ $transient ], $GLOBALS['stonewright_test_transient_ttls'][ $transient ] );
 		return true;
 	}
 }
@@ -2287,6 +2290,7 @@ if ( ! function_exists( 'add_submenu_page' ) ) {
 		$GLOBALS['stonewright_test_submenu_pages'][ $menu_slug ] = [
 			'parent'     => $parent_slug,
 			'page_title' => $page_title,
+			'menu_title' => $menu_title,
 			'capability' => $capability,
 			'callback'   => $callback,
 		];

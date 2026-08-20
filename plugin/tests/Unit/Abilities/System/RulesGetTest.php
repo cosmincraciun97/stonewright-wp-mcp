@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\GlobalRules;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
@@ -26,11 +27,13 @@ final class RulesGetTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		GlobalRules::reset_cache();
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [];
 	}
 
 	protected function tearDown(): void {
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [];
 		parent::tearDown();

@@ -31,6 +31,7 @@ final class SkillsTest extends TestCase {
 		} else {
 			unset( $GLOBALS['wpdb'] );
 		}
+		unset( $GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] );
 	}
 
 	// ------------------------------------------------------------------
@@ -169,6 +170,7 @@ final class SkillsTest extends TestCase {
 	}
 
 	public function test_memory_instructions_block_routes_to_relevant_refs_without_raw_dump(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] = true;
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
 			[
 				'id'          => '1',
@@ -196,6 +198,7 @@ final class SkillsTest extends TestCase {
 	}
 
 	public function test_memory_instructions_block_does_not_inject_scalar_memory_values(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] = true;
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
 			[
 				'id'          => '1',
