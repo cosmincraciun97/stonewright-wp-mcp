@@ -4,7 +4,7 @@ Stonewright has two parts:
 
 - WordPress plugin: registers the `stonewright/*` abilities.
 - Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
-  MCP endpoint, exposes php-execute, and runs tokenized WP-CLI.
+  MCP endpoint, exposes php-execute (**full** profile only), and runs tokenized WP-CLI.
 
 **Local stdio** means the AI client starts the companion on the user's computer
 and exchanges MCP messages with that local process through standard
@@ -204,8 +204,9 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, php-execute, and
-WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
+Stonewright companion so setup, status, compact profiles, php-execute (full
+profile only), and WP-CLI tools stay visible even while the WordPress endpoint
+is being fixed.
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the safe default for an
 unknown client. It exposes a bounded useful catalog plus permanent recovery
 gateways without depending on the client to process `tools/list_changed`.

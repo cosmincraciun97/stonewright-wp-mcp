@@ -185,7 +185,7 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 The four-step Plugin path above is the default. The sections below are for local WP-CLI, explicit Application Password configuration, Direct mode, multiple sites, and clients that need manual profile control.
 
-MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. `stonewright-php-execute` is **full-profile only**. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -195,10 +195,14 @@ Use the versioned installer from the latest
 Because this flow starts from an installed plugin, choose `plugin-only`; it
 fails closed instead of silently falling back to Direct mode.
 
+Codex CLI and Codex in ChatGPT Desktop are separate clients (`--client
+codex-cli` vs `--client chatgpt-desktop`). `--client codex` still aliases to
+CLI. See [getting-started/codex.md](docs/getting-started/codex.md).
+
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a --url https://site-a.example --username editor \
-  --env production --mode plugin-only --client codex \
+  --env production --mode plugin-only --client codex-cli \
   --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
@@ -208,10 +212,10 @@ entry containing `STONEWRIGHT_SITE_ALIAS`, never the password. If the alias is
 already registered, reuse its saved credential and switch the existing entry:
 
 ```bash
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex-cli --mode plugin-only
 ```
 
-Restart the client and run `stonewright connect verify site-a --client codex`.
+Restart the client and run `stonewright connect verify site-a --client codex-cli`.
 The receipt must report the requested alias, `configured_mode=plugin-only`,
 `active_mode=plugin`, task-start/status availability, the expected companion,
 and no required tool refresh. OAuth remote HTTP is a separate connection to
