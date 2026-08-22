@@ -83,6 +83,7 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 	const status = await runAbilityWithProfileConfirmation(
 		page,
 		nonce,
+		contextToken,
 		'stonewright/wc-status',
 		{},
 	);
@@ -105,6 +106,7 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 	const preview = await runAbilityWithProfileConfirmation(
 		page,
 		nonce,
+		contextToken,
 		'stonewright/wc-product-save',
 		{ ...productInput },
 	);
@@ -121,6 +123,7 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 		const applied = await runAbilityWithProfileConfirmation(
 			page,
 			nonce,
+			contextToken,
 			'stonewright/wc-product-save',
 			{
 				...productInput,
@@ -146,6 +149,7 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 		const read = await runAbilityWithProfileConfirmation(
 			page,
 			nonce,
+			contextToken,
 			'stonewright/wc-product-get',
 			{ id: productId },
 		);
@@ -161,6 +165,7 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 			const removed = await runAbilityWithProfileConfirmation(
 				page,
 				nonce,
+				contextToken,
 				'stonewright/wc-product-delete',
 				{
 					id: productId,

@@ -59,7 +59,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 			await expect(page.locator('#stonewright_mcp_surface')).toHaveValue(next, {
 				timeout: 15_000,
 			});
-			await expect(page.locator('#sw-client-snippet-codex-stdio')).toContainText(
+			await expect(page.locator('#sw-client-snippet-codex-cli-stdio')).toContainText(
 				`STONEWRIGHT_MCP_TOOL_PROFILE = "${next}"`,
 			);
 		} finally {

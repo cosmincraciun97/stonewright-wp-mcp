@@ -163,6 +163,7 @@ export async function runAbility(
 export async function runAbilityWithProfileConfirmation(
 	page: Page,
 	nonce: string,
+	contextToken: string,
 	name: string,
 	input: Record<string, unknown>,
 ): Promise<{ ok: boolean; status: number; body: unknown; url: string }> {
@@ -174,6 +175,7 @@ export async function runAbilityWithProfileConfirmation(
 		{
 			ability: 'stonewright/rest-abilities-run',
 			args: wrapperArgs,
+			stonewright_context_token: contextToken,
 		},
 	);
 	if (!issued.ok) {

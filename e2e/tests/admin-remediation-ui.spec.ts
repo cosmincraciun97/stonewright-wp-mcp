@@ -52,6 +52,7 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 	const execution = await runAbilityWithProfileConfirmation(
 		page,
 		nonce,
+		contextToken,
 		'stonewright/php-execute',
 		{
 			code: 'return ["audit_fixture" => str_repeat("contained-", 80)];',
