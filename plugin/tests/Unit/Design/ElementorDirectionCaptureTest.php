@@ -220,13 +220,32 @@ final class ElementorDirectionCaptureTest extends TestCase {
 		);
 
 		self::assertIsArray( $result );
-		self::assertSame( [], $result['contract']['tokens']['typography'] );
-		self::assertSame( [], $result['contract']['tokens']['spacing'] );
-		self::assertSame( [], $result['contract']['tokens']['radii'] );
-		self::assertSame( [], $result['contract']['tokens']['elevation'] );
-		self::assertSame( [], $result['contract']['tokens']['motion'] );
-		self::assertSame( [], $result['contract']['components'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['typography'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['spacing'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['radii'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['elevation'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['motion'] );
+		self::assertSame( [], (array) $result['contract']['components'] );
 		self::assertSame( [ 'do' => [], 'avoid' => [] ], $result['contract']['guidance'] );
+
+		$transport = DirectionContract::for_transport( $result['contract'] );
+		$encoded   = json_decode( (string) wp_json_encode( $transport ) );
+		self::assertIsObject( $encoded->tokens->typography );
+		self::assertIsObject( $encoded->tokens->spacing );
+		self::assertSame( [], (array) $encoded->tokens->typography );
+
+		$round_trip = json_decode( (string) wp_json_encode( $transport ), true );
+		$validated  = DirectionContractValidator::validate( is_array( $round_trip ) ? $round_trip : [] );
+		self::assertIsArray( $validated );
+	}
+
+	public function test_missing_kit_id_uses_an_english_required_property_message(): void {
+		$result = ElementorDirectionCapture::from_evidence( [ 'kit_title' => 'Stone Kit' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( ElementorDirectionCapture::ERROR_CODE, $result->get_error_code() );
+		self::assertStringContainsString( 'kit_id is a required property', $result->get_error_message() );
+		self::assertStringNotContainsString( 'proprietate', $result->get_error_message() );
 	}
 
 	public function test_partial_typography_keeps_only_the_properties_present(): void {
@@ -361,7 +380,7 @@ final class ElementorDirectionCaptureTest extends TestCase {
 		);
 
 		self::assertIsArray( $result );
-		self::assertSame( [], $result['contract']['tokens']['colors'] );
+		self::assertSame( [], (array) $result['contract']['tokens']['colors'] );
 		self::assertContains( 'colors.0', $result['unmapped'] );
 	}
 

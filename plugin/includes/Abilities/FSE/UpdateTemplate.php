@@ -7,9 +7,14 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
- * Contract decision: keep output_schema aligned to the handler response shape.
+ * Compatibility wrapper for stonewright/fse-update-template.
+ *
+ * Keeps the id-based (`theme//slug`) caller contract while applying the same
+ * strong envelope as {@see WriteTemplate}: can_manage_fse, ConfirmationGuard,
+ * Backup::snapshot_post, and sanitized post_content.
  *
  * @stonewright-status stable
  */
@@ -26,7 +31,7 @@ final class UpdateTemplate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates the content of a wp_template or wp_template_part by id (e.g. "theme//slug").', 'stonewright' );
+		return __( 'Compatibility wrapper around fse-write-template. Updates wp_template or wp_template_part content by id (e.g. "theme//slug") using the same backup, confirmation, and sanitization envelope.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -38,9 +43,9 @@ final class UpdateTemplate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
-				'id'      => [ 'type' => 'string' ],
-				'type'    => [ 'type' => 'string', 'enum' => [ 'wp_template', 'wp_template_part' ], 'default' => 'wp_template' ],
-				'content' => [ 'type' => 'string' ],
+				'id'                 => [ 'type' => 'string' ],
+				'type'               => [ 'type' => 'string', 'enum' => [ 'wp_template', 'wp_template_part' ], 'default' => 'wp_template' ],
+				'content'            => [ 'type' => 'string' ],
 				'title'              => [ 'type' => 'string' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
@@ -59,7 +64,7 @@ final class UpdateTemplate extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_theme_options();
+		return Permissions::can_manage_fse();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -77,6 +82,11 @@ final class UpdateTemplate extends AbilityKernel {
 					return $token_error;
 				}
 
+				$content = BlockMarkup::sanitize( (string) $args['content'] );
+				if ( is_wp_error( $content ) ) {
+					return $content;
+				}
+
 				$cpt = isset( $args['type'] ) ? (string) $args['type'] : 'wp_template';
 				if ( ! in_array( $cpt, [ 'wp_template', 'wp_template_part' ], true ) ) {
 					return $this->error( 'invalid_type', __( 'Type must be wp_template or wp_template_part.', 'stonewright' ) );
@@ -92,7 +102,7 @@ final class UpdateTemplate extends AbilityKernel {
 				}
 
 				$post_id = $template->wp_id ?? 0;
-				$payload = [ 'post_content' => (string) $args['content'] ];
+				$payload = [ 'post_content' => $content ];
 				if ( isset( $args['title'] ) ) {
 					$payload['post_title'] = sanitize_text_field( (string) $args['title'] );
 				}
@@ -102,7 +112,7 @@ final class UpdateTemplate extends AbilityKernel {
 					$payload['ID'] = (int) $post_id;
 					$result        = wp_update_post( $payload, true );
 				} else {
-					$slug          = $template->slug ?? '';
+					$slug                   = $template->slug ?? '';
 					$payload['post_type']   = $cpt;
 					$payload['post_status'] = 'publish';
 					$payload['post_name']   = (string) $slug;
@@ -120,5 +130,12 @@ final class UpdateTemplate extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token' ] );
 	}
 }

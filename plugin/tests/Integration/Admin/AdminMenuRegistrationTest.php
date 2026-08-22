@@ -4,10 +4,21 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Integration\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
+use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
+use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
+use Stonewright\WpMcp\Admin\Pages\ContextPage;
+use Stonewright\WpMcp\Admin\Pages\DesignPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
+use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
+use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 
 /**
  * Verifies that AdminBootstrap wires the expected hooks and that the new
@@ -65,6 +76,13 @@ final class AdminMenuRegistrationTest extends TestCase {
 		AdminBootstrap::register();
 
 		$this->assertSame( 'stonewright-sandbox-library', SandboxLibraryPage::SLUG );
+	}
+
+	public function test_register_adds_admin_menu_hook_for_troubleshoot_page(): void {
+		AdminBootstrap::register();
+
+		$this->assertSame( 'stonewright-troubleshoot', TroubleshootPage::SLUG );
+		$this->assertSame( 'manage_options', TroubleshootPage::CAPABILITY );
 	}
 
 	public function test_register_is_idempotent(): void {
@@ -144,5 +162,101 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertIsArray( $data['files'], '"files" value must be an array' );
 		$this->assertIsInt( $data['count'], '"count" value must be an integer' );
 		$this->assertCount( $data['count'], $data['files'], '"count" must equal the number of items in "files"' );
+	}
+
+	public function test_sidebar_menu_titles_match_shell_tab_labels(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+
+		ConfigurationPage::register();
+		StatusPage::register();
+		AbilitiesPage::register();
+		AuditLogPage::register();
+		MemoryInstructionsPage::register();
+		SkillsPage::register();
+		CustomCodeApprovalPage::register();
+		do_action( 'admin_menu' );
+
+		$shell_labels = AdminShell::pages();
+		$submenus     = $GLOBALS['stonewright_test_submenu_pages'];
+
+		$aligned = [
+			StatusPage::SLUG              => $shell_labels[ StatusPage::SLUG ],
+			'stonewright-abilities'       => $shell_labels['stonewright-abilities'],
+			ConfigurationPage::SLUG       => $shell_labels[ ConfigurationPage::SLUG ],
+			AuditLogPage::SLUG            => $shell_labels[ AuditLogPage::SLUG ],
+			MemoryInstructionsPage::SLUG    => $shell_labels[ MemoryInstructionsPage::SLUG ],
+			SkillsPage::SLUG              => $shell_labels[ SkillsPage::SLUG ],
+		];
+
+		foreach ( $aligned as $slug => $label ) {
+			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
+			$this->assertSame( $label, $submenus[ $slug ]['menu_title'], "Sidebar label for {$slug}" );
+		}
+
+		$this->assertSame( 'Code approval', $submenus[ CustomCodeApprovalPage::SLUG ]['menu_title'] );
+	}
+
+	public function test_experimental_sidebar_titles_use_inline_marker(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		TroubleshootPage::register();
+		ContextPage::register();
+		DesignPage::register();
+		FinalizerPage::register();
+		do_action( 'admin_menu' );
+
+		$submenus = $GLOBALS['stonewright_test_submenu_pages'];
+		$marked   = [
+			TroubleshootPage::SLUG => 'Troubleshoot',
+			ContextPage::SLUG      => 'Context',
+			DesignPage::SLUG       => 'Design',
+			FinalizerPage::SLUG    => 'Block Editor Queue',
+		];
+		foreach ( $marked as $slug => $label ) {
+			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
+			$this->assertSame( $label, $submenus[ $slug ]['page_title'] );
+			$this->assertSame( AdminShell::experimental_menu_title( $label ), $submenus[ $slug ]['menu_title'] );
+			$this->assertStringContainsString( 'class="sw-menu-exp"', $submenus[ $slug ]['menu_title'] );
+		}
+	}
+
+	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		FinalizerPage::register();
+		do_action( 'admin_menu' );
+
+		$slug       = FinalizerPage::SLUG;
+		$registered = $GLOBALS['stonewright_test_submenu_pages'][ $slug ] ?? null;
+		$this->assertIsArray( $registered );
+		$this->assertSame( 'stonewright', $registered['parent'] );
+		$this->assertSame( 'Block Editor Queue', $registered['page_title'] );
+		$this->assertSame( AdminShell::experimental_menu_title( 'Block Editor Queue' ), $registered['menu_title'] );
+		$this->assertSame( 'edit_posts', $registered['capability'] );
+
+		$workflows = [];
+		$safety    = [];
+		foreach ( AdminShell::menu_groups() as $group ) {
+			if ( 'workflows' === $group['id'] ) {
+				$workflows = $group['pages'];
+			}
+			if ( 'safety-diagnostics' === $group['id'] ) {
+				$safety = $group['pages'];
+			}
+		}
+		$this->assertSame(
+			[
+				'stonewright-context',
+				'stonewright-skills',
+				'stonewright-memory',
+				'stonewright-design',
+				'stonewright-sandbox',
+				'stonewright-block-finalizer',
+				'stonewright-prompts',
+			],
+			array_keys( $workflows )
+		);
+		$this->assertArrayHasKey( 'stonewright-sandbox', $workflows );
+		$this->assertSame( 'Sandbox', $workflows['stonewright-sandbox'] );
+		$this->assertSame( 'Block Editor Queue', $workflows[ $slug ] ?? null );
+		$this->assertSame( [ 'stonewright-audit-log' => 'Audit Log' ], $safety );
 	}
 }

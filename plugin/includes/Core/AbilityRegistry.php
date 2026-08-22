@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\ErrorEnvelope;
 use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
@@ -51,6 +52,11 @@ use Stonewright\WpMcp\Abilities\Design\DirectionSyncPlan;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
+use Stonewright\WpMcp\Abilities\Design\MotionCapabilities;
+use Stonewright\WpMcp\Abilities\Design\MotionApplyElementorV3;
+use Stonewright\WpMcp\Abilities\Design\MotionApplyGutenberg;
+use Stonewright\WpMcp\Abilities\Design\MotionPlan;
+use Stonewright\WpMcp\Abilities\Design\MotionSuggest;
 use Stonewright\WpMcp\Abilities\Design\NativePlan;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
@@ -82,6 +88,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\GetKitGlobals;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildTree;
 use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
 use Stonewright\WpMcp\Abilities\ElementorV3\DocumentHealth;
+use Stonewright\WpMcp\Abilities\ElementorV3\PerformanceAudit;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtReport;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtMigrate;
@@ -116,8 +123,10 @@ use Stonewright\WpMcp\Abilities\ElementorV4\UpdateVariable;
 use Stonewright\WpMcp\Abilities\FSE\CreateTemplatePart;
 use Stonewright\WpMcp\Abilities\FSE\GetThemeJson;
 use Stonewright\WpMcp\Abilities\FSE\ListTemplates;
+use Stonewright\WpMcp\Abilities\FSE\Navigation as FseNavigation;
 use Stonewright\WpMcp\Abilities\FSE\ReadGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\ReadTemplate;
+use Stonewright\WpMcp\Abilities\FSE\ThemeJsonHandoff;
 use Stonewright\WpMcp\Abilities\FSE\UpdateGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\UpdateTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteGlobalStyles;
@@ -125,9 +134,16 @@ use Stonewright\WpMcp\Abilities\FSE\WriteTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
 use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
+use Stonewright\WpMcp\Abilities\Gutenberg\CancelFinalizerChanges;
 use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
+use Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizationUrl;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetFinalizerRuntime;
+use Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
+use Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange;
+use Stonewright\WpMcp\Abilities\Gutenberg\QueryLoopBuild;
 use Stonewright\WpMcp\Abilities\Gutenberg\RenderBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ListRegisteredBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\ParseBlocks;
@@ -135,6 +151,9 @@ use Stonewright\WpMcp\Abilities\Gutenberg\RemoveBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\SerializeBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\TransformHtml;
 use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryCheckSetup;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryGetBlockSchema;
+use Stonewright\WpMcp\Abilities\Blocks\LibraryListBlocks;
 use Stonewright\WpMcp\Abilities\Memory\FeedbackCapture;
 use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
@@ -167,6 +186,9 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\System\DiscoverAbilities;
+use Stonewright\WpMcp\Abilities\System\ExecuteAbility;
+use Stonewright\WpMcp\Abilities\System\GetAbilityInfo;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
@@ -219,6 +241,8 @@ use Stonewright\WpMcp\Abilities\Settings\SettingsGet;
 use Stonewright\WpMcp\Abilities\Settings\SettingsUpdate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeActivate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
+use Stonewright\WpMcp\Abilities\Themes\ThemeChromeGet;
+use Stonewright\WpMcp\Abilities\Themes\ThemeChromeUpdate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\Abilities\Themes\ThemeBackupRestore;
@@ -255,7 +279,10 @@ use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
 use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
 use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
+use Stonewright\WpMcp\Abilities\Patterns\DeletePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
+use Stonewright\WpMcp\Abilities\Patterns\PatternCategories;
+use Stonewright\WpMcp\Abilities\Patterns\UpdatePattern;
 use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
@@ -282,6 +309,7 @@ use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
  */
 final class AbilityRegistry {
 	private const SESSION_PROFILE_TRANSIENT_PREFIX = 'stonewright_mcp_session_profile_';
+	private const SESSION_PROFILE_INDEX_OPTION     = 'stonewright_mcp_session_profile_index';
 	private const SESSION_PROFILE_TTL              = 3600;
 	private const SESSION_TASK_STARTED_PREFIX      = 'stonewright_mcp_task_started_';
 	/** Align with ContextToken / Direct latch (30 minutes). */
@@ -349,19 +377,32 @@ final class AbilityRegistry {
 			ListRegisteredBlocks::class,
 			EditorSnapshotAbility::class,
 			GetBlockSchema::class,
+			LibraryCheckSetup::class,
+			LibraryListBlocks::class,
+			LibraryGetBlockSchema::class,
 			ParseBlocks::class,
 			SerializeBlocks::class,
 			TransformHtml::class,
 			InsertBlock::class,
+			QueryLoopBuild::class,
 			UpdateBlock::class,
 			RemoveBlock::class,
 			BlocksBatchMutate::class,
+			QueueBlockChange::class,
+			GetFinalizerRuntime::class,
+			GetPendingBatch::class,
+			FinalizeBatch::class,
+			CancelFinalizerChanges::class,
+			GetFinalizationUrl::class,
 			RenderBlocks::class,
 			GutenbergApplyToPost::class,
 
 			// Patterns.
 			ListPatterns::class,
 			CreatePattern::class,
+			UpdatePattern::class,
+			DeletePattern::class,
+			PatternCategories::class,
 
 			// FSE.
 			GetThemeJson::class,
@@ -374,6 +415,8 @@ final class AbilityRegistry {
 			WriteTemplate::class,
 			WriteTemplatePart::class,
 			WriteGlobalStyles::class,
+			FseNavigation::class,
+			ThemeJsonHandoff::class,
 
 			// Elementor V3.
 			ElementorStatus::class,
@@ -386,6 +429,7 @@ final class AbilityRegistry {
 			GetPageStructure::class,
 			PageDigest::class,
 			DocumentHealth::class,
+			PerformanceAudit::class,
 			LegacyDebtReport::class,
 			LegacyDebtMigrate::class,
 			PostWriteVerify::class,
@@ -451,6 +495,13 @@ final class AbilityRegistry {
 			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
 
+			// Design Motion — read-only capability digest.
+			MotionCapabilities::class,
+			MotionSuggest::class,
+			MotionPlan::class,
+			MotionApplyGutenberg::class,
+			MotionApplyElementorV3::class,
+
 			// Design Direction — persistent, versioned design intent.
 			DirectionList::class,
 			DirectionGet::class,
@@ -495,6 +546,9 @@ final class AbilityRegistry {
 			KnowledgeExport::class,
 			KnowledgeImport::class,
 			AbilitiesList::class,
+			DiscoverAbilities::class,
+			GetAbilityInfo::class,
+			ExecuteAbility::class,
 			ToolProfile::class,
 			WorkflowPreflight::class,
 
@@ -579,6 +633,8 @@ final class AbilityRegistry {
 			ThemeList::class,
 			ThemeActivate::class,
 			ThemeCustomCss::class,
+			ThemeChromeGet::class,
+			ThemeChromeUpdate::class,
 			ThemeFileRead::class,
 			ThemeFilePatch::class,
 			ThemeBackupRestore::class,
@@ -889,6 +945,7 @@ final class AbilityRegistry {
 	 */
 	private static function finalize_ability_result( string $ability_name, mixed $result ): mixed {
 		if ( $result instanceof \WP_Error ) {
+			$result = ErrorEnvelope::with_agent_visible_payload( $result );
 			return ErrorPatterns::escalate_error( $ability_name, $result, [] );
 		}
 		return $result;
@@ -1173,6 +1230,9 @@ final class AbilityRegistry {
 			'stonewright/elementor-describe-widget',
 			'stonewright/elementor-explain-editor',
 			'stonewright/widget-intent-resolve',
+			'stonewright/design-motion-capabilities',
+			'stonewright/design-motion-suggest',
+			'stonewright/design-motion-plan',
 			'stonewright/design-native-plan',
 			'stonewright/elementor-v3-capabilities-summary',
 			'stonewright/elementor-v3-container-schema',
@@ -1210,7 +1270,11 @@ final class AbilityRegistry {
 	}
 
 	/**
-	 * Returns the complete ability catalog for admin, discovery, and profile planning.
+	 * Complete ability catalog for admin, discovery, profile planning, and
+	 * security-envelope proofs. Includes experimental Elementor V4 mutators even
+	 * when `stonewright_elementor_v4_atomic` hides them from the public MCP
+	 * surface (`enabled_abilities()` / tools/list). Flag-off must hide tools,
+	 * not erase permission, backup, confirmation, or context-token metadata.
 	 * The `enabled` field still reflects per-ability operator configuration.
 	 *
 	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
@@ -1347,6 +1411,7 @@ final class AbilityRegistry {
 		);
 		if ( $updated ) {
 			self::bump_surface_revision();
+			self::index_session_profile_key( $key );
 		}
 
 		return $updated;
@@ -1372,6 +1437,99 @@ final class AbilityRegistry {
 		];
 	}
 
+	/**
+	 * Configured MCP surface vs any live session that has widened it.
+	 *
+	 * Admin diagnostics have no MCP session header, so this also reads indexed
+	 * session transients written by set_session_tool_profile().
+	 *
+	 * @return array{configured:string,configured_count:int,session_profile:?string,session_count:?int,widened:bool}
+	 */
+	public static function surface_session_view(): array {
+		$configured       = self::mcp_surface();
+		$configured_count = self::count_enabled_for_surface( $configured, null );
+		$widest_profile   = null;
+		$widest_count     = $configured_count;
+		$candidates       = self::active_session_profiles();
+		$current          = self::session_tool_profile();
+		if ( is_array( $current ) ) {
+			array_unshift( $candidates, $current );
+		}
+
+		foreach ( $candidates as $session ) {
+			$count = self::count_enabled_for_surface( $configured, $session );
+			if ( $count > $widest_count ) {
+				$widest_count   = $count;
+				$widest_profile = (string) $session['profile'];
+			}
+		}
+
+		$widened = null !== $widest_profile && $widest_count > $configured_count;
+
+		return [
+			'configured'       => $configured,
+			'configured_count' => $configured_count,
+			'session_profile'  => $widened ? $widest_profile : null,
+			'session_count'    => $widened ? $widest_count : null,
+			'widened'          => $widened,
+		];
+	}
+
+	/**
+	 * @return list<array{profile:string, ability_names:list<string>}>
+	 */
+	public static function active_session_profiles(): array {
+		$profiles = [];
+		foreach ( self::session_profile_index() as $key ) {
+			$value = get_transient( $key );
+			if ( ! is_array( $value ) || ! is_string( $value['profile'] ?? null ) || ! is_array( $value['ability_names'] ?? null ) ) {
+				continue;
+			}
+			$profiles[] = [
+				'profile'       => strtolower( trim( $value['profile'] ) ),
+				'ability_names' => array_values( array_map( 'strval', $value['ability_names'] ) ),
+			];
+		}
+
+		return $profiles;
+	}
+
+	private static function index_session_profile_key( string $key ): void {
+		$index = self::session_profile_index();
+		if ( in_array( $key, $index, true ) ) {
+			return;
+		}
+		$index[] = $key;
+		if ( count( $index ) > 32 ) {
+			$index = array_slice( $index, -32 );
+		}
+		update_option( self::SESSION_PROFILE_INDEX_OPTION, $index, false );
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function session_profile_index(): array {
+		$raw = get_option( self::SESSION_PROFILE_INDEX_OPTION, [] );
+		if ( ! is_array( $raw ) ) {
+			return [];
+		}
+
+		return array_values(
+			array_filter(
+				$raw,
+				static fn( mixed $key ): bool => is_string( $key ) && str_starts_with( $key, self::SESSION_PROFILE_TRANSIENT_PREFIX )
+			)
+		);
+	}
+
+	/**
+	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 */
+	private static function count_enabled_for_surface( string $surface, ?array $session ): int {
+		return count( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ) );
+	}
+
 	private static function session_profile_transient_key(): ?string {
 		$session_id = isset( $_SERVER['HTTP_MCP_SESSION_ID'] ) && is_string( $_SERVER['HTTP_MCP_SESSION_ID'] )
 			? trim( $_SERVER['HTTP_MCP_SESSION_ID'] )
@@ -1387,16 +1545,22 @@ final class AbilityRegistry {
 	 * @return array<int, class-string<Ability>>
 	 */
 	private static function public_classes(): array {
+		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile() );
+	}
+
+	/**
+	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function classes_for_surface( string $surface, ?array $session ): array {
 		$classes = self::list();
-		$session = self::session_tool_profile();
-		$surface = self::mcp_surface();
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
-			return $classes;
+			return self::filter_disabled_v4_abilities( $classes );
 		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
-				return $classes;
+				return self::filter_disabled_v4_abilities( $classes );
 			}
 			// Session profiles only add tools on top of the configured surface.
 			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
@@ -1410,19 +1574,7 @@ final class AbilityRegistry {
 				true
 			);
 
-			return array_values(
-				array_filter(
-					$classes,
-					static function ( string $class ) use ( $allowed ): bool {
-						if ( ! class_exists( $class ) ) {
-							return false;
-						}
-						/** @var Ability $ability */
-						$ability = new $class();
-						return isset( $allowed[ $ability->name() ] );
-					}
-				)
-			);
+			return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
 		}
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
@@ -1434,6 +1586,15 @@ final class AbilityRegistry {
 			true
 		);
 
+		return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+	}
+
+	/**
+	 * @param array<int, class-string<Ability>> $classes
+	 * @param array<string, true>               $allowed
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_classes_by_allowed_names( array $classes, array $allowed ): array {
 		return array_values(
 			array_filter(
 				$classes,
@@ -1451,11 +1612,38 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Experimental V4 abilities stay off the public MCP surface until the
+	 * operator enables `stonewright_elementor_v4_atomic`. Status remains the
+	 * always-visible probe.
+	 *
+	 * @param array<int, class-string<Ability>> $classes
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_disabled_v4_abilities( array $classes ): array {
+		if ( (bool) get_option( 'stonewright_elementor_v4_atomic', false ) ) {
+			return $classes;
+		}
+
+		return array_values(
+			array_filter(
+				$classes,
+				static function ( string $class ): bool {
+					if ( ElementorV4Status::class === $class ) {
+						return true;
+					}
+
+					return ! str_starts_with( $class, 'Stonewright\\WpMcp\\Abilities\\ElementorV4\\' );
+				}
+			)
+		);
+	}
+
+	/**
 	 * Progressive-discovery bootstrap surface (≤ TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS).
 	 *
-	 * Ordered for cold start: task gateway → expansion → runtime/write escape
-	 * hatches → site identity → minimal content/Elementor reads. Agents must
-	 * never be stuck without php-execute or a profile switcher on a cold client.
+	 * Ordered for cold start: task gateway → expansion → confirmation
+	 * hatches → site identity → minimal content/Elementor reads. Agents expand
+	 * to php-execute via tool-profile `full` when a snippet is required.
 	 *
 	 * @return list<string>
 	 */
@@ -1487,8 +1675,7 @@ final class AbilityRegistry {
 					$pick( [ 'stonewright/context-bootstrap' ] ),
 					$pick( [ 'stonewright/tool-profile' ] ),
 					$pick( [ 'stonewright/skills-get' ] ),
-					// First-class runtime + confirmation (never hide these on cold start).
-					$pick( [ 'stonewright/php-execute' ] ),
+					// Confirmation issuer stays on cold start; php-execute is full-profile only.
 					$pick( [ 'stonewright/security-issue-confirmation-token' ] ),
 					// Site identity + connectivity.
 					$pick( [ 'stonewright/site-info', 'stonewright/setup-profile' ] ),
@@ -1522,7 +1709,6 @@ final class AbilityRegistry {
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
 			'stonewright/rules-get',
-			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
 
@@ -1531,6 +1717,7 @@ final class AbilityRegistry {
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
 			'stonewright/design-native-plan',
+			'stonewright/design-direction-brief',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',

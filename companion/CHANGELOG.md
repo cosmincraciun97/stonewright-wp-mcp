@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.11] - 2026-08-22
+
+### Added
+
+- Add semantic DesignSpec motion validation for target resolution, global
+  motion IDs, hover/focus parity, loop controls, provider identity, and stagger
+  arithmetic so companion and plugin contracts reject the same invalid plans.
+- Add local WP-CLI command recipes v1: save parameterized recipes per site,
+  plan them, and run them through tokenized `execFile` argv with stop-on-error,
+  bounded redacted output, expectation verification, and one-use plan approval
+  for write recipes. Exposed as exactly three MCP tools
+  (`stonewright-command-list`, `stonewright-command-get`,
+  `stonewright-command-run`) on the wp-cli, site-admin, full, and
+  discover-execute profiles only.
+- Add the `stonewright command` CLI subcommands add/list/show/remove/plan/run
+  with exit codes 0 (verified success), 1 (failure), and 2 (write plan valid,
+  approval required).
+- Add `stonewright connect add|repair --wp-root <path>` to bind a canonical
+  local WordPress root (real directory containing wp-config.php) used by
+  command recipes; the runner revalidates it before every run.
+
+- Add Gutenberg block-finalizer tools to the companion gutenberg profile catalog.
+- Add a `discover-execute` companion profile catalog for the three protocol tools.
+
+### Changed
+
+- Alias `codex-cli` to the existing Codex TOML adapter so CLI connect commands
+  keep working after the ChatGPT Desktop vs Codex CLI split.
+- Split paste-to-agent `--profile` from `--wp-surface` so compact versus full
+  surfaces stay explicit.
+- Persist the MCP surface from Apply now and report when a session has widened
+  beyond compact.
+- Align the companion package version with plugin 1.0.0-beta.11.
+
+### Fixed
+
+- Separate Codex Desktop from Codex CLI in Connect and dedupe generated MCP
+  server names.
+
 ## [1.0.0-beta.10] - 2026-08-12
 
 ### Added

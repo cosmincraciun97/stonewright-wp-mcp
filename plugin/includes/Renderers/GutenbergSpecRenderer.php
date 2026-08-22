@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Renderers;
 
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Gutenberg\ColorPresetLookup;
 
 /**
  * Renders a Stonewright Design Spec into a Gutenberg block tree compatible
@@ -81,24 +82,30 @@ final class GutenbergSpecRenderer {
 			}
 		}
 
-		$style = [];
-		$bg    = null;
+		$attrs = [
+			'tagName' => 'section',
+			'align'   => 'full',
+			'layout'  => [
+				'type'        => 'constrained',
+				'contentSize' => '1200px',
+			],
+		];
+		$bg = null;
 		if ( isset( $section['background']['color'] ) ) {
 			$bg = (string) $section['background']['color'];
 		} elseif ( isset( $section['style']['background']['color'] ) ) {
 			$bg = (string) $section['style']['background']['color'];
 		}
 		if ( is_string( $bg ) && '' !== $bg ) {
-			$style['color']['background'] = $bg;
-			// Text on section with background: prefer explicit text token for contrast.
+			$attrs = ColorPresetLookup::apply_color( $attrs, $bg, 'background' );
 			if ( ! empty( $tokens['colors']['text'] ) && self::is_dark_hex( $bg ) ) {
-				$style['color']['text'] = '#ffffff';
+				$attrs = ColorPresetLookup::apply_color( $attrs, '#ffffff', 'text' );
 			} elseif ( ! empty( $tokens['colors']['text'] ) ) {
-				$style['color']['text'] = (string) $tokens['colors']['text'];
+				$attrs = ColorPresetLookup::apply_color( $attrs, (string) $tokens['colors']['text'], 'text' );
 			}
 		}
 		if ( isset( $section['padding'] ) && is_array( $section['padding'] ) ) {
-			$style['spacing']['padding'] = [
+			$attrs['style']['spacing']['padding'] = [
 				'top'    => self::px( $section['padding']['top']    ?? 0 ),
 				'right'  => self::px( $section['padding']['right']  ?? 0 ),
 				'bottom' => self::px( $section['padding']['bottom'] ?? 0 ),
@@ -107,7 +114,7 @@ final class GutenbergSpecRenderer {
 		} elseif ( isset( $section['style']['padding'] ) && is_string( $section['style']['padding'] ) ) {
 			$parts = preg_split( '/\s+/', trim( (string) $section['style']['padding'] ) ) ?: [];
 			if ( count( $parts ) >= 1 ) {
-				$style['spacing']['padding'] = [
+				$attrs['style']['spacing']['padding'] = [
 					'top'    => $parts[0],
 					'right'  => $parts[1] ?? $parts[0],
 					'bottom' => $parts[2] ?? $parts[0],
@@ -117,32 +124,13 @@ final class GutenbergSpecRenderer {
 		}
 		$body_font = self::token_font( $tokens, 'body' );
 		if ( '' !== $body_font ) {
-			$style['typography']['fontFamily'] = $body_font;
+			$attrs['style']['typography']['fontFamily'] = $body_font;
 		}
 
-		$has_bg = is_string( $bg ) && '' !== $bg;
-		$attrs  = [
-			'tagName' => 'section',
-			'align'   => 'full',
-			'layout'  => [
-				'type'        => 'constrained',
-				'contentSize' => '1200px',
-			],
-		];
-		if ( ! empty( $style ) ) {
-			$attrs['style'] = $style;
-		}
-		$class_parts = [ 'wp-block-group', 'alignfull' ];
-		if ( $has_bg ) {
-			$class_parts[] = 'has-background';
-		}
-		$class_attr = implode( ' ', $class_parts );
-		$style_attr = '';
-		if ( $has_bg ) {
-			$style_attr = ' style="background-color:' . esc_attr( (string) $bg ) . '"';
-		}
+		$class_parts = array_merge( [ 'wp-block-group', 'alignfull' ], self::color_support_classes( $attrs ) );
+		$class_attr  = implode( ' ', array_unique( $class_parts ) );
 
-		$open  = '<section class="' . esc_attr( $class_attr ) . '"' . $style_attr . '>';
+		$open  = '<section class="' . esc_attr( $class_attr ) . '">';
 		$close = '</section>';
 
 		$content = [ $open ];
@@ -255,23 +243,20 @@ final class GutenbergSpecRenderer {
 	 */
 	private static function heading( int $level, string $text, array $tokens = [], array $block = [] ): array {
 		$level = max( 1, min( 6, $level ) );
-		$html  = '<h' . $level . ' class="wp-block-heading">' . esc_html( $text ) . '</h' . $level . '>';
 		$attrs = 1 !== $level ? [ 'level' => $level ] : [];
-		$style = [];
 		$font  = self::token_font( $tokens, 'heading' );
 		if ( '' !== $font ) {
-			$style['typography']['fontFamily'] = $font;
+			$attrs['style']['typography']['fontFamily'] = $font;
 		}
 		$color = (string) ( $block['style']['color'] ?? '' );
 		if ( '' === $color && ! empty( $tokens['colors']['text'] ) ) {
 			$color = (string) $tokens['colors']['text'];
 		}
 		if ( '' !== $color ) {
-			$style['color']['text'] = $color;
+			$attrs = ColorPresetLookup::apply_color( $attrs, $color, 'text' );
 		}
-		if ( ! empty( $style ) ) {
-			$attrs['style'] = $style;
-		}
+		$classes = array_merge( [ 'wp-block-heading' ], self::color_support_classes( $attrs ) );
+		$html    = '<h' . $level . ' class="' . esc_attr( implode( ' ', array_unique( $classes ) ) ) . '">' . esc_html( $text ) . '</h' . $level . '>';
 		return [
 			'blockName'    => 'core/heading',
 			'attrs'        => $attrs,
@@ -286,23 +271,20 @@ final class GutenbergSpecRenderer {
 	 * @param array<string, mixed> $block
 	 */
 	private static function paragraph( string $text, array $tokens = [], array $block = [] ): array {
-		$html  = '<p>' . esc_html( $text ) . '</p>';
 		$attrs = [];
-		$style = [];
 		$font  = self::token_font( $tokens, 'body' );
 		if ( '' !== $font ) {
-			$style['typography']['fontFamily'] = $font;
+			$attrs['style']['typography']['fontFamily'] = $font;
 		}
 		$color = (string) ( $block['style']['color'] ?? '' );
 		if ( '' === $color && ! empty( $tokens['colors']['text'] ) ) {
 			$color = (string) $tokens['colors']['text'];
 		}
 		if ( '' !== $color ) {
-			$style['color']['text'] = $color;
+			$attrs = ColorPresetLookup::apply_color( $attrs, $color, 'text' );
 		}
-		if ( ! empty( $style ) ) {
-			$attrs['style'] = $style;
-		}
+		$classes = self::color_support_classes( $attrs );
+		$html    = '<p' . ( [] !== $classes ? ' class="' . esc_attr( implode( ' ', $classes ) ) . '"' : '' ) . '>' . esc_html( $text ) . '</p>';
 		return [
 			'blockName'    => 'core/paragraph',
 			'attrs'        => $attrs,
@@ -355,36 +337,20 @@ final class GutenbergSpecRenderer {
 		if ( '' === $fg && '' !== $bg ) {
 			$fg = self::is_dark_hex( $bg ) ? '#ffffff' : '#111827';
 		}
-		$style_attr = '';
-		$attrs      = [];
-		$classes    = [ 'wp-block-button__link', 'wp-element-button' ];
-		if ( '' !== $bg || '' !== $fg ) {
-			$style = [];
-			if ( '' !== $bg ) {
-				$style['color']['background'] = $bg;
-				$classes[]                    = 'has-background';
-			}
-			if ( '' !== $fg ) {
-				$style['color']['text'] = $fg;
-				$classes[]              = 'has-text-color';
-			}
-			$attrs['style']     = $style;
-			$attrs['className'] = 'has-custom-font-size';
-			if ( '' !== $bg ) {
-				$attrs['backgroundColor'] = null;
-			}
-			$style_attr = ' style="'
-				. ( '' !== $bg ? 'background-color:' . esc_attr( $bg ) . ';' : '' )
-				. ( '' !== $fg ? 'color:' . esc_attr( $fg ) . ';' : '' )
-				. '"';
+		$attrs   = [];
+		$classes = [ 'wp-block-button__link', 'wp-element-button' ];
+		if ( '' !== $bg ) {
+			$attrs = ColorPresetLookup::apply_color( $attrs, $bg, 'background' );
 		}
-		// Drop null keys from attrs.
-		$attrs = array_filter(
-			$attrs,
-			static fn( $v ): bool => null !== $v
-		);
+		if ( '' !== $fg ) {
+			$attrs = ColorPresetLookup::apply_color( $attrs, $fg, 'text' );
+		}
+		$classes = array_merge( $classes, self::color_support_classes( $attrs ) );
+		if ( [] !== $attrs ) {
+			$attrs['className'] = 'has-custom-font-size';
+		}
 		$link_class = implode( ' ', array_unique( $classes ) );
-		$inner      = '<div class="wp-block-button"><a class="' . esc_attr( $link_class ) . '" href="' . esc_url( $url ) . '"' . $style_attr . '>' . esc_html( $text ) . '</a></div>';
+		$inner      = '<div class="wp-block-button"><a class="' . esc_attr( $link_class ) . '" href="' . esc_url( $url ) . '">' . esc_html( $text ) . '</a></div>';
 		$open       = '<div class="wp-block-buttons">';
 		$close      = '</div>';
 
@@ -477,18 +443,23 @@ final class GutenbergSpecRenderer {
 			$attrs['mediaId'] = $id;
 		}
 		if ( '' !== $bg ) {
-			$attrs['style'] = [ 'color' => [ 'background' => $bg ] ];
+			$attrs = ColorPresetLookup::apply_color( $attrs, $bg, 'background' );
 		}
 
 		$img_html = '<figure class="wp-block-media-text__media"><img src="' . esc_url( $url ) . '" alt="' . esc_attr( $alt ) . '"'
 			. ( $id > 0 ? ' class="wp-image-' . $id . '"' : '' )
 			. '/></figure>';
-		$classes  = 'wp-block-media-text alignfull is-stacked-on-mobile'
-			. ( 'right' === $media_position ? ' has-media-on-the-right' : '' )
-			. ( '' !== $bg ? ' has-background' : '' );
-		$style    = '' !== $bg ? ' style="background-color:' . esc_attr( $bg ) . '"' : '';
-		$open     = '<div class="' . esc_attr( $classes ) . '"' . $style . '>' . $img_html . '<div class="wp-block-media-text__content">';
-		$close    = '</div></div>';
+		$class_parts = array_merge(
+			[
+				'wp-block-media-text',
+				'alignfull',
+				'is-stacked-on-mobile',
+			],
+			'right' === $media_position ? [ 'has-media-on-the-right' ] : [],
+			self::color_support_classes( $attrs )
+		);
+		$open  = '<div class="' . esc_attr( implode( ' ', array_unique( $class_parts ) ) ) . '">' . $img_html . '<div class="wp-block-media-text__content">';
+		$close = '</div></div>';
 
 		$content = [ $open ];
 		foreach ( $inner_blocks as $_ ) {
@@ -558,6 +529,31 @@ final class GutenbergSpecRenderer {
 			'innerContent' => [ $html ],
 			'innerBlocks'  => [],
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $attrs
+	 * @return list<string>
+	 */
+	private static function color_support_classes( array $attrs ): array {
+		$classes   = [];
+		$bg_slug   = isset( $attrs['backgroundColor'] ) && is_string( $attrs['backgroundColor'] ) ? sanitize_title( $attrs['backgroundColor'] ) : '';
+		$text_slug = isset( $attrs['textColor'] ) && is_string( $attrs['textColor'] ) ? sanitize_title( $attrs['textColor'] ) : '';
+		$has_bg    = '' !== $bg_slug || ( isset( $attrs['style']['color']['background'] ) && '' !== (string) $attrs['style']['color']['background'] );
+		$has_text  = '' !== $text_slug || ( isset( $attrs['style']['color']['text'] ) && '' !== (string) $attrs['style']['color']['text'] );
+		if ( $has_bg ) {
+			$classes[] = 'has-background';
+		}
+		if ( '' !== $bg_slug ) {
+			$classes[] = 'has-' . $bg_slug . '-background-color';
+		}
+		if ( $has_text ) {
+			$classes[] = 'has-text-color';
+		}
+		if ( '' !== $text_slug ) {
+			$classes[] = 'has-' . $text_slug . '-color';
+		}
+		return $classes;
 	}
 
 	/**

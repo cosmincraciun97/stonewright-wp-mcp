@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Write;
 
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
@@ -36,27 +37,45 @@ final class EvidenceValidator {
 			}
 			$row = isset( $evidence[ $setting ] ) && is_array( $evidence[ $setting ] ) ? $evidence[ $setting ] : null;
 			if ( null === $row ) {
-				return self::error( $setting, 'missing_evidence', 'Add settings_evidence for this planned setting.' );
+				return self::error( $widget_type, $setting, 'missing_evidence', 'Add settings_evidence for this planned setting.' );
 			}
 			$control_key = (string) ( $row['control_key'] ?? self::base_control_key( $setting ) );
 			if ( self::base_control_key( $setting ) !== $control_key ) {
-				return self::error( $setting, 'control_key_mismatch', 'Use the base live control key.' );
+				return self::error( $widget_type, $setting, 'control_key_mismatch', 'Use the base live control key.' );
 			}
-			if ( ! hash_equals( $schema_hash, (string) ( $row['schema_hash'] ?? '' ) ) ) {
-				return self::error( $setting, 'schema_hash_mismatch', 'Refresh the live Elementor schema and rebuild the plan.' );
-			}
+
 			$source     = trim( (string) ( $row['source'] ?? '' ) );
 			$confidence = $row['confidence'] ?? null;
 			$scope      = trim( (string) ( $row['responsive_scope'] ?? '' ) );
 			if ( '' === $source || ! is_numeric( $confidence ) || (float) $confidence < 0 || (float) $confidence > 1 || '' === $scope || ! is_bool( $row['requires_confirmation'] ?? null ) ) {
-				return self::error( $setting, 'invalid_evidence', 'Provide source, confidence 0..1, responsive_scope, and requires_confirmation.' );
+				return self::error( $widget_type, $setting, 'invalid_evidence', 'Provide source, confidence 0..1, responsive_scope, and requires_confirmation.' );
 			}
+
+			$hash = (string) ( $row['schema_hash'] ?? '' );
+			if ( self::is_direction_brief_source( $source ) && self::is_token_derived_setting( $setting ) ) {
+				if ( (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) < 1 ) {
+					return self::error(
+						$widget_type,
+						$setting,
+						'missing_direction',
+						'Activate a design direction, then cite source=direction-brief on token-derived color, typography, and spacing settings.'
+					);
+				}
+				if ( '' === $hash ) {
+					$hash = $schema_hash;
+				}
+			}
+
+			if ( ! hash_equals( $schema_hash, $hash ) ) {
+				return self::error( $widget_type, $setting, 'schema_hash_mismatch', 'Refresh the live Elementor schema and rebuild the plan.' );
+			}
+
 			$rows[] = [
-				'control_key'          => $control_key,
-				'schema_hash'          => $schema_hash,
-				'source'               => $source,
-				'confidence'           => (float) $confidence,
-				'responsive_scope'     => $scope,
+				'control_key'           => $control_key,
+				'schema_hash'           => $schema_hash,
+				'source'                => $source,
+				'confidence'            => (float) $confidence,
+				'responsive_scope'      => $scope,
 				'requires_confirmation' => (bool) $row['requires_confirmation'],
 			];
 		}
@@ -77,11 +96,38 @@ final class EvidenceValidator {
 		return (string) preg_replace( '/_(widescreen|laptop|tablet_extra|tablet|mobile_extra|mobile)$/', '', $key );
 	}
 
-	private static function error( string $setting, string $reason, string $repair ): \WP_Error {
+	private static function is_direction_brief_source( string $source ): bool {
+		$source = strtolower( $source );
+		return in_array( $source, [ 'direction-brief', 'design-direction', 'stonewright-direction' ], true )
+			|| str_starts_with( $source, 'direction:' )
+			|| str_starts_with( $source, 'design-direction:' );
+	}
+
+	private static function is_token_derived_setting( string $setting ): bool {
+		$base = self::base_control_key( $setting );
+		return 1 === preg_match( '/(color|padding|margin|gap|font|typography|spacing|radius|letter_spacing|line_height|background)/i', $base );
+	}
+
+	private static function error( string $widget_type, string $setting, string $reason, string $repair ): \WP_Error {
+		$is_container = in_array( $widget_type, [ 'container', 'section', 'column' ], true );
+		$query        = self::base_control_key( $setting );
 		return new \WP_Error(
 			'stonewright_elementor_evidence_invalid',
 			__( 'Elementor setting evidence is incomplete or stale.', 'stonewright' ),
-			[ 'status' => 400, 'setting' => $setting, 'reason' => $reason, 'repair' => $repair ]
+			[
+				'status'           => 400,
+				'setting'          => $setting,
+				'widget_type'      => $widget_type,
+				'reason'           => $reason,
+				'repair'           => $repair,
+				'execution_status' => 'blocked',
+				'schema_request'   => [
+					'ability' => $is_container ? 'stonewright/elementor-v3-container-schema' : 'stonewright/elementor-schema',
+					'input'   => $is_container
+						? [ 'query' => $query ]
+						: [ 'mode' => 'summary', 'widget_type' => $widget_type, 'query' => $query ],
+				],
+			]
 		);
 	}
 }

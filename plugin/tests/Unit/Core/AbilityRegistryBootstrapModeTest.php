@@ -35,7 +35,7 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 		self::assertLessThanOrEqual( TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS, count( $names ) );
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
-		self::assertContains( 'stonewright/php-execute', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/site-info', $names );
 		self::assertContains( 'stonewright/ping', $names );
 		self::assertContains( 'stonewright/security-issue-confirmation-token', $names );

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Gutenberg;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
+use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
@@ -28,19 +29,35 @@ final class BlocksBatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_options']               = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_user_caps']             = [ 'edit_post' => true, 'edit_posts' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']        = true;
+		$GLOBALS['stonewright_test_current_user_id']       = 42;
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 		$GLOBALS['stonewright_test_registered_blocks']     = [
 			'core/paragraph' => (object) [
-				'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+				'attributes'      => [ 'className' => [ 'type' => 'string' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
 			],
 			'core/heading'   => (object) [
-				'attributes' => [
+				'attributes'      => [
 					'className' => [ 'type' => 'string' ],
 					'level'     => [ 'type' => 'integer', 'enum' => [ 1, 2, 3, 4, 5, 6 ] ],
 				],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
 			],
 			'core/group'     => (object) [
-				'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+				'attributes'      => [ 'className' => [ 'type' => 'string' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
+			],
+			'vendor/alpha'   => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
+			'vendor/beta'    => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
+			],
+			'vendor/gamma'   => (object) [
+				'attributes' => [ 'title' => [ 'type' => 'string' ] ],
 			],
 		];
 	}
@@ -387,10 +404,163 @@ final class BlocksBatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_invalid_block_attributes', $result->get_error_data()['root_error_code'] );
+		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_data()['root_error_code'] );
+		self::assertSame( [ 'undeclared' ], $result->get_error_data()['items'][0]['error']['data']['offending_keys'] );
 	}
 
-	public function test_unregistered_inserted_block_fails_closed(): void {
+	public function test_three_finalizer_ops_queue_three_items_not_a_single_insert(): void {
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 0,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'A' ] ],
+					],
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 1,
+						'block'    => [ 'blockName' => 'vendor/beta', 'attrs' => [ 'title' => 'B' ] ],
+					],
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 2,
+						'block'    => [ 'blockName' => 'vendor/gamma', 'attrs' => [ 'title' => 'C' ] ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+
+		$queued_names = [];
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			if ( isset( $record['operations'] ) && is_array( $record['operations'] ) ) {
+				foreach ( $record['operations'] as $operation ) {
+					$queued_names[] = (string) ( $operation['block_spec']['name'] ?? '' );
+					self::assertSame( 'insert', (string) ( $operation['action'] ?? '' ) );
+					self::assertArrayHasKey( 'position', $operation );
+				}
+				continue;
+			}
+			$queued_names[] = (string) ( $record['block_spec']['name'] ?? '' );
+			self::assertSame( 'insert', (string) ( $record['action'] ?? '' ) );
+		}
+
+		self::assertSame( [ 'vendor/alpha', 'vendor/beta', 'vendor/gamma' ], $queued_names );
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			if ( isset( $record['operations'] ) && is_array( $record['operations'] ) ) {
+				continue;
+			}
+			self::assertNotNull( $record['position'] );
+		}
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
+	}
+
+	public function test_mixed_finalizer_and_native_ops_reject_closed(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][801]->post_content;
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 1,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'A' ] ],
+					],
+					[
+						'action' => 'update',
+						'path'   => [ 0 ],
+						'attrs'  => [ 'className' => 'native' ],
+					],
+					[
+						'action'   => 'move',
+						'path'     => [ 0 ],
+						'position' => 1,
+					],
+					[
+						'action' => 'remove',
+						'path'   => [ 0 ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_mixed_finalizer_batch', $result->get_error_code() );
+		self::assertSame( 400, (int) ( $result->get_error_data()['status'] ?? 0 ) );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][801]->post_content );
+		self::assertSame( [], BlockQueue::list() );
+	}
+
+	public function test_finalizer_insert_then_update_resolves_path_against_working_tree(): void {
+		$GLOBALS['stonewright_test_registered_blocks']['core/paragraph'] = (object) [
+			'attributes' => [ 'className' => [ 'type' => 'string' ] ],
+		];
+
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action'   => 'insert',
+						'path'     => [],
+						'position' => 0,
+						'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'Inserted' ] ],
+					],
+					[
+						'action' => 'update',
+						'path'   => [ 1 ],
+						'attrs'  => [ 'className' => 'shifted-original' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['queued'] );
+
+		$queued = [];
+		foreach ( BlockQueue::list() as $item ) {
+			if ( 801 !== (int) $item['post_id'] ) {
+				continue;
+			}
+			$record = BlockQueue::get( (string) $item['id'] );
+			self::assertIsArray( $record );
+			$queued[] = $record;
+		}
+
+		self::assertCount( 2, $queued );
+		self::assertSame( 'insert', $queued[0]['action'] );
+		self::assertSame( 0, $queued[0]['position'] );
+		self::assertSame( 'vendor/alpha', $queued[0]['block_spec']['name'] );
+		self::assertSame( 'update', $queued[1]['action'] );
+		self::assertSame( [ 1 ], $queued[1]['path'] );
+		self::assertSame( 'core/paragraph', $queued[1]['block_spec']['name'] );
+		self::assertSame( 'shifted-original', $queued[1]['block_spec']['attributes']['className'] );
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
+	}
+
+	public function test_unregistered_inserted_block_is_rejected(): void {
 		$result = ( new BlocksBatchMutate() )->execute(
 			[
 				'post_id'    => 801,
@@ -400,7 +570,8 @@ final class BlocksBatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_unregistered_block', $result->get_error_data()['root_error_code'] );
+		self::assertSame( 'stonewright_block_not_registered', $result->get_error_code() );
+		self::assertSame( '<!-- wp:paragraph --><p>Before</p><!-- /wp:paragraph -->', $GLOBALS['stonewright_test_posts'][801]->post_content );
 	}
 
 	public function test_immediate_compare_and_swap_recheck_blocks_a_racing_write(): void {

@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { APP_VERSION } from '../src/version.js';
-import { buildSetupProfile } from '../src/setup-profile.js';
+import { buildSetupProfile, toolVisibilityChecks } from '../src/setup-profile.js';
 import { createMcpServer } from '../src/mcp-server.js';
+
+describe('command tools profile truth', () => {
+	it('exposes command tools only on WP-CLI-capable profiles', () => {
+		for (const profile of ['wp-cli', 'site-admin', 'full', 'discover-execute']) {
+			const names = toolVisibilityChecks({ STONEWRIGHT_MCP_TOOL_PROFILE: profile });
+			expect(names, profile).toContain('stonewright-command-list');
+			expect(names, profile).toContain('stonewright-command-get');
+			expect(names, profile).toContain('stonewright-command-run');
+		}
+		for (const profile of ['low-tools', 'bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg']) {
+			const names = toolVisibilityChecks({ STONEWRIGHT_MCP_TOOL_PROFILE: profile });
+			expect(names, profile).not.toContain('stonewright-command-list');
+			expect(names, profile).not.toContain('stonewright-command-get');
+			expect(names, profile).not.toContain('stonewright-command-run');
+		}
+	});
+});
 
 describe('buildSetupProfile', () => {
 	it('builds a copy-paste npx MCP config for local macOS installs without requiring a manual app password', () => {

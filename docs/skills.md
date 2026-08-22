@@ -48,6 +48,10 @@ Each skill has a master active toggle and two exposure flags:
 | `elementor-v3-builder` | `skills/elementor-v3-builder/` | Build and edit Elementor V3 pages |
 | `elementor-v4-atomic` | `skills/elementor-v4-atomic/` | Experimental Elementor V4 atomic workflow |
 | `gutenberg-fse-builder` | `skills/gutenberg-fse-builder/` | Build Gutenberg/FSE output from a Design Spec |
+| `blocksy-build-page` | `skills/blocksy-build-page/` | Build Blocksy pages from live block schemas and theme chrome |
+| `kadence-build-page` | `skills/kadence-build-page/` | Build Kadence Blocks pages from live `kadence/*` schemas |
+| `generateblocks-build-page` | `skills/generateblocks-build-page/` | Build GenerateBlocks pages from live `generateblocks/*` schemas |
+| `spectra-build-page` | `skills/spectra-build-page/` | Build Spectra (`uagb/*`) pages from live block schemas |
 | `woocommerce-catalog` | `skills/woocommerce-catalog/` | Manage WooCommerce catalog work: products, variations, SKUs, attributes, terms, and shipping classes |
 | `wp-plugin-dev` | `skills/wp-plugin-dev/` | Build WordPress plugins, blocks, widgets, and abilities |
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
@@ -76,6 +80,11 @@ registered it — plus its state, revision, and how many times it has been
 verified. Search filters the list in place. Inspect opens a drawer with the
 body, lint findings, trust findings, and history. Export downloads normalized
 Markdown with provenance and a content hash.
+
+Packaged industry landing-page playbooks (`Landing page — Agency`, SaaS, Law
+firm, Healthcare, Nonprofit, Real estate, Restaurant) are no longer shipped.
+Already-seeded playbook rows for those slugs are retired on seed. Presence-gated
+Blocksy, Kadence, GenerateBlocks, and Spectra build-page skills remain.
 
 **Editor.** Creating and editing a skill is a nonce-checked form that works
 with JavaScript disabled. It is the only write path on the page that does not

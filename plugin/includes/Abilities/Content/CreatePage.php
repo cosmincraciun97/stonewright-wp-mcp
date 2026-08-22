@@ -34,6 +34,7 @@ final class CreatePage extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'title'    => [ 'type' => 'string', 'maxLength' => 255 ],
 				'content'  => [ 'type' => 'string' ],
 				'excerpt'  => [ 'type' => 'string' ],
@@ -91,7 +92,7 @@ final class CreatePage extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$payload = [

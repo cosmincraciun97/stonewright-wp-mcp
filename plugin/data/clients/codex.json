@@ -19,7 +19,7 @@
   "config_format": "toml-codex",
   "official_cli_update": "codex mcp add",
   "official_cli_remove": "",
-  "oauth_support": false,
+  "oauth_support": true,
   "app_password_support": true,
   "relist_behavior": "restart-or-reload-mcp",
   "new_task_required_after_catalog_change": true,

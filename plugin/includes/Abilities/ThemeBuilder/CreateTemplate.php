@@ -41,6 +41,7 @@ final class CreateTemplate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'title'         => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 255 ],
 				'template_type' => [ 'type' => 'string', 'enum' => TemplateStore::ALLOWED_TYPES ],
 			],
@@ -64,7 +65,7 @@ final class CreateTemplate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$id = TemplateStore::create(

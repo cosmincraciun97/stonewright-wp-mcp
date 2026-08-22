@@ -38,15 +38,29 @@ final class AdminShellTest extends TestCase {
 		self::assertNotContains( 'stonewright-visual-workspace', $slugs );
 		self::assertContains( 'stonewright-prompts', $slugs );
 		self::assertContains( 'stonewright-sandbox', $slugs );
+		self::assertContains( 'stonewright-block-finalizer', $slugs );
+		self::assertSame( 'Block Editor Queue', $pages['stonewright-block-finalizer'] );
 		self::assertContains( 'stonewright-skills', $slugs );
 		self::assertContains( 'stonewright-memory', $slugs );
 		self::assertContains( 'stonewright-audit-log', $slugs );
 		self::assertContains( 'stonewright-status', $slugs );
+		self::assertContains( 'stonewright-design', $slugs );
+		self::assertContains( 'stonewright-context', $slugs );
+		self::assertContains( 'stonewright-troubleshoot', $slugs );
 		self::assertSame( 'Setup', $pages['stonewright'] );
+		self::assertSame( 'Troubleshoot', $pages['stonewright-troubleshoot'] );
+		self::assertSame( 'Dashboard', $pages['stonewright-status'] );
+		self::assertSame( 'AI Abilities', $pages['stonewright-abilities'] );
+		self::assertSame( 'Audit Log', $pages['stonewright-audit-log'] );
+		self::assertSame( 'Memory', $pages['stonewright-memory'] );
+		self::assertSame( 'Skills', $pages['stonewright-skills'] );
+		self::assertSame( 'Design', $pages['stonewright-design'] );
+		self::assertSame( 'Context', $pages['stonewright-context'] );
 	}
 
 	public function test_menu_groups_are_at_most_six_and_cover_all_page_slugs(): void {
 		$groups = AdminShell::menu_groups();
+		self::assertCount( 5, $groups );
 		self::assertLessThanOrEqual( 6, count( $groups ) );
 		self::assertGreaterThanOrEqual( 1, count( $groups ) );
 
@@ -67,9 +81,67 @@ final class AdminShellTest extends TestCase {
 			}
 		}
 		self::assertSame( array_keys( AdminShell::pages() ), $from_groups );
+
+		$connect = [];
+		foreach ( $groups as $group ) {
+			if ( 'connect' === $group['id'] ) {
+				$connect = $group['pages'];
+			}
+		}
+		self::assertSame(
+			[
+				'stonewright'               => 'Setup',
+				'stonewright-troubleshoot'  => 'Troubleshoot',
+			],
+			$connect
+		);
+
+		$workflows = [];
+		$safety    = [];
+		foreach ( $groups as $group ) {
+			if ( 'workflows' === $group['id'] ) {
+				$workflows = $group['pages'];
+			}
+			if ( 'safety-diagnostics' === $group['id'] ) {
+				$safety = $group['pages'];
+			}
+		}
+		self::assertSame(
+			[
+				'stonewright-context'         => 'Context',
+				'stonewright-skills'          => 'Skills',
+				'stonewright-memory'          => 'Memory',
+				'stonewright-design'          => 'Design',
+				'stonewright-sandbox'         => 'Sandbox',
+				'stonewright-block-finalizer' => 'Block Editor Queue',
+				'stonewright-prompts'         => 'Prompts',
+			],
+			$workflows
+		);
+		self::assertSame(
+			[
+				'stonewright-audit-log' => 'Audit Log',
+			],
+			$safety
+		);
+
+		$overview = [];
+		$capabilities = [];
+		foreach ( $groups as $group ) {
+			if ( 'overview' === $group['id'] ) {
+				$overview = $group;
+			}
+			if ( 'capabilities' === $group['id'] ) {
+				$capabilities = $group;
+			}
+		}
+		self::assertSame( 'Dashboard', $overview['label'] );
+		self::assertSame( 'Dashboard', $overview['pages']['stonewright-status'] ?? null );
+		self::assertSame( 'AI Abilities', $capabilities['label'] );
+		self::assertSame( 'AI Abilities', $capabilities['pages']['stonewright-abilities'] ?? null );
 	}
 
-	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {
+	public function test_open_and_close_produce_shell_markup_without_header_meta(): void {
 		ob_start();
 		AdminShell::open( 'stonewright' );
 		echo '<p class="sw-notice">Stonewright notice</p>';
@@ -81,18 +153,22 @@ final class AdminShellTest extends TestCase {
 		self::assertStringContainsString( 'sw-shell__nav', $html );
 		self::assertStringContainsString( 'sw-shell__nav-group', $html );
 		self::assertStringContainsString( 'data-sw-nav-group="connect"', $html );
+		self::assertStringContainsString( 'data-sw-nav-group="workflows"', $html );
 		self::assertStringContainsString( 'data-sw-nav-group="safety-diagnostics"', $html );
 		self::assertStringContainsString( 'sw-shell__content', $html );
 		self::assertStringContainsString( 'sw-notice-drawer', $html );
 		self::assertStringContainsString( 'aria-current="page"', $html );
 		self::assertStringContainsString( 'admin.php?page=stonewright-abilities', $html );
-		self::assertStringContainsString( 'sw-mode-pill', $html );
-		self::assertStringContainsString( 'staging', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill', $html );
+		self::assertStringNotContainsString( 'sw-shell__meta', $html );
+		self::assertStringNotContainsString( 'sw-shell__version', $html );
+		self::assertStringNotContainsString( '0.0.0-test', $html );
 		self::assertStringContainsString( 'Stonewright notice', $html );
 		self::assertStringContainsString( '</div><!-- .sw-shell -->', $html );
+		$this->assert_experimental_nav_markup( $html );
 	}
 
-	public function test_open_marks_current_nav_item_and_escapes_mode_value(): void {
+	public function test_open_marks_current_nav_item_and_omits_mode_from_header(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 
 		ob_start();
@@ -104,9 +180,66 @@ final class AdminShellTest extends TestCase {
 			'/<a[^>]+href="[^"]*page=stonewright-status"[^>]*aria-current="page"/',
 			$html
 		);
-		self::assertStringContainsString( 'sw-mode-pill--production-safe', $html );
-		self::assertStringContainsString( 'production-safe', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill', $html );
+		self::assertStringNotContainsString( 'sw-mode-pill--production-safe', $html );
+		self::assertStringNotContainsString( 'sw-shell__meta', $html );
 		self::assertStringNotContainsString( '<script>', $html );
+	}
+
+	public function test_experimental_menu_title_is_small_inline_text(): void {
+		self::assertSame(
+			[
+				'stonewright-troubleshoot',
+				'stonewright-context',
+				'stonewright-design',
+				'stonewright-block-finalizer',
+			],
+			AdminShell::experimental_slugs()
+		);
+		self::assertSame(
+			'<span class="sw-menu-label">Troubleshoot</span> <span class="sw-menu-exp" data-tip="This feature is experimental." aria-label="This feature is experimental.">EXP</span>',
+			AdminShell::experimental_menu_title( 'Troubleshoot' )
+		);
+		self::assertSame( 'This feature is experimental.', AdminShell::experimental_hint() );
+	}
+
+	/**
+	 * Experimental is inline text on the same nav line — not a pill or chip.
+	 */
+	private function assert_experimental_nav_markup( string $html ): void {
+		$experimental = [
+			'stonewright-troubleshoot'  => 'Troubleshoot',
+			'stonewright-context'       => 'Context',
+			'stonewright-design'        => 'Design',
+			'stonewright-block-finalizer' => 'Block Editor Queue',
+		];
+		foreach ( $experimental as $slug => $label ) {
+			self::assertMatchesRegularExpression(
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*data-sw-tooltip="This feature is experimental\."[^>]*>\s*' . preg_quote( $label, '/' ) . '\s+<span class="sw-shell__exp">EXP<\/span>\s*<\/a>/',
+				$html
+			);
+		}
+
+		$plain = [
+			'stonewright'               => 'Setup',
+			'stonewright-status'        => 'Dashboard',
+			'stonewright-abilities'     => 'AI Abilities',
+			'stonewright-skills'        => 'Skills',
+			'stonewright-memory'        => 'Memory',
+			'stonewright-sandbox'       => 'Sandbox',
+			'stonewright-prompts'       => 'Prompts',
+			'stonewright-audit-log'     => 'Audit Log',
+		];
+		foreach ( $plain as $slug => $label ) {
+			self::assertMatchesRegularExpression(
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>\s*' . preg_quote( $label, '/' ) . '\s*<\/a>/',
+				$html
+			);
+		}
+
+		self::assertSame( 4, substr_count( $html, 'class="sw-shell__exp"' ) );
+		self::assertStringNotContainsString( 'sw-shell__exp--pill', $html );
+		self::assertStringNotContainsString( 'sw-exp-chip', $html );
 	}
 
 }

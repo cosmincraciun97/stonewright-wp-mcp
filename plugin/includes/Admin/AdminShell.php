@@ -4,11 +4,23 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 /**
- * Shared premium admin shell: sticky header, tab nav, and mode pill.
+ * Shared premium admin shell: sticky header and tab nav.
  *
  * Presentation only — form handlers and ability gates stay on their pages.
  */
 final class AdminShell {
+
+	/**
+	 * Nav slugs that carry an inline Experimental label (not a pill or chip).
+	 *
+	 * @var list<string>
+	 */
+	private const EXPERIMENTAL_SLUGS = [
+		'stonewright-troubleshoot',
+		'stonewright-context',
+		'stonewright-design',
+		'stonewright-block-finalizer',
+	];
 
 	/**
 	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
@@ -19,7 +31,7 @@ final class AdminShell {
 		return [
 			[
 				'id'    => 'overview',
-				'label' => __( 'Overview', 'stonewright' ),
+				'label' => __( 'Dashboard', 'stonewright' ),
 				'pages' => [
 					'stonewright-status' => __( 'Dashboard', 'stonewright' ),
 				],
@@ -28,12 +40,13 @@ final class AdminShell {
 				'id'    => 'connect',
 				'label' => __( 'Connect', 'stonewright' ),
 				'pages' => [
-					'stonewright' => __( 'Setup', 'stonewright' ),
+					'stonewright'              => __( 'Setup', 'stonewright' ),
+					'stonewright-troubleshoot' => __( 'Troubleshoot', 'stonewright' ),
 				],
 			],
 			[
 				'id'    => 'capabilities',
-				'label' => __( 'Capabilities', 'stonewright' ),
+				'label' => __( 'AI Abilities', 'stonewright' ),
 				'pages' => [
 					'stonewright-abilities' => __( 'AI Abilities', 'stonewright' ),
 				],
@@ -42,8 +55,13 @@ final class AdminShell {
 				'id'    => 'workflows',
 				'label' => __( 'Workflows', 'stonewright' ),
 				'pages' => [
-					'stonewright-sandbox' => __( 'Sandbox', 'stonewright' ),
-					'stonewright-prompts' => __( 'Prompts', 'stonewright' ),
+					'stonewright-context'         => __( 'Context', 'stonewright' ),
+					'stonewright-skills'          => __( 'Skills', 'stonewright' ),
+					'stonewright-memory'          => __( 'Memory', 'stonewright' ),
+					'stonewright-design'          => __( 'Design', 'stonewright' ),
+					'stonewright-sandbox'         => __( 'Sandbox', 'stonewright' ),
+					'stonewright-block-finalizer' => __( 'Block Editor Queue', 'stonewright' ),
+					'stonewright-prompts'         => __( 'Prompts', 'stonewright' ),
 				],
 			],
 			[
@@ -51,8 +69,6 @@ final class AdminShell {
 				'label' => __( 'Safety & Diagnostics', 'stonewright' ),
 				'pages' => [
 					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
-					'stonewright-memory'    => __( 'Memory', 'stonewright' ),
-					'stonewright-skills'    => __( 'Skills', 'stonewright' ),
 				],
 			],
 		];
@@ -76,25 +92,50 @@ final class AdminShell {
 	}
 
 	/**
+	 * @return list<string>
+	 */
+	public static function experimental_slugs(): array {
+		return self::EXPERIMENTAL_SLUGS;
+	}
+
+	/**
+	 * Hover copy for the compact EXP marker.
+	 */
+	public static function experimental_hint(): string {
+		return __( 'This feature is experimental.', 'stonewright' );
+	}
+
+	/**
+	 * Compact EXP superscript. Pass $tooltip for sidebar markers that cannot
+	 * put attributes on the parent <a>.
+	 */
+	public static function experimental_marker( string $class, bool $tooltip = true ): string {
+		$attrs = 'class="' . esc_attr( $class ) . '"';
+		if ( $tooltip ) {
+			$hint   = self::experimental_hint();
+			$attrs .= ' data-tip="' . esc_attr( $hint ) . '" aria-label="' . esc_attr( $hint ) . '"';
+		}
+
+		return '<span ' . $attrs . '>EXP</span>';
+	}
+
+	/**
+	 * WordPress sidebar menu_title with a compact EXP marker.
+	 *
+	 * Page title stays the plain label. HTML is allowed in menu_title.
+	 */
+	public static function experimental_menu_title( string $label ): string {
+		return '<span class="sw-menu-label">' . esc_html( $label ) . '</span> ' . self::experimental_marker( 'sw-menu-exp' );
+	}
+
+	/**
 	 * Open the shared shell (header + nav + content wrapper).
 	 *
 	 * @param array<string, mixed> $args Optional. Supports `title` string for page H1 in content.
 	 */
 	public static function open( string $current_slug, array $args = [] ): void {
 		$groups  = self::menu_groups();
-		$mode    = (string) get_option( 'stonewright_mode', 'development' );
-		if ( ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
-			$mode = 'development';
-		}
-		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
 		$classes = [ 'sw-shell', 'wrap', 'stonewright-admin-shell' ];
-
-		$mode_class = 'sw-mode-pill--' . $mode;
-		$mode_label = match ( $mode ) {
-			'production-safe' => __( 'production-safe', 'stonewright' ),
-			'staging'         => __( 'staging', 'stonewright' ),
-			default           => __( 'development', 'stonewright' ),
-		};
 
 		?>
 		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell>
@@ -139,26 +180,27 @@ final class AdminShell {
 							<span class="sw-shell__nav-group-label" aria-hidden="true"><?php echo esc_html( $group['label'] ); ?></span>
 							<?php foreach ( $group['pages'] as $slug => $label ) : ?>
 								<?php
-								$url     = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
-								$current = ( $slug === $current_slug );
+								$url          = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
+								$current      = ( $slug === $current_slug );
+								$experimental = in_array( $slug, self::EXPERIMENTAL_SLUGS, true );
 								?>
 								<a
 									class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
 									href="<?php echo esc_url( $url ); ?>"
 									<?php echo $current ? ' aria-current="page"' : ''; ?>
-								><?php echo esc_html( $label ); ?></a>
+									<?php echo $experimental ? ' data-sw-tooltip="' . esc_attr( self::experimental_hint() ) . '"' : ''; ?>
+								>
+									<?php echo esc_html( $label ); ?>
+									<?php
+									if ( $experimental ) {
+										echo ' ' . wp_kses_post( self::experimental_marker( 'sw-shell__exp', false ) );
+									}
+									?>
+								</a>
 							<?php endforeach; ?>
 						</div>
 					<?php endforeach; ?>
 				</nav>
-				<div class="sw-shell__meta">
-					<span class="sw-mode-pill <?php echo esc_attr( $mode_class ); ?>" title="<?php esc_attr_e( 'Operating mode', 'stonewright' ); ?>">
-						<?php echo esc_html( $mode_label ); ?>
-					</span>
-					<?php if ( '' !== $version ) : ?>
-						<span class="sw-shell__version" aria-hidden="true"><?php echo esc_html( $version ); ?></span>
-					<?php endif; ?>
-				</div>
 			</header>
 
 			<details class="sw-notice-drawer" data-sw-notice-drawer hidden>

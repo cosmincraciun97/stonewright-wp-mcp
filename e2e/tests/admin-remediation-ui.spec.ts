@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { restPost, wpRestNonce } from './helpers/wp-rest';
+import {
+	runAbility,
+	runAbilityWithProfileConfirmation,
+	wpRestNonce,
+} from './helpers/wp-rest';
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -14,15 +18,6 @@ async function login(page: Page): Promise<void> {
 		timeout: 45_000,
 		waitUntil: 'domcontentloaded',
 	});
-}
-
-async function runAbility(
-	page: Page,
-	nonce: string,
-	name: string,
-	input: Record<string, unknown>,
-) {
-	return restPost(page, '/stonewright/v1/abilities/run', { name, input }, nonce);
 }
 
 test('audit incidents remain readable and payloads stay inside the page', async ({
@@ -54,11 +49,17 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 	);
 	expect(contextToken).toMatch(/^swctx_/);
 
-	const execution = await runAbility(page, nonce, 'stonewright/php-execute', {
-		code: 'return ["audit_fixture" => str_repeat("contained-", 80)];',
-		read_only: true,
-		stonewright_context_token: contextToken,
-	});
+	const execution = await runAbilityWithProfileConfirmation(
+		page,
+		nonce,
+		contextToken,
+		'stonewright/php-execute',
+		{
+			code: 'return ["audit_fixture" => str_repeat("contained-", 80)];',
+			read_only: true,
+			stonewright_context_token: contextToken,
+		},
+	);
 	expect(execution.ok, JSON.stringify(execution.body)).toBeTruthy();
 
 	await page.goto('/wp-admin/admin.php?page=stonewright-audit-log', {

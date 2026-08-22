@@ -5,12 +5,15 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
-use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\FSE\GlobalStylesWriter;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\ThemeJson\Validator;
 
 /**
- * Ability: stonewright/fse.write_global_styles
+ * Ability: stonewright/fse-write-global-styles
+ *
+ * Canonical FSE global-styles writer. Shared internals live in
+ * {@see GlobalStylesWriter}. `stonewright/fse-update-global-styles` is a
+ * compatibility wrapper around this envelope.
  *
  * Security envelope (AGENTS.md rules 3, 5):
  *   1. Validate theme_json via ThemeJson\Validator.
@@ -55,6 +58,10 @@ final class WriteGlobalStyles extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode.',
 				],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Required when theme_json includes styles.css or per-block css. Single-use human-issued grant bound to the CSS candidate hash.',
+				],
 			],
 			'required' => [ 'theme_json' ],
 		];
@@ -84,10 +91,9 @@ final class WriteGlobalStyles extends AbilityKernel {
 					return $this->error( 'missing_theme_json', __( 'The theme_json parameter is required and must be an object.', 'stonewright' ) );
 				}
 
-				// ── Confirmation token ───────────────────────────────────────────
 				$verify_args = array_filter(
 					$args,
-					static fn( string $k ) => 'confirmation_token' !== $k,
+					static fn( string $k ) => 'confirmation_token' !== $k && 'custom_code_grant' !== $k,
 					ARRAY_FILTER_USE_KEY
 				);
 				$token_error = $this->confirmation_token_error( $args, $verify_args );
@@ -95,40 +101,7 @@ final class WriteGlobalStyles extends AbilityKernel {
 					return $token_error;
 				}
 
-				// ── Validate theme.json ──────────────────────────────────────────
-				$canonical = Validator::validate( $theme_json );
-				if ( is_wp_error( $canonical ) ) {
-					return $canonical;
-				}
-
-				if ( ! class_exists( \WP_Theme_JSON_Resolver::class ) ) {
-					return $this->error( 'theme_json_unavailable', __( 'theme.json resolver is not available.', 'stonewright' ) );
-				}
-
-				$post_id = \WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
-				if ( ! $post_id ) {
-					return $this->error( 'no_user_global_styles', __( 'User global styles post is missing.', 'stonewright' ) );
-				}
-
-				// ── Backup BEFORE write (AGENTS.md rule 3) ───────────────────────
-				$snapshot_id = Backup::snapshot_post( (int) $post_id );
-
-				// ── Write canonical (filtered) payload ───────────────────────────
-				$result = wp_update_post(
-					[
-						'ID'           => (int) $post_id,
-						'post_content' => (string) wp_json_encode( $canonical ),
-					],
-					true
-				);
-				if ( is_wp_error( $result ) ) {
-					return $result;
-				}
-
-				return [
-					'post_id'     => (int) $post_id,
-					'snapshot_id' => $snapshot_id,
-				];
+				return GlobalStylesWriter::write( $theme_json, (string) ( $args['custom_code_grant'] ?? '' ) );
 			}
 		);
 	}
@@ -137,6 +110,6 @@ final class WriteGlobalStyles extends AbilityKernel {
 	 * @return array<int, string>
 	 */
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token', 'custom_code_grant' ] );
 	}
 }

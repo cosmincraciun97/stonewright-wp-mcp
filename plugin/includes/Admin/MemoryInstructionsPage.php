@@ -26,6 +26,8 @@ final class MemoryInstructionsPage {
 		add_action( 'admin_post_stonewright_memory_create', [ self::class, 'handle_create' ] );
 		add_action( 'admin_post_stonewright_memory_update', [ self::class, 'handle_update' ] );
 		add_action( 'admin_post_stonewright_memory_delete', [ self::class, 'handle_delete' ] );
+		add_action( 'admin_post_stonewright_memory_approve_draft', [ self::class, 'handle_approve_draft' ] );
+		add_action( 'admin_post_stonewright_memory_discard_draft', [ self::class, 'handle_discard_draft' ] );
 		add_action( 'admin_post_stonewright_learning_disable', [ self::class, 'handle_learning_disable' ] );
 		add_action( 'admin_post_stonewright_knowledge_export', [ self::class, 'handle_export' ] );
 		add_action( 'admin_post_stonewright_knowledge_import', [ self::class, 'handle_import' ] );
@@ -36,8 +38,8 @@ final class MemoryInstructionsPage {
 		// IA group: Safety & Diagnostics — slug stonewright-memory unchanged.
 		add_submenu_page(
 			'stonewright',
-			__( 'Memory & Instructions', 'stonewright' ),
-			__( 'Safety: Memory', 'stonewright' ),
+			__( 'Memory', 'stonewright' ),
+			__( 'Memory', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -168,6 +170,7 @@ final class MemoryInstructionsPage {
 					<?php settings_fields( self::OPT_GROUP ); ?>
 					<p>
 						<label>
+							<input type="hidden" name="stonewright_custom_instructions_enabled" value="0" />
 							<input
 								type="checkbox"
 								name="stonewright_custom_instructions_enabled"
@@ -262,6 +265,7 @@ final class MemoryInstructionsPage {
 						<form method="post" action="options.php" class="stonewright-compact-form sw-actions">
 							<?php settings_fields( self::OPT_GROUP ); ?>
 							<label class="sw-check">
+								<input type="hidden" name="stonewright_memory_enabled" value="0" />
 								<input
 									type="checkbox"
 									name="stonewright_memory_enabled"
@@ -411,6 +415,28 @@ final class MemoryInstructionsPage {
 								<span><?php echo esc_html( sprintf( 'Last retrieved: %s', $meta['last_retrieved'] ) ); ?></span>
 							</td>
 							<td class="stonewright-action-cell">
+								<?php if ( 'draft' === (string) ( $e['status'] ?? '' ) ) : ?>
+									<form
+										method="post"
+										action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+										class="stonewright-inline-form"
+									>
+										<input type="hidden" name="action" value="stonewright_memory_approve_draft">
+										<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
+										<?php wp_nonce_field( 'stonewright_memory_draft', '_stonewright_nonce' ); ?>
+										<button type="submit" class="button button-primary">Approve</button>
+									</form>
+									<form
+										method="post"
+										action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+										class="stonewright-inline-form"
+									>
+										<input type="hidden" name="action" value="stonewright_memory_discard_draft">
+										<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
+										<?php wp_nonce_field( 'stonewright_memory_draft', '_stonewright_nonce' ); ?>
+										<button type="submit" class="button">Discard</button>
+									</form>
+								<?php endif; ?>
 								<button
 									type="button"
 									class="button button-secondary"
@@ -696,6 +722,50 @@ final class MemoryInstructionsPage {
 		wp_safe_redirect(
 			add_query_arg(
 				[ 'page' => self::SLUG, 'deleted' => '1' ],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	public static function handle_approve_draft(): void {
+		self::handle_draft_review( 'approve' );
+	}
+
+	public static function handle_discard_draft(): void {
+		self::handle_draft_review( 'discard' );
+	}
+
+	/**
+	 * Promote a draft lesson to active, or reject it. Only draft rows move.
+	 */
+	public static function apply_draft_review( int $id, string $decision ): bool {
+		if ( $id <= 0 || ! in_array( $decision, [ 'approve', 'discard' ], true ) ) {
+			return false;
+		}
+		$entry = Memory::get_by_id( $id );
+		if ( null === $entry || 'draft' !== (string) ( $entry['status'] ?? '' ) ) {
+			return false;
+		}
+		$status = 'approve' === $decision ? 'active' : 'rejected';
+		return Memory::update_by_id( $id, [ 'status' => $status ] );
+	}
+
+	private static function handle_draft_review( string $decision ): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_memory_draft', '_stonewright_nonce' );
+
+		$id = (int) ( $_POST['id'] ?? 0 );
+		if ( $id > 0 ) {
+			self::apply_draft_review( $id, $decision );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[ 'page' => self::SLUG, 'updated' => '1' ],
 				admin_url( 'admin.php' )
 			)
 		);

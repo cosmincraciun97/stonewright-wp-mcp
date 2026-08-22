@@ -1,0 +1,9 @@
+{
+    "args": {
+        "post_type": "post",
+        "count": 3,
+        "order": "desc",
+        "inherit": false
+    },
+    "expect": "ok"
+}

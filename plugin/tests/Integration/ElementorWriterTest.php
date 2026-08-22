@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\ElementorWriter;
+use Stonewright\WpMcp\Security\Backup;
 
 /**
  * Integration tests for ElementorWriter.
@@ -22,6 +23,10 @@ use Stonewright\WpMcp\Elementor\ElementorWriter;
  * @covers \Stonewright\WpMcp\Security\Backup
  */
 final class ElementorWriterTest extends TestCase {
+
+	private const SLASH_SENSITIVE_ELEMENTOR_DATA =
+		'[{"id":"a1b2c3","elType":"widget","widgetType":"heading",'
+		. '"settings":{"title":"Say \"hi\" \\\\ back — café","link":{"url":"https:\/\/example.com\/x?a=1"}}}]';
 
 	/** @var array<string, mixed> */
 	private static array $valid_spec = [
@@ -201,6 +206,24 @@ final class ElementorWriterTest extends TestCase {
 	// the ElementorWriter diagnostics channel is exercised by calling write with
 	// a Slides block via the dispatcher, which calls Form::render with no Pro).
 	// -------------------------------------------------------------------------
+
+	public function test_slash_sensitive_guarded_write_round_trips_via_backup(): void {
+		$post_id = $this->register_post( 9010 );
+		$GLOBALS['stonewright_test_posts'][ $post_id ]->meta['_elementor_data'] = self::SLASH_SENSITIVE_ELEMENTOR_DATA;
+
+		$result = ElementorWriter::write( $post_id, self::$valid_spec );
+		$this->assertTrue( $result, 'guarded Elementor write must succeed for slash-sensitive documents' );
+
+		$snapshots = Backup::list_snapshots( $post_id );
+		$this->assertNotEmpty( $snapshots, 'pre-write snapshot must exist' );
+		$snapshot_id = (string) array_key_first( $snapshots );
+
+		$this->assertTrue( Backup::restore( $post_id, $snapshot_id ) );
+		$this->assertSame(
+			self::SLASH_SENSITIVE_ELEMENTOR_DATA,
+			get_post_meta( $post_id, '_elementor_data', true )
+		);
+	}
 
 	public function test_diagnostics_populated_for_pro_gated_form_block(): void {
 		$post_id = $this->register_post( 9008 );

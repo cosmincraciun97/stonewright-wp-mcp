@@ -81,6 +81,42 @@ final class ArchitectureRouterTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $out['repair_tools'] );
 	}
 
+	public function test_inspected_empty_document_does_not_claim_post_id_was_missing(): void {
+		$GLOBALS['stonewright_test_posts'][9100] = (object) [
+			'ID'   => 9100,
+			'meta' => [
+				'_elementor_data' => '[]',
+			],
+		];
+
+		$out = ArchitectureRouter::describe( 9100, 'v3' );
+
+		self::assertTrue( $out['document_inspected'] );
+		self::assertSame( 9100, $out['post_id'] );
+		self::assertSame( 'empty', $out['document_architecture'] );
+		self::assertStringNotContainsString( 'No post_id was inspected', $out['reason'] );
+		self::assertFalse( $out['write_blocked'] );
+	}
+
+	public function test_ambiguous_empty_document_names_the_exact_next_call(): void {
+		$GLOBALS['stonewright_test_posts'][9101] = (object) [
+			'ID'   => 9101,
+			'meta' => [
+				'_elementor_data' => '[]',
+			],
+		];
+
+		$out = ArchitectureRouter::describe( 9101, 'auto' );
+
+		self::assertTrue( $out['document_inspected'] );
+		self::assertTrue( $out['write_blocked'] );
+		self::assertStringNotContainsString( 'No post_id was inspected', $out['reason'] );
+		self::assertStringContainsString( 'target_architecture=v3', $out['reason'] );
+		self::assertTrue(
+			str_contains( $out['reason'], 'workflow-preflight' ) || str_contains( $out['reason'], 'task-start' )
+		);
+	}
+
 	public function test_target_digest_reports_real_schema_major_roots_and_typed_route(): void {
 		$v3 = TargetArchitectureRouter::digest(
 			[ [ 'id' => 'root-v3', 'elType' => 'container', 'settings' => [], 'elements' => [] ] ],

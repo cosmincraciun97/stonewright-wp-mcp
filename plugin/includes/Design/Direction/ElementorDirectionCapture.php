@@ -236,7 +236,7 @@ final class ElementorDirectionCapture {
 
 		$kit_id = isset( $evidence['kit_id'] ) && is_numeric( $evidence['kit_id'] ) ? (int) $evidence['kit_id'] : 0;
 		if ( $kit_id < 1 ) {
-			return self::error( __( 'Capture evidence must name the Elementor kit it came from.', 'stonewright' ) );
+			return self::error( __( 'kit_id is a required property. Capture evidence must name the Elementor kit it came from.', 'stonewright' ) );
 		}
 
 		if ( isset( $evidence['kit_title'] ) && ! is_string( $evidence['kit_title'] ) ) {

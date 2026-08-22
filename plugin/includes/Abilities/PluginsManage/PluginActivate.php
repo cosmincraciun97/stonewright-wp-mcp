@@ -34,6 +34,7 @@ final class PluginActivate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'plugin' => [ 'type' => 'string' ],
 			],
 			'required'             => [ 'plugin' ],
@@ -57,7 +58,7 @@ final class PluginActivate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			static function ( array $args ) {
 				require_once ABSPATH . 'wp-admin/includes/plugin.php';

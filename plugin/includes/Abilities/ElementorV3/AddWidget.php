@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -38,6 +40,7 @@ final class AddWidget extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'     => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'   => [ 'type' => 'string' ],
 				'widget_type' => [ 'type' => 'string' ],
@@ -82,7 +85,7 @@ final class AddWidget extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$widget_type = isset( $args['widget_type'] ) ? (string) $args['widget_type'] : '';
@@ -111,12 +114,16 @@ final class AddWidget extends AbilityKernel {
 				}
 
 				$settings_in = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$css_gate    = ElementorCustomCssGate::assert_incoming( $settings_in, $args, $widget_type );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				if ( 'html' !== $widget_type ) {
 					$validated = SettingsValidator::validate( $widget_type, $settings_in );
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
-					$settings_in = $validated['settings'];
+					$settings_in = SparseSettingsNormalizer::for_new_write( $validated['settings'], $widget_type, $validated['settings'] );
 				}
 
 				$post_id = (int) $args['post_id'];

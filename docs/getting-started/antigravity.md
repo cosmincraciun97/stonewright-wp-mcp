@@ -1,7 +1,8 @@
 # Getting Started With Antigravity
 
-This guide configures Stonewright for Antigravity 2.0, Antigravity IDE, and
-Antigravity CLI with a compact tool profile.
+This guide configures Stonewright for Antigravity (GUI) and Antigravity CLI
+with a compact tool profile. Treat them as separate clients in Setup even when
+they read nearby Gemini config paths.
 
 ## Why `low-tools`
 

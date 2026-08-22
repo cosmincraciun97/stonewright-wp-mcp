@@ -1,0 +1,8 @@
+{
+  "args": {
+    "post_id": 999999,
+    "plan": { "renderer": "elementor-v3", "plan_hash": "aa" },
+    "targets": [ { "target_id": "hero-copy", "element_id": "elem123", "widget_type": "heading" } ],
+    "evidence": {}
+  }
+}

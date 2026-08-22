@@ -102,7 +102,7 @@ final class PatchValidatorTest extends TestCase {
 		$result = PatchValidator::widget(
 			'patch-widget',
 			[ 'title' => 'Before' ],
-			[ 'title' => 'After', 'font_size' => [ 'size' => 18, 'unit' => 'px' ] ],
+			[ 'title' => 'After', 'typography_typography' => 'custom', 'font_size' => [ 'size' => 18, 'unit' => 'px' ] ],
 			'replace'
 		);
 
@@ -120,6 +120,30 @@ final class PatchValidatorTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_repeater_identity_invalid', $underscore->get_error_code() );
 		self::assertSame( 'stonewright_elementor_repeater_identity_invalid', $custom->get_error_code() );
 	}
+
+	public function test_merge_patch_keeps_existing_typography_activator_for_mobile_font_size(): void {
+		$result = PatchValidator::widget(
+			'patch-widget',
+			[ 'typography_typography' => 'custom', 'typography_font_size' => [ 'size' => 56, 'unit' => 'px' ] ],
+			[ 'typography_font_size_mobile' => [ 'size' => 34, 'unit' => 'px' ] ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 34, $result['settings']['typography_font_size_mobile']['size'] );
+		self::assertSame( 'custom', $result['settings']['typography_typography'] );
+	}
+
+	public function test_merge_patch_still_rejects_mobile_font_size_without_activator(): void {
+		$result = PatchValidator::widget(
+			'patch-widget',
+			[ 'title' => 'Before' ],
+			[ 'typography_font_size_mobile' => [ 'size' => 34, 'unit' => 'px' ] ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
+		self::assertSame( 'inactive_condition', $result->get_error_data()['violations'][0]['code'] );
+	}
 }
 
 final class PatchWidgetForTest {
@@ -131,7 +155,18 @@ final class PatchWidgetForTest {
 	public function get_controls(): array {
 		return [
 			'title' => [ 'type' => 'text', 'label' => 'Title' ],
-			'typography_font_size' => [ 'type' => 'slider', 'label' => 'Font size' ],
+			'typography_typography' => [
+				'type'          => 'popover_toggle',
+				'label'         => 'Typography',
+				'return_value'  => 'custom',
+				'default'       => '',
+			],
+			'typography_font_size' => [
+				'type'       => 'slider',
+				'label'      => 'Font size',
+				'responsive' => true,
+				'condition'  => [ 'typography_typography!' => '' ],
+			],
 			'items' => [
 				'type'   => 'repeater',
 				'fields' => [ 'label' => [ 'type' => 'text', 'label' => 'Label' ] ],

@@ -86,7 +86,9 @@ or written to the audit log.
 
 On plugin boot, `Stonewright\WpMcp\Security\StaticAnalysis::assert_environment()` checks whether dangerous PHP functions (`exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`) are available. If they are and `WP_DEBUG` is on, a warning is logged. Stonewright never calls any of those functions itself.
 
-Stonewright exposes direct PHP runtime execution through the dedicated `stonewright/php-execute` ability. It requires `manage_options`, captures stdout and returned values, redacts submitted code from audit payloads, and is intended for short WordPress/plugin API snippets where full runtime access is faster than many typed calls.
+Stonewright exposes direct PHP runtime execution through the dedicated `stonewright/php-execute` ability. It requires `manage_options`, captures stdout and returned values, redacts submitted code from audit payloads, and is intended for short WordPress/plugin API snippets where full runtime access is faster than many typed calls. The ability is on the **full** MCP profile only.
+
+During a snippet, Stonewright wraps `$wpdb` with `ProtectedWpdbWriteGuard`. Direct writes to WordPress core tables (`posts`, `postmeta`, `options`, `users`, `usermeta`) are blocked. Concatenated or aliased protected Elementor/meta keys are blocked at call time, not by source regex. `read_only:true` rejects any mutation. Filesystem mutation of WordPress code files is blocked separately by `ProtectedFilesystemWriteGuard`. Use typed abilities for those writes so backup, permission, and audit gates still run.
 
 ### What Stonewright never does
 

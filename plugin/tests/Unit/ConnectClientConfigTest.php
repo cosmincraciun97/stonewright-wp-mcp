@@ -227,7 +227,7 @@ final class ConnectClientConfigTest extends TestCase {
 
 	public function test_paste_to_agent_prompt_is_current_and_credential_free(): void {
 		$prompt = ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234' );
-		$this->assertStringNotContainsString( 'admin', $prompt );
+		$this->assertStringNotContainsString( '--username admin', $prompt );
 		$this->assertStringNotContainsString( 'pw1234', $prompt );
 		$this->assertStringNotContainsString( 'https://example.test', $prompt );
 		$this->assertStringContainsString( '<your-wordpress-url>', $prompt );
@@ -272,6 +272,54 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Do not scan my private config or client tool surface without permission', $prompt );
 		$this->assertStringContainsString( 'Never install or reconfigure a browser provider silently', $prompt );
 		$this->assertStringContainsString( 'never bypasses custom-code dry-run, approval, backup, permission, or confirmation gates', $prompt );
+		$flags = $this->prompt_connect_flags( $prompt );
+		$this->assertSame( 'essential-static', $flags['profile'] );
+		$this->assertSame( 'essential', $flags['wp_surface'] );
+		$this->assertStringNotContainsString( '--wp-surface essential-static', $prompt );
+		$this->assertStringContainsString( 'recommended when local WP-CLI is needed', $prompt );
+		$this->assertStringNotContainsString( 'or Direct fallback is needed', $prompt );
+		$this->assertStringContainsString( 'For automatic Direct fallback use `--mode auto` instead.', $prompt );
+		$this->assertStringContainsString( '--env <local|development|staging|production|other>', $prompt );
+		$this->assertStringContainsString( 'cursor, claude-desktop, vscode-copilot, codex, generic-mcp', $prompt );
+		$this->assertStringContainsString( 'ChatGPT Desktop / Claude.ai connect via the OAuth HTTP method, not the local installer.', $prompt );
+		$this->assertStringContainsString( 'The verifier must report site_alias, configured_mode=plugin-only, active_mode=plugin, companion_version, and refresh_required_tool_names', $prompt );
+		$verify_end = strpos( $prompt, 'Confirm stonewright-task-start' );
+		$this->assertNotFalse( $verify_end );
+		$verify_block = substr( $prompt, 0, (int) $verify_end );
+		$this->assertStringNotContainsString( 'expected_companion_package', $verify_block );
+		$this->assertStringContainsString( 'call it first with a non-empty task; pass surface and intent when known', $prompt );
+		$this->assertStringNotContainsString( 'call it first with a non-empty task, surface, and intent', $prompt );
+		$this->assertStringContainsString( 'Confirm the target site, site_alias, companion_version, expected_companion_package', $prompt );
+		$this->assertStringNotContainsString( 'active alias', $prompt );
+		$this->assertStringContainsString( 'If the connection fails, open Stonewright → Troubleshoot in wp-admin and run diagnostics.', $prompt );
+		$this->assertStringContainsString( '`--profile discover-execute` exposes a minimal 3-tool protocol surface.', $prompt );
+		$this->assertStringContainsString( 'Static or third-party block writes finalize through the Block Editor Queue page; keep it open when asked.', $prompt );
+		$this->assertStringContainsString( 'v' . STONEWRIGHT_VERSION . '/stonewright-companion-' . STONEWRIGHT_VERSION . '.tgz', $prompt );
+	}
+
+	public function test_antigravity_prompt_splits_profile_from_wp_surface(): void {
+		$prompt = ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234', 'antigravity' );
+		$flags  = $this->prompt_connect_flags( $prompt );
+		$this->assertSame( 'essential-static', $flags['profile'] );
+		$this->assertSame( 'essential', $flags['wp_surface'] );
+		$this->assertStringContainsString( '--profile essential-static --wp-surface essential', $prompt );
+		$this->assertStringNotContainsString( '--wp-surface essential-static', $prompt );
+	}
+
+	public function test_full_surface_uses_full_profile_only_when_client_can_take_it(): void {
+		update_option( 'stonewright_mcp_surface', 'full', false );
+
+		$cursor = $this->prompt_connect_flags( ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234', 'cursor' ) );
+		$this->assertSame( 'full', $cursor['profile'] );
+		$this->assertSame( 'full', $cursor['wp_surface'] );
+
+		$antigravity = $this->prompt_connect_flags( ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234', 'antigravity' ) );
+		$this->assertSame( 'essential-static', $antigravity['profile'] );
+		$this->assertSame( 'full', $antigravity['wp_surface'] );
+		$this->assertStringNotContainsString(
+			'--wp-surface essential-static',
+			ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234', 'antigravity' )
+		);
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {
@@ -279,5 +327,20 @@ final class ConnectClientConfigTest extends TestCase {
 
 		$this->assertSame( 'npx', $snippet['mcpServers']['playwright']['command'] );
 		$this->assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $snippet['mcpServers']['playwright']['args'] );
+	}
+
+	/**
+	 * @return array{profile: string, wp_surface: string}
+	 */
+	private function prompt_connect_flags( string $prompt ): array {
+		$this->assertMatchesRegularExpression( '/--profile\s+\S+/', $prompt );
+		$this->assertMatchesRegularExpression( '/--wp-surface\s+\S+/', $prompt );
+		preg_match( '/--profile\s+(\S+)/', $prompt, $profile );
+		preg_match( '/--wp-surface\s+(\S+)/', $prompt, $surface );
+
+		return [
+			'profile'    => (string) ( $profile[1] ?? '' ),
+			'wp_surface' => (string) ( $surface[1] ?? '' ),
+		];
 	}
 }

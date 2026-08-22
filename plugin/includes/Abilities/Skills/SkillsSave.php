@@ -36,6 +36,7 @@ final class SkillsSave extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'slug', 'title', 'content' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'slug'           => [
 					'type'        => 'string',
 					'description' => 'Unique identifier for the skill (e.g. "my-landing-page-workflow"). Alphanumeric and hyphens only.',
@@ -87,33 +88,38 @@ final class SkillsSave extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		$slug = sanitize_title( (string) ( $args['slug'] ?? '' ) );
+		return $this->audit_write(
+			$args,
+			function ( array $args ) {
+				$slug = sanitize_title( (string) ( $args['slug'] ?? '' ) );
 
-		if ( '' === $slug ) {
-			return $this->error( 'stonewright_skills_invalid_slug', __( 'slug is required and must be non-empty.', 'stonewright' ) );
-		}
+				if ( '' === $slug ) {
+					return $this->error( 'stonewright_skills_invalid_slug', __( 'slug is required and must be non-empty.', 'stonewright' ) );
+				}
 
-		$existing = Skills::get( $slug );
+				$existing = Skills::get( $slug );
 
-		$id = Skills::save( [
-			'slug'           => $slug,
-			'title'          => (string) ( $args['title'] ?? '' ),
-			'description'    => (string) ( $args['description'] ?? '' ),
-			'content'        => (string) ( $args['content'] ?? '' ),
-			'enabled'        => $args['enabled'] ?? true,
-			'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
-			'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
-			'source'         => 'user',
-		] );
+				$id = Skills::save( [
+					'slug'           => $slug,
+					'title'          => (string) ( $args['title'] ?? '' ),
+					'description'    => (string) ( $args['description'] ?? '' ),
+					'content'        => (string) ( $args['content'] ?? '' ),
+					'enabled'        => $args['enabled'] ?? true,
+					'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
+					'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
+					'source'         => 'user',
+				] );
 
-		if ( 0 === $id ) {
-			return $this->error( 'stonewright_skills_save_failed', __( 'Failed to save skill. The table may not exist yet.', 'stonewright' ) );
-		}
+				if ( 0 === $id ) {
+					return $this->error( 'stonewright_skills_save_failed', __( 'Failed to save skill. The table may not exist yet.', 'stonewright' ) );
+				}
 
-		return [
-			'id'      => $id,
-			'slug'    => $slug,
-			'updated' => null !== $existing,
-		];
+				return [
+					'id'      => $id,
+					'slug'    => $slug,
+					'updated' => null !== $existing,
+				];
+			}
+		);
 	}
 }

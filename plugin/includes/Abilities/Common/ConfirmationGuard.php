@@ -3,15 +3,13 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Abilities\Common;
 
-use Stonewright\WpMcp\Security\ConfirmationToken;
-use Stonewright\WpMcp\Security\Permissions;
-
 /**
  * Reusable confirmation-token gate for non-sandbox destructive abilities.
  *
  * Usage: add `use ConfirmationGuard;` to an AbilityKernel subclass, then call
  * `$this->confirmation_token_error( $args, $verify_args )` at the top of
- * execute() and short-circuit on non-null.
+ * execute() and short-circuit on non-null. Canonical implementation lives on
+ * AbilityKernel::require_production_safe_token().
  */
 trait ConfirmationGuard {
 
@@ -24,24 +22,6 @@ trait ConfirmationGuard {
 	 * @return \WP_Error|null
 	 */
 	protected function confirmation_token_error( array $args, array $verify_args ): ?\WP_Error {
-		if ( ! Permissions::is_production_safe() ) {
-			return null;
-		}
-
-		$token = isset( $args['confirmation_token'] ) ? (string) $args['confirmation_token'] : '';
-		if ( '' === $token ) {
-			return new \WP_Error(
-				'stonewright_confirmation_required',
-				__( 'Production-safe mode requires a confirmation_token.', 'stonewright' ),
-				[ 'status' => 403 ]
-			);
-		}
-
-		$result = ConfirmationToken::verify_or_error( $token, $this->name(), $verify_args );
-		if ( $result instanceof \WP_Error ) {
-			return $result;
-		}
-
-		return null;
+		return $this->require_production_safe_token( $args, $verify_args );
 	}
 }

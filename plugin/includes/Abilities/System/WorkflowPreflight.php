@@ -29,6 +29,21 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private const BATCHING_RULE_ID = 'batch-related-mutations';
 
+	/**
+	 * Compact custom-instruction text budget. Trim here before dropping the field.
+	 */
+	private const COMPACT_CUSTOM_INSTRUCTIONS_CHARS = 400;
+
+	/**
+	 * Compact JSON byte budget for task-start / workflow-preflight.
+	 */
+	private const COMPACT_PAYLOAD_MAX_BYTES = 3600;
+
+	/**
+	 * Compact anti-slop summaries stay short so visual task-start fits the budget.
+	 */
+	private const COMPACT_FLOOR_SUMMARY_CHARS = 28;
+
 	public function name(): string {
 		return 'stonewright/workflow-preflight';
 	}
@@ -250,11 +265,16 @@ final class WorkflowPreflight extends AbilityKernel {
 			$session_reason = 'bootstrap_profile_needs_no_expansion';
 		}
 		// Always signal re-list when the effective profile is not bootstrap, OR when
-		// the admin-configured surface is already essential/full. Stdio companions
-		// that started on env bootstrap must expand even if the WP surface is full
-		// and no session transient was written (session_profile_applied stays false).
-		$tools_changed = ( 'bootstrap' !== $session_profile )
-			|| ( 'bootstrap' !== $configured_surface );
+		// the admin-configured surface is already essential/full, OR when a session
+		// profile widened past the configured surface. Stdio companions that started
+		// on env bootstrap must expand even if the WP surface is full and no session
+		// transient was written (session_profile_applied stays false). Apply-now
+		// bumps surface_revision; we cannot push tools/list to a stdio client
+		// mid-session — the companion re-lists on this flag.
+		$session_widened = $session_applied && $session_profile !== $configured_surface;
+		$tools_changed   = ( 'bootstrap' !== $session_profile )
+			|| ( 'bootstrap' !== $configured_surface )
+			|| $session_widened;
 		if ( $tools_changed ) {
 			$re_list = 'Re-list tools now (tools/list). New tools are available for this session. '
 				. 'If your client ignores tools/list_changed, call tools/list again before continuing. '
@@ -341,6 +361,19 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 		];
 
+		if ( is_array( $context['design_direction_ref'] ?? null ) ) {
+			$response['context']['design_direction_ref'] = $context['design_direction_ref'];
+		}
+
+		$visual_contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		if ( is_array( $visual_contract['anti_slop_floor'] ?? null ) && [] !== $visual_contract['anti_slop_floor'] ) {
+			$response['context']['visual_quality_contract'] = [
+				'anti_slop_floor' => $visual_contract['anti_slop_floor'],
+			];
+		}
+
 		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
 			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
 		}
@@ -377,7 +410,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			);
 		}
 		// Prefer ordered profile tools when available; keep compact payload small.
-		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 6 ) );
+		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 4 ) );
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -442,6 +475,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		$custom = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
 		$incident_actions = array_values( array_slice( (array) ( $context['incident_actions'] ?? [] ), 0, 3 ) );
+		$direction_ref    = is_array( $context['design_direction_ref'] ?? null ) ? $context['design_direction_ref'] : [];
+		$direction_active = ! empty( $direction_ref['active'] );
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
 			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
@@ -449,6 +484,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'expertise_refs'   => self::compact_expertise_refs( $context['expertise_packs'] ?? [] ),
 			'required_actions' => array_values( array_filter( [
 				[] !== $incident_actions || [] !== $errors ? 'repair_open_incidents_first' : null,
+				$direction_active ? 'read_design_direction_brief' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
@@ -462,8 +498,34 @@ final class WorkflowPreflight extends AbilityKernel {
 			$compact_context['expertise_body_tool'] = 'stonewright/expertise-get';
 		}
 		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
-			// Presence flag only — full instructions live in admin/memory.
-			$compact_context['custom_instructions'] = [ 'enabled' => true ];
+			$compact_context['custom_instructions'] = [
+				'enabled' => true,
+				'text'    => self::truncate_compact_chars(
+					(string) $custom['text'],
+					self::COMPACT_CUSTOM_INSTRUCTIONS_CHARS
+				),
+			];
+		}
+		if ( $direction_active ) {
+			$compact_context['design_direction_ref'] = [
+				'active'        => true,
+				'id'            => (int) ( $direction_ref['id'] ?? 0 ),
+				'slug'          => (string) ( $direction_ref['slug'] ?? '' ),
+				'name'          => (string) ( $direction_ref['name'] ?? '' ),
+				'contract_hash' => (string) ( $direction_ref['contract_hash'] ?? '' ),
+				'tool'          => 'stonewright-design-direction-brief',
+			];
+		}
+		$quality_contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		$anti_slop_floor  = is_array( $quality_contract['anti_slop_floor'] ?? null )
+			? $quality_contract['anti_slop_floor']
+			: [];
+		if ( [] !== $anti_slop_floor && ! empty( $profile['needs_visual_check'] ) ) {
+			$compact_context['visual_quality_contract'] = [
+				'anti_slop_floor' => self::compact_anti_slop_floor( $anti_slop_floor ),
+			];
 		}
 		if ( [] !== $errors ) {
 			$compact_context['recurring_errors'] = array_map(
@@ -473,12 +535,16 @@ final class WorkflowPreflight extends AbilityKernel {
 					}
 					$code    = (string) ( $row['error_code'] ?? '' );
 					$ability = (string) ( $row['ability'] ?? '' );
+					$repair  = (string) ( $row['repair'] ?? '' );
+					if ( '' === $repair && '' !== $code ) {
+						$repair = \Stonewright\WpMcp\Security\RemediationHints::for_code( $code, $ability );
+					}
 					return [
 						'ability'    => $ability,
 						'error_code' => $code,
 						'message'    => (string) ( $row['message'] ?? '' ),
 						'count'      => (int) ( $row['count'] ?? 0 ),
-						'repair'     => (string) ( $row['repair'] ?? \Stonewright\WpMcp\Security\RemediationHints::for_code( $code, $ability ) ),
+						'repair'     => $repair,
 					];
 				},
 				$errors
@@ -495,7 +561,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		// Compact mode restates the instruction in short form rather than carrying
 		// the full-mode prose; the remediation detail lives in the docs.
 		$re_list            = $tools_changed
-			? 'Re-list tools now (tools/list). More tools are available. If a tool is still missing, restart the MCP client.'
+			? 'Re-list tools (tools/list). Restart the MCP client if a required tool is missing.'
 			: '';
 
 		$site = is_array( $response['site'] ?? null ) ? $response['site'] : [];
@@ -503,7 +569,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			? $response['target_context']
 			: [];
 
-		return [
+		$compact_response = [
 			'ok'                  => (bool) ( $response['ok'] ?? false ),
 			'context_token'       => (string) ( $response['context_token'] ?? '' ),
 			'expires_at'          => (string) ( $response['expires_at'] ?? '' ),
@@ -525,7 +591,6 @@ final class WorkflowPreflight extends AbilityKernel {
 			'payload_hashes'      => $payload_hashes,
 			'changed_keys'        => $changed,
 			'unchanged_keys'      => $unchanged,
-			'tool_profile'        => $profile_name,
 			'configured_mcp_surface' => (string) ( $response['configured_mcp_surface'] ?? $profile_name ),
 			'session_tool_profile' => (string) ( $response['session_tool_profile'] ?? $profile_name ),
 			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
@@ -537,30 +602,39 @@ final class WorkflowPreflight extends AbilityKernel {
 				'backend'           => (string) ( $target_context['backend'] ?? 'plugin' ),
 				'normalized_url'    => (string) ( $target_context['normalized_url'] ?? '' ),
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
-				'environment_type'  => (string) ( $target_context['environment_type'] ?? 'unknown' ),
-				'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
 			],
 		];
+		if ( false === $compact_response['elementor']['included'] ) {
+			unset( $compact_response['elementor'] );
+		}
+		if ( [] === $compact_response['unchanged_keys'] ) {
+			unset( $compact_response['unchanged_keys'] );
+		}
+		if ( [] === $known_hashes ) {
+			unset( $compact_response['changed_keys'] );
+		}
+
+		return self::fit_compact_payload_to_budget( $compact_response );
 	}
 
 	/**
 	 * Compact expertise references.
 	 *
-	 * Drops the fields a client cannot act on (`status`, `activation`) and the
-	 * per-entry `body_tool`, which is constant and named once on the context.
+	 * The id selects the pack and the hash supports cache validation. Other
+	 * metadata is available from the named body tool.
 	 *
 	 * @param mixed $packs Full-mode expertise packs.
 	 * @return list<array<string, mixed>>
 	 */
 	private static function compact_expertise_refs( $packs ): array {
 		$refs = [];
-		foreach ( array_slice( (array) $packs, 0, 2 ) as $pack ) {
+		foreach ( array_slice( (array) $packs, 0, 1 ) as $pack ) {
 			if ( ! is_array( $pack ) ) {
 				continue;
 			}
 			$refs[] = array_intersect_key(
 				$pack,
-				array_flip( [ 'id', 'version', 'hash', 'cached', 'trigger' ] )
+				array_flip( [ 'id', 'hash' ] )
 			);
 		}
 
@@ -601,10 +675,8 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private static function compact_object_ref( string $key, mixed $value ): array {
 		return [
-			'compact' => true,
-			'key'     => $key,
-			'hash'    => self::hash_value( $value ),
-			'length'  => strlen( wp_json_encode( $value ) ?: '' ),
+			'key'  => $key,
+			'hash' => self::hash_value( $value ),
 		];
 	}
 
@@ -626,6 +698,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'memory_key' => (string) ( $entry['memory_key'] ?? '' ),
 				'name'       => (string) ( $entry['name'] ?? '' ),
 				'value_hash' => self::hash_value( $value ),
+				'body_tool'  => (string) ( $entry['body_tool'] ?? 'stonewright/memory-get' ),
 			];
 		}
 		return $out;
@@ -864,7 +937,6 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		if ( $profile['needs_wp_cli_discovery'] ) {
 			$tools[] = 'stonewright/site-plugins-list';
-			$tools[] = 'stonewright/php-execute';
 			$tools[] = 'stonewright/wp-cli-status';
 			$tools[] = 'stonewright/wp-cli-discover';
 			if ( $profile['is_write'] ) {
@@ -1250,6 +1322,133 @@ final class WorkflowPreflight extends AbilityKernel {
 			return $task;
 		}
 		return rtrim( substr( $task, 0, 157 ) ) . '...';
+	}
+
+	/**
+	 * Keep the actionable visual quality contract while omitting non-contract keys.
+	 *
+	 * Boolean/non-string guidance is omitted: the compact payload cannot afford
+	 * it, and the id/summary/severity triple is what agents act on.
+	 *
+	 * @param list<array<string, mixed>> $floor
+	 * @return list<array{id:string,summary:string,severity:string,guidance?:string}>
+	 */
+	private static function compact_anti_slop_floor( array $floor ): array {
+		$out = [];
+		foreach ( $floor as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id       = (string) ( $row['id'] ?? '' );
+			$summary  = (string) ( $row['summary'] ?? '' );
+			$severity = (string) ( $row['severity'] ?? '' );
+			if ( '' === $id || '' === $summary || '' === $severity ) {
+				continue;
+			}
+			$compact = [
+				'id'       => $id,
+				'summary'  => self::truncate_floor_summary( $summary ),
+				'severity' => $severity,
+			];
+			$guidance = $row['guidance'] ?? null;
+			if ( is_string( $guidance ) && '' !== $guidance ) {
+				$compact['guidance'] = self::truncate_compact_chars( $guidance, 100 );
+			}
+			$out[] = $compact;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Drop lowest-severity floor rows until compact JSON fits, never the key.
+	 *
+	 * @param array<string, mixed> $response
+	 * @return array<string, mixed>
+	 */
+	private static function fit_compact_payload_to_budget( array $response ): array {
+		$encoded = wp_json_encode( $response );
+		if ( ! is_string( $encoded ) || strlen( $encoded ) < self::COMPACT_PAYLOAD_MAX_BYTES ) {
+			return $response;
+		}
+
+		$context  = is_array( $response['context'] ?? null ) ? $response['context'] : [];
+		$contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		$floor    = is_array( $contract['anti_slop_floor'] ?? null )
+			? $contract['anti_slop_floor']
+			: [];
+		if ( [] === $floor ) {
+			return $response;
+		}
+
+		$original_count = count( $floor );
+		$remaining      = $original_count;
+		$encoded_size   = strlen( $encoded );
+		while ( $encoded_size >= self::COMPACT_PAYLOAD_MAX_BYTES && $remaining > 1 ) {
+			array_splice( $floor, self::lowest_severity_index( $floor ), 1 );
+			--$remaining;
+			$contract['anti_slop_floor']        = $floor;
+			$contract['floor_count']            = $original_count;
+			$context['visual_quality_contract'] = $contract;
+			$response['context']                = $context;
+			$encoded_size                       = strlen( wp_json_encode( $response ) ?: '' );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $floor
+	 */
+	private static function lowest_severity_index( array $floor ): int {
+		$lowest_rank = PHP_INT_MAX;
+		$index       = count( $floor ) - 1;
+		foreach ( $floor as $i => $row ) {
+			if ( ! is_array( $row ) ) {
+				return (int) $i;
+			}
+			$rank = self::compact_severity_rank( (string) ( $row['severity'] ?? '' ) );
+			if ( $rank <= $lowest_rank ) {
+				$lowest_rank = $rank;
+				$index       = (int) $i;
+			}
+		}
+
+		return $index;
+	}
+
+	private static function compact_severity_rank( string $severity ): int {
+		return match ( strtolower( $severity ) ) {
+			'error'   => 3,
+			'warning' => 2,
+			'info'    => 1,
+			default   => 0,
+		};
+	}
+
+	/**
+	 * Truncate compact context copy on a Unicode character boundary.
+	 */
+	private static function truncate_compact_chars( string $text, int $limit ): string {
+		if ( $limit < 1 || mb_strlen( $text ) <= $limit ) {
+			return $text;
+		}
+
+		return mb_substr( $text, 0, $limit - 1 ) . '…';
+	}
+
+	/**
+	 * Floor summaries use ASCII ellipsis so JSON does not pay the \u2026 tax.
+	 */
+	private static function truncate_floor_summary( string $text ): string {
+		$limit = max( 4, self::COMPACT_FLOOR_SUMMARY_CHARS );
+		if ( mb_strlen( $text ) <= $limit ) {
+			return $text;
+		}
+
+		return rtrim( mb_substr( $text, 0, $limit - 3 ) ) . '...';
 	}
 
 	private static function normalise( string $text ): string {

@@ -66,7 +66,8 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertStringStartsWith( 'swctx_', (string) $result['context_token'] );
 		self::assertNotEmpty( $result['matched_skill_playbooks'] );
 		self::assertSame( 'stonewright-elementor-v3-builder', $result['matched_skill_playbooks'][0]['slug'] );
-		self::assertStringContainsString( 'Use native Elementor widgets', $result['matched_skill_playbooks'][0]['content'] );
+		self::assertArrayNotHasKey( 'content', $result['matched_skill_playbooks'][0], 'Playbook bodies stay behind stonewright/skills-get.' );
+		self::assertSame( 'stonewright/skills-get', $result['matched_skill_playbooks'][0]['body_tool'] );
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
 		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
@@ -159,6 +160,30 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertSame( 'plugin-site', $result['target_context']['memory_backend'] );
 		self::assertSame( ContextToken::site_fingerprint(), $result['target_context']['site_fingerprint'] );
 		self::assertSame( $result['context_token'], $result['target_context']['context_token'] );
+	}
+
+	public function test_task_start_excludes_draft_lessons(): void {
+		$GLOBALS['stonewright_test_memory_rows'] = [
+			[
+				'id' => '41', 'type' => 'reference', 'scope' => 'audit', 'topic' => 'Draft lesson',
+				'memory_key' => 'draft-lesson-abc', 'name' => 'Draft lesson: spec invalid',
+				'value_json' => wp_json_encode( [ 'proposed_remediation' => 'Validate the spec first.' ] ),
+				'confidence' => '1.0', 'status' => 'draft', 'precedence' => '900', 'expires_at' => '',
+				'updated_at' => '2026-08-21 00:00:00', 'created_at' => '2026-08-21 00:00:00',
+			],
+			[
+				'id' => '42', 'type' => 'user', 'scope' => 'elementor', 'topic' => 'buttons',
+				'memory_key' => 'button-links', 'name' => 'Button links',
+				'value_json' => wp_json_encode( 'Buttons need URLs.' ),
+				'confidence' => '1.0', 'status' => 'active', 'precedence' => '10', 'expires_at' => '',
+				'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+		];
+
+		$result = ( new ContextBootstrap() )->execute( [ 'task' => 'Fix Elementor button links', 'surface' => 'elementor', 'intent' => 'read' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'button-links' ], array_column( $result['memory_entries'], 'memory_key' ) );
 	}
 
 	public function test_task_start_excludes_stale_and_unrelated_memory_bodies(): void {

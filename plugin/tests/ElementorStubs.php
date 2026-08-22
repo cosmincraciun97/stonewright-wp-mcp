@@ -216,6 +216,13 @@ Plugin::$instance = (object) [
 								}
 							}
 						}
+						$controls['_animation'] = [
+							'type'    => 'select',
+							'label'   => 'Entrance Animation',
+							'tab'     => 'advanced',
+							'section' => '_section_effects',
+							'options' => [ '' => 'None', 'fadeIn' => 'Fade In', 'fadeInUp' => 'Fade In Up' ],
+						];
 						return $controls;
 					}
 				};

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -19,14 +20,20 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_names(): array {
-		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
+		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'discover-execute', 'full' ];
 	}
 
 	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
 		$surface = strtolower( trim( $surface ) );
 		$query   = self::normalise( $task . ' ' . $surface . ' ' . $intent );
+		$gutenberg_first = self::gutenberg_first_signal( $query );
+		$elementor_active = self::elementor_is_active();
 
-		if ( in_array( $surface, [ 'elementor', 'theme-builder' ], true ) || self::has_any_term( $query, [ 'elementor', 'theme builder', 'theme-builder', 'figma', 'design', 'pixel', 'landing page', 'section' ] ) ) {
+		if ( in_array( $surface, [ 'elementor', 'theme-builder' ], true ) ) {
+			return 'elementor-design';
+		}
+
+		if ( self::has_any_term( $query, [ 'elementor', 'theme builder', 'theme-builder' ] ) ) {
 			return 'elementor-design';
 		}
 
@@ -53,8 +60,13 @@ final class ToolProfile extends AbilityKernel {
 			return 'content-model';
 		}
 
-		if ( 'gutenberg' === $surface || self::has_any_term( $query, [ 'block', 'block theme', 'fse', 'gutenberg', 'theme json', 'template part' ] ) ) {
+		$gutenberg_signal = self::gutenberg_profile_signal( $surface, $query, $gutenberg_first );
+		if ( $gutenberg_signal ) {
 			return 'gutenberg';
+		}
+
+		if ( self::has_any_term( $query, [ 'figma', 'pixel', 'design', 'landing page', 'section' ] ) ) {
+			return self::design_ambiguous_profile( $elementor_active, $gutenberg_signal );
 		}
 
 		if ( 'wp-cli' === $surface || self::has_any_term( $query, [ 'cache', 'cli', 'plugin', 'rewrite', 'wp cli' ] ) ) {
@@ -121,7 +133,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows.', 'stonewright' );
+		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -133,6 +145,7 @@ final class ToolProfile extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'action'    => [
 					'type'        => 'string',
 					'default'     => 'activate',
@@ -370,6 +383,11 @@ final class ToolProfile extends AbilityKernel {
 				'truncation_hint'      => self::truncation_hint( $dropped_names, $max_tools ),
 				'tools_changed'        => false,
 			];
+		}
+
+		$token_error = $this->require_production_safe_token( $args );
+		if ( $token_error instanceof \WP_Error ) {
+			return $token_error;
 		}
 
 		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
@@ -634,7 +652,6 @@ final class ToolProfile extends AbilityKernel {
 			// Task start hands out a rule digest; every profile must be able to
 			// resolve it into the actual rules.
 			'stonewright/rules-get',
-			'stonewright/php-execute',
 		];
 		$blueprints = [
 			'stonewright/blueprint-list',
@@ -715,6 +732,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/design-visual-compare',
 				'stonewright/oauth-header-diagnostic',
 				'stonewright/elementor-document-health',
+				'stonewright/elementor-performance-audit',
 				'stonewright/elementor-v3-legacy-debt-report',
 				'stonewright/elementor-v3-legacy-debt-migrate',
 				'stonewright/form-delivery-diagnostic',
@@ -790,6 +808,7 @@ final class ToolProfile extends AbilityKernel {
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
 				'stonewright/gutenberg-apply-to-post',
@@ -817,6 +836,12 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
+			],
+			'discover-execute' => [
+				'stonewright/discover-abilities',
+				'stonewright/get-ability-info',
+				'stonewright/execute-ability',
+				'stonewright/security-issue-confirmation-token',
 			],
 				'site-admin' => [
 					'stonewright/site-info',
@@ -891,8 +916,9 @@ final class ToolProfile extends AbilityKernel {
 		// low-tools stays tiny (strict client caps). wp-cli skips blueprints.
 		// All other profiles put blueprints right after startup so client caps keep them.
 		$with_blueprints = match ( $profile ) {
-			'low-tools', 'wp-cli' => array_merge( $startup, $direction_writes, $rest ),
-			default               => array_merge( $startup, $direction_writes, $blueprints, $rest ),
+			'discover-execute'            => array_merge( $startup, $rest ),
+			'low-tools', 'wp-cli'         => array_merge( $startup, $direction_writes, $rest ),
+			default                       => array_merge( $startup, $direction_writes, $blueprints, $rest ),
 		};
 
 		return array_values( array_unique( $with_blueprints ) );
@@ -948,6 +974,9 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/task-start' => 'Issue the task token and choose the compact task-aware fast path in one call.',
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
+			'stonewright/discover-abilities' => 'List compact ability names without dumping the full MCP catalog.',
+			'stonewright/get-ability-info' => 'Read one ability bounded schema and permission notes before calling it.',
+			'stonewright/execute-ability' => 'Run one enabled ability through the same permission, confirmation, backup, and audit gates as MCP.',
 			'stonewright/skills-get' => 'Load one matched site playbook on demand instead of injecting every skill into startup context.',
 			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
@@ -975,6 +1004,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-schema' => 'List/search live widgets, read compact controls, or request one complete control without guessing settings.',
 			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 				'stonewright/elementor-document-health' => 'Measure document size, V3/V4 composition, atomic paragraph count, and bounded schema issues before repair.',
+				'stonewright/elementor-performance-audit' => 'Measure bounded Elementor document, settings, backup, and revision size metrics without exposing content.',
 			'stonewright/elementor-v3-legacy-debt-report' => 'Report pre-existing Elementor schema debt and migration risk without normalizing or writing the document.',
 			'stonewright/elementor-v3-legacy-debt-migrate' => 'Dry-run explicit live-schema legacy mappings, then apply only the reviewed plan through the transactional batch writer.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
@@ -1039,7 +1069,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	private static function tool_group_name( string $name ): string {
-		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get', 'stonewright/discover-abilities', 'stonewright/get-ability-info', 'stonewright/execute-ability' ], true ) ) {
 			return 'startup';
 		}
 
@@ -1141,6 +1171,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-job-start',
 			],
+			'discover-execute' => [
+				'stonewright/discover-abilities',
+				'stonewright/get-ability-info',
+				'stonewright/execute-ability',
+			],
 			default => [],
 		};
 		$preferred_groups = match ( $profile ) {
@@ -1148,6 +1183,7 @@ final class ToolProfile extends AbilityKernel {
 			'content-model' => [ 'runtime', 'content_media', 'wp_cli', 'site_admin', 'startup' ],
 			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'runtime', 'startup' ],
 			'wp-cli' => [ 'wp_cli', 'runtime', 'site_admin', 'startup' ],
+			'discover-execute' => [ 'startup', 'runtime', 'site_admin' ],
 			'site-admin' => [ 'site_admin', 'runtime', 'wp_cli', 'startup' ],
 			default => [ 'startup', 'runtime', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
 		};
@@ -1240,6 +1276,12 @@ final class ToolProfile extends AbilityKernel {
 			$rules[] = 'Read theme.json, templates, registered blocks, and block supports before writing blocks or FSE templates.';
 		}
 
+		if ( 'discover-execute' === $profile ) {
+			$rules[] = 'Discover abilities, read one bounded schema, then execute the named ability; do not expand to the full MCP catalog.';
+			$rules[] = 'execute-ability uses the same permission, confirmation, backup, and audit gates as a direct MCP call. php-execute stays off this profile and remains available on full.';
+			$rules[] = 'discover-execute remains opt-in: auto routing never selects it; activate this profile explicitly when bounded ability discovery is required.';
+		}
+
 		return $rules;
 	}
 
@@ -1312,6 +1354,62 @@ final class ToolProfile extends AbilityKernel {
 				'footer template',
 				'elementor template',
 				'apply template',
+			]
+		);
+	}
+
+	private static function elementor_is_active(): bool {
+		foreach ( IntegrationCatalog::inspect() as $row ) {
+			if ( 'elementor' === (string) ( $row['id'] ?? '' ) && 'unavailable' !== (string) ( $row['status'] ?? 'unavailable' ) ) {
+				return true;
+			}
+		}
+
+		return defined( 'ELEMENTOR_VERSION' );
+	}
+
+	private static function gutenberg_profile_signal( string $surface, string $query, bool $gutenberg_first ): bool {
+		return 'gutenberg' === $surface
+			|| $gutenberg_first
+			|| self::has_any_term(
+				$query,
+				[ 'block', 'block theme', 'block library', 'fse', 'gutenberg', 'theme json', 'template part', 'blocksy', 'kadence' ]
+			);
+	}
+
+	private static function design_ambiguous_profile( bool $elementor_active, bool $gutenberg_signal ): string {
+		if ( $gutenberg_signal ) {
+			return 'gutenberg';
+		}
+
+		return $elementor_active ? 'elementor-design' : 'gutenberg';
+	}
+
+	private static function gutenberg_first_signal( string $query ): bool {
+		if ( self::has_any_term(
+			$query,
+			[ 'blocksy', 'kadence', 'block theme', 'block library', 'gutenberg', 'fse', 'full site editing', 'generateblocks', 'spectra' ]
+		) ) {
+			return true;
+		}
+
+		$theme = self::normalise(
+			(string) get_stylesheet()
+			. ' ' . (string) get_template()
+			. ' ' . (string) get_option( 'stylesheet', '' )
+		);
+
+		return self::has_any_term(
+			$theme,
+			[
+				'blocksy',
+				'kadence',
+				'twentytwentythree',
+				'twentytwentyfour',
+				'twentytwentyfive',
+				'spectra one',
+				'generatepress',
+				'block theme',
 			]
 		);
 	}

@@ -8,20 +8,109 @@ namespace Stonewright\WpMcp\Elementor\Schema;
  */
 final class RuntimeFingerprint {
 
+	private const COMPONENT_ALIASES = [
+		'elementor' => 'elementor_core',
+	];
+
 	/** @param array<string, mixed> $constraints */
 	public static function matches_constraints( array $constraints ): bool {
 		$components = (array) ( self::describe()['components'] ?? [] );
 		foreach ( $constraints as $component => $expression ) {
-			$expression = trim( (string) $expression );
-			if ( '' === $expression || in_array( strtolower( $expression ), [ '*', 'optional' ], true ) ) {
+			if ( 'any_of' === (string) $component ) {
+				if ( ! self::matches_any_of( $expression ) ) {
+					return false;
+				}
 				continue;
 			}
-			$version = trim( (string) ( $components[ (string) $component ] ?? '' ) );
+			if ( ! is_string( $expression ) && ! is_numeric( $expression ) ) {
+				return false;
+			}
+			$expression = trim( (string) $expression );
+			$key        = self::COMPONENT_ALIASES[ (string) $component ] ?? (string) $component;
+			$version    = trim( (string) ( $components[ $key ] ?? '' ) );
+			$expr       = strtolower( $expression );
+			if ( '' === $expression || in_array( $expr, [ '*', 'optional' ], true ) ) {
+				continue;
+			}
+			if ( 'required' === $expr ) {
+				if ( '' === $version ) {
+					return false;
+				}
+				continue;
+			}
 			if ( '' === $version || ! self::matches_expression( $version, $expression ) ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	private static function matches_any_of( mixed $any_of ): bool {
+		$clauses = self::normalize_any_of( $any_of );
+		if ( [] === $clauses ) {
+			return false;
+		}
+
+		foreach ( $clauses as $component => $expression ) {
+			if ( self::matches_constraints( [ (string) $component => $expression ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private static function normalize_any_of( mixed $any_of ): array {
+		if ( is_string( $any_of ) ) {
+			$trimmed = trim( $any_of );
+			if ( str_starts_with( $trimmed, '{' ) || str_starts_with( $trimmed, '[' ) ) {
+				$decoded = json_decode( $trimmed, true );
+				if ( is_array( $decoded ) ) {
+					return self::normalize_any_of( $decoded );
+				}
+			}
+
+			$clauses = [];
+			foreach ( preg_split( '/[|,]/', $trimmed ) ?: [] as $part ) {
+				$part = trim( $part );
+				if ( '' !== $part ) {
+					$clauses[ $part ] = 'required';
+				}
+			}
+
+			return $clauses;
+		}
+
+		if ( ! is_array( $any_of ) ) {
+			return [];
+		}
+
+		$clauses = [];
+		if ( array_is_list( $any_of ) ) {
+			foreach ( $any_of as $component ) {
+				if ( is_string( $component ) && '' !== trim( $component ) ) {
+					$clauses[ trim( $component ) ] = 'required';
+				}
+			}
+
+			return $clauses;
+		}
+
+		foreach ( $any_of as $component => $expression ) {
+			if ( ! is_string( $component ) || '' === $component ) {
+				continue;
+			}
+			if ( is_string( $expression ) || is_numeric( $expression ) ) {
+				$clauses[ $component ] = (string) $expression;
+				continue;
+			}
+			$clauses[ $component ] = 'required';
+		}
+
+		return $clauses;
 	}
 
 	/**
@@ -56,6 +145,15 @@ final class RuntimeFingerprint {
 			'plugins'        => $plugins,
 			'features'       => $features,
 		];
+		if ( class_exists( \Stonewright\WpMcp\Expertise\IntegrationCatalog::class ) ) {
+			foreach ( \Stonewright\WpMcp\Expertise\IntegrationCatalog::inspect() as $row ) {
+				$id = (string) ( $row['id'] ?? '' );
+				if ( '' === $id || isset( $payload[ $id ] ) ) {
+					continue;
+				}
+				$payload[ $id ] = (string) ( $row['version'] ?? '' );
+			}
+		}
 
 		return [
 			'hash'       => hash( 'sha256', (string) wp_json_encode( $payload ) ),

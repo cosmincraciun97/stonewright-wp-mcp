@@ -158,6 +158,228 @@
 	word-break: break-word;
 }
 
+.sw-diag-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-1);
+	margin: 0 0 var(--sw-space-4);
+	max-width: 32rem;
+}
+
+.sw-diag-field label {
+	font-weight: 600;
+	color: var(--sw-text);
+}
+
+.sw-diag-help {
+	margin-top: var(--sw-space-2);
+	padding: var(--sw-space-3);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-info-soft);
+	color: var(--sw-info-text);
+	font-size: var(--sw-text-sm);
+}
+
+.sw-diag-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+}
+
+.sw-diag-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: var(--sw-space-1) var(--sw-space-3);
+	border: 0;
+	border-radius: var(--sw-radius-pill);
+	font-size: var(--sw-text-sm);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.sw-diag-pill--error {
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
+}
+
+.sw-diag-pill--warn {
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
+}
+
+.sw-diag-cards {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+	margin: 0 0 var(--sw-space-4);
+}
+
+.sw-diag-card {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-3);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+}
+
+.sw-diag-card--ok {
+	background: var(--sw-ok-soft);
+	border-color: var(--sw-ok-text);
+}
+
+.sw-diag-card--warn {
+	background: var(--sw-warn-soft);
+	border-color: var(--sw-warn-text);
+}
+
+.sw-diag-card--error {
+	background: var(--sw-danger-soft);
+	border-color: var(--sw-danger-text);
+}
+
+.sw-diag-card--info {
+	background: var(--sw-info-soft);
+	border-color: var(--sw-info-text);
+}
+
+.sw-diag-card__icon {
+	flex: 0 0 auto;
+	width: 1.5rem;
+	height: 1.5rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--sw-radius-pill);
+	font-size: var(--sw-text-sm);
+	font-weight: 700;
+	line-height: 1;
+}
+
+.sw-diag-card--ok .sw-diag-card__icon {
+	background: var(--sw-ok-soft);
+	color: var(--sw-ok-text);
+}
+
+.sw-diag-card--warn .sw-diag-card__icon {
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
+}
+
+.sw-diag-card--error .sw-diag-card__icon {
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
+}
+
+.sw-diag-card--info .sw-diag-card__icon {
+	background: var(--sw-surface);
+	color: var(--sw-text-muted);
+	border: 1px solid var(--sw-border);
+}
+
+.sw-diag-card__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-1);
+	min-width: 0;
+}
+
+.sw-diag-card__label {
+	font-size: var(--sw-text-md);
+	color: var(--sw-text);
+}
+
+.sw-diag-card__detail {
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-muted);
+	word-break: break-word;
+}
+
+.sw-diag-card__body .button {
+	align-self: flex-start;
+	margin-top: var(--sw-space-2);
+}
+
+.sw-copy-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--sw-space-4);
+	background: rgba(15, 23, 42, 0.45);
+}
+
+.sw-copy-modal[hidden] {
+	display: none;
+}
+
+.sw-copy-modal__dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+	width: min(36rem, 100%);
+	padding: var(--sw-space-4);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	box-shadow: 0 12px 40px rgba(15, 23, 42, 0.2);
+}
+
+.sw-copy-modal__dialog textarea {
+	min-height: 10rem;
+	width: 100%;
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: var(--sw-text-sm);
+}
+
+.sw-diag-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	align-items: center;
+}
+
+.sw-diag-copy-source {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+}
+
+.sw-diagnostics-run .button.is-loading {
+	position: relative;
+	pointer-events: none;
+}
+
+.sw-diagnostics-run .button.is-loading::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: var(--sw-space-4);
+	height: var(--sw-space-4);
+	margin-top: calc(var(--sw-space-4) / -2);
+	margin-left: calc(var(--sw-space-4) / -2);
+	border-radius: var(--sw-radius-pill);
+	border: 2px solid var(--sw-on-brand);
+	border-right-color: transparent;
+	animation: sw-diag-spin 0.6s linear infinite;
+}
+
+@keyframes sw-diag-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 /* Horizontal stepper */
 .sw-stepper {
 	display: flex;
@@ -718,5 +940,10 @@
 
 	.sw-client-card:hover {
 		transform: none;
+	}
+
+	.sw-diagnostics-run .button.is-loading::after {
+		animation: none;
+		border-right-color: var(--sw-on-brand);
 	}
 }

@@ -19,7 +19,10 @@ edit WordPress sites through MCP.
   entering Direct mode when the wrong site entry or endpoint is selected.
 
 Copy-paste client setup for both modes lives in
-[install-prompts.md](install-prompts.md). Capability detail for Direct mode is
+[install-prompts.md](install-prompts.md). Codex in ChatGPT Desktop
+(`--client chatgpt-desktop`) and Codex CLI (`--client codex-cli`) are separate
+clients; see [getting-started/codex.md](getting-started/codex.md). Capability
+detail for Direct mode is
 in [direct-mode-e2e.md](direct-mode-e2e.md). Plugin ability inventory is the
 generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
 
@@ -67,10 +70,14 @@ audit event. Generic built-in skills and native rules are product assets and
 remain available. Updating either mode preserves existing state; see
 [Updating Stonewright](updates.md).
 
-Every real task should start with `stonewright-task-start`. The response
-contains active instructions, relevant skills, persistent memory (site-hosted
-in plugin mode; `~/.stonewright/` in Direct mode), workflow followups, and the
-short-lived write token / confirmation guidance needed by write tools.
+Every real task should start with `stonewright-task-start`. The compact
+response contains truncated site Context / custom instructions (up to 400
+characters), an active Design Direction pointer when one exists, relevant
+skills, persistent memory (site-hosted in plugin mode; `~/.stonewright/` in
+Direct mode), workflow followups, and the short-lived write token /
+confirmation guidance needed by write tools. Call
+`stonewright-design-direction-brief` when `context.design_direction_ref` is
+present. Pluginless Direct cannot see wp-admin Context or Design.
 
 If neither `stonewright-task-start` nor compatibility
 `stonewright-context-bootstrap` is visible in the tool list, the MCP server
@@ -116,8 +123,13 @@ Workflow:
   reverse-engineer tool schemas, hand-roll JSON-RPC, call the REST runner from
   shell, or run shell `wp ...` commands as a Stonewright MCP workaround.
 - Use native WordPress or Elementor abilities first.
+- For a client that cannot hold the full catalog, activate opt-in
+  discover-execute: stonewright-discover-abilities, then
+  stonewright-get-ability-info, then stonewright-execute-ability. That
+  profile does not include php-execute.
 - Use stonewright-php-execute for short full WordPress runtime snippets when a
-  direct plugin API call is faster than many typed calls (plugin mode only).
+  direct plugin API call is faster than many typed calls (plugin mode, full
+  profile only).
 - Validate design specs before rendering.
 - Snapshot before Elementor, template, global style, or theme-backed writes.
 - Use production-safe confirmation tokens for destructive work (plugin mode).

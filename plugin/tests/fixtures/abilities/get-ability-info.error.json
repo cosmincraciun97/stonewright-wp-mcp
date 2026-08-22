@@ -1,0 +1,6 @@
+{
+    "args": {
+        "name": "stonewright/not-a-real-ability"
+    },
+    "expect": "wp_error"
+}

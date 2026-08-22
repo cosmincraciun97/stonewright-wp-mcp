@@ -50,6 +50,11 @@ final class QualityEvidenceValidatorTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $error );
 		self::assertSame( QualityEvidenceValidator::ERROR_CODE, $error->get_error_code() );
+		self::assertStringContainsString( 'does not accept', $error->get_error_message() );
+		self::assertStringContainsString( 'Accepted keys:', $error->get_error_message() );
+		self::assertContains( 'schema_version', $error->get_error_data()['accepted_keys'] );
+		self::assertContains( 'target', $error->get_error_data()['accepted_keys'] );
+		self::assertContains( 'viewports', $error->get_error_data()['accepted_keys'] );
 	}
 
 	public function test_it_rejects_an_unknown_element_key(): void {

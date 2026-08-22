@@ -151,6 +151,49 @@ final class DirectionContractValidatorTest extends TestCase {
 		$this->assertInvalid( DirectionContractValidator::validate( $contract ) );
 	}
 
+	public function test_unknown_top_level_fields_list_accepted_keys_and_example(): void {
+		$contract = $this->valid_contract();
+		$contract['density']     = 40;
+		$contract['typography']  = [];
+		$contract['palette']     = [ 'brand' => '#111111' ];
+
+		$result = DirectionContractValidator::validate( $contract );
+
+		$this->assertInvalid( $result );
+		$data = $result->get_error_data();
+		$this->assertContains( 'schema_version', $data['accepted_keys'] );
+		$this->assertContains( 'tokens', $data['accepted_keys'] );
+		$this->assertContains( 'dials', $data['accepted_keys'] );
+		$this->assertSame( [ 'density', 'typography', 'palette' ], $data['fields'] );
+		$this->assertIsArray( $data['example'] );
+		$this->assertSame( '1.0', $data['example']['schema_version'] );
+		$this->assertStringContainsString( 'Accepted keys:', $result->get_error_message() );
+		$this->assertStringContainsString( 'schema_version', $result->get_error_message() );
+	}
+
+	public function test_empty_typography_list_from_json_is_accepted_as_a_map(): void {
+		$contract = $this->valid_contract();
+		$contract['tokens']['typography'] = [];
+
+		$result = DirectionContractValidator::validate( $contract );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( [], $result['tokens']['typography'] );
+	}
+
+	public function test_typography_list_of_entries_is_rejected_with_object_example(): void {
+		$contract = $this->valid_contract();
+		$contract['tokens']['typography'] = [
+			[ 'id' => 'heading', 'font_family' => 'Fraunces' ],
+		];
+
+		$result = DirectionContractValidator::validate( $contract );
+
+		$this->assertInvalid( $result );
+		$this->assertStringContainsString( 'object', $result->get_error_message() );
+		$this->assertArrayHasKey( 'example', $result->get_error_data() );
+	}
+
 	public function test_unsupported_schema_version_is_rejected(): void {
 		$contract                   = $this->valid_contract();
 		$contract['schema_version'] = '2.0';

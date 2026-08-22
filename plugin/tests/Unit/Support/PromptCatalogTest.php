@@ -68,4 +68,78 @@ final class PromptCatalogTest extends TestCase {
 		self::assertContains( 'elementor', $outcomes );
 		self::assertContains( 'gutenberg', $outcomes );
 	}
+
+	public function test_catalog_tool_names_exist_in_ability_truth_matrix(): void {
+		$matrix_path = dirname( __DIR__, 4 ) . '/docs/ability-truth-matrix.md';
+		self::assertFileExists( $matrix_path );
+
+		$known = self::matrix_mcp_tool_names( (string) file_get_contents( $matrix_path ) );
+		self::assertNotEmpty( $known );
+
+		$missing = [];
+		foreach ( PromptCatalog::all() as $prompt ) {
+			foreach ( (array) ( $prompt['tools'] ?? [] ) as $tool ) {
+				$tool = (string) $tool;
+				if ( '' === $tool || isset( $known[ $tool ] ) ) {
+					continue;
+				}
+				$missing[ $tool ] = (string) ( $prompt['id'] ?? '' );
+			}
+		}
+
+		self::assertEmpty(
+			$missing,
+			sprintf(
+				"Prompt catalog references MCP tool name(s) missing from docs/ability-truth-matrix.md:\n  %s",
+				implode(
+					"\n  ",
+					array_map(
+						static fn( string $tool, string $id ): string => sprintf( '%s (prompt: %s)', $tool, $id ),
+						array_keys( $missing ),
+						array_values( $missing )
+					)
+				)
+			)
+		);
+	}
+
+	public function test_catalog_includes_refreshed_starter_prompts(): void {
+		$ids = array_map(
+			static fn( array $prompt ): string => (string) ( $prompt['id'] ?? '' ),
+			PromptCatalog::all()
+		);
+
+		foreach (
+			[
+				'fix-connection-troubleshoot',
+				'block-theme-section-finalizer',
+				'elementor-performance-audit',
+				'page-builder-library-introspection',
+			] as $expected
+		) {
+			self::assertContains( $expected, $ids );
+		}
+	}
+
+	/**
+	 * @return array<string, true>
+	 */
+	private static function matrix_mcp_tool_names( string $content ): array {
+		$names = [];
+		foreach ( explode( "\n", $content ) as $line ) {
+			if ( ! str_starts_with( trim( $line ), '|' ) || str_contains( $line, '---|' ) ) {
+				continue;
+			}
+			$parts = array_slice( explode( '|', $line ), 1, -1 );
+			if ( count( $parts ) < 2 ) {
+				continue;
+			}
+			$name = trim( $parts[1] ?? '', " `\t" );
+			if ( str_starts_with( $name, 'stonewright-' ) ) {
+				$names[ $name ] = true;
+			}
+		}
+
+		return $names;
+	}
 }

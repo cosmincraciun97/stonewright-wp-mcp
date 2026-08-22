@@ -1,0 +1,7 @@
+{
+    "args": {
+        "library": "generateblocks",
+        "name": "generateblocks/container"
+    },
+    "expect": "ok"
+}

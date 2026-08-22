@@ -81,6 +81,70 @@ final class GutenbergSpecRendererColumnsTest extends TestCase {
 		}
 	}
 
+	public function test_button_uses_preset_slug_when_theme_declares_matching_color(): void {
+		$GLOBALS['stonewright_test_global_settings'] = [
+			'color' => [
+				'palette' => [
+					[ 'slug' => 'vivid-blue', 'color' => '#2563eb', 'name' => 'Vivid blue' ],
+				],
+			],
+		];
+
+		$spec = [
+			'page'     => [ 'title' => 'Preset button' ],
+			'tokens'   => [
+				'colors' => [
+					'primary' => '#2563eb',
+				],
+			],
+			'sections' => [
+				[
+					'id'     => 'cta',
+					'blocks' => [
+						[
+							'type' => 'button',
+							'text' => 'Book now',
+							'url'  => 'https://example.com/book',
+						],
+					],
+				],
+			],
+		];
+
+		$diagnostics = [];
+		$result      = GutenbergSpecRenderer::render( $spec, $diagnostics );
+		self::assertIsArray( $result );
+		$btn = $result[0]['innerBlocks'][0]['innerBlocks'][0] ?? null;
+		self::assertIsArray( $btn );
+		self::assertSame( 'vivid-blue', $btn['attrs']['backgroundColor'] ?? null );
+		self::assertSame( 'var:preset|color|vivid-blue', $btn['attrs']['style']['color']['background'] ?? null );
+		self::assertStringNotContainsString( 'style="', (string) ( $btn['innerHTML'] ?? '' ) );
+		self::assertStringContainsString( 'has-vivid-blue-background-color', (string) ( $btn['innerHTML'] ?? '' ) );
+		unset( $GLOBALS['stonewright_test_global_settings'] );
+	}
+
+	public function test_group_wrapper_does_not_mirror_attrs_style_as_inline_css(): void {
+		$spec = [
+			'page'     => [ 'title' => 'Group style' ],
+			'sections' => [
+				[
+					'id'         => 'hero',
+					'background' => [ 'color' => '#0f172a' ],
+					'blocks'     => [
+						[ 'type' => 'paragraph', 'text' => 'Hi' ],
+					],
+				],
+			],
+		];
+
+		$diagnostics = [];
+		$result      = GutenbergSpecRenderer::render( $spec, $diagnostics );
+		self::assertIsArray( $result );
+		$section = $result[0];
+		self::assertSame( '#0f172a', $section['attrs']['style']['color']['background'] ?? null );
+		self::assertStringNotContainsString( 'style="', (string) ( $section['innerHTML'] ?? '' ) );
+	}
+
 	public function test_button_uses_primary_token_inline_and_has_background_class(): void {
 		$spec = [
 			'page'     => [ 'title' => 'Button test' ],
@@ -114,7 +178,7 @@ final class GutenbergSpecRendererColumnsTest extends TestCase {
 		self::assertSame( 'core/button', $btn['blockName'] );
 		self::assertSame( '#2563eb', $btn['attrs']['style']['color']['background'] ?? null );
 		self::assertStringContainsString( 'has-background', (string) ( $btn['innerHTML'] ?? '' ) );
-		self::assertStringContainsString( 'background-color:#2563eb', (string) ( $btn['innerHTML'] ?? '' ) );
+		self::assertStringNotContainsString( 'style="', (string) ( $btn['innerHTML'] ?? '' ) );
 	}
 
 	public function test_orphan_column_becomes_group(): void {

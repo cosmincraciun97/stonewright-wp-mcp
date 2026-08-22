@@ -297,7 +297,22 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$wide = $ability->execute( [ 'mode' => 'summary', 'widget_type' => 'wide-widget' ] );
 		self::assertIsArray( $wide );
 		self::assertCount( 18, $wide['controls'] );
+		self::assertGreaterThan( 18, $wide['total'] );
+		self::assertTrue( $wide['has_more'] );
+		self::assertStringContainsString( 'mode=control', (string) ( $wide['hint'] ?? '' ) );
+		self::assertStringContainsString( (string) $wide['total'], (string) ( $wide['hint'] ?? '' ) );
 		self::assertLessThan( 3200, strlen( (string) wp_json_encode( $wide ) ) );
+	}
+
+	public function test_widget_container_redirects_to_container_schema(): void {
+		$ability = new ElementorSchema();
+		$result  = $ability->execute( [ 'mode' => 'summary', 'widget_type' => 'container' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_use_container_schema', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 'stonewright/elementor-v3-container-schema', $data['redirect']['ability'] );
+		self::assertStringContainsString( 'elementor-v3-container-schema', $result->get_error_message() );
 	}
 
 	public function test_final_write_guard_preserves_unknown_settings_on_write(): void {

@@ -11,10 +11,19 @@ Covers the full Gutenberg surface: per-post block trees, FSE templates and
 template parts, global styles (theme.json), and synced patterns (wp_block CPT).
 All write operations that touch post content or theme.json take a snapshot first.
 
+Static and third-party block writes go through the browser finalizer. The
+server serialize path is only for true `save:null` dynamic blocks.
+
 ## Block Theme Production Workflow
 
 Use this workflow when the user asks for a Gutenberg-only page, a block theme,
 or Full Site Editing work:
+
+For **Spectra One** and other block themes, stay on this pack. Do not create a
+parallel Spectra One playbook. Discover the theme with `stonewright/site-theme`
+and `stonewright/site-capabilities`, then use theme.json, templates, template
+parts, and patterns below. If Spectra (the `uagb/*` plugin) is also active,
+load `spectra-build-page` for plugin blocks and keep FSE chrome here.
 
 1. Discover active theme state with `stonewright/site-theme`,
    `stonewright/site-capabilities`, `stonewright/fse-get-theme-json`, and
@@ -46,6 +55,10 @@ valid block markup, readable template files, direct PHP runtime snippets only
 when they are the shorter correct path, and browser verification before
 signoff.
 
+Companion page-body packs (load when `check-setup` is active):
+`blocksy-build-page`, `kadence-build-page`, `generateblocks-build-page`,
+`spectra-build-page`. This pack still owns FSE chrome for those sites.
+
 ## FSE pre-flight
 
 Check block theme support before touching templates or global styles:
@@ -55,18 +68,314 @@ Check block theme support before touching templates or global styles:
 ```
 
 `integrations.fse` must be true. If false, FSE abilities will return
-`fse_unavailable`.
+`fse_unavailable`. Classic themes can still receive Gutenberg post bodies
+through the finalizer; they cannot take template / global-style writes.
 
-## Block operations
+## Which write path
 
-Work flow for adding blocks to an existing page:
+Default: queue `{name, attributes, innerBlocks}` and persist through the
+Block Editor Queue. That is the path for static core blocks and every
+third-party namespace.
 
-1. `stonewright/blocks-parse` - read current block tree
-2. `stonewright/blocks-insert` - insert a new block (takes snapshot internally)
-3. `stonewright/blocks-serialize` - serialize back to HTML if needed
+Server path (`stonewright-blocks-insert` / `stonewright-blocks-update` /
+`stonewright-blocks-serialize`): only when the registered type is
+`save:null` — PHP renders the saved markup. On the introspection site these
+were `is_dynamic: true` **and** are actually server-rendered:
 
-For spec-driven builds use `stonewright/design-spec-to-gutenberg` which handles
-the full parse/mutate/write cycle.
+| Name | Use |
+|---|---|
+| `core/query` | Query Loop. Server. |
+| `core/latest-posts` | Latest posts. Server. |
+| `core/shortcode` | Shortcode embed. Server. |
+| `core/template-part` | FSE part. Server / FSE write. |
+| `core/navigation` | Navigation. Server. |
+| `core/site-title` | Site title. Server. |
+| `core/site-logo` | Site logo. Server. |
+| `core/post-content` | Post content slot. Server. |
+| `core/post-title` | Post title slot. Server. |
+
+`is_dynamic: true` is **not** the same as `save:null`. On the same site
+`core/heading`, `core/cover`, `core/image`, `core/button`, and `core/list`
+reported `is_dynamic: true` because they have render callbacks. Still queue
+those. PHP serialize will drop editor-owned HTML.
+
+## Native-first styling (both builders)
+
+Climb this ladder. Do not skip rungs:
+
+1. **Block supports and theme preset slugs** — `textColor` / `backgroundColor`
+   (`contrast`, `base`, kit slugs), `attrs.style` spacing/typography, layout.
+   Prefer a palette slug over a raw hex when the active theme declares it.
+2. **Typed widget / block controls** — live Gutenberg attributes or Elementor
+   controls from the runtime schema. Never invent CSS to fake a native control.
+3. **Custom CSS only through approval-gated tools** after a proven native gap.
+   Run `dry_run`, show the user `approval_url`, exact path, byte counts, and a
+   short summary, then **stop**. After the human returns `custom_code_grant`,
+   apply only that candidate. Never open the approval page unless asked.
+
+Gutenberg raw HTML with style tags (named `core/html`, Classic/freeform, or any
+`innerHTML`) needs **both** `allow_raw_html:true` and a consumed
+`custom_code_grant`. An all-raw-HTML tree (every leaf is `core/html` or
+`core/freeform`, even inside group/columns) is refused without the flag
+(`stonewright_raw_html_refused`). theme.json `styles.css` and per-block `css`
+on `stonewright-fse-write-global-styles` need the same grant. Elementor
+`custom_css` / `_custom_css` keys use the same grant pipeline.
+
+On `stonewright_custom_code_approval_required`: do not strip the CSS. Name the
+offending block or JSON path, suggest the native alternative from the error,
+show `approval_url`, and wait for the human.
+
+`BlockQueue::requires_finalizer` treats `is_dynamic` as the PHP path, not
+the queue. On the introspection site that includes `core/cover`,
+`core/heading`, and `core/button` — the same names in the hero and CTA
+recipes. Calling `stonewright-blocks-insert` or `stonewright-blocks-update`
+for those blocks PHP-serializes and drops editor-owned HTML. For every
+visual section call `stonewright-blocks-queue-change` explicitly.
+
+## Pending-change pipeline
+
+1. `stonewright-task-start` with surface `gutenberg`.
+2. `stonewright-blocks-parse` the target. Keep `path`, `position`, and the
+   content hash.
+3. `stonewright-blocks-list-registered` (and
+   `stonewright-blocks-library-list-blocks` when a companion library is
+   active). Then `stonewright-blocks-get-schema` /
+   `stonewright-blocks-library-get-schema` for every name you will write.
+4. Queue one section with `stonewright-blocks-queue-change`
+   (`post_id`, `block_spec`, `action`, `path`, `position`,
+   `expected_content_hash`). Spec shape: `{name, attributes, innerBlocks}`.
+5. `stonewright-blocks-finalizer-runtime`. Require `online: true`. If it is
+   false, tell the operator to open **Stonewright → Block Editor Queue** and
+   leave it open. `keep_open` is true on purpose.
+   `stonewright-blocks-finalizer-url` is the same link.
+6. Poll `stonewright-blocks-pending-batch` until ids are `serialized`. The
+   list is compact — it never returns the full spec.
+7. Persist with `stonewright-blocks-finalize-batch`. Snapshot, production-safe
+   confirmation, audit, readback.
+8. Verify in a **separate** frontend tab at desktop, tablet, and mobile.
+
+Do not hand-write block HTML. Do not PHP-serialize third-party blocks.
+
+Queue **one non-terminal change per post**. A second `queue-change` while an
+item is still `queued` or `serialized` returns `stonewright_finalizer_pending_change`.
+Drain serialize → finalize, then queue the next section.
+
+`stonewright-blocks-parse` compact paths skip `parse_blocks()` whitespace
+nodes. Insert/remove/queue `path` and `position` are raw `parse_blocks()`
+indexes. Read the root names (including `null`) before choosing a slot.
+
+## Output quality
+
+- **One H1.** Classic themes print the page title as `h1.entry-title` and
+  cannot hide it from native block supports. Put section titles on `core/heading`
+  **level 2**. Only emit a content H1 when the theme title is already suppressed
+  (block theme `core/post-title` in the template, or a page setting the theme
+  actually honors). Check the rendered page before the first heading write.
+- **Query loops are designed, not dumped.** After `stonewright-blocks-query-loop-build`
+  (empty inner `attributes` are `{}` and the spec is insertable as-is), restyle
+  before signoff: `core/post-template` `layout.type=grid` with `columnCount`,
+  `core/post-featured-image` `aspectRatio` + `scale:cover`, title as H3, date,
+  excerpt, and a card-like inner `core/group` (background, padding, border
+  radius via block supports). A default vertical list with stretched images
+  fails review.
+- **Hero/CTA use block supports.** Cover/group background, overlay/duotone,
+  constrained inner `layout.contentSize`, `core/buttons` fill + outline,
+  spacing via `style.spacing` — not spacer soup, not `core/html`, not custom CSS.
+
+## `likely_partial` and editor-owned ids
+
+`AttributeValidator` marks a schema `likely_partial` when:
+
+- the name starts with `kadence/`, `generateblocks/`, or `uagb/`, or
+- the registered type has an editor script and fewer than three declared
+  attributes.
+
+On the **finalizer** path, unknown keys become a `likely_partial_schema`
+warning. They are not stripped. The live editor owns them, including unique
+IDs assigned during mount-settle. Omit identity keys on insert unless a live
+readback on **update** already has them.
+
+On the **server** path, the same unknown keys are
+`unknown_block_attributes`. That is why `save:null` is the only PHP write.
+
+Unregistered names fail both paths: `block_not_registered` /
+`stonewright_block_not_registered`.
+
+`stonewright-blocks-get-schema` returns `likely_partial` once the running
+plugin includes that field. Companion `list-blocks` counts on the
+introspection site were all `0` (Kadence, GenerateBlocks, Spectra absent).
+Treat those prefixes as partial the moment they appear.
+
+## Verified registry (introspection site)
+
+Namespaces actually registered:
+
+| Namespace | Count |
+|---|---|
+| `core` | 116 |
+| `stonewright` | 2 |
+| `yoast` | 2 |
+| `yoast-seo` | 5 |
+| `kadence/` `generateblocks/` `uagb/` `blocksy/` | 0 |
+
+`core/group` attributes verified: `tagName`, `templateLock`, `lock`,
+`metadata`, `align`, `className`, `style`, `backgroundColor`, `textColor`,
+`gradient`, `fontSize`, `fontFamily`, `borderColor`, `layout`, `ariaLabel`,
+`anchor`. `is_dynamic: false`.
+
+`core/columns`: `verticalAlignment`, `isStackedOnMobile` (default true),
+`templateLock`, plus shared color/layout keys. `core/column` parent is
+`core/columns`; `width` is a string. `core/button` parent is `core/buttons`.
+
+Do not use `textAlign` as a top-level attribute. Heading alignment is
+`align` (`left` / `center` / `right` / `wide` / `full` / `""`).
+
+## Theme chrome vs theme.json
+
+Block theme: `stonewright-fse-get-theme-json` is the design contract. Write
+user global styles with `stonewright-fse-update-global-styles` after a
+snapshot and an explicit confirm.
+
+Classic theme with a chrome adapter (Blocksy, Kadence Theme, GeneratePress):
+`stonewright-theme-chrome-get`. On the introspection site all three returned
+`active: false` and empty `writable`. There are no verified chrome tokens to
+copy. When an adapter is active, patch only `writable` keys, dry-run first.
+
+## Composition recipes
+
+Verified `{name, attributes, innerBlocks}` sketches. Queue these. Do not
+PHP-insert them.
+
+### 1. Hero
+
+```json
+{
+  "name": "core/cover",
+  "attributes": {
+    "align": "full",
+    "dimRatio": 60,
+    "minHeight": 520,
+    "minHeightUnit": "px",
+    "contentPosition": "center center",
+    "isDark": true,
+    "overlayColor": "contrast"
+  },
+  "innerBlocks": [
+    {
+      "name": "core/heading",
+      "attributes": { "level": 1, "content": "Headline", "textColor": "base", "align": "center" },
+      "innerBlocks": []
+    },
+    {
+      "name": "core/paragraph",
+      "attributes": { "content": "One sentence of support copy.", "align": "center", "textColor": "base" },
+      "innerBlocks": []
+    },
+    {
+      "name": "core/buttons",
+      "attributes": { "layout": { "type": "flex", "justifyContent": "center" } },
+      "innerBlocks": [
+        {
+          "name": "core/button",
+          "attributes": { "text": "Primary action", "url": "/contact", "tagName": "a" },
+          "innerBlocks": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+Upload media first if the hero needs a photo. Then set `url` and `id` from
+the live attachment. Do not invent media ids.
+
+### 2. Feature grid
+
+```json
+{
+  "name": "core/group",
+  "attributes": {
+    "align": "wide",
+    "tagName": "section",
+    "layout": { "type": "constrained" }
+  },
+  "innerBlocks": [
+    {
+      "name": "core/heading",
+      "attributes": { "level": 2, "content": "What you get", "align": "center" },
+      "innerBlocks": []
+    },
+    {
+      "name": "core/columns",
+      "attributes": { "isStackedOnMobile": true, "align": "wide" },
+      "innerBlocks": [
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            { "name": "core/heading", "attributes": { "level": 3, "content": "One" }, "innerBlocks": [] },
+            { "name": "core/paragraph", "attributes": { "content": "Verified column copy." }, "innerBlocks": [] }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            { "name": "core/heading", "attributes": { "level": 3, "content": "Two" }, "innerBlocks": [] },
+            { "name": "core/paragraph", "attributes": { "content": "Verified column copy." }, "innerBlocks": [] }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            { "name": "core/heading", "attributes": { "level": 3, "content": "Three" }, "innerBlocks": [] },
+            { "name": "core/paragraph", "attributes": { "content": "Verified column copy." }, "innerBlocks": [] }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 3. CTA
+
+```json
+{
+  "name": "core/group",
+  "attributes": {
+    "align": "full",
+    "tagName": "section",
+    "backgroundColor": "contrast",
+    "textColor": "base",
+    "layout": { "type": "constrained" }
+  },
+  "innerBlocks": [
+    {
+      "name": "core/heading",
+      "attributes": { "level": 2, "content": "Ready when you are", "align": "center" },
+      "innerBlocks": []
+    },
+    {
+      "name": "core/paragraph",
+      "attributes": { "content": "Close with one action.", "align": "center" },
+      "innerBlocks": []
+    },
+    {
+      "name": "core/buttons",
+      "attributes": { "layout": { "type": "flex", "justifyContent": "center" } },
+      "innerBlocks": [
+        {
+          "name": "core/button",
+          "attributes": { "text": "Get started", "url": "/contact", "tagName": "a" },
+          "innerBlocks": []
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## theme.json / global styles
 
@@ -96,7 +405,15 @@ Templates are identified by ID in the format `theme//slug` (e.g. `twentytwentyfo
 }
 ```
 
-Template parts use `type: "wp_template_part"`.
+Template parts use `type: "wp_template_part"`. Prefer
+`stonewright/fse-create-template-part` for new parts, then
+`stonewright/fse-write-template-part` for updates. Snapshot with
+`stonewright-site-backup-page` first — these abilities do not snapshot
+internally.
+
+A `core/template-part` block in a page body is `save:null`. Insert it on the
+server path (`slug`, `theme`, `area` from the live schema). Do not queue it
+as if it were a static group.
 
 ## Synced patterns
 
@@ -106,28 +423,51 @@ CPT entries. They can be reused across pages via `<!-- wp:block {"ref":ID} -->`.
 For client-friendly pages, package repeated page sections as synced or unsynced
 patterns where that matches the task. Use block supports for spacing, color,
 typography, layout, borders, and dimensions instead of hardcoded wrappers when
-the registered block supports them.
+the registered block supports them. Pattern **bodies** that contain static
+blocks still go through the finalizer when you write the `wp_block` post.
 
 ## Backup rule
 
 `stonewright/blocks-insert`, `stonewright/blocks-update`, and
-`stonewright/blocks-remove` call `Backup::snapshot_post` internally.
-`stonewright/fse-update-global-styles` and `stonewright/fse-update-template`
-do not; call MCP tool `stonewright-site-backup-page` before these.
+`stonewright/blocks-remove` call `Backup::snapshot_post` internally when they
+persist immediately. `stonewright-blocks-finalize-batch` snapshots before
+persist. `stonewright/fse-update-global-styles` and
+`stonewright/fse-update-template` do not; call MCP tool
+`stonewright-site-backup-page` before these.
+
+## Failure modes
+
+| Symptom | Code / signal | What you do |
+|---|---|---|
+| Name not registered | `block_not_registered` | Re-list. Do not invent names. |
+| PHP insert of a partial schema | `unknown_block_attributes` | Re-queue on the finalizer. |
+| Partial schema, queue accepted | `likely_partial_schema` | Leave the keys. Let the editor save. |
+| Item still `queued` | `finalizer_not_serialized` (409) | Open Block Editor Queue. Wait. Retry. |
+| Post changed under you | `content_conflict` (409) | Re-parse. Fresh hash. Re-queue. |
+| Heartbeat dead | `online: false` | Do not finalize. Do not PHP-serialize static blocks. |
+| Hash mismatch | `finalizer_hash_mismatch` | Discard the blob. Re-queue. |
+| Not a block theme | `fse_unavailable` | Skip template / global-style writes. Page body can still use the finalizer. |
+| Raw CSS in HTML | `stonewright_custom_code_approval_required` | Prefer block supports / preset slugs. Show `approval_url`. Stop. Retry only with `allow_raw_html` plus the human-issued `custom_code_grant`. Never strip the CSS. |
+| All-raw HTML tree | `stonewright_raw_html_refused` | Queue named core blocks. `allow_raw_html:true` only when the user explicitly wants raw HTML. |
+| theme.json `css` | `stonewright_custom_code_approval_required` | Use palette / typography / spacing first. Grant on `fse-write-global-styles` after dry-run approval. |
 
 ## Ability summary
 
 | Ability | Purpose |
 |---|---|
 | `stonewright/blocks-list-registered` | All registered block types |
-| `stonewright/blocks-get-schema` | block.json schema for a type |
-| `stonewright/blocks-parse` | Parse post content to block tree |
-| `stonewright/blocks-insert` | Insert block at path/position |
-| `stonewright/blocks-update` | Update block attrs/innerHTML |
+| `stonewright/blocks-get-schema` | block.json schema for a type (`likely_partial` when present) |
+| `stonewright/blocks-parse` | Parse the post to a block tree |
+| `stonewright-blocks-queue-change` | Queue `{name, attributes, innerBlocks}` for the finalizer |
+| `stonewright-blocks-finalizer-runtime` | `online`, pending count, Queue URL, editor frame URLs |
+| `stonewright-blocks-pending-batch` | Compact queued ids (no full spec) |
+| `stonewright-blocks-finalize-batch` | Persist hashed HTML after snapshot |
+| `stonewright/blocks-insert` | Server insert — true `save:null` only; queue visual sections |
+| `stonewright/blocks-update` | Server update — true `save:null` only; queue visual sections |
 | `stonewright/blocks-remove` | Remove block at path |
-| `stonewright/blocks-serialize` | Serialize block tree to HTML |
+| `stonewright/blocks-serialize` | Server serialize — `save:null` only |
 | `stonewright/blocks-transform-html` | Raw HTML -> block markup |
-| `stonewright/design-spec-to-gutenberg` | Spec-driven page build |
+| `stonewright/design-spec-to-gutenberg` | Spec-driven page build (still honor the finalizer) |
 | `stonewright/fse-get-theme-json` | Read merged theme.json |
 | `stonewright/fse-update-global-styles` | Write user global styles |
 | `stonewright/fse-list-templates` | List all templates |
@@ -137,4 +477,17 @@ do not; call MCP tool `stonewright-site-backup-page` before these.
 | `stonewright/patterns-create` | Create synced pattern |
 
 See `references/block-examples.md` for concrete block JSON payloads.
-See `references/fse-examples.md` for theme.json and template examples.
+Those examples that call `blocks-insert` for `core/group` are stale — queue
+static trees instead. See `references/fse-examples.md` for theme.json and
+template examples.
+
+## Motion
+
+Use `stonewright-design-motion-capabilities` → signed
+`stonewright-design-motion-plan` → `stonewright-design-motion-apply-gutenberg`.
+Resolve every semantic target to a current block path. Dry-run first, then apply
+once with the exact content hash; static blocks may return `queued_finalizer`
+and are not complete until the editor bridge saves and readback succeeds. Core
+preset classes are allowlisted, assets load only on marked documents, and
+no-JS/reduced-motion/browser evidence must be passed to
+`stonewright-design-quality-check`.

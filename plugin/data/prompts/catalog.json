@@ -33,9 +33,11 @@
       "tools": [
         "stonewright-task-start",
         "stonewright-site-pulse",
-        "stonewright-php-execute"
+        "stonewright-settings-update",
+        "stonewright-wp-cli-run",
+        "stonewright-site-health-test"
       ],
-      "prompt": "Use Stonewright. Start with stonewright-task-start, then stonewright-site-pulse. For each failed high/critical check, propose a concrete repair. Apply only reversible option/config fixes after confirming mode; skip production-safe destructive steps without tokens.",
+      "prompt": "Use Stonewright. Start with stonewright-task-start, then stonewright-site-pulse. For each failed high/critical check, propose a concrete repair. Apply only reversible fixes through typed abilities (stonewright-settings-update, stonewright-wp-cli-run, stonewright-site-health-test) after confirming mode; skip production-safe destructive steps without tokens. Do not use stonewright-php-execute for routine pulse repairs.",
       "verification": "Pulse score and fixes list present; any writes audited; no confirmation_token skipped in production-safe."
     },
     {
@@ -88,10 +90,10 @@
       "tools": [
         "stonewright-task-start",
         "stonewright-fse-list-templates",
-        "stonewright-gutenberg-parse-blocks",
+        "stonewright-blocks-parse",
         "stonewright-gutenberg-apply-to-post"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Read the homepage template and current hero blocks. Snapshot before writes. Update the hero for stronger headline, CTA, and mobile spacing while preserving theme.json tokens. Verify desktop and mobile.",
+      "prompt": "Use Stonewright. Call stonewright-task-start. Read the homepage template and current hero blocks with stonewright-blocks-parse. Snapshot before writes. Update the hero for stronger headline, CTA, and mobile spacing while preserving theme.json tokens. Verify desktop and mobile.",
       "verification": "Template/post updated; theme.json tokens unchanged unless explicitly requested."
     },
     {
@@ -139,11 +141,11 @@
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-media-stock-image-search",
-        "stonewright-media-stock-image-import",
+        "stonewright-stock-image-search",
+        "stonewright-stock-image-import",
         "stonewright-media-set-alt"
       ],
-      "prompt": "Use Stonewright. Start with stonewright-task-start. Search stock images for the homepage hero brief, import the best licensed result, set meaningful alt text, and report the attachment id for the page builder to use.",
+      "prompt": "Use Stonewright. Start with stonewright-task-start. Search stock images with stonewright-stock-image-search for the homepage hero brief, import the best licensed result with stonewright-stock-image-import, set meaningful alt text, and report the attachment id for the page builder to use.",
       "verification": "Attachment id returned; alt non-empty; license/source noted when available."
     },
     {
@@ -219,9 +221,12 @@
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-tool-profile"
+        "stonewright-tool-profile",
+        "stonewright-discover-abilities",
+        "stonewright-get-ability-info",
+        "stonewright-execute-ability"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. If a required tool is missing from the list, call stonewright-tool-profile with action=activate and profile=full (or the matching specialist profile). Then re-list tools (tools/list) before continuing. Do not invent shell or REST workarounds.",
+      "prompt": "Use Stonewright. Call stonewright-task-start. If a required tool is missing from the list, call stonewright-tool-profile with action=activate and profile=full (or the matching specialist profile), then re-list tools (tools/list) before continuing. When the client cannot hold the full catalog, use the compact discover-execute path: stonewright-discover-abilities → stonewright-get-ability-info → stonewright-execute-ability (php-execute stays off that profile). Do not invent shell or REST workarounds.",
       "verification": "tool-profile returns tools_changed/re_list_instruction when applicable; subsequent tools/list includes the needed tool."
     },
     {
@@ -244,11 +249,10 @@
         "stonewright-wc-catalog-audit",
         "stonewright-wc-product-list",
         "stonewright-wc-product-save",
-        "stonewright-wc-products",
-        "stonewright-wc-orders",
+        "stonewright-wc-order-list",
         "stonewright-wc-sales-report"
       ],
-      "prompt": "Use Stonewright and call stonewright-task-start first. Inspect the returned mode. In Plugin mode, call stonewright-wc-status and stonewright-wc-catalog-audit, then use native wc product, variation, attribute, and term abilities with dry_run:true before any approved write; read back exact fields after apply. In Direct mode, use only stonewright-wc-products, stonewright-wc-orders, and stonewright-wc-sales-report; do not attempt catalog writes. Never change payments, checkout, taxes, or live order state unless the user explicitly expands scope.",
+      "prompt": "Use Stonewright and call stonewright-task-start first. Inspect the returned mode. In Plugin mode, call stonewright-wc-status and stonewright-wc-catalog-audit, then use native wc product, variation, attribute, and term abilities with dry_run:true before any approved write; read back exact fields after apply. In Direct mode, use only stonewright-wc-product-list, stonewright-wc-order-list, and stonewright-wc-sales-report; do not attempt catalog writes. Never change payments, checkout, taxes, or live order state unless the user explicitly expands scope.",
       "verification": "Mode reported; Plugin writes have dry-run, permission, audit, confirmation when required, and readback receipts; Direct remains read-only."
     },
     {
@@ -265,11 +269,11 @@
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-site-discover",
-        "stonewright-content-list",
-        "stonewright-wc-products"
+        "stonewright-site-capabilities",
+        "stonewright-content-inventory",
+        "stonewright-wc-product-list"
       ],
-      "prompt": "Use Stonewright Direct mode. Call stonewright-task-start first, then stonewright-site-discover. Report active Direct capabilities, write mode, matched local skills, memory references, and recurring errors. Inspect content and WooCommerce only with typed read tools. Do not install the plugin, use shell WP-CLI, or create REST runner scripts unless I explicitly request a mode change.",
+      "prompt": "Use Stonewright Direct mode. Call stonewright-task-start first, then stonewright-site-capabilities. Report active Direct capabilities, write mode, matched local skills, memory references, and recurring errors. Inspect content with stonewright-content-inventory and WooCommerce with stonewright-wc-product-list only through typed read tools. Do not install the plugin, use shell WP-CLI, or create REST runner scripts unless I explicitly request a mode change.",
       "verification": "task-start reports Direct mode; no write occurs; no credential, absolute state path, or private sites.json content appears in output."
     },
     {
@@ -287,11 +291,11 @@
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-setup-profile",
-        "stonewright-wordpress-mcp-status",
-        "stonewright-client-surface-check"
+        "stonewright-ping",
+        "stonewright-site-info",
+        "stonewright-tool-profile"
       ],
-      "prompt": "Help me update Stonewright without exposing credentials. Determine whether this setup uses Plugin mode, Direct mode, local stdio, or remote HTTP. Plugin mode: update the WordPress ZIP through the native updater. Local stdio or Direct: update the pinned companion release tarball separately. Remote HTTP: no local companion update is required. After the user restarts the MCP client, call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and client-surface-check. Confirm plugin version where applicable, companion_version where applicable, expected_companion_package, startup_ready, and an empty refresh_required_tool_names list. Never inspect or print private client config.",
+      "prompt": "Help me update Stonewright without exposing credentials. Determine whether this setup uses Plugin mode, Direct mode, local stdio, or remote HTTP. Plugin mode: update the WordPress ZIP through the native updater. Local stdio or Direct: update the pinned companion release tarball separately. Remote HTTP: no local companion update is required. After the user restarts the MCP client, call stonewright-task-start, stonewright-ping, stonewright-site-info, and stonewright-tool-profile. When the companion is local, also call stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check. Confirm plugin version where applicable, companion_version where applicable, expected_companion_package, startup_ready, and an empty refresh_required_tool_names list. Never inspect or print private client config.",
       "verification": "Live mode and versions match the selected release; startup_ready is true; required tool list is complete; persistent memory, skills, and audit were not reset."
     },
     {
@@ -310,6 +314,84 @@
       ],
       "prompt": "Use Stonewright. Call stonewright-task-start. Digest the page, then stonewright-elementor-v3-transaction-run with stop_on_error and rollback_on_error. Prefer native widgets. If readback fails, confirm automatic rollback and report snapshot id.",
       "verification": "Transaction result ok or rolled_back with snapshot; no partial silent failure."
+    },
+    {
+      "id": "fix-connection-troubleshoot",
+      "title": "Fix my connection",
+      "outcome": "ops",
+      "modes": [
+        "plugin",
+        "direct"
+      ],
+      "summary": "Diagnose MCP connection, alias, profile, and tool-surface mismatches without exposing secrets.",
+      "prerequisites": [
+        "Stonewright companion or plugin configured",
+        "Ability to restart the MCP client"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-ping",
+        "stonewright-site-info",
+        "stonewright-tool-profile"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start first. If the client cannot reach WordPress, run stonewright-ping and stonewright-site-info, then follow the Troubleshoot flow from Stonewright > Setup (or the companion connect verify/repair path for local stdio). Confirm the active alias, configured_mode, active_mode, companion_version, and that stonewright-task-start appears in tools/list after restart. If tools are truncated, call stonewright-tool-profile activate with the matching profile and re-list tools. Never print Application Passwords, OAuth tokens, or private client config.",
+      "verification": "Connection mode and alias reported; task-start visible after restart; no credentials or private config in output."
+    },
+    {
+      "id": "block-theme-section-finalizer",
+      "title": "Build a section on my block theme",
+      "outcome": "gutenberg",
+      "summary": "Queue block changes through the Block Editor Queue finalizer instead of hand-editing serialized HTML.",
+      "prerequisites": [
+        "Block theme active",
+        "Block Editor Queue tab reachable in wp-admin",
+        "edit_posts capability"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-blocks-finalizer-runtime",
+        "stonewright-blocks-queue-change",
+        "stonewright-blocks-finalize-batch",
+        "stonewright-blocks-parse"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Read the target template or page with stonewright-blocks-parse, then stonewright-blocks-finalizer-runtime to confirm the Block Editor Queue is online. Queue one section change with stonewright-blocks-queue-change, complete the browser finalizer step, and persist with stonewright-blocks-finalize-batch after snapshot. Preserve theme.json tokens unless I explicitly request brand changes. Verify desktop and mobile.",
+      "verification": "Finalizer runtime online; queued change finalized with readback; section renders without horizontal overflow at 390px."
+    },
+    {
+      "id": "elementor-performance-audit",
+      "title": "Audit Elementor performance",
+      "outcome": "elementor",
+      "summary": "Measure document, settings, backup, and revision size without exposing content.",
+      "prerequisites": [
+        "Elementor active",
+        "Existing Elementor page id"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-elementor-performance-audit",
+        "stonewright-elementor-page-digest"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-elementor-performance-audit for page {{post_id}}. Summarize bounded size metrics, backup/revision debt, and the top three remediation steps. Use stonewright-elementor-page-digest only if structure context is needed. Do not mutate the document unless I explicitly expand scope.",
+      "verification": "Performance audit metrics returned; remediation list is actionable; no raw _elementor_data dump."
+    },
+    {
+      "id": "page-builder-library-introspection",
+      "title": "What can you do with my page builder?",
+      "outcome": "inspect",
+      "summary": "Report Elementor and third-party block-library capabilities available on this site.",
+      "prerequisites": [
+        "Stonewright plugin active",
+        "At least one page builder or block library installed"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-site-capabilities",
+        "stonewright-elementor-v3-status",
+        "stonewright-blocks-library-check-setup",
+        "stonewright-blocks-library-list-blocks"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-site-capabilities. Report whether Elementor, Gutenberg/FSE, GenerateBlocks, Kadence, Spectra, or Blocksy is active. When Elementor is present, call stonewright-elementor-v3-status. When a third-party block library is active, call stonewright-blocks-library-check-setup and stonewright-blocks-library-list-blocks for that library. Summarize what I can build natively on this site without inventing widgets or block attributes.",
+      "verification": "Active builders/libraries listed with version signals; no invented widget or block schemas."
     },
     {
       "id": "custom-code-human-approval",

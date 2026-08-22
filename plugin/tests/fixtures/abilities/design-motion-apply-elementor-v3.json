@@ -1,0 +1,27 @@
+{
+  "args": {
+    "post_id": 1,
+    "dry_run": true,
+    "plan": {
+      "renderer": "elementor-v3",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operations": [
+        { "op": "settings-evidence-patch", "target_id": "hero-copy", "capability": "entrance_animations", "semantic_effect": "fade-up", "requires_schema_evidence": true, "pro_required": false }
+      ]
+    },
+    "targets": [ { "target_id": "hero-copy", "element_id": "elem123", "widget_type": "heading" } ],
+    "evidence": {
+      "hero-copy": {
+        "control_key": "_animation",
+        "value": "fadeInUp",
+        "capability": "entrance_animations",
+        "semantic_effect": "fade-up",
+        "schema_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "runtime_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_plugin": "runtime:fixture",
+        "source_version": ""
+      }
+    }
+  },
+  "expect": "ok"
+}

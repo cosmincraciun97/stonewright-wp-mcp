@@ -36,20 +36,18 @@ final class BlockSerializer {
 	 * @return array<string, mixed>
 	 */
 	public static function normalize( array $block ): array {
-		$name        = $block['blockName'] ?? ( $block['name'] ?? null );
-		$attrs       = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
-		$inner_html  = (string) ( $block['innerHTML'] ?? '' );
-		$inner_blocks = array_map( [ self::class, 'normalize' ], (array) ( $block['innerBlocks'] ?? [] ) );
+		$name         = $block['blockName'] ?? ( $block['name'] ?? null );
+		$attrs        = self::input_attrs( $block );
+		$inner_html   = (string) ( $block['innerHTML'] ?? '' );
+		$inner_blocks = array_map(
+			[ self::class, 'normalize' ],
+			array_values( array_filter( (array) ( $block['innerBlocks'] ?? [] ), 'is_array' ) )
+		);
 
 		$inner_content = $block['innerContent'] ?? null;
-		if ( null === $inner_content ) {
-			$inner_content = [];
-			if ( '' !== $inner_html ) {
-				$inner_content[] = $inner_html;
-			}
-			foreach ( $inner_blocks as $_ ) {
-				$inner_content[] = null;
-			}
+		if ( ! is_array( $inner_content ) || ( [] !== $inner_blocks && ! in_array( null, $inner_content, true ) ) ) {
+			$inner_content = '' !== $inner_html ? [ $inner_html ] : [];
+			$inner_content = array_merge( $inner_content, array_fill( 0, count( $inner_blocks ), null ) );
 		}
 
 		return [
@@ -59,6 +57,25 @@ final class BlockSerializer {
 			'innerContent' => $inner_content,
 			'innerBlocks'  => $inner_blocks,
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $block
+	 * @return array<string, mixed>
+	 */
+	private static function input_attrs( array $block ): array {
+		foreach ( [ 'attributes', 'attrs' ] as $key ) {
+			if ( ! isset( $block[ $key ] ) ) {
+				continue;
+			}
+			if ( is_array( $block[ $key ] ) ) {
+				return $block[ $key ];
+			}
+			if ( is_object( $block[ $key ] ) ) {
+				return (array) $block[ $key ];
+			}
+		}
+		return [];
 	}
 
 	/**

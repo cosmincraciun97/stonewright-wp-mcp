@@ -4,7 +4,7 @@ Stonewright has two parts:
 
 - WordPress plugin: registers the `stonewright/*` abilities.
 - Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
-  MCP endpoint, exposes php-execute, and runs tokenized WP-CLI.
+  MCP endpoint, exposes php-execute (**full** profile only), and runs tokenized WP-CLI.
 
 **Local stdio** means the AI client starts the companion on the user's computer
 and exchanges MCP messages with that local process through standard
@@ -71,7 +71,8 @@ Set Application Password credentials and point at the site URL. With
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
 `--mode plugin-only`; `auto` is appropriate only when intentional Direct
-fallback is part of the connection policy.
+fallback is part of the connection policy. Working stdio client ids: cursor,
+claude-desktop, vscode-copilot, codex, generic-mcp.
 
 ```json
 {
@@ -109,6 +110,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --password-env STONEWRIGHT_TMP_APP_PASSWORD \
   --env staging \
   --mode plugin-only \
+  --profile essential-static \
   --plugin-enabled yes \
   --wp-mode staging \
   --wp-surface essential \
@@ -147,7 +149,7 @@ install consent. After restarting the client, prove the saved entry end to end:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
 ```
 
-Verification spawns the configured stdio server, confirms the active alias and
+Verification spawns the configured stdio server, confirms site_alias and
 companion version when observable, lists tools, calls `stonewright-task-start`
 and status, checks required tools, and stores a surface digest. The receipt
 prints safe runtime proof, including `refresh_required_tool_names`; a non-empty
@@ -179,7 +181,8 @@ Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
 WordPress Application Password. The setup diagnostics panel blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing.
+is missing. **Stonewright → Troubleshoot** runs the same probes in place with a
+loading state; see [Troubleshoot](admin/troubleshoot.md).
 
 Fastest MCP-client setup uses the alias installer, so Windows, macOS, and Linux
 do not need a shell wrapper, global install, duplicate server block, or secret
@@ -203,8 +206,9 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, php-execute, and
-WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
+Stonewright companion so setup, status, compact profiles, php-execute (full
+profile only), and WP-CLI tools stay visible even while the WordPress endpoint
+is being fixed.
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the safe default for an
 unknown client. It exposes a bounded useful catalog plus permanent recovery
 gateways without depending on the client to process `tools/list_changed`.
@@ -223,10 +227,12 @@ avoid broad discovery.
 For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 `~/.gemini/config/mcp_config.json` and the dedicated
 [Antigravity setup guide](getting-started/antigravity.md).
-For Codex CLI or the Codex IDE extension, use
-[`~/.codex/config.toml`](getting-started/codex.md) or a trusted project
-`.codex/config.toml`; installer-managed Codex MCP entries use alias-specific
-TOML tables such as `[mcp_servers.stonewright-site-a]`, not JSON.
+For Codex CLI, use [`--client codex-cli`](getting-started/codex.md) and
+`~/.codex/config.toml` (or a trusted project `.codex/config.toml`). For Codex
+in ChatGPT Desktop, use [`--client chatgpt-desktop`](getting-started/codex.md)
+and `~/Library/Application Support/ChatGPT/mcp_config.json`. Do not paste CLI
+TOML into the Desktop JSON file. Installer-managed Codex CLI entries use
+alias-specific TOML tables such as `[mcp_servers.stonewright-site-a]`.
 
 Before the first WordPress task, verify the client tool list includes
 `stonewright-task-start` (canonical) or compatibility
@@ -245,7 +251,7 @@ calls, and
 loaded Stonewright MCP server.
 After installing a new Stonewright release or syncing local skills, restart the
 MCP client and rerun `stonewright-setup-profile` plus
-`stonewright-wordpress-mcp-status`. Compare `companion_version`,
+`stonewright-wordpress-mcp-status`. Compare `site_alias`, `companion_version`,
 `expected_companion_package`, and `refresh_required_tool_names` with the visible
 tool list. Missing refresh-required tools mean the client is still using a stale
 companion process or cached tool surface.

@@ -938,6 +938,33 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.profile_missing_tool_names).not.toContain('stonewright-wp-cli-batch-run');
 		expect(response.structuredContent?.recovery).toContain('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
 	});
+
+	it('registers command recipe tools on WP-CLI-capable profiles only', async () => {
+		const baseEnv = {
+			STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+			WP_API_USERNAME: 'admin',
+			WP_API_PASSWORD: 'pw',
+		};
+		const commandTools = ['stonewright-command-list', 'stonewright-command-get', 'stonewright-command-run'];
+
+		const capable = await createMcpServer({
+			env: { ...baseEnv, STONEWRIGHT_MCP_TOOL_PROFILE: 'wp-cli' },
+			fetchImpl: stonewrightMcpFetch([]),
+		});
+		const capableNames = registeredToolNames(capable);
+		for (const tool of commandTools) {
+			expect(capableNames, `wp-cli profile should register ${tool}`).toContain(tool);
+		}
+
+		const compact = await createMcpServer({
+			env: { ...baseEnv, STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static' },
+			fetchImpl: stonewrightMcpFetch([]),
+		});
+		const compactNames = registeredToolNames(compact);
+		for (const tool of commandTools) {
+			expect(compactNames, `essential-static must not register ${tool}`).not.toContain(tool);
+		}
+	});
 });
 
 function registeredToolNames(server: unknown): string[] {

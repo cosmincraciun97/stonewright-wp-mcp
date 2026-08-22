@@ -1,0 +1,7 @@
+{
+    "args": {
+        "theme": "blocksy",
+        "dry_run": true
+    },
+    "expect_permission_error": true
+}

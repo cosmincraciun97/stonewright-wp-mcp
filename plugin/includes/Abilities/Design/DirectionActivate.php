@@ -12,16 +12,17 @@ use Stonewright\WpMcp\Security\Permissions;
 /**
  * Ability: stonewright/design-direction-activate
  *
- * Points the site at a different design direction. This replaces the answer to
- * "what should this site look like" for every later render and verification
- * step, so it is gated like a destructive write: the registry requires the task
- * context token, and production-safe mode requires a confirmation token bound
- * to this exact direction id — a token issued for one direction cannot activate
- * another.
+ * Sets or clears the active design direction. Passing a ready direction id
+ * points the site at that contract; passing 0 clears the pointer so later
+ * render and verification steps have no active direction. The write is gated
+ * like a destructive change: the registry requires the task context token, and
+ * production-safe mode requires a confirmation token bound to this exact id —
+ * a token issued for one direction cannot activate another, and a token for a
+ * positive id cannot deactivate.
  *
  * Only a contract whose readiness reports ready can be activated; the service
- * enforces that, and the pointer is read back before the receipt claims
- * success.
+ * enforces that. Deactivate does not require a stored record. The pointer is
+ * read back before the receipt claims success.
  *
  * @stonewright-status stable
  */
@@ -40,11 +41,11 @@ final class DirectionActivate extends AbilityKernel {
 	}
 
 	public function label(): string {
-		return __( 'Activate design direction', 'stonewright' );
+		return __( 'Set active design direction', 'stonewright' );
 	}
 
 	public function description(): string {
-		return __( 'Makes a ready design direction the active one for the site. Requires a confirmation token in production-safe mode.', 'stonewright' );
+		return __( 'Sets or clears the active design direction. Pass a ready direction id to activate it, or 0 to deactivate. Requires a confirmation token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -58,7 +59,8 @@ final class DirectionActivate extends AbilityKernel {
 			'properties'           => [
 				'id'                 => [
 					'type'        => 'integer',
-					'description' => 'Direction id to activate.',
+					'minimum'     => 0,
+					'description' => 'Direction id to activate, or 0 to clear the active direction.',
 				],
 				'confirmation_token' => [
 					'type'        => 'string',
@@ -102,10 +104,10 @@ final class DirectionActivate extends AbilityKernel {
 			function ( array $args ): array|\WP_Error {
 				$id = isset( $args['id'] ) ? (int) $args['id'] : 0;
 
-				if ( $id < 1 ) {
+				if ( $id < 0 ) {
 					return new \WP_Error(
 						DirectionContract::ERROR_CODE,
-						__( 'A positive design direction id is required.', 'stonewright' ),
+						__( 'A non-negative design direction id is required.', 'stonewright' ),
 						[ 'status' => 400 ]
 					);
 				}
@@ -115,7 +117,9 @@ final class DirectionActivate extends AbilityKernel {
 					return $blocked;
 				}
 
-				$result = $this->service->activate( $id, get_current_user_id() );
+				$result = 0 === $id
+					? $this->service->deactivate( get_current_user_id() )
+					: $this->service->activate( $id, get_current_user_id() );
 				if ( $result instanceof \WP_Error ) {
 					return $result;
 				}
@@ -125,7 +129,9 @@ final class DirectionActivate extends AbilityKernel {
 				if ( $active_id !== $id ) {
 					return new \WP_Error(
 						'stonewright_direction_verification_failed',
-						__( 'The active design direction pointer does not name the activated direction.', 'stonewright' ),
+						0 === $id
+							? __( 'The active design direction pointer was not cleared.', 'stonewright' )
+							: __( 'The active design direction pointer does not name the activated direction.', 'stonewright' ),
 						[
 							'status'              => 500,
 							'direction_id'        => $id,
@@ -138,15 +144,15 @@ final class DirectionActivate extends AbilityKernel {
 				return $this->ok(
 					[
 						'id'                  => $id,
-						'slug'                => (string) $result['slug'],
+						'slug'                => (string) ( $result['slug'] ?? '' ),
 						'status'              => (string) $result['status'],
-						'revision'            => (int) $result['revision'],
-						'contract_hash'       => (string) $result['hash_after'],
+						'revision'            => (int) ( $result['revision'] ?? 0 ),
+						'contract_hash'       => 0 === $id ? '' : (string) $result['hash_after'],
 						'active_id'           => $active_id,
 						'previous_active_id'  => (int) $result['previous_active_id'],
 						'before_sha256'       => (string) $result['hash_before'],
 						'after_sha256'        => (string) $result['hash_after'],
-						'operation_class'     => 'design_direction.activate',
+						'operation_class'     => 0 === $id ? 'design_direction.deactivate' : 'design_direction.activate',
 						'resource_type'       => 'design_direction',
 						'verification_status' => 'verified',
 						'effect_verified'     => true,

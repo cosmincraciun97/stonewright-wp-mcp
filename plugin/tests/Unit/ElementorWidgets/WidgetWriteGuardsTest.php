@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorWidgets;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidgets\AddHeading;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\AddWidget
@@ -111,5 +112,39 @@ final class WidgetWriteGuardsTest extends TestCase {
 			'custom',
 			$tree[0]['elements'][0]['settings']['typography_typography']
 		);
+	}
+
+	public function test_dedicated_widget_requires_confirmation_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$GLOBALS['stonewright_test_current_user_id']            = 1;
+		$GLOBALS['stonewright_test_transients']                 = [];
+
+		$args = [
+			'post_id'   => 321,
+			'parent_id' => 'root',
+			'settings'  => [
+				'title' => 'Become an exhibitor at Example Conference',
+			],
+		];
+
+		$blocked = ( new AddHeading() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/elementor-add-heading', $args );
+		$result = ( new AddHeading() )->execute( $args );
+		self::assertIsArray( $result );
+		self::assertSame( 321, $result['post_id'] );
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		$dev = ( new AddHeading() )->execute(
+			[
+				'post_id'   => 321,
+				'parent_id' => 'root',
+				'settings'  => [ 'title' => 'Dev heading' ],
+			]
+		);
+		self::assertIsArray( $dev );
 	}
 }

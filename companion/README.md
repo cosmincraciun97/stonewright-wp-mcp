@@ -245,6 +245,25 @@ alias-specific client entry. It does not require the Application Password again.
 For a client managed by its own CLI, omit `--client`; the same command updates
 only the saved site policy and leaves external client configuration untouched.
 
+### Command recipes (local WP-CLI)
+
+Save parameterized WP-CLI recipes per site, plan them, and run them locally:
+
+```text
+stonewright command add --site <alias> --file <recipe.json> [--replace]
+stonewright command list --site <alias> [--json]
+stonewright command show <slug> --site <alias> [--json]
+stonewright command remove <slug> --site <alias> --confirm <slug>
+stonewright command plan <slug> --site <alias> --param key=value [--json]
+stonewright command run <slug> --site <alias> --param key=value [--plan <id> --approve <sha256>] [--json]
+```
+
+Recipes are tokenized argv only (no shell, no PHP steps). Any recipe with a
+write step must end with a read-only step carrying an expectation, and write
+runs require a fresh one-use plan approved with its SHA-256. Exit codes: 0 =
+verified success, 1 = failure, 2 = approval required. Recipes need a local
+WordPress root bound with `stonewright connect add|repair --wp-root <path>`.
+
 ### Doctor (connection health)
 
 ```bash
@@ -424,6 +443,13 @@ idempotent — if the phar already exists it is reused without re-downloading.
 - `stonewright-wp-cli-job-start` — start long WP-CLI work without blocking the MCP request
 - `stonewright-wp-cli-job-status` — poll a WP-CLI background job
 - `stonewright-wp-cli-install` — manually trigger phar download into cache
+
+- `stonewright-command-list` — list saved local WP-CLI command recipes for this site (bounded summary)
+- `stonewright-command-get` — return one saved recipe as JSON; runs nothing
+- `stonewright-command-run` — run a saved recipe: read-only recipes run directly, write recipes require a one-use plan (`plan_id` + `plan_sha256`)
+
+Command tools appear only on the `wp-cli`, `site-admin`, `full`, and
+`discover-execute` profiles.
 
 - `stonewright-setup-profile` - one-call setup diagnostics and copy-paste MCP config
 - `stonewright-wordpress-mcp-status` - inspect proxied WordPress MCP connection status

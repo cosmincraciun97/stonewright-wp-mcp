@@ -31,7 +31,8 @@ final class MemoryInstructionsPageTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_options'] = [];
-		$_GET = [];
+		$_GET  = [];
+		$_POST = [];
 	}
 
 	public function test_incident_lifecycle_tab_does_not_render_ordinary_memory_table(): void {
@@ -128,6 +129,131 @@ final class MemoryInstructionsPageTest extends TestCase {
 		);
 	}
 
+	public function test_enable_checkboxes_post_hidden_zero_so_uncheck_persists(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/<input[^>]+type="hidden"[^>]+name="stonewright_custom_instructions_enabled"[^>]+value="0"[^>]*>.*'
+			. '<input[^>]+type="checkbox"[^>]+name="stonewright_custom_instructions_enabled"[^>]+value="1"/s',
+			$html
+		);
+		self::assertMatchesRegularExpression(
+			'/<input[^>]+type="hidden"[^>]+name="stonewright_memory_enabled"[^>]+value="0"[^>]*>.*'
+			. '<input[^>]+type="checkbox"[^>]+name="stonewright_memory_enabled"[^>]+value="1"/s',
+			$html
+		);
+	}
+
+	public function test_draft_rows_render_approve_and_discard_actions(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows(
+			[
+				[
+					'id'          => '12',
+					'type'        => 'reference',
+					'scope'       => 'audit',
+					'memory_key'  => 'draft-lesson-abc',
+					'name'        => 'Draft lesson: spec invalid',
+					'value_json'  => wp_json_encode( [ 'proposed_remediation' => 'Validate the spec first.' ] ),
+					'confidence'  => '1.0000',
+					'status'      => 'draft',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+			],
+			true
+		);
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'stonewright_memory_approve_draft', $html );
+		self::assertStringContainsString( 'stonewright_memory_discard_draft', $html );
+		self::assertStringContainsString( '>Approve<', $html );
+		self::assertStringContainsString( '>Discard<', $html );
+		self::assertStringContainsString( 'name="id" value="12"', $html );
+	}
+
+	public function test_approve_draft_requires_manage_options_and_sets_active(): void {
+		$wpdb = $this->make_memory_wpdb(
+			[
+				[
+					'id'          => 12,
+					'type'        => 'reference',
+					'scope'       => 'audit',
+					'memory_key'  => 'draft-lesson-abc',
+					'name'        => 'Draft lesson',
+					'value_json'  => wp_json_encode( [ 'proposed_remediation' => 'Fix it.' ] ),
+					'status'      => 'draft',
+					'confidence'  => 1.0,
+					'topic'       => 'Draft lesson',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+			]
+		);
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$GLOBALS['stonewright_test_user_caps']['manage_options'] = false;
+		$_POST = [ 'id' => '12' ];
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessageMatches( '/wp_die/' );
+		try {
+			MemoryInstructionsPage::handle_approve_draft();
+		} finally {
+			$GLOBALS['stonewright_test_user_caps']['manage_options'] = true;
+			$_POST = [];
+		}
+	}
+
+	public function test_approve_and_discard_transition_draft_status(): void {
+		$wpdb = $this->make_memory_wpdb(
+			[
+				[
+					'id'          => 12,
+					'type'        => 'reference',
+					'scope'       => 'audit',
+					'memory_key'  => 'draft-lesson-abc',
+					'name'        => 'Draft lesson',
+					'value_json'  => wp_json_encode( [ 'proposed_remediation' => 'Fix it.' ] ),
+					'status'      => 'draft',
+					'confidence'  => 1.0,
+					'topic'       => 'Draft lesson',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+				[
+					'id'          => 13,
+					'type'        => 'reference',
+					'scope'       => 'audit',
+					'memory_key'  => 'draft-lesson-def',
+					'name'        => 'Other draft',
+					'value_json'  => wp_json_encode( [ 'proposed_remediation' => 'Other.' ] ),
+					'status'      => 'draft',
+					'confidence'  => 1.0,
+					'topic'       => 'Other draft',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+			]
+		);
+		$GLOBALS['wpdb'] = $wpdb;
+
+		self::assertTrue( MemoryInstructionsPage::apply_draft_review( 12, 'approve' ) );
+		self::assertTrue( MemoryInstructionsPage::apply_draft_review( 13, 'discard' ) );
+
+		$approved = \Stonewright\WpMcp\Memory\Memory::get_by_id( 12 );
+		$discarded = \Stonewright\WpMcp\Memory\Memory::get_by_id( 13 );
+		self::assertIsArray( $approved );
+		self::assertIsArray( $discarded );
+		self::assertSame( 'active', $approved['status'] );
+		self::assertSame( 'rejected', $discarded['status'] );
+	}
+
 	public function test_render_surfaces_schema_health_notice_when_table_broken(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], false );
 
@@ -186,6 +312,66 @@ final class MemoryInstructionsPageTest extends TestCase {
 					'created_at',
 					'updated_at',
 					'last_retrieved_at',
+				];
+			}
+		};
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $rows
+	 */
+	private function make_memory_wpdb( array $rows ): object {
+		return new class( $rows ) {
+			public string $prefix     = 'wp_';
+			public int $insert_id     = 0;
+			public string $last_error = '';
+			/** @var array<int, array<string, mixed>> */
+			public array $rows = [];
+			/** @var array<int, mixed> */
+			public array $last_prepare_args = [];
+
+			/** @param array<int, array<string, mixed>> $rows */
+			public function __construct( array $rows ) {
+				$this->rows = $rows;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->last_prepare_args = $args;
+				return $query;
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				$id = (int) ( $this->last_prepare_args[0] ?? 0 );
+				foreach ( $this->rows as $row ) {
+					if ( (int) $row['id'] === $id ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
+			public function get_var( string $query ): mixed {
+				return null;
+			}
+
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				$id = (int) ( $where['id'] ?? 0 );
+				foreach ( $this->rows as $i => $row ) {
+					if ( (int) $row['id'] === $id ) {
+						$this->rows[ $i ] = array_merge( $row, $data, [ 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ] );
+						return 1;
+					}
+				}
+				return 0;
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [
+					'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence',
+					'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence',
+					'created_by', 'created_at', 'updated_at', 'last_retrieved_at',
 				];
 			}
 		};

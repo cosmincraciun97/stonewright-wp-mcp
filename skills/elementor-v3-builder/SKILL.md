@@ -5,6 +5,7 @@ description: >
   screenshots, images, or briefs, plus pages, widgets, Loop Grid, templates,
   kit styles, responsive edits, and safe batch mutations. Use whenever a task
   reads, plans, builds, or repairs an Elementor V3 page or template.
+version_constraints: {"elementor": "required"}
 ---
 
 # Elementor V3 Builder
@@ -347,6 +348,17 @@ After building a page, optionally save it as a reusable template:
 
 Returns `{ "template_id": 150 }`.
 
+## Native-first styling (both builders)
+
+1. Typed widget controls from the live schema (and Gutenberg block supports /
+   theme preset slugs on block-theme work).
+2. Kit colors, typography, and approved CSS classes — never invent class names.
+3. Custom CSS only after a proven native gap, via `stonewright/theme-custom-css`
+   or the matching gated write with a human-issued `custom_code_grant`.
+   `custom_css` / `_custom_css` keys, Gutenberg style-tag HTML, and theme.json
+   `css` all return `stonewright_custom_code_approval_required` without that
+   grant. Show `approval_url`, then stop. Do not strip the CSS.
+
 ## Ability summary
 
 | Ability | Purpose |
@@ -388,3 +400,13 @@ Reply YES to proceed."
 
 See `references/widget-examples.md` for concrete widget payloads.
 See `references/kit-examples.md` for kit mutation examples.
+
+## Motion
+
+Use `stonewright-design-motion-capabilities` → `stonewright-design-motion-plan`
+→ `stonewright-design-motion-apply-elementor-v3`. The apply evidence must copy
+the current widget schema identity (`schema_hash`, `runtime_fingerprint`,
+`source_plugin`, `source_version`) and may use only `_animation*` for entrance
+or `_motion_fx_*` for Pro motion effects. Run dry-run first; a write requires a
+fresh `expected_tree_hash`, one consolidated sparse batch, post-write verify,
+editor reopen, and responsive frontend evidence.

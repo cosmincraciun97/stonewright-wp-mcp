@@ -3,9 +3,12 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Pages\ContextPage;
+use Stonewright\WpMcp\Admin\Pages\DesignPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
+use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
@@ -34,14 +37,33 @@ final class AdminBootstrap {
 		// Design Library admin UI (Design Studio / Visual Workspace / Blueprints)
 		// is intentionally not registered. Typed design abilities remain available
 		// over MCP; storage tables/options are preserved.
+		DesignPage::register();
+		ContextPage::register();
+		TroubleshootPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
 		// DesignStudioRestApi stays unregistered with the Design Library UI.
 		add_action( 'rest_api_init', [ SkillsRestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
+		add_action( 'admin_head', [ self::class, 'output_menu_styles' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
 		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
+		add_filter( 'kses_allowed_protocols', [ self::class, 'allow_cursor_protocol' ] );
+	}
+
+	/**
+	 * Allow Cursor one-click MCP install links through WordPress URL sanitization.
+	 *
+	 * @param list<string> $protocols Allowed URL schemes.
+	 * @return list<string>
+	 */
+	public static function allow_cursor_protocol( array $protocols ): array {
+		if ( ! in_array( 'cursor', $protocols, true ) ) {
+			$protocols[] = 'cursor';
+		}
+
+		return $protocols;
 	}
 
 	/**
@@ -69,6 +91,27 @@ final class AdminBootstrap {
 			)
 		);
 		echo '</p></div>';
+	}
+
+	/**
+	 * Sidebar Experimental marker. shell.css only loads on Stonewright pages;
+	 * the left menu is visible everywhere in wp-admin.
+	 */
+	public static function output_menu_styles(): void {
+		if ( ! is_admin() ) {
+			return;
+		}
+		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		echo '<style id="stonewright-admin-menu">'
+			. '#adminmenu .wp-submenu li:has(.sw-menu-exp),#adminmenu .wp-submenu a:has(.sw-menu-exp){overflow:visible;}'
+			. '#adminmenu .wp-submenu a:has(.sw-menu-exp){display:grid;grid-template-columns:minmax(0,max-content) auto;justify-content:start;justify-items:start;column-gap:10px;align-items:start;white-space:normal;}'
+			. '#adminmenu .wp-submenu a .sw-menu-label{min-width:0;white-space:normal;overflow-wrap:break-word;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp,#adminmenu .wp-submenu li.current a .sw-menu-exp,#adminmenu .wp-submenu a:hover .sw-menu-exp,#adminmenu .wp-submenu a:focus .sw-menu-exp{grid-column:2;grid-row:1;float:none;margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;display:inline-flex;align-items:center;height:18px;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:1;text-transform:uppercase;color:#fff;white-space:nowrap;cursor:help;position:relative;}'
+			. '#adminmenu .sw-menu-exp:hover::after,#adminmenu .sw-menu-exp:focus-visible::after{content:attr(data-tip);position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px;padding:5px 8px;background:#1d2327;color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:1.3;text-transform:none;white-space:nowrap;border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.28);z-index:100000;pointer-events:none;}'
+			. '</style>' . "\n";
 	}
 
 	/**
@@ -146,6 +189,7 @@ final class AdminBootstrap {
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
 			'stonewright'               => 'setup.css',
+			'stonewright-troubleshoot' => 'setup.css',
 			'stonewright-abilities'     => 'abilities.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
@@ -154,6 +198,8 @@ final class AdminBootstrap {
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
+			'stonewright-design'        => 'skills-memory.css',
+			'stonewright-context'       => 'skills-memory.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -194,7 +240,7 @@ final class AdminBootstrap {
 			);
 		}
 
-		if ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
+		if ( 'stonewright' === $page || 'stonewright-troubleshoot' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
 			wp_localize_script(
 				'stonewright-admin',
 				'stonewrightSetup',

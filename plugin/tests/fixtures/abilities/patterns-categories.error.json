@@ -1,0 +1,7 @@
+{
+    "args": {
+        "action": "assign",
+        "id": 1
+    },
+    "expect_permission_error": true
+}

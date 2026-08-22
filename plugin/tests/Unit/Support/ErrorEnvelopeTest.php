@@ -43,4 +43,64 @@ final class ErrorEnvelopeTest extends TestCase {
 		self::assertArrayNotHasKey( 'password', $data );
 		self::assertArrayNotHasKey( 'spec', $data );
 	}
+
+	public function test_schema_requests_survive_envelope_and_mcp_message(): void {
+		$error = new \WP_Error(
+			'stonewright_batch_operation_failed',
+			'Elementor setting evidence is incomplete or stale.',
+			[
+				'status'          => 400,
+				'cause_code'      => 'stonewright_elementor_evidence_invalid',
+				'setting'         => 'title',
+				'widget_type'     => 'heading',
+				'schema_requests' => [
+					[
+						'ability' => 'stonewright/elementor-schema',
+						'input'   => [
+							'mode'        => 'summary',
+							'widget_type' => 'heading',
+							'query'       => 'title',
+						],
+					],
+				],
+				'token'           => 'must-not-leak',
+			]
+		);
+
+		$envelope = ErrorEnvelope::from_wp_error( $error );
+		$data     = $envelope['error']['data'] ?? [];
+		self::assertSame( 'stonewright/elementor-schema', $data['schema_requests'][0]['ability'] );
+		self::assertSame( 'heading', $data['widget_type'] );
+		self::assertArrayNotHasKey( 'token', $data );
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		self::assertStringContainsString( '"schema_requests"', $visible->get_error_message() );
+		self::assertStringContainsString( 'elementor-schema', $visible->get_error_message() );
+		self::assertSame( 'must-not-leak', $visible->get_error_data()['token'] );
+	}
+
+	public function test_nested_item_schema_request_is_copied_into_mcp_message(): void {
+		$error = new \WP_Error(
+			'stonewright_batch_operation_failed',
+			'Elementor batch operation 0 (update_element) failed.',
+			[
+				'items' => [
+					[
+						'ok'    => false,
+						'error' => [
+							'data' => [
+								'schema_request' => [
+									'ability' => 'stonewright/elementor-v3-container-schema',
+									'input'   => [ 'query' => 'padding' ],
+								],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		self::assertStringContainsString( 'elementor-v3-container-schema', $visible->get_error_message() );
+	}
 }

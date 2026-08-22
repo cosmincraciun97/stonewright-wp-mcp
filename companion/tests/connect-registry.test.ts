@@ -543,4 +543,27 @@ describe('multi-site registry schema v2', () => {
 		}
 		void dir;
 	});
+
+	it('persists and reloads local_wp_root on v2 site records', () => {
+		const { file } = tmpSites();
+		const ref = 'memory://stonewright/rooted/app-password';
+		const site = buildSiteRecord({
+			alias: 'rooted',
+			url: 'https://root.example.test/',
+			username: 'admin',
+			credential_ref: ref,
+			environment: 'local',
+			local_wp_root: '/tmp/synthetic-wp',
+		});
+		let reg = {
+			schema_version: 2 as const,
+			default_site_id: null as string | null,
+			sites: [] as ReturnType<typeof buildSiteRecord>[],
+		};
+		reg = upsertSite(reg, site, { makeDefault: true });
+		saveRegistry(reg, { sitesFile: file });
+
+		const loaded = loadRegistry({ sitesFile: file });
+		expect(loaded.registry.sites[0]?.local_wp_root).toBe('/tmp/synthetic-wp');
+	});
 });

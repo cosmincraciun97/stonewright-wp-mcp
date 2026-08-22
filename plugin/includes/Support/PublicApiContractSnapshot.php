@@ -437,6 +437,8 @@ final class PublicApiContractSnapshot {
 	private static function detect_audit( string $source ): bool {
 		$clean = self::source_without_strings_and_comments( $source );
 		return str_contains( $clean, 'AuditLog::record' )
+			|| str_contains( $clean, '$this->audit_write(' )
+			|| str_contains( $clean, '->audit_write(' )
 			|| str_contains( $clean, '$this->audit(' )
 			|| str_contains( $clean, '->audit(' );
 	}

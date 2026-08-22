@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\PlainLlmSchemaConverter;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -65,6 +66,8 @@ final class ElementorSchema extends AbilityKernel {
 				'provenance'          => [ 'type' => 'object' ],
 				'page'                => [ 'type' => 'integer' ],
 				'per_page'            => [ 'type' => 'integer' ],
+				'has_more'            => [ 'type' => 'boolean' ],
+				'hint'                => [ 'type' => 'string' ],
 				'required_for_render' => [ 'type' => 'array' ],
 			],
 		];
@@ -93,10 +96,25 @@ final class ElementorSchema extends AbilityKernel {
 		}
 
 		$widget_type = (string) ( $args['widget_type'] ?? '' );
+		if ( in_array( $widget_type, [ 'container', 'section', 'column' ], true ) ) {
+			return $this->error(
+				'elementor_use_container_schema',
+				__( 'Use stonewright/elementor-v3-container-schema for containers, sections, and columns. stonewright/elementor-schema is for widgets.', 'stonewright' ),
+				[
+					'status'      => 400,
+					'widget_type' => $widget_type,
+					'redirect'    => [
+						'ability' => 'stonewright/elementor-v3-container-schema',
+						'input'   => [ 'element_type' => $widget_type ],
+					],
+				]
+			);
+		}
 		$schema      = WidgetSchemaRepository::get( $widget_type, ! empty( $args['refresh'] ) );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
+		$schema['controls'] = PlainLlmSchemaConverter::convert( (array) $schema['controls'] );
 		$base = [
 			'mode'                => $mode,
 			'widget_type'         => $widget_type,
@@ -145,11 +163,23 @@ final class ElementorSchema extends AbilityKernel {
 				'responsive' => (bool) ( $control['responsive'] ?? false ),
 			];
 		}
+		$total      = count( $all_controls );
+		$has_more   = ( $page * $per_page ) < $total;
+		$hint       = $has_more
+			? sprintf(
+				'Showing %1$d of %2$d controls. Fetch page=%3$d, use mode=control for one key, or mode=full for grouped sections.',
+				count( $controls ),
+				$total,
+				$page + 1
+			)
+			: '';
 		return $base + [
 			'controls'            => $controls,
-			'total'               => count( $all_controls ),
+			'total'               => $total,
 			'page'                => $page,
 			'per_page'            => $per_page,
+			'has_more'            => $has_more,
+			'hint'                => $hint,
 			'required_for_render' => (array) $schema['required_for_render'],
 		];
 	}

@@ -179,8 +179,9 @@ WordPress user.
 ## Card 3 - Connect Your AI Client
 
 The OAuth panel provides instructions for Claude Code, Claude Desktop,
-Claude.ai, ChatGPT, Codex, Antigravity, Cursor, VS Code, GitHub Copilot,
-Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed, Kilo Code, and OpenCode.
+Claude.ai, ChatGPT, Codex in ChatGPT Desktop, Codex CLI, Antigravity, Cursor,
+VS Code, GitHub Copilot, Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed,
+Kilo Code, and OpenCode.
 
 ### MCP endpoint URL
 
@@ -221,9 +222,12 @@ The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball. For browser work it requires a one-time provider choice,
 permission before scanning client tools/private config, and separate permission
 before installing or configuring a missing Playwright/browser provider.
-It tells Codex users to configure `~/.codex/config.toml` or a trusted
-`.codex/config.toml`, restart/reload the MCP session, and use `/mcp` to verify
-that Stonewright is active.
+It tells Codex CLI users (`--client codex-cli`) to configure
+`~/.codex/config.toml` or a trusted `.codex/config.toml`, restart/reload the
+MCP session, and use `/mcp` to verify that Stonewright is active. It tells
+Codex in ChatGPT Desktop users (`--client chatgpt-desktop`) to use
+`~/Library/Application Support/ChatGPT/mcp_config.json` (`mcpServers` JSON)
+and not to paste CLI TOML into that file.
 After releases or skill syncs, it tells agents to rerun
 `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
 `companion_version`, `expected_companion_package`, and
@@ -288,6 +292,14 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
 WordPress REST auth, MCP initialize, and prints client-specific tool-cache
 refresh hints. It never prints secrets.
+
+### Troubleshoot / Run diagnostics
+
+**Stonewright → Troubleshoot** (and the same panel on Setup) is the operator
+path when a client cannot connect. **Run diagnostics** posts over AJAX, shows
+a loading spinner, and paints status cards without reloading the page. A
+no-JavaScript form still posts to `admin-post.php`. See
+[Troubleshoot](troubleshoot.md).
 
 Client definitions live in `plugin/data/clients/*.json` (see
 `docs/verified-client-versions.md`). Prefer user-level private config for

@@ -50,7 +50,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 		try {
 			await select.selectOption(next);
 			await expect(page.locator('[data-sw-mcp-surface-status]')).toContainText(
-				/Step 1 settings applied and verified/i,
+				/Surface saved\. Connected MCP clients refresh/i,
 				{ timeout: 8_000 },
 			);
 
@@ -59,7 +59,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 			await expect(page.locator('#stonewright_mcp_surface')).toHaveValue(next, {
 				timeout: 15_000,
 			});
-			await expect(page.locator('#sw-client-snippet-codex-stdio')).toContainText(
+			await expect(page.locator('#sw-client-snippet-codex-cli-stdio')).toContainText(
 				`STONEWRIGHT_MCP_TOOL_PROFILE = "${next}"`,
 			);
 		} finally {
@@ -71,7 +71,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 			await expect(restoreSelect).toBeVisible({ timeout: 15_000 });
 			await restoreSelect.selectOption(current);
 			await expect(page.locator('[data-sw-mcp-surface-status]')).toContainText(
-				/Step 1 settings applied and verified/i,
+				/Surface saved\. Connected MCP clients refresh/i,
 				{ timeout: 8_000 },
 			);
 			await page.reload({ waitUntil: 'domcontentloaded' });

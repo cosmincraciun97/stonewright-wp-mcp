@@ -68,6 +68,26 @@ final class SkillsGet extends AbilityKernel {
 		$slug  = sanitize_title( (string) ( $args['slug'] ?? '' ) );
 		$skill = Skills::get( $slug );
 
+		if ( null !== $skill && ! Skills::runtime_visible( $skill ) ) {
+			$components  = Skills::unavailable_components( $skill );
+			$component   = (string) ( $components[0] ?? 'unknown' );
+			$constraints = (array) ( $skill['version_constraints'] ?? [] );
+
+			return new \WP_Error(
+				'stonewright_skill_unavailable',
+				sprintf(
+					/* translators: %s is a required runtime component slug. */
+					__( 'This skill is unavailable because the required component "%s" is missing or incompatible.', 'stonewright' ),
+					$component
+				),
+				[
+					'status'             => 409,
+					'missing_component'  => $component,
+					'version_constraint' => (string) ( $constraints[ $component ] ?? '' ),
+				]
+			);
+		}
+
 		return [
 			'skill' => $skill,
 			'found' => null !== $skill,

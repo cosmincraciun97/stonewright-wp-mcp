@@ -151,7 +151,8 @@ export type ProxyToolProfile =
 	| 'content-model'
 	| 'gutenberg'
 	| 'wp-cli'
-	| 'site-admin';
+	| 'site-admin'
+	| 'discover-execute';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -283,6 +284,7 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
 		'stonewright-elementor-document-health',
+		'stonewright-elementor-performance-audit',
 		'stonewright-elementor-v3-legacy-debt-report',
 		'stonewright-elementor-v3-legacy-debt-migrate',
 	],
@@ -330,12 +332,31 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-fse-read-template',
 		'stonewright-fse-write-template',
 		'stonewright-fse-write-global-styles',
+		'stonewright-fse-update-global-styles',
+		'stonewright-fse-navigation',
+		'stonewright-theme-json-handoff',
+		'stonewright-theme-chrome-get',
+		'stonewright-theme-chrome-update',
 		'stonewright-blocks-list-registered',
 		'stonewright-blocks-get-schema',
+		'stonewright-blocks-library-check-setup',
+		'stonewright-blocks-library-list-blocks',
+		'stonewright-blocks-library-get-schema',
 		'stonewright-blocks-parse',
 		'stonewright-blocks-serialize',
 		'stonewright-gutenberg-render-blocks',
 		'stonewright-blocks-batch-mutate',
+		'stonewright-blocks-queue-change',
+		'stonewright-blocks-finalizer-runtime',
+		'stonewright-blocks-pending-batch',
+		'stonewright-blocks-finalize-batch',
+		'stonewright-blocks-finalizer-url',
+		'stonewright-blocks-query-loop-build',
+		'stonewright-patterns-list',
+		'stonewright-patterns-create',
+		'stonewright-patterns-update',
+		'stonewright-patterns-delete',
+		'stonewright-patterns-categories',
 		'stonewright-design-validate-spec',
 		'stonewright-design-section-manifest',
 		'stonewright-design-visual-compare',
@@ -346,6 +367,14 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		...BASE_PROXY_TOOL_NAMES,
 		'stonewright-site-info',
 		'stonewright-site-plugins-list',
+	],
+	'discover-execute': [
+		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+		'stonewright-tool-profile',
+		'stonewright-discover-abilities',
+		'stonewright-get-ability-info',
+		'stonewright-execute-ability',
+		'stonewright-security-issue-confirmation-token',
 	],
 	'site-admin': [
 		...BASE_PROXY_TOOL_NAMES,
@@ -461,6 +490,9 @@ const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
 	'admin': 'site-admin',
 	'site': 'site-admin',
 	'settings': 'site-admin',
+	'discover': 'discover-execute',
+	'discover-execute': 'discover-execute',
+	'protocol': 'discover-execute',
 };
 
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {

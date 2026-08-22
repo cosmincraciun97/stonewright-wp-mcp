@@ -14,7 +14,14 @@ Enforced by:
 
 - `plugin/includes/Abilities/Runtime/PhpExecute.php`
 - `plugin/includes/Security/StaticAnalysis.php`
+- `plugin/includes/Security/ProtectedWpdbWriteGuard.php` (core-table and
+  protected-meta writes, including concatenated keys; `read_only:true`)
+- `plugin/includes/Security/ProtectedFilesystemWriteGuard.php`
+- `plugin/includes/Security/ProtectedElementorWriteGuard.php`
 - `plugin/bin/security-audit.php`
+
+`php-execute` is registered on the **full** MCP profile only. Bootstrap and
+essential do not expose it. The `discover-execute` profile also omits it.
 
 Verify:
 

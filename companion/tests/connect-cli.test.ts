@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MemoryCredentialStore } from '../src/credentials/index.js';
@@ -882,5 +882,40 @@ describe('connect CLI acceptance matrix', () => {
 			companion_version: '1.0.0-beta.8',
 			refresh_required_tool_names: ['stonewright-new-tool'],
 		});
+	});
+
+	it('repair --wp-root persists a canonical local WordPress root and refuses invalid ones', async () => {
+		const h = harness();
+		const wpRoot = mkdtempSync(join(tmpdir(), 'sw-wp-root-'));
+		writeFileSync(join(wpRoot, 'wp-config.php'), '<?php // synthetic');
+
+		const addCode = await connectAdd(
+			{
+				alias: 'site-a',
+				url: 'https://a.example.test',
+				username: 'admin',
+				password: 'test-app-password-wp-root',
+				environment: 'local',
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		expect(addCode).toBe(0);
+
+		const code = connectRepair(
+			'site-a',
+			{ wpRoot },
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials },
+		);
+		expect(code).toBe(0);
+
+		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as { sites: Array<{ local_wp_root?: string }> };
+		expect(reg.sites[0]?.local_wp_root).toBe(realpathSync(wpRoot));
+
+		const bad = connectRepair(
+			'site-a',
+			{ wpRoot: '/nonexistent/wp/root' },
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials },
+		);
+		expect(bad).toBe(1);
 	});
 });

@@ -35,6 +35,7 @@ final class UpdatePost extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id'      => [ 'type' => 'integer', 'minimum' => 1 ],
 				'title'   => [ 'type' => 'string', 'maxLength' => 255 ],
 				'content' => [ 'type' => 'string' ],
@@ -108,7 +109,7 @@ final class UpdatePost extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$id          = (int) $args['id'];

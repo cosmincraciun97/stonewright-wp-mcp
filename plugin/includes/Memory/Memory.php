@@ -331,7 +331,7 @@ final class Memory {
 			'topic'      => sanitize_text_field( (string) ( $metadata['topic'] ?? $name ) ),
 			'version_fingerprint' => sanitize_text_field( (string) ( $metadata['version_fingerprint'] ?? '' ) ),
 			'expires_at' => self::sanitize_expiry( $metadata['expires_at'] ?? null ),
-			'status'     => in_array( $metadata['status'] ?? 'active', [ 'active', 'stale', 'rejected' ], true ) ? (string) ( $metadata['status'] ?? 'active' ) : 'active',
+			'status'     => self::sanitize_status( $metadata['status'] ?? 'active', 'active' ),
 			'precedence' => max( -1000, min( 1000, (int) ( $metadata['precedence'] ?? 0 ) ) ),
 			'created_by' => get_current_user_id(),
 		];
@@ -422,6 +422,51 @@ final class Memory {
 			),
 			ARRAY_A
 		);
+
+		$out = [];
+		foreach ( (array) $rows as $row ) {
+			$out[] = self::decode_row( $row );
+		}
+		return $out;
+	}
+
+	/**
+	 * Active rows for task-start scoring, newest-50 recency window excluded.
+	 *
+	 * Filters status=active and prefers the requested scope, then precedence.
+	 * Bounded so scoring can see older high-priority user memory.
+	 *
+	 * @param string $scope Surface/scope hint used to prefer matching rows.
+	 * @param int    $limit Max rows, capped at 500.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function list_active_for_matching( string $scope = '', int $limit = 500 ): array {
+		global $wpdb;
+		$table = self::table_name();
+		$limit = max( 1, min( 500, $limit ) );
+		$scope = sanitize_text_field( $scope );
+		$select = "SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at, last_retrieved_at FROM {$table}";
+
+		if ( '' !== $scope ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"{$select} WHERE status = %s ORDER BY precedence DESC, CASE WHEN scope = %s THEN 0 ELSE 1 END ASC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+					'active',
+					$scope,
+					$limit
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"{$select} WHERE status = %s ORDER BY precedence DESC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+					'active',
+					$limit
+				),
+				ARRAY_A
+			);
+		}
 
 		$out = [];
 		foreach ( (array) $rows as $row ) {
@@ -560,7 +605,7 @@ final class Memory {
 				$data['expires_at'] = self::sanitize_expiry( $changes['expires_at'] );
 				$formats[]          = '%s';
 			} elseif ( 'status' === $field ) {
-				$data['status'] = in_array( $changes['status'], [ 'active', 'stale', 'rejected' ], true ) ? (string) $changes['status'] : 'stale';
+				$data['status'] = self::sanitize_status( $changes['status'], 'stale' );
 				$formats[]      = '%s';
 			} elseif ( 'precedence' === $field ) {
 				$data['precedence'] = max( -1000, min( 1000, (int) $changes['precedence'] ) );
@@ -596,6 +641,11 @@ final class Memory {
 		}
 		$expires_at = trim( (string) ( $entry['expires_at'] ?? '' ) );
 		return '' === $expires_at || ( strtotime( $expires_at . ' UTC' ) ?: 0 ) > time();
+	}
+
+	private static function sanitize_status( mixed $status, string $fallback = 'active' ): string {
+		$status = (string) $status;
+		return in_array( $status, [ 'active', 'draft', 'stale', 'rejected' ], true ) ? $status : $fallback;
 	}
 
 	private static function sanitize_expiry( mixed $value ): ?string {

@@ -5,7 +5,9 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -38,6 +40,7 @@ final class AddContainer extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'        => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'      => [ 'type' => 'string' ],
 				'position'       => [ 'type' => 'integer' ],
@@ -67,7 +70,7 @@ final class AddContainer extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_id = (int) $args['post_id'];
@@ -77,12 +80,16 @@ final class AddContainer extends AbilityKernel {
 
 				$tree        = ElementorData::read( $post_id );
 				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$css_gate    = ElementorCustomCssGate::assert_incoming( $settings, $args, 'container' );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				$settings    = ContainerSettings::normalize( $settings );
 				$validated   = SettingsValidator::validate_container( $settings );
 				if ( $validated instanceof \WP_Error ) {
 					return $validated;
 				}
-				$settings = $validated['settings'];
+				$settings = SparseSettingsNormalizer::for_new_write( $validated['settings'], 'container', $validated['settings'] );
 
 				$element = [
 					'id'       => ElementorData::generate_id(),

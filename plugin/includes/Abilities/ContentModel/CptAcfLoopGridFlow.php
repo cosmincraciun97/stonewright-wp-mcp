@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
@@ -40,6 +41,7 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'post_type'     => [
 					'type'                 => 'object',
 					'additionalProperties' => true,
@@ -116,7 +118,7 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$post_type = (array) ( $args['post_type'] ?? [] );
@@ -155,12 +157,17 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 				self::register_runtime_post_type( $slug, $singular, $plural, $post_type_payload );
 				self::persist_acf_contract( $slug, $acf_payload );
 
-				$content = ( new BulkUpsertPosts() )->execute(
-					[
-						'post_type' => $slug,
-						'items'     => $items,
-					]
-				);
+				$upsert_args = [
+					'post_type' => $slug,
+					'items'     => $items,
+				];
+				if ( Permissions::is_production_safe() ) {
+					$upsert_args['confirmation_token'] = ConfirmationToken::issue(
+						'stonewright/content-bulk-upsert-posts',
+						$upsert_args
+					);
+				}
+				$content = ( new BulkUpsertPosts() )->execute( $upsert_args );
 				if ( is_wp_error( $content ) ) {
 					return $content;
 				}

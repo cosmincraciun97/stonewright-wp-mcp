@@ -52,6 +52,13 @@ bodies on every task.
 ### Native-first styling
 
 - Use native Elementor, Gutenberg, or FSE controls before Custom CSS or code.
+- Ladder: block supports / preset slugs → typed widget controls → custom CSS
+  **only** via approval-gated tools (`theme-custom-css`, Gutenberg HTML with
+  `allow_raw_html` + `custom_code_grant`, FSE `styles.css` with grant, Elementor
+  `custom_css` with the same grant).
+- `stonewright_custom_code_approval_required` means stop: show `approval_url`,
+  path, byte counts, and summary. Never strip the CSS. Never open the approval
+  page unless the user explicitly asks.
 - If native implementation is impossible, stop and explain the proven native gap
   before adding Custom CSS or code.
 
@@ -84,8 +91,9 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   counts, and a short change summary. Then stop.
 - Never open the approval page, issue or retrieve a grant, or apply the candidate
   unless the user explicitly asks the agent to perform that approval step.
-- This applies to theme files, Customizer CSS, WPCode, Code Snippets, and
-  equivalent code surfaces.
+- This applies to theme files, Customizer CSS, WPCode, Code Snippets, Gutenberg
+  style-tag HTML, theme.json css, Elementor custom_css, and equivalent code
+  surfaces.
 - Never write theme/plugin/core code files through `php-execute`.
 - Use the approval-gated typed tool with full validation, atomic write, smoke,
   and rollback. Direct mode may inspect custom CSS but must not write it because

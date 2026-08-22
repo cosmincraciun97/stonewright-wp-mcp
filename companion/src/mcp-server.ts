@@ -33,6 +33,18 @@ import {
 	resolveWordPressMcpConfig,
 } from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
+import {
+	COMMAND_TOOL_PROFILES,
+	CommandError,
+	getRecipe,
+	listRecipes,
+	runCommand,
+	type CommandRunReceiptV1,
+	type RecipeSummary,
+	type CommandRecipeV1,
+} from './commands/index.js';
+import { findSiteByAlias, loadRegistry } from './cli/connect/registry.js';
+import type { SiteRecordV2 } from './cli/connect/types.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
 import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
@@ -126,6 +138,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	registerPermanentGateways(server, runtime);
 	// 2) WP-CLI helpers (local; not removed by profiles).
 	registerWpCliTools(server, commonInput, env, profile);
+	registerCommandTools(server, env, profile);
 	runtime.refreshSurfaceFromServer();
 
 	// Wire reconnect after helpers exist so it can re-run mode probe + registration.
@@ -815,6 +828,121 @@ function registerWpCliTools(
 function localAliases(profile: ProxyToolProfile, canonical: string, legacy: string): string[] {
 	if (!localToolNamesForProfile(profile).includes(canonical)) return [];
 	return profile === 'full' ? [legacy, canonical] : [canonical];
+}
+
+const COMMAND_TOOL_NAMES = [
+	'stonewright-command-list',
+	'stonewright-command-get',
+	'stonewright-command-run',
+] as const;
+
+/** Commands v1 ships only on WP-CLI-capable profiles; compact surfaces stay clean. */
+function commandToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
+	return COMMAND_TOOL_PROFILES.includes(profile)
+		? COMMAND_TOOL_NAMES
+		: [];
+}
+
+function resolveCommandSite(env: NodeJS.ProcessEnv): SiteRecordV2 {
+	const { registry } = loadRegistry({ env });
+	const alias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
+	const site = alias
+		? findSiteByAlias(registry, alias)
+		: registry.sites.find((s) => s.id === registry.default_site_id);
+	if (!site) {
+		throw new CommandError(
+			'command_site_not_found',
+			alias ? `No site with alias "${alias}".` : 'No default site in the registry.',
+		);
+	}
+	return site;
+}
+
+function commandErrorPayload(err: unknown): { ok: false; error: string; message: string } {
+	const commandErr = err instanceof CommandError ? err : null;
+	return {
+		ok: false,
+		error: commandErr?.code ?? 'command_error',
+		message: err instanceof Error ? err.message : String(err),
+	};
+}
+
+function registerCommandTools(server: McpServer, env: NodeJS.ProcessEnv, profile: ProxyToolProfile): void {
+	if (!commandToolNamesForProfile(profile).includes('stonewright-command-list')) return;
+
+	server.registerTool(
+		'stonewright-command-list',
+		{
+			description: 'List saved local WP-CLI command recipes for this site. Bounded summary; use stonewright-command-get for full recipe JSON.',
+			inputSchema: {},
+		},
+		() => {
+			try {
+				const site = resolveCommandSite(env);
+				const rows: RecipeSummary[] = listRecipes(site.id, env);
+				return toolResponse({ ok: true, commands: rows });
+			} catch (err) {
+				return toolResponse(commandErrorPayload(err));
+			}
+		},
+	);
+
+	server.registerTool(
+		'stonewright-command-get',
+		{
+			description: 'Return one saved local WP-CLI command recipe as JSON (parameters, steps, expectations). Does not run anything.',
+			inputSchema: {
+				slug: z.string().min(1).max(64),
+			},
+		},
+		(input) => {
+			try {
+				const slug = String(input['slug'] ?? '');
+				const site = resolveCommandSite(env);
+				const recipe: CommandRecipeV1 = getRecipe(site.id, slug, env);
+				return toolResponse({ ok: true, recipe });
+			} catch (err) {
+				return toolResponse(commandErrorPayload(err));
+			}
+		},
+	);
+
+	server.registerTool(
+		'stonewright-command-run',
+		{
+			description: 'Run a saved local WP-CLI command recipe through the companion with execFile argv tokens only. Read-only recipes run directly; write recipes require a one-use plan: call stonewright CLI `command plan` first, then pass plan_id + plan_sha256 here.',
+			inputSchema: {
+				slug: z.string().min(1).max(64),
+				params: z.record(z.string(), z.string()).optional(),
+				plan_id: z.string().min(16).max(64).optional(),
+				plan_sha256: z.string().min(32).max(128).optional(),
+				response_mode: z.enum(['summary', 'full']).default('summary').optional(),
+			},
+		},
+		async (input) => {
+			try {
+				const slug = String(input['slug'] ?? '');
+				const site = resolveCommandSite(env);
+				const recipe = getRecipe(site.id, slug, env);
+				const rawParams: Record<string, string> = {};
+				for (const [key, value] of Object.entries(input['params'] ?? {})) {
+					if (typeof value === 'string') rawParams[key] = value;
+				}
+				const receipt: CommandRunReceiptV1 = await runCommand({
+					site,
+					recipe,
+					params: rawParams,
+					plan_id: input['plan_id'] !== undefined ? String(input['plan_id']) : undefined,
+					plan_sha256: input['plan_sha256'] !== undefined ? String(input['plan_sha256']) : undefined,
+					response_mode: input['response_mode'] === 'full' ? 'full' : 'summary',
+					env,
+				});
+				return toolResponse({ ...receipt });
+			} catch (err) {
+				return toolResponse(commandErrorPayload(err));
+			}
+		},
+	);
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {

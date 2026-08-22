@@ -53,6 +53,7 @@ final class ToolProfileOrderingTest extends TestCase {
 	public function test_gutenberg_and_site_admin_profiles_expose_new_safe_workflows(): void {
 		$gutenberg = ToolProfile::profile_tools( 'gutenberg' );
 		self::assertContains( 'stonewright/blocks-batch-mutate', $gutenberg );
+		self::assertContains( 'stonewright/blocks-finalizer-cancel', $gutenberg );
 		self::assertContains( 'stonewright/design-section-manifest', $gutenberg );
 		self::assertContains( 'stonewright/design-visual-compare', $gutenberg );
 
@@ -63,5 +64,13 @@ final class ToolProfileOrderingTest extends TestCase {
 		self::assertContains( 'stonewright/oauth-header-diagnostic', $admin );
 		self::assertContains( 'stonewright/capability-preflight', $admin );
 		self::assertContains( 'stonewright/form-delivery-diagnostic', $admin );
+	}
+
+	public function test_finalizer_cancel_is_on_gutenberg_profile_not_bootstrap(): void {
+		$gutenberg = ToolProfile::profile_tools( 'gutenberg' );
+		self::assertContains( 'stonewright/blocks-finalizer-cancel', $gutenberg );
+
+		$bootstrap = ToolProfile::profile_tools( 'bootstrap' );
+		self::assertNotContains( 'stonewright/blocks-finalizer-cancel', $bootstrap );
 	}
 }

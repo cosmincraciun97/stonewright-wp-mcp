@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities;
 
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 
 /**
  * Base class abilities extend so they only have to implement
@@ -103,16 +105,20 @@ abstract class AbilityKernel implements Ability {
 				$status = 'error';
 					}
 				}
+		$target_id  = self::audit_target_id( $args );
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = $this->audit_metadata(
 			$args,
 			$result,
 			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
 		);
+		if ( '' !== $target_id && ( ! isset( $metadata['target_id'] ) || ! is_scalar( $metadata['target_id'] ) || '' === trim( (string) $metadata['target_id'] ) ) ) {
+			$metadata['target_id'] = $target_id;
+		}
 		if ( $result instanceof \WP_Error ) {
 			$message                   = preg_replace( '/\s+/', ' ', trim( (string) $result->get_error_message() ) ) ?? '';
 			$metadata['error_code']    = sanitize_key( (string) $result->get_error_code() );
-			$metadata['error_message'] = mb_substr( $message, 0, 200 );
+			$metadata['error_message'] = mb_substr( $message, 0, 500 );
 			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
 				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
@@ -121,6 +127,13 @@ abstract class AbilityKernel implements Ability {
 					}
 				}
 				$metadata = self::merge_receipt_metadata( $metadata, is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [] );
+			}
+			if ( ! isset( $metadata['remediation_code'] ) || ! is_scalar( $metadata['remediation_code'] ) || '' === trim( (string) $metadata['remediation_code'] ) ) {
+				$hint_code = (string) ( $metadata['error_code'] ?? '' );
+				$hint      = RemediationHints::for_code( $hint_code, $this->name() );
+				if ( $hint !== RemediationHints::for_code( '', '' ) && '' !== $hint_code ) {
+					$metadata['remediation_code'] = $hint_code;
+				}
 			}
 		} elseif ( is_array( $result ) ) {
 			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'cause_fingerprint', 'strategy_fingerprint', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'category', 'outcome' ] as $effect_key ) {
@@ -140,6 +153,59 @@ abstract class AbilityKernel implements Ability {
 		return $result;
 	}
 
+	/**
+	 * Production-safe confirmation-token gate for write execute paths.
+	 *
+	 * Returns null when the mode is not production-safe or the token verifies.
+	 * Returns a WP_Error when the token is missing or invalid.
+	 *
+	 * @param array<string, mixed>      $args        Full ability args (used to extract confirmation_token).
+	 * @param array<string, mixed>|null $verify_args Args signed when the token was issued. Defaults to $args;
+	 *                                               ConfirmationToken strips confirmation_token before hashing.
+	 */
+	protected function require_production_safe_token( array $args, ?array $verify_args = null ): ?\WP_Error {
+		if ( ! Permissions::is_production_safe() ) {
+			return null;
+		}
+
+		$token = isset( $args['confirmation_token'] ) ? (string) $args['confirmation_token'] : '';
+		if ( '' === $token ) {
+			return new \WP_Error(
+				'stonewright_confirmation_required',
+				__( 'Production-safe mode requires a confirmation_token.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		$result = ConfirmationToken::verify_or_error( $token, $this->name(), $verify_args ?? $args );
+		if ( $result instanceof \WP_Error ) {
+			return $result;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Audit wrapper that requires a production-safe confirmation token before
+	 * the write callback runs. Read abilities must keep using audit().
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_write( array $args, callable $callback ) {
+		return $this->audit(
+			$args,
+			function ( array $args ) use ( $callback ) {
+				$token_error = $this->require_production_safe_token( $args );
+				if ( $token_error instanceof \WP_Error ) {
+					return $token_error;
+				}
+				return $callback( $args );
+			}
+		);
+	}
+
 	private static function is_blocked_error_code( string $code ): bool {
 		foreach ( [ 'forbidden', 'blocked', 'permission', 'confirmation_required', 'grant_required', 'approval_required', 'read_only', 'raw_elementor', 'architecture_mismatch', 'migration_has_loss', 'rule_violation' ] as $marker ) {
 			if ( str_contains( $code, $marker ) ) {
@@ -147,6 +213,27 @@ abstract class AbilityKernel implements Ability {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Bounded post/resource id from top-level or nested args.post_id / args.id
+	 * before sanitize_for_audit collapses arrays.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	private static function audit_target_id( array $args ): string {
+		foreach ( [ 'post_id', 'id' ] as $key ) {
+			if ( isset( $args[ $key ] ) && is_scalar( $args[ $key ] ) && '' !== trim( (string) $args[ $key ] ) ) {
+				return mb_substr( sanitize_text_field( (string) $args[ $key ] ), 0, 64 );
+			}
+		}
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach ( [ 'post_id', 'id' ] as $key ) {
+			if ( isset( $nested[ $key ] ) && is_scalar( $nested[ $key ] ) && '' !== trim( (string) $nested[ $key ] ) ) {
+				return mb_substr( sanitize_text_field( (string) $nested[ $key ] ), 0, 64 );
+			}
+		}
+		return '';
 	}
 
 	/**

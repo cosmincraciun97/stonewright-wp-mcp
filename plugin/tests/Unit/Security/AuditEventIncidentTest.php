@@ -64,6 +64,42 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( 'hero', $event['redacted_details']['element_id'] );
 	}
 
+	public function test_wp_error_redacted_details_include_code_message_target_and_not_only_verification(): void {
+		$message = str_repeat( 'x', 600 );
+		$event   = AuditEvent::normalize(
+			'stonewright/design-validate-spec',
+			[
+				'post_id'  => 42,
+				'password' => '<redacted-fixture>',
+				'_meta'    => [
+					'error_code'          => 'stonewright_spec_invalid',
+					'error_message'       => $message,
+					'verification_status' => 'failed',
+					'remediation_code'    => 'stonewright_spec_invalid',
+					'password'            => '<nested-redacted-fixture>',
+				],
+			],
+			'error'
+		);
+
+		$details = $event['redacted_details'];
+		self::assertIsArray( $details );
+		self::assertSame( 'stonewright_spec_invalid', $details['error_code'] ?? null );
+		self::assertSame( 500, mb_strlen( (string) ( $details['error_message'] ?? '' ) ) );
+		self::assertSame( '42', (string) ( $details['target_id'] ?? '' ) );
+		self::assertSame( 'stonewright_spec_invalid', $details['root_error_code'] ?? $details['error_code'] ?? null );
+		self::assertSame( 'stonewright_spec_invalid', $details['remediation_code'] ?? null );
+		self::assertArrayHasKey( 'incident_id', $details );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', (string) $details['incident_id'] );
+		self::assertArrayNotHasKey( 'password', $details );
+		foreach ( [ 'error_code', 'error_message', 'root_error_code', 'incident_id', 'target_id', 'remediation_code' ] as $key ) {
+			self::assertArrayHasKey( $key, $details );
+		}
+		self::assertNotEquals( [ 'verification_status' ], array_keys( $details ) );
+		self::assertStringNotContainsString( '<redacted-fixture>', wp_json_encode( $details ) );
+		self::assertStringNotContainsString( '<nested-redacted-fixture>', wp_json_encode( $details ) );
+	}
+
 	public function test_permission_and_safety_blocks_never_create_recurring_incidents(): void {
 		$permission = AuditEvent::normalize(
 			'stonewright/elementor-v3-batch-mutate',
@@ -81,6 +117,31 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( AuditEvent::CATEGORY_SAFETY, $safety['category'] );
 		self::assertNull( IncidentStore::observe( $permission ) );
 		self::assertNull( IncidentStore::observe( $safety ) );
+		self::assertSame( [], IncidentStore::recent() );
+	}
+
+	public function test_input_shape_validation_rejections_do_not_open_incidents(): void {
+		foreach (
+			[
+				'stonewright_elementor_evidence_invalid',
+				'stonewright_responsive_scope_violation',
+				'stonewright_direction_invalid',
+			] as $code
+		) {
+			$event = AuditEvent::normalize(
+				'stonewright/elementor-v3-batch-mutate',
+				[
+					'post_id' => 42,
+					'_meta'   => [
+						'root_error_code' => $code,
+						'error_code'      => $code,
+					],
+				],
+				'error'
+			);
+			self::assertNull( IncidentStore::observe( $event ), $code );
+		}
+
 		self::assertSame( [], IncidentStore::recent() );
 	}
 

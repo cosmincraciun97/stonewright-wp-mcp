@@ -1,0 +1,37 @@
+{
+  "slug": "chatgpt-desktop",
+  "label": "Codex in ChatGPT Desktop",
+  "kind": "desktop",
+  "snippet_kind": "json",
+  "preferred_method": "http",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/Library/Application Support/ChatGPT/mcp_config.json",
+    "linux": "~/.config/ChatGPT/mcp_config.json",
+    "windows": "%APPDATA%\\ChatGPT\\mcp_config.json",
+    "wsl": "~/Library/Application Support/ChatGPT/mcp_config.json"
+  },
+  "notes": "Codex inside the ChatGPT Desktop app uses mcpServers JSON with a url (or command/args for local stdio). Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-08-20",
+  "secret_storage": "user-level",
+  "config_path": "~/Library/Application Support/ChatGPT/mcp_config.json",
+  "transport": "http",
+  "config_format": "json-mcp",
+  "official_cli_update": "",
+  "official_cli_remove": "",
+  "oauth_support": true,
+  "app_password_support": true,
+  "relist_behavior": "restart-app",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential",
+  "support_tier": "community",
+  "certification_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "untested",
+    "restart_required": true,
+    "certification_report": ""
+  }
+}

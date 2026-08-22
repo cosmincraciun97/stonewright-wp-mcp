@@ -1,0 +1,37 @@
+{
+  "slug": "codex-cli",
+  "label": "Codex CLI",
+  "kind": "cli",
+  "snippet_kind": "toml",
+  "preferred_method": "stdio",
+  "official_cli_add": "codex mcp add",
+  "config_paths": {
+    "macos": "~/.codex/config.toml",
+    "linux": "~/.codex/config.toml",
+    "windows": "%USERPROFILE%\\.codex\\config.toml",
+    "wsl": "~/.codex/config.toml"
+  },
+  "notes": "Prefer `codex mcp add` then `codex mcp login` for OAuth HTTP. Raw TOML is the advanced fallback. Restart Codex CLI after changes. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-08-20",
+  "secret_storage": "user-level",
+  "config_path": "~/.codex/config.toml",
+  "transport": "stdio",
+  "config_format": "toml-codex",
+  "official_cli_update": "codex mcp add",
+  "official_cli_remove": "",
+  "oauth_support": true,
+  "app_password_support": true,
+  "relist_behavior": "restart-or-reload-mcp",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential",
+  "support_tier": "compatible",
+  "certification_tier": "tier-1",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "compatible",
+    "restart_required": true,
+    "certification_report": ""
+  }
+}

@@ -97,6 +97,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'matched_skill_playbooks'        => [ 'type' => 'array' ],
 				'memory_entries'                 => [ 'type' => 'array' ],
 				'custom_instructions'            => [ 'type' => 'object' ],
+				'user_context'                   => [ 'type' => 'object' ],
 				'recurring_errors'               => [ 'type' => 'array' ],
 				'incident_actions'                => [ 'type' => 'array', 'maxItems' => 3 ],
 				'expertise_packs'                => [ 'type' => 'array', 'maxItems' => 3 ],
@@ -106,6 +107,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'visual_build_gate'              => [ 'type' => 'object' ],
 				'design_implementation_contract' => [ 'type' => 'object' ],
 				'required_followups'             => [ 'type' => 'array' ],
+				'design_direction_ref'           => [ 'type' => 'object' ],
 				'response_mode'                  => [ 'type' => 'string' ],
 				'payload_hashes'                 => [ 'type' => 'object' ],
 				'changed_keys'                   => [ 'type' => 'array' ],
@@ -323,6 +325,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'confidence'  => (float) ( $entry['confidence'] ?? 0 ),
 				'updated_at'  => (string) ( $entry['updated_at'] ?? '' ),
 				'value_hash'  => self::hash_value( $value ),
+				'body_tool'   => (string) ( $entry['body_tool'] ?? 'stonewright/memory-get' ),
 			];
 		}
 		return $out;

@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\ConfigurationPage
@@ -67,6 +69,10 @@ final class ConfigurationPageTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_login'] = 'admin';
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_app_passwords'] = [];
+		$GLOBALS['stonewright_test_json_response'] = null;
+		$_POST = [];
+		$_GET  = [];
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 	}
 
 	public function test_render_outputs_guided_connect_wizard_controls(): void {
@@ -96,6 +102,18 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect Your AI Client', $html );
 		self::assertStringContainsString( 'Setup diagnostics', $html );
+		self::assertStringContainsString( 'Run diagnostics', $html );
+		self::assertStringContainsString( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', $html );
+		self::assertStringContainsString( 'How do you connect?', $html );
+		self::assertStringContainsString( 'Not sure (check both)', $html );
+		self::assertStringContainsString( 'Copy report for support', $html );
+		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $html );
+		self::assertStringContainsString( 'data-stonewright-copy="stonewright-diagnostics-copy"', $html );
+		self::assertStringContainsString( 'sw-diag-card', $html );
+		self::assertStringContainsString( 'Companion HTTP contract', $html );
+		self::assertStringNotContainsString( 'A major contract mismatch is blocked', $html );
+		self::assertStringContainsString( 'value="stonewright_run_diagnostics"', $html );
+		self::assertStringContainsString( 'admin-post.php', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
 		self::assertStringContainsString( 'communicates with it through standard input/output', $html );
@@ -200,11 +218,11 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-step="1"', $html );
 		self::assertStringContainsString( 'data-step="2"', $html );
 		self::assertStringContainsString( 'data-step="3"', $html );
-		self::assertGreaterThanOrEqual( 5, substr_count( $html, 'sw-checklist__item' ) );
+		self::assertGreaterThanOrEqual( 5, substr_count( $html, 'sw-diag-card' ) );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-code"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-desktop"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="cursor"', $html );
-		self::assertStringContainsString( 'data-stonewright-client-card="codex"', $html );
+		self::assertStringContainsString( 'data-stonewright-client-card="codex-cli"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="antigravity"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="vscode-copilot"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="generic-mcp"', $html );
@@ -251,6 +269,10 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertMatchesRegularExpression(
 			'/<input[^>]+type="hidden"[^>]+name="stonewright_elementor_v4_atomic"[^>]+value="0"[^>]*>.*'
 			. '<input[^>]+type="checkbox"[^>]+name="stonewright_elementor_v4_atomic"[^>]+value="1"/s',
+			$html
+		);
+		self::assertStringContainsString(
+			'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.',
 			$html
 		);
 	}
@@ -341,5 +363,210 @@ final class ConfigurationPageTest extends TestCase {
 		delete_option( 'stonewright_domain_mismatch' );
 		delete_option( 'stonewright_domain_lock_prior' );
 		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
+
+	public function test_diagnostics_copy_does_not_claim_mismatch_when_contract_major_matches(): void {
+		$copy = ConfigurationPage::diagnostics_version_copy( '1.0.0-beta.11', '1.0.0' );
+
+		self::assertStringContainsString( 'Plugin 1.0.0-beta.11', $copy );
+		self::assertStringContainsString( 'Companion HTTP contract 1.0.0', $copy );
+		self::assertStringNotContainsString( 'mismatch', strtolower( $copy ) );
+	}
+
+	public function test_register_hooks_ajax_diagnostics_action(): void {
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
+
+		self::assertStringContainsString( "add_action( 'wp_ajax_stonewright_run_diagnostics'", $source );
+		self::assertStringContainsString( 'handle_ajax_run_diagnostics', $source );
+		self::assertStringContainsString( "add_action( 'admin_post_stonewright_run_diagnostics'", $source );
+		self::assertStringContainsString( 'handle_run_diagnostics', $source );
+	}
+
+	public function test_ajax_run_diagnostics_stores_report_and_returns_json(): void {
+		$GLOBALS['stonewright_test_current_user_id'] = 0;
+		$GLOBALS['stonewright_test_json_response']   = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'both',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertIsArray( $response['data'] );
+		self::assertSame( 'both', $response['data']['mode'] );
+		self::assertArrayHasKey( 'checks', $response['data'] );
+		self::assertNotEmpty( $response['data']['checks'] );
+
+		$stored = get_option( 'stonewright_diagnostics_last' );
+		self::assertIsArray( $stored );
+		self::assertSame( $response['data']['checks'], $stored['checks'] );
+		self::assertSame( 'both', $stored['mode'] );
+	}
+
+	public function test_ajax_stdio_mode_skips_http_loopback_and_reports_companion_url(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_companion_url'] = 'http://127.0.0.1:8765';
+		$GLOBALS['stonewright_test_json_response']                       = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'stdio',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame( 'stdio', $response['data']['mode'] );
+
+		$by_id = [];
+		foreach ( $response['data']['checks'] as $check ) {
+			$by_id[ (string) ( $check['id'] ?? '' ) ] = $check;
+		}
+		self::assertArrayHasKey( 'companion_url', $by_id );
+		self::assertSame( 'ok', $by_id['companion_url']['status'] );
+		self::assertSame( 'info', $by_id['connection_probe']['status'] );
+		self::assertStringContainsString( 'stdio', strtolower( (string) $by_id['connection_probe']['detail'] ) );
+	}
+
+	public function test_ajax_run_diagnostics_forbidden_without_capability(): void {
+		$GLOBALS['stonewright_test_user_caps']     = [];
+		$GLOBALS['stonewright_test_json_response'] = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'http',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertFalse( $response['success'] );
+		self::assertSame( 403, $response['status'] );
+	}
+
+	public function test_render_includes_mode_consequence_help_text(): void {
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			'no confirmation tokens required; use only on disposable sites',
+			$html
+		);
+		self::assertStringContainsString(
+			'same gates as development; identifies the site as staging',
+			$html
+		);
+		self::assertStringContainsString(
+			'destructive and bulk writes require a fresh confirmation token per operation; Elementor V4 writes are blocked',
+			$html
+		);
+		self::assertStringContainsString( 'id="stonewright_mode_help"', $html );
+	}
+
+	public function test_apply_now_persists_mcp_surface_and_bumps_surface_revision(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']        = 'essential';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_surface_revision']   = 7;
+		$GLOBALS['stonewright_test_json_response']                            = null;
+		$_POST = [
+			'nonce'               => wp_create_nonce( 'stonewright_setup_client' ),
+			'surface'             => 'full',
+			'mode'                => 'staging',
+			'enabled'             => '0',
+			'elementor_v4_atomic' => '0',
+		];
+
+		ConfigurationPage::handle_apply_mcp_surface();
+
+		self::assertSame( 'full', get_option( 'stonewright_mcp_surface' ) );
+		self::assertSame( 8, AbilityRegistry::surface_revision() );
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame( 'full', $response['data']['surface'] );
+		self::assertSame( 8, $response['data']['surface_revision'] );
+	}
+
+	public function test_apply_now_returns_honest_client_refresh_notice(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'essential';
+		$GLOBALS['stonewright_test_json_response']                     = null;
+		$_POST = [
+			'nonce'   => wp_create_nonce( 'stonewright_setup_client' ),
+			'surface' => 'bootstrap',
+		];
+
+		ConfigurationPage::handle_apply_mcp_surface();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			(string) ( $response['data']['message'] ?? '' )
+		);
+	}
+
+	public function test_settings_saved_shows_honest_surface_refresh_notice(): void {
+		$_GET['settings-updated'] = 'true';
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			$html
+		);
+		self::assertStringContainsString( 'id="stonewright-mcp-surface-status"', $html );
+	}
+
+	public function test_diagnostics_show_configured_and_active_session_when_widened(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'essential';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
+
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'config-page-session-union';
+		$configured_count               = count( AbilityRegistry::enabled_abilities() );
+		self::assertSame( 30, $configured_count );
+
+		self::assertTrue(
+			AbilityRegistry::set_session_tool_profile(
+				'elementor-design',
+				ToolProfile::profile_tools( 'elementor-design' )
+			)
+		);
+		$session_count = count( AbilityRegistry::enabled_abilities() );
+		self::assertGreaterThan( $configured_count, $session_count );
+
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString(
+			sprintf( 'Configured: essential (%d)', $configured_count ),
+			$html
+		);
+		self::assertStringContainsString(
+			sprintf( 'Active session: elementor-design (%d)', $session_count ),
+			$html
+		);
+	}
+
+	public function test_admin_bootstrap_does_not_register_settings_page(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		$registration = (string) file_get_contents( $plugin_root . '/includes/Core/PluginRegistration.php' );
+		$bootstrap    = (string) file_get_contents( $plugin_root . '/includes/Admin/AdminBootstrap.php' );
+
+		self::assertStringNotContainsString( 'SettingsPage::register', $registration );
+		self::assertStringNotContainsString( 'SettingsPage::register', $bootstrap );
+		self::assertStringContainsString( 'ConfigurationPage::register', $registration );
+		self::assertFileDoesNotExist( $plugin_root . '/includes/Admin/SettingsPage.php' );
 	}
 }

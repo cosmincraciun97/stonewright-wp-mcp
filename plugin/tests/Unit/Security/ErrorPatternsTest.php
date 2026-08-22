@@ -308,4 +308,44 @@ final class ErrorPatternsTest extends TestCase {
 		self::assertSame( 'blocked_pending_repair', $row['state'] ?? '' );
 		self::assertSame( '', (string) ( $row['learning_key'] ?? '' ) );
 	}
+
+	public function test_memory_entry_lookup_passes_sql_string_and_scalar_binds_to_prepare(): void {
+		$wpdb = new class() {
+			public string $prefix = 'wp_';
+			/** @var list<array{query:string,args:list<mixed>}> */
+			public array $prepare_calls = [];
+
+			public function prepare( string $query, mixed ...$args ): string {
+				foreach ( $args as $arg ) {
+					if ( ! is_scalar( $arg ) && null !== $arg ) {
+						throw new \TypeError( 'wpdb::prepare() received a non-scalar placeholder.' );
+					}
+				}
+				$this->prepare_calls[] = [
+					'query' => $query,
+					'args'  => array_values( $args ),
+				];
+				return $query;
+			}
+
+			public function get_var( string $query ): mixed {
+				return 0;
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [];
+			}
+		};
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$method = new \ReflectionMethod( ErrorPatterns::class, 'memory_entry_by_key' );
+		$method->invoke( null, 'audit', 'draft-lesson-example' );
+
+		self::assertNotEmpty( $wpdb->prepare_calls );
+		$call = $wpdb->prepare_calls[0];
+		self::assertIsString( $call['query'] );
+		self::assertStringContainsString( 'SELECT id FROM', $call['query'] );
+		self::assertSame( [ 'audit', 'draft-lesson-example' ], $call['args'] );
+	}
 }

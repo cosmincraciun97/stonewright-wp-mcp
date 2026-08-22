@@ -60,7 +60,7 @@ final class ExpertiseEngineTest extends TestCase {
 
 	public function test_integration_catalog_never_claims_unsupported_writes(): void {
 		$definitions = IntegrationCatalog::definitions();
-		self::assertCount( 38, $definitions );
+		self::assertCount( 39, $definitions );
 		self::assertSame( 'typed', array_column( $definitions, 'adapter', 'id' )['elementor-pro'] );
 		self::assertSame( 'discovery', array_column( $definitions, 'adapter', 'id' )['bricks'] );
 		foreach ( [ 'breakdance', 'wpbakery', 'mosaic', 'spectra-one', 'wpforms', 'ninja-forms', 'jetengine', 'bricksforge', 'dynamic-shortcodes', 'all-in-one-seo', 'seopress' ] as $id ) {

@@ -1,0 +1,6 @@
+{
+    "args": {
+        "name": "stonewright/ping"
+    },
+    "expect": "ok"
+}

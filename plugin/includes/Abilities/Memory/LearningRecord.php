@@ -41,6 +41,7 @@ final class LearningRecord extends AbilityKernel {
 			'additionalProperties' => false,
 			// topic+correction OR text (Direct legacy). Validated in execute.
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'scope'          => [
 					'type'        => 'string',
 					'default'     => 'project',
@@ -154,7 +155,7 @@ final class LearningRecord extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array|\WP_Error {
 				if ( ! get_option( 'stonewright_memory_enabled', true ) ) {

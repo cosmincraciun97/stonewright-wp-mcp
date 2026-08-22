@@ -43,6 +43,27 @@ final class ArchitectureRouter {
 				$high_level_write_blocked = true;
 				$reason  = 'Explicit V4 target conflicts with an existing V3 document; use reviewed migration first.';
 			}
+		} elseif ( in_array( $document, [ 'empty', 'unknown' ], true ) ) {
+			if ( 'v3' === $requested ) {
+				$target = 'v3';
+				$reason = 'Inspected an empty Elementor document; writing V3 as requested.';
+			} elseif ( 'v4' === $requested ) {
+				$target                   = 'v4';
+				$blocked                  = true;
+				$high_level_write_blocked = true;
+				$reason                   = 'V4 was selected, but the high-level V4 renderer is not production-ready.';
+			} elseif ( $site_v4 ) {
+				$target                   = 'none';
+				$blocked                  = true;
+				$high_level_write_blocked = true;
+				$reason                   = sprintf(
+					'Inspected an empty Elementor document on an Elementor 4 runtime. Cheapest unblock: re-run stonewright/task-start (or workflow-preflight) with post_id=%d and target_architecture=v3 for a new V3 document.',
+					$post_id
+				);
+			} else {
+				$target = 'v3';
+				$reason = 'Inspected an empty Elementor document; defaulting to V3.';
+			}
 		} elseif ( 'v3' === $requested ) {
 			$target = 'v3';
 			$reason = 'No post_id was inspected; proceeding on the caller-selected V3 target. Pass post_id to detect the real document architecture before writing.';

@@ -34,6 +34,7 @@ final class KnowledgeImport extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'bundle' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'bundle' => [
 					'type'        => 'object',
 					'description' => 'A Stonewright knowledge bundle exported by stonewright/knowledge-export.',
@@ -60,7 +61,7 @@ final class KnowledgeImport extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $a ): array|\WP_Error {
 				$bundle = $a['bundle'] ?? null;

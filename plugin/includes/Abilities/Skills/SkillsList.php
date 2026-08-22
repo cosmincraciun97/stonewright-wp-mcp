@@ -42,8 +42,8 @@ final class SkillsList extends AbilityKernel {
 				],
 				'mode'            => [
 					'type'        => 'string',
-					'enum'        => [ 'all', 'agentic', 'prompt' ],
-					'description' => 'Filter by exposure mode. agentic returns auto-matched skills; prompt returns explicit command/prompt skills.',
+					'enum'        => [ 'all', 'agentic', 'prompt', 'discover' ],
+					'description' => 'Filter by exposure mode. agentic returns auto-matched skills; prompt returns explicit command/prompt skills; discover returns slug and description only for presence-gated skills.',
 					'default'     => 'all',
 				],
 				'include_content' => [
@@ -83,12 +83,29 @@ final class SkillsList extends AbilityKernel {
 			$skills = Skills::list_agentic();
 		} elseif ( 'prompt' === $mode ) {
 			$skills = Skills::list_prompt();
+		} elseif ( 'discover' === $mode ) {
+			$skills = array_values(
+				array_filter(
+					Skills::list( true ),
+					static fn( array $skill ): bool => Skills::runtime_visible( $skill )
+				)
+			);
 		} else {
 			$skills = Skills::list( $enabled_only );
 			$mode   = 'all';
 		}
 
-		if ( ! $include_content ) {
+		if ( 'discover' === $mode ) {
+			$skills = array_map(
+				static function ( array $skill ): array {
+					return [
+						'slug'        => (string) ( $skill['slug'] ?? '' ),
+						'description' => (string) ( $skill['description'] ?? '' ),
+					];
+				},
+				$skills
+			);
+		} elseif ( ! $include_content ) {
 			$skills = array_map(
 				static function ( array $skill ): array {
 					$skill['content_length'] = strlen( (string) ( $skill['content'] ?? '' ) );

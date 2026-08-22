@@ -43,6 +43,7 @@ final class MenuCreate extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'name'  => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 200 ],
 				'items' => [
 					'type'  => 'array',
@@ -82,7 +83,7 @@ final class MenuCreate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$menu_id = MenuStore::create( (string) $args['name'] );

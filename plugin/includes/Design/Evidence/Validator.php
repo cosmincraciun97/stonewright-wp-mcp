@@ -11,6 +11,9 @@ final class Validator {
 
 	public const VERSION = '1.0.0';
 
+	/** @var list<string> */
+	public const TOP_LEVEL_KEYS = [ 'schema_version', 'sources', 'viewports', 'global', 'nodes', 'measured_targets', 'unresolved' ];
+
 	private const SOURCE_TYPES = [ 'figma', 'screenshot', 'image', 'user_brief', 'live_site', 'official_docs' ];
 	private const PROVENANCE_TYPES = [ 'design', 'live_schema', 'official_docs', 'user', 'verified_memory', 'inference' ];
 	private const ROLES = [
@@ -22,6 +25,7 @@ final class Validator {
 		'text',
 		'image',
 		'gallery',
+		'query',
 		'button',
 		'cta',
 		'link',
@@ -162,10 +166,24 @@ final class Validator {
 		$diagnostics = array_merge( $diagnostics, ActionValidator::validate_evidence_nodes( $nodes ) );
 
 		if ( [] !== $diagnostics ) {
+			$accepted   = self::TOP_LEVEL_KEYS;
+			$unaccepted = array_values( array_diff( array_keys( $input ), $accepted ) );
+			$message    = __( 'Design evidence is incomplete or cannot safely drive a write plan.', 'stonewright' );
+			if ( [] !== $unaccepted ) {
+				$message .= ' Unaccepted keys: ' . implode( ', ', $unaccepted ) . '.';
+			}
+			$message .= ' Accepted keys: ' . implode( ', ', $accepted ) . '.';
+
 			return new \WP_Error(
 				'stonewright_design_evidence_invalid',
-				__( 'Design evidence is incomplete or cannot safely drive a write plan.', 'stonewright' ),
-				[ 'status' => 400, 'schema_version' => self::VERSION, 'diagnostics' => $diagnostics ]
+				$message,
+				[
+					'status'          => 400,
+					'schema_version'  => self::VERSION,
+					'diagnostics'     => $diagnostics,
+					'accepted_keys'   => $accepted,
+					'unaccepted_keys' => $unaccepted,
+				]
 			);
 		}
 

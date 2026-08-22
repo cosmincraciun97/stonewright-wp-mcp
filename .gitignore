@@ -41,6 +41,9 @@ stonewright-credential*.json
 # Research vault must never enter the repo
 research/
 
+# Private planning documents must never enter the repo
+docs/plans/private/
+
 # WordPress
 plugin/wp-content/
 plugin/wordpress/

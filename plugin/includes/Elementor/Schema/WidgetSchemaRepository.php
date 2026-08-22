@@ -140,6 +140,7 @@ final class WidgetSchemaRepository {
 				'source_version' => (string) $schema['source_version'],
 				'schema_hash'    => (string) $schema['schema_hash'],
 				'categories'     => (array) $schema['categories'],
+				'pro_required'   => (bool) ( $schema['pro_required'] ?? false ),
 			];
 		}
 		return [
@@ -231,7 +232,7 @@ final class WidgetSchemaRepository {
 			'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 			'provenance' => 'live_elementor_runtime',
 		];
-		foreach ( [ 'default', 'options', 'selectors', 'selectors_dictionary', 'group', 'group_prefix', 'description', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
+		foreach ( [ 'default', 'options', 'selectors', 'selectors_dictionary', 'group', 'group_prefix', 'description', 'min', 'max', 'step', 'multiple', 'return_value', 'pro_required', 'source', 'source_plugin' ] as $field ) {
 			if ( array_key_exists( $field, $control ) ) {
 				$normalized[ $field ] = $control[ $field ];
 			}

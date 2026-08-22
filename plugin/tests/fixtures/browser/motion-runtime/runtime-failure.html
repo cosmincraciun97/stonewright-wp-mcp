@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Stonewright motion fail-open UAT</title>
+	<link rel="stylesheet" href="../../../../assets/frontend/motion-core.css?uat=2">
+	<script>window.IntersectionObserver = function () { throw new Error( 'synthetic UAT failure' ); };</script>
+	<script src="../../../../assets/frontend/motion-core.js?uat=2"></script>
+	<style>
+		body { font: 16px/1.5 system-ui, sans-serif; }
+		main { max-width: 44rem; margin: 4rem auto; padding: 1rem; }
+	</style>
+</head>
+<body>
+	<main>
+		<h1 data-uat="failed-runtime" class="stw-motion-fade-up stw-motion-trigger--viewport-enter">Visible after runtime failure</h1>
+	</main>
+</body>
+</html>

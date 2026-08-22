@@ -19,6 +19,8 @@ use Stonewright\WpMcp\Security\Permissions;
  */
 final class DirectionBrief extends AbilityKernel {
 
+	private const MAX_DOCUMENT_BYTES = 32768;
+
 	private DesignDirectionService $service;
 
 	public function __construct( ?DesignDirectionService $service = null ) {
@@ -45,7 +47,13 @@ final class DirectionBrief extends AbilityKernel {
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => false,
-			'properties'           => [],
+			'properties'           => [
+				'include_document' => [
+					'type'        => 'boolean',
+					'description' => __( 'Include the sanitized imported design direction document.', 'stonewright' ),
+					'default'     => false,
+				],
+			],
 		];
 	}
 
@@ -57,6 +65,7 @@ final class DirectionBrief extends AbilityKernel {
 				'active' => [ 'type' => 'boolean' ],
 				'ready'  => [ 'type' => 'boolean' ],
 				'brief'  => [ 'type' => 'object' ],
+				'document' => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'ok', 'active', 'ready', 'brief' ],
 		];
@@ -82,20 +91,28 @@ final class DirectionBrief extends AbilityKernel {
 		$readiness = is_array( $contract['readiness'] ?? null ) ? $contract['readiness'] : [];
 		$ready     = true === ( $readiness['ready'] ?? false ) && 'ready' === ( $record['status'] ?? '' );
 
-		return $this->ok(
-			[
-				'active' => true,
-				'ready'  => $ready,
-				'brief'  => [
-					'direction'            => DirectionSummary::row( $record, (int) ( $record['id'] ?? 0 ) ),
-					'tokens'               => is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [],
-					'elementor_guidance'   => DialTranslator::translate( $contract ),
-					'guidance'             => is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [],
-					'waivers'              => is_array( $contract['waivers'] ?? null ) ? $contract['waivers'] : [],
-					'readiness_issues'     => is_array( $readiness['issues'] ?? null ) ? $readiness['issues'] : [],
-					'contract_hash'        => (string) ( $record['contract_hash'] ?? '' ),
-				],
-			]
-		);
+		$brief = [
+			'direction'          => DirectionSummary::row( $record, (int) ( $record['id'] ?? 0 ) ),
+			'tokens'             => is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [],
+			'elementor_guidance' => DialTranslator::translate( $contract ),
+			'guidance'           => is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [],
+			'waivers'            => is_array( $contract['waivers'] ?? null ) ? $contract['waivers'] : [],
+			'readiness_issues'   => is_array( $readiness['issues'] ?? null ) ? $readiness['issues'] : [],
+			'contract_hash'      => (string) ( $record['contract_hash'] ?? '' ),
+		];
+
+		$response = [
+			'active' => true,
+			'ready'  => $ready,
+			'brief'  => $brief,
+		];
+
+		if ( true === ( $args['include_document'] ?? false ) ) {
+			$source_refs          = is_array( $record['source_refs'] ?? null ) ? $record['source_refs'] : [];
+			$document             = wp_strip_all_tags( (string) ( $source_refs['rationale'] ?? '' ) );
+			$response['document'] = substr( $document, 0, self::MAX_DOCUMENT_BYTES );
+		}
+
+		return $this->ok( $response );
 	}
 }

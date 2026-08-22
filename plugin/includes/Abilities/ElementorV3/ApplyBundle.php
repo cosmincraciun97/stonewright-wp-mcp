@@ -60,10 +60,12 @@ final class ApplyBundle extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'ok'      => [ 'type' => 'boolean' ],
-				'applied' => [ 'type' => 'integer' ],
-				'failed'  => [ 'type' => 'integer' ],
-				'items'   => [ 'type' => 'array' ],
+				'ok'            => [ 'type' => 'boolean' ],
+				'applied'       => [ 'type' => 'integer' ],
+				'failed'        => [ 'type' => 'integer' ],
+				'items'         => [ 'type' => 'array' ],
+				// Attached by AbilityKernel after successful Elementor writes.
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'ok', 'applied', 'failed', 'items' ],
 		];
@@ -74,7 +76,7 @@ final class ApplyBundle extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$writes = isset( $args['writes'] ) && is_array( $args['writes'] ) ? array_values( $args['writes'] ) : [];

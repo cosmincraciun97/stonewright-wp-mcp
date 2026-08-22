@@ -24,16 +24,19 @@ final class OAuthClientConfig {
 	 */
 	public static function client_labels(): array {
 		return [
-			'claude-code'     => 'Claude Code',
-			'claude-desktop'  => 'Claude Desktop',
-			'claude-ai'       => 'Claude.ai',
+			'chatgpt-desktop' => 'Codex in ChatGPT Desktop',
 			'chatgpt'         => 'ChatGPT',
-			'codex'           => 'Codex',
+			'claude-ai'       => 'Claude.ai',
+			'claude-desktop'  => 'Claude Desktop',
+			'claude-code'     => 'Claude Code',
+			'windsurf'        => 'Windsurf',
+			'codex-cli'       => 'Codex CLI',
 			'antigravity'     => 'Antigravity',
+			'antigravity-cli' => 'Antigravity CLI',
 			'cursor'          => 'Cursor',
 			'vscode'          => 'VS Code',
+			'vscode-copilot'  => 'VS Code (Copilot)',
 			'github-copilot'  => 'GitHub Copilot',
-			'windsurf'        => 'Windsurf',
 			'cline'           => 'Cline',
 			'gemini-cli'      => 'Gemini CLI',
 			'roo-code'        => 'Roo Code',
@@ -41,14 +44,59 @@ final class OAuthClientConfig {
 			'zed'             => 'Zed',
 			'kilo-code'       => 'Kilo Code',
 			'opencode'        => 'OpenCode',
+			'generic-mcp'     => 'Generic MCP',
 		];
+	}
+
+	/**
+	 * Hidden chip aliases kept for saved client selections.
+	 *
+	 * @return array<string, string> alias slug => canonical slug
+	 */
+	public static function client_slug_aliases(): array {
+		return [
+			'codex' => 'codex-cli',
+		];
+	}
+
+	public static function resolve_client_slug( string $slug ): string {
+		return self::client_slug_aliases()[ $slug ] ?? $slug;
+	}
+
+	/**
+	 * Cursor one-click install URL.
+	 *
+	 * Encodes the inner server object (not an mcpServers wrapper) as base64url
+	 * so query parsers cannot turn `+` into a space or reject `/` and `=`.
+	 *
+	 * @param array<string, mixed> $server Server config.
+	 */
+	public static function cursor_deeplink( string $mcp_name, array $server ): string {
+		$json   = (string) wp_json_encode( $server, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$config = self::base64url_encode( $json );
+		return 'cursor://anysphere.cursor-deeplink/mcp/install?name=' . rawurlencode( $mcp_name )
+			. '&config=' . $config;
 	}
 
 	public static function default_server_name(): string {
 		$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
 		$host = preg_replace( '/^www\./', '', strtolower( $host ) ) ?? '';
-		$slug = preg_replace( '/[^a-z0-9-]+/', '-', $host ) ?? '';
-		$slug = rtrim( substr( trim( $slug, '-' ), 0, 16 ), '-' );
+		foreach ( [ '.local', '.test', '.localhost', '.ddev.site', '.lndo.site' ] as $suffix ) {
+			if ( str_ends_with( $host, $suffix ) ) {
+				$host = substr( $host, 0, -strlen( $suffix ) );
+				break;
+			}
+		}
+		$slug  = preg_replace( '/[^a-z0-9-]+/', '-', $host ) ?? '';
+		$slug  = trim( $slug, '-' );
+		$parts      = array_values( array_filter( explode( '-', $slug ) ) );
+		$part_count = count( $parts );
+		while ( $part_count >= 2 && $parts[ $part_count - 1 ] === $parts[ $part_count - 2 ] ) {
+			array_pop( $parts );
+			$part_count = count( $parts );
+		}
+		$slug = implode( '-', $parts );
+		$slug = rtrim( substr( $slug, 0, 16 ), '-' );
 		return 'stonewright-' . ( '' !== $slug ? $slug : 'wordpress' ); // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- machine identifier.
 	}
 
@@ -63,12 +111,21 @@ final class OAuthClientConfig {
 	 */
 	public static function configs( string $mcp_url, string $mcp_name ): array {
 		if ( self::host_unreachable_from_cloud() ) {
-			$configs            = self::bridge_configs( $mcp_url, $mcp_name, self::local_bridge_environment() );
-			$configs['chatgpt'] = [
-				'kind'    => 'notice',
-				'message' => 'ChatGPT can connect only when this WordPress site is reachable from the public internet.',
-			];
-			unset( $configs['claude-ai'] );
+			$configs = self::bridge_configs( $mcp_url, $mcp_name, self::local_bridge_environment() );
+			$chatgpt_desktop = is_array( $configs['chatgpt-desktop'] ?? null ) ? $configs['chatgpt-desktop'] : [];
+			$claude_desktop  = is_array( $configs['claude-desktop'] ?? null ) ? $configs['claude-desktop'] : [];
+			$configs['chatgpt'] = array_merge(
+				$chatgpt_desktop,
+				[
+					'message' => 'ChatGPT on the web cannot reach a site that exists only on this machine. ChatGPT Desktop can use this local mcp-remote bridge.',
+				]
+			);
+			$configs['claude-ai'] = array_merge(
+				$claude_desktop,
+				[
+					'message' => 'Claude.ai cannot reach a site that exists only on this machine. Use Claude Desktop or Claude Code with the local mcp-remote bridge below.',
+				]
+			);
 			return self::order( $configs );
 		}
 
@@ -81,8 +138,10 @@ final class OAuthClientConfig {
 	public static function public_configs( string $mcp_url, string $mcp_name ): array {
 		$bridge = self::bridge_configs( $mcp_url, $mcp_name, [] );
 		$native = self::native_configs( $mcp_url, $mcp_name );
-		foreach ( [ 'antigravity', 'cline', 'roo-code', 'amazon-q', 'zed', 'kilo-code', 'opencode' ] as $slug ) {
-			$native[ $slug ] = $bridge[ $slug ];
+		foreach ( [ 'antigravity', 'antigravity-cli', 'cline', 'roo-code', 'amazon-q', 'zed', 'kilo-code', 'opencode' ] as $slug ) {
+			if ( isset( $bridge[ $slug ] ) ) {
+				$native[ $slug ] = $bridge[ $slug ];
+			}
 		}
 		return self::order( $native );
 	}
@@ -93,9 +152,24 @@ final class OAuthClientConfig {
 	private static function native_configs( string $mcp_url, string $mcp_name ): array {
 		$connector_name = 'Stonewright - ' . trim( get_bloginfo( 'name' ) );
 		$connector      = self::connector_install_link( $mcp_url, rtrim( $connector_name, ' -' ) );
-		$cursor_config  = base64_encode( (string) wp_json_encode( [ 'url' => $mcp_url ] ) );
-		$cursor_link    = 'cursor://anysphere.cursor-deeplink/mcp/install?name=' . rawurlencode( $mcp_name )
-			. '&config=' . rawurlencode( $cursor_config );
+		$cursor_server  = [ 'url' => $mcp_url ];
+		$cursor_link    = self::cursor_deeplink( $mcp_name, $cursor_server );
+		$codex_cli      = self::entry(
+			"[mcp_servers.{$mcp_name}]\nurl = " . self::toml_quote( $mcp_url ),
+			'Add to config.toml, then run codex mcp login ' . $mcp_name . '.',
+			[
+				'macOS / Linux' => '~/.codex/config.toml',
+				'Windows'       => '%USERPROFILE%\\.codex\\config.toml',
+			],
+			false,
+			'codex mcp add ' . $mcp_name . ' --url ' . $mcp_url . "\n"
+				. 'codex mcp login ' . $mcp_name . ' --scopes mcp,offline_access'
+		);
+		$vscode         = self::entry(
+			self::json( 'servers', $mcp_name, [ 'type' => 'http', 'url' => $mcp_url ] ),
+			'Add to mcp.json.',
+			[ 'Workspace' => '.vscode/mcp.json', 'User' => 'Run: MCP: Open User Configuration' ]
+		);
 
 		return [
 			'claude-code' => self::entry(
@@ -126,29 +200,30 @@ final class OAuthClientConfig {
 				'paths' => [],
 				'steps' => self::chatgpt_steps( $mcp_name, $mcp_url ),
 			],
-			'codex' => self::entry(
-				"[mcp_servers.{$mcp_name}]\nurl = " . self::toml_quote( $mcp_url ),
-				'Add to config.toml, then run codex mcp login ' . $mcp_name . '.',
-				[
-					'macOS / Linux' => '~/.codex/config.toml',
-					'Windows'       => '%USERPROFILE%\\.codex\\config.toml',
-				],
-				false,
-				'codex mcp add ' . $mcp_name . ' --url ' . $mcp_url . "\n"
-					. 'codex mcp login ' . $mcp_name . ' --scopes mcp,offline_access'
-			),
-			'cursor' => self::entry(
+			'chatgpt-desktop' => self::entry(
 				self::json( 'mcpServers', $mcp_name, [ 'url' => $mcp_url ] ),
+				'Add to ChatGPT Desktop mcp_config.json, then restart the app.',
+				[
+					'macOS'   => '~/Library/Application Support/ChatGPT/mcp_config.json',
+					'Windows' => '%APPDATA%\\ChatGPT\\mcp_config.json',
+				]
+			),
+			'codex-cli' => $codex_cli,
+			'codex'     => $codex_cli,
+			'cursor'    => self::entry(
+				self::json( 'mcpServers', $mcp_name, $cursor_server ),
 				'Use the one-click button, or add to mcp.json.',
 				[ 'Global' => '~/.cursor/mcp.json', 'Project' => '.cursor/mcp.json' ],
 				false,
 				'',
 				[ 'deeplink' => $cursor_link ]
 			),
-			'vscode' => self::entry(
-				self::json( 'servers', $mcp_name, [ 'type' => 'http', 'url' => $mcp_url ] ),
-				'Add to mcp.json.',
-				[ 'Workspace' => '.vscode/mcp.json', 'User' => 'Run: MCP: Open User Configuration' ]
+			'vscode'          => $vscode,
+			'vscode-copilot'  => $vscode,
+			'generic-mcp'     => self::entry(
+				self::json( 'mcpServers', $mcp_name, [ 'url' => $mcp_url ] ),
+				'Add to your client MCP config.',
+				[ 'Client-specific' => 'Client-specific MCP config' ]
 			),
 			'github-copilot' => self::entry(
 				self::json( 'servers', $mcp_name, [ 'type' => 'http', 'url' => $mcp_url ] ),
@@ -231,21 +306,35 @@ final class OAuthClientConfig {
 		];
 
 		$standard = [
-			'claude-desktop' => [ $mcp_servers, 'claude_desktop_config.json', [ 'macOS' => '~/Library/Application Support/Claude/claude_desktop_config.json', 'Windows' => '%APPDATA%\\Claude\\claude_desktop_config.json' ] ],
-			'antigravity'    => [ $mcp_servers, 'mcp_config.json', [ 'macOS / Linux' => '~/.gemini/config/mcp_config.json', 'Windows' => '%USERPROFILE%\\.gemini\\config\\mcp_config.json' ] ],
-			'cursor'         => [ $mcp_servers, 'mcp.json', [ 'Global' => '~/.cursor/mcp.json', 'Project' => '.cursor/mcp.json' ] ],
-			'vscode'         => [ $servers, 'mcp.json', [ 'Workspace' => '.vscode/mcp.json', 'User' => 'Run: MCP: Open User Configuration' ] ],
-			'github-copilot' => [ $servers, 'mcp.json', [ 'Project' => '.github/copilot/mcp.json' ] ],
-			'windsurf'       => [ $mcp_servers, 'mcp_config.json', [ 'macOS / Linux' => '~/.codeium/windsurf/mcp_config.json', 'Windows' => '%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json' ] ],
-			'cline'          => [ $mcp_servers, 'cline_mcp_settings.json', [ 'Via UI' => 'Cline sidebar → MCP Servers → Configure MCP Servers' ] ],
-			'gemini-cli'     => [ $mcp_servers, 'settings.json', [ 'Global' => '~/.gemini/settings.json', 'Project' => '.gemini/settings.json' ] ],
-			'roo-code'       => [ $mcp_servers, 'mcp.json', [ 'Project' => '.roo/mcp.json', 'Via UI' => 'Roo Code sidebar → MCP Servers → Configure MCP Servers' ] ],
-			'amazon-q'       => [ $mcp_servers, 'mcp.json', [ 'Global' => '~/.aws/amazonq/mcp.json', 'Project' => '.amazonq/mcp.json' ] ],
-			'kilo-code'      => [ $mcp_servers, 'mcp.json', [ 'Project' => '.kilocode/mcp.json', 'Via UI' => 'Kilo Code sidebar → MCP Servers → Configure MCP Servers' ] ],
+			'claude-desktop'   => [ $mcp_servers, 'claude_desktop_config.json', [ 'macOS' => '~/Library/Application Support/Claude/claude_desktop_config.json', 'Windows' => '%APPDATA%\\Claude\\claude_desktop_config.json' ] ],
+			'chatgpt-desktop'  => [ $mcp_servers, 'mcp_config.json', [ 'macOS' => '~/Library/Application Support/ChatGPT/mcp_config.json', 'Windows' => '%APPDATA%\\ChatGPT\\mcp_config.json' ] ],
+			'antigravity'      => [ $mcp_servers, 'mcp_config.json', [ 'macOS / Linux' => '~/.gemini/config/mcp_config.json', 'Windows' => '%USERPROFILE%\\.gemini\\config\\mcp_config.json' ] ],
+			'vscode'           => [ $servers, 'mcp.json', [ 'Workspace' => '.vscode/mcp.json', 'User' => 'Run: MCP: Open User Configuration' ] ],
+			'github-copilot'   => [ $servers, 'mcp.json', [ 'Project' => '.github/copilot/mcp.json' ] ],
+			'windsurf'         => [ $mcp_servers, 'mcp_config.json', [ 'macOS / Linux' => '~/.codeium/windsurf/mcp_config.json', 'Windows' => '%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json' ] ],
+			'cline'            => [ $mcp_servers, 'cline_mcp_settings.json', [ 'Via UI' => 'Cline sidebar → MCP Servers → Configure MCP Servers' ] ],
+			'gemini-cli'       => [ $mcp_servers, 'settings.json', [ 'Global' => '~/.gemini/settings.json', 'Project' => '.gemini/settings.json' ] ],
+			'roo-code'         => [ $mcp_servers, 'mcp.json', [ 'Project' => '.roo/mcp.json', 'Via UI' => 'Roo Code sidebar → MCP Servers → Configure MCP Servers' ] ],
+			'amazon-q'         => [ $mcp_servers, 'mcp.json', [ 'Global' => '~/.aws/amazonq/mcp.json', 'Project' => '.amazonq/mcp.json' ] ],
+			'kilo-code'        => [ $mcp_servers, 'mcp.json', [ 'Project' => '.kilocode/mcp.json', 'Via UI' => 'Kilo Code sidebar → MCP Servers → Configure MCP Servers' ] ],
+			'generic-mcp'      => [ $mcp_servers, 'MCP config', [ 'Client-specific' => 'Client-specific MCP config' ] ],
 		];
 		foreach ( $standard as $slug => [ $code, $file, $paths ] ) {
 			$configs[ $slug ] = self::entry( $code, 'Add to ' . $file . '.', $paths );
 		}
+
+		$configs['cursor'] = self::entry(
+			$mcp_servers,
+			'Use the one-click button, or add to mcp.json.',
+			[ 'Global' => '~/.cursor/mcp.json', 'Project' => '.cursor/mcp.json' ],
+			false,
+			'',
+			[ 'deeplink' => self::cursor_deeplink( $mcp_name, $server ) ]
+		);
+		$configs['codex-cli']        = $configs['codex'];
+		$configs['vscode-copilot']   = $configs['vscode'];
+		$configs['antigravity-cli']  = $configs['antigravity'];
+
 		return $configs;
 	}
 
@@ -371,6 +460,17 @@ final class OAuthClientConfig {
 				$ordered[ $slug ] = $configs[ $slug ];
 			}
 		}
+		foreach ( self::client_slug_aliases() as $alias => $canonical ) {
+			unset( $canonical );
+			if ( isset( $configs[ $alias ] ) && ! isset( $ordered[ $alias ] ) ) {
+				$ordered[ $alias ] = $configs[ $alias ];
+			}
+		}
 		return $ordered;
+	}
+
+	private static function base64url_encode( string $bytes ): string {
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		return rtrim( strtr( base64_encode( $bytes ), '+/', '-_' ), '=' );
 	}
 }

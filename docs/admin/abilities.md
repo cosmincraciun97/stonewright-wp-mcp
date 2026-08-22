@@ -31,17 +31,21 @@ abilities that are currently enabled and not blocked by the master toggle.
 | `content` | post and page CRUD |
 | `media` | upload, read metadata |
 | `gutenberg` | block operations |
+| `gutenberg` finalizer | `blocks-queue-change`, `blocks-finalize-batch`, `blocks-finalizer-runtime` |
 | `patterns` | pattern library |
 | `fse` | full-site editing templates |
 | `elementor` | element CRUD, page structures |
 | `theme-builder` | Elementor templates and display conditions |
 | `content-model` | CPT/ACF-backed Loop Grid workflow |
+| `blocks` | GenerateBlocks / Kadence / Spectra library introspection |
 | `design` | spec validate, renderer selection |
 | `wp-cli` | status, discovery, command run |
 | `memory` | memory CRUD |
 | `system` | abilities list, instructions get |
+| `system` discover-execute | `discover-abilities`, `get-ability-info`, `execute-ability` |
 | `skills` | skill list, read, and save |
-| `runtime` | direct WordPress PHP snippets |
+| `runtime` | direct WordPress PHP snippets (`full` profile only) |
+| `themes` chrome | `theme-chrome-get`, `theme-chrome-update` |
 | `sandbox` | sandbox file lifecycle |
 
 ---

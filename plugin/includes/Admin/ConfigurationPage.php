@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\OAuth\Transport;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
@@ -30,8 +31,39 @@ final class ConfigurationPage {
 			'admin_post_stonewright_revoke_application_password',
 			[ self::class, 'handle_revoke_application_password' ]
 		);
+		add_action( 'admin_post_stonewright_run_diagnostics', [ self::class, 'handle_run_diagnostics' ] );
 		add_action( 'wp_ajax_stonewright_set_setup_client', [ self::class, 'handle_set_setup_client' ] );
 		add_action( 'wp_ajax_stonewright_apply_mcp_surface', [ self::class, 'handle_apply_mcp_surface' ] );
+		add_action( 'wp_ajax_stonewright_run_diagnostics', [ self::class, 'handle_ajax_run_diagnostics' ] );
+	}
+
+	/**
+	 * Footer copy for Setup diagnostics. Plugin SemVer and the companion HTTP
+	 * contract are different numbers; only a contract major mismatch blocks calls.
+	 */
+	public static function diagnostics_version_copy( string $plugin, string $contract ): string {
+		if ( is_wp_error( CompanionContract::validate_version( $contract ) ) ) {
+			return sprintf(
+				/* translators: 1: plugin SemVer, 2: companion HTTP contract version. */
+				__( 'Plugin %1$s. Companion HTTP contract %2$s. A major contract mismatch is blocked before companion calls.', 'stonewright' ),
+				$plugin,
+				$contract
+			);
+		}
+
+		return sprintf(
+			/* translators: 1: plugin SemVer, 2: companion HTTP contract version. */
+			__( 'Plugin %1$s. Companion HTTP contract %2$s.', 'stonewright' ),
+			$plugin,
+			$contract
+		);
+	}
+
+	public static function surface_saved_notice(): string {
+		return __(
+			'Surface saved. Connected MCP clients refresh on their next task-start or tools/list call — restart the client if the tool count does not change.',
+			'stonewright'
+		);
 	}
 
 	/**
@@ -79,14 +111,76 @@ final class ConfigurationPage {
 		}
 		wp_send_json_success(
 			[
-				'surface'         => (string) $state['mcp_surface'],
-				'mcp_surface'     => (string) $state['mcp_surface'],
+				'surface'          => (string) $state['mcp_surface'],
+				'mcp_surface'      => (string) $state['mcp_surface'],
 				'surface_revision' => \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision(),
-				'setup_state'     => $state,
-				'message'         => __( 'Step 1 settings applied and verified.', 'stonewright' ),
-				'transport_truth' => __( 'The surface revision is current. Dynamic clients pick it up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response. Clients that cache tools permanently still need one restart.', 'stonewright' ),
+				'setup_state'      => $state,
+				'message'          => self::surface_saved_notice(),
+				'transport_truth'  => '',
 			]
 		);
+	}
+
+	public static function handle_run_diagnostics(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_run_diagnostics' );
+
+		$mode = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : 'both';
+		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
+			$mode = 'both';
+		}
+
+		$return = isset( $_POST['stonewright_diagnostics_return'] )
+			? sanitize_key( (string) wp_unslash( $_POST['stonewright_diagnostics_return'] ) )
+			: self::SLUG;
+		if ( ! in_array( $return, [ self::SLUG, 'stonewright-troubleshoot' ], true ) ) {
+			$return = self::SLUG;
+		}
+
+		$report = SetupDiagnostics::report(
+			[
+				'probe' => 'stdio' !== $mode,
+				'mode'  => $mode,
+			]
+		);
+		update_option( 'stonewright_diagnostics_last', $report, false );
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'                    => $return,
+					'stonewright_diagnostics' => '1',
+				],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	public static function handle_ajax_run_diagnostics(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( [ 'message' => 'forbidden' ], 403 );
+			return;
+		}
+
+		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
+
+		$mode = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : 'both';
+		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
+			$mode = 'both';
+		}
+
+		$report = SetupDiagnostics::report(
+			[
+				'probe' => 'stdio' !== $mode,
+				'mode'  => $mode,
+			]
+		);
+		update_option( 'stonewright_diagnostics_last', $report, false );
+		wp_send_json_success( $report );
 	}
 
 	/**
@@ -159,7 +253,7 @@ final class ConfigurationPage {
 		add_submenu_page(
 			self::SLUG,
 			__( 'Setup', 'stonewright' ),
-			__( 'Connect', 'stonewright' ),
+			__( 'Setup', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -331,7 +425,6 @@ final class ConfigurationPage {
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
-		$setup_diagnostics   = SetupDiagnostics::report();
 		$has_app_password    = [] !== $app_passwords;
 		$oauth_available     = Transport::allowed();
 		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
@@ -373,41 +466,7 @@ final class ConfigurationPage {
 				<?php endif; ?>
 			<?php endif; ?>
 
-			<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'Setup diagnostics', 'stonewright' ); ?>">
-				<h2><?php esc_html_e( 'Setup diagnostics', 'stonewright' ); ?></h2>
-				<ul class="sw-checklist">
-					<?php foreach ( $setup_diagnostics['checks'] as $check ) : ?>
-						<?php
-						$status = (string) ( $check['status'] ?? 'error' );
-						$icon   = match ( $status ) {
-							'ok'   => '✓',
-							'warn' => '!',
-							'info' => 'ⓘ',
-							default => '✗',
-						};
-						?>
-						<li class="sw-checklist__item sw-checklist__item--<?php echo esc_attr( $status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
-							<span class="sw-checklist__icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></span>
-							<span class="sw-checklist__body">
-								<strong class="sw-checklist__label"><?php echo esc_html( $check['label'] ); ?></strong>
-								<span class="sw-checklist__detail"><?php echo esc_html( $check['detail'] ); ?></span>
-							</span>
-						</li>
-					<?php endforeach; ?>
-				</ul>
-				<p class="description">
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: 1: plugin version, 2: companion contract version. */
-							__( 'Plugin %1$s; companion contract %2$s. A major contract mismatch is blocked before companion calls.', 'stonewright' ),
-							(string) $setup_diagnostics['versions']['plugin'],
-							(string) $setup_diagnostics['versions']['companion_contract']
-						)
-					);
-					?>
-				</p>
-			</section>
+			<?php DiagnosticsPanel::render( self::SLUG, __( 'Setup diagnostics', 'stonewright' ) ); ?>
 
 			<nav class="sw-stepper" aria-label="<?php esc_attr_e( 'Setup progress', 'stonewright' ); ?>">
 				<?php
@@ -470,6 +529,13 @@ final class ConfigurationPage {
 									<?php esc_html_e( 'Production-safe', 'stonewright' ); ?>
 								</option>
 							</select>
+							<p class="description stonewright-mode-help" id="stonewright_mode_help">
+								<?php esc_html_e( 'Development — no confirmation tokens required; use only on disposable sites.', 'stonewright' ); ?>
+								<br />
+								<?php esc_html_e( 'Staging — same gates as development; identifies the site as staging.', 'stonewright' ); ?>
+								<br />
+								<?php esc_html_e( 'Production-safe — destructive and bulk writes require a fresh confirmation token per operation; Elementor V4 writes are blocked.', 'stonewright' ); ?>
+							</p>
 						</div>
 						<div class="stonewright-risk-notice <?php echo esc_attr( $risk_class ); ?>">
 							<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
@@ -503,7 +569,16 @@ final class ConfigurationPage {
 								</button>
 							</div>
 							<p class="description" id="stonewright-mcp-surface-status" data-sw-mcp-surface-status role="status" aria-live="polite">
-								<?php esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' ); ?>
+								<?php
+								$settings_updated = isset( $_GET['settings-updated'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice selector after options.php.
+									? sanitize_key( (string) wp_unslash( $_GET['settings-updated'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+									: '';
+								if ( in_array( $settings_updated, [ 'true', '1' ], true ) ) {
+									echo esc_html( self::surface_saved_notice() );
+								} else {
+									esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' );
+								}
+								?>
 							</p>
 						</div>
 						<div class="sw-field">
@@ -522,6 +597,9 @@ final class ConfigurationPage {
 								/>
 								<span><?php esc_html_e( 'Enable Elementor V4 atomic abilities', 'stonewright' ); ?></span>
 							</label>
+							<p class="description">
+								<?php esc_html_e( 'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.', 'stonewright' ); ?>
+							</p>
 						</div>
 						<div class="sw-field">
 							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>
@@ -969,7 +1047,14 @@ final class ConfigurationPage {
 
 	private static function selected_setup_client( int $user_id ): string {
 		$default = 'claude-desktop';
-		$known   = ClientCatalog::slugs();
+		$known   = array_values(
+			array_unique(
+				array_merge(
+					ClientCatalog::slugs(),
+					array_column( ConnectClientConfig::chooser_clients(), 'slug' )
+				)
+			)
+		);
 		if ( [] === $known ) {
 			return $default;
 		}
@@ -1010,6 +1095,7 @@ final class ConfigurationPage {
 	 * @param array<string, mixed> $snippet Snippet payload from ConnectClientConfig.
 	 */
 	private static function format_snippet_display( array $snippet ): string {
+		unset( $snippet['deeplink'] );
 		if ( isset( $snippet['command'] ) && is_string( $snippet['command'] ) ) {
 			return $snippet['command'];
 		}
@@ -1028,7 +1114,7 @@ final class ConfigurationPage {
 		string $selected_slug,
 		string $selected_method
 	): void {
-		$clients = ClientCatalog::all();
+		$clients = ConnectClientConfig::chooser_clients();
 		$slugs   = array_map(
 			static fn( array $client ): string => (string) $client['slug'],
 			$clients
@@ -1133,12 +1219,16 @@ final class ConfigurationPage {
 						$code_id     = 'sw-client-snippet-' . $slug . '-' . $method;
 						$display     = self::format_snippet_display( $snippet );
 						$method_show = $method === $selected_method;
+						$deeplink    = (string) ( $snippet['deeplink'] ?? '' );
 						?>
 						<div
 							class="sw-method-snippet"
 							data-stonewright-method-snippet="<?php echo esc_attr( $method ); ?>"
 							<?php echo $method_show ? '' : 'hidden'; ?>
 						>
+							<?php if ( '' !== $deeplink ) : ?>
+								<?php OAuthConnectPanel::render_deeplink_button( $deeplink, (string) $client['label'] ); ?>
+							<?php endif; ?>
 							<?php if ( 'http' === $method ) : ?>
 								<p class="description">
 									<?php esc_html_e( 'Streamable HTTP against the WordPress MCP endpoint. Keep the companion only when you need local WP-CLI workflows.', 'stonewright' ); ?>

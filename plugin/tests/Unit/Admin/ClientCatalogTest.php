@@ -171,4 +171,68 @@ final class ClientCatalogTest extends TestCase {
 			self::assertNotSame( '', $row['notes'] );
 		}
 	}
+
+	public function test_catalog_includes_split_surface_clients(): void {
+		$required = [
+			'chatgpt-desktop' => 'Codex in ChatGPT Desktop',
+			'chatgpt'         => 'ChatGPT',
+			'claude-ai'       => 'Claude.ai',
+			'claude-desktop'  => 'Claude Desktop',
+			'claude-code'     => 'Claude Code',
+			'windsurf'        => 'Windsurf',
+			'codex-cli'       => 'Codex CLI',
+			'codex'           => 'Codex',
+			'antigravity'     => 'Antigravity',
+			'antigravity-cli' => 'Antigravity CLI',
+		];
+		foreach ( $required as $slug => $label ) {
+			$client = ClientCatalog::get( $slug );
+			self::assertIsArray( $client, $slug );
+			self::assertSame( $label, $client['label'], $slug );
+		}
+
+		$desktop = ClientCatalog::get( 'chatgpt-desktop' );
+		self::assertTrue( $desktop['oauth_support'] );
+		self::assertSame( 'json-mcp', $desktop['config_format'] );
+
+		$cli = ClientCatalog::get( 'codex-cli' );
+		self::assertTrue( $cli['oauth_support'] );
+		self::assertSame( 'toml-codex', $cli['config_format'] );
+		self::assertSame( 'codex mcp add', $cli['official_cli_add'] );
+	}
+
+	public function test_oauth_and_app_password_choosers_share_client_set(): void {
+		$oauth_slugs = array_keys( \Stonewright\WpMcp\Admin\OAuthClientConfig::client_labels() );
+		$app_slugs   = array_column( ConnectClientConfig::chooser_clients(), 'slug' );
+		self::assertSame( $oauth_slugs, $app_slugs );
+		foreach ( [ 'chatgpt-desktop', 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'windsurf', 'codex-cli' ] as $slug ) {
+			self::assertContains( $slug, $app_slugs );
+		}
+	}
+
+	public function test_app_password_snippets_match_client_schemas(): void {
+		$windsurf = ConnectClientConfig::snippet_for( 'windsurf', 'fixture-admin', 'xxxx xxxx', 'http' );
+		self::assertIsArray( $windsurf );
+		self::assertArrayHasKey( 'serverUrl', $windsurf['mcpServers']['stonewright-example-test'] );
+		self::assertArrayNotHasKey( 'url', $windsurf['mcpServers']['stonewright-example-test'] );
+
+		$gemini = ConnectClientConfig::snippet_for( 'gemini-cli', 'fixture-admin', 'xxxx xxxx', 'http' );
+		self::assertIsArray( $gemini );
+		self::assertArrayHasKey( 'httpUrl', $gemini['mcpServers']['stonewright-example-test'] );
+
+		$desktop = ConnectClientConfig::snippet_for( 'chatgpt-desktop', 'fixture-admin', 'xxxx xxxx', 'http' );
+		self::assertIsArray( $desktop );
+		self::assertArrayHasKey( 'url', $desktop['mcpServers']['stonewright-example-test'] );
+
+		$codex_cli = ConnectClientConfig::snippet_for( 'codex-cli', 'fixture-admin', 'xxxx xxxx', 'stdio' );
+		$codex     = ConnectClientConfig::snippet_for( 'codex', 'fixture-admin', 'xxxx xxxx', 'stdio' );
+		self::assertIsArray( $codex_cli );
+		self::assertIsArray( $codex );
+		self::assertSame( $codex['toml'], $codex_cli['toml'] );
+
+		$cursor = ConnectClientConfig::snippet_for( 'cursor', 'fixture-admin', 'xxxx xxxx', 'http' );
+		self::assertIsArray( $cursor );
+		self::assertArrayHasKey( 'deeplink', $cursor );
+		self::assertStringStartsWith( 'cursor://anysphere.cursor-deeplink/mcp/install?', (string) $cursor['deeplink'] );
+	}
 }

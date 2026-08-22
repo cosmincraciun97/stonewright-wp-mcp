@@ -1,0 +1,31 @@
+{
+    "args": {
+        "spec": {
+            "version": "2.0.0",
+            "page": { "title": "Contract fixture" },
+            "sections": [
+                {
+                    "id": "hero",
+                    "role": "hero",
+                    "blocks": [
+                        { "id": "hero-copy", "type": "paragraph", "text": "Fixture copy." }
+                    ],
+                    "motion": [
+                        {
+                            "id": "fixture-enter",
+                            "purpose": "orient",
+                            "target_id": "hero-copy",
+                            "trigger": "viewport-enter",
+                            "effect": "fade-up",
+                            "playback": "once",
+                            "engine": "auto",
+                            "reduced_motion": "replace-with-fade"
+                        }
+                    ]
+                }
+            ]
+        },
+        "renderer": "gutenberg-fse"
+    },
+    "expect": "ok"
+}

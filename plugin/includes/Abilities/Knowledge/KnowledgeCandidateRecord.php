@@ -37,6 +37,7 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'action' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'action'              => [ 'type' => 'string', 'enum' => [ 'create', 'verify', 'promote', 'reject', 'mark_stale', 'skill_rollback' ] ],
 				'id'                  => [ 'type' => 'integer', 'minimum' => 1 ],
 				'topic'               => [ 'type' => 'string' ],
@@ -82,7 +83,7 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $input ): array|\WP_Error {
 				$action = (string) ( $input['action'] ?? '' );

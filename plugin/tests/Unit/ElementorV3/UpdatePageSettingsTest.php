@@ -26,6 +26,7 @@ final class UpdatePageSettingsTest extends TestCase {
 				'meta'         => [
 					'_elementor_page_settings' => [
 						'custom_css' => '.elementor-10{overflow-x:hidden;}',
+						'hide_title' => 'yes',
 					],
 				],
 			],
@@ -41,6 +42,23 @@ final class UpdatePageSettingsTest extends TestCase {
 		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 	}
 
+	public function test_custom_css_requires_custom_code_approval(): void {
+		$result = ( new UpdatePageSettings() )->execute(
+			[
+				'post_id'  => 10,
+				'settings' => [
+					'custom_css' => '.elementor-10{overflow-x:hidden;}',
+				],
+				'mode'     => 'merge',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_approval_required', $result->get_error_code() );
+		self::assertSame( 'custom_css', $result->get_error_data()['offending_key'] );
+		self::assertSame( 'stonewright/theme-custom-css', $result->get_error_data()['gated_tool'] );
+	}
+
 	public function test_idempotent_same_settings_are_successful_when_update_post_meta_returns_false(): void {
 		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => false ];
 
@@ -48,7 +66,7 @@ final class UpdatePageSettingsTest extends TestCase {
 			[
 				'post_id'  => 10,
 				'settings' => [
-					'custom_css' => '.elementor-10{overflow-x:hidden;}',
+					'hide_title' => 'yes',
 				],
 				'mode'     => 'merge',
 			]
@@ -66,7 +84,7 @@ final class UpdatePageSettingsTest extends TestCase {
 			[
 				'post_id'  => 10,
 				'settings' => [
-					'custom_css' => '.elementor-10{overflow-x:auto;}',
+					'hide_title' => 'no',
 				],
 				'mode'     => 'merge',
 			]

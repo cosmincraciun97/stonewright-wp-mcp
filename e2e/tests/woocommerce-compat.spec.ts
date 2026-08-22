@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { restPost, wpRestNonce } from './helpers/wp-rest';
+import {
+	runAbility,
+	runAbilityWithProfileConfirmation,
+	wpRestNonce,
+} from './helpers/wp-rest';
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -29,15 +33,6 @@ async function ensurePluginEnabled(page: Page): Promise<void> {
 			.click();
 		await page.waitForLoadState('domcontentloaded');
 	}
-}
-
-async function runAbility(
-	page: Page,
-	nonce: string,
-	name: string,
-	input: Record<string, unknown>,
-) {
-	return restPost(page, '/stonewright/v1/abilities/run', { name, input }, nonce);
 }
 
 test('Stonewright and WooCommerce activate together without an autoloader fatal', async ({
@@ -85,7 +80,13 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 	);
 	expect(contextToken).toMatch(/^swctx_/);
 
-	const status = await runAbility(page, nonce, 'stonewright/wc-status', {});
+	const status = await runAbilityWithProfileConfirmation(
+		page,
+		nonce,
+		contextToken,
+		'stonewright/wc-status',
+		{},
+	);
 	expect(status.ok, JSON.stringify(status.body)).toBeTruthy();
 	const statusBody = status.body as {
 		result?: { supported?: boolean; version?: string; product_types?: string[] };
@@ -102,9 +103,13 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 		regular_price: '19.99',
 		stonewright_context_token: contextToken,
 	};
-	const preview = await runAbility(page, nonce, 'stonewright/wc-product-save', {
-		...productInput,
-	});
+	const preview = await runAbilityWithProfileConfirmation(
+		page,
+		nonce,
+		contextToken,
+		'stonewright/wc-product-save',
+		{ ...productInput },
+	);
 	expect(preview.ok, JSON.stringify(preview.body)).toBeTruthy();
 	const previewBody = preview.body as {
 		result?: { dry_run?: boolean; execution_status?: string; product?: { id?: number } };
@@ -115,10 +120,16 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 
 	let productId = 0;
 	try {
-		const applied = await runAbility(page, nonce, 'stonewright/wc-product-save', {
-			...productInput,
-			dry_run: false,
-		});
+		const applied = await runAbilityWithProfileConfirmation(
+			page,
+			nonce,
+			contextToken,
+			'stonewright/wc-product-save',
+			{
+				...productInput,
+				dry_run: false,
+			},
+		);
 		expect(applied.ok, JSON.stringify(applied.body)).toBeTruthy();
 		const appliedBody = applied.body as {
 			result?: {
@@ -135,9 +146,13 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 		expect(appliedBody.result?.product?.sku).toBe(productInput.sku);
 		expect(appliedBody.result?.product?.regular_price).toBe('19.99');
 
-		const read = await runAbility(page, nonce, 'stonewright/wc-product-get', {
-			id: productId,
-		});
+		const read = await runAbilityWithProfileConfirmation(
+			page,
+			nonce,
+			contextToken,
+			'stonewright/wc-product-get',
+			{ id: productId },
+		);
 		expect(read.ok, JSON.stringify(read.body)).toBeTruthy();
 		const readBody = read.body as {
 			result?: { product?: { id?: number; status?: string; description?: string } };
@@ -147,12 +162,18 @@ test('native WooCommerce catalog save verifies readback and cleans up', async ({
 		expect(readBody.result?.product).toHaveProperty('description');
 	} finally {
 		if (productId > 0) {
-			const removed = await runAbility(page, nonce, 'stonewright/wc-product-delete', {
-				id: productId,
-				force: true,
-				dry_run: false,
-				stonewright_context_token: contextToken,
-			});
+			const removed = await runAbilityWithProfileConfirmation(
+				page,
+				nonce,
+				contextToken,
+				'stonewright/wc-product-delete',
+				{
+					id: productId,
+					force: true,
+					dry_run: false,
+					stonewright_context_token: contextToken,
+				},
+			);
 			expect(removed.ok, JSON.stringify(removed.body)).toBeTruthy();
 			const removedBody = removed.body as {
 				result?: { deleted?: boolean; effect_verified?: boolean };

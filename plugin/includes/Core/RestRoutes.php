@@ -131,13 +131,17 @@ final class RestRoutes {
 				'methods'             => 'POST',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'args'                => [
-					'name'  => [
+					'name'               => [
 						'type'     => 'string',
 						'required' => true,
 					],
-					'input' => [
+					'input'              => [
 						'type'    => 'object',
 						'default' => [],
+					],
+					'confirmation_token' => [
+						'type'        => 'string',
+						'description' => 'Required when running an ability that is outside the active MCP tool profile.',
 					],
 				],
 				'callback'            => static function ( \WP_REST_Request $request ) {
@@ -172,6 +176,12 @@ final class RestRoutes {
 						);
 					}
 
+					$profile_error = RestRoutes::rest_run_profile_gate( $request, $name, $input );
+					if ( $profile_error instanceof \WP_Error ) {
+						return $profile_error;
+					}
+					unset( $input['confirmation_token'] );
+
 					$permission = $ability->permission_callback( $input );
 					if ( $permission instanceof \WP_Error ) {
 						return $permission;
@@ -204,18 +214,27 @@ final class RestRoutes {
 				'methods'             => 'POST',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'args'                => [
-					'name'    => [
+					'name'               => [
 						'type'     => 'string',
 						'required' => true,
 					],
-					'enabled' => [
+					'enabled'            => [
 						'type'     => 'boolean',
 						'required' => true,
+					],
+					'confirmation_token' => [
+						'type'        => 'string',
+						'description' => 'Required for every REST ability toggle.',
 					],
 				],
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
 					$enabled = (bool) $request->get_param( 'enabled' );
+
+					$token_error = RestRoutes::rest_toggle_confirmation_error( $request, $name, $enabled );
+					if ( $token_error instanceof \WP_Error ) {
+						return $token_error;
+					}
 
 					$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
 
@@ -1569,5 +1588,91 @@ final class RestRoutes {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Restrict REST /abilities/run to the active MCP surface unless a confirmation token is supplied.
+	 *
+	 * @param array<string, mixed> $input
+	 */
+	private static function rest_run_profile_gate( \WP_REST_Request $request, string $name, array $input ): ?\WP_Error {
+		if ( 'stonewright/ping' === $name || self::ability_in_active_profile( $name ) ) {
+			return null;
+		}
+
+		$token = self::rest_confirmation_token( $request, $input );
+		if ( '' === $token ) {
+			return new \WP_Error(
+				'stonewright_confirmation_required',
+				__( 'Running an ability outside the active tool profile via REST requires a confirmation_token.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		$verify_args = [
+			'name'  => $name,
+			'input' => self::input_without_confirmation_token( $input ),
+		];
+		$rest_check = ConfirmationToken::verify_or_error( $token, 'stonewright/rest-abilities-run', $verify_args );
+		if ( true === $rest_check ) {
+			return null;
+		}
+
+		$ability_check = ConfirmationToken::verify_or_error( $token, $name, $verify_args['input'] );
+		if ( true === $ability_check ) {
+			return null;
+		}
+
+		return $rest_check instanceof \WP_Error ? $rest_check : $ability_check;
+	}
+
+	private static function rest_toggle_confirmation_error( \WP_REST_Request $request, string $name, bool $enabled ): ?\WP_Error {
+		$token = self::rest_confirmation_token( $request, [] );
+		if ( '' === $token ) {
+			return new \WP_Error(
+				'stonewright_confirmation_required',
+				__( 'Toggling abilities via REST requires a confirmation_token.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		$result = ConfirmationToken::verify_or_error(
+			$token,
+			'stonewright/rest-abilities-toggle',
+			[
+				'name'    => $name,
+				'enabled' => $enabled,
+			]
+		);
+
+		return $result instanceof \WP_Error ? $result : null;
+	}
+
+	/** @param array<string, mixed> $input */
+	private static function rest_confirmation_token( \WP_REST_Request $request, array $input ): string {
+		$from_request = $request->get_param( 'confirmation_token' );
+		if ( is_string( $from_request ) && '' !== $from_request ) {
+			return $from_request;
+		}
+		$from_input = $input['confirmation_token'] ?? '';
+		return is_string( $from_input ) ? $from_input : '';
+	}
+
+	private static function ability_in_active_profile( string $name ): bool {
+		foreach ( AbilityRegistry::enabled_abilities() as $ability ) {
+			if ( $name === (string) ( $ability['name'] ?? '' ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 * @return array<string, mixed>
+	 */
+	private static function input_without_confirmation_token( array $input ): array {
+		unset( $input['confirmation_token'] );
+		return $input;
 	}
 }

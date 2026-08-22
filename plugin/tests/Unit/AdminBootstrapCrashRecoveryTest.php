@@ -66,6 +66,14 @@ final class AdminBootstrapCrashRecoveryTest extends TestCase {
 		);
 	}
 
+	public function test_allows_cursor_install_protocol(): void {
+		self::assertContains( 'cursor', AdminBootstrap::allow_cursor_protocol( [ 'http', 'https' ] ) );
+		self::assertSame(
+			[ 'http', 'https', 'cursor' ],
+			AdminBootstrap::allow_cursor_protocol( [ 'http', 'https', 'cursor' ] )
+		);
+	}
+
 	public function test_register_is_idempotent(): void {
 		AdminBootstrap::register();
 		AdminBootstrap::register();

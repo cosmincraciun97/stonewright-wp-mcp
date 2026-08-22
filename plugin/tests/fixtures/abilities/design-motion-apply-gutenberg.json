@@ -1,0 +1,28 @@
+{
+  "args": {
+    "post_id": 1,
+    "dry_run": true,
+    "plan": {
+      "renderer": "gutenberg-fse",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bindings": {
+        "target_map": [
+          { "id": "hero-copy", "kind": "block", "owner_section": 0, "marker": "stw-motion-target--hero-copy" }
+        ]
+      },
+      "operations": [
+        {
+          "op": "add-classes",
+          "target_id": "hero-copy",
+          "classes": ["stw-motion-target--hero-copy", "stw-motion-fade-up"],
+          "runtime": true,
+          "trigger": "viewport-enter",
+          "playback": "once",
+          "tier": "auto-css"
+        }
+      ]
+    },
+    "targets": [ { "target_id": "hero-copy", "path": [0] } ]
+  },
+  "expect": "ok"
+}

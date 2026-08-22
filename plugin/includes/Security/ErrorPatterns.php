@@ -21,6 +21,8 @@ final class ErrorPatterns {
 	public const OPTION_KEY   = 'stonewright_error_patterns';
 	public const MAX_PATTERNS = 200;
 	public const LEGACY_LESSON_MIGRATION_OPTION = 'stonewright_legacy_audit_lessons_migrated_v1';
+	public const LEARNING_NUDGE_COUNT = 5;
+	public const DRAFT_LESSON_COUNT   = 10;
 
 	/** @var callable|null */
 	private static $test_before_observe = null;
@@ -33,21 +35,18 @@ final class ErrorPatterns {
 	}
 
 	/**
-	 * Observe an audit row. When status is ERROR, bump the signature counter.
-	 * At count >= 2, ensure a single learning record exists for the pattern.
-	 *
-	 * @param array<string, mixed> $sanitized_args
-	 */
-	/**
 	 * Expected safety blocks / hard stops that must not become active project/user learning.
 	 *
 	 * @var list<string>
 	 */
 	private const EXPECTED_SAFETY_CODES = [
 		'stonewright_php_elementor_raw_write_blocked',
+		'stonewright_php_custom_css_write_blocked',
 		'stonewright_php_code_file_write_blocked',
 		'stonewright_php_read_only_violation',
 		'stonewright_custom_code_grant_required',
+		'stonewright_custom_code_approval_required',
+		'stonewright_css_classes_not_approved',
 		'stonewright_confirmation_required',
 		'stonewright_confirmation_invalid',
 		'stonewright_permission_denied',
@@ -138,6 +137,13 @@ final class ErrorPatterns {
 		return '' !== $ability && ( str_starts_with( $ability, 'oauth/' ) || str_contains( $ability, '/oauth-' ) );
 	}
 
+	/**
+	 * Observe an audit row. When status is ERROR, bump the signature counter.
+	 * Count >= 2 proposes remediation on the pattern only. Count >= 10 may
+	 * write a reviewable draft lesson (status=draft); never auto-activates.
+	 *
+	 * @param array<string, mixed> $sanitized_args
+	 */
 	public static function observe( string $ability, string $status, array $sanitized_args = [] ): void {
 		if ( null !== self::$test_before_observe ) {
 			( self::$test_before_observe )( $ability, $status, $sanitized_args );
@@ -181,6 +187,8 @@ final class ErrorPatterns {
 				'normalized_path' => self::safe_text( $meta['normalized_path'] ?? '' ),
 				'change_set_id' => self::safe_text( $meta['change_set_id'] ?? '' ),
 				'strategy_fingerprint' => self::safe_hash( $meta['strategy_fingerprint'] ?? '' ),
+				'mode'         => self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? get_option( 'stonewright_mode', '' ) ),
+				'target'       => self::pattern_target( $sanitized_args, $meta ),
 			];
 		}
 
@@ -197,6 +205,8 @@ final class ErrorPatterns {
 		$store[ $signature ]['normalized_path'] = self::safe_text( $meta['normalized_path'] ?? ( $store[ $signature ]['normalized_path'] ?? '' ) );
 		$store[ $signature ]['change_set_id'] = self::safe_text( $meta['change_set_id'] ?? ( $store[ $signature ]['change_set_id'] ?? '' ) );
 		$store[ $signature ]['strategy_fingerprint'] = self::safe_hash( $meta['strategy_fingerprint'] ?? ( $store[ $signature ]['strategy_fingerprint'] ?? '' ) );
+		$store[ $signature ]['mode']   = self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? ( $store[ $signature ]['mode'] ?? get_option( 'stonewright_mode', '' ) ) );
+		$store[ $signature ]['target'] = self::pattern_target( $sanitized_args, $meta, (string) ( $store[ $signature ]['target'] ?? '' ) );
 		if ( 'verified_resolved' === (string) ( $store[ $signature ]['state'] ?? '' ) || 'promoted_learning' === (string) ( $store[ $signature ]['state'] ?? '' ) ) {
 			$store[ $signature ]['state'] = 'reopened';
 			$store[ $signature ]['reopened_count'] = (int) ( $store[ $signature ]['reopened_count'] ?? 0 ) + 1;
@@ -206,8 +216,8 @@ final class ErrorPatterns {
 		}
 
 		// Incidents stay on the pattern/IncidentStore path. Propose remediation
-		// text only — never mint a learning row with identical correction+lesson
-		// for an unresolved generic failure.
+		// text only — never mint an active learning row with identical
+		// correction+lesson for an unresolved generic failure.
 		if (
 			! $expected_block
 			&& (int) $store[ $signature ]['count'] >= 2
@@ -218,6 +228,14 @@ final class ErrorPatterns {
 			$store[ $signature ]['state']                = 'repair_proposed';
 			// learning_key stays empty until verified repair or explicit user correction.
 			$store[ $signature ]['learning_key'] = (string) ( $store[ $signature ]['learning_key'] ?? '' );
+		}
+
+		if (
+			! $expected_block
+			&& (int) $store[ $signature ]['count'] >= self::DRAFT_LESSON_COUNT
+			&& ! $store[ $signature ]['dismissed']
+		) {
+			self::maybe_write_draft_lesson( $store[ $signature ] );
 		}
 
 		self::save( $store );
@@ -282,6 +300,8 @@ final class ErrorPatterns {
 				'strategy_fingerprint' => (string) ( $row['strategy_fingerprint'] ?? '' ),
 				'repair'     => (string) ( $row['proposed_remediation'] ?? RemediationHints::for_code( $code, $ability ) ),
 				'state'      => (string) ( $row['state'] ?? '' ),
+				'mode'       => (string) ( $row['mode'] ?? '' ),
+				'target'     => (string) ( $row['target'] ?? '' ),
 			];
 		}
 		usort(
@@ -302,6 +322,36 @@ final class ErrorPatterns {
 		$store[ $signature ]['dismissed'] = true;
 		self::save( $store );
 		return true;
+	}
+
+	/**
+	 * Drop every recurring-pattern summary. Plugin settings stay untouched.
+	 */
+	public static function clear(): void {
+		delete_option( self::OPTION_KEY );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $meta
+	 */
+	private static function pattern_target( array $args, array $meta, string $fallback = '' ): string {
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach (
+			[
+				$meta['resource_ref'] ?? null,
+				$meta['target_id'] ?? null,
+				$args['target'] ?? null,
+				$args['target_id'] ?? null,
+				$args['post_id'] ?? null,
+				$nested['post_id'] ?? null,
+			] as $candidate
+		) {
+			if ( is_scalar( $candidate ) && '' !== trim( (string) $candidate ) ) {
+				return self::safe_text( $candidate );
+			}
+		}
+		return self::safe_text( $fallback );
 	}
 
 	/**
@@ -365,6 +415,13 @@ final class ErrorPatterns {
 			$error->get_error_message(),
 			$repair
 		);
+		if ( $count >= self::LEARNING_NUDGE_COUNT ) {
+			$message .= ' ' . sprintf(
+				/* translators: %d: occurrence count */
+				__( 'This failure repeated %d times. Record the working fix with stonewright-learning-record or stonewright-incident-repair-record so future sessions avoid it.', 'stonewright' ),
+				$count
+			);
+		}
 		$data = array_merge(
 			(array) $error->get_error_data(),
 			[
@@ -374,6 +431,83 @@ final class ErrorPatterns {
 		);
 
 		return new \WP_Error( $code, $message, $data );
+	}
+
+	/**
+	 * Persist proposed remediation as a reviewable draft. Never auto-activates.
+	 *
+	 * @param array<string, mixed> $pattern
+	 */
+	private static function maybe_write_draft_lesson( array &$pattern ): void {
+		$signature = (string) ( $pattern['signature'] ?? '' );
+		if ( '' === $signature ) {
+			return;
+		}
+
+		$key      = 'draft-lesson-' . $signature;
+		$existing = self::memory_entry_by_key( 'audit', $key );
+		$status   = is_array( $existing ) ? (string) ( $existing['status'] ?? '' ) : '';
+		if ( 'active' === $status ) {
+			return;
+		}
+		if ( 'draft' === $status ) {
+			$pattern['draft_lesson_key'] = $key;
+			return;
+		}
+
+		$code   = (string) ( $pattern['error_code'] ?? 'error' );
+		$ability = (string) ( $pattern['ability'] ?? '' );
+		$repair = (string) ( $pattern['proposed_remediation'] ?? RemediationHints::for_code( $code, $ability ) );
+		$name   = 'Draft lesson: ' . $code;
+		$id     = Memory::put_typed(
+			'reference',
+			'audit',
+			$key,
+			$name,
+			[
+				'source'               => 'error-pattern-draft',
+				'signature'            => $signature,
+				'error_code'           => $code,
+				'ability'              => $ability,
+				'proposed_remediation' => $repair,
+				'count'                => (int) ( $pattern['count'] ?? 0 ),
+			],
+			1.0,
+			[
+				'topic'      => $name,
+				'status'     => 'draft',
+				'precedence' => 0,
+			]
+		);
+		if ( $id > 0 ) {
+			$pattern['draft_lesson_key'] = $key;
+		}
+	}
+
+	private static function memory_entry_by_key( string $scope, string $key ): ?array {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+			return null;
+		}
+
+		$table = Memory::table_name();
+		if ( ! is_string( $table ) || '' === $table ) {
+			return null;
+		}
+
+		/** @var \wpdb $db */
+		$db       = $wpdb;
+		$prepared = $db->prepare(
+			'SELECT id FROM ' . $table . ' WHERE scope = %s AND memory_key = %s', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- owned table name plus prepared scalars.
+			$scope,
+			$key
+		);
+		if ( ! is_string( $prepared ) || '' === $prepared ) {
+			return null;
+		}
+
+		$id = (int) $db->get_var( $prepared );
+		return $id > 0 ? Memory::get_by_id( $id ) : null;
 	}
 
 	/**

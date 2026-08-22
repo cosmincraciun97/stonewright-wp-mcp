@@ -34,6 +34,7 @@ final class UploadMedia extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'url'             => [ 'type' => 'string', 'format' => 'uri' ],
 				'base64'          => [ 'type' => 'string' ],
 				'filename'        => [ 'type' => 'string', 'maxLength' => 255 ],
@@ -65,7 +66,7 @@ final class UploadMedia extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				require_once ABSPATH . 'wp-admin/includes/file.php';

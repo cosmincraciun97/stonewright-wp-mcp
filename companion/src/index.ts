@@ -348,6 +348,10 @@ async function main(): Promise<void> {
 		const code = await runConnect(argv.slice(1));
 		process.exit(code);
 	}
+	if (argv[0] === 'command') {
+		const { runCommandCli } = await import('./cli/command.js');
+		process.exit(await runCommandCli(argv.slice(1)));
+	}
 
 	log.info('Stonewright companion starting');
 

@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Design;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
 use Stonewright\WpMcp\Abilities\Design\DirectionCapture;
+use Stonewright\WpMcp\Abilities\Design\DirectionSave;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionRepository;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
@@ -253,6 +255,40 @@ final class DirectionCaptureAbilityTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( ElementorDirectionCapture::ERROR_CODE, $result->get_error_code() );
 		self::assertSame( [], $this->repository->records );
+	}
+
+	public function test_capture_contract_saves_and_activates_with_zero_edits(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [
+			'manage_options' => true,
+			'edit_pages'     => true,
+		];
+
+		$capture = ( new DirectionCapture( $this->service ) )->execute(
+			[
+				'evidence' => $this->evidence(),
+				'save'     => true,
+			]
+		);
+		self::assertIsArray( $capture );
+		self::assertTrue( $capture['saved'] );
+
+		$payload = json_decode( (string) wp_json_encode( $capture['contract'] ), true );
+		self::assertIsArray( $payload );
+
+		$saved = ( new DirectionSave( $this->service ) )->execute(
+			[
+				'contract' => $payload,
+				'slug'     => (string) $capture['slug'],
+				'status'   => 'ready',
+			]
+		);
+		self::assertIsArray( $saved, $saved instanceof \WP_Error ? $saved->get_error_message() : '' );
+		self::assertSame( 'ready', $saved['status'] );
+
+		$activated = ( new DirectionActivate( $this->service ) )->execute( [ 'id' => (int) $saved['id'] ] );
+		self::assertIsArray( $activated, $activated instanceof \WP_Error ? $activated->get_error_message() : '' );
+		self::assertTrue( $activated['ok'] );
+		self::assertSame( (int) $saved['id'], (int) get_option( self::ACTIVE_OPTION, 0 ) );
 	}
 
 	public function test_oversized_evidence_is_rejected_before_mapping(): void {

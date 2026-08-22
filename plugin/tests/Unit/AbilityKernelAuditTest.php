@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * Verifies that AbilityKernel redacts confirmation_token (and other sensitive
@@ -37,6 +38,23 @@ final class AbilityKernelAuditTest extends TestCase {
 			public function execute( array $args ): array|\WP_Error {
 				// Delegate to $this->audit() so we exercise the full redaction pipeline.
 				return $this->audit( $args, fn( array $a ) => [ 'ok' => true ] );
+			}
+
+			/**
+			 * @param array<string, mixed> $args
+			 * @param array<string, mixed>|null $verify_args
+			 */
+			public function expose_require_production_safe_token( array $args, ?array $verify_args = null ): ?\WP_Error {
+				return $this->require_production_safe_token( $args, $verify_args );
+			}
+
+			/**
+			 * @param array<string, mixed> $args
+			 * @param callable             $callback
+			 * @return array<string, mixed>|\WP_Error
+			 */
+			public function expose_audit_write( array $args, callable $callback ) {
+				return $this->audit_write( $args, $callback );
 			}
 
 			/**
@@ -155,6 +173,59 @@ final class AbilityKernelAuditTest extends TestCase {
 		$this->assertSame( 'sw_test_boom', $decoded['_meta']['error_code'] ?? null );
 		$this->assertStringStartsWith( 'Widget type "fake"', (string) ( $decoded['_meta']['error_message'] ?? '' ) );
 		$this->assertSame( 'error', $inserts[0]['data']['result_status'] ?? null );
+		$this->assertSame( 'sw_test_boom', $decoded['_meta']['remediation_code'] ?? $inserts[0]['data']['remediation_code'] ?? null );
+	}
+
+	public function test_audit_stamps_nested_target_and_truncated_error_without_payload(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/design-validate-spec';
+			}
+			public function label(): string {
+				return 'Test';
+			}
+			public function description(): string {
+				return 'Nested target audit test';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn () => new \WP_Error(
+						'stonewright_spec_invalid',
+						str_repeat( 'm', 600 ),
+						[ 'status' => 400, 'verification_status' => 'failed' ]
+					)
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'staging';
+		$result = $kernel->execute(
+			[
+				'args'     => [ 'post_id' => 88, 'title' => 'must-not-persist' ],
+				'password' => 'sentinel-private-example-secret',
+			]
+		);
+		$this->assertInstanceOf( \WP_Error::class, $result );
+
+		$row     = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		$decoded = json_decode( (string) ( $row['sanitized_args'] ?? '' ), true );
+		$details = json_decode( (string) ( $row['redacted_details'] ?? '' ), true );
+		$this->assertIsArray( $decoded );
+		$this->assertIsArray( $details );
+		$this->assertSame( '[array:2]', $decoded['args'] ?? null );
+		$this->assertSame( '88', (string) ( $decoded['_meta']['target_id'] ?? $details['target_id'] ?? '' ) );
+		$this->assertSame( 500, mb_strlen( (string) ( $decoded['_meta']['error_message'] ?? $details['error_message'] ?? '' ) ) );
+		$this->assertSame( 'stonewright_spec_invalid', $details['error_code'] ?? $decoded['_meta']['error_code'] ?? null );
+		$this->assertSame( 'stonewright_spec_invalid', $row['remediation_code'] ?? $details['remediation_code'] ?? null );
+		$this->assertSame( 'staging', $row['mode'] ?? null );
+		$this->assertStringNotContainsString( 'must-not-persist', (string) wp_json_encode( $decoded ) );
+		$this->assertStringNotContainsString( 'sentinel-private-example-secret', (string) wp_json_encode( [ $decoded, $details ] ) );
+		$this->assertNotEquals( [ 'verification_status' ], array_keys( $details ) );
 	}
 
 	public function test_audit_success_omits_error_meta_keys(): void {
@@ -194,5 +265,29 @@ final class AbilityKernelAuditTest extends TestCase {
 			'raw Elementor'         => [ 'stonewright_raw_elementor_mutation' ],
 			'migration loss'        => [ 'stonewright_v4_migration_has_loss' ],
 		];
+	}
+
+	public function test_require_production_safe_token_is_null_in_development(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		self::assertNull( $this->kernel->expose_require_production_safe_token( [ 'title' => 'x' ] ) );
+	}
+
+	public function test_require_production_safe_token_errors_without_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$error = $this->kernel->expose_require_production_safe_token( [ 'title' => 'x' ] );
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_confirmation_required', $error->get_error_code() );
+	}
+
+	public function test_audit_write_accepts_a_matching_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$GLOBALS['stonewright_test_current_user_id']            = 1;
+		$GLOBALS['stonewright_test_transients']                 = [];
+		$args = [ 'title' => 'x' ];
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/test-audit', $args );
+
+		$result = $this->kernel->expose_audit_write( $args, static fn( array $a ): array => [ 'ok' => true, 'title' => $a['title'] ] );
+		self::assertIsArray( $result );
+		self::assertSame( 'x', $result['title'] );
 	}
 }

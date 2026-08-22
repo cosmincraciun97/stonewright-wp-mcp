@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts
@@ -236,5 +237,49 @@ final class BulkUpsertPostsTest extends TestCase {
 			'post_parent'  => 0,
 			'post_name'    => $slug,
 		];
+	}
+
+	public function test_production_safe_mode_requires_confirmation_token(): void {
+		$this->loginAs( [ 'edit_posts', 'publish_posts' ] );
+		$GLOBALS['stonewright_test_current_user_id'] = 1;
+		$GLOBALS['stonewright_test_transients']      = [];
+		$GLOBALS['stonewright_test_user_can_callback'] = static function ( string $cap ): bool {
+			return in_array( $cap, [ 'edit_posts', 'publish_posts', 'edit_post_meta' ], true );
+		};
+
+		$args = [
+			'post_type' => 'homepage_section',
+			'items'     => [
+				[
+					'slug'  => 'hero',
+					'title' => 'Hero',
+				],
+			],
+		];
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$blocked = ( new BulkUpsertPosts() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/content-bulk-upsert-posts', $args );
+		$result = ( new BulkUpsertPosts() )->execute( $args );
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['created'] );
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		$dev = ( new BulkUpsertPosts() )->execute(
+			[
+				'post_type' => 'homepage_section',
+				'items'     => [
+					[
+						'slug'  => 'hero-dev',
+						'title' => 'Hero Dev',
+					],
+				],
+			]
+		);
+		self::assertIsArray( $dev );
+		self::assertSame( 1, $dev['created'] );
 	}
 }

@@ -429,8 +429,96 @@ final class DirectionAbilitiesTest extends TestCase {
 		);
 	}
 
-	public function test_activate_requires_a_positive_id(): void {
+	public function test_activate_id_zero_deactivates_the_current_direction(): void {
+		$saved = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 7 );
+
 		$result = ( new DirectionActivate( $this->service ) )->execute( [ 'id' => 0 ] );
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 0, $result['id'] );
+		$this->assertSame( 0, $result['active_id'] );
+		$this->assertSame( (int) $saved['id'], $result['previous_active_id'] );
+		$this->assertSame( 'inactive', $result['status'] );
+		$this->assertSame( 'verified', $result['verification_status'] );
+		$this->assertTrue( $result['effect_verified'] );
+		$this->assertSame( '', $result['slug'] );
+		$this->assertSame( '', $result['contract_hash'] );
+		$this->assertSame( 'design_direction.deactivate', $result['operation_class'] );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_activate_id_zero_is_idempotent_when_none_is_active(): void {
+		$result = ( new DirectionActivate( $this->service ) )->execute( [ 'id' => 0 ] );
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 0, $result['id'] );
+		$this->assertSame( 0, $result['active_id'] );
+		$this->assertSame( 0, $result['previous_active_id'] );
+		$this->assertTrue( $result['effect_verified'] );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_activate_id_zero_is_blocked_without_a_token_in_production_safe_mode(): void {
+		$saved = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 7 );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new DirectionActivate( $this->service ) )->execute( [ 'id' => 0 ] );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		$this->assertSame( (int) $saved['id'], (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_activate_id_zero_rejects_a_token_issued_for_another_direction(): void {
+		$saved = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 7 );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$token = ConfirmationToken::issue(
+			'stonewright/design-direction-activate',
+			[ 'id' => (int) $saved['id'] ]
+		);
+
+		$result = ( new DirectionActivate( $this->service ) )->execute(
+			[
+				'id'                 => 0,
+				'confirmation_token' => $token,
+			]
+		);
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_confirmation_args_mismatch', $result->get_error_code() );
+		$this->assertSame( (int) $saved['id'], (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_activate_id_zero_accepts_a_token_bound_to_zero(): void {
+		$saved = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 7 );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$token = ConfirmationToken::issue( 'stonewright/design-direction-activate', [ 'id' => 0 ] );
+
+		$result = ( new DirectionActivate( $this->service ) )->execute(
+			[
+				'id'                 => 0,
+				'confirmation_token' => $token,
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+		$this->assertSame( (int) $saved['id'], $result['previous_active_id'] );
+	}
+
+	public function test_activate_rejects_a_negative_id(): void {
+		$result = ( new DirectionActivate( $this->service ) )->execute( [ 'id' => -1 ] );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_direction_invalid', $result->get_error_code() );
@@ -600,7 +688,11 @@ final class DirectionAbilitiesTest extends TestCase {
 	private function ready_input( string $name = 'Quarry' ): array {
 		$input                                   = $this->input( $name );
 		$input['status']                         = 'ready';
-		$input['contract']['readiness']['ready'] = true;
+		$input['contract']['readiness']          = [
+			'ready'      => true,
+			'sync_ready' => false,
+			'issues'     => [],
+		];
 
 		return $input;
 	}

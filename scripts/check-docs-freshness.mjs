@@ -54,6 +54,9 @@ function gitMarkdownFiles() {
 			}
 			files.push(absolute);
 		} catch (error) {
+			// A tracked Markdown file can be intentionally deleted in the current
+			// worktree before the deletion is staged. It is no longer public input.
+			if (error && typeof error === 'object' && error.code === 'ENOENT') continue;
 			fail(`${relative} cannot be read: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
@@ -201,20 +204,49 @@ if (supportedStartCount !== 1 || supportedEndCount !== 1) {
 		supportedReleaseBlock = rootReadme.slice(start, end + supportedReleaseEnd.length);
 	}
 }
-if (canonicalVersion && supportedReleaseBlock) {
+if (supportedReleaseBlock) {
 	const releaseBase = `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases`;
-	const releaseLabel = canonicalVersion.includes('-') ? 'Public Beta' : 'Stable';
+	const supportedMatch = supportedReleaseBlock.match(
+		/Current release:\s*([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)\s+—\s+(Public Beta|Stable)/,
+	);
+	const supportedVersion = supportedMatch?.[1];
+	const releaseLabel = supportedMatch?.[2];
+	if (!supportedVersion || !releaseLabel) {
+		fail('README.md supported-release block must declare one current release version and channel label.');
+	}
+	if (supportedVersion && releaseLabel) {
+		const expectedLabel = supportedVersion.includes('-') ? 'Public Beta' : 'Stable';
+		if (releaseLabel !== expectedLabel) {
+			fail(`README.md supported release ${supportedVersion} must use the ${expectedLabel} label.`);
+		}
+		const notesPath = `docs/releases/${supportedVersion}.md`;
+		if (!fs.existsSync(path.join(repoRoot, notesPath))) {
+			fail(`README.md supported release is missing ${notesPath}.`);
+		} else {
+			try {
+				const channel = releaseChannelFromNotes(read(notesPath));
+				const flags = releaseFlags(supportedVersion, channel);
+				if (!flags.includes('--latest')) {
+					fail(`README.md supported release ${supportedVersion} is not declared as a latest channel.`);
+				}
+			} catch (error) {
+				fail(`README.md supported release ${supportedVersion} has invalid notes: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+	}
 	const expectedSupportedMarkers = [
-		`Current release: ${canonicalVersion} — ${releaseLabel}`,
-		`${releaseBase}/tag/v${canonicalVersion}`,
-		`${releaseBase}/download/v${canonicalVersion}/stonewright-${canonicalVersion}.zip`,
-		`${releaseBase}/download/v${canonicalVersion}/stonewright-companion-${canonicalVersion}.tgz`,
-		`${releaseBase}/download/v${canonicalVersion}/SHA256SUMS.txt`,
+		`Current release: ${supportedVersion} — ${releaseLabel}`,
+		`${releaseBase}/tag/v${supportedVersion}`,
+		`${releaseBase}/download/v${supportedVersion}/stonewright-${supportedVersion}.zip`,
+		`${releaseBase}/download/v${supportedVersion}/stonewright-companion-${supportedVersion}.tgz`,
+		`${releaseBase}/download/v${supportedVersion}/SHA256SUMS.txt`,
 		'href="docs/installation.md"',
 	];
-	for (const marker of expectedSupportedMarkers) {
-		if (!supportedReleaseBlock.includes(marker)) {
-			fail(`README.md supported-release block is missing: ${marker}`);
+	if (supportedVersion && releaseLabel) {
+		for (const marker of expectedSupportedMarkers) {
+			if (!supportedReleaseBlock.includes(marker)) {
+				fail(`README.md supported-release block is missing: ${marker}`);
+			}
 		}
 	}
 }
@@ -223,9 +255,10 @@ const abilityCount = Number(read('docs/ability-truth-matrix.md').match(/Total ab
 if (!Number.isInteger(abilityCount) || abilityCount < 1) {
 	fail('Could not read the generated plugin ability count.');
 }
-// Premium surface has grown past 300; fail loudly if matrix regresses below the known floor.
+// The public ability surface has grown past 300; fail loudly if the matrix
+// regresses below the known floor.
 if (abilityCount < 300) {
-	fail(`Plugin ability count ${abilityCount} is below the expected premium floor (300+).`);
+	fail(`Plugin ability count ${abilityCount} is below the expected public floor (300+).`);
 }
 
 const directRegistry = read('companion/src/direct/registry.ts');
@@ -259,7 +292,7 @@ const unreleasedBody = rootChangelog.match(
 const hasUnreleasedChanges = /^### (?:Added|Changed|Deprecated|Removed|Fixed|Security)$/m.test(unreleasedBody);
 
 const truthMarkers = [
-	['README.md', [`**${abilityCount}** abilities`, `**${directToolCount}** tools`, `exposes **${directToolCount}** tools`]],
+	['README.md', [`**${abilityCount} Plugin abilities**`, `**${abilityCount}** abilities`, `**${directToolCount}** tools`, `exposes **${directToolCount}** tools`]],
 	['companion/README.md', [`**${directToolCount}** Direct tools`]],
 	['docs/direct-mode-e2e.md', [`**${directToolCount}** tools`]],
 	['docs/abilities.md', [`(**${abilityCount}** abilities)`]],
@@ -354,6 +387,34 @@ const markdownFiles = allMarkdownFiles.filter((absolute) => {
 	return matches.length !== 1 || matches[0].class !== 'imported-knowledge';
 });
 
+const privateProductTierPatterns = [
+	/\bStonewright\s+(?:Pro|Premium)\b/i,
+	/\bFree\s+and\s+future\s+Pro\b/i,
+	/\bFree\/Pro\s+boundary\b/i,
+	/\bFuture\s+Pro\b/i,
+	/\bPro\s+leverage\b/i,
+	/\bpremium\s+(?:enhancement|finalization)\b/i,
+	/\b(?:paid|commercial)[ -]tier\b/i,
+];
+
+const upstreamBrandPattern = /\bnova(?:mira|[\s_-]+mira)\b/i;
+const legalProvenanceMarkdown = new Set(['docs/upstream-code-reuse.md']);
+
+for (const absolute of markdownFiles) {
+	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
+	const basename = path.basename(relative);
+	const content = fs.readFileSync(absolute, 'utf8');
+	if (/stonewright-(?:pro|premium)/i.test(basename)) {
+		fail(`${relative} exposes a private Stonewright product-tier plan by filename.`);
+	}
+	if (privateProductTierPatterns.some((pattern) => pattern.test(content))) {
+		fail(`${relative} exposes private Stonewright product-tier planning.`);
+	}
+	if (!legalProvenanceMarkdown.has(relative) && upstreamBrandPattern.test(content)) {
+		fail(`${relative} exposes an upstream product name outside the legal provenance ledger.`);
+	}
+}
+
 for (const absolute of markdownFiles) {
 	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
 	const content = fs.readFileSync(absolute, 'utf8');
@@ -407,7 +468,7 @@ for (const required of [
 	if (!agentRules.includes(required)) fail(`AGENTS.md is missing documentation rule: ${required}`);
 }
 
-// Premium docs expected for connection center + transactions.
+// Core truth artifacts expected for connection center + transactions.
 for (const relativePath of ['docs/transactions.md', 'docs/contracts/public-api-v1.json', 'docs/contracts/direct-tools-v1.json']) {
 	if (!fs.existsSync(path.join(repoRoot, relativePath))) {
 		fail(`Missing required truth artifact: ${relativePath}`);

@@ -176,3 +176,15 @@ oversight.
   unknown fields instead of stripping them; imported prose is scanned and
   dropped line by line before it can reach guidance; every write result reports
   the contract hash before and after.
+
+### Gutenberg Block Editor Queue dashboard
+
+- Source: `includes/gutenberg-finalizer-admin.php` (`render_gutenberg_finalizer_dashboard`, summary-panel styles)
+- Destination: `plugin/includes/Gutenberg/Finalizer/FinalizerPage.php`,
+  `plugin/assets/admin/shell.css` (`.sw-finalizer-panel`)
+- Source version: inspected `1.10.1` AGPL snapshot
+- Reuse type: layout and keep-open operator copy, rewritten in Stonewright
+  tokens and product language
+- Modifications: no upstream product identifiers in the UI; live queued-count
+  status; existing backup, confirmation, and audit gates unchanged
+- License: `AGPL-3.0-or-later`

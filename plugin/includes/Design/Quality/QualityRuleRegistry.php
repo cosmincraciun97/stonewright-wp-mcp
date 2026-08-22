@@ -42,6 +42,25 @@ final class QualityRuleRegistry {
 	}
 
 	/**
+	 * Compact anti-slop floor for admin and agent context.
+	 *
+	 * @return list<array{id:string,summary:string,severity:string,guidance:bool}>
+	 */
+	public static function floor(): array {
+		$floor = [];
+		foreach ( self::rules() as $rule ) {
+			$floor[] = [
+				'id'       => $rule->id(),
+				'summary'  => $rule->summary(),
+				'severity' => $rule->severity(),
+				'guidance' => $rule->is_guidance(),
+			];
+		}
+
+		return $floor;
+	}
+
+	/**
 	 * Text must meet the WCAG AA ratio for its rendered size.
 	 */
 	private static function text_contrast(): QualityRule {

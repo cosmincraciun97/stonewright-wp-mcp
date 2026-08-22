@@ -69,6 +69,23 @@ WordPress floor includes the core Abilities API.
 
 The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
 
+## php-execute runtime guards
+
+`stonewright/php-execute` is on the **full** MCP profile only. During a snippet
+the plugin wraps the live `$wpdb` handle (`ProtectedWpdbWriteGuard`):
+
+- `read_only:true` rejects any WordPress state mutation.
+- Direct `$wpdb` `insert` / `update` / `replace` / `delete` / write `query` calls
+  against core tables (`posts`, `postmeta`, `options`, `users`, `usermeta`) are
+  blocked. Use typed abilities so backup, permission, and audit gates still run.
+- Protected Elementor and related meta keys are blocked even when concatenated
+  or passed through an aliased `$wpdb` handle. Source-regex cannot see those
+  writes; the proxy inspects the resolved table and payload at call time.
+- WordPress code-file mutation is blocked by `ProtectedFilesystemWriteGuard`.
+
+These guards do not make php-execute a sandbox. Prefer typed abilities for
+Elementor, FSE, options, and post writes.
+
 Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct
 memory/skill writes reject high-confidence credential material, and Direct

@@ -19,22 +19,22 @@
 </p>
 
 <!-- supported-release:start -->
-<p align="center"><strong>Current release: 1.0.0-beta.10 — Public Beta</strong></p>
+<p align="center"><strong>Current release: 1.0.0-beta.11 — Public Beta</strong></p>
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-1.0.0-beta.10.zip">Download Plugin</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/stonewright-1.0.0-beta.11.zip">Download Plugin</a>
   ·
   <a href="docs/installation.md">Installation guide</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-companion-1.0.0-beta.10.tgz">Companion</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/stonewright-companion-1.0.0-beta.11.tgz">Companion</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/SHA256SUMS.txt">Checksums</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11/SHA256SUMS.txt">Checksums</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.10">Release notes</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.11">Release notes</a>
 </p>
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **361 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **387 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -71,7 +71,7 @@ Not every operation needs every gate. Stonewright selects the controls required 
 ## Start in four steps
 
 1. Download the current Plugin ZIP and install it in **Plugins → Add New → Upload Plugin**.
-2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow.
+2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow. If the client still cannot connect, open **Stonewright → Troubleshoot** and run diagnostics (the page stays put and shows a loading state).
 3. Fully restart the client and run the generated connection verification. A saved or parseable config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first with the real task. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
 
@@ -81,6 +81,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 - **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, run post-write verification, then complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
 - **Change custom code:** discover the provider, dry-run the exact target, stop for human approval, apply the approved bytes, read back, and retain rollback evidence. [Custom-code recovery contract](docs/security.md#custom-code-and-theme-file-recovery)
+- **Run repeatable local maintenance safely:** save a parameterized WP-CLI recipe once, plan it, approve writes with a one-use hash, and get verified readback on every run. [Command recipes](companion/README.md#command-recipes-local-wp-cli)
 - **Stop repeating a failure:** classify the recurrence, surface a ranked incident action, verify the repair against correlated audit events, then promote one reusable lesson. [Verified learning](docs/verified-learning.md)
 
 [Why Stonewright MCP](docs/why-stonewright.md) compares this evidence chain with a generic WordPress API bridge without relying on raw tool counts.
@@ -89,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **361** abilities
+### Plugin mode — **387** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -98,19 +99,24 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 |---|---:|---|
 | Elementor widgets (compat) | 94 | Generated per-widget builders |
 | Elementor widget builder | 4 | Custom widget project helpers |
-| Elementor V3 | 33 | Structure edit, batch-mutate, post-write verification, legacy-debt report, kit globals, build-from-spec, transactions |
+| Elementor V3 | 34 | Structure edit, batch-mutate, post-write verification, performance audit, legacy-debt report, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
-| Gutenberg + FSE + patterns | 24 | Blocks, theme.json, templates, global styles, transactional block batches |
+| Gutenberg | 13 | Parse, insert, update, batch-mutate, query-loop, render/apply |
+| Finalizer abilities | 6 | Queue, runtime, pending, finalize, cancel, and finalizer URL for static/third-party blocks |
+| FSE + patterns | 17 | theme.json, templates, navigation, pattern CRUD |
+| Blocks library introspection | 3 | GenerateBlocks / Kadence / Spectra setup, list, and schema |
 | Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
 | ACF + SEO | 8 | Field groups/values, multi-plugin SEO |
-| Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops |
+| Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops (themes row excludes chrome) |
+| Theme chrome | 2 | Blocksy / Kadence Theme / GeneratePress color, type, header, footer |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
 | Security + sandbox | 13 | Tokens, one-time links, incident repair receipts, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
+| System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
 | Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
 ### Direct mode — **101** tools (pluginless)
@@ -136,7 +142,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
 - Close Elementor writes with post-scoped cache invalidation, CSS regeneration,
   bounded frontend assertions, and an explicit browser verification recipe
-- Wire native Elementor Pro Loop Grid/Carousel widgets transactionally from an
+- Wire licensed Elementor Loop Grid/Carousel widgets transactionally from an
   existing loop-item template or a validated template spec (**Plugin mode**)
 - Manage content, media, navigation, and selected site settings
 - Manage WooCommerce products, variations, catalog terms, global attributes,
@@ -180,7 +186,7 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 The four-step Plugin path above is the default. The sections below are for local WP-CLI, explicit Application Password configuration, Direct mode, multiple sites, and clients that need manual profile control.
 
-MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. `stonewright-php-execute` is **full-profile only**. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -190,10 +196,14 @@ Use the versioned installer from the latest
 Because this flow starts from an installed plugin, choose `plugin-only`; it
 fails closed instead of silently falling back to Direct mode.
 
+Codex CLI and Codex in ChatGPT Desktop are separate clients (`--client
+codex-cli` vs `--client chatgpt-desktop`). `--client codex` still aliases to
+CLI. See [getting-started/codex.md](docs/getting-started/codex.md).
+
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a --url https://site-a.example --username editor \
-  --env production --mode plugin-only --client codex \
+  --env production --mode plugin-only --client codex-cli \
   --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
@@ -203,10 +213,10 @@ entry containing `STONEWRIGHT_SITE_ALIAS`, never the password. If the alias is
 already registered, reuse its saved credential and switch the existing entry:
 
 ```bash
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex-cli --mode plugin-only
 ```
 
-Restart the client and run `stonewright connect verify site-a --client codex`.
+Restart the client and run `stonewright connect verify site-a --client codex-cli`.
 The receipt must report the requested alias, `configured_mode=plugin-only`,
 `active_mode=plugin`, task-start/status availability, the expected companion,
 and no required tool refresh. OAuth remote HTTP is a separate connection to
@@ -432,7 +442,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **361** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **387** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -465,8 +475,8 @@ repository follow the common MCP server JSON shape used by several clients.
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
-Prompts, Skills, Memory, Sandbox, and Audit Log. The Audit Log is the single
+Plugin mode admin pages include Setup, Troubleshoot, Dashboard (Site Pulse),
+Abilities, Prompts, Design, Skills, Memory, Context, Sandbox, and Audit Log. The Audit Log is the single
 responsive incident view; Sandbox does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,
 component contracts, responsive rules, and page-by-page release checklist live
@@ -507,6 +517,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
+- [Motion and UI excellence](docs/motion-and-ui-excellence.md)
 - [Licensing](docs/licensing.md)
 - [Upstream code reuse ledger](docs/upstream-code-reuse.md)
 - [Release notes](docs/releases/)

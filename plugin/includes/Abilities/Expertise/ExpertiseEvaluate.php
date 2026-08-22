@@ -24,6 +24,7 @@ final class ExpertiseEvaluate extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'id' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id'       => [ 'type' => 'string' ],
 				'persist'  => [ 'type' => 'boolean', 'default' => true ],
 				'evidence' => [
@@ -47,6 +48,10 @@ final class ExpertiseEvaluate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::manage_options(); }
 	public function execute( array $args ): array|\WP_Error {
+		$token_error = $this->require_production_safe_token( $args );
+		if ( $token_error instanceof \WP_Error ) {
+			return $token_error;
+		}
 		$runtime = \Stonewright\WpMcp\Expertise\RuntimeContext::capture();
 		if ( is_array( $args['evidence'] ?? null ) ) {
 			$runtime['verification_evidence'] = $args['evidence'];

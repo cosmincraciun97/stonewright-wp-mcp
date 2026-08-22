@@ -23,7 +23,7 @@ flowchart TD
         Registry["Schema-v2 site registry<br/>alias, environment, mode, Step 1 expectations"]
         Credentials["OS credential store or explicit env reference"]
         Companion["Stonewright companion"]
-        CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, full"]
+        CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, discover-execute, full"]
         Direct["Pluginless Direct adapters"]
         DirectState["Private per-site ~/.stonewright state<br/>memory, user skills, redacted audit, incidents"]
         DirectIncidents["Direct incident lifecycle"]
@@ -119,10 +119,12 @@ not honor live list changes must follow the explicit re-list/restart receipt.
 
 The plugin gate has three saved values: `bootstrap`, `essential`, and `full`.
 The companion additionally understands `essential-static` as the bounded
-fallback for an unknown or stale-list client and `low-tools` for a strict
-external cap. The normal known-client working profile is `essential`,
-`bootstrap` is only a startup diagnostic, and `full` is an explicit specialist
-choice. The operator's saved site surface remains the source of truth; a client
+fallback for an unknown or stale-list client, `low-tools` for a strict
+external cap, and opt-in `discover-execute` (compact catalog + bounded schema
++ gated execute; never auto-selected). The normal known-client working profile
+is `essential`, `bootstrap` is only a startup diagnostic, and `full` is an
+explicit specialist choice. `stonewright/php-execute` is on `full` only.
+The operator's saved site surface remains the source of truth; a client
 profile may narrow it but never silently broaden it.
 
 ### Authentication and custom-code boundaries
@@ -180,9 +182,12 @@ production-safe confirmation tokens, backups, validation, and audit logging.
 The companion can write by running tokenized WP-CLI commands requested by the
 plugin or MCP client.
 
-Use `stonewright/php-execute` for PHP snippets inside WordPress. WP-CLI
-execution is tokenized and runs through `execFile`; WP-CLI PHP and shell entry
-points are blocked.
+Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
+**full-profile** tool, not part of bootstrap or essential. WP-CLI execution is
+tokenized and runs through `execFile`; WP-CLI PHP and shell entry points are
+blocked. Runtime `$wpdb` writes to core tables, concatenated protected meta
+keys, and Elementor document meta are intercepted; see
+[php-execute runtime guards](security.md#php-execute-runtime-guards).
 
 ### Audit error codes
 
@@ -293,7 +298,10 @@ Agents must call MCP tool `stonewright-task-start` at the beginning of every
 Stonewright task. It issues the same write context token while returning a
 compact, task-aware response that includes:
 
-- current instructions
+- current instructions, including **truncated site Context / custom
+  instructions text** (up to 400 characters) when those are enabled
+- a **Design Direction pointer** (`context.design_direction_ref`) when a
+  direction is active, plus `required_actions: read_design_direction_brief`
 - matched skill playbooks
 - relevant memory
 - required followups
@@ -302,9 +310,16 @@ compact, task-aware response that includes:
 - a short-lived context token for write abilities
 - the native rule registry **digest** plus the tool that resolves it
 
-Manual edits to skills, memory, or custom instructions persist in WordPress and
-are included in future task-start responses. `stonewright-context-bootstrap`
-and `stonewright-workflow-preflight` remain compatibility paths.
+Compact mode does not inline the full Design Direction contract. Call
+`stonewright-design-direction-brief` (on the essential MCP surface) to load
+tokens and guidance. `responseMode=full` returns the complete combined
+instruction text.
+
+Manual edits to skills, memory, Context, Design Direction, or custom
+instructions persist in WordPress and are included in future task-start
+responses. Pluginless Direct mode cannot see wp-admin Context or Design;
+those stores are plugin-backed. `stonewright-context-bootstrap` and
+`stonewright-workflow-preflight` remain compatibility paths.
 
 If neither `stonewright-task-start` nor compatibility
 `stonewright-context-bootstrap` is visible in the MCP tool list, the client has
@@ -410,7 +425,11 @@ contract instead of rewriting the row that was restored.
 Statuses are `draft`, `ready`, `stale`, and `archived`. "Active" is
 deliberately not one of them: the active direction is the id held in the
 `stonewright_active_design_direction_id` option. One option means exactly one
-active direction with no second source of truth for the same fact.
+active direction with no second source of truth for the same fact. Compact
+`stonewright-task-start` exposes that active row as
+`context.design_direction_ref` (`id`, `slug`, `name`, `contract_hash`, and
+the `stonewright-design-direction-brief` tool). The full contract stays
+behind that brief.
 
 Two invariants follow: only a contract whose `readiness.ready` is true can be
 activated, and the active direction cannot be archived — another direction must
@@ -677,7 +696,7 @@ on the plugin surface. Direct returns the registry record verbatim, guard name
 included. On Direct, read `hard` as "this rule is enforceable where the plugin
 runs", not as a guarantee the Direct runtime makes.
 
-## MCP tool surface switching (premium finalization)
+## MCP tool surface switching
 
 Profile and surface switching is transport-specific. Agents should treat
 `tools_changed` / `re_list_instruction` on ability results as the source of truth.
@@ -738,9 +757,14 @@ Profile and surface switching is transport-specific. Agents should treat
   preflight) marks the MCP session, read-only ability results may include a
   non-blocking `task_start_hint` string. Writes still hard-require the context
   token; the hint never blocks discovery tools.
-- **Bootstrap surface** includes runtime escape hatches (`php-execute`,
-  confirmation token, content/Elementor reads, `theme-file-read`) — not only
-  four startup tools.
+- **Bootstrap surface** includes confirmation token, content/Elementor reads,
+  and `theme-file-read` — not only four startup tools. `php-execute` is
+  **full-profile only**; expand with `stonewright-tool-profile` `full` when a
+  snippet is required.
+- **`discover-execute`**: opt-in profile with `discover-abilities`,
+  `get-ability-info`, and `execute-ability`. Auto routing never selects it.
+  `execute-ability` uses the same permission, confirmation, backup, and audit
+  gates as a direct MCP call and does not bypass php-execute read-only guards.
 - **Diagnosis**: companion local tool `stonewright-client-surface-check` and
   `stonewright doctor --client-surface` explain profile vs client mismatches
   without REST workarounds.

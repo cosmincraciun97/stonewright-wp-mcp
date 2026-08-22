@@ -44,6 +44,7 @@ final class MenuAddItem extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'menu_id'   => [ 'type' => 'integer', 'minimum' => 1 ],
 				'title'     => [ 'type' => 'string', 'minLength' => 1 ],
 				'url'       => [ 'type' => 'string', 'minLength' => 1 ],
@@ -70,7 +71,7 @@ final class MenuAddItem extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$menu_id = (int) $args['menu_id'];

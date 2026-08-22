@@ -42,7 +42,7 @@ final class SkillsPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Skills', 'stonewright' ),
-			__( 'Safety: Skills', 'stonewright' ),
+			__( 'Skills', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -188,6 +188,8 @@ final class SkillsPage {
 				>
 					<?php if ( 'editor' === $view ) : ?>
 						<?php self::render_editor(); ?>
+					<?php elseif ( 'catalog' === $view ) : ?>
+						<?php self::render_catalog_panel(); ?>
 					<?php else : ?>
 						<div class="sw-skills-panel__loading" data-sw-skills-loading>
 							<?php echo esc_html( $labels[ $view ] ); ?>
@@ -204,6 +206,99 @@ final class SkillsPage {
 		</div>
 		<?php
 		AdminShell::close();
+	}
+
+	private static function render_catalog_panel(): void {
+		$catalog = Skills::catalog();
+		$skills  = is_array( $catalog['skills'] ?? null ) ? $catalog['skills'] : [];
+		$sources = Skills::sources();
+		$trashed = Skills::list_trashed();
+		?>
+		<div data-sw-skills-ssr="catalog">
+			<div class="sw-skills-toolbar">
+				<div class="sw-field sw-skills-search">
+					<label for="sw-skills-search"><?php esc_html_e( 'Search skills', 'stonewright' ); ?></label>
+					<input
+						type="search"
+						id="sw-skills-search"
+						class="sw-skills-input"
+						data-sw-skills-search
+						disabled
+						aria-busy="true"
+					>
+				</div>
+				<div class="sw-actions">
+					<a class="sw-skills-button sw-skills-button--primary" href="<?php echo esc_url( self::view_url( 'editor' ) ); ?>">
+						<?php esc_html_e( 'New skill', 'stonewright' ); ?>
+					</a>
+				</div>
+			</div>
+			<p class="description">
+				<?php
+				printf(
+					/* translators: 1: skill count, 2: source count, 3: trashed count */
+					esc_html__( '%1$d skill(s) from %2$d source(s). %3$d in trash.', 'stonewright' ),
+					count( $skills ),
+					count( $sources ),
+					count( $trashed )
+				);
+				?>
+			</p>
+			<div data-sw-skills-list>
+				<?php if ( [] === $skills ) : ?>
+					<div class="sw-empty-state">
+						<p><?php esc_html_e( 'No skills yet. Write one in the editor, or import a reviewed Markdown file.', 'stonewright' ); ?></p>
+					</div>
+				<?php else : ?>
+					<ul class="sw-skills-list">
+						<?php foreach ( $skills as $skill ) : ?>
+							<?php self::render_catalog_skill_row( is_array( $skill ) ? $skill : [] ); ?>
+						<?php endforeach; ?>
+					</ul>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * @param array<string, mixed> $skill
+	 */
+	private static function render_catalog_skill_row( array $skill ): void {
+		$title       = (string) ( $skill['title'] ?? '' );
+		$slug        = (string) ( $skill['slug'] ?? '' );
+		$description = (string) ( $skill['description'] ?? '' );
+		$source      = (string) ( $skill['source'] ?? 'user' );
+		$source_kind = (string) ( $skill['source_kind'] ?? '' );
+		$source_id   = (string) ( $skill['source_id'] ?? '' );
+		$status      = (string) ( $skill['status'] ?? 'draft' );
+		$enabled     = ! empty( $skill['enabled'] );
+		$protected   = in_array( $source, [ 'builtin', 'playbook' ], true );
+		$origin      = 'external' === $source_kind && '' !== $source_id
+			? $source_id
+			: ( $protected ? 'built-in' : $source );
+		?>
+		<li class="sw-skill-row">
+			<div class="sw-skill-row__head">
+				<strong class="sw-skill-row__title"><?php echo esc_html( '' !== $title ? $title : $slug ); ?></strong>
+				<span class="sw-skill-row__badges">
+					<span class="sw-badge sw-badge--<?php echo $protected ? 'playbook' : 'neutral'; ?>"><?php echo esc_html( $origin ); ?></span>
+					<?php if ( $enabled ) : ?>
+						<span class="sw-badge sw-badge--active"><?php esc_html_e( 'active', 'stonewright' ); ?></span>
+					<?php else : ?>
+						<span class="sw-badge sw-badge--disabled"><?php esc_html_e( 'disabled', 'stonewright' ); ?></span>
+					<?php endif; ?>
+					<?php if ( 'active' !== $status ) : ?>
+						<span class="sw-badge sw-badge--info"><?php echo esc_html( $status ); ?></span>
+					<?php endif; ?>
+				</span>
+			</div>
+			<code class="sw-skill-row__slug"><?php echo esc_html( '' !== $slug ? $slug : 'unknown' ); ?></code>
+			<?php if ( '' !== $description ) : ?>
+				<p class="sw-skill-row__description"><?php echo esc_html( $description ); ?></p>
+			<?php endif; ?>
+		</li>
+		<?php
 	}
 
 	/**

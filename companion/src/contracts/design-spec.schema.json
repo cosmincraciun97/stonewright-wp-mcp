@@ -106,7 +106,8 @@
           "description": "Per-breakpoint setting overrides keyed by breakpoint id.",
           "additionalProperties": { "type": "object", "additionalProperties": true }
         },
-        "assetRef": { "type": "string", "description": "Reference to an AssetReference id in the spec." }
+        "assetRef": { "type": "string", "description": "Reference to an AssetReference id in the spec." },
+        "motion":   { "$ref": "#/$defs/MotionList", "description": "Block-level motion. May target only this block." }
       },
       "required": ["type"]
     },
@@ -348,10 +349,97 @@
         },
         "padding":   { "type": "string" },
         "margin":    { "type": "string" },
-        "fullWidth": { "type": "boolean" }
+        "fullWidth": { "type": "boolean" },
+        "motion":    { "$ref": "#/$defs/MotionList", "description": "Section-level motion. May target the section itself or a descendant block." }
       },
       "required": ["blocks"],
       "additionalProperties": false
+    },
+    "MotionPolicy": {
+      "type": "object",
+      "description": "Page-level motion vocabulary. One policy; design direction and DialTranslator control the same politics.",
+      "required": ["level", "durations", "easings", "distances", "max_concurrent", "reduced_motion"],
+      "additionalProperties": false,
+      "properties": {
+        "level":          { "type": "string", "enum": ["none", "subtle", "expressive"] },
+        "durations": {
+          "type": "object",
+          "required": ["instant", "fast", "standard", "slow"],
+          "additionalProperties": false,
+          "properties": {
+            "instant":  { "type": "integer", "minimum": 0, "maximum": 3000 },
+            "fast":     { "type": "integer", "minimum": 0, "maximum": 3000 },
+            "standard": { "type": "integer", "minimum": 0, "maximum": 3000 },
+            "slow":     { "type": "integer", "minimum": 0, "maximum": 3000 }
+          }
+        },
+        "easings": {
+          "type": "object",
+          "required": ["standard", "enter", "exit"],
+          "additionalProperties": false,
+          "properties": {
+            "standard": { "type": "string", "enum": ["standard", "decelerate", "accelerate", "emphasized", "linear"] },
+            "enter":    { "type": "string", "enum": ["standard", "decelerate", "accelerate", "emphasized", "linear"] },
+            "exit":     { "type": "string", "enum": ["standard", "decelerate", "accelerate", "emphasized", "linear"] }
+          }
+        },
+        "distances": {
+          "type": "object",
+          "required": ["small", "medium", "large"],
+          "additionalProperties": false,
+          "properties": {
+            "small":  { "type": "integer", "minimum": 0, "maximum": 200 },
+            "medium": { "type": "integer", "minimum": 0, "maximum": 200 },
+            "large":  { "type": "integer", "minimum": 0, "maximum": 200 }
+          }
+        },
+        "max_concurrent": { "type": "integer", "minimum": 0, "maximum": 12, "default": 3 },
+        "reduced_motion": { "type": "string", "enum": ["disable", "replace_nonessential", "preserve_essential"] }
+      }
+    },
+    "MotionItem": {
+      "type": "object",
+      "description": "Semantic motion declaration. target_id is a spec ID, never a CSS selector. effect must be a slug from the versioned MotionPresetRegistry.",
+      "required": ["id", "purpose", "target_id", "trigger", "effect", "playback", "engine", "reduced_motion"],
+      "additionalProperties": false,
+      "properties": {
+        "id":                { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "purpose":           { "type": "string", "enum": ["orient", "feedback", "continuity", "emphasis", "reveal", "decorative"] },
+        "target_id":         { "type": "string", "minLength": 1, "maxLength": 128 },
+        "trigger":           { "type": "string", "enum": ["load", "viewport-enter", "viewport-progress", "hover", "focus-visible", "press", "state-change"] },
+        "effect":            { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,47}$" },
+        "duration":          { "oneOf": [ { "type": "string", "enum": ["instant", "fast", "standard", "slow"] }, { "type": "integer", "minimum": 0, "maximum": 3000 } ], "default": "standard" },
+        "delay_ms":          { "type": "integer", "minimum": 0, "maximum": 2000, "default": 0 },
+        "playback":          { "type": "string", "enum": ["once", "every-enter", "loop"], "default": "once" },
+        "engine":            { "type": "string", "enum": ["auto", "native", "css", "waapi", "gsap", "provider"], "default": "auto" },
+        "provider_id":       { "type": "string", "minLength": 1, "maxLength": 64 },
+        "devices": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["desktop", "tablet", "mobile"] },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 3,
+          "default": ["desktop", "tablet", "mobile"]
+        },
+        "reduced_motion":    { "type": "string", "enum": ["disable", "replace-with-fade", "static-end-state", "preserve-essential"] },
+        "control_target_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "control_label":     { "type": "string", "minLength": 1, "maxLength": 120 },
+        "stagger": {
+          "type": "object",
+          "required": ["target_ids", "interval_ms", "span_ms"],
+          "additionalProperties": false,
+          "properties": {
+            "target_ids":  { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 }, "uniqueItems": true, "minItems": 2, "maxItems": 12 },
+            "interval_ms": { "type": "integer", "minimum": 0, "maximum": 250 },
+            "span_ms":     { "type": "integer", "minimum": 0, "maximum": 2000 }
+          }
+        }
+      }
+    },
+    "MotionList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/MotionItem" },
+      "maxItems": 24
     },
     "DesignSpec": {
       "type": "object",
@@ -391,6 +479,9 @@
           "type": "object",
           "description": "Arbitrary metadata (e.g. source instructions, confidence scores).",
           "additionalProperties": true
+        },
+        "motion_policy": {
+          "$ref": "#/$defs/MotionPolicy"
         }
       },
       "required": ["version", "page", "sections"],

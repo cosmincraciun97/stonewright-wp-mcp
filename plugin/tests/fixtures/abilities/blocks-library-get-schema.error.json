@@ -1,0 +1,7 @@
+{
+    "args": {
+        "library": "spectra",
+        "name": "core/paragraph"
+    },
+    "expect": "wp_error"
+}

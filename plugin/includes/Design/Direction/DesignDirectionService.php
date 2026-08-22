@@ -79,12 +79,26 @@ final class DesignDirectionService {
 			return $this->invalid( 'Unsupported direction status.' );
 		}
 
-		if ( 'ready' === $status && true !== $contract['readiness']['ready'] ) {
+		$issues = is_array( $contract['readiness']['issues'] ?? null ) ? array_values( $contract['readiness']['issues'] ) : [];
+		$issues = array_values(
+			array_filter(
+				$issues,
+				static fn( mixed $issue ): bool => '' !== trim( (string) $issue )
+			)
+		);
+		if ( 'ready' === $status && [] !== $issues ) {
 			return new WP_Error(
 				self::NOT_READY_CODE,
 				'A direction cannot be marked ready while its contract reports outstanding issues.',
-				[ 'issues' => $contract['readiness']['issues'] ]
+				[
+					'issues'      => $issues,
+					'issue_count' => count( $issues ),
+				]
 			);
+		}
+		if ( 'ready' === $status ) {
+			$contract['readiness']['ready']  = true;
+			$contract['readiness']['issues'] = [];
 		}
 
 		$slug = $this->slug( $input, $contract );
@@ -193,6 +207,64 @@ final class DesignDirectionService {
 		$result['audit']['previous_active_id'] = $previous;
 
 		return $result;
+	}
+
+	/**
+	 * Clears the active-direction pointer without requiring a stored record.
+	 *
+	 * The option is set to 0 rather than deleted so a later readback is
+	 * consistently integer 0, including when nothing was active.
+	 *
+	 * @param int $actor_id User the audit payload attributes.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function deactivate( int $actor_id ) {
+		$previous = (int) get_option( self::ACTIVE_OPTION, 0 );
+
+		update_option( self::ACTIVE_OPTION, 0 );
+
+		$active = (int) get_option( self::ACTIVE_OPTION, 0 );
+		if ( 0 !== $active ) {
+			$this->restore_pointer( $previous );
+
+			return new WP_Error(
+				'stonewright_direction_verification_failed',
+				'The active design direction pointer was not cleared.',
+				[
+					'status'              => 500,
+					'active_id'           => $active,
+					'previous_active_id'  => $previous,
+					'verification_status' => 'failed',
+				]
+			);
+		}
+
+		$hash_before = hash( 'sha256', (string) $previous );
+		$hash_after  = hash( 'sha256', '0' );
+
+		return [
+			'id'                 => 0,
+			'slug'               => '',
+			'status'             => 'inactive',
+			'revision'           => 0,
+			'contract'           => [],
+			'hash_before'        => $hash_before,
+			'hash_after'         => $hash_after,
+			'versioned'          => false,
+			'previous_active_id' => $previous,
+			'audit'              => [
+				'action'             => 'design_direction.deactivate',
+				'actor_id'           => $actor_id,
+				'direction_id'       => 0,
+				'slug'               => '',
+				'status'             => 'inactive',
+				'revision'           => 0,
+				'hash_before'        => $hash_before,
+				'hash_after'         => $hash_after,
+				'versioned'          => false,
+				'previous_active_id' => $previous,
+			],
+		];
 	}
 
 	/**

@@ -66,6 +66,7 @@ final class ProtectedFilesystemWriteGuard {
 		'CustomCodeGrant',
 		'ThemeWriteTransaction',
 		'ThemeFilePatch',
+		'ThemeJsonHandoff',
 		'ThemeBackupRestore',
 		'ConfirmationToken',
 	];

@@ -57,6 +57,7 @@ final class DirectionCapture extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'evidence' => [
 					'type'                 => 'object',
 					'description'          => 'Compact kit evidence, as returned by stonewright/elementor-v3-get-kit-globals. Unknown fields are rejected.',
@@ -137,7 +138,7 @@ final class DirectionCapture extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ): array|\WP_Error {
 				$evidence = is_array( $args['evidence'] ?? null ) ? $args['evidence'] : [];
@@ -156,7 +157,7 @@ final class DirectionCapture extends AbilityKernel {
 				$hash     = DesignDirectionService::hash( $contract );
 
 				$report = [
-					'contract'      => $contract,
+					'contract'      => DirectionContract::for_transport( $contract ),
 					'contract_hash' => $hash,
 					'mapped'        => $captured['mapped'],
 					'issues'        => $captured['issues'],

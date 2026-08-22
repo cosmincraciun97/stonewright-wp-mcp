@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
@@ -153,6 +154,11 @@ final class KitBatchMutate extends AbilityKernel {
 					: [];
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one kit operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+
+				$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => $operations ], $args );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
 				}
 
 				$current = get_post_meta( $kit_id, '_elementor_page_settings', true );
@@ -370,6 +376,10 @@ final class KitBatchMutate extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function apply_layout( array $settings, array $operation ): array|\WP_Error {
+		$css_gate = ElementorCustomCssGate::assert_incoming( $operation, $operation );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		// Single layout setting via operation.setting / operation.value.
 		if ( isset( $operation['setting'] ) ) {
 			$key = (string) $operation['setting'];
@@ -407,9 +417,13 @@ final class KitBatchMutate extends AbilityKernel {
 	 *
 	 * @param array<string, mixed> $settings
 	 * @param array<string, mixed> $operation
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|\WP_Error
 	 */
-	private static function apply_settings( array $settings, array $operation ): array {
+	private static function apply_settings( array $settings, array $operation ): array|\WP_Error {
+		$css_gate = ElementorCustomCssGate::assert_incoming( $operation, $operation );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		$incoming = isset( $operation['settings'] ) && is_array( $operation['settings'] )
 			? $operation['settings']
 			: [];

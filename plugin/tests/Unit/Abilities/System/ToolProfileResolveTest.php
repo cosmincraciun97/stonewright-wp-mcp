@@ -111,7 +111,7 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertLessThanOrEqual( 12, count( $names ) );
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
-		self::assertContains( 'stonewright/php-execute', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 
 		$ability = new ToolProfile();
 		$result  = $ability->execute(
@@ -172,6 +172,63 @@ final class ToolProfileResolveTest extends TestCase {
 	public function test_suggest_profile_routes_wc_reads_to_content_model(): void {
 		self::assertSame( 'content-model', ToolProfile::suggest_profile( 'show woocommerce sales report for last month' ) );
 		self::assertSame( 'content-model', ToolProfile::suggest_profile( 'list woocommerce orders' ) );
+	}
+
+	public function test_suggest_profile_does_not_force_elementor_on_gutenberg_fingerprint(): void {
+		$GLOBALS['stonewright_test_stylesheet'] = 'twentytwentyfour';
+		$GLOBALS['stonewright_test_template']   = 'twentytwentyfour';
+		$GLOBALS['stonewright_test_options']['stylesheet'] = 'twentytwentyfour';
+
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a landing page' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'build a hero section' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'refine the visual design' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a landing page', 'gutenberg' ) );
+
+		unset( $GLOBALS['stonewright_test_stylesheet'], $GLOBALS['stonewright_test_template'] );
+		unset( $GLOBALS['stonewright_test_options']['stylesheet'] );
+	}
+
+	public function test_suggest_profile_blocksy_and_block_theme_win_over_ambiguous_design(): void {
+		$GLOBALS['stonewright_test_stylesheet'] = 'blocksy';
+		$GLOBALS['stonewright_test_template']   = 'blocksy';
+
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a landing page section' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'build a marketing section on blocksy' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design the homepage', 'unknown', 'write' ) );
+
+		unset( $GLOBALS['stonewright_test_stylesheet'], $GLOBALS['stonewright_test_template'] );
+	}
+
+	public function test_suggest_profile_keeps_explicit_elementor_surface_and_terms(): void {
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'design a landing page', 'elementor' ) );
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'edit this elementor widget' ) );
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'apply an elementor theme builder template' ) );
+	}
+
+	public function test_suggest_profile_classic_theme_elementor_respects_gutenberg_hints(): void {
+		if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
+			define( 'ELEMENTOR_VERSION', '3.24.0' );
+		}
+
+		$GLOBALS['stonewright_test_stylesheet'] = 'astra';
+		$GLOBALS['stonewright_test_template']   = 'astra';
+		$GLOBALS['stonewright_test_options']['stylesheet'] = 'astra';
+
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'design a landing page' ) );
+		self::assertSame( 'elementor-design', ToolProfile::suggest_profile( 'build a hero section' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a landing page', 'gutenberg' ) );
+		self::assertSame( 'gutenberg', ToolProfile::suggest_profile( 'design a block-based landing page' ) );
+
+		unset( $GLOBALS['stonewright_test_stylesheet'], $GLOBALS['stonewright_test_template'] );
+		unset( $GLOBALS['stonewright_test_options']['stylesheet'] );
+	}
+
+	public function test_discover_execute_is_a_named_profile(): void {
+		self::assertContains( 'discover-execute', ToolProfile::profile_names() );
+		$names = ToolProfile::profile_tools( 'discover-execute' );
+		self::assertContains( 'stonewright/discover-abilities', $names );
+		self::assertContains( 'stonewright/execute-ability', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 	}
 
 	public function test_site_admin_profile_contains_wave3_admin_ops(): void {

@@ -1,6 +1,7 @@
 import { APP_VERSION, companionPackageSpec } from './version.js';
 import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
+import { COMMAND_TOOL_PROFILES } from './commands/limits.js';
 import { DIRECT_BOOTSTRAP_TOOL_NAMES, DIRECT_TOOL_NAMES } from './direct/registry.js';
 
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
@@ -383,7 +384,7 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 	return Object.fromEntries(Object.entries(groups).filter(([, names]) => names.length > 0));
 }
 
-function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
+export function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 	const profile = proxyToolProfileFromEnv(env);
 	const localTools = profile === 'low-tools'
 		? [
@@ -419,6 +420,15 @@ function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		];
+
+	// Commands v1 ships only on WP-CLI-capable profiles; compact surfaces stay clean.
+	if (COMMAND_TOOL_PROFILES.includes(profile)) {
+		localTools.push(
+			'stonewright-command-list',
+			'stonewright-command-get',
+			'stonewright-command-run',
+		);
+	}
 
 	return Array.from(new Set([...proxyToolNamesForProfile(profile), ...localTools]));
 }

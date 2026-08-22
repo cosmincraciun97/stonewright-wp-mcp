@@ -15,6 +15,8 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
+use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
@@ -68,6 +70,7 @@ final class PluginRegistration {
 	private function register_hooks(): void {
 		register_activation_hook( $this->plugin_file, [ $this, 'on_activate' ] );
 		register_deactivation_hook( $this->plugin_file, [ $this, 'on_deactivate' ] );
+		MotionAssetLoader::register();
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
 		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );
@@ -122,6 +125,7 @@ final class PluginRegistration {
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
+		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
 		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
 		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
 		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
@@ -147,6 +151,7 @@ final class PluginRegistration {
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
+		FinalizerPage::register();
 		AbilitiesPage::register();
 		SandboxPage::register();
 		SkillsPage::register();
@@ -198,6 +203,19 @@ final class PluginRegistration {
 			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
+	}
+
+	/**
+	 * Reseed packaged skills when the installed plugin version changes.
+	 * File copies do not run activation hooks; this keeps the catalog in sync.
+	 */
+	public static function maybe_upgrade(): void {
+		$stored = (string) get_option( 'stonewright_version', '' );
+		if ( $stored === STONEWRIGHT_VERSION ) {
+			return;
+		}
+		SkillsSeeder::seed();
+		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 
 	/**

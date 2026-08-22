@@ -18,9 +18,10 @@ when changing versions.
 ## Default Plugin path
 
 1. Install and activate the current Plugin ZIP.
-2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow.
+2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
-4. Confirm `stonewright-task-start` is visible and call it first. Use `essential` for normal work; `bootstrap` is diagnostics only.
+4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
+5. **Stonewright > Design** and **Context** tabs hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
 
 The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
 
@@ -64,12 +65,18 @@ Choose exactly one transport for this site. Do not combine local stdio and
 OAuth HTTP under the same server name.
 
 For local stdio, use the versioned installer with a unique alias, a
-collision-safe named server, and --mode plugin-only. Ask for the environment,
-WordPress mode, MCP surface, Elementor V4 choice, and target client. Let the
-installer request the Application Password through its hidden prompt, or use
---password-env with a temporary variable; never put a password on argv.
+collision-safe named server, and --mode plugin-only. For automatic Direct
+fallback use `--mode auto` instead. Working stdio client ids: cursor,
+claude-desktop, vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai
+connect via the OAuth HTTP method, not the local installer. Ask for the
+environment, WordPress mode, MCP surface, Elementor V4 choice, and target
+client. Let the installer request the Application Password through its hidden
+prompt, or use --password-env with a temporary variable; never put a password
+on argv.
 
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode plugin-only --client <client> --profile essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --wp-surface essential --elementor-v4 <yes|no>
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode plugin-only --client <client> --profile essential-static --wp-surface essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --elementor-v4 <yes|no>
+
+`--profile discover-execute` exposes a minimal 3-tool protocol surface.
 
 I will replace private placeholders locally. Do not create or overwrite a
 generic server named stonewright. If the alias already exists, reuse its saved
@@ -87,15 +94,20 @@ Never inspect or print private configuration. After I restart the client, run
 stonewright connect verify <alias> --client <client> for local stdio and require
 spawned runtime proof, not only a valid config file.
 
+If the connection fails, open Stonewright → Troubleshoot in wp-admin and run
+diagnostics.
+
 After a client-specific restart / MCP reload (not only a chat refresh):
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
-- Call stonewright-task-start first with a non-empty task, surface, and intent.
-- Require the requested alias, configured_mode=plugin-only, active_mode=plugin,
-  and the expected companion version. If another site or Direct mode appears,
-  stop because the wrong named server is active.
+- Call stonewright-task-start first with a non-empty task; pass surface and
+  intent when known.
+- Require site_alias, configured_mode=plugin-only, active_mode=plugin,
+  companion_version, and refresh_required_tool_names. If another site or Direct
+  mode appears, stop because the wrong named server is active.
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
-- Confirm companion_version matches VERSION, the WordPress MCP endpoint is
-  authenticated, and refresh_required_tool_names is empty.
+- Confirm the target site, site_alias, companion_version matches VERSION,
+  expected_companion_package, the WordPress MCP endpoint is authenticated, and
+  refresh_required_tool_names is empty.
 - Status and gateway reports must be honest when disconnected or unauthorized.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
@@ -121,7 +133,8 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   call the task complete until its frontend assertions pass and desktop,
   tablet, and mobile browser measurements/screenshots are accepted.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
-- Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.
+- Use stonewright-php-execute for short runtime PHP (full profile only); keep WP-CLI tokenized via stonewright-wp-cli-*.
+- For a client that cannot hold the full catalog, activate opt-in discover-execute (discover-abilities → get-ability-info → execute-ability). php-execute stays off that profile.
 ```
 
 ## Option B — Without the plugin (Direct mode, any live WordPress)
@@ -139,9 +152,10 @@ Local sites with tokenized WP-CLI can also inspect and update Elementor document
 data with mandatory file backup. This is not remote pluginless Elementor engine
 parity.
 
-Plugin-only: php-execute, Elementor engines, DesignSpec render pipelines,
-production-safe confirmation tokens, CPT/field-group registration, and the
-wp-admin skills/memory/audit UI.
+Plugin-only: php-execute (full profile), Elementor engines, DesignSpec render
+pipelines, production-safe confirmation tokens, CPT/field-group registration,
+and the wp-admin skills/memory/audit UI. Opt-in `discover-execute` is also
+plugin-backed.
 
 Optional interactive setup:
 
@@ -173,7 +187,7 @@ mutation still needs the explicit per-call confirmation.
 Use this versioned installer shape and let it create the alias-specific named
 entry. Do not build a second generic server entry:
 
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode direct-only --client <client>
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode direct-only --client <client>
 
 I will replace private placeholders locally. Use the hidden password prompt or
 --password-env, never a password on argv. If the alias already exists, run
@@ -225,12 +239,26 @@ After reload:
 
 For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).
 
+## Codex Desktop vs CLI
+
+Treat these as two clients. `--client codex` aliases to CLI; prefer the
+canonical slugs:
+
+| Surface | Flag | Config |
+|---|---|---|
+| Codex CLI | `--client codex-cli` | `~/.codex/config.toml` |
+| Codex in ChatGPT Desktop | `--client chatgpt-desktop` | `~/Library/Application Support/ChatGPT/mcp_config.json` |
+
+Do not paste CLI TOML into the Desktop JSON file. See
+[getting-started/codex.md](getting-started/codex.md).
+
 ## Certified vs compatible clients
 
-- **Tier-1 certification targets:** Codex, Claude Code/Desktop, Cursor, VS Code /
-  GitHub Copilot — maintained first, but not called certified without a passing
-  acceptance report; use
+- **Tier-1 certification targets:** Codex CLI (`--client codex-cli`), Claude
+  Code/Desktop, Cursor, VS Code / GitHub Copilot — maintained first, but not
+  called certified without a passing acceptance report; use
   [client-acceptance-template.md](releases/client-acceptance-template.md).
+  Codex in ChatGPT Desktop is a separate client (`--client chatgpt-desktop`).
 - **Compatible:** other catalog clients may work with the same stdio/HTTP
   snippets but are not fully certified until an acceptance report passes.
 - Certification priority, operational support, and evidence live in

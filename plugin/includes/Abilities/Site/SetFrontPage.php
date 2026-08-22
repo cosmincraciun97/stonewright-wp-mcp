@@ -38,6 +38,7 @@ final class SetFrontPage extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'page_id' ],
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'page_id' => [
 					'type'        => 'integer',
 					'minimum'     => 1,
@@ -65,7 +66,7 @@ final class SetFrontPage extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit( $args, function ( array $args ): array|\WP_Error {
+		return $this->audit_write( $args, function ( array $args ): array|\WP_Error {
 			$page_id = isset( $args['page_id'] ) ? (int) $args['page_id'] : 0;
 			if ( $page_id < 1 ) {
 				return $this->error( 'invalid_page_id', __( 'page_id must be a positive integer.', 'stonewright' ), [ 'status' => 400 ] );

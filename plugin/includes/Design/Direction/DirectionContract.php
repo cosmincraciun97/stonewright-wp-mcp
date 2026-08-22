@@ -142,4 +142,45 @@ final class DirectionContract {
 			],
 		];
 	}
+
+	/**
+	 * Minimal valid contract for unknown-field error payloads.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function minimal_example(): array {
+		$example                       = self::defaults();
+		$example['identity']['name']    = 'Example direction';
+		$example['identity']['summary'] = 'Minimal valid contract.';
+		$example['dials']               = [
+			'variance' => 0,
+			'density'  => 0,
+			'motion'   => 0,
+		];
+
+		return $example;
+	}
+
+	/**
+	 * Encode empty maps as JSON objects (`{}`) so capture output is save-ready.
+	 *
+	 * @param array<string,mixed> $contract Canonical contract.
+	 * @return array<string,mixed>
+	 */
+	public static function for_transport( array $contract ): array {
+		if ( isset( $contract['tokens'] ) && is_array( $contract['tokens'] ) ) {
+			foreach ( self::TOKEN_GROUPS as $group ) {
+				if ( isset( $contract['tokens'][ $group ] ) && is_array( $contract['tokens'][ $group ] ) && [] === $contract['tokens'][ $group ] ) {
+					$contract['tokens'][ $group ] = new \stdClass();
+				}
+			}
+		}
+		foreach ( [ 'components', 'provenance' ] as $key ) {
+			if ( isset( $contract[ $key ] ) && is_array( $contract[ $key ] ) && [] === $contract[ $key ] ) {
+				$contract[ $key ] = new \stdClass();
+			}
+		}
+
+		return $contract;
+	}
 }
