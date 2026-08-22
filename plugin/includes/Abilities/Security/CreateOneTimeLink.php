@@ -44,6 +44,11 @@ final class CreateOneTimeLink extends AbilityKernel {
 					'minimum'     => 30,
 					'maximum'     => 3600,
 				],
+				'user_agent'         => [
+					'type'        => 'string',
+					'description' => 'Browser User-Agent that will redeem the link. Pass the automation browser UA; defaults to the MCP client UA, which Playwright cannot match.',
+					'maxLength'   => 512,
+				],
 				'confirmation_token' => [
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode because a one-time admin login link is a privileged credential.',
@@ -88,7 +93,13 @@ final class CreateOneTimeLink extends AbilityKernel {
 					return $this->error( 'no_user', __( 'No authenticated user — cannot create a one-time link.', 'stonewright' ) );
 				}
 
-				$url = OneTimeLink::create( $user_id, $ttl );
+				$context = [];
+				$user_agent = sanitize_text_field( (string) ( $runtime_args['user_agent'] ?? '' ) );
+				if ( '' !== $user_agent ) {
+					$context['user_agent'] = $user_agent;
+				}
+
+				$url = OneTimeLink::create( $user_id, $ttl, $context );
 				if ( $url instanceof \WP_Error ) {
 					return $url;
 				}

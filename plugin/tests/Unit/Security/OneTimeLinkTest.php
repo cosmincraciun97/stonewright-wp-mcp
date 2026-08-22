@@ -96,6 +96,18 @@ final class OneTimeLinkTest extends TestCase {
 		$this->assertFalse( OneTimeLink::consume( $token . 'tampered' ) );
 	}
 
+	public function test_consume_accepts_loopback_ipv4_ipv6_swap(): void {
+		$_SERVER['REMOTE_ADDR']     = '127.0.0.1';
+		$_SERVER['HTTP_USER_AGENT'] = 'StonewrightTest/1.0';
+
+		$url = OneTimeLink::create( 15, 300 );
+		parse_str( (string) parse_url( $url, PHP_URL_QUERY ), $params );
+		$token = (string) ( $params['stonewright_otl'] ?? '' );
+
+		$_SERVER['REMOTE_ADDR'] = '::1';
+		$this->assertSame( 15, OneTimeLink::consume( $token ) );
+	}
+
 	public function test_consume_rejects_ip_mismatch_without_burning_token(): void {
 		$_SERVER['REMOTE_ADDR']     = '192.0.2.10';
 		$_SERVER['HTTP_USER_AGENT'] = 'StonewrightTest/1.0';

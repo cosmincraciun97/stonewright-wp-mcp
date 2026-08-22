@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -24,7 +25,7 @@ final class UpdatePageSettings extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates _elementor_page_settings (background, layout, custom CSS).', 'stonewright' );
+		return __( 'Updates _elementor_page_settings (background, layout). Custom CSS keys require stonewright/theme-custom-css with a human-issued custom_code_grant.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -65,6 +66,11 @@ final class UpdatePageSettings extends AbilityKernel {
 			$args,
 			function ( array $args ) {
 				$post_id     = (int) $args['post_id'];
+				$incoming    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$css_gate    = ElementorCustomCssGate::assert_incoming( $incoming, $args );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				$snapshot_id = Backup::snapshot_post( $post_id );
 
 				$existing = get_post_meta( $post_id, '_elementor_page_settings', true );
@@ -74,8 +80,8 @@ final class UpdatePageSettings extends AbilityKernel {
 
 				$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 				$next = 'replace' === $mode
-					? (array) $args['settings']
-					: array_merge( $existing, (array) $args['settings'] );
+					? $incoming
+					: array_merge( $existing, $incoming );
 
 				if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) && $next !== $existing ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );

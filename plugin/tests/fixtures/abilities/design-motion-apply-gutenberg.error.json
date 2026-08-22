@@ -1,0 +1,8 @@
+{
+  "args": {
+    "post_id": 999999,
+    "plan": { "renderer": "gutenberg-fse", "plan_hash": "aa" },
+    "targets": [ { "target_id": "p1", "path": [0] } ]
+  },
+  "expect": "wp_error"
+}

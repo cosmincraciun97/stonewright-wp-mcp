@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Patterns;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * Deletes a user synced pattern after snapshot + confirmation in production-safe.
@@ -57,7 +58,7 @@ final class DeletePattern extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return PatternSupport::can_write();
+		return Permissions::edit_posts() && PatternSupport::can_write();
 	}
 
 	public function execute( array $args ): array|\WP_Error {

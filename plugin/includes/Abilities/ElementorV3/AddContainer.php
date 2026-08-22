@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Security\Backup;
@@ -79,6 +80,10 @@ final class AddContainer extends AbilityKernel {
 
 				$tree        = ElementorData::read( $post_id );
 				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$css_gate    = ElementorCustomCssGate::assert_incoming( $settings, $args, 'container' );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				$settings    = ContainerSettings::normalize( $settings );
 				$validated   = SettingsValidator::validate_container( $settings );
 				if ( $validated instanceof \WP_Error ) {

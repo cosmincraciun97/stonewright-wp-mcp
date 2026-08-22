@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\GuardedRuntimeWriteException;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\ProtectedCustomCssWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedFilesystemWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedWpdbWriteGuard;
@@ -148,6 +149,11 @@ final class PhpExecute extends AbilityKernel {
 					return $fs_guard;
 				}
 
+				$css_guard = ProtectedCustomCssWriteGuard::inspect( $code_body );
+				if ( $css_guard instanceof \WP_Error ) {
+					return $css_guard;
+				}
+
 				$guard = ProtectedElementorWriteGuard::inspect( $code_body, $read_only );
 				if ( $guard instanceof \WP_Error ) {
 					return $guard;
@@ -211,6 +217,7 @@ final class PhpExecute extends AbilityKernel {
 		$original_time_limit = self::current_time_limit();
 		$buffer_level        = ob_get_level();
 		$write_guards        = ProtectedElementorWriteGuard::install( $read_only );
+		$css_write_guards    = ProtectedCustomCssWriteGuard::install();
 		$wpdb_original       = ProtectedWpdbWriteGuard::install( $read_only );
 
 		self::apply_time_limit( $timeout_seconds );
@@ -279,6 +286,7 @@ final class PhpExecute extends AbilityKernel {
 			);
 		} finally {
 			ProtectedWpdbWriteGuard::uninstall( $wpdb_original );
+			ProtectedCustomCssWriteGuard::uninstall( $css_write_guards );
 			ProtectedElementorWriteGuard::uninstall( $write_guards );
 			self::restore_time_limit( $original_time_limit );
 		}

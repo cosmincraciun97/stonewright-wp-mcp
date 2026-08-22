@@ -340,6 +340,9 @@ function parseSiteRecordV2(row: unknown, index: number): SiteRecordV2 {
 	if (disabled_tools) {
 		record.disabled_tools = disabled_tools;
 	}
+	if (typeof r.local_wp_root === 'string' && r.local_wp_root) {
+		record.local_wp_root = r.local_wp_root;
+	}
 	if (typeof r.created_at === 'string') {
 		record.created_at = r.created_at;
 	}
@@ -805,6 +808,7 @@ export function buildSiteRecord(input: {
 	disabled_tools?: string[] | undefined;
 	clients?: SiteRecordV2['clients'] | undefined;
 	plugin_expectations?: SiteRecordV2['plugin_expectations'] | undefined;
+	local_wp_root?: string | undefined;
 }): SiteRecordV2 {
 	const environment = input.environment ?? 'other';
 	const canonical_url = normalizeCanonicalUrl(input.url);
@@ -828,6 +832,7 @@ export function buildSiteRecord(input: {
 		clients: input.clients ?? {},
 		...(input.plugin_expectations ? { plugin_expectations: input.plugin_expectations } : {}),
 		...(input.disabled_tools ? { disabled_tools: input.disabled_tools } : {}),
+		...(input.local_wp_root ? { local_wp_root: input.local_wp_root } : {}),
 		created_at: now,
 		updated_at: now,
 	};

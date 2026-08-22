@@ -121,8 +121,77 @@ final class DesignPageTest extends TestCase {
 		DesignPage::set_active( true, (int) $saved['id'], 7 );
 		self::assertSame( (int) $saved['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
 
-		DesignPage::set_active( false, (int) $saved['id'], 7 );
+		$off = DesignPage::set_active( false, (int) $saved['id'], 7 );
+		self::assertIsArray( $off );
+		self::assertTrue( $off['ok'] );
+		self::assertFalse( $off['active'] );
+		self::assertSame( 0, $off['id'] );
 		self::assertSame( 0, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+
+		$again = DesignPage::set_active( true, (int) $saved['id'], 7 );
+		self::assertIsArray( $again );
+		self::assertSame( (int) $saved['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_active_form_wires_checkbox_to_stable_form_id(): void {
+		$repository = new DesignPageTestRepository();
+		$service    = new DesignDirectionService( $repository );
+		DesignPage::set_service_for_tests( $service );
+
+		$saved = $service->save( $this->ready_input(), 7 );
+		self::assertIsArray( $saved );
+		$service->activate( (int) $saved['id'], 7 );
+
+		ob_start();
+		DesignPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'id="stonewright-design-active-form"', $html );
+		self::assertStringContainsString( 'data-stonewright-submit-form="stonewright-design-active-form"', $html );
+		self::assertStringContainsString( 'checked="checked"', $html );
+
+		DesignPage::set_active( false, (int) $saved['id'], 7 );
+
+		ob_start();
+		DesignPage::render();
+		$cleared = (string) ob_get_clean();
+
+		self::assertStringNotContainsString( 'id="stonewright-design-active-form"', $cleared );
+		self::assertStringNotContainsString( 'checked="checked"', $cleared );
+		self::assertStringContainsString( 'No active design direction', $cleared );
+	}
+
+	public function test_failed_set_active_maps_to_error_notice_keys(): void {
+		$error = new WP_Error( 'stonewright_direction_verification_failed', 'fail' );
+
+		self::assertSame( 'deactivate-error', DesignPage::notice_for_set_active( false, $error ) );
+		self::assertSame( 'activate-error', DesignPage::notice_for_set_active( true, $error ) );
+		self::assertSame( 'deactivated', DesignPage::notice_for_set_active( false, [ 'ok' => true ] ) );
+		self::assertSame( 'activated', DesignPage::notice_for_set_active( true, [ 'ok' => true ] ) );
+	}
+
+	public function test_render_shows_error_notice_when_deactivate_fails(): void {
+		$_GET['stonewright_design_notice'] = 'deactivate-error';
+
+		ob_start();
+		DesignPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'notice-error', $html );
+		self::assertStringContainsString( 'The active design direction could not be cleared.', $html );
+		self::assertStringNotContainsString( 'Design direction updated.', $html );
+	}
+
+	public function test_render_shows_error_notice_when_activate_fails(): void {
+		$_GET['stonewright_design_notice'] = 'activate-error';
+
+		ob_start();
+		DesignPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'notice-error', $html );
+		self::assertStringContainsString( 'The design direction could not be activated.', $html );
+		self::assertStringNotContainsString( 'Design direction updated.', $html );
 	}
 
 	public function test_submenu_registers_under_stonewright_with_manage_options(): void {

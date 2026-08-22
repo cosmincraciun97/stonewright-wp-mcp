@@ -58,6 +58,10 @@ final class WriteGlobalStyles extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode.',
 				],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Required when theme_json includes styles.css or per-block css. Single-use human-issued grant bound to the CSS candidate hash.',
+				],
 			],
 			'required' => [ 'theme_json' ],
 		];
@@ -89,7 +93,7 @@ final class WriteGlobalStyles extends AbilityKernel {
 
 				$verify_args = array_filter(
 					$args,
-					static fn( string $k ) => 'confirmation_token' !== $k,
+					static fn( string $k ) => 'confirmation_token' !== $k && 'custom_code_grant' !== $k,
 					ARRAY_FILTER_USE_KEY
 				);
 				$token_error = $this->confirmation_token_error( $args, $verify_args );
@@ -97,7 +101,7 @@ final class WriteGlobalStyles extends AbilityKernel {
 					return $token_error;
 				}
 
-				return GlobalStylesWriter::write( $theme_json );
+				return GlobalStylesWriter::write( $theme_json, (string) ( $args['custom_code_grant'] ?? '' ) );
 			}
 		);
 	}
@@ -106,6 +110,6 @@ final class WriteGlobalStyles extends AbilityKernel {
 	 * @return array<int, string>
 	 */
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token', 'custom_code_grant' ] );
 	}
 }

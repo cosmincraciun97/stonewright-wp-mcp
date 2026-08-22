@@ -30,6 +30,8 @@ if ( ! is_dir( $src_dir ) ) {
 // Helpers.
 // ---------------------------------------------------------------------------
 
+require_once __DIR__ . '/security-audit-rules.php';
+
 /** @return array<int, string> Absolute file paths. */
 function sw_collect_php_files( string $dir ): array {
 	$files    = [];
@@ -109,10 +111,9 @@ sw_report( 'Check 2 — No create_function() calls', $cf_hits, $quiet );
 $findings += count( $cf_hits );
 
 // ----- Check 3: No assert($string) patterns. -----
-// We flag assert( followed by a string literal or a variable.
-$assert_hits = sw_grep_files(
+// Flag language-level assert() whose first argument is a string literal or variable.
+$assert_hits = sw_find_unsafe_assert_calls(
 	$php_files,
-	'/\bassert\s*\(\s*["\'\$]/',
 	[ 'StaticGuard.php', 'Compiler.php' ]
 );
 sw_report( 'Check 3 — No assert($string) calls', $assert_hits, $quiet );

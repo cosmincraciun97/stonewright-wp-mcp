@@ -22,7 +22,7 @@ final class ContainerSchemaRepository {
 		if ( is_object( $element ) ) {
 			$controls = self::normalize_controls( method_exists( $element, 'get_controls' ) ? (array) $element->get_controls() : [] );
 			$source   = 'elementor_live_controls';
-		} elseif ( defined( 'ELEMENTOR_VERSION' ) ) {
+		} elseif ( self::live_structural_runtime_booted() ) {
 			return new \WP_Error(
 				'stonewright_elementor_container_schema_unavailable',
 				__( 'The live Elementor structural schema is unavailable; the write was refused.', 'stonewright' ),
@@ -42,6 +42,31 @@ final class ContainerSchemaRepository {
 		];
 		$record['schema_hash'] = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $record ) ) );
 		return $record;
+	}
+
+	private static function live_structural_runtime_booted(): bool {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return false;
+		}
+		$instance = isset( \Elementor\Plugin::$instance ) ? \Elementor\Plugin::$instance : null;
+		if ( ! is_object( $instance ) ) {
+			return false;
+		}
+		$manager = $instance->elements_manager ?? null;
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'get_element_types' ) ) {
+			return false;
+		}
+		try {
+			$catalog = new \ReflectionMethod( $manager, 'get_element_types' );
+			if ( $catalog->getNumberOfRequiredParameters() > 0 ) {
+				return false;
+			}
+			$types = $manager->get_element_types();
+		} catch ( \Throwable ) {
+			return false;
+		}
+
+		return is_array( $types ) && [] !== $types;
 	}
 
 	private static function live_element( string $element_type ): ?object {

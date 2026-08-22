@@ -10,6 +10,9 @@ use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionContractValidator;
 use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
 use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
+use Stonewright\WpMcp\Design\Motion\MotionPlanCompiler;
+use Stonewright\WpMcp\Design\Motion\MotionPresetRegistry;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
@@ -22,6 +25,9 @@ final class ContractTest extends TestCase {
 
 	private const FIXTURE_DIR = __DIR__ . '/../fixtures/abilities';
 
+	/** Change id created by seed_finalizer_cancel_record(). */
+	private string $finalizer_cancel_change_id = '';
+
 	protected function setUp(): void {
 		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_audit_rows'] = [];
@@ -30,6 +36,7 @@ final class ContractTest extends TestCase {
 				'read',
 				'edit_posts',
 				'edit_pages',
+				'edit_post',
 				'manage_options',
 				'edit_plugins',
 				'edit_themes',
@@ -131,6 +138,25 @@ final class ContractTest extends TestCase {
 		$this->seed_contract_snapshot();
 		$this->seed_theme_backup();
 		$this->seed_stock_http_mock();
+		$this->seed_queue_change_block();
+		$this->seed_finalizer_cancel_record();
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+	}
+
+	/**
+	 * blocks-queue-change fixtures use vendor/card; register a synthetic type
+	 * so the success path is a contract, not a hard PHP error.
+	 */
+	private function seed_queue_change_block(): void {
+		$registry = \WP_Block_Type_Registry::get_instance()->get_all_registered();
+		$registry['vendor/card'] = (object) [
+			'title'      => 'Vendor Card',
+			'attributes' => [],
+		];
+		$GLOBALS['stonewright_test_registered_blocks'] = $registry;
 	}
 
 	/**
@@ -140,6 +166,37 @@ final class ContractTest extends TestCase {
 	 * fixture exercises the real versioned path (new revision, appended history)
 	 * instead of a no-op restore.
 	 */
+
+	/**
+	 * A queued finalizer record owned by the contract-test actor, used by the
+	 * blocks-finalizer-cancel fixtures. The id only exists at runtime, so the
+	 * fixture references it through the {{finalizer_cancel_change_id}}
+	 * placeholder.
+	 */
+	private function seed_finalizer_cancel_record(): void {
+		$GLOBALS['stonewright_test_posts'][99002] = (object) [
+			'ID'           => 99002,
+			'post_type'    => 'page',
+			'post_status'  => 'draft',
+			'post_title'   => 'Finalizer cancel contract page',
+			'post_content' => '<!-- wp:paragraph --><p>Old</p><!-- /wp:paragraph -->',
+			'post_excerpt' => '',
+			'meta'         => [],
+		];
+		$queued = \Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue::enqueue(
+			[
+				'post_id'    => 99002,
+				'block_spec' => [
+					'name'        => 'vendor/card',
+					'attributes'  => [],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		$this->assertIsArray( $queued, 'Finalizer cancel contract seed must enqueue cleanly.' );
+		$this->finalizer_cancel_change_id = (string) $queued['id'];
+	}
+
 	private function seed_design_direction(): void {
 		global $wpdb;
 
@@ -476,7 +533,61 @@ final class ContractTest extends TestCase {
 
 		$decoded = json_decode( (string) file_get_contents( $path ), true );
 		$this->assertIsArray( $decoded, $filename );
-		return $this->resolve_placeholders( $decoded );
+		return $this->hydrate_motion_fixture( $this->resolve_placeholders( $decoded ) );
+	}
+
+	/**
+	 * Contract fixtures cannot hard-code site-signed plan hashes or live widget
+	 * schema fingerprints. Hydrate them exactly as a real caller would after
+	 * capability/schema discovery and plan compilation.
+	 *
+	 * @param array<string, mixed> $fixture
+	 * @return array<string, mixed>
+	 */
+	private function hydrate_motion_fixture( array $fixture ): array {
+		$args = is_array( $fixture['args'] ?? null ) ? $fixture['args'] : [];
+		$plan = is_array( $args['plan'] ?? null ) ? $args['plan'] : null;
+		if ( null === $plan || ! in_array( (string) ( $plan['renderer'] ?? '' ), [ 'gutenberg-fse', 'elementor-v3' ], true ) ) {
+			return $fixture;
+		}
+
+		$manifest = MotionPresetRegistry::manifest();
+		$bindings = is_array( $plan['bindings'] ?? null ) ? $plan['bindings'] : [];
+		$plan['bindings'] = array_merge(
+			[
+				'spec_hash'              => str_repeat( 'a', 64 ),
+				'registry_fingerprint'   => MotionPresetRegistry::fingerprint(),
+				'asset_checksums'        => [
+					'css' => (string) ( $manifest['assets']['css']['sha256'] ?? '' ),
+					'js'  => (string) ( $manifest['assets']['js']['sha256'] ?? '' ),
+				],
+				'capability_fingerprint' => '',
+				'direction'              => null,
+				'renderer'               => (string) $plan['renderer'],
+				'target_map'             => [],
+			],
+			$bindings
+		);
+		$plan['plan_hash'] = MotionPlanCompiler::plan_hash( $plan['bindings'], array_values( (array) ( $plan['operations'] ?? [] ) ) );
+		$args['plan']       = $plan;
+
+		if ( 'elementor-v3' === $plan['renderer'] ) {
+			$schema = WidgetSchemaRepository::get( 'heading', true );
+			$this->assertNotInstanceOf( \WP_Error::class, $schema );
+			$args['evidence']['hero-copy'] = [
+				'control_key'         => '_animation',
+				'value'               => 'fadeInUp',
+				'capability'          => 'entrance_animations',
+				'semantic_effect'     => 'fade-up',
+				'schema_hash'         => (string) $schema['schema_hash'],
+				'runtime_fingerprint' => (string) $schema['runtime_fingerprint'],
+				'source_plugin'       => (string) $schema['source_plugin'],
+				'source_version'      => (string) $schema['source_version'],
+			];
+		}
+
+		$fixture['args'] = $args;
+		return $fixture;
 	}
 
 	/**
@@ -498,6 +609,9 @@ final class ContractTest extends TestCase {
 			function ( &$value ): void {
 				if ( '{{elementor_kit_sync_base_hash}}' === $value ) {
 					$value = $this->elementor_kit_sync_base_hash();
+				}
+				if ( '{{finalizer_cancel_change_id}}' === $value ) {
+					$value = $this->finalizer_cancel_change_id;
 				}
 			}
 		);

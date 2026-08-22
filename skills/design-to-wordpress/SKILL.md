@@ -253,9 +253,10 @@ For each breakpoint frame in DesignEvidence:
 |-----------|--------|
 | Native widget covers the look | No CSS |
 | Plan has `native_mapping` only | No CSS |
-| Plan has `native_gap` + user approval | Scoped CSS / theme stylesheet |
+| Plan has `native_gap` + user approval | Scoped CSS via approval-gated tools + `custom_code_grant` |
 | CSS without gap | Hard fail (`stonewright_spec_invalid`) |
-| HTML widget | Only with explicit `allow_html_widget` |
+| Raw CSS/HTML without grant | Hard fail (`stonewright_custom_code_approval_required`) — show `approval_url`, stop, do not strip |
+| HTML widget | Only with explicit `allow_html_widget` / `allow_raw_html` |
 
 ## Related tools
 
@@ -270,3 +271,23 @@ For each breakpoint frame in DesignEvidence:
 - `Backup::snapshot_post` before Elementor/template writes.
 - Confirmation tokens for destructive ops in production-safe mode.
 - FSE/Elementor transactions rollback on readback failure.
+
+## Motion pipeline (DesignSpec motion contract)
+
+1. Call `stonewright-design-motion-capabilities` once per task; reuse the digest until the schema fingerprint changes.
+2. Optional: `stonewright-design-motion-suggest` for deterministic proposals (max three; "no motion" is always valid).
+3. `stonewright-design-motion-plan` lowers a **validated** spec into renderer operations with a site-signed `plan_hash`. Never edit its bindings or operations. If it binds a capability digest or design direction, pass the same current evidence to apply; drift requires a fresh plan.
+4. Apply per renderer — one dry run, one consolidated write:
+   - Gutenberg/FSE: `stonewright-design-motion-apply-gutenberg` (targets are spec-ID to block-path pairs read from the page).
+   - Elementor V3: `stonewright-design-motion-apply-elementor-v3` (copy `control_key`, `value`, `schema_hash`, `runtime_fingerprint`, `source_plugin`, and `source_version` from the live schema, plus the plan's exact `capability` and `semantic_effect`; unrelated controls and stale evidence are refused).
+   - Elementor V4: compile only. Apply remains unsupported unless the capability digest proves every official mutation primitive and a dedicated typed interactions writer is visible. Never substitute raw `_elementor_data`, WP-CLI, or `update-node`.
+5. After apply: post-write verify, then editor reopen + desktop/tablet/mobile frontend evidence.
+
+Hard rules: target IDs never CSS selectors; hover needs focus-visible parity;
+`playback=loop` is blocked without a persistent control; explicit engines that
+are unavailable produce `unsupported` — no silent CSS/custom-code downgrade;
+per-device motion on all-devices renderers is refused, not widened.
+
+Pass measured `motion_evidence` and `ui_evidence` to
+`stonewright-design-quality-check`. Missing measurements remain `not_checked`;
+motion/UI failures participate in the real report and persisted verdict.

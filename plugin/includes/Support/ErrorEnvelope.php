@@ -26,6 +26,35 @@ final class ErrorEnvelope {
 		'cause',
 		'repair',
 		'retryable',
+		'schema_requests',
+		'schema_request',
+		'cause_code',
+		'setting',
+		'widget_type',
+		'execution_status',
+		'offending_key',
+		'offending_keys',
+		'gated_tool',
+		'gated_mcp_tool',
+		'approval_flow',
+		'reason',
+	];
+
+	/**
+	 * Keys copied into the WP_Error message so MCP transports that only
+	 * surface `error.message` still expose the repair payload.
+	 *
+	 * @var list<string>
+	 */
+	private const AGENT_VISIBLE_MESSAGE_KEYS = [
+		'schema_requests',
+		'schema_request',
+		'cause_code',
+		'setting',
+		'widget_type',
+		'offending_key',
+		'offending_keys',
+		'gated_mcp_tool',
 	];
 
 	/**
@@ -38,6 +67,56 @@ final class ErrorEnvelope {
 	/**
 	 * @return array{error: array{code: string, message: string, data?: array<string, mixed>}}
 	 */
+	/**
+	 * Append compact agent-repair fields onto the error message.
+	 *
+	 * WordPress MCP adapters typically return only `WP_Error::get_error_message()`
+	 * as tool text. Batch-mutate `schema_requests` and custom-CSS grant keys
+	 * must survive that flattening or agents dead-end on a one-line rejection.
+	 */
+	public static function with_agent_visible_payload( \WP_Error $error ): \WP_Error {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || [] === $data ) {
+			return $error;
+		}
+
+		$payload = [];
+		foreach ( self::AGENT_VISIBLE_MESSAGE_KEYS as $key ) {
+			if ( array_key_exists( $key, $data ) ) {
+				$payload[ $key ] = $data[ $key ];
+			}
+		}
+
+		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
+			$requests = [];
+			foreach ( $data['items'] as $item ) {
+				$request = is_array( $item ) ? ( $item['error']['data']['schema_request'] ?? null ) : null;
+				if ( is_array( $request ) ) {
+					$requests[] = $request;
+				}
+			}
+			if ( [] !== $requests ) {
+				$payload['schema_requests'] = array_values( $requests );
+			}
+		}
+
+		if ( [] === $payload ) {
+			return $error;
+		}
+
+		$encoded = wp_json_encode( $payload );
+		if ( ! is_string( $encoded ) || '' === $encoded ) {
+			return $error;
+		}
+
+		$message = (string) $error->get_error_message();
+		if ( str_contains( $message, $encoded ) ) {
+			return $error;
+		}
+
+		return new \WP_Error( $error->get_error_code(), rtrim( $message ) . ' ' . $encoded, $data );
+	}
+
 	public static function from_wp_error( \WP_Error $error ): array {
 		$code    = (string) $error->get_error_code();
 		$message = $error->get_error_message();

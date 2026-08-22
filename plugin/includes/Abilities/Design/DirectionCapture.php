@@ -157,7 +157,7 @@ final class DirectionCapture extends AbilityKernel {
 				$hash     = DesignDirectionService::hash( $contract );
 
 				$report = [
-					'contract'      => $contract,
+					'contract'      => DirectionContract::for_transport( $contract ),
 					'contract_hash' => $hash,
 					'mapped'        => $captured['mapped'],
 					'issues'        => $captured['issues'],

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Gutenberg\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Gutenberg\ColorPresetLookup;
 use Stonewright\WpMcp\Gutenberg\Renderer as GutenbergRenderer;
 use Stonewright\WpMcp\Gutenberg\TokenMapper;
 
@@ -46,6 +47,7 @@ final class Group {
 	 * @return array<string, mixed>
 	 */
 	public static function from_section( array $section, array $children, string $path ): array {
+		unset( $path );
 		$attrs = [
 			'tagName' => 'section',
 			'layout'  => [
@@ -54,20 +56,16 @@ final class Group {
 			],
 		];
 
-		$style = [];
 		if ( isset( $section['background']['color'] ) ) {
-			$style['color']['background'] = (string) $section['background']['color'];
+			$attrs = ColorPresetLookup::apply_color( $attrs, (string) $section['background']['color'], 'background' );
 		}
 		if ( isset( $section['padding'] ) && is_array( $section['padding'] ) ) {
-			$style['spacing']['padding'] = [
+			$attrs['style']['spacing']['padding'] = [
 				'top'    => self::px( $section['padding']['top']    ?? 0 ),
 				'right'  => self::px( $section['padding']['right']  ?? 0 ),
 				'bottom' => self::px( $section['padding']['bottom'] ?? 0 ),
 				'left'   => self::px( $section['padding']['left']   ?? 0 ),
 			];
-		}
-		if ( ! empty( $style ) ) {
-			$attrs['style'] = $style;
 		}
 
 		return self::build( $attrs, $children );

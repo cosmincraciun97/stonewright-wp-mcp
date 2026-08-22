@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
@@ -65,6 +66,11 @@ final class BlocksBatchMutate extends AbilityKernel {
 				],
 				'change_set_id'        => [ 'type' => 'string', 'maxLength' => 96 ],
 				'confirmation_token'   => [ 'type' => 'string' ],
+				'allow_raw_html'       => [ 'type' => 'boolean', 'default' => false ],
+				'custom_code_grant'    => [
+					'type'        => 'string',
+					'description' => 'Required with allow_raw_html when an operation payload contains raw CSS.',
+				],
 				'operations'           => [
 					'type'    => 'array',
 					'minItems' => 1,
@@ -172,12 +178,18 @@ final class BlocksBatchMutate extends AbilityKernel {
 
 				$parsed  = parse_blocks( (string) $post->post_content );
 				$working = is_array( $parsed ) ? $parsed : [];
+				$allow_raw = ! empty( $args['allow_raw_html'] );
+				$grant     = (string) ( $args['custom_code_grant'] ?? '' );
 				if ( $this->operations_need_finalizer( $operations, $working ) ) {
+					$gated = RawHtmlGate::assert_operations( $operations, $allow_raw, $grant, $post_id, false );
+					if ( $gated instanceof \WP_Error ) {
+						return $gated;
+					}
 					$attr_error = $this->validate_finalizer_attributes( $operations );
 					if ( $attr_error instanceof \WP_Error ) {
 						return $attr_error;
 					}
-					$items = $this->finalizer_queue_items( $operations, $working, $post_id, $before_hash );
+					$items = $this->finalizer_queue_items( $operations, $working, $post_id, $before_hash, $allow_raw, $grant );
 					if ( $items instanceof \WP_Error ) {
 						return $items;
 					}
@@ -239,8 +251,13 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'block_names'      => self::block_names( $working, 25 ),
 						],
 						'full_mode_hint'      => '',
-						'finalizer_url'       => FinalizerPage::url(),
+						'finalizer_url'       => FinalizerPage::url( '', (string) ( $queued[0]['session_id'] ?? '' ) ),
 					];
+				}
+
+				$gated = RawHtmlGate::assert_operations( $operations, $allow_raw, $grant, $post_id, ! $dry_run );
+				if ( $gated instanceof \WP_Error ) {
+					return $gated;
 				}
 
 				$items   = [];
@@ -958,8 +975,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 			$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
 			if ( 'insert' === $action ) {
 				$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
-				$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
-				if ( BlockQueue::requires_finalizer( $name ) ) {
+				if ( BlockQueue::tree_requires_finalizer( $block ) ) {
 					return true;
 				}
 			}
@@ -1011,7 +1027,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 	 * @param array<int, array<string, mixed>> $blocks
 	 * @return list<array<string, mixed>>|\WP_Error
 	 */
-	private function finalizer_queue_items( array $operations, array $blocks, int $post_id, string $before_hash ): array|\WP_Error {
+	private function finalizer_queue_items( array $operations, array $blocks, int $post_id, string $before_hash, bool $allow_raw = false, string $grant = '' ): array|\WP_Error {
 		$items   = [];
 		$working = $blocks;
 		foreach ( $operations as $index => $operation ) {
@@ -1020,7 +1036,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 			}
 			$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
 			if ( 'insert' === $action ) {
-				$queued = $this->queue_finalizer_insert( $operation, $working, $post_id, $before_hash, (int) $index );
+				$queued = $this->queue_finalizer_insert( $operation, $working, $post_id, $before_hash, (int) $index, $allow_raw, $grant );
 				if ( $queued instanceof \WP_Error ) {
 					return $queued;
 				}
@@ -1029,7 +1045,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 				continue;
 			}
 			if ( 'update' === $action ) {
-				$queued = $this->queue_finalizer_update( $operation, $working, $post_id, $before_hash, (int) $index );
+				$queued = $this->queue_finalizer_update( $operation, $working, $post_id, $before_hash, (int) $index, $allow_raw, $grant );
 				if ( $queued instanceof \WP_Error ) {
 					return $queued;
 				}
@@ -1053,10 +1069,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 	 * @param array<int, array<string, mixed>>  $working
 	 * @return array{item:array<string,mixed>,working:array<int,array<string,mixed>>}|\WP_Error
 	 */
-	private function queue_finalizer_insert( array $operation, array $working, int $post_id, string $before_hash, int $index ): array|\WP_Error {
+	private function queue_finalizer_insert( array $operation, array $working, int $post_id, string $before_hash, int $index, bool $allow_raw = false, string $grant = '' ): array|\WP_Error {
 		$block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
 		$name  = (string) ( $block['blockName'] ?? $block['name'] ?? '' );
-		if ( ! BlockQueue::requires_finalizer( $name ) ) {
+		if ( ! BlockQueue::tree_requires_finalizer( $block ) ) {
 			return $this->mixed_finalizer_batch_error( $index, 'insert' );
 		}
 		$attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
@@ -1067,6 +1083,9 @@ final class BlocksBatchMutate extends AbilityKernel {
 			'name'       => $name,
 			'attributes' => $attrs,
 		];
+		if ( isset( $block['innerHTML'] ) && is_string( $block['innerHTML'] ) ) {
+			$spec['innerHTML'] = $block['innerHTML'];
+		}
 		if ( array_key_exists( 'innerBlocks', $block ) && is_array( $block['innerBlocks'] ) ) {
 			$spec['innerBlocks'] = $block['innerBlocks'];
 		}
@@ -1085,6 +1104,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 			'item'    => [
 				'post_id'               => $post_id,
 				'expected_content_hash' => $before_hash,
+				'allow_raw_html'        => $allow_raw,
+				'custom_code_grant'     => $grant,
 				'action'                => 'insert',
 				'path'                  => $parent_path,
 				'position'              => $position,
@@ -1099,7 +1120,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 	 * @param array<int, array<string, mixed>>  $working
 	 * @return array{item:array<string,mixed>,working:array<int,array<string,mixed>>}|\WP_Error
 	 */
-	private function queue_finalizer_update( array $operation, array $working, int $post_id, string $before_hash, int $index ): array|\WP_Error {
+	private function queue_finalizer_update( array $operation, array $working, int $post_id, string $before_hash, int $index, bool $allow_raw = false, string $grant = '' ): array|\WP_Error {
 		$path     = isset( $operation['path'] ) && is_array( $operation['path'] ) ? array_map( 'intval', $operation['path'] ) : [];
 		$existing = BlockTree::get( $working, $path );
 		if ( null === $existing ) {
@@ -1118,6 +1139,11 @@ final class BlocksBatchMutate extends AbilityKernel {
 			'attributes' => $attrs,
 		];
 		$from_block = is_array( $operation['block'] ?? null ) ? $operation['block'] : [];
+		if ( isset( $operation['innerHTML'] ) && is_string( $operation['innerHTML'] ) ) {
+			$spec['innerHTML'] = $operation['innerHTML'];
+		} elseif ( isset( $from_block['innerHTML'] ) && is_string( $from_block['innerHTML'] ) ) {
+			$spec['innerHTML'] = $from_block['innerHTML'];
+		}
 		if ( array_key_exists( 'innerBlocks', $from_block ) && is_array( $from_block['innerBlocks'] ) ) {
 			$spec['innerBlocks'] = $from_block['innerBlocks'];
 		}
@@ -1133,6 +1159,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 			'item'    => [
 				'post_id'               => $post_id,
 				'expected_content_hash' => $before_hash,
+				'allow_raw_html'        => $allow_raw,
+				'custom_code_grant'     => $grant,
 				'action'                => 'update',
 				'path'                  => $path,
 				'block_spec'            => $spec,
@@ -1240,5 +1268,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 		$normalized['innerContent'] = $shape;
 		$schema_error = $this->validate_block_schema( $normalized, $context );
 		return null === $schema_error ? $normalized : $schema_error;
+	}
+
+	/** @return array<int, string> */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'custom_code_grant' ] );
 	}
 }

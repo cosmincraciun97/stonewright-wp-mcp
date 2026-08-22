@@ -323,6 +323,24 @@ final class NativePlanTest extends TestCase {
 		self::assertContains( 'form_success_missing', $codes );
 	}
 
+	public function test_incomplete_evidence_error_lists_accepted_keys(): void {
+		$result = Validator::validate( [ 'breakpoints' => [ 'mobile' => 390 ], 'url' => 'https://example.test/' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_design_evidence_invalid', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertContains( 'sources', $data['accepted_keys'] );
+		self::assertContains( 'viewports', $data['accepted_keys'] );
+		self::assertContains( 'nodes', $data['accepted_keys'] );
+		self::assertContains( 'measured_targets', $data['accepted_keys'] );
+		self::assertStringContainsString( 'Accepted keys:', $result->get_error_message() );
+		self::assertTrue(
+			isset( $data['unaccepted_keys'] ) && ( in_array( 'breakpoints', $data['unaccepted_keys'], true ) || in_array( 'url', $data['unaccepted_keys'], true ) )
+			|| str_contains( $result->get_error_message(), 'breakpoints' )
+			|| str_contains( $result->get_error_message(), 'sources' )
+		);
+	}
+
 	/** @return array<string, mixed> */
 	private static function evidence(): array {
 		$provenance = static fn(): array => [

@@ -37,6 +37,8 @@ return $this->error( 'no_kit', 'No active Elementor kit found.' ); }
 			if ( is_wp_error( $adapter ) ) {
 return $adapter; }
 			$snapshot_id = Backup::snapshot_post( $kit_id );
+			if ( '' === $snapshot_id ) {
+return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the variable write.' ); }
 			$item = $adapter->create( [ 'label' => (string) $args['label'], 'type' => (string) $args['type'], 'value' => $args['value'] ] );
 			return is_wp_error( $item ) ? $item : [ 'item' => $item, 'snapshot_id' => $snapshot_id ];
 		} );

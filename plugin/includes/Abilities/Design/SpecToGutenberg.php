@@ -85,6 +85,11 @@ final class SpecToGutenberg extends AbilityKernel {
 					return $blocks;
 				}
 				$content = BlockSerializer::serialize( $blocks );
+				$sanitized = \Stonewright\WpMcp\Support\BlockMarkup::sanitize( $content );
+				if ( is_wp_error( $sanitized ) ) {
+					return $sanitized;
+				}
+				$content = $sanitized;
 
 				if ( empty( $args['post_id'] ) || ! empty( $args['dry_run'] ) ) {
 					return [

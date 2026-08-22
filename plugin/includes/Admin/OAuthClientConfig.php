@@ -89,9 +89,11 @@ final class OAuthClientConfig {
 		}
 		$slug  = preg_replace( '/[^a-z0-9-]+/', '-', $host ) ?? '';
 		$slug  = trim( $slug, '-' );
-		$parts = array_values( array_filter( explode( '-', $slug ) ) );
-		while ( count( $parts ) >= 2 && $parts[ count( $parts ) - 1 ] === $parts[ count( $parts ) - 2 ] ) {
+		$parts      = array_values( array_filter( explode( '-', $slug ) ) );
+		$part_count = count( $parts );
+		while ( $part_count >= 2 && $parts[ $part_count - 1 ] === $parts[ $part_count - 2 ] ) {
 			array_pop( $parts );
+			$part_count = count( $parts );
 		}
 		$slug = implode( '-', $parts );
 		$slug = rtrim( substr( $slug, 0, 16 ), '-' );

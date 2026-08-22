@@ -604,10 +604,6 @@ final class WorkflowPreflight extends AbilityKernel {
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
 			],
 		];
-		if ( [] === $compact_response['auth_guidance'] ) {
-			unset( $compact_response['auth_guidance'] );
-			unset( $compact_response['payload_hashes']['auth_guidance'] );
-		}
 		if ( false === $compact_response['elementor']['included'] ) {
 			unset( $compact_response['elementor'] );
 		}
@@ -1447,8 +1443,8 @@ final class WorkflowPreflight extends AbilityKernel {
 	 * Floor summaries use ASCII ellipsis so JSON does not pay the \u2026 tax.
 	 */
 	private static function truncate_floor_summary( string $text ): string {
-		$limit = self::COMPACT_FLOOR_SUMMARY_CHARS;
-		if ( $limit < 4 || mb_strlen( $text ) <= $limit ) {
+		$limit = max( 4, self::COMPACT_FLOOR_SUMMARY_CHARS );
+		if ( mb_strlen( $text ) <= $limit ) {
 			return $text;
 		}
 

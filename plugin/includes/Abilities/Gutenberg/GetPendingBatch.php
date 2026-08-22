@@ -46,6 +46,7 @@ final class GetPendingBatch extends AbilityKernel {
 			'properties' => [
 				'items'        => [ 'type' => 'array' ],
 				'queued_count' => [ 'type' => 'integer' ],
+				'failed_count' => [ 'type' => 'integer' ],
 			],
 		];
 	}
@@ -57,18 +58,10 @@ final class GetPendingBatch extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		$post_id = (int) ( $args['post_id'] ?? 0 );
-		$items   = BlockQueue::list();
-		if ( $post_id > 0 ) {
-			$items = array_values(
-				array_filter(
-					$items,
-					static fn( array $item ): bool => (int) ( $item['post_id'] ?? 0 ) === $post_id
-				)
-			);
-		}
 		return [
-			'items'        => $items,
-			'queued_count' => BlockQueue::pending_count(),
+			'items'        => BlockQueue::list_for_viewer( $post_id ),
+			'queued_count' => BlockQueue::pending_count( $post_id ),
+			'failed_count' => BlockQueue::failed_count( $post_id ),
 		];
 	}
 }

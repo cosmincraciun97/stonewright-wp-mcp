@@ -1,0 +1,159 @@
+/*!
+ * Stonewright motion-core v1.0.0. SPDX-License-Identifier: AGPL-3.0-or-later.
+ * Original bundled product code. Static-first: content stays fully visible
+ * without JavaScript; initial hidden states apply only under
+ * html.stw-motion-js. Transform/opacity only. No blur, no permanent
+ * compositor hints, no remote assets.
+ */
+
+:root {
+	--stw-motion-duration: 280ms;
+	--stw-motion-delay: 0ms;
+	--stw-motion-distance: 16px;
+	--stw-motion-easing: cubic-bezier(0.05, 0.7, 0.1, 1);
+	--stw-motion-stagger-delay: 0ms;
+}
+
+.stw-motion-duration--0 { --stw-motion-duration: 0ms; }
+.stw-motion-duration--160 { --stw-motion-duration: 160ms; }
+.stw-motion-duration--280 { --stw-motion-duration: 280ms; }
+.stw-motion-duration--480 { --stw-motion-duration: 480ms; }
+.stw-motion-delay--0 { --stw-motion-delay: 0ms; }
+
+/* ---------------------------------------------------------------------------
+ * Entrance presets (load / viewport-enter). Without html.stw-motion-js the
+ * targets are never hidden; with JS the runtime reveals them once.
+ * ------------------------------------------------------------------------- */
+
+html.stw-motion-js .stw-motion-fade-in {
+	opacity: 0;
+}
+
+html.stw-motion-js .stw-motion-fade-up {
+	opacity: 0;
+	transform: translate3d(0, var(--stw-motion-distance), 0);
+}
+
+html.stw-motion-js [dir="rtl"] .stw-motion-slide-in-inline,
+html.stw-motion-js .stw-motion-slide-in-inline[dir="rtl"] {
+	opacity: 0;
+	transform: translate3d(var(--stw-motion-distance), 0, 0);
+}
+
+html.stw-motion-js [dir="ltr"] .stw-motion-slide-in-inline,
+html.stw-motion-js .stw-motion-slide-in-inline[dir="ltr"] {
+	opacity: 0;
+	transform: translate3d(calc(-1 * var(--stw-motion-distance)), 0, 0);
+}
+
+html.stw-motion-js .stw-motion-scale-in-subtle {
+	opacity: 0;
+	transform: scale(0.97);
+}
+
+html.stw-motion-js .stw-motion-stagger-reveal > * {
+	opacity: 0;
+	transform: translate3d(0, var(--stw-motion-distance), 0);
+}
+
+/* Played state: one transition to the final static layout. */
+html.stw-motion-js .stw-motion-fade-in.stw-motion-played,
+html.stw-motion-js .stw-motion-fade-up.stw-motion-played,
+html.stw-motion-js .stw-motion-slide-in-inline.stw-motion-played,
+html.stw-motion-js .stw-motion-scale-in-subtle.stw-motion-played {
+	opacity: 1;
+	transform: none;
+	transition:
+		opacity var(--stw-motion-duration) var(--stw-motion-delay) var(--stw-motion-easing),
+		transform var(--stw-motion-duration) var(--stw-motion-delay) var(--stw-motion-easing);
+}
+
+html.stw-motion-js .stw-motion-stagger-reveal > .stw-motion-played {
+	opacity: 1;
+	transform: none;
+	transition:
+		opacity var(--stw-motion-duration) var(--stw-motion-delay) var(--stw-motion-easing),
+		transform var(--stw-motion-duration) var(--stw-motion-delay) var(--stw-motion-easing);
+}
+
+/* Stagger orchestration: children inherit fade-up with a per-child delay. */
+.stw-motion-stagger-reveal > .stw-motion-fade-up {
+	--stw-motion-delay: var(--stw-motion-stagger-delay);
+}
+
+/* ---------------------------------------------------------------------------
+ * Hover presets with focus-visible parity.
+ * ------------------------------------------------------------------------- */
+
+.stw-motion-card-lift {
+	transition:
+		transform var(--stw-motion-duration) var(--stw-motion-delay) cubic-bezier(0.2, 0, 0, 1),
+		box-shadow var(--stw-motion-duration) var(--stw-motion-delay) cubic-bezier(0.2, 0, 0, 1);
+}
+
+.stw-motion-card-lift:hover,
+.stw-motion-card-lift:focus-visible {
+	transform: translateY(-2px);
+}
+
+.stw-motion-link-underline {
+	text-decoration: none;
+	background-image: linear-gradient(currentColor, currentColor);
+	background-position: left bottom;
+	background-size: 0% 1px;
+	background-repeat: no-repeat;
+	transition: background-size var(--stw-motion-duration) var(--stw-motion-delay) cubic-bezier(0.2, 0, 0, 1);
+}
+
+[dir="rtl"] .stw-motion-link-underline,
+.stw-motion-link-underline[dir="rtl"] {
+	background-position: right bottom;
+}
+
+.stw-motion-link-underline:hover,
+.stw-motion-link-underline:focus-visible {
+	background-size: 100% 1px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion: equivalent experience, never missing information.
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+
+	html.stw-motion-reduced .stw-motion-fade-in,
+	html.stw-motion-reduced .stw-motion-fade-up,
+	html.stw-motion-reduced .stw-motion-slide-in-inline,
+	html.stw-motion-reduced .stw-motion-scale-in-subtle {
+		opacity: 1 !important;
+		transform: none !important;
+		transition: none !important;
+	}
+
+	html.stw-motion-reduced .stw-motion-stagger-reveal > * {
+		opacity: 1 !important;
+		transform: none !important;
+		transition: none !important;
+	}
+
+	/* OS-level preference holds even when the runtime never loaded: entrance
+	 * targets are simply never hidden in the first place without JS, and any
+	 * transition-based effect resolves instantly to its end state. */
+	.stw-motion-fade-in,
+	.stw-motion-fade-up,
+	.stw-motion-slide-in-inline,
+	.stw-motion-scale-in-subtle {
+		transition: none !important;
+	}
+
+	html.stw-motion-reduced .stw-motion-card-lift,
+	html.stw-motion-reduced .stw-motion-link-underline {
+		transition: none !important;
+	}
+
+	html.stw-motion-reduced .stw-motion-card-lift:hover,
+	html.stw-motion-reduced .stw-motion-card-lift:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
+	}
+}

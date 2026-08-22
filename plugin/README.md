@@ -18,7 +18,7 @@ for Direct mode and local WP-CLI. Remote Streamable HTTP connects straight to
 this plugin over HTTPS and needs no local companion.
 
 For native repeated content, `stonewright/elementor-wire-loop` plans or adds a
-Loop Grid/Carousel with live Pro schemas, a validated existing or newly staged
+Loop Grid/Carousel with live licensed schemas, a validated existing or newly staged
 loop-item template, one page write, readback verification, and rollback.
 
 Every verified Elementor document write now invalidates that post's generated

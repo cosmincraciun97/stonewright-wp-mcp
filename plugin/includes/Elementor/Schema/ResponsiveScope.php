@@ -38,6 +38,35 @@ final class ResponsiveScope {
 	}
 
 	/**
+	 * Parse a batch or operation responsive_scope / allowed_breakpoints value.
+	 *
+	 * @param mixed $scope Array of names or a comma/pipe-separated string.
+	 * @return list<string>
+	 */
+	public static function requested_names( mixed $scope ): array {
+		$raw = [];
+		if ( is_array( $scope ) ) {
+			$raw = $scope;
+		} elseif ( is_string( $scope ) && '' !== trim( $scope ) ) {
+			$parts = preg_split( '/[\s,|]+/', $scope, -1, PREG_SPLIT_NO_EMPTY );
+			$raw   = is_array( $parts ) ? $parts : [];
+		}
+		$out = [];
+		foreach ( $raw as $item ) {
+			if ( ! is_scalar( $item ) ) {
+				continue;
+			}
+			$name = strtolower( trim( (string) $item ) );
+			if ( '' === $name ) {
+				continue;
+			}
+			$out[] = $name;
+		}
+
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
 	 * Suffix to breakpoint name, longest suffix first.
 	 *
 	 * Derived from breakpoint_suffixes() so the suffix vocabulary has exactly one
@@ -283,6 +312,7 @@ final class ResponsiveScope {
 						'breakpoint'           => $bp,
 						'allowed_breakpoints'  => $allowed,
 						'widget_type'          => $widget_type,
+						'execution_status'     => 'blocked',
 					]
 				);
 			}

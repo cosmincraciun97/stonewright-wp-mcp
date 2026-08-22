@@ -41,6 +41,10 @@ final class QueueBlockChange extends AbilityKernel {
 				'post_id'               => [ 'type' => 'integer', 'minimum' => 1 ],
 				'expected_content_hash' => [ 'type' => 'string' ],
 				'allow_raw_html'        => [ 'type' => 'boolean', 'default' => false ],
+				'custom_code_grant'     => [
+					'type'        => 'string',
+					'description' => 'Required with allow_raw_html when a block payload contains raw CSS. Single-use human-issued grant.',
+				],
 				'action'                => [ 'type' => 'string', 'enum' => [ 'insert', 'update', 'replace' ] ],
 				'path'                  => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
 				'position'              => [ 'type' => 'integer' ],
@@ -104,10 +108,15 @@ final class QueueBlockChange extends AbilityKernel {
 					'status'        => (string) $queued['status'],
 					'post_id'       => (int) $queued['post_id'],
 					'block_name'    => (string) $queued['block_name'],
-					'finalizer_url' => FinalizerPage::url(),
+					'finalizer_url' => FinalizerPage::url( '', (string) ( $queued['session_id'] ?? '' ) ),
 					'warnings'      => $warnings,
 				];
 			}
 		);
+	}
+
+	/** @return array<int, string> */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'custom_code_grant' ] );
 	}
 }

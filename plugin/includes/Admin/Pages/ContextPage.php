@@ -27,7 +27,7 @@ final class ContextPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Context', 'stonewright' ),
-			__( 'Context', 'stonewright' ),
+			AdminShell::experimental_menu_title( __( 'Context', 'stonewright' ) ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

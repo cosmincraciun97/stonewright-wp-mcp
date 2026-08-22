@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
+use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
@@ -69,6 +70,7 @@ final class PluginRegistration {
 	private function register_hooks(): void {
 		register_activation_hook( $this->plugin_file, [ $this, 'on_activate' ] );
 		register_deactivation_hook( $this->plugin_file, [ $this, 'on_deactivate' ] );
+		MotionAssetLoader::register();
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
 		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );

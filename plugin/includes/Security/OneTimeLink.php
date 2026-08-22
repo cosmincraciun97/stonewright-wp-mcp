@@ -132,9 +132,22 @@ final class OneTimeLink {
 	/** @param array{ip?:string,user_agent?:string} $context */
 	private static function client_ip( array $context ): string {
 		if ( isset( $context['ip'] ) && is_string( $context['ip'] ) ) {
-			return $context['ip'];
+			return self::canonicalize_ip( $context['ip'] );
 		}
-		return isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		return self::canonicalize_ip( $ip );
+	}
+
+	/**
+	 * Localhost IPv4/IPv6 must hash the same. MCP often sees 127.0.0.1 while
+	 * a browser on the same machine redeems via ::1.
+	 */
+	private static function canonicalize_ip( string $ip ): string {
+		$ip = strtolower( trim( $ip ) );
+		if ( in_array( $ip, [ '127.0.0.1', '::1', '::ffff:127.0.0.1', '0:0:0:0:0:0:0:1' ], true ) ) {
+			return '127.0.0.1';
+		}
+		return $ip;
 	}
 
 	/** @param array{ip?:string,user_agent?:string} $context */

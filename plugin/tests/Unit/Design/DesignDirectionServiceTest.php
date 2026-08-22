@@ -27,6 +27,7 @@ final class DesignDirectionServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_filters'] = [];
 
 		$this->repository = new InMemoryDirectionRepository();
 		$this->service    = new DesignDirectionService( $this->repository );
@@ -34,6 +35,7 @@ final class DesignDirectionServiceTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_filters'] = [];
 	}
 
 	public function test_first_save_creates_revision_one(): void {
@@ -146,7 +148,7 @@ final class DesignDirectionServiceTest extends TestCase {
 		$this->assertSame( 'quarry', $result['slug'] );
 	}
 
-	public function test_save_rejects_ready_status_when_the_contract_is_not_ready(): void {
+	public function test_save_rejects_ready_status_when_the_contract_has_issues(): void {
 		$input                                 = $this->input();
 		$input['status']                       = 'ready';
 		$input['contract']['readiness']['ready'] = false;
@@ -155,6 +157,23 @@ final class DesignDirectionServiceTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_direction_not_ready', $result->get_error_code() );
+	}
+
+	public function test_save_marks_ready_when_status_is_ready_and_issues_are_empty(): void {
+		$input = $this->input();
+		$input['status'] = 'ready';
+		$input['contract']['readiness'] = [
+			'ready'      => false,
+			'sync_ready' => false,
+			'issues'     => [],
+		];
+
+		$result = $this->service->save( $input, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'ready', $result['status'] );
+		$stored = $this->repository->get( (int) $result['id'] );
+		$this->assertTrue( $stored['contract']['readiness']['ready'] );
 	}
 
 	public function test_save_accepts_ready_status_when_the_contract_is_ready(): void {
@@ -284,6 +303,47 @@ final class DesignDirectionServiceTest extends TestCase {
 		update_option( self::ACTIVE_OPTION, 999 );
 
 		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_deactivate_clears_the_active_pointer(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 5 );
+
+		$result = $this->service->deactivate( 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+		$this->assertSame( 0, $result['id'] );
+		$this->assertSame( (int) $saved['id'], $result['previous_active_id'] );
+		$this->assertSame( 'inactive', $result['status'] );
+		$this->assertSame( hash( 'sha256', (string) (int) $saved['id'] ), $result['hash_before'] );
+		$this->assertSame( hash( 'sha256', '0' ), $result['hash_after'] );
+		$this->assertNull( $this->service->active() );
+		$this->assertSame( 'design_direction.deactivate', $result['audit']['action'] );
+	}
+
+	public function test_deactivate_restores_the_previous_pointer_on_failed_readback(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $saved );
+		$this->service->activate( (int) $saved['id'], 5 );
+
+		add_filter(
+			'pre_update_option',
+			static function ( mixed $value, mixed $option, mixed $old ): mixed {
+				if ( self::ACTIVE_OPTION === $option && 0 === (int) $value ) {
+					return $old;
+				}
+
+				return $value;
+			}
+		);
+
+		$result = $this->service->deactivate( 5 );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_direction_verification_failed', $result->get_error_code() );
+		$this->assertSame( (int) $saved['id'], (int) get_option( self::ACTIVE_OPTION, 0 ) );
 	}
 
 	public function test_archive_refuses_the_active_record(): void {
@@ -429,7 +489,11 @@ final class DesignDirectionServiceTest extends TestCase {
 	private function ready_input( string $name = 'Quarry' ): array {
 		$input                                   = $this->input( $name );
 		$input['status']                         = 'ready';
-		$input['contract']['readiness']['ready'] = true;
+		$input['contract']['readiness']          = [
+			'ready'      => true,
+			'sync_ready' => false,
+			'issues'     => [],
+		];
 
 		return $input;
 	}

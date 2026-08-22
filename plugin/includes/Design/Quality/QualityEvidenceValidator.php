@@ -690,22 +690,45 @@ final class QualityEvidenceValidator {
 	 * @param array<mixed> $keys  Rejected keys.
 	 */
 	private static function unknown_keys( string $where, array $keys ): WP_Error {
+		$accepted = self::accepted_keys_for( $where );
 		return self::error(
 			sprintf(
-				/* translators: 1: location in the evidence, 2: rejected key list. */
-				__( 'The %1$s reports keys Stonewright does not accept: %2$s.', 'stonewright' ),
+				/* translators: 1: location in the evidence, 2: rejected key list, 3: accepted key list. */
+				__( 'The %1$s reports keys Stonewright does not accept: %2$s. Accepted keys: %3$s.', 'stonewright' ),
 				$where,
-				implode( ', ', array_map( 'strval', $keys ) )
-			)
+				implode( ', ', array_map( 'strval', $keys ) ),
+				implode( ', ', $accepted )
+			),
+			[
+				'unaccepted_keys' => array_values( array_map( 'strval', $keys ) ),
+				'accepted_keys'   => $accepted,
+			]
 		);
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function accepted_keys_for( string $where ): array {
+		return match ( true ) {
+			'evidence' === $where => self::TOP_LEVEL_KEYS,
+			'target' === $where => self::TARGET_KEYS,
+			'viewport' === $where => self::VIEWPORT_KEYS,
+			'element' === $where => self::ELEMENT_KEYS,
+			str_starts_with( $where, 'element.states.' ) => self::STATE_KEYS[ substr( $where, strlen( 'element.states.' ) ) ] ?? [],
+			'element.states' === $where => array_keys( self::STATE_KEYS ),
+			str_starts_with( $where, 'element.' ) => self::MEASUREMENT_KEYS[ substr( $where, strlen( 'element.' ) ) ] ?? [],
+			default => [],
+		};
 	}
 
 	/**
 	 * Structured rejection.
 	 *
-	 * @param string $message Human-readable reason.
+	 * @param string              $message Human-readable reason.
+	 * @param array<string,mixed> $data    Extra error data.
 	 */
-	private static function error( string $message ): WP_Error {
-		return new WP_Error( self::ERROR_CODE, $message, [ 'status' => 400 ] );
+	private static function error( string $message, array $data = [] ): WP_Error {
+		return new WP_Error( self::ERROR_CODE, $message, array_merge( [ 'status' => 400 ], $data ) );
 	}
 }

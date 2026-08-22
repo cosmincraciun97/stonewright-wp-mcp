@@ -639,6 +639,26 @@ final class AuditLog {
 	}
 
 	/**
+	 * Delete every persisted audit event. Settings and other tables stay put.
+	 *
+	 * @return int Number of rows that existed before the wipe.
+	 */
+	public static function purge_all(): int {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'query' ) ) {
+			return 0;
+		}
+		$table = self::table_name();
+		$count = self::count();
+		$sql   = "DELETE FROM {$table}"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- owned internal table, no user input.
+		$result = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- bounded admin purge of the owned audit table.
+		if ( false === $result ) {
+			return 0;
+		}
+		return $count;
+	}
+
+	/**
 	 * Daily call counts for the last N days (UTC), oldest → newest.
 	 *
 	 * @return array<string, int> Map of Y-m-d => count (includes zero days).

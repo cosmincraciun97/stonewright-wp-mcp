@@ -39,6 +39,11 @@ parameters:
         -
             message: '#Offset .+ on array\{type: int, message: string, file: string, line: int\} on left side of \?\? always exists#'
             reportUnmatched: false
+        # wp_send_json_success/error never-return in WP stubs; the unit-test
+        # stubs record the payload and return so callers can still `return`.
+        -
+            message: '#Unreachable statement - code above always terminates#'
+            reportUnmatched: false
         # Pre-emptive: would fire at level 6+ for generated/dynamic ability lists.
         # Each entry has reportUnmatched: false so dead patterns are silent — re-evaluate
         # when bumping PHPStan level. TODO(phase-2): verify each pattern still fires.

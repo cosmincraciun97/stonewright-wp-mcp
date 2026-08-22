@@ -696,7 +696,7 @@ on the plugin surface. Direct returns the registry record verbatim, guard name
 included. On Direct, read `hard` as "this rule is enforceable where the plugin
 runs", not as a guarantee the Direct runtime makes.
 
-## MCP tool surface switching (premium finalization)
+## MCP tool surface switching
 
 Profile and surface switching is transport-specific. Agents should treat
 `tools_changed` / `re_list_instruction` on ability results as the source of truth.

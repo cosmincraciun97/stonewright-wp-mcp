@@ -286,6 +286,7 @@ final class AttributeValidator {
 				'status'         => 400,
 				'block_name'     => $block_name,
 				'offending_keys' => array_values( $offending_keys ),
+				'likely_partial' => self::is_schema_likely_partial( $block_name ),
 			]
 		);
 	}

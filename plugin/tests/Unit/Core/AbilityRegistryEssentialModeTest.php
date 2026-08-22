@@ -127,6 +127,27 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/sandbox-write', $names );
 	}
 
+	public function test_v4_mutators_keep_envelope_metadata_when_flag_hides_mcp_tools(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'full';
+		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = false;
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
+
+		$public   = array_column( AbilityRegistry::enabled_abilities(), 'name' );
+		$envelope = [];
+		foreach ( AbilityRegistry::all_abilities() as $row ) {
+			$envelope[ (string) $row['name'] ] = $row;
+		}
+
+		self::assertNotContains( 'stonewright/elementor-v4-update-node', $public );
+		self::assertArrayHasKey( 'stonewright/elementor-v4-update-node', $envelope );
+
+		$schema   = $envelope['stonewright/elementor-v4-update-node']['input_schema'];
+		$required = isset( $schema['required'] ) && is_array( $schema['required'] ) ? $schema['required'] : [];
+		self::assertArrayHasKey( 'stonewright_context_token', $schema['properties'] );
+		self::assertContains( 'stonewright_context_token', $required );
+	}
+
 	public function test_v4_abilities_hidden_when_flag_off_on_every_surface(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;

@@ -15,6 +15,7 @@ const docsFreshness = readFileSync(
 
 test('supported public betas are latest releases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.10', 'supported'), ['--latest']);
+	assert.deepEqual(releaseFlags('1.0.0-beta.11', 'supported'), ['--latest']);
 });
 
 test('preview beta and rc versions are prereleases', () => {
@@ -60,11 +61,12 @@ test('archive inspections remain reliable with pipefail enabled', () => {
 test('README exposes one validated supported public beta path', () => {
 	assert.match(readme, /<!-- supported-release:start -->/);
 	assert.match(readme, /<!-- supported-release:end -->/);
-	assert.match(readme, /Current release: 1\.0\.0-beta\.10 — Public Beta/);
-	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.10/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/stonewright-1\.0\.0-beta\.10\.zip/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/stonewright-companion-1\.0\.0-beta\.10\.tgz/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/SHA256SUMS\.txt/);
+	assert.match(readme, /Current release: 1\.0\.0-beta\.11 — Public Beta/);
+	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.11/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.11\/stonewright-1\.0\.0-beta\.11\.zip/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.11\/stonewright-companion-1\.0\.0-beta\.11\.tgz/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.11\/SHA256SUMS\.txt/);
+	assert.doesNotMatch(readme, /1\.0\.0-beta\.11.*not released/i);
 	assert.match(readme, /docs\/installation\.md/);
 	assert.match(docsFreshness, /supported-release:start/);
 });

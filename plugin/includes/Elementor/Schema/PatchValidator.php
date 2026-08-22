@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Schema;
 
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+
 /**
  * Validates only the settings delta while preserving untouched legacy/runtime
  * controls. A touched invalid path is an error; an untouched legacy violation
@@ -12,6 +14,10 @@ final class PatchValidator {
 
 	/** @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>,changed_paths:list<string>}|\WP_Error */
 	public static function widget( string $widget_type, array $before, array $patch, string $mode = 'merge' ): array|\WP_Error {
+		$css_gate = ElementorCustomCssGate::assert_incoming( $patch, [], $widget_type );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		$identity_error = self::validate_repeater_identity( $patch );
 		if ( $identity_error instanceof \WP_Error ) {
 			return $identity_error;
@@ -20,7 +26,10 @@ final class PatchValidator {
 		if ( $repeater_validation instanceof \WP_Error ) {
 			return $repeater_validation;
 		}
-		$patch_result = SettingsValidator::validate( $widget_type, $repeater_validation['validation_patch'], false, true, true );
+		$condition_settings = 'replace' === $mode
+			? $repeater_validation['validation_patch']
+			: array_merge( $before, $repeater_validation['validation_patch'] );
+		$patch_result = SettingsValidator::validate( $widget_type, $repeater_validation['validation_patch'], false, true, true, $condition_settings );
 		if ( $patch_result instanceof \WP_Error ) {
 			return self::with_patch_context( $patch_result, $patch );
 		}
@@ -143,11 +152,16 @@ final class PatchValidator {
 
 	/** @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>,changed_paths:list<string>}|\WP_Error */
 	public static function container( array $before, array $patch, string $element_type = 'container', string $mode = 'merge' ): array|\WP_Error {
+		$css_gate = ElementorCustomCssGate::assert_incoming( $patch, [], $element_type );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		$identity_error = self::validate_repeater_identity( $patch );
 		if ( $identity_error instanceof \WP_Error ) {
 			return $identity_error;
 		}
-		$patch_result = SettingsValidator::validate_container( $patch, $element_type, true, true );
+		$condition_settings = 'replace' === $mode ? $patch : array_merge( $before, $patch );
+		$patch_result = SettingsValidator::validate_container( $patch, $element_type, true, true, $condition_settings );
 		if ( $patch_result instanceof \WP_Error ) {
 			return self::with_patch_context( $patch_result, $patch );
 		}

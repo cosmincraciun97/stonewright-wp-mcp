@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Core\AgentInstructions;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionSummary;
 use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
@@ -495,6 +496,7 @@ final class ContextBuilder {
 	private static function visual_build_gate(): array {
 		return [
 			'blocks_completion_without_evidence' => true,
+			'approved_css_classes'               => ElementorCustomCssGate::approved_css_classes(),
 			'section_batching'                   => self::section_batching_contract(),
 			'required_before_discovery'          => [
 				'Call stonewright-task-start before Figma, browser, or write tools; context-bootstrap and workflow-preflight are compatibility paths only.',

@@ -56,7 +56,7 @@ final class OAuthConnectPanel {
 				),
 			];
 			$visible = $slug === $first;
-			echo '<section class="sw-oauth-client-panel" role="tabpanel" data-sw-oauth-panel="' . esc_attr( $slug ) . '"';
+			echo '<section class="sw-oauth-client-panel' . ( $visible ? ' is-active' : '' ) . '" role="tabpanel" data-sw-oauth-panel="' . esc_attr( $slug ) . '"';
 			echo $visible ? '' : ' hidden';
 			echo '>';
 			self::render_config( $slug, $label, $config, $server_name );
@@ -73,22 +73,33 @@ final class OAuthConnectPanel {
 	/**
 	 * Render a clickable Cursor (or other custom-scheme) install button.
 	 */
-	public static function render_deeplink_button( string $deeplink, string $label ): void {
+	public static function render_deeplink_button( string $deeplink, string $label, string $server_name = '' ): void {
 		if ( '' === $deeplink ) {
 			return;
 		}
-		echo '<p><a class="button button-primary" href="' . esc_url( $deeplink, [ 'cursor' ] ) . '">';
-		echo esc_html( sprintf( __( 'One-click install in %s', 'stonewright' ), $label ) ) . '</a></p>';
+		$id = 'stonewright-oauth-deeplink-' . md5( $deeplink );
+		echo '<p class="sw-oauth-deeplink-row">';
+		echo '<a class="button button-primary" href="' . esc_url( $deeplink, [ 'http', 'https', 'cursor' ] ) . '">';
+		echo esc_html( sprintf( __( 'One-click install in %s', 'stonewright' ), $label ) ) . '</a> ';
+		echo '<code id="' . esc_attr( $id ) . '" class="screen-reader-text" data-sw-oauth-template="';
+		echo esc_attr( $deeplink ) . '" data-sw-oauth-original-name="' . esc_attr( $server_name ) . '">';
+		echo esc_html( $deeplink ) . '</code>';
+		echo '<button type="button" class="button" data-stonewright-copy="' . esc_attr( $id ) . '">';
+		echo esc_html__( 'Copy install link', 'stonewright' ) . '</button>';
+		echo '</p>';
 	}
 
 	/**
 	 * @param array<string, mixed> $config Config entry.
 	 */
 	private static function render_config( string $slug, string $label, array $config, string $server_name ): void {
-		$kind = (string) ( $config['kind'] ?? 'code' );
-		if ( 'notice' === $kind ) {
+		$kind    = (string) ( $config['kind'] ?? 'code' );
+		$message = (string) ( $config['message'] ?? '' );
+		if ( '' !== $message ) {
 			echo '<div class="notice notice-warning inline"><p>';
-			echo esc_html( (string) ( $config['message'] ?? '' ) ) . '</p></div>';
+			echo esc_html( $message ) . '</p></div>';
+		}
+		if ( 'notice' === $kind ) {
 			return;
 		}
 
@@ -99,7 +110,7 @@ final class OAuthConnectPanel {
 		}
 		$deeplink = (string) ( $config['deeplink'] ?? '' );
 		if ( '' !== $deeplink ) {
-			self::render_deeplink_button( $deeplink, $label );
+			self::render_deeplink_button( $deeplink, $label, $server_name );
 		}
 
 		$steps = $config['steps'] ?? [];
@@ -175,7 +186,9 @@ final class OAuthConnectPanel {
 						item.setAttribute('aria-selected', active ? 'true' : 'false');
 					});
 					root.querySelectorAll('[data-sw-oauth-panel]').forEach(function (panel) {
-						panel.hidden = panel.getAttribute('data-sw-oauth-panel') !== slug;
+						var match = panel.getAttribute('data-sw-oauth-panel') === slug;
+						panel.hidden = !match;
+						panel.classList.toggle('is-active', match);
 					});
 				});
 			});

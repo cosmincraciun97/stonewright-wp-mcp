@@ -2,9 +2,21 @@
 
 ## [Unreleased]
 
-## [1.0.0-beta.11] - 2026-08-21
+## [1.0.0-beta.11] - 2026-08-22
 
 ### Added
+
+- Add motion capability discovery, a strict DesignSpec motion contract, seven
+  bundled static-first presets, deterministic suggestions and signed plans,
+  guarded Gutenberg/FSE and Elementor V3 apply, and motion/UI evidence in the
+  persisted design-quality verdict.
+- Add verified design-direction deactivation through the existing
+  `stonewright/design-direction-activate` ability (`id: 0`), with a matching
+  admin Active toggle that autosubmits and reports failures honestly.
+- Add an explicit `stonewright/blocks-finalizer-cancel` ability that removes
+  queued, serialized, or failed finalizer records by id with dry-run support,
+  per-post permission checks, production-safe confirmation tokens, atomic
+  single-save deletion, and verified readback.
 
 - Add a Connect → Troubleshoot page that runs connection diagnostics in place
   with a loading state, result cards, a copyable support report, bot/WAF
@@ -32,9 +44,15 @@
 - Add Elementor list-widgets summary mode and optional full Design Direction
   document loading from `stonewright/design-direction-brief`.
 - Add reviewable draft lessons when the same recurring error reaches ten repeats.
+- Add a Delete all logs control on the Audit Log page with inline DELETE confirmation, and a Block Editor Queue status strip with last-poll time and per-item status.
 
 ### Security
 
+- Reject tampered or stale motion plans and require Elementor V3 motion
+  evidence to match the planned capability plus the exact live schema,
+  runtime fingerprint, and source identity.
+- Block Elementor `custom_css` / `_custom_css` writes and HTML widget `<style>` tags unless a consumed `custom_code_grant` accompanies the call, and allow `_css_classes` only from the `approved_css_classes` allowlist.
+- Block php-execute from calling `wp_update_custom_css_post` or writing kit/page custom CSS; those writes must use `stonewright/theme-custom-css`.
 - Enforce php-execute read-only at runtime, block concatenated protected meta
   keys and direct database writes to core tables, and keep php-execute off the
   default compact MCP surfaces.
@@ -45,9 +63,22 @@
   and require a confirmation token to toggle abilities over REST.
 - Require production-safe confirmation tokens on remaining content, Elementor,
   Gutenberg, site, and admin-domain writers.
+- Require a human-issued `custom_code_grant` (and `allow_raw_html` for Gutenberg HTML) before raw `<style>` payloads, theme.json `css`, and all-raw-HTML block trees; do not strip the CSS.
+
+- Isolate the Gutenberg finalizer queue per owner, session, and target post:
+  state v2 records carry owner/session/post, tokens are HMAC-bound to all four
+  values, REST/AJAX/MCP results are scoped, replay after terminal states is
+  refused, legacy unbound records fail closed, and mutations run under a
+  bounded mutex. Hard limits now bound batch size, open records, payload
+  bytes, tree depth/nodes, serialized HTML, and total queue state, with
+  retention pruning for terminal records.
 
 ### Changed
 
+- Document Gutenberg output-quality rules: one H1 (section titles as H2 when
+  the theme already prints the page title), styled query loops (grid, cropped
+  featured images, card supports), and one finalizer change per post.
+- Polish the Audit Log: key-value details with a View JSON toggle, distinct incident badges, wider ability names, a More filters disclosure, and a clearer empty state.
 - Style Application Password client pickers with the same button tabs as OAuth.
 - Keep compact `stonewright-task-start` under the anti-slop byte budget with
   truncated Context, `design_direction_ref`, and the visual quality floor, and
@@ -65,7 +96,11 @@
 - Clear the admin header of mode and version, mark Troubleshoot, Context,
   Design, and Block Editor Queue as Experimental, and move Memory, Skills, and
   Context under Workflows.
-- Expose the generated **381**-ability Plugin and **101**-tool Direct contracts.
+- Expose the generated **387**-ability Plugin and **101**-tool Direct contracts.
+- Mark Troubleshoot, Context, Design, and Block Editor Queue with a compact
+  white EXP marker that stays on the first line while long labels wrap. Hover
+  shows that the feature is experimental.
+- Restyle the Block Editor Queue as a status card with idle and busy states.
 
 ### Removed
 
@@ -73,6 +108,37 @@
   Already-seeded playbook rows are retired on seed and on plugin upgrade.
 
 ### Fixed
+
+- Boot the conditional motion loader, restore the link-underline effect, make
+  load/stagger/duration/delay lowering executable, make played states visible,
+  and fail open on runtime errors or page-cache restoration.
+- Derive V4 interactions truth from the loaded schema and official mutation
+  primitives, and return unsupported instead of compiling a write for a
+  runtime without the complete native adapter stack.
+- Fix the security-audit assert-call detector to use token-based PHP parsing:
+  method calls such as grant-gate assertions no longer produce false
+  positives, while functional `assert()` calls on strings or variables stay
+  blocked.
+- Return `schema_requests` when Elementor `require_evidence` writes are incomplete, copy those requests (and custom-CSS grant keys) into the MCP-visible error message so agents are not stuck with a one-line rejection, accept active-direction provenance for token-derived settings, honor batch or per-operation `responsive_scope` so tablet and mobile keys can be written without weakening the desktop-only default, and evaluate merge-patch control conditions against live settings plus the patch so apply-time write-delta validation does not drop unchanged typography activators.
+- Make design-direction unknown-field errors list accepted keys and a minimal `1.0` example, encode empty capture token maps as objects, compute ready from an empty issues list, and keep those validation rejections out of the incident queue.
+- Keep architecture-preflight reasons honest for inspected empty documents, and list accepted evidence keys when native-plan or quality-check payloads fail.
+
+- Treat 127.0.0.1 and ::1 as the same bind for one-time admin login links so a
+  local MCP client and a local browser can redeem the same token.
+- Bind one-time admin login links to an explicit browser `user_agent` when
+  issued for Playwright or other external automation, instead of the MCP
+  client UA that those browsers cannot match.
+- Keep Gutenberg static block queue items queued when the browser serializer
+  cannot produce HTML, instead of auto-failing them with an empty roundtrip.
+- Expose finalizer queue errors, failed counts, per-target editor/queue URLs,
+  and heartbeat-only online status so agents can drain the queue without
+  inspecting private storage.
+- Persist nested innerBlocks on dynamic Gutenberg inserts, or queue the whole
+  tree when any child needs the browser finalizer.
+- Emit query-loop specs with an `attributes` object (`{}` when empty, never a
+  JSON array) that inserts can consume directly, keep attribute-validation
+  errors structured, and preserve supplied heading, button, and group
+  attributes when serializing.
 
 - Stop Run diagnostics from refreshing the whole admin page when JavaScript is
   available, and keep the no-JS form as a fallback.
@@ -110,6 +176,14 @@
   path.
 - Restore editor iframe state after finalizer serialize, reject mixed finalizer
   batches, and honor block path, position, and update semantics on persist.
+- Keep required `auth_guidance` on compact task-start so MCP schema validation
+  and the Troubleshoot loopback probe succeed when there is no extra auth copy.
+- List WordPress core pattern categories such as featured even before a user
+  pattern is assigned to them.
+- Treat `audit_write` as the write audit gate in the public API contract, and
+  look up draft-lesson memory rows with a SQL string plus scalar binds.
+- Stop the Block Editor Queue iframe from autosaving queued blocks into the live
+  post before `blocks-finalize-batch`.
 
 ## [1.0.0-beta.10] - 2026-08-12
 

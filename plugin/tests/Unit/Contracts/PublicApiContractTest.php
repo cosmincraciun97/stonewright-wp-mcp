@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Contracts;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Support\PublicApiContractSnapshot;
 
 /**
@@ -195,5 +196,52 @@ final class PublicApiContractTest extends TestCase {
 		];
 
 		$this->assertSame( [], PublicApiContractSnapshot::compatibility_violations( $frozen, $live ) );
+	}
+
+	public function test_audit_write_wrapper_counts_as_audit_gate(): void {
+		$row = PublicApiContractSnapshot::collect_ability( MemorySave::class );
+		$this->assertIsArray( $row );
+		$this->assertTrue(
+			(bool) $row['gates']['audit'],
+			'Writers that call $this->audit_write( must keep gates.audit true.'
+		);
+	}
+
+	public function test_removing_an_audit_call_is_still_a_contract_violation(): void {
+		$row = [
+			'ability_name'       => 'stonewright/memory-save',
+			'mcp_name'           => 'stonewright-memory-save',
+			'kind'               => 'Write',
+			'input_schema_hash'  => str_repeat( 'a', 64 ),
+			'output_schema_hash' => str_repeat( 'b', 64 ),
+			'permission_class'   => 'Permissions::edit_posts()',
+			'gates'              => [
+				'backup'    => false,
+				'token'     => true,
+				'validator' => false,
+				'audit'     => true,
+			],
+		];
+
+		$frozen = [
+			'version'   => 1,
+			'allowlist' => [
+				'removed'        => [],
+				'renamed'        => [],
+				'schema_changes' => [],
+			],
+			'abilities' => [ $row ],
+		];
+
+		$live_row                   = $row;
+		$live_row['gates']['audit'] = false;
+		$live                       = [
+			'version'   => 1,
+			'abilities' => [ $live_row ],
+		];
+
+		$violations = PublicApiContractSnapshot::compatibility_violations( $frozen, $live );
+		$this->assertNotEmpty( $violations );
+		$this->assertStringContainsString( 'gates.audit changed (true -> false)', $violations[0] );
 	}
 }

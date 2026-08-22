@@ -125,7 +125,7 @@ final class AbilitySecurityEnvelopeTest extends TestCase {
 	 */
 	private function ability_metadata_by_name(): array {
 		$metadata = [];
-		foreach ( AbilityRegistry::enabled_abilities() as $ability ) {
+		foreach ( AbilityRegistry::all_abilities() as $ability ) {
 			$metadata[ (string) $ability['name'] ] = $ability;
 		}
 		return $metadata;

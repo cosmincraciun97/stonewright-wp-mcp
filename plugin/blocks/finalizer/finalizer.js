@@ -22,11 +22,44 @@
 		if (typeof err === 'string') {
 			return { message: err.slice(0, 200) };
 		}
-		return {
+		var packed = {
 			code: err.code || err.name || '',
 			message: String(err.message || err.msg || 'validation failed').slice(0, 200),
 			block: err.block || err.blockName || '',
 		};
+		if (err.parsed_name) {
+			packed.parsed_name = String(err.parsed_name).slice(0, 80);
+		}
+		if (typeof err.html_len === 'number') {
+			packed.html_len = err.html_len;
+		}
+		return packed;
+	}
+
+	function roundtripError(blockName, html, parsedName) {
+		html = html || '';
+		parsedName = parsedName || '';
+		var err = new FinalizerError(
+			'serialize_roundtrip_failed',
+			blockName,
+			'serialize_roundtrip_failed expected=' + (blockName || '') + ' parsed_name=' + parsedName + ' html_len=' + html.length
+		);
+		err.html = html;
+		err.parsed_name = parsedName;
+		err.html_len = html.length;
+		err.retryable = html.length === 0;
+		return err;
+	}
+
+	function serializeDirect(blocksApi, spec) {
+		var block = toBlock(blocksApi, spec);
+		var html = blocksApi.serialize([block]);
+		var parsed = blocksApi.parse(html);
+		var parsedName = parsed && parsed[0] ? parsed[0].name : '';
+		if (!html || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
+			throw roundtripError(spec.name, html, parsedName);
+		}
+		return html;
 	}
 
 	function specOf(item) {
@@ -147,16 +180,44 @@
 		}
 	}
 
+	function lockEditorPersistence(win) {
+		if (!win || !win.wp || !win.wp.data || typeof win.wp.data.dispatch !== 'function') {
+			return;
+		}
+		try {
+			var editorDispatch = win.wp.data.dispatch('core/editor');
+			if (editorDispatch && typeof editorDispatch.lockPostAutosaving === 'function') {
+				editorDispatch.lockPostAutosaving('stonewright-block-finalizer');
+			}
+			if (editorDispatch && typeof editorDispatch.lockPostSaving === 'function') {
+				editorDispatch.lockPostSaving('stonewright-block-finalizer');
+			}
+		} catch (lockErr) {
+			/* Older editors may lack save locks; serialization still proceeds. */
+		}
+		try {
+			if (win.wp.apiFetch && typeof win.wp.apiFetch.use === 'function' && !win.__stonewrightFinalizerFetchLocked) {
+				win.__stonewrightFinalizerFetchLocked = true;
+				win.wp.apiFetch.use(function (options, next) {
+					options = options || {};
+					options.headers = options.headers || {};
+					options.headers['X-Stonewright-Finalizer'] = '1';
+					return next(options);
+				});
+			}
+		} catch (fetchErr) {
+			/* apiFetch middleware is a belt-and-braces guard. */
+		}
+	}
+
 	async function mountAndSerialize(win, spec) {
+		lockEditorPersistence(win);
 		var created = toBlock(win.wp.blocks, spec);
 		var dataApi = win.wp.data;
 		var blockDispatch = dataApi.dispatch('core/block-editor');
 		var blockSelect = dataApi.select('core/block-editor');
 		var editorSelect = dataApi.select('core/editor');
 		var editorDispatch = dataApi.dispatch('core/editor');
-		var lockKey = 'stonewright-block-finalizer';
-		var autosavingLocked = false;
-		var savingLocked = false;
 
 		var readyDeadline = Date.now() + 30000;
 		while (Date.now() < readyDeadline) {
@@ -171,19 +232,6 @@
 
 		var originalBlocks = blockSelect.getBlocks();
 		try {
-			if (editorDispatch && typeof editorDispatch.lockPostAutosaving === 'function') {
-				editorDispatch.lockPostAutosaving(lockKey);
-				autosavingLocked = true;
-			}
-			if (editorDispatch && typeof editorDispatch.lockPostSaving === 'function') {
-				editorDispatch.lockPostSaving(lockKey);
-				savingLocked = true;
-			}
-		} catch (lockErr) {
-			/* Older editors may lack save locks; serialization still proceeds. */
-		}
-
-		try {
 			if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
 				editorDispatch.resetEditorBlocks([created]);
 			} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
@@ -193,36 +241,25 @@
 			await settle(win, 500);
 			var settled = blockSelect.getBlocks()[0];
 			if (!settled) {
-				throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+				throw roundtripError(spec.name, '', '');
 			}
 			var valid = win.wp.blocks.validateBlock
 				? isValidBlock(win.wp.blocks.validateBlock(settled))
 				: true;
-			var html = win.wp.blocks.serialize(settled);
+			var html = win.wp.blocks.serialize([settled]);
 			var parsed = win.wp.blocks.parse(html);
 			var parsedName = parsed && parsed[0] ? parsed[0].name : '';
-			if (!valid || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
-				throw new FinalizerError('serialize_roundtrip_failed', spec.name);
+			if (!valid || !html || !parsed.length || parsedName !== spec.name || parsedName === 'core/freeform') {
+				throw roundtripError(spec.name, html, parsedName);
 			}
 			return html;
 		} finally {
-			try {
-				if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
-					editorDispatch.resetEditorBlocks(originalBlocks);
-				} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
-					blockDispatch.resetBlocks(originalBlocks);
-				}
-			} finally {
-				try {
-					if (savingLocked && typeof editorDispatch.unlockPostSaving === 'function') {
-						editorDispatch.unlockPostSaving(lockKey);
-					}
-				} finally {
-					if (autosavingLocked && typeof editorDispatch.unlockPostAutosaving === 'function') {
-						editorDispatch.unlockPostAutosaving(lockKey);
-					}
-				}
+			if (editorDispatch && typeof editorDispatch.resetEditorBlocks === 'function') {
+				editorDispatch.resetEditorBlocks(originalBlocks);
+			} else if (blockDispatch && typeof blockDispatch.resetBlocks === 'function') {
+				blockDispatch.resetBlocks(originalBlocks);
 			}
+			lockEditorPersistence(win);
 		}
 	}
 
@@ -249,52 +286,44 @@
 		}, 30000).catch(function () {
 			throw new FinalizerError('editor_frame_unavailable', spec.name);
 		});
+		lockEditorPersistence(win);
 		await waitFor(function () {
 			return win.wp.blocks.getBlockType(spec.name);
 		}, 15000).catch(function () {
 			throw new FinalizerError('block_not_registered', spec.name);
 		});
-		return mountAndSerialize(win, spec);
+		try {
+			return serializeDirect(win.wp.blocks, spec);
+		} catch (directErr) {
+			if (directErr && directErr.html) {
+				throw directErr;
+			}
+			return mountAndSerialize(win, spec);
+		}
 	}
 
-	function serializeFallback(spec) {
-		if (window.wp && wp.blockLibrary && typeof wp.blockLibrary.registerCoreBlocks === 'function') {
-			wp.blockLibrary.registerCoreBlocks();
+	function isRetryableSerializeError(err) {
+		if (!err) {
+			return true;
 		}
-		if (!spec.name || spec.name.indexOf('core/') !== 0) {
-			throw new FinalizerError('block_not_registered', spec.name);
+		if (err.retryable) {
+			return true;
 		}
-		var blocksApi = window.wp && wp.blocks;
-		if (!blocksApi || typeof blocksApi.getBlockType !== 'function') {
-			throw new FinalizerError('block_not_registered', spec.name);
-		}
-		if (!blocksApi.getBlockType(spec.name)) {
-			throw new FinalizerError('block_not_registered', spec.name);
-		}
-		var block = toBlock(blocksApi, spec);
-		var html = blocksApi.serialize([block]);
-		var parsed = blocksApi.parse(html);
-		if (!parsed.length || parsed[0].name !== spec.name) {
-			throw new FinalizerError('serialize_roundtrip_failed', spec.name);
-		}
-		return html;
+		return err.code === 'editor_frame_timeout'
+			|| err.code === 'editor_frame_unavailable'
+			|| err.code === 'block_not_registered'
+			|| (err.code === 'serialize_roundtrip_failed' && !err.html);
 	}
 
 	function serializeItem(item) {
 		return serializeInEditor(item).then(function (html) {
-			return { html: html, errors: [] };
+			return { html: html, errors: [], retryable: false };
 		}).catch(function (err) {
-			if (err && err.code === 'block_not_registered') {
-				return { html: '', errors: [compactError(err)] };
+			var html = (err && err.html) || '';
+			if (isRetryableSerializeError(err) && !html) {
+				return { html: '', errors: [], retryable: true };
 			}
-			if (err && (err.code === 'editor_frame_timeout' || err.code === 'editor_frame_unavailable')) {
-				try {
-					return { html: serializeFallback(specOf(item)), errors: [] };
-				} catch (fallbackErr) {
-					return { html: '', errors: [compactError(fallbackErr)] };
-				}
-			}
-			return { html: '', errors: [compactError(err)] };
+			return { html: html, errors: [compactError(err)], retryable: false };
 		});
 	}
 
@@ -304,6 +333,116 @@
 			h['X-WP-Nonce'] = config.nonce;
 		}
 		return h;
+	}
+
+	var sessionApplied = 0;
+	var sessionFailed = 0;
+	var itemMemory = {};
+
+	function pad2(n) {
+		return String(n).padStart(2, '0');
+	}
+
+	function formatClock(date) {
+		return pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
+	}
+
+	function setOnline(isOnline) {
+		var el = document.getElementById('stonewright-finalizer-online');
+		if (!el) {
+			return;
+		}
+		el.classList.toggle('is-offline', !isOnline);
+		el.setAttribute('data-online', isOnline ? 'true' : 'false');
+		el.textContent = isOnline ? 'Online' : 'Offline';
+	}
+
+	function setText(id, value) {
+		var el = document.getElementById(id);
+		if (el) {
+			el.textContent = String(value);
+		}
+	}
+
+	function errorCodeOf(item, result) {
+		var err = result && Array.isArray(result.errors) && result.errors[0] ? result.errors[0] : (item && item.error);
+		if (!err) {
+			return '';
+		}
+		if (typeof err === 'string') {
+			return err.slice(0, 80);
+		}
+		return String(err.code || err.error_code || err.message || '').slice(0, 80);
+	}
+
+	function rememberItem(item, extras) {
+		if (!item || !item.id) {
+			return;
+		}
+		var spec = specOf(item);
+		var next = itemMemory[item.id] || {};
+		next.id = item.id;
+		next.block = item.block_name || spec.name || next.block || 'block';
+		next.post = typeof item.post_id !== 'undefined' && item.post_id !== null ? item.post_id : next.post;
+		next.status = (extras && extras.status) || item.status || next.status || 'queued';
+		next.error = errorCodeOf(item, extras && extras.result) || next.error || '';
+		itemMemory[item.id] = next;
+	}
+
+	function renderItems() {
+		var list = document.getElementById('stonewright-finalizer-items');
+		if (!list) {
+			return;
+		}
+		list.replaceChildren();
+		Object.keys(itemMemory).forEach(function (id) {
+			var row = itemMemory[id];
+			var li = document.createElement('li');
+			li.className = 'sw-finalizer-item is-' + String(row.status || 'queued').replace(/[^a-z0-9_-]/gi, '');
+			var block = document.createElement('code');
+			block.textContent = row.block || 'block';
+			var post = document.createElement('span');
+			post.textContent = row.post === '' || typeof row.post === 'undefined' ? '—' : 'Post ' + row.post;
+			var status = document.createElement('span');
+			status.textContent = row.status || 'queued';
+			li.appendChild(block);
+			li.appendChild(post);
+			li.appendChild(status);
+			if (row.error) {
+				var err = document.createElement('code');
+				err.className = 'sw-finalizer-item__error';
+				err.textContent = row.error;
+				li.appendChild(err);
+			}
+			list.appendChild(li);
+		});
+	}
+
+	function renderStrip(data) {
+		setText('stonewright-finalizer-last-poll', formatClock(new Date()));
+		var queued = data && typeof data.queued_count !== 'undefined' ? Number(data.queued_count) : 0;
+		if (Number.isNaN(queued)) {
+			queued = 0;
+		}
+		setText('stonewright-finalizer-queued-count', queued);
+		var failed = sessionFailed;
+		if (data && typeof data.failed_count !== 'undefined' && data.failed_count !== null) {
+			var apiFailed = Number(data.failed_count);
+			if (!Number.isNaN(apiFailed)) {
+				failed = Math.max(failed, apiFailed);
+			}
+		}
+		setText('stonewright-finalizer-applied-count', sessionApplied);
+		setText('stonewright-finalizer-failed-count', failed);
+		var statusEl = document.getElementById('stonewright-finalizer-status');
+		if (statusEl) {
+			var busy = queued > 0;
+			statusEl.classList.toggle('is-busy', busy);
+			statusEl.textContent = busy
+				? 'Serializing queued block changes…'
+				: 'Nothing to serialize. The queue is ready.';
+		}
+		renderItems();
 	}
 
 	function poll() {
@@ -318,17 +457,33 @@
 			});
 
 		return Promise.resolve(request).then(function (data) {
-			var countEl = document.getElementById('stonewright-finalizer-queued-count');
-			if (countEl && data && typeof data.queued_count !== 'undefined') {
-				countEl.textContent = String(data.queued_count);
-			}
+			setOnline(true);
 			var items = (data && data.items) || [];
+			items.forEach(function (item) {
+				rememberItem(item, null);
+			});
+			renderStrip(data);
 			return items.filter(function (item) {
 				return item && item.status === 'queued' && (item.block_spec || item.spec);
 			}).reduce(function (chain, item) {
 				return chain.then(function () {
 					return serializeItem(item).then(function (result) {
-						return postResult(item.id, result);
+						if (result && result.retryable && !result.html) {
+							rememberItem(item, { status: 'queued', result: result });
+							renderStrip(data);
+							return;
+						}
+						return postResult(item.id, result).then(function () {
+							var failed = result && result.errors && result.errors.length;
+							if (failed) {
+								sessionFailed += 1;
+								rememberItem(item, { status: 'failed', result: result });
+							} else {
+								sessionApplied += 1;
+								rememberItem(item, { status: 'applied', result: result });
+							}
+							renderStrip(data);
+						});
 					});
 				});
 			}, Promise.resolve());
@@ -400,8 +555,11 @@
 	}
 
 	function tick() {
-		poll().catch(function () {
-			/* Keep polling; the operator was asked to leave this page open. */
+		poll().then(function () {
+			setOnline(true);
+		}).catch(function () {
+			setOnline(false);
+			setText('stonewright-finalizer-last-poll', formatClock(new Date()));
 		});
 	}
 
@@ -410,23 +568,22 @@
 			return;
 		}
 		var body = { token: token };
-		if (window.wp && wp.apiFetch) {
-			wp.apiFetch({
+		var request = window.wp && wp.apiFetch
+			? wp.apiFetch({
 				path: '/stonewright/v1/block-finalizer/heartbeat',
 				method: 'POST',
 				data: body,
-			}).catch(function () {
-				/* Keep the queue page open; the next beat will retry. */
+			})
+			: fetch(restBase + 'heartbeat', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+				body: JSON.stringify(body),
 			});
-			return;
-		}
-		fetch(restBase + 'heartbeat', {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
-			body: JSON.stringify(body),
+		Promise.resolve(request).then(function () {
+			setOnline(true);
 		}).catch(function () {
-			/* Keep the queue page open; the next beat will retry. */
+			setOnline(false);
 		});
 	}
 

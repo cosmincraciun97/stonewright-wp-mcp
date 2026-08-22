@@ -178,7 +178,7 @@ final class Navigation extends AbilityKernel {
 			return $this->error( 'not_found', __( 'Navigation not found.', 'stonewright' ) );
 		}
 		$post = get_post( $id );
-		if ( ! $post || 'wp_navigation' !== (string) ( $post->post_type ?? '' ) ) {
+		if ( ! $post || 'wp_navigation' !== (string) $post->post_type ) {
 			return $this->error( 'not_found', __( 'Navigation not found.', 'stonewright' ) );
 		}
 		return $post;

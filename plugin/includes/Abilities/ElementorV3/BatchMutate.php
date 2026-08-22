@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\RepeaterPatcher;
@@ -23,6 +24,7 @@ use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Design\Diagnostics\ThirdPartyControlRiskMap;
@@ -64,6 +66,18 @@ final class BatchMutate extends AbilityKernel {
 				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'change_set_id'       => [ 'type' => 'string', 'maxLength' => 96 ],
 				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
+				'responsive_scope'    => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'uniqueItems' => true,
+					'description' => 'Breakpoints this batch may change. Defaults to desktop-only. Per-operation responsive_scope or allowed_breakpoints overrides this.',
+				],
+				'allowed_breakpoints' => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'uniqueItems' => true,
+					'description' => 'Alias for batch responsive_scope.',
+				],
 				'stop_on_error'      => [
 					'type'        => 'boolean',
 					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
@@ -125,11 +139,17 @@ final class BatchMutate extends AbilityKernel {
 							'allow_high_risk_replace' => [ 'type' => 'boolean', 'default' => false ],
 							'approved_preservation_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 							'settings_evidence'      => [ 'type' => 'object' ],
+							'responsive_scope'       => [
+								'type'        => 'array',
+								'items'       => [ 'type' => 'string' ],
+								'uniqueItems' => true,
+								'description' => 'Breakpoints this operation may change. Overrides the batch responsive_scope. Defaults to desktop-only.',
+							],
 							'allowed_breakpoints'    => [
 								'type'        => 'array',
 								'items'       => [ 'type' => 'string' ],
 								'uniqueItems' => true,
-								'description' => 'Breakpoints this operation may change. Defaults to responsive_scope evidence, then desktop.',
+								'description' => 'Alias for responsive_scope. Defaults to evidence responsive_scope, then desktop.',
 							],
 							'mode'                   => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
 							'allow_html_widget'      => [ 'type' => 'boolean', 'default' => false ],
@@ -186,6 +206,7 @@ final class BatchMutate extends AbilityKernel {
 				$start      = microtime( true );
 				$post_id    = (int) $args['post_id'];
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
+				$operations = self::apply_batch_responsive_scope( $operations, $args );
 				$dry_run    = ! empty( $args['dry_run'] );
 				$require_evidence = ! empty( $args['require_evidence'] );
 				$idempotency_key  = isset( $args['idempotency_key'] ) ? trim( (string) $args['idempotency_key'] ) : '';
@@ -197,6 +218,11 @@ final class BatchMutate extends AbilityKernel {
 				}
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one batch operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+
+				$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => $operations ], $args );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
 				}
 
 				if ( ! $dry_run && self::contains_destructive_operation( $operations ) ) {
@@ -300,22 +326,7 @@ final class BatchMutate extends AbilityKernel {
 							return $this->error(
 								'batch_operation_failed',
 								sprintf( __( 'Elementor batch operation %1$d (%2$s) failed: %3$s', 'stonewright' ), $index, $action, $result->get_error_message() ),
-								[
-									'status'           => 400,
-									'items'            => $items,
-									'applied'          => $applied,
-									'failed'           => $failed,
-									'failed_index'     => $index,
-									'failed_action'    => $action,
-									'cause_code'       => $cause_code,
-									'before_hash'      => $before_hash,
-									'document_state'   => [] === $tree ? 'empty' : 'populated',
-									'retryable'        => true,
-									'write_blocked'    => true,
-									'schema_requests'  => self::schema_requests( $items ),
-									'repair'           => self::repair_hint( $cause_code, $action ),
-									'write_receipt'    => $receipt->fail( $result, 'operations.' . $index )->to_array(),
-								]
+								self::batch_failure_data( $items, $applied, $failed, $index, $action, $cause_code, $before_hash, $tree, $result, $receipt )
 							);
 						}
 						continue;
@@ -342,22 +353,19 @@ final class BatchMutate extends AbilityKernel {
 					return $this->error(
 						'batch_operation_failed',
 						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ),
-						[
-							'status'          => 400,
-							'items'           => $items,
-							'applied'         => $applied,
-							'failed'          => $failed,
-							'failed_index'    => $failed_index,
-							'failed_action'   => $failed_action,
-							'cause_code'      => $cause_code,
-							'before_hash'     => $before_hash,
-							'document_state'  => [] === $tree ? 'empty' : 'populated',
-							'retryable'       => true,
-							'write_blocked'   => true,
-							'schema_requests' => self::schema_requests( $items ),
-							'repair'          => self::repair_hint( $cause_code, $failed_action ) . ' Fix every reported operation before retrying; no partial batch is persisted.',
-							'write_receipt'   => $receipt->fail( new \WP_Error( $cause_code, 'Batch validation failed.' ), 'operations.' . $failed_index )->to_array(),
-						]
+						self::batch_failure_data(
+							$items,
+							$applied,
+							$failed,
+							$failed_index,
+							$failed_action,
+							$cause_code,
+							$before_hash,
+							$tree,
+							new \WP_Error( $cause_code, 'Batch validation failed.', is_array( $first_failed['error']['data'] ?? null ) ? $first_failed['error']['data'] : [] ),
+							$receipt,
+							' Fix every reported operation before retrying; no partial batch is persisted.'
+						)
 					);
 				}
 
@@ -655,6 +663,10 @@ final class BatchMutate extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private function apply_operation( array &$tree, array $operation, array &$refs, bool $require_evidence, bool $dry_run ): array|\WP_Error {
+		$css_gate = ElementorCustomCssGate::assert_incoming( $operation, $operation, (string) ( $operation['widget_type'] ?? '' ) );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		$action = isset( $operation['action'] ) ? (string) $operation['action'] : '';
 
 		return match ( $action ) {
@@ -709,7 +721,7 @@ final class BatchMutate extends AbilityKernel {
 
 		return array_merge(
 			$this->created_item( $operation, $refs, $element['id'], 'container' ),
-			[ 'evidence' => $evidence ],
+			[ 'evidence' => $evidence, 'allowed_breakpoints' => $scope ],
 			[] !== $validated['warnings'] ? [ 'normalization_warnings' => $validated['warnings'] ] : []
 		);
 	}
@@ -734,8 +746,11 @@ final class BatchMutate extends AbilityKernel {
 				return $policy;
 			}
 		}
-
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$css_gate = ElementorCustomCssGate::assert_incoming( $settings, $operation, $widget_type );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
+		}
 		$scope    = self::validate_responsive_scope( $operation, $settings, $widget_type );
 		if ( $scope instanceof \WP_Error ) {
 			return $scope;
@@ -775,7 +790,7 @@ final class BatchMutate extends AbilityKernel {
 
 		return array_merge(
 			$this->created_item( $operation, $refs, $element_id, 'widget' ),
-			[ 'evidence' => $evidence ],
+			[ 'evidence' => $evidence, 'allowed_breakpoints' => $scope ],
 			[] !== $warnings ? [ 'normalization_warnings' => $warnings ] : []
 		);
 	}
@@ -1272,16 +1287,16 @@ final class BatchMutate extends AbilityKernel {
 	 * @return list<string>|\WP_Error
 	 */
 	private static function allowed_breakpoints( array $operation ): array|\WP_Error {
-		$requested = isset( $operation['allowed_breakpoints'] ) && is_array( $operation['allowed_breakpoints'] )
-			? $operation['allowed_breakpoints']
-			: [];
+		$requested = ResponsiveScope::requested_names( $operation['allowed_breakpoints'] ?? null );
+		if ( [] === $requested ) {
+			$requested = ResponsiveScope::requested_names( $operation['responsive_scope'] ?? null );
+		}
 		if ( [] === $requested ) {
 			foreach ( self::operation_evidence( $operation ) as $row ) {
-				if ( ! is_array( $row ) || ! is_scalar( $row['responsive_scope'] ?? null ) ) {
+				if ( ! is_array( $row ) ) {
 					continue;
 				}
-				$parts     = preg_split( '/[\s,|]+/', (string) $row['responsive_scope'], -1, PREG_SPLIT_NO_EMPTY );
-				$requested = array_merge( $requested, is_array( $parts ) ? $parts : [] );
+				$requested = array_merge( $requested, ResponsiveScope::requested_names( $row['responsive_scope'] ?? null ) );
 			}
 		}
 		if ( [] === $requested ) {
@@ -1332,8 +1347,83 @@ final class BatchMutate extends AbilityKernel {
 				'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
 				'require_evidence'   => ! empty( $args['require_evidence'] ),
 				'stop_on_error'      => array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : empty( $args['dry_run'] ),
+				'responsive_scope'   => $args['responsive_scope'] ?? $args['allowed_breakpoints'] ?? [],
 			]
 		);
+	}
+
+	/**
+	 * Copy batch-level scope onto operations that did not name their own.
+	 *
+	 * @param list<array<string, mixed>> $operations
+	 * @param array<string, mixed>       $args
+	 * @return list<array<string, mixed>>
+	 */
+	private static function apply_batch_responsive_scope( array $operations, array $args ): array {
+		$batch = ResponsiveScope::requested_names( $args['allowed_breakpoints'] ?? null );
+		if ( [] === $batch ) {
+			$batch = ResponsiveScope::requested_names( $args['responsive_scope'] ?? null );
+		}
+		if ( [] === $batch ) {
+			return $operations;
+		}
+		foreach ( $operations as $index => $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
+			}
+			$own = ResponsiveScope::requested_names( $operation['allowed_breakpoints'] ?? null );
+			if ( [] === $own ) {
+				$own = ResponsiveScope::requested_names( $operation['responsive_scope'] ?? null );
+			}
+			if ( [] !== $own ) {
+				continue;
+			}
+			$operations[ $index ]['responsive_scope'] = $batch;
+		}
+
+		return $operations;
+	}
+
+	/**
+	 * @param list<array<string, mixed>>          $items
+	 * @param array<int, array<string, mixed>>    $tree
+	 * @return array<string, mixed>
+	 */
+	private static function batch_failure_data(
+		array $items,
+		int $applied,
+		int $failed,
+		int $failed_index,
+		string $failed_action,
+		string $cause_code,
+		string $before_hash,
+		array $tree,
+		\WP_Error $result,
+		ElementorWriteReceipt $receipt,
+		string $repair_suffix = ''
+	): array {
+		$data = [
+			'status'          => 400,
+			'items'           => $items,
+			'applied'         => $applied,
+			'failed'          => $failed,
+			'failed_index'    => $failed_index,
+			'failed_action'   => $failed_action,
+			'cause_code'      => $cause_code,
+			'root_error_code' => $cause_code,
+			'before_hash'     => $before_hash,
+			'document_state'  => [] === $tree ? 'empty' : 'populated',
+			'retryable'       => true,
+			'write_blocked'   => true,
+			'schema_requests' => self::schema_requests( $items ),
+			'repair'          => self::repair_hint( $cause_code, $failed_action ) . $repair_suffix,
+			'write_receipt'   => $receipt->fail( $result, 'operations.' . $failed_index )->to_array(),
+		];
+		if ( IncidentStore::is_input_shape_code( $cause_code ) ) {
+			$data['execution_status'] = 'blocked';
+		}
+
+		return $data;
 	}
 
 	/**
@@ -1375,6 +1465,7 @@ final class BatchMutate extends AbilityKernel {
 			'stonewright_third_party_replace_blocked' => 'Use patch_repeater_row. If a full replace is unavoidable, review one explicit high-risk dry-run and bind the apply to its preservation hash.',
 			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',
 			'stonewright_elementor_settings_invalid' => 'Execute every schema_request in the response once. Keep unknown existing settings, replace only rejected values, include settings_evidence, and rerun one consolidated dry-run.',
+			'stonewright_elementor_evidence_invalid' => 'Execute every schema_request in the response, then resend settings_evidence for each planned setting. Direction-brief provenance is accepted for token-derived color, typography, and spacing when a design direction is active.',
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
 			'stonewright_atomic_widget_in_v3_batch' => 'Use the Elementor V4 editor pipeline; never mix e-* widgets into a V3 tree.',
 			default => 'Fix the reported operation and rerun dry_run=true. No page data was written.',

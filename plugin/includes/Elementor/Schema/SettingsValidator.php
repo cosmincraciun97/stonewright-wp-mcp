@@ -15,28 +15,28 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $settings Candidate widget settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false ): array|\WP_Error {
+	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
 		$aliases  = SettingsKeyAliases::normalize( $settings );
 		$settings = $aliases['settings'];
 		$schema   = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown );
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
 	}
 
 	/**
 	 * @param array<string, mixed> $settings Candidate structural-element settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true, bool $preserve_unknown = false ): array|\WP_Error {
+	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
 		$aliases  = SettingsKeyAliases::normalize( $settings );
 		$settings = $aliases['settings'];
 		$schema   = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'], $preserve_unknown );
+		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
 	}
 
 	/**
@@ -44,12 +44,13 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $schema
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions, array $aliases = [], bool $preserve_unknown = false ): array|\WP_Error {
+	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions, array $aliases = [], bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
 
 		$controls   = (array) ( $schema['controls'] ?? [] );
 		$violations = [];
 		$warnings   = [];
 		$normalized = [];
+		$condition_context = $condition_settings ?? $settings;
 		foreach ( $settings as $key => $value ) {
 			$key = (string) $key;
 			if ( in_array( $key, [ '__dynamic__', '__globals__' ], true ) ) {
@@ -89,7 +90,7 @@ final class SettingsValidator {
 				$violations[] = $error;
 				continue;
 			}
-			if ( $enforce_conditions && ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $settings, $controls ) ) {
+			if ( $enforce_conditions && ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $condition_context, $controls ) ) {
 				$violations[] = self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, array_keys( (array) ( $control['condition'] ?? [] ) ) );
 				continue;
 			}
@@ -336,6 +337,18 @@ final class SettingsValidator {
 		};
 
 		return $valid ? null : self::violation( $path, 'invalid_shape', 'a value compatible with Elementor control type ' . ( '' !== $type ? $type : 'unknown' ), $value );
+	}
+
+	/**
+	 * @param array<string, mixed>|null $condition_settings Optional merge-context for control conditions.
+	 * @return array<string, mixed>|null
+	 */
+	private static function normalize_condition_settings( ?array $condition_settings ): ?array {
+		if ( null === $condition_settings ) {
+			return null;
+		}
+		$aliases = SettingsKeyAliases::normalize( $condition_settings );
+		return $aliases['settings'];
 	}
 
 	/**

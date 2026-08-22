@@ -72,6 +72,23 @@ final class PatternSupport {
 	 */
 	public static function list_categories(): array {
 		$found = [];
+		if ( function_exists( 'get_block_pattern_categories' ) ) {
+			$registered = get_block_pattern_categories();
+			if ( is_array( $registered ) ) {
+				foreach ( $registered as $slug => $details ) {
+					if ( is_string( $slug ) && ! is_numeric( $slug ) && '' !== $slug ) {
+						$found[] = sanitize_title( $slug );
+						continue;
+					}
+					if ( is_array( $details ) && isset( $details['name'] ) ) {
+						$name = sanitize_title( (string) $details['name'] );
+						if ( '' !== $name ) {
+							$found[] = $name;
+						}
+					}
+				}
+			}
+		}
 		if ( function_exists( 'get_terms' ) ) {
 			$terms = get_terms(
 				[
@@ -81,10 +98,13 @@ final class PatternSupport {
 			);
 			if ( is_array( $terms ) ) {
 				foreach ( $terms as $term ) {
-					if ( is_string( $term ) ) {
+					if ( is_object( $term ) ) {
+						$slug = (string) $term->slug;
+						if ( '' !== $slug ) {
+							$found[] = $slug;
+						}
+					} elseif ( is_string( $term ) && '' !== $term ) {
 						$found[] = $term;
-					} elseif ( is_object( $term ) && isset( $term->slug ) ) {
-						$found[] = (string) $term->slug;
 					}
 				}
 			}

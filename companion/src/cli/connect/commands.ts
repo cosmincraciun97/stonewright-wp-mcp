@@ -24,6 +24,7 @@ import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { APP_VERSION } from '../../version.js';
+import { validateLocalWpRoot } from '../../commands/store.js';
 import {
 	configuredModeToEnv,
 	defaultFallbackPolicy,
@@ -460,6 +461,8 @@ export interface ConnectAddInput {
 	/** Use env://VAR instead of OS store. */
 	credentialEnv?: string | undefined;
 	companionProfile?: string | undefined;
+	/** Canonical local WordPress root (realpath, must contain wp-config.php). */
+	wpRoot?: string | undefined;
 	/** When set, skip interactive prompts. */
 	yes?: boolean | undefined;
 	/**
@@ -656,6 +659,16 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		writeOut(auth.detail);
 	}
 
+	let validatedAddWpRoot: string | undefined;
+	if (input.wpRoot !== undefined) {
+		try {
+			validatedAddWpRoot = validateLocalWpRoot(input.wpRoot);
+		} catch (err) {
+			writeErr(err instanceof Error ? err.message : String(err));
+			return 1;
+		}
+	}
+
 	const previousCredentialRef = existing?.credential_ref ?? null;
 	const previousCredentialSecret = previousCredentialRef
 		? resolveCredentialSecret(previousCredentialRef, ctx.credentials ?? { env: ctx.env ?? process.env })
@@ -699,6 +712,7 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		plugin_expectations: requestedPluginExpectations,
 		...(existing?.id ? { id: existing.id } : {}),
 		clients: existing?.clients ?? {},
+		local_wp_root: validatedAddWpRoot ?? existing?.local_wp_root,
 	});
 
 	try {
@@ -1077,6 +1091,7 @@ export function connectRepair(
 		browserProvider?: string;
 		browserScanConsent?: ConsentState;
 		browserInstallConsent?: ConsentState;
+		wpRoot?: string;
 	} = {},
 	ctx: ConnectContext = {},
 ): number {
@@ -1087,11 +1102,21 @@ export function connectRepair(
 		return 1;
 	}
 	const configuredMode = opts.mode ?? site.configured_mode;
+	let validatedWpRoot: string | undefined;
+	if (opts.wpRoot !== undefined) {
+		try {
+			validatedWpRoot = validateLocalWpRoot(opts.wpRoot);
+		} catch (err) {
+			writeErr(err instanceof Error ? err.message : String(err));
+			return 1;
+		}
+	}
 	const repairedSite: SiteRecordV2 = {
 		...site,
 		configured_mode: configuredMode,
 		preferred_active_mode: defaultPreferredActiveMode(configuredMode),
 		fallback_policy: defaultFallbackPolicy(configuredMode),
+		local_wp_root: validatedWpRoot ?? site.local_wp_root,
 		plugin_expectations: {
 			...site.plugin_expectations,
 			required: configuredMode === 'plugin-only',
@@ -1104,8 +1129,8 @@ export function connectRepair(
 	};
 	const clientId = opts.client ?? Object.keys(site.clients)[0];
 	if (!clientId) {
-		if (!opts.mode) {
-			writeErr('No client binding on this site. Pass --client <id>, or --mode <mode> for a policy-only repair.');
+		if (!opts.mode && opts.wpRoot === undefined) {
+			writeErr('No client binding on this site. Pass --client <id>, --mode <mode>, or --wp-root <path> for a policy-only repair.');
 			return 1;
 		}
 		try {

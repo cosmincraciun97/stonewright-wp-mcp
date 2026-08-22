@@ -122,33 +122,7 @@ final class TokenMapper {
 	 * @return array<string, mixed>
 	 */
 	private static function apply_color( array $attrs, string $value, string $context ): array {
-		if ( str_starts_with( $value, '#' ) ) {
-			// Strict hex validation: must be #RGB, #RGBA, #RRGGBB, or #RRGGBBAA (3-8 hex digits).
-			if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $value ) ) {
-				return $attrs; // Malformed hex — skip token entirely.
-			}
-			// Hex: use style.color.text / style.color.background.
-			if ( 'background' === $context ) {
-				$attrs['style']['color']['background'] = $value;
-			} else {
-				$attrs['style']['color']['text'] = $value;
-			}
-		} else {
-			// Slug: sanitize to lowercase a-z0-9, hyphens, underscores only.
-			$slug = preg_replace( '/[^a-z0-9_-]/', '', strtolower( $value ) );
-			if ( '' === $slug ) {
-				return $attrs; // Empty after sanitization — skip token.
-			}
-			// use textColor / backgroundColor and var:preset|color|<slug>.
-			if ( 'background' === $context ) {
-				$attrs['backgroundColor']              = $slug;
-				$attrs['style']['color']['background'] = 'var:preset|color|' . $slug;
-			} else {
-				$attrs['textColor']              = $slug;
-				$attrs['style']['color']['text'] = 'var:preset|color|' . $slug;
-			}
-		}
-		return $attrs;
+		return ColorPresetLookup::apply_color( $attrs, $value, $context );
 	}
 
 	/**

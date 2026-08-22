@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Stonewright motion runtime UAT</title>
+	<link rel="stylesheet" href="../../../../assets/frontend/motion-core.css?uat=2">
+	<script src="../../../../assets/frontend/motion-core.js?uat=2"></script>
+	<style>
+		body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #172033; }
+		main { max-width: 52rem; margin: 0 auto; padding: 3rem 1.5rem 10rem; }
+		section { min-height: 72vh; display: grid; align-content: center; gap: 1rem; }
+		.card { padding: 1.25rem; border: 1px solid #ccd4e0; border-radius: 0.75rem; }
+		.stw-motion-card-lift { box-shadow: 0 0 0 rgb(0 0 0 / 0%); }
+		.stw-motion-card-lift:hover,
+		.stw-motion-card-lift:focus-visible { box-shadow: 0 10px 24px rgb(23 32 51 / 16%); }
+	</style>
+</head>
+<body>
+	<main>
+		<section aria-labelledby="load-title">
+			<h1 id="load-title" data-uat="load" class="stw-motion-fade-up stw-motion-trigger--load stw-motion-duration--280">Load entrance</h1>
+			<a data-uat="link" class="stw-motion-link-underline stw-motion-duration--160" href="#viewport-title">Focusable underline</a>
+			<button data-uat="card" class="card stw-motion-card-lift stw-motion-duration--160" type="button">Focusable card</button>
+		</section>
+
+		<section aria-labelledby="viewport-title">
+			<h2 id="viewport-title" data-uat="viewport" class="stw-motion-fade-up stw-motion-trigger--viewport-enter stw-motion-duration--480">Viewport entrance</h2>
+			<div data-uat="stagger" class="stw-motion-stagger-reveal stw-motion-stagger-interval--80">
+				<p>First stagger child</p>
+				<p>Second stagger child</p>
+				<p>Third stagger child</p>
+			</div>
+		</section>
+	</main>
+</body>
+</html>

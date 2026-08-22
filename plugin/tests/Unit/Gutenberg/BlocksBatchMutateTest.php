@@ -29,6 +29,7 @@ final class BlocksBatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_options']               = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_user_caps']             = [ 'edit_post' => true, 'edit_posts' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']        = true;
+		$GLOBALS['stonewright_test_current_user_id']       = 42;
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 		$GLOBALS['stonewright_test_registered_blocks']     = [
 			'core/paragraph' => (object) [

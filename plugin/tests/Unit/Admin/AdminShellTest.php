@@ -186,6 +186,23 @@ final class AdminShellTest extends TestCase {
 		self::assertStringNotContainsString( '<script>', $html );
 	}
 
+	public function test_experimental_menu_title_is_small_inline_text(): void {
+		self::assertSame(
+			[
+				'stonewright-troubleshoot',
+				'stonewright-context',
+				'stonewright-design',
+				'stonewright-block-finalizer',
+			],
+			AdminShell::experimental_slugs()
+		);
+		self::assertSame(
+			'<span class="sw-menu-label">Troubleshoot</span> <span class="sw-menu-exp" data-tip="This feature is experimental." aria-label="This feature is experimental.">EXP</span>',
+			AdminShell::experimental_menu_title( 'Troubleshoot' )
+		);
+		self::assertSame( 'This feature is experimental.', AdminShell::experimental_hint() );
+	}
+
 	/**
 	 * Experimental is inline text on the same nav line — not a pill or chip.
 	 */
@@ -198,7 +215,7 @@ final class AdminShellTest extends TestCase {
 		];
 		foreach ( $experimental as $slug => $label ) {
 			self::assertMatchesRegularExpression(
-				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>' . preg_quote( $label, '/' ) . ' <span class="sw-shell__exp">Experimental<\/span><\/a>/',
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*data-sw-tooltip="This feature is experimental\."[^>]*>\s*' . preg_quote( $label, '/' ) . '\s+<span class="sw-shell__exp">EXP<\/span>\s*<\/a>/',
 				$html
 			);
 		}
@@ -215,7 +232,7 @@ final class AdminShellTest extends TestCase {
 		];
 		foreach ( $plain as $slug => $label ) {
 			self::assertMatchesRegularExpression(
-				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>' . preg_quote( $label, '/' ) . '<\/a>/',
+				'/page=' . preg_quote( $slug, '/' ) . '"[^>]*>\s*' . preg_quote( $label, '/' ) . '\s*<\/a>/',
 				$html
 			);
 		}

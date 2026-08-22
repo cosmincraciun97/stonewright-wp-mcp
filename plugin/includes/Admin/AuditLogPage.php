@@ -28,6 +28,73 @@ final class AuditLogPage {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_dismiss_error_pattern', [ self::class, 'handle_dismiss_pattern' ] );
 		add_action( 'admin_post_stonewright_audit_export', [ self::class, 'handle_export' ] );
+		add_action( 'admin_post_stonewright_audit_purge', [ self::class, 'handle_purge' ] );
+		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
+	}
+
+	public static function enqueue( string $hook_suffix = '' ): void {
+		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( (string) $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( self::SLUG !== $page && ! str_contains( $hook_suffix, self::SLUG ) ) {
+			return;
+		}
+		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) STONEWRIGHT_VERSION : '0.1.0';
+		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) STONEWRIGHT_URL : '';
+		wp_enqueue_script(
+			'stonewright-admin-audit',
+			$base . 'assets/admin/audit.js',
+			[ 'stonewright-admin' ],
+			$version,
+			true
+		);
+	}
+
+	public static function handle_purge(): void {
+		$count = self::process_purge_request();
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'   => self::SLUG,
+					'purged' => (string) $count,
+				],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Capability, nonce, and typed confirmation, then wipe events + pattern
+	 * summaries and write one `audit_log_purged` receipt.
+	 */
+	public static function process_purge_request(): int {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Forbidden', 'stonewright' ), '', [ 'response' => 403 ] );
+		}
+		$nonce = isset( $_POST['_stonewright_nonce'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['_stonewright_nonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( false === wp_verify_nonce( $nonce, 'stonewright_audit_purge' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'stonewright' ), '', [ 'response' => 403 ] );
+		}
+		$phrase = isset( $_POST['confirm_phrase'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['confirm_phrase'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( 'DELETE' !== $phrase ) {
+			wp_die( esc_html__( 'Type DELETE to confirm this purge.', 'stonewright' ), '', [ 'response' => 400 ] );
+		}
+
+		$count = AuditLog::purge_all();
+		ErrorPatterns::clear();
+		AuditLog::record(
+			'audit_log_purged',
+			[
+				'actor' => (int) get_current_user_id(),
+				'count' => $count,
+				'_meta' => [
+					'operation_class' => 'audit_purge',
+					'resource_type'   => 'audit_log',
+					'resource_ref'    => 'all',
+				],
+			],
+			'ok'
+		);
+		return $count;
 	}
 
 	public static function handle_export(): void {
@@ -91,12 +158,34 @@ final class AuditLogPage {
 		$counts   = self::view_counts( $filters );
 		$incident_states = self::incident_state_map();
 
+		$all_count = AuditLog::count();
+
 		AdminShell::open( self::SLUG );
-		echo '<div class="sw-audit-page stonewright-audit-log-page">';
-		echo '<header class="stonewright-page-header"><div>';
+		echo '<div class="sw-audit-page stonewright-audit-log-page" data-sw-audit-purge>';
+		echo '<header class="stonewright-page-header">';
+		echo '<div>';
 		echo '<h1>' . esc_html__( 'Audit Log', 'stonewright' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Every Stonewright mutation (abilities and stonewright/v1 write routes) records one redacted row here. The log is append-only. Unrelated WordPress REST traffic is not logged.', 'stonewright' ) . '</p>';
-		echo '</div></header>';
+		echo '<p>' . esc_html__( 'Every Stonewright mutation (abilities and stonewright/v1 write routes) records one redacted row here. The log is append-only; admins can purge the entire log from this page. Unrelated WordPress REST traffic is not logged.', 'stonewright' ) . '</p>';
+		echo '</div>';
+		self::render_header_actions( $filters, $all_count );
+		echo '</header>';
+		self::render_purge_confirm_card( $all_count );
+		$purged = isset( $_GET['purged'] ) ? max( 0, (int) $_GET['purged'] ) : null; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( null !== $purged ) {
+			echo '<div class="sw-audit-flash" role="status">';
+			echo '<p>' . esc_html(
+				sprintf(
+					/* translators: %d: number of deleted audit events */
+					_n(
+						'Deleted %d audit event and all pattern summaries. One audit_log_purged receipt remains.',
+						'Deleted %d audit events and all pattern summaries. One audit_log_purged receipt remains.',
+						$purged,
+						'stonewright'
+					),
+					$purged
+				)
+			) . '</p></div>';
+		}
 		if ( get_option( 'stonewright_audit_degraded', false ) ) {
 			echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'Audit coverage degraded.', 'stonewright' ) . '</strong> ' . esc_html__( 'A mutation audit row failed to persist. Stop write work until database health is repaired and a later audit insert succeeds.', 'stonewright' ) . '</p></div>';
 		}
@@ -105,7 +194,6 @@ final class AuditLogPage {
 		self::render_recurring_errors();
 		self::render_views( $filters, $counts );
 		self::render_filters( $filters );
-		self::render_export_controls( $filters );
 		self::render_log_table( $rows, $page, $per_page, $filters, $total, $incident_states );
 
 		echo '</div>';
@@ -150,7 +238,15 @@ final class AuditLogPage {
 			if ( '' !== $code ) {
 				echo '<code class="sw-recurring-errors__code">' . esc_html( $code ) . '</code> ';
 			}
-			echo '<span class="sw-recurring-errors__msg">' . esc_html( $msg ) . '</span>';
+			$mode   = (string) ( $p['mode'] ?? '' );
+			$target = (string) ( $p['target'] ?? '' );
+			if ( '' !== $mode ) {
+				echo '<span class="sw-badge sw-badge--muted" title="' . esc_attr( __( 'Mode', 'stonewright' ) ) . '">' . esc_html( $mode ) . '</span> ';
+			}
+			if ( '' !== $target ) {
+				echo '<span class="sw-badge sw-badge--muted" title="' . esc_attr( __( 'Target', 'stonewright' ) ) . '">' . esc_html( $target ) . '</span> ';
+			}
+			echo '<span class="sw-recurring-errors__msg" title="' . esc_attr( $msg ) . '">' . esc_html( $msg ) . '</span>';
 			if ( '' !== $repair ) {
 				echo '<p class="sw-recurring-errors__repair"><strong>' . esc_html__( 'Repair', 'stonewright' ) . ':</strong> ' . esc_html( $repair ) . '</p>';
 			}
@@ -177,7 +273,13 @@ final class AuditLogPage {
 		echo '<p class="sw-section__sub">' . esc_html__( 'Incidents open only after their threshold; generic success never closes one without matching evidence.', 'stonewright' ) . '</p></div>';
 		echo '<div class="sw-actions">';
 		foreach ( [ 'open' => __( 'Open', 'stonewright' ), 'observing' => __( 'Observing', 'stonewright' ), 'resolved' => __( 'Resolved', 'stonewright' ), 'suppressed' => __( 'Suppressed', 'stonewright' ) ] as $state => $label ) {
-			echo '<span class="sw-badge ' . esc_attr( 'open' === $state ? 'sw-badge--error' : 'sw-badge--muted' ) . '">' . esc_html( $label . ': ' . (int) ( $counts[ $state ] ?? 0 ) ) . '</span>';
+			$badge = match ( $state ) {
+				'open'       => 'sw-badge--error',
+				'observing'  => 'sw-badge--observing',
+				'resolved'   => 'sw-badge--resolved',
+				default      => 'sw-badge--muted',
+			};
+			echo '<span class="sw-badge ' . esc_attr( $badge ) . '">' . esc_html( $label . ': ' . (int) ( $counts[ $state ] ?? 0 ) ) . '</span>';
 		}
 		echo '</div></section>';
 	}
@@ -267,7 +369,15 @@ final class AuditLogPage {
 	 * @param array<string, mixed> $filters
 	 */
 	private static function render_filters( array $filters ): void {
-		$action = admin_url( 'admin.php' );
+		$action     = admin_url( 'admin.php' );
+		$more_keys  = [ 'verification_status', 'rollback_status', 'operation_class', 'category', 'outcome', 'root_error_code', 'normalized_path', 'change_set_id', 'user' ];
+		$more_open  = false;
+		foreach ( $more_keys as $key ) {
+			if ( ! empty( $filters[ $key ] ) ) {
+				$more_open = true;
+				break;
+			}
+		}
 		?>
 		<form class="sw-audit-filters" method="get" action="<?php echo esc_url( $action ); ?>">
 			<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
@@ -280,101 +390,108 @@ final class AuditLogPage {
 			<?php if ( isset( $filters['signature'] ) ) : ?>
 				<input type="hidden" name="signature" value="<?php echo esc_attr( (string) $filters['signature'] ); ?>"/>
 			<?php endif; ?>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
-				<input
-					type="search"
-					name="ability"
-					value="<?php echo esc_attr( (string) ( $filters['ability'] ?? '' ) ); ?>"
-					placeholder="<?php esc_attr_e( 'Ability', 'stonewright' ); ?>"
-				/>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Verification', 'stonewright' ); ?></span>
-				<select name="verification_status">
-					<option value=""><?php esc_html_e( 'All verification', 'stonewright' ); ?></option>
-					<option value="verified" <?php selected( ( $filters['verification_status'] ?? '' ), 'verified' ); ?>><?php esc_html_e( 'Verified', 'stonewright' ); ?></option>
-					<option value="failed" <?php selected( ( $filters['verification_status'] ?? '' ), 'failed' ); ?>><?php esc_html_e( 'Failed', 'stonewright' ); ?></option>
-					<option value="blocked" <?php selected( ( $filters['verification_status'] ?? '' ), 'blocked' ); ?>><?php esc_html_e( 'Blocked', 'stonewright' ); ?></option>
-				</select>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Rollback', 'stonewright' ); ?></span>
-				<select name="rollback_status">
-					<option value=""><?php esc_html_e( 'All rollback states', 'stonewright' ); ?></option>
-					<option value="not_needed" <?php selected( ( $filters['rollback_status'] ?? '' ), 'not_needed' ); ?>><?php esc_html_e( 'Not needed', 'stonewright' ); ?></option>
-					<option value="succeeded" <?php selected( ( $filters['rollback_status'] ?? '' ), 'succeeded' ); ?>><?php esc_html_e( 'Succeeded', 'stonewright' ); ?></option>
-					<option value="failed" <?php selected( ( $filters['rollback_status'] ?? '' ), 'failed' ); ?>><?php esc_html_e( 'Failed', 'stonewright' ); ?></option>
-				</select>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Operation class', 'stonewright' ); ?></span>
-				<input type="search" name="operation_class" value="<?php echo esc_attr( (string) ( $filters['operation_class'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Operation class', 'stonewright' ); ?>"/>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Category', 'stonewright' ); ?></span>
-				<select name="category">
-					<option value=""><?php esc_html_e( 'All categories', 'stonewright' ); ?></option>
-					<?php foreach ( AuditEvent::CATEGORIES as $category ) : ?>
-						<option value="<?php echo esc_attr( $category ); ?>" <?php selected( ( $filters['category'] ?? '' ), $category ); ?>><?php echo esc_html( $category ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Outcome', 'stonewright' ); ?></span>
-				<select name="outcome">
-					<option value=""><?php esc_html_e( 'All outcomes', 'stonewright' ); ?></option>
-					<?php foreach ( AuditEvent::OUTCOMES as $outcome ) : ?>
-						<option value="<?php echo esc_attr( $outcome ); ?>" <?php selected( ( $filters['outcome'] ?? '' ), $outcome ); ?>><?php echo esc_html( $outcome ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Root error code', 'stonewright' ); ?></span>
-				<input type="search" name="root_error_code" value="<?php echo esc_attr( (string) ( $filters['root_error_code'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Root error code', 'stonewright' ); ?>"/>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Normalized path', 'stonewright' ); ?></span>
-				<input type="search" name="normalized_path" value="<?php echo esc_attr( (string) ( $filters['normalized_path'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Path, e.g. verify/readback', 'stonewright' ); ?>"/>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Change set ID', 'stonewright' ); ?></span>
-				<input type="search" name="change_set_id" value="<?php echo esc_attr( (string) ( $filters['change_set_id'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Change set ID', 'stonewright' ); ?>"/>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'Status', 'stonewright' ); ?></span>
-				<select name="status">
-					<option value=""><?php esc_html_e( 'All statuses', 'stonewright' ); ?></option>
-					<option value="ok" <?php selected( ( $filters['status'] ?? '' ), 'ok' ); ?>><?php esc_html_e( 'OK', 'stonewright' ); ?></option>
-					<option value="error" <?php selected( ( $filters['status'] ?? '' ), 'error' ); ?>><?php esc_html_e( 'Error', 'stonewright' ); ?></option>
-					<option value="blocked" <?php selected( ( $filters['status'] ?? '' ), 'blocked' ); ?>><?php esc_html_e( 'Blocked', 'stonewright' ); ?></option>
-					<option value="auth" <?php selected( ( $filters['status'] ?? '' ), 'auth' ); ?>><?php esc_html_e( 'Auth', 'stonewright' ); ?></option>
-				</select>
-			</label>
-			<label>
-				<span class="screen-reader-text"><?php esc_html_e( 'User ID', 'stonewright' ); ?></span>
-				<input
-					type="number"
-					name="user"
-					min="0"
-					value="<?php echo isset( $filters['user'] ) ? (int) $filters['user'] : ''; ?>"
-					placeholder="<?php esc_attr_e( 'User ID', 'stonewright' ); ?>"
-				/>
-			</label>
-			<label>
-				<span><?php esc_html_e( 'From', 'stonewright' ); ?></span>
-				<input type="date" name="from" value="<?php echo esc_attr( (string) ( $filters['from'] ?? '' ) ); ?>"/>
-			</label>
-			<label>
-				<span><?php esc_html_e( 'To', 'stonewright' ); ?></span>
-				<input type="date" name="to" value="<?php echo esc_attr( (string) ( $filters['to'] ?? '' ) ); ?>"/>
-			</label>
-			<div class="sw-actions">
-				<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm"><?php esc_html_e( 'Filter', 'stonewright' ); ?></button>
-				<a class="sw-btn sw-btn--ghost sw-btn--sm" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>">
-					<?php esc_html_e( 'Reset', 'stonewright' ); ?>
-				</a>
+			<div class="sw-audit-filters__primary">
+				<label>
+					<span class="screen-reader-text"><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
+					<input
+						type="search"
+						name="ability"
+						value="<?php echo esc_attr( (string) ( $filters['ability'] ?? '' ) ); ?>"
+						placeholder="<?php esc_attr_e( 'Ability', 'stonewright' ); ?>"
+					/>
+				</label>
+				<label>
+					<span class="screen-reader-text"><?php esc_html_e( 'Status', 'stonewright' ); ?></span>
+					<select name="status">
+						<option value=""><?php esc_html_e( 'All statuses', 'stonewright' ); ?></option>
+						<option value="ok" <?php selected( ( $filters['status'] ?? '' ), 'ok' ); ?>><?php esc_html_e( 'OK', 'stonewright' ); ?></option>
+						<option value="error" <?php selected( ( $filters['status'] ?? '' ), 'error' ); ?>><?php esc_html_e( 'Error', 'stonewright' ); ?></option>
+						<option value="blocked" <?php selected( ( $filters['status'] ?? '' ), 'blocked' ); ?>><?php esc_html_e( 'Blocked', 'stonewright' ); ?></option>
+						<option value="auth" <?php selected( ( $filters['status'] ?? '' ), 'auth' ); ?>><?php esc_html_e( 'Auth', 'stonewright' ); ?></option>
+					</select>
+				</label>
+				<label>
+					<span><?php esc_html_e( 'From', 'stonewright' ); ?></span>
+					<input type="date" name="from" value="<?php echo esc_attr( (string) ( $filters['from'] ?? '' ) ); ?>"/>
+				</label>
+				<label>
+					<span><?php esc_html_e( 'To', 'stonewright' ); ?></span>
+					<input type="date" name="to" value="<?php echo esc_attr( (string) ( $filters['to'] ?? '' ) ); ?>"/>
+				</label>
+				<div class="sw-actions">
+					<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm"><?php esc_html_e( 'Filter', 'stonewright' ); ?></button>
+					<a class="sw-btn sw-btn--ghost sw-btn--sm" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>">
+						<?php esc_html_e( 'Reset', 'stonewright' ); ?>
+					</a>
+				</div>
 			</div>
+			<details class="sw-audit-filters__more"<?php echo $more_open ? ' open' : ''; ?>>
+				<summary><?php esc_html_e( 'More filters', 'stonewright' ); ?></summary>
+				<div class="sw-audit-filters__more-grid">
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Verification', 'stonewright' ); ?></span>
+						<select name="verification_status">
+							<option value=""><?php esc_html_e( 'All verification', 'stonewright' ); ?></option>
+							<option value="verified" <?php selected( ( $filters['verification_status'] ?? '' ), 'verified' ); ?>><?php esc_html_e( 'Verified', 'stonewright' ); ?></option>
+							<option value="failed" <?php selected( ( $filters['verification_status'] ?? '' ), 'failed' ); ?>><?php esc_html_e( 'Failed', 'stonewright' ); ?></option>
+							<option value="blocked" <?php selected( ( $filters['verification_status'] ?? '' ), 'blocked' ); ?>><?php esc_html_e( 'Blocked', 'stonewright' ); ?></option>
+						</select>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Rollback', 'stonewright' ); ?></span>
+						<select name="rollback_status">
+							<option value=""><?php esc_html_e( 'All rollback states', 'stonewright' ); ?></option>
+							<option value="not_needed" <?php selected( ( $filters['rollback_status'] ?? '' ), 'not_needed' ); ?>><?php esc_html_e( 'Not needed', 'stonewright' ); ?></option>
+							<option value="succeeded" <?php selected( ( $filters['rollback_status'] ?? '' ), 'succeeded' ); ?>><?php esc_html_e( 'Succeeded', 'stonewright' ); ?></option>
+							<option value="failed" <?php selected( ( $filters['rollback_status'] ?? '' ), 'failed' ); ?>><?php esc_html_e( 'Failed', 'stonewright' ); ?></option>
+						</select>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Operation class', 'stonewright' ); ?></span>
+						<input type="search" name="operation_class" value="<?php echo esc_attr( (string) ( $filters['operation_class'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Operation class', 'stonewright' ); ?>"/>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Category', 'stonewright' ); ?></span>
+						<select name="category">
+							<option value=""><?php esc_html_e( 'All categories', 'stonewright' ); ?></option>
+							<?php foreach ( AuditEvent::CATEGORIES as $category ) : ?>
+								<option value="<?php echo esc_attr( $category ); ?>" <?php selected( ( $filters['category'] ?? '' ), $category ); ?>><?php echo esc_html( $category ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Outcome', 'stonewright' ); ?></span>
+						<select name="outcome">
+							<option value=""><?php esc_html_e( 'All outcomes', 'stonewright' ); ?></option>
+							<?php foreach ( AuditEvent::OUTCOMES as $outcome ) : ?>
+								<option value="<?php echo esc_attr( $outcome ); ?>" <?php selected( ( $filters['outcome'] ?? '' ), $outcome ); ?>><?php echo esc_html( $outcome ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Root error code', 'stonewright' ); ?></span>
+						<input type="search" name="root_error_code" value="<?php echo esc_attr( (string) ( $filters['root_error_code'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Root error code', 'stonewright' ); ?>"/>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Normalized path', 'stonewright' ); ?></span>
+						<input type="search" name="normalized_path" value="<?php echo esc_attr( (string) ( $filters['normalized_path'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Path, e.g. verify/readback', 'stonewright' ); ?>"/>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'Change set ID', 'stonewright' ); ?></span>
+						<input type="search" name="change_set_id" value="<?php echo esc_attr( (string) ( $filters['change_set_id'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Change set ID', 'stonewright' ); ?>"/>
+					</label>
+					<label>
+						<span class="screen-reader-text"><?php esc_html_e( 'User ID', 'stonewright' ); ?></span>
+						<input
+							type="number"
+							name="user"
+							min="0"
+							value="<?php echo isset( $filters['user'] ) ? (int) $filters['user'] : ''; ?>"
+							placeholder="<?php esc_attr_e( 'User ID', 'stonewright' ); ?>"
+						/>
+					</label>
+				</div>
+			</details>
 		</form>
 		<?php
 	}
@@ -389,12 +506,16 @@ final class AuditLogPage {
 	private static function render_log_table( array $rows, int $page, int $per_page, array $filters = [], ?int $total = null, array $incident_states = [] ): void {
 		if ( empty( $rows ) ) {
 			echo '<div class="sw-empty-state stonewright-empty-state">';
+			echo '<span class="sw-empty-state__icon" aria-hidden="true">⬡</span>';
 			if ( self::is_pruned_pattern_view( $filters ) ) {
 				echo '<p>' . esc_html__( 'Events for this pattern were pruned by retention — the pattern summary above is the surviving record', 'stonewright' ) . '</p>';
+				echo '<p class="sw-empty-state__hint">' . esc_html__( 'Export the pattern summary if you still need it, then reset filters to return to the live log.', 'stonewright' ) . '</p>';
 			} elseif ( [] === $filters && [] === $incident_states ) {
 				echo '<p>' . esc_html__( 'No audit entries have been recorded.', 'stonewright' ) . '</p>';
+				echo '<p class="sw-empty-state__hint">' . esc_html__( 'Run a Stonewright mutation or wait for an agent session — new events appear here.', 'stonewright' ) . '</p>';
 			} else {
 				echo '<p>' . esc_html__( 'No audit entries match this view and filter set.', 'stonewright' ) . '</p>';
+				echo '<p class="sw-empty-state__hint">' . esc_html__( 'Reset filters or wait for a matching event. Lifecycle incidents stay until they are repaired.', 'stonewright' ) . '</p>';
 				if ( [] !== $incident_states ) {
 					echo '<p>' . esc_html__( 'Lifecycle incidents still exist; changing an audit filter does not remove or resolve them.', 'stonewright' ) . '</p>';
 				}
@@ -436,6 +557,7 @@ final class AuditLogPage {
 			}
 		}
 		$oauth_client_names = ( new ClientRepository() )->names_by_ids( $oauth_client_ids );
+		$repair_index       = self::repair_index();
 
 		foreach ( $rows as $row ) {
 			$user      = get_user_by( 'id', (int) $row['user_id'] );
@@ -459,7 +581,8 @@ final class AuditLogPage {
 				default   => 'sw-badge--error',
 			};
 			$details_raw = (string) ( $row['redacted_details'] ?? '' );
-			$details     = self::expanded_row_details( $row, $details_raw );
+			$details     = self::expanded_row_details( $row, $details_raw, $repair_index );
+			$pairs       = self::detail_pairs( $row, $details_raw, $repair_index );
 			$root_error = (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' );
 			$retry_after = max( 0, (int) ( $row['retry_after_seconds'] ?? 0 ) );
 			$incident_id = strtolower( (string) ( $row['incident_id'] ?? '' ) );
@@ -467,7 +590,7 @@ final class AuditLogPage {
 
 			echo '<tr class="sw-audit-row">';
 			echo '<td data-label="' . esc_attr( __( 'ID', 'stonewright' ) ) . '">' . (int) $row['id'] . '</td>';
-			echo '<td data-label="' . esc_attr( __( 'Ability / route', 'stonewright' ) ) . '"><code title="' . esc_attr( (string) $row['ability_name'] ) . '">' . esc_html( (string) $row['ability_name'] ) . '</code></td>';
+			echo '<td data-label="' . esc_attr( __( 'Ability / route', 'stonewright' ) ) . '"><code class="sw-audit-ability" title="' . esc_attr( (string) $row['ability_name'] ) . '">' . esc_html( (string) $row['ability_name'] ) . '</code></td>';
 			echo '<td data-label="' . esc_attr( __( 'User', 'stonewright' ) ) . '">' . wp_kses_post( $user_html ) . '</td>';
 			echo '<td data-label="' . esc_attr( __( 'Status', 'stonewright' ) ) . '"><span class="sw-badge ' . esc_attr( $badge ) . '">' . esc_html( strtoupper( $status ) ) . '</span></td>';
 			echo '<td data-label="' . esc_attr( __( 'Effect', 'stonewright' ) ) . '">';
@@ -512,14 +635,24 @@ final class AuditLogPage {
 				$incident_url = add_query_arg( [ 'page' => MemoryInstructionsPage::SLUG, 'type' => 'incidents', 'incident_id' => $incident_id ], admin_url( 'admin.php' ) ) . '#stonewright-incident-' . $incident_id;
 				echo '<div><strong>' . esc_html__( 'Incident:', 'stonewright' ) . '</strong> <a href="' . esc_url( $incident_url ) . '"><code>' . esc_html( substr( $incident_id, 0, 12 ) ) . '…</code> ' . esc_html( '' !== $incident_state ? $incident_state : __( 'recorded', 'stonewright' ) ) . '</a></div>';
 			}
+			if ( [] !== $pairs ) {
+				echo '<dl class="sw-audit-kv">';
+				foreach ( $pairs as $pair ) {
+					echo '<div class="sw-audit-kv__row">';
+					echo '<dt>' . esc_html( $pair['label'] ) . '</dt>';
+					echo '<dd>' . esc_html( $pair['value'] ) . '</dd>';
+					echo '</div>';
+				}
+				echo '</dl>';
+			}
 			if ( '' !== $details ) {
 				$payload_id = 'sw-audit-details-' . (int) $row['id'];
 				echo '<details class="sw-audit-details">';
-				echo '<summary>' . esc_html__( 'View redacted details', 'stonewright' ) . '</summary>';
+				echo '<summary>' . esc_html__( 'View JSON', 'stonewright' ) . '</summary>';
 				echo '<pre id="' . esc_attr( $payload_id ) . '" class="sw-audit-payload">' . esc_html( $details ) . '</pre>';
 				echo '</details>';
 				echo '<button type="button" class="sw-btn sw-btn--ghost sw-btn--sm sw-audit-copy" data-stonewright-copy="' . esc_attr( $payload_id ) . '">' . esc_html__( 'Copy redacted details', 'stonewright' ) . '</button>';
-			} elseif ( '' === $root_error && '' === $category && '' === $outcome && '' === $incident_id && 0 === $retry_after ) {
+			} elseif ( [] === $pairs && '' === $root_error && '' === $category && '' === $outcome && '' === $incident_id && 0 === $retry_after ) {
 				echo '<span class="sw-muted">' . esc_html__( '—', 'stonewright' ) . '</span>';
 			}
 			echo '</td>';
@@ -614,8 +747,17 @@ final class AuditLogPage {
 		];
 
 		echo '<ul class="subsubsub sw-audit-views">';
-		$last = array_key_last( $labels );
+		$hide_empty = isset( $filters['signature'] ) || isset( $filters['error_code'] );
+		$visible    = [];
 		foreach ( $labels as $view => $label ) {
+			$count = (int) ( $counts[ $view ] ?? 0 );
+			if ( $hide_empty && 0 === $count && $view !== $current && 'all' !== $view ) {
+				continue;
+			}
+			$visible[ $view ] = $label;
+		}
+		$last = array_key_last( $visible );
+		foreach ( $visible as $view => $label ) {
 			$query = array_merge( [ 'page' => self::SLUG ], $base );
 			if ( 'all' !== $view ) {
 				$query['view'] = $view;
@@ -628,6 +770,41 @@ final class AuditLogPage {
 			echo '</li>';
 		}
 		echo '</ul>';
+	}
+
+	/** @param array<string, mixed> $filters */
+	private static function render_header_actions( array $filters, int $all_count ): void {
+		unset( $all_count );
+		echo '<div class="sw-audit-header-actions">';
+		self::render_export_controls( $filters );
+		echo '<button type="button" class="sw-btn sw-btn--danger sw-btn--sm" data-sw-audit-purge-open>';
+		echo esc_html__( 'Delete all logs', 'stonewright' );
+		echo '</button>';
+		echo '</div>';
+	}
+
+	private static function render_purge_confirm_card( int $all_count ): void {
+		echo '<div class="sw-audit-purge-card" data-sw-audit-purge-card hidden>';
+		echo '<p>' . esc_html(
+			sprintf(
+				/* translators: %d: number of audit events that will be deleted */
+				__( 'This permanently deletes %d audit events and pattern summaries. Type DELETE to confirm.', 'stonewright' ),
+				$all_count
+			)
+		) . '</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sw-audit-purge-form">';
+		echo '<input type="hidden" name="action" value="stonewright_audit_purge" />';
+		wp_nonce_field( 'stonewright_audit_purge', '_stonewright_nonce' );
+		echo '<label class="sw-audit-purge-form__field">';
+		echo '<span class="screen-reader-text">' . esc_html__( 'Type DELETE', 'stonewright' ) . '</span>';
+		echo '<input type="text" name="confirm_phrase" value="" autocomplete="off" spellcheck="false" data-sw-audit-purge-input placeholder="' . esc_attr( __( 'DELETE', 'stonewright' ) ) . '" />';
+		echo '</label>';
+		echo '<div class="sw-actions">';
+		echo '<button type="button" class="sw-btn sw-btn--ghost sw-btn--sm" data-sw-audit-purge-cancel>' . esc_html__( 'Cancel', 'stonewright' ) . '</button>';
+		echo '<button type="submit" class="sw-btn sw-btn--danger sw-btn--sm" data-sw-audit-purge-submit disabled>' . esc_html__( 'Delete all logs', 'stonewright' ) . '</button>';
+		echo '</div>';
+		echo '</form>';
+		echo '</div>';
 	}
 
 	/** @param array<string, mixed> $filters */
@@ -683,9 +860,10 @@ final class AuditLogPage {
 	 * Error rows always include error_code, error_message, target, mode, and
 	 * remediation when those values can be derived — never verification_status alone.
 	 *
-	 * @param array<string, mixed> $row
+	 * @param array<string, mixed>  $row
+	 * @param array<string, string> $repair_index
 	 */
-	private static function expanded_row_details( array $row, string $details_raw ): string {
+	private static function expanded_row_details( array $row, string $details_raw, array $repair_index = [] ): string {
 		$decoded = json_decode( $details_raw, true );
 		$details = is_array( $decoded ) ? AuditLog::redact_sensitive( $decoded ) : [];
 		$status  = strtolower( (string) ( $row['result_status'] ?? '' ) );
@@ -695,13 +873,19 @@ final class AuditLogPage {
 			$target        = self::first_detail_text( [ $details['target'] ?? null, $details['target_id'] ?? null, $row['resource_ref'] ?? null ], 64 );
 			$mode          = self::first_detail_text( [ $row['mode'] ?? null, $details['mode'] ?? null ], 32 );
 			$hint_code     = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $error_code ], 190 );
+			$ability       = (string) ( $row['ability_name'] ?? '' );
 			$remediation   = '';
 			if ( '' !== $hint_code ) {
-				$hint    = RemediationHints::for_code( $hint_code, (string) ( $row['ability_name'] ?? '' ) );
+				$hint    = RemediationHints::for_code( $hint_code, $ability );
 				$generic = RemediationHints::for_code( '', '' );
 				if ( $hint !== $generic ) {
 					$remediation = $hint;
 				}
+			}
+			$pattern_key = strtolower( $ability . '|' . $error_code );
+			$repair      = $remediation;
+			if ( isset( $repair_index[ $pattern_key ] ) && '' !== $repair_index[ $pattern_key ] ) {
+				$repair = $repair_index[ $pattern_key ];
 			}
 			$expanded = [];
 			if ( '' !== $error_code ) {
@@ -719,6 +903,9 @@ final class AuditLogPage {
 			if ( '' !== $remediation ) {
 				$expanded['remediation'] = $remediation;
 			}
+			if ( '' !== $repair ) {
+				$expanded['repair'] = $repair;
+			}
 			foreach ( $details as $key => $value ) {
 				if ( isset( $expanded[ $key ] ) || in_array( (string) $key, [ 'target_id', 'remediation_code' ], true ) ) {
 					continue;
@@ -735,6 +922,66 @@ final class AuditLogPage {
 			return '{"redaction_error":"sensitive_content_blocked"}';
 		}
 		return $pretty;
+	}
+
+	/**
+	 * @param array<string, mixed>  $row
+	 * @param array<string, string> $repair_index
+	 * @return list<array{label:string,value:string}>
+	 */
+	private static function detail_pairs( array $row, string $details_raw, array $repair_index ): array {
+		$decoded = json_decode( $details_raw, true );
+		$details = is_array( $decoded ) ? AuditLog::redact_sensitive( $decoded ) : [];
+		$code    = self::first_detail_text( [ $details['error_code'] ?? null, $row['error_code'] ?? null, $row['root_error_code'] ?? null ], 190 );
+		$message = self::first_detail_text( [ $details['error_message'] ?? null ], 500 );
+		$mode    = self::first_detail_text( [ $row['mode'] ?? null, $details['mode'] ?? null ], 32 );
+		$target  = self::first_detail_text( [ $details['target'] ?? null, $details['target_id'] ?? null, $row['resource_ref'] ?? null ], 64 );
+		$ability = (string) ( $row['ability_name'] ?? '' );
+		$repair  = '';
+		$hint    = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $code ], 190 );
+		if ( '' !== $hint ) {
+			$text    = RemediationHints::for_code( $hint, $ability );
+			$generic = RemediationHints::for_code( '', '' );
+			if ( $text !== $generic ) {
+				$repair = $text;
+			}
+		}
+		$pattern_key = strtolower( $ability . '|' . $code );
+		if ( isset( $repair_index[ $pattern_key ] ) && '' !== $repair_index[ $pattern_key ] ) {
+			$repair = $repair_index[ $pattern_key ];
+		}
+		$pairs = [];
+		if ( '' !== $code ) {
+			$pairs[] = [ 'label' => __( 'Code', 'stonewright' ), 'value' => $code ];
+		}
+		if ( '' !== $message ) {
+			$pairs[] = [ 'label' => __( 'Message', 'stonewright' ), 'value' => $message ];
+		}
+		if ( '' !== $mode ) {
+			$pairs[] = [ 'label' => __( 'Mode', 'stonewright' ), 'value' => $mode ];
+		}
+		if ( '' !== $target ) {
+			$pairs[] = [ 'label' => __( 'Target', 'stonewright' ), 'value' => $target ];
+		}
+		if ( '' !== $repair ) {
+			$pairs[] = [ 'label' => __( 'Repair', 'stonewright' ), 'value' => $repair ];
+		}
+		return $pairs;
+	}
+
+	/** @return array<string, string> */
+	private static function repair_index(): array {
+		$index = [];
+		foreach ( ErrorPatterns::recurring( 50 ) as $pattern ) {
+			$ability = (string) ( $pattern['ability'] ?? '' );
+			$code    = (string) ( $pattern['error_code'] ?? '' );
+			$repair  = (string) ( $pattern['repair'] ?? '' );
+			if ( '' === $ability || '' === $code || '' === $repair ) {
+				continue;
+			}
+			$index[ strtolower( $ability . '|' . $code ) ] = $repair;
+		}
+		return $index;
 	}
 
 	/**

@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**381** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**387** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -17,7 +17,7 @@ matrix after changing the registry.
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
 | Gutenberg | 13 | Parse, render, serialize, insert, update, remove, query-loop, apply, and transact dynamic blocks. |
-| Finalizer abilities | 5 | Queue, runtime, pending batch, finalize, and finalizer URL for static or third-party blocks. |
+| Finalizer abilities | 6 | Queue, runtime, pending batch, finalize, cancel, and finalizer URL for static or third-party blocks. |
 | Patterns | 5 | List, create, update, delete, and categorize synced patterns. |
 | Full Site Editing | 12 | theme.json, templates, template parts, global styles, navigation, and child-theme handoff. |
 | Elementor V3 | 34 | Structure editing, transactions, document health, performance audit, legacy-debt report, post-write frontend verification, specs, kit globals, preflight, and batch mutation. |

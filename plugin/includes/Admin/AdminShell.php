@@ -92,6 +92,43 @@ final class AdminShell {
 	}
 
 	/**
+	 * @return list<string>
+	 */
+	public static function experimental_slugs(): array {
+		return self::EXPERIMENTAL_SLUGS;
+	}
+
+	/**
+	 * Hover copy for the compact EXP marker.
+	 */
+	public static function experimental_hint(): string {
+		return __( 'This feature is experimental.', 'stonewright' );
+	}
+
+	/**
+	 * Compact EXP superscript. Pass $tooltip for sidebar markers that cannot
+	 * put attributes on the parent <a>.
+	 */
+	public static function experimental_marker( string $class, bool $tooltip = true ): string {
+		$attrs = 'class="' . esc_attr( $class ) . '"';
+		if ( $tooltip ) {
+			$hint   = self::experimental_hint();
+			$attrs .= ' data-tip="' . esc_attr( $hint ) . '" aria-label="' . esc_attr( $hint ) . '"';
+		}
+
+		return '<span ' . $attrs . '>EXP</span>';
+	}
+
+	/**
+	 * WordPress sidebar menu_title with a compact EXP marker.
+	 *
+	 * Page title stays the plain label. HTML is allowed in menu_title.
+	 */
+	public static function experimental_menu_title( string $label ): string {
+		return '<span class="sw-menu-label">' . esc_html( $label ) . '</span> ' . self::experimental_marker( 'sw-menu-exp' );
+	}
+
+	/**
 	 * Open the shared shell (header + nav + content wrapper).
 	 *
 	 * @param array<string, mixed> $args Optional. Supports `title` string for page H1 in content.
@@ -151,7 +188,15 @@ final class AdminShell {
 									class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
 									href="<?php echo esc_url( $url ); ?>"
 									<?php echo $current ? ' aria-current="page"' : ''; ?>
-								><?php echo esc_html( $label ) . ( $experimental ? ' <span class="sw-shell__exp">' . esc_html__( 'Experimental', 'stonewright' ) . '</span>' : '' ); ?></a>
+									<?php echo $experimental ? ' data-sw-tooltip="' . esc_attr( self::experimental_hint() ) . '"' : ''; ?>
+								>
+									<?php echo esc_html( $label ); ?>
+									<?php
+									if ( $experimental ) {
+										echo ' ' . wp_kses_post( self::experimental_marker( 'sw-shell__exp', false ) );
+									}
+									?>
+								</a>
 							<?php endforeach; ?>
 						</div>
 					<?php endforeach; ?>

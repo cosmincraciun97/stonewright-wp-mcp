@@ -23,16 +23,18 @@ final class ProtectedWpdbWriteGuard {
 	public static function install( bool $read_only ): object {
 		global $wpdb;
 		$original = $wpdb;
-		$wpdb     = new ProtectedWpdbProxy( $original, $read_only );
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- php-execute wraps the live handle for the snippet duration.
+		$wpdb = new ProtectedWpdbProxy( $original, $read_only );
 		return $original;
 	}
 
 	public static function uninstall( object $original ): void {
-		$GLOBALS['wpdb'] = $original;
+		$GLOBALS['wpdb'] = $original; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restore the original handle after php-execute.
 	}
 
 	/**
 	 * @param array<int, mixed> $arguments
+	 * @throws GuardedRuntimeWriteException When the call writes protected meta, a core table, or a read-only snippet mutates.
 	 */
 	public static function assert_allowed( string $method, array $arguments, bool $read_only ): void {
 		$method = strtolower( $method );
@@ -40,46 +42,54 @@ final class ProtectedWpdbWriteGuard {
 			return;
 		}
 
+		$blocked = null;
 		if ( 'query' === $method ) {
 			$sql = isset( $arguments[0] ) && is_string( $arguments[0] ) ? $arguments[0] : '';
-			if ( ! self::query_is_write( $sql ) ) {
-				return;
+			if ( self::query_is_write( $sql ) ) {
+				$blocked = self::sql_write_exception( $sql, $read_only );
 			}
-			self::assert_sql_allowed( $sql, $read_only );
-			return;
+		} else {
+			$table   = isset( $arguments[0] ) && is_string( $arguments[0] ) ? $arguments[0] : '';
+			$data    = isset( $arguments[1] ) && is_array( $arguments[1] ) ? $arguments[1] : [];
+			$where   = isset( $arguments[2] ) && is_array( $arguments[2] ) ? $arguments[2] : [];
+			$blocked = self::row_write_exception( $table, $data, $where, $read_only, $method );
 		}
 
-		$table = isset( $arguments[0] ) && is_string( $arguments[0] ) ? $arguments[0] : '';
-		$data  = isset( $arguments[1] ) && is_array( $arguments[1] ) ? $arguments[1] : [];
-		$where = isset( $arguments[2] ) && is_array( $arguments[2] ) ? $arguments[2] : [];
-
-		if ( self::contains_protected_meta( $data, $where ) ) {
-			throw ProtectedElementorWriteGuard::blocked_exception();
-		}
-
-		if ( $read_only ) {
-			throw self::read_only_exception();
-		}
-
-		if ( self::is_core_table( $table ) ) {
-			throw self::core_table_exception( $table, $method );
+		if ( $blocked instanceof GuardedRuntimeWriteException ) {
+			throw $blocked;
 		}
 	}
 
-	private static function assert_sql_allowed( string $sql, bool $read_only ): void {
-		if ( self::sql_mentions_protected_meta( $sql ) ) {
-			throw ProtectedElementorWriteGuard::blocked_exception();
+	/**
+	 * @param array<string, mixed> $data
+	 * @param array<string, mixed> $where
+	 */
+	private static function row_write_exception( string $table, array $data, array $where, bool $read_only, string $method ): ?GuardedRuntimeWriteException {
+		if ( self::contains_protected_meta( $data, $where ) ) {
+			return ProtectedElementorWriteGuard::blocked_exception();
 		}
-
 		if ( $read_only ) {
-			throw self::read_only_exception();
+			return self::read_only_exception();
 		}
+		if ( self::is_core_table( $table ) ) {
+			return self::core_table_exception( $table, $method );
+		}
+		return null;
+	}
 
+	private static function sql_write_exception( string $sql, bool $read_only ): ?GuardedRuntimeWriteException {
+		if ( self::sql_mentions_protected_meta( $sql ) ) {
+			return ProtectedElementorWriteGuard::blocked_exception();
+		}
+		if ( $read_only ) {
+			return self::read_only_exception();
+		}
 		foreach ( self::query_tables( $sql ) as $table ) {
 			if ( self::is_core_table( $table ) ) {
-				throw self::core_table_exception( $table, 'query' );
+				return self::core_table_exception( $table, 'query' );
 			}
 		}
+		return null;
 	}
 
 	public static function is_core_table( string $table ): bool {

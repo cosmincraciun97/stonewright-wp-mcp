@@ -160,18 +160,18 @@ final class QueryLoopBuild extends AbilityKernel {
 					}
 					$inner[] = [
 						'name'        => $candidate,
-						'attrs'       => [],
+						'attributes'  => self::empty_attributes(),
 						'innerBlocks' => [],
 					];
 				}
 
 				$spec = [
 					'name'        => 'core/query',
-					'attrs'       => [ 'query' => $query ],
+					'attributes'  => [ 'query' => $query ],
 					'innerBlocks' => [
 						[
 							'name'        => 'core/post-template',
-							'attrs'       => [],
+							'attributes'  => self::empty_attributes(),
 							'innerBlocks' => $inner,
 						],
 					],
@@ -183,6 +183,14 @@ final class QueryLoopBuild extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * Empty attribute maps must JSON-encode as `{}`, not `[]`.
+	 * PHP `[]` becomes a JSON array and is not insert-schema-valid.
+	 */
+	private static function empty_attributes(): \stdClass {
+		return new \stdClass();
 	}
 
 	private function block_is_registered( string $name ): bool {

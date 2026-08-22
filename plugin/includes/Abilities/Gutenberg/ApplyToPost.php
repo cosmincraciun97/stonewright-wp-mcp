@@ -123,6 +123,11 @@ final class ApplyToPost extends AbilityKernel {
 				foreach ( $block_dicts as $block ) {
 					$markup .= serialize_block( $block );
 				}
+				$sanitized = \Stonewright\WpMcp\Support\BlockMarkup::sanitize( $markup );
+				if ( is_wp_error( $sanitized ) ) {
+					return $sanitized;
+				}
+				$markup = $sanitized;
 
 				// ── Write ────────────────────────────────────────────────────────
 				$result = wp_update_post(

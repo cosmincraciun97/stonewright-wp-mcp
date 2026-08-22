@@ -155,6 +155,29 @@ final class QualityCheckAbilityTest extends TestCase {
 		self::assertSame( count( $result['findings'] ), $result['findings_total'] );
 	}
 
+	public function test_motion_and_ui_evidence_participate_in_the_real_verdict(): void {
+		$result = $this->ability()->execute(
+			[
+				'evidence'        => $this->evidence( 'pass' ),
+				'motion_evidence' => [
+					'js_disabled_invisible_targets' => [ 'hero-copy' ],
+					'reduced_motion_respected' => false,
+				],
+				'ui_evidence' => [
+					'touch_target.min_px' => 20,
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'fail', $result['status'] );
+		self::assertContains( 'motion.content_invisible_without_js', array_column( $result['findings'], 'rule_id' ) );
+		self::assertContains( 'ui.touch_target_below_wcag_minimum', array_column( $result['findings'], 'rule_id' ) );
+		self::assertSame( 'fail', $result['motion_report']['verdict'] );
+		self::assertArrayHasKey( 'motion', $result['coverage'] );
+		self::assertArrayHasKey( 'ui', $result['coverage'] );
+	}
+
 	public function test_evaluation_names_the_direction_it_measured_against(): void {
 		$result = $this->ability()->execute( [ 'evidence' => $this->evidence( 'warning' ) ] );
 

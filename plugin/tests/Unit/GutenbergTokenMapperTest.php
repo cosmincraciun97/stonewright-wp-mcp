@@ -43,6 +43,26 @@ final class GutenbergTokenMapperTest extends TestCase {
 	// TokenMapper::apply — unit tests
 	// -------------------------------------------------------------------------
 
+	public function test_apply_color_hex_uses_theme_preset_slug_when_palette_matches(): void {
+		$GLOBALS['stonewright_test_global_settings'] = [
+			'color' => [
+				'palette' => [
+					[ 'slug' => 'primary', 'color' => '#0073aa', 'name' => 'Primary' ],
+				],
+			],
+		];
+		$resolver = new Resolver( [ 'colors' => [ 'primary' => '#0073aa' ] ] );
+		$node     = [
+			'tokens' => [
+				[ 'property' => 'color', 'token' => 'colors.primary' ],
+			],
+		];
+		$attrs = TokenMapper::apply( $node, [], $resolver, 'text' );
+		$this->assertSame( 'primary', $attrs['textColor'] );
+		$this->assertSame( 'var:preset|color|primary', $attrs['style']['color']['text'] );
+		unset( $GLOBALS['stonewright_test_global_settings'] );
+	}
+
 	public function test_apply_color_hex_text_context(): void {
 		$resolver = new Resolver( [ 'colors' => [ 'primary' => '#0073aa' ] ] );
 		$node     = [

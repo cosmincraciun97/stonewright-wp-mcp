@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
@@ -158,6 +159,10 @@ final class UpdateElement extends AbilityKernel {
 				$settings = isset( $existing['settings'] ) && is_array( $existing['settings'] ) ? $existing['settings'] : [];
 				$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 				$incoming = (array) $args['settings'];
+				$css_gate = ElementorCustomCssGate::assert_incoming( $incoming, $args, (string) ( $existing['widgetType'] ?? $existing['elType'] ?? '' ) );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				$supplied = SettingsKeyAliases::normalize( $incoming )['settings'];
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
 				$element_type = (string) ( $existing['elType'] ?? '' );

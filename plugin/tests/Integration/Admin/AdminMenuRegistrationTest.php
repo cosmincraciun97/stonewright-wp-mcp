@@ -11,6 +11,8 @@ use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
+use Stonewright\WpMcp\Admin\Pages\ContextPage;
+use Stonewright\WpMcp\Admin\Pages\DesignPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
@@ -194,6 +196,29 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertSame( 'Code approval', $submenus[ CustomCodeApprovalPage::SLUG ]['menu_title'] );
 	}
 
+	public function test_experimental_sidebar_titles_use_inline_marker(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		TroubleshootPage::register();
+		ContextPage::register();
+		DesignPage::register();
+		FinalizerPage::register();
+		do_action( 'admin_menu' );
+
+		$submenus = $GLOBALS['stonewright_test_submenu_pages'];
+		$marked   = [
+			TroubleshootPage::SLUG => 'Troubleshoot',
+			ContextPage::SLUG      => 'Context',
+			DesignPage::SLUG       => 'Design',
+			FinalizerPage::SLUG    => 'Block Editor Queue',
+		];
+		foreach ( $marked as $slug => $label ) {
+			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
+			$this->assertSame( $label, $submenus[ $slug ]['page_title'] );
+			$this->assertSame( AdminShell::experimental_menu_title( $label ), $submenus[ $slug ]['menu_title'] );
+			$this->assertStringContainsString( 'class="sw-menu-exp"', $submenus[ $slug ]['menu_title'] );
+		}
+	}
+
 	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
 		FinalizerPage::register();
@@ -204,7 +229,7 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertIsArray( $registered );
 		$this->assertSame( 'stonewright', $registered['parent'] );
 		$this->assertSame( 'Block Editor Queue', $registered['page_title'] );
-		$this->assertSame( 'Block Editor Queue', $registered['menu_title'] );
+		$this->assertSame( AdminShell::experimental_menu_title( 'Block Editor Queue' ), $registered['menu_title'] );
 		$this->assertSame( 'edit_posts', $registered['capability'] );
 
 		$workflows = [];

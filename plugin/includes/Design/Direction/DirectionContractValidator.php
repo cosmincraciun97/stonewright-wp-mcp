@@ -63,9 +63,11 @@ final class DirectionContractValidator {
 	public static function validate( array $input ) {
 		$unknown = array_diff( array_keys( $input ), DirectionContract::TOP_LEVEL_KEYS );
 		if ( [] !== $unknown ) {
-			return self::error(
-				'Unknown contract field(s): ' . implode( ', ', $unknown ) . '.',
-				[ 'fields' => array_values( $unknown ) ]
+			return self::unknown_fields_error(
+				'Unknown contract field(s): ',
+				$unknown,
+				DirectionContract::TOP_LEVEL_KEYS,
+				true
 			);
 		}
 
@@ -151,7 +153,7 @@ final class DirectionContractValidator {
 
 		$unknown = array_diff( array_keys( $identity ), [ 'name', 'summary' ] );
 		if ( [] !== $unknown ) {
-			return self::error( 'Unknown identity field(s): ' . implode( ', ', $unknown ) . '.' );
+			return self::unknown_fields_error( 'Unknown identity field(s): ', $unknown, [ 'name', 'summary' ] );
 		}
 
 		$name = self::validate_string( $identity['name'] ?? null, 'identity.name' );
@@ -185,7 +187,7 @@ final class DirectionContractValidator {
 
 		$unknown = array_diff( array_keys( $tokens ), DirectionContract::TOKEN_GROUPS );
 		if ( [] !== $unknown ) {
-			return self::error( 'Unknown token group(s): ' . implode( ', ', $unknown ) . '.' );
+			return self::unknown_fields_error( 'Unknown token group(s): ', $unknown, DirectionContract::TOKEN_GROUPS );
 		}
 
 		$validated = DirectionContract::defaults()['tokens'];
@@ -303,7 +305,7 @@ final class DirectionContractValidator {
 
 		$unknown = array_diff( array_keys( $dials ), DirectionContract::DIALS );
 		if ( [] !== $unknown ) {
-			return self::error( 'Unknown dial(s): ' . implode( ', ', $unknown ) . '.' );
+			return self::unknown_fields_error( 'Unknown dial(s): ', $unknown, DirectionContract::DIALS );
 		}
 
 		$validated = [];
@@ -346,7 +348,7 @@ final class DirectionContractValidator {
 
 		$unknown = array_diff( array_keys( $guidance ), [ 'do', 'avoid' ] );
 		if ( [] !== $unknown ) {
-			return self::error( 'Unknown guidance field(s): ' . implode( ', ', $unknown ) . '.' );
+			return self::unknown_fields_error( 'Unknown guidance field(s): ', $unknown, [ 'do', 'avoid' ] );
 		}
 
 		$validated = [
@@ -385,7 +387,11 @@ final class DirectionContractValidator {
 
 			$unknown = array_diff( array_keys( $value ), [ 'source', 'reference' ] );
 			if ( [] !== $unknown ) {
-				return self::error( 'Unknown provenance field(s) on ' . $key . ': ' . implode( ', ', $unknown ) . '.' );
+				return self::unknown_fields_error(
+					'Unknown provenance field(s) on ' . $key . ': ',
+					$unknown,
+					[ 'source', 'reference' ]
+				);
 			}
 
 			$source = self::validate_string( $value['source'] ?? null, 'provenance.' . $key . '.source' );
@@ -431,7 +437,7 @@ final class DirectionContractValidator {
 
 			$unknown = array_diff( array_keys( $waiver ), [ 'rule_id', 'reason' ] );
 			if ( [] !== $unknown ) {
-				return self::error( 'Unknown waiver field(s): ' . implode( ', ', $unknown ) . '.' );
+				return self::unknown_fields_error( 'Unknown waiver field(s): ', $unknown, [ 'rule_id', 'reason' ] );
 			}
 
 			$rule_id = self::validate_string( $waiver['rule_id'] ?? null, 'waivers.' . $index . '.rule_id' );
@@ -468,7 +474,7 @@ final class DirectionContractValidator {
 
 		$unknown = array_diff( array_keys( $readiness ), [ 'ready', 'sync_ready', 'issues' ] );
 		if ( [] !== $unknown ) {
-			return self::error( 'Unknown readiness field(s): ' . implode( ', ', $unknown ) . '.' );
+			return self::unknown_fields_error( 'Unknown readiness field(s): ', $unknown, [ 'ready', 'sync_ready', 'issues' ] );
 		}
 
 		foreach ( [ 'ready', 'sync_ready' ] as $flag ) {
@@ -499,8 +505,17 @@ final class DirectionContractValidator {
 	 * @return array<string,mixed>|WP_Error
 	 */
 	private static function normalize_map( $value, string $path, string $key_pattern = self::SLUG_PATTERN ) {
+		if ( $value instanceof \stdClass ) {
+			$value = (array) $value;
+		}
 		if ( ! is_array( $value ) ) {
-			return self::error( $path . ' must be a map.' );
+			return self::error( $path . ' must be a map (JSON object).' );
+		}
+		if ( [] !== $value && array_is_list( $value ) ) {
+			return self::error(
+				$path . ' must be an object, not a list. Example: {"heading":{"font-size":"24px"}}.',
+				[ 'example' => [ 'heading' => [ 'font-size' => '24px' ] ] ]
+			);
 		}
 
 		if ( count( $value ) > DirectionContract::MAX_LIST_ITEMS ) {
@@ -671,6 +686,25 @@ final class DirectionContractValidator {
 		}
 
 		return $reference;
+	}
+
+	/**
+	 * @param string       $prefix   Human prefix including trailing space or colon.
+	 * @param array<mixed> $unknown  Rejected keys.
+	 * @param list<string> $accepted Allowlisted keys.
+	 */
+	private static function unknown_fields_error( string $prefix, array $unknown, array $accepted, bool $with_example = false ): WP_Error {
+		$fields  = array_values( array_map( 'strval', $unknown ) );
+		$message = $prefix . implode( ', ', $fields ) . '. Accepted keys: ' . implode( ', ', $accepted ) . '.';
+		$data    = [
+			'fields'        => $fields,
+			'accepted_keys' => array_values( $accepted ),
+		];
+		if ( $with_example ) {
+			$data['example'] = DirectionContract::minimal_example();
+		}
+
+		return self::error( $message, $data );
 	}
 
 	/**

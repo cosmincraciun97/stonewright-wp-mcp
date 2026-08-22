@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\Design;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
+use Stonewright\WpMcp\Design\Motion\MotionEvidenceEvaluator;
+use Stonewright\WpMcp\Design\Motion\UiExcellencePolicyManifest;
 use Stonewright\WpMcp\Design\Quality\QualityEvaluator;
 use Stonewright\WpMcp\Design\Quality\QualityReportStore;
 use Stonewright\WpMcp\Security\Permissions;
@@ -69,6 +71,14 @@ final class QualityCheck extends AbilityKernel {
 					'type'        => 'object',
 					'description' => 'Measurements taken from the rendered page: viewports, element boxes, resolved colors, fonts, spacing, and interaction states.',
 				],
+				'motion_evidence' => [
+					'type'        => 'object',
+					'description' => 'Measured no-JS, reduced-motion, interaction, parity, and performance evidence for the motion layer.',
+				],
+				'ui_evidence' => [
+					'type'        => 'object',
+					'description' => 'Measured composition, typography, spacing, interaction-state, and motion-density evidence for the UI excellence policy.',
+				],
 				'id'       => [
 					'type'        => 'integer',
 					'description' => 'Direction id to measure against. Defaults to the active direction.',
@@ -112,6 +122,8 @@ final class QualityCheck extends AbilityKernel {
 				'post_id'            => [ 'type' => 'integer' ],
 				'persisted'          => [ 'type' => 'boolean' ],
 				'report_id'          => [ 'type' => 'string' ],
+				'motion_report'       => [ 'type' => 'object' ],
+				'ui_report'           => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'ok', 'status', 'coverage', 'findings', 'findings_total', 'direction_id', 'post_id', 'persisted', 'report_id' ],
 		];
@@ -157,11 +169,27 @@ final class QualityCheck extends AbilityKernel {
 			return $report;
 		}
 
+		$motion_report = is_array( $args['motion_evidence'] ?? null )
+			? MotionEvidenceEvaluator::evaluate( $args['motion_evidence'] )
+			: null;
+		$ui_report = is_array( $args['ui_evidence'] ?? null )
+			? UiExcellencePolicyManifest::evaluate( $args['ui_evidence'] )
+			: null;
+
 		$post_id     = $this->post_id( $args, $evidence );
 		$render_hash = $this->render_hash( $evidence );
 
 		/** @var list<array<string,mixed>> $findings */
 		$findings  = $report['findings'];
+		$findings  = array_merge( $findings, $this->supplemental_findings( $motion_report, 'motion' ), $this->supplemental_findings( $ui_report, 'ui' ) );
+		$status    = $this->merged_status( (string) $report['status'], $motion_report, $ui_report );
+		$coverage  = $report['coverage'];
+		if ( is_array( $motion_report ) ) {
+			$coverage['motion'] = $motion_report['coverage'] ?? [];
+		}
+		if ( is_array( $ui_report ) ) {
+			$coverage['ui'] = $ui_report['coverage'] ?? [];
+		}
 		$report_id = '';
 
 		if ( $persist ) {
@@ -170,8 +198,8 @@ final class QualityCheck extends AbilityKernel {
 				(int) ( $record['id'] ?? 0 ),
 				[
 					'schema_version'     => (string) $report['schema_version'],
-					'status'             => (string) $report['status'],
-					'coverage'           => $report['coverage'],
+					'status'             => $status,
+					'coverage'           => $coverage,
 					'findings'           => $findings,
 					'truncated_findings' => (int) $report['truncated_findings'],
 					'direction_revision' => (int) ( $record['revision'] ?? 0 ),
@@ -188,8 +216,8 @@ final class QualityCheck extends AbilityKernel {
 
 		return $this->ok(
 			[
-				'status'             => (string) $report['status'],
-				'coverage'           => $report['coverage'],
+				'status'             => $status,
+				'coverage'           => $coverage,
 				'findings'           => array_slice( $findings, 0, self::RETURNED_FINDINGS ),
 				'findings_total'     => count( $findings ),
 				'truncated_findings' => (int) $report['truncated_findings'],
@@ -200,8 +228,62 @@ final class QualityCheck extends AbilityKernel {
 				'post_id'            => $post_id,
 				'persisted'          => $persist,
 				'report_id'          => $report_id,
+				'motion_report'      => $motion_report ?? [],
+				'ui_report'          => $ui_report ?? [],
 			]
 		);
+	}
+
+	/**
+	 * @param array<string, mixed>|null $report
+	 * @return list<array<string, mixed>>
+	 */
+	private function supplemental_findings( ?array $report, string $prefix ): array {
+		if ( null === $report ) {
+			return [];
+		}
+		$out = [];
+		foreach ( (array) ( $report['findings'] ?? [] ) as $finding ) {
+			if ( ! is_array( $finding ) ) {
+				continue;
+			}
+			$code  = (string) ( $finding['code'] ?? 'unknown' );
+			$level = (string) ( $finding['severity'] ?? 'warning' );
+			$out[] = [
+				'rule_id'       => $prefix . '.' . $code,
+				'severity'      => 'fail' === $level ? 'error' : $level,
+				'viewport'      => '',
+				'element_ref'   => '',
+				'evidence'      => [],
+				'repair_hint'   => 'Re-capture the named browser evidence after correcting the measured condition.',
+				'waived'        => false,
+				'waiver_reason' => '',
+			];
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed>|null $motion
+	 * @param array<string, mixed>|null $ui
+	 */
+	private function merged_status( string $base, ?array $motion, ?array $ui ): string {
+		$verdicts = [ $base ];
+		foreach ( [ $motion, $ui ] as $report ) {
+			if ( is_array( $report ) ) {
+				$verdicts[] = (string) ( $report['verdict'] ?? 'not_checked' );
+			}
+		}
+		if ( in_array( 'fail', $verdicts, true ) ) {
+			return 'fail';
+		}
+		if ( in_array( 'warn', $verdicts, true ) || in_array( 'warning', $verdicts, true ) ) {
+			return 'warn';
+		}
+		if ( in_array( 'not_checked', $verdicts, true ) ) {
+			return 'not_checked';
+		}
+		return 'pass';
 	}
 
 	/**

@@ -12,7 +12,18 @@ final class IncidentActions {
 	 */
 	public static function rank( array $rows, string $surface = 'unknown', int $limit = 3 ): array {
 		$surface = sanitize_key( strtolower( trim( $surface ) ) );
-		$rows = array_values( array_filter( $rows, static fn( array $row ): bool => in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true ) ) );
+		$rows = array_values(
+			array_filter(
+				$rows,
+				static function ( array $row ): bool {
+					$state = (string) ( $row['state'] ?? '' );
+					if ( ! in_array( $state, [ 'open', 'observing' ], true ) ) {
+						return false;
+					}
+					return ! IncidentStore::is_input_shape_code( (string) ( $row['root_error_code'] ?? '' ) );
+				}
+			)
+		);
 		usort(
 			$rows,
 			static function ( array $left, array $right ) use ( $surface ): int {

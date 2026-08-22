@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\AuditLogPage
@@ -18,9 +19,15 @@ final class AuditLogPageTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
-		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_options']   = [
+			'stonewright_mode' => 'development',
+		];
 		$GLOBALS['stonewright_test_missing_user_ids'] = [ 99 ];
-		$_GET = [];
+		$GLOBALS['stonewright_test_current_user_id']  = 7;
+		$GLOBALS['stonewright_test_nonce_invalid']    = false;
+		$_GET  = [];
+		$_POST = [];
+		IncidentStore::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
@@ -32,7 +39,10 @@ final class AuditLogPageTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_options']   = [];
 		$GLOBALS['stonewright_test_missing_user_ids'] = [];
-		$_GET = [];
+		$GLOBALS['stonewright_test_current_user_id']  = 0;
+		$GLOBALS['stonewright_test_nonce_invalid']    = false;
+		$_GET  = [];
+		$_POST = [];
 	}
 
 	public function test_render_outputs_filters_expandable_rows_and_semantic_badges(): void {
@@ -114,10 +124,15 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-audit-row', $html );
 		self::assertStringContainsString( 'sw-audit-table-scroll', $html );
 		self::assertStringContainsString( 'data-label="Details"', $html );
-		self::assertStringContainsString( 'View redacted details', $html );
+		self::assertStringContainsString( 'View JSON', $html );
 		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-details-12"', $html );
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'post_id', $html );
+		self::assertStringContainsString( 'More filters', $html );
+		self::assertStringContainsString( 'sw-audit-filters__primary', $html );
+		self::assertStringContainsString( 'Delete all logs', $html );
+		self::assertStringContainsString( 'sw-badge--observing', $html );
+		self::assertStringContainsString( 'sw-badge--resolved', $html );
 		self::assertStringContainsString( 'OAuth: Desktop client', $html );
 		self::assertStringContainsString( 'Deleted user', $html );
 		self::assertStringNotContainsString( '(unknown)', $html );
@@ -182,7 +197,9 @@ final class AuditLogPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'sw-empty-state', $html );
+		self::assertStringContainsString( 'sw-empty-state__icon', $html );
 		self::assertStringContainsString( 'No audit entries', $html );
+		self::assertStringContainsString( 'Run a Stonewright mutation', $html );
 	}
 
 	public function test_error_row_expand_shows_code_message_target_mode_and_repair(): void {
@@ -243,6 +260,9 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'development', $html );
 		self::assertStringContainsString( '&quot;remediation&quot;', $html );
 		self::assertStringContainsString( 'Validate the design spec', $html );
+		self::assertStringContainsString( 'sw-audit-kv', $html );
+		self::assertStringContainsString( 'View JSON', $html );
+		self::assertStringContainsString( 'Repair', $html );
 		self::assertStringNotContainsString( 'sentinel-private', $html );
 	}
 
@@ -274,6 +294,8 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'error_code = %s', $audit_sql );
 		self::assertStringContainsString( 'Events for this pattern were pruned by retention — the pattern summary above is the surviving record', $filtered );
 		self::assertStringNotContainsString( 'No audit entries match this view.', $filtered );
+		self::assertStringNotContainsString( 'Errors (0)', $filtered );
+		self::assertStringContainsString( 'All (0)', $filtered );
 	}
 
 	public function test_dismiss_recurring_pattern_requires_js_confirm(): void {
@@ -292,6 +314,120 @@ final class AuditLogPageTest extends TestCase {
 			'/<button[^>]*data-confirm="[^"]+"[^>]*>\s*Dismiss/i',
 			$html
 		);
+	}
+
+	public function test_purge_requires_manage_options(): void {
+		$GLOBALS['stonewright_test_user_caps']['manage_options'] = false;
+		$GLOBALS['wpdb'] = $this->make_purge_wpdb( 3 );
+		$_POST = [
+			'_stonewright_nonce' => 'test-nonce-stonewright_audit_purge',
+			'confirm_phrase'     => 'DELETE',
+		];
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessageMatches( '/wp_die/' );
+		AuditLogPage::process_purge_request();
+	}
+
+	public function test_purge_requires_valid_nonce(): void {
+		$GLOBALS['stonewright_test_nonce_invalid'] = true;
+		$GLOBALS['wpdb'] = $this->make_purge_wpdb( 3 );
+		$_POST = [
+			'_stonewright_nonce' => 'forged',
+			'confirm_phrase'     => 'DELETE',
+		];
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessageMatches( '/wp_die/' );
+		AuditLogPage::process_purge_request();
+	}
+
+	public function test_purge_requires_typed_delete_confirmation(): void {
+		$GLOBALS['wpdb'] = $this->make_purge_wpdb( 3 );
+		$_POST = [
+			'_stonewright_nonce' => 'test-nonce-stonewright_audit_purge',
+			'confirm_phrase'     => 'delete',
+		];
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessageMatches( '/wp_die/' );
+		AuditLogPage::process_purge_request();
+	}
+
+	public function test_purge_wipes_events_and_patterns_then_records_one_receipt(): void {
+		$this->seed_recurring_pattern();
+		self::assertNotEmpty( ErrorPatterns::recurring() );
+
+		$wpdb = $this->make_purge_wpdb( 4 );
+		$GLOBALS['wpdb'] = $wpdb;
+		$_POST = [
+			'_stonewright_nonce' => 'test-nonce-stonewright_audit_purge',
+			'confirm_phrase'     => 'DELETE',
+		];
+
+		$count = AuditLogPage::process_purge_request();
+
+		self::assertSame( 4, $count );
+		self::assertSame( 1, $wpdb->event_count, 'Exactly one receipt row remains after purge.' );
+		self::assertCount( 1, $wpdb->inserts );
+		self::assertSame( 'audit_log_purged', (string) ( $wpdb->inserts[0]['ability_name'] ?? '' ) );
+		$args = json_decode( (string) ( $wpdb->inserts[0]['sanitized_args'] ?? '' ), true );
+		self::assertIsArray( $args );
+		self::assertSame( 7, (int) ( $args['actor'] ?? 0 ) );
+		self::assertSame( 4, (int) ( $args['count'] ?? 0 ) );
+		self::assertSame( [], ErrorPatterns::recurring() );
+		self::assertFalse( get_option( ErrorPatterns::OPTION_KEY, false ) );
+		self::assertSame( 'development', get_option( 'stonewright_mode' ) );
+		self::assertNotEmpty(
+			array_filter(
+				$wpdb->queries,
+				static fn( string $sql ): bool => str_contains( $sql, 'DELETE FROM' ) && str_contains( $sql, 'stonewright_audit_log' )
+			)
+		);
+	}
+
+	public function test_render_includes_delete_all_logs_inline_confirm_and_updated_append_copy(): void {
+		$GLOBALS['wpdb'] = $this->make_audit_wpdb( [], 0 );
+
+		ob_start();
+		AuditLogPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Delete all logs', $html );
+		self::assertStringContainsString( 'sw-btn--danger', $html );
+		self::assertStringContainsString( 'data-sw-audit-purge', $html );
+		self::assertStringContainsString( 'Type DELETE to confirm', $html );
+		self::assertStringContainsString( 'append-only; admins can purge the entire log from this page', $html );
+		self::assertStringNotContainsString( 'The log is append-only.', $html );
+		self::assertStringNotContainsString( 'window.confirm', (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/audit.js' ) );
+		self::assertDoesNotMatchRegularExpression( '/Delete all logs[^<]*data-confirm=/', $html );
+	}
+
+	public function test_render_after_purge_shows_inline_flash_not_wp_notice(): void {
+		$GLOBALS['wpdb'] = $this->make_audit_wpdb(
+			[
+				[
+					'id'               => '1',
+					'ability_name'     => 'audit_log_purged',
+					'user_id'          => '7',
+					'result_status'    => 'ok',
+					'redacted_details' => wp_json_encode( [ 'actor' => 7, 'count' => 4 ] ),
+					'created_at'       => '2026-08-21 08:00:00',
+				],
+			],
+			1
+		);
+		$_GET['purged'] = '4';
+
+		ob_start();
+		AuditLogPage::render();
+		$html = (string) ob_get_clean();
+		unset( $_GET['purged'] );
+
+		self::assertStringContainsString( 'sw-audit-flash', $html );
+		self::assertStringContainsString( 'Deleted 4 audit events and all pattern summaries. One audit_log_purged receipt remains.', $html );
+		self::assertStringNotContainsString( 'notice notice-success is-dismissible', $html );
+		self::assertStringContainsString( 'audit_log_purged', $html );
 	}
 
 	/**
@@ -349,6 +485,60 @@ final class AuditLogPageTest extends TestCase {
 					return [];
 				}
 				return $this->rows;
+			}
+		};
+	}
+
+	private function make_purge_wpdb( int $event_count ): object {
+		return new class( $event_count ) {
+			public string $prefix = 'wp_';
+			public int $event_count;
+			/** @var list<string> */
+			public array $queries = [];
+			/** @var list<array<string, mixed>> */
+			public array $inserts = [];
+
+			public function __construct( int $event_count ) {
+				$this->event_count = $event_count;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->queries[] = $query;
+				return $query;
+			}
+
+			public function get_var( string $query = '' ): string|int|null {
+				$this->queries[] = $query;
+				return $this->event_count;
+			}
+
+			public function query( string $query ): int|false {
+				$this->queries[] = $query;
+				if ( str_contains( $query, 'DELETE FROM' ) && str_contains( $query, 'stonewright_audit_log' ) ) {
+					$deleted           = $this->event_count;
+					$this->event_count = 0;
+					return $deleted;
+				}
+				return 0;
+			}
+
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<int, mixed>    $format
+			 */
+			public function insert( string $table, array $data, array $format = [] ): int {
+				unset( $format );
+				$this->inserts[] = $data;
+				if ( str_contains( $table, 'stonewright_audit_log' ) ) {
+					++$this->event_count;
+				}
+				return 1;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				unset( $query, $output );
+				return [];
 			}
 		};
 	}

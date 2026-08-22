@@ -43,9 +43,24 @@ final class SparseSettingsNormalizer {
 					continue;
 				}
 			}
-			$out[ $key ] = $value;
+			$out[ $key ] = self::canonicalize_numbers( $value );
 		}
 		return $out;
+	}
+
+	/**
+	 * Collapse binary float noise (1.0800000000000001 → 1.08) without changing integers.
+	 */
+	private static function canonicalize_numbers( mixed $value ): mixed {
+		if ( is_float( $value ) && is_finite( $value ) ) {
+			return round( $value, 8 );
+		}
+		if ( is_array( $value ) ) {
+			foreach ( $value as $key => $item ) {
+				$value[ $key ] = self::canonicalize_numbers( $item );
+			}
+		}
+		return $value;
 	}
 
 	/**
@@ -117,7 +132,7 @@ final class SparseSettingsNormalizer {
 			$size        = $value['size'];
 			$sizes       = $value['sizes'] ?? [];
 			$empty_size  = '' === $size || null === $size;
-			$empty_sizes = [] === $sizes || null === $sizes;
+			$empty_sizes = [] === $sizes;
 			$extra       = array_diff_key( $value, array_flip( [ 'size', 'unit', 'sizes' ] ) );
 			return $empty_size && $empty_sizes && [] === $extra;
 		}

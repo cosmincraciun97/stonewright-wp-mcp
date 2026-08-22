@@ -241,6 +241,7 @@
 .sw-shell__nav-link {
 	display: inline-flex;
 	align-items: center;
+	position: relative;
 	height: 32px;
 	padding: 0 var(--sw-space-3);
 	border-radius: var(--sw-radius-sm);
@@ -249,6 +250,10 @@
 	font-size: var(--sw-text-sm);
 	font-weight: 500;
 	transition: background var(--sw-dur) var(--sw-ease), color var(--sw-dur) var(--sw-ease);
+}
+
+.sw-shell__nav-link:has(.sw-shell__exp) {
+	padding-right: calc(var(--sw-space-3) + 1.55em);
 }
 
 .sw-shell__nav-link:hover,
@@ -266,9 +271,16 @@
 	text-decoration: none;
 }
 
-/* Inline Experimental marker: heavier/brighter than the tab, never a chip. */
+/* Compact EXP sits in the top-right of the tab, not beside the full word. */
 .sw-shell__exp {
-	font-weight: 700;
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	font-size: 8px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	line-height: 1;
+	text-transform: uppercase;
 	color: var(--sw-shell-header-fg);
 	background: none;
 	border: none;
@@ -277,6 +289,9 @@
 	padding: 0;
 	margin: 0;
 	border-radius: 0;
+	white-space: nowrap;
+	pointer-events: none;
+	cursor: help;
 }
 
 .sw-shell__content {
@@ -859,4 +874,146 @@ html.sw-has-shell {
 	color: var(--sw-text-muted);
 	font-size: var(--sw-text-sm);
 	line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ */
+/* Block Editor Queue                                                   */
+/* ------------------------------------------------------------------ */
+.sw-finalizer-panel {
+	max-width: 40rem;
+	margin: var(--sw-space-5) 0 0;
+	padding: var(--sw-space-5) var(--sw-space-6);
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	box-shadow: var(--sw-shadow-1);
+}
+
+.sw-finalizer-panel > p {
+	margin: 0 0 var(--sw-space-3);
+	font-size: var(--sw-text-sm);
+	line-height: 1.6;
+	color: var(--sw-text-secondary);
+}
+
+.sw-finalizer-panel > p strong {
+	color: var(--sw-text);
+	font-weight: 600;
+}
+
+.sw-finalizer-status {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	margin: var(--sw-space-4) 0 0 !important;
+	padding-top: var(--sw-space-4);
+	border-top: 1px solid var(--sw-border);
+	font-weight: 600;
+	color: var(--sw-brand-strong) !important;
+}
+
+.sw-finalizer-status::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+	background: var(--sw-brand);
+	box-shadow: 0 0 0 0 color-mix(in srgb, var(--sw-brand) 55%, transparent);
+}
+
+.sw-finalizer-status.is-busy::before {
+	animation: sw-finalizer-pulse 1.6s infinite;
+}
+
+@keyframes sw-finalizer-pulse {
+	to {
+		box-shadow: 0 0 0 8px transparent;
+	}
+}
+
+.sw-finalizer-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-3) var(--sw-space-4);
+	margin: var(--sw-space-4) 0 0;
+	padding-top: var(--sw-space-3);
+	border-top: 1px solid var(--sw-border);
+	font-size: var(--sw-text-xs);
+	color: var(--sw-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.sw-finalizer-online {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	font-weight: 600;
+	color: var(--sw-ok-text);
+}
+
+.sw-finalizer-online::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--sw-ok-text);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--sw-ok-text) 22%, transparent);
+}
+
+.sw-finalizer-online.is-offline {
+	color: var(--sw-text-muted);
+}
+
+.sw-finalizer-online.is-offline::before {
+	background: var(--sw-text-muted);
+	box-shadow: none;
+}
+
+.sw-finalizer-metric strong,
+.sw-finalizer-poll time {
+	color: var(--sw-text);
+	font-weight: 650;
+}
+
+.sw-finalizer-items {
+	list-style: none;
+	margin: var(--sw-space-4) 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-2);
+}
+
+.sw-finalizer-item {
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(0, .8fr) auto minmax(0, 1fr);
+	gap: var(--sw-space-2);
+	align-items: center;
+	padding: var(--sw-space-2) var(--sw-space-3);
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	font-size: var(--sw-text-xs);
+}
+
+.sw-finalizer-item code {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sw-finalizer-item__error {
+	color: var(--sw-danger-text);
+}
+
+@media screen and (max-width: 782px) {
+	.sw-finalizer-item {
+		grid-template-columns: 1fr 1fr;
+	}
+	.sw-finalizer-item__error {
+		grid-column: 1 / -1;
+	}
 }

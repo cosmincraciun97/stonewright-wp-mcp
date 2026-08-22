@@ -150,7 +150,10 @@
         "dimensions": { "type": "object" },
         "elements": { "type": "object" },
         "blocks": { "type": "object" },
-        "css": { "type": "string" }
+        "css": {
+          "type": "string",
+          "description": "Custom CSS. Requires a consumed custom_code_grant on fse-write-global-styles. Prefer color, typography, and spacing presets."
+        }
       }
     },
     "customTemplates": {

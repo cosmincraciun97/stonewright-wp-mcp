@@ -44,12 +44,19 @@ dry-run mode first and inspect the `rendered` output before any page write.
 
 Returns `{ "rendered": [...atomic_elements...], "dry_run": true }`.
 
-## Write flow (when dry-run output is approved)
+## Write boundary
 
-V4 does not yet have a dedicated `build-page-from-spec` ability. Use
-`stonewright/site-backup-page` before any manual write, then pass the
-`rendered` output through a custom WP-CLI command or approved V4 writer. Do not
-write Elementor V4 data directly via the V3 abilities.
+V4 does not yet have a complete typed page or interactions writer. Stop after
+dry-run. Never pass rendered Atomic data through WP-CLI, raw REST, PHP meta
+writes, V3 abilities, or `update-node` as a substitute. Motion apply is
+unsupported unless `stonewright-design-motion-capabilities` proves the official
+Document Mutator, Interactions Applier, plain-value resolver, and matching live
+schema and a dedicated interactions patch tool is visible.
+
+Class and variable list abilities are safe for discovery. Create/update remain
+experimental and do not establish style-system parity until dry-run, native CSS
+conversion, impact inventory, separate fingerprints, active-kit snapshot,
+readback, editor reopen, and frontend CSS parity are all proven.
 
 ## Atomic element concepts
 
@@ -67,14 +74,17 @@ write Elementor V4 data directly via the V3 abilities.
 | `stonewright/design-validate-spec` | Validate spec before render |
 | `stonewright/design-build-spec` | Assemble spec |
 | `stonewright/site-capabilities` | Check gate + integrations |
-| `stonewright/site-backup-page` | Snapshot before any write |
+| `stonewright/site-backup-page` | Snapshot before an authorized typed write |
+| `stonewright/design-motion-capabilities` | Read live V4 interaction schema and write readiness |
+| `stonewright/elementor-v4-list-classes` | Read Atomic global classes |
+| `stonewright/elementor-v4-list-variables` | Read Atomic variables |
 | `stonewright/design-choose-renderer` | Confirm V4 is the chosen renderer |
 
-## When the renderer is missing
+## When the renderer or writer is missing
 
-`renderer_missing` error means the `ElementorV4SpecRenderer` class is not in
-this build. The V4 renderer is conditionally bundled. Fall back to
-`design-spec-to-elementor-v3`.
+`renderer_missing` means the V4 renderer is absent. A missing write adapter is
+not permission to fall back silently. Ask before intentionally choosing V3;
+otherwise report V4 write as unsupported.
 
 ## Do not use on production
 

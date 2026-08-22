@@ -1,0 +1,58 @@
+[
+	{
+		"id": "sec-v3-root",
+		"elType": "section",
+		"settings": { "gap": "default", "structure": "10" },
+		"elements": [
+			{
+				"id": "col-v3-a",
+				"elType": "column",
+				"settings": { "_column_size": 100 },
+				"elements": [
+					{
+						"id": "w-v3-text",
+						"elType": "widget",
+						"widgetType": "text-editor",
+						"settings": {
+							"editor": "<p>Legacy <em>section</em> copy with <a href=\"https://example.test/page\">a link</a>.</p>"
+						},
+						"elements": []
+					}
+				]
+			}
+		],
+		"isInner": false
+	},
+	{
+		"id": "con-v4-atomic",
+		"elType": "container",
+		"settings": {
+			"container_type": "flex",
+			"flex_direction": "column",
+			"pro_ribbon": "sale"
+		},
+		"elements": [
+			{
+				"id": "w-v4-para",
+				"elType": "widget",
+				"widgetType": "e-paragraph",
+				"settings": {
+					"text": "<p>Hello <strong>brave</strong> world &amp; friends, <em>nested <strong>emphasis</strong></em> plus <a href=\"https://example.test/deep\"><span class=\"x\">linked span</span></a>.</p>"
+				},
+				"elements": [],
+				"isInner": false
+			},
+			{
+				"id": "w-v4-para-two",
+				"elType": "widget",
+				"widgetType": "e-paragraph",
+				"settings": {
+					"text": "<p>Second paragraph stays <strong>untouched</strong> when its sibling is edited.</p>"
+				},
+				"elements": [],
+				"isInner": false
+			}
+		],
+		"isInner": false
+	}
+]

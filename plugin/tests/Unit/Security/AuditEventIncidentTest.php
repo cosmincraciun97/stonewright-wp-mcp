@@ -70,13 +70,13 @@ final class AuditEventIncidentTest extends TestCase {
 			'stonewright/design-validate-spec',
 			[
 				'post_id'  => 42,
-				'password' => 'sentinel-private-example-secret',
+				'password' => '<redacted-fixture>',
 				'_meta'    => [
 					'error_code'          => 'stonewright_spec_invalid',
 					'error_message'       => $message,
 					'verification_status' => 'failed',
 					'remediation_code'    => 'stonewright_spec_invalid',
-					'password'            => 'should-never-surface',
+					'password'            => '<nested-redacted-fixture>',
 				],
 			],
 			'error'
@@ -96,8 +96,8 @@ final class AuditEventIncidentTest extends TestCase {
 			self::assertArrayHasKey( $key, $details );
 		}
 		self::assertNotEquals( [ 'verification_status' ], array_keys( $details ) );
-		self::assertStringNotContainsString( 'sentinel-private-example-secret', wp_json_encode( $details ) );
-		self::assertStringNotContainsString( 'should-never-surface', wp_json_encode( $details ) );
+		self::assertStringNotContainsString( '<redacted-fixture>', wp_json_encode( $details ) );
+		self::assertStringNotContainsString( '<nested-redacted-fixture>', wp_json_encode( $details ) );
 	}
 
 	public function test_permission_and_safety_blocks_never_create_recurring_incidents(): void {
@@ -117,6 +117,31 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( AuditEvent::CATEGORY_SAFETY, $safety['category'] );
 		self::assertNull( IncidentStore::observe( $permission ) );
 		self::assertNull( IncidentStore::observe( $safety ) );
+		self::assertSame( [], IncidentStore::recent() );
+	}
+
+	public function test_input_shape_validation_rejections_do_not_open_incidents(): void {
+		foreach (
+			[
+				'stonewright_elementor_evidence_invalid',
+				'stonewright_responsive_scope_violation',
+				'stonewright_direction_invalid',
+			] as $code
+		) {
+			$event = AuditEvent::normalize(
+				'stonewright/elementor-v3-batch-mutate',
+				[
+					'post_id' => 42,
+					'_meta'   => [
+						'root_error_code' => $code,
+						'error_code'      => $code,
+					],
+				],
+				'error'
+			);
+			self::assertNull( IncidentStore::observe( $event ), $code );
+		}
+
 		self::assertSame( [], IncidentStore::recent() );
 	}
 

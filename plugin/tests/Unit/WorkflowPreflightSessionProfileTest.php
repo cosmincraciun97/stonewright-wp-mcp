@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\AuditEvent;
@@ -123,5 +124,18 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 		self::assertCount( 1, $result['context']['incident_actions'] );
 		self::assertSame( hash( 'sha256', 'preflight-incident' ), $result['context']['incident_actions'][0]['incident_id'] );
 		self::assertSame( 'stonewright/elementor-post-write-verify', $result['context']['incident_actions'][0]['required_verifier'] );
+	}
+
+	public function test_compact_task_start_keeps_required_auth_guidance_when_empty(): void {
+		$result = ( new TaskStart() )->execute(
+			[
+				'task'         => 'Inspect the current site.',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'auth_guidance', $result );
+		self::assertIsArray( $result['auth_guidance'] );
 	}
 }

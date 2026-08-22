@@ -14,7 +14,7 @@ Stonewright connects AI clients to WordPress through guarded, inspectable workfl
 
 ## Brand Personality
 
-Precise, calm, capable. Premium through restraint and craft, never decoration.
+Precise, calm, capable. Quality through restraint and craft, never decoration.
 
 ## Anti-references
 

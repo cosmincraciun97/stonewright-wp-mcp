@@ -765,6 +765,168 @@ final class BatchMutateTest extends TestCase {
 		self::assertCount( 1, $valid['items'][0]['evidence'] );
 	}
 
+	public function test_missing_evidence_with_stop_on_error_returns_schema_requests(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'          => 501,
+				'dry_run'          => true,
+				'stop_on_error'    => true,
+				'require_evidence' => true,
+				'operations'       => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Evidence' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 'stonewright_elementor_evidence_invalid', $data['cause_code'] );
+		self::assertNotEmpty( $data['schema_requests'] );
+		self::assertSame( 'stonewright/elementor-schema', $data['schema_requests'][0]['ability'] );
+		self::assertSame( 'heading', $data['schema_requests'][0]['input']['widget_type'] ?? null );
+		self::assertSame( 'summary', $data['schema_requests'][0]['input']['mode'] ?? null );
+		self::assertSame( 'title', $data['schema_requests'][0]['input']['query'] ?? $data['schema_requests'][0]['setting'] ?? null );
+	}
+
+	public function test_direction_brief_provenance_is_accepted_for_token_derived_settings(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_active_design_direction_id'] = 1;
+		$schema = WidgetSchemaRepository::get( 'heading' );
+		self::assertIsArray( $schema );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'          => 501,
+				'dry_run'          => true,
+				'require_evidence' => true,
+				'operations'       => [
+					[
+						'action'            => 'add_widget',
+						'parent_id'         => 'root',
+						'widget_type'       => 'heading',
+						'settings'          => [
+							'title'     => 'From direction',
+							'font_size' => [ 'size' => 56, 'unit' => 'px' ],
+						],
+						'settings_evidence' => [
+							'title' => [
+								'schema_hash'           => $schema['schema_hash'],
+								'source'                => 'figma:node/hero-title',
+								'confidence'            => 0.99,
+								'responsive_scope'      => 'desktop',
+								'requires_confirmation' => false,
+							],
+							'typography_font_size' => [
+								'source'                => 'direction-brief',
+								'confidence'            => 0.95,
+								'responsive_scope'      => 'desktop',
+								'requires_confirmation' => false,
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 1, $result['applied'] );
+	}
+
+	public function test_operation_responsive_scope_authorizes_tablet_and_mobile_keys(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'           => 'add_container',
+						'parent_id'        => 'root',
+						'responsive_scope' => [ 'desktop', 'tablet', 'mobile' ],
+						'settings'         => [
+							'container_type' => 'flex',
+							'padding'        => [
+								'top' => '96', 'right' => '96', 'bottom' => '96', 'left' => '96', 'unit' => 'px', 'isLinked' => true,
+							],
+							'padding_tablet' => [
+								'top' => '64', 'right' => '64', 'bottom' => '64', 'left' => '64', 'unit' => 'px', 'isLinked' => true,
+							],
+							'padding_mobile' => [
+								'top' => '48', 'right' => '48', 'bottom' => '48', 'left' => '48', 'unit' => 'px', 'isLinked' => true,
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() . wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( 1, $result['applied'] );
+		$settings = $result['preview'][0]['elements'][0]['settings'];
+		self::assertSame( '96', $settings['padding']['top'] );
+		self::assertSame( '64', $settings['padding_tablet']['top'] );
+		self::assertSame( '48', $settings['padding_mobile']['top'] );
+		self::assertSame( [ 'desktop', 'tablet', 'mobile' ], $result['items'][0]['allowed_breakpoints'] );
+	}
+
+	public function test_batch_responsive_scope_authorizes_tablet_and_mobile_keys(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'           => 501,
+				'dry_run'           => true,
+				'responsive_scope'  => [ 'desktop', 'tablet', 'mobile' ],
+				'operations'        => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [
+							'padding'        => [
+								'top' => '96', 'right' => '96', 'bottom' => '96', 'left' => '96', 'unit' => 'px', 'isLinked' => true,
+							],
+							'padding_tablet' => [
+								'top' => '64', 'right' => '64', 'bottom' => '64', 'left' => '64', 'unit' => 'px', 'isLinked' => true,
+							],
+							'padding_mobile' => [
+								'top' => '48', 'right' => '48', 'bottom' => '48', 'left' => '48', 'unit' => 'px', 'isLinked' => true,
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() . wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( [ 'desktop', 'tablet', 'mobile' ], $result['items'][0]['allowed_breakpoints'] );
+		self::assertSame( '48', $result['preview'][0]['settings']['padding_mobile']['top'] );
+	}
+
+	public function test_desktop_default_scope_still_rejects_tablet_keys(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [
+							'padding_tablet' => [
+								'top' => '64', 'right' => '64', 'bottom' => '64', 'left' => '64', 'unit' => 'px', 'isLinked' => true,
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_responsive_scope_violation', $result->get_error_data()['cause_code'] );
+	}
+
 	public function test_strict_container_evidence_uses_the_structural_schema_hash(): void {
 		$schema = ContainerSchemaRepository::get();
 		self::assertIsArray( $schema );

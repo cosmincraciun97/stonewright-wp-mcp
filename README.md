@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **381 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **387 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -81,6 +81,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 - **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, run post-write verification, then complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
 - **Change custom code:** discover the provider, dry-run the exact target, stop for human approval, apply the approved bytes, read back, and retain rollback evidence. [Custom-code recovery contract](docs/security.md#custom-code-and-theme-file-recovery)
+- **Run repeatable local maintenance safely:** save a parameterized WP-CLI recipe once, plan it, approve writes with a one-use hash, and get verified readback on every run. [Command recipes](companion/README.md#command-recipes-local-wp-cli)
 - **Stop repeating a failure:** classify the recurrence, surface a ranked incident action, verify the repair against correlated audit events, then promote one reusable lesson. [Verified learning](docs/verified-learning.md)
 
 [Why Stonewright MCP](docs/why-stonewright.md) compares this evidence chain with a generic WordPress API bridge without relying on raw tool counts.
@@ -89,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **381** abilities
+### Plugin mode — **387** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -103,7 +104,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
 | Gutenberg | 13 | Parse, insert, update, batch-mutate, query-loop, render/apply |
-| Finalizer abilities | 5 | Queue, runtime, pending, finalize, and finalizer URL for static/third-party blocks |
+| Finalizer abilities | 6 | Queue, runtime, pending, finalize, cancel, and finalizer URL for static/third-party blocks |
 | FSE + patterns | 17 | theme.json, templates, navigation, pattern CRUD |
 | Blocks library introspection | 3 | GenerateBlocks / Kadence / Spectra setup, list, and schema |
 | Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
@@ -141,7 +142,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
 - Close Elementor writes with post-scoped cache invalidation, CSS regeneration,
   bounded frontend assertions, and an explicit browser verification recipe
-- Wire native Elementor Pro Loop Grid/Carousel widgets transactionally from an
+- Wire licensed Elementor Loop Grid/Carousel widgets transactionally from an
   existing loop-item template or a validated template spec (**Plugin mode**)
 - Manage content, media, navigation, and selected site settings
 - Manage WooCommerce products, variations, catalog terms, global attributes,
@@ -441,7 +442,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **381** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **387** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -516,6 +517,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
+- [Motion and UI excellence](docs/motion-and-ui-excellence.md)
 - [Licensing](docs/licensing.md)
 - [Upstream code reuse ledger](docs/upstream-code-reuse.md)
 - [Release notes](docs/releases/)

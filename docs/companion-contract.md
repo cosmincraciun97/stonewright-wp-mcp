@@ -164,6 +164,45 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    WordPress install folder containing `wp-config.php`.
 6. The companion never calls WordPress REST write endpoints.
 
+## Command Recipes v1
+
+Local, parameterized WP-CLI recipes stored under
+`~/.stonewright/commands/<site-id>/<slug>.json` (plans under
+`~/.stonewright/command-plans/<site-id>/`). Contract:
+
+1. Recipes are tokenized argv only — no shell strings, no PHP steps, no
+   filesystem steps, no arbitrary ability handlers.
+2. Hard limits: recipe JSON ≤ 64 KiB, slug `[a-z0-9][a-z0-9-]{0,63}`, ≤ 20
+   parameters, ≤ 25 steps, ≤ 64 argv tokens per step, ≤ 512 characters per
+   token, `additionalProperties: false` at every level, whole-token
+   `{{parameter}}` placeholders only.
+3. A recipe with any write step must end with a read-only step carrying an
+   expectation; save and plan fail otherwise.
+4. Risk classification uses a small read-only allowlist (`core version`,
+   `cli info`, `post get/list`, `plugin get/list/status`, `theme
+   get/list/status`, `user get/list`, `term get/list`, `site list`,
+   `db check`). Everything unknown is a write. The `config` group is refused
+   explicitly; `db query` and arbitrary option/meta reads are not allowlisted.
+5. After parameter substitution every argv passes both
+   `validateWpCliCommand()` and the recipe gate, which additionally blocks
+   target overrides (`--path`, `--url`, `--user`, `--context`, `--ssh`,
+   `--http`) in space and `=` forms.
+6. Write execution requires an exact one-use plan (`plan_id` + `plan_sha256`),
+   verified against TTL (10 minutes), site binding, recipe hash, and canonical
+   payload hash, then consumed atomically before the first write step. Replay
+   is refused.
+7. Output is redacted through the direct-audit redactor and bounded (full ≤
+   1 MiB per step; summary is the MCP default). Raw runner output never
+   reaches callers or audit rows with argv or parameter values.
+8. Recipes require a site-bound `local_wp_root` (canonical realpath of a
+   directory containing `wp-config.php`, set via `connect add|repair
+   --wp-root`); the runner revalidates it before every run.
+
+MCP surface: exactly three tools — `stonewright-command-list`,
+`stonewright-command-get`, `stonewright-command-run` — exposed only on the
+`wp-cli`, `site-admin`, `full`, and `discover-execute` profiles. No HTTP
+routes are added for commands.
+
 ## Schema Files
 
 The companion keeps the stable health schema in `companion/src/contracts/`.

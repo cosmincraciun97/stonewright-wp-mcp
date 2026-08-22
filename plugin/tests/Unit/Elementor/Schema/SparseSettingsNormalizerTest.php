@@ -136,6 +136,26 @@ final class SparseSettingsNormalizerTest extends TestCase {
 		self::assertSame( [ 'title' => 'Hero' ], $normalized );
 	}
 
+	public function test_normalizes_binary_float_noise_in_sparse_output(): void {
+		$supplied = [
+			'title' => 'Hero',
+			'flex_gap' => [
+				'unit'  => 'px',
+				'size'  => 1.0800000000000001,
+				'sizes' => [],
+			],
+		];
+
+		$normalized = SparseSettingsNormalizer::normalize(
+			$supplied,
+			self::controls(),
+			$supplied
+		);
+
+		self::assertSame( 1.08, $normalized['flex_gap']['size'] );
+		self::assertStringNotContainsString( '1.0800000000000001', (string) wp_json_encode( $normalized ) );
+	}
+
 	public function test_preserves_dynamic_tags_and_deliberately_empty_strings(): void {
 		$supplied = [
 			'title'       => '',

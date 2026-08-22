@@ -48,7 +48,14 @@ final class Migrator {
 					$system[ $key ] = $value;
 				}
 			}
-			$out['design_system'] = $system;
+			// An empty PHP array encodes as JSON [], which fails the v2
+			// schema's "type": "object" for design_system. Omit the key when
+			// there is nothing to carry over; the property is optional.
+			if ( [] !== $system ) {
+				$out['design_system'] = $system;
+			} else {
+				unset( $out['design_system'] );
+			}
 		}
 
 		if ( ! isset( $out['content_facts'] ) || ! is_array( $out['content_facts'] ) ) {

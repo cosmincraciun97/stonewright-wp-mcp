@@ -23,7 +23,7 @@ final class TroubleshootPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Troubleshoot', 'stonewright' ),
-			__( 'Troubleshoot', 'stonewright' ),
+			AdminShell::experimental_menu_title( __( 'Troubleshoot', 'stonewright' ) ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

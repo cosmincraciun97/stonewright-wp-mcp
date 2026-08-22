@@ -18,6 +18,20 @@ use Stonewright\WpMcp\Support\Logger;
 final class IncidentStore {
 
 	public const TABLE = 'stonewright_incidents';
+
+	/**
+	 * Validation rejections that must stay audit rows, not incidents.
+	 *
+	 * @var list<string>
+	 */
+	public const INPUT_SHAPE_CODES = [
+		'stonewright_elementor_evidence_invalid',
+		'stonewright_responsive_scope_violation',
+		'stonewright_responsive_scope_invalid',
+		'stonewright_direction_invalid',
+		'stonewright_direction_capture_invalid',
+		'stonewright_direction_not_ready',
+	];
 	public const OPTION_KEY = 'stonewright_incident_fallback';
 	public const OBSERVING_THRESHOLD = 2;
 	public const RETRYABLE_THRESHOLD = 3;
@@ -84,6 +98,9 @@ final class IncidentStore {
 	public static function observe( array $event ): ?array {
 		$outcome = (string) ( $event['outcome'] ?? AuditEvent::OUTCOME_FAILED );
 		if ( in_array( $outcome, [ AuditEvent::OUTCOME_SUCCESS, AuditEvent::OUTCOME_BLOCKED ], true ) ) {
+			return null;
+		}
+		if ( self::is_input_shape_event( $event ) ) {
 			return null;
 		}
 
@@ -484,6 +501,22 @@ final class IncidentStore {
 			'learned_at'           => (string) ( $row['learned_at'] ?? '' ),
 			'schema_version'       => (string) ( $row['schema_version'] ?? AuditEvent::SCHEMA_VERSION ),
 		];
+	}
+
+	public static function is_input_shape_code( string $code ): bool {
+		$code = strtolower( trim( $code ) );
+		return in_array( $code, self::INPUT_SHAPE_CODES, true );
+	}
+
+	/** @param array<string, mixed> $event */
+	private static function is_input_shape_event( array $event ): bool {
+		$details = is_array( $event['redacted_details'] ?? null ) ? $event['redacted_details'] : [];
+		foreach ( [ $event['root_error_code'] ?? '', $details['root_error_code'] ?? '', $details['error_code'] ?? '' ] as $code ) {
+			if ( self::is_input_shape_code( (string) $code ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static function safe_hash( mixed $value ): string {

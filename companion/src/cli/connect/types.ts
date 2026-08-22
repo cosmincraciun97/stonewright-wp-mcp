@@ -78,6 +78,11 @@ export interface SiteRecordV2 {
 	last_verification?: LastVerification | undefined;
 	/** Per-site tool denylist (carried from v1 disabledTools). */
 	disabled_tools?: string[] | undefined;
+	/**
+	 * Canonical local WordPress root (realpath of a directory containing
+	 * wp-config.php). Not a credential; enables local command recipes.
+	 */
+	local_wp_root?: string | undefined;
 	/** Set when credential_ref points at env:// or was migrated. */
 	created_at?: string | undefined;
 	updated_at?: string | undefined;

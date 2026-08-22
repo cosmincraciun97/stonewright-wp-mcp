@@ -20,6 +20,7 @@ final class DesignPage {
 
 	private const IMPORT_NONCE   = 'stonewright_design_import';
 	private const ACTIVATE_NONCE = 'stonewright_design_activate';
+	private const ACTIVE_FORM_ID = 'stonewright-design-active-form';
 
 	private static ?DesignDirectionService $service = null;
 
@@ -33,7 +34,7 @@ final class DesignPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Design', 'stonewright' ),
-			__( 'Design', 'stonewright' ),
+			AdminShell::experimental_menu_title( __( 'Design', 'stonewright' ) ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -90,7 +91,11 @@ final class DesignPage {
 	 */
 	public static function set_active( bool $on, int $id, int $actor_id ) {
 		if ( ! $on ) {
-			update_option( DesignDirectionService::ACTIVE_OPTION, 0 );
+			$result = self::service()->deactivate( $actor_id );
+			if ( $result instanceof WP_Error ) {
+				return $result;
+			}
+
 			return [
 				'ok'     => true,
 				'active' => false,
@@ -99,6 +104,19 @@ final class DesignPage {
 		}
 
 		return self::service()->activate( $id, $actor_id );
+	}
+
+	/**
+	 * Maps a set_active result to the admin notice query key.
+	 *
+	 * @param array<string, mixed>|WP_Error $result
+	 */
+	public static function notice_for_set_active( bool $on, array|WP_Error $result ): string {
+		if ( $result instanceof WP_Error ) {
+			return $on ? 'activate-error' : 'deactivate-error';
+		}
+
+		return $on ? 'activated' : 'deactivated';
 	}
 
 	public static function handle_import(): void {
@@ -131,15 +149,16 @@ final class DesignPage {
 		}
 		check_admin_referer( self::ACTIVATE_NONCE );
 
-		$id = isset( $_POST['direction_id'] ) ? absint( $_POST['direction_id'] ) : 0;
-		$on = isset( $_POST['direction_enabled'] ) && '1' === (string) $_POST['direction_enabled'];
-		self::set_active( $on, $id, get_current_user_id() );
+		$id     = isset( $_POST['direction_id'] ) ? absint( $_POST['direction_id'] ) : 0;
+		$on     = isset( $_POST['direction_enabled'] ) && '1' === (string) $_POST['direction_enabled'];
+		$result = self::set_active( $on, $id, get_current_user_id() );
+		$notice = self::notice_for_set_active( $on, $result );
 
 		wp_safe_redirect(
 			add_query_arg(
 				[
 					'page'                      => self::SLUG,
-					'stonewright_design_notice' => $on ? 'activated' : 'deactivated',
+					'stonewright_design_notice' => $notice,
 				],
 				admin_url( 'admin.php' )
 			)
@@ -176,6 +195,10 @@ final class DesignPage {
 				<div class="notice notice-success is-dismissible sw-notice"><p><?php esc_html_e( 'Design direction updated.', 'stonewright' ); ?></p></div>
 			<?php elseif ( 'import-error' === $notice ) : ?>
 				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The DESIGN.md import was rejected. Check front matter, tokens, and secret-like prose.', 'stonewright' ); ?></p></div>
+			<?php elseif ( 'activate-error' === $notice ) : ?>
+				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The design direction could not be activated.', 'stonewright' ); ?></p></div>
+			<?php elseif ( 'deactivate-error' === $notice ) : ?>
+				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The active design direction could not be cleared.', 'stonewright' ); ?></p></div>
 			<?php endif; ?>
 
 			<section class="sw-card" aria-labelledby="stonewright-active-direction">
@@ -231,13 +254,15 @@ final class DesignPage {
 	 * @param array<string, mixed> $record
 	 */
 	private static function render_active( array $record ): void {
-		$contract = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
-		$identity = is_array( $contract['identity'] ?? null ) ? $contract['identity'] : [];
-		$tokens   = is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [];
-		$dials    = is_array( $contract['dials'] ?? null ) ? $contract['dials'] : [];
-		$guidance = is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [];
-		$do       = is_array( $guidance['do'] ?? null ) ? $guidance['do'] : [];
-		$avoid    = is_array( $guidance['avoid'] ?? null ) ? $guidance['avoid'] : [];
+		$contract  = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
+		$identity  = is_array( $contract['identity'] ?? null ) ? $contract['identity'] : [];
+		$tokens    = is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [];
+		$dials     = is_array( $contract['dials'] ?? null ) ? $contract['dials'] : [];
+		$guidance  = is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [];
+		$do        = is_array( $guidance['do'] ?? null ) ? $guidance['do'] : [];
+		$avoid     = is_array( $guidance['avoid'] ?? null ) ? $guidance['avoid'] : [];
+		$record_id = (int) ( $record['id'] ?? 0 );
+		$is_active = $record_id > 0 && $record_id === (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 );
 		?>
 		<p>
 			<strong><?php echo esc_html( (string) ( $identity['name'] ?? $record['slug'] ?? '' ) ); ?></strong>
@@ -245,12 +270,12 @@ final class DesignPage {
 				— <?php echo esc_html( (string) $identity['summary'] ); ?>
 			<?php endif; ?>
 		</p>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form id="<?php echo esc_attr( self::ACTIVE_FORM_ID ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="stonewright_design_activate"/>
-			<input type="hidden" name="direction_id" value="<?php echo esc_attr( (string) (int) ( $record['id'] ?? 0 ) ); ?>"/>
+			<input type="hidden" name="direction_id" value="<?php echo esc_attr( (string) $record_id ); ?>"/>
 			<?php wp_nonce_field( self::ACTIVATE_NONCE ); ?>
 			<label class="sw-switch">
-				<input type="checkbox" name="direction_enabled" value="1" data-stonewright-submit-form checked />
+				<input type="checkbox" name="direction_enabled" value="1" data-stonewright-submit-form="<?php echo esc_attr( self::ACTIVE_FORM_ID ); ?>" <?php checked( $is_active ); ?> />
 				<span><?php esc_html_e( 'Active', 'stonewright' ); ?></span>
 			</label>
 		</form>

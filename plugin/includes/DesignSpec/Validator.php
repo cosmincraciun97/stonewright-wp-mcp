@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\DesignSpec;
 
+use Stonewright\WpMcp\Design\Motion\MotionPresetRegistry;
 use Stonewright\WpMcp\Design\Semantics\ActionValidator;
 use Stonewright\WpMcp\Security\RuleEnforcer;
 
@@ -42,15 +43,11 @@ final class Validator {
 				}
 				$result = $validator->validate( json_decode( wp_json_encode( $normalized ) ), $schema_id );
 				if ( ! $result->isValid() ) {
-					foreach ( $result->error()->subErrors() ?? [ $result->error() ] as $error ) {
-						if ( ! $error ) {
-							continue;
-						}
-						$errors[] = [
-							'keyword' => $error->keyword(),
-							'message' => $error->message(),
-							'path'    => $error->data()->path(),
-						];
+					// Flatten nested wrappers (items/anyOf/…) down to leaf
+					// errors so precise keywords like "required" surface with
+					// their real path instead of a broad parent aggregate.
+					foreach ( self::flatten_schema_errors( $result->error() ) as $error ) {
+						$errors[] = $error;
 					}
 				}
 			} catch ( \Throwable $e ) {
@@ -62,6 +59,7 @@ final class Validator {
 
 		$errors = array_merge( self::repair_checks( $normalized ), $errors );
 		$errors = array_merge( self::native_policy_checks( $normalized ), $errors );
+		$errors = array_merge( self::motion_checks( $normalized ), $errors );
 		foreach ( ActionValidator::validate_design_spec( $normalized ) as $diagnostic ) {
 			$errors[] = [
 				'keyword' => (string) ( $diagnostic['code'] ?? 'semantic' ),
@@ -81,6 +79,37 @@ final class Validator {
 		}
 
 		return $normalized;
+	}
+
+	/**
+	 * Flattens an Opis error tree into leaf diagnostics.
+	 *
+	 * Wrapper keywords (items, anyOf, oneOf, allOf, properties…) aggregate
+	 * child errors; a root-level violation such as additionalProperties:false
+	 * carries no sub-errors at all (subErrors() returns [] rather than null).
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function flatten_schema_errors( object $error ): array {
+		$sub_errors = $error->subErrors();
+		if ( null === $sub_errors || [] === $sub_errors ) {
+			return [
+				[
+					'keyword' => $error->keyword(),
+					'message' => $error->message(),
+					'path'    => $error->data()->path(),
+				],
+			];
+		}
+
+		$out = [];
+		foreach ( $sub_errors as $sub_error ) {
+			if ( ! $sub_error ) {
+				continue;
+			}
+			$out = array_merge( $out, self::flatten_schema_errors( $sub_error ) );
+		}
+		return $out;
 	}
 
 	/**
@@ -269,6 +298,254 @@ final class Validator {
 		}
 
 		return $spec;
+	}
+
+	/**
+	 * Semantic motion checks that JSON Schema cannot express: target
+	 * resolution, global ID uniqueness, hover/focus parity, loop control
+	 * requirements, provider engine identity, and stagger span arithmetic.
+	 *
+	 * Motion absent from a spec is fully compatible with legacy payloads.
+	 *
+	 * @param array<string, mixed> $spec
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function motion_checks( array $spec ): array {
+		$items = self::motion_items( $spec );
+		if ( [] === $items ) {
+			return [];
+		}
+
+		$errors       = [];
+		$seen_ids     = [];
+		$hover_pairs  = [];
+
+		foreach ( $items as $entry ) {
+			/** @var array<string, mixed> $item */
+			$item = $entry['item'];
+			$path = $entry['path'];
+			$id   = (string) ( $item['id'] ?? '' );
+
+			if ( isset( $seen_ids[ $id ] ) ) {
+				$errors[] = self::motion_error( 'motion_duplicate_id', 'Motion id "' . $id . '" is declared more than once; motion ids are globally unique in the document.', $path );
+			}
+			$seen_ids[ $id ] = true;
+
+			// Effect slugs must exist in the versioned preset registry —
+			// never free text, never an unknown slug.
+			$effect = (string) ( $item['effect'] ?? '' );
+			if ( ! MotionPresetRegistry::has( $effect ) ) {
+				$errors[] = self::motion_error( 'motion_effect_unknown', 'Effect "' . $effect . '" is not in the versioned MotionPresetRegistry; use one of: ' . implode( ', ', MotionPresetRegistry::slugs() ) . '.', $path );
+			}
+
+			// The orchestration preset carries its own stagger configuration.
+			if ( 'stagger-reveal' === $effect && empty( $item['stagger'] ) ) {
+				$errors[] = self::motion_error( 'motion_stagger_required', 'Effect stagger-reveal is an orchestration preset and requires a stagger configuration.', $path );
+			}
+
+			// Target resolution: zero or ambiguous matches are invalid.
+			$matches = self::motion_target_matches( $spec, $entry );
+			if ( 0 === count( $matches ) ) {
+				$errors[] = self::motion_error( 'motion_target_missing', 'Motion "' . $id . '" targets "' . (string) ( $item['target_id'] ?? '' ) . '" which does not resolve inside its declared scope. target_id must be a spec ID, never a CSS selector.', $path );
+			} elseif ( count( $matches ) > 1 ) {
+				$errors[] = self::motion_error( 'motion_target_ambiguous', 'Motion "' . $id . '" target "' . (string) ( $item['target_id'] ?? '' ) . '" matches multiple nodes; target IDs must be unique.', $path );
+			}
+
+			// Hover requires focus-visible parity on interactive elements.
+			if ( 'hover' === ( $item['trigger'] ?? null ) ) {
+				$hover_pairs[] = [
+					'target' => (string) ( $item['target_id'] ?? '' ),
+					'effect' => (string) ( $item['effect'] ?? '' ),
+					'path'   => $path,
+				];
+			}
+
+			// Loop playback is blocked by default.
+			if ( 'loop' === ( $item['playback'] ?? null ) ) {
+				if ( 'decorative' === ( $item['purpose'] ?? null ) ) {
+					$errors[] = self::motion_error( 'motion_loop_decoration', 'Loop playback is not allowed for decorative purpose.', $path );
+				}
+				if ( empty( $item['control_target_id'] ) || empty( $item['control_label'] ) ) {
+					$errors[] = self::motion_error( 'motion_loop_requires_control', 'playback=loop requires control_target_id and control_label pointing at a persistent, keyboard- and touch-operable control.', $path );
+				} else {
+					$control_matches = self::motion_id_matches( $spec, (string) $item['control_target_id'] );
+					if ( 0 === count( $control_matches ) ) {
+						$errors[] = self::motion_error( 'motion_loop_control_missing', 'Loop control_target_id "' . (string) $item['control_target_id'] . '" does not resolve to any section or block in the spec.', $path );
+					}
+				}
+			}
+
+			// Provider engine demands identity.
+			if ( 'provider' === ( $item['engine'] ?? null ) && empty( $item['provider_id'] ) ) {
+				$errors[] = self::motion_error( 'motion_provider_id_required', 'engine=provider requires provider_id from the capability digest.', $path );
+			}
+
+			// Stagger arithmetic.
+			if ( isset( $item['stagger'] ) && is_array( $item['stagger'] ) ) {
+				$count    = count( $item['stagger']['target_ids'] ?? [] );
+				$interval = (int) ( $item['stagger']['interval_ms'] ?? 0 );
+				$span     = (int) ( $item['stagger']['span_ms'] ?? 0 );
+				if ( $count >= 2 && $interval * ( $count - 1 ) > $span ) {
+					$errors[] = self::motion_error( 'motion_stagger_span_exceeded', sprintf( 'stagger interval_ms * (count - 1) = %d exceeds span_ms = %d.', $interval * ( $count - 1 ), $span ), $path );
+				}
+			}
+		}
+
+		foreach ( $hover_pairs as $pair ) {
+			$has_parity = false;
+			foreach ( $items as $entry ) {
+				$item = $entry['item'];
+				if ( 'focus-visible' === ( $item['trigger'] ?? null )
+					&& (string) ( $item['target_id'] ?? '' ) === $pair['target']
+					&& (string) ( $item['effect'] ?? '' ) === $pair['effect'] ) {
+					$has_parity = true;
+					break;
+				}
+			}
+			if ( ! $has_parity ) {
+				$errors[] = self::motion_error( 'motion_hover_focus_parity', 'Hover motion on target "' . $pair['target'] . '" needs an equivalent focus-visible motion with the same effect for keyboard users.', $pair['path'] );
+			}
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * Collects every declared motion item with its validation path.
+	 *
+	 * @param array<string, mixed> $spec
+	 * @return list<array{si:int, bi:int|null, owner:string, scope:string, item:array<string, mixed>, path:list<int|string>}>
+	 */
+	private static function motion_items( array $spec ): array {
+		$out = [];
+
+		foreach ( (array) ( $spec['sections'] ?? [] ) as $si => $section ) {
+			if ( ! is_array( $section ) ) {
+				continue;
+			}
+
+			foreach ( (array) ( $section['motion'] ?? [] ) as $mi => $item ) {
+				if ( ! is_array( $item ) ) {
+					continue;
+				}
+				$out[] = [
+					'si'    => (int) $si,
+					'bi'    => null,
+					'owner' => (string) ( $section['id'] ?? '' ),
+					'scope' => 'section',
+					'item'  => $item,
+					'path'  => [ 'sections', $si, 'motion', $mi ],
+				];
+			}
+
+			foreach ( (array) ( $section['blocks'] ?? [] ) as $bi => $block ) {
+				if ( ! is_array( $block ) ) {
+					continue;
+				}
+				foreach ( (array) ( $block['motion'] ?? [] ) as $mi => $item ) {
+					if ( ! is_array( $item ) ) {
+						continue;
+					}
+					$out[] = [
+						'si'    => (int) $si,
+						'bi'    => (int) $bi,
+						'owner' => (string) ( $block['id'] ?? sprintf( 's%d_b%d', $si, $bi ) ),
+						'scope' => 'block',
+						'item'  => $item,
+						'path'  => [ 'sections', $si, 'blocks', $bi, 'motion', $mi ],
+					];
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Resolves a semantic target ID inside a motion item's scope.
+	 *
+	 * Section-declared motion may target its own section or any descendant
+	 * block; block-declared motion may target only its own block. Duplicate
+	 * matches (ambiguous targets) are reported by the caller.
+	 *
+	 * @param array<string, mixed> $spec
+	 * @param array{si:int, bi:int|null, owner:string, scope:string, item:array<string, mixed>, path:list<int|string>} $entry
+	 * @return list<string>
+	 */
+	private static function motion_target_matches( array $spec, array $entry ): array {
+		$target = (string) ( $entry['item']['target_id'] ?? '' );
+		if ( '' === $target ) {
+			return [];
+		}
+
+		$matches = [];
+
+		foreach ( (array) ( $spec['sections'] ?? [] ) as $si => $section ) {
+			if ( ! is_array( $section ) || (int) $si !== $entry['si'] ) {
+				continue;
+			}
+
+			if ( 'block' === $entry['scope'] ) {
+				$blocks = array_values( (array) ( $section['blocks'] ?? [] ) );
+				$block  = $blocks[ $entry['bi'] ] ?? null;
+				if ( is_array( $block ) && $entry['owner'] === $target ) {
+					$matches[] = 'block:' . $si . '_' . $entry['bi'];
+				}
+				continue;
+			}
+
+			if ( (string) ( $section['id'] ?? '' ) === $target ) {
+				$matches[] = 'section:' . $si;
+			}
+
+			foreach ( (array) ( $section['blocks'] ?? [] ) as $bi => $block ) {
+				if ( ! is_array( $block ) ) {
+					continue;
+				}
+				$block_id = (string) ( $block['id'] ?? '' );
+				if ( '' !== $block_id && $block_id === $target ) {
+					$matches[] = 'block:' . $si . '_' . $bi;
+				}
+			}
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * Counts occurrences of an ID across all sections and blocks.
+	 *
+	 * @param array<string, mixed> $spec
+	 * @return list<string>
+	 */
+	private static function motion_id_matches( array $spec, string $id ): array {
+		$matches = [];
+		foreach ( (array) ( $spec['sections'] ?? [] ) as $si => $section ) {
+			if ( ! is_array( $section ) ) {
+				continue;
+			}
+			if ( (string) ( $section['id'] ?? '' ) === $id ) {
+				$matches[] = 'section:' . $si;
+			}
+			foreach ( (array) ( $section['blocks'] ?? [] ) as $bi => $block ) {
+				if ( is_array( $block ) && (string) ( $block['id'] ?? '' ) === $id ) {
+					$matches[] = 'block:' . $si . '_' . $bi;
+				}
+			}
+		}
+		return $matches;
+	}
+
+	/**
+	 * @param list<int|string> $path
+	 * @return array<string, mixed>
+	 */
+	private static function motion_error( string $keyword, string $message, array $path ): array {
+		return [
+			'keyword' => $keyword,
+			'message' => $message,
+			'path'    => $path,
+		];
 	}
 
 	/**

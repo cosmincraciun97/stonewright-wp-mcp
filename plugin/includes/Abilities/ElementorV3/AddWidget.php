@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -113,6 +114,10 @@ final class AddWidget extends AbilityKernel {
 				}
 
 				$settings_in = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$css_gate    = ElementorCustomCssGate::assert_incoming( $settings_in, $args, $widget_type );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
 				if ( 'html' !== $widget_type ) {
 					$validated = SettingsValidator::validate( $widget_type, $settings_in );
 					if ( $validated instanceof \WP_Error ) {

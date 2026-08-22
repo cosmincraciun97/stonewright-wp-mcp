@@ -41,9 +41,12 @@ final class ErrorPatterns {
 	 */
 	private const EXPECTED_SAFETY_CODES = [
 		'stonewright_php_elementor_raw_write_blocked',
+		'stonewright_php_custom_css_write_blocked',
 		'stonewright_php_code_file_write_blocked',
 		'stonewright_php_read_only_violation',
 		'stonewright_custom_code_grant_required',
+		'stonewright_custom_code_approval_required',
+		'stonewright_css_classes_not_approved',
 		'stonewright_confirmation_required',
 		'stonewright_confirmation_invalid',
 		'stonewright_permission_denied',
@@ -184,6 +187,8 @@ final class ErrorPatterns {
 				'normalized_path' => self::safe_text( $meta['normalized_path'] ?? '' ),
 				'change_set_id' => self::safe_text( $meta['change_set_id'] ?? '' ),
 				'strategy_fingerprint' => self::safe_hash( $meta['strategy_fingerprint'] ?? '' ),
+				'mode'         => self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? get_option( 'stonewright_mode', '' ) ),
+				'target'       => self::pattern_target( $sanitized_args, $meta ),
 			];
 		}
 
@@ -200,6 +205,8 @@ final class ErrorPatterns {
 		$store[ $signature ]['normalized_path'] = self::safe_text( $meta['normalized_path'] ?? ( $store[ $signature ]['normalized_path'] ?? '' ) );
 		$store[ $signature ]['change_set_id'] = self::safe_text( $meta['change_set_id'] ?? ( $store[ $signature ]['change_set_id'] ?? '' ) );
 		$store[ $signature ]['strategy_fingerprint'] = self::safe_hash( $meta['strategy_fingerprint'] ?? ( $store[ $signature ]['strategy_fingerprint'] ?? '' ) );
+		$store[ $signature ]['mode']   = self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? ( $store[ $signature ]['mode'] ?? get_option( 'stonewright_mode', '' ) ) );
+		$store[ $signature ]['target'] = self::pattern_target( $sanitized_args, $meta, (string) ( $store[ $signature ]['target'] ?? '' ) );
 		if ( 'verified_resolved' === (string) ( $store[ $signature ]['state'] ?? '' ) || 'promoted_learning' === (string) ( $store[ $signature ]['state'] ?? '' ) ) {
 			$store[ $signature ]['state'] = 'reopened';
 			$store[ $signature ]['reopened_count'] = (int) ( $store[ $signature ]['reopened_count'] ?? 0 ) + 1;
@@ -293,6 +300,8 @@ final class ErrorPatterns {
 				'strategy_fingerprint' => (string) ( $row['strategy_fingerprint'] ?? '' ),
 				'repair'     => (string) ( $row['proposed_remediation'] ?? RemediationHints::for_code( $code, $ability ) ),
 				'state'      => (string) ( $row['state'] ?? '' ),
+				'mode'       => (string) ( $row['mode'] ?? '' ),
+				'target'     => (string) ( $row['target'] ?? '' ),
 			];
 		}
 		usort(
@@ -313,6 +322,36 @@ final class ErrorPatterns {
 		$store[ $signature ]['dismissed'] = true;
 		self::save( $store );
 		return true;
+	}
+
+	/**
+	 * Drop every recurring-pattern summary. Plugin settings stay untouched.
+	 */
+	public static function clear(): void {
+		delete_option( self::OPTION_KEY );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $meta
+	 */
+	private static function pattern_target( array $args, array $meta, string $fallback = '' ): string {
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach (
+			[
+				$meta['resource_ref'] ?? null,
+				$meta['target_id'] ?? null,
+				$args['target'] ?? null,
+				$args['target_id'] ?? null,
+				$args['post_id'] ?? null,
+				$nested['post_id'] ?? null,
+			] as $candidate
+		) {
+			if ( is_scalar( $candidate ) && '' !== trim( (string) $candidate ) ) {
+				return self::safe_text( $candidate );
+			}
+		}
+		return self::safe_text( $fallback );
 	}
 
 	/**
@@ -447,17 +486,27 @@ final class ErrorPatterns {
 
 	private static function memory_entry_by_key( string $scope, string $key ): ?array {
 		global $wpdb;
-		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
 			return null;
 		}
 
-		$id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				'SELECT id FROM ' . Memory::table_name() . ' WHERE scope = %s AND memory_key = %s', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- owned table and prepared values.
-				$scope,
-				$key
-			)
+		$table = Memory::table_name();
+		if ( ! is_string( $table ) || '' === $table ) {
+			return null;
+		}
+
+		/** @var \wpdb $db */
+		$db       = $wpdb;
+		$prepared = $db->prepare(
+			'SELECT id FROM ' . $table . ' WHERE scope = %s AND memory_key = %s', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- owned table name plus prepared scalars.
+			$scope,
+			$key
 		);
+		if ( ! is_string( $prepared ) || '' === $prepared ) {
+			return null;
+		}
+
+		$id = (int) $db->get_var( $prepared );
 		return $id > 0 ? Memory::get_by_id( $id ) : null;
 	}
 

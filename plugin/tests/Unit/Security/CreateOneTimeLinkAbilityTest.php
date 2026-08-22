@@ -60,6 +60,31 @@ final class CreateOneTimeLinkAbilityTest extends TestCase {
 	public function test_input_schema_includes_confirmation_token(): void {
 		$schema = ( new CreateOneTimeLink() )->input_schema();
 		self::assertArrayHasKey( 'confirmation_token', $schema['properties'] );
+		self::assertArrayHasKey( 'user_agent', $schema['properties'] );
+	}
+
+	public function test_user_agent_override_binds_redemption_to_the_browser(): void {
+		$GLOBALS['stonewright_test_user_caps']['manage_options'] = true;
+		$_SERVER['REMOTE_ADDR']     = '192.0.2.10';
+		$_SERVER['HTTP_USER_AGENT'] = 'StonewrightMcp/1.0';
+
+		$result = ( new CreateOneTimeLink() )->execute(
+			[
+				'ttl_seconds' => 60,
+				'user_agent'  => 'Mozilla/5.0 PlaywrightVerify/1.0',
+			]
+		);
+
+		self::assertIsArray( $result );
+		parse_str( (string) parse_url( $result['url'], PHP_URL_QUERY ), $params );
+		$token = (string) ( $params['stonewright_otl'] ?? '' );
+
+		self::assertFalse( OneTimeLink::consume( $token ) );
+
+		$_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 PlaywrightVerify/1.0';
+		self::assertSame( 77, OneTimeLink::consume( $token ) );
+
+		unset( $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'] );
 	}
 
 	public function test_production_safe_mode_requires_confirmation_token(): void {

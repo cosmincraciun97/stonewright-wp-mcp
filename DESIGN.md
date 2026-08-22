@@ -101,7 +101,7 @@ components:
 
 Stonewright should feel like a clean, well-made instrument used in daylight on a large monitor: technical, composed, and immediately trustworthy. Light surfaces keep WordPress tasks familiar; dense information stays readable through compact type, strong alignment, and selective emphasis.
 
-Premium quality comes from exact spacing, predictable controls, honest status, and polished edge cases. The system rejects generic AI SaaS card walls, giant metrics, decorative effects, and inconsistent page-specific styling.
+Quality comes from exact spacing, predictable controls, honest status, and polished edge cases. The system rejects generic AI SaaS card walls, giant metrics, decorative effects, and inconsistent page-specific styling.
 
 **Key Characteristics:**
 

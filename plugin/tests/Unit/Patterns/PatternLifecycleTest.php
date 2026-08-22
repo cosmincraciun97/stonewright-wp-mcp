@@ -35,9 +35,10 @@ final class PatternLifecycleTest extends TestCase {
 		$GLOBALS['stonewright_test_deleted_posts']   = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_object_terms']    = [];
-		$GLOBALS['stonewright_test_terms']           = [];
-		$GLOBALS['stonewright_test_audit_rows']      = [];
-		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
+		$GLOBALS['stonewright_test_terms']              = [];
+		$GLOBALS['stonewright_test_pattern_categories'] = [];
+		$GLOBALS['stonewright_test_audit_rows']         = [];
+		$GLOBALS['stonewright_test_wpdb_inserts']       = [];
 	}
 
 	public function test_ability_names_are_stable(): void {
@@ -168,6 +169,20 @@ final class PatternLifecycleTest extends TestCase {
 		);
 		self::assertIsArray( $assigned );
 		self::assertSame( [ 'featured', 'headers' ], $assigned['categories'] );
+
+		$listed = ( new PatternCategories() )->execute( [ 'action' => 'list' ] );
+		self::assertIsArray( $listed );
+		self::assertContains( 'featured', $listed['categories'] );
+	}
+
+	public function test_categories_list_includes_core_featured_from_pattern_registry(): void {
+		$GLOBALS['stonewright_test_terms']              = [];
+		$GLOBALS['stonewright_test_pattern_categories'] = [
+			'featured' => [
+				'name'  => 'featured',
+				'label' => 'Featured',
+			],
+		];
 
 		$listed = ( new PatternCategories() )->execute( [ 'action' => 'list' ] );
 		self::assertIsArray( $listed );

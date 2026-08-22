@@ -808,6 +808,7 @@ final class ToolProfile extends AbilityKernel {
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
 				'stonewright/gutenberg-apply-to-post',

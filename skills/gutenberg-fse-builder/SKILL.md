@@ -99,6 +99,32 @@ were `is_dynamic: true` **and** are actually server-rendered:
 reported `is_dynamic: true` because they have render callbacks. Still queue
 those. PHP serialize will drop editor-owned HTML.
 
+## Native-first styling (both builders)
+
+Climb this ladder. Do not skip rungs:
+
+1. **Block supports and theme preset slugs** — `textColor` / `backgroundColor`
+   (`contrast`, `base`, kit slugs), `attrs.style` spacing/typography, layout.
+   Prefer a palette slug over a raw hex when the active theme declares it.
+2. **Typed widget / block controls** — live Gutenberg attributes or Elementor
+   controls from the runtime schema. Never invent CSS to fake a native control.
+3. **Custom CSS only through approval-gated tools** after a proven native gap.
+   Run `dry_run`, show the user `approval_url`, exact path, byte counts, and a
+   short summary, then **stop**. After the human returns `custom_code_grant`,
+   apply only that candidate. Never open the approval page unless asked.
+
+Gutenberg raw HTML with style tags (named `core/html`, Classic/freeform, or any
+`innerHTML`) needs **both** `allow_raw_html:true` and a consumed
+`custom_code_grant`. An all-raw-HTML tree (every leaf is `core/html` or
+`core/freeform`, even inside group/columns) is refused without the flag
+(`stonewright_raw_html_refused`). theme.json `styles.css` and per-block `css`
+on `stonewright-fse-write-global-styles` need the same grant. Elementor
+`custom_css` / `_custom_css` keys use the same grant pipeline.
+
+On `stonewright_custom_code_approval_required`: do not strip the CSS. Name the
+offending block or JSON path, suggest the native alternative from the error,
+show `approval_url`, and wait for the human.
+
 `BlockQueue::requires_finalizer` treats `is_dynamic` as the PHP path, not
 the queue. On the introspection site that includes `core/cover`,
 `core/heading`, and `core/button` — the same names in the hero and CTA
@@ -129,6 +155,32 @@ visual section call `stonewright-blocks-queue-change` explicitly.
 8. Verify in a **separate** frontend tab at desktop, tablet, and mobile.
 
 Do not hand-write block HTML. Do not PHP-serialize third-party blocks.
+
+Queue **one non-terminal change per post**. A second `queue-change` while an
+item is still `queued` or `serialized` returns `stonewright_finalizer_pending_change`.
+Drain serialize → finalize, then queue the next section.
+
+`stonewright-blocks-parse` compact paths skip `parse_blocks()` whitespace
+nodes. Insert/remove/queue `path` and `position` are raw `parse_blocks()`
+indexes. Read the root names (including `null`) before choosing a slot.
+
+## Output quality
+
+- **One H1.** Classic themes print the page title as `h1.entry-title` and
+  cannot hide it from native block supports. Put section titles on `core/heading`
+  **level 2**. Only emit a content H1 when the theme title is already suppressed
+  (block theme `core/post-title` in the template, or a page setting the theme
+  actually honors). Check the rendered page before the first heading write.
+- **Query loops are designed, not dumped.** After `stonewright-blocks-query-loop-build`
+  (empty inner `attributes` are `{}` and the spec is insertable as-is), restyle
+  before signoff: `core/post-template` `layout.type=grid` with `columnCount`,
+  `core/post-featured-image` `aspectRatio` + `scale:cover`, title as H3, date,
+  excerpt, and a card-like inner `core/group` (background, padding, border
+  radius via block supports). A default vertical list with stretched images
+  fails review.
+- **Hero/CTA use block supports.** Cover/group background, overlay/duotone,
+  constrained inner `layout.contentSize`, `core/buttons` fill + outline,
+  spacing via `style.spacing` — not spacer soup, not `core/html`, not custom CSS.
 
 ## `likely_partial` and editor-owned ids
 
@@ -395,6 +447,9 @@ persist. `stonewright/fse-update-global-styles` and
 | Heartbeat dead | `online: false` | Do not finalize. Do not PHP-serialize static blocks. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard the blob. Re-queue. |
 | Not a block theme | `fse_unavailable` | Skip template / global-style writes. Page body can still use the finalizer. |
+| Raw CSS in HTML | `stonewright_custom_code_approval_required` | Prefer block supports / preset slugs. Show `approval_url`. Stop. Retry only with `allow_raw_html` plus the human-issued `custom_code_grant`. Never strip the CSS. |
+| All-raw HTML tree | `stonewright_raw_html_refused` | Queue named core blocks. `allow_raw_html:true` only when the user explicitly wants raw HTML. |
+| theme.json `css` | `stonewright_custom_code_approval_required` | Use palette / typography / spacing first. Grant on `fse-write-global-styles` after dry-run approval. |
 
 ## Ability summary
 
@@ -425,3 +480,14 @@ See `references/block-examples.md` for concrete block JSON payloads.
 Those examples that call `blocks-insert` for `core/group` are stale — queue
 static trees instead. See `references/fse-examples.md` for theme.json and
 template examples.
+
+## Motion
+
+Use `stonewright-design-motion-capabilities` → signed
+`stonewright-design-motion-plan` → `stonewright-design-motion-apply-gutenberg`.
+Resolve every semantic target to a current block path. Dry-run first, then apply
+once with the exact content hash; static blocks may return `queued_finalizer`
+and are not complete until the editor bridge saves and readback succeeds. Core
+preset classes are allowlisted, assets load only on marked documents, and
+no-JS/reduced-motion/browser evidence must be passed to
+`stonewright-design-quality-check`.

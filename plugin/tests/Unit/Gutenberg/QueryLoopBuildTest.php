@@ -34,8 +34,9 @@ final class QueryLoopBuildTest extends TestCase {
 
 	protected function tearDown(): void {
 		unset( $GLOBALS['stonewright_test_registered_blocks'] );
-		$GLOBALS['stonewright_test_user_caps'] = [];
-		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_user_caps']      = [];
+		$GLOBALS['stonewright_test_options']        = [];
+		$GLOBALS['stonewright_test_posts']          = [];
 	}
 
 	public function test_ability_name_is_stable(): void {
@@ -58,12 +59,19 @@ final class QueryLoopBuildTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertSame( 'core/query', $result['block']['name'] );
-		self::assertSame( 'post', $result['block']['attrs']['query']['postType'] );
-		self::assertSame( 4, $result['block']['attrs']['query']['perPage'] );
-		self::assertSame( 'desc', $result['block']['attrs']['query']['order'] );
-		self::assertFalse( $result['block']['attrs']['query']['inherit'] );
+		self::assertIsArray( $result['block']['attributes'] );
+		self::assertSame( 'post', $result['block']['attributes']['query']['postType'] );
+		self::assertSame( 4, $result['block']['attributes']['query']['perPage'] );
+		self::assertSame( 'desc', $result['block']['attributes']['query']['order'] );
+		self::assertFalse( $result['block']['attributes']['query']['inherit'] );
 		self::assertSame( 'core/post-template', $result['block']['innerBlocks'][0]['name'] );
 		self::assertContains( 'core/post-title', array_column( $result['block']['innerBlocks'][0]['innerBlocks'], 'name' ) );
+		foreach ( $result['block']['innerBlocks'][0]['innerBlocks'] as $child ) {
+			self::assertArrayHasKey( 'attributes', $child );
+			self::assertSame( '{}', wp_json_encode( $child['attributes'] ) );
+		}
+		self::assertSame( '{}', wp_json_encode( $result['block']['innerBlocks'][0]['attributes'] ) );
+		self::assertArrayNotHasKey( 'attrs', $result['block'] );
 	}
 
 	public function test_refuses_unregistered_inner_blocks(): void {
@@ -91,6 +99,67 @@ final class QueryLoopBuildTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_post_type_unregistered', $result->get_error_code() );
+	}
+
+	public function test_build_output_is_directly_insertable(): void {
+		$GLOBALS['stonewright_test_posts'] = [
+			21 => (object) [
+				'ID'           => 21,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Query loop target',
+				'post_content' => '<!-- wp:paragraph --><p>Keep</p><!-- /wp:paragraph -->',
+				'post_excerpt' => '',
+				'meta'         => [],
+			],
+		];
+		$GLOBALS['stonewright_test_registered_blocks']['core/query']         = (object) [
+			'attributes'      => [ 'query' => [ 'type' => 'object' ] ],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+		$GLOBALS['stonewright_test_registered_blocks']['core/post-template'] = (object) [
+			'attributes'      => [],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+		$GLOBALS['stonewright_test_registered_blocks']['core/post-title']    = (object) [
+			'attributes'      => [],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+		$GLOBALS['stonewright_test_registered_blocks']['core/post-excerpt']  = (object) [
+			'attributes'      => [],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+		$GLOBALS['stonewright_test_registered_blocks']['core/post-date']     = (object) [
+			'attributes'      => [],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+
+		$built = ( new QueryLoopBuild() )->execute(
+			[
+				'post_type' => 'post',
+				'count'     => 3,
+			]
+		);
+		self::assertIsArray( $built );
+
+		$inserted = ( new \Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock() )->execute(
+			[
+				'post_id' => 21,
+				'block'   => $built['block'],
+			]
+		);
+		self::assertIsArray( $inserted );
+		self::assertArrayNotHasKey( 'queued', $inserted );
+		$content = (string) $GLOBALS['stonewright_test_posts'][21]->post_content;
+		self::assertMatchesRegularExpression( '/wp:(?:core\/)?query/', $content );
+		self::assertMatchesRegularExpression( '/wp:(?:core\/)?post-template/', $content );
+		self::assertMatchesRegularExpression( '/wp:(?:core\/)?post-title/', $content );
+		self::assertDoesNotMatchRegularExpression( '/wp:(?:core\/)?query\s+\/>/', $content );
 	}
 
 	public function test_schema_is_closed(): void {

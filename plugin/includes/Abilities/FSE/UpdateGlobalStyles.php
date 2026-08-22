@@ -46,6 +46,10 @@ final class UpdateGlobalStyles extends AbilityKernel {
 				'styles'             => [ 'type' => 'object' ],
 				'mode'               => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
 				'confirmation_token' => [ 'type' => 'string' ],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Required when styles.css or per-block css is present. Single-use human-issued grant bound to the CSS candidate hash.',
+				],
 			],
 		];
 	}
@@ -71,7 +75,7 @@ final class UpdateGlobalStyles extends AbilityKernel {
 			function ( array $args ) {
 				$verify_args = array_filter(
 					$args,
-					static fn( string $k ) => 'confirmation_token' !== $k,
+					static fn( string $k ) => 'confirmation_token' !== $k && 'custom_code_grant' !== $k,
 					ARRAY_FILTER_USE_KEY
 				);
 				$token_error = $this->confirmation_token_error( $args, $verify_args );
@@ -84,7 +88,7 @@ final class UpdateGlobalStyles extends AbilityKernel {
 					return $composed;
 				}
 
-				$written = GlobalStylesWriter::write( $composed );
+				$written = GlobalStylesWriter::write( $composed, (string) ( $args['custom_code_grant'] ?? '' ) );
 				if ( is_wp_error( $written ) ) {
 					return $written;
 				}
@@ -102,6 +106,6 @@ final class UpdateGlobalStyles extends AbilityKernel {
 	 * @return array<int, string>
 	 */
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'confirmation_token', 'custom_code_grant' ] );
 	}
 }

@@ -56,6 +56,8 @@ final class AttributeValidatorTest extends TestCase {
 		$data = (array) $result->get_error_data();
 		self::assertSame( [ 'undeclared', 'alsoBad' ], $data['offending_keys'] );
 		self::assertSame( 'vendor/card', $data['block_name'] );
+		self::assertArrayHasKey( 'likely_partial', $data );
+		self::assertFalse( (bool) $data['likely_partial'] );
 	}
 
 	public function test_rejects_enum_and_type_mismatches(): void {
@@ -151,6 +153,7 @@ final class AttributeValidatorTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_code() );
 		self::assertSame( [ 'kadenceDynamic' ], $result->get_error_data()['offending_keys'] );
+		self::assertTrue( (bool) $result->get_error_data()['likely_partial'] );
 	}
 
 	public function test_unregistered_block_is_a_hard_error_in_both_contexts(): void {

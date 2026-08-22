@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\GetPendingBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\QueueBlockChange;
 use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
+use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 
@@ -101,6 +102,85 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertSame( [ 'title' => 'Queued' ], $stored['block_spec']['attributes'] );
 		self::assertSame( [], $stored['block_spec']['innerBlocks'] );
 		self::assertArrayNotHasKey( 'innerHTML', $stored['block_spec'] );
+	}
+
+	public function test_pending_batch_exposes_error_and_failed_count_by_default(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Fail visible' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+		$html = '<!-- wp:freeform -->x<!-- /wp:freeform -->';
+		BlockQueue::mark_failed( (string) $queued['change_id'], 'serialize_roundtrip_failed: parsed core/freeform', $html );
+
+		$pending = ( new GetPendingBatch() )->execute( [] );
+		self::assertIsArray( $pending );
+		self::assertSame( 1, (int) $pending['failed_count'] );
+		self::assertSame( 0, (int) $pending['queued_count'] );
+		self::assertArrayHasKey( 'error', $pending['items'][0] );
+		$error = $pending['items'][0]['error'];
+		self::assertIsArray( $error );
+		self::assertNotSame( '', (string) ( $error['code'] ?? $error['message'] ?? '' ) );
+		self::assertStringContainsString( 'serialize_roundtrip_failed', (string) wp_json_encode( $error ) );
+		self::assertStringNotContainsString( 'Fail visible', (string) wp_json_encode( $pending ) );
+	}
+
+	public function test_finalizer_runtime_reports_failed_targets_queue_urls_and_heartbeat_online(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'hidden-runtime' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+		BlockQueue::mark_failed( (string) $queued['change_id'], 'serialize_roundtrip_failed', '<!-- wp:vendor/card /-->' );
+
+		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $runtime );
+		self::assertFalse( $runtime['online'] );
+		self::assertSame( 1, (int) $runtime['failed_count'] );
+		self::assertSame( 0, (int) $runtime['pending_count'] );
+		self::assertNotEmpty( $runtime['targets'] );
+		$target = $runtime['targets'][0];
+		self::assertSame( 42, (int) $target['post_id'] );
+		self::assertSame( 1, (int) $target['failed_count'] );
+		self::assertSame( 0, (int) $target['pending_count'] );
+		self::assertStringContainsString( 'post.php?post=42', (string) $target['editor_frame_url'] );
+		self::assertStringContainsString( 'stonewright-block-finalizer', (string) $target['queue_url'] );
+		self::assertStringContainsString( 'example.test', (string) $target['queue_url'] );
+		self::assertStringNotContainsString( 'hidden-runtime', (string) wp_json_encode( $runtime ) );
+
+		FinalizerPage::register();
+		do_action( 'rest_api_init' );
+		$failed_record = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $failed_record );
+		$issued = BlockQueue::issue_token( (string) $failed_record['session_id'] );
+		self::assertIsArray( $issued );
+		$request = new \WP_REST_Request( 'GET', '/stonewright/v1/block-finalizer/pending' );
+		$request->set_params( [ 'token' => $issued['token'] ] );
+		FinalizerPage::rest_pending( $request );
+		$after_pending = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $after_pending );
+		self::assertFalse( $after_pending['online'] );
+
+		$beat = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$beat->set_json_params( [ 'token' => $issued['token'] ] );
+		FinalizerPage::rest_heartbeat( $beat );
+		$after_beat = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $after_beat );
+		self::assertTrue( $after_beat['online'] );
 	}
 
 	public function test_pending_batch_and_runtime_omit_full_block_spec(): void {
@@ -201,6 +281,143 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertNotEmpty( $GLOBALS['stonewright_test_posts'][42]->meta['_stonewright_backups'] ?? [] );
 	}
 
+	public function test_finalize_apply_succeeds_when_stored_content_hash_still_matches_pre_queue(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][42]->post_content;
+		$hash   = hash( 'sha256', $before );
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $hash,
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'No autosave' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+
+		$html = '<!-- wp:vendor/card {"title":"No autosave"} --><div class="card">No autosave</div><!-- /wp:vendor/card -->';
+		self::assertTrue( BlockQueue::store_serialized( (string) $queued['change_id'], $html, hash( 'sha256', $html ) ) );
+		self::assertSame( $before, (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+		self::assertSame( $hash, hash( 'sha256', (string) $GLOBALS['stonewright_test_posts'][42]->post_content ) );
+
+		$result = ( new FinalizeBatch() )->execute(
+			[ 'change_ids' => [ $queued['change_id'] ] ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertNotSame( 'stonewright_content_conflict', (string) ( $result['error_code'] ?? '' ) );
+		self::assertStringContainsString( $html, (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+	}
+
+	public function test_same_user_enqueue_serialize_and_finalize_with_scoped_token(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Same user' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+		self::assertNotSame( '', (string) ( $queued['change_id'] ?? '' ) );
+
+		$record = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $record );
+		$issued = BlockQueue::issue_token( (string) $record['session_id'] );
+		self::assertIsArray( $issued );
+		self::assertSame( (string) $record['session_id'], $issued['session_id'] );
+
+		$pending_req = new \WP_REST_Request( 'GET', '/stonewright/v1/block-finalizer/pending' );
+		$pending_req->set_params( [ 'token' => $issued['token'] ] );
+		$pending = FinalizerPage::rest_pending( $pending_req );
+		self::assertInstanceOf( \WP_REST_Response::class, $pending );
+		$pending_data = $pending->get_data();
+		self::assertIsArray( $pending_data );
+		self::assertSame( (string) $queued['change_id'], (string) ( $pending_data['items'][0]['id'] ?? '' ) );
+		self::assertSame( 1, (int) $pending_data['queued_count'] );
+
+		$html       = '<!-- wp:vendor/card {"title":"Same user"} --><div class="card">Same user</div><!-- /wp:vendor/card -->';
+		$result_req = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+		$result_req->set_json_params(
+			[
+				'token'     => $issued['token'],
+				'change_id' => $queued['change_id'],
+				'html'      => $html,
+				'html_hash' => hash( 'sha256', $html ),
+			]
+		);
+		$serialized = FinalizerPage::rest_result( $result_req );
+		self::assertInstanceOf( \WP_REST_Response::class, $serialized );
+		self::assertSame( 'serialized', $serialized->get_data()['status'] ?? '' );
+
+		$applied = ( new FinalizeBatch() )->execute(
+			[ 'change_ids' => [ $queued['change_id'] ] ]
+		);
+		self::assertIsArray( $applied );
+		self::assertTrue( $applied['ok'] );
+		self::assertSame( 'verified', $applied['verification_status'] );
+		self::assertStringContainsString( $html, (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
+		self::assertSame( 'persisted', BlockQueue::get( (string) $queued['change_id'] )['status'] ?? '' );
+	}
+
+	public function test_queue_receipt_url_binds_to_the_new_session_not_a_persisted_one(): void {
+		$first = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'First' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $first );
+		$html = '<!-- wp:vendor/card {"title":"First"} --><div class="card">First</div><!-- /wp:vendor/card -->';
+		self::assertTrue( BlockQueue::store_serialized( (string) $first['change_id'], $html, hash( 'sha256', $html ) ) );
+		$applied = ( new FinalizeBatch() )->execute( [ 'change_ids' => [ $first['change_id'] ] ] );
+		self::assertIsArray( $applied );
+		self::assertTrue( $applied['ok'] );
+
+		$GLOBALS['stonewright_test_posts'][43] = (object) [
+			'ID'           => 43,
+			'post_type'    => 'page',
+			'post_status'  => 'draft',
+			'post_title'   => 'Second target',
+			'post_content' => '<!-- wp:paragraph --><p>Other</p><!-- /wp:paragraph -->',
+			'post_excerpt' => '',
+			'meta'         => [],
+		];
+		$second = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 43,
+				'expected_content_hash' => hash( 'sha256', (string) $GLOBALS['stonewright_test_posts'][43]->post_content ),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Second' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $second );
+		$record = BlockQueue::get( (string) $second['change_id'] );
+		self::assertIsArray( $record );
+		self::assertNotSame( '', (string) ( $record['session_id'] ?? '' ) );
+
+		$query = [];
+		parse_str( (string) ( parse_url( (string) $second['finalizer_url'], PHP_URL_QUERY ) ?: '' ), $query );
+		$verified = BlockQueue::verify_token( (string) ( $query['token'] ?? '' ) );
+		self::assertIsArray( $verified );
+		self::assertSame( (string) $record['session_id'], (string) $verified['session_id'] );
+		self::assertSame( 43, (int) $verified['post_id'] );
+	}
+
 	public function test_hmac_token_invalid_returns_403(): void {
 		FinalizerPage::register();
 		do_action( 'rest_api_init' );
@@ -267,7 +484,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertArrayHasKey( $slug, $GLOBALS['stonewright_test_submenu_pages'] );
 		self::assertSame( 'stonewright', $submenu['parent'] );
 		self::assertSame( 'Block Editor Queue', $submenu['page_title'] );
-		self::assertSame( 'Block Editor Queue', $submenu['menu_title'] );
+		self::assertSame( AdminShell::experimental_menu_title( 'Block Editor Queue' ), $submenu['menu_title'] );
 		self::assertNotSame( '', $submenu['page_title'] );
 
 		$_GET['page'] = $slug;
@@ -276,6 +493,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$html = (string) ob_get_clean();
 		self::assertStringContainsString( 'Block Editor Queue', $html );
 		self::assertStringContainsString( 'Keep this tab open while an agent session runs — queued block changes are serialized here.', $html );
+		self::assertStringContainsString( 'sw-finalizer-panel', $html );
 		self::assertStringContainsString( 'queued', strtolower( $html ) );
 
 		$titled = FinalizerPage::filter_admin_title( ' &lsaquo; example.test', '' );
@@ -326,7 +544,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertNotEmpty( $runtime['targets'] );
 		self::assertSame( 42, (int) $runtime['targets'][0]['post_id'] );
 		self::assertSame(
-			'https://example.test/wp-admin/post.php?post=42&action=edit',
+			'https://example.test/wp-admin/post.php?post=42&action=edit&stonewright_finalizer=1',
 			(string) $runtime['targets'][0]['editor_frame_url']
 		);
 		self::assertStringNotContainsString( 'Client only', (string) wp_json_encode( $runtime ) );
@@ -341,7 +559,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$data = $response->get_data();
 		self::assertIsArray( $data );
 		self::assertSame(
-			'https://example.test/wp-admin/post.php?post=42&action=edit',
+			'https://example.test/wp-admin/post.php?post=42&action=edit&stonewright_finalizer=1',
 			(string) ( $data['items'][0]['editor_url'] ?? '' )
 		);
 		self::assertSame( 'vendor/card', (string) ( $data['items'][0]['block_spec']['name'] ?? '' ) );
@@ -366,7 +584,20 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertNotNull( $route );
 		self::assertSame( 'POST', $route['args']['methods'] ?? '' );
 
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Heartbeat' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
 		$issued  = BlockQueue::issue_token();
+		self::assertIsArray( $issued );
 		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
 		$request->set_json_params( [ 'token' => $issued['token'] ] );
 		$response = FinalizerPage::rest_heartbeat( $request );
@@ -379,7 +610,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
 		self::assertIsArray( $runtime );
 		self::assertTrue( $runtime['online'] );
-		self::assertSame( 0, $runtime['pending_count'] );
+		self::assertSame( 1, $runtime['pending_count'] );
 		self::assertArrayHasKey( 'finalizer_url', $runtime );
 	}
 
@@ -400,13 +631,15 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertSame( 403, (int) ( $result->get_error_data()['status'] ?? 0 ) );
 	}
 
-	public function test_editor_iframe_serialization_restores_blocks_and_save_locks_in_finally(): void {
+	public function test_editor_iframe_serialization_restores_blocks_and_keeps_save_locks(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 2 ) . '/blocks/finalizer/finalizer.js' );
 
 		self::assertMatchesRegularExpression(
-			'/var originalBlocks = blockSelect\.getBlocks\(\);.*try \{.*resetEditorBlocks\(\[created\]\).*finally \{.*resetEditorBlocks\(originalBlocks\).*unlockPostSaving\(lockKey\).*unlockPostAutosaving\(lockKey\)/s',
+			'/var originalBlocks = blockSelect\.getBlocks\(\);.*try \{.*resetEditorBlocks\(\[created\]\).*finally \{.*resetEditorBlocks\(originalBlocks\).*lockEditorPersistence\(win\)/s',
 			$script
 		);
+		self::assertStringNotContainsString( 'unlockPostSaving', $script );
+		self::assertStringNotContainsString( 'unlockPostAutosaving', $script );
 		self::assertStringContainsString( 'block-finalizer/heartbeat', $script );
 		self::assertMatchesRegularExpression( '/setInterval\(\s*heartbeat\s*,\s*15000\s*\)/', $script );
 	}
@@ -424,11 +657,14 @@ final class GutenbergFinalizerTest extends TestCase {
 			]
 		);
 		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token();
+		self::assertIsArray( $issued );
 
 		$html     = '<!-- wp:vendor/card {"title":"Card"} --><div class="card">Card</div><!-- /wp:vendor/card -->';
 		$request  = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
 		$request->set_json_params(
 			[
+				'token'             => $issued['token'],
 				'change_id'         => $queued['change_id'],
 				'html'              => $html,
 				'html_hash'         => '',
@@ -559,11 +795,14 @@ final class GutenbergFinalizerTest extends TestCase {
 			]
 		);
 		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token();
+		self::assertIsArray( $issued );
 
 		$html     = '<!-- wp:vendor/card {"title":"Card"} --><div class="card">Card</div><!-- /wp:vendor/card -->';
 		$request  = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
 		$request->set_json_params(
 			[
+				'token'     => $issued['token'],
 				'change_id' => $queued['change_id'],
 				'html'      => $html,
 				'html_hash' => 'pending',
@@ -572,6 +811,111 @@ final class GutenbergFinalizerTest extends TestCase {
 		$response = FinalizerPage::rest_result( $request );
 		self::assertInstanceOf( \WP_Error::class, $response );
 		self::assertSame( 'stonewright_finalizer_hash_mismatch', $response->get_error_code() );
+	}
+
+	public function test_empty_serialize_result_leaves_item_queued_instead_of_auto_failing(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Keep queued' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token();
+		self::assertIsArray( $issued );
+
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+		$request->set_json_params(
+			[
+				'token'     => $issued['token'],
+				'change_id' => $queued['change_id'],
+				'html'      => '',
+				'html_hash' => '',
+				'errors'    => [
+					[
+						'code'    => 'serialize_roundtrip_failed',
+						'message' => 'serialize_roundtrip_failed',
+						'block'   => 'vendor/card',
+					],
+				],
+			]
+		);
+		$response = FinalizerPage::rest_result( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		$data = $response->get_data();
+		self::assertIsArray( $data );
+		self::assertFalse( $data['ok'] );
+		self::assertSame( 'queued', $data['status'] );
+		self::assertTrue( ! empty( $data['retryable'] ) );
+
+		$stored = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $stored );
+		self::assertSame( 'queued', $stored['status'] );
+		self::assertSame( '', (string) ( $stored['serialized_html'] ?? '' ) );
+		self::assertArrayNotHasKey( 'error', $stored );
+	}
+
+	public function test_failed_serialize_result_keeps_error_and_serialized_fragment(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [
+					'name'        => 'vendor/card',
+					'attributes'  => [ 'title' => 'Fragment' ],
+					'innerBlocks' => [],
+				],
+			]
+		);
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token();
+		self::assertIsArray( $issued );
+
+		$html    = '<!-- wp:freeform -->not-a-card<!-- /wp:freeform -->';
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+		$request->set_json_params(
+			[
+				'token'     => $issued['token'],
+				'change_id' => $queued['change_id'],
+				'html'      => $html,
+				'html_hash' => hash( 'sha256', $html ),
+				'errors'    => [
+					[
+						'code'        => 'serialize_roundtrip_failed',
+						'message'     => 'expected vendor/card parsed=core/freeform html_len=' . strlen( $html ),
+						'block'       => 'vendor/card',
+						'parsed_name' => 'core/freeform',
+					],
+				],
+			]
+		);
+		$response = FinalizerPage::rest_result( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		$data = $response->get_data();
+		self::assertIsArray( $data );
+		self::assertFalse( $data['ok'] );
+		self::assertSame( 'failed', $data['status'] );
+
+		$stored = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $stored );
+		self::assertSame( 'failed', $stored['status'] );
+		self::assertSame( $html, $stored['serialized_html'] );
+		self::assertNotSame( '', (string) ( $stored['error'] ?? '' ) );
+		self::assertStringContainsString( 'serialize_roundtrip_failed', (string) $stored['error'] );
+	}
+
+	public function test_client_skips_posting_empty_serialize_failures_and_logs_roundtrip_diff(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 2 ) . '/blocks/finalizer/finalizer.js' );
+
+		self::assertStringContainsString( 'retryable', $script );
+		self::assertStringContainsString( 'parsed_name', $script );
+		self::assertStringContainsString( 'html_len', $script );
+		self::assertMatchesRegularExpression( '/retryable[\s\S]{0,400}postResult|if\s*\([^)]*retryable/', $script );
 	}
 
 	public function test_queue_block_change_rejects_unregistered_blocks(): void {
@@ -588,6 +932,10 @@ final class GutenbergFinalizerTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_block_not_registered', $result->get_error_code() );
+		$data = (array) $result->get_error_data();
+		self::assertSame( 'missing/block', $data['block_name'] ?? '' );
+		self::assertSame( 400, (int) ( $data['status'] ?? 0 ) );
+		self::assertIsArray( $data['offending_keys'] ?? null );
 	}
 
 	public function test_queue_block_change_warns_instead_of_rejecting_partial_schema_unknown_keys(): void {

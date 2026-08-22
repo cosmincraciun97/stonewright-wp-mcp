@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
@@ -47,6 +48,7 @@ final class InsertBlock extends AbilityKernel {
 					'properties' => [
 						'name'        => [ 'type' => 'string' ],
 						'attrs'       => [ 'type' => 'object' ],
+						'attributes'  => [ 'type' => 'object' ],
 						'innerHTML'   => [ 'type' => 'string' ],
 						'innerBlocks' => [ 'type' => 'array' ],
 					],
@@ -55,6 +57,10 @@ final class InsertBlock extends AbilityKernel {
 				'path'     => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
 				'position'       => [ 'type' => 'integer' ],
 				'allow_raw_html' => [ 'type' => 'boolean', 'default' => false ],
+				'custom_code_grant' => [
+					'type'        => 'string',
+					'description' => 'Required with allow_raw_html when the block payload contains raw CSS.',
+				],
 			],
 			'required'             => [ 'post_id', 'block' ],
 		];
@@ -102,21 +108,28 @@ final class InsertBlock extends AbilityKernel {
 				$blocks   = parse_blocks( $post->post_content );
 				$path     = isset( $args['path'] ) ? array_map( 'intval', (array) $args['path'] ) : [];
 				$position = isset( $args['position'] ) ? (int) $args['position'] : count( $blocks );
+				$spec     = [
+					'name'        => $name,
+					'attributes'  => $attrs,
+					'innerBlocks' => $inner,
+				];
+				if ( isset( $input['innerHTML'] ) && is_string( $input['innerHTML'] ) ) {
+					$spec['innerHTML'] = $input['innerHTML'];
+				}
+				$allow_raw = ! empty( $args['allow_raw_html'] );
+				$grant     = (string) ( $args['custom_code_grant'] ?? '' );
 
-				if ( BlockQueue::requires_finalizer( $name ) ) {
+				if ( BlockQueue::tree_requires_finalizer( $spec ) ) {
 					$queued = BlockQueue::enqueue(
 						[
 							'post_id'               => $post_id,
 							'expected_content_hash' => hash( 'sha256', (string) $post->post_content ),
-							'allow_raw_html'        => ! empty( $args['allow_raw_html'] ),
+							'allow_raw_html'        => $allow_raw,
+							'custom_code_grant'     => $grant,
 							'action'                => 'insert',
 							'path'                  => $path,
 							'position'              => $position,
-							'block_spec'            => [
-								'name'        => $name,
-								'attributes'  => $attrs,
-								'innerBlocks' => $inner,
-							],
+							'block_spec'            => $spec,
 						]
 					);
 					if ( $queued instanceof \WP_Error ) {
@@ -129,8 +142,13 @@ final class InsertBlock extends AbilityKernel {
 						'queued'        => true,
 						'change_id'     => (string) $queued['id'],
 						'status'        => (string) $queued['status'],
-						'finalizer_url' => FinalizerPage::url(),
+						'finalizer_url' => FinalizerPage::url( '', (string) ( $queued['session_id'] ?? '' ) ),
 					];
+				}
+
+				$gated = RawHtmlGate::assert_spec( $spec, $allow_raw, $grant, $post_id );
+				if ( $gated instanceof \WP_Error ) {
+					return $gated;
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
@@ -160,13 +178,26 @@ final class InsertBlock extends AbilityKernel {
 	}
 
 	private function normalize_input_block( array $block ): array {
-		$attrs = $this->input_attrs( $block );
+		$attrs       = $this->input_attrs( $block );
+		$inner       = array_values(
+			array_map(
+				[ $this, 'normalize_input_block' ],
+				array_values( array_filter( (array) ( $block['innerBlocks'] ?? [] ), 'is_array' ) )
+			)
+		);
+		$inner_html  = (string) ( $block['innerHTML'] ?? '' );
+		$inner_content = $block['innerContent'] ?? null;
+		if ( ! is_array( $inner_content ) || ( [] !== $inner && ! in_array( null, $inner_content, true ) ) ) {
+			$inner_content = '' !== $inner_html ? [ $inner_html ] : [];
+			$inner_content = array_merge( $inner_content, array_fill( 0, count( $inner ), null ) );
+		}
+
 		return [
 			'blockName'    => $this->input_name( $block ),
 			'attrs'        => $attrs,
-			'innerHTML'    => (string) ( $block['innerHTML'] ?? '' ),
-			'innerContent' => [ (string) ( $block['innerHTML'] ?? '' ) ],
-			'innerBlocks'  => array_map( [ $this, 'normalize_input_block' ], (array) ( $block['innerBlocks'] ?? [] ) ),
+			'innerHTML'    => $inner_html,
+			'innerContent' => $inner_content,
+			'innerBlocks'  => $inner,
 		];
 	}
 
@@ -180,12 +211,22 @@ final class InsertBlock extends AbilityKernel {
 	 * @return array<string, mixed>
 	 */
 	private function input_attrs( array $block ): array {
-		if ( isset( $block['attributes'] ) && is_array( $block['attributes'] ) ) {
-			return $block['attributes'];
-		}
-		if ( isset( $block['attrs'] ) && is_array( $block['attrs'] ) ) {
-			return $block['attrs'];
+		foreach ( [ 'attributes', 'attrs' ] as $key ) {
+			if ( ! isset( $block[ $key ] ) ) {
+				continue;
+			}
+			if ( is_array( $block[ $key ] ) ) {
+				return $block[ $key ];
+			}
+			if ( is_object( $block[ $key ] ) ) {
+				return (array) $block[ $key ];
+			}
 		}
 		return [];
+	}
+
+	/** @return array<int, string> */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'custom_code_grant' ] );
 	}
 }

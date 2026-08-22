@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\ErrorEnvelope;
 use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
@@ -51,6 +52,11 @@ use Stonewright\WpMcp\Abilities\Design\DirectionSyncPlan;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
+use Stonewright\WpMcp\Abilities\Design\MotionCapabilities;
+use Stonewright\WpMcp\Abilities\Design\MotionApplyElementorV3;
+use Stonewright\WpMcp\Abilities\Design\MotionApplyGutenberg;
+use Stonewright\WpMcp\Abilities\Design\MotionPlan;
+use Stonewright\WpMcp\Abilities\Design\MotionSuggest;
 use Stonewright\WpMcp\Abilities\Design\NativePlan;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
@@ -128,6 +134,7 @@ use Stonewright\WpMcp\Abilities\FSE\WriteTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
 use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
+use Stonewright\WpMcp\Abilities\Gutenberg\CancelFinalizerChanges;
 use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
 use Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
@@ -385,6 +392,7 @@ final class AbilityRegistry {
 			GetFinalizerRuntime::class,
 			GetPendingBatch::class,
 			FinalizeBatch::class,
+			CancelFinalizerChanges::class,
 			GetFinalizationUrl::class,
 			RenderBlocks::class,
 			GutenbergApplyToPost::class,
@@ -486,6 +494,13 @@ final class AbilityRegistry {
 
 			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
+
+			// Design Motion — read-only capability digest.
+			MotionCapabilities::class,
+			MotionSuggest::class,
+			MotionPlan::class,
+			MotionApplyGutenberg::class,
+			MotionApplyElementorV3::class,
 
 			// Design Direction — persistent, versioned design intent.
 			DirectionList::class,
@@ -930,6 +945,7 @@ final class AbilityRegistry {
 	 */
 	private static function finalize_ability_result( string $ability_name, mixed $result ): mixed {
 		if ( $result instanceof \WP_Error ) {
+			$result = ErrorEnvelope::with_agent_visible_payload( $result );
 			return ErrorPatterns::escalate_error( $ability_name, $result, [] );
 		}
 		return $result;
@@ -1214,6 +1230,9 @@ final class AbilityRegistry {
 			'stonewright/elementor-describe-widget',
 			'stonewright/elementor-explain-editor',
 			'stonewright/widget-intent-resolve',
+			'stonewright/design-motion-capabilities',
+			'stonewright/design-motion-suggest',
+			'stonewright/design-motion-plan',
 			'stonewright/design-native-plan',
 			'stonewright/elementor-v3-capabilities-summary',
 			'stonewright/elementor-v3-container-schema',
@@ -1251,7 +1270,11 @@ final class AbilityRegistry {
 	}
 
 	/**
-	 * Returns the complete ability catalog for admin, discovery, and profile planning.
+	 * Complete ability catalog for admin, discovery, profile planning, and
+	 * security-envelope proofs. Includes experimental Elementor V4 mutators even
+	 * when `stonewright_elementor_v4_atomic` hides them from the public MCP
+	 * surface (`enabled_abilities()` / tools/list). Flag-off must hide tools,
+	 * not erase permission, backup, confirmation, or context-token metadata.
 	 * The `enabled` field still reflects per-ability operator configuration.
 	 *
 	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>

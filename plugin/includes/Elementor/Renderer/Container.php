@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\LayoutNormalizer;
 
 /**
@@ -212,7 +213,11 @@ final class Container {
 		}
 
 		if ( isset( $node['css_classes'] ) ) {
-			$settings['_css_classes'] = sanitize_html_class( (string) $node['css_classes'] );
+			$class = sanitize_html_class( (string) $node['css_classes'] );
+			if ( '' !== $class ) {
+				ElementorCustomCssGate::register_renderer_class( $class );
+				$settings['_css_classes'] = $class;
+			}
 		}
 
 		foreach ( (array) ( $node['hide_on'] ?? [] ) as $viewport ) {

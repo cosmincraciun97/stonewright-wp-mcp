@@ -69,10 +69,17 @@ final class FinalizeBatch extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		$ids = isset( $args['change_ids'] ) && is_array( $args['change_ids'] ) ? $args['change_ids'] : [];
+		$actor = (int) get_current_user_id();
+		$ids   = isset( $args['change_ids'] ) && is_array( $args['change_ids'] ) ? $args['change_ids'] : [];
 		foreach ( $ids as $id ) {
 			$record = BlockQueue::get( (string) $id );
-			if ( is_array( $record ) && ! Permissions::edit_post( (int) ( $record['post_id'] ?? 0 ) ) ) {
+			if ( ! is_array( $record ) ) {
+				continue;
+			}
+			if ( (int) ( $record['owner_user_id'] ?? 0 ) !== $actor ) {
+				return false;
+			}
+			if ( ! Permissions::edit_post( (int) ( $record['post_id'] ?? 0 ) ) ) {
 				return false;
 			}
 		}
@@ -124,10 +131,18 @@ final class FinalizeBatch extends AbilityKernel {
 				}
 
 				$records = [];
+				$actor   = (int) get_current_user_id();
 				foreach ( $ids as $id ) {
 					$record = BlockQueue::get( (string) $id );
 					if ( null === $record ) {
 						return $this->error( 'finalizer_not_found', __( 'Finalizer change not found.', 'stonewright' ), [ 'status' => 404, 'change_id' => (string) $id ] );
+					}
+					if ( (int) ( $record['owner_user_id'] ?? 0 ) !== $actor || ! empty( $record['legacy'] ) ) {
+						return $this->error(
+							'finalizer_forbidden',
+							__( 'This block finalizer change is outside the current session.', 'stonewright' ),
+							[ 'status' => 403 ]
+						);
 					}
 					if ( 'serialized' !== (string) $record['status'] ) {
 						return $this->error(
@@ -225,7 +240,10 @@ final class FinalizeBatch extends AbilityKernel {
 				}
 
 				foreach ( $records as $record ) {
-					BlockQueue::mark_persisted( (string) $record['id'] );
+					$persisted = BlockQueue::mark_persisted( (string) $record['id'] );
+					if ( $persisted instanceof \WP_Error ) {
+						return $persisted;
+					}
 				}
 
 				return [

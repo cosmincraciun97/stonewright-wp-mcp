@@ -49,6 +49,8 @@ return $adapter; }
 			$id = 'sw-' . wp_generate_uuid4();
 			$item = [ 'id' => $id, 'label' => (string) $args['label'], 'type' => 'class', 'variants' => (array) $args['variants'] ];
 			$snapshot_id = Backup::snapshot_post( $kit_id );
+			if ( '' === $snapshot_id ) {
+return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the class write.' ); }
 			$readback = $adapter->create( $item );
 			return is_wp_error( $readback ) ? $readback : [ 'item' => $readback, 'snapshot_id' => $snapshot_id ];
 		} );

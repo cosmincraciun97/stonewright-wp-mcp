@@ -173,6 +173,8 @@ export async function runConnect(argv: string[]): Promise<number> {
 				if (credentialEnv !== undefined) addInput.credentialEnv = credentialEnv;
 				const profile = flagString(flags, 'profile');
 				if (profile !== undefined) addInput.companionProfile = profile;
+				const wpRoot = flagString(flags, 'wp-root');
+				if (wpRoot !== undefined) addInput.wpRoot = wpRoot;
 				const pluginEnabled = flagYesNo(flags, 'plugin-enabled');
 				if (pluginEnabled !== undefined) addInput.pluginEnabled = pluginEnabled;
 				const wpMode = flagString(flags, 'wp-mode');
@@ -228,6 +230,8 @@ export async function runConnect(argv: string[]): Promise<number> {
 				if (scanConsent) repairOpts.browserScanConsent = scanConsent as NonNullable<typeof repairOpts.browserScanConsent>;
 				const installConsent = flagString(flags, 'browser-install-consent');
 				if (installConsent) repairOpts.browserInstallConsent = installConsent as NonNullable<typeof repairOpts.browserInstallConsent>;
+				const repairWpRoot = flagString(flags, 'wp-root');
+				if (repairWpRoot) repairOpts.wpRoot = repairWpRoot;
 				return connectRepair(alias, repairOpts, ctx);
 			}
 			case 'remove': {

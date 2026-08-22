@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\FSE;
 
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\ThemeJson\CssGrantGate;
 use Stonewright\WpMcp\ThemeJson\Validator;
 
 /**
@@ -21,10 +22,15 @@ final class GlobalStylesWriter {
 	 * @param array<string, mixed> $theme_json
 	 * @return array{post_id:int,snapshot_id:string}|\WP_Error
 	 */
-	public static function write( array $theme_json ) {
+	public static function write( array $theme_json, string $custom_code_grant = '' ) {
 		$canonical = Validator::validate( $theme_json );
 		if ( is_wp_error( $canonical ) ) {
 			return $canonical;
+		}
+
+		$css_gate = CssGrantGate::assert( $canonical, $custom_code_grant );
+		if ( $css_gate instanceof \WP_Error ) {
+			return $css_gate;
 		}
 
 		if ( ! class_exists( \WP_Theme_JSON_Resolver::class ) ) {

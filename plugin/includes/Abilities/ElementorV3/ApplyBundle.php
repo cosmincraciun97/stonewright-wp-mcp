@@ -60,10 +60,12 @@ final class ApplyBundle extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'ok'      => [ 'type' => 'boolean' ],
-				'applied' => [ 'type' => 'integer' ],
-				'failed'  => [ 'type' => 'integer' ],
-				'items'   => [ 'type' => 'array' ],
+				'ok'            => [ 'type' => 'boolean' ],
+				'applied'       => [ 'type' => 'integer' ],
+				'failed'        => [ 'type' => 'integer' ],
+				'items'         => [ 'type' => 'array' ],
+				// Attached by AbilityKernel after successful Elementor writes.
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'ok', 'applied', 'failed', 'items' ],
 		];

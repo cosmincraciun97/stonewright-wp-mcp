@@ -1491,6 +1491,16 @@ if ( ! function_exists( 'get_terms' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_block_pattern_categories' ) ) {
+	/**
+	 * @return array<string, array<string, mixed>>
+	 */
+	function get_block_pattern_categories(): array {
+		$registered = $GLOBALS['stonewright_test_pattern_categories'] ?? [];
+		return is_array( $registered ) ? $registered : [];
+	}
+}
+
 if ( ! function_exists( 'wp_insert_term' ) ) {
 	/**
 	 * @param array<string, mixed> $args
