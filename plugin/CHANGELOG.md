@@ -109,6 +109,9 @@
 
 ### Fixed
 
+- Keep every Stonewright admin navigation link visible and contained at 320px
+  and 390px by allowing multi-link header groups to wrap inside the mobile
+  shell.
 - Boot the conditional motion loader, restore the link-underline effect, make
   load/stagger/duration/delay lowering executable, make played states visible,
   and fail open on runtime errors or page-cache restoration.

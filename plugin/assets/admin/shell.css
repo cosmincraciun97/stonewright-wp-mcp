@@ -800,6 +800,15 @@ html.sw-has-shell {
 		flex-basis: 100%;
 	}
 
+	.sw-shell__nav-group {
+		/* A multi-link group is wider than a small phone unless the group itself
+		   can wrap. The parent nav wrapping alone only moves the oversized group. */
+		width: 100%;
+		max-width: 100%;
+		flex: 1 1 100%;
+		flex-wrap: wrap;
+	}
+
 	.sw-shell__nav-link {
 		height: 28px;
 		padding: 0 var(--sw-space-2);

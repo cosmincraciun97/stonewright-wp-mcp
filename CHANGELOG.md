@@ -85,6 +85,9 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Keep every Stonewright admin navigation link visible and contained at 320px
+  and 390px by allowing multi-link header groups to wrap inside the mobile
+  shell.
 - Register the conditional motion asset loader during plugin boot, distinguish
   load from viewport entrances, make stagger configuration executable, restore
   link-underline rendering, make played states outrank their initial hidden

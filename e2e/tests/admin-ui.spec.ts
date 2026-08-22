@@ -172,13 +172,13 @@ test.describe('Stonewright admin UI', () => {
 			'[data-stonewright-auth-method="application-password"]',
 		);
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
-		await expect(page.locator('[data-sw-oauth-tab]')).toHaveCount(17);
+		await expect(page.locator('[data-sw-oauth-tab]')).toHaveCount(21);
 
-		const codexTab = page.locator('[data-sw-oauth-tab="codex"]');
+		const codexTab = page.locator('[data-sw-oauth-tab="codex-cli"]');
 		await codexTab.click();
 		await expect(codexTab).toHaveAttribute('aria-selected', 'true');
-		await expect(page.locator('[data-sw-oauth-panel="codex"]')).toBeVisible();
-		await expect(page.locator('#stonewright-oauth-code-codex')).toContainText(
+		await expect(page.locator('[data-sw-oauth-panel="codex-cli"]')).toBeVisible();
+		await expect(page.locator('#stonewright-oauth-code-codex-cli')).toContainText(
 			'[mcp_servers.',
 		);
 

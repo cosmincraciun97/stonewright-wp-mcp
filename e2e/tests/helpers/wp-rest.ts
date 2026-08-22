@@ -138,6 +138,62 @@ export async function restGet(
 	return restRequest(page, 'GET', route, { nonce });
 }
 
+/**
+ * Execute a Stonewright ability through the authenticated admin REST route.
+ */
+export async function runAbility(
+	page: Page,
+	nonce: string,
+	name: string,
+	input: Record<string, unknown>,
+	confirmationToken = '',
+): Promise<{ ok: boolean; status: number; body: unknown; url: string }> {
+	const data: Record<string, unknown> = { name, input };
+	if (confirmationToken) {
+		data.confirmation_token = confirmationToken;
+	}
+	return restPost(page, '/stonewright/v1/abilities/run', data, nonce);
+}
+
+/**
+ * Execute an ability that is intentionally outside the persisted MCP profile.
+ * The explicit, one-use wrapper token keeps the REST profile gate exercised
+ * instead of mutating shared profile state or bypassing the gate in tests.
+ */
+export async function runAbilityWithProfileConfirmation(
+	page: Page,
+	nonce: string,
+	name: string,
+	input: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; body: unknown; url: string }> {
+	const wrapperArgs = { name, input };
+	const issued = await runAbility(
+		page,
+		nonce,
+		'stonewright/security-issue-confirmation-token',
+		{
+			ability: 'stonewright/rest-abilities-run',
+			args: wrapperArgs,
+		},
+	);
+	if (!issued.ok) {
+		throw new Error(
+			`Could not issue REST profile confirmation: ${JSON.stringify(issued.body)}`,
+		);
+	}
+	const body = issued.body as {
+		result?: { token?: string };
+		token?: string;
+	};
+	const token = String(body.result?.token ?? body.token ?? '');
+	if (!token) {
+		throw new Error(
+			`REST profile confirmation returned no token: ${JSON.stringify(issued.body)}`,
+		);
+	}
+	return runAbility(page, nonce, name, input, token);
+}
+
 export async function restPost(
 	page: Page,
 	route: string,
