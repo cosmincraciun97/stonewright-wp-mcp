@@ -229,6 +229,7 @@ describe('connect update', () => {
 				client_observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
 				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
 				task_start_available: true,
+				setup_profile_available: true,
 				status_available: true,
 				refresh_required_tool_names: [],
 			}),
@@ -281,5 +282,39 @@ describe('connect update', () => {
 		});
 		expect(verify).toBe(1);
 		expect(logs.join('')).toContain('restart_process_stale');
+	});
+
+	it('rejects restart proof when setup-profile was not visible and called', async () => {
+		const h = harness();
+		capture();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		expect(connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials })).toBe(0);
+
+		const verify = await connectVerify('site-a', { client: 'cursor' }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.dir,
+			credentials: h.credentials,
+			skipAuth: true,
+			runtimeVerifier: () => Promise.resolve({
+				ok: true,
+				detail: 'setup-profile missing',
+				companion_version: '1.0.0-beta.12',
+				process_start_id: 'process-new',
+				catalog_digest: 'sha256:new-catalog',
+				client_observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+				task_start_available: true,
+				setup_profile_available: false,
+				status_available: true,
+				refresh_required_tool_names: [],
+			}),
+		});
+
+		expect(verify).toBe(1);
+		expect(logs.join('')).toContain('restart_setup_profile_missing');
 	});
 });

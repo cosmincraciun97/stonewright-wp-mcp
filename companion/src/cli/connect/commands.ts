@@ -85,6 +85,7 @@ export interface RuntimeVerification {
 	active_alias?: string | undefined;
 	remote_tool_names?: string[] | undefined;
 	task_start_available?: boolean | undefined;
+	setup_profile_available?: boolean | undefined;
 	status_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
 	process_start_id?: string | undefined;
@@ -340,6 +341,7 @@ async function defaultRuntimeVerifier(
 			const listed = await client.listTools({}, { timeout: 20_000 });
 			const names = listed.tools.map((tool) => tool.name);
 			const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+			const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 			const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
 			if (taskName) {
 				await client.callTool({
@@ -351,6 +353,9 @@ async function defaultRuntimeVerifier(
 					},
 				}, undefined, { timeout: 20_000 });
 			}
+			if (setupName) {
+				await client.callTool({ name: setupName, arguments: {} }, undefined, { timeout: 20_000 });
+			}
 			const status = statusName
 				? await client.callTool({ name: statusName, arguments: {} }, undefined, { timeout: 20_000 })
 				: null;
@@ -359,7 +364,7 @@ async function defaultRuntimeVerifier(
 			const required = site.plugin_expectations?.abilities ?? [];
 			const missing = required.filter((name) => !toolNameMatches(names, name));
 			return {
-				ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+				ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
 				detail: missing.length > 0
 					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
 					: refreshRequiredNames.length > 0
@@ -369,6 +374,7 @@ async function defaultRuntimeVerifier(
 				active_alias: entry.env.STONEWRIGHT_SITE_ALIAS ?? site.alias,
 				remote_tool_names: names,
 				task_start_available: Boolean(taskName),
+				setup_profile_available: Boolean(setupName),
 				status_available: Boolean(statusName),
 				refresh_required_tool_names: refreshRequiredNames,
 				process_start_id: runtimeStatus.process_start_id,
@@ -405,6 +411,7 @@ async function defaultRuntimeVerifier(
 		const tools = await client.listTools();
 		const names = tools.map((tool) => tool.name);
 		const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+		const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 		const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
 		if (taskName) {
 			await client.callTool(taskName, {
@@ -413,13 +420,14 @@ async function defaultRuntimeVerifier(
 				surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
 			});
 		}
+		if (setupName) await client.callTool(setupName, {});
 		const status = statusName ? await client.callTool(statusName, {}) : null;
 		const runtimeStatus = extractRuntimeStatus(status);
 		const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 		const required = site.plugin_expectations?.abilities ?? [];
 		const missing = required.filter((name) => !toolNameMatches(names, name));
 		return {
-			ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+			ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
 			detail: missing.length > 0
 				? `Live MCP missing required tools: ${missing.join(', ')}`
 				: refreshRequiredNames.length > 0
@@ -429,6 +437,7 @@ async function defaultRuntimeVerifier(
 			active_alias: site.alias,
 			remote_tool_names: names,
 			task_start_available: Boolean(taskName),
+			setup_profile_available: Boolean(setupName),
 			status_available: Boolean(statusName),
 			refresh_required_tool_names: refreshRequiredNames,
 		};
@@ -1161,6 +1170,7 @@ export async function connectVerify(
 		) restartError = 'restart_process_stale';
 		else if (!runtime.catalog_digest) restartError = 'restart_catalog_digest_missing';
 		else if (!runtime.client_observed_tool_names?.length) restartError = 'restart_client_tools_unobserved';
+		else if (!runtime.setup_profile_available) restartError = 'restart_setup_profile_missing';
 		else if (!runtime.task_start_available || !runtime.status_available) restartError = 'restart_required_tools_missing';
 		if (restartError) {
 			checks.push({ id: 'restart_proof', ok: false, detail: restartError });
