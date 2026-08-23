@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\V4;
 
+use Stonewright\WpMcp\Elementor\Provider\RuntimeOwnership;
+
 /**
  * Compact, versioned Elementor Atomic schema repository.
  *
@@ -38,7 +40,8 @@ final class AtomicSchemaRepository {
 			'e-svg'       => self::widget( 'Icon', [ 'url' => [ 'key' => 'svg', 'type' => 'svg-src' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 		];
 
-		$schemas = array_replace( $schemas, self::discover_runtime() );
+		$runtime = self::runtime_discovery();
+		$schemas = array_replace( $schemas, self::index_runtime_items( $runtime['items'] ) );
 
 		/**
 		 * Supplies schemas discovered from the installed Elementor runtime.
@@ -86,13 +89,14 @@ final class AtomicSchemaRepository {
 	/**
 	 * Discovers every installed Atomic layout/widget and its prop JSON schemas.
 	 *
-	 * @return array<string, array<string, mixed>>
+	 * @return array{items:list<array<string,mixed>>,issues:list<array<string,mixed>>}
 	 */
-	private static function discover_runtime(): array {
+	public static function runtime_discovery(): array {
 		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return [];
+			return [ 'items' => [], 'issues' => [] ];
 		}
-		$out = [];
+		$items  = [];
+		$issues = [];
 		try {
 			$sources = [];
 			$elements_manager = \Elementor\Plugin::$instance->elements_manager ?? null;
@@ -105,35 +109,92 @@ final class AtomicSchemaRepository {
 			}
 			foreach ( $sources as $kind => $instances ) {
 				if ( ! is_array( $instances ) ) {
-continue; }
+					continue;
+				}
 				foreach ( $instances as $registered_type => $instance ) {
 					$type = (string) $registered_type;
 					if ( ! str_starts_with( $type, 'e-' ) || ! is_object( $instance ) || ! method_exists( $instance, 'get_props_schema' ) ) {
-continue; }
+						continue;
+					}
 					$props = [];
-					$runtime_props = call_user_func( [ $instance, 'get_props_schema' ] );
+					try {
+						$runtime_props = call_user_func( [ $instance, 'get_props_schema' ] );
+					} catch ( \Throwable $error ) {
+						$issues[] = [ 'code' => 'schema_unavailable', 'atomic_type' => $type, 'error_class' => get_class( $error ) ];
+						continue;
+					}
 					if ( ! is_array( $runtime_props ) ) {
-continue; }
+						$issues[] = [ 'code' => 'schema_invalid', 'atomic_type' => $type ];
+						continue;
+					}
+					$valid_props = true;
 					foreach ( $runtime_props as $name => $prop_schema ) {
 						if ( ! is_object( $prop_schema ) || ! method_exists( $prop_schema, 'to_json_schema' ) ) {
-continue; }
-						$json_schema = $prop_schema->to_json_schema();
+							$issues[] = [ 'code' => 'prop_schema_invalid', 'atomic_type' => $type, 'prop' => (string) $name ];
+							$valid_props = false;
+							break;
+						}
+						try {
+							$json_schema = $prop_schema->to_json_schema();
+						} catch ( \Throwable $error ) {
+							$issues[] = [ 'code' => 'prop_schema_unavailable', 'atomic_type' => $type, 'prop' => (string) $name, 'error_class' => get_class( $error ) ];
+							$valid_props = false;
+							break;
+						}
 						$props[ (string) $name ] = [ 'key' => (string) $name, 'type' => 'raw-json', 'json_schema' => $json_schema ];
 					}
-					$out[ $type ] = [
+					if ( ! $valid_props ) {
+						continue;
+					}
+					$ownership = RuntimeOwnership::describe( $instance );
+					$schema = [
+						'atomic_type'  => $type,
 						'kind'          => $kind,
 						'design_types'  => [ $type ],
 						'version'       => self::ELEMENT_VERSION,
 						'props'         => $props,
 						'source'        => 'live_runtime',
-						'runtime_class' => get_class( $instance ),
+						'source_plugin' => $ownership['source_plugin'],
+						'source_version' => $ownership['source_version'],
+						'runtime_class' => $ownership['runtime_class'],
+						'provider_id'   => $ownership['provider_id'],
+						'provenance'    => [ 'schema' => 'live_elementor_runtime', 'ownership' => $ownership['provenance']['ownership'] ],
 					];
+					$schema['schema_fingerprint'] = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $schema ) ) );
+					$items[] = $schema;
 				}
 			}
 		} catch ( \Throwable $error ) {
-			return [];
+			$issues[] = [ 'code' => 'runtime_discovery_failed', 'error_class' => get_class( $error ) ];
+		}
+		return [ 'items' => $items, 'issues' => $issues ];
+	}
+
+	/** @param list<array<string,mixed>> $items @return array<string,array<string,mixed>> */
+	private static function index_runtime_items( array $items ): array {
+		$out = [];
+		foreach ( $items as $item ) {
+			$type = (string) ( $item['atomic_type'] ?? '' );
+			if ( '' !== $type ) {
+				$copy = $item;
+				unset( $copy['atomic_type'] );
+				$out[ $type ] = $copy;
+			}
 		}
 		return $out;
+	}
+
+	private static function canonicalize( mixed $value ): mixed {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		if ( ! array_is_list( $value ) ) {
+			ksort( $value );
+		}
+		foreach ( $value as $key => $item ) {
+			$value[ $key ] = self::canonicalize( $item );
+		}
+		return $value;
 	}
 
 	/**

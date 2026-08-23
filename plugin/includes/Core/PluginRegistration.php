@@ -107,8 +107,11 @@ final class PluginRegistration {
 		// as a standalone plugin).  McpAdapter::instance() is idempotent — calling
 		// it again when the adapter plugin is already running is a no-op because the
 		// static $instance guard prevents re-initialisation.
-		if ( class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
+		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
+		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
 			\WP\MCP\Core\McpAdapter::instance();
+		} elseif ( ! $compatibility['compatible'] ) {
+			Logger::warning( 'mcp_adapter_ownership_conflict', [ 'preflight' => $compatibility ] );
 		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );

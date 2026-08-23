@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Schema;
 
+use Stonewright\WpMcp\Elementor\Provider\RuntimeOwnership;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
@@ -48,7 +49,7 @@ final class WidgetSchemaRepository {
 		}
 
 		$controls = self::controls( $widget );
-		$source   = self::source( $widget );
+		$source   = RuntimeOwnership::describe( $widget );
 		$bundled  = WidgetCatalog::has( $widget_type ) ? WidgetCatalog::entry( $widget_type ) : [];
 		$link_controls = array_keys(
 			array_filter( $controls, static fn( array $control ): bool => 'url' === ( $control['type'] ?? '' ) )
@@ -59,8 +60,11 @@ final class WidgetSchemaRepository {
 		$record   = [
 			'widget_type'         => $widget_type,
 			'title'               => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : $widget_type,
-			'source_plugin'       => $source['plugin'],
-			'source_version'      => $source['version'],
+			'source_plugin'       => $source['source_plugin'],
+			'source_version'      => $source['source_version'],
+			'runtime_class'       => $source['runtime_class'],
+			'provider_id'         => $source['provider_id'],
+			'provider_ownership'  => $source['ownership'],
 			'elementor_core'      => (string) ( $fingerprint['components']['elementor_core'] ?? '' ),
 			'elementor_pro'       => (string) ( $fingerprint['components']['elementor_pro'] ?? '' ),
 			'feature_flags'       => (array) ( $fingerprint['components']['features'] ?? [] ),
@@ -72,8 +76,8 @@ final class WidgetSchemaRepository {
 			'required_for_render' => array_values( (array) ( $bundled['required_for_render'] ?? [] ) ),
 			'link_capable_controls' => $link_controls,
 			'semantic_role'       => self::semantic_role( $widget_type ),
-			'pro_required'        => str_contains( strtolower( (string) $source['plugin'] ), 'elementor-pro' ),
-			'license_requirement' => str_contains( strtolower( (string) $source['plugin'] ), 'elementor-pro' ) ? 'elementor-pro' : 'none-detected',
+			'pro_required'        => str_contains( strtolower( (string) $source['source_plugin'] ), 'elementor-pro' ),
+			'license_requirement' => str_contains( strtolower( (string) $source['source_plugin'] ), 'elementor-pro' ) ? 'elementor-pro' : 'none-detected',
 			'known_incompatibilities' => [],
 			'runtime_fingerprint' => (string) $fingerprint['hash'],
 			'captured_at'         => gmdate( DATE_ATOM ),
@@ -138,7 +142,11 @@ final class WidgetSchemaRepository {
 				'title'          => (string) $candidate['title'],
 				'source_plugin'  => (string) $schema['source_plugin'],
 				'source_version' => (string) $schema['source_version'],
+				'runtime_class' => (string) $schema['runtime_class'],
+				'provider_id'   => (string) $schema['provider_id'],
+				'provider_ownership' => (string) $schema['provider_ownership'],
 				'schema_hash'    => (string) $schema['schema_hash'],
+				'provenance'     => (array) $schema['provenance'],
 				'categories'     => (array) $schema['categories'],
 				'pro_required'   => (bool) ( $schema['pro_required'] ?? false ),
 			];
@@ -280,36 +288,6 @@ final class WidgetSchemaRepository {
 			'form', 'login', 'search' => 'input',
 			default => 'component',
 		};
-	}
-
-	/**
-	 * @return array{plugin:string,version:string}
-	 */
-	private static function source( object $widget ): array {
-		$file = '';
-		try {
-			$file = (string) ( new \ReflectionClass( $widget ) )->getFileName();
-		} catch ( \ReflectionException $exception ) {
-			unset( $exception );
-		}
-		if ( function_exists( 'get_plugins' ) && defined( 'WP_PLUGIN_DIR' ) && '' !== $file ) {
-			$plugin_dir = wp_normalize_path( (string) constant( 'WP_PLUGIN_DIR' ) ) . '/';
-			$normalized = wp_normalize_path( $file );
-			if ( str_starts_with( $normalized, $plugin_dir ) ) {
-				$relative = substr( $normalized, strlen( $plugin_dir ) );
-				foreach ( get_plugins() as $plugin_file => $metadata ) {
-					$folder = dirname( (string) $plugin_file );
-					if ( '.' !== $folder && str_starts_with( $relative, $folder . '/' ) ) {
-						return [ 'plugin' => (string) $plugin_file, 'version' => (string) ( $metadata['Version'] ?? '' ) ];
-					}
-				}
-			}
-		}
-		$class = get_class( $widget );
-		if ( str_contains( $class, '@anonymous' ) ) {
-			$class = 'anonymous-widget';
-		}
-		return [ 'plugin' => 'runtime:' . $class, 'version' => '' ];
 	}
 
 	private static function canonicalize( mixed $value ): mixed {
