@@ -73,7 +73,7 @@ describe('connect update', () => {
 		const path = join(h.dir, '.cursor', 'mcp.json');
 		const before = `{
 	// keep this comment
-	"unrelated": { "secret": "do-not-touch" },
+	"unrelated": { "note": "untouched-value" },
 	"mcpServers": {
 		"stonewright-site-a": {
 			"command": "npx",
@@ -91,7 +91,7 @@ describe('connect update', () => {
 
 		expect(after).toBe(before.replace(OLD_PACKAGE, NEW_PACKAGE));
 		expect(result.previousPackageSpec).toBe(OLD_PACKAGE);
-		expect(result.diff).not.toContain('do-not-touch');
+		expect(result.diff).not.toContain('untouched-value');
 		expect(cursorAdapter().read(path, 'stonewright-site-a')?.args).toContain(NEW_PACKAGE);
 	});
 
