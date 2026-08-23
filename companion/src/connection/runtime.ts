@@ -3,6 +3,7 @@
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
 	AGENT_DO_NOT_USE,
@@ -97,6 +98,10 @@ export interface ConnectionRuntime {
 	surface: SurfaceRevisionTracker;
 	reconnect: ReconnectController;
 	invokedToolNames: Set<string>;
+	observedToolNames: Set<string>;
+	processStartId: string;
+	effectiveWordPressMode: 'development' | 'staging' | 'production-safe' | null;
+	effectiveWordPressSurface: 'bootstrap' | 'essential' | 'full' | null;
 	callRemoteTool: ((name: string, args: Record<string, unknown>) => Promise<unknown>) | null;
 	directSession: DirectSessionControls | null;
 	authConfigured: boolean;
@@ -128,6 +133,8 @@ export function createConnectionRuntime(args: {
 	const registry = new RegistryBarrier();
 	const surface = new SurfaceRevisionTracker();
 	const invokedToolNames = new Set<string>();
+	const observedToolNames = new Set<string>();
+	const processStartId = `${process.pid}-${Date.now()}-${randomUUID()}`;
 	const initialAuthMethod = detectAuthMethod(env);
 
 	const status = createInitialStatus(profile);
@@ -142,6 +149,10 @@ export function createConnectionRuntime(args: {
 		surface,
 		reconnect: null as unknown as ReconnectController,
 		invokedToolNames,
+		observedToolNames,
+		processStartId,
+		effectiveWordPressMode: null,
+		effectiveWordPressSurface: null,
 		callRemoteTool: null,
 		directSession: null,
 		authConfigured: initialAuthMethod !== 'none',
@@ -174,6 +185,26 @@ export function createConnectionRuntime(args: {
 			const requested = runtime.status.live?.requestedToolNames
 				?? proxyToolNamesForProfile(runtime.profile);
 			const refresh = computeRefreshRequiredToolNames(requested, registered);
+			const savedWordPressMode = wordpressModeFromEnv(runtime.env['STONEWRIGHT_WORDPRESS_MODE']);
+			const savedSurface = wordpressSurfaceFromEnv(runtime.env['STONEWRIGHT_WORDPRESS_TOOL_SURFACE']);
+			const locked = ['1', 'true', 'yes', 'on'].includes((runtime.env['STONEWRIGHT_MCP_TOOL_PROFILE_LOCK'] ?? '').trim().toLowerCase());
+			const effectiveProfile = String(
+				locked
+					? runtime.status.tool_profile ?? runtime.profile
+					: runtime.effectiveWordPressSurface ?? runtime.status.tool_profile ?? runtime.profile,
+			);
+			const profileSource = locked
+				? 'client-lock'
+				: runtime.effectiveWordPressSurface || savedSurface === effectiveProfile
+					? 'site'
+					: savedSurface
+						? 'task'
+						: 'default';
+			const mismatch = savedSurface !== null && savedSurface !== effectiveProfile;
+			const catalogDigest = `sha256:${createHash('sha256').update(JSON.stringify({
+				version: APP_VERSION,
+				tools: registered,
+			})).digest('hex')}`;
 			const base = buildConnectionStatusV2({
 				siteAlias: (runtime.env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim() || null,
 				configuredMode: runtime.status.configured_mode,
@@ -200,7 +231,26 @@ export function createConnectionRuntime(args: {
 					digest: runtime.surface.getDigest(),
 					relist_required: Boolean(runtime.status.live?.lastRefresh && (runtime.status.live.lastRefresh.added.length > 0 || runtime.status.live.lastRefresh.removed.length > 0)),
 				},
-				clientVisibility: clientVisibilityFromEvidence({ invokedToolNames: runtime.invokedToolNames }),
+				clientVisibility: clientVisibilityFromEvidence({
+					observedToolNames: [...runtime.observedToolNames],
+					invokedToolNames: runtime.invokedToolNames,
+				}),
+				processStartId: runtime.processStartId,
+				catalogDigest,
+				observedToolNames: [...runtime.observedToolNames].sort(),
+				reconciliation: {
+					saved_wordpress_mode: savedWordPressMode,
+					effective_wordpress_mode: runtime.effectiveWordPressMode,
+					saved_wp_surface: savedSurface,
+					effective_companion_profile: effectiveProfile,
+					profile_source: profileSource,
+					mismatch_reason: mismatch ? 'saved_surface_differs_from_effective_profile' : null,
+					mismatch_action: mismatch
+						? locked
+							? `Remove the client profile lock or set it to ${savedSurface}, then restart MCP.`
+							: `Activate the ${savedSurface} profile and re-list tools.`
+						: null,
+				},
 				errorCode: runtime.status.error_code ?? (runtime.status.error ? 'connection_error' : null),
 				nextAction: runtime.status.next_action,
 				startupReady: runtime.status.startup_ready,
@@ -325,6 +375,14 @@ function detectAuthMethod(env: NodeJS.ProcessEnv): ConnectionStatusV2['authentic
 		&& (env['STONEWRIGHT_WP_APP_PASSWORD'] ?? env['WP_API_PASSWORD'] ?? '').trim()
 	) return 'app-password';
 	return 'none';
+}
+
+function wordpressModeFromEnv(value: string | undefined): 'development' | 'staging' | 'production-safe' | null {
+	return value === 'development' || value === 'staging' || value === 'production-safe' ? value : null;
+}
+
+function wordpressSurfaceFromEnv(value: string | undefined): 'bootstrap' | 'essential' | 'full' | null {
+	return value === 'bootstrap' || value === 'essential' || value === 'full' ? value : null;
 }
 
 function siteUrlFromEnv(env: NodeJS.ProcessEnv): string | null {
@@ -454,6 +512,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const observed = Array.isArray(input['observed_tool_names'])
 				? input['observed_tool_names'].filter((n): n is string => typeof n === 'string')
 				: null;
+			for (const name of observed ?? []) runtime.observedToolNames.add(normalizeToolName(name));
 			const live = runtime.status.live;
 			const filtered = new Set(runtime.status.profile_filtered_tool_names ?? []);
 			const missingProfile = new Set(runtime.status.profile_missing_tool_names ?? []);
@@ -708,6 +767,10 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				try {
 					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input);
 					const structured = extractStructured(remote);
+					const effectiveSurface = wordpressSurfaceFromEnv(
+						typeof structured?.['mcp_surface'] === 'string' ? structured['mcp_surface'] : undefined,
+					);
+					if (effectiveSurface) runtime.effectiveWordPressSurface = effectiveSurface;
 					return {
 						ok: true,
 						source: 'plugin',
@@ -777,6 +840,22 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						...(site ? { site } : {}),
 					});
 					const structured = extractStructured(remote) ?? { remote };
+					const effectiveMode = wordpressModeFromEnv(
+						typeof structured['wordpress_mode'] === 'string'
+							? structured['wordpress_mode']
+							: typeof structured['mode'] === 'string'
+								? structured['mode']
+								: undefined,
+					);
+					const effectiveSurface = wordpressSurfaceFromEnv(
+						typeof structured['mcp_surface'] === 'string'
+							? structured['mcp_surface']
+							: typeof structured['configured_mcp_surface'] === 'string'
+								? structured['configured_mcp_surface']
+								: undefined,
+					);
+					if (effectiveMode) runtime.effectiveWordPressMode = effectiveMode;
+					if (effectiveSurface) runtime.effectiveWordPressSurface = effectiveSurface;
 					// Keep live surface_revision in sync when the plugin reports tools_changed.
 					const remoteRevision = structured['surface_revision'];
 					if (typeof remoteRevision === 'number' && Number.isSafeInteger(remoteRevision) && runtime.status.live) {

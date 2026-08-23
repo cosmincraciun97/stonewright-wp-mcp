@@ -10,7 +10,7 @@ import {
 import { codexAdapter } from './codex-toml.js';
 import type { ClientAdapter, McpServerEntry, SupportTier } from './types.js';
 
-export type { ClientAdapter, McpServerEntry, SupportTier, ApplyResult, RemoveResult, VerifyConfigResult } from './types.js';
+export type { ClientAdapter, McpServerEntry, SupportTier, ApplyResult, RemoveResult, VerifyConfigResult, PackageUpdateResult } from './types.js';
 export { ClientConfigError } from './types.js';
 export { codexAdapter } from './codex-toml.js';
 export {
@@ -348,6 +348,8 @@ export function buildStdioServerEntry(args: {
 	siteAlias: string;
 	modeEnv: string;
 	toolProfile?: string;
+	wordpressMode?: 'development' | 'staging' | 'production-safe';
+	wordpressToolSurface?: 'bootstrap' | 'essential' | 'full';
 }): McpServerEntry {
 	return {
 		serverName: args.serverName,
@@ -357,6 +359,8 @@ export function buildStdioServerEntry(args: {
 			STONEWRIGHT_MODE: args.modeEnv,
 			STONEWRIGHT_MCP_TOOL_PROFILE: args.toolProfile ?? 'essential-static',
 			STONEWRIGHT_SITE_ALIAS: args.siteAlias,
+			STONEWRIGHT_WORDPRESS_MODE: args.wordpressMode ?? 'development',
+			STONEWRIGHT_WORDPRESS_TOOL_SURFACE: args.wordpressToolSurface ?? 'essential',
 		},
 	};
 }

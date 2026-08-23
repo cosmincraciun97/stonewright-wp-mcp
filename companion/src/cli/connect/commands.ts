@@ -18,7 +18,7 @@ import {
 	resolveCredentialSecret,
 	storeSiteSecret,
 } from '../../credentials/index.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
@@ -55,6 +55,7 @@ import {
 	type BrowserPreferences,
 	type ConsentState,
 	type PluginExpectations,
+	type RestartProof,
 	type SiteEnvironment,
 	type SiteRecordV2,
 	type SitesRegistryV2,
@@ -86,6 +87,9 @@ export interface RuntimeVerification {
 	task_start_available?: boolean | undefined;
 	status_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
+	process_start_id?: string | undefined;
+	catalog_digest?: string | undefined;
+	client_observed_tool_names?: string[] | undefined;
 }
 
 // Keep the external provider name as installer vocabulary, not a bundled
@@ -292,14 +296,25 @@ function findStatusField(value: unknown, key: string): unknown {
 export function extractRuntimeStatus(status: unknown): {
 	companion_version?: string | undefined;
 	refresh_required_tool_names: string[];
+	process_start_id?: string | undefined;
+	catalog_digest?: string | undefined;
+	client_observed_tool_names?: string[] | undefined;
 } {
 	const companionVersion = findStatusField(status, 'companion_version');
 	const refreshRequired = findStatusField(status, 'refresh_required_tool_names');
+	const processStartId = findStatusField(status, 'process_start_id');
+	const catalogDigest = findStatusField(status, 'catalog_digest');
+	const observedToolNames = findStatusField(status, 'observed_tool_names');
 	return {
 		...(typeof companionVersion === 'string' ? { companion_version: companionVersion } : {}),
+		...(typeof processStartId === 'string' ? { process_start_id: processStartId } : {}),
+		...(typeof catalogDigest === 'string' ? { catalog_digest: catalogDigest } : {}),
 		refresh_required_tool_names: Array.isArray(refreshRequired)
 			? refreshRequired.filter((name): name is string => typeof name === 'string')
 			: [],
+		...(Array.isArray(observedToolNames) && observedToolNames.some((name) => typeof name === 'string')
+			? { client_observed_tool_names: observedToolNames.filter((name): name is string => typeof name === 'string') }
+			: {}),
 	};
 }
 
@@ -356,6 +371,9 @@ async function defaultRuntimeVerifier(
 				task_start_available: Boolean(taskName),
 				status_available: Boolean(statusName),
 				refresh_required_tool_names: refreshRequiredNames,
+				process_start_id: runtimeStatus.process_start_id,
+				catalog_digest: runtimeStatus.catalog_digest,
+				client_observed_tool_names: names,
 			};
 		} catch (err) {
 			return { ok: false, detail: `Spawned client runtime failed: ${err instanceof Error ? err.message : String(err)}` };
@@ -833,6 +851,12 @@ function applyClientBinding(
 		siteAlias: site.alias,
 		modeEnv: configuredModeToEnv(site.configured_mode),
 		toolProfile: site.companion_profile,
+		...(site.plugin_expectations?.wordpress_mode
+			? { wordpressMode: site.plugin_expectations.wordpress_mode }
+			: {}),
+		...(site.plugin_expectations?.wordpress_tool_surface
+			? { wordpressToolSurface: site.plugin_expectations.wordpress_tool_surface }
+			: {}),
 	});
 
 	const before = snapshotFile(configPath);
@@ -871,6 +895,98 @@ function applyClientBinding(
 		},
 		rollback: () => restoreFileSnapshot(configPath, before),
 	};
+}
+
+function expectedVersionFromPackage(packageSpec: string): string | null {
+	const archive = /stonewright-companion-(.+)\.tgz(?:[?#].*)?$/.exec(packageSpec);
+	if (archive?.[1]) return archive[1];
+	const npm = /^@stonewright\/companion@(.+)$/.exec(packageSpec);
+	return npm?.[1] ?? null;
+}
+
+export function connectUpdate(
+	alias: string,
+	opts: { client: string; to: string },
+	ctx: ConnectContext = {},
+): number {
+	const { registry } = loadWritableRegistry(ctx);
+	const site = findSiteByAlias(registry, alias);
+	if (!site) {
+		writeErr(`Unknown alias "${alias}"`);
+		return 1;
+	}
+	const adapter = getClientAdapter(opts.client);
+	if (!adapter) {
+		writeErr(`client_unsupported: Client "${opts.client}" has no implemented adapter.`);
+		return 1;
+	}
+	const binding = site.clients[adapter.id];
+	if (!binding) {
+		writeErr(`client_binding_not_found: Site "${site.alias}" has no ${adapter.id} binding.`);
+		return 1;
+	}
+	const expectedVersion = expectedVersionFromPackage(opts.to);
+	if (!expectedVersion) {
+		writeErr('package_version_unknown: --to must contain an exact companion version.');
+		return 1;
+	}
+	const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
+	const before = snapshotFile(configPath);
+	try {
+		const applied = adapter.updatePackageReference(configPath, binding.server_name, opts.to);
+		const readback = adapter.read(configPath, binding.server_name);
+		const packageMatches = readback?.args.filter((arg) => arg === opts.to).length ?? 0;
+		if (packageMatches !== 1) {
+			restoreFileSnapshot(configPath, before);
+			throw new ConnectError('config_readback_failed', 'Config readback did not contain exactly one requested package token.');
+		}
+		const now = new Date().toISOString();
+		const nextSite: SiteRecordV2 = {
+			...site,
+			clients: {
+				...site.clients,
+				[adapter.id]: {
+					...binding,
+					last_applied_at: now,
+					pending_restart: {
+						receipt_id: randomUUID(),
+						created_at: now,
+						status: 'restart-required',
+						client: adapter.id,
+						expected_package: opts.to,
+						expected_version: expectedVersion,
+						pre_restart_process_start_id: site.last_verification?.process_start_id ?? null,
+						pre_restart_catalog_digest: site.last_verification?.catalog_digest ?? null,
+						config_before_sha256: applied.beforeSha256,
+						config_after_sha256: applied.afterSha256,
+					},
+				},
+			},
+			updated_at: now,
+		};
+		try {
+			saveRegistryForContext(upsertSite(registry, nextSite, { replace: true }), ctx);
+		} catch (err) {
+			restoreFileSnapshot(configPath, before);
+			throw new ConnectError('registry_write_failed', `Registry write failed; client config was rolled back: ${err instanceof Error ? err.message : String(err)}`);
+		}
+		writeOut(JSON.stringify({
+			ok: true,
+			site_alias: site.alias,
+			client: adapter.id,
+			server_name: binding.server_name,
+			status: 'restart-required',
+			expected_version: expectedVersion,
+			config_before_sha256: applied.beforeSha256,
+			config_after_sha256: applied.afterSha256,
+			backup_created: applied.backupPath !== null,
+			next_action: 'Fully restart the MCP client, then run connect verify for this alias and client.',
+		}, null, 2));
+		return 0;
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
 }
 
 export function connectList(ctx: ConnectContext = {}): number {
@@ -1004,6 +1120,7 @@ export async function connectVerify(
 	}
 
 	let configuredEntry: McpServerEntry | undefined;
+	let verifiedClientId: string | undefined;
 	if (opts.client) {
 		const adapter = getClientAdapter(opts.client);
 		if (!adapter) {
@@ -1013,6 +1130,7 @@ export async function connectVerify(
 				detail: `No adapter for client "${opts.client}"`,
 			});
 		} else {
+			verifiedClientId = adapter.id;
 			const binding = site.clients[adapter.id];
 			const configPath = binding?.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			const serverName = binding?.server_name ?? mcpServerName(site.alias, site.id, new Set());
@@ -1031,6 +1149,35 @@ export async function connectVerify(
 		: defaultRuntimeVerifier(site, password, ctx.fetchImpl ?? fetch, configuredEntry));
 	const runtimeReady = runtime.ok && (runtime.refresh_required_tool_names?.length ?? 0) === 0;
 	checks.push({ id: 'runtime', ok: runtimeReady, detail: runtime.detail });
+	const pendingRestart = verifiedClientId ? site.clients[verifiedClientId]?.pending_restart : undefined;
+	let restartProof: RestartProof | undefined;
+	if (verifiedClientId && pendingRestart) {
+		let restartError: string | null = null;
+		if (runtime.companion_version !== pendingRestart.expected_version) restartError = 'restart_version_mismatch';
+		else if (!runtime.process_start_id) restartError = 'restart_process_missing';
+		else if (
+			pendingRestart.pre_restart_process_start_id
+			&& runtime.process_start_id === pendingRestart.pre_restart_process_start_id
+		) restartError = 'restart_process_stale';
+		else if (!runtime.catalog_digest) restartError = 'restart_catalog_digest_missing';
+		else if (!runtime.client_observed_tool_names?.length) restartError = 'restart_client_tools_unobserved';
+		else if (!runtime.task_start_available || !runtime.status_available) restartError = 'restart_required_tools_missing';
+		if (restartError) {
+			checks.push({ id: 'restart_proof', ok: false, detail: restartError });
+		} else {
+			restartProof = {
+				verified_at: new Date().toISOString(),
+				status: 'verified',
+				client: verifiedClientId,
+				expected_package: pendingRestart.expected_package,
+				expected_version: pendingRestart.expected_version,
+				process_start_id: runtime.process_start_id!,
+				catalog_digest: runtime.catalog_digest!,
+				observed_tool_names: runtime.client_observed_tool_names!,
+			};
+			checks.push({ id: 'restart_proof', ok: true, detail: 'new process, package version, catalog, and client-observed tools verified' });
+		}
+	}
 	const remoteNames = runtime.remote_tool_names ?? [];
 	const surfaceDigest = remoteNames.length > 0
 		? `sha256:${createHash('sha256').update([...remoteNames].sort().join('\n')).digest('hex')}`
@@ -1038,8 +1185,19 @@ export async function connectVerify(
 
 	const ok = checks.every((c) => c.ok);
 	const now = new Date().toISOString();
+	const nextClients = restartProof && verifiedClientId && ok
+		? {
+			...site.clients,
+			[verifiedClientId]: {
+				...site.clients[verifiedClientId],
+				pending_restart: undefined,
+				last_restart_proof: restartProof,
+			},
+		}
+		: site.clients;
 	const nextSite: SiteRecordV2 = {
 		...site,
+		clients: nextClients,
 		last_verification: {
 			at: now,
 			ok,
@@ -1053,6 +1211,9 @@ export async function connectVerify(
 			task_start_available: runtime.task_start_available,
 			status_available: runtime.status_available,
 			refresh_required_tool_names: runtime.refresh_required_tool_names,
+			process_start_id: runtime.process_start_id,
+			catalog_digest: runtime.catalog_digest,
+			client_observed_tool_names: runtime.client_observed_tool_names,
 		},
 		updated_at: now,
 	};
@@ -1078,6 +1239,9 @@ export async function connectVerify(
 			task_start_available: runtime.task_start_available,
 			status_available: runtime.status_available,
 			refresh_required_tool_names: runtime.refresh_required_tool_names ?? [],
+			process_start_id: runtime.process_start_id,
+			catalog_digest: runtime.catalog_digest,
+			client_observed_tool_names: runtime.client_observed_tool_names ?? [],
 		},
 	}, null, 2));
 	return ok ? 0 : 1;

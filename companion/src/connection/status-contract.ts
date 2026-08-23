@@ -38,6 +38,20 @@ export interface PluginStatus {
 	registry_ready: boolean;
 }
 
+export type WordPressMode = 'development' | 'staging' | 'production-safe';
+export type WordPressSurface = 'bootstrap' | 'essential' | 'full';
+export type ProfileSource = 'site' | 'client-lock' | 'task' | 'default';
+
+export interface ConnectionReconciliation {
+	saved_wordpress_mode: WordPressMode | null;
+	effective_wordpress_mode: WordPressMode | null;
+	saved_wp_surface: WordPressSurface | null;
+	effective_companion_profile: string;
+	profile_source: ProfileSource;
+	mismatch_reason: string | null;
+	mismatch_action: string | null;
+}
+
 export interface ConnectionStatusV2 {
 	schema_version: 2;
 	site_alias: string | null;
@@ -60,6 +74,10 @@ export interface ConnectionStatusV2 {
 	plugin: PluginStatus;
 	surface: SurfaceStatus;
 	client_visibility: ClientVisibility;
+	process_start_id: string | null;
+	catalog_digest: string;
+	observed_tool_names: string[];
+	reconciliation: ConnectionReconciliation;
 	error_code: string | null;
 	next_action: string | null;
 	/** Derived backward-compatible field — not source of truth. */
@@ -153,6 +171,10 @@ export function buildConnectionStatusV2(input: {
 	refreshRequiredToolNames?: string[];
 	clientTaskCatalogStale?: boolean;
 	relistOrRestartAction?: string | null;
+	processStartId?: string | null;
+	catalogDigest?: string;
+	observedToolNames?: string[];
+	reconciliation?: ConnectionReconciliation;
 	/** Extra derived ok override. */
 	ok?: boolean;
 }): ConnectionStatusV2 {
@@ -162,6 +184,7 @@ export function buildConnectionStatusV2(input: {
 		|| input.connectionStage === 'plugin-authenticated';
 	const ok = input.ok ?? (input.startupReady && !input.errorCode);
 
+	const catalogDigest = input.catalogDigest ?? input.surface.digest;
 	return {
 		schema_version: STATUS_SCHEMA_VERSION,
 		site_alias: input.siteAlias ?? null,
@@ -184,6 +207,18 @@ export function buildConnectionStatusV2(input: {
 		plugin: input.plugin,
 		surface: input.surface,
 		client_visibility: input.clientVisibility ?? defaultClientVisibility(),
+		process_start_id: input.processStartId ?? null,
+		catalog_digest: catalogDigest,
+		observed_tool_names: input.observedToolNames ?? [],
+		reconciliation: input.reconciliation ?? {
+			saved_wordpress_mode: null,
+			effective_wordpress_mode: null,
+			saved_wp_surface: null,
+			effective_companion_profile: input.surface.profile,
+			profile_source: 'default',
+			mismatch_reason: null,
+			mismatch_action: null,
+		},
 		error_code: input.errorCode ?? null,
 		next_action: input.nextAction ?? null,
 		connected,

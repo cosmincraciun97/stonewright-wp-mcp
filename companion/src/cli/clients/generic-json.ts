@@ -2,6 +2,12 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readTextFile, writeWithRollback } from './atomic-config.js';
 import {
+	applyStringReplacement,
+	findJsoncPackageReplacement,
+	parseJsonc,
+	sha256Text,
+} from './package-reference.js';
+import {
 	type ApplyResult,
 	type ClientAdapter,
 	ClientConfigError,
@@ -22,7 +28,7 @@ function parseJson(path: string, raw: string | null): JsonRoot {
 		return {};
 	}
 	try {
-		const parsed = JSON.parse(raw) as unknown;
+		const parsed = parseJsonc(raw);
 		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
 			throw new ClientConfigError('config_parse_failure', `${path}: root must be a JSON object`);
 		}
@@ -129,6 +135,25 @@ export function createGenericJsonAdapter(meta: {
 			const root = parseJson(configPath, readTextFile(configPath));
 			const { map } = serverBucket(root);
 			return entryFromJson(serverName, map[serverName]);
+		},
+
+		updatePackageReference(configPath: string, serverName: string, packageSpec: string) {
+			const before = readTextFile(configPath);
+			if (before === null) throw new ClientConfigError('config_missing', `${configPath} does not exist.`);
+			const replacement = findJsoncPackageReplacement(before, serverName, packageSpec);
+			const next = applyStringReplacement(before, replacement);
+			const written = writeWithRollback({ path: configPath, nextContents: next, validate: validateJsonFile });
+			return {
+				configPath,
+				backupPath: written.backupPath,
+				changed: written.changed,
+				diff: written.diff,
+				serverName,
+				previousPackageSpec: replacement.value,
+				packageSpec,
+				beforeSha256: sha256Text(before),
+				afterSha256: sha256Text(next),
+			};
 		},
 
 		upsert(configPath: string, entry: McpServerEntry): ApplyResult {

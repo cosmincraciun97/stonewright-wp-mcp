@@ -9,6 +9,7 @@ import {
 	connectRemove,
 	connectRepair,
 	connectUse,
+	connectUpdate,
 	connectVerify,
 	DEFAULT_BROWSER_PROVIDER_ALIAS,
 	type ConnectContext,
@@ -32,6 +33,7 @@ Usage:
   stonewright connect list
   stonewright connect use <alias>
   stonewright connect verify <alias> [--client <id>]
+  stonewright connect update <alias> --client <id> --to <package>
   stonewright connect repair <alias> [--client <id>] [--mode <mode>]
   stonewright connect remove <alias> [--client <id>]
   stonewright connect migrate
@@ -207,6 +209,16 @@ export async function runConnect(argv: string[]): Promise<number> {
 				}
 				const client = flagString(flags, 'client');
 				return await connectVerify(alias, client ? { client } : {}, ctx);
+			}
+			case 'update': {
+				const alias = positionals[0] ?? flagString(flags, 'alias');
+				const client = flagString(flags, 'client');
+				const to = flagString(flags, 'to');
+				if (!alias || !client || !to) {
+					writeErr('connect update requires <alias>, --client <id>, and --to <package>');
+					return 1;
+				}
+				return connectUpdate(alias, { client, to }, ctx);
 			}
 			case 'repair': {
 				const alias = positionals[0] ?? flagString(flags, 'alias');
