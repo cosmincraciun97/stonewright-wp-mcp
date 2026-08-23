@@ -90,7 +90,17 @@ final class CompanionUpdateStatusTest extends TestCase {
 			GitHubUpdater::cache_key( 'beta' ) => [
 				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
 				'channel'        => 'beta',
-				'error'          => true,
+				'result'         => [
+					'ok'      => false,
+					'status'  => 'unavailable',
+					'release' => null,
+					'reason'  => [
+						'code'    => 'release_http_error',
+						'message' => 'GitHub Releases returned an unexpected HTTP response.',
+						'action'  => 'Try again later. If it persists, check GitHub service status and outbound proxy rules.',
+						'http_status' => 503,
+					],
+				],
 			],
 		];
 
@@ -99,10 +109,37 @@ final class CompanionUpdateStatusTest extends TestCase {
 		self::assertFalse( $report['ok'] );
 		self::assertSame( 'unavailable', $report['latest_release']['status'] );
 		self::assertSame( '', $report['latest_release']['version'] );
-		self::assertSame( 'release_metadata_unavailable', $report['latest_release']['error']['code'] );
-		self::assertStringContainsString( 'GitHub', $report['latest_release']['error']['message'] );
-		self::assertStringContainsString( 'try again', strtolower( $report['latest_release']['error']['action'] ) );
+		self::assertSame( 'release_http_error', $report['latest_release']['error']['code'] );
+		self::assertSame( 'GitHub Releases returned an unexpected HTTP response.', $report['latest_release']['error']['message'] );
+		self::assertSame( 'Try again later. If it persists, check GitHub service status and outbound proxy rules.', $report['latest_release']['error']['action'] );
+		self::assertSame( 503, $report['latest_release']['error']['http_status'] );
 		self::assertSame( (string) STONEWRIGHT_VERSION, $report['configured_companion']['version'] );
+	}
+
+	public function test_report_marks_no_compatible_release_as_not_available_instead_of_unavailable(): void {
+		$GLOBALS['stonewright_test_transients'] = [
+			GitHubUpdater::cache_key( 'beta' ) => [
+				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
+				'channel'        => 'beta',
+				'result'         => [
+					'ok'      => true,
+					'status'  => 'not_available',
+					'release' => null,
+					'reason'  => [
+						'code'    => 'no_compatible_release',
+						'message' => 'No compatible Stonewright release exists for the installed channel.',
+						'action'  => 'Stay on the current version or publish a release for this channel.',
+					],
+				],
+			],
+		];
+
+		$report = CompanionUpdateStatus::report();
+
+		self::assertTrue( $report['ok'] );
+		self::assertSame( 'not_available', $report['latest_release']['status'] );
+		self::assertSame( 'no_compatible_release', $report['latest_release']['error']['code'] );
+		self::assertFalse( $report['plugin_update_available'] );
 	}
 
 	public function test_report_marks_an_ahead_bridge_as_a_version_mismatch(): void {

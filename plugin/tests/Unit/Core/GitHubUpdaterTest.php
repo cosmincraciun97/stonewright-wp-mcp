@@ -130,6 +130,86 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertStringContainsString( '/releases?per_page=', $GLOBALS['stonewright_test_wp_remote_get_calls'][0]['url'] );
 	}
 
+	/**
+	 * @dataProvider release_lookup_failure_cases
+	 */
+	public function test_release_metadata_reports_exact_safe_failure_reason( mixed $response, string $code, string $message, string $action, ?int $http_status ): void {
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): mixed => $response;
+
+		$result = GitHubUpdater::release_metadata( true, '1.0.0-beta.1' );
+
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'unavailable', $result['status'] );
+		self::assertNull( $result['release'] );
+		self::assertSame( $code, $result['reason']['code'] );
+		self::assertSame( $message, $result['reason']['message'] );
+		self::assertSame( $action, $result['reason']['action'] );
+		self::assertSame( $http_status, $result['reason']['http_status'] ?? null );
+		self::assertStringNotContainsString( 'private upstream detail', wp_json_encode( $result ) );
+	}
+
+	public function test_release_metadata_distinguishes_no_compatible_release_from_a_lookup_failure(): void {
+		$stable_release = $this->releases_fixture()[0];
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $stable_release ] ),
+		];
+
+		$result = GitHubUpdater::release_metadata( true, '1.0.0-beta.1' );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'not_available', $result['status'] );
+		self::assertNull( $result['release'] );
+		self::assertSame( 'no_compatible_release', $result['reason']['code'] );
+		self::assertSame( 'No compatible Stonewright release exists for the installed channel.', $result['reason']['message'] );
+		self::assertSame( 'Stay on the current version or publish a release for this channel.', $result['reason']['action'] );
+	}
+
+	public function test_release_metadata_reports_missing_required_artifacts_separately(): void {
+		$release = $this->releases_fixture()[2];
+		array_pop( $release['assets'] );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $release ] ),
+		];
+
+		$result = GitHubUpdater::release_metadata( true, '1.0.0-beta.1' );
+
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'unavailable', $result['status'] );
+		self::assertNull( $result['release'] );
+		self::assertSame( 'missing_required_artifacts', $result['reason']['code'] );
+		self::assertSame( 'The compatible Stonewright release is missing required plugin or companion artifacts.', $result['reason']['message'] );
+		self::assertSame( 'Do not update. Publish both required packages, then try again.', $result['reason']['action'] );
+	}
+
+	public function test_release_metadata_marks_an_intentionally_disabled_check_as_neutral(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_disable_update_check'] = static fn(): bool => true;
+
+		$result = GitHubUpdater::release_metadata();
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'disabled', $result['status'] );
+		self::assertNull( $result['release'] );
+		self::assertSame( 'release_check_disabled', $result['reason']['code'] );
+		self::assertCount( 0, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+	}
+
+	public function test_fetch_latest_release_remains_a_backward_compatible_release_only_view(): void {
+		$releases = $this->releases_fixture();
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( $releases ),
+		];
+
+		$metadata = GitHubUpdater::release_metadata( true, '1.0.0-beta.1' );
+		$release  = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+
+		self::assertTrue( $metadata['ok'] );
+		self::assertSame( 'available', $metadata['status'] );
+		self::assertSame( $metadata['release'], $release );
+	}
+
 	public function test_legacy_unversioned_release_cache_is_refetched_and_replaced(): void {
 		$legacy = GitHubUpdater::select_release( $this->releases_fixture(), 'beta' );
 		self::assertIsArray( $legacy );
@@ -257,6 +337,52 @@ final class GitHubUpdaterTest extends TestCase {
 		yield 'supported beta published as latest' => [ 'beta', 6, '1.3.0-beta.30' ];
 		yield 'preview prerelease' => [ 'beta', 2, '1.3.0-beta.10' ];
 		yield 'stable release' => [ 'stable', 0, '1.2.0' ];
+	}
+
+	/** @return iterable<string, array{mixed, string, string, string, int|null}> */
+	public static function release_lookup_failure_cases(): iterable {
+		yield 'timeout' => [
+			new \WP_Error( 'http_request_failed', 'cURL error 28: private upstream detail' ),
+			'release_timeout',
+			'GitHub Releases did not respond before the update check timed out.',
+			'Check outbound HTTPS access and try again.',
+			null,
+		];
+		yield 'transport error' => [
+			new \WP_Error( 'http_request_failed', 'DNS failure: private upstream detail' ),
+			'release_transport_error',
+			'Stonewright could not reach GitHub Releases.',
+			'Check outbound HTTPS and DNS, then try again.',
+			null,
+		];
+		yield 'not found' => [
+			[ 'response' => [ 'code' => 404 ], 'body' => 'private upstream detail' ],
+			'release_http_not_found',
+			'GitHub Releases could not find the Stonewright release feed.',
+			'Verify the configured repository and release API URL, then try again.',
+			404,
+		];
+		yield 'other HTTP error' => [
+			[ 'response' => [ 'code' => 503 ], 'body' => 'private upstream detail' ],
+			'release_http_error',
+			'GitHub Releases returned an unexpected HTTP response.',
+			'Try again later. If it persists, check GitHub service status and outbound proxy rules.',
+			503,
+		];
+		yield 'invalid JSON' => [
+			[ 'response' => [ 'code' => 200 ], 'body' => '{private upstream detail' ],
+			'release_invalid_response',
+			'GitHub Releases returned invalid release metadata.',
+			'Try again. If it persists, verify the release API response schema.',
+			null,
+		];
+		yield 'invalid schema' => [
+			[ 'response' => [ 'code' => 200 ], 'body' => '{"message":"private upstream detail"}' ],
+			'release_invalid_response',
+			'GitHub Releases returned invalid release metadata.',
+			'Try again. If it persists, verify the release API response schema.',
+			null,
+		];
 	}
 
 	/** @return iterable<string, array{array<string, mixed>, string, string}> */

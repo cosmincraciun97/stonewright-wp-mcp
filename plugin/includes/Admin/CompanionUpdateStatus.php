@@ -21,7 +21,8 @@ final class CompanionUpdateStatus {
 	 */
 	public static function report( ?callable $bridge_transport = null, bool $force_refresh = false ): array {
 		$plugin_version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.0.0';
-		$release        = GitHubUpdater::fetch_latest_release( $force_refresh );
+		$release_lookup = GitHubUpdater::release_metadata( $force_refresh );
+		$release        = is_array( $release_lookup['release'] ) ? $release_lookup['release'] : null;
 		$latest_version = is_array( $release ) ? (string) ( $release['version'] ?? '' ) : '';
 		$target_version = '' !== $latest_version ? $latest_version : $plugin_version;
 		$bridge         = self::bridge_health( $bridge_transport );
@@ -44,21 +45,15 @@ final class CompanionUpdateStatus {
 			? (string) $release['companion_package']
 			: ConnectClientConfig::companion_package_spec( $target_version );
 		$prompt  = self::update_prompt( $target_version, $package );
-		$release_status = is_array( $release ) ? 'available' : 'unavailable';
-		$release_error  = is_array( $release )
-			? null
-			: [
-				'code'    => 'release_metadata_unavailable',
-				'message' => __( 'Stonewright could not read an eligible release from GitHub.', 'stonewright' ),
-				'action'  => __( 'Check outbound HTTPS access, then try again. If it persists, inspect Troubleshoot for the exact connection failure.', 'stonewright' ),
-			];
+		$release_status = (string) $release_lookup['status'];
+		$release_error  = is_array( $release_lookup['reason'] ) ? $release_lookup['reason'] : null;
 		$running_status = 'not_visible';
 		if ( true === ( $bridge['configured'] ?? false ) ) {
 			$running_status = true === ( $bridge['reachable'] ?? false ) ? $companion_status : 'unavailable';
 		}
 
 		return [
-			'ok'                      => is_array( $release ),
+			'ok'                      => (bool) $release_lookup['ok'],
 			'plugin_version'          => $plugin_version,
 			'latest_release_version'  => $latest_version,
 			'plugin_update_available' => $plugin_update_available,
