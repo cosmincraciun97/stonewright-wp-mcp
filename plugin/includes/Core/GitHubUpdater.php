@@ -17,6 +17,7 @@ final class GitHubUpdater {
 	public const REPO      = 'cosmincraciun97/stonewright-wp-mcp';
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
 	public const SLUG      = 'stonewright';
+	private const RELEASE_CHANNELS = [ 'supported', 'preview', 'stable' ];
 
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
@@ -39,6 +40,54 @@ final class GitHubUpdater {
 	}
 
 	/**
+	 * Return a stable reason code when release metadata is ineligible.
+	 *
+	 * @param array<string, mixed> $release Decoded GitHub release JSON.
+	 */
+	public static function release_rejection_reason( array $release, string $channel ): ?string {
+		if ( ! in_array( $channel, [ 'stable', 'beta' ], true ) ) {
+			return 'invalid_installed_channel';
+		}
+
+		if ( false !== ( $release['draft'] ?? null ) ) {
+			return 'draft_release';
+		}
+
+		$version = self::release_version( $release );
+		if ( null === $version ) {
+			return 'invalid_semantic_version';
+		}
+
+		$channel_metadata = self::release_channel_metadata( $release );
+		if ( null !== $channel_metadata['reason'] ) {
+			return $channel_metadata['reason'];
+		}
+
+		$release_channel = $channel_metadata['channel'];
+		$is_prerelease   = str_contains( $version, '-' );
+		if (
+			( 'stable' === $release_channel && $is_prerelease ) ||
+			( in_array( $release_channel, [ 'supported', 'preview' ], true ) && ! $is_prerelease )
+		) {
+			return 'release_channel_version_incompatible';
+		}
+
+		$expected_prerelease = 'preview' === $release_channel;
+		if ( $expected_prerelease !== ( $release['prerelease'] ?? null ) ) {
+			return 'github_prerelease_incompatible';
+		}
+
+		if (
+			( 'stable' === $channel && 'stable' !== $release_channel ) ||
+			( 'beta' === $channel && ! in_array( $release_channel, [ 'supported', 'preview' ], true ) )
+		) {
+			return 'installed_channel_incompatible';
+		}
+
+		return null === self::parse_release( $release ) ? 'missing_required_assets' : null;
+	}
+
+	/**
 	 * @param array<int, mixed> $releases Decoded GitHub release list.
 	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
 	 */
@@ -49,17 +98,7 @@ final class GitHubUpdater {
 
 		$selected = null;
 		foreach ( $releases as $release ) {
-			if ( ! is_array( $release ) || false !== ( $release['draft'] ?? null ) ) {
-				continue;
-			}
-			$tag     = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
-			$version = ltrim( $tag, 'vV' );
-			$is_beta = 1 === preg_match( '/^\d+\.\d+\.\d+-[0-9A-Za-z.-]+(?:\+[0-9A-Za-z.-]+)?$/', $version );
-			$flag    = $release['prerelease'] ?? null;
-			if (
-				( 'stable' === $channel && ( false !== $flag || $is_beta ) ) ||
-				( 'beta' === $channel && ( true !== $flag || ! $is_beta ) )
-			) {
+			if ( ! is_array( $release ) || null !== self::release_rejection_reason( $release, $channel ) ) {
 				continue;
 			}
 			$parsed = self::parse_release( $release );
@@ -237,13 +276,9 @@ final class GitHubUpdater {
 	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
 	 */
 	public static function parse_release( array $release ): ?array {
-		$tag = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
-		if ( '' === $tag ) {
-			return null;
-		}
-
-		$version = ltrim( $tag, "vV" );
-		if ( 1 !== preg_match( '/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/', $version ) ) {
+		$tag     = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
+		$version = self::release_version( $release );
+		if ( null === $version ) {
 			return null;
 		}
 
@@ -297,5 +332,41 @@ final class GitHubUpdater {
 		}
 
 		return $parsed;
+	}
+
+	/**
+	 * @param array<string, mixed> $release Decoded GitHub release JSON.
+	 * @return array{channel: string, reason: string|null}
+	 */
+	private static function release_channel_metadata( array $release ): array {
+		$body = $release['body'] ?? null;
+		if ( ! is_string( $body ) || '' === trim( $body ) ) {
+			return [ 'channel' => '', 'reason' => 'missing_release_channel' ];
+		}
+
+		preg_match_all( '/^Release channel: `([^`]+)`$/m', $body, $matches );
+		$channels = $matches[1];
+		if ( 0 === count( $channels ) ) {
+			return [ 'channel' => '', 'reason' => str_contains( $body, 'Release channel:' ) ? 'malformed_release_channel' : 'missing_release_channel' ];
+		}
+		if ( 1 !== count( $channels ) ) {
+			return [ 'channel' => '', 'reason' => 'malformed_release_channel' ];
+		}
+
+		$channel = $channels[0];
+		if ( ! in_array( $channel, self::RELEASE_CHANNELS, true ) ) {
+			return [ 'channel' => '', 'reason' => 'unknown_release_channel' ];
+		}
+
+		return [ 'channel' => $channel, 'reason' => null ];
+	}
+
+	/**
+	 * @param array<string, mixed> $release Decoded GitHub release JSON.
+	 */
+	private static function release_version( array $release ): ?string {
+		$tag     = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
+		$version = ltrim( $tag, "vV" );
+		return 1 === preg_match( '/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/', $version ) ? $version : null;
 	}
 }

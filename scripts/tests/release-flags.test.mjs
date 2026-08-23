@@ -20,6 +20,7 @@ test('supported public betas are latest releases', () => {
 
 test('preview beta and rc versions are prereleases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.11', 'preview'), ['--prerelease']);
+	assert.deepEqual(releaseFlags('1.0.0-beta.11.1', 'preview'), ['--prerelease']);
 	assert.deepEqual(releaseFlags('1.0.0-rc.1', 'preview'), ['--prerelease']);
 });
 
