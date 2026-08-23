@@ -236,6 +236,7 @@
 
 ## Older releases
 
+- [1.0.0-beta.7](../docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](../docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](../docs/releases/1.0.0-beta.5.md)
 - [1.0.0-beta.4](../docs/releases/1.0.0-beta.4.md)

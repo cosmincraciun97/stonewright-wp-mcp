@@ -53,6 +53,20 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( '1.3.0-beta.10', $selected['version'] );
 	}
 
+	public function test_stable_release_with_hyphenated_build_metadata_is_not_treated_as_a_prerelease(): void {
+		$release = $this->release_with_version( $this->releases_fixture()[0], '1.2.3+build-1' );
+
+		self::assertNull( GitHubUpdater::release_rejection_reason( $release, 'stable' ) );
+		self::assertSame( '1.2.3+build-1', GitHubUpdater::select_release( [ $release ], 'stable' )['version'] ?? null );
+
+		$release['body'] = "Release channel: `supported`\n";
+		self::assertSame( 'release_channel_version_incompatible', GitHubUpdater::release_rejection_reason( $release, 'beta' ) );
+
+		$release['body']       = "Release channel: `preview`\n";
+		$release['prerelease'] = true;
+		self::assertSame( 'release_channel_version_incompatible', GitHubUpdater::release_rejection_reason( $release, 'beta' ) );
+	}
+
 	/**
 	 * @dataProvider allowed_release_channel_cases
 	 */
@@ -110,10 +124,48 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertIsArray( $parsed );
 		self::assertSame( '1.3.0-beta.30', $parsed['version'] );
 		self::assertSame(
-			[ 'channel' => 'beta', 'release' => $parsed ],
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => $parsed ],
 			get_transient( GitHubUpdater::cache_key( 'beta' ) )
 		);
 		self::assertStringContainsString( '/releases?per_page=', $GLOBALS['stonewright_test_wp_remote_get_calls'][0]['url'] );
+	}
+
+	public function test_legacy_unversioned_release_cache_is_refetched_and_replaced(): void {
+		$legacy = GitHubUpdater::select_release( $this->releases_fixture(), 'beta' );
+		self::assertIsArray( $legacy );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'channel' => 'beta', 'release' => $legacy ],
+			GitHubUpdater::CACHE_TTL
+		);
+		$GLOBALS['stonewright_test_wp_remote_get'] = fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( $this->releases_fixture() ),
+		];
+
+		$parsed = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+
+		self::assertIsArray( $parsed );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+		self::assertSame(
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => $parsed ],
+			get_transient( GitHubUpdater::cache_key( 'beta' ) )
+		);
+	}
+
+	public function test_current_release_cache_schema_is_reused_without_a_network_request(): void {
+		$release = GitHubUpdater::select_release( $this->releases_fixture(), 'beta' );
+		self::assertIsArray( $release );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => $release ],
+			GitHubUpdater::CACHE_TTL
+		);
+
+		$parsed = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+
+		self::assertSame( $release, $parsed );
+		self::assertCount( 0, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
 	public function test_cache_cannot_cross_channels(): void {
@@ -276,9 +328,32 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertIsArray( $release );
 		set_transient(
 			GitHubUpdater::cache_key( $channel ),
-			[ 'channel' => $channel, 'release' => $release ],
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'release' => $release ],
 			GitHubUpdater::CACHE_TTL
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $release
+ *
+	 * @return array<string, mixed>
+	 */
+	private function release_with_version( array $release, string $version ): array {
+		$tag                 = 'v' . $version;
+		$release['tag_name'] = $tag;
+		$release['html_url'] = 'https://github.com/' . GitHubUpdater::REPO . '/releases/tag/' . rawurlencode( $tag );
+		$release['assets']   = [
+			[
+				'name'                 => 'stonewright-' . $version . '.zip',
+				'browser_download_url' => 'https://github.com/' . GitHubUpdater::REPO . '/releases/download/' . rawurlencode( $tag ) . '/' . rawurlencode( 'stonewright-' . $version . '.zip' ),
+			],
+			[
+				'name'                 => 'stonewright-companion-' . $version . '.tgz',
+				'browser_download_url' => 'https://github.com/' . GitHubUpdater::REPO . '/releases/download/' . rawurlencode( $tag ) . '/' . rawurlencode( 'stonewright-companion-' . $version . '.tgz' ),
+			],
+		];
+
+		return $release;
 	}
 
 	/** @return array<int, array<string, mixed>> */

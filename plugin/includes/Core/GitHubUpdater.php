@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\Core;
 final class GitHubUpdater {
 
 	public const CACHE_KEY = 'stonewright_github_release';
+	public const CACHE_SCHEMA_VERSION = 2;
 	public const CACHE_TTL = 12 * HOUR_IN_SECONDS;
 	public const REPO      = 'cosmincraciun97/stonewright-wp-mcp';
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
@@ -30,9 +31,7 @@ final class GitHubUpdater {
 	}
 
 	public static function installed_channel( string $version ): string {
-		return 1 === preg_match( '/^\d+\.\d+\.\d+-[0-9A-Za-z.-]+(?:\+[0-9A-Za-z.-]+)?$/', $version )
-			? 'beta'
-			: 'stable';
+		return self::is_prerelease_version( $version ) ? 'beta' : 'stable';
 	}
 
 	public static function installed_version(): string {
@@ -65,7 +64,7 @@ final class GitHubUpdater {
 		}
 
 		$release_channel = $channel_metadata['channel'];
-		$is_prerelease   = str_contains( $version, '-' );
+		$is_prerelease   = self::is_prerelease_version( $version );
 		if (
 			( 'stable' === $release_channel && $is_prerelease ) ||
 			( in_array( $release_channel, [ 'supported', 'preview' ], true ) && ! $is_prerelease )
@@ -226,6 +225,7 @@ final class GitHubUpdater {
 			$cached = get_transient( $cache_key );
 			if (
 				is_array( $cached ) &&
+				self::CACHE_SCHEMA_VERSION === ( $cached['schema_version'] ?? null ) &&
 				$channel === ( $cached['channel'] ?? null ) &&
 				is_array( $cached['release'] ?? null ) &&
 				isset( $cached['release']['version'], $cached['release']['package'], $cached['release']['companion_package'], $cached['release']['url'] )
@@ -234,7 +234,12 @@ final class GitHubUpdater {
 				$release = $cached['release'];
 				return $release;
 			}
-			if ( is_array( $cached ) && $channel === ( $cached['channel'] ?? null ) && true === ( $cached['error'] ?? false ) ) {
+			if (
+				is_array( $cached ) &&
+				self::CACHE_SCHEMA_VERSION === ( $cached['schema_version'] ?? null ) &&
+				$channel === ( $cached['channel'] ?? null ) &&
+				true === ( $cached['error'] ?? false )
+			) {
 				return null;
 			}
 		}
@@ -251,24 +256,24 @@ final class GitHubUpdater {
 		);
 
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-			set_transient( $cache_key, [ 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
+			set_transient( $cache_key, [ 'schema_version' => self::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
 			return null;
 		}
 
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
 		if ( ! is_array( $data ) ) {
-			set_transient( $cache_key, [ 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
+			set_transient( $cache_key, [ 'schema_version' => self::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
 			return null;
 		}
 
 		$parsed = self::select_release( array_values( $data ), $channel );
 		if ( null === $parsed ) {
-			set_transient( $cache_key, [ 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
+			set_transient( $cache_key, [ 'schema_version' => self::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'error' => true ], HOUR_IN_SECONDS );
 			return null;
 		}
 
-		set_transient( $cache_key, [ 'channel' => $channel, 'release' => $parsed ], self::CACHE_TTL );
+		set_transient( $cache_key, [ 'schema_version' => self::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'release' => $parsed ], self::CACHE_TTL );
 		return $parsed;
 	}
 
@@ -369,5 +374,14 @@ final class GitHubUpdater {
 		$tag     = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
 		$version = ( str_starts_with( $tag, 'v' ) || str_starts_with( $tag, 'V' ) ) ? substr( $tag, 1 ) : $tag;
 		return 1 === preg_match( self::SEMVER_PATTERN, $version ) ? $version : null;
+	}
+
+	private static function is_prerelease_version( string $version ): bool {
+		if ( 1 !== preg_match( self::SEMVER_PATTERN, $version ) ) {
+			return false;
+		}
+
+		$precedence_version = explode( '+', $version, 2 )[0];
+		return str_contains( $precedence_version, '-' );
 	}
 }

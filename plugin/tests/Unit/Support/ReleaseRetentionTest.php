@@ -23,8 +23,10 @@ final class ReleaseRetentionTest extends TestCase {
 	}
 
 	public function test_root_changelog_keeps_latest_five_releases_and_links_older_history(): void {
-		$path = dirname( __DIR__, 4 ) . '/CHANGELOG.md';
-		$raw  = (string) file_get_contents( $path );
+		$root_path   = dirname( __DIR__, 4 ) . '/CHANGELOG.md';
+		$plugin_path = dirname( __DIR__, 3 ) . '/CHANGELOG.md';
+		$raw         = (string) file_get_contents( $root_path );
+		$plugin_raw  = (string) file_get_contents( $plugin_path );
 		preg_match_all( '/^## \\[([^\\]]+)\\]/m', $raw, $m );
 		$headers = $m[1] ?? [];
 		$versions = array_values(
@@ -36,6 +38,10 @@ final class ReleaseRetentionTest extends TestCase {
 		self::assertContains( 'Unreleased', $headers );
 		self::assertSame( [ '1.0.0-beta.11.1', '1.0.0-beta.11', '1.0.0-beta.10', '1.0.0-beta.9', '1.0.0-beta.8' ], $versions );
 		self::assertStringContainsString( '## Older releases', $raw );
-		self::assertStringContainsString( 'docs/releases/1.0.0-beta.1.md', $raw );
+		self::assertStringContainsString( '## Older releases', $plugin_raw );
+		foreach ( range( 1, 7 ) as $release_number ) {
+			self::assertStringContainsString( 'docs/releases/1.0.0-beta.' . $release_number . '.md', $raw );
+			self::assertStringContainsString( '../docs/releases/1.0.0-beta.' . $release_number . '.md', $plugin_raw );
+		}
 	}
 }
