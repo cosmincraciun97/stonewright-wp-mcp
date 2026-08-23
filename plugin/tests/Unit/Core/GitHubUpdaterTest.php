@@ -247,6 +247,24 @@ final class GitHubUpdaterTest extends TestCase {
 		$missing_assets = $releases[2];
 		array_pop( $missing_assets['assets'] );
 		yield 'missing required package assets' => [ $missing_assets, 'beta', 'missing_required_assets' ];
+
+		foreach ( [ 'v1.3.0-beta..30', 'v01.0.0', 'v1.0.0-beta.01', 'vv1.3.0-beta.30' ] as $tag ) {
+			$malformed_semver             = $releases[2];
+			$malformed_semver['tag_name'] = $tag;
+			yield 'malformed semantic version ' . $tag => [ $malformed_semver, 'beta', 'invalid_semantic_version' ];
+		}
+
+		$duplicate_declaration = $releases[2];
+		$duplicate_declaration['body'] = "Release channel: `preview`\nRelease channel: `preview`\n";
+		yield 'duplicate release channel declaration' => [ $duplicate_declaration, 'beta', 'malformed_release_channel' ];
+
+		$mixed_declarations = $releases[2];
+		$mixed_declarations['body'] = "Release channel: `preview`\nRelease channel: `supported`\n";
+		yield 'mixed release channel declarations' => [ $mixed_declarations, 'beta', 'malformed_release_channel' ];
+
+		$valid_then_malformed = $releases[2];
+		$valid_then_malformed['body'] = "Release channel: `preview`\nRelease channel: preview\n";
+		yield 'valid declaration followed by malformed declaration' => [ $valid_then_malformed, 'beta', 'malformed_release_channel' ];
 	}
 
 	private function set_installed_version( string $version ): void {

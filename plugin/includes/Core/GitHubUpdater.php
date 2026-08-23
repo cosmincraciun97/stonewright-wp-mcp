@@ -18,6 +18,7 @@ final class GitHubUpdater {
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
 	public const SLUG      = 'stonewright';
 	private const RELEASE_CHANNELS = [ 'supported', 'preview', 'stable' ];
+	private const SEMVER_PATTERN = '/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*)))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/';
 
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
@@ -344,16 +345,16 @@ final class GitHubUpdater {
 			return [ 'channel' => '', 'reason' => 'missing_release_channel' ];
 		}
 
-		preg_match_all( '/^Release channel: `([^`]+)`$/m', $body, $matches );
-		$channels = $matches[1];
-		if ( 0 === count( $channels ) ) {
+		preg_match_all( '/^Release channel:.*$/m', $body, $declarations );
+		$declarations = $declarations[0];
+		if ( 0 === count( $declarations ) ) {
 			return [ 'channel' => '', 'reason' => str_contains( $body, 'Release channel:' ) ? 'malformed_release_channel' : 'missing_release_channel' ];
 		}
-		if ( 1 !== count( $channels ) ) {
+		if ( 1 !== count( $declarations ) || 1 !== preg_match( '/^Release channel: `([^`]+)`$/', $declarations[0], $matches ) ) {
 			return [ 'channel' => '', 'reason' => 'malformed_release_channel' ];
 		}
 
-		$channel = $channels[0];
+		$channel = $matches[1];
 		if ( ! in_array( $channel, self::RELEASE_CHANNELS, true ) ) {
 			return [ 'channel' => '', 'reason' => 'unknown_release_channel' ];
 		}
@@ -366,7 +367,7 @@ final class GitHubUpdater {
 	 */
 	private static function release_version( array $release ): ?string {
 		$tag     = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
-		$version = ltrim( $tag, "vV" );
-		return 1 === preg_match( '/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/', $version ) ? $version : null;
+		$version = ( str_starts_with( $tag, 'v' ) || str_starts_with( $tag, 'V' ) ) ? substr( $tag, 1 ) : $tag;
+		return 1 === preg_match( self::SEMVER_PATTERN, $version ) ? $version : null;
 	}
 }
