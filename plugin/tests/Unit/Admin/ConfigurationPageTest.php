@@ -59,6 +59,7 @@ final class ConfigurationPageTest extends TestCase {
 			'stonewright_mode'            => 'staging',
 			'stonewright_companion_token' => 'test-token',
 		];
+		$GLOBALS['stonewright_test_user_meta'] = [];
 	}
 
 	protected function tearDown(): void {
@@ -68,6 +69,7 @@ final class ConfigurationPageTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_login'] = 'admin';
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_app_passwords'] = [];
+		$GLOBALS['stonewright_test_user_meta'] = [];
 		$GLOBALS['stonewright_test_json_response'] = null;
 		$_POST = [];
 		$_GET  = [];
@@ -128,7 +130,8 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'HTTP bridge', $html );
 		self::assertStringContainsString( 'Update the WordPress plugin', $html );
 		self::assertStringContainsString( 'Update the local companion', $html );
-		self::assertStringContainsString( 'Copy current companion URL', $html );
+		self::assertStringNotContainsString( 'Copy current companion URL', $html );
+		self::assertStringNotContainsString( 'id="stonewright-current-companion-package"', $html );
 		self::assertStringContainsString( 'Updates preserve memory, user skills, audit, and Direct state.', $html );
 		self::assertStringContainsString( 'Never commit credentials.', $html );
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
@@ -185,6 +188,18 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Manage connected apps', $html );
 		self::assertStringContainsString( 'Generate application password', $html );
 		self::assertStringNotContainsString( 'Novamira', $html );
+	}
+
+	public function test_render_migrates_saved_chatgpt_desktop_selection_to_codex(): void {
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_client'] = 'chatgpt-desktop';
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertSame( 'codex', $GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_client'] );
+		self::assertStringContainsString( 'data-stonewright-client-card="codex-cli"', $html );
+		self::assertMatchesRegularExpression( '/data-stonewright-client-card="codex-cli"[^>]*aria-selected="true"/', $html );
 	}
 
 	public function test_oauth_ready_setup_does_not_require_an_application_password_to_reach_connect_step(): void {

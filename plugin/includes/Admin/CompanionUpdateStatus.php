@@ -41,16 +41,19 @@ final class CompanionUpdateStatus {
 			}
 		}
 
-		$package = is_array( $release ) && '' !== (string) ( $release['companion_package'] ?? '' )
-			? (string) $release['companion_package']
-			: ConnectClientConfig::companion_package_spec( $target_version );
-		$prompt  = self::update_prompt( $target_version, $package );
+		$package = is_array( $release ) ? (string) ( $release['companion_package'] ?? '' ) : '';
+		$prompt  = '' !== $latest_version && '' !== $package ? self::update_prompt( $latest_version, $package ) : '';
 		$release_status = (string) $release_lookup['status'];
 		$release_error  = is_array( $release_lookup['reason'] ) ? $release_lookup['reason'] : null;
 		$running_status = 'not_visible';
 		if ( true === ( $bridge['configured'] ?? false ) ) {
 			$running_status = true === ( $bridge['reachable'] ?? false ) ? $companion_status : 'unavailable';
 		}
+		$configured_version  = true === ( $bridge['reachable'] ?? false ) ? (string) ( $bridge['configured_package_version'] ?? '' ) : '';
+		$configured_attested = '' !== $configured_version;
+		$configured_reason   = $configured_attested
+			? __( 'Version supplied by an explicit bridge health attestation.', 'stonewright' )
+			: __( 'WordPress cannot inspect the private stdio package configured inside the AI client.', 'stonewright' );
 
 		return [
 			'ok'                      => (bool) $release_lookup['ok'],
@@ -68,8 +71,11 @@ final class CompanionUpdateStatus {
 				'error'   => $release_error,
 			],
 			'configured_companion'    => [
-				'version' => $plugin_version,
-				'package' => ConnectClientConfig::companion_package_spec( $plugin_version ),
+				'status'  => $configured_attested ? 'attested' : 'not_visible',
+				'version' => $configured_version,
+				'package' => '',
+				'source'  => $configured_attested ? 'http_bridge_attestation' : 'wordpress',
+				'reason'  => $configured_reason,
 			],
 			'running_companion'       => [
 				'status'  => $running_status,
@@ -83,7 +89,7 @@ final class CompanionUpdateStatus {
 
 	/**
 	 * @param callable|null $transport Test seam matching wp_safe_remote_get.
-	 * @return array{configured: bool, state: string, reachable: bool, version: string, contract_version: string, detail: string}
+	 * @return array{configured: bool, state: string, reachable: bool, version: string, configured_package_version: string, contract_version: string, detail: string}
 	 */
 	private static function bridge_health( ?callable $transport = null ): array {
 		$base  = rtrim( (string) get_option( 'stonewright_companion_url', '' ), '/' );
@@ -92,10 +98,11 @@ final class CompanionUpdateStatus {
 			return [
 				'configured'      => false,
 				'state'           => 'not_configured',
-				'reachable'       => false,
-				'version'         => '',
-				'contract_version' => '',
-				'detail'          => __( 'No HTTP bridge is configured. This is normal for local stdio and remote OAuth connections.', 'stonewright' ),
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'No HTTP bridge is configured. This is normal for local stdio and remote OAuth connections.', 'stonewright' ),
 			];
 		}
 		$transport ??= static fn( string $url, array $args ): array|\WP_Error => wp_safe_remote_get( $url, $args );
@@ -113,10 +120,11 @@ final class CompanionUpdateStatus {
 			return [
 				'configured'      => true,
 				'state'           => 'unreachable',
-				'reachable'        => false,
-				'version'          => '',
-				'contract_version' => '',
-				'detail'           => __( 'Configured HTTP bridge is not reachable. Local stdio remains private to the AI client.', 'stonewright' ),
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'Configured HTTP bridge is not reachable. Local stdio remains private to the AI client.', 'stonewright' ),
 			];
 		}
 
@@ -126,23 +134,28 @@ final class CompanionUpdateStatus {
 			return [
 				'configured'      => true,
 				'state'           => 'invalid_response',
-				'reachable'        => false,
-				'version'          => '',
-				'contract_version' => '',
-				'detail'           => __( 'Configured HTTP bridge did not return a valid health response.', 'stonewright' ),
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'Configured HTTP bridge did not return a valid health response.', 'stonewright' ),
 			];
 		}
 
-		$version  = isset( $data['version'] ) && is_string( $data['version'] ) ? $data['version'] : '';
-		$contract = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
+		$version                    = isset( $data['version'] ) && is_string( $data['version'] ) ? $data['version'] : '';
+		$contract                   = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
+		$configured_package_version = '' !== $token && isset( $data['configured_package_version'] ) && is_string( $data['configured_package_version'] )
+			? $data['configured_package_version']
+			: '';
 
 		return [
-			'configured'      => true,
-			'state'           => 'reachable',
-			'reachable'        => true,
-			'version'          => $version,
-			'contract_version' => $contract,
-			'detail'           => '' !== $version
+			'configured'                => true,
+			'state'                     => 'reachable',
+			'reachable'                 => true,
+			'version'                   => $version,
+			'configured_package_version' => $configured_package_version,
+			'contract_version'          => $contract,
+			'detail'                    => '' !== $version
 				? sprintf(
 					/* translators: %s: companion version. */
 					__( 'Configured HTTP bridge reports companion %s.', 'stonewright' ),

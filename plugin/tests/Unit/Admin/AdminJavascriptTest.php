@@ -103,6 +103,10 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'latestRelease.status', $body );
 		self::assertStringContainsString( 'latestRelease.error.action', $body );
 		self::assertStringContainsString( 'configuredCompanion.version', $body );
+		self::assertStringContainsString( 'configuredCompanion.reason', $body );
+		self::assertStringContainsString( 'latestRelease.error.message', $body );
+		self::assertStringContainsString( "latestRelease.status !== 'available'", $body );
+		self::assertStringContainsString( 'prompt.hidden = ! data.update_prompt', $body );
 		self::assertStringContainsString( 'runningCompanion.version', $body );
 		self::assertStringContainsString( 'data.bridge.state', $body );
 	}

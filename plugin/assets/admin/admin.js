@@ -572,6 +572,7 @@
 					var running = panel.querySelector( '[data-stonewright-running-companion-version]' );
 					var bridge = panel.querySelector( '[data-stonewright-bridge-state]' );
 					var prompt = panel.querySelector( '[data-stonewright-companion-prompt]' );
+					var promptCopy = panel.querySelector( '[data-stonewright-companion-prompt-copy]' );
 					var download = panel.querySelector( '[data-stonewright-companion-download]' );
 					var checksums = panel.querySelector( '[data-stonewright-companion-checksums]' );
 					var latestRelease = data.latest_release || {};
@@ -580,7 +581,7 @@
 					var bridgeState = data.bridge && data.bridge.state ? data.bridge.state : 'unknown';
 
 					if ( summary ) {
-						summary.textContent = latestRelease.status === 'unavailable' && latestRelease.error
+						summary.textContent = latestRelease.status !== 'available' && latestRelease.error
 							? latestRelease.error.message + ' ' + latestRelease.error.action
 							: ( data.plugin_update_available
 							? 'A newer release exists. Update the plugin and companion together.'
@@ -602,7 +603,7 @@
 						release.textContent = latestRelease.version || 'Unavailable';
 					}
 					if ( configured ) {
-						configured.textContent = configuredCompanion.version || 'Unknown';
+						configured.textContent = configuredCompanion.version || ( 'Not visible from WordPress — ' + ( configuredCompanion.reason || 'Verify it in the AI client.' ) );
 					}
 					if ( running ) {
 						running.textContent = runningCompanion.version || 'Not visible from WordPress';
@@ -612,6 +613,10 @@
 					}
 					if ( prompt ) {
 						prompt.value = data.update_prompt || '';
+						prompt.hidden = ! data.update_prompt;
+					}
+					if ( promptCopy ) {
+						promptCopy.hidden = ! data.update_prompt;
 					}
 					if ( download ) {
 						download.hidden = ! data.companion_package;

@@ -939,11 +939,7 @@ final class ConfigurationPage {
 									<li><?php esc_html_e( 'Fully restart the AI client so the old process and cached tool list are gone.', 'stonewright' ); ?></li>
 									<li><?php esc_html_e( 'Call stonewright-task-start, then verify companion_version, expected_companion_package, and refresh_required_tool_names.', 'stonewright' ); ?></li>
 								</ol>
-								<pre id="stonewright-current-companion-package"><code><?php echo esc_html( ConnectClientConfig::companion_package_spec() ); ?></code></pre>
 								<div class="sw-actions">
-									<button type="button" class="button" data-stonewright-copy="stonewright-current-companion-package">
-										<?php esc_html_e( 'Copy current companion URL', 'stonewright' ); ?>
-									</button>
 									<button
 										type="button"
 										class="button button-primary"
@@ -963,9 +959,9 @@ final class ConfigurationPage {
 										<div><dt><?php esc_html_e( 'Running companion', 'stonewright' ); ?></dt><dd><code data-stonewright-running-companion-version></code></dd></div>
 										<div><dt><?php esc_html_e( 'HTTP bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-state></code></dd></div>
 									</dl>
-									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt></textarea>
+									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt hidden></textarea>
 									<div class="sw-actions">
-										<button type="button" class="button button-primary" data-stonewright-copy="stonewright-companion-update-prompt">
+										<button type="button" class="button button-primary" data-stonewright-companion-prompt-copy data-stonewright-copy="stonewright-companion-update-prompt" hidden>
 											<?php esc_html_e( 'Copy update prompt', 'stonewright' ); ?>
 										</button>
 										<a class="button" href="#" target="_blank" rel="noopener noreferrer" data-stonewright-companion-download hidden>
@@ -1066,7 +1062,18 @@ final class ConfigurationPage {
 			return $default;
 		}
 		$saved = get_user_meta( $user_id, 'stonewright_setup_client', true );
-		return is_string( $saved ) && in_array( $saved, $known, true ) ? $saved : $default;
+		if ( ! is_string( $saved ) ) {
+			return $default;
+		}
+		$saved    = sanitize_key( $saved );
+		$resolved = ClientCatalog::resolve_slug( $saved );
+		if ( ! in_array( $resolved, $known, true ) ) {
+			return $default;
+		}
+		if ( $resolved !== $saved ) {
+			update_user_meta( $user_id, 'stonewright_setup_client', $resolved );
+		}
+		return $resolved;
 	}
 
 	private static function selected_setup_method( int $user_id ): string {
@@ -1120,6 +1127,9 @@ final class ConfigurationPage {
 			static fn( array $client ): string => (string) $client['slug'],
 			$clients
 		);
+		if ( ! in_array( $selected_slug, $slugs, true ) ) {
+			$selected_slug = OAuthClientConfig::resolve_client_slug( $selected_slug );
+		}
 		if ( ! in_array( $selected_slug, $slugs, true ) ) {
 			$selected_slug = self::selected_setup_client( 0 );
 		}
