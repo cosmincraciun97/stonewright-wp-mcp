@@ -20,6 +20,7 @@ import {
 } from '../../credentials/index.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
+import { stonewrightPackageVersion } from '../clients/package-reference.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -56,6 +57,7 @@ import {
 	type ConsentState,
 	type PluginExpectations,
 	type RestartProof,
+	type RuntimeAttestationScope,
 	type SiteEnvironment,
 	type SiteRecordV2,
 	type SitesRegistryV2,
@@ -81,6 +83,7 @@ export interface ConnectContext {
 export interface RuntimeVerification {
 	ok: boolean;
 	detail: string;
+	attestation_scope?: RuntimeAttestationScope | undefined;
 	companion_version?: string | undefined;
 	active_alias?: string | undefined;
 	remote_tool_names?: string[] | undefined;
@@ -365,6 +368,7 @@ async function defaultRuntimeVerifier(
 			const missing = required.filter((name) => !toolNameMatches(names, name));
 			return {
 				ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+				attestation_scope: 'spawned-runtime',
 				detail: missing.length > 0
 					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
 					: refreshRequiredNames.length > 0
@@ -379,7 +383,6 @@ async function defaultRuntimeVerifier(
 				refresh_required_tool_names: refreshRequiredNames,
 				process_start_id: runtimeStatus.process_start_id,
 				catalog_digest: runtimeStatus.catalog_digest,
-				client_observed_tool_names: names,
 			};
 		} catch (err) {
 			return { ok: false, detail: `Spawned client runtime failed: ${err instanceof Error ? err.message : String(err)}` };
@@ -390,6 +393,7 @@ async function defaultRuntimeVerifier(
 	if (site.configured_mode === 'direct-only') {
 		return {
 			ok: true,
+			attestation_scope: 'site-runtime',
 			detail: 'Site credentials are valid; pass --client to spawn and prove the configured Direct companion runtime.',
 			companion_version: APP_VERSION,
 			active_alias: site.alias,
@@ -428,6 +432,7 @@ async function defaultRuntimeVerifier(
 		const missing = required.filter((name) => !toolNameMatches(names, name));
 		return {
 			ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+			attestation_scope: 'site-runtime',
 			detail: missing.length > 0
 				? `Live MCP missing required tools: ${missing.join(', ')}`
 				: refreshRequiredNames.length > 0
@@ -906,13 +911,6 @@ function applyClientBinding(
 	};
 }
 
-function expectedVersionFromPackage(packageSpec: string): string | null {
-	const archive = /stonewright-companion-(.+)\.tgz(?:[?#].*)?$/.exec(packageSpec);
-	if (archive?.[1]) return archive[1];
-	const npm = /^@stonewright\/companion@(.+)$/.exec(packageSpec);
-	return npm?.[1] ?? null;
-}
-
 export function connectUpdate(
 	alias: string,
 	opts: { client: string; to: string },
@@ -934,7 +932,7 @@ export function connectUpdate(
 		writeErr(`client_binding_not_found: Site "${site.alias}" has no ${adapter.id} binding.`);
 		return 1;
 	}
-	const expectedVersion = expectedVersionFromPackage(opts.to);
+	const expectedVersion = stonewrightPackageVersion(opts.to);
 	if (!expectedVersion) {
 		writeErr('package_version_unknown: --to must contain an exact companion version.');
 		return 1;
@@ -1162,7 +1160,10 @@ export async function connectVerify(
 	let restartProof: RestartProof | undefined;
 	if (verifiedClientId && pendingRestart) {
 		let restartError: string | null = null;
-		if (runtime.companion_version !== pendingRestart.expected_version) restartError = 'restart_version_mismatch';
+		if (runtime.attestation_scope !== 'active-client') {
+			restartError = 'restart_active_client_attestation_required: Restart the AI client, then verify from that active client after its MCP cache has been refreshed.';
+		}
+		else if (runtime.companion_version !== pendingRestart.expected_version) restartError = 'restart_version_mismatch';
 		else if (!runtime.process_start_id) restartError = 'restart_process_missing';
 		else if (
 			pendingRestart.pre_restart_process_start_id
@@ -1178,6 +1179,7 @@ export async function connectVerify(
 			restartProof = {
 				verified_at: new Date().toISOString(),
 				status: 'verified',
+				attestation_scope: 'active-client',
 				client: verifiedClientId,
 				expected_package: pendingRestart.expected_package,
 				expected_version: pendingRestart.expected_version,
@@ -1224,6 +1226,7 @@ export async function connectVerify(
 			process_start_id: runtime.process_start_id,
 			catalog_digest: runtime.catalog_digest,
 			client_observed_tool_names: runtime.client_observed_tool_names,
+			attestation_scope: runtime.attestation_scope,
 		},
 		updated_at: now,
 	};
@@ -1252,6 +1255,7 @@ export async function connectVerify(
 			process_start_id: runtime.process_start_id,
 			catalog_digest: runtime.catalog_digest,
 			client_observed_tool_names: runtime.client_observed_tool_names ?? [],
+			attestation_scope: runtime.attestation_scope,
 		},
 	}, null, 2));
 	return ok ? 0 : 1;

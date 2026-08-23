@@ -19,6 +19,7 @@ export type AuthMethod = 'application-password' | 'oauth' | 'none';
 
 export type BrowserProvider = 'recommended' | 'connected-browser' | 'none' | 'unset';
 export type ConsentState = 'granted' | 'denied' | 'unknown';
+export type RuntimeAttestationScope = 'spawned-runtime' | 'site-runtime' | 'active-client';
 
 export interface BrowserPreferences {
 	provider: BrowserProvider;
@@ -52,6 +53,7 @@ export interface RestartReceipt {
 export interface RestartProof {
 	verified_at: string;
 	status: 'verified';
+	attestation_scope: 'active-client';
 	client: string;
 	expected_package: string;
 	expected_version: string;
@@ -76,6 +78,7 @@ export interface LastVerification {
 	process_start_id?: string | undefined;
 	catalog_digest?: string | undefined;
 	client_observed_tool_names?: string[] | undefined;
+	attestation_scope?: RuntimeAttestationScope | undefined;
 }
 
 export interface PluginExpectations {

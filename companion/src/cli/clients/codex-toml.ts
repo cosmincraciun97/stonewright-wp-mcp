@@ -60,7 +60,7 @@ function parseMcpSections(text: string): {
 	let currentName: string | null = null;
 	let currentLines: string[] = [];
 
-	const headerRe = /^\[mcp_servers\.([^.\]]+)(?:\.[^\]]+)?\]\s*$/;
+	const headerRe = /^\[mcp_servers\.([^.\]]+)(?:\.[^\]]+)?\][ \t]*(?:#[^\r\n]*)?$/;
 
 	const flushBlock = () => {
 		if (currentName !== null) {
@@ -97,7 +97,7 @@ function parseMcpSections(text: string): {
 
 		if (mode === 'block') {
 			// Leaving mcp_servers region when we hit a non-mcp section header
-			if (/^\[[^\]]+\]\s*$/.test(line) && !line.startsWith('[mcp_servers.')) {
+			if (/^\[[^\]\r\n]+\][ \t]*(?:#[^\r\n]*)?$/.test(line) && !line.startsWith('[mcp_servers.')) {
 				flushBlock();
 				mode = 'suffix';
 				suffixLines.push(line);
@@ -196,7 +196,7 @@ function validateTomlHasStructure(path: string): void {
 
 function findPackageReplacement(text: string, serverName: string, packageSpec: string) {
 	const escaped = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const header = new RegExp(`^\\[mcp_servers\\.${escaped}\\]\\s*$`, 'gm');
+	const header = new RegExp(`^\\[mcp_servers\\.${escaped}\\][ \\t]*(?:#[^\\r\\n]*)?$`, 'gm');
 	const matches = [...text.matchAll(header)];
 	if (matches.length === 0) {
 		throw new ClientConfigError('server_entry_not_found', `server_entry_not_found: no [mcp_servers.${serverName}] block.`);
@@ -205,7 +205,7 @@ function findPackageReplacement(text: string, serverName: string, packageSpec: s
 		throw new ClientConfigError('server_entry_ambiguous', `server_entry_ambiguous: found ${matches.length} [mcp_servers.${serverName}] blocks.`);
 	}
 	const blockStart = matches[0].index + matches[0][0].length;
-	const nextHeader = /^\[[^\]]+\]\s*$/gm;
+	const nextHeader = /^\[[^\]\r\n]+\][ \t]*(?:#[^\r\n]*)?$/gm;
 	nextHeader.lastIndex = blockStart;
 	const next = nextHeader.exec(text);
 	const blockEnd = next?.index ?? text.length;

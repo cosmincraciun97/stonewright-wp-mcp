@@ -12,9 +12,22 @@ export function sha256Text(value: string): string {
 	return `sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
+const SEMVER = '(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-(?:(?:0|[1-9]\\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?';
+const NPM_PACKAGE = new RegExp(`^@stonewright/companion@(${SEMVER})$`);
+const OFFICIAL_RELEASE_ARCHIVE = new RegExp(
+	`^https://github\\.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v(${SEMVER})/stonewright-companion-(${SEMVER})\\.tgz$`,
+);
+
+export function stonewrightPackageVersion(value: string): string | null {
+	const npm = NPM_PACKAGE.exec(value);
+	if (npm?.[1]) return npm[1];
+	const archive = OFFICIAL_RELEASE_ARCHIVE.exec(value);
+	if (!archive?.[1] || archive[1] !== archive[2]) return null;
+	return archive[1];
+}
+
 export function isStonewrightPackageReference(value: string): boolean {
-	return /stonewright-companion-[^/?#]+\.tgz(?:[?#].*)?$/.test(value)
-		|| /^@stonewright\/companion(?:@.+)?$/.test(value);
+	return stonewrightPackageVersion(value) !== null;
 }
 
 export function requireOnePackageReference(
@@ -24,7 +37,7 @@ export function requireOnePackageReference(
 	if (!isStonewrightPackageReference(packageSpec)) {
 		throw new ClientConfigError(
 			'package_reference_invalid',
-			'package_reference_invalid: --to must identify @stonewright/companion or a stonewright-companion-*.tgz archive.',
+			'package_reference_invalid: --to must be @stonewright/companion@VERSION or the exact official GitHub release archive with matching SemVer.',
 		);
 	}
 	const matches = candidates.filter((candidate) => isStonewrightPackageReference(candidate.value));

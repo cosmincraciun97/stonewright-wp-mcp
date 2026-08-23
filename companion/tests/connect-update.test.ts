@@ -12,8 +12,8 @@ import {
 } from '../src/cli/connect/commands.js';
 import { runConnect } from '../src/cli/connect/index.js';
 
-const OLD_PACKAGE = 'https://github.com/example/stonewright-companion-1.0.0-beta.11.1.tgz';
-const NEW_PACKAGE = 'https://github.com/example/stonewright-companion-1.0.0-beta.12.tgz';
+const OLD_PACKAGE = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11.1/stonewright-companion-1.0.0-beta.11.1.tgz';
+const NEW_PACKAGE = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
 
 describe('connect update', () => {
 	const dirs: string[] = [];
@@ -108,6 +108,36 @@ describe('connect update', () => {
 
 		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n\n[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n`, 'utf8');
 		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/server_entry_ambiguous/);
+	});
+
+	it('rejects non-exact or unofficial target package references', () => {
+		const h = harness();
+		const path = join(h.dir, '.codex', 'config.toml');
+		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n`, 'utf8');
+
+		for (const invalid of [
+			'@stonewright/companion@latest',
+			'@stonewright/companion@1.0.0-beta.12?download=1',
+			'https://evil.example/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.11.1.tgz',
+			`${NEW_PACKAGE}?download=1`,
+			`${NEW_PACKAGE}#archive`,
+		]) {
+			expect(() => codexAdapter().updatePackageReference(path, 'site-a', invalid)).toThrowError(/package_reference_invalid/);
+		}
+
+		expect(() => codexAdapter().updatePackageReference(path, 'site-a', '@stonewright/companion@1.0.0-beta.12')).not.toThrow();
+	});
+
+	it('never crosses a TOML server header with an inline comment', () => {
+		const h = harness();
+		const path = join(h.dir, '.codex', 'config.toml');
+		const otherPackage = '@stonewright/companion@1.0.0-beta.10';
+		const before = `[mcp_servers.site-a]\ncommand = "npx"\n\n[mcp_servers.other] # keep inline header comment\ncommand = "npx"\nargs = ["${otherPackage}"]\n`;
+		writeFileSync(path, before, 'utf8');
+
+		expect(() => codexAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/package_reference_not_found/);
+		expect(readFileSync(path, 'utf8')).toBe(before);
 	});
 
 	it('persists a pending restart receipt only after verified config write', async () => {
@@ -223,6 +253,7 @@ describe('connect update', () => {
 			runtimeVerifier: () => Promise.resolve({
 				ok: true,
 				detail: 'official client attestation',
+				attestation_scope: 'active-client',
 				companion_version: '1.0.0-beta.12',
 				process_start_id: 'process-new',
 				catalog_digest: 'sha256:new-catalog',
@@ -242,11 +273,53 @@ describe('connect update', () => {
 		expect(after.sites[0].clients.cursor.pending_restart).toBeUndefined();
 		expect(after.sites[0].clients.cursor.last_restart_proof).toEqual(expect.objectContaining({
 			status: 'verified',
+			attestation_scope: 'active-client',
 			process_start_id: 'process-new',
 			catalog_digest: 'sha256:new-catalog',
 			expected_version: '1.0.0-beta.12',
 			observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
 		}));
+	});
+
+	it('spawned runtime verification leaves the actual host restart pending', async () => {
+		const h = harness();
+		capture();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		expect(connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials })).toBe(0);
+
+		const verify = await connectVerify('site-a', { client: 'cursor' }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.dir,
+			credentials: h.credentials,
+			skipAuth: true,
+			runtimeVerifier: () => Promise.resolve({
+				ok: true,
+				detail: 'spawned package runtime verified',
+				attestation_scope: 'spawned-runtime',
+				companion_version: '1.0.0-beta.12',
+				process_start_id: 'spawned-process',
+				catalog_digest: 'sha256:spawned-catalog',
+				client_observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+				task_start_available: true,
+				setup_profile_available: true,
+				status_available: true,
+				refresh_required_tool_names: [],
+			}),
+		});
+
+		expect(verify).toBe(1);
+		const after = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ clients: Record<string, { pending_restart?: unknown; last_restart_proof?: unknown }> }>;
+		};
+		expect(after.sites[0].clients.cursor.pending_restart).toBeDefined();
+		expect(after.sites[0].clients.cursor.last_restart_proof).toBeUndefined();
+		expect(logs.join('')).toContain('restart_active_client_attestation_required');
+		expect(logs.join('')).toContain('Restart the AI client, then verify from that active client');
 	});
 
 	it('rejects stale-process restart proof and leaves the pending receipt intact', async () => {
@@ -270,6 +343,7 @@ describe('connect update', () => {
 			runtimeVerifier: () => Promise.resolve({
 				ok: true,
 				detail: 'stale host',
+				attestation_scope: 'active-client',
 				companion_version: '1.0.0-beta.12',
 				process_start_id: 'same-process',
 				catalog_digest: 'sha256:new-catalog',
@@ -302,6 +376,7 @@ describe('connect update', () => {
 			runtimeVerifier: () => Promise.resolve({
 				ok: true,
 				detail: 'setup-profile missing',
+				attestation_scope: 'active-client',
 				companion_version: '1.0.0-beta.12',
 				process_start_id: 'process-new',
 				catalog_digest: 'sha256:new-catalog',
