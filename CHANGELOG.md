@@ -11,6 +11,14 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.11.1] - 2026-08-24
+
+### Fixed
+
+- Add a preview migration bridge so the native plugin updater validates
+  declared supported, preview, and stable release channels before selecting an
+  eligible update.
+
 ## [1.0.0-beta.11] - 2026-08-22
 
 ### Added
@@ -251,17 +259,9 @@ development builds were never stable releases.
   active alias, task-start/status availability, and refresh-required tools;
   verification now fails while any refresh-required tool remains.
 
-## [1.0.0-beta.7] - 2026-08-12
-
-### Fixed
-
-- Keep `connect add` and `connect repair` receipts content-free: client config
-  contents, unrelated local settings, absolute config paths, and backup paths
-  are withheld while the receipt retains the server name, change state, backup
-  state, support tier, and browser consent metadata.
-
 ## Older releases
 
+- [1.0.0-beta.7](docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](docs/releases/1.0.0-beta.5.md)
 - [1.0.0-beta.4](docs/releases/1.0.0-beta.4.md)

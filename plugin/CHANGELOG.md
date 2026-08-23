@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.11.1] - 2026-08-24
+
+### Fixed
+
+- Restore the native updater path for supported public betas published as
+  GitHub Latest, while rejecting incompatible release metadata.
+
 ## [1.0.0-beta.11] - 2026-08-22
 
 ### Added
@@ -227,16 +234,9 @@
   final connection-verification release. Plugin abilities and safety gates are
   unchanged.
 
-## [1.0.0-beta.7] - 2026-08-12
-
-### Changed
-
-- Align plugin metadata and generated companion package references with the
-  privacy hardening release. No plugin ability, permission, backup,
-  confirmation, validation, audit, or custom-code gate changed.
-
 ## Older releases
 
+- [1.0.0-beta.7](../docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](../docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](../docs/releases/1.0.0-beta.5.md)
 - [1.0.0-beta.4](../docs/releases/1.0.0-beta.4.md)

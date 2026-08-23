@@ -16,8 +16,9 @@ final class CompanionUpdateStatusTest extends TestCase {
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_transients'] = [
 			GitHubUpdater::cache_key( 'beta' ) => [
-				'channel' => 'beta',
-				'release' => [
+				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
+				'channel'        => 'beta',
+				'release'        => [
 					'version'           => '1.0.0-beta.99',
 					'package'           => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-1.0.0-beta.99.zip',
 					'companion_package' => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-companion-1.0.0-beta.99.tgz',

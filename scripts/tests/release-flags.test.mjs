@@ -20,6 +20,7 @@ test('supported public betas are latest releases', () => {
 
 test('preview beta and rc versions are prereleases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.11', 'preview'), ['--prerelease']);
+	assert.deepEqual(releaseFlags('1.0.0-beta.11.1', 'preview'), ['--prerelease']);
 	assert.deepEqual(releaseFlags('1.0.0-rc.1', 'preview'), ['--prerelease']);
 });
 
@@ -31,6 +32,9 @@ test('release notes declare one recognized channel', () => {
 	assert.equal(releaseChannelFromNotes('Release channel: `supported`\n'), 'supported');
 	assert.throws(() => releaseChannelFromNotes('# Missing'), /release channel/i);
 	assert.throws(() => releaseChannelFromNotes('Release channel: `other`'), /release channel/i);
+	assert.throws(() => releaseChannelFromNotes('Release channel: `supported`\nRelease channel: `supported`\n'), /release channel/i);
+	assert.throws(() => releaseChannelFromNotes('Release channel: `supported`\nRelease channel: `preview`\n'), /release channel/i);
+	assert.throws(() => releaseChannelFromNotes('Release channel: `supported`\nRelease channel: supported\n'), /release channel/i);
 });
 
 test('missing and incompatible release channels fail closed', () => {
@@ -44,6 +48,10 @@ test('malformed versions fail closed', () => {
 	assert.throws(() => releaseFlags('v1.0.0', 'stable'), /semantic version/i);
 	assert.throws(() => releaseFlags('latest', 'stable'), /semantic version/i);
 	assert.throws(() => releaseFlags('1.0', 'stable'), /semantic version/i);
+	assert.throws(() => releaseFlags('1.3.0-beta..30', 'preview'), /semantic version/i);
+	assert.throws(() => releaseFlags('01.0.0', 'stable'), /semantic version/i);
+	assert.throws(() => releaseFlags('1.0.0-beta.01', 'preview'), /semantic version/i);
+	assert.throws(() => releaseFlags('vv1.3.0-beta.30', 'preview'), /semantic version/i);
 });
 
 test('plugin release archive carries the canonical license', () => {

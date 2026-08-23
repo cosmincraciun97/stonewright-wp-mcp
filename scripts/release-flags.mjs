@@ -4,11 +4,16 @@ import process from 'node:process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const semver = /^\d+\.\d+\.\d+(?:-([0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*))?(?:\+[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
+const numericIdentifier = '(?:0|[1-9]\\d*)';
+const prereleaseIdentifier = `(?:${numericIdentifier}|(?:\\d*[A-Za-z-][0-9A-Za-z-]*))`;
+const semver = new RegExp(
+	`^${numericIdentifier}\\.${numericIdentifier}\\.${numericIdentifier}(?:-(${prereleaseIdentifier}(?:\\.${prereleaseIdentifier})*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
+);
 const channels = new Set(['supported', 'preview', 'stable']);
 
 export function releaseChannelFromNotes(notes) {
-	const match = /^Release channel: `([^`]+)`$/m.exec(notes);
+	const declarations = notes.match(/^Release channel:.*$/gm) ?? [];
+	const match = declarations.length === 1 ? /^Release channel: `([^`]+)`$/.exec(declarations[0]) : null;
 	if (!match || !channels.has(match[1])) {
 		throw new Error('Release notes require one valid release channel: supported, preview, or stable.');
 	}

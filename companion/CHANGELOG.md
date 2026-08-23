@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.11.1] - 2026-08-24
+
+### Changed
+
+- Align release-consumed package metadata with the beta.11.1 updater migration
+  bridge; companion behavior is unchanged.
+
 ## [1.0.0-beta.11] - 2026-08-22
 
 ### Added
