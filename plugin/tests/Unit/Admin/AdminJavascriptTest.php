@@ -91,6 +91,22 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringNotContainsString( "refreshUrl.searchParams.set( 'force', '1' )", $connection_test_script );
 	}
 
+	public function test_companion_status_renders_typed_release_and_runtime_fields(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		$start  = strpos( $script, 'function initCompanionUpdateStatus()' );
+		$end    = strpos( $script, 'function escapeRegExp', false === $start ? 0 : $start );
+
+		self::assertNotFalse( $start );
+		self::assertNotFalse( $end );
+		$body = substr( $script, (int) $start, (int) $end - (int) $start );
+
+		self::assertStringContainsString( 'latestRelease.status', $body );
+		self::assertStringContainsString( 'latestRelease.error.action', $body );
+		self::assertStringContainsString( 'configuredCompanion.version', $body );
+		self::assertStringContainsString( 'runningCompanion.version', $body );
+		self::assertStringContainsString( 'data.bridge.state', $body );
+	}
+
 	public function test_setup_client_and_method_pickers_are_wired(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

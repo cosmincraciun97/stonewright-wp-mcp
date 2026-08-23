@@ -568,14 +568,21 @@
 					var summary = panel.querySelector( '[data-stonewright-companion-summary]' );
 					var plugin = panel.querySelector( '[data-stonewright-plugin-version]' );
 					var release = panel.querySelector( '[data-stonewright-release-version]' );
-					var bridge = panel.querySelector( '[data-stonewright-bridge-version]' );
+					var configured = panel.querySelector( '[data-stonewright-configured-companion-version]' );
+					var running = panel.querySelector( '[data-stonewright-running-companion-version]' );
+					var bridge = panel.querySelector( '[data-stonewright-bridge-state]' );
 					var prompt = panel.querySelector( '[data-stonewright-companion-prompt]' );
 					var download = panel.querySelector( '[data-stonewright-companion-download]' );
 					var checksums = panel.querySelector( '[data-stonewright-companion-checksums]' );
-					var bridgeVersion = data.bridge && data.bridge.version ? data.bridge.version : 'Not visible from WordPress';
+					var latestRelease = data.latest_release || {};
+					var configuredCompanion = data.configured_companion || {};
+					var runningCompanion = data.running_companion || {};
+					var bridgeState = data.bridge && data.bridge.state ? data.bridge.state : 'unknown';
 
 					if ( summary ) {
-						summary.textContent = data.plugin_update_available
+						summary.textContent = latestRelease.status === 'unavailable' && latestRelease.error
+							? latestRelease.error.message + ' ' + latestRelease.error.action
+							: ( data.plugin_update_available
 							? 'A newer release exists. Update the plugin and companion together.'
 							: ( data.companion_status === 'outdated'
 								? 'The configured HTTP bridge is outdated.'
@@ -583,19 +590,25 @@
 									? 'The configured HTTP bridge matches the latest release.'
 									: ( data.companion_status === 'mismatch'
 										? 'The configured HTTP bridge does not match the target release.'
-										: data.boundary || 'Local stdio version must be verified in the AI client.' ) ) );
+										: data.boundary || 'Local stdio version must be verified in the AI client.' ) ) ) );
 						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--' + (
-							data.plugin_update_available || [ 'outdated', 'mismatch' ].indexOf( data.companion_status ) !== -1 ? 'warn' : 'info'
+							latestRelease.status === 'unavailable' || data.plugin_update_available || [ 'outdated', 'mismatch' ].indexOf( data.companion_status ) !== -1 ? 'warn' : 'info'
 						);
 					}
 					if ( plugin ) {
 						plugin.textContent = data.plugin_version || 'Unknown';
 					}
 					if ( release ) {
-						release.textContent = data.latest_release_version || 'Unavailable';
+						release.textContent = latestRelease.version || 'Unavailable';
+					}
+					if ( configured ) {
+						configured.textContent = configuredCompanion.version || 'Unknown';
+					}
+					if ( running ) {
+						running.textContent = runningCompanion.version || 'Not visible from WordPress';
 					}
 					if ( bridge ) {
-						bridge.textContent = bridgeVersion;
+						bridge.textContent = bridgeState.split( '_' ).join( ' ' );
 					}
 					if ( prompt ) {
 						prompt.value = data.update_prompt || '';

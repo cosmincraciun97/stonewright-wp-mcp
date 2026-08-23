@@ -189,6 +189,9 @@ final class ConnectClientConfig {
 				)
 			)
 		);
+		if ( 'chatgpt-desktop' === sanitize_key( $client_slug ) ) {
+			$client_slug = 'codex';
+		}
 		if ( ! in_array( $client_slug, $known_slugs, true ) ) {
 			return new \WP_Error(
 				'stonewright_unknown_client',
@@ -394,10 +397,11 @@ final class ConnectClientConfig {
 
 	private static function resolve_client_slug( string $client_slug ): string {
 		$map = [
-			'vscode'    => 'vscode-copilot',
-			'vs-code'   => 'vscode-copilot',
-			'codex-cli' => 'codex',
-			'claude'    => 'claude-desktop',
+			'vscode'          => 'vscode-copilot',
+			'vs-code'         => 'vscode-copilot',
+			'codex-cli'       => 'codex',
+			'claude'          => 'claude-desktop',
+			'chatgpt-desktop' => 'codex',
 		];
 		$client_slug = sanitize_key( $client_slug );
 		return $map[ $client_slug ] ?? $client_slug;

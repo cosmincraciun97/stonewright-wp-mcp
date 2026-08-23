@@ -101,9 +101,10 @@ final class ClientCatalog {
 	public static function get( string $slug ): ?array {
 		$slug = sanitize_key( $slug );
 		$aliases = [
-			'vscode'  => 'vscode-copilot',
-			'vs-code' => 'vscode-copilot',
-			'claude'  => 'claude-desktop',
+			'vscode'          => 'vscode-copilot',
+			'vs-code'         => 'vscode-copilot',
+			'claude'          => 'claude-desktop',
+			'chatgpt-desktop' => 'codex',
 		];
 		$resolved = $aliases[ $slug ] ?? $slug;
 		foreach ( self::all() as $client ) {

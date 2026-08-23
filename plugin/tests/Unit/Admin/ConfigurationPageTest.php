@@ -4,7 +4,6 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
-use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
@@ -101,18 +100,12 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect Your AI Client', $html );
-		self::assertStringContainsString( 'Setup diagnostics', $html );
-		self::assertStringContainsString( 'Run diagnostics', $html );
-		self::assertStringContainsString( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', $html );
-		self::assertStringContainsString( 'How do you connect?', $html );
-		self::assertStringContainsString( 'Not sure (check both)', $html );
-		self::assertStringContainsString( 'Copy report for support', $html );
-		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $html );
-		self::assertStringContainsString( 'data-stonewright-copy="stonewright-diagnostics-copy"', $html );
-		self::assertStringContainsString( 'sw-diag-card', $html );
-		self::assertStringContainsString( 'Companion HTTP contract', $html );
+		self::assertStringNotContainsString( 'Setup diagnostics', $html );
+		self::assertStringNotContainsString( 'Run diagnostics', $html );
+		self::assertStringNotContainsString( 'data-stonewright-run-diagnostics', $html );
+		self::assertStringNotContainsString( 'sw-diag-card', $html );
 		self::assertStringNotContainsString( 'A major contract mismatch is blocked', $html );
-		self::assertStringContainsString( 'value="stonewright_run_diagnostics"', $html );
+		self::assertStringNotContainsString( 'value="stonewright_run_diagnostics"', $html );
 		self::assertStringContainsString( 'admin-post.php', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
@@ -130,6 +123,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringNotContainsString( 'stonewright-remote-http-snippet', $html );
 		self::assertStringContainsString( 'stonewright-connect-prompt-full', $html );
 		self::assertStringContainsString( 'Keep Stonewright current', $html );
+		self::assertStringContainsString( 'Configured package', $html );
+		self::assertStringContainsString( 'Running companion', $html );
+		self::assertStringContainsString( 'HTTP bridge', $html );
 		self::assertStringContainsString( 'Update the WordPress plugin', $html );
 		self::assertStringContainsString( 'Update the local companion', $html );
 		self::assertStringContainsString( 'Copy current companion URL', $html );
@@ -218,7 +214,7 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-step="1"', $html );
 		self::assertStringContainsString( 'data-step="2"', $html );
 		self::assertStringContainsString( 'data-step="3"', $html );
-		self::assertGreaterThanOrEqual( 5, substr_count( $html, 'sw-diag-card' ) );
+		self::assertSame( 0, substr_count( $html, 'sw-diag-card' ) );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-code"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-desktop"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="cursor"', $html );
@@ -523,40 +519,6 @@ final class ConfigurationPageTest extends TestCase {
 			$html
 		);
 		self::assertStringContainsString( 'id="stonewright-mcp-surface-status"', $html );
-	}
-
-	public function test_diagnostics_show_configured_and_active_session_when_widened(): void {
-		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface']          = 'essential';
-		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
-		$GLOBALS['stonewright_test_options']['stonewright_enabled']              = true;
-
-		$_SERVER['HTTP_MCP_SESSION_ID'] = 'config-page-session-union';
-		$configured_count               = count( AbilityRegistry::enabled_abilities() );
-		self::assertSame( 30, $configured_count );
-
-		self::assertTrue(
-			AbilityRegistry::set_session_tool_profile(
-				'elementor-design',
-				ToolProfile::profile_tools( 'elementor-design' )
-			)
-		);
-		$session_count = count( AbilityRegistry::enabled_abilities() );
-		self::assertGreaterThan( $configured_count, $session_count );
-
-		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
-
-		ob_start();
-		ConfigurationPage::render();
-		$html = (string) ob_get_clean();
-
-		self::assertStringContainsString(
-			sprintf( 'Configured: essential (%d)', $configured_count ),
-			$html
-		);
-		self::assertStringContainsString(
-			sprintf( 'Active session: elementor-design (%d)', $session_count ),
-			$html
-		);
 	}
 
 	public function test_admin_bootstrap_does_not_register_settings_page(): void {

@@ -17,7 +17,6 @@ final class OAuthClientConfigTest extends TestCase {
 	public function test_exposes_exact_client_order(): void {
 		self::assertSame(
 			[
-				'chatgpt-desktop',
 				'chatgpt',
 				'claude-ai',
 				'claude-desktop',
@@ -41,7 +40,7 @@ final class OAuthClientConfigTest extends TestCase {
 			],
 			array_keys( OAuthClientConfig::client_labels() )
 		);
-		self::assertSame( 'Codex in ChatGPT Desktop', OAuthClientConfig::client_labels()['chatgpt-desktop'] );
+		self::assertArrayNotHasKey( 'chatgpt-desktop', OAuthClientConfig::client_labels() );
 		self::assertSame( 'Windsurf', OAuthClientConfig::client_labels()['windsurf'] );
 		self::assertSame( 'Codex CLI', OAuthClientConfig::client_labels()['codex-cli'] );
 		self::assertArrayNotHasKey( 'codex', OAuthClientConfig::client_labels() );
@@ -82,7 +81,7 @@ final class OAuthClientConfigTest extends TestCase {
 		self::assertStringContainsString( '"type": "http"', $configs['vscode']['code'] );
 		self::assertSame( $configs['vscode']['code'], $configs['vscode-copilot']['code'] );
 		self::assertStringContainsString( 'mcp-remote', $configs['antigravity']['code'] );
-		self::assertStringContainsString( '"url": "' . $url . '"', $configs['chatgpt-desktop']['code'] );
+		self::assertSame( $configs['codex'], $configs['chatgpt-desktop'] );
 		self::assertStringContainsString( '"serverUrl": "' . $url . '"', $configs['windsurf']['code'] );
 		self::assertStringContainsString( '"httpUrl": "' . $url . '"', $configs['gemini-cli']['code'] );
 	}
@@ -125,7 +124,7 @@ final class OAuthClientConfigTest extends TestCase {
 		}
 		self::assertStringContainsString( 'mcp-remote', (string) $configs['chatgpt']['code'] );
 		self::assertStringContainsString( 'mcp-remote', (string) $configs['claude-ai']['code'] );
-		self::assertStringContainsString( 'ChatGPT Desktop', (string) ( $configs['chatgpt']['message'] ?? '' ) );
+		self::assertStringContainsString( 'official Codex configuration', (string) ( $configs['chatgpt']['message'] ?? '' ) );
 		self::assertStringContainsString( 'Claude Desktop', (string) ( $configs['claude-ai']['message'] ?? '' ) );
 		self::assertStringStartsWith( 'cursor://', (string) $configs['cursor']['deeplink'] );
 	}

@@ -392,7 +392,7 @@ final class ConfigurationPage {
 		$enabled             = PluginEffectiveState::enabled_requested();
 		$effective_state     = PluginEffectiveState::effective_state();
 		$mode                = (string) get_option( 'stonewright_mode', 'development' );
-		$companion_url       = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
+		$companion_url       = (string) get_option( 'stonewright_companion_url', '' );
 		$companion_token     = (string) get_option( 'stonewright_companion_token', '' );
 		$bridge_token        = '' !== $companion_token ? $companion_token : '<choose-a-long-random-token>';
 		$bridge_launch_env   = implode(
@@ -465,8 +465,6 @@ final class ConfigurationPage {
 					</div>
 				<?php endif; ?>
 			<?php endif; ?>
-
-			<?php DiagnosticsPanel::render( self::SLUG, __( 'Setup diagnostics', 'stonewright' ) ); ?>
 
 			<nav class="sw-stepper" aria-label="<?php esc_attr_e( 'Setup progress', 'stonewright' ); ?>">
 				<?php
@@ -644,13 +642,14 @@ final class ConfigurationPage {
 									<li><?php esc_html_e( 'Copy the developer launch values into the local bridge process.', 'stonewright' ); ?></li>
 								</ol>
 								<div class="sw-field stonewright-field-row">
-									<label for="stonewright_companion_url"><?php esc_html_e( 'Bridge URL (usually keep default)', 'stonewright' ); ?></label>
+									<label for="stonewright_companion_url"><?php esc_html_e( 'Bridge URL (optional)', 'stonewright' ); ?></label>
 									<input
 										type="url"
 										class="regular-text"
 										name="stonewright_companion_url"
 										id="stonewright_companion_url"
 										value="<?php echo esc_attr( $companion_url ); ?>"
+										placeholder="http://127.0.0.1:8765"
 										autocomplete="off"
 									/>
 								</div>
@@ -960,7 +959,9 @@ final class ConfigurationPage {
 									<dl class="sw-companion-update-result__versions">
 										<div><dt><?php esc_html_e( 'Installed plugin', 'stonewright' ); ?></dt><dd><code data-stonewright-plugin-version></code></dd></div>
 										<div><dt><?php esc_html_e( 'Latest release', 'stonewright' ); ?></dt><dd><code data-stonewright-release-version></code></dd></div>
-										<div><dt><?php esc_html_e( 'Configured bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Configured package', 'stonewright' ); ?></dt><dd><code data-stonewright-configured-companion-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Running companion', 'stonewright' ); ?></dt><dd><code data-stonewright-running-companion-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'HTTP bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-state></code></dd></div>
 									</dl>
 									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt></textarea>
 									<div class="sw-actions">

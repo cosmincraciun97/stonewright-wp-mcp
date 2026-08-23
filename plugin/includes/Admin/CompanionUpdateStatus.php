@@ -44,6 +44,18 @@ final class CompanionUpdateStatus {
 			? (string) $release['companion_package']
 			: ConnectClientConfig::companion_package_spec( $target_version );
 		$prompt  = self::update_prompt( $target_version, $package );
+		$release_status = is_array( $release ) ? 'available' : 'unavailable';
+		$release_error  = is_array( $release )
+			? null
+			: [
+				'code'    => 'release_metadata_unavailable',
+				'message' => __( 'Stonewright could not read an eligible release from GitHub.', 'stonewright' ),
+				'action'  => __( 'Check outbound HTTPS access, then try again. If it persists, inspect Troubleshoot for the exact connection failure.', 'stonewright' ),
+			];
+		$running_status = 'not_visible';
+		if ( true === ( $bridge['configured'] ?? false ) ) {
+			$running_status = true === ( $bridge['reachable'] ?? false ) ? $companion_status : 'unavailable';
+		}
 
 		return [
 			'ok'                      => is_array( $release ),
@@ -55,6 +67,20 @@ final class CompanionUpdateStatus {
 			'checksums'               => is_array( $release ) ? (string) ( $release['checksums'] ?? '' ) : '',
 			'release_url'             => is_array( $release ) ? (string) ( $release['url'] ?? '' ) : '',
 			'bridge'                  => $bridge,
+			'latest_release'          => [
+				'status' => $release_status,
+				'version' => $latest_version,
+				'error'   => $release_error,
+			],
+			'configured_companion'    => [
+				'version' => $plugin_version,
+				'package' => ConnectClientConfig::companion_package_spec( $plugin_version ),
+			],
+			'running_companion'       => [
+				'status'  => $running_status,
+				'version' => $bridge_version,
+				'source'  => true === ( $bridge['configured'] ?? false ) ? 'http_bridge' : 'ai_client',
+			],
 			'update_prompt'           => $prompt,
 			'boundary'                => __( 'WordPress cannot replace a local stdio companion process. Update it in the AI client, restart that client, then verify the reported companion version.', 'stonewright' ),
 		];
@@ -62,11 +88,21 @@ final class CompanionUpdateStatus {
 
 	/**
 	 * @param callable|null $transport Test seam matching wp_safe_remote_get.
-	 * @return array{reachable: bool, version: string, contract_version: string, detail: string}
+	 * @return array{configured: bool, state: string, reachable: bool, version: string, contract_version: string, detail: string}
 	 */
 	private static function bridge_health( ?callable $transport = null ): array {
-		$base  = rtrim( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ), '/' );
+		$base  = rtrim( (string) get_option( 'stonewright_companion_url', '' ), '/' );
 		$token = (string) get_option( 'stonewright_companion_token', '' );
+		if ( '' === $base ) {
+			return [
+				'configured'      => false,
+				'state'           => 'not_configured',
+				'reachable'       => false,
+				'version'         => '',
+				'contract_version' => '',
+				'detail'          => __( 'No HTTP bridge is configured. This is normal for local stdio and remote OAuth connections.', 'stonewright' ),
+			];
+		}
 		$transport ??= static fn( string $url, array $args ): array|\WP_Error => wp_safe_remote_get( $url, $args );
 
 		$response = $transport(
@@ -80,6 +116,8 @@ final class CompanionUpdateStatus {
 
 		if ( is_wp_error( $response ) ) {
 			return [
+				'configured'      => true,
+				'state'           => 'unreachable',
 				'reachable'        => false,
 				'version'          => '',
 				'contract_version' => '',
@@ -91,6 +129,8 @@ final class CompanionUpdateStatus {
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( 200 !== $code || ! is_array( $data ) ) {
 			return [
+				'configured'      => true,
+				'state'           => 'invalid_response',
 				'reachable'        => false,
 				'version'          => '',
 				'contract_version' => '',
@@ -102,6 +142,8 @@ final class CompanionUpdateStatus {
 		$contract = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
 
 		return [
+			'configured'      => true,
+			'state'           => 'reachable',
 			'reachable'        => true,
 			'version'          => $version,
 			'contract_version' => $contract,
