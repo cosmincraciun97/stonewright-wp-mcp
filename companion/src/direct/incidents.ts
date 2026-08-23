@@ -23,6 +23,8 @@ export type DirectIncidentFailure = {
 	cause_key: string;
 	severity?: string;
 	timestamp?: string;
+	correlation_id?: string;
+	idempotency_key?: string;
 };
 
 export type DirectIncident = {
@@ -38,6 +40,8 @@ export type DirectIncident = {
 	first_seen: string;
 	last_seen: string;
 	failure_event_id: string;
+	correlation_id: string;
+	last_idempotency_key: string;
 	repair_phase: 'diagnose' | 'verify' | 'complete';
 	learning_status: DirectLearningStatus;
 	learning_memory_key: string | null;
@@ -169,12 +173,16 @@ export class DirectIncidentStore {
 		const incidentId = sha256(`${this.siteFingerprint}|${ability}|${errorCode}|${causeKeyHash}`);
 		const timestamp = iso(input.timestamp);
 		const existing = document.incidents.find((incident) => incident.incident_id === incidentId);
+		const idempotencyKey = FINGERPRINT_RE.test(input.idempotency_key ?? '') ? String(input.idempotency_key) : '';
 
 		if (existing) {
+			if (idempotencyKey && existing.last_idempotency_key === idempotencyKey) return { ...existing };
 			const wasResolved = existing.state === 'resolved';
 			existing.occurrences += 1;
 			existing.last_seen = timestamp;
 			existing.failure_event_id = classification(input.event_id, 'unknown-event');
+			existing.correlation_id = classification(input.correlation_id ?? input.event_id, 'unknown-correlation');
+			existing.last_idempotency_key = idempotencyKey;
 			existing.severity = severity(input.severity);
 			existing.state = 'open';
 			existing.repair_phase = 'diagnose';
@@ -204,6 +212,8 @@ export class DirectIncidentStore {
 			first_seen: timestamp,
 			last_seen: timestamp,
 			failure_event_id: classification(input.event_id, 'unknown-event'),
+			correlation_id: classification(input.correlation_id ?? input.event_id, 'unknown-correlation'),
+			last_idempotency_key: idempotencyKey,
 			repair_phase: 'diagnose',
 			learning_status: 'none',
 			learning_memory_key: null,
@@ -259,6 +269,15 @@ export class DirectIncidentStore {
 			) {
 				throw new Error('Invalid Direct incident document');
 			}
+			parsed.incidents = parsed.incidents.map((incident) => ({
+				...incident,
+				correlation_id: typeof incident.correlation_id === 'string'
+					? incident.correlation_id
+					: incident.failure_event_id,
+				last_idempotency_key: FINGERPRINT_RE.test(incident.last_idempotency_key ?? '')
+					? incident.last_idempotency_key
+					: '',
+			}));
 			return parsed;
 		} catch {
 			const corrupt = `${this.file}.corrupt`;

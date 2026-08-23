@@ -152,7 +152,10 @@ final class RestRoutesErrorEnvelopeTest extends TestCase {
 			'error'
 		);
 		IncidentStore::observe( $failure );
-		IncidentStore::observe( $failure );
+		$second = $failure;
+		$second['event_id']        = '22222222-2222-4222-8222-222222222222';
+		$second['idempotency_key'] = hash( 'sha256', 'cs-theme-1|attempt-2' );
+		IncidentStore::observe( $second );
 		self::assertSame( 'open', IncidentStore::recent( 1 )[0]['state'] );
 
 		AuditLog::begin_request();

@@ -68,6 +68,23 @@ describe('DirectIncidentStore', () => {
 			.toMatchObject({ incident_id: incident.incident_id, occurrences: 1 });
 	});
 
+	it('does not count the same terminal event twice and preserves correlation identity', () => {
+		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+		const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+		const input = failure({
+			correlation_id: '22222222-2222-4222-8222-222222222222',
+			idempotency_key: 'a'.repeat(64),
+		});
+
+		const first = store.observeFailure(input);
+		const duplicate = store.observeFailure(input);
+
+		expect(duplicate.occurrences).toBe(1);
+		expect(duplicate.failure_event_id).toBe(first.failure_event_id);
+		expect(duplicate.correlation_id).toBe('22222222-2222-4222-8222-222222222222');
+		expect(duplicate.last_idempotency_key).toBe('a'.repeat(64));
+	});
+
 	it('stores only bounded normalized fields with private permissions', () => {
 		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
 		const siteFingerprint = fingerprint('site-a');
@@ -88,6 +105,25 @@ describe('DirectIncidentStore', () => {
 		expect(body).not.toContain('arguments');
 		expect(statSync(path).mode & 0o777).toBe(0o600);
 		expect(statSync(join(baseDir, 'incidents')).mode & 0o777).toBe(0o700);
+	});
+
+	it('migrates pre-envelope incident rows without discarding history', () => {
+		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+		const siteFingerprint = fingerprint('site-a');
+		const store = new DirectIncidentStore(baseDir, siteFingerprint);
+		const incident = store.observeFailure(failure({ event_id: 'event-1' }));
+		const legacy = JSON.parse(readFileSync(store.path(), 'utf8')) as { incidents: Array<Record<string, unknown>> };
+		delete legacy.incidents[0]?.['correlation_id'];
+		delete legacy.incidents[0]?.['last_idempotency_key'];
+		writeFileSync(store.path(), `${JSON.stringify(legacy)}\n`, { mode: 0o600 });
+
+		const migrated = new DirectIncidentStore(baseDir, siteFingerprint).get(incident.incident_id);
+		expect(migrated).toMatchObject({
+			failure_event_id: 'event-1',
+			correlation_id: 'event-1',
+			last_idempotency_key: '',
+		});
+		expect(existsSync(`${store.path()}.corrupt`)).toBe(false);
 	});
 
 	it('preserves corrupt state for diagnosis and fails closed to an empty store', () => {

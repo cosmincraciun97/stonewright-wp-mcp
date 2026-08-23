@@ -48,6 +48,36 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
 	}
 
+	public function test_terminal_event_is_persisted_once_for_the_same_idempotency_key(): void {
+		AuditLog::begin_request( '22222222-2222-4222-8222-222222222222' );
+		$args = [
+			'_meta' => [
+				'idempotency_key' => 'finalizer:change-42:serialized',
+				'lifecycle_phase' => 'terminal',
+				'terminal_owner'  => 'block-finalizer-result',
+			],
+		];
+
+		self::assertTrue( AuditLog::record( 'stonewright/blocks-finalizer-result', $args, 'ok' ) );
+		self::assertTrue( AuditLog::record( 'stonewright/blocks-finalizer-result', $args, 'ok' ) );
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+		$row = $GLOBALS['wpdb']->inserts[0]['data'];
+		self::assertSame( '22222222-2222-4222-8222-222222222222', $row['correlation_id'] );
+		self::assertSame( hash( 'sha256', 'finalizer:change-42:serialized' ), $row['idempotency_key'] );
+		self::assertSame( $row['idempotency_key'], $row['terminal_idempotency_key'] );
+		self::assertSame( 1, $row['is_terminal'] );
+		self::assertSame( 'block-finalizer-result', $row['terminal_owner'] );
+	}
+
+	public function test_progress_events_may_share_a_correlation_key_without_terminal_deduplication(): void {
+		$args = [ '_meta' => [ 'idempotency_key' => 'workflow:42', 'lifecycle_phase' => 'progress' ] ];
+		self::assertTrue( AuditLog::record( 'stonewright/workflow-progress', $args, 'ok' ) );
+		self::assertTrue( AuditLog::record( 'stonewright/workflow-progress', $args, 'ok' ) );
+		self::assertCount( 2, $GLOBALS['wpdb']->inserts );
+		self::assertNull( $GLOBALS['wpdb']->inserts[0]['data']['terminal_idempotency_key'] );
+		self::assertNull( $GLOBALS['wpdb']->inserts[1]['data']['terminal_idempotency_key'] );
+	}
+
 	public function test_rest_mutation_records_when_not_audited(): void {
 		AuditLog::begin_request();
 		self::assertTrue(
@@ -193,8 +223,32 @@ final class AuditLogCoverageTest extends TestCase {
 	public function test_recent_and_count_filter_by_error_code(): void {
 		AuditLog::recent( 20, 1, [ 'error_code' => 'stonewright_spec_invalid' ] );
 		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
+		self::assertStringContainsString( 'correlation_id, idempotency_key, lifecycle_phase, is_terminal, terminal_owner', (string) $GLOBALS['wpdb']->last_query );
 		AuditLog::count( [ 'error_code' => 'stonewright_spec_invalid' ] );
 		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
+	}
+
+	public function test_retention_deletes_only_expired_rows_and_persists_a_bounded_receipt(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+		$GLOBALS['wpdb']->query_result = 4;
+		$receipt = AuditLog::enforce_retention( true, 1787520000 );
+
+		self::assertSame( 4, $receipt['deleted_rows'] );
+		self::assertSame( 7, $receipt['retention_days'] );
+		self::assertSame( '2026-08-16 21:20:00', $receipt['cutoff_utc'] );
+		self::assertStringContainsString( 'DELETE FROM wp_stonewright_audit_log WHERE created_at < %s LIMIT 5000', $GLOBALS['wpdb']->last_query );
+		self::assertSame( [ '2026-08-16 21:20:00' ], $GLOBALS['wpdb']->last_prepared_args );
+		self::assertSame( $receipt, get_option( 'stonewright_audit_retention_receipt' ) );
+		self::assertStringNotContainsString( 'password', (string) wp_json_encode( $receipt ) );
+	}
+
+	public function test_zero_retention_disables_automatic_deletion(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 0;
+		$receipt = AuditLog::enforce_retention( true, 1787520000 );
+
+		self::assertSame( 0, $receipt['deleted_rows'] );
+		self::assertSame( 'disabled', $receipt['status'] );
+		self::assertSame( '', $GLOBALS['wpdb']->last_query );
 	}
 
 	private function make_wpdb( bool $insert_ok ): object {
@@ -203,6 +257,9 @@ final class AuditLogCoverageTest extends TestCase {
 			public string $last_error = '';
 			public int $row_count = 0;
 			public string $last_query = '';
+			/** @var list<mixed> */
+			public array $last_prepared_args = [];
+			public int $query_result = 0;
 			private bool $insert_ok;
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];
@@ -216,7 +273,13 @@ final class AuditLogCoverageTest extends TestCase {
 
 			public function prepare( string $query, mixed ...$args ): string {
 				$this->last_query = $query;
+				$this->last_prepared_args = $args;
 				return $query;
+			}
+
+			public function query( string $query ): int|false {
+				$this->last_query = $query;
+				return $this->query_result;
 			}
 
 			public function get_var( string $query = '' ): int|string|null {

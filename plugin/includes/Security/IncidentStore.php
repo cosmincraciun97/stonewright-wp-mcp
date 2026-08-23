@@ -71,6 +71,8 @@ final class IncidentStore {
 			last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			resolved_at DATETIME NULL,
 			last_event_id CHAR(36) NOT NULL DEFAULT '',
+			correlation_id CHAR(36) NOT NULL DEFAULT '',
+			last_idempotency_key CHAR(64) NOT NULL DEFAULT '',
 			resolution_event_id CHAR(36) NOT NULL DEFAULT '',
 			last_change_set_id VARCHAR(96) NOT NULL DEFAULT '',
 			repair_phase VARCHAR(24) NOT NULL DEFAULT 'none',
@@ -110,6 +112,10 @@ final class IncidentStore {
 		}
 		$now       = gmdate( 'Y-m-d H:i:s' );
 		$existing  = self::find( $incident_id );
+		$idempotency_key = self::safe_hash( $event['idempotency_key'] ?? '' );
+		if ( null !== $existing && '' !== $idempotency_key && hash_equals( (string) ( $existing['last_idempotency_key'] ?? '' ), $idempotency_key ) ) {
+			return self::public_row( $existing );
+		}
 		$threshold = AuditEvent::OUTCOME_RETRYABLE === $outcome ? self::RETRYABLE_THRESHOLD : self::OBSERVING_THRESHOLD;
 		$details   = is_array( $event['redacted_details'] ?? null ) ? $event['redacted_details'] : [];
 		$delta     = max( 1, min( 10000, (int) ( $details['coalesced_count'] ?? 1 ) ) );
@@ -296,6 +302,53 @@ final class IncidentStore {
 		return $counts;
 	}
 
+	/**
+	 * Prune only resolved/suppressed incidents older than the configured window.
+	 * Open evidence is never aged out automatically.
+	 *
+	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
+	 */
+	public static function enforce_retention( int $days = 30, ?int $now = null ): array {
+		$days = max( 1, min( 365, $days ) );
+		$now  = $now ?? time();
+		$cutoff = gmdate( 'Y-m-d H:i:s', $now - ( $days * DAY_IN_SECONDS ) );
+		$deleted = 0;
+		global $wpdb;
+		if ( self::db_available() ) {
+			$table = self::table_name();
+			$sql = $wpdb->prepare( "DELETE FROM {$table} WHERE state IN ('resolved','suppressed') AND COALESCE(resolved_at, last_seen) < %s LIMIT 1000", $cutoff ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table is plugin-owned.
+			$result = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- bounded retention on owned table.
+			$deleted = false === $result ? 0 : max( 0, (int) $result );
+		} else {
+			$stored = self::$fallback;
+			if ( [] === $stored && function_exists( 'get_option' ) ) {
+				$stored = get_option( self::OPTION_KEY, [] );
+				$stored = is_array( $stored ) ? $stored : [];
+			}
+			foreach ( $stored as $incident_id => $row ) {
+				if ( ! is_array( $row ) || ! in_array( (string) ( $row['state'] ?? '' ), [ 'resolved', 'suppressed' ], true ) ) {
+					continue;
+				}
+				$terminal_at = (string) ( $row['resolved_at'] ?? $row['last_seen'] ?? '' );
+				if ( '' !== $terminal_at && $terminal_at < $cutoff ) {
+					unset( $stored[ $incident_id ] );
+					++$deleted;
+				}
+			}
+			self::$fallback = $stored;
+			update_option( self::OPTION_KEY, $stored, false );
+		}
+		$receipt = [
+			'status'         => 'completed',
+			'retention_days' => $days,
+			'cutoff_utc'     => $cutoff,
+			'deleted_rows'   => $deleted,
+			'run_at'         => gmdate( 'c', $now ),
+		];
+		update_option( 'stonewright_incident_retention_receipt', $receipt, false );
+		return $receipt;
+	}
+
 	public static function reset_for_tests(): void {
 		self::$fallback = [];
 		if ( function_exists( 'delete_option' ) ) {
@@ -343,6 +396,8 @@ final class IncidentStore {
 			'last_seen'            => $now,
 			'resolved_at'          => $existing['resolved_at'] ?? null,
 			'last_event_id'        => self::safe_text( $event['event_id'] ?? '', 36 ),
+			'correlation_id'       => self::safe_text( $event['correlation_id'] ?? '', 36 ),
+			'last_idempotency_key' => self::safe_hash( $event['idempotency_key'] ?? '' ),
 			'resolution_event_id'  => (string) ( $existing['resolution_event_id'] ?? '' ),
 			'last_change_set_id'   => self::safe_text( $event['change_set_id'] ?? '', 96 ),
 			'repair_phase'         => 'open' === $state && in_array( (string) ( $existing['repair_phase'] ?? '' ), [ '', 'none' ], true )
@@ -492,6 +547,8 @@ final class IncidentStore {
 			'last_seen'            => (string) ( $row['last_seen'] ?? '' ),
 			'resolved_at'          => (string) ( $row['resolved_at'] ?? '' ),
 			'last_event_id'        => (string) ( $row['last_event_id'] ?? '' ),
+			'correlation_id'       => (string) ( $row['correlation_id'] ?? '' ),
+			'last_idempotency_key' => (string) ( $row['last_idempotency_key'] ?? '' ),
 			'resolution_event_id'  => (string) ( $row['resolution_event_id'] ?? '' ),
 			'last_change_set_id'   => (string) ( $row['last_change_set_id'] ?? '' ),
 			'repair_phase'         => (string) ( $row['repair_phase'] ?? 'none' ),

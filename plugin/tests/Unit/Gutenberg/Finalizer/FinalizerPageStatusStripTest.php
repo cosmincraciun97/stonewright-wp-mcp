@@ -49,7 +49,8 @@ final class FinalizerPageStatusStripTest extends TestCase {
 		self::assertStringContainsString( 'item.error', $script );
 		self::assertStringContainsString( 'sw-finalizer-item__error', $script );
 		self::assertStringContainsString( 'function formatClock', $script );
-		self::assertMatchesRegularExpression( '/setInterval\(\s*heartbeat\s*,\s*15000\s*\)/', $script );
+		self::assertStringContainsString( 'scheduleHeartbeat(15000)', $script );
+		self::assertStringNotContainsString( 'setInterval(heartbeat, 15000)', $script );
 	}
 
 	public function test_editor_url_marks_the_iframe_as_a_non_persisting_finalizer_session(): void {

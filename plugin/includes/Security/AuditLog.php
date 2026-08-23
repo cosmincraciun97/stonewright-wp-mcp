@@ -21,6 +21,9 @@ final class AuditLog {
 
 	/** Longest persisted OAuth diagnostic string. */
 	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
+	public const RETENTION_OPTION = 'stonewright_audit_retention_days';
+	public const RETENTION_RECEIPT_OPTION = 'stonewright_audit_retention_receipt';
+	private const RETENTION_TRANSIENT = 'stonewright_audit_retention_ran';
 	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
 	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 
@@ -79,6 +82,9 @@ final class AuditLog {
 	 */
 	private static ?string $request_correlation_id = null;
 
+	/** @var array<string, true> */
+	private static array $terminal_events = [];
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
@@ -87,6 +93,7 @@ final class AuditLog {
 	public static function reset_request_state(): void {
 		self::$request_already_audited = false;
 		self::$request_correlation_id  = null;
+		self::$terminal_events         = [];
 	}
 
 	public static function begin_request( ?string $correlation_id = null ): string {
@@ -124,6 +131,12 @@ final class AuditLog {
 			ip_hash CHAR(64) NOT NULL DEFAULT '',
 			ua_hash CHAR(64) NOT NULL DEFAULT '',
 			request_id CHAR(36) NOT NULL DEFAULT '',
+			correlation_id CHAR(36) NOT NULL DEFAULT '',
+			idempotency_key CHAR(64) NOT NULL DEFAULT '',
+			terminal_idempotency_key CHAR(64) NULL DEFAULT NULL,
+			lifecycle_phase VARCHAR(24) NOT NULL DEFAULT 'terminal',
+			is_terminal TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
+			terminal_owner VARCHAR(96) NOT NULL DEFAULT 'audit-log',
 			parent_request_id CHAR(36) NOT NULL DEFAULT '',
 			event_type VARCHAR(32) NOT NULL DEFAULT 'mutation',
 			operation_class VARCHAR(96) NOT NULL DEFAULT '',
@@ -177,6 +190,8 @@ final class AuditLog {
 			KEY outcome_idx (outcome),
 			KEY incident_idx (incident_id),
 			KEY root_error_idx (root_error_code),
+			KEY idempotency_idx (idempotency_key),
+			UNIQUE KEY terminal_idempotency_idx (terminal_idempotency_key),
 			KEY created_idx (created_at)
 		) {$charset};";
 
@@ -195,8 +210,18 @@ final class AuditLog {
 
 		$status = in_array( $status, self::STATUSES, true ) ? $status : 'error';
 		$sanitized_args = self::redact_sensitive( $sanitized_args );
-		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		if ( ! isset( $sanitized_args['_meta'] ) || ! is_array( $sanitized_args['_meta'] ) ) {
+			$sanitized_args['_meta'] = [];
+		}
+		if ( empty( $sanitized_args['_meta']['correlation_id'] ) ) {
+			$sanitized_args['_meta']['correlation_id'] = self::request_id();
+		}
+		$meta  = $sanitized_args['_meta'];
 		$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
+		if ( $event['terminal'] && isset( self::$terminal_events[ $event['idempotency_key'] ] ) ) {
+			self::mark_audited();
+			return true;
+		}
 		$verification = self::meta_string( $meta, 'verification_status' );
 		$rollback     = self::meta_string( $meta, 'rollback_status', 'not_needed' );
 		$event_type   = 'mutation';
@@ -227,6 +252,12 @@ final class AuditLog {
 				'ip_hash'        => self::hash_value( $_SERVER['REMOTE_ADDR'] ?? '' ),
 				'ua_hash'        => self::hash_value( $_SERVER['HTTP_USER_AGENT'] ?? '' ),
 				'request_id'     => self::request_id(),
+				'correlation_id' => $event['correlation_id'],
+				'idempotency_key'=> $event['idempotency_key'],
+				'terminal_idempotency_key' => $event['terminal'] ? $event['idempotency_key'] : null,
+				'lifecycle_phase'=> $event['lifecycle_phase'],
+				'is_terminal'    => $event['terminal'] ? 1 : 0,
+				'terminal_owner' => $event['terminal_owner'],
 				'parent_request_id' => self::meta_string( $meta, 'parent_request_id' ),
 				'event_type'        => $event_type,
 				'operation_class'   => self::meta_string( $meta, 'operation_class' ),
@@ -273,6 +304,11 @@ final class AuditLog {
 		);
 
 		if ( false === $result ) {
+			if ( str_contains( strtolower( (string) ( $wpdb->last_error ?? '' ) ), 'duplicate' ) ) {
+				self::mark_audited();
+				self::$terminal_events[ $event['idempotency_key'] ] = true;
+				return true;
+			}
 			// Do not recursively audit the audit failure.
 			Logger::error(
 				'audit_log_insert_failed',
@@ -295,6 +331,9 @@ final class AuditLog {
 		}
 
 		self::mark_audited();
+		if ( $event['terminal'] ) {
+			self::$terminal_events[ $event['idempotency_key'] ] = true;
+		}
 		delete_option( 'stonewright_audit_degraded' );
 		try {
 			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
@@ -321,7 +360,47 @@ final class AuditLog {
 			);
 		}
 
+		if ( 'audit_log_purged' !== $ability ) {
+			self::enforce_retention();
+		}
+
 		return true;
+	}
+
+	/**
+	 * Delete a bounded batch of expired audit rows and persist a redacted receipt.
+	 * A zero-day policy explicitly disables automatic retention.
+	 *
+	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
+	 */
+	public static function enforce_retention( bool $force = false, ?int $now = null ): array {
+		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 30 ) ) );
+		$now  = $now ?? time();
+		$base = [
+			'status'         => 0 === $days ? 'disabled' : 'skipped',
+			'retention_days' => $days,
+			'cutoff_utc'     => 0 === $days ? '' : gmdate( 'Y-m-d H:i:s', $now - ( $days * DAY_IN_SECONDS ) ),
+			'deleted_rows'   => 0,
+			'run_at'         => gmdate( 'c', $now ),
+		];
+		if ( 0 === $days || ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) ) {
+			return $base;
+		}
+
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'query' ) ) {
+			$base['status'] = 'unavailable';
+			return $base;
+		}
+		$table = self::table_name();
+		$sql = $wpdb->prepare( "DELETE FROM {$table} WHERE created_at < %s LIMIT 5000", $base['cutoff_utc'] ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table is plugin-owned.
+		$deleted = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- bounded retention on owned table.
+		$base['status']       = false === $deleted ? 'failed' : 'completed';
+		$base['deleted_rows'] = false === $deleted ? 0 : max( 0, (int) $deleted );
+		update_option( self::RETENTION_RECEIPT_OPTION, $base, false );
+		IncidentStore::enforce_retention( $days, $now );
+		set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
+		return $base;
 	}
 
 	/**
@@ -580,6 +659,7 @@ final class AuditLog {
 		[ $where_sql, $params ] = self::build_filter_clause( $filters );
 
 		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
+				correlation_id, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
 				event_type, operation_class, resource_type, resource_ref, change_set_id,
 				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
 				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,

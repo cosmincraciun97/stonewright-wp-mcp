@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendDirectAudit, recentRecurringErrors, defaultAuditPath } from '../src/direct/audit.js';
+import { appendDirectAudit, recentRecurringErrors, defaultAuditPath, rotateDirectAudit } from '../src/direct/audit.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { resetTaskStartSeenForTests } from '../src/direct/writes.js';
 
@@ -79,6 +79,36 @@ describe('direct error audit', () => {
 		expect(incidentFiles).toBe(true);
 	});
 
+	it('writes the canonical lifecycle envelope and deduplicates one terminal owner', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const input = {
+			tool: 'stonewright-content-update',
+			site: 'site-a',
+			status: 'ok' as const,
+			eventId: '11111111-1111-4111-8111-111111111111',
+			correlationId: '22222222-2222-4222-8222-222222222222',
+			idempotencyKey: 'direct:content:42:terminal',
+			lifecyclePhase: 'terminal',
+			terminalOwner: 'direct-registry',
+		};
+
+		const first = appendDirectAudit(input, path);
+		const duplicate = appendDirectAudit(input, path);
+		const rows = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+		expect(rows).toHaveLength(1);
+		expect(duplicate).toEqual(first);
+		expect(first).toMatchObject({
+			schema_version: '2.0',
+			event_id: '11111111-1111-4111-8111-111111111111',
+			correlation_id: '22222222-2222-4222-8222-222222222222',
+			idempotency_key: expect.stringMatching(/^[a-f0-9]{64}$/),
+			lifecycle_phase: 'terminal',
+			terminal: true,
+			terminal_owner: 'direct-registry',
+		});
+	});
+
 	it('feeds redacted normalized failures into the private incident store', () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		const first = appendDirectAudit({
@@ -133,6 +163,22 @@ describe('direct error audit', () => {
 		expect(body).toContain('[redacted');
 	});
 
+	it('stores only a fingerprint for a URL-shaped site binding', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		appendDirectAudit({
+			tool: 'stonewright-direct',
+			site: 'https://user:private-password@customer.example/wp-json/',
+			status: 'ok',
+		}, path);
+
+		const body = readFileSync(path, 'utf8');
+		const row = JSON.parse(body) as Record<string, unknown>;
+		expect(body).not.toContain('customer.example');
+		expect(body).not.toContain('private-password');
+		expect(row).not.toHaveProperty('site');
+		expect(String(row['site_fingerprint'])).toMatch(/^[a-f0-9]{64}$/);
+	});
+
 	it('task-start returns recurring_errors after audited failures', async () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		appendDirectAudit({ tool: 'stonewright-foo', site: '_global', status: 'error', error: 'boom' }, path);
@@ -168,5 +214,71 @@ describe('direct error audit', () => {
 		expect(p.startsWith(stateDir)).toBe(true);
 		expect(existsSync(stateDir) || true).toBe(true);
 		void readFileSync;
+	});
+
+	it('rotates by size with an atomic redacted receipt and bounded archives', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		writeFileSync(path, `${JSON.stringify({ error: 'password=private-value', padding: 'x'.repeat(300) })}\n`, { mode: 0o600 });
+
+		const receipt = rotateDirectAudit(path, {
+			maxBytes: 128,
+			maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+			maxFiles: 2,
+			now: new Date('2026-08-24T00:00:00.000Z'),
+		});
+
+		expect(receipt).toMatchObject({ reason: 'size', previous_bytes: expect.any(Number) });
+		expect(receipt?.archive).toMatch(/^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/);
+		expect(existsSync(path)).toBe(false);
+		const receiptBody = readFileSync(`${path}.rotation-receipts.jsonl`, 'utf8');
+		expect(receiptBody).not.toContain('private-value');
+		expect(receiptBody).not.toContain(stateDir);
+		expect(readdirSync(stateDir).filter((name) => /^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/.test(name))).toHaveLength(1);
+	});
+
+	it('recovers an interrupted age rotation exactly once before appending', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		writeFileSync(path, `${JSON.stringify({ status: 'ok' })}\n`, { mode: 0o600 });
+		utimesSync(path, new Date('2026-01-01T00:00:00.000Z'), new Date('2026-01-01T00:00:00.000Z'));
+		const archive = 'audit-direct.20260824T000000Z.deadbeef.jsonl';
+		writeFileSync(`${path}.rotation-journal.json`, JSON.stringify({
+			version: 1,
+			archive,
+			reason: 'age',
+			rotated_at: '2026-08-24T00:00:00.000Z',
+			previous_bytes: statSync(path).size,
+			receipt_id: 'a'.repeat(64),
+		}), { mode: 0o600 });
+
+		appendDirectAudit({ tool: 'stonewright-ping', site: 'site-a', status: 'ok' }, path, {
+			maxBytes: 1024,
+			maxAgeMs: 24 * 60 * 60 * 1000,
+			maxFiles: 2,
+			now: new Date('2026-08-24T00:00:01.000Z'),
+		});
+
+		expect(existsSync(join(stateDir, archive))).toBe(true);
+		expect(existsSync(`${path}.rotation-journal.json`)).toBe(false);
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+		const receipts = readFileSync(`${path}.rotation-receipts.jsonl`, 'utf8').trim().split('\n');
+		expect(receipts).toHaveLength(1);
+	});
+
+	it('replays a terminal receipt after its audit row was rotated', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const input = {
+			tool: 'stonewright-content-update',
+			site: 'site-a',
+			status: 'ok' as const,
+			eventId: '11111111-1111-4111-8111-111111111111',
+			idempotencyKey: 'terminal-across-rotation',
+		};
+		const first = appendDirectAudit(input, path);
+		rotateDirectAudit(path, { maxBytes: 1, now: new Date('2026-08-24T00:00:00.000Z') });
+
+		const replay = appendDirectAudit(input, path);
+
+		expect(replay).toEqual(first);
+		expect(existsSync(path)).toBe(false);
 	});
 });

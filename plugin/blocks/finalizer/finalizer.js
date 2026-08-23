@@ -5,6 +5,10 @@
 	var config = window.stonewrightBlockFinalizer || {};
 	var token = config.token || '';
 	var restBase = config.restBase || '/wp-json/stonewright/v1/block-finalizer/';
+	var leaseId = config.leaseId || (window.crypto && typeof window.crypto.randomUUID === 'function'
+		? window.crypto.randomUUID()
+		: 'browser-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+	var resultIds = {};
 
 	function FinalizerError(code, blockName, message) {
 		this.name = 'FinalizerError';
@@ -446,9 +450,10 @@
 	}
 
 	function poll() {
-		var url = restBase + 'pending?token=' + encodeURIComponent(token);
+		var query = 'token=' + encodeURIComponent(token) + '&lease_id=' + encodeURIComponent(leaseId);
+		var url = restBase + 'pending?' + query;
 		var request = window.wp && wp.apiFetch
-			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?token=' + encodeURIComponent(token) })
+			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?' + query })
 			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(function (res) {
 				if (res.status === 403) {
 					throw new Error('forbidden');
@@ -463,12 +468,14 @@
 				rememberItem(item, null);
 			});
 			renderStrip(data);
+			var retryableItemSeen = false;
 			return items.filter(function (item) {
 				return item && item.status === 'queued' && (item.block_spec || item.spec);
 			}).reduce(function (chain, item) {
 				return chain.then(function () {
 					return serializeItem(item).then(function (result) {
 						if (result && result.retryable && !result.html) {
+							retryableItemSeen = true;
 							rememberItem(item, { status: 'queued', result: result });
 							renderStrip(data);
 							return;
@@ -486,7 +493,9 @@
 						});
 					});
 				});
-			}, Promise.resolve());
+			}, Promise.resolve()).then(function () {
+				return { retryable: retryableItemSeen };
+			});
 		});
 	}
 
@@ -527,9 +536,16 @@
 	}
 
 	function postResult(changeId, result) {
+		if (!resultIds[changeId]) {
+			resultIds[changeId] = window.crypto && typeof window.crypto.randomUUID === 'function'
+				? window.crypto.randomUUID()
+				: 'result-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+		}
 		return hashPayload(result.html || '').then(function (hashing) {
 			var body = {
 				token: token,
+				lease_id: leaseId,
+				result_id: resultIds[changeId],
 				change_id: changeId,
 				html: result.html || '',
 				html_hash: hashing.html_hash,
@@ -554,20 +570,57 @@
 		});
 	}
 
+	var pollInFlight = false;
+	var heartbeatInFlight = false;
+	var pollFailures = 0;
+	var heartbeatFailures = 0;
+	var pollTimer = 0;
+	var heartbeatTimer = 0;
+
+	function retryDelay(failures, base) {
+		return Math.min(30000, base * Math.pow(2, Math.max(0, failures - 1)));
+	}
+
+	function scheduleNextTick(delay) {
+		window.clearTimeout(pollTimer);
+		pollTimer = window.setTimeout(tick, delay);
+	}
+
+	function scheduleHeartbeat(delay) {
+		window.clearTimeout(heartbeatTimer);
+		heartbeatTimer = window.setTimeout(heartbeat, delay);
+	}
+
 	function tick() {
-		poll().then(function () {
+		if (pollInFlight) {
+			return;
+		}
+		pollInFlight = true;
+		poll().then(function (result) {
 			setOnline(true);
+			if (result && result.retryable) {
+				pollFailures += 1;
+				scheduleNextTick(retryDelay(pollFailures, 2000));
+			} else {
+				pollFailures = 0;
+				scheduleNextTick(2000);
+			}
 		}).catch(function () {
+			pollFailures += 1;
 			setOnline(false);
 			setText('stonewright-finalizer-last-poll', formatClock(new Date()));
+			scheduleNextTick(retryDelay(pollFailures, 2000));
+		}).finally(function () {
+			pollInFlight = false;
 		});
 	}
 
 	function heartbeat() {
-		if (!token) {
+		if (!token || heartbeatInFlight) {
 			return;
 		}
-		var body = { token: token };
+		heartbeatInFlight = true;
+		var body = { token: token, lease_id: leaseId };
 		var request = window.wp && wp.apiFetch
 			? wp.apiFetch({
 				path: '/stonewright/v1/block-finalizer/heartbeat',
@@ -581,17 +634,21 @@
 				body: JSON.stringify(body),
 			});
 		Promise.resolve(request).then(function () {
+			heartbeatFailures = 0;
 			setOnline(true);
+			scheduleHeartbeat(15000);
 		}).catch(function () {
+			heartbeatFailures += 1;
 			setOnline(false);
+			scheduleHeartbeat(retryDelay(heartbeatFailures, 15000));
+		}).finally(function () {
+			heartbeatInFlight = false;
 		});
 	}
 
 	function boot() {
 		heartbeat();
-		setInterval(heartbeat, 15000);
 		tick();
-		setInterval(tick, 2000);
 	}
 
 	if (window.wp && wp.domReady) {

@@ -95,13 +95,31 @@ final class AuditEvent {
 		$before_sha256       = self::fingerprint( self::first_scalar( $meta, $args, [ 'before_sha256' ] ) );
 		$after_sha256        = self::fingerprint( self::first_scalar( $meta, $args, [ 'after_sha256' ] ) );
 		$context_hash    = self::context_hash( $meta );
-		$event_id       = self::event_id();
+		$event_id        = self::uuid( self::first_scalar( $meta, $args, [ 'event_id' ] ) );
+		$correlation_id  = self::uuid( self::first_scalar( $meta, $args, [ 'correlation_id', 'request_id' ] ), false );
+		$lifecycle_phase = self::lifecycle_phase( self::first_scalar( $meta, $args, [ 'lifecycle_phase' ] ) );
+		$terminal        = 'terminal' === $lifecycle_phase;
+		$terminal_owner  = self::safe_text( self::first_scalar( $meta, $args, [ 'terminal_owner' ] ), 96 );
+		if ( $terminal && '' === $terminal_owner ) {
+			$terminal_owner = 'audit-log';
+		}
+		$idempotency_source = self::first_scalar( $meta, $args, [ 'idempotency_key' ] );
+		if ( '' === $idempotency_source ) {
+			$idempotency_source = implode( '|', [ $event_id, $ability, $lifecycle_phase, $status, $change_set_id ] );
+		}
+		$idempotency_key = hash( 'sha256', $idempotency_source );
 		$incident_id    = hash( 'sha256', implode( '|', [ $category, $ability_family, $code, $resource_key, $path, $cause, $strategy ] ) );
 		$retry_after    = self::retry_after( $meta );
 
 		return [
 			'schema_version'          => self::SCHEMA_VERSION,
 			'event_id'                => $event_id,
+			'correlation_id'          => $correlation_id,
+			'idempotency_key'         => $idempotency_key,
+			'lifecycle_phase'         => $lifecycle_phase,
+			'terminal'                => $terminal,
+			'terminal_owner'          => $terminal_owner,
+			'backend'                 => 'plugin',
 			'occurred_at'             => gmdate( 'c' ),
 			'category'                => $category,
 			'outcome'                 => $outcome,
@@ -141,10 +159,24 @@ final class AuditEvent {
 		];
 	}
 
-	private static function event_id(): string {
-		return function_exists( 'wp_generate_uuid4' )
-			? wp_generate_uuid4()
-			: substr( hash( 'sha256', uniqid( 'stonewright-', true ) ), 0, 36 );
+	private static function uuid( string $value = '', bool $generate = true ): string {
+		$value = strtolower( trim( $value ) );
+		if ( 1 === preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $value ) ) {
+			return $value;
+		}
+		if ( ! $generate ) {
+			return '';
+		}
+		if ( function_exists( 'wp_generate_uuid4' ) ) {
+			return wp_generate_uuid4();
+		}
+		$hash = hash( 'sha256', uniqid( 'stonewright-', true ) );
+		return substr( $hash, 0, 8 ) . '-' . substr( $hash, 8, 4 ) . '-4' . substr( $hash, 13, 3 ) . '-8' . substr( $hash, 17, 3 ) . '-' . substr( $hash, 20, 12 );
+	}
+
+	private static function lifecycle_phase( string $value ): string {
+		$value = sanitize_key( strtolower( trim( $value ) ) );
+		return in_array( $value, [ 'started', 'progress', 'retry', 'terminal' ], true ) ? $value : 'terminal';
 	}
 
 	/** @param array<string, mixed> $meta @param array<string, mixed> $args @param list<string> $keys */

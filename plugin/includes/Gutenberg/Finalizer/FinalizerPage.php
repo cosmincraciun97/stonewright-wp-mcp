@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Gutenberg\Finalizer;
 
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Security\AuditLog;
 
 /**
  * Visible Block Editor Queue page that loads the live block editor scripts and
@@ -184,11 +185,26 @@ final class FinalizerPage {
 		if ( $verified instanceof \WP_Error ) {
 			return $verified;
 		}
+		$lease_id = self::request_lease_id( $request, $token );
+		$renewed = BlockQueue::renew_lease_for_scope( $verified, $lease_id, self::ONLINE_TTL );
+		if ( $renewed instanceof \WP_Error ) {
+			return $renewed;
+		}
+		if ( 0 === $renewed ) {
+			$claimed = BlockQueue::lease_pending_for_scope( $verified, $lease_id, self::ONLINE_TTL );
+			if ( $claimed instanceof \WP_Error ) {
+				return $claimed;
+			}
+		}
 		self::mark_online();
+		self::mark_session_online( (string) $verified['session_id'], $lease_id );
 		return rest_ensure_response(
 			[
-				'ok'     => true,
-				'online' => true,
+				'ok'          => true,
+				'online'      => true,
+				'session_id'  => (string) $verified['session_id'],
+				'lease_id'    => $lease_id,
+				'expires_at'  => time() + self::ONLINE_TTL,
 			]
 		);
 	}
@@ -227,13 +243,20 @@ final class FinalizerPage {
 		if ( $verified instanceof \WP_Error ) {
 			return $verified;
 		}
+		$lease_id = self::request_lease_id( $request, $token );
+		$leased   = BlockQueue::lease_pending_for_scope( $verified, $lease_id, self::ONLINE_TTL );
+		if ( $leased instanceof \WP_Error ) {
+			return $leased;
+		}
 		$counts = BlockQueue::counts_for_scope( $verified );
-		$items  = self::with_editor_urls( BlockQueue::pending_for_scope( $verified, true ) );
+		$items  = self::with_editor_urls( $leased );
 		return rest_ensure_response(
 			[
 				'items'        => $items,
 				'queued_count' => $counts['queued'],
 				'failed_count' => $counts['failed'],
+				'lease_id'     => $lease_id,
+				'session_id'   => (string) $verified['session_id'],
 			]
 		);
 	}
@@ -249,11 +272,19 @@ final class FinalizerPage {
 			$body = $request->get_params();
 		}
 		$change_id        = sanitize_text_field( (string) ( $body['change_id'] ?? '' ) );
+		$lease_id         = self::request_lease_id( $request, $token );
+		$result_id        = sanitize_text_field( (string) ( $body['result_id'] ?? '' ) );
 		$html             = (string) ( $body['html'] ?? '' );
 		$hash             = (string) ( $body['html_hash'] ?? $body['hash'] ?? '' );
 		$hash_unavailable = ! empty( $body['hash_unavailable'] );
 		$hash             = self::resolve_html_hash( $html, $hash, $hash_unavailable );
 		$errors           = isset( $body['errors'] ) && is_array( $body['errors'] ) ? $body['errors'] : [];
+		if ( '' === (string) ( $body['lease_id'] ?? '' ) ) {
+			BlockQueue::lease_pending_for_scope( $verified, $lease_id, self::ONLINE_TTL );
+		}
+		if ( '' === $result_id ) {
+			$result_id = substr( hash( 'sha256', $change_id . '|' . $hash . '|' . wp_json_encode( $errors ) ), 0, 36 );
+		}
 		if ( [] !== $errors ) {
 			$first   = $errors[0];
 			$code    = is_array( $first ) ? sanitize_key( (string) ( $first['code'] ?? '' ) ) : '';
@@ -271,27 +302,22 @@ final class FinalizerPage {
 					]
 				);
 			}
-			$failed = BlockQueue::mark_failed( $change_id, $message, $html, $code, $verified );
+			$failed = BlockQueue::accept_failed_result( $change_id, $message, $html, $code, $verified, $lease_id, $result_id );
 			if ( $failed instanceof \WP_Error ) {
 				return $failed;
 			}
+			self::audit_terminal_receipt( $failed, $change_id, 'failed', 'error' );
 			return rest_ensure_response(
-				[
-					'ok'     => false,
-					'status' => 'failed',
-					'errors' => array_slice( $errors, 0, 20 ),
-				]
+				array_merge( $failed, [ 'errors' => array_slice( $errors, 0, 20 ) ] )
 			);
 		}
-		$stored = BlockQueue::store_serialized( $change_id, $html, $hash, $verified );
+		$stored = BlockQueue::accept_serialized_result( $change_id, $html, $hash, $verified, $lease_id, $result_id );
 		if ( $stored instanceof \WP_Error ) {
 			return $stored;
 		}
+		self::audit_terminal_receipt( $stored, $change_id, 'serialized', 'ok' );
 		return rest_ensure_response(
-			[
-				'ok'     => true,
-				'status' => 'serialized',
-			]
+			$stored
 		);
 	}
 
@@ -493,6 +519,15 @@ JS;
 		return false !== $beat && is_numeric( $beat );
 	}
 
+	public static function is_session_online( string $session_id, string $lease_id ): bool {
+		$key  = self::session_transient_key( $session_id );
+		$beat = get_transient( $key );
+		return is_array( $beat )
+			&& hash_equals( (string) ( $beat['session_id'] ?? '' ), $session_id )
+			&& hash_equals( (string) ( $beat['lease_id'] ?? '' ), $lease_id )
+			&& (int) ( $beat['expires_at'] ?? 0 ) >= time();
+	}
+
 	/**
 	 * @return list<array<string, mixed>>
 	 */
@@ -539,6 +574,48 @@ JS;
 
 	private static function mark_online(): void {
 		set_transient( self::ONLINE_TRANSIENT, time(), self::ONLINE_TTL );
+	}
+
+	private static function mark_session_online( string $session_id, string $lease_id ): void {
+		set_transient(
+			self::session_transient_key( $session_id ),
+			[ 'session_id' => $session_id, 'lease_id' => $lease_id, 'expires_at' => time() + self::ONLINE_TTL ],
+			self::ONLINE_TTL
+		);
+	}
+
+	private static function session_transient_key( string $session_id ): string {
+		return 'stonewright_finalizer_session_' . substr( hash( 'sha256', $session_id ), 0, 40 );
+	}
+
+	private static function request_lease_id( \WP_REST_Request $request, string $token ): string {
+		$lease_id = sanitize_text_field( (string) $request->get_param( 'lease_id' ) );
+		if ( '' === $lease_id ) {
+			$body = $request->get_json_params();
+			$lease_id = is_array( $body ) ? sanitize_text_field( (string) ( $body['lease_id'] ?? '' ) ) : '';
+		}
+		return '' !== $lease_id ? mb_substr( $lease_id, 0, 96 ) : 'legacy-' . substr( hash( 'sha256', $token ), 0, 40 );
+	}
+
+	/** @param array<string, mixed> $receipt */
+	private static function audit_terminal_receipt( array $receipt, string $change_id, string $verification, string $status ): void {
+		AuditLog::record(
+			'stonewright/block-finalizer-result',
+			[
+				'_meta' => [
+					'event_id'        => $receipt['event_id'] ?? '',
+					'correlation_id'  => $receipt['correlation_id'] ?? '',
+					'idempotency_key' => $receipt['idempotency_key'] ?? '',
+					'lifecycle_phase' => 'terminal',
+					'terminal_owner'  => $receipt['terminal_owner'] ?? 'block-finalizer-result',
+					'change_set_id'   => $change_id,
+					'resource_type'   => 'gutenberg_block_change',
+					'resource_ref'    => $change_id,
+					'verification_status' => $verification,
+				],
+			],
+			$status
+		);
 	}
 
 	private static function request_token( \WP_REST_Request $request ): string {
