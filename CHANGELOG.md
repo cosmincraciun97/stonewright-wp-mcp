@@ -25,6 +25,8 @@ development builds were never stable releases.
 ### Fixed
 
 - Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP compatibility preflight.
+- Normalize two-component WordPress core versions such as 6.9 so guarded
+  Abilities API fallbacks cannot falsely block the MCP server.
 - Accept WordPress `init` hook arguments in audit retention scheduling so an
   empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
 - Skip audit and incident table `dbDelta` after a healthy schema is installed,

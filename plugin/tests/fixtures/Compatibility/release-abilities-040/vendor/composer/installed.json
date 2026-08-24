@@ -1,0 +1,5 @@
+{
+  "packages": [
+    {"name": "wordpress/abilities-api", "version": "v0.4.0"}
+  ]
+}

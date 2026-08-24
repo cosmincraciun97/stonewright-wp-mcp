@@ -372,7 +372,11 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	private static function core_version(): string {
 		$version = $GLOBALS['wp_version'] ?? '';
-		return is_string( $version ) ? ltrim( $version, 'v' ) : '';
+		$version = is_string( $version ) ? ltrim( $version, 'v' ) : '';
+		if ( preg_match( '/^(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/', $version, $matches ) ) {
+			return $matches[1] . '.' . $matches[2] . '.0' . ( $matches[3] ?? '' );
+		}
+		return $version;
 	}
 
 	private static function guarded_fallback( string $root, string $role ): bool {

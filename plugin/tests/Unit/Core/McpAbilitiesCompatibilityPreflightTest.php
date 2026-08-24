@@ -232,6 +232,30 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 	}
 
 	/**
+	 * WordPress stable releases may expose a two-component version such as 6.9.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_wordpress_core_minor_version_owns_differing_guarded_fallbacks(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$GLOBALS['wp_version'] = '6.9';
+		require_once $fixtures . '/compatible-core-runtime.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			[],
+			CompatibleAdapterFixture::class,
+			[ $fixtures . '/release-a', $fixtures . '/release-abilities-040' ]
+		);
+
+		self::assertTrue( $result['compatible'] );
+		self::assertSame( [ 'wordpress-core' ], $result['abilities']['registry']['owners'] );
+		self::assertSame( [ 'guarded_fallback', 'guarded_fallback' ], array_column( $result['abilities']['registry']['packages'], 'state' ) );
+		self::assertSame( '6.9.0', $result['abilities']['registry']['abi']['version'] );
+		self::assertSame( [], $result['blocking_reasons'] );
+	}
+
+	/**
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
