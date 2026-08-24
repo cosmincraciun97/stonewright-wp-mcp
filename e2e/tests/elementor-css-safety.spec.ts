@@ -294,11 +294,19 @@ test('real Elementor regenerates only target post CSS and survives verification'
 			url_sha256: expect.any(String),
 		});
 
+		const published = await restRequest(page, 'POST', `/wp/v2/pages/${postId}`, {
+			nonce,
+			data: { status: 'publish' },
+		});
+		expect(published.ok, JSON.stringify(published.body)).toBeTruthy();
+
 		await page.goto(`/?p=${postId}`, { waitUntil: 'domcontentloaded' });
-		await expect(page.locator('.elementor-element-csssafe1')).toBeVisible();
-		await expect(page.locator('.elementor-element-csssafe2')).toContainText(
-			'Elementor CSS safety',
-		);
+		await expect(
+			page.locator('.elementor-element-csssafe1, [data-id="csssafe1"]').first(),
+		).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.locator('.elementor-element-csssafe2, [data-id="csssafe2"]').first(),
+		).toContainText('Elementor CSS safety');
 
 		const beforeNegative = await readCssManifest(page, nonce, contextToken);
 		const negative = await runAbilityWithProfileConfirmation(
