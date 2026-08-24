@@ -28,6 +28,7 @@ function pemBlock(kind: string, body: string): string {
 
 describe('direct error audit', () => {
 	let stateDir: string;
+	const spawnedChildren: Array<ReturnType<typeof spawn>> = [];
 
 	beforeEach(() => {
 		stateDir = mkdtempSync(join(tmpdir(), 'sw-err-audit-'));
@@ -36,6 +37,11 @@ describe('direct error audit', () => {
 
 	afterEach(() => {
 		resetTaskStartSeenForTests();
+		for (const child of spawnedChildren.splice(0)) {
+			if (child.exitCode === null && child.signalCode === null) {
+				try { child.kill('SIGKILL'); } catch { /* already gone */ }
+			}
+		}
 	});
 
 	it('groups recurring errors by tool', () => {
@@ -552,6 +558,7 @@ describe('direct error audit', () => {
 		await build({ entryPoints: [fixture], bundle: true, platform: 'node', format: 'esm', outfile: runner });
 		const run = (worker: string) => new Promise<void>((resolve, reject) => {
 			const child = spawn(process.execPath, [runner, path, worker, '25'], { stdio: 'pipe' });
+			spawnedChildren.push(child);
 			let stderr = '';
 			child.stderr.on('data', (chunk) => { stderr += String(chunk); });
 			child.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`${worker} exited ${code}: ${stderr}`)));

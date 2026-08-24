@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Contended Direct state-lock acquisition no longer re-resolves the lock owner's
+  process start identity on every retry, which made lock waits slow on macOS.
+- Kill leaked child writer processes after concurrent Direct audit and incident
+  stress tests so one timed-out test cannot poison the rest of the suite.
+
 ### Security
 
 - Redact nested private keys, PEM certificates, and credential blobs from
