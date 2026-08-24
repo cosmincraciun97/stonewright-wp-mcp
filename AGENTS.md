@@ -282,9 +282,10 @@ Recommend against stable 1.0 while any required gate is missing:
   only while the CSS directory lease still identifies this writer, including
   an expired-but-ours lease. A vacant lease after another writer committed
   and released is a successor fence: skip restore (`not_attempted_lock_lost`)
-  and do not reclaim the empty slot. Post-lock renew retries a same-owner
-  options CAS miss and continues while this writer still owns a live lease;
-  `stonewright_elementor_lock_lost` means ownership is gone, expired, or
+  and do not reclaim the empty slot. Post-lock and CSS-directory-lease renew
+  retry a same-owner options CAS miss and continue while this writer still
+  owns a live lease; `stonewright_elementor_lock_lost` /
+  `stonewright_elementor_css_lease_lost` mean ownership is gone, expired, or
   foreign. Never call a site-wide Elementor files-manager clear for one post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and

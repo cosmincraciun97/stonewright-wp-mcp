@@ -39,8 +39,11 @@ For every Elementor document mutation in Plugin mode:
   release is best-effort, and rolling CSS or the document back would desync
   a committed pair. Before CSS starts, post-lock renew retries a same-owner
   WordPress options CAS miss and continues while this writer still owns a
-  live lease. `stonewright_elementor_lock_lost` means the lease is gone,
-  expired, or foreign — not a serialization false-negative.
+  live lease. During CSS closure, CSS-directory-lease renew does the same:
+  a same-owner options CAS miss is retried, and a live owned lease is kept.
+  `stonewright_elementor_lock_lost` / `stonewright_elementor_css_lease_lost`
+  mean the lease is gone, expired, or foreign — not a serialization
+  false-negative.
 7. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.

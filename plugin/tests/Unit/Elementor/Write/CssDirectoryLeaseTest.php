@@ -17,7 +17,11 @@ final class CssDirectoryLeaseTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
-		unset( $GLOBALS['stonewright_test_before_option_delete'], $GLOBALS['stonewright_test_before_option_update'] );
+		unset(
+			$GLOBALS['stonewright_test_before_option_delete'],
+			$GLOBALS['stonewright_test_before_option_update'],
+			$GLOBALS['stonewright_test_option_cas_miss_remaining']
+		);
 	}
 
 	public function test_second_owner_is_busy_until_the_shared_directory_lease_is_released(): void {
@@ -122,5 +126,80 @@ final class CssDirectoryLeaseTest extends TestCase {
 		$foreign['owner'] = 'txn-two';
 		self::assertFalse( CssDirectoryLease::release( $foreign ) );
 		self::assertInstanceOf( \WP_Error::class, CssDirectoryLease::renew( $foreign, 60 ) );
+	}
+
+	public function test_renew_retries_a_cas_miss_while_the_live_lease_is_still_ours(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 1;
+
+		$renewed = CssDirectoryLease::renew( $lease, 60 );
+
+		self::assertIsArray( $renewed );
+		self::assertSame( 'txn-one', $renewed['owner'] );
+		self::assertSame( 0, (int) ( $GLOBALS['stonewright_test_option_cas_miss_remaining'] ?? 0 ) );
+		self::assertGreaterThan( $lease['expires_at'], $renewed['expires_at'] );
+	}
+
+	public function test_renew_retries_with_the_fresh_observed_row_after_a_serialization_cas_miss(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_before_option_update'] = static function ( string $option ): void {
+			$row = $GLOBALS['stonewright_test_options'][ $option ];
+			$row['expires_at'] = (string) $row['expires_at'];
+			$GLOBALS['stonewright_test_options'][ $option ] = $row;
+		};
+
+		$renewed = CssDirectoryLease::renew( $lease, 60 );
+
+		self::assertIsArray( $renewed );
+		self::assertSame( 'txn-one', $renewed['owner'] );
+	}
+
+	public function test_renew_returns_the_live_lease_after_repeated_cas_misses_while_owned(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 3;
+
+		$renewed = CssDirectoryLease::renew( $lease, 60 );
+
+		self::assertIsArray( $renewed );
+		self::assertSame( 'txn-one', $renewed['owner'] );
+		self::assertSame( 'txn-one', $GLOBALS['stonewright_test_options'][ $lease['key'] ]['owner'] );
+		self::assertGreaterThan( time(), $renewed['expires_at'] );
+	}
+
+	public function test_renew_still_fails_when_a_cas_miss_reveals_a_foreign_owner(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_before_option_update'] = static function ( string $option ): void {
+			$GLOBALS['stonewright_test_options'][ $option ] = [
+				'scope'       => CssDirectoryLease::scope_hash( 'uploads/elementor/css' ),
+				'owner'       => 'txn-foreign',
+				'acquired_at' => time(),
+				'expires_at'  => time() + 30,
+				'ttl'         => 30,
+			];
+		};
+
+		$renewed = CssDirectoryLease::renew( $lease, 60 );
+
+		self::assertInstanceOf( \WP_Error::class, $renewed );
+		self::assertSame( 'stonewright_elementor_css_lease_lost', $renewed->get_error_code() );
+		self::assertSame( 'txn-foreign', $GLOBALS['stonewright_test_options'][ $lease['key'] ]['owner'] );
+	}
+
+	public function test_reclaim_retries_a_cas_miss_while_the_expired_lease_is_still_ours(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_options'][ $lease['key'] ]['expires_at'] = time() - 1;
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 1;
+
+		$reclaimed = CssDirectoryLease::reclaim( $lease, 120 );
+
+		self::assertIsArray( $reclaimed );
+		self::assertSame( 'txn-one', $reclaimed['owner'] );
+		self::assertGreaterThan( time(), $reclaimed['expires_at'] );
+		self::assertSame( 0, (int) ( $GLOBALS['stonewright_test_option_cas_miss_remaining'] ?? 0 ) );
 	}
 }

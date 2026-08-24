@@ -21,6 +21,9 @@
 - Retry Elementor post-lock renew when WordPress options compare-and-swap
   reports no row change while this writer still owns a live lease, instead of
   aborting a verified document write.
+- Retry Elementor CSS directory lease renew when WordPress options
+  compare-and-swap reports no row change while this writer still owns a live
+  lease, instead of aborting CSS closure after a verified document write.
 - Prevent single-post Elementor writes from clearing the global generated CSS
   directory. Normal writes now invalidate HTML cache only; post-write closure
   uses Elementor's official Post CSS API inside a bounded asset transaction

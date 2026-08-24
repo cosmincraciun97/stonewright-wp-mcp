@@ -343,6 +343,39 @@ final class PageDigestBuildTreeTest extends TestCase {
 		self::assertStringContainsString( 'CAS miss still owned', (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
 	}
 
+	public function test_build_tree_continues_when_css_lease_renew_cas_misses_but_lease_is_still_owned(): void {
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 2;
+
+		$result = ( new BuildTree() )->execute(
+			[
+				'post_id' => $this->post_id,
+				'tree'    => [
+					[
+						'id'       => 'csscas1',
+						'elType'   => 'container',
+						'settings' => [],
+						'elements' => [
+							[
+								'id'         => 'csscash',
+								'elType'     => 'widget',
+								'widgetType' => 'heading',
+								'settings'   => [ 'title' => 'CSS lease CAS miss still owned' ],
+								'elements'   => [],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'post-9201.css', $result['css']['target'] );
+		self::assertSame( 0, $result['css']['collateral_change_count'] );
+		self::assertSame( 'frontend-safe', (string) file_get_contents( $this->css_dir . '/custom-frontend.min.css' ) );
+		self::assertStringContainsString( 'CSS lease CAS miss still owned', (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
+	}
+
 	public function test_build_tree_restores_snapshot_when_the_lock_is_lost_after_document_write(): void {
 		$original = (string) get_post_meta( $this->post_id, '_elementor_data', true );
 		$post_id  = $this->post_id;

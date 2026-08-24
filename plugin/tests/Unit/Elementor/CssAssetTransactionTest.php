@@ -22,7 +22,13 @@ final class CssAssetTransactionTest extends TestCase {
 
 	protected function tearDown(): void {
 		$this->remove_test_assets();
-		unset( $GLOBALS['stonewright_test_home_url'], $GLOBALS['stonewright_test_asset_responses'], $GLOBALS['stonewright_test_upload_dir'] );
+		unset(
+			$GLOBALS['stonewright_test_home_url'],
+			$GLOBALS['stonewright_test_asset_responses'],
+			$GLOBALS['stonewright_test_upload_dir'],
+			$GLOBALS['stonewright_test_before_option_update'],
+			$GLOBALS['stonewright_test_option_cas_miss_remaining']
+		);
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
@@ -602,6 +608,25 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $seen_lease );
 		self::assertSame( [], array_filter( array_keys( $GLOBALS['stonewright_test_options'] ?? [] ), static fn( string $key ): bool => str_starts_with( $key, 'stonewright_elementor_css_lease_' ) ) );
+	}
+
+	public function test_continues_when_lease_renew_cas_misses_but_lease_is_still_ours(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'custom-frontend.min.css', 'frontend-safe' );
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 1;
+
+		$result = CssAssetTransaction::run(
+			701,
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true, 'method' => 'post_css_update' ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'frontend-safe', $this->read( 'custom-frontend.min.css' ) );
 	}
 
 	private function expire_css_leases(): void {

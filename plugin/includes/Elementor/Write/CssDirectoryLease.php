@@ -83,46 +83,56 @@ final class CssDirectoryLease {
 	/**
 	 * Renew only the exact owner token that acquired the lease.
 	 *
+	 * A WordPress options CAS miss is not proof of ownership loss: `$wpdb->update`
+	 * reports changed rows, so a same-second identical payload or a serialization
+	 * mismatch can return 0 while this writer still holds a live lease.
+	 *
 	 * @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease
 	 * @return array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}|\WP_Error
 	 */
 	public static function renew( array $lease, int $ttl = 0 ): array|\WP_Error {
-		$key   = sanitize_key( (string) ( $lease['key'] ?? '' ) );
-		$scope = sanitize_key( (string) ( $lease['scope'] ?? '' ) );
-		$owner = sanitize_key( (string) ( $lease['owner'] ?? '' ) );
-		if ( '' === $key || '' === $scope || '' === $owner || ! str_starts_with( $key, self::PREFIX ) ) {
-			return self::error( 'stonewright_elementor_css_lease_invalid', 'The Elementor CSS lease identity is invalid.', 400 );
+		$identity = self::identity( $lease );
+		if ( $identity instanceof \WP_Error ) {
+			return $identity;
 		}
+		[ $key, $scope, $owner ] = $identity;
 
+		$ttl     = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 120 ) );
 		$current = get_option( $key, [] );
 		$now     = time();
-		if ( ! is_array( $current )
-			|| ! hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
-			|| ! hash_equals( $scope, (string) ( $current['scope'] ?? '' ) )
-			|| (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
-			return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease is no longer owned by this transaction.', 409 );
+		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+			if ( $attempt > 0 ) {
+				wp_cache_delete( $key, 'options' );
+				$current = get_option( $key, [] );
+				$now     = time();
+			}
+			if ( ! self::is_live_owner( $current, $scope, $owner, $now ) ) {
+				return self::lease_lost();
+			}
+
+			$next = self::next_stored( $scope, $owner, $current, $lease, $now, $ttl );
+			if ( self::cas_replace( $key, $current, $next ) ) {
+				return self::public_lease( $key, $next );
+			}
 		}
 
-		$ttl = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 120 ) );
-		$next = [
-			'scope'       => $scope,
-			'owner'       => $owner,
-			'acquired_at' => (int) ( $current['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
-			'expires_at'  => $now + $ttl,
-			'ttl'         => $ttl,
-		];
-		if ( ! self::cas_replace( $key, $current, $next ) ) {
-			return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease could not be renewed safely.', 409 );
+		wp_cache_delete( $key, 'options' );
+		$observed = get_option( $key, [] );
+		$now      = time();
+		if ( self::is_live_owner( $observed, $scope, $owner, $now ) ) {
+			return self::public_lease(
+				$key,
+				[
+					'scope'       => $scope,
+					'owner'       => $owner,
+					'acquired_at' => (int) ( $observed['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
+					'expires_at'  => (int) ( $observed['expires_at'] ?? 0 ),
+					'ttl'         => (int) ( $observed['ttl'] ?? $ttl ),
+				]
+			);
 		}
 
-		return [
-			'key'         => $key,
-			'scope'       => $scope,
-			'owner'       => $owner,
-			'acquired_at' => $next['acquired_at'],
-			'expires_at'  => $next['expires_at'],
-			'ttl'         => $ttl,
-		];
+		return self::lease_lost();
 	}
 
 	/**
@@ -134,35 +144,17 @@ final class CssDirectoryLease {
 	 * @return array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}|\WP_Error
 	 */
 	public static function reclaim( array $lease, int $ttl = 0 ): array|\WP_Error {
-		$key   = sanitize_key( (string) ( $lease['key'] ?? '' ) );
-		$scope = sanitize_key( (string) ( $lease['scope'] ?? '' ) );
-		$owner = sanitize_key( (string) ( $lease['owner'] ?? '' ) );
-		if ( '' === $key || '' === $scope || '' === $owner || ! str_starts_with( $key, self::PREFIX ) ) {
-			return self::error( 'stonewright_elementor_css_lease_invalid', 'The Elementor CSS lease identity is invalid.', 400 );
+		$identity = self::identity( $lease );
+		if ( $identity instanceof \WP_Error ) {
+			return $identity;
 		}
+		[ $key, $scope, $owner ] = $identity;
 
 		$ttl     = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 120 ) );
 		$current = get_option( $key, [] );
 		$now     = time();
-		if ( ! is_array( $current )
-			|| ! hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
-			|| ! hash_equals( $scope, (string) ( $current['scope'] ?? '' ) ) ) {
-			$foreign = is_array( $current ) ? sanitize_key( (string) ( $current['owner'] ?? '' ) ) : '';
-			if ( '' !== $foreign && ! hash_equals( $owner, $foreign ) ) {
-				$retry_after = max( 1, min( 120, (int) ( $current['expires_at'] ?? $now + 5 ) - $now ) );
-				return self::error(
-					'stonewright_elementor_css_lease_busy',
-					'Another Elementor CSS transaction owns the shared asset lease.',
-					409,
-					[
-						'retryable'           => true,
-						'retry_after'         => $retry_after,
-						'retry_after_seconds' => $retry_after,
-						'lease_fingerprint'   => hash( 'sha256', $scope . '|' . $foreign ),
-					]
-				);
-			}
-			return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease is no longer owned by this transaction.', 409 );
+		if ( ! self::is_ours( $current, $scope, $owner ) ) {
+			return self::not_ours_error( $current, $scope, $owner, $now );
 		}
 
 		$renewed = self::renew( $lease, $ttl );
@@ -170,25 +162,47 @@ final class CssDirectoryLease {
 			return $renewed;
 		}
 
-		$next = [
-			'scope'       => $scope,
-			'owner'       => $owner,
-			'acquired_at' => (int) ( $current['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
-			'expires_at'  => $now + $ttl,
-			'ttl'         => $ttl,
-		];
-		if ( ! self::cas_replace( $key, $current, $next ) ) {
-			return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease could not be reclaimed safely.', 409 );
+		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+			if ( $attempt > 0 ) {
+				wp_cache_delete( $key, 'options' );
+				$current = get_option( $key, [] );
+				$now     = time();
+			}
+			if ( ! self::is_ours( $current, $scope, $owner ) ) {
+				return self::not_ours_error( $current, $scope, $owner, $now );
+			}
+
+			$next = self::next_stored( $scope, $owner, $current, $lease, $now, $ttl );
+			if ( self::cas_replace( $key, $current, $next ) ) {
+				return self::public_lease( $key, $next );
+			}
 		}
 
-		return [
-			'key'         => $key,
-			'scope'       => $scope,
-			'owner'       => $owner,
-			'acquired_at' => $next['acquired_at'],
-			'expires_at'  => $next['expires_at'],
-			'ttl'         => $ttl,
-		];
+		wp_cache_delete( $key, 'options' );
+		$observed = get_option( $key, [] );
+		$now      = time();
+		if ( ! self::is_ours( $observed, $scope, $owner ) ) {
+			return self::not_ours_error( $observed, $scope, $owner, $now );
+		}
+		if ( self::is_live_owner( $observed, $scope, $owner, $now ) ) {
+			return self::public_lease(
+				$key,
+				[
+					'scope'       => $scope,
+					'owner'       => $owner,
+					'acquired_at' => (int) ( $observed['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
+					'expires_at'  => (int) ( $observed['expires_at'] ?? 0 ),
+					'ttl'         => (int) ( $observed['ttl'] ?? $ttl ),
+				]
+			);
+		}
+
+		$next = self::next_stored( $scope, $owner, is_array( $observed ) ? $observed : [], $lease, $now, $ttl );
+		if ( self::cas_replace( $key, is_array( $observed ) ? $observed : [], $next ) ) {
+			return self::public_lease( $key, $next );
+		}
+
+		return self::lease_lost();
 	}
 
 	/**
@@ -217,6 +231,94 @@ final class CssDirectoryLease {
 
 	private static function bounded_ttl( int $ttl ): int {
 		return max( 5, min( 120, $ttl ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $lease
+	 * @return array{0:string,1:string,2:string}|\WP_Error
+	 */
+	private static function identity( array $lease ): array|\WP_Error {
+		$key   = sanitize_key( (string) ( $lease['key'] ?? '' ) );
+		$scope = sanitize_key( (string) ( $lease['scope'] ?? '' ) );
+		$owner = sanitize_key( (string) ( $lease['owner'] ?? '' ) );
+		if ( '' === $key || '' === $scope || '' === $owner || ! str_starts_with( $key, self::PREFIX ) ) {
+			return self::error( 'stonewright_elementor_css_lease_invalid', 'The Elementor CSS lease identity is invalid.', 400 );
+		}
+
+		return [ $key, $scope, $owner ];
+	}
+
+	/** @param mixed $current */
+	private static function is_ours( mixed $current, string $scope, string $owner ): bool {
+		return is_array( $current )
+			&& '' !== $owner
+			&& hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
+			&& hash_equals( $scope, (string) ( $current['scope'] ?? '' ) );
+	}
+
+	/** @param mixed $current */
+	private static function is_live_owner( mixed $current, string $scope, string $owner, int $now ): bool {
+		return self::is_ours( $current, $scope, $owner )
+			&& (int) ( $current['expires_at'] ?? 0 ) > $now;
+	}
+
+	/**
+	 * @param array<string, mixed> $current
+	 * @param array<string, mixed> $lease
+	 * @return array{scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}
+	 */
+	private static function next_stored( string $scope, string $owner, array $current, array $lease, int $now, int $ttl ): array {
+		$ttl_expires = $now + $ttl;
+		return [
+			'scope'       => $scope,
+			'owner'       => $owner,
+			'acquired_at' => (int) ( $current['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
+			'expires_at'  => max( $ttl_expires, (int) ( $current['expires_at'] ?? 0 ) + 1 ),
+			'ttl'         => $ttl,
+		];
+	}
+
+	/**
+	 * @param array{scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $stored
+	 * @return array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}
+	 */
+	private static function public_lease( string $key, array $stored ): array {
+		return [
+			'key'         => $key,
+			'scope'       => $stored['scope'],
+			'owner'       => $stored['owner'],
+			'acquired_at' => $stored['acquired_at'],
+			'expires_at'  => $stored['expires_at'],
+			'ttl'         => $stored['ttl'],
+		];
+	}
+
+	private static function lease_lost(): \WP_Error {
+		return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease is no longer owned by this transaction.', 409 );
+	}
+
+	/** @param mixed $current */
+	private static function not_ours_error( mixed $current, string $scope, string $owner, int $now ): \WP_Error {
+		if ( ! is_array( $current ) ) {
+			return self::lease_lost();
+		}
+		$foreign = sanitize_key( (string) ( $current['owner'] ?? '' ) );
+		if ( '' === $foreign || hash_equals( $owner, $foreign ) ) {
+			return self::lease_lost();
+		}
+
+		$retry_after = max( 1, min( 120, (int) ( $current['expires_at'] ?? $now + 5 ) - $now ) );
+		return self::error(
+			'stonewright_elementor_css_lease_busy',
+			'Another Elementor CSS transaction owns the shared asset lease.',
+			409,
+			[
+				'retryable'           => true,
+				'retry_after'         => $retry_after,
+				'retry_after_seconds' => $retry_after,
+				'lease_fingerprint'   => hash( 'sha256', $scope . '|' . $foreign ),
+			]
+		);
 	}
 
 	/** @param array<string,mixed> $current @param array<string,mixed> $next */
