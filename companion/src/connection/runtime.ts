@@ -22,6 +22,7 @@ import {
 import { APP_VERSION, companionPackageSpec } from '../version.js';
 import type { DirectSessionControls, DirectToolProfile } from '../direct/registry.js';
 import * as selfImprove from '../direct/tools/self-improve.js';
+import { attestPendingRestartFromActiveHost } from './active-client-attestation.js';
 import {
 	ConnectionStateMachine,
 	PERMANENT_GATEWAY_TOOL_NAMES,
@@ -564,6 +565,15 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				}, { attested: Boolean(observed?.length) }),
 				error_code: errorCode === 'ok' ? null : errorCode,
 			});
+			const restartAttestation = attestPendingRestartFromActiveHost({
+				env: runtime.env,
+				processStartId: runtime.processStartId,
+				catalogDigest: v2.catalog_digest,
+				invokedToolNames: runtime.invokedToolNames,
+				observedToolNames: runtime.observedToolNames,
+				registeredToolNames: runtime.listRegisteredToolNames(),
+				refreshRequiredToolNames: v2.refresh_required_tool_names,
+			});
 
 			return {
 				ok: errorCode === 'ok',
@@ -576,6 +586,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				startup_ready: v2.startup_ready,
 				connected: v2.connected,
 				client_visibility: v2.client_visibility,
+				restart_attestation: restartAttestation,
 				surface: v2.surface,
 				next_action: errorCode === 'ok'
 					? 'Surface looks healthy for the expected tool.'

@@ -54,9 +54,11 @@ export function requireOnePackageReference(
 		);
 	}
 	const match = matches[0];
-	const replacement = match.quote === 'toml'
-		? `"${packageSpec.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-		: JSON.stringify(packageSpec);
+	const replacement = match.quote === 'toml-literal'
+		? `'${packageSpec.replace(/'/g, "''")}'`
+		: match.quote === 'toml' || match.quote === 'toml-basic'
+			? `"${packageSpec.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+			: JSON.stringify(packageSpec);
 	return { start: match.start, end: match.end, value: match.value, replacement };
 }
 
@@ -80,6 +82,18 @@ interface JsonNode {
 	items?: JsonNode[];
 }
 
+function jsoncParseFailure(text: string, offset: number, code: string): never {
+	const safe = Math.max(0, Math.min(offset, text.length));
+	const prefix = text.slice(0, safe);
+	const lastNewline = prefix.lastIndexOf('\n');
+	const line = prefix.split('\n').length;
+	const column = safe - lastNewline;
+	throw new ClientConfigError(
+		'config_parse_failure',
+		`config_parse_failure: ${code} at line ${line}, column ${column}.`,
+	);
+}
+
 function jsoncTokens(text: string): JsonToken[] {
 	const tokens: JsonToken[] = [];
 	let i = 0;
@@ -96,7 +110,7 @@ function jsoncTokens(text: string): JsonToken[] {
 		}
 		if (char === '/' && text[i + 1] === '*') {
 			const end = text.indexOf('*/', i + 2);
-			if (end < 0) throw new ClientConfigError('config_parse_failure', 'JSONC block comment is not closed.');
+			if (end < 0) jsoncParseFailure(text, i, 'JSONC_UNCLOSED_BLOCK_COMMENT');
 			i = end + 2;
 			continue;
 		}
@@ -124,7 +138,7 @@ function jsoncTokens(text: string): JsonToken[] {
 			try {
 				tokens.push({ type: 'string', value: JSON.parse(raw) as string, start, end: i });
 			} catch {
-				throw new ClientConfigError('config_parse_failure', 'JSONC contains an invalid string token.');
+				jsoncParseFailure(text, start, 'JSONC_INVALID_STRING');
 			}
 			continue;
 		}
@@ -142,26 +156,26 @@ function parseJsoncTree(text: string): JsonNode {
 	const consume = (value?: string): JsonToken => {
 		const token = tokens[index++];
 		if (!token || (value !== undefined && token.value !== value)) {
-			throw new ClientConfigError('config_parse_failure', `JSONC expected ${value ?? 'a value'}.`);
+			jsoncParseFailure(text, token?.start ?? text.length, 'JSONC_UNEXPECTED_TOKEN');
 		}
 		return token;
 	};
 	const parseValue = (): JsonNode => {
 		const token = peek();
-		if (!token) throw new ClientConfigError('config_parse_failure', 'JSONC ended before a value.');
+		if (!token) jsoncParseFailure(text, text.length, 'JSONC_VALUE_MISSING');
 		if (token.value === '{') {
 			const start = consume('{').start;
 			const properties: Array<{ key: JsonToken; value: JsonNode }> = [];
 			while (peek()?.value !== '}') {
 				const key = consume();
-				if (key.type !== 'string') throw new ClientConfigError('config_parse_failure', 'JSONC object key must be a string.');
+				if (key.type !== 'string') jsoncParseFailure(text, key.start, 'JSONC_OBJECT_KEY_INVALID');
 				consume(':');
 				properties.push({ key, value: parseValue() });
 				if (peek()?.value === ',') {
 					consume(',');
 					if (peek()?.value === '}') break;
 				} else if (peek()?.value !== '}') {
-					throw new ClientConfigError('config_parse_failure', 'JSONC object members must be comma-separated.');
+					jsoncParseFailure(text, peek()?.start ?? text.length, 'JSONC_OBJECT_SEPARATOR_MISSING');
 				}
 			}
 			const end = consume('}').end;
@@ -176,7 +190,7 @@ function parseJsoncTree(text: string): JsonNode {
 					consume(',');
 					if (peek()?.value === ']') break;
 				} else if (peek()?.value !== ']') {
-					throw new ClientConfigError('config_parse_failure', 'JSONC array items must be comma-separated.');
+					jsoncParseFailure(text, peek()?.start ?? text.length, 'JSONC_ARRAY_SEPARATOR_MISSING');
 				}
 			}
 			const end = consume(']').end;
@@ -186,7 +200,7 @@ function parseJsoncTree(text: string): JsonNode {
 		return { type: 'value', start: value.start, end: value.end, token: value };
 	};
 	const root = parseValue();
-	if (index !== tokens.length) throw new ClientConfigError('config_parse_failure', 'JSONC has trailing non-comment content.');
+	if (index !== tokens.length) jsoncParseFailure(text, tokens[index]?.start ?? text.length, 'JSONC_TRAILING_CONTENT');
 	return root;
 }
 
@@ -197,7 +211,7 @@ function objectValues(node: JsonNode, key: string): JsonNode[] {
 
 export function findJsoncPackageReplacement(text: string, serverName: string, packageSpec: string): StringReplacement {
 	const root = parseJsoncTree(text);
-	if (root.type !== 'object') throw new ClientConfigError('config_parse_failure', 'JSONC root must be an object.');
+	if (root.type !== 'object') jsoncParseFailure(text, root.start, 'JSONC_ROOT_NOT_OBJECT');
 	const buckets = [
 		...objectValues(root, 'mcpServers'),
 		...objectValues(root, 'servers'),
@@ -239,7 +253,7 @@ export function parseJsonc(text: string): unknown {
 		if (node.token?.value === 'null') return null;
 		const number = Number(node.token?.value);
 		if (Number.isFinite(number)) return number;
-		throw new ClientConfigError('config_parse_failure', `Unsupported JSONC literal: ${node.token?.value ?? ''}`);
+		jsoncParseFailure(text, node.token?.start ?? node.start, 'JSONC_LITERAL_UNSUPPORTED');
 	};
 	return materialize(root);
 }

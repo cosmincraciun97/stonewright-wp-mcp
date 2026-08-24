@@ -140,6 +140,47 @@ describe('connect update', () => {
 		expect(readFileSync(path, 'utf8')).toBe(before);
 	});
 
+	it('edits only the real TOML args array and ignores fake keys in comments and strings', () => {
+		const h = harness();
+		const path = join(h.dir, '.codex', 'config.toml');
+		const before = `[mcp_servers.site-a]\ncommand = "npx"\nmessage = "args = [\\"${OLD_PACKAGE}\\"]"\nunicode = "rocket: \\U0001F680"\nliteral = 'args = ["${OLD_PACKAGE}"]'\nmultiline = """\nargs = ["${OLD_PACKAGE}"]\n[mcp_servers.fake]\n"""\nliteral_multiline = '''\nargs = ["${OLD_PACKAGE}"]\n'''\n# args = ["${OLD_PACKAGE}"]\nargs = [\n  "-y",\n  "--package",\n  "${OLD_PACKAGE}", # only this executable token changes\n  "stonewright-mcp",\n]\n\n[mcp_servers.other]\ncommand = "echo"\nargs = ["${OLD_PACKAGE}"]\n`;
+		writeFileSync(path, before, 'utf8');
+
+		const result = codexAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE);
+		const after = readFileSync(path, 'utf8');
+		const realTokenOffset = before.lastIndexOf(`  "${OLD_PACKAGE}", # only this executable token changes`);
+		const expected = `${before.slice(0, realTokenOffset)}${before.slice(realTokenOffset).replace(OLD_PACKAGE, NEW_PACKAGE)}`;
+
+		expect(result.previousPackageSpec).toBe(OLD_PACKAGE);
+		expect(after).toBe(expected);
+		expect(codexAdapter().read(path, 'site-a')?.args).toContain(NEW_PACKAGE);
+		expect(codexAdapter().read(path, 'other')?.args).toContain(OLD_PACKAGE);
+	});
+
+	it('redacts invalid JSONC literals from connect update errors', async () => {
+		const h = harness();
+		capture();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		const secretLiteral = 'PRIVATE_SECRET_SHOULD_NEVER_APPEAR';
+		const valid = readFileSync(configPath, 'utf8');
+		writeFileSync(configPath, valid.replace(/\n}\s*$/, `,\n  "broken": ${secretLiteral}\n}\n`), 'utf8');
+		logs.length = 0;
+
+		const code = await runConnect([
+			'update', 'site-a', '--client', 'cursor', '--to', NEW_PACKAGE, '--sites-file', h.sitesFile,
+		]);
+		const output = logs.join('');
+
+		expect(code).toBe(1);
+		expect(output).toContain('config_parse_failure');
+		expect(output).toMatch(/line\s+\d+.*column\s+\d+/i);
+		expect(output).not.toContain(secretLiteral);
+	});
+
 	it('persists a pending restart receipt only after verified config write', async () => {
 		const h = harness();
 		capture();
@@ -165,6 +206,7 @@ describe('connect update', () => {
 		registryBefore.sites[0].last_verification = {
 			at: '2026-08-24T00:00:00.000Z',
 			ok: true,
+			attestation_scope: 'spawned-runtime',
 			process_start_id: 'process-old',
 			catalog_digest: 'sha256:old-catalog',
 		};
@@ -183,12 +225,15 @@ describe('connect update', () => {
 		expect(registry.sites[0].clients.cursor.pending_restart).toEqual(expect.objectContaining({
 			expected_package: NEW_PACKAGE,
 			expected_version: '1.0.0-beta.12',
-			pre_restart_process_start_id: 'process-old',
-			pre_restart_catalog_digest: 'sha256:old-catalog',
+			pre_restart_process_start_id: null,
+			pre_restart_catalog_digest: null,
 			status: 'restart-required',
 		}));
+		const challenge = registry.sites[0].clients.cursor.pending_restart?.attestation_challenge;
+		expect(challenge).toMatch(/^[A-Za-z0-9_-]{40,}$/);
 		expect(logs.join('')).toContain('restart-required');
 		expect(logs.join('')).not.toContain('example-password');
+		expect(logs.join('')).not.toContain(String(challenge));
 	});
 
 	it('exposes the dedicated connect update CLI syntax', async () => {
@@ -232,7 +277,7 @@ describe('connect update', () => {
 		expect(readFileSync(h.sitesFile, 'utf8')).toBe(registryBefore);
 	});
 
-	it('completes restart proof only for a new process, exact version, catalog digest, and observed tools', async () => {
+	it('never accepts an injected CLI runtime assertion as active-client restart proof', async () => {
 		const h = harness();
 		capture();
 		const configPath = join(h.dir, '.cursor', 'mcp.json');
@@ -265,20 +310,14 @@ describe('connect update', () => {
 				refresh_required_tool_names: [],
 			}),
 		});
-		expect(verify).toBe(0);
+		expect(verify).toBe(1);
 
 		const after = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
 			sites: Array<{ clients: Record<string, { pending_restart?: unknown; last_restart_proof?: Record<string, unknown> }> }>;
 		};
-		expect(after.sites[0].clients.cursor.pending_restart).toBeUndefined();
-		expect(after.sites[0].clients.cursor.last_restart_proof).toEqual(expect.objectContaining({
-			status: 'verified',
-			attestation_scope: 'active-client',
-			process_start_id: 'process-new',
-			catalog_digest: 'sha256:new-catalog',
-			expected_version: '1.0.0-beta.12',
-			observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
-		}));
+		expect(after.sites[0].clients.cursor.pending_restart).toBeDefined();
+		expect(after.sites[0].clients.cursor.last_restart_proof).toBeUndefined();
+		expect(logs.join('')).toContain('restart_active_client_attestation_required');
 	});
 
 	it('spawned runtime verification leaves the actual host restart pending', async () => {
@@ -319,77 +358,6 @@ describe('connect update', () => {
 		expect(after.sites[0].clients.cursor.pending_restart).toBeDefined();
 		expect(after.sites[0].clients.cursor.last_restart_proof).toBeUndefined();
 		expect(logs.join('')).toContain('restart_active_client_attestation_required');
-		expect(logs.join('')).toContain('Restart the AI client, then verify from that active client');
-	});
-
-	it('rejects stale-process restart proof and leaves the pending receipt intact', async () => {
-		const h = harness();
-		capture();
-		const configPath = join(h.dir, '.cursor', 'mcp.json');
-		await connectAdd({
-			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
-			client: 'cursor', clientConfigPath: configPath,
-		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
-		const registry = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as { sites: Array<Record<string, unknown>> };
-		registry.sites[0].last_verification = { at: '2026-08-24T00:00:00.000Z', ok: true, process_start_id: 'same-process' };
-		writeFileSync(h.sitesFile, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
-		connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials });
-
-		const verify = await connectVerify('site-a', { client: 'cursor' }, {
-			sitesFile: h.sitesFile,
-			homeDir: h.dir,
-			credentials: h.credentials,
-			skipAuth: true,
-			runtimeVerifier: () => Promise.resolve({
-				ok: true,
-				detail: 'stale host',
-				attestation_scope: 'active-client',
-				companion_version: '1.0.0-beta.12',
-				process_start_id: 'same-process',
-				catalog_digest: 'sha256:new-catalog',
-				client_observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
-				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
-				task_start_available: true,
-				status_available: true,
-				refresh_required_tool_names: [],
-			}),
-		});
-		expect(verify).toBe(1);
-		expect(logs.join('')).toContain('restart_process_stale');
-	});
-
-	it('rejects restart proof when setup-profile was not visible and called', async () => {
-		const h = harness();
-		capture();
-		const configPath = join(h.dir, '.cursor', 'mcp.json');
-		await connectAdd({
-			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
-			client: 'cursor', clientConfigPath: configPath,
-		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
-		expect(connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials })).toBe(0);
-
-		const verify = await connectVerify('site-a', { client: 'cursor' }, {
-			sitesFile: h.sitesFile,
-			homeDir: h.dir,
-			credentials: h.credentials,
-			skipAuth: true,
-			runtimeVerifier: () => Promise.resolve({
-				ok: true,
-				detail: 'setup-profile missing',
-				attestation_scope: 'active-client',
-				companion_version: '1.0.0-beta.12',
-				process_start_id: 'process-new',
-				catalog_digest: 'sha256:new-catalog',
-				client_observed_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
-				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
-				task_start_available: true,
-				setup_profile_available: false,
-				status_available: true,
-				refresh_required_tool_names: [],
-			}),
-		});
-
-		expect(verify).toBe(1);
-		expect(logs.join('')).toContain('restart_setup_profile_missing');
+		expect(logs.join('')).toContain('call task-start, setup-profile, status, and client-surface-check inside that active MCP host');
 	});
 });

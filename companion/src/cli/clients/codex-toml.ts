@@ -41,6 +41,261 @@ function renderServerBlock(entry: McpServerEntry): string {
 	return lines.join('\n');
 }
 
+interface TomlTableSpan {
+	name: string;
+	start: number;
+	bodyStart: number;
+	end: number;
+}
+
+interface TomlStringSpan {
+	start: number;
+	end: number;
+	value: string;
+	quote: 'toml-basic' | 'toml-literal';
+}
+
+function lineEnd(text: string, start: number): number {
+	const end = text.indexOf('\n', start);
+	return end < 0 ? text.length : end;
+}
+
+function lineColumn(text: string, offset: number): { line: number; column: number } {
+	const safe = Math.max(0, Math.min(offset, text.length));
+	const prefix = text.slice(0, safe);
+	const lastNewline = prefix.lastIndexOf('\n');
+	return {
+		line: prefix.split('\n').length,
+		column: safe - lastNewline,
+	};
+}
+
+function tomlParseFailure(text: string, offset: number, code: string): never {
+	const where = lineColumn(text, offset);
+	throw new ClientConfigError(
+		'config_parse_failure',
+		`config_parse_failure: ${code} at line ${where.line}, column ${where.column}.`,
+	);
+}
+
+function decodeTomlBasicString(text: string, start: number, end: number): string {
+	let value = '';
+	for (let i = start + 1; i < end - 1; i++) {
+		const char = text[i];
+		if (char !== '\\') {
+			value += char;
+			continue;
+		}
+		const escape = text[++i];
+		const simple: Record<string, string> = {
+			b: '\b', t: '\t', n: '\n', f: '\f', r: '\r', '"': '"', '\\': '\\',
+		};
+		if (Object.hasOwn(simple, escape)) {
+			value += simple[escape];
+			continue;
+		}
+		if (escape === 'u' || escape === 'U') {
+			const width = escape === 'u' ? 4 : 8;
+			const hex = text.slice(i + 1, i + 1 + width);
+			if (!new RegExp(`^[0-9A-Fa-f]{${width}}$`).test(hex)) {
+				tomlParseFailure(text, i - 1, 'TOML_INVALID_UNICODE_ESCAPE');
+			}
+			const point = Number.parseInt(hex, 16);
+			if (point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)) {
+				tomlParseFailure(text, i - 1, 'TOML_INVALID_UNICODE_CODEPOINT');
+			}
+			value += String.fromCodePoint(point);
+			i += width;
+			continue;
+		}
+		tomlParseFailure(text, i - 1, 'TOML_INVALID_ESCAPE');
+	}
+	return value;
+}
+
+function scanTomlString(text: string, start: number): { end: number; token?: TomlStringSpan } {
+	const quote = text[start];
+	const multiline = text.slice(start, start + 3) === quote.repeat(3);
+	if (multiline) {
+		let i = start + 3;
+		while (i < text.length) {
+			if (quote === '"' && text[i] === '\\') {
+				i += 2;
+				continue;
+			}
+			if (text.slice(i, i + 3) === quote.repeat(3)) return { end: i + 3 };
+			i++;
+		}
+		tomlParseFailure(text, start, 'TOML_UNCLOSED_MULTILINE_STRING');
+	}
+
+	let i = start + 1;
+	while (i < text.length) {
+		if (quote === '"' && text[i] === '\\') {
+			i += 2;
+			continue;
+		}
+		if (text[i] === quote) {
+			const end = i + 1;
+			if (quote === "'") {
+				return { end, token: { start, end, value: text.slice(start + 1, i), quote: 'toml-literal' } };
+			}
+			return {
+				end,
+				token: { start, end, value: decodeTomlBasicString(text, start, end), quote: 'toml-basic' },
+			};
+		}
+		if (text[i] === '\n' || text[i] === '\r') tomlParseFailure(text, start, 'TOML_UNCLOSED_STRING');
+		i++;
+	}
+	tomlParseFailure(text, start, 'TOML_UNCLOSED_STRING');
+}
+
+/** Locate only real TOML table headers. Header-like text in comments or strings is ignored. */
+function scanTomlTables(text: string): TomlTableSpan[] {
+	const found: Array<Omit<TomlTableSpan, 'end'>> = [];
+	let i = 0;
+	let currentLineStart = 0;
+	while (i < text.length) {
+		const char = text[i];
+		if (char === '\n') {
+			currentLineStart = ++i;
+			continue;
+		}
+		if (char === '#') {
+			i = lineEnd(text, i);
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			const scanned = scanTomlString(text, i);
+			const skipped = text.slice(i, scanned.end);
+			const last = skipped.lastIndexOf('\n');
+			if (last >= 0) currentLineStart = i + last + 1;
+			i = scanned.end;
+			continue;
+		}
+		if (char === '[' && text.slice(currentLineStart, i).trim() === '' && text[i + 1] !== '[') {
+			let end = i + 1;
+			while (end < text.length && text[end] !== ']' && text[end] !== '\n' && text[end] !== '\r') end++;
+			if (text[end] !== ']') tomlParseFailure(text, i, 'TOML_INVALID_TABLE_HEADER');
+			const restEnd = lineEnd(text, end + 1);
+			const rest = text.slice(end + 1, restEnd).trim();
+			if (rest === '' || rest.startsWith('#')) {
+				found.push({ name: text.slice(i + 1, end).trim(), start: i, bodyStart: end + 1 });
+				i = end + 1;
+				continue;
+			}
+		}
+		i++;
+	}
+	return found.map((table, index) => ({
+		...table,
+		end: found[index + 1]?.start ?? text.length,
+	}));
+}
+
+function exactTables(text: string, name: string): TomlTableSpan[] {
+	return scanTomlTables(text).filter((table) => table.name === name);
+}
+
+function scanArrayStrings(text: string, start: number, limit: number): { end: number; strings: TomlStringSpan[] } {
+	const strings: TomlStringSpan[] = [];
+	let depth = 0;
+	let i = start;
+	while (i < limit) {
+		const char = text[i];
+		if (char === '#') {
+			i = Math.min(lineEnd(text, i), limit);
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			const scanned = scanTomlString(text, i);
+			if (scanned.end > limit) tomlParseFailure(text, i, 'TOML_STRING_CROSSES_TABLE');
+			if (scanned.token) strings.push(scanned.token);
+			i = scanned.end;
+			continue;
+		}
+		if (char === '[') depth++;
+		if (char === ']') {
+			depth--;
+			if (depth === 0) return { end: i + 1, strings };
+		}
+		i++;
+	}
+	tomlParseFailure(text, start, 'TOML_UNCLOSED_ARRAY');
+}
+
+function findBareAssignment(text: string, table: TomlTableSpan, key: string): number | null {
+	let i = table.bodyStart;
+	let currentLineStart = text.lastIndexOf('\n', i - 1) + 1;
+	while (i < table.end) {
+		const char = text[i];
+		if (char === '\n') {
+			currentLineStart = ++i;
+			continue;
+		}
+		if (char === '#') {
+			i = Math.min(lineEnd(text, i), table.end);
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			const scanned = scanTomlString(text, i);
+			i = scanned.end;
+			continue;
+		}
+		if (text.slice(currentLineStart, i).trim() === '' && /[A-Za-z0-9_-]/.test(char)) {
+			let keyEnd = i + 1;
+			while (keyEnd < table.end && /[A-Za-z0-9_-]/.test(text[keyEnd])) keyEnd++;
+			let equals = keyEnd;
+			while (equals < table.end && (text[equals] === ' ' || text[equals] === '\t')) equals++;
+			if (text.slice(i, keyEnd) === key && text[equals] === '=') {
+				let value = equals + 1;
+				while (value < table.end && (text[value] === ' ' || text[value] === '\t')) value++;
+				return value;
+			}
+			i = keyEnd;
+			continue;
+		}
+		i++;
+	}
+	return null;
+}
+
+function tableArrayStrings(text: string, table: TomlTableSpan, key: string): TomlStringSpan[] | null {
+	const value = findBareAssignment(text, table, key);
+	if (value === null || text[value] !== '[') return null;
+	return scanArrayStrings(text, value, table.end).strings;
+}
+
+function tableStringValue(text: string, table: TomlTableSpan, key: string): string | null {
+	const value = findBareAssignment(text, table, key);
+	if (value === null || (text[value] !== '"' && text[value] !== "'")) return null;
+	return scanTomlString(text, value).token?.value ?? null;
+}
+
+function parseEntryFromSyntax(text: string, name: string): McpServerEntry | null {
+	const tables = exactTables(text, `mcp_servers.${name}`);
+	if (tables.length !== 1) return null;
+	const command = tableStringValue(text, tables[0], 'command');
+	const args = tableArrayStrings(text, tables[0], 'args')?.map((token) => token.value) ?? [];
+	if (!command) return null;
+	const env: Record<string, string> = {};
+	const envTables = exactTables(text, `mcp_servers.${name}.env`);
+	if (envTables.length === 1) {
+		const block = text.slice(envTables[0].bodyStart, envTables[0].end);
+		for (const line of block.split(/\r?\n/)) {
+			const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("(?:\\.|[^"\\])*"|'[^']*')\s*(?:#.*)?$/.exec(line);
+			if (!match) continue;
+			try {
+				env[match[1]] = match[2].startsWith("'") ? match[2].slice(1, -1) : JSON.parse(match[2]) as string;
+			} catch {
+				// Invalid environment strings are ignored; the package readback remains strict.
+			}
+		}
+	}
+	return { serverName: name, command, args, env };
+}
+
 /**
  * Split TOML into segments: non-mcp preamble/other sections and mcp_servers blocks keyed by name.
  */
@@ -151,33 +406,6 @@ function rebuildToml(parts: {
 	return `${chunks.join('\n\n')}\n`;
 }
 
-function parseEntryFromBlock(name: string, block: string): McpServerEntry | null {
-	const commandMatch = /^command\s*=\s*"((?:\\.|[^"\\])*)"\s*(?:#.*)?$/m.exec(block);
-	if (!commandMatch) return null;
-	const command = commandMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-	const argsMatch = /^args\s*=\s*\[([^\]]*)\]\s*(?:#.*)?$/m.exec(block);
-	const args: string[] = [];
-	if (argsMatch) {
-		const re = /"((?:\\.|[^"\\])*)"/g;
-		let m: RegExpExecArray | null;
-		while ((m = re.exec(argsMatch[1])) !== null) {
-			args.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
-		}
-	}
-	const env: Record<string, string> = {};
-	const envSection = block.split(new RegExp(`\\[mcp_servers\\.${name}\\.env\\]`))[1];
-	if (envSection) {
-		const envBody = envSection.split(/\n\[/)[0] ?? envSection;
-		for (const line of envBody.split('\n')) {
-			const em = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"(.*)"\s*$/.exec(line.trim());
-			if (em) {
-				env[em[1]] = em[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-			}
-		}
-	}
-	return { serverName: name, command, args, env };
-}
-
 function validateTomlHasStructure(path: string): void {
 	const raw = readTextFile(path);
 	if (raw === null) {
@@ -195,39 +423,18 @@ function validateTomlHasStructure(path: string): void {
 }
 
 function findPackageReplacement(text: string, serverName: string, packageSpec: string) {
-	const escaped = serverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const header = new RegExp(`^\\[mcp_servers\\.${escaped}\\][ \\t]*(?:#[^\\r\\n]*)?$`, 'gm');
-	const matches = [...text.matchAll(header)];
-	if (matches.length === 0) {
+	const tables = exactTables(text, `mcp_servers.${serverName}`);
+	if (tables.length === 0) {
 		throw new ClientConfigError('server_entry_not_found', `server_entry_not_found: no [mcp_servers.${serverName}] block.`);
 	}
-	if (matches.length !== 1) {
-		throw new ClientConfigError('server_entry_ambiguous', `server_entry_ambiguous: found ${matches.length} [mcp_servers.${serverName}] blocks.`);
+	if (tables.length !== 1) {
+		throw new ClientConfigError('server_entry_ambiguous', `server_entry_ambiguous: found ${tables.length} [mcp_servers.${serverName}] blocks.`);
 	}
-	const blockStart = matches[0].index + matches[0][0].length;
-	const nextHeader = /^\[[^\]\r\n]+\][ \t]*(?:#[^\r\n]*)?$/gm;
-	nextHeader.lastIndex = blockStart;
-	const next = nextHeader.exec(text);
-	const blockEnd = next?.index ?? text.length;
-	const block = text.slice(blockStart, blockEnd);
-	const argsMatch = /^\s*args\s*=\s*\[([\s\S]*?)\]/m.exec(block);
-	if (!argsMatch || argsMatch.index === undefined) {
+	const strings = tableArrayStrings(text, tables[0], 'args');
+	if (!strings) {
 		throw new ClientConfigError('package_reference_not_found', 'package_reference_not_found: target server has no args array.');
 	}
-	const argsStart = blockStart + argsMatch.index + argsMatch[0].indexOf('[') + 1;
-	const candidates: Array<{ start: number; end: number; value: string; quote: string }> = [];
-	const stringRe = /"((?:\\.|[^"\\])*)"/g;
-	let stringMatch: RegExpExecArray | null;
-	while ((stringMatch = stringRe.exec(argsMatch[1])) !== null) {
-		const raw = stringMatch[1];
-		candidates.push({
-			start: argsStart + stringMatch.index,
-			end: argsStart + stringMatch.index + stringMatch[0].length,
-			value: raw.replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
-			quote: 'toml',
-		});
-	}
-	return requireOnePackageReference(candidates, packageSpec);
+	return requireOnePackageReference(strings, packageSpec);
 }
 
 export function codexAdapter(): ClientAdapter {
@@ -242,16 +449,15 @@ export function codexAdapter(): ClientAdapter {
 		listServerNames(configPath: string): string[] {
 			if (!existsSync(configPath)) return [];
 			const text = readTextFile(configPath) ?? '';
-			return parseMcpSections(text).order;
+			return scanTomlTables(text)
+				.map((table) => /^mcp_servers\.([^.]+)$/.exec(table.name)?.[1])
+				.filter((name): name is string => Boolean(name));
 		},
 
 		read(configPath: string, serverName: string): McpServerEntry | null {
 			if (!existsSync(configPath)) return null;
 			const text = readTextFile(configPath) ?? '';
-			const parts = parseMcpSections(text);
-			const block = parts.blocks.get(serverName);
-			if (!block) return null;
-			return parseEntryFromBlock(serverName, block);
+			return parseEntryFromSyntax(text, serverName);
 		},
 
 		updatePackageReference(configPath: string, serverName: string, packageSpec: string) {

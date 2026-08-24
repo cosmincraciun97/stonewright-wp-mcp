@@ -39,6 +39,8 @@ export interface SiteClientBinding {
 
 export interface RestartReceipt {
 	receipt_id: string;
+	/** Random local-only HMAC key. Never print it or copy it into public receipts. */
+	attestation_challenge: string;
 	created_at: string;
 	status: 'restart-required';
 	client: string;
@@ -54,12 +56,17 @@ export interface RestartProof {
 	verified_at: string;
 	status: 'verified';
 	attestation_scope: 'active-client';
+	receipt_id: string;
 	client: string;
 	expected_package: string;
 	expected_version: string;
+	companion_version: string;
 	process_start_id: string;
 	catalog_digest: string;
 	observed_tool_names: string[];
+	attestation_digest: string;
+	/** Local verification key retained only in the private registry; never print it. */
+	attestation_challenge: string;
 }
 
 export interface LastVerification {

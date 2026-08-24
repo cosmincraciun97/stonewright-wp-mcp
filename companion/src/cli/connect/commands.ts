@@ -18,13 +18,14 @@ import {
 	resolveCredentialSecret,
 	storeSiteSecret,
 } from '../../credentials/index.js';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
 import { stonewrightPackageVersion } from '../clients/package-reference.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { APP_VERSION } from '../../version.js';
+import { verifyActiveClientRestartProof } from '../../connection/active-client-attestation.js';
 import { validateLocalWpRoot } from '../../commands/store.js';
 import {
 	configuredModeToEnv,
@@ -56,7 +57,6 @@ import {
 	type BrowserPreferences,
 	type ConsentState,
 	type PluginExpectations,
-	type RestartProof,
 	type RuntimeAttestationScope,
 	type SiteEnvironment,
 	type SiteRecordV2,
@@ -948,6 +948,12 @@ export function connectUpdate(
 			throw new ConnectError('config_readback_failed', 'Config readback did not contain exactly one requested package token.');
 		}
 		const now = new Date().toISOString();
+		const priorProof = binding.last_restart_proof && verifyActiveClientRestartProof(binding.last_restart_proof)
+			? binding.last_restart_proof
+			: null;
+		const priorActiveVerification = site.last_verification?.attestation_scope === 'active-client'
+			? site.last_verification
+			: null;
 		const nextSite: SiteRecordV2 = {
 			...site,
 			clients: {
@@ -957,13 +963,14 @@ export function connectUpdate(
 					last_applied_at: now,
 					pending_restart: {
 						receipt_id: randomUUID(),
+						attestation_challenge: randomBytes(32).toString('base64url'),
 						created_at: now,
 						status: 'restart-required',
 						client: adapter.id,
 						expected_package: opts.to,
 						expected_version: expectedVersion,
-						pre_restart_process_start_id: site.last_verification?.process_start_id ?? null,
-						pre_restart_catalog_digest: site.last_verification?.catalog_digest ?? null,
+						pre_restart_process_start_id: priorProof?.process_start_id ?? priorActiveVerification?.process_start_id ?? null,
+						pre_restart_catalog_digest: priorProof?.catalog_digest ?? priorActiveVerification?.catalog_digest ?? null,
 						config_before_sha256: applied.beforeSha256,
 						config_after_sha256: applied.afterSha256,
 					},
@@ -987,7 +994,7 @@ export function connectUpdate(
 			config_before_sha256: applied.beforeSha256,
 			config_after_sha256: applied.afterSha256,
 			backup_created: applied.backupPath !== null,
-			next_action: 'Fully restart the MCP client, then run connect verify for this alias and client.',
+				next_action: 'Fully restart the MCP client, then call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check inside that active client. Run connect verify afterward for an independent spawned-runtime check.',
 		}, null, 2));
 		return 0;
 	} catch (err) {
@@ -1157,38 +1164,12 @@ export async function connectVerify(
 	const runtimeReady = runtime.ok && (runtime.refresh_required_tool_names?.length ?? 0) === 0;
 	checks.push({ id: 'runtime', ok: runtimeReady, detail: runtime.detail });
 	const pendingRestart = verifiedClientId ? site.clients[verifiedClientId]?.pending_restart : undefined;
-	let restartProof: RestartProof | undefined;
 	if (verifiedClientId && pendingRestart) {
-		let restartError: string | null = null;
-		if (runtime.attestation_scope !== 'active-client') {
-			restartError = 'restart_active_client_attestation_required: Restart the AI client, then verify from that active client after its MCP cache has been refreshed.';
-		}
-		else if (runtime.companion_version !== pendingRestart.expected_version) restartError = 'restart_version_mismatch';
-		else if (!runtime.process_start_id) restartError = 'restart_process_missing';
-		else if (
-			pendingRestart.pre_restart_process_start_id
-			&& runtime.process_start_id === pendingRestart.pre_restart_process_start_id
-		) restartError = 'restart_process_stale';
-		else if (!runtime.catalog_digest) restartError = 'restart_catalog_digest_missing';
-		else if (!runtime.client_observed_tool_names?.length) restartError = 'restart_client_tools_unobserved';
-		else if (!runtime.setup_profile_available) restartError = 'restart_setup_profile_missing';
-		else if (!runtime.task_start_available || !runtime.status_available) restartError = 'restart_required_tools_missing';
-		if (restartError) {
-			checks.push({ id: 'restart_proof', ok: false, detail: restartError });
-		} else {
-			restartProof = {
-				verified_at: new Date().toISOString(),
-				status: 'verified',
-				attestation_scope: 'active-client',
-				client: verifiedClientId,
-				expected_package: pendingRestart.expected_package,
-				expected_version: pendingRestart.expected_version,
-				process_start_id: runtime.process_start_id!,
-				catalog_digest: runtime.catalog_digest!,
-				observed_tool_names: runtime.client_observed_tool_names!,
-			};
-			checks.push({ id: 'restart_proof', ok: true, detail: 'new process, package version, catalog, and client-observed tools verified' });
-		}
+		checks.push({
+			id: 'restart_proof',
+			ok: false,
+			detail: 'restart_active_client_attestation_required: Restart the AI client, then call task-start, setup-profile, status, and client-surface-check inside that active MCP host.',
+		});
 	}
 	const remoteNames = runtime.remote_tool_names ?? [];
 	const surfaceDigest = remoteNames.length > 0
@@ -1197,19 +1178,9 @@ export async function connectVerify(
 
 	const ok = checks.every((c) => c.ok);
 	const now = new Date().toISOString();
-	const nextClients = restartProof && verifiedClientId && ok
-		? {
-			...site.clients,
-			[verifiedClientId]: {
-				...site.clients[verifiedClientId],
-				pending_restart: undefined,
-				last_restart_proof: restartProof,
-			},
-		}
-		: site.clients;
 	const nextSite: SiteRecordV2 = {
 		...site,
-		clients: nextClients,
+		clients: site.clients,
 		last_verification: {
 			at: now,
 			ok,
