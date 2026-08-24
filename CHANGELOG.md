@@ -92,6 +92,9 @@ development builds were never stable releases.
   keywords and every annotation or contract mismatch.
 - Treat PHP `self` and `parent` return types as the declaring class so MCP ABI
   preflight accepts adapters on PHP 8.1–8.4, not only 8.5.
+- Keep MCP adapter boot when two active plugins vendor the same
+  `wordpress/mcp-adapter` version, so WooCommerce 10.9 can sit beside Stonewright
+  without dropping `/mcp/stonewright`.
 - Isolate Elementor provider discovery failures so Status and Troubleshoot
   retain surviving providers and expose at most 20 diagnostics with full
   blocker and warning counts, per-severity truncation, and reserved visibility

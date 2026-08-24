@@ -311,6 +311,33 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertStringNotContainsString( $fixtures, (string) wp_json_encode( $result ) );
 	}
 
+	/**
+	 * WooCommerce 10.9 vendors wordpress/mcp-adapter at the same 0.3.0 as Stonewright.
+	 * Duplicate official copies must stay visible without blocking MCP boot.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_same_version_official_adapter_vendors_do_not_block_a_compatible_runtime(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
+		require_once dirname( __DIR__, 3 ) . '/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php';
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			[],
+			\WP\MCP\Core\McpAdapter::class,
+			[ $fixtures . '/release-a', $fixtures . '/release-woo' ]
+		);
+
+		self::assertNotSame( 'conflict', $result['adapter']['status'] );
+		self::assertSame( [ 'plugin:release-a', 'plugin:release-woo' ], $result['adapter']['owners'] );
+		self::assertSame( [ '0.3.0', '0.3.0' ], array_column( $result['adapter']['packages'], 'version' ) );
+		self::assertTrue( $result['compatible'] );
+		self::assertSame( [], $result['adapter']['abi']['issues'] );
+		self::assertSame( '0.3.0', $result['adapter']['abi']['version'] );
+		self::assertStringNotContainsString( $fixtures, (string) wp_json_encode( $result ) );
+	}
+
 	public function test_release_package_without_jetpack_mapping_is_incompatible(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
@@ -355,6 +382,36 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertFalse( $result['compatible'] );
 		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
 		self::assertContains( 'unsupported_package_version', $result['adapter']['abi']['issues'] );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_vendored_mcp_adapter_satisfies_production_preflight(): void {
+		require_once dirname( __DIR__, 3 ) . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+		require_once dirname( __DIR__, 3 ) . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
+		require_once dirname( __DIR__, 3 ) . '/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect();
+
+		self::assertSame(
+			[],
+			$result['adapter']['abi']['issues'],
+			(string) wp_json_encode(
+				[
+					'blocking'        => $result['blocking_reasons'],
+					'adapter'         => $result['adapter']['abi'],
+					'registry'        => $result['abilities']['registry']['abi'],
+					'ability'         => $result['abilities']['ability']['abi'],
+					'adapter_status'  => $result['adapter']['status'],
+					'adapter_owners'  => $result['adapter']['owners'],
+					'registry_status' => $result['abilities']['registry']['status'],
+					'registry_owners' => $result['abilities']['registry']['owners'],
+				]
+			)
+		);
+		self::assertTrue( $result['compatible'] );
 	}
 
 	public function test_registration_source_gates_adapter_boot_on_preflight(): void {

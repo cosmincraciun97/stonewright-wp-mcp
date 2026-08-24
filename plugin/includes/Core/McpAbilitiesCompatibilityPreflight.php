@@ -118,7 +118,7 @@ final class McpAbilitiesCompatibilityPreflight {
 		$owner_details = self::unique_owner_details( $owner_details );
 		$owners = array_values( array_unique( array_column( $owner_details, 'owner' ) ) );
 		sort( $owners );
-		$active_paths = array_values( array_unique( $active_paths ) );
+		$active_paths = self::dedupe_equivalent_package_paths( array_values( array_unique( $active_paths ) ), $packages );
 		$status = count( $active_paths ) > 1 ? 'conflict' : ( $loaded ? 'loaded' : ( 1 === count( $active_paths ) || $core_owned ? 'available' : 'unavailable' ) );
 		$abi = 'conflict' === $status ? [ 'status' => 'not_checked', 'issues' => [ 'multiple_owners' ], 'version' => '' ] : self::inspect_abi( $role, $class, $ability_class, $packages, $core_owned );
 		$reason = 'conflict' === $status ? 'multiple_incompatible_class_owners' : ( 'unavailable' === $status || 'unavailable' === $abi['status'] ? 'required_symbol_unavailable' : ( 'incompatible' === $abi['status'] ? 'runtime_abi_incompatible' : null ) );
@@ -324,10 +324,35 @@ final class McpAbilitiesCompatibilityPreflight {
 		return array_values( $unique );
 	}
 
+	/**
+	 * Two plugin copies of the same official package version are not competing runtimes.
+	 *
+	 * @param list<string>              $paths
+	 * @param list<array<string,mixed>> $packages
+	 * @return list<string>
+	 */
+	private static function dedupe_equivalent_package_paths( array $paths, array $packages ): array {
+		$seen   = [];
+		$result = [];
+		foreach ( $paths as $path ) {
+			$package = self::package_for_path( $path, $packages );
+			$key     = ( null !== $package && '' !== (string) ( $package['name'] ?? '' ) && '' !== (string) ( $package['version'] ?? '' ) )
+				? (string) $package['name'] . '@' . (string) $package['version']
+				: $path;
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$result[]     = $path;
+		}
+		return $result;
+	}
+
 	/** @param list<array<string,mixed>> $packages */
 	private static function package_version( array $packages ): string {
 		$active = array_values( array_filter( $packages, static fn( array $package ): bool => true !== ( $package['guarded_fallback'] ?? false ) || ! self::core_abilities_available() ) );
-		return 1 === count( $active ) ? (string) ( $active[0]['version'] ?? '' ) : '';
+		$versions = array_values( array_unique( array_filter( array_map( static fn( array $package ): string => (string) ( $package['version'] ?? '' ), $active ) ) ) );
+		return 1 === count( $versions ) ? $versions[0] : '';
 	}
 
 	/** @param list<string> $paths */
