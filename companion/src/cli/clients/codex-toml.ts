@@ -10,6 +10,7 @@ import {
 	applyStringReplacement,
 	requireValidTargetPackageReference,
 	requireOnePackageReference,
+	replacementBoundHashes,
 	sha256Text,
 	validateOfficialStonewrightNpxEntry,
 } from './package-reference.js';
@@ -497,6 +498,7 @@ export function codexAdapter(): ClientAdapter {
 			const replacement = findPackageReplacement(before, serverName, packageSpec);
 			const next = applyStringReplacement(before, replacement);
 			const written = writeWithRollback({ path: configPath, expectedContents: before, nextContents: next, validate: validateTomlHasStructure });
+			const bounds = replacementBoundHashes(before, replacement, next);
 			return {
 				configPath,
 				backupPath: written.backupPath,
@@ -507,6 +509,9 @@ export function codexAdapter(): ClientAdapter {
 				packageSpec,
 				beforeSha256: sha256Text(before),
 				afterSha256: sha256Text(next),
+				prefixSha256: bounds.prefixSha256,
+				suffixSha256: bounds.suffixSha256,
+				unrelatedBytesUnchanged: bounds.unrelatedBytesUnchanged,
 			};
 		},
 

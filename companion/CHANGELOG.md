@@ -30,8 +30,12 @@
   Codex TOML and generic JSONC writes; snapshot rollback also rejects drift.
 - Require explicit successful results from all four runtime verification calls;
   malformed results and fallback values cannot produce a valid receipt.
-- Require `ok === true`, schema version 2, and non-error MCP content before a
-  required active-host call advances attestation.
+- Record a required active-host call as a sequence step when that gateway ran
+  with schema version 2 and non-error MCP content. Status, relist, mismatch, and
+  setup `ok` flags stay separate truthful signals and do not hide plugin
+  validation failures.
+- Print previous and new package/version plus prefix/suffix invariance hashes in
+  `connect update` JSON, without backup paths, credentials, or config text.
 - Generate client OAuth, default-profile, and relist semantics from the plugin's
   authoritative catalog and enforce parity in the end-to-end contract test.
 - Record restart-verification calls only after successful handlers and enforce

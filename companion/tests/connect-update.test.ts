@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { codexAdapter, cursorAdapter } from '../src/cli/clients/index.js';
+import { sha256Text } from '../src/cli/clients/package-reference.js';
 import { MemoryCredentialStore } from '../src/credentials/index.js';
 import {
 	connectAdd,
@@ -11,6 +12,18 @@ import {
 	testCredentialOptions,
 } from '../src/cli/connect/commands.js';
 import { runConnect } from '../src/cli/connect/index.js';
+
+function quotedIntervalHashes(text: string, packageSpec: string): { prefixSha256: string; suffixSha256: string } {
+	const quoted = JSON.stringify(packageSpec);
+	const start = text.indexOf(quoted);
+	if (start < 0) {
+		throw new Error(`quoted package token not found: ${quoted}`);
+	}
+	return {
+		prefixSha256: sha256Text(text.slice(0, start)),
+		suffixSha256: sha256Text(text.slice(start + quoted.length)),
+	};
+}
 
 const OLD_PACKAGE = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.11.1/stonewright-companion-1.0.0-beta.11.1.tgz';
 const NEW_PACKAGE = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
@@ -64,6 +77,14 @@ describe('connect update', () => {
 		expect(result.beforeSha256).toMatch(/^sha256:/);
 		expect(result.afterSha256).toMatch(/^sha256:/);
 		expect(after).toBe(before.replace(OLD_PACKAGE, NEW_PACKAGE));
+		const beforeInterval = quotedIntervalHashes(before, OLD_PACKAGE);
+		const afterInterval = quotedIntervalHashes(after, NEW_PACKAGE);
+		expect(result.prefixSha256).toBe(beforeInterval.prefixSha256);
+		expect(result.suffixSha256).toBe(beforeInterval.suffixSha256);
+		expect(result.prefixSha256).toBe(afterInterval.prefixSha256);
+		expect(result.suffixSha256).toBe(afterInterval.suffixSha256);
+		expect(result.unrelatedBytesUnchanged).toBe(true);
+		expect(after).not.toBe(before);
 		expect(result.diff).not.toContain('PRIVATE_TOKEN');
 		expect(codexAdapter().read(path, 'stonewright-site-a')?.args).toContain(NEW_PACKAGE);
 	});
@@ -91,6 +112,14 @@ describe('connect update', () => {
 
 		expect(after).toBe(before.replace(OLD_PACKAGE, NEW_PACKAGE));
 		expect(result.previousPackageSpec).toBe(OLD_PACKAGE);
+		expect(result.packageSpec).toBe(NEW_PACKAGE);
+		const beforeInterval = quotedIntervalHashes(before, OLD_PACKAGE);
+		const afterInterval = quotedIntervalHashes(after, NEW_PACKAGE);
+		expect(result.prefixSha256).toBe(beforeInterval.prefixSha256);
+		expect(result.suffixSha256).toBe(beforeInterval.suffixSha256);
+		expect(result.prefixSha256).toBe(afterInterval.prefixSha256);
+		expect(result.suffixSha256).toBe(afterInterval.suffixSha256);
+		expect(result.unrelatedBytesUnchanged).toBe(true);
 		expect(result.diff).not.toContain('untouched-value');
 		expect(cursorAdapter().read(path, 'stonewright-site-a')?.args).toContain(NEW_PACKAGE);
 	});
@@ -355,6 +384,48 @@ describe('connect update', () => {
 		expect(code).toBe(0);
 		expect(readFileSync(configPath, 'utf8')).toContain(NEW_PACKAGE);
 		expect(logs.join('')).toContain('restart-required');
+	});
+
+	it('prints previous and new package identity plus prefix/suffix invariance hashes', async () => {
+		const h = harness();
+		capture();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		const before = readFileSync(configPath, 'utf8');
+		logs.length = 0;
+
+		const code = await runConnect([
+			'update', 'site-a', '--client', 'cursor', '--to', NEW_PACKAGE, '--sites-file', h.sitesFile,
+		]);
+		const after = readFileSync(configPath, 'utf8');
+		const output = logs.join('');
+		const receipt = JSON.parse(output) as Record<string, unknown>;
+		const interval = quotedIntervalHashes(before, OLD_PACKAGE);
+		const afterInterval = quotedIntervalHashes(after, NEW_PACKAGE);
+
+		expect(code).toBe(0);
+		expect(receipt).toEqual(expect.objectContaining({
+			ok: true,
+			site_alias: 'site-a',
+			client: 'cursor',
+			previous_package_spec: OLD_PACKAGE,
+			previous_version: '1.0.0-beta.11.1',
+			package_spec: NEW_PACKAGE,
+			expected_version: '1.0.0-beta.12',
+			prefix_sha256: interval.prefixSha256,
+			suffix_sha256: interval.suffixSha256,
+			unrelated_bytes_unchanged: true,
+			backup_created: expect.any(Boolean),
+		}));
+		expect(receipt.prefix_sha256).toBe(afterInterval.prefixSha256);
+		expect(receipt.suffix_sha256).toBe(afterInterval.suffixSha256);
+		expect(output).not.toContain('backupPath');
+		expect(output).not.toContain('backup_path');
+		expect(output).not.toContain('example-password');
+		expect(JSON.stringify(receipt)).not.toContain(h.dir);
 	});
 
 	it('rolls the config back and leaves the registry unchanged when registry persistence fails', async () => {

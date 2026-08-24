@@ -237,7 +237,7 @@ final class GitHubUpdater {
 
 		$identity = self::package_identity( $package );
 		$plugin   = (string) ( $hook_extra['plugin'] ?? '' );
-		if ( '' === $plugin && null === $identity ) {
+		if ( null === $identity && ( '' === $plugin || self::plugin_basename() !== $plugin ) ) {
 			return $reply;
 		}
 		if ( null === $identity ) {

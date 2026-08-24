@@ -39,7 +39,9 @@ checksum evidence fails closed; do not bypass that failure with an unverified
 package. The queued ZIP is also bound to its exact release version, canonical
 package path, and manifest when the update transient is created. A later cache
 refresh, unavailable release feed, mismatched package, or query-string URL
-variant cannot bypass that binding.
+variant cannot bypass that binding. Non-Stonewright plugin downloads, including
+wordpress.org packages, are left unchanged; the gate fail-closes only for
+official Stonewright ZIPs or the Stonewright plugin basename.
 
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
@@ -76,6 +78,9 @@ the linked SHA-256 manifest.
    missing comma, duplicate definition, or malformed unrelated section blocks
    both config mutation and restart-receipt persistence. A valid replacement
    changes only the exact package string and preserves every surrounding byte.
+   `stonewright connect update` JSON reports the previous and new package/version
+   plus prefix/suffix hashes proving unrelated bytes were unchanged. It does not
+   print backup paths, credentials, or config text.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
 4. Call `stonewright-task-start`, then `stonewright-setup-profile`,
@@ -123,8 +128,10 @@ write is rejected; rollback applies the same comparison.
 The plugin task-start payload uses WorkflowPreflight schema version 2 and
 reports `saved_wordpress_mode` plus `effective_wordpress_mode`. The companion
 accepts those plugin values as authoritative. Unsupported schemas, malformed
-mode fields, saved/effective mismatch, or any required verification response
-without `ok === true` and non-error content blocks startup and attestation.
+mode fields, MCP errors, and plugin validation failures still block sequence
+recording and keep `startup_ready` false. Relist, mismatch, and setup `ok`
+warnings stay visible and do not prevent recording the required verification
+sequence.
 
 The plugin JSON client catalog is authoritative. The companion catalog is
 generated from it and contract-tested for OAuth support, default profile, and

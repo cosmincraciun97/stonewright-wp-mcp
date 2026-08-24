@@ -611,6 +611,31 @@ final class GitHubUpdaterTest extends TestCase {
 		unlink( $reply );
 	}
 
+	/**
+	 * @dataProvider wordpress_org_plugin_update_replies
+	 */
+	public function test_upgrader_pre_download_does_not_intercept_wordpress_org_plugin_updates( mixed $reply ): void {
+		$GLOBALS['stonewright_test_wp_remote_get'] = static function (): never {
+			throw new \RuntimeException( 'wp_remote_get must not run for wordpress.org plugin updates' );
+		};
+
+		$result = GitHubUpdater::verify_package_download(
+			$reply,
+			'https://downloads.wordpress.org/plugin/akismet.6.0.zip',
+			null,
+			[ 'plugin' => 'akismet/akismet.php' ]
+		);
+
+		self::assertSame( $reply, $result );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+	}
+
+	/** @return iterable<string, array{mixed}> */
+	public static function wordpress_org_plugin_update_replies(): iterable {
+		yield 'false reply' => [ false ];
+		yield 'dummy path reply' => [ '/tmp/akismet-dummy.zip' ];
+	}
+
 	/** @return iterable<string, array{string, int, string}> */
 	public static function allowed_release_channel_cases(): iterable {
 		yield 'supported beta published as latest' => [ 'beta', 6, '1.3.0-beta.30' ];

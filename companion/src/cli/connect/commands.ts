@@ -1093,11 +1093,17 @@ function connectUpdateLocked(
 			client: adapter.id,
 			server_name: binding.server_name,
 			status: 'restart-required',
+			previous_package_spec: applied.previousPackageSpec,
+			previous_version: stonewrightPackageVersion(applied.previousPackageSpec),
+			package_spec: applied.packageSpec,
 			expected_version: expectedVersion,
 			config_before_sha256: applied.beforeSha256,
 			config_after_sha256: applied.afterSha256,
+			prefix_sha256: applied.prefixSha256,
+			suffix_sha256: applied.suffixSha256,
+			unrelated_bytes_unchanged: applied.unrelatedBytesUnchanged,
 			backup_created: applied.backupPath !== null,
-				next_action: 'Fully restart the MCP client, then call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check inside that active client. Run connect verify afterward for an independent spawned-runtime check.',
+			next_action: 'Fully restart the MCP client, then call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check inside that active client. Run connect verify afterward for an independent spawned-runtime check.',
 		}, null, 2));
 		return 0;
 	} catch (err) {

@@ -728,6 +728,45 @@ describe('permanent gateways integration', () => {
 		expect(JSON.stringify(completed)).not.toContain('private-registry-key-never-exported');
 	});
 
+	it('records the restart sequence when essential task-start reports tools_changed', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture, 'Codex', workflowPreflightPayload({
+			configured_mcp_surface: 'essential',
+			session_tool_profile: 'essential',
+			tool_profile: 'essential',
+			tools_changed: true,
+			re_list_instruction: 'Re-list tools now (tools/list).',
+			fast_path: { tool_profile: { profile: 'essential' } },
+		}));
+
+		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify essential relist sequence' }) as {
+			structuredContent?: { ok?: boolean; schema_version?: number; isError?: boolean; startup_ready?: boolean };
+		};
+		expect(taskStart.structuredContent?.schema_version).toBe(2);
+		expect(taskStart.structuredContent?.ok).toBe(false);
+		expect(taskStart.structuredContent?.startup_ready).toBe(false);
+		expect(taskStart.structuredContent?.isError).not.toBe(true);
+
+		const setup = await toolHandler(server, 'stonewright-setup-profile')?.({
+			siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+		}) as { structuredContent?: { error_code?: string } };
+		expect(setup.structuredContent?.error_code).not.toBe('restart_attestation_call_out_of_order');
+
+		await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({});
+		const completed = await toolHandler(server, 'stonewright-client-surface-check')?.({
+			expected_tool: 'stonewright-task-start',
+			catalog_observation: catalogObservationFromToolList(server),
+		}) as { structuredContent?: { restart_attestation?: { status?: string; attestation_digest?: string } } };
+
+		expect(completed.structuredContent?.restart_attestation?.status).toBe('verified');
+		expect(completed.structuredContent?.restart_attestation?.attestation_digest).toMatch(/^hmac-sha256:/);
+		const registry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
+			sites: Array<{ clients: Record<string, { pending_restart?: unknown; last_consumed_restart_receipt_id?: string }> }>;
+		};
+		expect(registry.sites[0].clients.codex.pending_restart).toBeUndefined();
+		expect(registry.sites[0].clients.codex.last_consumed_restart_receipt_id).toBe('receipt-active-host');
+	});
+
 	it('does not advance restart verification after a failed required call', async () => {
 		const fixture = activeAttestationFixture();
 		const server = await activeAttestationServer(fixture, 'Codex', {

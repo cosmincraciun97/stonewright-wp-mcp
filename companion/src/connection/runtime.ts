@@ -974,6 +974,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 							reconciliation: failed.reconciliation,
 							refresh_required_tool_names: failed.refresh_required_tool_names,
 							error_code: errorCode,
+							isError: true,
 							next_action: 'Fix the plugin input error, then call stonewright-task-start again.',
 						};
 					}
@@ -1010,6 +1011,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 							reconciliation: failed.reconciliation,
 							refresh_required_tool_names: failed.refresh_required_tool_names,
 							error_code: errorCode,
+							isError: true,
 							next_action: 'Update Stonewright so plugin and companion use WorkflowPreflight schema version 2, then restart MCP.',
 						};
 					}
@@ -1099,6 +1101,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						reconciliation: failed.reconciliation,
 						refresh_required_tool_names: failed.refresh_required_tool_names,
 						error_code: 'plugin_task_start_failed',
+						isError: true,
 						next_action: 'Fix the plugin task-start failure, then call stonewright-task-start again.',
 					};
 				}

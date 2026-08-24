@@ -56,6 +56,9 @@ export interface PackageUpdateResult {
 	packageSpec: string;
 	beforeSha256: string;
 	afterSha256: string;
+	prefixSha256: string;
+	suffixSha256: string;
+	unrelatedBytesUnchanged: boolean;
 }
 
 export interface ClientAdapter extends ClientAdapterInfo {

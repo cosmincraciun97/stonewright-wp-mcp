@@ -103,6 +103,22 @@ export function applyStringReplacement(text: string, replacement: StringReplacem
 	return `${text.slice(0, replacement.start)}${replacement.replacement}${text.slice(replacement.end)}`;
 }
 
+export function replacementBoundHashes(text: string, replacement: StringReplacement, next: string): {
+	prefixSha256: string;
+	suffixSha256: string;
+	unrelatedBytesUnchanged: boolean;
+} {
+	const prefixSha256 = sha256Text(text.slice(0, replacement.start));
+	const suffixSha256 = sha256Text(text.slice(replacement.end));
+	const afterPrefixSha256 = sha256Text(next.slice(0, replacement.start));
+	const afterSuffixSha256 = sha256Text(next.slice(replacement.start + replacement.replacement.length));
+	return {
+		prefixSha256,
+		suffixSha256,
+		unrelatedBytesUnchanged: prefixSha256 === afterPrefixSha256 && suffixSha256 === afterSuffixSha256,
+	};
+}
+
 interface JsonToken {
 	type: 'string' | 'punct' | 'literal';
 	value: string;

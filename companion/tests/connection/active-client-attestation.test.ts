@@ -16,6 +16,18 @@ describe('required active-host call result gate', () => {
 		}
 	});
 
+	it('counts a required call with ok false when schema 2 and content are not errors', () => {
+		for (const name of REQUIRED_ACTIVE_HOST_CALLS) {
+			expect(requiredActiveHostCallSucceeded(name, {
+				ok: false,
+				schema_version: 2,
+				isError: false,
+				content: [{ type: 'text', text: 'relist required' }],
+				error_code: 'client_catalog_relist_required',
+			})).toBe(true);
+		}
+	});
+
 	it.each([
 		['missing ok', { schema_version: 2 }],
 		['truthy ok', { ok: 'true', schema_version: 2 }],

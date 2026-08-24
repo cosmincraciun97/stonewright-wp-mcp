@@ -20,6 +20,10 @@
 
 ### Fixed
 
+- Leave wordpress.org and other non-Stonewright plugin downloads unchanged at
+  the pre-download gate. Fail closed only for official Stonewright packages or
+  the Stonewright plugin basename.
+
 - Add schema-v2 authoritative saved/effective WordPress mode fields to full
   and compact WorkflowPreflight/task-start responses.
 
