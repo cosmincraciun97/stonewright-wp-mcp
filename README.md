@@ -196,9 +196,10 @@ Use the versioned installer from the latest
 Because this flow starts from an installed plugin, choose `plugin-only`; it
 fails closed instead of silently falling back to Direct mode.
 
-Codex CLI and Codex in ChatGPT Desktop are separate clients (`--client
-codex-cli` vs `--client chatgpt-desktop`). `--client codex` still aliases to
-CLI. See [getting-started/codex.md](docs/getting-started/codex.md).
+Codex CLI is the canonical local client and uses `~/.codex/config.toml`.
+`--client codex` and the compatibility alias `--client chatgpt-desktop` both
+resolve to that same Codex TOML adapter. See
+[getting-started/codex.md](docs/getting-started/codex.md).
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
@@ -218,8 +219,10 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 
 Restart the client and run `stonewright connect verify site-a --client codex-cli`.
 The receipt must report the requested alias, `configured_mode=plugin-only`,
-`active_mode=plugin`, task-start/status availability, the expected companion,
-and no required tool refresh. OAuth remote HTTP is a separate connection to
+`active_mode=plugin`, the expected companion, and the successful ordered calls
+`task-start` → `setup-profile` → `wordpress-mcp-status` →
+`client-surface-check`. An empty refresh list is not success when the final
+surface check says a required client tool is not registered. OAuth remote HTTP is a separate connection to
 `/wp-json/mcp/stonewright-oauth`; do not combine both transports under one
 generic `stonewright` server name.
 

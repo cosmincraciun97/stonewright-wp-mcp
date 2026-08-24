@@ -18,12 +18,14 @@ import {
 	resolveCredentialSecret,
 	storeSiteSecret,
 } from '../../credentials/index.js';
-import { createHash } from 'node:crypto';
-import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { readTextFile, restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
+import { sha256Text, stonewrightPackageIdentity, stonewrightPackageVersion } from '../clients/package-reference.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { APP_VERSION } from '../../version.js';
+import { verifyActiveClientRestartProof } from '../../connection/active-client-attestation.js';
 import { validateLocalWpRoot } from '../../commands/store.js';
 import {
 	configuredModeToEnv,
@@ -34,6 +36,7 @@ import {
 } from './mode-policy.js';
 import {
 	buildSiteRecord,
+	atomicWriteRegistry,
 	findSiteByAlias,
 	findSiteById,
 	findDuplicateEndpoint,
@@ -46,6 +49,7 @@ import {
 	setDefaultSite,
 	upsertSite,
 	type LoadRegistryOptions,
+	withRegistryLock,
 } from './registry.js';
 import { mcpServerName } from './server-name.js';
 import {
@@ -55,6 +59,7 @@ import {
 	type BrowserPreferences,
 	type ConsentState,
 	type PluginExpectations,
+	type RuntimeAttestationScope,
 	type SiteEnvironment,
 	type SiteRecordV2,
 	type SitesRegistryV2,
@@ -80,12 +85,18 @@ export interface ConnectContext {
 export interface RuntimeVerification {
 	ok: boolean;
 	detail: string;
+	attestation_scope?: RuntimeAttestationScope | undefined;
 	companion_version?: string | undefined;
 	active_alias?: string | undefined;
 	remote_tool_names?: string[] | undefined;
 	task_start_available?: boolean | undefined;
+	setup_profile_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	surface_check_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
+	process_start_id?: string | undefined;
+	catalog_digest?: string | undefined;
+	client_observed_tool_names?: string[] | undefined;
 }
 
 // Keep the external provider name as installer vocabulary, not a bundled
@@ -289,17 +300,58 @@ function findStatusField(value: unknown, key: string): unknown {
 	return undefined;
 }
 
+function runtimeToolPayload(result: unknown): Record<string, unknown> | null {
+	if (!result || typeof result !== 'object') return null;
+	const record = result as Record<string, unknown>;
+	if (record['isError'] === true) return null;
+	if (record['structuredContent'] && typeof record['structuredContent'] === 'object') {
+		return record['structuredContent'] as Record<string, unknown>;
+	}
+	if (Array.isArray(record['content'])) {
+		for (const part of record['content']) {
+			if (!part || typeof part !== 'object' || typeof (part as { text?: unknown }).text !== 'string') continue;
+			try {
+				const parsed = JSON.parse((part as { text: string }).text) as unknown;
+				if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+			} catch {
+				return null;
+			}
+		}
+	}
+	return null;
+}
+
+export function runtimeToolResultIsSuccess(result: unknown): boolean {
+	return runtimeToolPayload(result)?.['ok'] === true;
+}
+
+function catalogObservationFromDescription(description: unknown): string | undefined {
+	if (typeof description !== 'string') return undefined;
+	return /(?:^|\s)catalog_observation=([^;\s]+)/.exec(description)?.[1];
+}
+
 export function extractRuntimeStatus(status: unknown): {
 	companion_version?: string | undefined;
 	refresh_required_tool_names: string[];
+	process_start_id?: string | undefined;
+	catalog_digest?: string | undefined;
+	client_observed_tool_names?: string[] | undefined;
 } {
 	const companionVersion = findStatusField(status, 'companion_version');
 	const refreshRequired = findStatusField(status, 'refresh_required_tool_names');
+	const processStartId = findStatusField(status, 'process_start_id');
+	const catalogDigest = findStatusField(status, 'catalog_digest');
+	const observedToolNames = findStatusField(status, 'observed_tool_names');
 	return {
 		...(typeof companionVersion === 'string' ? { companion_version: companionVersion } : {}),
+		...(typeof processStartId === 'string' ? { process_start_id: processStartId } : {}),
+		...(typeof catalogDigest === 'string' ? { catalog_digest: catalogDigest } : {}),
 		refresh_required_tool_names: Array.isArray(refreshRequired)
 			? refreshRequired.filter((name): name is string => typeof name === 'string')
 			: [],
+		...(Array.isArray(observedToolNames) && observedToolNames.some((name) => typeof name === 'string')
+			? { client_observed_tool_names: observedToolNames.filter((name): name is string => typeof name === 'string') }
+			: {}),
 	};
 }
 
@@ -325,9 +377,12 @@ async function defaultRuntimeVerifier(
 			const listed = await client.listTools({}, { timeout: 20_000 });
 			const names = listed.tools.map((tool) => tool.name);
 			const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+			const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 			const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+			const surfaceName = names.find((name) => toolNameMatches([name], 'stonewright-client-surface-check'));
+			let taskResult: unknown = null;
 			if (taskName) {
-				await client.callTool({
+				taskResult = await client.callTool({
 					name: taskName,
 					arguments: {
 						task: 'Verify the saved Stonewright site connection.',
@@ -336,26 +391,47 @@ async function defaultRuntimeVerifier(
 					},
 				}, undefined, { timeout: 20_000 });
 			}
+			if (taskName && !runtimeToolResultIsSuccess(taskResult)) return { ok: false, detail: 'Spawned runtime task-start returned an unsuccessful or malformed result.' };
+			let setupResult: unknown = null;
+			if (setupName) {
+				setupResult = await client.callTool({ name: setupName, arguments: {} }, undefined, { timeout: 20_000 });
+			}
+			if (setupName && !runtimeToolResultIsSuccess(setupResult)) return { ok: false, detail: 'Spawned runtime setup-profile returned an unsuccessful or malformed result.' };
 			const status = statusName
 				? await client.callTool({ name: statusName, arguments: {} }, undefined, { timeout: 20_000 })
 				: null;
+			if (statusName && !runtimeToolResultIsSuccess(status)) return { ok: false, detail: 'Spawned runtime status returned an unsuccessful or malformed result.' };
+			const surfaceTool = listed.tools.find((tool) => tool.name === surfaceName);
+			const observation = catalogObservationFromDescription(surfaceTool?.description);
+			const surfaceResult = surfaceName
+				? await client.callTool({ name: surfaceName, arguments: {
+					expected_tool: 'stonewright-task-start',
+					...(observation ? { catalog_observation: observation } : {}),
+				} }, undefined, { timeout: 20_000 })
+				: null;
+			if (surfaceName && !runtimeToolResultIsSuccess(surfaceResult)) return { ok: false, detail: 'Spawned runtime client-surface-check returned an unsuccessful or malformed result.' };
 			const runtimeStatus = extractRuntimeStatus(status);
 			const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 			const required = site.plugin_expectations?.abilities ?? [];
 			const missing = required.filter((name) => !toolNameMatches(names, name));
 			return {
-				ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+				ok: Boolean(taskName && setupName && statusName && surfaceName && missing.length === 0 && refreshRequiredNames.length === 0),
+				attestation_scope: 'spawned-runtime',
 				detail: missing.length > 0
 					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
 					: refreshRequiredNames.length > 0
 						? `Spawned client runtime requires a client refresh for tools: ${refreshRequiredNames.join(', ')}`
 					: `Spawned client runtime exposed ${names.length} tools; task-start and status completed.`,
-				companion_version: runtimeStatus.companion_version ?? APP_VERSION,
+				companion_version: runtimeStatus.companion_version,
 				active_alias: entry.env.STONEWRIGHT_SITE_ALIAS ?? site.alias,
 				remote_tool_names: names,
 				task_start_available: Boolean(taskName),
+				setup_profile_available: Boolean(setupName),
 				status_available: Boolean(statusName),
+				surface_check_available: Boolean(surfaceName),
 				refresh_required_tool_names: refreshRequiredNames,
+				process_start_id: runtimeStatus.process_start_id,
+				catalog_digest: runtimeStatus.catalog_digest,
 			};
 		} catch (err) {
 			return { ok: false, detail: `Spawned client runtime failed: ${err instanceof Error ? err.message : String(err)}` };
@@ -366,6 +442,7 @@ async function defaultRuntimeVerifier(
 	if (site.configured_mode === 'direct-only') {
 		return {
 			ok: true,
+			attestation_scope: 'site-runtime',
 			detail: 'Site credentials are valid; pass --client to spawn and prove the configured Direct companion runtime.',
 			companion_version: APP_VERSION,
 			active_alias: site.alias,
@@ -387,21 +464,36 @@ async function defaultRuntimeVerifier(
 		const tools = await client.listTools();
 		const names = tools.map((tool) => tool.name);
 		const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+		const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 		const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+		const surfaceName = names.find((name) => toolNameMatches([name], 'stonewright-client-surface-check'));
+		let taskResult: unknown = null;
 		if (taskName) {
-			await client.callTool(taskName, {
+			taskResult = await client.callTool(taskName, {
 				task: 'Verify the saved Stonewright site connection.',
 				intent: 'read-only connection verification',
 				surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
 			});
 		}
+		if (taskName && !runtimeToolResultIsSuccess(taskResult)) return { ok: false, detail: 'Live MCP task-start returned an unsuccessful or malformed result.' };
+		const setupResult = setupName ? await client.callTool(setupName, {}) : null;
+		if (setupName && !runtimeToolResultIsSuccess(setupResult)) return { ok: false, detail: 'Live MCP setup-profile returned an unsuccessful or malformed result.' };
 		const status = statusName ? await client.callTool(statusName, {}) : null;
+		if (statusName && !runtimeToolResultIsSuccess(status)) return { ok: false, detail: 'Live MCP status returned an unsuccessful or malformed result.' };
+		const surfaceTool = tools.find((tool) => tool.name === surfaceName);
+		const observation = catalogObservationFromDescription(surfaceTool?.description);
+		const surfaceResult = surfaceName ? await client.callTool(surfaceName, {
+			expected_tool: 'stonewright-task-start',
+			...(observation ? { catalog_observation: observation } : {}),
+		}) : null;
+		if (surfaceName && !runtimeToolResultIsSuccess(surfaceResult)) return { ok: false, detail: 'Live MCP client-surface-check returned an unsuccessful or malformed result.' };
 		const runtimeStatus = extractRuntimeStatus(status);
 		const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 		const required = site.plugin_expectations?.abilities ?? [];
 		const missing = required.filter((name) => !toolNameMatches(names, name));
 		return {
-			ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+			ok: Boolean(taskName && setupName && statusName && surfaceName && missing.length === 0 && refreshRequiredNames.length === 0),
+			attestation_scope: 'site-runtime',
 			detail: missing.length > 0
 				? `Live MCP missing required tools: ${missing.join(', ')}`
 				: refreshRequiredNames.length > 0
@@ -411,7 +503,9 @@ async function defaultRuntimeVerifier(
 			active_alias: site.alias,
 			remote_tool_names: names,
 			task_start_available: Boolean(taskName),
+			setup_profile_available: Boolean(setupName),
 			status_available: Boolean(statusName),
+			surface_check_available: Boolean(surfaceName),
 			refresh_required_tool_names: refreshRequiredNames,
 		};
 	} catch (err) {
@@ -833,10 +927,17 @@ function applyClientBinding(
 		siteAlias: site.alias,
 		modeEnv: configuredModeToEnv(site.configured_mode),
 		toolProfile: site.companion_profile,
+		...(site.plugin_expectations?.wordpress_mode
+			? { wordpressMode: site.plugin_expectations.wordpress_mode }
+			: {}),
+		...(site.plugin_expectations?.wordpress_tool_surface
+			? { wordpressToolSurface: site.plugin_expectations.wordpress_tool_surface }
+			: {}),
 	});
 
 	const before = snapshotFile(configPath);
 	const applied = adapter.upsert(configPath, entry);
+	const appliedSnapshot = snapshotFile(configPath);
 	const now = new Date().toISOString();
 	const nextSite: SiteRecordV2 = {
 		...site,
@@ -869,8 +970,146 @@ function applyClientBinding(
 			support_tier: adapter.supportTier,
 			browser: nextSite.clients[adapter.id]?.browser,
 		},
-		rollback: () => restoreFileSnapshot(configPath, before),
+		rollback: () => restoreFileSnapshot(configPath, before, appliedSnapshot),
 	};
+}
+
+export function connectUpdate(
+	alias: string,
+	opts: { client: string; to: string },
+	ctx: ConnectContext = {},
+): number {
+	let path: string;
+	try {
+		path = loadWritableRegistry(ctx).path;
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
+	try {
+		return withRegistryLock(path, () => connectUpdateLocked(alias, opts, ctx, path));
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
+}
+
+function connectUpdateLocked(
+	alias: string,
+	opts: { client: string; to: string },
+	ctx: ConnectContext,
+	registryPath: string,
+): number {
+	const { registry } = loadRegistry(ctxPaths(ctx));
+	const site = findSiteByAlias(registry, alias);
+	if (!site) {
+		writeErr(`Unknown alias "${alias}"`);
+		return 1;
+	}
+	const adapter = getClientAdapter(opts.client);
+	if (!adapter) {
+		writeErr(`client_unsupported: Client "${opts.client}" has no implemented adapter.`);
+		return 1;
+	}
+	const binding = site.clients[adapter.id];
+	if (!binding) {
+		writeErr(`client_binding_not_found: Site "${site.alias}" has no ${adapter.id} binding.`);
+		return 1;
+	}
+	const expectedVersion = stonewrightPackageVersion(opts.to);
+	const packageIdentity = stonewrightPackageIdentity(opts.to);
+	if (!expectedVersion || !packageIdentity) {
+		writeErr('package_version_unknown: --to must contain an exact companion version.');
+		return 1;
+	}
+	const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
+	const before = snapshotFile(configPath);
+	try {
+		const applied = adapter.updatePackageReference(configPath, binding.server_name, opts.to);
+		const appliedSnapshot = snapshotFile(configPath);
+		const readback = adapter.read(configPath, binding.server_name);
+		const packageMatches = readback?.args.filter((arg) => arg === opts.to).length ?? 0;
+		if (packageMatches !== 1) {
+			restoreFileSnapshot(configPath, before, appliedSnapshot);
+			throw new ConnectError('config_readback_failed', 'Config readback did not contain exactly one requested package token.');
+		}
+		const now = new Date().toISOString();
+		const attestationKey = binding.restart_attestation_key ?? randomBytes(32).toString('base64url');
+		const priorProof = binding.last_restart_proof && verifyActiveClientRestartProof(
+			binding.last_restart_proof,
+			attestationKey,
+			binding.last_consumed_restart_receipt_id,
+		)
+			? binding.last_restart_proof
+			: null;
+		const priorActiveVerification = site.last_verification?.attestation_scope === 'active-client'
+			? site.last_verification
+			: null;
+		const nextSite: SiteRecordV2 = {
+			...site,
+			clients: {
+				...site.clients,
+				[adapter.id]: {
+					...binding,
+					last_applied_at: now,
+					restart_attestation_key: attestationKey,
+					pending_restart: {
+						receipt_id: randomUUID(),
+						created_at: now,
+						expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+						status: 'restart-required',
+						client: adapter.id,
+						expected_package: opts.to,
+						expected_package_provenance: packageIdentity.provenance,
+						expected_version: expectedVersion,
+						pre_restart_process_start_id: priorProof?.process_start_id ?? priorActiveVerification?.process_start_id ?? null,
+						pre_restart_catalog_digest: priorProof?.catalog_digest ?? priorActiveVerification?.catalog_digest ?? null,
+						config_before_sha256: applied.beforeSha256,
+						config_after_sha256: applied.afterSha256,
+					},
+				},
+			},
+			updated_at: now,
+		};
+		try {
+			const nextRegistry = upsertSite(registry, nextSite, { replace: true });
+			if (ctx.saveRegistryImpl) {
+				ctx.saveRegistryImpl(nextRegistry, ctxPaths(ctx));
+			} else {
+				atomicWriteRegistry(registryPath, nextRegistry);
+			}
+		} catch (err) {
+			const current = readTextFile(configPath);
+			const ownsCurrentWrite = current !== null && sha256Text(current) === applied.afterSha256;
+			if (ownsCurrentWrite) restoreFileSnapshot(configPath, before, appliedSnapshot);
+			throw new ConnectError(
+				'registry_write_failed',
+				`Registry write failed; ${ownsCurrentWrite ? 'client config was rolled back' : 'a newer client config was preserved'}: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+		writeOut(JSON.stringify({
+			ok: true,
+			site_alias: site.alias,
+			client: adapter.id,
+			server_name: binding.server_name,
+			status: 'restart-required',
+			previous_package_spec: applied.previousPackageSpec,
+			previous_version: stonewrightPackageVersion(applied.previousPackageSpec),
+			package_spec: applied.packageSpec,
+			expected_version: expectedVersion,
+			config_before_sha256: applied.beforeSha256,
+			config_after_sha256: applied.afterSha256,
+			prefix_sha256: applied.prefixSha256,
+			suffix_sha256: applied.suffixSha256,
+			unrelated_bytes_unchanged: applied.unrelatedBytesUnchanged,
+			backup_created: applied.backupPath !== null,
+			next_action: 'Fully restart the MCP client, then call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check inside that active client. Run connect verify afterward for an independent spawned-runtime check.',
+		}, null, 2));
+		return 0;
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
 }
 
 export function connectList(ctx: ConnectContext = {}): number {
@@ -1004,6 +1243,7 @@ export async function connectVerify(
 	}
 
 	let configuredEntry: McpServerEntry | undefined;
+	let verifiedClientId: string | undefined;
 	if (opts.client) {
 		const adapter = getClientAdapter(opts.client);
 		if (!adapter) {
@@ -1013,6 +1253,7 @@ export async function connectVerify(
 				detail: `No adapter for client "${opts.client}"`,
 			});
 		} else {
+			verifiedClientId = adapter.id;
 			const binding = site.clients[adapter.id];
 			const configPath = binding?.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			const serverName = binding?.server_name ?? mcpServerName(site.alias, site.id, new Set());
@@ -1029,8 +1270,21 @@ export async function connectVerify(
 	const runtime = await (ctx.runtimeVerifier
 		? ctx.runtimeVerifier(site, password, configuredEntry)
 		: defaultRuntimeVerifier(site, password, ctx.fetchImpl ?? fetch, configuredEntry));
-	const runtimeReady = runtime.ok && (runtime.refresh_required_tool_names?.length ?? 0) === 0;
+	const runtimeReady = runtime.ok
+		&& runtime.task_start_available === true
+		&& runtime.setup_profile_available === true
+		&& runtime.status_available === true
+		&& runtime.surface_check_available === true
+		&& (runtime.refresh_required_tool_names?.length ?? 0) === 0;
 	checks.push({ id: 'runtime', ok: runtimeReady, detail: runtime.detail });
+	const pendingRestart = verifiedClientId ? site.clients[verifiedClientId]?.pending_restart : undefined;
+	if (verifiedClientId && pendingRestart) {
+		checks.push({
+			id: 'restart_proof',
+			ok: false,
+			detail: 'restart_active_client_attestation_required: Restart the AI client, then call task-start, setup-profile, status, and client-surface-check inside that active MCP host.',
+		});
+	}
 	const remoteNames = runtime.remote_tool_names ?? [];
 	const surfaceDigest = remoteNames.length > 0
 		? `sha256:${createHash('sha256').update([...remoteNames].sort().join('\n')).digest('hex')}`
@@ -1040,6 +1294,7 @@ export async function connectVerify(
 	const now = new Date().toISOString();
 	const nextSite: SiteRecordV2 = {
 		...site,
+		clients: site.clients,
 		last_verification: {
 			at: now,
 			ok,
@@ -1051,8 +1306,14 @@ export async function connectVerify(
 			remote_tool_count: remoteNames.length || undefined,
 			surface_digest: surfaceDigest,
 			task_start_available: runtime.task_start_available,
+			setup_profile_available: runtime.setup_profile_available,
 			status_available: runtime.status_available,
+			surface_check_available: runtime.surface_check_available,
 			refresh_required_tool_names: runtime.refresh_required_tool_names,
+			process_start_id: runtime.process_start_id,
+			catalog_digest: runtime.catalog_digest,
+			client_observed_tool_names: runtime.client_observed_tool_names,
+			attestation_scope: runtime.attestation_scope,
 		},
 		updated_at: now,
 	};
@@ -1078,6 +1339,10 @@ export async function connectVerify(
 			task_start_available: runtime.task_start_available,
 			status_available: runtime.status_available,
 			refresh_required_tool_names: runtime.refresh_required_tool_names ?? [],
+			process_start_id: runtime.process_start_id,
+			catalog_digest: runtime.catalog_digest,
+			client_observed_tool_names: runtime.client_observed_tool_names ?? [],
+			attestation_scope: runtime.attestation_scope,
 		},
 	}, null, 2));
 	return ok ? 0 : 1;
@@ -1219,7 +1484,8 @@ export function connectRemove(
 			const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			const before = snapshotFile(configPath);
 			adapter.remove(configPath, binding.server_name);
-			rollbackClient = () => restoreFileSnapshot(configPath, before);
+			const removedSnapshot = snapshotFile(configPath);
+			rollbackClient = () => restoreFileSnapshot(configPath, before, removedSnapshot);
 		}
 		const rest = { ...site.clients };
 		delete rest[opts.client];
@@ -1255,7 +1521,8 @@ export function connectRemove(
 				const configPath = binding.config_path;
 				const before = snapshotFile(configPath);
 				adapter.remove(configPath, binding.server_name);
-				rollbackClients.push(() => restoreFileSnapshot(configPath, before));
+				const removedSnapshot = snapshotFile(configPath);
+				rollbackClients.push(() => restoreFileSnapshot(configPath, before, removedSnapshot));
 			}
 		}
 

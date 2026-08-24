@@ -174,7 +174,6 @@ final class ClientCatalogTest extends TestCase {
 
 	public function test_catalog_includes_split_surface_clients(): void {
 		$required = [
-			'chatgpt-desktop' => 'Codex in ChatGPT Desktop',
 			'chatgpt'         => 'ChatGPT',
 			'claude-ai'       => 'Claude.ai',
 			'claude-desktop'  => 'Claude Desktop',
@@ -191,9 +190,11 @@ final class ClientCatalogTest extends TestCase {
 			self::assertSame( $label, $client['label'], $slug );
 		}
 
-		$desktop = ClientCatalog::get( 'chatgpt-desktop' );
-		self::assertTrue( $desktop['oauth_support'] );
-		self::assertSame( 'json-mcp', $desktop['config_format'] );
+		$desktop_alias = ClientCatalog::get( 'chatgpt-desktop' );
+		self::assertIsArray( $desktop_alias );
+		self::assertSame( 'codex', $desktop_alias['slug'] );
+		self::assertSame( 'toml-codex', $desktop_alias['config_format'] );
+		self::assertSame( '~/.codex/config.toml', $desktop_alias['config_path'] );
 
 		$cli = ClientCatalog::get( 'codex-cli' );
 		self::assertTrue( $cli['oauth_support'] );
@@ -205,7 +206,7 @@ final class ClientCatalogTest extends TestCase {
 		$oauth_slugs = array_keys( \Stonewright\WpMcp\Admin\OAuthClientConfig::client_labels() );
 		$app_slugs   = array_column( ConnectClientConfig::chooser_clients(), 'slug' );
 		self::assertSame( $oauth_slugs, $app_slugs );
-		foreach ( [ 'chatgpt-desktop', 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'windsurf', 'codex-cli' ] as $slug ) {
+		foreach ( [ 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'windsurf', 'codex-cli' ] as $slug ) {
 			self::assertContains( $slug, $app_slugs );
 		}
 	}
@@ -220,9 +221,9 @@ final class ClientCatalogTest extends TestCase {
 		self::assertIsArray( $gemini );
 		self::assertArrayHasKey( 'httpUrl', $gemini['mcpServers']['stonewright-example-test'] );
 
-		$desktop = ConnectClientConfig::snippet_for( 'chatgpt-desktop', 'fixture-admin', 'xxxx xxxx', 'http' );
-		self::assertIsArray( $desktop );
-		self::assertArrayHasKey( 'url', $desktop['mcpServers']['stonewright-example-test'] );
+		$desktop = ConnectClientConfig::snippet_for( 'chatgpt-desktop', 'fixture-admin', 'xxxx xxxx', 'stdio' );
+		$codex   = ConnectClientConfig::snippet_for( 'codex', 'fixture-admin', 'xxxx xxxx', 'stdio' );
+		self::assertSame( $codex, $desktop );
 
 		$codex_cli = ConnectClientConfig::snippet_for( 'codex-cli', 'fixture-admin', 'xxxx xxxx', 'stdio' );
 		$codex     = ConnectClientConfig::snippet_for( 'codex', 'fixture-admin', 'xxxx xxxx', 'stdio' );

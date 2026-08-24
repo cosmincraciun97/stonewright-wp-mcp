@@ -19,6 +19,19 @@ const STONEWRIGHT_PAGES = [
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
 
+test('Setup shows the exact four-call post-update verification flow', async ({ page }) => {
+	await login(page);
+	await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+	const steps = page.locator('[data-stonewright-runtime-verification-flow] > li');
+	await expect(steps).toHaveCount(4);
+	await expect(steps).toHaveText([
+		'Call stonewright-task-start first with a non-empty task.',
+		'Call stonewright-setup-profile.',
+		'Call stonewright-wordpress-mcp-status.',
+		'Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.',
+	]);
+});
+
 /**
  * Hardened wp-admin login for flaky CI (reauth redirects, parallel workers).
  */
@@ -172,7 +185,29 @@ test.describe('Stonewright admin UI', () => {
 			'[data-stonewright-auth-method="application-password"]',
 		);
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
-		await expect(page.locator('[data-sw-oauth-tab]')).toHaveCount(21);
+		const oauthTabs = page.locator('[data-sw-oauth-tab]');
+		const oauthPanels = page.locator('[data-sw-oauth-panel]');
+		const tabSlugs = await oauthTabs.evaluateAll((tabs) =>
+			tabs.map((tab) => tab.getAttribute('data-sw-oauth-tab') ?? ''),
+		);
+		const panelSlugs = await oauthPanels.evaluateAll((panels) =>
+			panels.map((panel) => panel.getAttribute('data-sw-oauth-panel') ?? ''),
+		);
+		expect(new Set(tabSlugs).size, 'OAuth client tabs must be unique').toBe(tabSlugs.length);
+		expect(panelSlugs, 'every OAuth tab must own one matching panel').toEqual(tabSlugs);
+		expect(tabSlugs).toEqual(expect.arrayContaining([
+			'chatgpt',
+			'claude-ai',
+			'claude-desktop',
+			'claude-code',
+			'windsurf',
+			'codex-cli',
+			'cursor',
+			'vscode',
+			'generic-mcp',
+		]));
+		expect(tabSlugs).not.toContain('codex');
+		expect(tabSlugs).not.toContain('chatgpt-desktop');
 
 		const codexTab = page.locator('[data-sw-oauth-tab="codex-cli"]');
 		await codexTab.click();
@@ -205,7 +240,7 @@ test.describe('Stonewright admin UI', () => {
 		await expect(settingsForm).toHaveAttribute('action', 'options.php');
 		const save = settingsForm.getByRole('button', { name: 'Save Settings' });
 		await expect(save).toBeVisible();
-		expect(await save.evaluate((button) => button.form?.classList.contains('stonewright-settings-form'))).toBe(true);
+		expect(await save.evaluate((button) => (button as HTMLButtonElement).form?.classList.contains('stonewright-settings-form'))).toBe(true);
 		expect(await settingsForm.locator('form').count()).toBe(0);
 
 		await Promise.all([

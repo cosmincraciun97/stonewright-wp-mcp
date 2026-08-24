@@ -104,10 +104,14 @@ After a client-specific restart / MCP reload (not only a chat refresh):
 - Require site_alias, configured_mode=plugin-only, active_mode=plugin,
   companion_version, and refresh_required_tool_names. If another site or Direct
   mode appears, stop because the wrong named server is active.
-- Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
+- Call stonewright-setup-profile, stonewright-wordpress-mcp-status, then
+  stonewright-client-surface-check in that successful order.
 - Confirm the target site, site_alias, companion_version matches VERSION,
   expected_companion_package, the WordPress MCP endpoint is authenticated, and
   refresh_required_tool_names is empty.
+- Treat saved/effective WordPress mode or surface mismatch, relist_required, or
+  client_has_tool=false as blocking even when refresh_required_tool_names is
+  empty. Follow the returned exact remediation and repeat the ordered checks.
 - Status and gateway reports must be honest when disconnected or unauthorized.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
@@ -197,7 +201,8 @@ reuse its saved credential.
 After reload:
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Call stonewright-task-start first with a non-empty task, surface, and intent.
-- Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
+- Call stonewright-setup-profile, stonewright-wordpress-mcp-status, then
+  stonewright-client-surface-check.
 - Confirm mode is Direct, companion_version matches VERSION, and capability
   gaps are reported honestly rather than silently falling back.
 - In Direct mode task-start returns this site's locally stored skills and
@@ -239,17 +244,17 @@ After reload:
 
 For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).
 
-## Codex Desktop vs CLI
+## Codex aliases
 
-Treat these as two clients. `--client codex` aliases to CLI; prefer the
-canonical slugs:
+Codex CLI is the canonical local adapter. `--client codex` and the compatibility
+alias `--client chatgpt-desktop` resolve to the same Codex TOML entry:
 
 | Surface | Flag | Config |
 |---|---|---|
 | Codex CLI | `--client codex-cli` | `~/.codex/config.toml` |
-| Codex in ChatGPT Desktop | `--client chatgpt-desktop` | `~/Library/Application Support/ChatGPT/mcp_config.json` |
+| ChatGPT Desktop alias | `--client chatgpt-desktop` | `~/.codex/config.toml` |
 
-Do not paste CLI TOML into the Desktop JSON file. See
+Do not create a second JSON entry for the alias. See
 [getting-started/codex.md](getting-started/codex.md).
 
 ## Certified vs compatible clients
@@ -258,7 +263,8 @@ Do not paste CLI TOML into the Desktop JSON file. See
   Code/Desktop, Cursor, VS Code / GitHub Copilot — maintained first, but not
   called certified without a passing acceptance report; use
   [client-acceptance-template.md](releases/client-acceptance-template.md).
-  Codex in ChatGPT Desktop is a separate client (`--client chatgpt-desktop`).
+  The `chatgpt-desktop` compatibility slug resolves to the same Codex TOML
+  binding as `codex-cli`.
 - **Compatible:** other catalog clients may work with the same stdio/HTTP
   snippets but are not fully certified until an acceptance report passes.
 - Certification priority, operational support, and evidence live in
@@ -273,6 +279,8 @@ Do not paste CLI TOML into the Desktop JSON file. See
 
 Restart the client, call `stonewright-task-start`, then verify
 `companion_version`, `expected_companion_package`, and
-`refresh_required_tool_names`. Updates preserve existing plugin and Direct
+`refresh_required_tool_names`; complete `setup-profile`, status, and
+`client-surface-check` in order, and fail closed on any saved/effective
+mode/surface or visibility mismatch. Updates preserve existing plugin and Direct
 memory, user skills, and audit history. Full steps:
 [Updating Stonewright](updates.md).

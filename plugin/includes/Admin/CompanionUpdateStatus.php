@@ -21,7 +21,8 @@ final class CompanionUpdateStatus {
 	 */
 	public static function report( ?callable $bridge_transport = null, bool $force_refresh = false ): array {
 		$plugin_version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.0.0';
-		$release        = GitHubUpdater::fetch_latest_release( $force_refresh );
+		$release_lookup = GitHubUpdater::release_metadata( $force_refresh );
+		$release        = is_array( $release_lookup['release'] ) ? $release_lookup['release'] : null;
 		$latest_version = is_array( $release ) ? (string) ( $release['version'] ?? '' ) : '';
 		$target_version = '' !== $latest_version ? $latest_version : $plugin_version;
 		$bridge         = self::bridge_health( $bridge_transport );
@@ -40,13 +41,23 @@ final class CompanionUpdateStatus {
 			}
 		}
 
-		$package = is_array( $release ) && '' !== (string) ( $release['companion_package'] ?? '' )
-			? (string) $release['companion_package']
-			: ConnectClientConfig::companion_package_spec( $target_version );
-		$prompt  = self::update_prompt( $target_version, $package );
+		$package = is_array( $release ) ? (string) ( $release['companion_package'] ?? '' ) : '';
+		$prompt  = '' !== $latest_version && '' !== $package ? self::update_prompt( $latest_version, $package ) : '';
+		$release_status = (string) $release_lookup['status'];
+		$release_error  = is_array( $release_lookup['reason'] ) ? $release_lookup['reason'] : null;
+		$running_status = 'not_visible';
+		if ( true === ( $bridge['configured'] ?? false ) ) {
+			$running_status = true === ( $bridge['reachable'] ?? false ) ? $companion_status : 'unavailable';
+		}
+		$configured_version  = true === ( $bridge['reachable'] ?? false ) ? (string) ( $bridge['configured_package_version'] ?? '' ) : '';
+		$configured_package  = $configured_version !== '' ? (string) ( $bridge['configured_package'] ?? '' ) : '';
+		$configured_attested = '' !== $configured_version;
+		$configured_reason   = $configured_attested
+			? __( 'Version supplied by an explicit bridge health attestation.', 'stonewright' )
+			: __( 'WordPress cannot inspect the private stdio package configured inside the AI client.', 'stonewright' );
 
 		return [
-			'ok'                      => is_array( $release ),
+			'ok'                      => (bool) $release_lookup['ok'],
 			'plugin_version'          => $plugin_version,
 			'latest_release_version'  => $latest_version,
 			'plugin_update_available' => $plugin_update_available,
@@ -55,6 +66,23 @@ final class CompanionUpdateStatus {
 			'checksums'               => is_array( $release ) ? (string) ( $release['checksums'] ?? '' ) : '',
 			'release_url'             => is_array( $release ) ? (string) ( $release['url'] ?? '' ) : '',
 			'bridge'                  => $bridge,
+			'latest_release'          => [
+				'status' => $release_status,
+				'version' => $latest_version,
+				'error'   => $release_error,
+			],
+			'configured_companion'    => [
+				'status'  => $configured_attested ? 'attested' : 'not_visible',
+				'version' => $configured_version,
+				'package' => $configured_package,
+				'source'  => $configured_attested ? 'http_bridge_attestation' : 'wordpress',
+				'reason'  => $configured_reason,
+			],
+			'running_companion'       => [
+				'status'  => $running_status,
+				'version' => $bridge_version,
+				'source'  => true === ( $bridge['configured'] ?? false ) ? 'http_bridge' : 'ai_client',
+			],
 			'update_prompt'           => $prompt,
 			'boundary'                => __( 'WordPress cannot replace a local stdio companion process. Update it in the AI client, restart that client, then verify the reported companion version.', 'stonewright' ),
 		];
@@ -62,11 +90,23 @@ final class CompanionUpdateStatus {
 
 	/**
 	 * @param callable|null $transport Test seam matching wp_safe_remote_get.
-	 * @return array{reachable: bool, version: string, contract_version: string, detail: string}
+	 * @return array{configured: bool, state: string, reachable: bool, version: string, configured_package: string, configured_package_version: string, contract_version: string, detail: string}
 	 */
 	private static function bridge_health( ?callable $transport = null ): array {
-		$base  = rtrim( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ), '/' );
+		$base  = rtrim( (string) get_option( 'stonewright_companion_url', '' ), '/' );
 		$token = (string) get_option( 'stonewright_companion_token', '' );
+		if ( '' === $base ) {
+			return [
+				'configured'      => false,
+				'state'           => 'not_configured',
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package'          => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'No HTTP bridge is configured. This is normal for local stdio and remote OAuth connections.', 'stonewright' ),
+			];
+		}
 		$transport ??= static fn( string $url, array $args ): array|\WP_Error => wp_safe_remote_get( $url, $args );
 
 		$response = $transport(
@@ -80,10 +120,14 @@ final class CompanionUpdateStatus {
 
 		if ( is_wp_error( $response ) ) {
 			return [
-				'reachable'        => false,
-				'version'          => '',
-				'contract_version' => '',
-				'detail'           => __( 'Configured HTTP bridge is not reachable. Local stdio remains private to the AI client.', 'stonewright' ),
+				'configured'      => true,
+				'state'           => 'unreachable',
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package'          => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'Configured HTTP bridge is not reachable. Local stdio remains private to the AI client.', 'stonewright' ),
 			];
 		}
 
@@ -91,21 +135,30 @@ final class CompanionUpdateStatus {
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( 200 !== $code || ! is_array( $data ) ) {
 			return [
-				'reachable'        => false,
-				'version'          => '',
-				'contract_version' => '',
-				'detail'           => __( 'Configured HTTP bridge did not return a valid health response.', 'stonewright' ),
+				'configured'      => true,
+				'state'           => 'invalid_response',
+				'reachable'                  => false,
+				'version'                    => '',
+				'configured_package'          => '',
+				'configured_package_version' => '',
+				'contract_version'           => '',
+				'detail'                     => __( 'Configured HTTP bridge did not return a valid health response.', 'stonewright' ),
 			];
 		}
 
-		$version  = isset( $data['version'] ) && is_string( $data['version'] ) ? $data['version'] : '';
-		$contract = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
+		$version                    = isset( $data['version'] ) && is_string( $data['version'] ) ? $data['version'] : '';
+		$contract                   = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
+		$configured_attestation = self::configured_package_attestation( $data, $token );
 
 		return [
-			'reachable'        => true,
-			'version'          => $version,
-			'contract_version' => $contract,
-			'detail'           => '' !== $version
+			'configured'                => true,
+			'state'                     => 'reachable',
+			'reachable'                 => true,
+			'version'                   => $version,
+			'configured_package'          => $configured_attestation['package'],
+			'configured_package_version'  => $configured_attestation['version'],
+			'contract_version'          => $contract,
+			'detail'                    => '' !== $version
 				? sprintf(
 					/* translators: %s: companion version. */
 					__( 'Configured HTTP bridge reports companion %s.', 'stonewright' ),
@@ -115,19 +168,72 @@ final class CompanionUpdateStatus {
 		];
 	}
 
+	/**
+	 * @param array<string, mixed> $data Health payload.
+	 * @return array{package: string, version: string}
+	 */
+	private static function configured_package_attestation( array $data, string $token ): array {
+		$empty = [ 'package' => '', 'version' => '' ];
+		if (
+			'' === $token
+			|| 'authenticated-environment' !== ( $data['configured_package_source'] ?? '' )
+			|| ! isset( $data['configured_package'], $data['configured_package_version'], $data['configured_package_provenance'] )
+			|| ! is_string( $data['configured_package'] )
+			|| ! is_string( $data['configured_package_version'] )
+			|| ! is_string( $data['configured_package_provenance'] )
+		) {
+			return $empty;
+		}
+
+		$package    = $data['configured_package'];
+		$version    = $data['configured_package_version'];
+		$provenance = $data['configured_package_provenance'];
+		$semver     = '(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?';
+		$npm_match  = [];
+		$gh_match   = [];
+		$is_npm     = 1 === preg_match( '/^@stonewright\/companion@(' . $semver . ')$/', $package, $npm_match );
+		$is_github  = 1 === preg_match(
+			'/^https:\/\/github\.com\/cosmincraciun97\/stonewright-wp-mcp\/releases\/download\/v(' . $semver . ')\/stonewright-companion-(' . $semver . ')\.tgz$/',
+			$package,
+			$gh_match
+		);
+		if ( $is_npm && 'npm-registry' === $provenance && ( $npm_match[1] ?? '' ) === $version ) {
+			return [ 'package' => $package, 'version' => $version ];
+		}
+		if (
+			$is_github && 'github-release' === $provenance
+			&& $gh_match[1] === $version
+			&& $gh_match[1] === $gh_match[2]
+		) {
+			return [ 'package' => $package, 'version' => $version ];
+		}
+		return $empty;
+	}
+
+	/** @return list<string> */
+	public static function verification_steps(): array {
+		return [
+			__( 'Call stonewright-task-start first with a non-empty task.', 'stonewright' ),
+			__( 'Call stonewright-setup-profile.', 'stonewright' ),
+			__( 'Call stonewright-wordpress-mcp-status.', 'stonewright' ),
+			__( 'Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.', 'stonewright' ),
+		];
+	}
+
 	private static function update_prompt( string $version, string $package ): string {
+		$numbered_steps = [];
+		foreach ( self::verification_steps() as $index => $step ) {
+			$numbered_steps[] = ( $index + 1 ) . '. ' . $step;
+		}
 		return sprintf(
 			"Update the Stonewright companion used by this AI client to %1\$s.\n\n"
 			. "Official package:\n%2\$s\n\n"
 			. "Use the client's official MCP settings or command to replace only the Stonewright package reference. Do not print, reveal, move, or commit surrounding credentials or private client configuration. Fully restart the client so the old stdio process and cached tool list are gone.\n\n"
-			. "After restart:\n"
-			. "1. Confirm stonewright-task-start is visible.\n"
-			. "2. Call stonewright-task-start first.\n"
-			. "3. Call stonewright-setup-profile and stonewright-wordpress-mcp-status.\n"
-			. "4. Verify companion_version is %1\$s and refresh_required_tool_names is empty.\n"
-			. "5. Stop and report the exact failure if the version or tool list is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
+			. "After restart, complete these four calls in order:\n%3\$s\n\n"
+			. "Then verify companion_version is %1\$s, refresh_required_tool_names is empty, and client_has_tool is true for the required tool. Stop and report the exact failure if version, reconciliation, or client visibility is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
 			$version,
-			$package
+			$package,
+			implode( "\n", $numbered_steps )
 		);
 	}
 }

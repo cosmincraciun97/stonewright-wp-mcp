@@ -30,6 +30,19 @@ activation, packaging, or compatibility issue that affects the site.
    ZIP, and choose **Replace current with uploaded**.
 4. Return to **Stonewright → Setup** and run **Verify connection**.
 
+The native updater offers a release only when exact plugin, companion, and
+`SHA256SUMS.txt` assets are present on the trusted release URL. At WordPress's
+install/update gate it fetches a bounded manifest, requires one exact ZIP
+filename and SHA-256 digest, and verifies the downloaded package before
+installation. Missing, malformed, forged, unavailable, empty, or mismatched
+checksum evidence fails closed; do not bypass that failure with an unverified
+package. The queued ZIP is also bound to its exact release version, canonical
+package path, and manifest when the update transient is created. A later cache
+refresh, unavailable release feed, mismatched package, or query-string URL
+variant cannot bypass that binding. Non-Stonewright plugin downloads, including
+wordpress.org packages, are left unchanged; the gate fail-closes only for
+official Stonewright ZIPs or the Stonewright plugin basename.
+
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
 or Stonewright settings.
@@ -55,13 +68,29 @@ the linked SHA-256 manifest.
 2. Replace the old `stonewright-companion-VERSION.tgz` release URL with the URL
    from the current release. Keep credentials private; never paste them into an
    issue, chat, repository, or command saved in shell history.
+   Installer-managed TOML/JSONC entries must remain an exact `npx` or
+   `npx.cmd` invocation with one `--package`, one exact Stonewright package,
+   and the `stonewright-mcp` executable in that order. Shell wrappers, extra
+   packages, duplicate flags, and unrelated package strings are rejected.
+   Duplicate `command`/`args` assignments, non-string array members, and
+   ambiguous command values are also rejected without changing the file. The
+   complete Codex TOML document is parsed before and after replacement, so a
+   missing comma, duplicate definition, or malformed unrelated section blocks
+   both config mutation and restart-receipt persistence. A valid replacement
+   changes only the exact package string and preserves every surrounding byte.
+   `stonewright connect update` JSON reports the previous and new package/version
+   plus prefix/suffix hashes proving unrelated bytes were unchanged. It does not
+   print backup paths, credentials, or config text.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
-4. Call `stonewright-task-start`, then
-   `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`. Confirm
+4. Call `stonewright-task-start`, then `stonewright-setup-profile`,
+   `stonewright-wordpress-mcp-status`, and
+   `stonewright-client-surface-check` in that exact successful order. Confirm
    `companion_version` matches the installed plugin when using stdio,
    `expected_companion_package` is current, and
-   `refresh_required_tool_names` is empty.
+   `refresh_required_tool_names` is empty. The surface check must also report
+   the required tool as client-visible; an empty refresh list alone is not
+   update proof.
 
 For alias-based stdio installs, prefer the versioned repair command over
 editing a generic MCP block:
@@ -74,12 +103,39 @@ This reuses the existing credential reference, refreshes only the named client
 entry, and makes the alias authoritative over stale inherited WordPress
 environment values. Restart the client, then run `connect verify`; another
 alias or `active_mode=direct` is a failed plugin-mode update, not success.
+An explicit unknown alias clears inherited WordPress credential variables and
+stops startup; it never falls through to whichever site was left in the
+environment.
+`--credential-env STONEWRIGHT_WP_APP_PASSWORD` remains valid: the selected
+alias resolves that one value from a protected pre-clear snapshot, then writes
+only the selected site's URL, username, and password back to the runtime.
 The repair receipt is content-free: it confirms the server name, change/backup
 state, support tier, and browser consent without printing the surrounding
 private client configuration or absolute config/backup paths.
-The verification receipt includes the companion version, active alias,
-task-start/status availability, and `refresh_required_tool_names`; any non-empty
-refresh list is a failed update until the client is fully restarted.
+The verification receipt includes the companion version, active alias, exact
+successful gateway sequence, process/catalog evidence, and
+`refresh_required_tool_names`. A non-empty refresh list, saved/effective
+mode-or-surface mismatch, stale catalog, or failed client visibility check is a
+failed update until the exact remediation is completed and verification is
+repeated.
+Config mutation and receipt persistence use one transaction lock. A failed
+registry write rolls back only when the config still has the updater's own
+hash, so it cannot overwrite a newer concurrent edit or receipt.
+Each TOML/JSONC config also has its own exclusive lock and an immediate
+pre-rename hash comparison. A concurrent edit is preserved and the Stonewright
+write is rejected; rollback applies the same comparison.
+
+The plugin task-start payload uses WorkflowPreflight schema version 2 and
+reports `saved_wordpress_mode` plus `effective_wordpress_mode`. The companion
+accepts those plugin values as authoritative. Unsupported schemas, malformed
+mode fields, MCP errors, and plugin validation failures still block sequence
+recording and keep `startup_ready` false. Relist, mismatch, and setup `ok`
+warnings stay visible and do not prevent recording the required verification
+sequence.
+
+The plugin JSON client catalog is authoritative. The companion catalog is
+generated from it and contract-tested for OAuth support, default profile, and
+relist behavior.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

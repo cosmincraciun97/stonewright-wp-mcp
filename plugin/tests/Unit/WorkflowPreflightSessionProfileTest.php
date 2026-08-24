@@ -57,6 +57,26 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 		self::assertContains( 'stonewright/theme-file-patch', $session['ability_names'] );
 	}
 
+	public function test_preflight_reports_versioned_authoritative_saved_and_effective_plugin_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'staging';
+
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Inspect the active WordPress runtime mode',
+				'surface' => 'wordpress',
+				'intent'  => 'read',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 2, $result['schema_version'] );
+		self::assertSame( 'staging', $result['saved_wordpress_mode'] );
+		self::assertSame( 'staging', $result['effective_wordpress_mode'] );
+		self::assertContains( 'schema_version', ( new WorkflowPreflight() )->output_schema()['required'] );
+		self::assertContains( 'saved_wordpress_mode', ( new WorkflowPreflight() )->output_schema()['required'] );
+		self::assertContains( 'effective_wordpress_mode', ( new WorkflowPreflight() )->output_schema()['required'] );
+	}
+
 	public function test_full_surface_skips_transient_and_reports_reason(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'full';
 

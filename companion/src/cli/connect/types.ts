@@ -19,6 +19,7 @@ export type AuthMethod = 'application-password' | 'oauth' | 'none';
 
 export type BrowserProvider = 'recommended' | 'connected-browser' | 'none' | 'unset';
 export type ConsentState = 'granted' | 'denied' | 'unknown';
+export type RuntimeAttestationScope = 'spawned-runtime' | 'site-runtime' | 'active-client';
 
 export interface BrowserPreferences {
 	provider: BrowserProvider;
@@ -32,6 +33,46 @@ export interface SiteClientBinding {
 	config_path?: string | undefined;
 	last_applied_at?: string | undefined;
 	browser?: BrowserPreferences | undefined;
+	pending_restart?: RestartReceipt | undefined;
+	last_restart_proof?: RestartProof | undefined;
+	/** Private HMAC key retained only in the local registry. Never return it. */
+	restart_attestation_key?: string | undefined;
+	last_consumed_restart_receipt_id?: string | undefined;
+}
+
+export interface RestartReceipt {
+	receipt_id: string;
+	created_at: string;
+	expires_at: string;
+	status: 'restart-required';
+	client: string;
+	expected_package: string;
+	expected_package_provenance: 'npm-registry' | 'github-release';
+	expected_version: string;
+	pre_restart_process_start_id: string | null;
+	pre_restart_catalog_digest: string | null;
+	config_before_sha256: string;
+	config_after_sha256: string;
+}
+
+export interface RestartProof {
+	verified_at: string;
+	status: 'verified';
+	attestation_scope: 'active-client';
+	receipt_id: string;
+	client: string;
+	mcp_client_name: string;
+	expected_package: string;
+	expected_package_provenance: 'npm-registry' | 'github-release';
+	expected_version: string;
+	companion_version: string;
+	config_before_sha256: string;
+	config_after_sha256: string;
+	process_start_id: string;
+	catalog_digest: string;
+	catalog_observation_digest: string;
+	expires_at: string;
+	attestation_digest: string;
 }
 
 export interface LastVerification {
@@ -45,8 +86,14 @@ export interface LastVerification {
 	remote_tool_count?: number | undefined;
 	surface_digest?: string | undefined;
 	task_start_available?: boolean | undefined;
+	setup_profile_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	surface_check_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
+	process_start_id?: string | undefined;
+	catalog_digest?: string | undefined;
+	client_observed_tool_names?: string[] | undefined;
+	attestation_scope?: RuntimeAttestationScope | undefined;
 }
 
 export interface PluginExpectations {

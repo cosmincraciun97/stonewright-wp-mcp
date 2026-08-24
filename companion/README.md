@@ -180,8 +180,10 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 
 `playwright` is the natural alias for the recommended external browser
 provider. Verification prints only safe runtime proof: companion version,
-active alias, task-start/status availability, and
-`refresh_required_tool_names`. A non-empty refresh list fails verification.
+active alias, ordered gateway results, and `refresh_required_tool_names`. It
+also requires `stonewright-client-surface-check` to attest the current
+process-bound catalog; caller-supplied tool names and an empty refresh list
+alone are not visibility proof.
 
 **What gets stored where**
 
@@ -294,7 +296,8 @@ useful surface plus permanent recovery gateways (`task-start`, `connect-doctor`,
 expand the session profile when the client honors `tools/list_changed`. Full is
 never selected implicitly.
 
-After the MCP server starts, call `stonewright-setup-profile` once. It returns
+After the MCP server starts, call `stonewright-task-start` first, then
+`stonewright-setup-profile`. It returns
 the same config shape plus platform checks, credential status, and notes for
 Windows, macOS, and Linux. Use its `first_calls` and
 `tool_visibility_checks` fields to verify `stonewright-task-start`,
@@ -303,10 +306,12 @@ Windows, macOS, and Linux. Use its `first_calls` and
 real work. Use `fast_path.tool_profile` from task-start before making a
 separate `stonewright-tool-profile` call.
 After every Stonewright release or local skill sync, restart the MCP client and
-rerun `stonewright-setup-profile` plus `stonewright-wordpress-mcp-status`.
+run `stonewright-task-start`, `stonewright-setup-profile`,
+`stonewright-wordpress-mcp-status`, then `stonewright-client-surface-check`.
 Check `companion_version`, `expected_companion_package`, and
-`refresh_required_tool_names`; if any required tool is missing from the client
-tool list, the client is still running an old companion or stale MCP cache.
+`refresh_required_tool_names`, plus the saved/effective WordPress mode and
+surface returned by the plugin. A mode/surface mismatch, `relist_required`, or
+`client_has_tool=false` is blocking even when the refresh list is empty.
 If neither `stonewright-task-start` nor compatibility
 `stonewright-context-bootstrap` is visible, stop WordPress work and reload or
 fix the MCP client config. Do not inspect private AI-client config
