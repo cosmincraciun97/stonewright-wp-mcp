@@ -13,6 +13,23 @@ and communicates through the process's standard input/output streams. Direct
 mode lives inside that companion. Remote Streamable HTTP bypasses the companion
 and connects straight to the WordPress plugin over HTTPS.
 
+At a glance, Stonewright stacks five layers:
+
+```text
+AI client
+   ↕
+Connection (stdio / HTTP)
+   ↕
+Stonewright safety + orchestration
+   ↕
+Native providers (Elementor, WordPress, WooCommerce, third-party)
+   ↕
+Verification · Audit · Restore
+```
+
+The diagram below expands each layer for plugin mode, Direct mode, and optional
+browser-assisted verification.
+
 ```mermaid
 flowchart TD
     Client["MCP client"]

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Nothing yet.
+
+## [1.0.0-beta.12] - 2026-08-24
+
+
+
 ### Security
 
 - Redact nested private keys, PEM certificates, and credential blobs from
@@ -88,7 +96,6 @@
   expose configured-package truth only to an authenticated request backed by a
   validated source.
 - Resolve `chatgpt-desktop` through the Codex TOML adapter and catalog metadata.
-
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Changed

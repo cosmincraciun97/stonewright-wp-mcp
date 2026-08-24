@@ -4,6 +4,14 @@
 
 ### Added
 
+- Nothing yet.
+
+## [1.0.0-beta.12] - 2026-08-24
+
+
+
+### Added
+
 - Add read-only Elementor provider discovery with ownership, trust, compatibility,
   certification, Status and Troubleshoot visibility, and certified
   native-preferred metadata for Elementor default styles; expose it in the
@@ -153,7 +161,6 @@
 - Coalesce identical permission and safety denials by site, ability, and error,
   retaining the first event plus bounded count summaries and severity under a
   stale-recoverable option mutex with compare-and-delete ownership.
-
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed
@@ -378,16 +385,9 @@
   `hide_*` switches; accept only the matching native device value or an empty
   off state before any document write.
 
-## [1.0.0-beta.8] - 2026-08-12
-
-### Changed
-
-- Align plugin metadata and generated companion package references with the
-  final connection-verification release. Plugin abilities and safety gates are
-  unchanged.
-
 ## Older releases
 
+- [1.0.0-beta.8](../docs/releases/1.0.0-beta.8.md)
 - [1.0.0-beta.7](../docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](../docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](../docs/releases/1.0.0-beta.5.md)
