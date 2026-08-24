@@ -29,6 +29,7 @@ function projects(): Project[] {
 }
 
 export default defineConfig({
+	globalSetup: './global-setup.ts',
 	testDir: './tests',
 	// The suite shares one WordPress database and mutates global options/posts.
 	fullyParallel: false,
