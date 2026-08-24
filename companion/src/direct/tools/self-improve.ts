@@ -29,7 +29,7 @@ import {
   type SkillMeta,
 } from "../skills-store.js";
 import { PLUGIN_ONLY_CAPABILITIES } from "./site-discover.js";
-import { markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
+import { DirectSafetyBlockedError, markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
 import { ensureStonewrightAgentsMd, pointerInstalled } from "../agents-md.js";
 import { globalRulesDigest } from "../global-rules.js";
 import { permanentRulesGuidance } from "../permanent-rules.js";
@@ -229,7 +229,12 @@ export function skillDelete(
   input: { slug: string; confirm?: boolean; global?: boolean; site?: string },
 ) {
   if (input.confirm !== true) {
-    throw new Error("stonewright-skill-delete requires confirm:true");
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
+      "stonewright-skill-delete requires confirm:true",
+      "stonewright-skill-delete",
+      input.site ?? "_global",
+    );
   }
   const resolved = resolveSelfImproveScope(ctx, input.site);
   const scope = input.global ? "_global" : resolved.scope;

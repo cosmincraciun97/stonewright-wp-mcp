@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Disable automatic audit retention by default and run deletion only through
+  an explicitly configured daily policy.
+- Coalesce successful authentication polling and omit finalizer heartbeats from
+  the mutation audit stream.
+
+### Fixed
+
+- Persist canonical audit lifecycle identity and bind terminal idempotency to
+  the operation, resource, payload, status, and ability.
+- Stop the browser finalizer on terminal HTTP responses and page shutdown,
+  retry only transient failures, and count only accepted result submissions.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed

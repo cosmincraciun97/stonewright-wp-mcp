@@ -11,6 +11,18 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- Keep audit history until an operator configures scheduled retention, and
+  coalesce routine heartbeat and successful authentication activity.
+
+### Fixed
+
+- Make Plugin and Direct audit events share lifecycle identities, safe
+  idempotency, operation classifications, redaction, and crash-safe rotation.
+- Stop the block finalizer after terminal client errors or browser shutdown,
+  retry only transient failures, and count only accepted results as applied.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed

@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendDirectAudit, recentRecurringErrors, defaultAuditPath, rotateDirectAudit } from '../src/direct/audit.js';
@@ -87,6 +89,9 @@ describe('direct error audit', () => {
 			status: 'ok' as const,
 			eventId: '11111111-1111-4111-8111-111111111111',
 			correlationId: '22222222-2222-4222-8222-222222222222',
+			operationId: '33333333-3333-4333-8333-333333333333',
+			parentEventId: '44444444-4444-4444-8444-444444444444',
+			attempt: 2,
 			idempotencyKey: 'direct:content:42:terminal',
 			lifecyclePhase: 'terminal',
 			terminalOwner: 'direct-registry',
@@ -94,7 +99,7 @@ describe('direct error audit', () => {
 
 		const first = appendDirectAudit(input, path);
 		const duplicate = appendDirectAudit(input, path);
-		const rows = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+		const rows = readFileSync(path, 'utf8').trim().split('\n').map((line): unknown => JSON.parse(line) as unknown);
 
 		expect(rows).toHaveLength(1);
 		expect(duplicate).toEqual(first);
@@ -102,11 +107,52 @@ describe('direct error audit', () => {
 			schema_version: '2.0',
 			event_id: '11111111-1111-4111-8111-111111111111',
 			correlation_id: '22222222-2222-4222-8222-222222222222',
-			idempotency_key: expect.stringMatching(/^[a-f0-9]{64}$/),
+			operation_id: '33333333-3333-4333-8333-333333333333',
+			parent_event_id: '44444444-4444-4444-8444-444444444444',
+			attempt: 2,
 			lifecycle_phase: 'terminal',
 			terminal: true,
 			terminal_owner: 'direct-registry',
 		});
+		expect(String(first['idempotency_key'])).toMatch(/^[a-f0-9]{64}$/);
+	});
+
+	it('binds caller idempotency to ability resource payload status and operation', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const base = {
+			tool: 'stonewright-content-update', site: 'site-a', resource: 'post:42', status: 'ok' as const,
+			idempotencyKey: 'caller-key', operationId: '33333333-3333-4333-8333-333333333333', payload: { title: 'First' },
+		};
+		const first = appendDirectAudit(base, path);
+		const replay = appendDirectAudit(base, path);
+		const changedTool = appendDirectAudit({ ...base, tool: 'stonewright-settings-update' }, path);
+		const changedResource = appendDirectAudit({ ...base, resource: 'post:43' }, path);
+		const changedPayload = appendDirectAudit({ ...base, payload: { title: 'Second' } }, path);
+		const changedStatus = appendDirectAudit({ ...base, status: 'error' }, path);
+		const changedOperation = appendDirectAudit({ ...base, operationId: '55555555-5555-4555-8555-555555555555' }, path);
+
+		expect(replay['idempotency_key']).toBe(first['idempotency_key']);
+		expect(changedTool['idempotency_key']).not.toBe(first['idempotency_key']);
+		expect(changedResource['idempotency_key']).not.toBe(first['idempotency_key']);
+		expect(changedPayload['idempotency_key']).not.toBe(first['idempotency_key']);
+		expect(changedStatus['idempotency_key']).not.toBe(first['idempotency_key']);
+		expect(changedOperation['idempotency_key']).not.toBe(first['idempotency_key']);
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(6);
+	});
+
+	it('uses canonical read health runtime write and safety classifications', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const health = appendDirectAudit({ tool: 'stonewright-health-check', site: 's', status: 'ok' }, path);
+		const read = appendDirectAudit({ tool: 'stonewright-content-get', site: 's', status: 'ok' }, path);
+		const runtime = appendDirectAudit({ tool: 'stonewright-php-execute', site: 's', status: 'ok' }, path);
+		const write = appendDirectAudit({ tool: 'stonewright-content-update', site: 's', status: 'ok' }, path);
+		const blocked = appendDirectAudit({ tool: 'stonewright-content-update', site: 's', status: 'blocked' }, path);
+
+		expect(health).toMatchObject({ category: 'HEALTH', operation_class: 'HEALTH' });
+		expect(read).toMatchObject({ category: 'READ', operation_class: 'READ' });
+		expect(runtime).toMatchObject({ category: 'RUNTIME', operation_class: 'EXECUTION' });
+		expect(write).toMatchObject({ category: 'WRITE', operation_class: 'WRITE' });
+		expect(blocked).toMatchObject({ category: 'SAFETY', operation_class: 'SAFETY', outcome: 'BLOCKED' });
 	});
 
 	it('feeds redacted normalized failures into the private incident store', () => {
@@ -211,9 +257,7 @@ describe('direct error audit', () => {
 
 	it('defaultAuditPath honors STONEWRIGHT_STATE_DIR', () => {
 		const p = defaultAuditPath({ STONEWRIGHT_STATE_DIR: stateDir });
-		expect(p.startsWith(stateDir)).toBe(true);
-		expect(existsSync(stateDir) || true).toBe(true);
-		void readFileSync;
+		expect(p).toBe(join(stateDir, 'audit-direct.jsonl'));
 	});
 
 	it('rotates by size with an atomic redacted receipt and bounded archives', () => {
@@ -227,13 +271,112 @@ describe('direct error audit', () => {
 			now: new Date('2026-08-24T00:00:00.000Z'),
 		});
 
-		expect(receipt).toMatchObject({ reason: 'size', previous_bytes: expect.any(Number) });
+		expect(receipt?.reason).toBe('size');
+		expect(typeof receipt?.previous_bytes).toBe('number');
 		expect(receipt?.archive).toMatch(/^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/);
 		expect(existsSync(path)).toBe(false);
 		const receiptBody = readFileSync(`${path}.rotation-receipts.jsonl`, 'utf8');
 		expect(receiptBody).not.toContain('private-value');
 		expect(receiptBody).not.toContain(stateDir);
+		const archiveBody = readFileSync(join(stateDir, String(receipt?.archive)), 'utf8');
+		expect(archiveBody).not.toContain('private-value');
+		expect(archiveBody).toContain('[redacted]');
 		expect(readdirSync(stateDir).filter((name) => /^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/.test(name))).toHaveLength(1);
+	});
+
+	it('archives corrupt legacy rows without retaining secret-derived fingerprints', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const corrupt = 'not-json password=legacy-private-value';
+		writeFileSync(path, `${corrupt}\n${'x'.repeat(300)}\n`, { mode: 0o600 });
+
+		const receipt = rotateDirectAudit(path, {
+			maxBytes: 128,
+			maxFiles: 2,
+			now: new Date('2026-08-24T00:00:00.000Z'),
+		});
+
+		const archiveBody = readFileSync(join(stateDir, String(receipt?.archive)), 'utf8');
+		expect(archiveBody).not.toContain('legacy-private-value');
+		expect(archiveBody).not.toContain('sha256');
+		expect(archiveBody).toContain('"event_type":"legacy_corrupt"');
+		expect(archiveBody).toContain('"redacted":true');
+	});
+
+	it('recovers an abandoned empty terminal marker after a crash', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const input = {
+			tool: 'stonewright-content-update', site: 's', resource: 'post:42', status: 'ok' as const,
+			idempotencyKey: 'crash-key', operationId: '33333333-3333-4333-8333-333333333333', payload: { title: 'safe' },
+		};
+		appendDirectAudit(input, path);
+		const markerDir = join(stateDir, '.audit-idempotency');
+		const marker = join(markerDir, readdirSync(markerDir)[0]);
+		writeFileSync(path, '', { mode: 0o600 });
+		writeFileSync(marker, '', { mode: 0o600 });
+		const stale = new Date(Date.now() - 120_000);
+		utimesSync(marker, stale, stale);
+
+		const recovered = appendDirectAudit(input, path);
+		expect(recovered['status']).toBe('ok');
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+	});
+
+	it('serializes concurrent rotation without losing or corrupting appends', async () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const fixture = join(process.cwd(), 'tests', 'fixtures', 'direct-audit-writer.ts');
+		const runner = join(stateDir, 'direct-audit-writer.mjs');
+		await build({ entryPoints: [fixture], bundle: true, platform: 'node', format: 'esm', outfile: runner });
+		const run = (worker: string) => new Promise<void>((resolve, reject) => {
+			const child = spawn(process.execPath, [runner, path, worker, '25'], { stdio: 'pipe' });
+			let stderr = '';
+			child.stderr.on('data', (chunk) => { stderr += String(chunk); });
+			child.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`${worker} exited ${code}: ${stderr}`)));
+		});
+
+		await Promise.all([run('a'), run('b')]);
+		const files = readdirSync(stateDir).filter((name) => name === 'audit-direct.jsonl' || /^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/.test(name));
+		const rows = files.flatMap((name) => readFileSync(join(stateDir, name), 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>));
+
+		expect(rows).toHaveLength(50);
+		expect(new Set(rows.map((row) => row['event_id'])).size).toBe(50);
+		expect(rows.every((row) => row['schema_version'] === '2.0')).toBe(true);
+	}, 15_000);
+
+	it('audits a write guard denial as blocked safety before the tool body starts', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct', STONEWRIGHT_MCP_TOOL_PROFILE: 'full', STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
+				STONEWRIGHT_DIRECT_WRITES: 'off', STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
+			},
+			fetchImpl: () => Promise.reject(new Error('tool body must not run')),
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const result = await tools['stonewright-content-update']?.handler?.({ id: 42, title: 'Blocked' }) as { isError?: boolean };
+
+		expect(result.isError).toBe(true);
+		const row = JSON.parse(readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8').trim()) as Record<string, unknown>;
+		expect(row).toMatchObject({ tool: 'stonewright-content-update', status: 'blocked', category: 'SAFETY', outcome: 'BLOCKED' });
+	});
+
+	it('audits an always-confirm denial as blocked safety before the request starts', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct', STONEWRIGHT_MCP_TOOL_PROFILE: 'full', STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
+				STONEWRIGHT_DIRECT_WRITES: 'on', STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
+			},
+			fetchImpl: () => Promise.reject(new Error('request must not start')),
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const result = await tools['stonewright-theme-activate']?.handler?.({ stylesheet: 'synthetic-theme' }) as { isError?: boolean };
+
+		expect(result.isError).toBe(true);
+		const row = JSON.parse(readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8').trim()) as Record<string, unknown>;
+		expect(row).toMatchObject({
+			tool: 'stonewright-theme-activate', status: 'blocked', code: 'confirmation_required',
+			category: 'SAFETY', operation_class: 'SAFETY', outcome: 'BLOCKED',
+		});
 	});
 
 	it('recovers an interrupted age rotation exactly once before appending', () => {

@@ -71,6 +71,9 @@ final class AuditEventIncidentTest extends TestCase {
 				'_meta' => [
 					'event_id'        => '11111111-1111-4111-8111-111111111111',
 					'correlation_id'  => '22222222-2222-4222-8222-222222222222',
+					'operation_id'    => '33333333-3333-4333-8333-333333333333',
+					'parent_event_id' => '44444444-4444-4444-8444-444444444444',
+					'attempt'         => 3,
 					'idempotency_key' => 'finalizer:change-42:serialized',
 					'lifecycle_phase' => 'terminal',
 					'terminal_owner'  => 'block-finalizer-result',
@@ -82,10 +85,66 @@ final class AuditEventIncidentTest extends TestCase {
 
 		self::assertSame( '11111111-1111-4111-8111-111111111111', $event['event_id'] );
 		self::assertSame( '22222222-2222-4222-8222-222222222222', $event['correlation_id'] );
-		self::assertSame( hash( 'sha256', 'finalizer:change-42:serialized' ), $event['idempotency_key'] );
+		self::assertSame( '33333333-3333-4333-8333-333333333333', $event['operation_id'] );
+		self::assertSame( '44444444-4444-4444-8444-444444444444', $event['parent_event_id'] );
+		self::assertSame( 3, $event['attempt'] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $event['idempotency_key'] );
 		self::assertSame( 'terminal', $event['lifecycle_phase'] );
 		self::assertTrue( $event['terminal'] );
 		self::assertSame( 'block-finalizer-result', $event['terminal_owner'] );
+	}
+
+	public function test_idempotency_key_is_bound_to_payload_resource_status_and_operation(): void {
+		$base = [
+			'post_id' => 42,
+			'value'   => 'first',
+			'_meta'   => [
+				'idempotency_key' => 'caller-key',
+				'operation_id'    => '33333333-3333-4333-8333-333333333333',
+				'resource_type'   => 'post',
+				'resource_ref'    => '42',
+			],
+		];
+
+		$first = AuditEvent::normalize( 'stonewright/content-update', $base, 'ok' );
+		$replay = AuditEvent::normalize( 'stonewright/content-update', $base, 'ok' );
+		$changed_ability = AuditEvent::normalize( 'stonewright/settings-update', $base, 'ok' );
+		$changed_resource = AuditEvent::normalize(
+			'stonewright/content-update',
+			array_replace_recursive( $base, [ '_meta' => [ 'resource_ref' => '43' ] ] ),
+			'ok'
+		);
+		$changed_payload = AuditEvent::normalize( 'stonewright/content-update', array_replace( $base, [ 'value' => 'second' ] ), 'ok' );
+		$changed_status = AuditEvent::normalize( 'stonewright/content-update', $base, 'error' );
+		$changed_operation = AuditEvent::normalize(
+			'stonewright/content-update',
+			array_replace_recursive( $base, [ '_meta' => [ 'operation_id' => '55555555-5555-4555-8555-555555555555' ] ] ),
+			'ok'
+		);
+
+		self::assertSame( $first['idempotency_key'], $replay['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_ability['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_resource['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_payload['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_status['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_operation['idempotency_key'] );
+	}
+
+	public function test_canonical_operation_classification_covers_health_runtime_read_write_and_safety(): void {
+		$health = AuditEvent::normalize( 'stonewright/site-health', [], 'ok' );
+		$runtime = AuditEvent::normalize( 'stonewright/php-execute', [], 'ok' );
+		$read = AuditEvent::normalize( 'stonewright/content-get', [], 'ok' );
+		$write = AuditEvent::normalize( 'stonewright/content-update', [], 'ok' );
+		$blocked = AuditEvent::normalize( 'stonewright/content-update', [], 'blocked' );
+
+		self::assertSame( AuditEvent::CATEGORY_HEALTH, $health['category'] );
+		self::assertSame( 'HEALTH', $health['operation_class'] );
+		self::assertSame( AuditEvent::CATEGORY_RUNTIME, $runtime['category'] );
+		self::assertSame( 'EXECUTION', $runtime['operation_class'] );
+		self::assertSame( AuditEvent::CATEGORY_READ, $read['category'] );
+		self::assertSame( AuditEvent::CATEGORY_WRITE, $write['category'] );
+		self::assertSame( AuditEvent::CATEGORY_SAFETY, $blocked['category'] );
+		self::assertSame( AuditEvent::OUTCOME_BLOCKED, $blocked['outcome'] );
 	}
 
 	public function test_incident_preserves_correlation_and_idempotency_identity(): void {

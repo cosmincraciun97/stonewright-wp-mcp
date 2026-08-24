@@ -63,10 +63,32 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
 		$row = $GLOBALS['wpdb']->inserts[0]['data'];
 		self::assertSame( '22222222-2222-4222-8222-222222222222', $row['correlation_id'] );
-		self::assertSame( hash( 'sha256', 'finalizer:change-42:serialized' ), $row['idempotency_key'] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $row['idempotency_key'] );
 		self::assertSame( $row['idempotency_key'], $row['terminal_idempotency_key'] );
 		self::assertSame( 1, $row['is_terminal'] );
 		self::assertSame( 'block-finalizer-result', $row['terminal_owner'] );
+	}
+
+	public function test_reused_caller_key_does_not_suppress_a_distinct_terminal_write(): void {
+		$base = [
+			'post_id' => 42,
+			'_meta'   => [
+				'idempotency_key' => 'caller-key',
+				'operation_id'    => '33333333-3333-4333-8333-333333333333',
+				'resource_type'   => 'post',
+				'resource_ref'    => '42',
+			],
+		];
+
+		self::assertTrue( AuditLog::record( 'stonewright/content-update', array_replace( $base, [ 'value' => 'first' ] ), 'ok' ) );
+		AuditLog::reset_request_state();
+		self::assertTrue( AuditLog::record( 'stonewright/content-update', array_replace( $base, [ 'value' => 'second' ] ), 'ok' ) );
+
+		self::assertCount( 2, $GLOBALS['wpdb']->inserts );
+		self::assertNotSame(
+			$GLOBALS['wpdb']->inserts[0]['data']['idempotency_key'],
+			$GLOBALS['wpdb']->inserts[1]['data']['idempotency_key']
+		);
 	}
 
 	public function test_progress_events_may_share_a_correlation_key_without_terminal_deduplication(): void {
@@ -223,7 +245,7 @@ final class AuditLogCoverageTest extends TestCase {
 	public function test_recent_and_count_filter_by_error_code(): void {
 		AuditLog::recent( 20, 1, [ 'error_code' => 'stonewright_spec_invalid' ] );
 		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
-		self::assertStringContainsString( 'correlation_id, idempotency_key, lifecycle_phase, is_terminal, terminal_owner', (string) $GLOBALS['wpdb']->last_query );
+		self::assertStringContainsString( 'correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner', (string) $GLOBALS['wpdb']->last_query );
 		AuditLog::count( [ 'error_code' => 'stonewright_spec_invalid' ] );
 		self::assertStringContainsString( 'error_code = %s', (string) $GLOBALS['wpdb']->last_query );
 	}
@@ -251,6 +273,43 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( '', $GLOBALS['wpdb']->last_query );
 	}
 
+	public function test_retention_is_disabled_by_default_and_recording_never_deletes_history(): void {
+		unset( $GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] );
+		$GLOBALS['wpdb']->query_result = 9;
+
+		self::assertTrue( AuditLog::record( 'stonewright/content-update', [ 'post_id' => 42 ], 'ok' ) );
+		self::assertSame( '', $GLOBALS['wpdb']->last_query );
+		self::assertFalse( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+		self::assertSame( 'disabled', AuditLog::enforce_retention( true, 1787520000 )['status'] );
+	}
+
+	public function test_configured_retention_uses_daily_schedule_and_unschedules_when_disabled(): void {
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+
+		AuditLog::sync_retention_schedule( 1787520000 );
+		self::assertSame( 1787523600, wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 0;
+		AuditLog::sync_retention_schedule( 1787520001 );
+		self::assertFalse( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+	}
+
+	public function test_failed_retention_does_not_block_the_next_automatic_retry(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+		unset( $GLOBALS['stonewright_test_transients']['stonewright_audit_retention_ran'] );
+		$GLOBALS['wpdb']->query_result = false;
+
+		$failed = AuditLog::enforce_retention( true, 1787520000 );
+		self::assertSame( 'failed', $failed['status'] );
+		self::assertFalse( get_transient( 'stonewright_audit_retention_ran' ) );
+
+		$GLOBALS['wpdb']->query_result = 2;
+		$retried = AuditLog::enforce_retention( false, 1787520001 );
+		self::assertSame( 'completed', $retried['status'] );
+		self::assertSame( 2, $retried['deleted_rows'] );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';
@@ -259,7 +318,7 @@ final class AuditLogCoverageTest extends TestCase {
 			public string $last_query = '';
 			/** @var list<mixed> */
 			public array $last_prepared_args = [];
-			public int $query_result = 0;
+			public int|false $query_result = 0;
 			private bool $insert_ok;
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];

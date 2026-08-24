@@ -339,6 +339,37 @@
 		return h;
 	}
 
+	function httpError(status) {
+		var error = new Error('http_' + String(status || 0));
+		error.status = Number(status || 0);
+		return error;
+	}
+
+	function requireOk(response) {
+		if (response && typeof response.ok === 'boolean' && !response.ok) {
+			throw httpError(response.status);
+		}
+		return response;
+	}
+
+	function jsonResponse(response) {
+		requireOk(response);
+		return response && typeof response.json === 'function' ? response.json() : response;
+	}
+
+	function statusOfError(error) {
+		if (!error) {
+			return 0;
+		}
+		var status = Number(error.status || (error.data && error.data.status) || (error.response && error.response.status) || 0);
+		return Number.isFinite(status) ? status : 0;
+	}
+
+	function isTerminalHttpError(error) {
+		var status = statusOfError(error);
+		return status >= 400 && status < 500 && status !== 408;
+	}
+
 	var sessionApplied = 0;
 	var sessionFailed = 0;
 	var itemMemory = {};
@@ -454,12 +485,7 @@
 		var url = restBase + 'pending?' + query;
 		var request = window.wp && wp.apiFetch
 			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?' + query })
-			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(function (res) {
-				if (res.status === 403) {
-					throw new Error('forbidden');
-				}
-				return res.json();
-			});
+			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(jsonResponse);
 
 		return Promise.resolve(request).then(function (data) {
 			setOnline(true);
@@ -566,7 +592,7 @@
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			});
+			}).then(requireOk);
 		});
 	}
 
@@ -576,23 +602,42 @@
 	var heartbeatFailures = 0;
 	var pollTimer = 0;
 	var heartbeatTimer = 0;
+	var closed = false;
+
+	function stop() {
+		if (closed) {
+			return;
+		}
+		closed = true;
+		window.clearTimeout(pollTimer);
+		window.clearTimeout(heartbeatTimer);
+		pollTimer = 0;
+		heartbeatTimer = 0;
+		setOnline(false);
+	}
 
 	function retryDelay(failures, base) {
 		return Math.min(30000, base * Math.pow(2, Math.max(0, failures - 1)));
 	}
 
 	function scheduleNextTick(delay) {
+		if (closed) {
+			return;
+		}
 		window.clearTimeout(pollTimer);
 		pollTimer = window.setTimeout(tick, delay);
 	}
 
 	function scheduleHeartbeat(delay) {
+		if (closed) {
+			return;
+		}
 		window.clearTimeout(heartbeatTimer);
 		heartbeatTimer = window.setTimeout(heartbeat, delay);
 	}
 
 	function tick() {
-		if (pollInFlight) {
+		if (closed || pollInFlight) {
 			return;
 		}
 		pollInFlight = true;
@@ -605,7 +650,11 @@
 				pollFailures = 0;
 				scheduleNextTick(2000);
 			}
-		}).catch(function () {
+		}).catch(function (error) {
+			if (isTerminalHttpError(error)) {
+				stop();
+				return;
+			}
 			pollFailures += 1;
 			setOnline(false);
 			setText('stonewright-finalizer-last-poll', formatClock(new Date()));
@@ -616,7 +665,7 @@
 	}
 
 	function heartbeat() {
-		if (!token || heartbeatInFlight) {
+		if (closed || !token || heartbeatInFlight) {
 			return;
 		}
 		heartbeatInFlight = true;
@@ -632,12 +681,16 @@
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			});
+			}).then(requireOk);
 		Promise.resolve(request).then(function () {
 			heartbeatFailures = 0;
 			setOnline(true);
 			scheduleHeartbeat(15000);
-		}).catch(function () {
+		}).catch(function (error) {
+			if (isTerminalHttpError(error)) {
+				stop();
+				return;
+			}
 			heartbeatFailures += 1;
 			setOnline(false);
 			scheduleHeartbeat(retryDelay(heartbeatFailures, 15000));
@@ -647,9 +700,15 @@
 	}
 
 	function boot() {
+		if (closed) {
+			return;
+		}
 		heartbeat();
 		tick();
 	}
+
+	window.addEventListener('unload', stop);
+	window.addEventListener('pagehide', stop);
 
 	if (window.wp && wp.domReady) {
 		wp.domReady(boot);

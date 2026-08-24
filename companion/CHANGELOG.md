@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Audit Direct safety denials before tool execution with the same lifecycle and
+  operation classifications as Plugin mode.
+- Recover interrupted idempotency markers and rotate Direct audit logs under a
+  process lock without losing appends or carrying legacy secrets into archives.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Changed

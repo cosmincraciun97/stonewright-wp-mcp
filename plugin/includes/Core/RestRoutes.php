@@ -1519,6 +1519,9 @@ final class RestRoutes {
 		if ( '/stonewright/v1/direct/task-start' === $route ) {
 			return false;
 		}
+		if ( '/stonewright/v1/block-finalizer/heartbeat' === $route ) {
+			return false;
+		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
 	}
 

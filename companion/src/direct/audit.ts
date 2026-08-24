@@ -1,4 +1,4 @@
-import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -36,6 +36,12 @@ export interface DirectAuditEntry {
 	idempotencyKey?: string;
 	lifecyclePhase?: 'started' | 'progress' | 'retry' | 'terminal';
 	terminalOwner?: string;
+	operationId?: string;
+	parentEventId?: string;
+	attempt?: number;
+	payload?: unknown;
+	category?: 'READ' | 'HEALTH' | 'RUNTIME' | 'WRITE' | 'SAFETY';
+	outcome?: 'SUCCESS' | 'BLOCKED' | 'FAILED';
 }
 
 export type PersistedDirectAuditEntry = {
@@ -64,6 +70,9 @@ const DEFAULT_ROTATION: Required<Omit<DirectAuditRotationPolicy, 'now'>> = {
 	maxAgeMs: 30 * 24 * 60 * 60 * 1000,
 	maxFiles: 10,
 };
+
+const LOCK_STALE_MS = 30_000;
+const LOCK_ATTEMPTS = 500;
 
 export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
 	const override = (env['STONEWRIGHT_STATE_DIR'] ?? '').trim();
@@ -100,37 +109,59 @@ export function appendDirectAudit(
 	if (process.platform !== 'win32') {
 		chmodSync(dir, 0o700);
 	}
-	rotateDirectAudit(path, rotation);
+	return withAuditLock(path, () => appendDirectAuditUnlocked(entry, path, rotation));
+}
+
+function appendDirectAuditUnlocked(
+	entry: DirectAuditEntry,
+	path: string,
+	rotation: DirectAuditRotationPolicy,
+): PersistedDirectAuditEntry {
+	rotateDirectAuditUnlocked(path, rotation);
+	const dir = dirname(path);
 	const eventId = entry.eventId ?? randomUUID();
 	const requestId = entry.requestId ?? eventId;
 	const correlationId = entry.correlationId ?? requestId;
+	const operationId = entry.operationId ?? correlationId;
+	const parentEventId = entry.parentEventId ?? entry.parentRequestId ?? null;
+	const attempt = Math.max(1, Math.min(1000, Math.trunc(entry.attempt ?? 1)));
 	const lifecyclePhase = entry.lifecyclePhase ?? 'terminal';
 	const terminal = lifecyclePhase === 'terminal';
 	const terminalOwner = terminal ? (entry.terminalOwner ?? 'direct-registry') : null;
+	const payloadHash = createHash('sha256').update(stableJson(entry.payload ?? {
+		code: entry.code ?? null,
+		error: entry.error ?? null,
+		changeSetId: entry.changeSetId ?? null,
+		verificationStatus: entry.verificationStatus ?? null,
+		rollbackStatus: entry.rollbackStatus ?? null,
+	})).digest('hex');
 	const idempotencyKey = createHash('sha256')
-		.update(entry.idempotencyKey ?? `${eventId}|${entry.tool}|${lifecyclePhase}|${entry.status}`)
+		.update([
+			entry.idempotencyKey ?? eventId,
+			entry.tool,
+			entry.resource ?? '',
+			payloadHash,
+			entry.status,
+			operationId,
+		].join('|'))
 		.digest('hex');
 	const markerDir = join(dir, '.audit-idempotency');
 	let markerPath = '';
 	if (terminal) {
 		mkdirSync(markerDir, { recursive: true, mode: 0o700 });
 		markerPath = join(markerDir, idempotencyKey);
-		try {
-			const fd = openSync(markerPath, 'wx', 0o600);
-			closeSync(fd);
-		} catch (error) {
+		if (existsSync(markerPath)) {
 			const existing = readDirectAuditByIdempotency(idempotencyKey, path);
 			if (existing) return existing;
-			if (existsSync(markerPath)) {
-				try {
-					const persisted = JSON.parse(readFileSync(markerPath, 'utf8')) as PersistedDirectAuditEntry;
-					if (persisted['idempotency_key'] === idempotencyKey) return persisted;
-				} catch {
-					// An empty marker means another writer still owns the terminal event.
-				}
+			try {
+				const persisted = JSON.parse(readFileSync(markerPath, 'utf8')) as PersistedDirectAuditEntry;
+				if (persisted['idempotency_key'] === idempotencyKey) return persisted;
+			} catch {
+				// The global audit lock proves no writer still owns this marker.
 			}
-			throw error;
+			unlinkSync(markerPath);
 		}
+		writeFileSync(markerPath, `${JSON.stringify({ state: 'pending', pid: process.pid, created_at: Date.now() })}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
 	}
 	const executionStatus =
 		entry.executionStatus ??
@@ -145,17 +176,22 @@ export function appendDirectAudit(
 		? redactDirectAuditText(entry.code).slice(0, 190)
 		: null;
 	const siteFingerprint = createHash('sha256').update(entry.site).digest('hex');
+	const category = entry.category ?? directCategory(entry);
+	const operationClass = entry.operationClass ?? directOperationClass(category);
 	const row: PersistedDirectAuditEntry = {
 		schema_version: '2.0',
 		event_id: eventId,
 		correlation_id: correlationId,
+		operation_id: operationId,
+		parent_event_id: parentEventId,
+		attempt,
 		idempotency_key: idempotencyKey,
 		lifecycle_phase: lifecyclePhase,
 		terminal,
 		terminal_owner: terminalOwner,
 		occurred_at: entry.timestamp ?? new Date().toISOString(),
-		category: entry.status === 'blocked' ? 'SAFETY' : 'WRITE',
-		outcome: entry.status === 'ok' ? 'SUCCESS' : entry.status === 'blocked' ? 'BLOCKED' : 'FAILED',
+		category,
+		outcome: entry.outcome ?? (entry.status === 'ok' ? 'SUCCESS' : entry.status === 'blocked' ? 'BLOCKED' : 'FAILED'),
 		severity_level: entry.severity ?? (entry.status === 'error' ? 'error' : entry.status === 'blocked' ? 'warning' : 'info'),
 		ability: entry.tool,
 		tool: entry.tool,
@@ -165,12 +201,12 @@ export function appendDirectAudit(
 		error: entry.error ? redactDirectAuditText(entry.error).slice(0, 200) : null,
 		timestamp: entry.timestamp ?? new Date().toISOString(),
 		event_type: entry.eventType ?? 'direct_tool',
-		operation_class: entry.operationClass ?? 'direct',
+		operation_class: operationClass,
 		resource_type: entry.resourceType ?? null,
 		resource_ref: resource,
 		change_set_id: entry.changeSetId ?? null,
 		request_id: requestId,
-		parent_request_id: entry.parentRequestId ?? null,
+		parent_request_id: parentEventId,
 		execution_status: executionStatus,
 		verification_status: verificationStatus,
 		rollback_status: entry.rollbackStatus ?? 'not_required',
@@ -238,6 +274,15 @@ export function rotateDirectAudit(
 	path = defaultAuditPath(),
 	policy: DirectAuditRotationPolicy = {},
 ): DirectAuditRotationReceipt | null {
+	const dir = dirname(path);
+	if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
+	return withAuditLock(path, () => rotateDirectAuditUnlocked(path, policy));
+}
+
+function rotateDirectAuditUnlocked(
+	path: string,
+	policy: DirectAuditRotationPolicy,
+): DirectAuditRotationReceipt | null {
 	const now = policy.now ?? new Date();
 	const resolved = {
 		maxBytes: Math.max(1, policy.maxBytes ?? DEFAULT_ROTATION.maxBytes),
@@ -273,7 +318,8 @@ export function rotateDirectAudit(
 function writeRotationJournal(path: string, receipt: DirectAuditRotationReceipt): void {
 	const journal = `${path}.rotation-journal.json`;
 	const temp = `${journal}.${randomUUID()}.tmp`;
-	writeFileSync(temp, `${JSON.stringify({ version: 1, ...receipt })}\n`, { encoding: 'utf8', mode: 0o600 });
+	const source = `.audit-direct.rotation-source.${receipt.receipt_id}.jsonl`;
+	writeFileSync(temp, `${JSON.stringify({ version: 2, source, ...receipt })}\n`, { encoding: 'utf8', mode: 0o600 });
 	renameSync(temp, journal);
 	if (process.platform !== 'win32') chmodSync(journal, 0o600);
 }
@@ -282,34 +328,133 @@ function recoverDirectAuditRotation(path: string, maxFiles: number): DirectAudit
 	const journal = `${path}.rotation-journal.json`;
 	if (!existsSync(journal)) return null;
 	let receipt: DirectAuditRotationReceipt;
+	let sourceName = '';
 	try {
-		const parsed = JSON.parse(readFileSync(journal, 'utf8')) as Partial<DirectAuditRotationReceipt> & { version?: number };
+		const parsed = JSON.parse(readFileSync(journal, 'utf8')) as Partial<DirectAuditRotationReceipt> & { version?: number; source?: string };
 		if (
-			parsed.version !== 1 ||
+			![1, 2].includes(Number(parsed.version)) ||
 			!parsed.receipt_id?.match(/^[a-f0-9]{64}$/) ||
 			!parsed.archive?.match(/^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/) ||
 			!['size', 'age'].includes(String(parsed.reason)) ||
 			!Number.isFinite(parsed.previous_bytes)
 		) throw new Error('invalid rotation journal');
-		receipt = {
+			receipt = {
 			receipt_id: parsed.receipt_id,
 			reason: parsed.reason as 'size' | 'age',
 			rotated_at: String(parsed.rotated_at),
 			previous_bytes: Number(parsed.previous_bytes),
-			archive: parsed.archive,
-		};
+				archive: parsed.archive,
+			};
+			sourceName = parsed.version === 2 && /^\.audit-direct\.rotation-source\.[a-f0-9]{64}\.jsonl$/.test(String(parsed.source))
+				? String(parsed.source)
+				: `.audit-direct.rotation-source.${receipt.receipt_id}.jsonl`;
 	} catch {
 		renameSync(journal, `${journal}.corrupt-${Date.now()}`);
 		return null;
 	}
 
 	const archivePath = join(dirname(path), receipt.archive);
-	if (existsSync(path) && !existsSync(archivePath)) renameSync(path, archivePath);
+	const sourcePath = join(dirname(path), sourceName);
+	if (!existsSync(sourcePath) && existsSync(path) && !existsSync(archivePath)) renameSync(path, sourcePath);
+	if (existsSync(sourcePath) && !existsSync(archivePath)) {
+		const archiveTemp = `${archivePath}.${randomUUID()}.tmp`;
+		sanitizeAuditArchive(sourcePath, archiveTemp);
+		renameSync(archiveTemp, archivePath);
+	}
 	if (!existsSync(archivePath)) return null;
+	if (existsSync(sourcePath)) unlinkSync(sourcePath);
 	appendRotationReceipt(path, receipt);
 	if (existsSync(journal)) unlinkSync(journal);
 	pruneAuditArchives(path, maxFiles);
 	return receipt;
+}
+
+function withAuditLock<T>(path: string, operation: () => T): T {
+	const lockPath = `${path}.lock`;
+	let acquired = false;
+	for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
+		try {
+			writeFileSync(lockPath, `${JSON.stringify({ pid: process.pid, created_at: Date.now() })}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+			acquired = true;
+			break;
+		} catch (error) {
+			const code = (error as NodeJS.ErrnoException).code;
+			if (code !== 'EEXIST') throw error;
+			if (staleLock(lockPath)) {
+				try { unlinkSync(lockPath); } catch { /* another process recovered it */ }
+				continue;
+			}
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+		}
+	}
+	if (!acquired) throw new Error(`Timed out waiting for Direct audit lock: ${lockPath}`);
+	try {
+		return operation();
+	} finally {
+		try { unlinkSync(lockPath); } catch { /* a crashed/recovered owner may already remove it */ }
+	}
+}
+
+function staleLock(lockPath: string): boolean {
+	try {
+		const stat = statSync(lockPath);
+		const parsed = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: number };
+		if (Number.isInteger(parsed.pid) && Number(parsed.pid) > 0) {
+			try {
+				process.kill(Number(parsed.pid), 0);
+				return false;
+			} catch {
+				return true;
+			}
+		}
+		return Date.now() - stat.mtimeMs > LOCK_STALE_MS;
+	} catch {
+		return false;
+	}
+}
+
+function sanitizeAuditArchive(sourcePath: string, destinationPath: string): void {
+	const output: string[] = [];
+	for (const line of readFileSync(sourcePath, 'utf8').split('\n')) {
+		if (!line) continue;
+		try {
+			output.push(JSON.stringify(redactLegacyValue(JSON.parse(line) as unknown)));
+		} catch {
+			output.push(JSON.stringify({ schema_version: '2.0', event_type: 'legacy_corrupt', redacted: true, bytes: Buffer.byteLength(line) }));
+		}
+	}
+	writeFileSync(destinationPath, output.length > 0 ? `${output.join('\n')}\n` : '', { encoding: 'utf8', mode: 0o600 });
+}
+
+function redactLegacyValue(value: unknown, key = ''): unknown {
+	if (/password|secret|token|authorization|cookie|api[_ -]?key/i.test(key)) return '[redacted]';
+	if (typeof value === 'string') return redactDirectAuditText(value);
+	if (Array.isArray(value)) return value.map((item) => redactLegacyValue(item));
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([childKey, child]) => [childKey, redactLegacyValue(child, childKey)]));
+	}
+	return value;
+}
+
+function stableJson(value: unknown): string {
+	if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+	if (value && typeof value === 'object') {
+		return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(',')}}`;
+	}
+	return JSON.stringify(value) ?? 'null';
+}
+
+function directCategory(entry: DirectAuditEntry): 'READ' | 'HEALTH' | 'RUNTIME' | 'WRITE' | 'SAFETY' {
+	if (entry.status === 'blocked') return 'SAFETY';
+	const hint = `${entry.tool}|${entry.operationClass ?? ''}`.toLowerCase();
+	if (hint.includes('health')) return 'HEALTH';
+	if (hint.includes('php-execute') || hint.includes('runtime') || hint.includes('execution')) return 'RUNTIME';
+	if (/(?:-get|-list|-status|-search|-inspect|-describe|-preview|read)/.test(hint)) return 'READ';
+	return 'WRITE';
+}
+
+function directOperationClass(category: 'READ' | 'HEALTH' | 'RUNTIME' | 'WRITE' | 'SAFETY'): string {
+	return category === 'RUNTIME' ? 'EXECUTION' : category;
 }
 
 function appendRotationReceipt(path: string, receipt: DirectAuditRotationReceipt): void {

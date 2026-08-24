@@ -1,4 +1,4 @@
-import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -86,9 +86,14 @@ export async function userMe(ctx: DirectToolContext) {
   return compactUser(user, true);
 }
 
-function requireConfirm(confirm: boolean | undefined, tool: string): void {
+function requireConfirm(confirm: boolean | undefined, tool: string, site: string): void {
   if (confirm !== true) {
-    throw new Error(`confirm:true is required for this tool (${tool})`);
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
+      `confirm:true is required for this tool (${tool})`,
+      tool,
+      site,
+    );
   }
 }
 
@@ -170,7 +175,7 @@ export async function userDelete(
   input: { id: number; reassign: number; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-delete");
-  requireConfirm(input.confirm, "stonewright-user-delete");
+  requireConfirm(input.confirm, "stonewright-user-delete", ctx.site.alias);
   const result = await ctx.client.del(`/wp/v2/users/${input.id}`, {
     query: { force: true, reassign: input.reassign },
   });
@@ -216,7 +221,7 @@ export async function appPasswordCreate(
   input: { user_id: number; name: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-create");
-  requireConfirm(input.confirm, "stonewright-app-password-create");
+  requireConfirm(input.confirm, "stonewright-app-password-create", ctx.site.alias);
   const created = await ctx.client.post<AppPassword>(
     `/wp/v2/users/${input.user_id}/application-passwords`,
     { body: { name: input.name } },
@@ -240,7 +245,7 @@ export async function appPasswordRevoke(
   input: { user_id: number; uuid: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-revoke");
-  requireConfirm(input.confirm, "stonewright-app-password-revoke");
+  requireConfirm(input.confirm, "stonewright-app-password-revoke", ctx.site.alias);
   const result = await ctx.client.del(
     `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(input.uuid)}`,
   );

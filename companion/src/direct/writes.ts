@@ -2,6 +2,20 @@ import type { ResolvedSite } from "./sites-config.js";
 
 export type DirectWriteMode = "on" | "off" | "confirm";
 
+export class DirectSafetyBlockedError extends Error {
+  readonly code: string;
+  readonly tool: string;
+  readonly site: string;
+
+  constructor(code: string, message: string, tool: string, site = "_global") {
+    super(message);
+    this.name = "DirectSafetyBlockedError";
+    this.code = code;
+    this.tool = tool;
+    this.site = site;
+  }
+}
+
 /** Match plugin context-token TTL. */
 export const TASK_START_TTL_MS = 30 * 60_000;
 
@@ -88,26 +102,38 @@ export function assertWriteAllowed(args: {
       .toLowerCase() !== "off";
   const now = args.now ?? Date.now();
   if (requireTaskStart && !hasTaskStartSeen(args.site, now)) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "task_start_required",
       "Call stonewright-task-start before write tools (it loads this site's skills, memory, and recurring errors). Then retry this call. It also re-arms 30 minutes after the last task-start.",
+      args.tool,
+      args.site,
     );
   }
   if (args.mode === "off") {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "direct_writes_disabled",
       `Direct writes are disabled (STONEWRIGHT_DIRECT_WRITES=off). Tool: ${args.tool}`,
+      args.tool,
+      args.site,
     );
   }
   if (args.mode === "confirm" && args.destructive && args.confirm !== true) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
       `Destructive Direct tool "${args.tool}" requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm (or remote sites).`,
+      args.tool,
+      args.site,
     );
   }
 }
 
 export function assertToolEnabled(site: ResolvedSite, tool: string): void {
   if (site.disabledTools.includes(tool)) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "tool_disabled",
       `Tool "${tool}" is disabled for site "${site.alias}" via sites.json disabledTools.`,
+      tool,
+      site.alias,
     );
   }
 }

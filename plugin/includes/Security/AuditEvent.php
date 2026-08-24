@@ -15,6 +15,9 @@ final class AuditEvent {
 	public const SCHEMA_VERSION = '2.0';
 
 	public const CATEGORY_AUTH       = 'AUTH';
+	public const CATEGORY_READ       = 'READ';
+	public const CATEGORY_HEALTH     = 'HEALTH';
+	public const CATEGORY_RUNTIME    = 'RUNTIME';
 	public const CATEGORY_PERMISSION = 'PERMISSION';
 	public const CATEGORY_SAFETY     = 'SAFETY';
 	public const CATEGORY_VALIDATION = 'VALIDATION';
@@ -33,6 +36,9 @@ final class AuditEvent {
 	/** @var list<string> */
 	public const CATEGORIES = [
 		self::CATEGORY_AUTH,
+		self::CATEGORY_READ,
+		self::CATEGORY_HEALTH,
+		self::CATEGORY_RUNTIME,
 		self::CATEGORY_PERMISSION,
 		self::CATEGORY_SAFETY,
 		self::CATEGORY_VALIDATION,
@@ -97,6 +103,12 @@ final class AuditEvent {
 		$context_hash    = self::context_hash( $meta );
 		$event_id        = self::uuid( self::first_scalar( $meta, $args, [ 'event_id' ] ) );
 		$correlation_id  = self::uuid( self::first_scalar( $meta, $args, [ 'correlation_id', 'request_id' ] ), false );
+		$operation_id    = self::uuid( self::first_scalar( $meta, $args, [ 'operation_id' ] ), false );
+		if ( '' === $operation_id ) {
+			$operation_id = '' !== $correlation_id ? $correlation_id : $event_id;
+		}
+		$parent_event_id = self::uuid( self::first_scalar( $meta, $args, [ 'parent_event_id', 'parent_request_id' ] ), false );
+		$attempt         = max( 1, min( 1000, (int) self::first_scalar( $meta, $args, [ 'attempt' ] ) ) );
 		$lifecycle_phase = self::lifecycle_phase( self::first_scalar( $meta, $args, [ 'lifecycle_phase' ] ) );
 		$terminal        = 'terminal' === $lifecycle_phase;
 		$terminal_owner  = self::safe_text( self::first_scalar( $meta, $args, [ 'terminal_owner' ] ), 96 );
@@ -105,16 +117,33 @@ final class AuditEvent {
 		}
 		$idempotency_source = self::first_scalar( $meta, $args, [ 'idempotency_key' ] );
 		if ( '' === $idempotency_source ) {
-			$idempotency_source = implode( '|', [ $event_id, $ability, $lifecycle_phase, $status, $change_set_id ] );
+			$idempotency_source = $event_id;
 		}
-		$idempotency_key = hash( 'sha256', $idempotency_source );
+		$payload_hash = self::payload_hash( $args );
+		$idempotency_key = hash(
+			'sha256',
+			implode( '|', [ $idempotency_source, $ability, $resource_type, $resource_ref, $payload_hash, $status, $operation_id ] )
+		);
 		$incident_id    = hash( 'sha256', implode( '|', [ $category, $ability_family, $code, $resource_key, $path, $cause, $strategy ] ) );
 		$retry_after    = self::retry_after( $meta );
+		$operation_class = self::safe_text( self::first_scalar( $meta, $args, [ 'operation_class' ] ), 96 );
+		if ( '' === $operation_class ) {
+			$operation_class = match ( $category ) {
+				self::CATEGORY_HEALTH => 'HEALTH',
+				self::CATEGORY_RUNTIME => 'EXECUTION',
+				self::CATEGORY_READ => 'READ',
+				self::CATEGORY_SAFETY, self::CATEGORY_PERMISSION => 'SAFETY',
+				default => 'WRITE',
+			};
+		}
 
 		return [
 			'schema_version'          => self::SCHEMA_VERSION,
 			'event_id'                => $event_id,
 			'correlation_id'          => $correlation_id,
+			'operation_id'            => $operation_id,
+			'parent_event_id'         => $parent_event_id,
+			'attempt'                 => $attempt,
 			'idempotency_key'         => $idempotency_key,
 			'lifecycle_phase'         => $lifecycle_phase,
 			'terminal'                => $terminal,
@@ -122,6 +151,7 @@ final class AuditEvent {
 			'backend'                 => 'plugin',
 			'occurred_at'             => gmdate( 'c' ),
 			'category'                => $category,
+			'operation_class'         => $operation_class,
 			'outcome'                 => $outcome,
 			'severity_level'          => self::severity( $status, $outcome, $meta ),
 			'ability'                 => self::safe_text( $ability, 190 ),
@@ -238,7 +268,57 @@ final class AuditEvent {
 		if ( self::contains_any( $hint, [ 'smtp', 'mail', 'external', 'newsman' ] ) ) {
 			return self::CATEGORY_EXTERNAL;
 		}
+		if ( self::contains_any( $hint, [ 'site-health', 'health-check', 'health-test', '/health', ' health' ] ) ) {
+			return self::CATEGORY_HEALTH;
+		}
+		if ( self::contains_any( $hint, [ 'php-execute', 'runtime-execute', 'runtime_execution' ] ) ) {
+			return self::CATEGORY_RUNTIME;
+		}
+		if ( self::contains_any( $hint, [ '-get', '-list', '-status', '-search', '-inspect', '-describe', '-preview', '/read' ] ) ) {
+			return self::CATEGORY_READ;
+		}
 		return self::CATEGORY_WRITE;
+	}
+
+	/** @param array<string, mixed> $args */
+	private static function payload_hash( array $args ): string {
+		$copy = $args;
+		$identity_keys = [
+			'event_id',
+			'correlation_id',
+			'request_id',
+			'operation_id',
+			'parent_event_id',
+			'parent_request_id',
+			'attempt',
+			'idempotency_key',
+			'lifecycle_phase',
+			'terminal_owner',
+		];
+		foreach ( $identity_keys as $key ) {
+			unset( $copy[ $key ] );
+		}
+		if ( isset( $copy['_meta'] ) && is_array( $copy['_meta'] ) ) {
+			foreach ( $identity_keys as $key ) {
+				unset( $copy['_meta'][ $key ] );
+			}
+		}
+		$encoded = wp_json_encode( self::canonicalize( $copy ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		return hash( 'sha256', is_string( $encoded ) ? $encoded : '' );
+	}
+
+	private static function canonicalize( mixed $value ): mixed {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		if ( array_is_list( $value ) ) {
+			return array_map( [ self::class, 'canonicalize' ], $value );
+		}
+		ksort( $value );
+		foreach ( $value as $key => $item ) {
+			$value[ $key ] = self::canonicalize( $item );
+		}
+		return $value;
 	}
 
 	private static function outcome( string $status, string $category, array $meta ): string {

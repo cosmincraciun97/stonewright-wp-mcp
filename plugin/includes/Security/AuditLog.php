@@ -23,15 +23,18 @@ final class AuditLog {
 	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
 	public const RETENTION_OPTION = 'stonewright_audit_retention_days';
 	public const RETENTION_RECEIPT_OPTION = 'stonewright_audit_retention_receipt';
+	public const RETENTION_HOOK = 'stonewright_audit_retention';
 	private const RETENTION_TRANSIENT = 'stonewright_audit_retention_ran';
 	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
 	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
+	private const AUTH_SUCCESS_COALESCE_WINDOW_SECONDS = 30 * MINUTE_IN_SECONDS;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
 
 	/** @var list<int> */
 	private const AUTH_TERMINAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
+	private const AUTH_SUCCESS_COALESCE_RECORD_COUNTS = [ 1 ];
 
 	/**
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
@@ -132,6 +135,9 @@ final class AuditLog {
 			ua_hash CHAR(64) NOT NULL DEFAULT '',
 			request_id CHAR(36) NOT NULL DEFAULT '',
 			correlation_id CHAR(36) NOT NULL DEFAULT '',
+			operation_id CHAR(36) NOT NULL DEFAULT '',
+			parent_event_id CHAR(36) NOT NULL DEFAULT '',
+			attempt INT UNSIGNED NOT NULL DEFAULT 1,
 			idempotency_key CHAR(64) NOT NULL DEFAULT '',
 			terminal_idempotency_key CHAR(64) NULL DEFAULT NULL,
 			lifecycle_phase VARCHAR(24) NOT NULL DEFAULT 'terminal',
@@ -253,14 +259,17 @@ final class AuditLog {
 				'ua_hash'        => self::hash_value( $_SERVER['HTTP_USER_AGENT'] ?? '' ),
 				'request_id'     => self::request_id(),
 				'correlation_id' => $event['correlation_id'],
+				'operation_id'   => $event['operation_id'],
+				'parent_event_id'=> $event['parent_event_id'],
+				'attempt'        => $event['attempt'],
 				'idempotency_key'=> $event['idempotency_key'],
 				'terminal_idempotency_key' => $event['terminal'] ? $event['idempotency_key'] : null,
 				'lifecycle_phase'=> $event['lifecycle_phase'],
 				'is_terminal'    => $event['terminal'] ? 1 : 0,
 				'terminal_owner' => $event['terminal_owner'],
-				'parent_request_id' => self::meta_string( $meta, 'parent_request_id' ),
+				'parent_request_id' => '' !== $event['parent_event_id'] ? $event['parent_event_id'] : self::meta_string( $meta, 'parent_request_id' ),
 				'event_type'        => $event_type,
-				'operation_class'   => self::meta_string( $meta, 'operation_class' ),
+				'operation_class'   => $event['operation_class'],
 				'resource_type'     => self::meta_string( $meta, 'resource_type' ),
 				'resource_ref'      => self::logical_resource_ref( $meta, $sanitized_args ),
 				'change_set_id'     => self::meta_string( $meta, 'change_set_id' ),
@@ -360,10 +369,6 @@ final class AuditLog {
 			);
 		}
 
-		if ( 'audit_log_purged' !== $ability ) {
-			self::enforce_retention();
-		}
-
 		return true;
 	}
 
@@ -374,7 +379,7 @@ final class AuditLog {
 	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
 	 */
 	public static function enforce_retention( bool $force = false, ?int $now = null ): array {
-		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 30 ) ) );
+		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
 		$now  = $now ?? time();
 		$base = [
 			'status'         => 0 === $days ? 'disabled' : 'skipped',
@@ -398,9 +403,33 @@ final class AuditLog {
 		$base['status']       = false === $deleted ? 'failed' : 'completed';
 		$base['deleted_rows'] = false === $deleted ? 0 : max( 0, (int) $deleted );
 		update_option( self::RETENTION_RECEIPT_OPTION, $base, false );
+		if ( false === $deleted ) {
+			return $base;
+		}
 		IncidentStore::enforce_retention( $days, $now );
 		set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
 		return $base;
+	}
+
+	public static function sync_retention_schedule( ?int $now = null ): void {
+		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
+		if ( 0 === $days ) {
+			if ( wp_next_scheduled( self::RETENTION_HOOK ) ) {
+				wp_clear_scheduled_hook( self::RETENTION_HOOK );
+			}
+			return;
+		}
+		if ( ! wp_next_scheduled( self::RETENTION_HOOK ) ) {
+			wp_schedule_event( ( $now ?? time() ) + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );
+		}
+	}
+
+	public static function run_scheduled_retention(): void {
+		self::enforce_retention( true );
+	}
+
+	public static function unschedule_retention(): void {
+		wp_clear_scheduled_hook( self::RETENTION_HOOK );
 	}
 
 	/**
@@ -522,14 +551,12 @@ final class AuditLog {
 	 * @return array{record:bool,count:int}
 	 */
 	private static function coalesce_auth_event( string $endpoint, string $client_id, int $http, string $error, string $reason ): array {
-		if ( $http < 400 || $http > 599 ) {
-			return [ 'record' => true, 'count' => 1 ];
-		}
-		$terminal = $http < 500
+		$success  = $http >= 200 && $http < 400;
+		$terminal = ! $success && $http < 500
 			&& 429 !== $http
 			&& ! in_array( $error, [ 'temporarily_unavailable', 'server_error' ], true );
-		$window     = $terminal ? self::AUTH_TERMINAL_COALESCE_WINDOW_SECONDS : self::AUTH_COALESCE_WINDOW_SECONDS;
-		$thresholds = $terminal ? self::AUTH_TERMINAL_COALESCE_RECORD_COUNTS : self::AUTH_COALESCE_RECORD_COUNTS;
+		$window     = $success ? self::AUTH_SUCCESS_COALESCE_WINDOW_SECONDS : ( $terminal ? self::AUTH_TERMINAL_COALESCE_WINDOW_SECONDS : self::AUTH_COALESCE_WINDOW_SECONDS );
+		$thresholds = $success ? self::AUTH_SUCCESS_COALESCE_RECORD_COUNTS : ( $terminal ? self::AUTH_TERMINAL_COALESCE_RECORD_COUNTS : self::AUTH_COALESCE_RECORD_COUNTS );
 		$salt  = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-oauth';
 		$fingerprint = sanitize_key( $error ) . '|' . sanitize_key( $reason );
 		$key   = 'stonewright_oauth_audit_' . hash_hmac( 'sha256', $endpoint . '|' . $client_id . '|' . $http . '|' . $fingerprint, $salt );
@@ -659,7 +686,7 @@ final class AuditLog {
 		[ $where_sql, $params ] = self::build_filter_clause( $filters );
 
 		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
-				correlation_id, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
+				correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
 				event_type, operation_class, resource_type, resource_ref, change_set_id,
 				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
 				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,

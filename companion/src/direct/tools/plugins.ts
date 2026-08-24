@@ -1,4 +1,4 @@
-import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -196,8 +196,11 @@ export async function pluginDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-delete");
   if (input.confirm !== true) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
       "confirm:true is required for this tool (stonewright-plugin-delete)",
+      "stonewright-plugin-delete",
+      ctx.site.alias,
     );
   }
   const plugin = input.plugin.trim();
