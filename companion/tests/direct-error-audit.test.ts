@@ -367,6 +367,55 @@ describe('direct error audit', () => {
 		expect(readdirSync(stateDir).filter((name) => /^audit-direct\.\d{8}T\d{6}Z\.[a-f0-9]{8}\.jsonl$/.test(name))).toHaveLength(1);
 	});
 
+	it('recursively redacts key material certificates and credential blobs in legacy archives', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const legacy = {
+			visible: 'safe-before',
+			nested: [
+				{ private_key: 'sentinel-private-key-snake' },
+				{ privateKey: 'sentinel-private-key-camel' },
+				{ key_pem: 'sentinel-key-pem' },
+				{ clientCertificate: 'sentinel-certificate-blob' },
+				{ credentials: { value: 'sentinel-credential-blob' } },
+			],
+			note: [
+				'safe-before-pem',
+				'-----BEGIN OPENSSH PRIVATE KEY-----',
+				'sentinel-openssh-key',
+				'-----END OPENSSH PRIVATE KEY-----',
+				'-----BEGIN CERTIFICATE-----',
+				'sentinel-pem-certificate',
+				'-----END CERTIFICATE-----',
+				'safe-after-pem',
+			].join('\n'),
+			padding: 'x'.repeat(300),
+		};
+		writeFileSync(path, `${JSON.stringify(legacy)}\n`, { mode: 0o600 });
+
+		const receipt = rotateDirectAudit(path, {
+			maxBytes: 128,
+			maxFiles: 2,
+			now: new Date('2026-08-24T00:00:00.000Z'),
+		});
+
+		const archiveBody = readFileSync(join(stateDir, String(receipt?.archive)), 'utf8');
+		for (const sentinel of [
+			'sentinel-private-key-snake',
+			'sentinel-private-key-camel',
+			'sentinel-key-pem',
+			'sentinel-certificate-blob',
+			'sentinel-credential-blob',
+			'sentinel-openssh-key',
+			'sentinel-pem-certificate',
+		]) {
+			expect(archiveBody).not.toContain(sentinel);
+		}
+		expect(archiveBody).toContain('safe-before');
+		expect(archiveBody).toContain('safe-before-pem');
+		expect(archiveBody).toContain('safe-after-pem');
+		expect(Buffer.byteLength(archiveBody)).toBeLessThan(1200);
+	});
+
 	it('archives corrupt legacy rows without retaining secret-derived fingerprints', () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		const corrupt = 'not-json password=legacy-private-value';

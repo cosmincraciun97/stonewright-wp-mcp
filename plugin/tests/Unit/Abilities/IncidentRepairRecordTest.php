@@ -162,6 +162,26 @@ final class IncidentRepairRecordTest extends TestCase {
 		self::assertCount( 0, $this->db->memory_rows );
 	}
 
+	public function test_failure_after_learning_creation_stales_the_unlinked_memory_when_incident_cas_fails(): void {
+		$this->seed_open_incident();
+		$this->db->audit_events = [
+			'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' => $this->failure_row(),
+			'dddddddd-dddd-4ddd-8ddd-dddddddddddd' => $this->success_row(),
+		];
+		$this->db->on_memory_insert = function (): void {
+			IncidentStore::observe( $this->incident_failure( 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' ) );
+		};
+
+		$result = ( new IncidentRepairRecord() )->execute( $this->repair_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_repair_learning_link_failed', $result->get_error_code() );
+		self::assertSame( 'open', IncidentStore::get( $this->incident_id() )['state'] );
+		self::assertSame( 3, IncidentStore::get( $this->incident_id() )['occurrence_count'] );
+		self::assertCount( 1, $this->db->memory_rows );
+		self::assertSame( 'stale', $this->db->memory_rows[1]['status'] );
+	}
+
 	/** @return array<string, string> */
 	private function repair_args(): array {
 		return [
@@ -240,8 +260,9 @@ final class IncidentRepairRecordTest extends TestCase {
 			public string $last_error = '';
 			public int $insert_id = 0;
 			public bool $fail_memory_write = false;
-				public bool $fail_memory_readback = false;
-				public mixed $on_success_lookup = null;
+			public bool $fail_memory_readback = false;
+			public mixed $on_success_lookup = null;
+			public mixed $on_memory_insert = null;
 			/** @var array<string, array<string, mixed>> */
 			public array $audit_events = [];
 			/** @var array<int, array<string, mixed>> */
@@ -293,6 +314,11 @@ final class IncidentRepairRecordTest extends TestCase {
 					$data['updated_at'] = '2026-08-12 10:02:00';
 					$data['last_retrieved_at'] = null;
 					$this->memory_rows[ $this->insert_id ] = $data;
+					if ( is_callable( $this->on_memory_insert ) ) {
+						$callback = $this->on_memory_insert;
+						$this->on_memory_insert = null;
+						$callback();
+					}
 				}
 				return 1;
 			}

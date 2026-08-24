@@ -182,6 +182,45 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertStringContainsString( '[redacted]', $encoded );
 	}
 
+	public function test_redacts_nested_key_material_certificates_and_credential_blobs_without_consuming_safe_text(): void {
+		$payload = [
+			'visible' => 'safe-before',
+			'nested'  => [
+				[ 'private_key' => 'sentinel-private-key-snake' ],
+				(object) [ 'privateKey' => 'sentinel-private-key-camel' ],
+				[ 'key_pem' => "-----BEGIN EC PRIVATE KEY-----\nsentinel-ec-key\n-----END EC PRIVATE KEY-----" ],
+				[ 'clientCertificate' => "-----BEGIN CERTIFICATE-----\nsentinel-certificate\n-----END CERTIFICATE-----" ],
+				[ 'credential_blob' => 'sentinel-credential-blob' ],
+			],
+			'note' => implode( "\n", [
+				'safe-before-pem',
+				'-----BEGIN ENCRYPTED PRIVATE KEY-----',
+				'sentinel-encrypted-key',
+				'-----END ENCRYPTED PRIVATE KEY-----',
+				'safe-after-pem',
+			] ),
+		];
+
+		$redacted = AuditLog::redact_sensitive( $payload );
+		$encoded  = wp_json_encode( $redacted );
+
+		self::assertIsString( $encoded );
+		foreach ( [
+			'sentinel-private-key-snake',
+			'sentinel-private-key-camel',
+			'sentinel-ec-key',
+			'sentinel-certificate',
+			'sentinel-credential-blob',
+			'sentinel-encrypted-key',
+		] as $sentinel ) {
+			self::assertStringNotContainsString( $sentinel, $encoded );
+		}
+		self::assertStringContainsString( 'safe-before', $encoded );
+		self::assertStringContainsString( 'safe-before-pem', $encoded );
+		self::assertStringContainsString( 'safe-after-pem', $encoded );
+		self::assertLessThan( 1200, strlen( $encoded ) );
+	}
+
 	public function test_expired_finalizer_heartbeat_records_exactly_one_blocked_security_event(): void {
 		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
 		$denial  = new \WP_Error(

@@ -121,6 +121,52 @@ final class IncidentRepairLifecycleTest extends TestCase {
 		self::assertSame( $open['version_token'], IncidentStore::get( $this->incident_id() )['version_token'] );
 	}
 
+	public function test_database_observation_retries_generation_cas_without_losing_a_concurrent_failure(): void {
+		$original_wpdb    = $GLOBALS['wpdb'];
+		$GLOBALS['wpdb'] = new IncidentRaceWpdb();
+		try {
+			IncidentStore::observe( $this->failure() );
+			$GLOBALS['wpdb']->inject_failure_before_update = true;
+
+			$observed = IncidentStore::observe( $this->failure( 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' ) );
+
+			self::assertSame( 3, $observed['occurrence_count'] );
+			self::assertSame( 3, $observed['generation'] );
+			self::assertSame( 'open', $observed['state'] );
+		} finally {
+			$GLOBALS['wpdb'] = $original_wpdb;
+		}
+	}
+
+	public function test_database_automatic_resolution_cannot_close_over_a_concurrent_failure(): void {
+		$original_wpdb    = $GLOBALS['wpdb'];
+		$GLOBALS['wpdb'] = new IncidentRaceWpdb();
+		try {
+			IncidentStore::observe( $this->failure() );
+			IncidentStore::observe( $this->failure( 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' ) );
+			$GLOBALS['wpdb']->inject_failure_before_update = true;
+
+			$resolved = IncidentStore::resolve( [
+				'incident_id'        => $this->incident_id(),
+				'event_id'           => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+				'outcome'            => AuditEvent::OUTCOME_SUCCESS,
+				'ability'            => 'stonewright/example-verify',
+				'verification_status' => 'verified',
+				'change_set_id'       => 'change-set-a',
+				'resource_key_hash'   => hash( 'sha256', 'resource' ),
+				'normalized_path'     => 'example/settings/title',
+			] );
+
+			$current = IncidentStore::get( $this->incident_id() );
+			self::assertFalse( $resolved );
+			self::assertSame( 'open', $current['state'] );
+			self::assertSame( 3, $current['occurrence_count'] );
+			self::assertSame( 3, $current['generation'] );
+		} finally {
+			$GLOBALS['wpdb'] = $original_wpdb;
+		}
+	}
+
 	/** @return array<string, mixed> */
 	private function failure( string $event_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' ): array {
 		return [
@@ -165,5 +211,63 @@ final class IncidentRepairLifecycleTest extends TestCase {
 
 	private function incident_id(): string {
 		return hash( 'sha256', 'incident' );
+	}
+}
+
+final class IncidentRaceWpdb extends \wpdb {
+	public string $prefix = 'wptests_';
+	public string $last_error = '';
+	public bool $inject_failure_before_update = false;
+
+	/** @var array<string, array<string, mixed>> */
+	private array $rows = [];
+
+	/** @var list<mixed> */
+	private array $prepared_args = [];
+
+	public function prepare( string $query, mixed ...$args ): string {
+		$this->prepared_args = $args;
+		return $query;
+	}
+
+	public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+		unset( $query, $output );
+		$incident_id = (string) ( $this->prepared_args[0] ?? '' );
+		return isset( $this->rows[ $incident_id ] ) ? $this->rows[ $incident_id ] : null;
+	}
+
+	/** @param array<string, mixed> $data */
+	public function insert( string $table, array $data, array $formats = [] ): int|false {
+		unset( $table, $formats );
+		$incident_id = (string) ( $data['incident_id'] ?? '' );
+		if ( '' === $incident_id || isset( $this->rows[ $incident_id ] ) ) {
+			return false;
+		}
+		$this->rows[ $incident_id ] = $data;
+		return 1;
+	}
+
+	/** @param array<string, mixed> $data @param array<string, mixed> $where */
+	public function update( string $table, array $data, array $where, array $formats = [], array $where_formats = [] ): int|false {
+		unset( $table, $formats, $where_formats );
+		$incident_id = (string) ( $where['incident_id'] ?? '' );
+		if ( ! isset( $this->rows[ $incident_id ] ) ) {
+			return 0;
+		}
+		if ( $this->inject_failure_before_update ) {
+			$this->inject_failure_before_update = false;
+			++$this->rows[ $incident_id ]['occurrence_count'];
+			++$this->rows[ $incident_id ]['generation'];
+			$this->rows[ $incident_id ]['last_event_id'] = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+			$this->rows[ $incident_id ]['updated_at'] = '2026-08-24 12:00:01';
+			$this->rows[ $incident_id ]['last_seen'] = '2026-08-24 12:00:01';
+		}
+		foreach ( $where as $key => $expected ) {
+			if ( ! array_key_exists( $key, $this->rows[ $incident_id ] ) || (string) $this->rows[ $incident_id ][ $key ] !== (string) $expected ) {
+				return 0;
+			}
+		}
+		$this->rows[ $incident_id ] = array_merge( $this->rows[ $incident_id ], $data );
+		return 1;
 	}
 }

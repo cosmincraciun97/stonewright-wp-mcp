@@ -35,6 +35,7 @@ final class IncidentStore {
 	public const OPTION_KEY = 'stonewright_incident_fallback';
 	public const OBSERVING_THRESHOLD = 2;
 	public const RETRYABLE_THRESHOLD = 3;
+	private const CAS_ATTEMPTS = 8;
 
 	/** @var array<string, array<string, mixed>> */
 	private static array $fallback = [];
@@ -98,7 +99,11 @@ final class IncidentStore {
 		dbDelta( $sql );
 	}
 
-	/** @param array<string, mixed> $event */
+	/**
+	 * @param array<string, mixed> $event
+	 * @return array<string, mixed>|null
+	 * @throws \RuntimeException When the owned incident row cannot be persisted.
+	 */
 	public static function observe( array $event ): ?array {
 		$outcome = (string) ( $event['outcome'] ?? AuditEvent::OUTCOME_FAILED );
 		if ( in_array( $outcome, [ AuditEvent::OUTCOME_SUCCESS, AuditEvent::OUTCOME_BLOCKED ], true ) ) {
@@ -112,38 +117,52 @@ final class IncidentStore {
 		if ( '' === $incident_id ) {
 			return null;
 		}
-		$now       = gmdate( 'Y-m-d H:i:s' );
-		$existing  = self::find( $incident_id );
-		$idempotency_key = self::safe_hash( $event['idempotency_key'] ?? '' );
-		if ( null !== $existing && '' !== $idempotency_key && hash_equals( (string) ( $existing['last_idempotency_key'] ?? '' ), $idempotency_key ) ) {
-			return self::public_row( $existing );
-		}
-		$threshold = AuditEvent::OUTCOME_RETRYABLE === $outcome ? self::RETRYABLE_THRESHOLD : self::OBSERVING_THRESHOLD;
-		$details   = is_array( $event['redacted_details'] ?? null ) ? $event['redacted_details'] : [];
-		$delta     = max( 1, min( 10000, (int) ( $details['coalesced_count'] ?? 1 ) ) );
-		$count     = $delta + (int) ( $existing['occurrence_count'] ?? 0 );
-		$state     = self::state_for( $event, $count, (string) ( $existing['state'] ?? '' ) );
-		$row       = self::row_from_event( $event, $incident_id, $existing, $count, $state, $now );
 
-		if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'resolved', 'suppressed' ], true ) ) {
-			$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
-			$row['resolved_at']     = null;
-			$row['resolution_event_id'] = '';
-			$row['resolution_json']  = '';
-			$row['state']            = 'open';
-			$row['repair_phase']     = 'proposed';
-			$row['repair_receipt_id'] = '';
-			if ( 'promoted' === (string) ( $existing['learning_status'] ?? '' ) ) {
-				$row['learning_status'] = 'stale';
-				$memory_key = (string) ( $existing['learning_memory_key'] ?? '' );
-				if ( '' !== $memory_key && ! Memory::set_status_by_key( 'verified-repairs', $memory_key, 'stale' ) ) {
-					Logger::error( 'incident_learning_stale_failed', [ 'incident_id' => $incident_id, 'memory_key' => $memory_key ] );
+		for ( $attempt = 0; $attempt < self::CAS_ATTEMPTS; $attempt++ ) {
+			$now      = gmdate( 'Y-m-d H:i:s' );
+			$existing = self::find( $incident_id );
+			$idempotency_key = self::safe_hash( $event['idempotency_key'] ?? '' );
+			if ( null !== $existing && '' !== $idempotency_key && hash_equals( (string) ( $existing['last_idempotency_key'] ?? '' ), $idempotency_key ) ) {
+				return self::public_row( $existing );
+			}
+			$details = is_array( $event['redacted_details'] ?? null ) ? $event['redacted_details'] : [];
+			$delta   = max( 1, min( 10000, (int) ( $details['coalesced_count'] ?? 1 ) ) );
+			$count   = $delta + (int) ( $existing['occurrence_count'] ?? 0 );
+			$state   = self::state_for( $event, $count, (string) ( $existing['state'] ?? '' ) );
+			$row     = self::row_from_event( $event, $incident_id, $existing, $count, $state, $now );
+
+			if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'resolved', 'suppressed' ], true ) ) {
+				$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
+				$row['resolved_at']     = null;
+				$row['resolution_event_id'] = '';
+				$row['resolution_json']  = '';
+				$row['state']            = 'open';
+				$row['repair_phase']     = 'proposed';
+				$row['repair_receipt_id'] = '';
+				if ( 'promoted' === (string) ( $existing['learning_status'] ?? '' ) ) {
+					$row['learning_status'] = 'stale';
+					$memory_key = (string) ( $existing['learning_memory_key'] ?? '' );
+					if ( '' !== $memory_key && ! Memory::set_status_by_key( 'verified-repairs', $memory_key, 'stale' ) ) {
+						Logger::error( 'incident_learning_stale_failed', [ 'incident_id' => $incident_id, 'memory_key' => $memory_key ] );
+					}
 				}
+			}
+
+			if ( null === $existing ) {
+				try {
+					self::persist( $row, false );
+					return self::public_row( $row );
+				} catch ( \RuntimeException ) {
+					continue;
+				}
+			}
+
+			if ( self::persist_cas( $row, self::version_token_from_row( $existing ) ) ) {
+				return self::public_row( $row );
 			}
 		}
 
-		self::persist( $row, null !== $existing );
-		return self::public_row( $row );
+		throw new \RuntimeException( 'Incident persistence failed.' );
 	}
 
 	/** @return array<string, mixed>|null */
@@ -250,6 +269,7 @@ final class IncidentStore {
 			return false;
 		}
 
+		$token                      = self::version_token_from_row( $row );
 		$row['state']               = 'resolved';
 		$row['resolved_at']         = gmdate( 'Y-m-d H:i:s' );
 		$row['resolution_event_id'] = self::safe_text( $event['event_id'] ?? '', 36 );
@@ -259,8 +279,9 @@ final class IncidentStore {
 			'change_set_id'       => self::safe_text( $event['change_set_id'] ?? '', 96 ),
 			'after_sha256'        => self::safe_hash( $event['after_sha256'] ?? '' ),
 		] );
-		self::persist( $row, true );
-		return true;
+		$row['generation'] = (int) ( $row['generation'] ?? 1 ) + 1;
+		$row['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+		return self::persist_cas( $row, $token );
 	}
 
 	/** @return list<array<string, mixed>> */
@@ -582,6 +603,15 @@ final class IncidentStore {
 		}
 		self::$fallback = $next;
 		return true;
+	}
+
+	/** @param array<string, mixed> $row @return array<string, mixed> */
+	private static function version_token_from_row( array $row ): array {
+		return [
+			'generation'  => max( 1, (int) ( $row['generation'] ?? $row['occurrence_count'] ?? 1 ) ),
+			'updated_at'  => (string) ( $row['updated_at'] ?? $row['last_seen'] ?? '' ),
+			'occurrences' => (int) ( $row['occurrence_count'] ?? 0 ),
+		];
 	}
 
 	private static function version_matches( array $row, mixed $token ): bool {

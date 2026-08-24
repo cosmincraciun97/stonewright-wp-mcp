@@ -148,6 +148,7 @@ final class IncidentRepairRecord extends AbilityKernel {
 					return $this->error( 'repair_learning_readback_failed', __( 'Verified learning write could not be confirmed.', 'stonewright' ), [ 'status' => 500 ] );
 				}
 				if ( ! IncidentStore::mark_learning_promoted( $incident_id, $memory_key, (string) $receipt['repair_receipt_id'], $resolved['version_token'] ) ) {
+					Memory::set_status_by_key( 'verified-repairs', $memory_key, 'stale' );
 					return $this->error( 'repair_learning_link_failed', __( 'Verified learning could not be linked to its incident.', 'stonewright' ), [ 'status' => 500 ] );
 				}
 

@@ -26,6 +26,10 @@
   failed audit event and incident, never as `SUCCESS`.
 - Reject oversized serialized finalizer results only after validating the
   active lease and before changing persistent queue state.
+- Retry incident observation against the latest generation when a concurrent
+  failure lands, and refuse automatic resolution that would close over that
+  failure.
+- Mark verified-repair learning stale when linking it to the incident fails.
 - Resolve and promote incident repairs only while their generation,
   update-time, and occurrence token remains unchanged; install the added
   incident schema columns during normal version upgrades.
@@ -35,6 +39,8 @@
 
 ### Security
 
+- Redact nested private keys, PEM certificates, and credential blobs from audit
+  payloads without removing surrounding safe text, and keep encoded output bounded.
 - Redact credential assignments, authorization carriers, Application Password
   shapes, credentialed URLs, and private-key bodies recursively from every
   free-text audit value before persistence.

@@ -273,6 +273,29 @@ describe('Direct audit lock ownership', () => {
 		expect(existsSync(fresh)).toBe(true);
 	});
 
+	it('hard-caps fresh quarantine artifacts by deleting the oldest overflow only', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const lock = `${path}.lock`;
+		const created: string[] = [];
+		for (let index = 0; index < 48; index += 1) {
+			const suffix = index.toString(16).padStart(12, '0');
+			const artifact = `${lock}.release-00000000-0000-4000-8000-${suffix}`;
+			writeFileSync(artifact, `fresh-${index}\n`, { mode: 0o600 });
+			const modified = new Date(Date.now() - (48 - index) * 10);
+			utimesSync(artifact, modified, modified);
+			created.push(artifact);
+		}
+
+		appendDirectAudit({ tool: 'stonewright-content-get', site: 'https://site-a.example.test', status: 'ok' }, path);
+
+		const retained = readdirSync(stateDir).filter((name) => name.startsWith('audit-direct.jsonl.lock.release-'));
+		expect(retained).toHaveLength(32);
+		for (const oldest of created.slice(0, 16)) expect(existsSync(oldest)).toBe(false);
+		for (const newest of created.slice(16)) expect(existsSync(newest)).toBe(true);
+		expect(existsSync(`${path}.lock`)).toBe(false);
+		expect(existsSync(`${path}.lock.recovery-mutex`)).toBe(false);
+	});
+
 	it('removes a temporary marker receipt when atomic replacement fails', () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		race.failMarkerRename = true;

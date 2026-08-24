@@ -1129,7 +1129,17 @@ final class AuditLog {
 				$out[ $key ] = strtolower( (string) $value );
 				continue;
 			}
-			if ( in_array( $lk, $keys, true ) || str_contains( $lk, 'password' ) || str_contains( $lk, 'token' ) || str_contains( $lk, 'secret' ) ) {
+			if (
+				in_array( $lk, $keys, true )
+				|| str_contains( $lk, 'password' )
+				|| str_contains( $lk, 'token' )
+				|| str_contains( $lk, 'secret' )
+				|| str_contains( $lk, 'private_key' )
+				|| str_contains( $lk, 'privatekey' )
+				|| str_contains( $lk, 'key_pem' )
+				|| str_contains( $lk, 'certificate' )
+				|| str_contains( $lk, 'credential' )
+			) {
 				$out[ $key ] = is_string( $value ) && str_starts_with( $value, '[redacted' )
 					? $value
 					: '[redacted]';
@@ -1138,6 +1148,13 @@ final class AuditLog {
 			if ( is_array( $value ) ) {
 				$out[ $key ] = self::redact_sensitive( $value );
 				continue;
+			}
+			if ( is_object( $value ) ) {
+				$vars = get_object_vars( $value );
+				if ( [] !== $vars ) {
+					$out[ $key ] = self::redact_sensitive( $vars );
+					continue;
+				}
 			}
 			$out[ $key ] = is_string( $value ) ? self::redact_free_text( $value ) : $value;
 		}
@@ -1166,7 +1183,7 @@ final class AuditLog {
 			$value
 		);
 		return (string) preg_replace(
-			'/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?(?:-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|$)/s',
+			'/-----BEGIN ((?:ENCRYPTED |RSA |EC |OPENSSH )?PRIVATE KEY|CERTIFICATE)-----.*?-----END \1-----/s',
 			'[redacted-private-key]',
 			$value
 		);

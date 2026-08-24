@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Security
+
+- Redact nested private keys, PEM certificates, and credential blobs from
+  rotated Direct archives without removing surrounding safe text, and keep
+  encoded archive output bounded.
+
 ### Fixed
 
 - Audit Direct safety denials before tool execution with the same lifecycle and
@@ -25,6 +31,8 @@
   a replacement live lock cannot be renamed at the recovery boundary.
 - Make Direct incident failure, resolution, and learning updates atomic across
   processes, and bound stale recovery/release quarantine cleanup.
+- Cap Direct lock quarantine artifacts at 32 regardless of age, keeping the
+  newest files and removing lock and recovery-mutex leftovers.
 - Reject stale Direct repair resolution and learning when a newer failure
   changes the incident generation, update-time, or occurrence token.
 - Return the authoritative terminal audit receipt even when incident storage

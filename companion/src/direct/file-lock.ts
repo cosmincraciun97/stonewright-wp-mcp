@@ -312,7 +312,6 @@ function cleanupQuarantines(lockPath: string): void {
 		}
 		const retained = artifacts.filter((artifact) => existsSync(join(directory, artifact.name)));
 		for (const artifact of retained.slice(QUARANTINE_MAX_PER_KIND)) {
-			if (now - artifact.mtimeMs <= LOCK_STALE_MS) continue;
 			try { unlinkSync(join(directory, artifact.name)); } catch { /* another owner cleaned it */ }
 		}
 	}

@@ -118,7 +118,11 @@ export function redactDirectAuditText(value: string): string {
 			'$1$2[redacted]',
 		)
 		.replace(/(https?:\/\/[^/\s:@]+:)[^/\s@]+@/gi, '$1[redacted]@')
-		.replace(/\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/g, '[redacted-app-password]');
+		.replace(/\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/g, '[redacted-app-password]')
+		.replace(
+			/-----BEGIN ((?:ENCRYPTED |RSA |EC |OPENSSH )?PRIVATE KEY|CERTIFICATE)-----.*?-----END \1-----/gs,
+			'[redacted-private-key]',
+		);
 }
 
 export function appendDirectAudit(
@@ -464,7 +468,7 @@ function sanitizeAuditArchive(sourcePath: string, destinationPath: string): void
 }
 
 function redactLegacyValue(value: unknown, key = ''): unknown {
-	if (/password|secret|token|authorization|cookie|api[_ -]?key/i.test(key)) return '[redacted]';
+	if (/password|secret|token|authorization|cookie|api[_ -]?key|private[_-]?key|key_pem|certificate|credential/i.test(key)) return '[redacted]';
 	if (typeof value === 'string') return redactDirectAuditText(value);
 	if (Array.isArray(value)) return value.map((item) => redactLegacyValue(item));
 	if (value && typeof value === 'object') {
