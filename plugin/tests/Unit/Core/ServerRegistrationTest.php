@@ -16,14 +16,11 @@ use Stonewright\WpMcp\Core\ServerRegistration;
 final class ServerRegistrationTest extends TestCase {
 
 	protected function setUp(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
 		$GLOBALS['stonewright_test_actions'] = [];
-		$GLOBALS['stonewright_test_filters'] = [
-			'stonewright_compatibility_class_names' => static fn( array $classes ): array => [
-				'adapter'            => $classes['adapter'],
-				'abilities_registry' => RegistrationCompatibleRegistry::class,
-				'ability'            => RegistrationCompatibleAbility::class,
-			],
-		];
+		$GLOBALS['stonewright_test_filters'] = [];
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_enabled'                      => true,
 			'stonewright_custom_instructions_enabled'  => true,

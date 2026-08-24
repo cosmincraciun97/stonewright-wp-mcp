@@ -18,6 +18,8 @@ final class ProviderRouter {
 	private const MAX_SCHEMA_KEYS             = 256;
 	private const MAX_SCHEMA_BYTES            = 32768;
 	private const MAX_DYNAMIC_STRING_BYTES    = 1000;
+	private const MAX_DEFAULT_STYLE_ACTIONS   = 20;
+	private const MAX_DEFAULT_STYLE_ACTION_BYTES = 100;
 
 	private \Closure $architecture;
 	private \Closure $v3;
@@ -61,6 +63,9 @@ final class ProviderRouter {
 		foreach ( $abilities as $ability ) {
 			if ( ! is_array( $ability ) || ! str_starts_with( (string) ( $ability['name'] ?? '' ), 'elementor/' ) ) {
 				continue;
+			}
+			if ( 'elementor/manage-default-styles' === ( $ability['name'] ?? null ) ) {
+				$ability['default_style_actions_summary'] = self::default_style_actions_summary( $ability );
 			}
 			$input_summary  = self::schema_summary( (array) ( $ability['input_schema'] ?? [] ) );
 			$output_summary = self::schema_summary( (array) ( $ability['output_schema'] ?? [] ) );
@@ -238,6 +243,7 @@ final class ProviderRouter {
 			self::record_issue( $issues, $issue_counts, [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ] );
 			return;
 		}
+		$fingerprint = self::normalized_schema_fingerprint( $fingerprint );
 		$policy_evidence = $evidence;
 		$policy_evidence['provider_id'] = $id;
 		$atomic_policy = 'atomic-node' === $kind ? AtomicSchemaRepository::provider_policy( $policy_evidence ) : null;
@@ -302,7 +308,10 @@ final class ProviderRouter {
 		$operations  = (array) ( $input['properties']['operations'] ?? [] );
 		$item        = (array) ( $operations['items'] ?? [] );
 		$properties  = (array) ( $item['properties'] ?? [] );
-		$actions     = array_values( array_map( 'strval', (array) ( $properties['action']['enum'] ?? [] ) ) );
+		$action_summary = is_array( $ability['default_style_actions_summary'] ?? null )
+			? $ability['default_style_actions_summary']
+			: self::default_style_actions_summary( $ability );
+		$actions     = (array) ( $action_summary['actions'] ?? [] );
 		$runtime     = (array) ( $ability['runtime_contract'] ?? ( $meta['contract'] ?? [] ) );
 		$ownership_verified = self::verified_callback_ownership( (string) ( $ability['provenance']['ownership'] ?? '' ) );
 		$limit       = (int) ( $runtime['runtime_operation_limit'] ?? 0 );
@@ -325,7 +334,7 @@ final class ProviderRouter {
 		if ( 'array' !== ( $operations['type'] ?? null ) || 'object' !== ( $item['type'] ?? null ) || ! self::same_set( (array) ( $item['required'] ?? [] ), [ 'action', 'tag' ] ) || ! self::same_set( array_keys( $properties ), [ 'action', 'tag', 'css', 'mode' ] ) ) {
 			$issues[] = 'operations_schema_mismatch';
 		}
-		if ( 'string' !== ( $properties['action']['type'] ?? null ) || ! self::same_set( $actions, [ 'update', 'delete' ] ) ) {
+		if ( 'string' !== ( $properties['action']['type'] ?? null ) || true !== ( $action_summary['exact_contract'] ?? false ) ) {
 			$issues[] = 'action_contract_mismatch';
 		}
 		if ( 'string' !== ( $properties['tag']['type'] ?? null ) || ! self::contains_all( (string) ( $properties['tag']['description'] ?? '' ), [ 'html wrapper tag', 'allowed wrapper tags' ] ) ) {
@@ -352,6 +361,8 @@ final class ProviderRouter {
 		}
 		$contract    = [
 			'actions'                 => $actions,
+			'actions_count'           => (int) ( $action_summary['actions_count'] ?? 0 ),
+			'actions_truncated'       => (bool) ( $action_summary['actions_truncated'] ?? false ),
 			'responsive_css'          => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '@media(--breakpoint)' ] ),
 			'pseudo_states'           => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '&:hover', '&:focus', '&:active' ] ),
 			'runtime_operation_limit' => $limit,
@@ -368,6 +379,31 @@ final class ProviderRouter {
 
 	private static function manage_default_styles_description(): string {
 		return 'Bulk manage the active kit\'s site-wide default styles, keyed by HTML wrapper tag (h1..h6, p, a, section, div, ...). These styles apply to every V4 atomic element that renders that tag on the whole site, sitting on top of each widget\'s built-in base_styles and beneath any inline or global class overrides. Use action=update to upsert (patch or replace) a tag\'s variants via a raw CSS string (supports @media(--breakpoint) + &:hover/&:focus/&:active), and action=delete to remove a tag\'s default style entirely.';
+	}
+
+	/** @param array<string,mixed> $ability @return array{actions:list<string>,actions_count:int,actions_truncated:bool,exact_contract:bool} */
+	private static function default_style_actions_summary( array $ability ): array {
+		$input      = (array) ( $ability['input_schema'] ?? [] );
+		$properties = (array) ( $input['properties']['operations']['items']['properties'] ?? [] );
+		$raw        = (array) ( $properties['action']['enum'] ?? [] );
+		$total      = count( $raw );
+		$actions    = [];
+		foreach ( array_slice( $raw, 0, self::MAX_DEFAULT_STYLE_ACTIONS ) as $action ) {
+			$normalized = is_scalar( $action ) || null === $action
+				? strtolower( trim( (string) $action ) )
+				: 'invalid_action_type';
+			$actions[] = self::bounded_string( $normalized, self::MAX_DEFAULT_STYLE_ACTION_BYTES );
+		}
+		$exact_contract = 2 === $total
+			&& is_string( $raw[0] ?? null )
+			&& is_string( $raw[1] ?? null )
+			&& self::same_set( $raw, [ 'update', 'delete' ] );
+		return [
+			'actions'           => $actions,
+			'actions_count'     => $total,
+			'actions_truncated' => $total > count( $actions ),
+			'exact_contract'    => $exact_contract,
+		];
 	}
 
 	/** @return array<string,mixed> */
@@ -555,6 +591,13 @@ final class ProviderRouter {
 			return $value;
 		}
 		return substr( $value, 0, max( 0, $max_bytes - 3 ) ) . '...';
+	}
+
+	private static function normalized_schema_fingerprint( string $fingerprint ): string {
+		if ( 1 === preg_match( '/^[a-f0-9]{64}$/', $fingerprint ) ) {
+			return $fingerprint;
+		}
+		return 'invalid_sha256:' . hash( 'sha256', $fingerprint );
 	}
 
 	/** @param list<array<string,mixed>> $providers */

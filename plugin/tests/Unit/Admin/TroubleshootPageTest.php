@@ -147,11 +147,6 @@ final class TroubleshootPageTest extends TestCase {
 
 	public function test_render_shows_sanitized_mcp_compatibility_preflight_and_remediation(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
-			'adapter' => 'Vendor\\MissingAdapter',
-			'abilities_registry' => 'Vendor\\MissingRegistry',
-			'ability' => 'Vendor\\MissingAbility',
-		];
 		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\MissingAdapter', [ $fixtures . '/release-a', $fixtures . '/release-b' ] );
 
 		ob_start();
@@ -162,8 +157,8 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'Elementor provider discovery', $html );
 		self::assertStringContainsString( 'manage-default-styles', $html );
 		self::assertStringContainsString( 'Vendor\\MissingAdapter', $html );
-		self::assertStringContainsString( 'Vendor\\MissingRegistry', $html );
-		self::assertStringContainsString( 'Vendor\\MissingAbility', $html );
+		self::assertStringContainsString( 'WP_Abilities_Registry', $html );
+		self::assertStringContainsString( 'WP_Ability', $html );
 		self::assertStringContainsString( 'plugin:release-a — 0.3.0', $html );
 		self::assertStringContainsString( 'plugin:release-b — 0.4.0', $html );
 		self::assertStringContainsString( 'plugin:release-a — 0.1.1', $html );
@@ -173,12 +168,11 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringNotContainsString( $fixtures, $html );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_render_shows_missing_required_symbols_and_remediation(): void {
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
-			'adapter'            => 'Vendor\\AbsentAdapter',
-			'abilities_registry' => 'Vendor\\AbsentRegistry',
-			'ability'            => 'Vendor\\AbsentAbility',
-		];
 		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\AbsentAdapter', [] );
 
 		ob_start();
@@ -186,8 +180,8 @@ final class TroubleshootPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'Vendor\\AbsentAdapter', $html );
-		self::assertStringContainsString( 'Vendor\\AbsentRegistry', $html );
-		self::assertStringContainsString( 'Vendor\\AbsentAbility', $html );
+		self::assertStringContainsString( 'WP_Abilities_Registry', $html );
+		self::assertStringContainsString( 'WP_Ability', $html );
 		self::assertStringContainsString( 'required_symbol_unavailable', $html );
 		self::assertStringContainsString( 'Install or activate the package that provides this required symbol', $html );
 	}

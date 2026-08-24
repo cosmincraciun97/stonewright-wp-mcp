@@ -22,8 +22,9 @@ development builds were never stable releases.
 - Block MCP startup before adapter creation when required MCP Adapter or
   Abilities API symbols are missing, conflicting, or ABI-incompatible, repeat
   that preflight against the exact runtime adapter class at registration, and
-  prevent filters from authorizing a different adapter through a compatible
-  decoy class.
+  keep the canonical Ability and Registry targets plus discovered ownership
+  candidates immutable so filters cannot authorize compatible decoys or hide
+  an active owner.
 - Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
   fallback as one compatible owner, ignore inactive plugin manifests, validate
   the exact loaded ABI before invocation, and report every blocked symbol with
@@ -47,7 +48,8 @@ development builds were never stable releases.
   for critical blockers.
 - Bound provider discovery to 50 providers and 200 capabilities, report full
   totals and truncation state, and replace rejected or untrusted schemas with
-  depth/key/byte summaries.
+  depth/key/byte summaries; canonicalize schema fingerprints and cap rejected
+  default-style actions with truthful totals.
 - Keep third-party `pro-elements/*` runtimes distinct from official Elementor
   Pro and read-only without exact Stonewright-owned certification.
 - Abort Elementor V4 spec rendering before mutation when the required backup

@@ -10,13 +10,13 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/** @param list<mixed>|null $autoloaders @param list<string>|null $package_roots @return array<string,mixed> */
 	public static function inspect( ?array $autoloaders = null, string $adapter_class = 'WP\\MCP\\Core\\McpAdapter', ?array $package_roots = null ): array {
-		$filtered_classes = apply_filters( 'stonewright_compatibility_class_names', [ 'adapter' => $adapter_class, 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ] );
-		$filtered_classes = is_array( $filtered_classes ) ? $filtered_classes : [];
 		$classes = [
 			'adapter'            => $adapter_class,
-			'abilities_registry' => (string) ( $filtered_classes['abilities_registry'] ?? 'WP_Abilities_Registry' ),
-			'ability'            => (string) ( $filtered_classes['ability'] ?? 'WP_Ability' ),
+			'abilities_registry' => 'WP_Abilities_Registry',
+			'ability'            => 'WP_Ability',
 		];
+		// Preserve the diagnostic hook without allowing it to replace production ABI targets.
+		apply_filters( 'stonewright_compatibility_class_names', $classes );
 		$autoloaders ??= spl_autoload_functions() ?: [];
 		$explicit_roots = null !== $package_roots;
 		$package_roots ??= self::default_package_roots();
@@ -86,8 +86,11 @@ final class McpAbilitiesCompatibilityPreflight {
 				unset( $error );
 			}
 		}
-		$paths = apply_filters( 'stonewright_compatibility_class_candidates', $paths, $class );
-		$paths = is_array( $paths ) ? array_values( array_unique( array_map( [ self::class, 'normalize_path' ], array_filter( $paths, 'is_string' ) ) ) ) : [];
+		$filtered_paths = apply_filters( 'stonewright_compatibility_class_candidates', $paths, $class );
+		if ( is_array( $filtered_paths ) ) {
+			$paths = array_merge( $paths, array_filter( $filtered_paths, 'is_string' ) );
+		}
+		$paths = array_values( array_unique( array_map( [ self::class, 'normalize_path' ], $paths ) ) );
 		sort( $paths );
 
 		$core_owned = 'adapter' !== $role && ( self::core_abilities_available() || self::contains_core_path( $paths ) );

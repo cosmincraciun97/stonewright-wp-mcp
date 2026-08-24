@@ -277,6 +277,11 @@ capability, issue, blocker, and warning totals plus per-severity truncation.
 Blockers are reserved ahead of warnings, so a late critical failure remains
 visible in a capped response. Schemas are limited to eight
 levels, 256 keys, and 32 KiB; rejected or untrusted schemas are summary-only.
+Capability fingerprints are either canonical lowercase 64-character SHA-256
+values or fixed-size invalid-fingerprint diagnostics. Rejected default-style
+action enums retain at most 20 normalized values of 100 bytes each and report
+the source total plus truncation state, including when the source schema itself
+exceeds the schema cap.
 Status, MCP, and Troubleshoot therefore share the same bounded response. The
 official `elementor/manage-default-styles` ability
 is native-preferred only when its live contract proves the exact object
@@ -296,9 +301,10 @@ modifiers, required and maximum arity, parameter/return types including
 nullability and unions, constants, and versions are checked before invocation.
 The same preflight runs again inside the actual `mcp_adapter_init` server
 registration callback. Its target is the exact runtime adapter object's class;
-filters may contribute ownership evidence but cannot substitute a compatible
-decoy class, so a late incompatible or hostile adapter cannot invoke server
-creation.
+the Ability and Registry targets remain the canonical runtime classes. Filters
+may contribute diagnostic class observations and additive ownership candidates,
+but cannot substitute a compatible decoy or remove a discovered owner, so a
+late incompatible or hostile runtime cannot invoke server creation.
 Troubleshoot renders every blocked symbol with its exact owners, versions,
 reason, ABI issues, and safe remediation instead of flattening owners or
 exposing filesystem paths.

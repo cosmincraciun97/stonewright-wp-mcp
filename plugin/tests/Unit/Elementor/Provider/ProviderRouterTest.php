@@ -96,12 +96,13 @@ final class ProviderRouterTest extends TestCase {
 	}
 
 	public function test_discovers_official_and_third_party_v3_ownership_from_live_schema_evidence(): void {
+		$acme_hash = hash( 'sha256', 'acme-schema' );
 		$router = $this->router(
 			'v3',
 			[
 				self::v3_widget( 'heading', 'elementor/elementor.php', '3.30.0', 'Elementor\\Widget_Heading', 'core-hash' ),
 				self::v3_widget( 'form', 'elementor-pro/elementor-pro.php', '3.30.0', 'ElementorPro\\Modules\\Forms\\Widgets\\Form', 'pro-hash' ),
-				self::v3_widget( 'card', 'acme-widgets/acme.php', '2.4.0', 'Acme\\Widgets\\Card', 'acme-hash' ),
+				self::v3_widget( 'card', 'acme-widgets/acme.php', '2.4.0', 'Acme\\Widgets\\Card', $acme_hash ),
 			]
 		);
 
@@ -115,12 +116,13 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( 'untrusted', $providers['plugin:acme-widgets']['trust'] );
 		self::assertSame( 'discovered', $providers['plugin:acme-widgets']['certification'] );
 		self::assertSame( [ 'v3' ], $providers['plugin:acme-widgets']['architectures'] );
-		self::assertSame( 'acme-hash', $providers['plugin:acme-widgets']['capabilities'][0]['schema_fingerprint'] );
+		self::assertSame( $acme_hash, $providers['plugin:acme-widgets']['capabilities'][0]['schema_fingerprint'] );
 		self::assertSame( [], $providers['plugin:acme-widgets']['write_primitives'] );
 		self::assertTrue( $providers['plugin:acme-widgets']['read_only'] );
 	}
 
 	public function test_discovers_atomic_extensions_and_preserves_runtime_schema_provenance(): void {
+		$atomic_hash = hash( 'sha256', 'atomic-schema' );
 		$router = $this->router(
 			'v4',
 			[],
@@ -132,7 +134,7 @@ final class ProviderRouterTest extends TestCase {
 						'source_plugin'     => 'acme-atomic/acme.php',
 						'source_version'    => '1.2.0',
 						'runtime_class'     => 'Acme\\Atomic\\Card',
-						'schema_fingerprint'=> 'atomic-hash',
+						'schema_fingerprint'=> $atomic_hash,
 						'provenance'        => [ 'schema' => 'live_elementor_runtime' ],
 					],
 				],
@@ -148,7 +150,7 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( 'untrusted', $provider['trust'] );
 		self::assertSame( 'discovered', $provider['certification'] );
 		self::assertFalse( $provider['capabilities'][0]['write_eligible'] );
-		self::assertSame( 'atomic-hash', $provider['capabilities'][0]['schema_fingerprint'] );
+		self::assertSame( $atomic_hash, $provider['capabilities'][0]['schema_fingerprint'] );
 		self::assertSame( 'live_elementor_runtime', $provider['capabilities'][0]['provenance']['schema'] );
 	}
 
@@ -304,6 +306,38 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $preference['input_schema_summary']['truncated'] );
 		self::assertSame( 'summary_only_untrusted_or_rejected', $preference['schema_output'] );
 		self::assertSame( [ 'max_depth' => 8, 'max_keys' => 256, 'max_bytes' => 32768 ], $result['schema_limits'] );
+		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
+	}
+
+	public function test_500kb_schema_fingerprint_is_replaced_with_a_bounded_invalid_diagnostic(): void {
+		$result = $this->router(
+			'v3',
+			[ self::v3_widget( 'heading', 'elementor/elementor.php', '3.30.0', 'Elementor\\Widget_Heading', str_repeat( 'f', 500000 ) ) ]
+		)->inspect();
+		$fingerprint = $result['providers'][0]['capabilities'][0]['schema_fingerprint'];
+
+		self::assertMatchesRegularExpression( '/^invalid_sha256:[a-f0-9]{64}$/', $fingerprint );
+		self::assertLessThanOrEqual( 79, strlen( $fingerprint ) );
+		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
+	}
+
+	public function test_500kb_rejected_default_style_actions_are_normalized_and_truthfully_capped(): void {
+		$ability = self::authentic_manage_default_styles_ability();
+		$ability['input_schema']['properties']['operations']['items']['properties']['action']['enum'] = array_merge(
+			[ ' UPDATE ', 'Delete' ],
+			array_fill( 0, 5000, str_repeat( 'x', 100 ) )
+		);
+
+		$result = $this->router( 'v4', [], [ 'items' => [], 'issues' => [] ], [ $ability ] )->inspect();
+		$preference = $result['native_preferred']['elementor/manage-default-styles'];
+		$contract = $preference['contract'];
+
+		self::assertSame( 'rejected', $preference['certification'] );
+		self::assertSame( [ 'update', 'delete' ], array_slice( $contract['actions'], 0, 2 ) );
+		self::assertCount( 20, $contract['actions'] );
+		self::assertSame( 5002, $contract['actions_count'] );
+		self::assertTrue( $contract['actions_truncated'] );
+		self::assertLessThanOrEqual( 100, max( array_map( 'strlen', $contract['actions'] ) ) );
 		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
 	}
 

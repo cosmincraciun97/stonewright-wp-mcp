@@ -57,18 +57,15 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertArrayNotHasKey( 'path', $result['adapter']['candidates'][0] );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_abilities_api_ownership_is_reported_in_the_same_preflight(): void {
 		$loads = new FakeLoadCounter();
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn( array $classes ): array => [
-			'adapter'            => 'Vendor\\MissingAdapter',
-			'abilities_registry' => 'Vendor\\MissingRegistry',
-			'ability'            => 'Vendor\\MissingAbility',
-		];
 		$autoloaders = [ new MultiClassLoader(
 			[
-				'Vendor\\MissingAdapter'  => '/srv/wp-content/plugins/stonewright/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php',
-				'Vendor\\MissingRegistry' => '/srv/wp-content/plugins/stonewright/vendor/wordpress/abilities-api/includes/class-wp-abilities-registry.php',
-				'Vendor\\MissingAbility'  => '/srv/wp-content/plugins/stonewright/vendor/wordpress/abilities-api/includes/class-wp-ability.php',
+				'Vendor\\MissingAdapter' => '/srv/wp-content/plugins/stonewright/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php',
 			],
 			$loads
 		) ];
@@ -77,27 +74,23 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 		self::assertSame( 'available', $result['abilities']['registry']['status'] );
 		self::assertSame( 'available', $result['abilities']['ability']['status'] );
-		self::assertSame( [ 'plugin:stonewright' ], $result['abilities']['registry']['owners'] );
+		self::assertSame( 'WP_Abilities_Registry', $result['abilities']['registry']['class'] );
+		self::assertSame( [ 'plugin:plugin' ], $result['abilities']['registry']['owners'] );
 	}
 
 	public function test_abilities_ownership_conflict_blocks_boot_before_adapter_instantiation(): void {
 		$loads = new FakeLoadCounter();
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn( array $classes ): array => [
-			'adapter'            => 'Vendor\\MissingAdapter',
-			'abilities_registry' => 'Vendor\\MissingRegistry',
-			'ability'            => 'Vendor\\MissingAbility',
-		];
 		$autoloaders = [
 			new MultiClassLoader(
 				[
 					'Vendor\\MissingAdapter'  => '/srv/wp-content/plugins/stonewright/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php',
-					'Vendor\\MissingRegistry' => '/srv/wp-content/plugins/stonewright/vendor/wordpress/abilities-api/includes/class-wp-abilities-registry.php',
+					'WP_Abilities_Registry'    => '/srv/wp-content/plugins/stonewright/vendor/wordpress/abilities-api/includes/class-wp-abilities-registry.php',
 				],
 				$loads
 			),
 			new MultiClassLoader(
 				[
-					'Vendor\\MissingRegistry' => '/srv/wp-content/plugins/another-abilities/vendor/wordpress/abilities-api/includes/class-wp-abilities-registry.php',
+					'WP_Abilities_Registry' => '/srv/wp-content/plugins/another-abilities/vendor/wordpress/abilities-api/includes/class-wp-abilities-registry.php',
 				],
 				$loads
 			),
@@ -111,13 +104,51 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertContains( 'abilities_registry_multiple_owners', $result['blocking_reasons'] );
 	}
 
-	public function test_loaded_runtime_must_satisfy_complete_abi_contract(): void {
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_compatible_decoys_cannot_hide_a_canonical_abilities_owner(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
+
+		$loads = new FakeLoadCounter();
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
-			'adapter' => CompatibleAdapterFixture::class,
+			'adapter'            => CompatibleAdapterFixture::class,
 			'abilities_registry' => CompatibleRegistryFixture::class,
-			'ability' => CompatibleAbilityFixture::class,
+			'ability'            => CompatibleAbilityFixture::class,
 		];
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class );
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_candidates'] = static fn(): array => [];
+		$autoloaders = [ new MultiClassLoader(
+			[
+				'WP_Abilities_Registry' => '/srv/wp-content/plugins/hidden-owner/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php',
+				'WP_Ability'            => '/srv/wp-content/plugins/hidden-owner/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php',
+			],
+			$loads
+		) ];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders, CompatibleAdapterFixture::class );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertSame( 'WP_Abilities_Registry', $result['abilities']['registry']['class'] );
+		self::assertSame( 'WP_Ability', $result['abilities']['ability']['class'] );
+		self::assertSame( 'conflict', $result['abilities']['registry']['status'] );
+		self::assertSame( 'conflict', $result['abilities']['ability']['status'] );
+		self::assertContains( 'plugin:hidden-owner', $result['abilities']['registry']['owners'] );
+		self::assertContains( 'abilities_registry_multiple_owners', $result['blocking_reasons'] );
+		self::assertContains( 'ability_multiple_owners', $result['blocking_reasons'] );
+		self::assertSame( 0, $loads->count );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_loaded_runtime_must_satisfy_complete_abi_contract(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [] );
 
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( 'compatible', $result['adapter']['abi']['status'] );
@@ -125,6 +156,10 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( [], $result['blocking_reasons'] );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_every_missing_required_symbol_blocks_with_reason_and_remediation(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
 			'adapter'            => 'Vendor\\AbsentAdapter',
@@ -146,19 +181,19 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		}
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_wordpress_core_abilities_and_guarded_stonewright_fallback_are_compatible(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['wp_version'] = '6.9.1';
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
-			'adapter'            => CompatibleAdapterFixture::class,
-			'abilities_registry' => CoreRegistryFixture::class,
-			'ability'            => CoreAbilityFixture::class,
-		];
+		require_once $fixtures . '/compatible-core-runtime.php';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_candidates'] = static function ( array $paths, string $class ): array {
-			if ( CoreRegistryFixture::class === $class ) {
+			if ( 'WP_Abilities_Registry' === $class ) {
 				$paths[] = '/srv/wordpress/wp-includes/abilities-api/class-wp-abilities-registry.php';
 			}
-			if ( CoreAbilityFixture::class === $class ) {
+			if ( 'WP_Ability' === $class ) {
 				$paths[] = '/srv/wordpress/wp-includes/abilities-api/class-wp-ability.php';
 			}
 			return $paths;
@@ -222,19 +257,19 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( 0, WrongTypedAdapterFixture::$invocations );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_extra_required_registry_parameter_fails_before_invocation(): void {
-		ExtraRequiredRegistryFixture::$invocations = 0;
-		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
-			'adapter'            => CompatibleAdapterFixture::class,
-			'abilities_registry' => ExtraRequiredRegistryFixture::class,
-			'ability'            => CompatibleAbilityFixture::class,
-		];
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/incompatible-registry-runtime.php';
+		\WP_Abilities_Registry::$invocations = 0;
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [] );
 
 		self::assertFalse( $result['compatible'] );
 		self::assertContains( 'incompatible_register_signature', $result['abilities']['registry']['abi']['issues'] );
-		self::assertSame( 0, ExtraRequiredRegistryFixture::$invocations );
+		self::assertSame( 0, \WP_Abilities_Registry::$invocations );
 	}
 
 	public function test_release_style_jetpack_and_package_manifests_expose_competing_owners(): void {
@@ -377,33 +412,10 @@ class CompatibleAbilityFixture {
 	public function get_output_schema(): array { return []; }
 }
 
-final class CoreRegistryFixture {
-	private function __construct() {}
-	public static function get_instance(): ?self { return new self(); }
-	public function register( string $name, array $properties ): ?CoreAbilityFixture {
-		return new CoreAbilityFixture( $name, $properties );
-	}
-}
-
-final class CoreAbilityFixture extends CompatibleAbilityFixture {
-	public function get_category(): string { return 'core'; }
-}
-
 final class WrongTypedAdapterFixture {
 	public const VERSION = '0.3.0';
 	public static int $invocations = 0;
 	private function __construct() {}
 	public static function instance(): self { ++self::$invocations; return new self(); }
 	public function create_server( int $id, int $namespace, int $route, int $name, int $description, int $version, int $transports, int $error_handler, int $observability_handler = 0, int $tools = 0, int $resources = 0, int $prompts = 0, int $configure = 0 ) { ++self::$invocations; }
-}
-
-final class ExtraRequiredRegistryFixture {
-	public static int $invocations = 0;
-	private function __construct() {}
-	public static function get_instance(): self { ++self::$invocations; return new self(); }
-	public function register( string $name, array $properties, string $unexpected ): ?CompatibleAbilityFixture {
-		++self::$invocations;
-		unset( $unexpected );
-		return new CompatibleAbilityFixture( $name, $properties );
-	}
 }
