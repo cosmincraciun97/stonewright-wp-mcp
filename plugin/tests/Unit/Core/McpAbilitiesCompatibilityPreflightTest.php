@@ -356,6 +356,8 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	/**
 	 * @dataProvider invalid_jetpack_manifest_fixtures
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 */
 	public function test_release_package_requires_an_exact_jetpack_adapter_mapping( string $fixture ): void {
 		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
@@ -378,6 +380,8 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	/**
 	 * @dataProvider malformed_jetpack_manifest_fixtures
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 */
 	public function test_release_package_requires_a_complete_top_level_static_jetpack_manifest( string $fixture ): void {
 		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
@@ -400,6 +404,8 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	/**
 	 * @dataProvider executable_jetpack_manifest_value_fixtures
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 */
 	public function test_release_package_rejects_executable_jetpack_manifest_value_expressions( string $fixture ): void {
 		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
