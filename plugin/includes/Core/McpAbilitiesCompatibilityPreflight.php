@@ -438,26 +438,42 @@ final class McpAbilitiesCompatibilityPreflight {
 		if ( ! is_string( $source ) ) {
 			return false;
 		}
-		$tokens = token_get_all( $source );
-		foreach ( $tokens as $index => $token ) {
-			if ( ! is_array( $token ) || T_RETURN !== $token[0] ) {
-				continue;
-			}
-			$start = self::next_manifest_token( $tokens, $index + 1 );
-			if ( null === $start ) {
-				return false;
-			}
-			if ( is_array( $tokens[ $start ] ) && T_ARRAY === $tokens[ $start ][0] ) {
-				$start = self::next_manifest_token( $tokens, $start + 1 );
-				if ( null === $start || '(' !== $tokens[ $start ] ) {
-					return false;
-				}
-			} elseif ( '[' !== $tokens[ $start ] ) {
-				return false;
-			}
-			return self::static_manifest_array_has_key( $tokens, $start, $expected_key );
+		try {
+			$tokens = token_get_all( $source, TOKEN_PARSE );
+		} catch ( \ParseError ) {
+			return false;
 		}
-		return false;
+		$open_tag = self::next_manifest_token( $tokens, 0 );
+		if ( null === $open_tag || ! is_array( $tokens[ $open_tag ] ) || T_OPEN_TAG !== $tokens[ $open_tag ][0] ) {
+			return false;
+		}
+		$path_variables = [];
+		$return         = self::manifest_return_token( $tokens, $open_tag + 1, $path_variables );
+		if ( null === $return ) {
+			return false;
+		}
+		$start = self::next_manifest_token( $tokens, $return + 1 );
+		if ( null === $start ) {
+			return false;
+		}
+		if ( is_array( $tokens[ $start ] ) && T_ARRAY === $tokens[ $start ][0] ) {
+			$start = self::next_manifest_token( $tokens, $start + 1 );
+			if ( null === $start || '(' !== $tokens[ $start ] ) {
+				return false;
+			}
+		} elseif ( '[' !== $tokens[ $start ] ) {
+			return false;
+		}
+		$end     = null;
+		$has_key = self::static_manifest_array_has_key( $tokens, $start, $expected_key, $path_variables, $end );
+		if ( null === $end ) {
+			return false;
+		}
+		$terminator = self::next_manifest_token( $tokens, $end + 1 );
+		if ( null === $terminator || ';' !== $tokens[ $terminator ] ) {
+			return false;
+		}
+		return $has_key && null === self::next_manifest_token( $tokens, $terminator + 1 );
 	}
 
 	/** @param list<array{int,string,int}|string> $tokens */
@@ -471,33 +487,113 @@ final class McpAbilitiesCompatibilityPreflight {
 		return null;
 	}
 
-	/** @param list<array{int,string,int}|string> $tokens */
-	private static function static_manifest_array_has_key( array $tokens, int $start, string $expected_key ): bool {
-		$depth = 1;
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,bool>                 $path_variables
+	 */
+	private static function manifest_return_token( array $tokens, int $offset, array &$path_variables ): ?int {
+		$index = self::next_manifest_token( $tokens, $offset );
+		while ( null !== $index ) {
+			$token = $tokens[ $index ];
+			if ( is_array( $token ) && T_RETURN === $token[0] ) {
+				return $index;
+			}
+			if ( ! is_array( $token ) || T_VARIABLE !== $token[0] || isset( $path_variables[ $token[1] ] ) ) {
+				return null;
+			}
+			$equals = self::next_manifest_token( $tokens, $index + 1 );
+			$dirname = null === $equals ? null : self::next_manifest_token( $tokens, $equals + 1 );
+			$open    = null === $dirname ? null : self::next_manifest_token( $tokens, $dirname + 1 );
+			$argument = null === $open ? null : self::next_manifest_token( $tokens, $open + 1 );
+			$close    = null === $argument ? null : self::next_manifest_token( $tokens, $argument + 1 );
+			$end      = null === $close ? null : self::next_manifest_token( $tokens, $close + 1 );
+			if (
+				null === $equals || '=' !== $tokens[ $equals ]
+				|| null === $dirname || ! is_array( $tokens[ $dirname ] ) || T_STRING !== $tokens[ $dirname ][0] || 'dirname' !== strtolower( $tokens[ $dirname ][1] )
+				|| null === $open || '(' !== $tokens[ $open ]
+				|| null === $argument || ! is_array( $tokens[ $argument ] )
+				|| ( T_DIR !== $tokens[ $argument ][0] && ( T_VARIABLE !== $tokens[ $argument ][0] || ! isset( $path_variables[ $tokens[ $argument ][1] ] ) ) )
+				|| null === $close || ')' !== $tokens[ $close ]
+				|| null === $end || ';' !== $tokens[ $end ]
+			) {
+				return null;
+			}
+			$path_variables[ $token[1] ] = true;
+			$index                        = self::next_manifest_token( $tokens, $end + 1 );
+		}
+		return null;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,bool>                 $path_variables
+	 */
+	private static function static_manifest_array_has_key( array $tokens, int $start, string $expected_key, array $path_variables, ?int &$end ): bool {
+		$closing     = [ '[' === $tokens[ $start ] ? ']' : ')' ];
+		$has_key     = false;
+		$expects_key = true;
 		for ( $index = $start + 1, $count = count( $tokens ); $index < $count; ++$index ) {
 			$token = $tokens[ $index ];
-			if ( '(' === $token || '[' === $token || '{' === $token ) {
-				++$depth;
+			if ( is_array( $token ) && in_array( $token[0], [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true ) ) {
 				continue;
 			}
-			if ( ')' === $token || ']' === $token || '}' === $token ) {
-				--$depth;
-				if ( 0 === $depth ) {
+			if ( 1 === count( $closing ) && $expects_key ) {
+				if ( $token === end( $closing ) ) {
+					array_pop( $closing );
+					$end = $index;
+					return $has_key;
+				}
+				if ( ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
+					return false;
+				}
+				$arrow = self::next_manifest_token( $tokens, $index + 1 );
+				if ( null === $arrow || ! is_array( $tokens[ $arrow ] ) || T_DOUBLE_ARROW !== $tokens[ $arrow ][0] ) {
+					return false;
+				}
+				$key = substr( $token[1], 1, -1 );
+				if ( $expected_key === str_replace( '\\\\', '\\', $key ) ) {
+					$has_key = true;
+				}
+				$expects_key = false;
+				continue;
+			}
+			if ( '(' === $token || '[' === $token ) {
+				$closing[] = '(' === $token ? ')' : ']';
+				continue;
+			}
+			if ( ')' === $token || ']' === $token ) {
+				if ( $token !== end( $closing ) ) {
+					return false;
+				}
+				array_pop( $closing );
+				if ( [] === $closing ) {
+					$end = $index;
+					return $has_key;
+				}
+				continue;
+			}
+			if ( ! is_array( $token ) ) {
+				if ( ',' === $token ) {
+					if ( 1 === count( $closing ) ) {
+						$expects_key = true;
+					}
+					continue;
+				}
+				if ( '.' !== $token ) {
 					return false;
 				}
 				continue;
 			}
-			if ( 1 !== $depth || ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
+			if ( in_array( $token[0], [ T_CONSTANT_ENCAPSED_STRING, T_LNUMBER, T_DNUMBER, T_DOUBLE_ARROW, T_ARRAY ], true ) ) {
 				continue;
 			}
-			$arrow = self::next_manifest_token( $tokens, $index + 1 );
-			if ( null === $arrow || ! is_array( $tokens[ $arrow ] ) || T_DOUBLE_ARROW !== $tokens[ $arrow ][0] ) {
+			if ( T_VARIABLE === $token[0] && isset( $path_variables[ $token[1] ] ) ) {
 				continue;
 			}
-			$key = substr( $token[1], 1, -1 );
-			if ( $expected_key === str_replace( '\\\\', '\\', $key ) ) {
-				return true;
+			if ( T_STRING === $token[0] && in_array( strtolower( $token[1] ), [ 'false', 'null', 'true' ], true ) ) {
+				continue;
 			}
+			return false;
 		}
 		return false;
 	}
