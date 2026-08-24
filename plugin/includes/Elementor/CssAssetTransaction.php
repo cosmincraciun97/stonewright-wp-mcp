@@ -177,6 +177,9 @@ final class CssAssetTransaction {
 				],
 			];
 		} finally {
+			if ( self::lease_still_ours( $lease ) ) {
+				self::unlink_restore_temps( $location );
+			}
 			CssDirectoryLease::release( $lease );
 		}
 	}
@@ -298,6 +301,12 @@ final class CssAssetTransaction {
 			$iterator = new \FilesystemIterator( $location['dir'], \FilesystemIterator::SKIP_DOTS );
 			foreach ( $iterator as $item ) {
 				$name = $item->getBasename();
+				if ( self::is_restore_temp( $name ) ) {
+					if ( $item->isLink() || is_link( $item->getPathname() ) || ! $item->isFile() ) {
+						return self::error( 'stonewright_elementor_css_manifest_unsafe', 'The Elementor CSS directory contains an unsupported entry.' );
+					}
+					continue;
+				}
 				if ( ! self::safe_filename( $name ) || $item->isLink() || is_link( $item->getPathname() ) || ! $item->isFile() ) {
 					return self::error( 'stonewright_elementor_css_manifest_unsafe', 'The Elementor CSS directory contains an unsupported entry.' );
 				}
@@ -460,6 +469,7 @@ final class CssAssetTransaction {
 			];
 		}
 		$lease   = $reclaimed;
+		self::unlink_restore_temps( $location );
 		$current = self::capture( $location );
 		if ( ! is_array( $current ) ) {
 			return [
@@ -469,6 +479,7 @@ final class CssAssetTransaction {
 			];
 		}
 		$manifest_status = self::restore_manifest( $location, $before, $current ) ? 'succeeded' : 'failed';
+		self::unlink_restore_temps( $location );
 		$metadata_status = self::restore_css_metadata( $post_id, $metadata_before ) ? 'succeeded' : 'failed';
 		return [
 			'ok'              => 'succeeded' === $manifest_status && 'succeeded' === $metadata_status,
@@ -513,6 +524,7 @@ final class CssAssetTransaction {
 		if ( $valid instanceof \WP_Error ) {
 			return false;
 		}
+		self::unlink_restore_temps( $location );
 		$restored = self::capture( $location );
 		return is_array( $restored ) && self::manifests_equal( $before, $restored );
 	}
@@ -594,26 +606,57 @@ final class CssAssetTransaction {
 		return strlen( $name ) <= 255 && 1 === preg_match( '/\A[A-Za-z0-9][A-Za-z0-9._-]*\.css\z/iD', $name );
 	}
 
-	private static function atomic_write( string $path, string $bytes, int $mode ): bool {
-		$tmp = tempnam( sys_get_temp_dir(), 'stonewright-css-restore-' );
-		if ( false === $tmp ) {
-			return false;
+	private static function is_restore_temp( string $name ): bool {
+		return 1 === preg_match( '/\A\.stonewright-css-restore-[A-Za-z0-9]+\z/D', $name )
+			|| 1 === preg_match( '/\Astonewright-css-restore-[A-Za-z0-9]+\.tmp\z/D', $name );
+	}
+
+	/** @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease */
+	private static function lease_still_ours( array $lease ): bool {
+		$current = get_option( (string) ( $lease['key'] ?? '' ), [] );
+		return is_array( $current )
+			&& hash_equals( (string) ( $lease['owner'] ?? '' ), (string) ( $current['owner'] ?? '' ) )
+			&& hash_equals( (string) ( $lease['scope'] ?? '' ), (string) ( $current['scope'] ?? '' ) );
+	}
+
+	/** @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location */
+	private static function unlink_restore_temps( array $location ): void {
+		if ( ! is_dir( $location['dir'] ) ) {
+			return;
 		}
-		$written = file_put_contents( $tmp, $bytes );
-		if ( strlen( $bytes ) !== $written || ! chmod( $tmp, $mode ) ) {
-			if ( is_file( $tmp ) ) {
+		try {
+			$iterator = new \FilesystemIterator( $location['dir'], \FilesystemIterator::SKIP_DOTS );
+			foreach ( $iterator as $item ) {
+				$name = $item->getBasename();
+				if ( ! self::is_restore_temp( $name ) || $item->isLink() || is_link( $item->getPathname() ) || ! $item->isFile() ) {
+					continue;
+				}
+				unlink( $item->getPathname() );
+			}
+		} catch ( \Throwable $error ) {
+			return;
+		}
+	}
+
+	private static function atomic_write( string $path, string $bytes, int $mode ): bool {
+		$dir = dirname( $path );
+		$tmp = $dir . '/.stonewright-css-restore-' . bin2hex( random_bytes( 8 ) );
+		try {
+			$written = file_put_contents( $tmp, $bytes );
+			if ( strlen( $bytes ) !== $written || ! chmod( $tmp, $mode ) ) {
+				return false;
+			}
+			if ( @rename( $tmp, $path ) ) {
+				$tmp = '';
+				return true;
+			}
+			$copied = @copy( $tmp, $path );
+			return $copied && chmod( $path, $mode );
+		} finally {
+			if ( '' !== $tmp && is_file( $tmp ) ) {
 				unlink( $tmp );
 			}
-			return false;
 		}
-		if ( @rename( $tmp, $path ) ) {
-			return true;
-		}
-		$copied = @copy( $tmp, $path );
-		if ( is_file( $tmp ) ) {
-			unlink( $tmp );
-		}
-		return $copied && chmod( $path, $mode );
 	}
 
 	/** @param array<string,mixed> $data */

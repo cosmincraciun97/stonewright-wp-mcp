@@ -29,8 +29,13 @@ development builds were never stable releases.
   directory. Normal writes now invalidate HTML cache only; post-write closure
   uses Elementor's official Post CSS API inside a bounded asset transaction
   with file-count/hash evidence, same-origin HTTP probes, collateral detection,
-  and byte-for-byte rollback. Rollback is skipped only when a later live CSS
-  directory owner holds the lease, not on mere TTL expiry. Post CSS location
+  and byte-for-byte rollback. Restore runs only while this writer still owns
+  the CSS directory lease, including an expired-but-ours row. A vacant lease
+  after another writer committed and released is skipped rather than reclaimed.
+  Same-directory restore temps are ignored by capture and unlinked after
+  restore. Post-lock renew failure after a successful CSS commit is
+  non-fatal evidence (`lost_after_commit`), not a false write failure.
+  Post CSS location
   checks accept Elementor 3.30 `?ver=` URLs and scheme-prefixed filesystem
   paths. The former `regenerate_css` input is removed;
   Direct mode now preserves CSS metadata and refuses global `flush-css`.

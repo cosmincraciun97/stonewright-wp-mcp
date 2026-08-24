@@ -91,6 +91,16 @@ final class PostCacheInvalidatorTest extends TestCase {
 		self::assertSame( '<div>stale</div>', get_post_meta( 701, '_elementor_element_cache', true ) );
 	}
 
+	public function test_restore_succeeds_when_snapshot_value_is_already_present(): void {
+		$snapshot = PostCacheInvalidator::snapshot( 701 );
+
+		$restored = PostCacheInvalidator::restore( 701, $snapshot );
+
+		self::assertTrue( $restored['ok'] );
+		self::assertTrue( $restored['present'] );
+		self::assertSame( '<div>stale</div>', get_post_meta( 701, '_elementor_element_cache', true ) );
+	}
+
 	public function test_restores_exact_absence_without_treating_delete_noop_as_failure(): void {
 		unset( $GLOBALS['stonewright_test_posts'][701]->meta['_elementor_element_cache'] );
 		$snapshot = PostCacheInvalidator::snapshot( 701 );

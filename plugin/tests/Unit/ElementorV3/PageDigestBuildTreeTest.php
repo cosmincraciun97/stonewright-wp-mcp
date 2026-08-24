@@ -249,6 +249,63 @@ final class PageDigestBuildTreeTest extends TestCase {
 		self::assertArrayNotHasKey( 'stonewright_elementor_lock_' . $this->post_id, $GLOBALS['stonewright_test_options'] );
 	}
 
+	public function test_build_tree_lock_renew_failure_after_css_commit_leaves_document_and_css(): void {
+		Post::$factory = function ( int $post_id ): object {
+			$path = $this->css_dir . '/post-' . $post_id . '.css';
+			return new class( $path, $post_id ) {
+				public function __construct( private string $path, private int $post_id ) {
+				}
+
+				public function update(): void {
+					file_put_contents( $this->path, 'post-css-committed' );
+					$GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ] = [
+						'post_id'     => $this->post_id,
+						'owner'       => 'foreign-writer',
+						'acquired_at' => time(),
+						'expires_at'  => time() + 120,
+					];
+				}
+
+				public function get_path(): string {
+					return $this->path;
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/' . basename( $this->path );
+				}
+			};
+		};
+
+		$result = ( new BuildTree() )->execute(
+			[
+				'post_id' => $this->post_id,
+				'tree'    => [
+					[
+						'id'       => 'lock001',
+						'elType'   => 'container',
+						'settings' => [],
+						'elements' => [
+							[
+								'id'         => 'head001',
+								'elType'     => 'widget',
+								'widgetType' => 'heading',
+								'settings'   => [ 'title' => 'Committed after lock loss' ],
+								'elements'   => [],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'lost_after_commit', $result['lock']['renew_after_commit'] ?? null );
+		self::assertSame( 'post-css-committed', (string) file_get_contents( $this->css_dir . '/post-' . $this->post_id . '.css' ) );
+		self::assertStringContainsString( 'Committed after lock loss', (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
+		self::assertSame( 'frontend-safe', (string) file_get_contents( $this->css_dir . '/custom-frontend.min.css' ) );
+	}
+
 	public function test_build_tree_restores_post_and_css_snapshot_when_regeneration_touches_global_asset(): void {
 		$original = (string) get_post_meta( $this->post_id, '_elementor_data', true );
 		Post::$factory = function ( int $post_id ): object {

@@ -66,17 +66,20 @@ final class PostCacheInvalidator {
 			return [ 'ok' => false, 'present' => self::meta_exists( $post_id, $key ) ];
 		}
 		$expected = (bool) ( $snapshot['exists'] ?? false );
-		$ok = $expected
-			? false !== update_post_meta( $post_id, $key, $snapshot['value'] ?? null )
-			: ( ! self::meta_exists( $post_id, $key ) || delete_post_meta( $post_id, $key ) );
+		if ( $expected ) {
+			update_post_meta( $post_id, $key, $snapshot['value'] ?? null );
+		} elseif ( self::meta_exists( $post_id, $key ) && ! delete_post_meta( $post_id, $key ) ) {
+			return [ 'ok' => false, 'present' => true ];
+		}
 		$present = self::meta_exists( $post_id, $key );
-		if ( $present !== $expected ) {
-			$ok = false;
-		}
-		if ( $present && get_post_meta( $post_id, $key, true ) !== ( $snapshot['value'] ?? null ) ) {
-			$ok = false;
-		}
+		$ok      = $present === $expected
+			&& ( ! $present || self::values_match( get_post_meta( $post_id, $key, true ), $snapshot['value'] ?? null ) );
 		return [ 'ok' => $ok, 'present' => $present ];
+	}
+
+	private static function values_match( mixed $actual, mixed $expected ): bool {
+		return $actual === $expected
+			|| ( is_string( $actual ) && is_string( $expected ) && wp_unslash( $actual ) === wp_unslash( $expected ) );
 	}
 
 	private static function meta_exists( int $post_id, string $key ): bool {

@@ -241,7 +241,7 @@ final class CssAssetTransactionTest extends TestCase {
 		}
 	}
 
-	public function test_atomic_restore_does_not_create_non_css_temps_in_the_css_directory(): void {
+	public function test_atomic_restore_uses_same_directory_temps_with_ignored_prefix(): void {
 		if ( ! function_exists( 'pcntl_fork' ) ) {
 			self::markTestSkipped( 'pcntl_fork is required to observe CSS restore temps.' );
 		}
@@ -264,8 +264,13 @@ final class CssAssetTransactionTest extends TestCase {
 					if ( '.' === $name || '..' === $name ) {
 						continue;
 					}
+					if ( 1 === preg_match( '/\A\.stonewright-css-restore-[A-Za-z0-9]+\z/D', $name )
+						|| 1 === preg_match( '/\Astonewright-css-restore-[A-Za-z0-9]+\.tmp\z/D', $name ) ) {
+						file_put_contents( $log, 'restore-temp:' . $name . "\n", FILE_APPEND );
+						continue;
+					}
 					if ( 1 !== preg_match( '/\.css$/i', $name ) ) {
-						file_put_contents( $log, $name . "\n", FILE_APPEND );
+						file_put_contents( $log, 'unexpected:' . $name . "\n", FILE_APPEND );
 					}
 				}
 			}
@@ -293,7 +298,8 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
-		self::assertSame( '', $seen, 'CSS restore must not create non-css temps in the CSS directory; saw: ' . $seen );
+		self::assertStringContainsString( 'restore-temp:.stonewright-css-restore-', $seen );
+		self::assertStringNotContainsString( 'unexpected:', $seen );
 		foreach ( scandir( $this->css_dir ) ?: [] as $name ) {
 			if ( '.' === $name || '..' === $name ) {
 				continue;
@@ -436,6 +442,91 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 		self::assertSame( 'succeeded', $result->get_error_data()['manifest_rollback_status'] ?? null );
 		self::assertSame( 'succeeded', $result->get_error_data()['metadata_rollback_status'] ?? null );
+	}
+
+	public function test_skips_restore_after_successor_commits_and_releases(): void {
+		$this->write( 'post-701.css', 's0-post' );
+		$this->write( 'post-999.css', 's0-sibling' );
+
+		$result = CssAssetTransaction::run(
+			701,
+			function (): array {
+				$this->expire_css_leases();
+				$successor = CssAssetTransaction::run(
+					999,
+					function (): array {
+						$this->write( 'post-999.css', 't2-committed' );
+						return [ 'ok' => true ];
+					}
+				);
+				self::assertIsArray( $successor );
+				self::assertTrue( $successor['ok'] );
+				self::assertSame( 't2-committed', $this->read( 'post-999.css' ) );
+				return [ 'ok' => false, 'error_code' => 'synthetic_failure' ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 't2-committed', $this->read( 'post-999.css' ) );
+		self::assertSame( 's0-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'not_attempted_lock_lost', $result->get_error_data()['manifest_rollback_status'] ?? null );
+		self::assertSame( 'not_attempted_lock_lost', $result->get_error_data()['metadata_rollback_status'] ?? null );
+	}
+
+	public function test_capture_ignores_leftover_restore_temp_prefix(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$dot_temp = $this->css_dir . '/.stonewright-css-restore-deadbeef';
+		$tmp_temp = $this->css_dir . '/stonewright-css-restore-deadbeef.tmp';
+		self::assertNotFalse( file_put_contents( $dot_temp, 'stale-dot-temp' ) );
+		self::assertNotFalse( file_put_contents( $tmp_temp, 'stale-tmp-temp' ) );
+
+		try {
+			$result = CssAssetTransaction::run(
+				701,
+				function (): array {
+					$this->write( 'post-701.css', 'new-post' );
+					return [ 'ok' => true ];
+				}
+			);
+
+			self::assertIsArray( $result );
+			self::assertTrue( $result['ok'] );
+			self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		} finally {
+			foreach ( [ $dot_temp, $tmp_temp ] as $path ) {
+				if ( is_file( $path ) ) {
+					unlink( $path );
+				}
+			}
+		}
+	}
+
+	public function test_restore_unlinks_leftover_restore_temps_and_keeps_css_files(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		$dot_temp = $this->css_dir . '/.stonewright-css-restore-deadbeef';
+		self::assertNotFalse( file_put_contents( $dot_temp, 'stale-dot-temp' ) );
+
+		try {
+			$result = CssAssetTransaction::run(
+				701,
+				function (): array {
+					unlink( $this->css_dir . '/post-999.css' );
+					$this->write( 'post-701.css', 'partial-post' );
+					return [ 'ok' => true ];
+				}
+			);
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+			self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+			self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+			self::assertFalse( is_file( $dot_temp ) );
+		} finally {
+			if ( is_file( $dot_temp ) ) {
+				unlink( $dot_temp );
+			}
+		}
 	}
 
 	public function test_skips_restore_when_a_different_live_owner_holds_the_lease(): void {

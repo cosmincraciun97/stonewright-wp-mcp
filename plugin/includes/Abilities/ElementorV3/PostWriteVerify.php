@@ -186,15 +186,17 @@ final class PostWriteVerify extends AbilityKernel {
 						: [ 'rendered_bytes' => 0, 'render_sha256' => '', 'element_checks' => [], 'content_checks' => [] ];
 					return self::failure_response( $post_id, $cache, $verification, $data, $args );
 				}
+				// CSS commit and in-transaction assertions already closed. A later
+				// post-lock renew failure is best-effort: rolling CSS or cache back
+				// would desync a committed write, and another live lock owner must
+				// not be overwritten. Codes: lock.renew_after_commit=ok|lost_after_commit.
+				$lock_renew_after_commit = 'ok';
 				$renewed = PostWriteLock::renew( $lease, 120 );
 				if ( $renewed instanceof \WP_Error ) {
-					return $this->error(
-						'elementor_write_lock_lost',
-						__( 'The Elementor write lease was lost before verification could be closed.', 'stonewright' ),
-						[ 'status' => 409, 'verification_status' => 'failed', 'rollback_status' => 'not_attempted_lock_lost' ]
-					);
+					$lock_renew_after_commit = 'lost_after_commit';
+				} else {
+					$lease = $renewed;
 				}
-				$lease = $renewed;
 				$operation = is_array( $transaction['operation_result'] ?? null ) ? $transaction['operation_result'] : [];
 				$html      = (string) ( $operation['html'] ?? '' );
 				$css       = array_merge(
@@ -255,6 +257,9 @@ final class PostWriteVerify extends AbilityKernel {
 						'rule'                  => 'For boxed containers measure both outer and .e-con-inner. A builder render pass is not visual acceptance.',
 					],
 					'write_receipt'       => $write_receipt,
+					'lock'                => [
+						'renew_after_commit' => $lock_renew_after_commit,
+					],
 				];
 				} finally {
 					PostWriteLock::release( $post_id, $owner );

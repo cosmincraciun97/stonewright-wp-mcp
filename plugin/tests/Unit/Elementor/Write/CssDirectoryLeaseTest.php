@@ -94,6 +94,22 @@ final class CssDirectoryLeaseTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_css_lease_busy', $reclaimed->get_error_code() );
 	}
 
+	public function test_reclaim_skips_when_successor_committed_and_released(): void {
+		$first = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $first );
+		$GLOBALS['stonewright_test_options'][ $first['key'] ]['expires_at'] = time() - 1;
+
+		$successor = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-two', 30 );
+		self::assertIsArray( $successor );
+		self::assertTrue( CssDirectoryLease::release( $successor ) );
+
+		$reclaimed = CssDirectoryLease::reclaim( $first, 120 );
+
+		self::assertInstanceOf( \WP_Error::class, $reclaimed );
+		self::assertSame( 'stonewright_elementor_css_lease_lost', $reclaimed->get_error_code() );
+		self::assertArrayNotHasKey( $first['key'], $GLOBALS['stonewright_test_options'] );
+	}
+
 	public function test_owner_can_renew_and_wrong_owner_cannot_release(): void {
 		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 5 );
 		self::assertIsArray( $lease );

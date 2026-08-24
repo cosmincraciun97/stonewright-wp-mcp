@@ -135,6 +135,66 @@ final class PostWriteVerifyTest extends TestCase {
 		self::assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][701]->meta );
 	}
 
+	public function test_lock_renew_failure_after_css_commit_is_non_fatal(): void {
+		$this->write_css( 'post-999.css', 'sibling' );
+		$this->write_css( 'custom-frontend.min.css', 'frontend' );
+		$this->write_css( 'custom-pro-widget-nav-menu.min.css', 'pro-nav' );
+		Post::$factory = function ( int $post_id ): object {
+			return new class( $post_id, $this->css_dir ) {
+				public function __construct( private int $post_id, private string $css_dir ) {
+				}
+
+				public function update(): void {
+					file_put_contents( $this->get_path(), 'post-css' );
+					$GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ] = [
+						'post_id'     => $this->post_id,
+						'owner'       => 'foreign-writer',
+						'acquired_at' => time(),
+						'expires_at'  => time() + 120,
+					];
+				}
+
+				public function get_path(): string {
+					return $this->css_dir . '/post-' . $this->post_id . '.css';
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+				}
+			};
+		};
+		\Elementor\Plugin::$instance = (object) [
+			'frontend' => new class() {
+				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
+					TestCase::assertFalse( $with_css );
+					return 701 === $post_id
+						? '<div class="elementor-element-hero01">Fresh marker</div>'
+						: '';
+				}
+			},
+			'files_manager' => new class() {
+				public function clear_cache(): void {
+					throw new \RuntimeException( 'Global CSS clear must never run.' );
+				}
+			},
+		];
+
+		$result = ( new PostWriteVerify() )->execute(
+			[
+				'post_id'       => 701,
+				'element_ids'   => [ 'hero01' ],
+				'html_contains' => [ 'Fresh marker' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'passed', $result['verification_status'] );
+		self::assertSame( 'post-css', $this->read_css( 'post-701.css' ) );
+		self::assertSame( 'lost_after_commit', $result['lock']['renew_after_commit'] ?? null );
+		self::assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][701]->meta );
+	}
+
 	public function test_missing_assertion_returns_failed_not_false_success(): void {
 		$this->write_css( 'post-701.css', 'old-post' );
 		$original_css_meta = $GLOBALS['stonewright_test_posts'][701]->meta['_elementor_css'];

@@ -26,11 +26,18 @@ For every Elementor document mutation in Plugin mode:
    and, only when needed, bounded content markers. Never pass `regenerate_css`;
    that unsafe switch does not exist. The verifier inventories the direct CSS
    directory, probes existing protected URLs, regenerates only the target
-   post's CSS through Elementor's official Post CSS API, renders without a
-   second CSS pass, and restores its bounded asset snapshot if another file
-   changes or a probe fails. Restore is skipped only when a later live CSS
-   directory owner holds the lease, not because the lease TTL expired with no
-   successor.
+  post's CSS through Elementor's official Post CSS API, renders without a
+  second CSS pass, and restores its bounded asset snapshot if another file
+  changes or a probe fails. Restore runs only while the CSS directory lease
+  still identifies this writer, including an expired-but-ours lease. A vacant
+  lease after another writer committed and released is a successor fence:
+  skip restore (`not_attempted_lock_lost` / `stonewright_elementor_css_lease_lost`)
+  and do not reclaim the empty slot. A different owner, live or expired,
+  is also a skip (`stonewright_elementor_css_lease_busy`). After a successful
+  CSS transaction, a later post-lock renew failure is non-fatal
+  (`lock.renew_after_commit=lost_after_commit`): the write is already closed,
+  release is best-effort, and rolling CSS or the document back would desync
+  a committed pair.
 7. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.

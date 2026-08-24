@@ -171,11 +171,17 @@ final class BuildTree extends AbilityKernel {
 						$transaction->add_data( $data );
 						return $transaction;
 					}
+					// Document write and CSS transaction already committed. Renew
+					// failure is best-effort: restoring only the document would
+					// desync CSS, and another live lock owner must not be overwritten.
+					// Codes: lock.renew_after_commit=ok|lost_after_commit.
+					$lock_renew_after_commit = 'ok';
 					$renewed = PostWriteLock::renew( $lease, 120 );
 					if ( $renewed instanceof \WP_Error ) {
-						return $renewed;
+						$lock_renew_after_commit = 'lost_after_commit';
+					} else {
+						$lease = $renewed;
 					}
-					$lease = $renewed;
 					$operation = is_array( $transaction['operation_result'] ?? null ) ? $transaction['operation_result'] : [];
 					$css = array_merge(
 						$operation,
@@ -197,6 +203,9 @@ final class BuildTree extends AbilityKernel {
 						'aliases_applied' => $aliases_applied,
 						'css'             => $css,
 						'digest'          => is_array( $digest ) ? $digest : [],
+						'lock'            => [
+							'renew_after_commit' => $lock_renew_after_commit,
+						],
 					];
 				} finally {
 					PostWriteLock::release( $post_id, $owner );
