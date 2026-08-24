@@ -428,14 +428,19 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	private static function jetpack_manifest_maps_adapter( string $root ): bool {
 		$composer_dir = $root . '/vendor/composer/';
-		if ( self::manifest_has_exact_key( $composer_dir . 'jetpack_autoload_psr4.php', 'WP\\MCP\\' ) ) {
+		$adapter_root = $root . '/vendor/wordpress/mcp-adapter/includes';
+		if ( self::manifest_maps_exact_target( $composer_dir . 'jetpack_autoload_psr4.php', 'WP\\MCP\\', $adapter_root ) ) {
 			return true;
 		}
-		return self::manifest_has_exact_key( $composer_dir . 'jetpack_autoload_classmap.php', 'WP\\MCP\\Core\\McpAdapter' );
+		return self::manifest_maps_exact_target(
+			$composer_dir . 'jetpack_autoload_classmap.php',
+			'WP\\MCP\\Core\\McpAdapter',
+			$adapter_root . '/Core/McpAdapter.php'
+		);
 	}
 
 	/** Parses the generated Jetpack manifest grammar without evaluating PHP. */
-	private static function manifest_has_exact_key( string $path, string $expected_key ): bool {
+	private static function manifest_maps_exact_target( string $path, string $expected_key, string $expected_target ): bool {
 		if ( ! is_file( $path ) ) {
 			return false;
 		}
@@ -461,8 +466,9 @@ final class McpAbilitiesCompatibilityPreflight {
 		++$index;
 
 		$path_variables = [];
+		$manifest_dir   = dirname( self::normalize_path( $path ) );
 		while ( self::manifest_token_is( $tokens, $index, T_VARIABLE ) ) {
-			if ( ! self::consume_manifest_path_assignment( $tokens, $index, $path_variables ) ) {
+			if ( ! self::consume_manifest_path_assignment( $tokens, $index, $path_variables, $manifest_dir ) ) {
 				return false;
 			}
 		}
@@ -471,15 +477,16 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		++$index;
 
-		$has_key = false;
-		if ( ! self::consume_static_manifest_array( $tokens, $index, $path_variables, $expected_key, true, $has_key ) ) {
+		$has_key        = false;
+		$target_matches = false;
+		if ( ! self::consume_static_manifest_array( $tokens, $index, $path_variables, $expected_key, true, $has_key, self::normalize_path( $expected_target ), $manifest_dir, $target_matches ) ) {
 			return false;
 		}
 		if ( ! self::manifest_token_is( $tokens, $index, ';' ) ) {
 			return false;
 		}
 		++$index;
-		return $has_key && count( $tokens ) === $index;
+		return $has_key && $target_matches && count( $tokens ) === $index;
 	}
 
 	/**
@@ -496,9 +503,9 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,true>                 $path_variables
+	 * @param array<string,string>               $path_variables
 	 */
-	private static function consume_manifest_path_assignment( array $tokens, int &$index, array &$path_variables ): bool {
+	private static function consume_manifest_path_assignment( array $tokens, int &$index, array &$path_variables, string $manifest_dir ): bool {
 		$variable = $tokens[ $index ] ?? null;
 		if ( ! is_array( $variable ) || T_VARIABLE !== $variable[0] || isset( $path_variables[ $variable[1] ] ) ) {
 			return false;
@@ -518,10 +525,14 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		++$index;
 		$argument = $tokens[ $index ] ?? null;
-		if (
-			! is_array( $argument )
-			|| ( T_DIR !== $argument[0] && ( T_VARIABLE !== $argument[0] || ! isset( $path_variables[ $argument[1] ] ) ) )
-		) {
+		if ( ! is_array( $argument ) ) {
+			return false;
+		}
+		if ( T_DIR === $argument[0] ) {
+			$argument_path = $manifest_dir;
+		} elseif ( T_VARIABLE === $argument[0] && isset( $path_variables[ $argument[1] ] ) ) {
+			$argument_path = $path_variables[ $argument[1] ];
+		} else {
 			return false;
 		}
 		++$index;
@@ -533,15 +544,25 @@ final class McpAbilitiesCompatibilityPreflight {
 			return false;
 		}
 		++$index;
-		$path_variables[ $variable[1] ] = true;
+		$path_variables[ $variable[1] ] = self::normalize_path( dirname( $argument_path ) );
 		return true;
 	}
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,true>                 $path_variables
+	 * @param array<string,string>               $path_variables
 	 */
-	private static function consume_static_manifest_array( array $tokens, int &$index, array $path_variables, ?string $expected_key, bool $require_keys, bool &$has_key ): bool {
+	private static function consume_static_manifest_array(
+		array $tokens,
+		int &$index,
+		array $path_variables,
+		?string $expected_key,
+		bool $require_keys,
+		bool &$has_key,
+		?string $expected_target,
+		?string $manifest_dir,
+		bool &$target_matches
+	): bool {
 		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) ) {
 			++$index;
 			if ( ! self::manifest_token_is( $tokens, $index, '(' ) ) {
@@ -571,11 +592,17 @@ final class McpAbilitiesCompatibilityPreflight {
 				return false;
 			}
 
-			if ( ! self::consume_static_manifest_value( $tokens, $index, $path_variables, $has_key ) ) {
+			$key_matches = null !== $key && null !== $expected_key && self::manifest_literal_matches_key( $key, $expected_key );
+			if ( $key_matches && $has_key ) {
 				return false;
 			}
-			if ( null !== $key && null !== $expected_key && self::manifest_literal_matches_key( $key, $expected_key ) ) {
+			if ( $key_matches && null !== $expected_target && null !== $manifest_dir ) {
+				if ( ! self::consume_expected_manifest_mapping( $tokens, $index, $path_variables, $expected_target, $manifest_dir, $target_matches ) ) {
+					return false;
+				}
 				$has_key = true;
+			} elseif ( ! self::consume_static_manifest_value( $tokens, $index, $path_variables, $has_key, $target_matches ) ) {
+				return false;
 			}
 			if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
 				++$index;
@@ -595,11 +622,178 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,true>                 $path_variables
+	 * @param array<string,string>               $path_variables
 	 */
-	private static function consume_static_manifest_value( array $tokens, int &$index, array $path_variables, bool &$has_key ): bool {
+	private static function consume_expected_manifest_mapping(
+		array $tokens,
+		int &$index,
+		array $path_variables,
+		string $expected_target,
+		string $manifest_dir,
+		bool &$target_matches
+	): bool {
+		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) ) {
+			++$index;
+			if ( ! self::manifest_token_is( $tokens, $index, '(' ) ) {
+				return false;
+			}
+			$closing = ')';
+		} elseif ( self::manifest_token_is( $tokens, $index, '[' ) ) {
+			$closing = ']';
+		} else {
+			return false;
+		}
+		++$index;
+
+		$path_seen = false;
+		while ( isset( $tokens[ $index ] ) && ! self::manifest_token_is( $tokens, $index, $closing ) ) {
+			$key = $tokens[ $index ] ?? null;
+			if ( ! is_array( $key ) || T_CONSTANT_ENCAPSED_STRING !== $key[0] || ! self::manifest_token_is( $tokens, $index + 1, T_DOUBLE_ARROW ) ) {
+				return false;
+			}
+			$key_name = self::manifest_literal_value( $key[1] );
+			if ( null === $key_name ) {
+				return false;
+			}
+			$index += 2;
+
+			if ( 'path' === $key_name ) {
+				if ( $path_seen ) {
+					return false;
+				}
+				$paths = [];
+				if ( ! self::consume_manifest_path_value( $tokens, $index, $path_variables, $manifest_dir, $paths ) ) {
+					return false;
+				}
+				$path_seen = true;
+				foreach ( $paths as $mapped_path ) {
+					if ( self::resolve_manifest_path( $mapped_path, $manifest_dir ) === $expected_target ) {
+						$target_matches = true;
+					}
+				}
+			} else {
+				$nested_has_key = false;
+				if ( ! self::consume_static_manifest_value( $tokens, $index, $path_variables, $nested_has_key, $target_matches ) ) {
+					return false;
+				}
+			}
+
+			if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
+				break;
+			}
+			if ( ! self::manifest_token_is( $tokens, $index, ',' ) ) {
+				return false;
+			}
+			++$index;
+		}
+		if ( ! self::manifest_token_is( $tokens, $index, $closing ) ) {
+			return false;
+		}
+		++$index;
+		return $path_seen;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,string>               $path_variables
+	 * @param list<string>                       $paths
+	 */
+	private static function consume_manifest_path_value( array $tokens, int &$index, array $path_variables, string $manifest_dir, array &$paths ): bool {
+		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) ) {
+			++$index;
+			if ( ! self::manifest_token_is( $tokens, $index, '(' ) ) {
+				return false;
+			}
+			$closing = ')';
+		} elseif ( self::manifest_token_is( $tokens, $index, '[' ) ) {
+			$closing = ']';
+		} else {
+			$path = null;
+			if ( ! self::consume_manifest_path_expression( $tokens, $index, $path_variables, $manifest_dir, $path ) ) {
+				return false;
+			}
+			$paths[] = $path;
+			return true;
+		}
+		++$index;
+
+		while ( isset( $tokens[ $index ] ) && ! self::manifest_token_is( $tokens, $index, $closing ) ) {
+			$path = null;
+			if ( ! self::consume_manifest_path_expression( $tokens, $index, $path_variables, $manifest_dir, $path ) ) {
+				return false;
+			}
+			$paths[] = $path;
+			if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
+				break;
+			}
+			if ( ! self::manifest_token_is( $tokens, $index, ',' ) ) {
+				return false;
+			}
+			++$index;
+		}
+		if ( ! self::manifest_token_is( $tokens, $index, $closing ) ) {
+			return false;
+		}
+		++$index;
+		return true;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,string>               $path_variables
+	 */
+	private static function consume_manifest_path_expression( array $tokens, int &$index, array $path_variables, string $manifest_dir, ?string &$path ): bool {
+		$path = self::consume_manifest_path_scalar( $tokens, $index, $path_variables, $manifest_dir );
+		if ( null === $path ) {
+			return false;
+		}
+		while ( self::manifest_token_is( $tokens, $index, '.' ) ) {
+			++$index;
+			$part = self::consume_manifest_path_scalar( $tokens, $index, $path_variables, $manifest_dir );
+			if ( null === $part ) {
+				return false;
+			}
+			$path .= $part;
+		}
+		return true;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,string>               $path_variables
+	 */
+	private static function consume_manifest_path_scalar( array $tokens, int &$index, array $path_variables, string $manifest_dir ): ?string {
+		$token = $tokens[ $index ] ?? null;
+		if ( ! is_array( $token ) ) {
+			return null;
+		}
+		if ( T_CONSTANT_ENCAPSED_STRING === $token[0] ) {
+			++$index;
+			return self::manifest_literal_value( $token[1] );
+		}
+		if ( T_VARIABLE === $token[0] && isset( $path_variables[ $token[1] ] ) ) {
+			++$index;
+			return $path_variables[ $token[1] ];
+		}
+		if ( T_DIR === $token[0] ) {
+			++$index;
+			return $manifest_dir;
+		}
+		return null;
+	}
+
+	private static function resolve_manifest_path( string $path, string $manifest_dir ): string {
+		$is_absolute = str_starts_with( $path, '/' ) || 1 === preg_match( '/^[A-Za-z]:[\\\\\/]/', $path );
+		return self::normalize_path( $is_absolute ? $path : $manifest_dir . '/' . $path );
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,string>               $path_variables
+	 */
+	private static function consume_static_manifest_value( array $tokens, int &$index, array $path_variables, bool &$has_key, bool &$target_matches ): bool {
 		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) || self::manifest_token_is( $tokens, $index, '[' ) ) {
-			return self::consume_static_manifest_array( $tokens, $index, $path_variables, null, false, $has_key );
+			return self::consume_static_manifest_array( $tokens, $index, $path_variables, null, false, $has_key, null, null, $target_matches );
 		}
 		if ( ! self::consume_static_manifest_scalar( $tokens, $index, $path_variables ) ) {
 			return false;
@@ -615,7 +809,7 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,true>                 $path_variables
+	 * @param array<string,string>               $path_variables
 	 */
 	private static function consume_static_manifest_scalar( array $tokens, int &$index, array $path_variables ): bool {
 		$token = $tokens[ $index ] ?? null;
@@ -638,8 +832,19 @@ final class McpAbilitiesCompatibilityPreflight {
 	}
 
 	private static function manifest_literal_matches_key( string $literal, string $expected_key ): bool {
-		$encoded = str_replace( '\\', '\\\\', $expected_key );
-		return "'" . $encoded . "'" === $literal || '"' . $encoded . '"' === $literal;
+		return self::manifest_literal_value( $literal ) === $expected_key;
+	}
+
+	private static function manifest_literal_value( string $literal ): ?string {
+		if ( strlen( $literal ) < 2 || $literal[0] !== $literal[ strlen( $literal ) - 1 ] ) {
+			return null;
+		}
+		$quote = $literal[0];
+		$body  = substr( $literal, 1, -1 );
+		if ( "'" === $quote ) {
+			return str_replace( [ '\\\\', "\\'" ], [ '\\', "'" ], $body );
+		}
+		return '"' === $quote ? stripcslashes( $body ) : null;
 	}
 
 	/** @return list<string> */

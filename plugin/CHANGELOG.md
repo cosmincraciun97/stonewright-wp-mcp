@@ -18,7 +18,9 @@
 
 ### Fixed
 
-- Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP compatibility preflight.
+- Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP
+  compatibility preflight, while requiring their classmap or PSR-4 entry to
+  resolve to the canonical adapter target.
 - Normalize two-component WordPress core versions such as 6.9 so guarded
   Abilities API fallbacks cannot falsely block the MCP server.
 - Accept WordPress `init` hook arguments in audit retention scheduling so an

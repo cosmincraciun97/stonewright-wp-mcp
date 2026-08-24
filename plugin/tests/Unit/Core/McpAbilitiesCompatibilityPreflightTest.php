@@ -397,8 +397,11 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 	/** @return array<string,array{string}> */
 	public static function invalid_jetpack_manifest_fixtures(): array {
 		return [
-			'classmap decoy' => [ 'release-invalid-classmap' ],
-			'psr-4 decoy'    => [ 'release-invalid-psr4' ],
+			'classmap decoy'       => [ 'release-invalid-classmap' ],
+			'psr-4 decoy'          => [ 'release-invalid-psr4' ],
+			'classmap wrong target' => [ 'release-wrong-target-classmap' ],
+			'psr-4 wrong target'    => [ 'release-wrong-target-psr4' ],
+			'classmap empty target' => [ 'release-empty-target-classmap' ],
 		];
 	}
 
