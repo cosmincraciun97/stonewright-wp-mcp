@@ -221,6 +221,7 @@ test('real Elementor regenerates only target post CSS and survives verification'
 			'stonewright/elementor-build-tree',
 			{
 				post_id: postId,
+				stonewright_context_token: contextToken,
 				tree: [
 					{
 						id: 'csssafe1',
@@ -256,7 +257,11 @@ test('real Elementor regenerates only target post CSS and survives verification'
 			nonce,
 			contextToken,
 			'stonewright/elementor-post-write-verify',
-			{ post_id: postId, element_ids: ['csssafe1', 'csssafe2'] },
+			{
+				post_id: postId,
+				element_ids: ['csssafe1', 'csssafe2'],
+				stonewright_context_token: contextToken,
+			},
 		);
 		expect(verify.ok, JSON.stringify(verify.body)).toBeTruthy();
 		const verified = resultPayload(verify.body);
@@ -301,7 +306,11 @@ test('real Elementor regenerates only target post CSS and survives verification'
 			nonce,
 			contextToken,
 			'stonewright/elementor-post-write-verify',
-			{ post_id: postId, element_ids: ['missing-css-assertion'] },
+			{
+				post_id: postId,
+				element_ids: ['missing-css-assertion'],
+				stonewright_context_token: contextToken,
+			},
 		);
 		expect(negative.ok, JSON.stringify(negative.body)).toBeTruthy();
 		const negativeResult = resultPayload(negative.body);
