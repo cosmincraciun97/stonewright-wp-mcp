@@ -122,7 +122,7 @@ final class TroubleshootPage {
 	private static function render_elementor_provider_discovery(): void {
 		$report = ( new ProviderRouter() )->inspect( 0, 'auto' );
 		$providers = is_array( $report['providers'] ?? null ) ? $report['providers'] : [];
-		$issues = is_array( $report['issues'] ?? null ) ? array_slice( $report['issues'], 0, 20 ) : [];
+		$issues = is_array( $report['issues'] ?? null ) ? $report['issues'] : [];
 		$preference = is_array( $report['native_preferred']['elementor/manage-default-styles'] ?? null ) ? $report['native_preferred']['elementor/manage-default-styles'] : [];
 		$state = sanitize_key( (string) ( $preference['certification'] ?? 'unsupported' ) );
 		?>

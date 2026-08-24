@@ -266,14 +266,17 @@ The read-only Provider Router reports each live provider as `discovered`,
 `rejected`, or `certified`. Ownership comes from the registered execution
 callback and an active plugin main file; the main filename does not need to
 match its folder, and metadata is read safely in REST/MCP requests without an
-admin-only API. Generic ability wrappers and inactive plugins are never treated
-as owners. Third-party Atomic schemas remain inventory-only until they have an
-explicit Stonewright certification, and every write consumer uses the same
-central trust decision. The official `elementor/manage-default-styles` ability
+admin-only API. Generic ability wrappers, inactive plugins, and third-party
+lookalikes such as `pro-elements/*` are never treated as official owners.
+Third-party Atomic schemas remain inventory-only until they have an exact
+Stonewright-owned certification, and every write consumer uses the same central
+trust decision. Provider diagnostics are capped at 20 by the router and include
+the full issue count plus a truncation flag, so Status, MCP, and Troubleshoot
+responses stay bounded. The official `elementor/manage-default-styles` ability
 is native-preferred only when its live contract proves the exact object
 schemas, required fields, update/delete and tag semantics, raw CSS responsive
 and pseudo-state behavior, patch/replace/null behavior, `idempotent=false`,
-`CLASS_TYPE=class`, and a runtime operation limit no greater than 20. Discovery
+`CLASS_TYPE=class`, and the exact upstream `MAX_BATCH_SIZE=20`. Discovery
 never routes a write: permission, mode, confirmation token, backup, validation,
 write lock, readback, frontend verification, rollback, and audit gates must all
 exist first.

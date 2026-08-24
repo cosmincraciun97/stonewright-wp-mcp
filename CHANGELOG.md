@@ -37,7 +37,10 @@ development builds were never stable releases.
   constants, and an exact 20-operation runtime limit; reject added schema
   keywords and every annotation or contract mismatch.
 - Isolate Elementor provider discovery failures so Status and Troubleshoot
-  retain surviving providers and expose only bounded diagnostics.
+  retain surviving providers and expose at most 20 diagnostics with the full
+  issue count and truncation state.
+- Keep third-party `pro-elements/*` runtimes distinct from official Elementor
+  Pro and read-only without exact Stonewright-owned certification.
 - Abort Elementor V4 spec rendering before mutation when the required backup
   snapshot cannot be verified.
 - Resolve runtime ownership from active plugin main files and safe plugin

@@ -151,6 +151,46 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $provider['read_only'] );
 	}
 
+	public function test_pro_elements_runtime_remains_third_party_without_stonewright_certification(): void {
+		$schema = [
+			'atomic_type'        => 'e-pro-elements-card',
+			'kind'               => 'widget',
+			'source'             => 'live_runtime',
+			'source_plugin'      => 'pro-elements/pro-elements.php',
+			'source_version'     => '3.30.0',
+			'runtime_class'      => 'ElementorPro\\Modules\\Card\\Widget',
+			'schema_fingerprint' => 'pro-elements-hash',
+			'provider_id'        => 'elementor-pro',
+			'provenance'         => [
+				'schema'    => 'live_elementor_runtime',
+				'ownership' => 'active_plugin_header',
+			],
+		];
+
+		$result = $this->router( 'v4', [], [ 'items' => [ $schema ], 'issues' => [] ] )->inspect();
+		$provider = self::index_by( $result['providers'], 'id' )['plugin:pro-elements'];
+
+		self::assertSame( 'third-party', $provider['ownership'] );
+		self::assertSame( 'untrusted', $provider['trust'] );
+		self::assertSame( 'discovered', $provider['certification'] );
+		self::assertFalse( $provider['capabilities'][0]['write_eligible'] );
+	}
+
+	public function test_adversarial_provider_diagnostics_are_capped_and_summarized_at_source(): void {
+		$issues = [];
+		for ( $index = 0; $index < 1000; ++$index ) {
+			$issues[] = [ 'code' => 'schema_issue_' . $index, 'atomic_type' => 'e-broken-' . $index ];
+		}
+
+		$result = $this->router( 'v4', [], [ 'items' => [], 'issues' => $issues ] )->inspect();
+
+		self::assertCount( 20, $result['issues'] );
+		self::assertSame( 1000, $result['issues_count'] );
+		self::assertTrue( $result['issues_truncated'] );
+		self::assertSame( 'schema_issue_0', $result['issues'][0]['code'] );
+		self::assertSame( 'schema_issue_19', $result['issues'][19]['code'] );
+	}
+
 	public function test_incomplete_or_unknown_provider_evidence_is_unsupported_and_never_guessed(): void {
 		$router = $this->router(
 			'v4',

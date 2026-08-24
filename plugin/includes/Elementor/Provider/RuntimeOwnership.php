@@ -65,7 +65,7 @@ final class RuntimeOwnership {
 		if ( 'elementor/elementor.php' === $normalized ) {
 			return 'elementor-core';
 		}
-		if ( 'elementor-pro/elementor-pro.php' === $normalized || str_starts_with( $normalized, 'pro-elements/' ) ) {
+		if ( 'elementor-pro/elementor-pro.php' === $normalized ) {
 			return 'elementor-pro';
 		}
 		if ( '' === $normalized || 'unknown' === $normalized || str_starts_with( $normalized, 'runtime:' ) ) {

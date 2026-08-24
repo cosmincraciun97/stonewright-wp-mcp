@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 
 /** Selects read-only provider evidence after document architecture is known. */
 final class ProviderRouter {
+	private const MAX_ISSUES = 20;
 
 	private \Closure $architecture;
 	private \Closure $v3;
@@ -26,20 +27,25 @@ final class ProviderRouter {
 	public function inspect( int $post_id = 0, string $requested = 'auto' ): array {
 		$architecture = ( $this->architecture )( $post_id, $requested );
 		$issues       = [];
-		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues );
-		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues );
-		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues );
+		$issue_count  = 0;
+		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues, $issue_count );
+		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues, $issue_count );
+		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_count );
 
-		$issues    = array_merge( $issues, is_array( $atomic['issues'] ?? null ) ? array_values( $atomic['issues'] ) : [] );
+		foreach ( is_array( $atomic['issues'] ?? null ) ? $atomic['issues'] : [] as $issue ) {
+			if ( is_array( $issue ) ) {
+				self::record_issue( $issues, $issue_count, $issue );
+			}
+		}
 		$providers = [];
 		foreach ( $v3 as $schema ) {
 			if ( is_array( $schema ) ) {
-				self::add_capability( $providers, $issues, 'v3-widget', 'v3', (string) ( $schema['widget_type'] ?? '' ), $schema, (string) ( $schema['schema_hash'] ?? '' ) );
+				self::add_capability( $providers, $issues, $issue_count, 'v3-widget', 'v3', (string) ( $schema['widget_type'] ?? '' ), $schema, (string) ( $schema['schema_hash'] ?? '' ) );
 			}
 		}
 		foreach ( (array) ( $atomic['items'] ?? [] ) as $schema ) {
 			if ( is_array( $schema ) ) {
-				self::add_capability( $providers, $issues, 'atomic-node', 'v4', (string) ( $schema['atomic_type'] ?? '' ), $schema, (string) ( $schema['schema_fingerprint'] ?? '' ) );
+				self::add_capability( $providers, $issues, $issue_count, 'atomic-node', 'v4', (string) ( $schema['atomic_type'] ?? '' ), $schema, (string) ( $schema['schema_fingerprint'] ?? '' ) );
 			}
 		}
 
@@ -58,7 +64,7 @@ final class ProviderRouter {
 			$ability_architectures = [] !== $declared_architectures ? $declared_architectures : [ 'global' ];
 			$annotations       = (array) ( $meta['annotations'] ?? [] );
 			$is_declared_write = false === ( $annotations['readonly'] ?? null ) || true === ( $annotations['destructive'] ?? false );
-			self::add_capability( $providers, $issues, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
+			self::add_capability( $providers, $issues, $issue_count, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
 		}
 
 		ksort( $providers );
@@ -106,24 +112,34 @@ final class ProviderRouter {
 			'selection'        => [ 'status' => $supported ? 'supported' : 'unsupported', 'architecture' => $target, 'reason' => $reason ],
 			'providers'        => $provider_rows,
 			'issues'           => array_values( $issues ),
+			'issues_count'     => $issue_count,
+			'issues_truncated' => $issue_count > count( $issues ),
 			'native_preferred' => $native_preferred,
 			'writes_enabled'   => false,
 			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
 	}
 
-	/** @param array<string,mixed>|list<mixed> $fallback @param list<array<string,string>> $issues @return array<string,mixed>|list<mixed> */
-	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues ): array {
+	/** @param array<string,mixed>|list<mixed> $fallback @param list<array<string,mixed>> $issues @return array<string,mixed>|list<mixed> */
+	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, int &$issue_count ): array {
 		try {
 			$result = $callback();
 			return is_array( $result ) ? $result : $fallback;
 		} catch ( \Throwable $error ) {
-			$issues[] = [
+			self::record_issue( $issues, $issue_count, [
 				'code'        => 'provider_discovery_failed',
 				'provider'    => $provider,
 				'error_class' => get_class( $error ),
-			];
+			] );
 			return $fallback;
+		}
+	}
+
+	/** @param list<array<string,mixed>> $issues @param array<string,mixed> $issue */
+	private static function record_issue( array &$issues, int &$issue_count, array $issue ): void {
+		++$issue_count;
+		if ( count( $issues ) < self::MAX_ISSUES ) {
+			$issues[] = $issue;
 		}
 	}
 
@@ -142,15 +158,17 @@ final class ProviderRouter {
 	}
 
 	/** @param array<string,array<string,mixed>> $providers @param list<array<string,mixed>> $issues @param string|list<string> $architecture @param array<string,mixed> $evidence */
-	private static function add_capability( array &$providers, array &$issues, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
+	private static function add_capability( array &$providers, array &$issues, int &$issue_count, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
 		$plugin = (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) );
 		$class  = (string) ( $evidence['runtime_class'] ?? '' );
 		$id     = RuntimeOwnership::provider_id( $plugin );
 		if ( '' === $name || '' === $fingerprint || '' === $class || 'unknown' === $id ) {
-			$issues[] = [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ];
+			self::record_issue( $issues, $issue_count, [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ] );
 			return;
 		}
-		$atomic_policy = 'atomic-node' === $kind ? AtomicSchemaRepository::provider_policy( $evidence ) : null;
+		$policy_evidence = $evidence;
+		$policy_evidence['provider_id'] = $id;
+		$atomic_policy = 'atomic-node' === $kind ? AtomicSchemaRepository::provider_policy( $policy_evidence ) : null;
 		if ( ! isset( $providers[ $id ] ) ) {
 			$official = in_array( $id, [ 'elementor-core', 'elementor-pro' ], true );
 			$ownership_provenance = (string) ( $evidence['provenance']['ownership'] ?? '' );
