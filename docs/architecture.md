@@ -263,23 +263,31 @@ when the live widget/control contract supports the requested settings. Catalog
 presence alone is never availability proof.
 
 The read-only Provider Router reports each live provider as `discovered`,
-`compatible`, or `certified`. Ownership comes from the registered execution
-callback and its plugin boundary, or from explicit upstream source metadata;
-generic ability wrappers are never treated as owners. Third-party providers
-remain untrusted until they have an explicit Stonewright certification. The
-official `elementor/manage-default-styles` ability is native-preferred only
-when its live contract proves update and delete actions, Elementor's real
-write annotations, responsive CSS, pseudo-states, and the 20-operation runtime
-limit. Discovery never routes a write: permission, mode, confirmation token,
-backup, validation, write lock, readback, frontend verification, rollback, and
-audit gates must all exist first.
+`rejected`, or `certified`. Ownership comes from the registered execution
+callback and an active plugin main file; the main filename does not need to
+match its folder, and metadata is read safely in REST/MCP requests without an
+admin-only API. Generic ability wrappers and inactive plugins are never treated
+as owners. Third-party Atomic schemas remain inventory-only until they have an
+explicit Stonewright certification, and every write consumer uses the same
+central trust decision. The official `elementor/manage-default-styles` ability
+is native-preferred only when its live contract proves the exact object
+schemas, required fields, update/delete and tag semantics, raw CSS responsive
+and pseudo-state behavior, patch/replace/null behavior, `idempotent=false`,
+`CLASS_TYPE=class`, and a runtime operation limit no greater than 20. Discovery
+never routes a write: permission, mode, confirmation token, backup, validation,
+write lock, readback, frontend verification, rollback, and audit gates must all
+exist first.
 
 Before the MCP adapter is instantiated, the compatibility preflight inspects
-the packaged Composer and Jetpack manifests used by installed releases. It
-checks the MCP Adapter, Abilities registry, and Ability class namespaces,
-constructors, methods, signatures, constants, and package versions. Competing
-owners or an incompatible ABI stop boot and appear in Troubleshoot with
-sanitized owner names and remediation instead of filesystem paths.
+Stonewright plus active-plugin Composer and Jetpack manifests. Inactive
+manifests are ignored. WordPress 6.9 core Abilities and Stonewright's guarded
+fallback are one compatible runtime, while two active/autoloadable
+implementations still conflict. Exact class/namespace, visibility/static
+modifiers, required and maximum arity, parameter/return types including
+nullability and unions, constants, and versions are checked before invocation.
+Troubleshoot renders every blocked symbol with its exact owners, versions,
+reason, ABI issues, and safe remediation instead of flattening owners or
+exposing filesystem paths.
 
 All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates

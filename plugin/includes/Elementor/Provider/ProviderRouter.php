@@ -137,6 +137,7 @@ final class ProviderRouter {
 			$issues[] = [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ];
 			return;
 		}
+		$atomic_policy = 'atomic-node' === $kind ? AtomicSchemaRepository::provider_policy( $evidence ) : null;
 		if ( ! isset( $providers[ $id ] ) ) {
 			$official = in_array( $id, [ 'elementor-core', 'elementor-pro' ], true );
 			$ownership_provenance = (string) ( $evidence['provenance']['ownership'] ?? '' );
@@ -144,8 +145,8 @@ final class ProviderRouter {
 			$providers[ $id ] = [
 				'id'                => $id,
 				'ownership'         => $official ? 'official' : 'third-party',
-				'trust'             => $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ),
-				'certification'     => 'discovered',
+				'trust'             => is_array( $atomic_policy ) ? $atomic_policy['trust'] : ( $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ) ),
+				'certification'     => is_array( $atomic_policy ) ? $atomic_policy['certification'] : 'discovered',
 				'source_plugin'     => $plugin,
 				'source_version'    => (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ),
 				'architectures'     => [],
@@ -164,23 +165,28 @@ final class ProviderRouter {
 		if ( ! in_array( $class, $providers[ $id ]['runtime_classes'], true ) ) {
 			$providers[ $id ]['runtime_classes'][] = $class;
 		}
+		$write_eligible = is_array( $atomic_policy ) && true === $atomic_policy['write_eligible'];
 		$providers[ $id ]['capabilities'][] = [
 			'kind'               => $kind,
 			'name'               => $name,
 			'schema_fingerprint' => $fingerprint,
 			'provenance'         => (array) ( $evidence['provenance'] ?? [] ),
 			'routable'           => false,
+			'write_eligible'     => $write_eligible,
 		];
 		if ( $write_primitive ) {
-			$providers[ $id ]['read_only'] = false;
 			$certification = 'elementor/manage-default-styles' === $name ? self::certify_manage_default_styles( $evidence ) : [ 'state' => 'discovered' ];
 			$providers[ $id ]['certification'] = (string) ( $certification['state'] ?? 'discovered' );
-			$providers[ $id ]['write_primitives'][] = [
-				'name'                    => $name,
-				'source'                  => 'upstream_registered_ability',
-				'routable'                => false,
-				'safety_closure_required' => true,
-			];
+			if ( 'certified' === ( $certification['state'] ?? '' ) ) {
+				$providers[ $id ]['read_only'] = false;
+				$providers[ $id ]['capabilities'][ array_key_last( $providers[ $id ]['capabilities'] ) ]['write_eligible'] = true;
+				$providers[ $id ]['write_primitives'][] = [
+					'name'                    => $name,
+					'source'                  => 'upstream_registered_ability',
+					'routable'                => false,
+					'safety_closure_required' => true,
+				];
+			}
 		}
 	}
 
@@ -188,27 +194,70 @@ final class ProviderRouter {
 	private static function certify_manage_default_styles( array $ability ): array {
 		$meta        = (array) ( $ability['meta'] ?? [] );
 		$annotations = (array) ( $meta['annotations'] ?? [] );
-		$schema      = (array) ( $ability['input_schema'] ?? [] );
-		$operations  = (array) ( $schema['properties']['operations'] ?? [] );
+		$input       = (array) ( $ability['input_schema'] ?? [] );
+		$output      = (array) ( $ability['output_schema'] ?? [] );
+		$operations  = (array) ( $input['properties']['operations'] ?? [] );
 		$item        = (array) ( $operations['items'] ?? [] );
 		$properties  = (array) ( $item['properties'] ?? [] );
 		$actions     = array_values( array_map( 'strval', (array) ( $properties['action']['enum'] ?? [] ) ) );
-		$description = strtolower( (string) ( $ability['description'] ?? '' ) . ' ' . (string) ( $operations['description'] ?? '' ) . ' ' . (string) ( $properties['css']['description'] ?? '' ) );
 		$runtime     = (array) ( $ability['runtime_contract'] ?? ( $meta['contract'] ?? [] ) );
 		$ownership_verified = self::verified_callback_ownership( (string) ( $ability['provenance']['ownership'] ?? '' ) );
 		$limit       = (int) ( $runtime['runtime_operation_limit'] ?? 0 );
+		$issues = [];
+		if ( 'elementor/manage-default-styles' !== ( $ability['name'] ?? null ) || 'Elementor\\Modules\\Mcp\\Abilities\\Manage_Default_Styles_Ability' !== ( $ability['runtime_class'] ?? null ) ) {
+			$issues[] = 'runtime_identity_mismatch';
+		}
+		if ( 'elementor-core' !== RuntimeOwnership::provider_id( (string) ( $ability['source_plugin'] ?? ( $meta['source_plugin'] ?? '' ) ) ) ) {
+			$issues[] = 'official_owner_mismatch';
+		}
+		if ( 3 !== count( $annotations ) || false !== ( $annotations['readonly'] ?? null ) || false !== ( $annotations['idempotent'] ?? null ) || true !== ( $annotations['destructive'] ?? null ) ) {
+			$issues[] = 'annotations_mismatch';
+		}
+		if ( ! self::exact_object_schema( $output, [ 'status', 'results' ], [ 'status' => 'string', 'results' => 'array' ] ) ) {
+			$issues[] = 'output_schema_mismatch';
+		}
+		if ( 'object' !== ( $input['type'] ?? null ) || ! self::same_set( (array) ( $input['required'] ?? [] ), [ 'operations' ] ) || [ 'operations' ] !== array_keys( (array) ( $input['properties'] ?? [] ) ) ) {
+			$issues[] = 'input_schema_mismatch';
+		}
+		if ( 'array' !== ( $operations['type'] ?? null ) || 'object' !== ( $item['type'] ?? null ) || ! self::same_set( (array) ( $item['required'] ?? [] ), [ 'action', 'tag' ] ) || ! self::same_set( array_keys( $properties ), [ 'action', 'tag', 'css', 'mode' ] ) ) {
+			$issues[] = 'operations_schema_mismatch';
+		}
+		if ( 'string' !== ( $properties['action']['type'] ?? null ) || ! self::same_set( $actions, [ 'update', 'delete' ] ) ) {
+			$issues[] = 'action_contract_mismatch';
+		}
+		if ( 'string' !== ( $properties['tag']['type'] ?? null ) || ! self::contains_all( (string) ( $properties['tag']['description'] ?? '' ), [ 'html wrapper tag', 'allowed wrapper tags' ] ) ) {
+			$issues[] = 'tag_contract_mismatch';
+		}
+		if ( 'string' !== ( $properties['css']['type'] ?? null ) || ! self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ 'plain css string', '&:hover', '&:focus', '&:active', '@media(--breakpoint)', 'prop: null', 'all: null', 'wipes the variant' ] ) ) {
+			$issues[] = 'css_contract_mismatch';
+		}
+		$mode = (array) ( $properties['mode'] ?? [] );
+		if ( 'string' !== ( $mode['type'] ?? null ) || ! self::same_set( (array) ( $mode['enum'] ?? [] ), [ 'patch', 'replace' ] ) || 'patch' !== ( $mode['default'] ?? null ) || ! self::contains_all( (string) ( $mode['description'] ?? '' ), [ 'upsert variants', 'preserving untouched', 'discard all variants', 'affected breakpoints', 'null values have no effect' ] ) ) {
+			$issues[] = 'mode_contract_mismatch';
+		}
+		if ( ! self::contains_all( (string) ( $operations['description'] ?? '' ), [ '1–20', 'action and tag', 'raw css string', 'site-wide', 'patch = upsert variants', 'replace = overwrite variants', 'delete removes' ] ) ) {
+			$issues[] = 'operation_semantics_mismatch';
+		}
+		if ( ! self::contains_all( (string) ( $ability['description'] ?? '' ), [ 'site-wide default styles', 'html wrapper tag', 'v4 atomic element', 'base_styles', 'inline or global class overrides', 'action=update', 'action=delete', 'raw css string', '@media(--breakpoint)', '&:hover', '&:focus', '&:active' ] ) ) {
+			$issues[] = 'ability_semantics_mismatch';
+		}
+		if ( $limit < 1 || $limit > 20 || 'class' !== ( $runtime['class_type'] ?? null ) ) {
+			$issues[] = 'runtime_constants_mismatch';
+		}
+		if ( ! $ownership_verified ) {
+			$issues[] = 'ownership_unverified';
+		}
 		$contract    = [
 			'actions'                 => $actions,
-			'responsive_css'          => str_contains( $description, '@media(--breakpoint)' ),
-			'pseudo_states'           => str_contains( $description, '&:hover' ) && str_contains( $description, '&:focus' ) && str_contains( $description, '&:active' ),
+			'responsive_css'          => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '@media(--breakpoint)' ] ),
+			'pseudo_states'           => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '&:hover', '&:focus', '&:active' ] ),
 			'runtime_operation_limit' => $limit,
+			'class_type'              => (string) ( $runtime['class_type'] ?? '' ),
+			'issues'                  => array_values( array_unique( $issues ) ),
 		];
-		$compatible = false === ( $annotations['readonly'] ?? null )
-			&& true === ( $annotations['destructive'] ?? false )
-			&& array_diff( [ 'update', 'delete' ], $actions ) === [];
-		$certified = $compatible && $ownership_verified && $contract['responsive_css'] && $contract['pseudo_states'] && 20 === $limit;
+		$certified = [] === $issues;
 		return [
-			'state'    => $certified ? 'certified' : ( $compatible ? 'compatible' : 'discovered' ),
+			'state'    => $certified ? 'certified' : 'rejected',
 			'reason'   => $certified ? 'official_contract_certified' : 'upstream_contract_not_certified',
 			'contract' => $contract,
 		];
@@ -217,16 +266,57 @@ final class ProviderRouter {
 	private static function verified_callback_ownership( string $provenance ): bool {
 		return in_array(
 			$provenance,
-			[ 'registration_callback_and_wordpress_plugin_metadata', 'registration_callback_and_plugin_boundary' ],
+			[ 'active_plugin_header', 'active_plugin_boundary' ],
 			true
 		);
+	}
+
+	/** @param array<string,mixed> $schema @param list<string> $required @param array<string,string> $properties */
+	private static function exact_object_schema( array $schema, array $required, array $properties ): bool {
+		$actual = (array) ( $schema['properties'] ?? [] );
+		if ( 'object' !== ( $schema['type'] ?? null ) || ! self::same_set( (array) ( $schema['required'] ?? [] ), $required ) || ! self::same_set( array_keys( $actual ), array_keys( $properties ) ) ) {
+			return false;
+		}
+		foreach ( $properties as $name => $type ) {
+			if ( $type !== ( $actual[ $name ]['type'] ?? null ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** @param list<mixed> $actual @param list<string> $expected */
+	private static function same_set( array $actual, array $expected ): bool {
+		$actual = array_values( array_map( 'strval', $actual ) );
+		sort( $actual );
+		sort( $expected );
+		return $actual === $expected;
+	}
+
+	/** @param list<string> $needles */
+	private static function contains_all( string $text, array $needles ): bool {
+		$text = strtolower( $text );
+		foreach ( $needles as $needle ) {
+			if ( ! str_contains( $text, strtolower( $needle ) ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** @param list<array<string,mixed>> $providers */
 	private static function has_architecture( array $providers, string $architecture ): bool {
 		foreach ( $providers as $provider ) {
-			if ( in_array( $architecture, (array) ( $provider['architectures'] ?? [] ), true ) ) {
+			if ( ! in_array( $architecture, (array) ( $provider['architectures'] ?? [] ), true ) ) {
+				continue;
+			}
+			if ( 'v4' !== $architecture ) {
 				return true;
+			}
+			foreach ( (array) ( $provider['capabilities'] ?? [] ) as $capability ) {
+				if ( 'atomic-node' === ( $capability['kind'] ?? null ) && true === ( $capability['write_eligible'] ?? false ) ) {
+					return true;
+				}
 			}
 		}
 		return false;

@@ -248,15 +248,18 @@ final class UpdateNode extends AbilityKernel {
 	private function validate_atomic_settings( string $atomic_type, array $current, array $incoming ): array|\WP_Error {
 		$warnings = [];
 		$schema   = AtomicSchemaRepository::for_atomic_type( $atomic_type );
-		$reverse  = null === $schema ? [] : $this->reverse_prop_map( $schema );
-
 		if ( null === $schema ) {
-			$warnings[] = sprintf(
-				/* translators: %s: atomic type slug */
-				__( 'Atomic type "%s" is not in the schema repository; applying structure-only settings checks.', 'stonewright' ),
-				$atomic_type
+			return $this->error(
+				'atomic_provider_not_certified',
+				__( 'This Atomic type has no trusted, certified write schema. The settings mutation was blocked before validation.', 'stonewright' ),
+				[
+					'status'      => 409,
+					'atomic_type' => $atomic_type,
+					'repair'      => 'Use a bundled schema or explicitly certify the installed provider contract before writing this Atomic type.',
+				]
 			);
 		}
+		$reverse = $this->reverse_prop_map( $schema );
 
 		$out = [];
 		foreach ( $incoming as $key => $value ) {

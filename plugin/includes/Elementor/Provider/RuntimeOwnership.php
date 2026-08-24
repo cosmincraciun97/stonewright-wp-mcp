@@ -96,39 +96,73 @@ final class RuntimeOwnership {
 
 	/** @return array{plugin:string,version:string,evidence:string} */
 	private static function plugin_source( string $file ): array {
-		if ( '' !== $file && defined( 'WP_PLUGIN_DIR' ) ) {
-			$root       = trailingslashit( wp_normalize_path( (string) constant( 'WP_PLUGIN_DIR' ) ) );
-			$normalized = wp_normalize_path( $file );
-			if ( str_starts_with( $normalized, $root ) ) {
-				$relative = substr( $normalized, strlen( $root ) );
-				$plugins  = function_exists( 'get_plugins' ) ? get_plugins() : [];
-				foreach ( $plugins as $plugin_file => $metadata ) {
-					$plugin_file = (string) $plugin_file;
-					$folder      = dirname( $plugin_file );
-					$matches     = '.' === $folder ? $relative === $plugin_file : str_starts_with( $relative, $folder . '/' );
-					if ( $matches ) {
-						return [
-							'plugin'   => $plugin_file,
-							'version'  => (string) ( $metadata['Version'] ?? '' ),
-							'evidence' => 'registration_callback_and_wordpress_plugin_metadata',
-						];
-					}
-				}
-				$folder = strtok( $relative, '/' );
-				if ( is_string( $folder ) && '' !== $folder ) {
-					$main_file = $folder . '/' . $folder . '.php';
-					if ( in_array( $main_file, [ 'elementor/elementor.php', 'elementor-pro/elementor-pro.php' ], true ) || is_file( $root . $main_file ) ) {
-						$version = 'elementor/elementor.php' === $main_file && defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '';
-						$version = 'elementor-pro/elementor-pro.php' === $main_file && defined( 'ELEMENTOR_PRO_VERSION' ) ? (string) constant( 'ELEMENTOR_PRO_VERSION' ) : $version;
-						return [
-							'plugin'   => $main_file,
-							'version'  => $version,
-							'evidence' => 'registration_callback_and_plugin_boundary',
-						];
-					}
-				}
+		if ( '' === $file || ! defined( 'WP_PLUGIN_DIR' ) ) {
+			return [ 'plugin' => '', 'version' => '', 'evidence' => 'registration_callback' ];
+		}
+		$root = trailingslashit( self::normalize_path( (string) constant( 'WP_PLUGIN_DIR' ) ) );
+		$normalized = self::normalize_path( $file );
+		if ( ! str_starts_with( $normalized, $root ) ) {
+			return [ 'plugin' => '', 'version' => '', 'evidence' => 'registration_callback' ];
+		}
+
+		$matches = [];
+		foreach ( self::active_plugin_files() as $plugin_file ) {
+			$main_file = self::normalize_path( $root . ltrim( $plugin_file, '/' ) );
+			if ( ! str_starts_with( $main_file, $root ) ) {
+				continue;
 			}
+			$boundary = trailingslashit( dirname( $main_file ) );
+			$root_level = '.' === dirname( $plugin_file );
+			if ( ( $root_level && $normalized !== $main_file ) || ( ! $root_level && $normalized !== $main_file && ! str_starts_with( $normalized, $boundary ) ) ) {
+				continue;
+			}
+			$matches[ strlen( $boundary ) ] = [ $plugin_file, $main_file ];
+		}
+		if ( [] !== $matches ) {
+			krsort( $matches );
+			[ $plugin_file, $main_file ] = reset( $matches );
+			$version = self::plugin_version( (string) $main_file );
+			return [
+				'plugin'   => (string) $plugin_file,
+				'version'  => $version,
+				'evidence' => '' === $version ? 'active_plugin_boundary' : 'active_plugin_header',
+			];
 		}
 		return [ 'plugin' => '', 'version' => '', 'evidence' => 'registration_callback' ];
+	}
+
+	/** @return list<string> */
+	private static function active_plugin_files(): array {
+		$active = function_exists( 'get_option' ) ? get_option( 'active_plugins', [] ) : [];
+		$active = is_array( $active ) ? $active : [];
+		if ( function_exists( 'get_site_option' ) ) {
+			$network = get_site_option( 'active_sitewide_plugins', [] );
+			if ( is_array( $network ) ) {
+				$active = array_merge( $active, array_keys( $network ) );
+			}
+		}
+		return array_values( array_unique( array_filter( array_map( 'strval', $active ) ) ) );
+	}
+
+	private static function plugin_version( string $main_file ): string {
+		if ( ! is_file( $main_file ) || ! is_readable( $main_file ) ) {
+			return '';
+		}
+		if ( function_exists( 'get_file_data' ) ) {
+			$headers = get_file_data( $main_file, [ 'Version' => 'Version' ], 'plugin' );
+			if ( is_array( $headers ) && is_string( $headers['Version'] ?? null ) ) {
+				return trim( $headers['Version'] );
+			}
+		}
+		$source = file_get_contents( $main_file, false, null, 0, 8192 );
+		if ( ! is_string( $source ) || 1 !== preg_match( '/^[ \t\/*#@]*Version:\s*(.+)$/mi', $source, $matches ) ) {
+			return '';
+		}
+		return trim( (string) $matches[1] );
+	}
+
+	private static function normalize_path( string $path ): string {
+		$real = realpath( $path );
+		return wp_normalize_path( false === $real ? $path : $real );
 	}
 }

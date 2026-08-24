@@ -100,8 +100,18 @@ final class UpstreamAbilityDiscovery {
 			if ( ! $reflection->hasConstant( 'MAX_BATCH_SIZE' ) ) {
 				return [];
 			}
-			$limit      = $reflection->getConstant( 'MAX_BATCH_SIZE' );
-			return is_int( $limit ) ? [ 'runtime_operation_limit' => $limit ] : [];
+			$limit = $reflection->getConstant( 'MAX_BATCH_SIZE' );
+			if ( ! is_int( $limit ) ) {
+				return [];
+			}
+			$contract = [ 'runtime_operation_limit' => $limit ];
+			if ( $reflection->hasConstant( 'CLASS_TYPE' ) ) {
+				$class_type = $reflection->getConstant( 'CLASS_TYPE' );
+				if ( is_string( $class_type ) ) {
+					$contract['class_type'] = $class_type;
+				}
+			}
+			return $contract;
 		} catch ( \ReflectionException $error ) {
 			unset( $error );
 			return [];

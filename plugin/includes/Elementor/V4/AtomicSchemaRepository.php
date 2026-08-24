@@ -87,6 +87,39 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
+	 * Applies the single trust policy used by provider routing and every Atomic write schema consumer.
+	 *
+	 * @param array<string,mixed> $evidence
+	 * @return array{trust:string,certification:string,write_eligible:bool,reason:string}
+	 */
+	public static function provider_policy( array $evidence ): array {
+		$provider = (string) ( $evidence['provider_id'] ?? '' );
+		$provenance = (array) ( $evidence['provenance'] ?? [] );
+		$ownership_evidence = (string) ( $provenance['ownership'] ?? '' );
+		$certification_evidence = (string) ( $provenance['certification'] ?? '' );
+		$bundled = 'elementor-core' === $provider && 'stonewright_bundled_contract' === $certification_evidence;
+		$official_runtime = in_array( $provider, [ 'elementor-core', 'elementor-pro' ], true )
+			&& in_array( $ownership_evidence, [ 'active_plugin_header', 'active_plugin_boundary' ], true )
+			&& 'live_runtime' === ( $evidence['source'] ?? null );
+		$explicit = 'trusted' === ( $evidence['provider_trust'] ?? null )
+			&& 'certified' === ( $evidence['provider_certification'] ?? null )
+			&& 'stonewright_explicit_certification' === $certification_evidence;
+		$eligible = $bundled || $official_runtime || $explicit;
+
+		return [
+			'trust'         => $eligible ? 'trusted' : (string) ( $evidence['provider_trust'] ?? 'untrusted' ),
+			'certification' => $eligible ? 'certified' : (string) ( $evidence['provider_certification'] ?? 'discovered' ),
+			'write_eligible' => $eligible,
+			'reason'        => $bundled ? 'bundled_contract' : ( $official_runtime ? 'verified_official_runtime' : ( $explicit ? 'explicit_provider_certification' : 'provider_not_certified' ) ),
+		];
+	}
+
+	/** @param array<string,mixed> $schema */
+	public static function is_write_certified( array $schema ): bool {
+		return true === self::provider_policy( $schema )['write_eligible'];
+	}
+
+	/**
 	 * Discovers every installed Atomic layout/widget and its prop JSON schemas.
 	 *
 	 * @return array{items:list<array<string,mixed>>,issues:list<array<string,mixed>>}
@@ -158,8 +191,13 @@ final class AtomicSchemaRepository {
 						'source_version' => $ownership['source_version'],
 						'runtime_class' => $ownership['runtime_class'],
 						'provider_id'   => $ownership['provider_id'],
+						'ownership'     => $ownership['ownership'],
 						'provenance'    => [ 'schema' => 'live_elementor_runtime', 'ownership' => $ownership['provenance']['ownership'] ],
 					];
+					$policy = self::provider_policy( $schema );
+					$schema['provider_trust'] = $policy['trust'];
+					$schema['provider_certification'] = $policy['certification'];
+					$schema['write_eligible'] = $policy['write_eligible'];
 					$schema['schema_fingerprint'] = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $schema ) ) );
 					$items[] = $schema;
 				}
@@ -219,6 +257,11 @@ final class AtomicSchemaRepository {
 			'version'      => self::ELEMENT_VERSION,
 			'props'        => $mapped,
 			'source'       => 'elementor_official_docs',
+			'provider_id'  => 'elementor-core',
+			'provider_trust' => 'trusted',
+			'provider_certification' => 'certified',
+			'write_eligible' => true,
+			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
 		];
 	}
 
@@ -233,6 +276,11 @@ final class AtomicSchemaRepository {
 			'version'      => self::ELEMENT_VERSION,
 			'props'        => $props,
 			'source'       => 'elementor_official_docs',
+			'provider_id'  => 'elementor-core',
+			'provider_trust' => 'trusted',
+			'provider_certification' => 'certified',
+			'write_eligible' => true,
+			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
 		];
 	}
 
@@ -249,6 +297,13 @@ final class AtomicSchemaRepository {
 			if ( ! in_array( $schema['kind'] ?? '', [ 'layout', 'widget' ], true ) || empty( $schema['version'] ) || ! isset( $schema['props'] ) || ! is_array( $schema['props'] ) ) {
 				continue;
 			}
+			$policy = self::provider_policy( $schema );
+			if ( ! $policy['write_eligible'] ) {
+				continue;
+			}
+			$schema['provider_trust'] = $policy['trust'];
+			$schema['provider_certification'] = $policy['certification'];
+			$schema['write_eligible'] = true;
 			$out[ $type ] = $schema;
 		}
 		return $out;

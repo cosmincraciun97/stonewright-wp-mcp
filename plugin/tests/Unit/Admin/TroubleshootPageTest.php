@@ -143,17 +143,13 @@ final class TroubleshootPageTest extends TestCase {
 	}
 
 	public function test_render_shows_sanitized_mcp_compatibility_preflight_and_remediation(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
 			'adapter' => 'Vendor\\MissingAdapter',
 			'abilities_registry' => 'Vendor\\MissingRegistry',
 			'ability' => 'Vendor\\MissingAbility',
 		];
-		McpAbilitiesCompatibilityPreflight::inspect(
-			[
-				new TroubleshootFakeClassLoader( '/srv/wp-content/plugins/adapter-a/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php' ),
-				new TroubleshootFakeClassLoader( '/srv/wp-content/plugins/adapter-b/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php' ),
-			]
-		);
+		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\MissingAdapter', [ $fixtures . '/release-a', $fixtures . '/release-b' ] );
 
 		ob_start();
 		TroubleshootPage::render();
@@ -162,13 +158,15 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'MCP runtime compatibility', $html );
 		self::assertStringContainsString( 'Elementor provider discovery', $html );
 		self::assertStringContainsString( 'manage-default-styles', $html );
-		self::assertStringContainsString( 'plugin:adapter-a', $html );
-		self::assertStringContainsString( 'Disable the conflicting MCP or Abilities plugin', $html );
-		self::assertStringNotContainsString( '/srv/', $html );
+		self::assertStringContainsString( 'Vendor\\MissingAdapter', $html );
+		self::assertStringContainsString( 'Vendor\\MissingRegistry', $html );
+		self::assertStringContainsString( 'Vendor\\MissingAbility', $html );
+		self::assertStringContainsString( 'plugin:release-a — 0.3.0', $html );
+		self::assertStringContainsString( 'plugin:release-b — 0.4.0', $html );
+		self::assertStringContainsString( 'plugin:release-a — 0.1.1', $html );
+		self::assertStringContainsString( 'plugin:release-b — 0.2.0', $html );
+		self::assertStringContainsString( 'multiple_incompatible_class_owners', $html );
+		self::assertStringContainsString( 'Deactivate all but one active plugin that loads this symbol', $html );
+		self::assertStringNotContainsString( $fixtures, $html );
 	}
-}
-
-final class TroubleshootFakeClassLoader {
-	public function __construct( private string $file ) {}
-	public function findFile( string $class ): string { unset( $class ); return $this->file; }
 }

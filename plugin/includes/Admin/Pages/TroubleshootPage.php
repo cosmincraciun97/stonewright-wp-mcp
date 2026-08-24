@@ -61,29 +61,60 @@ final class TroubleshootPage {
 	private static function render_compatibility_preflight(): void {
 		$report = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
 		$compatible = true === ( $report['compatible'] ?? false );
-		$owners = [];
-		foreach ( [ $report['adapter'] ?? [], $report['abilities']['registry'] ?? [], $report['abilities']['ability'] ?? [] ] as $symbol ) {
-			foreach ( (array) ( $symbol['owners'] ?? [] ) as $owner ) {
-				$owner = sanitize_text_field( (string) $owner );
-				if ( '' !== $owner ) {
-					$owners[] = $owner;
-				}
-			}
-		}
-		$owners = array_values( array_unique( $owners ) );
+		$symbols = [
+			$report['adapter'] ?? [],
+			$report['abilities']['registry'] ?? [],
+			$report['abilities']['ability'] ?? [],
+		];
 		?>
 		<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'MCP runtime compatibility', 'stonewright' ); ?>">
 			<h2><?php esc_html_e( 'MCP runtime compatibility', 'stonewright' ); ?></h2>
-			<div class="sw-diag-card sw-diag-card--<?php echo $compatible ? 'ok' : 'error'; ?>">
-				<span class="sw-diag-card__icon" aria-hidden="true"><?php echo $compatible ? '✓' : '×'; ?></span>
-				<span class="sw-diag-card__body">
-					<strong class="sw-diag-card__label"><?php echo $compatible ? esc_html__( 'Runtime contract compatible', 'stonewright' ) : esc_html__( 'Conflicting runtime owners detected', 'stonewright' ); ?></strong>
-					<span class="sw-diag-card__detail"><?php echo esc_html( [] === $owners ? __( 'No package owner was detected.', 'stonewright' ) : implode( ', ', $owners ) ); ?></span>
-					<?php if ( ! $compatible ) : ?>
-						<span class="sw-diag-card__detail"><?php esc_html_e( 'Disable the conflicting MCP or Abilities plugin, keep one compatible owner, then reload WordPress and rerun diagnostics.', 'stonewright' ); ?></span>
-					<?php endif; ?>
-				</span>
-			</div>
+			<?php if ( $compatible ) : ?>
+				<div class="sw-diag-card sw-diag-card--ok">
+					<span class="sw-diag-card__icon" aria-hidden="true">✓</span>
+					<span class="sw-diag-card__body">
+						<strong class="sw-diag-card__label"><?php esc_html_e( 'Runtime contract compatible', 'stonewright' ); ?></strong>
+						<span class="sw-diag-card__detail"><?php esc_html_e( 'Every loaded MCP and Abilities symbol satisfies its exact ABI.', 'stonewright' ); ?></span>
+					</span>
+				</div>
+			<?php else : ?>
+				<?php foreach ( $symbols as $symbol ) : ?>
+					<?php
+					$status = sanitize_key( (string) ( $symbol['status'] ?? '' ) );
+					$abi_status = sanitize_key( (string) ( $symbol['abi']['status'] ?? '' ) );
+					if ( 'conflict' !== $status && 'incompatible' !== $abi_status ) {
+						continue;
+					}
+					$class = sanitize_text_field( (string) ( $symbol['class'] ?? 'unknown' ) );
+					$reason = sanitize_key( (string) ( $symbol['reason'] ?? 'runtime_abi_incompatible' ) );
+					$remediation = sanitize_text_field( (string) ( $symbol['remediation'] ?? '' ) );
+					$issues = array_values( array_filter( array_map( 'sanitize_key', (array) ( $symbol['abi']['issues'] ?? [] ) ) ) );
+					$owners = [];
+					foreach ( (array) ( $symbol['owner_details'] ?? [] ) as $owner ) {
+						if ( ! is_array( $owner ) ) {
+							continue;
+						}
+						$name = sanitize_text_field( (string) ( $owner['owner'] ?? '' ) );
+						$version = sanitize_text_field( (string) ( $owner['version'] ?? '' ) );
+						if ( '' !== $name ) {
+							$owners[] = '' === $version ? $name . ' — version unknown' : $name . ' — ' . $version;
+						}
+					}
+					?>
+					<div class="sw-diag-card sw-diag-card--error">
+						<span class="sw-diag-card__icon" aria-hidden="true">×</span>
+						<span class="sw-diag-card__body">
+							<strong class="sw-diag-card__label"><?php echo esc_html( $class ); ?></strong>
+							<span class="sw-diag-card__detail"><?php echo esc_html( [] === $owners ? __( 'Owner and version unavailable.', 'stonewright' ) : implode( '; ', $owners ) ); ?></span>
+							<span class="sw-diag-card__detail"><?php echo esc_html( sprintf( __( 'Reason: %s', 'stonewright' ), $reason ) ); ?></span>
+							<?php if ( [] !== $issues ) : ?>
+								<span class="sw-diag-card__detail"><?php echo esc_html( sprintf( __( 'ABI issues: %s', 'stonewright' ), implode( ', ', $issues ) ) ); ?></span>
+							<?php endif; ?>
+							<span class="sw-diag-card__detail"><?php echo esc_html( $remediation ); ?></span>
+						</span>
+					</div>
+				<?php endforeach; ?>
+			<?php endif; ?>
 		</section>
 		<?php
 	}

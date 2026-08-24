@@ -688,7 +688,7 @@
 
 - `elementor/manage-default-styles`: **native-preferred**, certified only; Stonewright write routing stays disabled until the complete safety closure is available.
 
-Certification requires Elementor ownership, the real `readonly` / `destructive` / `idempotent` annotations, update and delete operations, responsive CSS, pseudo-states, and the upstream 20-operation runtime limit.
+Certification requires active Elementor ownership; exact input/output object schemas and required fields; update/delete, tag, raw CSS, responsive, pseudo-state, patch/replace, and null semantics; `readonly=false`, `destructive=true`, `idempotent=false`; `CLASS_TYPE=class`; and a runtime operation limit no greater than 20.
 
 ---
 

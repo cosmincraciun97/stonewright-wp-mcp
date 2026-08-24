@@ -12,6 +12,7 @@ final class AtomicProviderDiscoveryTest extends TestCase {
 	private object $original;
 
 	protected function setUp(): void {
+		AtomicSchemaRepository::invalidate();
 		$this->original = \Elementor\Plugin::$instance;
 		\Elementor\Plugin::$instance = (object) [
 			'elements_manager' => new AtomicDiscoveryManager(),
@@ -21,6 +22,7 @@ final class AtomicProviderDiscoveryTest extends TestCase {
 
 	protected function tearDown(): void {
 		\Elementor\Plugin::$instance = $this->original;
+		AtomicSchemaRepository::invalidate();
 	}
 
 	public function test_one_broken_extension_does_not_hide_other_atomic_providers(): void {
@@ -33,6 +35,15 @@ final class AtomicProviderDiscoveryTest extends TestCase {
 		self::assertSame( 'live_elementor_runtime', $result['items'][0]['provenance']['schema'] );
 		self::assertSame( [ 'schema_unavailable', 'prop_schema_unavailable' ], array_column( $result['issues'], 'code' ) );
 		self::assertSame( [ 'e-bad', 'e-bad-prop' ], array_column( $result['issues'], 'atomic_type' ) );
+	}
+
+	public function test_uncertified_runtime_schemas_remain_inventory_only(): void {
+		$discovery = AtomicSchemaRepository::runtime_discovery();
+		$write_schemas = AtomicSchemaRepository::all();
+
+		self::assertContains( 'e-good', array_column( $discovery['items'], 'atomic_type' ) );
+		self::assertArrayNotHasKey( 'e-good', $write_schemas );
+		self::assertArrayHasKey( 'e-heading', $write_schemas );
 	}
 }
 

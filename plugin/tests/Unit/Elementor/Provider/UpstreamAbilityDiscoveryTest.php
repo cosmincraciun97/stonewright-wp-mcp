@@ -57,9 +57,24 @@ final class UpstreamAbilityDiscoveryTest extends TestCase {
 		self::assertSame( 'registration_callback', $result[0]['provenance']['ownership'] );
 		self::assertNotSame( GenericAbilityFixture::class, $result[0]['runtime_class'] );
 	}
+
+	public function test_runtime_contract_discovers_exact_upstream_constants(): void {
+		$ability = new GenericAbilityFixture( [ new ManageDefaultStylesCallbackFixture(), 'execute_guarded' ] );
+
+		$result = UpstreamAbilityDiscovery::from_abilities( [ $ability ] );
+
+		self::assertSame( 20, $result[0]['runtime_contract']['runtime_operation_limit'] );
+		self::assertSame( 'class', $result[0]['runtime_contract']['class_type'] );
+	}
 }
 
 final class ElementorCallbackFixture {
+	public function execute_guarded( array $input = [] ): array { return $input; }
+}
+
+final class ManageDefaultStylesCallbackFixture {
+	public const CLASS_TYPE = 'class';
+	public const MAX_BATCH_SIZE = 20;
 	public function execute_guarded( array $input = [] ): array { return $input; }
 }
 

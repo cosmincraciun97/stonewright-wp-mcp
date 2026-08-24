@@ -42,7 +42,10 @@ final class AtomicFoundationTest extends TestCase {
 	public function test_schema_has_stable_fingerprint_and_direct_atomic_types(): void {
 		$this->assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', AtomicSchemaRepository::fingerprint() );
 		$this->assertNotNull( AtomicSchemaRepository::for_design_type( 'Heading' ) );
-		$this->assertNotNull( AtomicSchemaRepository::for_atomic_type( 'e-grid' ) );
+		$grid = AtomicSchemaRepository::for_atomic_type( 'e-grid' );
+		$this->assertNotNull( $grid );
+		$this->assertSame( 'trusted', $grid['provider_trust'] );
+		$this->assertSame( 'certified', $grid['provider_certification'] );
 	}
 
 	public function test_class_adapter_uses_apply_changes_and_readback(): void {

@@ -13,6 +13,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_filters'] = [];
+		unset( $GLOBALS['wp_version'] );
 		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 	}
 
@@ -124,6 +125,52 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( [], $result['blocking_reasons'] );
 	}
 
+	public function test_wordpress_core_abilities_and_guarded_stonewright_fallback_are_compatible(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$GLOBALS['wp_version'] = '6.9.1';
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => CompatibleAdapterFixture::class,
+			'abilities_registry' => CoreRegistryFixture::class,
+			'ability'            => CoreAbilityFixture::class,
+		];
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_candidates'] = static function ( array $paths, string $class ): array {
+			if ( CoreRegistryFixture::class === $class ) {
+				$paths[] = '/srv/wordpress/wp-includes/abilities-api/class-wp-abilities-registry.php';
+			}
+			if ( CoreAbilityFixture::class === $class ) {
+				$paths[] = '/srv/wordpress/wp-includes/abilities-api/class-wp-ability.php';
+			}
+			return $paths;
+		};
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-a' ] );
+
+		self::assertTrue( $result['compatible'] );
+		self::assertSame( 'loaded', $result['abilities']['registry']['status'] );
+		self::assertSame( [ 'wordpress-core' ], $result['abilities']['registry']['owners'] );
+		self::assertSame( 'guarded_fallback', $result['abilities']['registry']['packages'][0]['state'] ?? null );
+		self::assertSame( '6.9.1', $result['abilities']['registry']['abi']['version'] );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_inactive_plugin_manifests_are_not_compatibility_owners(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
+			define( 'WP_PLUGIN_DIR', $fixtures );
+		}
+		$GLOBALS['stonewright_test_options']['active_plugins'] = [];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect();
+		$encoded = (string) wp_json_encode( $result );
+
+		self::assertStringNotContainsString( 'plugin:release-a', $encoded );
+		self::assertStringNotContainsString( 'plugin:release-b', $encoded );
+		self::assertNotSame( 'conflict', $result['adapter']['status'] );
+	}
+
 	public function test_incompatible_adapter_abi_blocks_boot(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
 			'adapter' => IncompatibleAdapterFixture::class,
@@ -137,6 +184,36 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
 		self::assertContains( 'missing_public_static_instance', $result['adapter']['abi']['issues'] );
 		self::assertContains( 'adapter_abi_incompatible', $result['blocking_reasons'] );
+	}
+
+	public function test_all_integer_adapter_signature_fails_before_invocation(): void {
+		WrongTypedAdapterFixture::$invocations = 0;
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => WrongTypedAdapterFixture::class,
+			'abilities_registry' => CompatibleRegistryFixture::class,
+			'ability'            => CompatibleAbilityFixture::class,
+		];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertContains( 'incompatible_create_server_signature', $result['adapter']['abi']['issues'] );
+		self::assertSame( 0, WrongTypedAdapterFixture::$invocations );
+	}
+
+	public function test_extra_required_registry_parameter_fails_before_invocation(): void {
+		ExtraRequiredRegistryFixture::$invocations = 0;
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => CompatibleAdapterFixture::class,
+			'abilities_registry' => ExtraRequiredRegistryFixture::class,
+			'ability'            => CompatibleAbilityFixture::class,
+		];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertContains( 'incompatible_register_signature', $result['abilities']['registry']['abi']['issues'] );
+		self::assertSame( 0, ExtraRequiredRegistryFixture::$invocations );
 	}
 
 	public function test_release_style_jetpack_and_package_manifests_expose_competing_owners(): void {
@@ -252,9 +329,8 @@ final class CompatibleAdapterFixture {
 	public const VERSION = '0.3.0';
 	private function __construct() {}
 	public static function instance(): self { return new self(); }
-	public function create_server( string $id, string $namespace, string $route, string $name, string $description, string $version, array $transports, ?string $error_handler, ?string $observability_handler = null, array $tools = [], array $resources = [], array $prompts = [] ): self {
-		unset( $id, $namespace, $route, $name, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts );
-		return $this;
+	public function create_server( string $id, string $namespace, string $route, string $name, string $description, string $version, array $transports, ?string $error_handler, ?string $observability_handler = null, array $tools = [], array $resources = [], array $prompts = [], ?callable $configure = null ) {
+		unset( $id, $namespace, $route, $name, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
 	}
 }
 
@@ -273,7 +349,40 @@ final class CompatibleRegistryFixture {
 class CompatibleAbilityFixture {
 	public function __construct( private string $name, private array $properties ) {}
 	public function get_name(): string { return $this->name; }
+	public function get_label(): string { return $this->name; }
+	public function get_description(): string { return $this->name; }
 	public function get_meta(): array { return $this->properties; }
 	public function get_input_schema(): array { return []; }
 	public function get_output_schema(): array { return []; }
+}
+
+final class CoreRegistryFixture {
+	private function __construct() {}
+	public static function get_instance(): ?self { return new self(); }
+	public function register( string $name, array $properties ): ?CoreAbilityFixture {
+		return new CoreAbilityFixture( $name, $properties );
+	}
+}
+
+final class CoreAbilityFixture extends CompatibleAbilityFixture {
+	public function get_category(): string { return 'core'; }
+}
+
+final class WrongTypedAdapterFixture {
+	public const VERSION = '0.3.0';
+	public static int $invocations = 0;
+	private function __construct() {}
+	public static function instance(): self { ++self::$invocations; return new self(); }
+	public function create_server( int $id, int $namespace, int $route, int $name, int $description, int $version, int $transports, int $error_handler, int $observability_handler = 0, int $tools = 0, int $resources = 0, int $prompts = 0, int $configure = 0 ) { ++self::$invocations; }
+}
+
+final class ExtraRequiredRegistryFixture {
+	public static int $invocations = 0;
+	private function __construct() {}
+	public static function get_instance(): self { ++self::$invocations; return new self(); }
+	public function register( string $name, array $properties, string $unexpected ): ?CompatibleAbilityFixture {
+		++self::$invocations;
+		unset( $unexpected );
+		return new CompatibleAbilityFixture( $name, $properties );
+	}
 }
