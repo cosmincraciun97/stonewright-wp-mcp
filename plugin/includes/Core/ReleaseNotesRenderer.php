@@ -13,7 +13,8 @@ final class ReleaseNotesRenderer {
 
 	private const MAX_BYTES = 65536;
 	private const CODE_PLACEHOLDER_PREFIX = "\x1eCODE";
-	private const CODE_PLACEHOLDER_SUFFIX = "\x1e";
+	private const TAG_PLACEHOLDER_PREFIX  = "\x1eTAG";
+	private const PLACEHOLDER_SUFFIX      = "\x1e";
 
 	/**
 	 * @var array<string, array<string, bool>>
@@ -140,7 +141,7 @@ final class ReleaseNotesRenderer {
 		$text  = preg_replace_callback(
 			'/`([^`]+)`/',
 			static function ( array $matches ) use ( &$codes ): string {
-				$token           = self::CODE_PLACEHOLDER_PREFIX . (string) count( $codes ) . self::CODE_PLACEHOLDER_SUFFIX;
+				$token           = self::CODE_PLACEHOLDER_PREFIX . (string) count( $codes ) . self::PLACEHOLDER_SUFFIX;
 				$codes[ $token ] = '<code>' . $matches[1] . '</code>';
 				return $token;
 			},
@@ -166,6 +167,17 @@ final class ReleaseNotesRenderer {
 			) ?? $text;
 		}
 
+		$tags = [];
+		$text = preg_replace_callback(
+			'/<[^>]+>/',
+			static function ( array $matches ) use ( &$tags ): string {
+				$token          = self::TAG_PLACEHOLDER_PREFIX . (string) count( $tags ) . self::PLACEHOLDER_SUFFIX;
+				$tags[ $token ] = $matches[0];
+				return $token;
+			},
+			$text
+		) ?? $text;
+
 		$text = preg_replace_callback(
 			'/\*\*(.+?)\*\*/',
 			static fn( array $matches ): string => '<strong>' . $matches[1] . '</strong>',
@@ -187,7 +199,7 @@ final class ReleaseNotesRenderer {
 			$text
 		) ?? $text;
 
-		return strtr( $text, $codes );
+		return strtr( $text, $codes + $tags );
 	}
 
 	private static function safe_https_url( string $raw ): ?string {

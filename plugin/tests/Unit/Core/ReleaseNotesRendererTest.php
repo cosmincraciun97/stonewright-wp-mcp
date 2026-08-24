@@ -154,6 +154,51 @@ MD;
 		$this->assertNoExecutableMarkup( $html );
 	}
 
+	/**
+	 * @dataProvider href_metacharacter_cases
+	 */
+	public function test_href_with_markdown_metacharacters_stays_exact(
+		string $url,
+		string $markdown,
+		bool $expect_italic
+	): void {
+		$html = ReleaseNotesRenderer::render( $markdown );
+
+		self::assertStringContainsString( 'href="' . $url . '"', $html );
+		if ( $expect_italic ) {
+			self::assertMatchesRegularExpression( '/<em>\s*italic\s*<\/em>/', $html );
+		}
+		$this->assertNoExecutableMarkup( $html );
+	}
+
+	/**
+	 * @return array<string, array{0: string, 1: string, 2: bool}>
+	 */
+	public function href_metacharacter_cases(): array {
+		return [
+			'dunder init py'                   => [
+				'https://github.com/foo/bar/blob/main/plugin/__init__.py',
+				'[source](https://github.com/foo/bar/blob/main/plugin/__init__.py)',
+				false,
+			],
+			'underscored path'                 => [
+				'https://example.com/_foo_',
+				'[path](https://example.com/_foo_)',
+				false,
+			],
+			'asterisks in path'                => [
+				'https://example.com/foo*bar*baz',
+				'[path](https://example.com/foo*bar*baz)',
+				false,
+			],
+			'single asterisk with later italic' => [
+				'https://example.com/foo*bar',
+				'[path](https://example.com/foo*bar) and *italic*',
+				true,
+			],
+		];
+	}
+
 	public function test_empty_or_whitespace_body_returns_sanitized_human_fallback(): void {
 		foreach ( [ '', '   ', "\n\t" ] as $body ) {
 			$GLOBALS['stonewright_test_wp_kses_calls'] = [];
