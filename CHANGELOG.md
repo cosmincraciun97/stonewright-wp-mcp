@@ -18,6 +18,8 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Skip audit and incident table `dbDelta` after a healthy schema is installed,
+  so admin requests do not re-reconcile unique indexes on every `init`.
 - Make Plugin and Direct audit events share lifecycle identities, safe
   idempotency, operation classifications, redaction, and crash-safe rotation.
 - Stop the block finalizer after terminal client errors or browser shutdown,

@@ -31,6 +31,11 @@ final class AuditLog {
 	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 	private const DENIAL_LOCK_TTL_SECONDS = 5;
 	private const DENIAL_LOCK_ATTEMPTS = 500;
+	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_OPTION = 'stonewright_audit_schema_version';
+
+	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
+	private static ?bool $schema_healthy = null;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
@@ -135,8 +140,105 @@ final class AuditLog {
 		return self::$request_correlation_id;
 	}
 
+	public static function reset_schema_health_cache_for_tests(): void {
+		self::$schema_healthy = null;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function required_columns(): array {
+		return [
+			'id',
+			'ability_name',
+			'user_id',
+			'args_hash',
+			'sanitized_args',
+			'result_status',
+			'ip_hash',
+			'ua_hash',
+			'request_id',
+			'correlation_id',
+			'operation_id',
+			'parent_event_id',
+			'attempt',
+			'idempotency_key',
+			'terminal_idempotency_key',
+			'lifecycle_phase',
+			'is_terminal',
+			'terminal_owner',
+			'parent_request_id',
+			'event_type',
+			'operation_class',
+			'resource_type',
+			'resource_ref',
+			'change_set_id',
+			'execution_status',
+			'verification_status',
+			'effect_verified',
+			'rollback_status',
+			'before_sha256',
+			'after_sha256',
+			'changed_bytes',
+			'validator_summary',
+			'smoke_summary',
+			'error_code',
+			'cause_key',
+			'duration_ms',
+			'backend',
+			'site_fingerprint',
+			'mode',
+			'severity',
+			'event_id',
+			'schema_version',
+			'category',
+			'outcome',
+			'severity_level',
+			'root_error_code',
+			'resource_key_hash',
+			'normalized_path',
+			'cause_fingerprint',
+			'strategy_fingerprint',
+			'transaction_id',
+			'context_token_id_hash',
+			'expected_verifier',
+			'remediation_code',
+			'retryable',
+			'retry_after_seconds',
+			'incident_id',
+			'redacted_details',
+			'created_at',
+		];
+	}
+
+	public static function table_schema_ok(): bool {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_col' ) ) {
+			return false;
+		}
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! is_array( $columns ) || [] === $columns ) {
+			return false;
+		}
+		$columns = array_map( 'strval', $columns );
+		return [] === array_diff( self::required_columns(), $columns );
+	}
+
 	public static function maybe_install_table(): void {
 		global $wpdb;
+
+		if ( true === self::$schema_healthy ) {
+			return;
+		}
+
+		$current_version = (int) get_option( self::SCHEMA_OPTION, 0 );
+		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			return;
+		}
+
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 		$sql     = "CREATE TABLE {$table} (
@@ -219,6 +321,20 @@ final class AuditLog {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		AuditReconciler::maybe_migrate();
+
+		if ( self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
+		} else {
+			self::$schema_healthy = false;
+			Logger::error(
+				'audit_schema_install_failed',
+				[
+					'table'          => self::table_name(),
+					'target_version' => self::SCHEMA_VERSION,
+				]
+			);
+		}
 	}
 
 	/**

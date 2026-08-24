@@ -36,6 +36,11 @@ final class IncidentStore {
 	public const OBSERVING_THRESHOLD = 2;
 	public const RETRYABLE_THRESHOLD = 3;
 	private const CAS_ATTEMPTS = 8;
+	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_OPTION = 'stonewright_incident_schema_version';
+
+	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
+	private static ?bool $schema_healthy = null;
 
 	/** @var array<string, array<string, mixed>> */
 	private static array $fallback = [];
@@ -45,8 +50,82 @@ final class IncidentStore {
 		return $wpdb->prefix . self::TABLE;
 	}
 
+	public static function reset_schema_health_cache_for_tests(): void {
+		self::$schema_healthy = null;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function required_columns(): array {
+		return [
+			'id',
+			'incident_id',
+			'state',
+			'category',
+			'outcome',
+			'severity',
+			'ability_name',
+			'ability_family',
+			'root_error_code',
+			'resource_type',
+			'resource_key_hash',
+			'normalized_path',
+			'cause_fingerprint',
+			'strategy_fingerprint',
+			'expected_verifier',
+			'remediation_code',
+			'occurrence_count',
+			'generation',
+			'updated_at',
+			'reopened_count',
+			'first_seen',
+			'last_seen',
+			'resolved_at',
+			'last_event_id',
+			'correlation_id',
+			'last_idempotency_key',
+			'resolution_event_id',
+			'last_change_set_id',
+			'repair_phase',
+			'learning_status',
+			'learning_memory_key',
+			'repair_receipt_id',
+			'learned_at',
+			'evidence_json',
+			'resolution_json',
+			'schema_version',
+		];
+	}
+
+	public static function table_schema_ok(): bool {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_col' ) ) {
+			return false;
+		}
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! is_array( $columns ) || [] === $columns ) {
+			return false;
+		}
+		$columns = array_map( 'strval', $columns );
+		return [] === array_diff( self::required_columns(), $columns );
+	}
+
 	public static function maybe_install_table(): void {
 		global $wpdb;
+
+		if ( true === self::$schema_healthy ) {
+			return;
+		}
+
+		$current_version = (int) get_option( self::SCHEMA_OPTION, 0 );
+		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			return;
+		}
+
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 		$sql     = "CREATE TABLE {$table} (
@@ -97,6 +176,20 @@ final class IncidentStore {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+
+		if ( self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
+		} else {
+			self::$schema_healthy = false;
+			Logger::error(
+				'incident_schema_install_failed',
+				[
+					'table'          => self::table_name(),
+					'target_version' => self::SCHEMA_VERSION,
+				]
+			);
+		}
 	}
 
 	/**

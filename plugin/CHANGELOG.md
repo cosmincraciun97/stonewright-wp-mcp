@@ -11,6 +11,8 @@
 
 ### Fixed
 
+- Skip audit and incident table `dbDelta` after a healthy schema is installed,
+  so admin requests do not re-reconcile unique indexes on every `init`.
 - Persist canonical audit lifecycle identity and bind terminal idempotency to
   the operation, resource, payload, status, and ability.
 - Stop the browser finalizer on terminal HTTP responses and page shutdown,
