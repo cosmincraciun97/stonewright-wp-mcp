@@ -71,6 +71,14 @@ WordPress floor includes the core Abilities API.
 
 The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
 
+Direct writes require a recent task-start bound to the resolved alias and its
+canonical target identity. Repointing the alias invalidates that write latch;
+the old context cannot create or revoke Application Passwords or perform any
+other write against the new target. Direct audit idempotency and incidents use
+the same canonical identity rather than the alias. Audit-lock recovery checks
+boot/process-start ownership and quarantines a stale lock atomically before
+removing it, so PID reuse and replacement-lock races fail closed.
+
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet

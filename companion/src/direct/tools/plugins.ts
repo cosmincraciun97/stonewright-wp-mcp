@@ -62,7 +62,7 @@ export async function pluginActivate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-activate");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -80,6 +80,7 @@ export async function pluginActivate(
     appendDirectAudit({
       tool: "stonewright-plugin-activate",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: plugin,
       status: "ok",
     });
@@ -88,6 +89,7 @@ export async function pluginActivate(
     appendDirectAudit({
       tool: "stonewright-plugin-activate",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: plugin,
       status: "error",
     });
@@ -101,7 +103,7 @@ export async function pluginDeactivate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-deactivate");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -119,6 +121,7 @@ export async function pluginDeactivate(
     appendDirectAudit({
       tool: "stonewright-plugin-deactivate",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: plugin,
       status: "ok",
     });
@@ -127,6 +130,7 @@ export async function pluginDeactivate(
     appendDirectAudit({
       tool: "stonewright-plugin-deactivate",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: plugin,
       status: "error",
     });
@@ -144,7 +148,7 @@ export async function pluginInstall(
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-install");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -162,6 +166,7 @@ export async function pluginInstall(
     appendDirectAudit({
       tool: "stonewright-plugin-install",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: slug,
       status: "ok",
     });
@@ -170,6 +175,7 @@ export async function pluginInstall(
     appendDirectAudit({
       tool: "stonewright-plugin-install",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: slug,
       status: "error",
     });
@@ -196,7 +202,7 @@ export async function pluginDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -217,6 +223,7 @@ export async function pluginDelete(
   appendDirectAudit({
     tool: "stonewright-plugin-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: plugin,
     status: "ok",
   });

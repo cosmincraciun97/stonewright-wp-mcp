@@ -100,7 +100,7 @@ export async function taxonomyCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-taxonomy-terms");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-taxonomy-terms",
@@ -118,6 +118,7 @@ export async function taxonomyCreate(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${term.id}`,
       status: "ok",
     });
@@ -126,6 +127,7 @@ export async function taxonomyCreate(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: collection,
       status: "error",
     });
@@ -146,7 +148,7 @@ export async function taxonomyUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-taxonomy-terms");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-taxonomy-terms",
@@ -166,6 +168,7 @@ export async function taxonomyUpdate(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
@@ -174,6 +177,7 @@ export async function taxonomyUpdate(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "error",
     });
@@ -192,7 +196,7 @@ export async function taxonomyDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-taxonomy-terms");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -209,6 +213,7 @@ export async function taxonomyDelete(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
@@ -217,6 +222,7 @@ export async function taxonomyDelete(
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "error",
     });

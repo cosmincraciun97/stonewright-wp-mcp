@@ -108,7 +108,7 @@ export async function menuCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-menu-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-menu-create",
@@ -124,6 +124,7 @@ export async function menuCreate(
     appendDirectAudit({
       tool: "stonewright-menu-create",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menus/${menu.id}`,
       status: "ok",
     });
@@ -132,6 +133,7 @@ export async function menuCreate(
     appendDirectAudit({
       tool: "stonewright-menu-create",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: "menus",
       status: "error",
     });
@@ -150,7 +152,7 @@ export async function menuUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-menu-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-menu-update",
@@ -166,6 +168,7 @@ export async function menuUpdate(
     appendDirectAudit({
       tool: "stonewright-menu-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menus/${input.id}`,
       status: "ok",
     });
@@ -174,6 +177,7 @@ export async function menuUpdate(
     appendDirectAudit({
       tool: "stonewright-menu-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menus/${input.id}`,
       status: "error",
     });
@@ -191,7 +195,7 @@ export async function menuDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-menu-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -204,6 +208,7 @@ export async function menuDelete(
     appendDirectAudit({
       tool: "stonewright-menu-delete",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menus/${input.id}`,
       status: "ok",
     });
@@ -212,6 +217,7 @@ export async function menuDelete(
     appendDirectAudit({
       tool: "stonewright-menu-delete",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menus/${input.id}`,
       status: "error",
     });
@@ -266,7 +272,7 @@ export async function menuItems(
 
   if (action === "create") {
     assertWriteAllowed({
-      site: ctx.site.alias,
+      site: ctx.site,
       mode: ctx.writeMode,
       destructive: false,
       tool: "stonewright-menu-items",
@@ -290,6 +296,7 @@ export async function menuItems(
       appendDirectAudit({
         tool: "stonewright-menu-items",
         site: ctx.site.alias,
+        targetIdentity: ctx.site.url,
         resource: `menu-items/${item.id}`,
         status: "ok",
       });
@@ -298,6 +305,7 @@ export async function menuItems(
       appendDirectAudit({
         tool: "stonewright-menu-items",
         site: ctx.site.alias,
+        targetIdentity: ctx.site.url,
         resource: "menu-items",
         status: "error",
       });
@@ -307,7 +315,7 @@ export async function menuItems(
 
   if (action === "update") {
     assertWriteAllowed({
-      site: ctx.site.alias,
+      site: ctx.site,
       mode: ctx.writeMode,
       destructive: false,
       tool: "stonewright-menu-items",
@@ -331,6 +339,7 @@ export async function menuItems(
       appendDirectAudit({
         tool: "stonewright-menu-items",
         site: ctx.site.alias,
+        targetIdentity: ctx.site.url,
         resource: `menu-items/${input.id}`,
         status: "ok",
       });
@@ -339,6 +348,7 @@ export async function menuItems(
       appendDirectAudit({
         tool: "stonewright-menu-items",
         site: ctx.site.alias,
+        targetIdentity: ctx.site.url,
         resource: `menu-items/${input.id}`,
         status: "error",
       });
@@ -348,7 +358,7 @@ export async function menuItems(
 
   if (!input.id) throw new Error("id is required for delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -364,6 +374,7 @@ export async function menuItems(
     appendDirectAudit({
       tool: "stonewright-menu-items",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menu-items/${input.id}`,
       status: "ok",
     });
@@ -372,6 +383,7 @@ export async function menuItems(
     appendDirectAudit({
       tool: "stonewright-menu-items",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `menu-items/${input.id}`,
       status: "error",
     });

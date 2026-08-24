@@ -10,6 +10,7 @@ const race = vi.hoisted(() => ({
 	competitorReads: 0,
 	unauthorizedDelete: false,
 	failMarkerRename: false,
+	replaceBeforeCanonicalUnlink: false,
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -41,6 +42,15 @@ vi.mock('node:fs', async (importOriginal) => {
 		if (path.endsWith('.lock')) {
 			try {
 				const body = String(actual.readFileSync(path, 'utf8'));
+				if (race.replaceBeforeCanonicalUnlink && body.includes('stale-owner')) {
+					race.replaceBeforeCanonicalUnlink = false;
+					actual.writeFileSync(path, `${JSON.stringify({
+						pid: process.pid,
+						created_at: Date.now(),
+						token: 'replacement-owner',
+					})}\n`, { mode: 0o600 });
+					race.unauthorizedDelete = true;
+				}
 				if (body.includes('competing-recoverer') || body.includes('competing-owner')) {
 					race.unauthorizedDelete = true;
 				}
@@ -81,6 +91,7 @@ describe('Direct audit lock ownership', () => {
 			competitorReads: 0,
 			unauthorizedDelete: false,
 			failMarkerRename: false,
+			replaceBeforeCanonicalUnlink: false,
 		});
 	});
 
@@ -92,7 +103,7 @@ describe('Direct audit lock ownership', () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		race.replaceDuringAppend = true;
 
-		appendDirectAudit({ tool: 'stonewright-content-get', site: 'site-a', status: 'ok' }, path);
+		appendDirectAudit({ tool: 'stonewright-content-get', site: 'https://site-a.example.test', status: 'ok' }, path);
 
 		expect(race.unauthorizedDelete).toBe(false);
 		expect(readFileSync(`${path}.lock`, 'utf8')).toContain('competing-owner');
@@ -106,10 +117,45 @@ describe('Direct audit lock ownership', () => {
 		utimesSync(lock, stale, stale);
 		race.replaceStaleOnRead = true;
 
-		appendDirectAudit({ tool: 'stonewright-content-get', site: 'site-a', status: 'ok' }, path);
+		appendDirectAudit({ tool: 'stonewright-content-get', site: 'https://site-a.example.test', status: 'ok' }, path);
 
 		expect(race.unauthorizedDelete).toBe(false);
 		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+	});
+
+	it('recovers a stale lock whose live PID belongs to a different boot or process start', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const lock = `${path}.lock`;
+		writeFileSync(lock, `${JSON.stringify({
+			pid: process.pid,
+			created_at: 1,
+			token: 'reused-pid-owner',
+			boot_id: 'synthetic-previous-boot',
+			process_started_at: 1,
+		})}\n`, { mode: 0o600 });
+		const stale = new Date(Date.now() - 120_000);
+		utimesSync(lock, stale, stale);
+		vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
+
+		expect(() => appendDirectAudit({
+			tool: 'stonewright-content-get',
+			site: 'https://site-a.example.test',
+			status: 'ok',
+		}, path)).not.toThrow();
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+	});
+
+	it('never deletes a replacement installed after stale-lock comparison', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const lock = `${path}.lock`;
+		writeFileSync(lock, `${JSON.stringify({ pid: 999_999, created_at: 1, token: 'stale-owner' })}\n`, { mode: 0o600 });
+		const stale = new Date(Date.now() - 120_000);
+		utimesSync(lock, stale, stale);
+		race.replaceBeforeCanonicalUnlink = true;
+
+		appendDirectAudit({ tool: 'stonewright-content-get', site: 'https://site-a.example.test', status: 'ok' }, path);
+
+		expect(race.unauthorizedDelete).toBe(false);
 	});
 
 	it('removes a temporary marker receipt when atomic replacement fails', () => {
@@ -118,7 +164,7 @@ describe('Direct audit lock ownership', () => {
 
 		const row = appendDirectAudit({
 			tool: 'stonewright-content-get',
-			site: 'site-a',
+			site: 'https://site-a.example.test',
 			status: 'ok',
 			idempotencyKey: 'synthetic-rename-failure',
 		}, path);

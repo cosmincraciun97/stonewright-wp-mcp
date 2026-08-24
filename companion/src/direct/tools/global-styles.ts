@@ -45,7 +45,7 @@ export async function globalStylesUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-global-styles-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -63,6 +63,7 @@ export async function globalStylesUpdate(
     appendDirectAudit({
       tool: "stonewright-global-styles-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `global-styles/${id}`,
       status: "ok",
     });
@@ -76,6 +77,7 @@ export async function globalStylesUpdate(
     appendDirectAudit({
       tool: "stonewright-global-styles-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `global-styles/${id}`,
       status: "error",
     });

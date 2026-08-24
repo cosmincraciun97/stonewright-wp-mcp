@@ -7,6 +7,7 @@ for (let index = 0; index < count; index += 1) {
 	appendDirectAudit({
 		tool: 'stonewright-content-update',
 		site: 'site-a',
+		targetIdentity: 'https://site-a.example.test',
 		resource: `post:${worker}-${index}`,
 		status: 'ok',
 		eventId: `${worker === 'a' ? 'aaaaaaaa' : 'bbbbbbbb'}-0000-4000-8000-${String(index).padStart(12, '0')}`,

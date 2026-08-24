@@ -36,6 +36,7 @@ import {
 	defaultAuditPath,
 	escalateDirectError,
 	noteDirectErrorOccurrence,
+	setDirectAuditTargetIdentity,
 	withDirectAuditReceiptContext,
 } from './audit.js';
 
@@ -454,6 +455,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
 	const site = resolveSite(config, siteAlias);
+	setDirectAuditTargetIdentity(site.url);
 	const dispatch = directDispatchContext.getStore();
 	if (dispatch) dispatch.site = site.alias;
 	const client = new WpRestClient(site, {
@@ -512,7 +514,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 				: '_global';
 			return withDirectAuditReceiptContext(() => directDispatchContext.run(
 				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
-				() => (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args),
+				() => {
+					try {
+						const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
+						setDirectAuditTargetIdentity(resolveSite(config, site === '_global' ? undefined : site).url);
+					} catch {
+						if (site === '_global') setDirectAuditTargetIdentity('direct-global:_global');
+					}
+					return (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args);
+				},
 			));
 		}) as RegisteredTool['handler'];
 		const existing = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })

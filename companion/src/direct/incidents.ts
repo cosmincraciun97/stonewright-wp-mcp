@@ -63,6 +63,9 @@ function sha256(value: string): string {
 
 export function directIncidentFingerprint(siteBinding: string): string {
 	const trimmed = siteBinding.trim();
+	if (/^(?:direct-global|site-id):/.test(trimmed)) {
+		return sha256(trimmed);
+	}
 	try {
 		const parsed = new URL(trimmed);
 		parsed.username = '';
@@ -76,10 +79,7 @@ export function directIncidentFingerprint(siteBinding: string): string {
 		parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
 		return sha256(`url:${parsed.toString().replace(/\/$/, '')}`);
 	} catch {
-		// Resolved aliases are already the canonical persisted identity. Preserve
-		// their historical fingerprint so companion upgrades do not orphan Direct
-		// incident state.
-		return sha256(trimmed);
+		throw new Error('Canonical Direct target identity required; mutable aliases are not incident identity.');
 	}
 }
 

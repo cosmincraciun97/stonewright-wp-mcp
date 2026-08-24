@@ -82,15 +82,21 @@ user-created skills, or audit file; packaged generic built-ins are still
 available. Restarting or updating the companion preserves the state already
 stored under `~/.stonewright/`. Credential-like memory and skill payloads are
 rejected, and Direct audit diagnostic text is redacted before persistence.
-Terminal idempotency includes the canonical site fingerprint, so a receipt can
-never replay across site bindings. Marker retention is bounded and compacted
-under the same interprocess lock that protects append and stale-lock recovery.
+Terminal idempotency and incident storage use the resolved canonical target
+identity, never the mutable alias, so repointing an alias cannot replay or
+suppress another site's terminal event. Marker retention is bounded and
+compacted under the same interprocess lock that protects append and stale-lock
+recovery. Lock owners carry a token, boot identity, and process-start identity;
+recovery atomically quarantines a stale candidate before verifying ownership
+and removes only the quarantine path.
 Ordinary REST read failures are recorded once from dispatch context. Always-
 confirm theme, plugin, user, Application Password, and skill deletions also
 pass the central write-mode and task-start gate before execution.
 
-`task-start` binds learning to an alias, normalized URL, target fingerprint,
-backend, and expiry. A configured target change requires a new task-start.
+`task-start` binds learning and the Direct write latch to an alias, normalized
+URL, target fingerprint, backend, and expiry. A configured target change
+invalidates the latch immediately and requires a new task-start before every
+write class, including Application Password creation or revocation.
 Authentication, transport, or server failure never silently redirects learning
 to local storage; local fallback is allowed only when the typed plugin route is
 confirmed absent.

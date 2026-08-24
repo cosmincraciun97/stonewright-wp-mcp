@@ -55,7 +55,7 @@ export async function themeActivate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-theme-activate");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -77,6 +77,7 @@ export async function themeActivate(
   appendDirectAudit({
     tool: "stonewright-theme-activate",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `themes/${input.stylesheet}`,
     status: "ok",
   });

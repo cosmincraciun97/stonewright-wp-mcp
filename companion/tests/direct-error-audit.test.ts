@@ -4,9 +4,23 @@ import { spawn } from 'node:child_process';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendDirectAudit, recentRecurringErrors, defaultAuditPath, rotateDirectAudit } from '../src/direct/audit.js';
+import { appendDirectAudit as appendDirectAuditRaw, recentRecurringErrors, defaultAuditPath, rotateDirectAudit, type DirectAuditEntry, type DirectAuditRotationPolicy } from '../src/direct/audit.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { resetTaskStartSeenForTests } from '../src/direct/writes.js';
+
+function appendDirectAudit(entry: DirectAuditEntry, path?: string, rotation?: DirectAuditRotationPolicy) {
+	const identities: Record<string, string> = {
+		's': 'https://site-s.example.test',
+		'site-a': 'https://site-a.example.test',
+		'site-b': 'https://site-b.example.test',
+		'default': 'https://default.example.test',
+		'_global': 'direct-global:_global',
+	};
+	return appendDirectAuditRaw({
+		...entry,
+		targetIdentity: entry.targetIdentity ?? identities[entry.site] ?? 'https://fixture.example.test',
+	}, path, rotation);
+}
 
 describe('direct error audit', () => {
 	let stateDir: string;
@@ -115,6 +129,34 @@ describe('direct error audit', () => {
 			terminal_owner: 'direct-registry',
 		});
 		expect(String(first['idempotency_key'])).toMatch(/^[a-f0-9]{64}$/);
+	});
+
+	it('does not let a repointed alias suppress the new target terminal row', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const terminal = {
+			tool: 'stonewright-content-update',
+			site: 'site-a',
+			status: 'error' as const,
+			code: 'write_failed',
+			resource: 'pages/42',
+			idempotencyKey: 'same-client-terminal-key',
+			operationId: '11111111-1111-4111-8111-111111111111',
+			payload: { code: 'write_failed' },
+		};
+
+		const first = appendDirectAudit({
+			...terminal,
+			targetIdentity: 'https://old.example.test',
+		}, path);
+		const second = appendDirectAudit({
+			...terminal,
+			targetIdentity: 'https://new.example.test',
+		}, path);
+		const rows = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
+
+		expect(rows).toHaveLength(2);
+		expect(second['request_id']).not.toBe(first['request_id']);
+		expect(second.site_fingerprint).not.toBe(first.site_fingerprint);
 	});
 
 	it('binds caller idempotency to ability resource payload status and operation', () => {

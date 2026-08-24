@@ -16,6 +16,11 @@
   and compact marker retention under the audit lock.
 - Audit ordinary REST read failures exactly once from asynchronous dispatch
   metadata even when the thrown REST error has no explicit tool metadata.
+- Bind the Direct task-start write latch to both alias and canonical target
+  identity, invalidating it immediately when an alias is repointed.
+- Use canonical target identity—not aliases—for terminal idempotency and
+  incident storage, and quarantine stale locks with boot/process ownership
+  checks before removal.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

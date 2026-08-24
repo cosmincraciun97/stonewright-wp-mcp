@@ -108,6 +108,14 @@ it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
 explicit rather than silently emulated.
 
+Direct aliases are routing labels, not security identities. Task-start latches,
+terminal idempotency, and incident partitions bind to the resolved canonical
+target (plus immutable registry identity when available). Changing an alias's
+target therefore requires a fresh task-start and creates a distinct audit and
+incident identity. Interprocess audit locks carry token, boot, and process-start
+ownership; stale recovery uses atomic quarantine and never compare-deletes the
+canonical lock path.
+
 ### Tool surface and Step 1 propagation
 
 Setup Step 1 persists ability enablement, operating mode, MCP surface, and the

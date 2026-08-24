@@ -79,7 +79,7 @@ export async function widgetManage(
 ) {
   assertToolEnabled(ctx.site, "stonewright-widget-manage");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -100,6 +100,7 @@ export async function widgetManage(
     appendDirectAudit({
       tool: "stonewright-widget-manage",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `widgets/${w.id}`,
       status: "ok",
     });
@@ -120,6 +121,7 @@ export async function widgetManage(
     appendDirectAudit({
       tool: "stonewright-widget-manage",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `widgets/${input.id}`,
       status: "ok",
     });
@@ -135,6 +137,7 @@ export async function widgetManage(
   appendDirectAudit({
     tool: "stonewright-widget-manage",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `widgets/${input.id}`,
     status: "ok",
   });

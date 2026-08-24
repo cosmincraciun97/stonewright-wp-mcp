@@ -28,6 +28,10 @@ development builds were never stable releases.
 - Record ordinary Direct REST failures once from dispatch context, persist one
   blocked event for terminal finalizer heartbeat denials, and fail audit
   retention when incident retention cannot delete its batch.
+- Invalidate the Direct task-start write latch when an alias resolves to a
+  different canonical target, including Application Password operations.
+- Partition Direct terminal receipts and incidents by canonical target identity
+  so retargeting an alias cannot replay or suppress another site's event.
 
 ### Security
 
@@ -36,6 +40,8 @@ development builds were never stable releases.
   addition to their explicit confirmation checks.
 - Recursively redact credential patterns from every audit free-text value
   before sanitized arguments or error metadata are persisted.
+- Recover abandoned Direct audit locks with boot/process-start ownership and
+  atomic quarantine so PID reuse or a replacement lock cannot be deleted.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

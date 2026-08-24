@@ -15,7 +15,7 @@ export async function settingsUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-settings-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -38,6 +38,7 @@ export async function settingsUpdate(
     appendDirectAudit({
       tool: "stonewright-settings-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: "settings",
       status: "ok",
     });
@@ -46,6 +47,7 @@ export async function settingsUpdate(
     appendDirectAudit({
       tool: "stonewright-settings-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: "settings",
       status: "error",
     });

@@ -110,7 +110,7 @@ export async function userCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -128,6 +128,7 @@ export async function userCreate(
   appendDirectAudit({
     tool: "stonewright-user-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${user.id}`,
     status: "ok",
   });
@@ -147,7 +148,7 @@ export async function userUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -164,6 +165,7 @@ export async function userUpdate(
   appendDirectAudit({
     tool: "stonewright-user-update",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
     status: "ok",
   });
@@ -176,7 +178,7 @@ export async function userDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -190,6 +192,7 @@ export async function userDelete(
   appendDirectAudit({
     tool: "stonewright-user-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
     status: "ok",
   });
@@ -230,7 +233,7 @@ export async function appPasswordCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -245,6 +248,7 @@ export async function appPasswordCreate(
   appendDirectAudit({
     tool: "stonewright-app-password-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords`,
     status: "ok",
   });
@@ -262,7 +266,7 @@ export async function appPasswordRevoke(
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-revoke");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -276,6 +280,7 @@ export async function appPasswordRevoke(
   appendDirectAudit({
     tool: "stonewright-app-password-revoke",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords/${input.uuid}`,
     status: "ok",
   });
