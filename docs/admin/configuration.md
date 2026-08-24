@@ -224,14 +224,14 @@ permission before scanning client tools/private config, and separate permission
 before installing or configuring a missing Playwright/browser provider.
 It tells Codex CLI users (`--client codex-cli`) to configure
 `~/.codex/config.toml` or a trusted `.codex/config.toml`, restart/reload the
-MCP session, and use `/mcp` to verify that Stonewright is active. It tells
-Codex in ChatGPT Desktop users (`--client chatgpt-desktop`) to use
-`~/Library/Application Support/ChatGPT/mcp_config.json` (`mcpServers` JSON)
-and not to paste CLI TOML into that file.
+MCP session, and use `/mcp` to verify that Stonewright is active. It treats
+`--client chatgpt-desktop` as a compatibility alias for the same Codex TOML
+adapter and tells agents not to create a second Desktop JSON entry.
 After releases or skill syncs, it tells agents to rerun
-`stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
-`companion_version`, `expected_companion_package`, and
-`refresh_required_tool_names` against the visible tool list.
+`stonewright-task-start`, `stonewright-setup-profile`,
+`stonewright-wordpress-mcp-status`, and `stonewright-client-surface-check` in
+order, then compare package, authoritative mode/surface, refresh/relist, and
+actual client visibility evidence.
 It also tells agents to stop if both `stonewright-task-start` and compatibility
 `stonewright-context-bootstrap` are missing,
 rather than inspecting private client config files, creating scratch helper

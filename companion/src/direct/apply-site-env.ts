@@ -29,6 +29,20 @@ export interface ApplySiteAliasResult {
 	error?: string | undefined;
 }
 
+const WORDPRESS_CREDENTIAL_ENV_KEYS = [
+	'STONEWRIGHT_WP_URL',
+	'STONEWRIGHT_WP_USERNAME',
+	'STONEWRIGHT_WP_APP_PASSWORD',
+	'STONEWRIGHT_WP_PASSWORD',
+	'WP_API_URL',
+	'WP_USERNAME',
+	'WP_APP_PASSWORD',
+] as const;
+
+function clearInheritedWordPressEnv(env: NodeJS.ProcessEnv): void {
+	for (const key of WORDPRESS_CREDENTIAL_ENV_KEYS) delete env[key];
+}
+
 function defaultSitesPath(env: NodeJS.ProcessEnv, home: string): string {
 	const fromEnv = (env['STONEWRIGHT_SITES_FILE'] ?? '').trim();
 	if (fromEnv) return fromEnv;
@@ -58,6 +72,14 @@ export function applySiteAliasToEnv(
 	if (!aliasRaw) {
 		return { applied: false, alias: null, injected: false };
 	}
+
+	const protectedCredentialSnapshot = Object.fromEntries(
+		WORDPRESS_CREDENTIAL_ENV_KEYS.map((key) => [key, env[key]]),
+	) as Partial<Record<(typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number], string | undefined>>;
+	// The alias is the routing authority. Clear every inherited single-site
+	// fallback before touching the registry so no failure path can retain a
+	// different site's credentials.
+	clearInheritedWordPressEnv(env);
 
 	const home = options.homeDir ?? homedir();
 	const path = options.sitesFile ?? defaultSitesPath(env, home);
@@ -105,6 +127,16 @@ export function applySiteAliasToEnv(
 
 	let password: string;
 	try {
+		if (site.credential_ref.startsWith('env://')) {
+			const envKey = site.credential_ref.slice('env://'.length);
+			const protectedValue = WORDPRESS_CREDENTIAL_ENV_KEYS.includes(
+				envKey as (typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number],
+			)
+				? protectedCredentialSnapshot[envKey as (typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number]]
+				: undefined;
+			password = (protectedValue ?? env[envKey] ?? '').trim();
+			if (!password) throw new Error(`Environment credential ${envKey} is unavailable for site "${site.alias}".`);
+		} else {
 		const resolveOpts: {
 			sitesFile: string;
 			credentials?: CreateCredentialStoreOptions;
@@ -117,6 +149,7 @@ export function applySiteAliasToEnv(
 			resolveOpts.credentials = options.credentials;
 		}
 		password = resolveSitePassword(site, resolveOpts);
+		}
 	} catch (err) {
 		const error = err instanceof Error ? err.message : String(err);
 		log.warn('Failed to resolve credential for site alias', { alias: site.alias, error });

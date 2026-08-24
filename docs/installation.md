@@ -150,10 +150,16 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 ```
 
 Verification spawns the configured stdio server, confirms site_alias and
-companion version when observable, lists tools, calls `stonewright-task-start`
-and status, checks required tools, and stores a surface digest. The receipt
-prints safe runtime proof, including `refresh_required_tool_names`; a non-empty
-list fails verification. A parseable client config is only a structural check.
+companion version when observable, lists tools, then requires explicit success
+from `stonewright-task-start`, `stonewright-setup-profile`,
+`stonewright-wordpress-mcp-status`, and
+`stonewright-client-surface-check` in that order. The receipt
+prints safe runtime proof, including `refresh_required_tool_names`, the ordered
+gateway results, and process-bound catalog evidence. A non-empty list,
+saved/effective mode or surface mismatch, or failed client visibility check
+fails verification. Error envelopes, `ok:false`, malformed results, and
+fallback values fail verification. A parseable client config is only a
+structural check.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,
@@ -229,9 +235,9 @@ For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 [Antigravity setup guide](getting-started/antigravity.md).
 For Codex CLI, use [`--client codex-cli`](getting-started/codex.md) and
 `~/.codex/config.toml` (or a trusted project `.codex/config.toml`). For Codex
-in ChatGPT Desktop, use [`--client chatgpt-desktop`](getting-started/codex.md)
-and `~/Library/Application Support/ChatGPT/mcp_config.json`. Do not paste CLI
-TOML into the Desktop JSON file. Installer-managed Codex CLI entries use
+in ChatGPT Desktop, `--client chatgpt-desktop` is a compatibility alias for the
+same Codex TOML adapter. Do not create a second Desktop JSON entry.
+Installer-managed Codex entries use
 alias-specific TOML tables such as `[mcp_servers.stonewright-site-a]`.
 
 Before the first WordPress task, verify the client tool list includes
@@ -250,11 +256,12 @@ calls, and
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
 loaded Stonewright MCP server.
 After installing a new Stonewright release or syncing local skills, restart the
-MCP client and rerun `stonewright-setup-profile` plus
-`stonewright-wordpress-mcp-status`. Compare `site_alias`, `companion_version`,
-`expected_companion_package`, and `refresh_required_tool_names` with the visible
-tool list. Missing refresh-required tools mean the client is still using a stale
-companion process or cached tool surface.
+MCP client and run `stonewright-task-start`, `stonewright-setup-profile`,
+`stonewright-wordpress-mcp-status`, then
+`stonewright-client-surface-check`. Compare `site_alias`, companion/package,
+authoritative saved/effective WordPress mode and surface, relist state, and the
+expected client's actual visibility. Empty `refresh_required_tool_names` does
+not override a stale catalog or failed client visibility check.
 
 For component-by-component upgrade steps and state-preservation guarantees,
 see [Updating Stonewright](updates.md).

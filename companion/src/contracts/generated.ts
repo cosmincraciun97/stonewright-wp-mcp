@@ -17,4 +17,19 @@ export interface HealthResponse {
    * Semantic version of this contract set. PHP checks major-version compatibility.
    */
   contract_version: string;
+  /**
+   * Version of the running companion artifact.
+   */
+  version: string;
+  /**
+   * Official package for the running artifact version.
+   */
+  expected_companion_package: string;
+  /**
+   * Exact configured package, included only for a valid bearer and a validated configuration source.
+   */
+  configured_package?: string;
+  configured_package_version?: string;
+  configured_package_provenance?: "npm-registry" | "github-release";
+  configured_package_source?: "authenticated-environment";
 }

@@ -24,7 +24,6 @@ final class OAuthClientConfig {
 	 */
 	public static function client_labels(): array {
 		return [
-			'chatgpt-desktop' => 'Codex in ChatGPT Desktop',
 			'chatgpt'         => 'ChatGPT',
 			'claude-ai'       => 'Claude.ai',
 			'claude-desktop'  => 'Claude Desktop',
@@ -55,7 +54,8 @@ final class OAuthClientConfig {
 	 */
 	public static function client_slug_aliases(): array {
 		return [
-			'codex' => 'codex-cli',
+			'codex'           => 'codex-cli',
+			'chatgpt-desktop' => 'codex-cli',
 		];
 	}
 
@@ -112,14 +112,15 @@ final class OAuthClientConfig {
 	public static function configs( string $mcp_url, string $mcp_name ): array {
 		if ( self::host_unreachable_from_cloud() ) {
 			$configs = self::bridge_configs( $mcp_url, $mcp_name, self::local_bridge_environment() );
-			$chatgpt_desktop = is_array( $configs['chatgpt-desktop'] ?? null ) ? $configs['chatgpt-desktop'] : [];
+			$codex           = is_array( $configs['codex'] ?? null ) ? $configs['codex'] : [];
 			$claude_desktop  = is_array( $configs['claude-desktop'] ?? null ) ? $configs['claude-desktop'] : [];
 			$configs['chatgpt'] = array_merge(
-				$chatgpt_desktop,
+				$codex,
 				[
-					'message' => 'ChatGPT on the web cannot reach a site that exists only on this machine. ChatGPT Desktop can use this local mcp-remote bridge.',
+					'message' => 'ChatGPT on the web cannot reach a site that exists only on this machine. Use the official Codex configuration for local MCP access.',
 				]
 			);
+			$configs['chatgpt-desktop'] = $codex;
 			$configs['claude-ai'] = array_merge(
 				$claude_desktop,
 				[
@@ -200,16 +201,9 @@ final class OAuthClientConfig {
 				'paths' => [],
 				'steps' => self::chatgpt_steps( $mcp_name, $mcp_url ),
 			],
-			'chatgpt-desktop' => self::entry(
-				self::json( 'mcpServers', $mcp_name, [ 'url' => $mcp_url ] ),
-				'Add to ChatGPT Desktop mcp_config.json, then restart the app.',
-				[
-					'macOS'   => '~/Library/Application Support/ChatGPT/mcp_config.json',
-					'Windows' => '%APPDATA%\\ChatGPT\\mcp_config.json',
-				]
-			),
 			'codex-cli' => $codex_cli,
 			'codex'     => $codex_cli,
+			'chatgpt-desktop' => $codex_cli,
 			'cursor'    => self::entry(
 				self::json( 'mcpServers', $mcp_name, $cursor_server ),
 				'Use the one-click button, or add to mcp.json.',
@@ -307,7 +301,6 @@ final class OAuthClientConfig {
 
 		$standard = [
 			'claude-desktop'   => [ $mcp_servers, 'claude_desktop_config.json', [ 'macOS' => '~/Library/Application Support/Claude/claude_desktop_config.json', 'Windows' => '%APPDATA%\\Claude\\claude_desktop_config.json' ] ],
-			'chatgpt-desktop'  => [ $mcp_servers, 'mcp_config.json', [ 'macOS' => '~/Library/Application Support/ChatGPT/mcp_config.json', 'Windows' => '%APPDATA%\\ChatGPT\\mcp_config.json' ] ],
 			'antigravity'      => [ $mcp_servers, 'mcp_config.json', [ 'macOS / Linux' => '~/.gemini/config/mcp_config.json', 'Windows' => '%USERPROFILE%\\.gemini\\config\\mcp_config.json' ] ],
 			'vscode'           => [ $servers, 'mcp.json', [ 'Workspace' => '.vscode/mcp.json', 'User' => 'Run: MCP: Open User Configuration' ] ],
 			'github-copilot'   => [ $servers, 'mcp.json', [ 'Project' => '.github/copilot/mcp.json' ] ],

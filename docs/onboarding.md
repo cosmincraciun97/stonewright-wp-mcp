@@ -50,7 +50,10 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    user-level client config.
 8. Run `stonewright connect verify <alias> --client <client>` and require the
    same alias, `configured_mode=plugin-only`, `active_mode=plugin`, the expected
-   companion, task-start/status, and an empty required-tool refresh list.
+   companion, the exact successful `task-start` → `setup-profile` → status →
+   `client-surface-check` sequence, matching authoritative mode/surface, and a
+   client-visible required tool. An empty required-tool refresh list alone is
+   not success.
 
 ### Direct mode (no plugin)
 

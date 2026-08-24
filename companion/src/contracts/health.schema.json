@@ -25,10 +25,31 @@
         "contract_version": {
           "type": "string",
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-          "description": "Semantic version of this contract set. PHP checks major-version compatibility."
-        }
+		  "description": "Semantic version of this contract set. PHP checks major-version compatibility."
+		},
+		"version": {
+		  "type": "string",
+		  "description": "Version of the running companion artifact."
+		},
+		"expected_companion_package": {
+		  "type": "string",
+		  "description": "Official package for the running artifact version."
+		},
+		"configured_package": {
+		  "type": "string",
+		  "description": "Exact configured package, included only for a valid bearer and a validated configuration source."
+		},
+		"configured_package_version": {
+		  "type": "string"
+		},
+		"configured_package_provenance": {
+		  "enum": ["npm-registry", "github-release"]
+		},
+		"configured_package_source": {
+		  "const": "authenticated-environment"
+		}
       },
-      "required": ["status", "contract_version"],
+	  "required": ["status", "contract_version", "version", "expected_companion_package"],
       "additionalProperties": false
     }
   }

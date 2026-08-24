@@ -46,6 +46,21 @@ export interface VerifyConfigResult {
 	structural: boolean;
 }
 
+export interface PackageUpdateResult {
+	configPath: string;
+	backupPath: string | null;
+	changed: boolean;
+	diff: string;
+	serverName: string;
+	previousPackageSpec: string;
+	packageSpec: string;
+	beforeSha256: string;
+	afterSha256: string;
+	prefixSha256: string;
+	suffixSha256: string;
+	unrelatedBytesUnchanged: boolean;
+}
+
 export interface ClientAdapter extends ClientAdapterInfo {
 	/**
 	 * Upsert a named Stonewright server entry. Idempotent for same serverName+payload.
@@ -54,6 +69,8 @@ export interface ClientAdapter extends ClientAdapterInfo {
 	upsert(configPath: string, entry: McpServerEntry): ApplyResult;
 	remove(configPath: string, serverName: string): RemoveResult;
 	read(configPath: string, serverName: string): McpServerEntry | null;
+	/** Replace exactly one Stonewright package token inside one existing server entry. */
+	updatePackageReference(configPath: string, serverName: string, packageSpec: string): PackageUpdateResult;
 	verify(configPath: string, serverName: string): VerifyConfigResult;
 	listServerNames(configPath: string): string[];
 }

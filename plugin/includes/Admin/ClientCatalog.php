@@ -99,19 +99,28 @@ final class ClientCatalog {
 	 * @return array<string, mixed>|null
 	 */
 	public static function get( string $slug ): ?array {
-		$slug = sanitize_key( $slug );
-		$aliases = [
-			'vscode'  => 'vscode-copilot',
-			'vs-code' => 'vscode-copilot',
-			'claude'  => 'claude-desktop',
-		];
-		$resolved = $aliases[ $slug ] ?? $slug;
+		$slug     = sanitize_key( $slug );
+		$resolved = self::resolve_slug( $slug );
 		foreach ( self::all() as $client ) {
 			if ( (string) $client['slug'] === $resolved || (string) $client['slug'] === $slug ) {
 				return $client;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Resolve historical client names before catalog validation.
+	 */
+	public static function resolve_slug( string $slug ): string {
+		$slug = sanitize_key( $slug );
+		$aliases = [
+			'vscode'          => 'vscode-copilot',
+			'vs-code'         => 'vscode-copilot',
+			'claude'          => 'claude-desktop',
+			'chatgpt-desktop' => 'codex',
+		];
+		return $aliases[ $slug ] ?? $slug;
 	}
 
 	/**

@@ -1662,17 +1662,21 @@ function parseJsonRpcResponse(text: string, contentType: string): JsonRpcRespons
 function normalizeToolResponse(result: unknown): {
 	content: Array<{ type: 'text'; text: string }>;
 	structuredContent?: Record<string, unknown>;
+	isError?: boolean;
 } {
 	if (result && typeof result === 'object' && Array.isArray((result as { content?: unknown }).content)) {
 		const response = result as {
 			content: Array<{ type: 'text'; text: string }>;
 			structuredContent?: unknown;
+			isError?: unknown;
 		};
 		const structuredContent = asRecord(response.structuredContent)
 			?? parseStructuredFromContent(response.content);
-		return structuredContent
-			? { content: response.content, structuredContent }
-			: { content: response.content };
+		return {
+			content: response.content,
+			...(structuredContent ? { structuredContent } : {}),
+			...(response.isError === true ? { isError: true } : {}),
+		};
 	}
 
 	return {
