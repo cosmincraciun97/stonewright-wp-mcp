@@ -240,7 +240,7 @@ test.describe('Stonewright admin UI', () => {
 		await expect(settingsForm).toHaveAttribute('action', 'options.php');
 		const save = settingsForm.getByRole('button', { name: 'Save Settings' });
 		await expect(save).toBeVisible();
-		expect(await save.evaluate((button) => button.form?.classList.contains('stonewright-settings-form'))).toBe(true);
+		expect(await save.evaluate((button) => (button as HTMLButtonElement).form?.classList.contains('stonewright-settings-form'))).toBe(true);
 		expect(await settingsForm.locator('form').count()).toBe(0);
 
 		await Promise.all([

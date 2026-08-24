@@ -235,11 +235,8 @@ final class GitHubUpdater {
 			return $reply;
 		}
 
-		$plugin = (string) ( $hook_extra['plugin'] ?? '' );
-		if ( '' !== $plugin && self::plugin_basename() !== $plugin ) {
-			return $reply;
-		}
 		$identity = self::package_identity( $package );
+		$plugin   = (string) ( $hook_extra['plugin'] ?? '' );
 		if ( '' === $plugin && null === $identity ) {
 			return $reply;
 		}
@@ -258,6 +255,9 @@ final class GitHubUpdater {
 			|| $identity['manifest_url'] !== $binding['checksums']
 		) {
 			return new \WP_Error( 'stonewright_update_package_binding_unavailable', __( 'Stonewright could not prove which verified release queued this package. The update was stopped.', 'stonewright' ) );
+		}
+		if ( '' !== $plugin && self::plugin_basename() !== $plugin ) {
+			return new \WP_Error( 'stonewright_update_plugin_context_mismatch', __( 'The verified Stonewright package conflicts with the upgrader plugin context. The update was stopped.', 'stonewright' ) );
 		}
 
 		$manifest_response = wp_remote_get(

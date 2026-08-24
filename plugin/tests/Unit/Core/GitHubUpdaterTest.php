@@ -588,6 +588,29 @@ final class GitHubUpdaterTest extends TestCase {
 		unlink( $reply );
 	}
 
+	public function test_official_bound_package_rejects_foreign_upgrader_plugin_context(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$queued    = $transient->response[ GitHubUpdater::plugin_basename() ] ?? null;
+		self::assertIsObject( $queued );
+		$reply = tempnam( sys_get_temp_dir(), 'stonewright-context-' );
+		self::assertIsString( $reply );
+		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
+
+		$result = GitHubUpdater::verify_package_download(
+			$reply,
+			(string) $queued->package,
+			null,
+			[ 'plugin' => 'foreign-plugin/foreign-plugin.php' ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_plugin_context_mismatch', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+		unlink( $reply );
+	}
+
 	/** @return iterable<string, array{string, int, string}> */
 	public static function allowed_release_channel_cases(): iterable {
 		yield 'supported beta published as latest' => [ 'beta', 6, '1.3.0-beta.30' ];

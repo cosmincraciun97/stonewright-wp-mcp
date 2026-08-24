@@ -225,6 +225,35 @@ describe('connect update', () => {
 		expect(codexAdapter().read(path, 'other')?.args).toContain(OLD_PACKAGE);
 	});
 
+	it.each([
+		['target args missing a comma', (valid: string) => valid.replace('"--package", "', '"--package" "')],
+		['malformed unrelated section', (valid: string) => `${valid}\n[unrelated]\nbroken = [1, 2\n`],
+	])('rejects invalid full-file Codex TOML without config mutation or restart receipt: %s', async (_label, corrupt) => {
+		const h = harness();
+		const configPath = join(h.dir, '.codex', 'config.toml');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'codex', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		const invalidConfig = corrupt(readFileSync(configPath, 'utf8'));
+		writeFileSync(configPath, invalidConfig, 'utf8');
+		const registryBefore = readFileSync(h.sitesFile, 'utf8');
+
+		const code = connectUpdate('site-a', { client: 'codex', to: NEW_PACKAGE }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.dir,
+			credentials: h.credentials,
+		});
+
+		expect(code).toBe(1);
+		expect(readFileSync(configPath, 'utf8')).toBe(invalidConfig);
+		expect(readFileSync(h.sitesFile, 'utf8')).toBe(registryBefore);
+		const registry = JSON.parse(registryBefore) as {
+			sites: Array<{ clients: Record<string, { pending_restart?: unknown }> }>;
+		};
+		expect(registry.sites[0].clients.codex).not.toHaveProperty('pending_restart');
+	});
+
 	it('redacts invalid JSONC literals from connect update errors', async () => {
 		const h = harness();
 		capture();

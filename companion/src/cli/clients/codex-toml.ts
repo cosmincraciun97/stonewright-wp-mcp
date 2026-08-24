@@ -4,6 +4,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse as parseToml, TomlError } from 'smol-toml';
 import { readTextFile, writeWithRollback } from './atomic-config.js';
 import {
 	applyStringReplacement,
@@ -78,6 +79,20 @@ function tomlParseFailure(text: string, offset: number, code: string): never {
 		'config_parse_failure',
 		`config_parse_failure: ${code} at line ${where.line}, column ${where.column}.`,
 	);
+}
+
+function validateTomlDocument(text: string): void {
+	try {
+		parseToml(text);
+	} catch (err) {
+		const location = err instanceof TomlError
+			? ` at line ${err.line}, column ${err.column}`
+			: '';
+		throw new ClientConfigError(
+			'config_parse_failure',
+			`config_parse_failure: invalid full TOML document${location}.`,
+		);
+	}
 }
 
 function decodeTomlBasicString(text: string, start: number, end: number): string {
@@ -429,15 +444,7 @@ function validateTomlHasStructure(path: string): void {
 	if (raw === null) {
 		throw new ClientConfigError('config_parse_failure', `${path} missing after write`);
 	}
-	// Basic validation: balanced enough that we can re-parse mcp sections
-	try {
-		parseMcpSections(raw);
-	} catch (err) {
-		throw new ClientConfigError(
-			'config_parse_failure',
-			`TOML structure invalid: ${err instanceof Error ? err.message : String(err)}`,
-		);
-	}
+	validateTomlDocument(raw);
 }
 
 function findPackageReplacement(text: string, serverName: string, packageSpec: string) {
@@ -449,6 +456,7 @@ function findPackageReplacement(text: string, serverName: string, packageSpec: s
 	if (tables.length !== 1) {
 		throw new ClientConfigError('server_entry_ambiguous', `server_entry_ambiguous: found ${tables.length} [mcp_servers.${serverName}] blocks.`);
 	}
+	validateTomlDocument(text);
 	const strings = tableArrayStrings(text, tables[0], 'args');
 	if (!strings) {
 		throw new ClientConfigError('package_reference_not_found', 'package_reference_not_found: target server has no args array.');
@@ -470,6 +478,7 @@ export function codexAdapter(): ClientAdapter {
 		listServerNames(configPath: string): string[] {
 			if (!existsSync(configPath)) return [];
 			const text = readTextFile(configPath) ?? '';
+			validateTomlDocument(text);
 			return scanTomlTables(text)
 				.map((table) => /^mcp_servers\.([^.]+)$/.exec(table.name)?.[1])
 				.filter((name): name is string => Boolean(name));
@@ -478,6 +487,7 @@ export function codexAdapter(): ClientAdapter {
 		read(configPath: string, serverName: string): McpServerEntry | null {
 			if (!existsSync(configPath)) return null;
 			const text = readTextFile(configPath) ?? '';
+			validateTomlDocument(text);
 			return parseEntryFromSyntax(text, serverName);
 		},
 
@@ -503,6 +513,7 @@ export function codexAdapter(): ClientAdapter {
 		upsert(configPath: string, entry: McpServerEntry): ApplyResult {
 			const beforeRaw = readTextFile(configPath);
 			const before = beforeRaw ?? '';
+			validateTomlDocument(before);
 			const parts = parseMcpSections(before);
 			const created = !parts.blocks.has(entry.serverName);
 			parts.blocks.set(entry.serverName, renderServerBlock(entry));
@@ -531,6 +542,7 @@ export function codexAdapter(): ClientAdapter {
 				return { configPath, backupPath: null, removed: false, serverName };
 			}
 			const before = readTextFile(configPath) ?? '';
+			validateTomlDocument(before);
 			const parts = parseMcpSections(before);
 			if (!parts.blocks.has(serverName)) {
 				return { configPath, backupPath: null, removed: false, serverName };

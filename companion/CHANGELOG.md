@@ -21,6 +21,9 @@
 
 - Reject duplicate or ambiguous Codex TOML command/args assignments and
   non-string argument members without mutating the file.
+- Parse the entire Codex TOML document before and after package replacement,
+  rejecting missing commas, duplicate definitions, and malformed unrelated
+  sections without changing configuration or recording a restart receipt.
 - Serialize client-config and registry-receipt updates under one lock, and only
   roll back a config whose current hash still matches the updater's own write.
 - Add a per-config exclusive lock plus an immediate pre-rename hash recheck for

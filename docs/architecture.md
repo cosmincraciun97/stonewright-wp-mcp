@@ -92,7 +92,10 @@ if registry persistence fails, the exact previous file and newly written
 credential state are restored. `connect verify --client` reads the saved entry,
 spawns it through MCP stdio, lists tools, calls `stonewright-task-start` and
 status, and stores a version/tool-surface receipt. Structural config validation
-is reported separately and is never presented as live runtime proof.
+is reported separately and is never presented as live runtime proof. Codex
+configuration updates parse the full TOML document before mutation and again
+after the atomic write while replacing only the exact package-string bytes;
+invalid unrelated TOML therefore cannot produce a config or restart receipt.
 
 Client configuration receipts are content-free. They report the named server,
 change/backup state, support tier, and browser-consent metadata, but never emit

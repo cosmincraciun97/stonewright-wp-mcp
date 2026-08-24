@@ -21,6 +21,9 @@ development builds were never stable releases.
   checksum manifest. Pre-install verification now fails closed when that
   binding is missing or mismatched, even if release metadata changed or the
   queued URL carries a download query.
+- Identify official Stonewright ZIPs from their release binding before reading
+  upgrader context, and fail closed when a foreign plugin context conflicts
+  with that verified package.
 - Clear inherited WordPress credentials before resolving an explicit site
   alias and refuse startup when that alias is unknown, preventing a stale
   environment from selecting the wrong site.
@@ -41,6 +44,9 @@ development builds were never stable releases.
 - Reject ambiguous Codex TOML, make config and receipt updates share one
   transactional lock, and use compare-and-swap rollback so a failed update
   cannot overwrite newer configuration or lose a concurrent receipt.
+- Parse the complete Codex TOML document before and after package updates, so
+  malformed target arrays or unrelated sections cannot be mutated or receive
+  a restart receipt while comments and untouched bytes remain unchanged.
 - Give each TOML/JSONC config its own exclusive write lock and recheck the
   exact read hash immediately before rename; cross-resource rollback now uses
   the same compare-and-swap rule.

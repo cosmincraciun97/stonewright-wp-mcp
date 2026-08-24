@@ -11,6 +11,9 @@
 - Persist the exact release/version/manifest binding when WordPress queues a
   Stonewright ZIP, and refuse pre-install when that binding is unavailable or
   mismatched instead of returning an unverified prior downloader result.
+- Resolve official Stonewright ZIP identity and release binding before trusting
+  upgrader plugin context, and stop with a typed error when that context names
+  a foreign plugin.
 - Require an exact `SHA256SUMS.txt` release asset before accepting updater
   metadata or injecting an update transient, with a typed
   `missing_checksum_asset` recovery reason.

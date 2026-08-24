@@ -71,7 +71,11 @@ the linked SHA-256 manifest.
    and the `stonewright-mcp` executable in that order. Shell wrappers, extra
    packages, duplicate flags, and unrelated package strings are rejected.
    Duplicate `command`/`args` assignments, non-string array members, and
-   ambiguous command values are also rejected without changing the file.
+   ambiguous command values are also rejected without changing the file. The
+   complete Codex TOML document is parsed before and after replacement, so a
+   missing comma, duplicate definition, or malformed unrelated section blocks
+   both config mutation and restart-receipt persistence. A valid replacement
+   changes only the exact package string and preserves every surrounding byte.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
 4. Call `stonewright-task-start`, then `stonewright-setup-profile`,
