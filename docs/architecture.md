@@ -273,7 +273,9 @@ Third-party Atomic schemas remain inventory-only until they have an exact
 Stonewright-owned certification, and every write consumer uses the same central
 trust decision. The router caps output at 50 providers, 200 capabilities, 50
 runtime classes per provider, and 20 diagnostics while reporting full provider,
-capability, and issue totals plus truncation state. Schemas are limited to eight
+capability, issue, blocker, and warning totals plus per-severity truncation.
+Blockers are reserved ahead of warnings, so a late critical failure remains
+visible in a capped response. Schemas are limited to eight
 levels, 256 keys, and 32 KiB; rejected or untrusted schemas are summary-only.
 Status, MCP, and Troubleshoot therefore share the same bounded response. The
 official `elementor/manage-default-styles` ability
@@ -293,8 +295,10 @@ implementations still conflict. Exact class/namespace, visibility/static
 modifiers, required and maximum arity, parameter/return types including
 nullability and unions, constants, and versions are checked before invocation.
 The same preflight runs again inside the actual `mcp_adapter_init` server
-registration callback, so a late incompatible or hostile adapter cannot invoke
-server creation.
+registration callback. Its target is the exact runtime adapter object's class;
+filters may contribute ownership evidence but cannot substitute a compatible
+decoy class, so a late incompatible or hostile adapter cannot invoke server
+creation.
 Troubleshoot renders every blocked symbol with its exact owners, versions,
 reason, ABI issues, and safe remediation instead of flattening owners or
 exposing filesystem paths.

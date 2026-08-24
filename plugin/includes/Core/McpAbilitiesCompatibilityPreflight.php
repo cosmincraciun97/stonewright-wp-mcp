@@ -10,14 +10,19 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/** @param list<mixed>|null $autoloaders @param list<string>|null $package_roots @return array<string,mixed> */
 	public static function inspect( ?array $autoloaders = null, string $adapter_class = 'WP\\MCP\\Core\\McpAdapter', ?array $package_roots = null ): array {
-		$classes = apply_filters( 'stonewright_compatibility_class_names', [ 'adapter' => $adapter_class, 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ] );
-		$classes = is_array( $classes ) ? $classes : [];
+		$filtered_classes = apply_filters( 'stonewright_compatibility_class_names', [ 'adapter' => $adapter_class, 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ] );
+		$filtered_classes = is_array( $filtered_classes ) ? $filtered_classes : [];
+		$classes = [
+			'adapter'            => $adapter_class,
+			'abilities_registry' => (string) ( $filtered_classes['abilities_registry'] ?? 'WP_Abilities_Registry' ),
+			'ability'            => (string) ( $filtered_classes['ability'] ?? 'WP_Ability' ),
+		];
 		$autoloaders ??= spl_autoload_functions() ?: [];
 		$explicit_roots = null !== $package_roots;
 		$package_roots ??= self::default_package_roots();
-		$ability_class = (string) ( $classes['ability'] ?? 'WP_Ability' );
-		$adapter  = self::inspect_symbol( 'adapter', (string) ( $classes['adapter'] ?? $adapter_class ), $ability_class, $autoloaders, $package_roots, $explicit_roots );
-		$registry = self::inspect_symbol( 'abilities_registry', (string) ( $classes['abilities_registry'] ?? 'WP_Abilities_Registry' ), $ability_class, $autoloaders, $package_roots, $explicit_roots );
+		$ability_class = $classes['ability'];
+		$adapter  = self::inspect_symbol( 'adapter', $classes['adapter'], $ability_class, $autoloaders, $package_roots, $explicit_roots );
+		$registry = self::inspect_symbol( 'abilities_registry', $classes['abilities_registry'], $ability_class, $autoloaders, $package_roots, $explicit_roots );
 		$ability  = self::inspect_symbol( 'ability', $ability_class, $ability_class, $autoloaders, $package_roots, $explicit_roots );
 
 		$blocking = [];

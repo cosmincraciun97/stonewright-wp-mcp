@@ -136,6 +136,20 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertSame( 0, $adapter->invocations );
 	}
 
+	public function test_compatible_filter_decoy_cannot_authorize_a_hostile_runtime_adapter(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => CapturingMcpAdapter::class,
+			'abilities_registry' => RegistrationCompatibleRegistry::class,
+			'ability'            => RegistrationCompatibleAbility::class,
+		];
+		$adapter = new HostileMcpAdapter();
+
+		ServerRegistration::register_server( $adapter );
+
+		self::assertSame( 0, $adapter->invocations );
+		self::assertSame( HostileMcpAdapter::class, McpAbilitiesCompatibilityPreflight::current()['adapter']['class'] ?? null );
+	}
+
 	/**
 	 * @return mixed
 	 */

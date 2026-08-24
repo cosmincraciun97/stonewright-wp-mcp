@@ -34,26 +34,26 @@ final class ProviderRouter {
 	/** @return array<string,mixed> */
 	public function inspect( int $post_id = 0, string $requested = 'auto' ): array {
 		$architecture = self::bounded_architecture( (array) ( $this->architecture )( $post_id, $requested ) );
-		$issues       = [];
-		$issue_count  = 0;
-		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues, $issue_count );
-		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues, $issue_count );
-		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_count );
+		$issues       = [ 'blocker' => [], 'warning' => [] ];
+		$issue_counts = [ 'blocker' => 0, 'warning' => 0 ];
+		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues, $issue_counts );
+		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues, $issue_counts );
+		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_counts );
 
 		foreach ( is_array( $atomic['issues'] ?? null ) ? $atomic['issues'] : [] as $issue ) {
 			if ( is_array( $issue ) ) {
-				self::record_issue( $issues, $issue_count, $issue );
+				self::record_issue( $issues, $issue_counts, $issue );
 			}
 		}
 		$providers = [];
 		foreach ( $v3 as $schema ) {
 			if ( is_array( $schema ) ) {
-				self::add_capability( $providers, $issues, $issue_count, 'v3-widget', 'v3', (string) ( $schema['widget_type'] ?? '' ), $schema, (string) ( $schema['schema_hash'] ?? '' ) );
+				self::add_capability( $providers, $issues, $issue_counts, 'v3-widget', 'v3', (string) ( $schema['widget_type'] ?? '' ), $schema, (string) ( $schema['schema_hash'] ?? '' ) );
 			}
 		}
 		foreach ( (array) ( $atomic['items'] ?? [] ) as $schema ) {
 			if ( is_array( $schema ) ) {
-				self::add_capability( $providers, $issues, $issue_count, 'atomic-node', 'v4', (string) ( $schema['atomic_type'] ?? '' ), $schema, (string) ( $schema['schema_fingerprint'] ?? '' ) );
+				self::add_capability( $providers, $issues, $issue_counts, 'atomic-node', 'v4', (string) ( $schema['atomic_type'] ?? '' ), $schema, (string) ( $schema['schema_fingerprint'] ?? '' ) );
 			}
 		}
 
@@ -78,7 +78,7 @@ final class ProviderRouter {
 			$ability_architectures = [] !== $declared_architectures ? $declared_architectures : [ 'global' ];
 			$annotations       = (array) ( $meta['annotations'] ?? [] );
 			$is_declared_write = false === ( $annotations['readonly'] ?? null ) || true === ( $annotations['destructive'] ?? false );
-			self::add_capability( $providers, $issues, $issue_count, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
+			self::add_capability( $providers, $issues, $issue_counts, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
 		}
 
 		ksort( $providers );
@@ -132,6 +132,7 @@ final class ProviderRouter {
 
 		$provider_rows = self::bounded_provider_rows( $provider_rows );
 		$output_capabilities = array_sum( array_map( static fn( array $provider ): int => count( (array) ( $provider['capabilities'] ?? [] ) ), $provider_rows ) );
+		$issue_summary = self::issue_summary( $issues, $issue_counts );
 
 		return [
 			'architecture'     => $architecture,
@@ -141,9 +142,13 @@ final class ProviderRouter {
 			'providers_truncated' => $providers_count > count( $provider_rows ),
 			'capabilities_count' => $capabilities_count,
 			'capabilities_truncated' => $capabilities_count > $output_capabilities,
-			'issues'           => array_values( $issues ),
-			'issues_count'     => $issue_count,
-			'issues_truncated' => $issue_count > count( $issues ),
+			'issues'           => $issue_summary['issues'],
+			'issues_count'     => $issue_summary['issues_count'],
+			'issues_truncated' => $issue_summary['issues_truncated'],
+			'severity_counts'  => $issue_counts,
+			'blocker_count'    => $issue_counts['blocker'],
+			'warning_count'    => $issue_counts['warning'],
+			'truncated_by_severity' => $issue_summary['truncated_by_severity'],
 			'native_preferred' => $native_preferred,
 			'schema_limits'    => [ 'max_depth' => self::MAX_SCHEMA_DEPTH, 'max_keys' => self::MAX_SCHEMA_KEYS, 'max_bytes' => self::MAX_SCHEMA_BYTES ],
 			'writes_enabled'   => false,
@@ -151,13 +156,13 @@ final class ProviderRouter {
 		];
 	}
 
-	/** @param array<string,mixed>|list<mixed> $fallback @param list<array<string,mixed>> $issues @return array<string,mixed>|list<mixed> */
-	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, int &$issue_count ): array {
+	/** @param array<string,mixed>|list<mixed> $fallback @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @return array<string,mixed>|list<mixed> */
+	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, array &$issue_counts ): array {
 		try {
 			$result = $callback();
 			return is_array( $result ) ? $result : $fallback;
 		} catch ( \Throwable $error ) {
-			self::record_issue( $issues, $issue_count, [
+			self::record_issue( $issues, $issue_counts, [
 				'code'        => 'provider_discovery_failed',
 				'provider'    => $provider,
 				'error_class' => get_class( $error ),
@@ -166,18 +171,47 @@ final class ProviderRouter {
 		}
 	}
 
-	/** @param list<array<string,mixed>> $issues @param array<string,mixed> $issue */
-	private static function record_issue( array &$issues, int &$issue_count, array $issue ): void {
-		++$issue_count;
-		if ( count( $issues ) < self::MAX_ISSUES ) {
+	/** @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param array<string,mixed> $issue */
+	private static function record_issue( array &$issues, array &$issue_counts, array $issue ): void {
+		$severity = self::issue_severity( $issue );
+		++$issue_counts[ $severity ];
+		if ( count( $issues[ $severity ] ) < self::MAX_ISSUES ) {
 			$bounded = [];
 			foreach ( $issue as $key => $value ) {
 				if ( is_scalar( $value ) || null === $value ) {
 					$bounded[ self::bounded_string( (string) $key, 100 ) ] = is_string( $value ) ? self::bounded_string( $value ) : $value;
 				}
 			}
-			$issues[] = $bounded;
+			$issues[ $severity ][] = $bounded;
 		}
+	}
+
+	/** @param array<string,mixed> $issue */
+	private static function issue_severity( array $issue ): string {
+		$severity = strtolower( (string) ( $issue['severity'] ?? '' ) );
+		if ( in_array( $severity, [ 'blocker', 'critical', 'error' ], true ) || 'provider_discovery_failed' === ( $issue['code'] ?? null ) ) {
+			return 'blocker';
+		}
+		return 'warning';
+	}
+
+	/** @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $counts @return array{issues:list<array<string,mixed>>,issues_count:int,issues_truncated:bool,truncated_by_severity:array{blocker:int,warning:int}} */
+	private static function issue_summary( array $issues, array $counts ): array {
+		$bounded = array_slice( array_merge( $issues['blocker'], $issues['warning'] ), 0, self::MAX_ISSUES );
+		$retained_blockers = min( count( $issues['blocker'] ), self::MAX_ISSUES );
+		$retained_warnings = min( count( $issues['warning'] ), self::MAX_ISSUES - $retained_blockers );
+		$blocker_count = (int) $counts['blocker'];
+		$warning_count = (int) $counts['warning'];
+		$total = $blocker_count + $warning_count;
+		return [
+			'issues'                => $bounded,
+			'issues_count'          => $total,
+			'issues_truncated'      => $total > count( $bounded ),
+			'truncated_by_severity' => [
+				'blocker' => max( 0, $blocker_count - $retained_blockers ),
+				'warning' => max( 0, $warning_count - $retained_warnings ),
+			],
+		];
 	}
 
 	/** @return list<array<string,mixed>> */
@@ -194,14 +228,14 @@ final class ProviderRouter {
 		return $out;
 	}
 
-	/** @param array<string,array<string,mixed>> $providers @param list<array<string,mixed>> $issues @param string|list<string> $architecture @param array<string,mixed> $evidence */
-	private static function add_capability( array &$providers, array &$issues, int &$issue_count, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
+	/** @param array<string,array<string,mixed>> $providers @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param string|list<string> $architecture @param array<string,mixed> $evidence */
+	private static function add_capability( array &$providers, array &$issues, array &$issue_counts, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
 		$plugin = self::bounded_string( (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) ) );
 		$class  = self::bounded_string( (string) ( $evidence['runtime_class'] ?? '' ) );
 		$name   = self::bounded_string( $name );
 		$id     = RuntimeOwnership::provider_id( $plugin );
 		if ( '' === $name || '' === $fingerprint || '' === $class || 'unknown' === $id ) {
-			self::record_issue( $issues, $issue_count, [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ] );
+			self::record_issue( $issues, $issue_counts, [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ] );
 			return;
 		}
 		$policy_evidence = $evidence;

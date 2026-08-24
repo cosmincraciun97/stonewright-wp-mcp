@@ -73,7 +73,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			$loads
 		) ];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders, 'Vendor\\MissingAdapter' );
 
 		self::assertSame( 'available', $result['abilities']['registry']['status'] );
 		self::assertSame( 'available', $result['abilities']['ability']['status'] );
@@ -103,7 +103,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			),
 		];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders, 'Vendor\\MissingAdapter' );
 
 		self::assertSame( 'available', $result['adapter']['status'] );
 		self::assertSame( 'conflict', $result['abilities']['registry']['status'] );
@@ -117,7 +117,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			'abilities_registry' => CompatibleRegistryFixture::class,
 			'ability' => CompatibleAbilityFixture::class,
 		];
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class );
 
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( 'compatible', $result['adapter']['abi']['status'] );
@@ -199,7 +199,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			'ability' => CompatibleAbilityFixture::class,
 		];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], IncompatibleAdapterFixture::class );
 
 		self::assertFalse( $result['compatible'] );
 		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
@@ -215,7 +215,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			'ability'            => CompatibleAbilityFixture::class,
 		];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], WrongTypedAdapterFixture::class );
 
 		self::assertFalse( $result['compatible'] );
 		self::assertContains( 'incompatible_create_server_signature', $result['adapter']['abi']['issues'] );
@@ -230,7 +230,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			'ability'            => CompatibleAbilityFixture::class,
 		];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class );
 
 		self::assertFalse( $result['compatible'] );
 		self::assertContains( 'incompatible_register_signature', $result['abilities']['registry']['abi']['issues'] );

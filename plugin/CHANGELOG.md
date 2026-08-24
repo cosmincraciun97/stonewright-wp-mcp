@@ -11,8 +11,10 @@
 ### Security
 
 - Block MCP startup before adapter creation when required MCP Adapter or
-  Abilities API symbols are missing, conflicting, or ABI-incompatible, and
-  repeat that preflight at the actual adapter registration callback.
+  Abilities API symbols are missing, conflicting, or ABI-incompatible, repeat
+  that preflight against the exact runtime adapter class at registration, and
+  prevent filters from authorizing a different adapter through a compatible
+  decoy class.
 - Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
   fallback as one compatible owner, ignore inactive plugin manifests, validate
   the exact loaded ABI before invocation, and report every blocked symbol with
@@ -31,8 +33,9 @@
   constants, and an exact 20-operation runtime limit; reject added schema
   keywords and every annotation or contract mismatch.
 - Isolate Elementor provider discovery failures so Status and Troubleshoot
-  retain surviving providers and expose at most 20 diagnostics with the full
-  issue count and truncation state.
+  retain surviving providers and expose at most 20 diagnostics with full
+  blocker and warning counts, per-severity truncation, and reserved visibility
+  for critical blockers.
 - Bound provider discovery to 50 providers and 200 capabilities, report full
   totals and truncation state, and replace rejected or untrusted schemas with
   depth/key/byte summaries.

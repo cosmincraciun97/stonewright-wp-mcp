@@ -217,6 +217,25 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( 'schema_issue_19', $result['issues'][19]['code'] );
 	}
 
+	public function test_late_critical_blocker_displaces_a_warning_without_losing_severity_totals(): void {
+		$issues = [];
+		for ( $index = 0; $index < 20; ++$index ) {
+			$issues[] = [ 'code' => 'schema_warning_' . $index, 'severity' => 'warning' ];
+		}
+		$issues[] = [ 'code' => 'runtime_adapter_blocked', 'severity' => 'critical' ];
+
+		$result = $this->router( 'v4', [], [ 'items' => [], 'issues' => $issues ] )->inspect();
+
+		self::assertCount( 20, $result['issues'] );
+		self::assertSame( 'runtime_adapter_blocked', $result['issues'][0]['code'] );
+		self::assertSame( [ 'blocker' => 1, 'warning' => 20 ], $result['severity_counts'] );
+		self::assertSame( 1, $result['blocker_count'] );
+		self::assertSame( 20, $result['warning_count'] );
+		self::assertSame( [ 'blocker' => 0, 'warning' => 1 ], $result['truncated_by_severity'] );
+		self::assertSame( 21, $result['issues_count'] );
+		self::assertTrue( $result['issues_truncated'] );
+	}
+
 	public function test_adversarial_provider_inventory_is_capped_with_total_metadata(): void {
 		$schemas = [];
 		for ( $index = 0; $index < 1000; ++$index ) {

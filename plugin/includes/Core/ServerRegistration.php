@@ -19,8 +19,9 @@ final class ServerRegistration {
 	public const OAUTH_ROUTE        = 'stonewright-oauth';
 
 	public static function register_server( object $adapter ): void {
-		$compatibility = McpAbilitiesCompatibilityPreflight::inspect( null, $adapter::class );
-		if ( ! $compatibility['compatible'] ) {
+		$adapter_class = get_class( $adapter );
+		$compatibility = McpAbilitiesCompatibilityPreflight::inspect( null, $adapter_class );
+		if ( ! $compatibility['compatible'] || $adapter_class !== ( $compatibility['adapter']['class'] ?? null ) ) {
 			return;
 		}
 
