@@ -349,8 +349,13 @@ test('real Elementor regenerates only target post CSS and survives verification'
 	}
 	if (postId > 0) {
 		expect(pageCleanup?.ok, JSON.stringify(pageCleanup)).toBe(true);
-		expect((pageCleanup?.body as { deleted?: boolean; id?: number }).deleted).toBe(true);
-		expect((pageCleanup?.body as { deleted?: boolean; id?: number }).id).toBe(postId);
+		const deletedBody = pageCleanup?.body as {
+			deleted?: boolean;
+			id?: number;
+			previous?: { id?: number };
+		};
+		expect(deletedBody?.deleted).toBe(true);
+		expect(deletedBody?.previous?.id ?? deletedBody?.id).toBe(postId);
 	}
 	expect(sentinelCleanup?.ok, JSON.stringify(sentinelCleanup)).toBe(true);
 	expect(sentinelCleanup?.remaining).toEqual([]);
