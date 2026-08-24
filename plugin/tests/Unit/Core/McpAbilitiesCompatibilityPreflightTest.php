@@ -150,10 +150,30 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [] );
 
+		self::assertSame( [], $result['adapter']['abi']['issues'] );
+		self::assertSame( [], $result['abilities']['registry']['abi']['issues'] );
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( 'compatible', $result['adapter']['abi']['status'] );
 		self::assertSame( '0.3.0', $result['adapter']['abi']['version'] );
 		self::assertSame( [], $result['blocking_reasons'] );
+	}
+
+	/**
+	 * PHP 8.1–8.4 report `self`; 8.5 reports the declaring class. Both must certify.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_self_return_type_is_equivalent_to_the_declaring_class(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [] );
+
+		self::assertNotContains( 'missing_public_static_instance', $result['adapter']['abi']['issues'] );
+		self::assertNotContains( 'missing_public_static_get_instance', $result['abilities']['registry']['abi']['issues'] );
+		self::assertSame( 'compatible', $result['adapter']['abi']['status'] );
+		self::assertSame( 'compatible', $result['abilities']['registry']['abi']['status'] );
+		self::assertTrue( $result['compatible'] );
 	}
 
 	/**
@@ -201,6 +221,8 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-a' ] );
 
+		self::assertSame( [], $result['adapter']['abi']['issues'] );
+		self::assertSame( [], $result['abilities']['registry']['abi']['issues'] );
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( 'loaded', $result['abilities']['registry']['status'] );
 		self::assertSame( [ 'wordpress-core' ], $result['abilities']['registry']['owners'] );

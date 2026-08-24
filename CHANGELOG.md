@@ -90,6 +90,8 @@ development builds were never stable releases.
   annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
   constants, and an exact 20-operation runtime limit; reject added schema
   keywords and every annotation or contract mismatch.
+- Treat PHP `self` and `parent` return types as the declaring class so MCP ABI
+  preflight accepts adapters on PHP 8.1–8.4, not only 8.5.
 - Isolate Elementor provider discovery failures so Status and Troubleshoot
   retain surviving providers and expose at most 20 diagnostics with full
   blocker and warning counts, per-severity truncation, and reserved visibility

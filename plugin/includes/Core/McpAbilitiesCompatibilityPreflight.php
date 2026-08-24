@@ -199,7 +199,7 @@ final class McpAbilitiesCompatibilityPreflight {
 			self::require_exact_method( $reflection, 'register', false, $core_owned ? 2 : 1, 2, [ 'string', 'array' ], [ '?' . ltrim( $ability_class, '\\' ) ], $issues, 'incompatible_register_signature' );
 		} else {
 			$constructor = $reflection->getConstructor();
-			if ( ! $constructor instanceof \ReflectionMethod || ! $constructor->isPublic() || $constructor->isStatic() || 2 !== $constructor->getNumberOfRequiredParameters() || 2 !== $constructor->getNumberOfParameters() || [ 'string', 'array' ] !== self::parameter_types( $constructor ) ) {
+			if ( ! $constructor instanceof \ReflectionMethod || ! $constructor->isPublic() || $constructor->isStatic() || 2 !== $constructor->getNumberOfRequiredParameters() || 2 !== $constructor->getNumberOfParameters() || [ 'string', 'array' ] !== self::parameter_types( $constructor, $reflection ) ) {
 				$issues[] = 'incompatible_constructor_signature';
 			}
 			$methods = [
@@ -238,27 +238,34 @@ final class McpAbilitiesCompatibilityPreflight {
 			return;
 		}
 		$method = $class->getMethod( $name );
-		$return_type = self::type_name( $method->getReturnType() );
-		if ( ! $method->isPublic() || $method->isStatic() !== $static || $required !== $method->getNumberOfRequiredParameters() || $total !== $method->getNumberOfParameters() || $parameter_types !== self::parameter_types( $method ) || ! in_array( $return_type, $return_types, true ) ) {
+		$return_type = self::type_name( $method->getReturnType(), $class );
+		if ( ! $method->isPublic() || $method->isStatic() !== $static || $required !== $method->getNumberOfRequiredParameters() || $total !== $method->getNumberOfParameters() || $parameter_types !== self::parameter_types( $method, $class ) || ! in_array( $return_type, $return_types, true ) ) {
 			$issues[] = $issue;
 		}
 	}
 
 	/** @return list<string> */
-	private static function parameter_types( \ReflectionFunctionAbstract $function ): array {
-		return array_map( static fn( \ReflectionParameter $parameter ): string => self::type_name( $parameter->getType() ), $function->getParameters() );
+	private static function parameter_types( \ReflectionFunctionAbstract $function, ?\ReflectionClass $context = null ): array {
+		return array_map( static fn( \ReflectionParameter $parameter ): string => self::type_name( $parameter->getType(), $context ), $function->getParameters() );
 	}
 
-	private static function type_name( ?\ReflectionType $type ): string {
+	private static function type_name( ?\ReflectionType $type, ?\ReflectionClass $context = null ): string {
 		if ( null === $type ) {
 			return '';
 		}
 		if ( $type instanceof \ReflectionNamedType ) {
-			$name = ltrim( $type->getName(), '\\' );
+			$name = self::resolve_named_type( $type->getName(), $context );
 			return $type->allowsNull() && ! in_array( strtolower( $name ), [ 'mixed', 'null' ], true ) ? '?' . $name : $name;
 		}
 		if ( $type instanceof \ReflectionUnionType ) {
-			$names = array_map( static fn( \ReflectionType $part ): string => ltrim( (string) $part, '\\?' ), $type->getTypes() );
+			$names = array_map(
+				static function ( \ReflectionType $part ) use ( $context ): string {
+					return $part instanceof \ReflectionNamedType
+						? self::resolve_named_type( $part->getName(), $context )
+						: ltrim( (string) $part, '\\?' );
+				},
+				$type->getTypes()
+			);
 			sort( $names );
 			if ( 2 === count( $names ) && in_array( 'null', $names, true ) ) {
 				return '?' . (string) ( 'null' === $names[0] ? $names[1] : $names[0] );
@@ -266,6 +273,19 @@ final class McpAbilitiesCompatibilityPreflight {
 			return implode( '|', $names );
 		}
 		return (string) $type;
+	}
+
+	private static function resolve_named_type( string $name, ?\ReflectionClass $context ): string {
+		$name  = ltrim( $name, '\\' );
+		$lower = strtolower( $name );
+		if ( 'self' === $lower && $context instanceof \ReflectionClass ) {
+			return $context->getName();
+		}
+		if ( 'parent' === $lower && $context instanceof \ReflectionClass ) {
+			$parent = $context->getParentClass();
+			return $parent instanceof \ReflectionClass ? $parent->getName() : $name;
+		}
+		return $name;
 	}
 
 	/** @param list<string> $issues */
