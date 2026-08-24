@@ -1,32 +1,74 @@
 import type { ResolvedSite } from "./sites-config.js";
+import { createHash } from "node:crypto";
 
 export type DirectWriteMode = "on" | "off" | "confirm";
+
+export class DirectSafetyBlockedError extends Error {
+  readonly code: string;
+  readonly tool: string;
+  readonly site: string;
+
+  constructor(code: string, message: string, tool: string, site = "_global") {
+    super(message);
+    this.name = "DirectSafetyBlockedError";
+    this.code = code;
+    this.tool = tool;
+    this.site = site;
+  }
+}
 
 /** Match plugin context-token TTL. */
 export const TASK_START_TTL_MS = 30 * 60_000;
 
 const DEFAULT_SITE_KEY = "_default";
 
-/** Per-site timestamp of last successful stonewright-task-start. */
-let taskStartSeenAt: Record<string, number> = {};
+type DirectWriteTarget = string | Pick<ResolvedSite, "alias" | "url" | "siteId">;
 
-function siteKey(site?: string): string {
-  const trimmed = (site ?? "").trim();
+type TaskStartLatch = {
+  seenAt: number;
+  targetFingerprint: string | null;
+};
+
+/** Per-alias binding of the last successful stonewright-task-start. */
+let taskStartLatches: Record<string, TaskStartLatch> = {};
+
+function siteAlias(site?: DirectWriteTarget): string {
+  const raw = typeof site === "string" ? site : site?.alias;
+  return (raw ?? "").trim();
+}
+
+function siteKey(site?: DirectWriteTarget): string {
+  const trimmed = siteAlias(site);
   return trimmed !== "" ? trimmed : DEFAULT_SITE_KEY;
+}
+
+export function directTargetFingerprint(
+  site: Pick<ResolvedSite, "url" | "siteId">,
+): string {
+  const canonicalUrl = site.url.replace(/\/+$/, "");
+  return createHash("sha256")
+    .update(`${site.siteId ?? ""}|${canonicalUrl}|1`)
+    .digest("hex");
 }
 
 /**
  * Record that task-start ran for a site. Optional `now` is for tests.
  */
 export function markTaskStartSeen(
-  site?: string,
+  site?: DirectWriteTarget,
   now: number = Date.now(),
 ): void {
-  taskStartSeenAt[siteKey(site)] = now;
+  taskStartLatches[siteKey(site)] = {
+    seenAt: now,
+    targetFingerprint:
+      typeof site === "object" && site !== null
+        ? directTargetFingerprint(site)
+        : null,
+  };
 }
 
 export function resetTaskStartSeenForTests(): void {
-  taskStartSeenAt = {};
+  taskStartLatches = {};
 }
 
 /**
@@ -35,11 +77,13 @@ export function resetTaskStartSeenForTests(): void {
  * never "any site" — so multi-site clients must pass the resolved alias.
  */
 export function hasTaskStartSeen(
-  site?: string,
+  site?: DirectWriteTarget,
   now: number = Date.now(),
 ): boolean {
-  const seenAt = taskStartSeenAt[siteKey(site)];
-  return seenAt !== undefined && now - seenAt <= TASK_START_TTL_MS;
+  const latch = taskStartLatches[siteKey(site)];
+  if (!latch || now - latch.seenAt > TASK_START_TTL_MS) return false;
+  if (typeof site !== "object" || site === null) return true;
+  return latch.targetFingerprint === directTargetFingerprint(site);
 }
 
 export function resolveDirectWriteMode(
@@ -76,8 +120,8 @@ export function assertWriteAllowed(args: {
   confirm?: boolean | undefined;
   tool: string;
   env?: NodeJS.ProcessEnv;
-  /** Site alias; when omitted only the unscoped default latch unlocks. */
-  site?: string;
+  /** Resolved target; writes bind the alias to its canonical URL/site identity. */
+  site?: DirectWriteTarget;
   /** Injectable clock for TTL tests. */
   now?: number;
 }): void {
@@ -88,26 +132,38 @@ export function assertWriteAllowed(args: {
       .toLowerCase() !== "off";
   const now = args.now ?? Date.now();
   if (requireTaskStart && !hasTaskStartSeen(args.site, now)) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "task_start_required",
       "Call stonewright-task-start before write tools (it loads this site's skills, memory, and recurring errors). Then retry this call. It also re-arms 30 minutes after the last task-start.",
+      args.tool,
+      siteAlias(args.site),
     );
   }
   if (args.mode === "off") {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "direct_writes_disabled",
       `Direct writes are disabled (STONEWRIGHT_DIRECT_WRITES=off). Tool: ${args.tool}`,
+      args.tool,
+      siteAlias(args.site),
     );
   }
   if (args.mode === "confirm" && args.destructive && args.confirm !== true) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
       `Destructive Direct tool "${args.tool}" requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm (or remote sites).`,
+      args.tool,
+      siteAlias(args.site),
     );
   }
 }
 
 export function assertToolEnabled(site: ResolvedSite, tool: string): void {
   if (site.disabledTools.includes(tool)) {
-    throw new Error(
+    throw new DirectSafetyBlockedError(
+      "tool_disabled",
       `Tool "${tool}" is disabled for site "${site.alias}" via sites.json disabledTools.`,
+      tool,
+      site.alias,
     );
   }
 }

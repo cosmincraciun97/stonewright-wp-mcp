@@ -614,6 +614,32 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertArrayHasKey( 'finalizer_url', $runtime );
 	}
 
+	public function test_heartbeat_is_bound_to_the_verified_session_and_browser_lease(): void {
+		$queued = ( new QueueBlockChange() )->execute(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [ 'name' => 'vendor/card', 'attributes' => [], 'innerBlocks' => [] ],
+			]
+		);
+		self::assertIsArray( $queued );
+		$stored = BlockQueue::get( (string) $queued['change_id'] );
+		self::assertIsArray( $stored );
+		$issued = BlockQueue::issue_token( (string) $stored['session_id'] );
+		self::assertIsArray( $issued );
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$request->set_json_params( [ 'token' => $issued['token'], 'lease_id' => 'browser-a' ] );
+
+		$response = FinalizerPage::rest_heartbeat( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		$data = $response->get_data();
+		self::assertSame( $stored['session_id'], $data['session_id'] ?? '' );
+		self::assertSame( 'browser-a', $data['lease_id'] ?? '' );
+		self::assertTrue( FinalizerPage::is_session_online( (string) $stored['session_id'], 'browser-a' ) );
+		self::assertFalse( FinalizerPage::is_session_online( (string) $stored['session_id'], 'browser-b' ) );
+		self::assertSame( 'browser-a', BlockQueue::get( (string) $queued['change_id'] )['lease_id'] ?? '' );
+	}
+
 	public function test_heartbeat_rejects_invalid_hmac_token(): void {
 		FinalizerPage::register();
 		do_action( 'rest_api_init' );
@@ -641,7 +667,18 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertStringNotContainsString( 'unlockPostSaving', $script );
 		self::assertStringNotContainsString( 'unlockPostAutosaving', $script );
 		self::assertStringContainsString( 'block-finalizer/heartbeat', $script );
-		self::assertMatchesRegularExpression( '/setInterval\(\s*heartbeat\s*,\s*15000\s*\)/', $script );
+		self::assertStringContainsString( 'scheduleHeartbeat(15000)', $script );
+	}
+
+	public function test_client_scheduler_is_single_flight_with_bounded_exponential_backoff(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 2 ) . '/blocks/finalizer/finalizer.js' );
+
+		self::assertStringContainsString( 'pollInFlight', $script );
+		self::assertStringContainsString( 'heartbeatInFlight', $script );
+		self::assertStringContainsString( 'scheduleNextTick', $script );
+		self::assertStringContainsString( 'Math.min(30000', $script );
+		self::assertStringNotContainsString( 'setInterval(tick, 2000)', $script );
+		self::assertStringNotContainsString( 'setInterval(heartbeat, 15000)', $script );
 	}
 
 	public function test_result_endpoint_recomputes_hash_when_client_flags_hash_unavailable(): void {

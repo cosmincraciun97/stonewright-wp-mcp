@@ -40,7 +40,7 @@ export async function acfFieldsUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-acf-fields-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),

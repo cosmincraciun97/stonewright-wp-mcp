@@ -17,6 +17,95 @@ development builds were never stable releases.
   certification, Status and Troubleshoot visibility, and certified
   native-preferred metadata for Elementor default styles.
 
+### Changed
+
+- Keep audit history until an operator configures scheduled retention, and
+  coalesce routine heartbeat and successful authentication activity.
+
+### Fixed
+
+- Accept WordPress `init` hook arguments in audit retention scheduling so an
+  empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
+- Skip audit and incident table `dbDelta` after a healthy schema is installed,
+  so admin requests do not re-reconcile unique indexes on every `init`.
+- Make Plugin and Direct audit events share lifecycle identities, safe
+  idempotency, operation classifications, redaction, and crash-safe rotation.
+- Stop the block finalizer after terminal client errors or browser shutdown,
+  retry only transient failures, and count only accepted results as applied.
+- Scope Direct idempotency receipts to a canonical site fingerprint, recover
+  only stale malformed locks, and compact retained terminal markers under the
+  interprocess audit lock.
+- Record ordinary Direct REST failures once from dispatch context, persist one
+  blocked event for terminal finalizer heartbeat denials, and fail audit
+  retention when incident retention cannot delete its batch.
+- Invalidate the Direct task-start write latch when an alias resolves to a
+  different canonical target, including Application Password operations.
+- Partition Direct terminal receipts and incidents by canonical target identity
+  so retargeting an alias cannot replay or suppress another site's event.
+- Convert thrown ability callbacks and structured `ok:false` results into one
+  failed Plugin audit event and incident instead of a success or uncaught exit.
+- Serialize Direct stale-lock recovery and incident updates with ownership-safe
+  locks, and clean bounded recovery/release quarantine artifacts.
+- Reject oversized browser-finalizer results after validating the active lease
+  and before changing queue state.
+- Bind Plugin and Direct repair validation to generation, update-time, and
+  occurrence CAS tokens so a newer failure blocks stale resolution or learning.
+- Establish terminal receipts immediately after the authoritative audit row,
+  reporting incident persistence failures as bounded secondary errors without
+  fallback duplicates.
+- Honor browser-finalizer `retryable:true` payloads independently of HTTP 409,
+  and accept terminal result receipts only when `retryable:false` is explicit.
+- Reject ambiguous Codex TOML, make config and receipt updates share one
+  transactional lock, and use compare-and-swap rollback so a failed update
+  cannot overwrite newer configuration or lose a concurrent receipt.
+- Parse the complete Codex TOML document before and after package updates, so
+  malformed target arrays or unrelated sections cannot be mutated or receive
+  a restart receipt while comments and untouched bytes remain unchanged.
+- Give each TOML/JSONC config its own exclusive write lock and recheck the
+  exact read hash immediately before rename; cross-resource rollback now uses
+  the same compare-and-swap rule.
+- Generate companion client semantics from the plugin's authoritative catalog,
+  keeping OAuth support, default profiles, and relist behavior in parity.
+- Enforce the restart-verification order `task-start` → `setup-profile` →
+  `wordpress-mcp-status` → `client-surface-check`, and use a process-bound
+  catalog observation instead of caller-supplied tool names.
+- Record restart attestation for schema-v2 non-error MCP results. Status,
+  relist, mismatch, and setup `ok` flags stay separate truthful signals and
+  do not hide plugin validation failures.
+- Preserve plugin task-start failures, stop forwarding the companion-only site
+  alias into the plugin schema, and reconcile authoritative saved/effective
+  WordPress mode and surface against client hints and client-visible tools.
+  Empty refresh lists no longer override a failed visibility check.
+- Version WorkflowPreflight mode fields and treat the plugin's saved/effective
+  WordPress mode as authoritative; malformed schemas and mode mismatches block
+  startup.
+- Make the real companion health payload report running and expected package
+  truth, with configured package evidence available only from an authenticated,
+  validated source; include `client-surface-check` in the update prompt.
+- Resolve ChatGPT Desktop consistently through the Codex TOML adapter, and make
+  the OAuth UI browser check assert matching unique client tabs and panels
+  instead of a stale hard-coded count.
+- Match Elementor's `elementor/manage-default-styles` contract at commit
+  `3afafe33b7499b4e8fcb4c684e55111721bb0c96`, including non-idempotent write
+  annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
+  constants, and an exact 20-operation runtime limit; reject added schema
+  keywords and every annotation or contract mismatch.
+- Isolate Elementor provider discovery failures so Status and Troubleshoot
+  retain surviving providers and expose at most 20 diagnostics with full
+  blocker and warning counts, per-severity truncation, and reserved visibility
+  for critical blockers.
+- Bound provider discovery to 50 providers and 200 capabilities, report full
+  totals and truncation state, and replace rejected or untrusted schemas with
+  depth/key/byte summaries; canonicalize schema fingerprints and cap rejected
+  default-style actions with truthful totals.
+- Keep third-party `pro-elements/*` runtimes distinct from official Elementor
+  Pro and read-only without exact Stonewright-owned certification.
+- Abort Elementor V4 spec rendering before mutation when the required backup
+  snapshot cannot be verified.
+- Resolve runtime ownership from active plugin main files and safe plugin
+  headers even when the main filename differs from its folder in REST/MCP
+  requests.
+
 ### Security
 
 - Block MCP startup before adapter creation when required MCP Adapter or
@@ -59,59 +148,19 @@ development builds were never stable releases.
 - Require exact official `npx`/`npx.cmd --package <Stonewright package>
   stonewright-mcp` client entries, and refuse updater metadata or transient
   injection when the release omits `SHA256SUMS.txt`.
-
-### Fixed
-
-- Match Elementor's `elementor/manage-default-styles` contract at commit
-  `3afafe33b7499b4e8fcb4c684e55111721bb0c96`, including non-idempotent write
-  annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
-  constants, and an exact 20-operation runtime limit; reject added schema
-  keywords and every annotation or contract mismatch.
-- Isolate Elementor provider discovery failures so Status and Troubleshoot
-  retain surviving providers and expose at most 20 diagnostics with full
-  blocker and warning counts, per-severity truncation, and reserved visibility
-  for critical blockers.
-- Bound provider discovery to 50 providers and 200 capabilities, report full
-  totals and truncation state, and replace rejected or untrusted schemas with
-  depth/key/byte summaries; canonicalize schema fingerprints and cap rejected
-  default-style actions with truthful totals.
-- Keep third-party `pro-elements/*` runtimes distinct from official Elementor
-  Pro and read-only without exact Stonewright-owned certification.
-- Abort Elementor V4 spec rendering before mutation when the required backup
-  snapshot cannot be verified.
-- Resolve runtime ownership from active plugin main files and safe plugin
-  headers even when the main filename differs from its folder in REST/MCP
-  requests.
-- Reject ambiguous Codex TOML, make config and receipt updates share one
-  transactional lock, and use compare-and-swap rollback so a failed update
-  cannot overwrite newer configuration or lose a concurrent receipt.
-- Parse the complete Codex TOML document before and after package updates, so
-  malformed target arrays or unrelated sections cannot be mutated or receive
-  a restart receipt while comments and untouched bytes remain unchanged.
-- Give each TOML/JSONC config its own exclusive write lock and recheck the
-  exact read hash immediately before rename; cross-resource rollback now uses
-  the same compare-and-swap rule.
-- Generate companion client semantics from the plugin's authoritative catalog,
-  keeping OAuth support, default profiles, and relist behavior in parity.
-- Enforce the restart-verification order `task-start` → `setup-profile` →
-  `wordpress-mcp-status` → `client-surface-check`, and use a process-bound
-  catalog observation instead of caller-supplied tool names.
-- Record restart attestation for schema-v2 non-error MCP results. Status,
-  relist, mismatch, and setup `ok` flags stay separate truthful signals and
-  do not hide plugin validation failures.
-- Preserve plugin task-start failures, stop forwarding the companion-only site
-  alias into the plugin schema, and reconcile authoritative saved/effective
-  WordPress mode and surface against client hints and client-visible tools.
-  Empty refresh lists no longer override a failed visibility check.
-- Version WorkflowPreflight mode fields and treat the plugin's saved/effective
-  WordPress mode as authoritative; malformed schemas and mode mismatches block
-  startup.
-- Make the real companion health payload report running and expected package
-  truth, with configured package evidence available only from an authenticated,
-  validated source; include `client-surface-check` in the update prompt.
-- Resolve ChatGPT Desktop consistently through the Codex TOML adapter, and make
-  the OAuth UI browser check assert matching unique client tabs and panels
-  instead of a stale hard-coded count.
+- Route Direct theme activation, plugin deletion, user deletion, Application
+  Password revocation, and skill deletion through the central write gate in
+  addition to their explicit confirmation checks.
+- Recursively redact credential patterns from every audit free-text value
+  before sanitized arguments or error metadata are persisted.
+- Recover abandoned Direct audit locks with boot/process-start ownership and
+  an exclusive recovery mutex so PID reuse or a replacement lock cannot be
+  renamed or deleted.
+- Coalesce repeated identical Plugin permission and safety denials by site,
+  ability, and error under a stale-recoverable CAS option lock while retaining
+  the first event and bounded count summaries.
+- Validate Direct lock owners with available host, boot, and per-PID process-start
+  identity plus a bounded lease so a live decoy or reused PID cannot block forever.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

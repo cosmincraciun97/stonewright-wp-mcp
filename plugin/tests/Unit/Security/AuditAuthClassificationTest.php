@@ -243,6 +243,16 @@ final class AuditAuthClassificationTest extends TestCase {
 		self::assertStringNotContainsString( 'SENTINEL-BEARER', (string) $row['sanitized_args'] );
 	}
 
+	public function test_one_hundred_successful_refreshes_emit_one_logical_event(): void {
+		$response = new \WP_REST_Response( [ 'access_token' => 'SENTINEL-BEARER', 'token_type' => 'Bearer' ], 200 );
+		for ( $i = 0; $i < 100; $i++ ) {
+			AuditLog::reset_request_state();
+			AuditLog::record_auth_event( 'oauth/token', $response, [ 'client_id' => 'refresh-client' ] );
+		}
+
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+	}
+
 	public function test_dispatch_routes_the_token_endpoint_to_the_auth_recorder(): void {
 		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/oauth/token' );
 		$request->set_body_params(

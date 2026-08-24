@@ -29,7 +29,7 @@ import {
   type SkillMeta,
 } from "../skills-store.js";
 import { PLUGIN_ONLY_CAPABILITIES } from "./site-discover.js";
-import { markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
+import { assertWriteAllowed, DirectSafetyBlockedError, markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
 import { ensureStonewrightAgentsMd, pointerInstalled } from "../agents-md.js";
 import { globalRulesDigest } from "../global-rules.js";
 import { permanentRulesGuidance } from "../permanent-rules.js";
@@ -205,6 +205,8 @@ export function skillSave(
 ) {
   const resolved = resolveSelfImproveScope(ctx, input.site);
   const scope = input.global ? "_global" : resolved.scope;
+  const site = resolved.siteAlias ? configuredSite(ctx, resolved.siteAlias) : null;
+  const targetIdentity = site?.url ?? `direct-global:${scope}`;
   const meta = saveSkill({
     baseDir: resolved.baseDir,
     scope,
@@ -218,6 +220,7 @@ export function skillSave(
   appendDirectAudit({
     tool: "stonewright-skill-save",
     site: resolved.siteAlias ?? "_global",
+    targetIdentity,
     resource: `${scope}/${input.slug}`,
     status: "ok",
   });
@@ -228,10 +231,24 @@ export function skillDelete(
   ctx: SelfImproveContext,
   input: { slug: string; confirm?: boolean; global?: boolean; site?: string },
 ) {
-  if (input.confirm !== true) {
-    throw new Error("stonewright-skill-delete requires confirm:true");
-  }
   const resolved = resolveSelfImproveScope(ctx, input.site);
+  const site = configuredSite(ctx, resolved.siteAlias ?? input.site);
+  assertWriteAllowed({
+    site: site ?? resolved.siteAlias ?? "_global",
+    mode: resolveDirectWriteMode(ctx.env, site?.url),
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-skill-delete",
+    env: ctx.env,
+  });
+  if (input.confirm !== true) {
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
+      "stonewright-skill-delete requires confirm:true",
+      "stonewright-skill-delete",
+      input.site ?? "_global",
+    );
+  }
   const scope = input.global ? "_global" : resolved.scope;
   const result = deleteSkill({
     baseDir: resolved.baseDir,
@@ -241,6 +258,7 @@ export function skillDelete(
   appendDirectAudit({
     tool: "stonewright-skill-delete",
     site: resolved.siteAlias ?? "_global",
+    targetIdentity: site?.url ?? `direct-global:${scope}`,
     resource: `${scope}/${input.slug}`,
     status: "ok",
   });
@@ -299,7 +317,8 @@ export function incidentRepairRecord(
   const { scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, input.site, {
     allowGlobalFallback: true,
   });
-  const siteBinding = siteAlias ?? scope;
+  const configured = siteAlias ? configuredSite(ctx, siteAlias) : null;
+  const siteBinding = configured?.url ?? `direct-global:${scope}`;
   const store = new DirectIncidentStore(
     baseDir,
     directIncidentFingerprint(siteBinding),
@@ -368,6 +387,11 @@ export function incidentRepairRecord(
     repair_receipt_id: receiptId,
     resolution_event_id: input.resolution_event_id,
     resolved_at: proofString(resolution!, "timestamp"),
+		expected_version: {
+			generation: incident.generation,
+			updated_at: incident.updated_at,
+			occurrences: incident.occurrences,
+		},
   });
   if (!resolved) {
     throw new Error("Direct incident disappeared before resolution. code=incident_state_changed");
@@ -387,13 +411,18 @@ export function incidentRepairRecord(
   if (!readback || readback.text !== recipe || readback.status !== "active") {
     throw new Error("Verified repair memory readback failed. code=memory_readback_mismatch");
   }
-  if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId)) {
+  if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId, {
+		generation: resolved.generation,
+		updated_at: resolved.updated_at,
+		occurrences: resolved.occurrences,
+	})) {
     setMemoryStatus({ baseDir, scope, id: memory.id, status: "stale" });
     throw new Error("Verified repair could not link learning to incident. code=incident_state_changed");
   }
   appendDirectAudit({
     tool: "stonewright-incident-repair-record",
     site: siteBinding,
+    targetIdentity: siteBinding,
     status: "ok",
     eventType: "verified_repair",
     parentRequestId: input.resolution_event_id,
@@ -524,6 +553,7 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     appendDirectAudit({
       tool: "stonewright-learning-record",
       site: siteAlias ?? scope,
+      targetIdentity: (siteAlias ? configuredSite(ctx, siteAlias)?.url : null) ?? `direct-global:${scope}`,
       status: "error",
     });
     throw new Error(
@@ -547,6 +577,7 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   appendDirectAudit({
     tool: "stonewright-learning-record",
     site: siteAlias ?? scope,
+    targetIdentity: (siteAlias ? configuredSite(ctx, siteAlias)?.url : null) ?? `direct-global:${scope}`,
     status: "ok",
   });
 
@@ -587,12 +618,12 @@ export function taskStart(
   );
   seedBuiltinSkills(baseDir, ctx.env);
   ensureStonewrightAgentsMd(baseDir, ctx.env);
-  markTaskStartSeen(siteAlias ?? scope);
   const memoryBackend =
     scope === "_global" ? "direct-global" : "direct-site-local";
   const memoryVisibility =
     "local-only (not visible in WordPress Stonewright Memory UI)";
   const resolvedSite = siteAlias ? configuredSite(ctx, siteAlias) : null;
+  markTaskStartSeen(resolvedSite ?? siteAlias ?? scope);
   const normalizedUrl = resolvedSite?.url.replace(/\/+$/, "") ?? null;
   const contextToken = `swdctx_${randomBytes(24).toString("hex")}`;
   const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
@@ -630,7 +661,7 @@ export function taskStart(
   const recurring = recentRecurringErrors(baseDir, 3);
   const incidentStore = new DirectIncidentStore(
     baseDir,
-    directIncidentFingerprint(siteAlias ?? scope),
+    directIncidentFingerprint(normalizedUrl ?? `direct-global:${scope}`),
   );
   for (const incident of incidentStore.list()) {
     if (incident.learning_status === "stale" && incident.learning_memory_key) {
@@ -774,7 +805,7 @@ export async function taskStartAuthoritative(
       expiresAt,
     };
     targetBindings.set(bindingKey(ctx, site.alias), binding);
-    markTaskStartSeen(site.alias);
+    markTaskStartSeen(site);
 
     return {
       ...plugin,

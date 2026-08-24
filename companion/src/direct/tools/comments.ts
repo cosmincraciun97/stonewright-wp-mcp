@@ -89,7 +89,7 @@ export async function commentCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-comment-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -111,6 +111,7 @@ export async function commentCreate(
   appendDirectAudit({
     tool: "stonewright-comment-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `comments/${c.id}`,
     status: "ok",
   });
@@ -128,7 +129,7 @@ export async function commentUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-comment-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -143,6 +144,7 @@ export async function commentUpdate(
   appendDirectAudit({
     tool: "stonewright-comment-update",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `comments/${input.id}`,
     status: "ok",
   });
@@ -159,7 +161,7 @@ export async function commentDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-comment-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -171,6 +173,7 @@ export async function commentDelete(
   appendDirectAudit({
     tool: "stonewright-comment-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `comments/${input.id}`,
     status: "ok",
   });

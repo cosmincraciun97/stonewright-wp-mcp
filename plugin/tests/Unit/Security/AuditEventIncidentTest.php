@@ -64,6 +64,108 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( 'hero', $event['redacted_details']['element_id'] );
 	}
 
+	public function test_event_contract_carries_canonical_lifecycle_identity(): void {
+		$event = AuditEvent::normalize(
+			'stonewright/blocks-finalize-batch',
+			[
+				'_meta' => [
+					'event_id'        => '11111111-1111-4111-8111-111111111111',
+					'correlation_id'  => '22222222-2222-4222-8222-222222222222',
+					'operation_id'    => '33333333-3333-4333-8333-333333333333',
+					'parent_event_id' => '44444444-4444-4444-8444-444444444444',
+					'attempt'         => 3,
+					'idempotency_key' => 'finalizer:change-42:serialized',
+					'lifecycle_phase' => 'terminal',
+					'terminal_owner'  => 'block-finalizer-result',
+					'change_set_id'   => 'change-42',
+				],
+			],
+			'ok'
+		);
+
+		self::assertSame( '11111111-1111-4111-8111-111111111111', $event['event_id'] );
+		self::assertSame( '22222222-2222-4222-8222-222222222222', $event['correlation_id'] );
+		self::assertSame( '33333333-3333-4333-8333-333333333333', $event['operation_id'] );
+		self::assertSame( '44444444-4444-4444-8444-444444444444', $event['parent_event_id'] );
+		self::assertSame( 3, $event['attempt'] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $event['idempotency_key'] );
+		self::assertSame( 'terminal', $event['lifecycle_phase'] );
+		self::assertTrue( $event['terminal'] );
+		self::assertSame( 'block-finalizer-result', $event['terminal_owner'] );
+	}
+
+	public function test_idempotency_key_is_bound_to_payload_resource_status_and_operation(): void {
+		$base = [
+			'post_id' => 42,
+			'value'   => 'first',
+			'_meta'   => [
+				'idempotency_key' => 'caller-key',
+				'operation_id'    => '33333333-3333-4333-8333-333333333333',
+				'resource_type'   => 'post',
+				'resource_ref'    => '42',
+			],
+		];
+
+		$first = AuditEvent::normalize( 'stonewright/content-update', $base, 'ok' );
+		$replay = AuditEvent::normalize( 'stonewright/content-update', $base, 'ok' );
+		$changed_ability = AuditEvent::normalize( 'stonewright/settings-update', $base, 'ok' );
+		$changed_resource = AuditEvent::normalize(
+			'stonewright/content-update',
+			array_replace_recursive( $base, [ '_meta' => [ 'resource_ref' => '43' ] ] ),
+			'ok'
+		);
+		$changed_payload = AuditEvent::normalize( 'stonewright/content-update', array_replace( $base, [ 'value' => 'second' ] ), 'ok' );
+		$changed_status = AuditEvent::normalize( 'stonewright/content-update', $base, 'error' );
+		$changed_operation = AuditEvent::normalize(
+			'stonewright/content-update',
+			array_replace_recursive( $base, [ '_meta' => [ 'operation_id' => '55555555-5555-4555-8555-555555555555' ] ] ),
+			'ok'
+		);
+
+		self::assertSame( $first['idempotency_key'], $replay['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_ability['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_resource['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_payload['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_status['idempotency_key'] );
+		self::assertNotSame( $first['idempotency_key'], $changed_operation['idempotency_key'] );
+	}
+
+	public function test_canonical_operation_classification_covers_health_runtime_read_write_and_safety(): void {
+		$health = AuditEvent::normalize( 'stonewright/site-health', [], 'ok' );
+		$runtime = AuditEvent::normalize( 'stonewright/php-execute', [], 'ok' );
+		$read = AuditEvent::normalize( 'stonewright/content-get', [], 'ok' );
+		$write = AuditEvent::normalize( 'stonewright/content-update', [], 'ok' );
+		$blocked = AuditEvent::normalize( 'stonewright/content-update', [], 'blocked' );
+
+		self::assertSame( AuditEvent::CATEGORY_HEALTH, $health['category'] );
+		self::assertSame( 'HEALTH', $health['operation_class'] );
+		self::assertSame( AuditEvent::CATEGORY_RUNTIME, $runtime['category'] );
+		self::assertSame( 'EXECUTION', $runtime['operation_class'] );
+		self::assertSame( AuditEvent::CATEGORY_READ, $read['category'] );
+		self::assertSame( AuditEvent::CATEGORY_WRITE, $write['category'] );
+		self::assertSame( AuditEvent::CATEGORY_SAFETY, $blocked['category'] );
+		self::assertSame( AuditEvent::OUTCOME_BLOCKED, $blocked['outcome'] );
+	}
+
+	public function test_incident_preserves_correlation_and_idempotency_identity(): void {
+		$event = AuditEvent::normalize(
+			'stonewright/blocks-finalize-batch',
+			[
+				'_meta' => [
+					'correlation_id'  => '22222222-2222-4222-8222-222222222222',
+					'idempotency_key' => 'finalizer:change-42:failed',
+					'root_error_code' => 'stonewright_write_failed',
+				],
+			],
+			'error'
+		);
+
+		$incident = IncidentStore::observe( $event );
+		self::assertIsArray( $incident );
+		self::assertSame( $event['correlation_id'], $incident['correlation_id'] );
+		self::assertSame( $event['idempotency_key'], $incident['last_idempotency_key'] );
+	}
+
 	public function test_wp_error_redacted_details_include_code_message_target_and_not_only_verification(): void {
 		$message = str_repeat( 'x', 600 );
 		$event   = AuditEvent::normalize(
@@ -147,8 +249,8 @@ final class AuditEventIncidentTest extends TestCase {
 
 	public function test_failed_events_open_at_threshold_and_verified_change_set_closes_exact_incident(): void {
 		$failure = $this->event( 'stonewright_write_failed', 'change-42' );
-		self::assertSame( 'observing', IncidentStore::observe( $failure )['state'] );
-		self::assertSame( 'open', IncidentStore::observe( $failure )['state'] );
+		self::assertSame( 'observing', IncidentStore::observe( $this->attempt( $failure, 1 ) )['state'] );
+		self::assertSame( 'open', IncidentStore::observe( $this->attempt( $failure, 2 ) )['state'] );
 
 		$wrong_change = $this->event( 'stonewright_verified', 'other-change' );
 		$wrong_change['outcome'] = AuditEvent::OUTCOME_SUCCESS;
@@ -163,7 +265,7 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertFalse( IncidentStore::resolve( $verified ) );
 		self::assertSame( 'resolved', IncidentStore::recent( 1 )[0]['state'] );
 
-		$reopened = IncidentStore::observe( $failure );
+		$reopened = IncidentStore::observe( $this->attempt( $failure, 3 ) );
 		self::assertSame( 'open', $reopened['state'] );
 		self::assertSame( 1, $reopened['reopened_count'] );
 	}
@@ -171,9 +273,9 @@ final class AuditEventIncidentTest extends TestCase {
 	public function test_retryable_events_use_a_separate_three_occurrence_threshold(): void {
 		$event = $this->event( 'stonewright_busy', 'change-busy', [ 'retryable' => true ] );
 		self::assertSame( AuditEvent::OUTCOME_RETRYABLE, $event['outcome'] );
-		self::assertSame( 'observing', IncidentStore::observe( $event )['state'] );
-		self::assertSame( 'observing', IncidentStore::observe( $event )['state'] );
-		self::assertSame( 'open', IncidentStore::observe( $event )['state'] );
+		self::assertSame( 'observing', IncidentStore::observe( $this->attempt( $event, 1 ) )['state'] );
+		self::assertSame( 'observing', IncidentStore::observe( $this->attempt( $event, 2 ) )['state'] );
+		self::assertSame( 'open', IncidentStore::observe( $this->attempt( $event, 3 ) )['state'] );
 	}
 
 	public function test_oauth_server_failures_are_retryable_incidents_not_protocol_blocks(): void {
@@ -193,15 +295,15 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( AuditEvent::CATEGORY_AUTH, $event['category'] );
 		self::assertSame( AuditEvent::OUTCOME_RETRYABLE, $event['outcome'] );
 		self::assertSame( 'error', $event['severity_level'] );
-		self::assertSame( 'observing', IncidentStore::observe( $event )['state'] );
-		self::assertSame( 'observing', IncidentStore::observe( $event )['state'] );
-		self::assertSame( 'open', IncidentStore::observe( $event )['state'] );
+		self::assertSame( 'observing', IncidentStore::observe( $this->attempt( $event, 1 ) )['state'] );
+		self::assertSame( 'observing', IncidentStore::observe( $this->attempt( $event, 2 ) )['state'] );
+		self::assertSame( 'open', IncidentStore::observe( $this->attempt( $event, 3 ) )['state'] );
 	}
 
 	public function test_incident_resolution_requires_verified_exact_change_set_and_resource(): void {
 		$failure = $this->event( 'stonewright_write_failed', 'change-strict', [ 'normalized_path' => 'settings/title' ] );
-		IncidentStore::observe( $failure );
-		IncidentStore::observe( $failure );
+		IncidentStore::observe( $this->attempt( $failure, 1 ) );
+		IncidentStore::observe( $this->attempt( $failure, 2 ) );
 
 		$unverified = AuditEvent::normalize(
 			'stonewright/elementor-post-write-verify',
@@ -249,6 +351,33 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( 0, AuditReconciler::maybe_migrate() );
 		self::assertSame( 0, AuditReconciler::maybe_migrate() );
 		self::assertSame( '0', get_option( AuditReconciler::MIGRATION_OPTION, '0' ) );
+	}
+
+	public function test_incident_retention_prunes_only_old_terminal_rows(): void {
+		$base = [
+			'incident_id' => str_repeat( 'a', 64 ),
+			'state' => 'resolved',
+			'last_seen' => '2026-06-01 00:00:00',
+			'resolved_at' => '2026-06-02 00:00:00',
+		];
+		update_option(
+			IncidentStore::OPTION_KEY,
+			[
+				str_repeat( 'a', 64 ) => $base,
+				str_repeat( 'b', 64 ) => array_merge( $base, [ 'incident_id' => str_repeat( 'b', 64 ), 'state' => 'open' ] ),
+				str_repeat( 'c', 64 ) => array_merge( $base, [ 'incident_id' => str_repeat( 'c', 64 ), 'resolved_at' => '2026-08-20 00:00:00' ] ),
+			],
+			false
+		);
+
+		$receipt = IncidentStore::enforce_retention( 30, strtotime( '2026-08-24 00:00:00 UTC' ) );
+		$remaining = array_column( IncidentStore::recent( 10 ), 'incident_id' );
+
+		self::assertSame( 1, $receipt['deleted_rows'] );
+		self::assertNotContains( str_repeat( 'a', 64 ), $remaining );
+		self::assertContains( str_repeat( 'b', 64 ), $remaining );
+		self::assertContains( str_repeat( 'c', 64 ), $remaining );
+		self::assertSame( $receipt, get_option( 'stonewright_incident_retention_receipt' ) );
 	}
 
 	public function test_reconciliation_is_explicit_batched_and_marks_done_only_after_the_last_batch(): void {
@@ -345,6 +474,14 @@ final class AuditEventIncidentTest extends TestCase {
 			],
 			'error'
 		);
+	}
+
+	/** @param array<string,mixed> $event */
+	private function attempt( array $event, int $attempt ): array {
+		$event['event_id']        = '11111111-1111-4111-8111-' . str_pad( dechex( $attempt ), 12, '0', STR_PAD_LEFT );
+		$event['idempotency_key'] = hash( 'sha256', (string) ( $event['incident_id'] ?? '' ) . '|attempt|' . $attempt );
+
+		return $event;
 	}
 
 	/** @param list<array<string,mixed>> $rows */

@@ -5,6 +5,10 @@
 	var config = window.stonewrightBlockFinalizer || {};
 	var token = config.token || '';
 	var restBase = config.restBase || '/wp-json/stonewright/v1/block-finalizer/';
+	var leaseId = config.leaseId || (window.crypto && typeof window.crypto.randomUUID === 'function'
+		? window.crypto.randomUUID()
+		: 'browser-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+	var resultIds = {};
 
 	function FinalizerError(code, blockName, message) {
 		this.name = 'FinalizerError';
@@ -335,6 +339,70 @@
 		return h;
 	}
 
+	function httpError(status) {
+		var error = new Error('http_' + String(status || 0));
+		error.status = Number(status || 0);
+		return error;
+	}
+
+	function requireOk(response) {
+		if (response && typeof response.ok === 'boolean' && !response.ok) {
+			throw httpError(response.status);
+		}
+		return response;
+	}
+
+	function jsonResponse(response) {
+		requireOk(response);
+		return response && typeof response.json === 'function' ? response.json() : response;
+	}
+
+	function pendingReceipt(data) {
+		if (!data || typeof data !== 'object' || !Array.isArray(data.items)) {
+			throw new FinalizerError('malformed_pending_receipt', '', 'The finalizer pending response was malformed.');
+		}
+		return data;
+	}
+
+	function resultReceipt(data, result) {
+		var failed = result && result.errors && result.errors.length;
+		if (data && data.retryable === true) {
+			return { accepted: false, retryable: true };
+		}
+		if (failed && data && data.ok === false && data.status === 'failed' && data.retryable === false) {
+			return { accepted: true, retryable: false };
+		}
+		if (!failed && data && data.ok === true && data.status === 'serialized' && data.retryable === false) {
+			return { accepted: true, retryable: false };
+		}
+		throw new FinalizerError('malformed_result_receipt', '', 'The finalizer result response was malformed.');
+	}
+
+	function statusOfError(error) {
+		if (!error) {
+			return 0;
+		}
+		var status = Number(error.status || (error.data && error.data.status) || (error.response && error.response.status) || 0);
+		return Number.isFinite(status) ? status : 0;
+	}
+
+	function isRetryableTransportError(error) {
+		var status = statusOfError(error);
+		if (status >= 500 && status < 600) {
+			return true;
+		}
+		if (status > 0) {
+			return false;
+		}
+		var name = String((error && error.name) || '');
+		var code = String((error && error.code) || '');
+		var message = String((error && error.message) || '');
+		return name === 'AbortError'
+			|| name === 'TimeoutError'
+			|| /^(?:ETIMEDOUT|ECONNRESET|ENETUNREACH|EHOSTUNREACH|fetch_error|http_request_failed|network_error)$/i.test(code)
+			|| /(?:failed to fetch|network(?: request)? failed|networkerror|timed? out|timeout)/i.test(message);
+	}
+
 	var sessionApplied = 0;
 	var sessionFailed = 0;
 	var itemMemory = {};
@@ -446,34 +514,38 @@
 	}
 
 	function poll() {
-		var url = restBase + 'pending?token=' + encodeURIComponent(token);
+		var query = 'token=' + encodeURIComponent(token) + '&lease_id=' + encodeURIComponent(leaseId);
+		var url = restBase + 'pending?' + query;
 		var request = window.wp && wp.apiFetch
-			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?token=' + encodeURIComponent(token) })
-			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(function (res) {
-				if (res.status === 403) {
-					throw new Error('forbidden');
-				}
-				return res.json();
-			});
+			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?' + query })
+			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(jsonResponse);
 
-		return Promise.resolve(request).then(function (data) {
+		return Promise.resolve(request).then(pendingReceipt).then(function (data) {
 			setOnline(true);
 			var items = (data && data.items) || [];
 			items.forEach(function (item) {
 				rememberItem(item, null);
 			});
 			renderStrip(data);
+			var retryableItemSeen = false;
 			return items.filter(function (item) {
 				return item && item.status === 'queued' && (item.block_spec || item.spec);
 			}).reduce(function (chain, item) {
 				return chain.then(function () {
 					return serializeItem(item).then(function (result) {
 						if (result && result.retryable && !result.html) {
+							retryableItemSeen = true;
 							rememberItem(item, { status: 'queued', result: result });
 							renderStrip(data);
 							return;
 						}
-						return postResult(item.id, result).then(function () {
+						return postResult(item.id, result).then(function (receipt) {
+							if (receipt && receipt.retryable) {
+								retryableItemSeen = true;
+								rememberItem(item, { status: 'queued', result: result });
+								renderStrip(data);
+								return;
+							}
 							var failed = result && result.errors && result.errors.length;
 							if (failed) {
 								sessionFailed += 1;
@@ -486,7 +558,9 @@
 						});
 					});
 				});
-			}, Promise.resolve());
+			}, Promise.resolve()).then(function () {
+				return { retryable: retryableItemSeen };
+			});
 		});
 	}
 
@@ -527,9 +601,16 @@
 	}
 
 	function postResult(changeId, result) {
+		if (!resultIds[changeId]) {
+			resultIds[changeId] = window.crypto && typeof window.crypto.randomUUID === 'function'
+				? window.crypto.randomUUID()
+				: 'result-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+		}
 		return hashPayload(result.html || '').then(function (hashing) {
 			var body = {
 				token: token,
+				lease_id: leaseId,
+				result_id: resultIds[changeId],
 				change_id: changeId,
 				html: result.html || '',
 				html_hash: hashing.html_hash,
@@ -539,35 +620,116 @@
 				body.hash_unavailable = true;
 			}
 			if (window.wp && wp.apiFetch) {
-				return wp.apiFetch({
+				return Promise.resolve(wp.apiFetch({
 					path: '/stonewright/v1/block-finalizer/result',
 					method: 'POST',
 					data: body,
-				});
-			}
-			return fetch(restBase + 'result', {
+					})).then(function (receipt) {
+						return resultReceipt(receipt, result);
+					}).catch(function (error) {
+						var payload = error && error.data && typeof error.data === 'object' ? error.data : null;
+						if (payload && payload.retryable === true) {
+							return resultReceipt(payload, result);
+						}
+						throw error;
+					});
+				}
+				return fetch(restBase + 'result', {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			});
+				}).then(function (response) {
+					return Promise.resolve(response && typeof response.json === 'function' ? response.json() : response).then(function (receipt) {
+						var retryableReceipt = receipt && receipt.retryable === true
+							? receipt
+							: receipt && receipt.data && receipt.data.retryable === true
+								? receipt.data
+								: null;
+						if (retryableReceipt) {
+							return resultReceipt(retryableReceipt, result);
+						}
+						requireOk(response);
+						return resultReceipt(receipt, result);
+					});
+				});
 		});
 	}
 
+	var pollInFlight = false;
+	var heartbeatInFlight = false;
+	var pollFailures = 0;
+	var heartbeatFailures = 0;
+	var pollTimer = 0;
+	var heartbeatTimer = 0;
+	var closed = false;
+
+	function stop() {
+		if (closed) {
+			return;
+		}
+		closed = true;
+		window.clearTimeout(pollTimer);
+		window.clearTimeout(heartbeatTimer);
+		pollTimer = 0;
+		heartbeatTimer = 0;
+		setOnline(false);
+	}
+
+	function retryDelay(failures, base) {
+		return Math.min(30000, base * Math.pow(2, Math.max(0, failures - 1)));
+	}
+
+	function scheduleNextTick(delay) {
+		if (closed) {
+			return;
+		}
+		window.clearTimeout(pollTimer);
+		pollTimer = window.setTimeout(tick, delay);
+	}
+
+	function scheduleHeartbeat(delay) {
+		if (closed) {
+			return;
+		}
+		window.clearTimeout(heartbeatTimer);
+		heartbeatTimer = window.setTimeout(heartbeat, delay);
+	}
+
 	function tick() {
-		poll().then(function () {
+		if (closed || pollInFlight) {
+			return;
+		}
+		pollInFlight = true;
+		poll().then(function (result) {
 			setOnline(true);
-		}).catch(function () {
+			if (result && result.retryable) {
+				pollFailures += 1;
+				scheduleNextTick(retryDelay(pollFailures, 2000));
+			} else {
+				pollFailures = 0;
+				scheduleNextTick(2000);
+			}
+		}).catch(function (error) {
+			if (!isRetryableTransportError(error)) {
+				stop();
+				return;
+			}
+			pollFailures += 1;
 			setOnline(false);
 			setText('stonewright-finalizer-last-poll', formatClock(new Date()));
+			scheduleNextTick(retryDelay(pollFailures, 2000));
+		}).finally(function () {
+			pollInFlight = false;
 		});
 	}
 
 	function heartbeat() {
-		if (!token) {
+		if (closed || !token || heartbeatInFlight) {
 			return;
 		}
-		var body = { token: token };
+		heartbeatInFlight = true;
+		var body = { token: token, lease_id: leaseId };
 		var request = window.wp && wp.apiFetch
 			? wp.apiFetch({
 				path: '/stonewright/v1/block-finalizer/heartbeat',
@@ -579,20 +741,34 @@
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			});
+			}).then(requireOk);
 		Promise.resolve(request).then(function () {
+			heartbeatFailures = 0;
 			setOnline(true);
-		}).catch(function () {
+			scheduleHeartbeat(15000);
+		}).catch(function (error) {
+			if (!isRetryableTransportError(error)) {
+				stop();
+				return;
+			}
+			heartbeatFailures += 1;
 			setOnline(false);
+			scheduleHeartbeat(retryDelay(heartbeatFailures, 15000));
+		}).finally(function () {
+			heartbeatInFlight = false;
 		});
 	}
 
 	function boot() {
+		if (closed) {
+			return;
+		}
 		heartbeat();
-		setInterval(heartbeat, 15000);
 		tick();
-		setInterval(tick, 2000);
 	}
+
+	window.addEventListener('unload', stop);
+	window.addEventListener('pagehide', stop);
 
 	if (window.wp && wp.domReady) {
 		wp.domReady(boot);

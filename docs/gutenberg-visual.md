@@ -25,3 +25,7 @@ third-party blocks are queued as `{name, attributes, innerBlocks}` for the hidde
 posts hashed HTML back. Persist stays in `stonewright/blocks-finalize-batch`
 (snapshot, confirmation in production-safe, audit, readback). List/status tools
 never return the full spec. See [Permanent remediation contracts](permanent-remediation-contracts.md).
+The browser client treats any result payload with `retryable:true` as pending,
+including HTTP 409 responses, and resumes polling with bounded exponential
+backoff. Serialized or failed results become terminal only with an explicit
+`retryable:false` receipt.

@@ -8,6 +8,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
+import { withOwnedFileLock } from './file-lock.js';
 
 const FINGERPRINT_RE = /^[a-f0-9]{64}$/;
 const MAX_INCIDENTS = 100;
@@ -23,6 +24,8 @@ export type DirectIncidentFailure = {
 	cause_key: string;
 	severity?: string;
 	timestamp?: string;
+	correlation_id?: string;
+	idempotency_key?: string;
 };
 
 export type DirectIncident = {
@@ -34,10 +37,14 @@ export type DirectIncident = {
 	cause_key_hash: string;
 	severity: string;
 	occurrences: number;
+	generation: number;
+	updated_at: string;
 	reopened_count: number;
 	first_seen: string;
 	last_seen: string;
 	failure_event_id: string;
+	correlation_id: string;
+	last_idempotency_key: string;
 	repair_phase: 'diagnose' | 'verify' | 'complete';
 	learning_status: DirectLearningStatus;
 	learning_memory_key: string | null;
@@ -45,6 +52,12 @@ export type DirectIncident = {
 	learned_at: string | null;
 	resolved_at: string | null;
 	resolution_event_id: string | null;
+};
+
+export type DirectIncidentVersion = {
+	generation: number;
+	updated_at: string;
+	occurrences: number;
 };
 
 type DirectIncidentDocument = {
@@ -58,7 +71,25 @@ function sha256(value: string): string {
 }
 
 export function directIncidentFingerprint(siteBinding: string): string {
-	return sha256(siteBinding);
+	const trimmed = siteBinding.trim();
+	if (/^(?:direct-global|site-id):/.test(trimmed)) {
+		return sha256(trimmed);
+	}
+	try {
+		const parsed = new URL(trimmed);
+		parsed.username = '';
+		parsed.password = '';
+		parsed.search = '';
+		parsed.hash = '';
+		parsed.hostname = parsed.hostname.toLowerCase();
+		if ((parsed.protocol === 'http:' && parsed.port === '80') || (parsed.protocol === 'https:' && parsed.port === '443')) {
+			parsed.port = '';
+		}
+		parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+		return sha256(`url:${parsed.toString().replace(/\/$/, '')}`);
+	} catch {
+		throw new Error('Canonical Direct target identity required; mutable aliases are not incident identity.');
+	}
 }
 
 export type DirectIncidentAction = {
@@ -162,6 +193,10 @@ export class DirectIncidentStore {
 	}
 
 	observeFailure(input: DirectIncidentFailure): DirectIncident {
+		return this.withLock(() => this.observeFailureUnlocked(input));
+	}
+
+	private observeFailureUnlocked(input: DirectIncidentFailure): DirectIncident {
 		const document = this.read();
 		const ability = classification(input.ability, 'unknown-ability');
 		const errorCode = classification(input.error_code, 'unknown-error');
@@ -169,12 +204,18 @@ export class DirectIncidentStore {
 		const incidentId = sha256(`${this.siteFingerprint}|${ability}|${errorCode}|${causeKeyHash}`);
 		const timestamp = iso(input.timestamp);
 		const existing = document.incidents.find((incident) => incident.incident_id === incidentId);
+		const idempotencyKey = FINGERPRINT_RE.test(input.idempotency_key ?? '') ? String(input.idempotency_key) : '';
 
 		if (existing) {
+			if (idempotencyKey && existing.last_idempotency_key === idempotencyKey) return { ...existing };
 			const wasResolved = existing.state === 'resolved';
 			existing.occurrences += 1;
+			existing.generation += 1;
+			existing.updated_at = timestamp;
 			existing.last_seen = timestamp;
 			existing.failure_event_id = classification(input.event_id, 'unknown-event');
+			existing.correlation_id = classification(input.correlation_id ?? input.event_id, 'unknown-correlation');
+			existing.last_idempotency_key = idempotencyKey;
 			existing.severity = severity(input.severity);
 			existing.state = 'open';
 			existing.repair_phase = 'diagnose';
@@ -200,10 +241,14 @@ export class DirectIncidentStore {
 			cause_key_hash: causeKeyHash,
 			severity: severity(input.severity),
 			occurrences: 1,
+			generation: 1,
+			updated_at: timestamp,
 			reopened_count: 0,
 			first_seen: timestamp,
 			last_seen: timestamp,
 			failure_event_id: classification(input.event_id, 'unknown-event'),
+			correlation_id: classification(input.correlation_id ?? input.event_id, 'unknown-correlation'),
+			last_idempotency_key: idempotencyKey,
 			repair_phase: 'diagnose',
 			learning_status: 'none',
 			learning_memory_key: null,
@@ -222,30 +267,77 @@ export class DirectIncidentStore {
 
 	markResolved(
 		incidentId: string,
-		input: { repair_receipt_id: string; resolution_event_id: string; resolved_at?: string },
+		input: {
+			repair_receipt_id: string;
+			resolution_event_id: string;
+			resolved_at?: string;
+			expected_version: DirectIncidentVersion;
+		},
+	): DirectIncident | null {
+		return this.withLock(() => this.markResolvedUnlocked(incidentId, input));
+	}
+
+	private markResolvedUnlocked(
+		incidentId: string,
+		input: {
+			repair_receipt_id: string;
+			resolution_event_id: string;
+			resolved_at?: string;
+			expected_version: DirectIncidentVersion;
+		},
 	): DirectIncident | null {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
-		if (!incident) return null;
+		if (!incident || !['open', 'observing'].includes(incident.state) || !this.versionMatches(incident, input.expected_version)) return null;
 		incident.state = 'resolved';
 		incident.repair_phase = 'complete';
 		incident.repair_receipt_id = classification(input.repair_receipt_id, 'invalid-receipt');
 		incident.resolution_event_id = classification(input.resolution_event_id, 'invalid-event');
 		incident.resolved_at = iso(input.resolved_at);
+		incident.generation += 1;
+		incident.updated_at = incident.resolved_at;
 		this.write(document);
 		return { ...incident };
 	}
 
-	markLearningPromoted(incidentId: string, memoryKey: string, receiptId: string): boolean {
+	markLearningPromoted(
+		incidentId: string,
+		memoryKey: string,
+		receiptId: string,
+		expectedVersion: DirectIncidentVersion,
+	): boolean {
+		return this.withLock(() => this.markLearningPromotedUnlocked(incidentId, memoryKey, receiptId, expectedVersion));
+	}
+
+	private markLearningPromotedUnlocked(
+		incidentId: string,
+		memoryKey: string,
+		receiptId: string,
+		expectedVersion: DirectIncidentVersion,
+	): boolean {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
-		if (!incident || incident.state !== 'resolved') return false;
+		if (
+			!incident ||
+			incident.state !== 'resolved' ||
+			incident.repair_receipt_id !== classification(receiptId, 'invalid-receipt') ||
+			!this.versionMatches(incident, expectedVersion)
+		) return false;
 		incident.learning_status = 'promoted';
 		incident.learning_memory_key = classification(memoryKey, 'verified-repair');
 		incident.repair_receipt_id = classification(receiptId, 'invalid-receipt');
 		incident.learned_at = new Date().toISOString();
+		incident.generation += 1;
+		incident.updated_at = incident.learned_at;
 		this.write(document);
 		return true;
+	}
+
+	private withLock<T>(operation: () => T): T {
+		const dir = resolve(join(this.baseDir, 'incidents'));
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
+		if (process.platform !== 'win32') chmodSync(dir, 0o700);
+		return withOwnedFileLock(`${this.file}.lock`, operation);
 	}
 
 	private read(): DirectIncidentDocument {
@@ -259,12 +351,33 @@ export class DirectIncidentStore {
 			) {
 				throw new Error('Invalid Direct incident document');
 			}
+			parsed.incidents = parsed.incidents.map((incident) => ({
+				...incident,
+				generation: Number.isInteger(incident.generation) && incident.generation > 0
+					? incident.generation
+					: Math.max(1, Number(incident.occurrences) || 1),
+				updated_at: typeof incident.updated_at === 'string'
+					? incident.updated_at
+					: incident.last_seen,
+				correlation_id: typeof incident.correlation_id === 'string'
+					? incident.correlation_id
+					: incident.failure_event_id,
+				last_idempotency_key: FINGERPRINT_RE.test(incident.last_idempotency_key ?? '')
+					? incident.last_idempotency_key
+					: '',
+			}));
 			return parsed;
 		} catch {
 			const corrupt = `${this.file}.corrupt`;
 			if (!existsSync(corrupt)) renameSync(this.file, corrupt);
 			return emptyDocument(this.siteFingerprint);
 		}
+	}
+
+	private versionMatches(incident: DirectIncident, expected: DirectIncidentVersion): boolean {
+		return incident.generation === expected.generation
+			&& incident.updated_at === expected.updated_at
+			&& incident.occurrences === expected.occurrences;
 	}
 
 	private write(document: DirectIncidentDocument): void {

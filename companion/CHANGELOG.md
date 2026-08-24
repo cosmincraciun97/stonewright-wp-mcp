@@ -4,6 +4,9 @@
 
 ### Security
 
+- Redact nested private keys, PEM certificates, and credential blobs from
+  rotated Direct archives without removing surrounding safe text, and keep
+  encoded archive output bounded.
 - Clear inherited WordPress credential variables before an explicit site alias
   is resolved, and fail startup when that alias is unknown.
 - Allow `env://STONEWRIGHT_WP_APP_PASSWORD` for the selected alias by resolving
@@ -19,6 +22,37 @@
 
 ### Fixed
 
+- Audit Direct safety denials before tool execution with the same lifecycle and
+  operation classifications as Plugin mode.
+- Recover interrupted idempotency markers and rotate Direct audit logs under a
+  process lock without losing appends or carrying legacy secrets into archives.
+- Require the central Direct write gate as well as explicit confirmation for
+  theme activation, plugin deletion, user deletion, Application Password
+  revocation, and skill deletion.
+- Bind terminal audit idempotency to canonical site identity, reject cross-site
+  receipt replay, recover stale malformed locks without stealing live locks,
+  and compact marker retention under the audit lock.
+- Audit ordinary REST read failures exactly once from asynchronous dispatch
+  metadata even when the thrown REST error has no explicit tool metadata.
+- Bind the Direct task-start write latch to both alias and canonical target
+  identity, invalidating it immediately when an alias is repointed.
+- Use canonical target identity—not aliases—for terminal idempotency and
+  incident storage, and quarantine stale locks with boot/process ownership
+  checks before removal.
+- Serialize stale-lock recovery behind an exclusive ownership-checked mutex so
+  a replacement live lock cannot be renamed at the recovery boundary.
+- Make Direct incident failure, resolution, and learning updates atomic across
+  processes, and bound stale recovery/release quarantine cleanup.
+- Cap Direct lock quarantine artifacts at 32 regardless of age, keeping the
+  newest files and removing lock and recovery-mutex leftovers.
+- Reject stale Direct repair resolution and learning when a newer failure
+  changes the incident generation, update-time, or occurrence token.
+- Return the authoritative terminal audit receipt even when incident storage
+  fails, with one bounded secondary error and no duplicate fallback append.
+- Validate any inspectable lock PID by its real process-start identity and bound
+  unknown, remote-host, or decoy ownership with host, boot, age, and lease data.
+- Honor browser-finalizer `retryable:true` response bodies even on HTTP 409 and
+  resume bounded polling instead of treating the result as terminal.
 - Reject duplicate or ambiguous Codex TOML command/args assignments and
   non-string argument members without mutating the file.
 - Parse the entire Codex TOML document before and after package replacement,

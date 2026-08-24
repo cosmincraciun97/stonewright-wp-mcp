@@ -8,6 +8,7 @@ use ReflectionMethod;
 use Stonewright\WpMcp\Core\PluginRegistration;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 
@@ -32,6 +33,7 @@ final class PersistentStateLifecycleTest extends TestCase {
 		$hooks   = self::method_source( PluginRegistration::class, 'register_hooks' );
 
 		self::assertStringContainsString( 'SkillsSeeder::seed()', $upgrade );
+		self::assertStringContainsString( 'IncidentStore::maybe_install_table()', $upgrade );
 		self::assertStringContainsString( "get_option( 'stonewright_version'", $upgrade );
 		self::assertStringContainsString( 'STONEWRIGHT_VERSION', $upgrade );
 		self::assertStringContainsString( 'maybe_upgrade', $hooks );
@@ -41,7 +43,8 @@ final class PersistentStateLifecycleTest extends TestCase {
 	public function test_schema_upgrades_do_not_reset_memory_skills_or_audit(): void {
 		$methods = [
 			self::method_source( Memory::class, 'maybe_install_table' ),
-			self::method_source( AuditLog::class, 'maybe_install_table' ),
+				self::method_source( AuditLog::class, 'maybe_install_table' ),
+				self::method_source( IncidentStore::class, 'maybe_install_table' ),
 			self::method_source( SkillsTable::class, 'run_delta' ),
 			self::method_source( SkillsSeeder::class, 'seed' ),
 		];

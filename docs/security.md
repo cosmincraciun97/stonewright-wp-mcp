@@ -31,7 +31,13 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   mutations only**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
   dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
-  REST traffic is not logged.
+  REST traffic is not logged. Successful finalizer heartbeats stay out of the
+  stream. Repeated identical permission and safety denials are scoped by site,
+  ability, and error: the first blocked event and bounded count summaries retain
+  severity while routine repeats are coalesced under an atomic, stale-recoverable
+  option lock. Terminal receipts exist as soon as the audit row is authoritative;
+  an incident-store failure is reported as bounded secondary metadata and cannot
+  cause a duplicate fallback row.
 - Treat the Audit page degraded-state notice as a failed safety control, not a
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.
@@ -78,6 +84,14 @@ active owner/version separately without exposing filesystem paths.
 
 The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
 
+Direct writes require a recent task-start bound to the resolved alias and its
+canonical target identity. Repointing the alias invalidates that write latch;
+the old context cannot create or revoke Application Passwords or perform any
+other write against the new target. Direct audit idempotency and incidents use
+the same canonical identity rather than the alias. Audit-lock recovery checks
+boot/process-start ownership and quarantines a stale lock atomically before
+removing it, so PID reuse and replacement-lock races fail closed.
+
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet
@@ -99,8 +113,9 @@ Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct
 memory/skill writes reject high-confidence credential material, and Direct
 audit diagnostics redact authorization headers, tokens, and Application
-Passwords. Release archives exclude Direct sites config, memory, and audit
-state.
+Passwords. Plugin audit persistence recursively redacts the same credential
+patterns from every free-text value, including nested error metadata. Release
+archives exclude Direct sites config, memory, and audit state.
 
 ## Hardening checklist
 

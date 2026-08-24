@@ -106,7 +106,7 @@ export async function applyBlueprint(
     );
 
   const writeMode = resolveDirectWriteMode(env, client.restBase);
-  const site = args.site?.trim() || client.siteAlias;
+  const site = client.target;
 
   if (args.post_id && args.post_id > 0) {
     assertWriteAllowed({

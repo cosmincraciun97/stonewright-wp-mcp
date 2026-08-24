@@ -168,7 +168,8 @@ final class AuditLogPageTest extends TestCase {
 		self::assertIsString( $csv_formula );
 		self::assertStringContainsString( "'=HYPERLINK", $csv_formula );
 
-		$row['redacted_details'] = '{"note":"Bearer still-secret-value"}';
+		$row['ability_name']     = 'Bearer still-secret-value';
+		$row['redacted_details'] = '{}';
 		$blocked = AuditLogPage::build_export( [ $row ], 'json' );
 		self::assertInstanceOf( \WP_Error::class, $blocked );
 		self::assertSame( 'stonewright_audit_export_sensitive_content_blocked', $blocked->get_error_code() );

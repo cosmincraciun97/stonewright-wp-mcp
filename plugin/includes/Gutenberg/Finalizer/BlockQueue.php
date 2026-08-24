@@ -28,7 +28,7 @@ final class BlockQueue {
 	public const MAX_SERIALIZED_BYTES = 1048576;
 	public const MAX_STATE_BYTES      = 2097152;
 
-	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_VERSION = 3;
 	private const LOCK_TTL       = 15;
 
 	/** @var list<string> */
@@ -284,6 +284,12 @@ final class BlockQueue {
 						'serialized_html'       => '',
 						'serialized_html_hash'  => '',
 						'session_id'            => $session,
+						'correlation_id'        => $session,
+						'lease_id'              => '',
+						'lease_expires_at'      => 0,
+						'lease_attempt'         => 0,
+						'result_id'             => '',
+						'result_idempotency_key'=> '',
 						'owner_user_id'         => $owner,
 						'legacy'                => false,
 						'created_at'            => $now,
@@ -488,6 +494,218 @@ final class BlockQueue {
 			$out[] = $include_spec ? $record : self::compact( $record );
 		}
 		return $out;
+	}
+
+	/**
+	 * Claim queued work for one browser lease. Another browser cannot overlap
+	 * until the lease expires; the same browser may poll without incrementing.
+	 *
+	 * @param array<string, mixed> $verified
+	 * @return list<array<string, mixed>>|\WP_Error
+	 */
+	public static function lease_pending_for_scope( array $verified, string $lease_id, int $ttl = 45, ?int $now = null ): array|\WP_Error {
+		$scope    = self::normalize_scope( $verified );
+		$lease_id = mb_substr( sanitize_text_field( $lease_id ), 0, 96 );
+		$ttl      = max( 5, min( 120, $ttl ) );
+		$now      = $now ?? time();
+		if ( null === $scope || '' === $lease_id ) {
+			return self::forbidden_error();
+		}
+
+		$locked = self::with_lock(
+			static function () use ( $scope, $lease_id, $ttl, $now ) {
+				$state   = self::state();
+				$claimed = [];
+				$changed = false;
+				foreach ( $state['changes'] as $id => $record ) {
+					if ( ! is_array( $record ) || ! self::record_matches_scope( $record, $scope ) || 'queued' !== (string) ( $record['status'] ?? '' ) ) {
+						continue;
+					}
+					$current_lease = (string) ( $record['lease_id'] ?? '' );
+					$expires       = (int) ( $record['lease_expires_at'] ?? 0 );
+					if ( '' !== $current_lease && $current_lease !== $lease_id && $expires > $now ) {
+						continue;
+					}
+					if ( $current_lease !== $lease_id ) {
+						$state['changes'][ $id ]['lease_attempt'] = max( 0, (int) ( $record['lease_attempt'] ?? 0 ) ) + 1;
+					}
+					$state['changes'][ $id ]['lease_id']         = $lease_id;
+					$state['changes'][ $id ]['lease_expires_at'] = $now + $ttl;
+					$state['changes'][ $id ]['updated_at']       = $now;
+					$claimed[] = $state['changes'][ $id ];
+					$changed   = true;
+				}
+				if ( $changed ) {
+					$saved = self::save( $state );
+					if ( $saved instanceof \WP_Error ) {
+						return $saved;
+					}
+				}
+				return $claimed;
+			}
+		);
+
+		return $locked instanceof \WP_Error || is_array( $locked ) ? $locked : [];
+	}
+
+	/**
+	 * Extend an existing browser lease without stealing or creating ownership.
+	 *
+	 * @param array<string, mixed> $verified
+	 */
+	public static function renew_lease_for_scope( array $verified, string $lease_id, int $ttl = 45, ?int $now = null ): int|\WP_Error {
+		$scope    = self::normalize_scope( $verified );
+		$lease_id = mb_substr( sanitize_text_field( $lease_id ), 0, 96 );
+		$ttl      = max( 5, min( 120, $ttl ) );
+		$now      = $now ?? time();
+		if ( null === $scope || '' === $lease_id ) {
+			return self::forbidden_error();
+		}
+
+		$locked = self::with_lock(
+			static function () use ( $scope, $lease_id, $ttl, $now ) {
+				$state   = self::state();
+				$renewed = 0;
+				foreach ( $state['changes'] as $id => $record ) {
+					if ( ! is_array( $record ) || ! self::record_matches_scope( $record, $scope ) || 'queued' !== (string) ( $record['status'] ?? '' ) ) {
+						continue;
+					}
+					if ( ! hash_equals( (string) ( $record['lease_id'] ?? '' ), $lease_id ) || (int) ( $record['lease_expires_at'] ?? 0 ) < $now ) {
+						continue;
+					}
+					$state['changes'][ $id ]['lease_expires_at'] = $now + $ttl;
+					$state['changes'][ $id ]['updated_at']       = $now;
+					++$renewed;
+				}
+				if ( $renewed > 0 ) {
+					$saved = self::save( $state );
+					if ( $saved instanceof \WP_Error ) {
+						return $saved;
+					}
+				}
+				return $renewed;
+			}
+		);
+
+		return is_int( $locked ) || $locked instanceof \WP_Error ? $locked : 0;
+	}
+
+	/**
+	 * Accept one serialized terminal result exactly once for its active lease.
+	 *
+	 * @param array<string, mixed> $scope
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function accept_serialized_result( string $id, string $html, string $hash, array $scope, string $lease_id, string $result_id, ?int $now = null ): array|\WP_Error {
+		$lease_id = mb_substr( sanitize_text_field( $lease_id ), 0, 96 );
+		$result_id = mb_substr( sanitize_text_field( $result_id ), 0, 96 );
+		$now       = $now ?? time();
+		if ( '' === $lease_id || '' === $result_id ) {
+			return self::stale_lease_error();
+		}
+
+		$locked = self::with_lock(
+			static function () use ( $id, $html, $hash, $scope, $lease_id, $result_id, $now ) {
+				$state  = self::state();
+				$record = $state['changes'][ $id ] ?? null;
+				if ( ! is_array( $record ) ) {
+					return self::not_found_error();
+				}
+				$denied = self::assert_write_scope( $record, $scope );
+				if ( $denied instanceof \WP_Error ) {
+					return $denied;
+				}
+				$idempotency_key = hash( 'sha256', $id . '|' . $result_id . '|serialized' );
+				if ( $result_id === (string) ( $record['result_id'] ?? '' ) && 'serialized' === (string) ( $record['status'] ?? '' ) ) {
+					return self::result_receipt( $record, $idempotency_key, true, 'serialized' );
+				}
+				if ( 'queued' !== (string) ( $record['status'] ?? '' ) ) {
+					return self::terminal_error();
+				}
+				if ( ! hash_equals( (string) ( $record['lease_id'] ?? '' ), $lease_id ) || (int) ( $record['lease_expires_at'] ?? 0 ) < $now ) {
+					return self::stale_lease_error();
+				}
+				$html_bytes = strlen( $html );
+				if ( $html_bytes > self::MAX_SERIALIZED_BYTES ) {
+					return self::size_limit_error(
+						'stonewright_finalizer_html_too_large',
+						__( 'Serialized HTML exceeds the size limit.', 'stonewright' ),
+						self::MAX_SERIALIZED_BYTES,
+						$html_bytes
+					);
+				}
+				$expect = hash( 'sha256', $html );
+				if ( '' === $hash || ! hash_equals( $expect, $hash ) ) {
+					return new \WP_Error( 'stonewright_finalizer_hash_mismatch', __( 'Serialized HTML hash does not match the payload.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				$state['changes'][ $id ]['serialized_html']       = $html;
+				$state['changes'][ $id ]['serialized_html_hash']  = $expect;
+				$state['changes'][ $id ]['status']                = 'serialized';
+				$state['changes'][ $id ]['result_id']             = $result_id;
+				$state['changes'][ $id ]['result_idempotency_key'] = $idempotency_key;
+				$state['changes'][ $id ]['updated_at']            = $now;
+				$saved = self::save( $state );
+				if ( $saved instanceof \WP_Error ) {
+					return $saved;
+				}
+				return self::result_receipt( $state['changes'][ $id ], $idempotency_key, false, 'serialized' );
+			}
+		);
+
+		return is_array( $locked ) || $locked instanceof \WP_Error ? $locked : self::terminal_error();
+	}
+
+	/**
+	 * Accept one failed terminal result exactly once for its active lease.
+	 *
+	 * @param array<string, mixed> $scope
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function accept_failed_result( string $id, string $message, string $html, string $code, array $scope, string $lease_id, string $result_id, ?int $now = null ): array|\WP_Error {
+		$lease_id = mb_substr( sanitize_text_field( $lease_id ), 0, 96 );
+		$result_id = mb_substr( sanitize_text_field( $result_id ), 0, 96 );
+		$now       = $now ?? time();
+		if ( '' === $lease_id || '' === $result_id ) {
+			return self::stale_lease_error();
+		}
+
+		$locked = self::with_lock(
+			static function () use ( $id, $message, $html, $code, $scope, $lease_id, $result_id, $now ) {
+				$state  = self::state();
+				$record = $state['changes'][ $id ] ?? null;
+				if ( ! is_array( $record ) ) {
+					return self::not_found_error();
+				}
+				$denied = self::assert_write_scope( $record, $scope );
+				if ( $denied instanceof \WP_Error ) {
+					return $denied;
+				}
+				$idempotency_key = hash( 'sha256', $id . '|' . $result_id . '|failed' );
+				if ( $result_id === (string) ( $record['result_id'] ?? '' ) && 'failed' === (string) ( $record['status'] ?? '' ) ) {
+					return self::result_receipt( $record, $idempotency_key, true, 'failed' );
+				}
+				if ( 'queued' !== (string) ( $record['status'] ?? '' ) ) {
+					return self::terminal_error();
+				}
+				if ( ! hash_equals( (string) ( $record['lease_id'] ?? '' ), $lease_id ) || (int) ( $record['lease_expires_at'] ?? 0 ) < $now ) {
+					return self::stale_lease_error();
+				}
+				$state['changes'][ $id ]['status']                 = 'failed';
+				$state['changes'][ $id ]['error']                  = mb_substr( sanitize_text_field( $message ), 0, 500 );
+				$state['changes'][ $id ]['error_code']             = sanitize_key( $code );
+				$state['changes'][ $id ]['serialized_html']         = strlen( $html ) <= self::MAX_SERIALIZED_BYTES ? $html : '';
+				$state['changes'][ $id ]['result_id']               = $result_id;
+				$state['changes'][ $id ]['result_idempotency_key']  = $idempotency_key;
+				$state['changes'][ $id ]['updated_at']              = $now;
+				$saved = self::save( $state );
+				if ( $saved instanceof \WP_Error ) {
+					return $saved;
+				}
+				return self::result_receipt( $state['changes'][ $id ], $idempotency_key, false, 'failed' );
+			}
+		);
+
+		return is_array( $locked ) || $locked instanceof \WP_Error ? $locked : self::terminal_error();
 	}
 
 	/**
@@ -1146,7 +1364,17 @@ final class BlockQueue {
 				is_string( $encoded ) ? $bytes : 0
 			);
 		}
-		update_option( self::OPTION, $payload, false );
+		$saved = update_option( self::OPTION, $payload, false );
+		if ( ! $saved && get_option( self::OPTION, null ) !== $payload ) {
+			return new \WP_Error(
+				'stonewright_finalizer_persistence_failed',
+				__( 'The block finalizer queue could not be persisted.', 'stonewright' ),
+				[
+					'status'    => 500,
+					'retryable' => true,
+				]
+			);
+		}
 		return true;
 	}
 
@@ -1202,6 +1430,12 @@ final class BlockQueue {
 				$record['owner_user_id'] = $owner;
 			}
 			$record['session_id']  = $session;
+			$record['correlation_id'] = (string) ( $record['correlation_id'] ?? $session );
+			$record['lease_id'] = (string) ( $record['lease_id'] ?? '' );
+			$record['lease_expires_at'] = (int) ( $record['lease_expires_at'] ?? 0 );
+			$record['lease_attempt'] = (int) ( $record['lease_attempt'] ?? 0 );
+			$record['result_id'] = (string) ( $record['result_id'] ?? '' );
+			$record['result_idempotency_key'] = (string) ( $record['result_idempotency_key'] ?? '' );
 			$record['updated_at']  = (int) ( $record['updated_at'] ?? $record['created_at'] ?? time() );
 			$migrated[ (string) $id ] = $record;
 		}
@@ -1210,6 +1444,37 @@ final class BlockQueue {
 			'schema_version' => self::SCHEMA_VERSION,
 			'changes'        => $migrated,
 		];
+	}
+
+	private static function stale_lease_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_finalizer_stale_lease',
+			__( 'This finalizer result belongs to an expired or replaced browser lease.', 'stonewright' ),
+			[ 'status' => 409, 'retryable' => false ]
+		);
+	}
+
+	/** @param array<string, mixed> $record @return array<string, mixed> */
+	private static function result_receipt( array $record, string $idempotency_key, bool $duplicate, string $status ): array {
+		$result_id = (string) ( $record['result_id'] ?? '' );
+		return [
+			'ok'              => 'serialized' === $status,
+			'status'          => $status,
+			'duplicate'       => $duplicate,
+			'event_id'        => self::canonical_event_id( $result_id ),
+			'correlation_id'  => (string) ( $record['correlation_id'] ?? $record['session_id'] ?? '' ),
+			'idempotency_key' => $idempotency_key,
+			'terminal_owner'  => 'block-finalizer-result',
+			'retryable'       => false,
+		];
+	}
+
+	private static function canonical_event_id( string $seed ): string {
+		if ( 1 === preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $seed ) ) {
+			return strtolower( $seed );
+		}
+		$hash = hash( 'sha256', $seed );
+		return substr( $hash, 0, 8 ) . '-' . substr( $hash, 8, 4 ) . '-4' . substr( $hash, 13, 3 ) . '-8' . substr( $hash, 17, 3 ) . '-' . substr( $hash, 20, 12 );
 	}
 
 	/**

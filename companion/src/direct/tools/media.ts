@@ -98,7 +98,7 @@ export async function mediaUpload(
 ) {
   assertToolEnabled(ctx.site, "stonewright-media-upload");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-media-upload",
@@ -139,6 +139,7 @@ export async function mediaUpload(
     appendDirectAudit({
       tool: "stonewright-media-upload",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `media/${item.id}`,
       status: "ok",
     });
@@ -151,6 +152,7 @@ export async function mediaUpload(
     appendDirectAudit({
       tool: "stonewright-media-upload",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: "media",
       status: "error",
     });
@@ -169,7 +171,7 @@ export async function mediaUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-media-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-media-update",
@@ -186,6 +188,7 @@ export async function mediaUpdate(
     appendDirectAudit({
       tool: "stonewright-media-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `media/${input.id}`,
       status: "ok",
     });
@@ -194,6 +197,7 @@ export async function mediaUpdate(
     appendDirectAudit({
       tool: "stonewright-media-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `media/${input.id}`,
       status: "error",
     });
@@ -211,7 +215,7 @@ export async function mediaDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-media-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -223,6 +227,7 @@ export async function mediaDelete(
   appendDirectAudit({
     tool: "stonewright-media-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `media/${input.id}`,
     status: "ok",
   });

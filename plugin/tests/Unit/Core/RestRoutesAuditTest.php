@@ -12,6 +12,16 @@ use Stonewright\WpMcp\Core\RestRoutes;
  */
 final class RestRoutesAuditTest extends TestCase {
 
+	public function test_finalizer_heartbeat_is_not_a_mutation_audit_event_but_result_is(): void {
+		$method = new ReflectionMethod( RestRoutes::class, 'is_stonewright_mutation' );
+
+		$heartbeat = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$result = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/result' );
+
+		self::assertFalse( $method->invoke( null, $heartbeat ) );
+		self::assertTrue( $method->invoke( null, $result ) );
+	}
+
 	public function test_free_form_rest_bodies_are_hashed_before_auditing(): void {
 		$params = [
 			'name'       => 'runtime-helper.php',

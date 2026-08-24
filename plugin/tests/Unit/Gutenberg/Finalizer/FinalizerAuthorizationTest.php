@@ -360,7 +360,7 @@ final class FinalizerAuthorizationTest extends TestCase {
 		$list = BlockQueue::list();
 		$state = get_option( BlockQueue::OPTION );
 		self::assertIsArray( $state );
-		self::assertSame( 2, (int) ( $state['schema_version'] ?? 0 ) );
+		self::assertSame( 3, (int) ( $state['schema_version'] ?? 0 ) );
 		self::assertArrayNotHasKey( 'session_id', $state );
 		self::assertNotEmpty( $list );
 		$record = BlockQueue::get( 'legacy-change-1' );
