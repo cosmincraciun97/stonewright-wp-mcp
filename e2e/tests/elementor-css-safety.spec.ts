@@ -6,6 +6,10 @@ import {
 	runAbilityWithProfileConfirmation,
 	wpRestNonce,
 } from './helpers/wp-rest';
+import {
+	cleanupElementorCssSentinels,
+	seedElementorCssSentinels,
+} from './helpers/wp-env';
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -184,38 +188,10 @@ test('real Elementor regenerates only target post CSS and survives verification'
 	);
 	expect(runtime.elementor_version).toBe(PINNED_ELEMENTOR_VERSION);
 
-	const sentinelSetup = await runPhp(
-		page,
-		nonce,
-		contextToken,
-		`$uploads = wp_upload_dir();
-$dir = rtrim((string) $uploads['basedir'], '/\\\\') . '/elementor/css';
-if (!wp_mkdir_p($dir)) {
-	return ['ok' => false, 'error_code' => 'sentinel_directory_unavailable'];
-}
-$sentinels = [
-		'custom-frontend.min.css' => '/* stonewright-global-sentinel-frontend-v1 */ .elementor-sentinel-frontend { color: rgb(17, 34, 51); }',
-		'custom-pro-widget-nav-menu.min.css' => '/* stonewright-global-sentinel-pro-v1 */ .elementor-sentinel-pro { color: rgb(68, 85, 102); }',
-];
-foreach ($sentinels as $name => $contents) {
-	if (is_file($dir . '/' . $name)) {
-		return ['ok' => false, 'error_code' => 'sentinel_conflict'];
-	}
-}
-$created = [];
-foreach ($sentinels as $name => $contents) {
-	if (false === file_put_contents($dir . '/' . $name, $contents, LOCK_EX)) {
-		foreach ($created as $created_name) {
-			@unlink($dir . '/' . $created_name);
-		}
-		return ['ok' => false, 'error_code' => 'sentinel_write_failed'];
-	}
-	$created[] = $name;
-}
-return ['ok' => true, 'files' => $created];`,
-		false,
-	);
-	expect(sentinelSetup.ok, JSON.stringify(sentinelSetup)).toBe(true);
+	// php-execute permanently blocks filesystem mutation APIs. Seed uploads
+	// CSS sentinels through wp-env WP-CLI instead of stonewright/php-execute.
+	const seededSentinels = seedElementorCssSentinels();
+	expect(seededSentinels).toEqual([...PROTECTED_SENTINELS]);
 	const sentinelsPrepared = true;
 
 	let postId = 0;
@@ -349,22 +325,8 @@ return ['ok' => true, 'files' => $created];`,
 			}
 		} finally {
 			if (sentinelsPrepared) {
-				sentinelCleanup = await runPhp(
-					page,
-					nonce,
-					contextToken,
-					`$uploads = wp_upload_dir();
-$dir = rtrim((string) $uploads['basedir'], '/\\\\') . '/elementor/css';
-$remaining = [];
-foreach (['custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css'] as $name) {
-		$path = $dir . '/' . $name;
-		if (is_file($path) && !unlink($path)) {
-			$remaining[] = $name;
-		}
-	}
-	return ['ok' => [] === $remaining, 'remaining' => $remaining];`,
-					false,
-				);
+				const remaining = cleanupElementorCssSentinels();
+				sentinelCleanup = { ok: remaining.length === 0, remaining };
 			}
 		}
 	}
