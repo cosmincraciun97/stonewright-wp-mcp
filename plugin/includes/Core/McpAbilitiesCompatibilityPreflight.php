@@ -430,6 +430,7 @@ final class McpAbilitiesCompatibilityPreflight {
 		return self::manifest_has_exact_key( $composer_dir . 'jetpack_autoload_classmap.php', 'WP\\MCP\\Core\\McpAdapter' );
 	}
 
+	/** Parses the generated Jetpack manifest grammar without evaluating PHP. */
 	private static function manifest_has_exact_key( string $path, string $expected_key ): bool {
 		if ( ! is_file( $path ) ) {
 			return false;
@@ -443,159 +444,198 @@ final class McpAbilitiesCompatibilityPreflight {
 		} catch ( \ParseError ) {
 			return false;
 		}
-		$open_tag = self::next_manifest_token( $tokens, 0 );
-		if ( null === $open_tag || ! is_array( $tokens[ $open_tag ] ) || T_OPEN_TAG !== $tokens[ $open_tag ][0] ) {
+		$tokens = array_values(
+			array_filter(
+				$tokens,
+				static fn( $token ): bool => ! is_array( $token ) || ! in_array( $token[0], [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true )
+			)
+		);
+		$index = 0;
+		if ( ! self::manifest_token_is( $tokens, $index, T_OPEN_TAG ) ) {
 			return false;
 		}
+		++$index;
+
 		$path_variables = [];
-		$return         = self::manifest_return_token( $tokens, $open_tag + 1, $path_variables );
-		if ( null === $return ) {
-			return false;
-		}
-		$start = self::next_manifest_token( $tokens, $return + 1 );
-		if ( null === $start ) {
-			return false;
-		}
-		if ( is_array( $tokens[ $start ] ) && T_ARRAY === $tokens[ $start ][0] ) {
-			$start = self::next_manifest_token( $tokens, $start + 1 );
-			if ( null === $start || '(' !== $tokens[ $start ] ) {
+		while ( self::manifest_token_is( $tokens, $index, T_VARIABLE ) ) {
+			if ( ! self::consume_manifest_path_assignment( $tokens, $index, $path_variables ) ) {
 				return false;
 			}
-		} elseif ( '[' !== $tokens[ $start ] ) {
+		}
+		if ( ! self::manifest_token_is( $tokens, $index, T_RETURN ) ) {
 			return false;
 		}
-		$end     = null;
-		$has_key = self::static_manifest_array_has_key( $tokens, $start, $expected_key, $path_variables, $end );
-		if ( null === $end ) {
-			return false;
-		}
-		$terminator = self::next_manifest_token( $tokens, $end + 1 );
-		if ( null === $terminator || ';' !== $tokens[ $terminator ] ) {
-			return false;
-		}
-		return $has_key && null === self::next_manifest_token( $tokens, $terminator + 1 );
-	}
+		++$index;
 
-	/** @param list<array{int,string,int}|string> $tokens */
-	private static function next_manifest_token( array $tokens, int $offset ): ?int {
-		for ( $index = $offset, $count = count( $tokens ); $index < $count; ++$index ) {
-			$token = $tokens[ $index ];
-			if ( ! is_array( $token ) || ! in_array( $token[0], [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true ) ) {
-				return $index;
-			}
+		$has_key = false;
+		if ( ! self::consume_static_manifest_array( $tokens, $index, $path_variables, $expected_key, true, $has_key ) ) {
+			return false;
 		}
-		return null;
+		if ( ! self::manifest_token_is( $tokens, $index, ';' ) ) {
+			return false;
+		}
+		++$index;
+		return $has_key && count( $tokens ) === $index;
 	}
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,bool>                 $path_variables
+	 * @param int|string                         $expected
 	 */
-	private static function manifest_return_token( array $tokens, int $offset, array &$path_variables ): ?int {
-		$index = self::next_manifest_token( $tokens, $offset );
-		while ( null !== $index ) {
-			$token = $tokens[ $index ];
-			if ( is_array( $token ) && T_RETURN === $token[0] ) {
-				return $index;
-			}
-			if ( ! is_array( $token ) || T_VARIABLE !== $token[0] || isset( $path_variables[ $token[1] ] ) ) {
-				return null;
-			}
-			$equals = self::next_manifest_token( $tokens, $index + 1 );
-			$dirname = null === $equals ? null : self::next_manifest_token( $tokens, $equals + 1 );
-			$open    = null === $dirname ? null : self::next_manifest_token( $tokens, $dirname + 1 );
-			$argument = null === $open ? null : self::next_manifest_token( $tokens, $open + 1 );
-			$close    = null === $argument ? null : self::next_manifest_token( $tokens, $argument + 1 );
-			$end      = null === $close ? null : self::next_manifest_token( $tokens, $close + 1 );
-			if (
-				null === $equals || '=' !== $tokens[ $equals ]
-				|| null === $dirname || ! is_array( $tokens[ $dirname ] ) || T_STRING !== $tokens[ $dirname ][0] || 'dirname' !== strtolower( $tokens[ $dirname ][1] )
-				|| null === $open || '(' !== $tokens[ $open ]
-				|| null === $argument || ! is_array( $tokens[ $argument ] )
-				|| ( T_DIR !== $tokens[ $argument ][0] && ( T_VARIABLE !== $tokens[ $argument ][0] || ! isset( $path_variables[ $tokens[ $argument ][1] ] ) ) )
-				|| null === $close || ')' !== $tokens[ $close ]
-				|| null === $end || ';' !== $tokens[ $end ]
-			) {
-				return null;
-			}
-			$path_variables[ $token[1] ] = true;
-			$index                        = self::next_manifest_token( $tokens, $end + 1 );
+	private static function manifest_token_is( array $tokens, int $index, int|string $expected ): bool {
+		if ( ! isset( $tokens[ $index ] ) ) {
+			return false;
 		}
-		return null;
+		$token = $tokens[ $index ];
+		return is_int( $expected ) ? is_array( $token ) && $expected === $token[0] : $expected === $token;
 	}
 
 	/**
 	 * @param list<array{int,string,int}|string> $tokens
-	 * @param array<string,bool>                 $path_variables
+	 * @param array<string,true>                 $path_variables
 	 */
-	private static function static_manifest_array_has_key( array $tokens, int $start, string $expected_key, array $path_variables, ?int &$end ): bool {
-		$closing     = [ '[' === $tokens[ $start ] ? ']' : ')' ];
-		$has_key     = false;
-		$expects_key = true;
-		for ( $index = $start + 1, $count = count( $tokens ); $index < $count; ++$index ) {
-			$token = $tokens[ $index ];
-			if ( is_array( $token ) && in_array( $token[0], [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true ) ) {
-				continue;
-			}
-			if ( 1 === count( $closing ) && $expects_key ) {
-				if ( $token === end( $closing ) ) {
-					array_pop( $closing );
-					$end = $index;
-					return $has_key;
-				}
-				if ( ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
-					return false;
-				}
-				$arrow = self::next_manifest_token( $tokens, $index + 1 );
-				if ( null === $arrow || ! is_array( $tokens[ $arrow ] ) || T_DOUBLE_ARROW !== $tokens[ $arrow ][0] ) {
-					return false;
-				}
-				$key = substr( $token[1], 1, -1 );
-				if ( $expected_key === str_replace( '\\\\', '\\', $key ) ) {
-					$has_key = true;
-				}
-				$expects_key = false;
-				continue;
-			}
-			if ( '(' === $token || '[' === $token ) {
-				$closing[] = '(' === $token ? ')' : ']';
-				continue;
-			}
-			if ( ')' === $token || ']' === $token ) {
-				if ( $token !== end( $closing ) ) {
-					return false;
-				}
-				array_pop( $closing );
-				if ( [] === $closing ) {
-					$end = $index;
-					return $has_key;
-				}
-				continue;
-			}
-			if ( ! is_array( $token ) ) {
-				if ( ',' === $token ) {
-					if ( 1 === count( $closing ) ) {
-						$expects_key = true;
-					}
-					continue;
-				}
-				if ( '.' !== $token ) {
-					return false;
-				}
-				continue;
-			}
-			if ( in_array( $token[0], [ T_CONSTANT_ENCAPSED_STRING, T_LNUMBER, T_DNUMBER, T_DOUBLE_ARROW, T_ARRAY ], true ) ) {
-				continue;
-			}
-			if ( T_VARIABLE === $token[0] && isset( $path_variables[ $token[1] ] ) ) {
-				continue;
-			}
-			if ( T_STRING === $token[0] && in_array( strtolower( $token[1] ), [ 'false', 'null', 'true' ], true ) ) {
-				continue;
-			}
+	private static function consume_manifest_path_assignment( array $tokens, int &$index, array &$path_variables ): bool {
+		$variable = $tokens[ $index ] ?? null;
+		if ( ! is_array( $variable ) || T_VARIABLE !== $variable[0] || isset( $path_variables[ $variable[1] ] ) ) {
 			return false;
+		}
+		++$index;
+		if ( ! self::manifest_token_is( $tokens, $index, '=' ) ) {
+			return false;
+		}
+		++$index;
+		$dirname = $tokens[ $index ] ?? null;
+		if ( ! is_array( $dirname ) || T_STRING !== $dirname[0] || 'dirname' !== strtolower( $dirname[1] ) ) {
+			return false;
+		}
+		++$index;
+		if ( ! self::manifest_token_is( $tokens, $index, '(' ) ) {
+			return false;
+		}
+		++$index;
+		$argument = $tokens[ $index ] ?? null;
+		if (
+			! is_array( $argument )
+			|| ( T_DIR !== $argument[0] && ( T_VARIABLE !== $argument[0] || ! isset( $path_variables[ $argument[1] ] ) ) )
+		) {
+			return false;
+		}
+		++$index;
+		if ( ! self::manifest_token_is( $tokens, $index, ')' ) ) {
+			return false;
+		}
+		++$index;
+		if ( ! self::manifest_token_is( $tokens, $index, ';' ) ) {
+			return false;
+		}
+		++$index;
+		$path_variables[ $variable[1] ] = true;
+		return true;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,true>                 $path_variables
+	 */
+	private static function consume_static_manifest_array( array $tokens, int &$index, array $path_variables, ?string $expected_key, bool $require_keys, bool &$has_key ): bool {
+		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) ) {
+			++$index;
+			if ( ! self::manifest_token_is( $tokens, $index, '(' ) ) {
+				return false;
+			}
+			$closing = ')';
+		} elseif ( self::manifest_token_is( $tokens, $index, '[' ) ) {
+			$closing = ']';
+		} else {
+			return false;
+		}
+		++$index;
+
+		if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
+			++$index;
+			return true;
+		}
+
+		while ( isset( $tokens[ $index ] ) ) {
+			$key = null;
+			$token = $tokens[ $index ];
+			// Top-level mappings require literal keys; nested path lists may be unkeyed.
+			if ( is_array( $token ) && T_CONSTANT_ENCAPSED_STRING === $token[0] && self::manifest_token_is( $tokens, $index + 1, T_DOUBLE_ARROW ) ) {
+				$key = $token[1];
+				$index += 2;
+			} elseif ( $require_keys ) {
+				return false;
+			}
+
+			if ( ! self::consume_static_manifest_value( $tokens, $index, $path_variables, $has_key ) ) {
+				return false;
+			}
+			if ( null !== $key && null !== $expected_key && self::manifest_literal_matches_key( $key, $expected_key ) ) {
+				$has_key = true;
+			}
+			if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
+				++$index;
+				return true;
+			}
+			if ( ! self::manifest_token_is( $tokens, $index, ',' ) ) {
+				return false;
+			}
+			++$index;
+			if ( self::manifest_token_is( $tokens, $index, $closing ) ) {
+				++$index;
+				return true;
+			}
 		}
 		return false;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,true>                 $path_variables
+	 */
+	private static function consume_static_manifest_value( array $tokens, int &$index, array $path_variables, bool &$has_key ): bool {
+		if ( self::manifest_token_is( $tokens, $index, T_ARRAY ) || self::manifest_token_is( $tokens, $index, '[' ) ) {
+			return self::consume_static_manifest_array( $tokens, $index, $path_variables, null, false, $has_key );
+		}
+		if ( ! self::consume_static_manifest_scalar( $tokens, $index, $path_variables ) ) {
+			return false;
+		}
+		while ( self::manifest_token_is( $tokens, $index, '.' ) ) {
+			++$index;
+			if ( ! self::consume_static_manifest_scalar( $tokens, $index, $path_variables ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param list<array{int,string,int}|string> $tokens
+	 * @param array<string,true>                 $path_variables
+	 */
+	private static function consume_static_manifest_scalar( array $tokens, int &$index, array $path_variables ): bool {
+		$token = $tokens[ $index ] ?? null;
+		if ( ! is_array( $token ) ) {
+			return false;
+		}
+		if ( in_array( $token[0], [ T_CONSTANT_ENCAPSED_STRING, T_LNUMBER, T_DNUMBER ], true ) ) {
+			++$index;
+			return true;
+		}
+		if ( T_VARIABLE === $token[0] && isset( $path_variables[ $token[1] ] ) ) {
+			++$index;
+			return true;
+		}
+		if ( T_STRING === $token[0] && in_array( strtolower( $token[1] ), [ 'false', 'null', 'true' ], true ) ) {
+			++$index;
+			return true;
+		}
+		return false;
+	}
+
+	private static function manifest_literal_matches_key( string $literal, string $expected_key ): bool {
+		$encoded = str_replace( '\\', '\\\\', $expected_key );
+		return "'" . $encoded . "'" === $literal || '"' . $encoded . '"' === $literal;
 	}
 
 	/** @return list<string> */

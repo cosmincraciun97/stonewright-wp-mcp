@@ -398,6 +398,28 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		];
 	}
 
+	/**
+	 * @dataProvider executable_jetpack_manifest_value_fixtures
+	 */
+	public function test_release_package_rejects_executable_jetpack_manifest_value_expressions( string $fixture ): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/' . $fixture ] );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
+		self::assertContains( 'jetpack_manifest_missing', $result['adapter']['abi']['issues'] );
+	}
+
+	/** @return array<string,array{string}> */
+	public static function executable_jetpack_manifest_value_fixtures(): array {
+		return [
+			'literal callable value'            => [ 'release-literal-callable-classmap' ],
+			'known path variable callable value' => [ 'release-path-variable-callable-classmap' ],
+		];
+	}
+
 	public function test_manifest_inspection_does_not_execute_side_effects_or_accept_dynamic_adapter_mapping(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
