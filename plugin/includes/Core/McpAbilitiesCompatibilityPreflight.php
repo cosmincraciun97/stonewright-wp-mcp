@@ -409,24 +409,38 @@ final class McpAbilitiesCompatibilityPreflight {
 				if ( ! is_array( $package ) || $package_name !== ( $package['name'] ?? null ) ) {
 					continue;
 				}
-				$jetpack_source = '';
-				foreach ( [ 'jetpack_autoload_psr4.php', 'jetpack_autoload_classmap.php' ] as $jetpack_manifest ) {
-					$jetpack = $root . '/vendor/composer/' . $jetpack_manifest;
-					if ( is_file( $jetpack ) ) {
-						$jetpack_source .= (string) file_get_contents( $jetpack );
-					}
-				}
 				$result[] = [
 					'_path'            => $candidate,
 					'owner'            => 'plugin:' . sanitize_key( basename( $root ) ),
 					'name'             => $package_name,
 					'version'          => ltrim( (string) ( $package['version'] ?? '' ), 'v' ),
-					'jetpack_manifest' => 'adapter' !== $role || str_contains( $jetpack_source, 'WP\\\\MCP\\\\' ),
+					'jetpack_manifest' => 'adapter' !== $role || self::jetpack_manifest_maps_adapter( $root ),
 					'guarded_fallback' => self::guarded_fallback( $root, $role ),
 				];
 			}
 		}
 		return $result;
+	}
+
+	private static function jetpack_manifest_maps_adapter( string $root ): bool {
+		$composer_dir = $root . '/vendor/composer/';
+		$psr4 = self::manifest_array( $composer_dir . 'jetpack_autoload_psr4.php' );
+		if ( array_key_exists( 'WP\\MCP\\', $psr4 ) ) {
+			return true;
+		}
+		$classmap = self::manifest_array( $composer_dir . 'jetpack_autoload_classmap.php' );
+		return array_key_exists( 'WP\\MCP\\Core\\McpAdapter', $classmap );
+	}
+
+	/** @return array<mixed> */
+	private static function manifest_array( string $path ): array {
+		if ( ! is_file( $path ) ) {
+			return [];
+		}
+		$manifest = ( static function ( string $manifest_path ): mixed {
+			return include $manifest_path;
+		} )( $path );
+		return is_array( $manifest ) ? $manifest : [];
 	}
 
 	/** @return list<string> */

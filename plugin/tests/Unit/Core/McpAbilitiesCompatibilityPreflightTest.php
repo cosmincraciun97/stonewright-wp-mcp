@@ -353,6 +353,28 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertContains( 'jetpack_manifest_missing', $result['adapter']['abi']['issues'] );
 	}
 
+	/**
+	 * @dataProvider invalid_jetpack_manifest_fixtures
+	 */
+	public function test_release_package_requires_an_exact_jetpack_adapter_mapping( string $fixture ): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/' . $fixture ] );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
+		self::assertContains( 'jetpack_manifest_missing', $result['adapter']['abi']['issues'] );
+	}
+
+	/** @return array<string,array{string}> */
+	public static function invalid_jetpack_manifest_fixtures(): array {
+		return [
+			'classmap decoy' => [ 'release-invalid-classmap' ],
+			'psr-4 decoy'    => [ 'release-invalid-psr4' ],
+		];
+	}
+
 	public function test_release_package_with_missing_runtime_class_blocks_boot(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
