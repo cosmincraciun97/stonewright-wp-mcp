@@ -2,6 +2,13 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readTextFile, writeWithRollback } from './atomic-config.js';
 import {
+	applyStringReplacement,
+	findJsoncPackageReplacement,
+	parseJsonc,
+	replacementBoundHashes,
+	sha256Text,
+} from './package-reference.js';
+import {
 	type ApplyResult,
 	type ClientAdapter,
 	ClientConfigError,
@@ -22,7 +29,7 @@ function parseJson(path: string, raw: string | null): JsonRoot {
 		return {};
 	}
 	try {
-		const parsed = JSON.parse(raw) as unknown;
+		const parsed = parseJsonc(raw);
 		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
 			throw new ClientConfigError('config_parse_failure', `${path}: root must be a JSON object`);
 		}
@@ -131,6 +138,29 @@ export function createGenericJsonAdapter(meta: {
 			return entryFromJson(serverName, map[serverName]);
 		},
 
+		updatePackageReference(configPath: string, serverName: string, packageSpec: string) {
+			const before = readTextFile(configPath);
+			if (before === null) throw new ClientConfigError('config_missing', `${configPath} does not exist.`);
+			const replacement = findJsoncPackageReplacement(before, serverName, packageSpec);
+			const next = applyStringReplacement(before, replacement);
+			const written = writeWithRollback({ path: configPath, expectedContents: before, nextContents: next, validate: validateJsonFile });
+			const bounds = replacementBoundHashes(before, replacement, next);
+			return {
+				configPath,
+				backupPath: written.backupPath,
+				changed: written.changed,
+				diff: written.diff,
+				serverName,
+				previousPackageSpec: replacement.value,
+				packageSpec,
+				beforeSha256: sha256Text(before),
+				afterSha256: sha256Text(next),
+				prefixSha256: bounds.prefixSha256,
+				suffixSha256: bounds.suffixSha256,
+				unrelatedBytesUnchanged: bounds.unrelatedBytesUnchanged,
+			};
+		},
+
 		upsert(configPath: string, entry: McpServerEntry): ApplyResult {
 			const beforeRaw = readTextFile(configPath);
 			const root = parseJson(configPath, beforeRaw);
@@ -146,6 +176,7 @@ export function createGenericJsonAdapter(meta: {
 			const next = `${JSON.stringify(root, null, 2)}\n`;
 			const { backupPath, changed, diff } = writeWithRollback({
 				path: configPath,
+				expectedContents: beforeRaw,
 				nextContents: next,
 				validate: validateJsonFile,
 			});
@@ -163,7 +194,8 @@ export function createGenericJsonAdapter(meta: {
 			if (!existsSync(configPath)) {
 				return { configPath, backupPath: null, removed: false, serverName };
 			}
-			const root = parseJson(configPath, readTextFile(configPath));
+			const before = readTextFile(configPath);
+			const root = parseJson(configPath, before);
 			const bucket = serverBucket(root);
 			if (!(serverName in bucket.map)) {
 				return { configPath, backupPath: null, removed: false, serverName };
@@ -173,6 +205,7 @@ export function createGenericJsonAdapter(meta: {
 			const next = `${JSON.stringify(root, null, 2)}\n`;
 			const { backupPath } = writeWithRollback({
 				path: configPath,
+				expectedContents: before,
 				nextContents: next,
 				validate: validateJsonFile,
 			});

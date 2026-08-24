@@ -52,7 +52,7 @@ final class OAuthConnectPanelTest extends TestCase {
 		self::assertStringContainsString( 'Copy install link', $html );
 	}
 
-	public function test_chip_list_includes_codex_variants_without_bare_codex(): void {
+	public function test_chip_list_uses_the_official_codex_entry_only(): void {
 		ob_start();
 		OAuthConnectPanel::render(
 			'https://example.test/wp-json/mcp/stonewright-oauth',
@@ -60,8 +60,8 @@ final class OAuthConnectPanelTest extends TestCase {
 		);
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( '>Codex in ChatGPT Desktop</button>', $html );
 		self::assertStringContainsString( '>Codex CLI</button>', $html );
+		self::assertStringNotContainsString( '>Codex in ChatGPT Desktop</button>', $html );
 		self::assertDoesNotMatchRegularExpression( '/>Codex<\/button>/', $html );
 		self::assertStringNotContainsString( 'data-sw-oauth-tab="codex"', $html );
 	}
@@ -80,7 +80,7 @@ final class OAuthConnectPanelTest extends TestCase {
 
 		self::assertStringContainsString( 'sw-oauth-client-panel is-active', $html );
 		self::assertStringContainsString( 'mcp-remote', $html );
-		self::assertStringContainsString( 'ChatGPT Desktop can use this local', $html );
+		self::assertStringContainsString( 'official Codex configuration', $html );
 		self::assertStringContainsString( 'Use Claude Desktop or Claude Code', $html );
 		self::assertStringContainsString( 'data-sw-oauth-panel="claude-desktop"', $html );
 		self::assertStringContainsString( 'data-sw-oauth-panel="codex-cli"', $html );

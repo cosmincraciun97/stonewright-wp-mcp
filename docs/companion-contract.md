@@ -35,14 +35,25 @@ Run the companion on loopback or a private network.
 
 ### GET /health
 
-Returns companion status and contract version.
+Returns companion status, contract version, running artifact version, and the
+official package expected for that artifact. A valid bearer may additionally
+receive configured-package truth only when the companion was given a package
+source that passes the official package parser.
 
 ```json
 {
   "status": "ok",
-  "contract_version": "1.0.0"
+  "contract_version": "1.0.0",
+  "version": "VERSION",
+  "expected_companion_package": "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz"
 }
 ```
+
+Authenticated configured-package fields are
+`configured_package`, `configured_package_version`,
+`configured_package_provenance`, and
+`configured_package_source="authenticated-environment"`. The public response
+never claims configured-package truth, and invalid package input is omitted.
 
 ### POST /wp-cli/status
 

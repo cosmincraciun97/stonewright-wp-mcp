@@ -34,6 +34,31 @@ development builds were never stable releases.
   authority into renderers and mutators.
 - Derive upstream Elementor provider identity from the registered callback's
   verified class and active-plugin file boundary, never self-declared metadata.
+- Verify the downloaded plugin ZIP against its exact entry in the bounded
+  `SHA256SUMS.txt` release manifest before WordPress may install it, with
+  typed fail-closed errors for missing, malformed, forged, unavailable, or
+  mismatched checksums.
+- Bind each queued plugin ZIP to its exact release version, package URL, and
+  checksum manifest. Pre-install verification now fails closed when that
+  binding is missing or mismatched, even if release metadata changed or the
+  queued URL carries a download query.
+- Identify official Stonewright ZIPs from their release binding before reading
+  upgrader context, and fail closed when a foreign plugin context conflicts
+  with that verified package.
+- Clear inherited WordPress credentials before resolving an explicit site
+  alias and refuse startup when that alias is unknown, preventing a stale
+  environment from selecting the wrong site.
+- Resolve an explicitly selected `env://STONEWRIGHT_WP_APP_PASSWORD`
+  credential from a protected pre-clear snapshot while still discarding every
+  unrelated inherited WordPress credential.
+- Bind active-client update attestation to a private registry key and one-time
+  expiring receipt, the owning MCP client, exact official package provenance
+  and version, config hashes, restarted process, and process-bound catalog
+  observation. Forged, replayed, expired, stale, cross-client, and drifted
+  attestations now fail closed without exposing key material.
+- Require exact official `npx`/`npx.cmd --package <Stonewright package>
+  stonewright-mcp` client entries, and refuse updater metadata or transient
+  injection when the release omits `SHA256SUMS.txt`.
 
 ### Fixed
 
@@ -57,6 +82,36 @@ development builds were never stable releases.
 - Resolve runtime ownership from active plugin main files and safe plugin
   headers even when the main filename differs from its folder in REST/MCP
   requests.
+- Reject ambiguous Codex TOML, make config and receipt updates share one
+  transactional lock, and use compare-and-swap rollback so a failed update
+  cannot overwrite newer configuration or lose a concurrent receipt.
+- Parse the complete Codex TOML document before and after package updates, so
+  malformed target arrays or unrelated sections cannot be mutated or receive
+  a restart receipt while comments and untouched bytes remain unchanged.
+- Give each TOML/JSONC config its own exclusive write lock and recheck the
+  exact read hash immediately before rename; cross-resource rollback now uses
+  the same compare-and-swap rule.
+- Generate companion client semantics from the plugin's authoritative catalog,
+  keeping OAuth support, default profiles, and relist behavior in parity.
+- Enforce the restart-verification order `task-start` → `setup-profile` →
+  `wordpress-mcp-status` → `client-surface-check`, and use a process-bound
+  catalog observation instead of caller-supplied tool names.
+- Record restart attestation for schema-v2 non-error MCP results. Status,
+  relist, mismatch, and setup `ok` flags stay separate truthful signals and
+  do not hide plugin validation failures.
+- Preserve plugin task-start failures, stop forwarding the companion-only site
+  alias into the plugin schema, and reconcile authoritative saved/effective
+  WordPress mode and surface against client hints and client-visible tools.
+  Empty refresh lists no longer override a failed visibility check.
+- Version WorkflowPreflight mode fields and treat the plugin's saved/effective
+  WordPress mode as authoritative; malformed schemas and mode mismatches block
+  startup.
+- Make the real companion health payload report running and expected package
+  truth, with configured package evidence available only from an authenticated,
+  validated source; include `client-surface-check` in the update prompt.
+- Resolve ChatGPT Desktop consistently through the Codex TOML adapter, and make
+  the OAuth UI browser check assert matching unique client tabs and panels
+  instead of a stale hard-coded count.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

@@ -20,6 +20,7 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class WorkflowPreflight extends AbilityKernel {
+	private const OUTPUT_SCHEMA_VERSION = 2;
 
 	/**
 	 * Registry id of the batching rule this payload restates.
@@ -128,10 +129,13 @@ final class WorkflowPreflight extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
+				'schema_version' => [ 'type' => 'integer', 'enum' => [ self::OUTPUT_SCHEMA_VERSION ] ],
 				'ok'            => [ 'type' => 'boolean' ],
 				'context_token' => [ 'type' => 'string' ],
 				'expires_at'    => [ 'type' => 'string' ],
 				'mode'          => [ 'type' => 'string' ],
+				'saved_wordpress_mode'     => [ 'type' => 'string', 'enum' => [ 'development', 'staging', 'production-safe' ] ],
+				'effective_wordpress_mode' => [ 'type' => 'string', 'enum' => [ 'development', 'staging', 'production-safe' ] ],
 				'auth_guidance' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'fast_path'     => [ 'type' => 'object' ],
 				'elementor'     => [
@@ -165,7 +169,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'write_target_url' => [ 'type' => 'string' ],
 				'target_context'   => [ 'type' => 'object' ],
 			],
-			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
+			'required'   => [ 'schema_version', 'ok', 'context_token', 'mode', 'saved_wordpress_mode', 'effective_wordpress_mode', 'auth_guidance', 'fast_path' ],
 		];
 	}
 
@@ -293,10 +297,13 @@ final class WorkflowPreflight extends AbilityKernel {
 		$fast_path['tool_profile']['write_target_url']        = $write_target;
 
 		$response = [
+			'schema_version' => self::OUTPUT_SCHEMA_VERSION,
 			'ok'            => true,
 			'context_token' => (string) ( $context['context_token'] ?? '' ),
 			'expires_at'    => (string) ( $context['expires_at'] ?? '' ),
 			'mode'          => $mode,
+			'saved_wordpress_mode'     => $mode,
+			'effective_wordpress_mode' => $mode,
 			'configured_mcp_surface' => $configured_surface,
 			'surface_revision'       => AbilityRegistry::surface_revision(),
 			'session_tool_profile'   => $session_profile,
@@ -570,10 +577,13 @@ final class WorkflowPreflight extends AbilityKernel {
 			: [];
 
 		$compact_response = [
+			'schema_version'      => (int) ( $response['schema_version'] ?? 0 ),
 			'ok'                  => (bool) ( $response['ok'] ?? false ),
 			'context_token'       => (string) ( $response['context_token'] ?? '' ),
 			'expires_at'          => (string) ( $response['expires_at'] ?? '' ),
 			'mode'                => (string) ( $response['mode'] ?? '' ),
+			'saved_wordpress_mode'     => (string) ( $response['saved_wordpress_mode'] ?? '' ),
+			'effective_wordpress_mode' => (string) ( $response['effective_wordpress_mode'] ?? '' ),
 			'auth_guidance'       => [],
 			'fast_path'           => $compact_fast_path,
 			'elementor'           => $compact_elementor,

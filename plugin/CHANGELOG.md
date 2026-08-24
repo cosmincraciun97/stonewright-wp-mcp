@@ -25,6 +25,19 @@
   authority into renderers and mutators.
 - Derive upstream Elementor provider identity from the registered callback's
   verified class and active-plugin file boundary, never self-declared metadata.
+- Fetch a bounded `SHA256SUMS.txt` manifest and verify the exact release ZIP at
+  WordPress's pre-download install/update gate. Missing, malformed, forged,
+  unavailable, empty, and mismatched checksums now fail closed with typed
+  errors.
+- Persist the exact release/version/manifest binding when WordPress queues a
+  Stonewright ZIP, and refuse pre-install when that binding is unavailable or
+  mismatched instead of returning an unverified prior downloader result.
+- Resolve official Stonewright ZIP identity and release binding before trusting
+  upgrader plugin context, and stop with a typed error when that context names
+  a foreign plugin.
+- Require an exact `SHA256SUMS.txt` release asset before accepting updater
+  metadata or injecting an update transient, with a typed
+  `missing_checksum_asset` recovery reason.
 
 ### Fixed
 
@@ -48,6 +61,19 @@
 - Resolve runtime ownership from active plugin main files and safe plugin
   headers even when the main filename differs from its folder in REST/MCP
   requests.
+- Leave wordpress.org and other non-Stonewright plugin downloads unchanged at
+  the pre-download gate. Fail closed only for official Stonewright packages or
+  the Stonewright plugin basename.
+- Add schema-v2 authoritative saved/effective WordPress mode fields to full
+  and compact WorkflowPreflight/task-start responses.
+- Show one authoritative four-step post-update verification flow in Setup and
+  the copied update prompt: task start, profile setup, status, then a
+  process-bound client surface check.
+- Require complete authenticated configured-package evidence in companion
+  health responses and include `stonewright-client-surface-check` in the
+  post-update verification prompt.
+- Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
+  admin OAuth browser test's stale client count with tab/panel parity checks.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

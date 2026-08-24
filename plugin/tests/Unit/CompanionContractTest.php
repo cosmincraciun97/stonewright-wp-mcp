@@ -16,8 +16,10 @@ final class CompanionContractTest extends TestCase {
 			'health',
 			'response',
 			[
-				'status'           => 'ok',
-				'contract_version' => '1.0.0',
+				'status'                     => 'ok',
+				'contract_version'           => '1.0.0',
+				'version'                    => '1.0.0-beta.12',
+				'expected_companion_package' => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz',
 			]
 		);
 

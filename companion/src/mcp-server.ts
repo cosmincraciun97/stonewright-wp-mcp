@@ -106,7 +106,10 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	// Multi-site connect installs only STONEWRIGHT_SITE_ALIAS in client config.
 	// Resolve that alias from the local registry and inject URL/username/password
 	// before mode probe / WordPress MCP config / Direct registration.
-	applySiteAliasToEnv(env);
+	const aliasSelection = applySiteAliasToEnv(env);
+	if (aliasSelection.alias && aliasSelection.error) {
+		throw new Error(`Stonewright site alias startup failed: ${aliasSelection.error}`);
+	}
 	const profile = proxyToolProfileFromEnv(env);
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const runtime = createConnectionRuntime({

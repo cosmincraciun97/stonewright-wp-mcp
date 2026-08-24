@@ -36,7 +36,8 @@
 		"fast-uri": "3.1.5",
 		"hono": "4.12.34",
 		"ip-address": "10.4.0",
-		"js-yaml": "^4.2.0",
+		"js-yaml": "4.3.1",
+		"nanoid": "3.3.18",
 		"postcss": "8.5.25"
 	},
 	"scripts": {
@@ -52,6 +53,8 @@
 		"typecheck": "tsc --noEmit",
 		"tokens:measure": "node scripts/measure-tool-surface.mjs",
 		"contracts:generate": "node scripts/generate-direct-tools-contract.mjs",
+		"catalog:generate": "node scripts/generate-client-catalog.mjs",
+		"catalog:check": "node scripts/generate-client-catalog.mjs --check",
 		"contracts:compat": "vitest run tests/direct-tools-contract.test.ts",
 		"sync:rules": "node -e \"const fs=require('fs');const p=require('path');fs.mkdirSync('data',{recursive:true});fs.copyFileSync(p.join('..','plugin','data','global-rules.json'),p.join('data','global-rules.json'));\"",
 		"sync:blueprints": "node -e \"const fs=require('fs');const p=require('path');const s=p.join('..','plugin','blueprints');const d='blueprints';fs.mkdirSync(d,{recursive:true});for(const f of fs.readdirSync(s).filter(x=>x.endsWith('.json')))fs.copyFileSync(p.join(s,f),p.join(d,f));\"",
@@ -61,6 +64,7 @@
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.0.0",
 		"dotenv": "^16.4.5",
+		"smol-toml": "1.8.0",
 		"zod": "^3.23.8"
 	},
 	"devDependencies": {

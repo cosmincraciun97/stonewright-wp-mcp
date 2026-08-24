@@ -2,6 +2,56 @@
 
 ## [Unreleased]
 
+### Security
+
+- Clear inherited WordPress credential variables before an explicit site alias
+  is resolved, and fail startup when that alias is unknown.
+- Allow `env://STONEWRIGHT_WP_APP_PASSWORD` for the selected alias by resolving
+  it from a protected pre-clear snapshot without retaining unrelated stale
+  credentials.
+- Replace self-signed restart proofs with one-time, expiring active-client
+  attestations bound to private registry key material, exact package
+  provenance/version, config hashes, restarted process, and a process-bound
+  catalog observation.
+- Validate installer-managed TOML and JSONC entries as exact official
+  `npx`/`npx.cmd --package <Stonewright package> stonewright-mcp` commands before
+  updating them, while preserving unrelated bytes.
+
+### Fixed
+
+- Reject duplicate or ambiguous Codex TOML command/args assignments and
+  non-string argument members without mutating the file.
+- Parse the entire Codex TOML document before and after package replacement,
+  rejecting missing commas, duplicate definitions, and malformed unrelated
+  sections without changing configuration or recording a restart receipt.
+- Serialize client-config and registry-receipt updates under one lock, and only
+  roll back a config whose current hash still matches the updater's own write.
+- Add a per-config exclusive lock plus an immediate pre-rename hash recheck for
+  Codex TOML and generic JSONC writes; snapshot rollback also rejects drift.
+- Require explicit successful results from all four runtime verification calls;
+  malformed results and fallback values cannot produce a valid receipt.
+- Record a required active-host call as a sequence step when that gateway ran
+  with schema version 2 and non-error MCP content. Status, relist, mismatch, and
+  setup `ok` flags stay separate truthful signals and do not hide plugin
+  validation failures.
+- Print previous and new package/version plus prefix/suffix invariance hashes in
+  `connect update` JSON, without backup paths, credentials, or config text.
+- Generate client OAuth, default-profile, and relist semantics from the plugin's
+  authoritative catalog and enforce parity in the end-to-end contract test.
+- Record restart-verification calls only after successful handlers and enforce
+  `task-start` → `setup-profile` → `wordpress-mcp-status` →
+  `client-surface-check`; caller-provided tool-name lists no longer attest a
+  client catalog.
+- Preserve plugin task-start failures, remove the invalid site-alias
+  translation, prefer authoritative plugin mode/surface state, and fail startup
+  while the active client catalog is stale even when the refresh list is empty.
+- Consume schema-v2 WorkflowPreflight saved/effective mode fields from the real
+  plugin payload and block startup on unsupported schemas or mode mismatch.
+- Serve running and expected package truth from the real health endpoint and
+  expose configured-package truth only to an authenticated request backed by a
+  validated source.
+- Resolve `chatgpt-desktop` through the Codex TOML adapter and catalog metadata.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Changed

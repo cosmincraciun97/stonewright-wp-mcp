@@ -392,7 +392,7 @@ final class ConfigurationPage {
 		$enabled             = PluginEffectiveState::enabled_requested();
 		$effective_state     = PluginEffectiveState::effective_state();
 		$mode                = (string) get_option( 'stonewright_mode', 'development' );
-		$companion_url       = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
+		$companion_url       = (string) get_option( 'stonewright_companion_url', '' );
 		$companion_token     = (string) get_option( 'stonewright_companion_token', '' );
 		$bridge_token        = '' !== $companion_token ? $companion_token : '<choose-a-long-random-token>';
 		$bridge_launch_env   = implode(
@@ -465,8 +465,6 @@ final class ConfigurationPage {
 					</div>
 				<?php endif; ?>
 			<?php endif; ?>
-
-			<?php DiagnosticsPanel::render( self::SLUG, __( 'Setup diagnostics', 'stonewright' ) ); ?>
 
 			<nav class="sw-stepper" aria-label="<?php esc_attr_e( 'Setup progress', 'stonewright' ); ?>">
 				<?php
@@ -644,13 +642,14 @@ final class ConfigurationPage {
 									<li><?php esc_html_e( 'Copy the developer launch values into the local bridge process.', 'stonewright' ); ?></li>
 								</ol>
 								<div class="sw-field stonewright-field-row">
-									<label for="stonewright_companion_url"><?php esc_html_e( 'Bridge URL (usually keep default)', 'stonewright' ); ?></label>
+									<label for="stonewright_companion_url"><?php esc_html_e( 'Bridge URL (optional)', 'stonewright' ); ?></label>
 									<input
 										type="url"
 										class="regular-text"
 										name="stonewright_companion_url"
 										id="stonewright_companion_url"
 										value="<?php echo esc_attr( $companion_url ); ?>"
+										placeholder="http://127.0.0.1:8765"
 										autocomplete="off"
 									/>
 								</div>
@@ -938,13 +937,15 @@ final class ConfigurationPage {
 								<ol>
 									<li><?php esc_html_e( 'Replace the old stonewright-companion tarball URL in private MCP config with the current release URL below.', 'stonewright' ); ?></li>
 									<li><?php esc_html_e( 'Fully restart the AI client so the old process and cached tool list are gone.', 'stonewright' ); ?></li>
-									<li><?php esc_html_e( 'Call stonewright-task-start, then verify companion_version, expected_companion_package, and refresh_required_tool_names.', 'stonewright' ); ?></li>
 								</ol>
-								<pre id="stonewright-current-companion-package"><code><?php echo esc_html( ConnectClientConfig::companion_package_spec() ); ?></code></pre>
+								<p><strong><?php esc_html_e( 'After restart, complete these four calls in order:', 'stonewright' ); ?></strong></p>
+								<ol data-stonewright-runtime-verification-flow>
+									<?php foreach ( CompanionUpdateStatus::verification_steps() as $step ) : ?>
+										<li><?php echo esc_html( $step ); ?></li>
+									<?php endforeach; ?>
+								</ol>
+								<p><?php esc_html_e( 'Then verify the expected companion version, an empty refresh_required_tool_names list, and client_has_tool=true.', 'stonewright' ); ?></p>
 								<div class="sw-actions">
-									<button type="button" class="button" data-stonewright-copy="stonewright-current-companion-package">
-										<?php esc_html_e( 'Copy current companion URL', 'stonewright' ); ?>
-									</button>
 									<button
 										type="button"
 										class="button button-primary"
@@ -960,11 +961,13 @@ final class ConfigurationPage {
 									<dl class="sw-companion-update-result__versions">
 										<div><dt><?php esc_html_e( 'Installed plugin', 'stonewright' ); ?></dt><dd><code data-stonewright-plugin-version></code></dd></div>
 										<div><dt><?php esc_html_e( 'Latest release', 'stonewright' ); ?></dt><dd><code data-stonewright-release-version></code></dd></div>
-										<div><dt><?php esc_html_e( 'Configured bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Configured package', 'stonewright' ); ?></dt><dd><code data-stonewright-configured-companion-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Running companion', 'stonewright' ); ?></dt><dd><code data-stonewright-running-companion-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'HTTP bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-state></code></dd></div>
 									</dl>
-									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt></textarea>
+									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt hidden></textarea>
 									<div class="sw-actions">
-										<button type="button" class="button button-primary" data-stonewright-copy="stonewright-companion-update-prompt">
+										<button type="button" class="button button-primary" data-stonewright-companion-prompt-copy data-stonewright-copy="stonewright-companion-update-prompt" hidden>
 											<?php esc_html_e( 'Copy update prompt', 'stonewright' ); ?>
 										</button>
 										<a class="button" href="#" target="_blank" rel="noopener noreferrer" data-stonewright-companion-download hidden>
@@ -1065,7 +1068,18 @@ final class ConfigurationPage {
 			return $default;
 		}
 		$saved = get_user_meta( $user_id, 'stonewright_setup_client', true );
-		return is_string( $saved ) && in_array( $saved, $known, true ) ? $saved : $default;
+		if ( ! is_string( $saved ) ) {
+			return $default;
+		}
+		$saved    = sanitize_key( $saved );
+		$resolved = ClientCatalog::resolve_slug( $saved );
+		if ( ! in_array( $resolved, $known, true ) ) {
+			return $default;
+		}
+		if ( $resolved !== $saved ) {
+			update_user_meta( $user_id, 'stonewright_setup_client', $resolved );
+		}
+		return $resolved;
 	}
 
 	private static function selected_setup_method( int $user_id ): string {
@@ -1119,6 +1133,9 @@ final class ConfigurationPage {
 			static fn( array $client ): string => (string) $client['slug'],
 			$clients
 		);
+		if ( ! in_array( $selected_slug, $slugs, true ) ) {
+			$selected_slug = OAuthClientConfig::resolve_client_slug( $selected_slug );
+		}
 		if ( ! in_array( $selected_slug, $slugs, true ) ) {
 			$selected_slug = self::selected_setup_client( 0 );
 		}

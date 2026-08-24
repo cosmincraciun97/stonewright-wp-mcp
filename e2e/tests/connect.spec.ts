@@ -137,7 +137,7 @@ test.describe('Connect wizard interactions', () => {
 		expect(fullPrompt).not.toContain('MCP server name: stonewright');
 		// Default wp-env user is "admin"; the prompt names wp-admin as the
 		// Troubleshoot location, so strip that path before the credential check.
-		expect(fullPrompt.replaceAll('wp-admin', '')).not.toContain(WP_USER);
+		expect((fullPrompt ?? '').replaceAll('wp-admin', '')).not.toContain(WP_USER);
 		expect(fullPrompt).not.toContain(WP_BASE_URL);
 		// wp-env's login password is literally "password", so a raw substring
 		// check would reject legitimate guidance such as "Application Password".
