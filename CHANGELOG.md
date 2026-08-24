@@ -32,6 +32,12 @@ development builds were never stable releases.
   different canonical target, including Application Password operations.
 - Partition Direct terminal receipts and incidents by canonical target identity
   so retargeting an alias cannot replay or suppress another site's event.
+- Convert thrown ability callbacks and structured `ok:false` results into one
+  failed Plugin audit event and incident instead of a success or uncaught exit.
+- Serialize Direct stale-lock recovery and incident updates with ownership-safe
+  locks, and clean bounded recovery/release quarantine artifacts.
+- Reject oversized browser-finalizer results after validating the active lease
+  and before changing queue state.
 
 ### Security
 
@@ -41,7 +47,10 @@ development builds were never stable releases.
 - Recursively redact credential patterns from every audit free-text value
   before sanitized arguments or error metadata are persisted.
 - Recover abandoned Direct audit locks with boot/process-start ownership and
-  atomic quarantine so PID reuse or a replacement lock cannot be deleted.
+  an exclusive recovery mutex so PID reuse or a replacement lock cannot be
+  renamed or deleted.
+- Coalesce repeated identical Plugin permission and safety denials by site,
+  ability, and error while retaining the first event and bounded count summaries.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

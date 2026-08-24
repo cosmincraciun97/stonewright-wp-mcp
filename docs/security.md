@@ -32,8 +32,9 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
   dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
-  stream, while a terminal token or capability denial creates exactly one
-  blocked security event.
+  stream. Repeated identical permission and safety denials are scoped by site,
+  ability, and error: the first blocked event and bounded count summaries retain
+  severity while routine repeats are coalesced.
 - Treat the Audit page degraded-state notice as a failed safety control, not a
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.

@@ -22,12 +22,18 @@
 - Stop finalizer retries for malformed successful responses and unexpected
   runtime failures; keep queued `ok:false` receipts pending without counting
   them as applied or failed.
+- Record thrown ability callbacks and structured `ok:false` results as one
+  failed audit event and incident, never as `SUCCESS`.
+- Reject oversized serialized finalizer results only after validating the
+  active lease and before changing persistent queue state.
 
 ### Security
 
 - Redact credential assignments, authorization carriers, Application Password
   shapes, credentialed URLs, and private-key bodies recursively from every
   free-text audit value before persistence.
+- Coalesce identical permission and safety denials by site, ability, and error,
+  retaining the first event plus bounded count summaries and severity.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

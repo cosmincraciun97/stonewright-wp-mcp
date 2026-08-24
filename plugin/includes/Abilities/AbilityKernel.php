@@ -75,7 +75,19 @@ abstract class AbilityKernel implements Ability {
 		// the request-local receipt here and attach the common transaction contract
 		// below so every write surface returns the same machine-readable evidence.
 		\Stonewright\WpMcp\Support\ElementorData::clear_write_context();
-		$result     = $callback( $args );
+		try {
+			$result = $callback( $args );
+		} catch ( \Throwable $_throwable ) {
+			$result = new \WP_Error(
+				'stonewright_ability_throwable',
+				__( 'Ability execution failed unexpectedly.', 'stonewright' ),
+				[
+					'status'           => 500,
+					'execution_status' => 'failed',
+					'root_error_code'  => 'stonewright_ability_throwable',
+				]
+			);
+		}
 		$elementor_receipt = \Stonewright\WpMcp\Support\ElementorData::last_elementor_write_receipt();
 		if ( $result instanceof \WP_Error && [] !== $elementor_receipt ) {
 			$data = $result->get_error_data();
@@ -97,6 +109,10 @@ abstract class AbilityKernel implements Ability {
 				? 'blocked'
 				: 'error';
 		} elseif ( is_array( $result ) ) {
+			if ( array_key_exists( 'ok', $result ) && false === $result['ok'] ) {
+				$structured_code = self::structured_error_code( $result );
+				$status = self::structured_result_is_blocked( $result, $structured_code ) ? 'blocked' : 'error';
+			}
 			// Mutation success requires effect verification when the ability reports it.
 			if ( array_key_exists( 'effect_verified', $result ) && true !== $result['effect_verified'] ) {
 				$status = 'error';
@@ -136,9 +152,20 @@ abstract class AbilityKernel implements Ability {
 				}
 			}
 		} elseif ( is_array( $result ) ) {
-			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'cause_fingerprint', 'strategy_fingerprint', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'category', 'outcome' ] as $effect_key ) {
+			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'cause_fingerprint', 'strategy_fingerprint', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'error_code', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'category' ] as $effect_key ) {
 				if ( array_key_exists( $effect_key, $result ) && ( is_scalar( $result[ $effect_key ] ) || null === $result[ $effect_key ] ) ) {
 					$metadata[ $effect_key ] = $result[ $effect_key ];
+				}
+			}
+			if ( false === ( $result['ok'] ?? true ) ) {
+				$error_code = self::structured_error_code( $result );
+				if ( '' !== $error_code ) {
+					$metadata['error_code']      = $error_code;
+					$metadata['root_error_code'] = $error_code;
+				}
+				$error_message = self::structured_error_message( $result );
+				if ( '' !== $error_message ) {
+					$metadata['error_message'] = $error_message;
 				}
 			}
 			$metadata = self::merge_receipt_metadata( $metadata, is_array( $result['write_receipt'] ?? null ) ? $result['write_receipt'] : [] );
@@ -213,6 +240,36 @@ abstract class AbilityKernel implements Ability {
 			}
 		}
 		return false;
+	}
+
+	/** @param array<string, mixed> $result */
+	private static function structured_error_code( array $result ): string {
+		foreach ( [ 'root_error_code', 'error_code', 'code' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) ) {
+				return sanitize_key( (string) $result[ $key ] );
+			}
+		}
+		return 'stonewright_structured_failure';
+	}
+
+	/** @param array<string, mixed> $result */
+	private static function structured_error_message( array $result ): string {
+		foreach ( [ 'error', 'message' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) ) {
+				$message = preg_replace( '/\s+/', ' ', trim( (string) $result[ $key ] ) ) ?? '';
+				return mb_substr( $message, 0, 500 );
+			}
+		}
+		return '';
+	}
+
+	/** @param array<string, mixed> $result */
+	private static function structured_result_is_blocked( array $result, string $code ): bool {
+		$outcome  = strtoupper( is_scalar( $result['outcome'] ?? null ) ? (string) $result['outcome'] : '' );
+		$category = strtoupper( is_scalar( $result['category'] ?? null ) ? (string) $result['category'] : '' );
+		return 'BLOCKED' === $outcome
+			|| in_array( $category, [ 'PERMISSION', 'SAFETY' ], true )
+			|| self::is_blocked_error_code( $code );
 	}
 
 	/**

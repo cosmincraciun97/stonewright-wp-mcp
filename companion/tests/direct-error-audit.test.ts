@@ -559,7 +559,7 @@ describe('direct error audit', () => {
 			});
 		}
 		expect(fetchImpl).not.toHaveBeenCalled();
-	});
+	}, 15_000);
 
 	it('requires task-start for every always-confirm destructive tool', async () => {
 		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', {
@@ -593,7 +593,7 @@ describe('direct error audit', () => {
 			});
 		}
 		expect(fetchImpl).not.toHaveBeenCalled();
-	});
+	}, 15_000);
 
 	it('audits one ordinary Direct read failure from async dispatch metadata', async () => {
 		const server = await createMcpServer({

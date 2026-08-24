@@ -8,6 +8,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
+import { withOwnedFileLock } from './file-lock.js';
 
 const FINGERPRINT_RE = /^[a-f0-9]{64}$/;
 const MAX_INCIDENTS = 100;
@@ -184,6 +185,10 @@ export class DirectIncidentStore {
 	}
 
 	observeFailure(input: DirectIncidentFailure): DirectIncident {
+		return this.withLock(() => this.observeFailureUnlocked(input));
+	}
+
+	private observeFailureUnlocked(input: DirectIncidentFailure): DirectIncident {
 		const document = this.read();
 		const ability = classification(input.ability, 'unknown-ability');
 		const errorCode = classification(input.error_code, 'unknown-error');
@@ -252,6 +257,13 @@ export class DirectIncidentStore {
 		incidentId: string,
 		input: { repair_receipt_id: string; resolution_event_id: string; resolved_at?: string },
 	): DirectIncident | null {
+		return this.withLock(() => this.markResolvedUnlocked(incidentId, input));
+	}
+
+	private markResolvedUnlocked(
+		incidentId: string,
+		input: { repair_receipt_id: string; resolution_event_id: string; resolved_at?: string },
+	): DirectIncident | null {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
 		if (!incident) return null;
@@ -265,6 +277,10 @@ export class DirectIncidentStore {
 	}
 
 	markLearningPromoted(incidentId: string, memoryKey: string, receiptId: string): boolean {
+		return this.withLock(() => this.markLearningPromotedUnlocked(incidentId, memoryKey, receiptId));
+	}
+
+	private markLearningPromotedUnlocked(incidentId: string, memoryKey: string, receiptId: string): boolean {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
 		if (!incident || incident.state !== 'resolved') return false;
@@ -274,6 +290,13 @@ export class DirectIncidentStore {
 		incident.learned_at = new Date().toISOString();
 		this.write(document);
 		return true;
+	}
+
+	private withLock<T>(operation: () => T): T {
+		const dir = resolve(join(this.baseDir, 'incidents'));
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
+		if (process.platform !== 'win32') chmodSync(dir, 0o700);
+		return withOwnedFileLock(`${this.file}.lock`, operation);
 	}
 
 	private read(): DirectIncidentDocument {

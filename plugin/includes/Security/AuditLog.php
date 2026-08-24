@@ -28,6 +28,7 @@ final class AuditLog {
 	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
 	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 	private const AUTH_SUCCESS_COALESCE_WINDOW_SECONDS = 30 * MINUTE_IN_SECONDS;
+	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
@@ -35,6 +36,9 @@ final class AuditLog {
 	/** @var list<int> */
 	private const AUTH_TERMINAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
 	private const AUTH_SUCCESS_COALESCE_RECORD_COUNTS = [ 1 ];
+
+	/** @var list<int> */
+	private const DENIAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
 
 	/**
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
@@ -224,6 +228,18 @@ final class AuditLog {
 		}
 		$meta  = $sanitized_args['_meta'];
 		$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
+		if ( 'blocked' === $status ) {
+			$coalesced = self::coalesce_security_denial( $ability, (string) ( $event['root_error_code'] ?? '' ) );
+			if ( ! $coalesced['record'] ) {
+				self::mark_audited();
+				return true;
+			}
+			if ( $coalesced['count'] > 1 ) {
+				$sanitized_args['_meta']['coalesced_count'] = $coalesced['count'];
+				$meta  = $sanitized_args['_meta'];
+				$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
+			}
+		}
 		if ( $event['terminal'] && isset( self::$terminal_events[ $event['idempotency_key'] ] ) ) {
 			self::mark_audited();
 			return true;
@@ -286,7 +302,7 @@ final class AuditLog {
 				'cause_key'         => mb_substr( sanitize_text_field( self::meta_string( $meta, 'cause_key' ) ), 0, 255 ),
 				'duration_ms'       => max( 0, (int) ( $meta['duration_ms'] ?? 0 ) ),
 				'backend'           => 'plugin',
-				'site_fingerprint'  => hash( 'sha256', home_url( '/' ) . '|' . (string) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 ) ),
+				'site_fingerprint'  => self::site_fingerprint(),
 				'mode'              => sanitize_key( (string) get_option( 'stonewright_mode', 'development' ) ),
 				'severity'          => $severity,
 				'event_id'          => $event['event_id'],
@@ -593,6 +609,54 @@ final class AuditLog {
 			'record' => $record,
 			'count'  => $delta,
 		];
+	}
+
+	/**
+	 * Bound repeated identical permission and safety denials by site, ability,
+	 * and normalized error while retaining the first row and count summaries.
+	 *
+	 * @return array{record:bool,count:int}
+	 */
+	private static function coalesce_security_denial( string $ability, string $error_code ): array {
+		$salt = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-denial';
+		$key  = 'stonewright_denial_audit_' . hash_hmac(
+			'sha256',
+			self::site_fingerprint() . '|' . sanitize_text_field( $ability ) . '|' . sanitize_key( $error_code ),
+			$salt
+		);
+		$now     = time();
+		$state   = get_transient( $key );
+		$state   = is_array( $state ) ? $state : [];
+		$last    = (int) ( $state['last_at'] ?? 0 );
+		$count   = max( 0, (int) ( $state['count'] ?? 0 ) );
+		$emitted = max( 0, (int) ( $state['emitted_count'] ?? 0 ) );
+		if ( $count > 0 && $now - $last >= self::DENIAL_COALESCE_WINDOW_SECONDS ) {
+			$delta = max( 1, ( $count - $emitted ) + 1 );
+			set_transient(
+				$key,
+				[ 'count' => 1, 'emitted_count' => 1, 'last_at' => $now ],
+				2 * self::DENIAL_COALESCE_WINDOW_SECONDS
+			);
+			return [ 'record' => true, 'count' => $delta ];
+		}
+
+		++$count;
+		$record = in_array( $count, self::DENIAL_COALESCE_RECORD_COUNTS, true );
+		$delta  = $record ? max( 1, $count - $emitted ) : 0;
+		set_transient(
+			$key,
+			[
+				'count'         => $count,
+				'emitted_count' => $record ? $count : $emitted,
+				'last_at'       => $now,
+			],
+			2 * self::DENIAL_COALESCE_WINDOW_SECONDS
+		);
+		return [ 'record' => $record, 'count' => $delta ];
+	}
+
+	private static function site_fingerprint(): string {
+		return hash( 'sha256', home_url( '/' ) . '|' . (string) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 ) );
 	}
 
 	private static function retry_after_seconds( object $response ): int {

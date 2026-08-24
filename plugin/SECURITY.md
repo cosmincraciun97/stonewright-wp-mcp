@@ -52,7 +52,7 @@ Tokens are stored as WordPress transients, so they expire automatically and are 
 
 ### Audit log
 
-All write ability executions are recorded in the `{prefix}stonewright_audit_log` custom table. Terminal finalizer heartbeat token or capability denials create one blocked security row; healthy heartbeat traffic is excluded. Every nested free-text value is credential-redacted before persistence. Each row stores:
+All write ability executions are recorded in the `{prefix}stonewright_audit_log` custom table. Healthy finalizer heartbeat traffic is excluded. Repeated identical permission and safety denials are scoped by site, ability, and error: the first blocked row and bounded count summaries retain severity while routine repeats are coalesced. Every nested free-text value is credential-redacted before persistence. Each row stores:
 
 - ability name
 - user ID

@@ -20,6 +20,9 @@ final class AuditLogCoverageTest extends TestCase {
 		AuditLog::reset_request_state();
 		$GLOBALS['stonewright_test_current_user_id'] = 3;
 		$GLOBALS['wpdb'] = $this->make_wpdb( true );
+		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		$GLOBALS['stonewright_test_home_url'] = 'https://example.test/';
 	}
 
 	protected function tearDown(): void {
@@ -29,6 +32,9 @@ final class AuditLogCoverageTest extends TestCase {
 			unset( $GLOBALS['wpdb'] );
 		}
 		AuditLog::reset_request_state();
+		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		unset( $GLOBALS['stonewright_test_home_url'] );
 	}
 
 	public function test_record_checks_insert_result(): void {
@@ -183,6 +189,51 @@ final class AuditLogCoverageTest extends TestCase {
 		AuditLog::begin_request();
 		AuditLog::record( 'stonewright/test', [], 'blocked' );
 		self::assertSame( 'blocked', $GLOBALS['wpdb']->inserts[0]['data']['result_status'] );
+	}
+
+	public function test_identical_security_denials_keep_first_and_bounded_summary_with_count_and_severity(): void {
+		for ( $attempt = 0; $attempt < 25; $attempt++ ) {
+			AuditLog::reset_request_state();
+			AuditLog::record(
+				'stonewright/content-update',
+				[ '_meta' => [ 'error_code' => 'stonewright_confirmation_required' ] ],
+				'blocked'
+			);
+		}
+
+		self::assertCount( 2, $GLOBALS['wpdb']->inserts );
+		$first   = $GLOBALS['wpdb']->inserts[0]['data'];
+		$summary = $GLOBALS['wpdb']->inserts[1]['data'];
+		self::assertSame( 'warning', $first['severity_level'] );
+		self::assertSame( 'warning', $summary['severity_level'] );
+		self::assertSame( 'BLOCKED', $first['outcome'] );
+		self::assertSame( 'BLOCKED', $summary['outcome'] );
+		$details = json_decode( (string) $summary['redacted_details'], true );
+		self::assertSame( 24, $details['coalesced_count'] ?? null );
+	}
+
+	public function test_security_denial_coalescing_is_site_ability_and_error_scoped_with_bounded_retention(): void {
+		$cases = [
+			[ 'https://site-a.example.test/', 'stonewright/content-update', 'stonewright_confirmation_required' ],
+			[ 'https://site-b.example.test/', 'stonewright/content-update', 'stonewright_confirmation_required' ],
+			[ 'https://site-a.example.test/', 'stonewright/settings-update', 'stonewright_confirmation_required' ],
+			[ 'https://site-a.example.test/', 'stonewright/content-update', 'stonewright_permission_denied' ],
+		];
+		foreach ( $cases as [ $site, $ability, $code ] ) {
+			$GLOBALS['stonewright_test_home_url'] = $site;
+			AuditLog::reset_request_state();
+			AuditLog::record( $ability, [ '_meta' => [ 'error_code' => $code ] ], 'blocked' );
+		}
+
+		self::assertCount( 4, $GLOBALS['wpdb']->inserts );
+		$keys = array_values( array_filter( array_keys( $GLOBALS['stonewright_test_transients'] ), static fn ( string $key ): bool => str_starts_with( $key, 'stonewright_denial_audit_' ) ) );
+		self::assertCount( 4, $keys );
+		foreach ( $keys as $key ) {
+			self::assertLessThanOrEqual( 2 * DAY_IN_SECONDS, $GLOBALS['stonewright_test_transient_ttls'][ $key ] ?? 0 );
+			self::assertGreaterThanOrEqual( DAY_IN_SECONDS, $GLOBALS['stonewright_test_transient_ttls'][ $key ] ?? 0 );
+			self::assertStringNotContainsString( 'site-a.example.test', $key );
+			self::assertStringNotContainsString( 'confirmation_required', $key );
+		}
 	}
 
 	public function test_effect_metadata_is_materialized_for_incident_filters(): void {

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +27,16 @@ function failure(overrides: Partial<DirectIncidentFailure> = {}): DirectIncident
 }
 
 describe('DirectIncidentStore', () => {
+	async function runWriter(runner: string, args: string[]): Promise<void> {
+		await new Promise<void>((resolve, reject) => {
+			const child = spawn(process.execPath, [runner, ...args], { stdio: 'pipe' });
+			let stderr = '';
+			child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+			child.once('error', reject);
+			child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`incident writer exited ${code}: ${stderr}`)));
+		});
+	}
+
 	it('aggregates identical failures, opens at threshold, and reopens after resolution', () => {
 		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
 		const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
@@ -137,4 +149,26 @@ describe('DirectIncidentStore', () => {
 		expect(recovered.list()).toEqual([]);
 		expect(existsSync(`${path}.corrupt`)).toBe(true);
 	});
+
+	it('serializes concurrent failure and repair read-modify-write operations without lost occurrences', async () => {
+		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-race-'));
+		const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+		const seeded = store.observeFailure(failure({ idempotency_key: 'f'.repeat(64) }));
+		const fixture = join(process.cwd(), 'tests', 'fixtures', 'direct-incident-writer.ts');
+		const runner = join(baseDir, 'direct-incident-writer.mjs');
+		await build({ entryPoints: [fixture], bundle: true, platform: 'node', format: 'esm', outfile: runner });
+
+		const writers: Array<Promise<void>> = [];
+		for (let worker = 0; worker < 6; worker += 1) {
+			writers.push(runWriter(runner, [baseDir, 'failure', `failure-${worker}`, '10', seeded.incident_id]));
+			writers.push(runWriter(runner, [baseDir, 'resolve', `repair-${worker}`, '10', seeded.incident_id]));
+		}
+		await Promise.all(writers);
+
+		const current = new DirectIncidentStore(baseDir, fingerprint('site-a')).get(seeded.incident_id);
+		expect(current?.occurrences).toBe(61);
+		expect(['open', 'resolved']).toContain(current?.state);
+		const persisted = JSON.parse(readFileSync(store.path(), 'utf8')) as { incidents: unknown[] };
+		expect(persisted.incidents).toHaveLength(1);
+	}, 20_000);
 });

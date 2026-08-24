@@ -86,9 +86,10 @@ Terminal idempotency and incident storage use the resolved canonical target
 identity, never the mutable alias, so repointing an alias cannot replay or
 suppress another site's terminal event. Marker retention is bounded and
 compacted under the same interprocess lock that protects append and stale-lock
-recovery. Lock owners carry a token, boot identity, and process-start identity;
-recovery atomically quarantines a stale candidate before verifying ownership
-and removes only the quarantine path.
+recovery. Audit and incident mutations use an exclusive recovery mutex plus
+token, boot, process-start, descriptor, and inode ownership. Recovery
+revalidates a stale candidate before atomic quarantine, never renames a
+replacement canonical owner, and bounds stale recovery/release artifacts.
 Ordinary REST read failures are recorded once from dispatch context. Always-
 confirm theme, plugin, user, Application Password, and skill deletions also
 pass the central write-mode and task-start gate before execution.

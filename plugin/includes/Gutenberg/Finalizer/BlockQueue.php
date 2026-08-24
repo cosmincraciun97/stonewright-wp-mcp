@@ -625,6 +625,15 @@ final class BlockQueue {
 				if ( ! hash_equals( (string) ( $record['lease_id'] ?? '' ), $lease_id ) || (int) ( $record['lease_expires_at'] ?? 0 ) < $now ) {
 					return self::stale_lease_error();
 				}
+				$html_bytes = strlen( $html );
+				if ( $html_bytes > self::MAX_SERIALIZED_BYTES ) {
+					return self::size_limit_error(
+						'stonewright_finalizer_html_too_large',
+						__( 'Serialized HTML exceeds the size limit.', 'stonewright' ),
+						self::MAX_SERIALIZED_BYTES,
+						$html_bytes
+					);
+				}
 				$expect = hash( 'sha256', $html );
 				if ( '' === $hash || ! hash_equals( $expect, $hash ) ) {
 					return new \WP_Error( 'stonewright_finalizer_hash_mismatch', __( 'Serialized HTML hash does not match the payload.', 'stonewright' ), [ 'status' => 400 ] );

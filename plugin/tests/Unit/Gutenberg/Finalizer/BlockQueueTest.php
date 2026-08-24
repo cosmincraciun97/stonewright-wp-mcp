@@ -306,6 +306,59 @@ final class BlockQueueTest extends TestCase {
 		self::assertSame( 'serialized', BlockQueue::get( (string) $queued['id'] )['status'] ?? '' );
 	}
 
+	public function test_serialized_result_checks_active_lease_then_rejects_oversize_without_writing_state(): void {
+		$queued = $this->enqueue_card( 'Bound the browser result' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+		$oversize = str_repeat( 'x', BlockQueue::MAX_SERIALIZED_BYTES + 1 );
+
+		$stale = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$oversize,
+			hash( 'sha256', $oversize ),
+			$scope,
+			'browser-b',
+			'oversize-stale',
+			1001
+		);
+		self::assertInstanceOf( \WP_Error::class, $stale );
+		self::assertSame( 'stonewright_finalizer_stale_lease', $stale->get_error_code() );
+
+		$rejected = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$oversize,
+			hash( 'sha256', $oversize ),
+			$scope,
+			'browser-a',
+			'oversize-active',
+			1001
+		);
+		self::assertInstanceOf( \WP_Error::class, $rejected );
+		self::assertSame( 'stonewright_finalizer_html_too_large', $rejected->get_error_code() );
+		$after = BlockQueue::get( (string) $queued['id'] );
+		self::assertSame( 'queued', $after['status'] ?? null );
+		self::assertSame( 'browser-a', $after['lease_id'] ?? null );
+		self::assertSame( '', $after['serialized_html'] ?? null );
+		self::assertSame( '', $after['result_id'] ?? null );
+
+		$html = '<!-- wp:vendor/card /-->';
+		$accepted = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$html,
+			hash( 'sha256', $html ),
+			$scope,
+			'browser-a',
+			'bounded-active',
+			1002
+		);
+		self::assertIsArray( $accepted );
+		self::assertSame( 'serialized', $accepted['status'] ?? null );
+	}
+
 	public function test_failed_result_is_terminal_and_idempotent_for_one_result_id(): void {
 		$queued = $this->enqueue_card( 'Fail once' );
 		self::assertIsArray( $queued );

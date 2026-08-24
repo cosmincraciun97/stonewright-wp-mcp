@@ -1,9 +1,10 @@
-import { appendFileSync, chmodSync, existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { homedir, uptime } from 'node:os';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DirectIncidentStore, directIncidentFingerprint } from './incidents.js';
+import { withOwnedFileLock } from './file-lock.js';
 
 export interface DirectAuditEntry {
 	tool: string;
@@ -74,10 +75,6 @@ const DEFAULT_ROTATION: Required<Omit<DirectAuditRotationPolicy, 'now'>> = {
 	maxFiles: 10,
 };
 
-const LOCK_STALE_MS = 30_000;
-const LOCK_ATTEMPTS = 500;
-const BOOT_IDENTITY = `boot:${Math.floor((Date.now() - uptime() * 1000) / 60_000)}`;
-const PROCESS_STARTED_AT = Math.floor(Date.now() - process.uptime() * 1000);
 const MARKER_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MARKER_INDEX_MAX_ENTRIES = 1000;
 
@@ -412,122 +409,7 @@ function recoverDirectAuditRotation(path: string, maxFiles: number): DirectAudit
 }
 
 function withAuditLock<T>(path: string, operation: () => T): T {
-	const lockPath = `${path}.lock`;
-	const token = randomUUID();
-	const lockContents = `${JSON.stringify({
-		pid: process.pid,
-		created_at: Date.now(),
-		token,
-		boot_id: BOOT_IDENTITY,
-		process_started_at: PROCESS_STARTED_AT,
-	})}\n`;
-	let acquired = false;
-	for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
-		try {
-			writeFileSync(lockPath, lockContents, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-			acquired = true;
-			break;
-		} catch (error) {
-			const code = (error as NodeJS.ErrnoException).code;
-			if (code !== 'EEXIST') throw error;
-			const stale = staleLockSnapshot(lockPath);
-			if (stale !== null) {
-				quarantineStaleLock(lockPath, stale);
-				continue;
-			}
-			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
-		}
-	}
-	if (!acquired) throw new Error(`Timed out waiting for Direct audit lock: ${lockPath}`);
-	try {
-		return operation();
-	} finally {
-		quarantineOwnedLock(lockPath, lockContents);
-	}
-}
-
-type LockSnapshot = {
-	contents: string;
-	modifiedAt: number;
-	device: number;
-	inode: number;
-};
-
-function staleLockSnapshot(lockPath: string): LockSnapshot | null {
-	try {
-		const before = statSync(lockPath);
-		const contents = readFileSync(lockPath, 'utf8');
-		const after = statSync(lockPath);
-		if (before.dev !== after.dev || before.ino !== after.ino || before.mtimeMs !== after.mtimeMs) return null;
-		const snapshot = { contents, modifiedAt: after.mtimeMs, device: after.dev, inode: after.ino };
-		let parsed: { pid?: number; boot_id?: string; process_started_at?: number };
-		try {
-			parsed = JSON.parse(contents) as { pid?: number; boot_id?: string; process_started_at?: number };
-		} catch {
-			return Date.now() - after.mtimeMs > LOCK_STALE_MS ? snapshot : null;
-		}
-		if (Number.isInteger(parsed.pid) && Number(parsed.pid) > 0) {
-			if (typeof parsed.boot_id === 'string' && parsed.boot_id !== BOOT_IDENTITY) return snapshot;
-			if (
-				Number(parsed.pid) === process.pid &&
-				Number.isFinite(parsed.process_started_at) &&
-				Number(parsed.process_started_at) !== PROCESS_STARTED_AT
-			) return snapshot;
-			try {
-				process.kill(Number(parsed.pid), 0);
-				return null;
-			} catch (error) {
-				return (error as NodeJS.ErrnoException).code === 'EPERM' ? null : snapshot;
-			}
-		}
-		return Date.now() - after.mtimeMs > LOCK_STALE_MS ? snapshot : null;
-	} catch {
-		return null;
-	}
-}
-
-function quarantineStaleLock(lockPath: string, observed: LockSnapshot): boolean {
-	const quarantinePath = `${lockPath}.recovery-${randomUUID()}`;
-	try {
-		renameSync(lockPath, quarantinePath);
-		const quarantined = statSync(quarantinePath);
-		if (
-			quarantined.dev !== observed.device ||
-			quarantined.ino !== observed.inode ||
-			readFileSync(quarantinePath, 'utf8') !== observed.contents
-		) {
-			restoreQuarantinedLock(quarantinePath, lockPath);
-			return false;
-		}
-		unlinkSync(quarantinePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function quarantineOwnedLock(lockPath: string, ownedContents: string): boolean {
-	const quarantinePath = `${lockPath}.release-${randomUUID()}`;
-	try {
-		renameSync(lockPath, quarantinePath);
-		if (readFileSync(quarantinePath, 'utf8') !== ownedContents) {
-			restoreQuarantinedLock(quarantinePath, lockPath);
-			return false;
-		}
-		unlinkSync(quarantinePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function restoreQuarantinedLock(quarantinePath: string, lockPath: string): void {
-	try {
-		linkSync(quarantinePath, lockPath);
-		unlinkSync(quarantinePath);
-	} catch {
-		// A new canonical owner wins. Preserve the quarantine for diagnosis.
-	}
+	return withOwnedFileLock(`${path}.lock`, operation);
 }
 
 function compactMarkerIndex(markerDir: string, maxEntries: number): void {

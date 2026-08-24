@@ -21,6 +21,10 @@
 - Use canonical target identity—not aliases—for terminal idempotency and
   incident storage, and quarantine stale locks with boot/process ownership
   checks before removal.
+- Serialize stale-lock recovery behind an exclusive ownership-checked mutex so
+  a replacement live lock cannot be renamed at the recovery boundary.
+- Make Direct incident failure, resolution, and learning updates atomic across
+  processes, and bound stale recovery/release quarantine cleanup.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

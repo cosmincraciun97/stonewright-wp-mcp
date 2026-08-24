@@ -112,9 +112,10 @@ Direct aliases are routing labels, not security identities. Task-start latches,
 terminal idempotency, and incident partitions bind to the resolved canonical
 target (plus immutable registry identity when available). Changing an alias's
 target therefore requires a fresh task-start and creates a distinct audit and
-incident identity. Interprocess audit locks carry token, boot, and process-start
-ownership; stale recovery uses atomic quarantine and never compare-deletes the
-canonical lock path.
+incident identity. Interprocess state locks carry token, boot, process-start,
+descriptor, and inode ownership. Every acquisition and release passes through
+an exclusive recovery mutex; stale recovery revalidates ownership before atomic
+quarantine, so a new canonical owner cannot be renamed or compare-deleted.
 
 ### Tool surface and Step 1 propagation
 
