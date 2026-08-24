@@ -104,6 +104,7 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertGreaterThan( 30, count( $tools ) );
 		self::assertContains( 'stonewright/site-pulse', $tools );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $tools );
+		self::assertContains( 'stonewright/elementor-provider-discovery', $tools );
 	}
 
 	public function test_registers_separate_application_password_and_oauth_servers(): void {

@@ -6,7 +6,8 @@
 
 - Add read-only Elementor provider discovery with ownership, trust, compatibility,
   certification, Status and Troubleshoot visibility, and certified
-  native-preferred metadata for Elementor default styles.
+  native-preferred metadata for Elementor default styles; expose it in the
+  normal Elementor design profile and resulting MCP tool catalog.
 
 ### Changed
 
