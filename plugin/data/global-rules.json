@@ -113,7 +113,7 @@
 		"id": "elementor-frontend-write-closure",
 		"severity": "hard",
 		"scope": "elementor",
-		"rule": "After an Elementor write, invalidate the post HTML and CSS caches, warm the official builder render, assert touched element ids, then verify desktop, tablet, and mobile in a separate frontend tab. Meta readback alone is not completion.",
+		"rule": "After an Elementor write, invalidate only the post HTML/object cache, then use Plugin-mode guarded post CSS verification, assert touched element ids, and verify desktop, tablet, and mobile in a separate frontend tab. Direct mode preserves CSS metadata and cannot claim CSS closure. Meta readback alone is not completion.",
 		"why": "Elementor can persist correct JSON while serving stale cached HTML or CSS.",
 		"enforcement": {
 			"kind": "runtime",

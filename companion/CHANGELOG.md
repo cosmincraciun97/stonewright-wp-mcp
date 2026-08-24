@@ -22,6 +22,9 @@
 
 ### Fixed
 
+- Preserve Elementor CSS metadata during Direct data writes and never run the
+  site-wide Elementor `flush-css` command; report that guarded target-post CSS
+  closure still requires Plugin mode.
 - Audit Direct safety denials before tool execution with the same lifecycle and
   operation classifications as Plugin mode.
 - Recover interrupted idempotency markers and rotate Direct audit logs under a

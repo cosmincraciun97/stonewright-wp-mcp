@@ -16,8 +16,8 @@ use Stonewright\WpMcp\Support\ElementorData;
  * 3. Renderer::render()      — converts spec to Elementor element array.
  * 4. Writes _elementor_data, _elementor_edit_mode, _elementor_version.
  * 5. Structural readback; rollback on empty/invalid tree when transactional.
- * 6. Clears Elementor file cache.
- * 7. Writes audit log entry.
+ * 6. Invalidates only the target post's HTML/object cache.
+ * 7. Writes audit log entry; post CSS closes through PostWriteVerify.
  */
 final class ElementorWriter {
 

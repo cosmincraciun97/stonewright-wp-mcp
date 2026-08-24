@@ -272,6 +272,14 @@ Recommend against stable 1.0 while any required gate is missing:
   desktop/tablet/mobile in a separate frontend tab. For boxed containers measure
   both the outer element and its direct `.e-con-inner`. Meta readback alone is
   not completion.
+- **Elementor CSS safety (hard):** never pass `regenerate_css` to
+  `stonewright-elementor-post-write-verify`; that input no longer exists. A
+  normal Elementor write may invalidate only post HTML/object cache. CSS closes
+  through the verifier's post-only guarded transaction, which inventories the
+  direct CSS directory, probes any existing target, `custom-frontend.min.css`,
+  and `custom-pro-widget-nav-menu.min.css` assets before and after, rejects
+  collateral changes, and restores its bounded asset snapshot. Never call a
+  site-wide Elementor files-manager clear for one post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,

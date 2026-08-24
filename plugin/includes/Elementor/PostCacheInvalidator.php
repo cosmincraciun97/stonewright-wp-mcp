@@ -4,7 +4,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor;
 
 /**
- * Invalidates generated Elementor state for one edited post.
+ * Invalidates only the generated Elementor HTML cache for one edited post.
+ * CSS is owned by CssAssetTransaction and must never be cleared here.
  */
 final class PostCacheInvalidator {
 
@@ -13,61 +14,77 @@ final class PostCacheInvalidator {
 	 *   ok:bool,
 	 *   post_id:int,
 	 *   method:string,
-	 *   element_cache:array{key:string,existed:bool,deleted:bool},
+	 *   element_cache:array{key:string,existed:bool,deleted:bool,absent_after:bool},
 	 *   css_cache:array{method:string,cleared:bool},
 	 *   atomic_styles_notified:bool
 	 * }
 	 */
 	public static function invalidate( int $post_id ): array {
-		$cache_key = self::element_cache_meta_key();
-		$cache_existed = '' !== get_post_meta( $post_id, $cache_key, true );
+		$cache_key    = self::element_cache_meta_key();
+		$cache_existed = self::meta_exists( $post_id, $cache_key );
 		$cache_result  = delete_post_meta( $post_id, $cache_key );
-		$cache_deleted = ! $cache_existed || $cache_result;
 		clean_post_cache( $post_id );
-
-		$css_method  = 'meta_delete';
-		$css_cleared = false;
-		if ( did_action( 'elementor/loaded' ) && class_exists( '\\Elementor\\Plugin' ) ) {
-			try {
-				$manager = \Elementor\Plugin::$instance->posts_css_manager ?? null;
-				if ( is_object( $manager ) && method_exists( $manager, 'clear_cache_post' ) ) {
-					$manager->clear_cache_post( $post_id );
-					$css_method  = 'posts_css_manager';
-					$css_cleared = true;
-				}
-			} catch ( \Throwable $error ) {
-				unset( $error );
-			}
-		}
-
-		if ( ! $css_cleared ) {
-			$css_existed = '' !== get_post_meta( $post_id, '_elementor_css', true );
-			$css_result  = delete_post_meta( $post_id, '_elementor_css' );
-			$css_cleared = ! $css_existed || $css_result;
-		}
-
-		$atomic_styles_notified = false;
-		if ( did_action( 'elementor/loaded' ) ) {
-			// phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores -- Official Elementor hook.
-			do_action( 'elementor/atomic-widgets/styles/clear', [ 'global', $post_id ] );
-			$atomic_styles_notified = true;
-		}
+		$cache_absent = ! self::meta_exists( $post_id, $cache_key );
+		$cache_closed = $cache_absent && ( $cache_result || ! $cache_existed );
 
 		return [
-			'ok'        => $cache_deleted && $css_cleared,
+			'ok'        => $cache_closed,
 			'post_id'   => $post_id,
-			'method'    => $css_method,
+			'method'    => 'element_cache_meta',
 			'element_cache' => [
 				'key'     => $cache_key,
 				'existed' => $cache_existed,
-				'deleted' => $cache_deleted,
+				'deleted' => $cache_closed,
+				'absent_after' => $cache_absent,
 			],
 			'css_cache' => [
-				'method'  => $css_method,
-				'cleared' => $css_cleared,
+				'method'  => 'not_touched',
+				'cleared' => false,
 			],
-			'atomic_styles_notified' => $atomic_styles_notified,
+			'atomic_styles_notified' => false,
 		];
+	}
+
+	/** @return array{key:string,exists:bool,value:mixed} */
+	public static function snapshot( int $post_id ): array {
+		$key    = self::element_cache_meta_key();
+		$exists = self::meta_exists( $post_id, $key );
+		return [
+			'key'    => $key,
+			'exists' => $exists,
+			'value'  => $exists ? get_post_meta( $post_id, $key, true ) : null,
+		];
+	}
+
+	/**
+	 * @param array{key:string,exists:bool,value:mixed} $snapshot
+	 * @return array{ok:bool,present:bool}
+	 */
+	public static function restore( int $post_id, array $snapshot ): array {
+		$key = self::element_cache_meta_key();
+		if ( (string) ( $snapshot['key'] ?? $key ) !== $key ) {
+			return [ 'ok' => false, 'present' => self::meta_exists( $post_id, $key ) ];
+		}
+		$expected = (bool) ( $snapshot['exists'] ?? false );
+		$ok = $expected
+			? false !== update_post_meta( $post_id, $key, $snapshot['value'] ?? null )
+			: ( ! self::meta_exists( $post_id, $key ) || delete_post_meta( $post_id, $key ) );
+		$present = self::meta_exists( $post_id, $key );
+		if ( $present !== $expected ) {
+			$ok = false;
+		}
+		if ( $present && get_post_meta( $post_id, $key, true ) !== ( $snapshot['value'] ?? null ) ) {
+			$ok = false;
+		}
+		return [ 'ok' => $ok, 'present' => $present ];
+	}
+
+	private static function meta_exists( int $post_id, string $key ): bool {
+		if ( function_exists( 'metadata_exists' ) ) {
+			return metadata_exists( 'post', $post_id, $key );
+		}
+		$all_meta = get_post_meta( $post_id );
+		return is_array( $all_meta ) && array_key_exists( $key, $all_meta );
 	}
 
 	private static function element_cache_meta_key(): string {

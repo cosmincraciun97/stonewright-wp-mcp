@@ -51,6 +51,7 @@ final class ElementorDataWriteTest extends TestCase {
 				'_elementor_data'      => '[]',
 				'_elementor_edit_mode' => 'builder',
 				'_elementor_element_cache' => '<div>stale builder html</div>',
+				'_elementor_css'      => [ 'time' => 123, 'status' => 'file' ],
 			],
 		];
 	}
@@ -128,7 +129,7 @@ final class ElementorDataWriteTest extends TestCase {
 		$this->assertNotSame( '', (string) $post->meta['_elementor_version'] );
 	}
 
-	public function test_write_invalidates_only_the_edited_post_css_cache(): void {
+	public function test_write_invalidates_only_post_html_cache_and_never_touches_css(): void {
 		$files_manager = new class() {
 			public int $calls = 0;
 
@@ -162,9 +163,10 @@ final class ElementorDataWriteTest extends TestCase {
 		);
 
 		$this->assertTrue( $result );
-		$this->assertSame( [ 8800 ], $posts_css_manager->post_ids );
+		$this->assertSame( [], $posts_css_manager->post_ids );
 		$this->assertSame( 0, $files_manager->calls, 'Normal writes must never clear every Elementor CSS file.' );
 		$this->assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][8800]->meta );
+		$this->assertSame( [ 'time' => 123, 'status' => 'file' ], $GLOBALS['stonewright_test_posts'][8800]->meta['_elementor_css'] );
 		$this->assertTrue( (bool) ( ElementorData::last_write_receipt()['element_cache']['deleted'] ?? false ) );
 	}
 

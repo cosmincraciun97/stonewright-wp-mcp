@@ -103,6 +103,7 @@ final class ProviderRouter {
 		$reason    = 'mixed' === $target ? 'mixed_architecture' : ( $supported ? 'provider_evidence_available' : 'provider_evidence_unavailable' );
 
 		$manage = $upstream['elementor/manage-default-styles'] ?? null;
+		$manage_elements = $upstream['elementor/manage-elements'] ?? null;
 		$certification = is_array( $manage ) ? self::certify_manage_default_styles( $manage ) : [ 'state' => 'unsupported', 'reason' => 'upstream_ability_not_registered', 'contract' => [] ];
 		$schema_output = is_array( $manage ) && 'certified' === $certification['state'];
 		$native_preferred = [
@@ -127,6 +128,25 @@ final class ProviderRouter {
 					'available'  => false,
 					'selection'  => 'unsupported',
 					'certification' => 'unsupported',
+					'reason'     => 'upstream_ability_not_registered',
+				],
+			'elementor/manage-elements' => is_array( $manage_elements )
+				? [
+					'available'               => true,
+					'selection'               => 'unsupported',
+					'reason'                  => 'upstream_global_clear_cache',
+					'provider_id'             => RuntimeOwnership::provider_id( (string) ( $manage_elements['source_plugin'] ?? ( $manage_elements['meta']['source_plugin'] ?? '' ) ) ),
+					'description'             => self::bounded_string( (string) ( $manage_elements['description'] ?? '' ) ),
+					'input_schema_summary'    => (array) $manage_elements['input_schema_summary'],
+					'output_schema_summary'   => (array) $manage_elements['output_schema_summary'],
+					'schema_fingerprint'      => (string) $manage_elements['schema_fingerprint'],
+					'routable_write'          => false,
+					'safety_closure_required' => true,
+					'provenance'              => self::bounded_provenance( (array) ( $manage_elements['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
+				]
+				: [
+					'available'  => false,
+					'selection'  => 'unsupported',
 					'reason'     => 'upstream_ability_not_registered',
 				],
 		];

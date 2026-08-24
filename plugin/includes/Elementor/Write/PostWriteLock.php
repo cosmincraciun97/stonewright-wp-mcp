@@ -69,7 +69,7 @@ final class PostWriteLock {
 			return false;
 		}
 
-		return delete_option( $key );
+		return self::delete_if_unchanged( $key, $current );
 	}
 
 	public static function owned_by( int $post_id, string $owner ): bool {
@@ -79,6 +79,63 @@ final class PostWriteLock {
 			&& '' !== $owner
 			&& (int) ( $current['expires_at'] ?? 0 ) > time()
 			&& hash_equals( (string) ( $current['owner'] ?? '' ), $owner );
+	}
+
+	/**
+	 * Renew the exact owner lease with a compare-and-swap update.
+	 *
+	 * @param array{post_id:int,owner:string,expires_at:int,acquired_at:int} $lease
+	 * @return array{post_id:int,owner:string,expires_at:int,acquired_at:int}|\WP_Error
+	 */
+	public static function renew( array $lease, int $ttl = 30 ): array|\WP_Error {
+		$post_id = (int) ( $lease['post_id'] ?? 0 );
+		$owner   = sanitize_key( (string) ( $lease['owner'] ?? '' ) );
+		if ( $post_id < 1 || '' === $owner ) {
+			return new \WP_Error(
+				'stonewright_elementor_lock_invalid',
+				__( 'Elementor write locks require a post and owner.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		$key     = self::key( $post_id );
+		$current = get_option( $key, [] );
+		$now     = time();
+		if ( ! is_array( $current )
+			|| ! hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
+			|| (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
+			return new \WP_Error(
+				'stonewright_elementor_lock_lost',
+				__( 'The Elementor write lock is no longer owned by this transaction.', 'stonewright' ),
+				[ 'status' => 409 ]
+			);
+		}
+
+		$next = [
+			'post_id'     => $post_id,
+			'owner'       => $owner,
+			'acquired_at' => (int) ( $current['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
+			'expires_at'  => $now + max( 5, min( 120, $ttl ) ),
+		];
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$updated = $wpdb->update(
+			$wpdb->options,
+			[ 'option_value' => maybe_serialize( $next ) ],
+			[ 'option_name' => $key, 'option_value' => maybe_serialize( $current ) ],
+			[ '%s' ],
+			[ '%s', '%s' ]
+		);
+		wp_cache_delete( $key, 'options' );
+		if ( 1 !== $updated ) {
+			return new \WP_Error(
+				'stonewright_elementor_lock_lost',
+				__( 'The Elementor write lock could not be renewed safely.', 'stonewright' ),
+				[ 'status' => 409 ]
+			);
+		}
+
+		return $next;
 	}
 
 	private static function key( int $post_id ): string {

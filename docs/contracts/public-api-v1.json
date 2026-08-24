@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-24T00:26:21+00:00",
+    "generated_at": "2026-08-24T15:55:23+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -78,7 +78,7 @@
             "permission_class": "Permissions::can_edit_post( (int)",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -190,7 +190,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -302,7 +302,7 @@
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -358,7 +358,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -484,7 +484,7 @@
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -540,7 +540,7 @@
             "permission_class": "Permissions::moderate_comments()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -568,7 +568,7 @@
             "permission_class": "Permissions::edit_post( $id ) (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -582,7 +582,7 @@
             "permission_class": "Permissions::can_create_post_type( 'page' ) (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -596,7 +596,7 @@
             "permission_class": "Permissions::can_create_post_type( $post_type ) (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -610,7 +610,7 @@
             "permission_class": "Permissions::edit_post( $id ) (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -652,7 +652,7 @@
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": true,
                 "audit": true
             }
@@ -666,7 +666,7 @@
             "permission_class": "Permissions::edit_post( $id ) (compound)",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -680,7 +680,7 @@
             "permission_class": "Permissions::edit_post( $id ) (compound)",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -778,7 +778,7 @@
             "permission_class": "Permissions::can_manage_design() (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -834,7 +834,7 @@
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -890,7 +890,7 @@
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -974,7 +974,7 @@
             "permission_class": "Permissions::edit_post( (int) (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1100,7 +1100,7 @@
             "permission_class": "Permissions::can_manage_design() (compound)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1226,7 +1226,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1240,7 +1240,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1254,7 +1254,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1268,7 +1268,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1282,7 +1282,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1296,7 +1296,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1310,7 +1310,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1324,7 +1324,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1338,7 +1338,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1352,7 +1352,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1366,7 +1366,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1380,7 +1380,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1394,7 +1394,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1408,7 +1408,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1422,7 +1422,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1436,7 +1436,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1450,7 +1450,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1464,7 +1464,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1478,7 +1478,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1492,7 +1492,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1506,7 +1506,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1520,7 +1520,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1534,7 +1534,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1548,7 +1548,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1562,7 +1562,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1576,7 +1576,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1590,7 +1590,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1604,7 +1604,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1618,7 +1618,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1632,7 +1632,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1646,7 +1646,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1660,7 +1660,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1674,7 +1674,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1688,7 +1688,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1702,7 +1702,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1716,7 +1716,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1730,7 +1730,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1744,7 +1744,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1758,7 +1758,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1772,7 +1772,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1786,7 +1786,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1800,7 +1800,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1814,7 +1814,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1828,7 +1828,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1842,7 +1842,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1856,7 +1856,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1870,7 +1870,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1884,7 +1884,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1898,7 +1898,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1912,7 +1912,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1926,7 +1926,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1940,7 +1940,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1954,7 +1954,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1968,7 +1968,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1982,7 +1982,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -1996,7 +1996,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2010,7 +2010,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2024,7 +2024,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2038,7 +2038,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2052,7 +2052,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2066,7 +2066,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2080,7 +2080,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2094,7 +2094,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2108,7 +2108,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2122,7 +2122,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2136,7 +2136,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2150,7 +2150,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2164,7 +2164,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2178,7 +2178,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2192,7 +2192,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2206,7 +2206,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2220,7 +2220,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2234,7 +2234,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2248,7 +2248,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2262,7 +2262,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2276,7 +2276,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2290,7 +2290,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2304,7 +2304,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2318,7 +2318,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2332,7 +2332,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2346,7 +2346,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2360,7 +2360,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2374,7 +2374,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2388,7 +2388,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2402,7 +2402,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2416,7 +2416,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2430,7 +2430,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2444,7 +2444,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2458,7 +2458,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2472,7 +2472,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2486,7 +2486,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2500,7 +2500,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2514,7 +2514,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2528,7 +2528,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2612,7 +2612,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2663,12 +2663,12 @@
             "ability_name": "stonewright/elementor-post-write-verify",
             "mcp_name": "stonewright-elementor-post-write-verify",
             "kind": "Write",
-            "input_schema_hash": "aef08bb871b578c46831a0041231d36db9a319ebb5ff6621f9eb39dae6e273c3",
+            "input_schema_hash": "65ddcceb40a0aa9abcc366a3f7c74e20f1f556f93f23006e6015955e20060f2b",
             "output_schema_hash": "fb652a52a7d0a3f616d1b08d035c2c56ea961ca371ff1ff3cbc15e754f09571f",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2710,7 +2710,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2724,7 +2724,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2934,7 +2934,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -2976,7 +2976,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3018,7 +3018,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3060,7 +3060,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3074,7 +3074,7 @@
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3410,7 +3410,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3662,7 +3662,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3704,7 +3704,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3718,7 +3718,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3760,7 +3760,7 @@
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3788,7 +3788,7 @@
             "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3802,7 +3802,7 @@
             "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3816,7 +3816,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3872,7 +3872,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3886,7 +3886,7 @@
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3900,7 +3900,7 @@
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3914,7 +3914,7 @@
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -3928,7 +3928,7 @@
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4082,7 +4082,7 @@
             "permission_class": "Permissions::activate_plugins()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4376,7 +4376,7 @@
             "permission_class": "Permissions::can_edit_post( (int)",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4460,7 +4460,7 @@
             "permission_class": "Permissions::edit_post( $post_id )",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4558,7 +4558,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4642,7 +4642,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4656,7 +4656,7 @@
             "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4712,7 +4712,7 @@
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4722,7 +4722,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "054a5452599daaee4577b21b81a71aecf29845be716dd670b409ee906d2f9849",
+            "output_schema_hash": "d2b753992bbe3ff2f656adfd032c457f8bf9d316c87d569468e380b835a64610",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4796,7 +4796,7 @@
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4810,7 +4810,7 @@
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": true,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4852,7 +4852,7 @@
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -4992,7 +4992,7 @@
             "permission_class": "Permissions::create_users()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -5048,7 +5048,7 @@
             "permission_class": "Permissions::edit_users()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }
@@ -5366,7 +5366,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "054a5452599daaee4577b21b81a71aecf29845be716dd670b409ee906d2f9849",
+            "output_schema_hash": "d2b753992bbe3ff2f656adfd032c457f8bf9d316c87d569468e380b835a64610",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

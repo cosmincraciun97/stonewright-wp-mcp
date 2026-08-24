@@ -18,6 +18,14 @@
 
 ### Fixed
 
+- Prevent single-post Elementor writes from clearing the global generated CSS
+  directory. Normal writes now invalidate HTML cache only; post-write closure
+  uses Elementor's official Post CSS API inside a bounded asset transaction
+  with file-count/hash evidence, same-origin HTTP probes, collateral detection,
+  and byte-for-byte rollback. The former `regenerate_css` input is removed;
+  Direct mode now preserves CSS metadata and refuses global `flush-css`.
+- Mark upstream `elementor/manage-elements` non-routable while its implementation
+  clears Elementor's global files cache.
 - Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP
   compatibility preflight, while requiring their classmap or PSR-4 entry to
   resolve to the canonical adapter target.

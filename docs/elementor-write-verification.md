@@ -19,12 +19,16 @@ For every Elementor document mutation in Plugin mode:
    `expected_tree_hash` where supported. Do not issue parallel writes to the
    same document.
 5. Apply the typed write. Stonewright snapshots first, verifies serialized
-   readback, then invalidates the target post's element cache, CSS state,
-   WordPress object cache, and atomic style notification.
+   readback, then invalidates only the target post's element/HTML cache and
+   WordPress object cache. It does not delete CSS metadata or clear Elementor's
+   site-wide files manager.
 6. Call `stonewright-elementor-post-write-verify` with the touched element IDs
-   and, only when needed, bounded content markers. It regenerates post CSS,
-   warms Elementor through its public frontend renderer, and returns hashes and
-   assertion receipts without returning the page HTML.
+   and, only when needed, bounded content markers. Never pass `regenerate_css`;
+   that unsafe switch does not exist. The verifier inventories the direct CSS
+   directory, probes existing protected URLs, regenerates only the target
+   post's CSS through Elementor's official Post CSS API, renders without a
+   second CSS pass, and restores its bounded asset snapshot if another file
+   changes or a probe fails.
 7. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.
@@ -44,14 +48,18 @@ of restoring a second time.
 
 Post-scoped invalidation removes the document cache key exposed by Elementor's
 `Document::CACHE_META_KEY` (falling back to `_elementor_element_cache` for
-compatible versions), clears only that post's CSS state, cleans the WordPress
-post cache, and emits Elementor's atomic-style clear notification. Stonewright
-does not use a site-wide CSS clear as a fallback for a single document write.
+compatible versions) and cleans the WordPress post cache. It preserves
+`_elementor_css`, never calls Elementor's global files-manager clear, and never
+emits a site-wide atomic-style clear for one post.
 
 `stonewright-elementor-post-write-verify` reports:
 
-- whether element-cache and CSS invalidation closed successfully;
-- the post-scoped CSS regeneration method;
+- whether element-cache invalidation closed successfully;
+- the official post-scoped CSS regeneration method;
+- before/after direct-file counts and bounded manifest hashes;
+- HTTP 200/no-redirect probes for the target post CSS and any existing
+  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets;
+- collateral-change and rollback status;
 - rendered byte count and SHA-256, never raw page HTML;
 - pass/fail for requested Elementor element IDs;
 - hashed pass/fail receipts for requested content markers;
@@ -116,9 +124,11 @@ frontend class and computed display at each requested device.
 ## Direct mode boundary
 
 Local Direct mode can update Elementor data through tokenized WP-CLI. After a
-verified write it removes the target post's element and CSS metadata and
-attempts Elementor's CSS flush command. It still reports
-`browser_required`; Direct mode has no typed live-schema validator.
+verified write it removes only the target post's element/HTML cache. It
+preserves CSS metadata and never calls Elementor's global CSS flush command.
+The result reports `css_safety_status=preserved_pending_plugin_verification`
+and remains `browser_required`; use Plugin mode for guarded target-post CSS
+closure. Direct mode has no typed live-schema validator.
 
 Remote Direct REST cannot load Elementor's PHP renderer or post-cache manager.
 It reports cache and frontend verification as `not_checked` instead of

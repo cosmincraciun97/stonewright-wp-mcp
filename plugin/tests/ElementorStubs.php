@@ -242,6 +242,32 @@ Plugin::$instance = (object) [
 	},
 ];
 
+namespace Elementor\Core\Files\CSS;
+
+final class Post {
+	/** @var callable|null */
+	public static $factory = null;
+
+	public static function create( int $post_id ): object {
+		if ( is_callable( self::$factory ) ) {
+			return ( self::$factory )( $post_id );
+		}
+
+		return new class() {
+			public function update(): void {
+			}
+
+			public function get_path(): string {
+				return '';
+			}
+
+			public function get_url(): string {
+				return '';
+			}
+		};
+	}
+}
+
 namespace Elementor\Modules\GlobalClasses;
 
 final class Global_Classes_Repository {

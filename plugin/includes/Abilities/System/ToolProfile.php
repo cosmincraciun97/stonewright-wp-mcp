@@ -1012,7 +1012,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
-			'stonewright/elementor-post-write-verify' => 'Invalidate one post cache, regenerate its CSS, warm Elementor frontend HTML, and assert touched element ids before browser QA.',
+			'stonewright/elementor-post-write-verify' => 'Invalidate one post HTML cache, regenerate only target post CSS inside a guarded asset transaction, and assert touched element ids before browser QA.',
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',

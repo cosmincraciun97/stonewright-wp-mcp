@@ -96,9 +96,10 @@ site-hosted state.
 Destructive Direct writes on remote sites require `confirm: true` when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts).
 
-Local WP-CLI Elementor updates delete the post-scoped
-`_elementor_element_cache` and `_elementor_css` metadata after verified
-readback, then attempt Elementor's CSS flush command. Their receipt still says
+Local WP-CLI Elementor updates invalidate only the post-scoped
+`_elementor_element_cache` after verified readback and preserve `_elementor_css`
+metadata. They never run Elementor's global CSS flush command; use Plugin mode
+for guarded target-post CSS closure. Their receipt still says
 `browser_required`: cache invalidation is not rendered visual acceptance.
 Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for

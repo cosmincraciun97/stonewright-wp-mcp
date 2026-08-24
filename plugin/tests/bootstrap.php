@@ -629,6 +629,26 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $where
 		 */
 		public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+			if ( $this->options === $table && isset( $where['option_name'], $where['option_value'] ) ) {
+				$option = (string) $where['option_name'];
+				if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+					return 0;
+				}
+				if ( is_callable( $GLOBALS['stonewright_test_before_option_update'] ?? null ) ) {
+					$callback = $GLOBALS['stonewright_test_before_option_update'];
+					unset( $GLOBALS['stonewright_test_before_option_update'] );
+					$callback( $option );
+					if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+						|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+						return 0;
+					}
+				}
+				if ( array_key_exists( 'option_value', $data ) ) {
+					$GLOBALS['stonewright_test_options'][ $option ] = maybe_unserialize( $data['option_value'] );
+				}
+				return 1;
+			}
 			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {
 				$id = (int) $where['id'];
 				if ( isset( $this->direction_rows[ $id ] ) ) {
@@ -2130,7 +2150,8 @@ if ( ! function_exists( 'wp_safe_remote_get' ) ) {
 		// Per-URL override for asset sideloading tests.
 		$asset_overrides = $GLOBALS['stonewright_test_asset_responses'] ?? [];
 		if ( array_key_exists( $url, $asset_overrides ) ) {
-			return $asset_overrides[ $url ];
+			$response = $asset_overrides[ $url ];
+			return is_callable( $response ) ? $response( $url, $args ) : $response;
 		}
 
 		// Default: return a successful image response.

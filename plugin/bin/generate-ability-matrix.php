@@ -380,6 +380,7 @@ function detect_token( string $source ): string {
 		|| strpos( $source, 'require_sandbox_confirmation' ) !== false
 		|| strpos( $source, 'confirmation_token_error(' ) !== false
 		|| strpos( $source, 'production_safe_token_error(' ) !== false
+		|| strpos( $source, 'audit_write(' ) !== false
 		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
 	) {
 		return 'Yes';

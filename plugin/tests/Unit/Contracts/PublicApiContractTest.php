@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Contracts;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Support\PublicApiContractSnapshot;
 
@@ -204,6 +205,15 @@ final class PublicApiContractTest extends TestCase {
 		$this->assertTrue(
 			(bool) $row['gates']['audit'],
 			'Writers that call $this->audit_write( must keep gates.audit true.'
+		);
+	}
+
+	public function test_audit_write_wrapper_also_counts_as_confirmation_token_gate(): void {
+		$row = PublicApiContractSnapshot::collect_ability( PostWriteVerify::class );
+		$this->assertIsArray( $row );
+		$this->assertTrue(
+			(bool) $row['gates']['token'],
+			'The verifier uses audit_write, so its production-safe confirmation gate must be public contract data.'
 		);
 	}
 

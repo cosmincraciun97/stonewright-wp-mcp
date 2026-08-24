@@ -68,4 +68,35 @@ final class PostWriteLockTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_write_busy', $replacement->get_error_code() );
 		self::assertSame( 'txn-three', $GLOBALS['stonewright_test_options'][ $key ]['owner'] );
 	}
+
+	public function test_release_cannot_delete_a_newer_owner_after_the_lease_is_observed(): void {
+		$lease = PostWriteLock::acquire( 9049, 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_before_option_delete'] = static function ( string $option ): void {
+			$GLOBALS['stonewright_test_options'][ $option ] = [
+				'post_id'     => 9049,
+				'owner'       => 'txn-two',
+				'acquired_at' => time(),
+				'expires_at'  => time() + 30,
+			];
+		};
+
+		self::assertFalse( PostWriteLock::release( 9049, 'txn-one' ) );
+		self::assertSame( 'txn-two', $GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_9049' ]['owner'] );
+	}
+
+	public function test_owner_can_renew_its_lease_without_extending_another_owner(): void {
+		$lease = PostWriteLock::acquire( 9049, 'txn-one', 5 );
+		self::assertIsArray( $lease );
+		$renewed = PostWriteLock::renew( $lease, 60 );
+
+		self::assertIsArray( $renewed );
+		self::assertSame( 'txn-one', $renewed['owner'] );
+		self::assertGreaterThan( $lease['expires_at'], $renewed['expires_at'] );
+
+		$other = PostWriteLock::acquire( 9050, 'txn-two', 5 );
+		self::assertIsArray( $other );
+		$foreign = PostWriteLock::renew( [ 'post_id' => 9050, 'owner' => 'txn-one' ] + $other, 60 );
+		self::assertInstanceOf( \WP_Error::class, $foreign );
+	}
 }
