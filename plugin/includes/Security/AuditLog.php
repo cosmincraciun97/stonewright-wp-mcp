@@ -579,7 +579,7 @@ final class AuditLog {
 		return $base;
 	}
 
-	public static function sync_retention_schedule( ?int $now = null ): void {
+	public static function sync_retention_schedule( mixed $now = null ): void {
 		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
 		if ( 0 === $days ) {
 			if ( wp_next_scheduled( self::RETENTION_HOOK ) ) {
@@ -588,7 +588,8 @@ final class AuditLog {
 			return;
 		}
 		if ( ! wp_next_scheduled( self::RETENTION_HOOK ) ) {
-			wp_schedule_event( ( $now ?? time() ) + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );
+			$timestamp = is_int( $now ) ? $now : time();
+			wp_schedule_event( $timestamp + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );
 		}
 	}
 

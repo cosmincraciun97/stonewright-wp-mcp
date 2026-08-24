@@ -11,6 +11,8 @@
 
 ### Fixed
 
+- Accept WordPress `init` hook arguments in audit retention scheduling so an
+  empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
 - Skip audit and incident table `dbDelta` after a healthy schema is installed,
   so admin requests do not re-reconcile unique indexes on every `init`.
 - Persist canonical audit lifecycle identity and bind terminal idempotency to

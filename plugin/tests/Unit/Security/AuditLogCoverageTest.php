@@ -503,6 +503,17 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertFalse( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
 	}
 
+	public function test_wordpress_init_empty_string_does_not_type_error_retention_schedule(): void {
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+
+		// WP_Hook::do_action() prepends an empty string when `init` fires with no
+		// extra args and the callback's accepted_args default is 1.
+		AuditLog::sync_retention_schedule( '' );
+
+		self::assertIsInt( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+	}
+
 	public function test_failed_retention_does_not_block_the_next_automatic_retry(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
 		unset( $GLOBALS['stonewright_test_transients']['stonewright_audit_retention_ran'] );

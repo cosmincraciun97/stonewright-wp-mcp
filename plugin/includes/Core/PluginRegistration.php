@@ -112,7 +112,7 @@ final class PluginRegistration {
 		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
-		add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ], 25 );
+		add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ], 25, 0 );
 		add_action( AuditLog::RETENTION_HOOK, [ AuditLog::class, 'run_scheduled_retention' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
 		// Idempotent: supersede legacy unresolved audit lessons into incident history.
