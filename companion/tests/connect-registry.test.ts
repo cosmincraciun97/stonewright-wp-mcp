@@ -503,6 +503,46 @@ describe('multi-site registry schema v2', () => {
 		expect(env.STONEWRIGHT_WP_APP_PASSWORD).toBe('');
 	});
 
+	it('unknown explicit alias clears every inherited WordPress credential variable', () => {
+		const { file, store } = tmpSites();
+		const site = buildSiteRecord({
+			alias: 'site-a',
+			url: 'https://site-a.example/',
+			username: 'editor-a',
+			credential_ref: 'memory://stonewright/site-a/app-password',
+		});
+		store.set(site.credential_ref, 'site-a-secret');
+		saveRegistry({ schema_version: 2, default_site_id: site.id, sites: [site] }, { sitesFile: file });
+		const env: NodeJS.ProcessEnv = {
+			STONEWRIGHT_SITE_ALIAS: 'missing-site',
+			STONEWRIGHT_WP_URL: 'https://wrong.example',
+			STONEWRIGHT_WP_USERNAME: 'wrong-user',
+			STONEWRIGHT_WP_APP_PASSWORD: 'placeholder-wrong-site',
+			STONEWRIGHT_WP_PASSWORD: 'placeholder-wrong-site-legacy',
+			WP_API_URL: 'https://wrong-legacy.example',
+			WP_USERNAME: 'wrong-legacy-user',
+			WP_APP_PASSWORD: 'placeholder-wrong-legacy-site',
+		};
+
+		const result = applySiteAliasToEnv(env, {
+			sitesFile: file,
+			credentials: { store, prefer: 'memory' },
+		});
+
+		expect(result).toEqual(expect.objectContaining({ applied: false, injected: false, alias: 'missing-site' }));
+		for (const key of [
+			'STONEWRIGHT_WP_URL',
+			'STONEWRIGHT_WP_USERNAME',
+			'STONEWRIGHT_WP_APP_PASSWORD',
+			'STONEWRIGHT_WP_PASSWORD',
+			'WP_API_URL',
+			'WP_USERNAME',
+			'WP_APP_PASSWORD',
+		]) {
+			expect(env[key]).toBeUndefined();
+		}
+	});
+
 	it('normal v2 save may keep backup; migration never leaves plaintext bak', () => {
 		const { file, store, dir } = tmpSites();
 		const ref = 'memory://stonewright/x/app-password';

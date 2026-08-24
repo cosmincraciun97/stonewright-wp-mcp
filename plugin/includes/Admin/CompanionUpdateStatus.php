@@ -210,20 +210,30 @@ final class CompanionUpdateStatus {
 		return $empty;
 	}
 
+	/** @return list<string> */
+	public static function verification_steps(): array {
+		return [
+			__( 'Call stonewright-task-start first with a non-empty task.', 'stonewright' ),
+			__( 'Call stonewright-setup-profile.', 'stonewright' ),
+			__( 'Call stonewright-wordpress-mcp-status.', 'stonewright' ),
+			__( 'Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.', 'stonewright' ),
+		];
+	}
+
 	private static function update_prompt( string $version, string $package ): string {
+		$numbered_steps = [];
+		foreach ( self::verification_steps() as $index => $step ) {
+			$numbered_steps[] = ( $index + 1 ) . '. ' . $step;
+		}
 		return sprintf(
 			"Update the Stonewright companion used by this AI client to %1\$s.\n\n"
 			. "Official package:\n%2\$s\n\n"
 			. "Use the client's official MCP settings or command to replace only the Stonewright package reference. Do not print, reveal, move, or commit surrounding credentials or private client configuration. Fully restart the client so the old stdio process and cached tool list are gone.\n\n"
-			. "After restart:\n"
-			. "1. Confirm stonewright-task-start is visible.\n"
-			. "2. Call stonewright-task-start first.\n"
-			. "3. Call stonewright-setup-profile and stonewright-wordpress-mcp-status.\n"
-			. "4. Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.\n"
-			. "5. Verify companion_version is %1\$s, refresh_required_tool_names is empty, and client_has_tool is true for the required tool.\n"
-			. "6. Stop and report the exact failure if version, reconciliation, or client visibility is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
+			. "After restart, complete these four calls in order:\n%3\$s\n\n"
+			. "Then verify companion_version is %1\$s, refresh_required_tool_names is empty, and client_has_tool is true for the required tool. Stop and report the exact failure if version, reconciliation, or client visibility is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
 			$version,
-			$package
+			$package,
+			implode( "\n", $numbered_steps )
 		);
 	}
 }

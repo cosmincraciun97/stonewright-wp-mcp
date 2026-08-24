@@ -31,9 +31,12 @@ activation, packaging, or compatibility issue that affects the site.
 4. Return to **Stonewright → Setup** and run **Verify connection**.
 
 The native updater offers a release only when exact plugin, companion, and
-`SHA256SUMS.txt` assets are present on the trusted release URL. A missing
-manifest returns `missing_checksum_asset` and refuses transient injection; do
-not bypass that failure with a manual unverified package.
+`SHA256SUMS.txt` assets are present on the trusted release URL. At WordPress's
+install/update gate it fetches a bounded manifest, requires one exact ZIP
+filename and SHA-256 digest, and verifies the downloaded package before
+installation. Missing, malformed, forged, unavailable, empty, or mismatched
+checksum evidence fails closed; do not bypass that failure with an unverified
+package.
 
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
@@ -64,6 +67,8 @@ the linked SHA-256 manifest.
    `npx.cmd` invocation with one `--package`, one exact Stonewright package,
    and the `stonewright-mcp` executable in that order. Shell wrappers, extra
    packages, duplicate flags, and unrelated package strings are rejected.
+   Duplicate `command`/`args` assignments, non-string array members, and
+   ambiguous command values are also rejected without changing the file.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
 4. Call `stonewright-task-start`, then `stonewright-setup-profile`,
@@ -86,6 +91,9 @@ This reuses the existing credential reference, refreshes only the named client
 entry, and makes the alias authoritative over stale inherited WordPress
 environment values. Restart the client, then run `connect verify`; another
 alias or `active_mode=direct` is a failed plugin-mode update, not success.
+An explicit unknown alias clears inherited WordPress credential variables and
+stops startup; it never falls through to whichever site was left in the
+environment.
 The repair receipt is content-free: it confirms the server name, change/backup
 state, support tier, and browser consent without printing the surrounding
 private client configuration or absolute config/backup paths.
@@ -95,6 +103,13 @@ successful gateway sequence, process/catalog evidence, and
 mode-or-surface mismatch, stale catalog, or failed client visibility check is a
 failed update until the exact remediation is completed and verification is
 repeated.
+Config mutation and receipt persistence use one transaction lock. A failed
+registry write rolls back only when the config still has the updater's own
+hash, so it cannot overwrite a newer concurrent edit or receipt.
+
+The plugin JSON client catalog is authoritative. The companion catalog is
+generated from it and contract-tested for OAuth support, default profile, and
+relist behavior.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

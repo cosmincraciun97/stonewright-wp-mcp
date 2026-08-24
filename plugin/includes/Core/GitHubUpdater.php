@@ -18,12 +18,14 @@ final class GitHubUpdater {
 	public const REPO      = 'cosmincraciun97/stonewright-wp-mcp';
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
 	public const SLUG      = 'stonewright';
+	private const MAX_CHECKSUM_MANIFEST_BYTES = 65536;
 	private const RELEASE_CHANNELS = [ 'supported', 'preview', 'stable' ];
 	private const SEMVER_PATTERN = '/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*)))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/';
 
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
 		add_filter( 'plugins_api', [ self::class, 'plugins_api' ], 10, 3 );
+		add_filter( 'upgrader_pre_download', [ self::class, 'verify_package_download' ], 10, 4 );
 	}
 
 	public static function cache_key( string $channel ): string {
@@ -174,6 +176,107 @@ final class GitHubUpdater {
 		];
 
 		return $transient;
+	}
+
+	/**
+	 * Resolve exactly one SHA-256 digest for the expected release filename.
+	 *
+	 * @return string|\WP_Error
+	 */
+	public static function manifest_digest( string $manifest, string $expected_filename ): string|\WP_Error {
+		if ( '' === $manifest || strlen( $manifest ) > self::MAX_CHECKSUM_MANIFEST_BYTES ) {
+			return new \WP_Error( 'stonewright_update_checksum_manifest_empty', __( 'The Stonewright checksum manifest is empty or exceeds the allowed size.', 'stonewright' ) );
+		}
+		if ( basename( $expected_filename ) !== $expected_filename || '' === $expected_filename ) {
+			return new \WP_Error( 'stonewright_update_checksum_manifest_filename', __( 'The expected Stonewright package filename is invalid.', 'stonewright' ) );
+		}
+
+		$matches = [];
+		foreach ( preg_split( '/\r?\n/', $manifest ) ?: [] as $line ) {
+			if ( '' === trim( $line ) ) {
+				continue;
+			}
+			if ( 1 !== preg_match( '/^([a-fA-F0-9]{64}) [ *]([^\r\n]+)$/', $line, $parts ) ) {
+				return new \WP_Error( 'stonewright_update_checksum_manifest_malformed', __( 'The Stonewright checksum manifest is malformed.', 'stonewright' ) );
+			}
+			$filename = $parts[2];
+			if ( basename( $filename ) !== $filename ) {
+				return new \WP_Error( 'stonewright_update_checksum_manifest_malformed', __( 'The Stonewright checksum manifest contains an invalid package path.', 'stonewright' ) );
+			}
+			if ( $expected_filename === $filename ) {
+				$matches[] = strtolower( $parts[1] );
+			}
+		}
+
+		if ( 0 === count( $matches ) ) {
+			return new \WP_Error( 'stonewright_update_checksum_manifest_package_missing', __( 'The Stonewright checksum manifest does not contain the exact plugin ZIP filename.', 'stonewright' ) );
+		}
+		if ( 1 !== count( $matches ) ) {
+			return new \WP_Error( 'stonewright_update_checksum_manifest_package_ambiguous', __( 'The Stonewright checksum manifest contains duplicate plugin ZIP entries.', 'stonewright' ) );
+		}
+
+		return $matches[0];
+	}
+
+	/**
+	 * Download and cryptographically verify the exact Stonewright release ZIP
+	 * before WordPress extracts or installs it.
+	 *
+	 * @param mixed                $reply      Earlier upgrader filter result.
+	 * @param mixed                $upgrader   WordPress upgrader instance.
+	 * @param array<string, mixed> $hook_extra Upgrader context.
+	 * @return mixed
+	 */
+	public static function verify_package_download( mixed $reply, string $package, mixed $upgrader, array $hook_extra ): mixed {
+		if ( is_wp_error( $reply ) ) {
+			return $reply;
+		}
+
+		$remote = self::fetch_latest_release();
+		if ( null === $remote || $package !== $remote['package'] ) {
+			return $reply;
+		}
+		$plugin = (string) ( $hook_extra['plugin'] ?? '' );
+		if ( '' !== $plugin && self::plugin_basename() !== $plugin ) {
+			return $reply;
+		}
+
+		$manifest_response = wp_remote_get(
+			$remote['checksums'],
+			[
+				'timeout'             => 10,
+				'limit_response_size' => self::MAX_CHECKSUM_MANIFEST_BYTES,
+				'headers'             => [
+					'Accept'     => 'text/plain',
+					'User-Agent' => 'Stonewright/' . self::installed_version(),
+				],
+			]
+		);
+		if ( is_wp_error( $manifest_response ) || 200 !== wp_remote_retrieve_response_code( $manifest_response ) ) {
+			return new \WP_Error( 'stonewright_update_checksum_manifest_unavailable', __( 'Stonewright could not securely retrieve the checksum manifest. The update was stopped.', 'stonewright' ) );
+		}
+		$manifest = wp_remote_retrieve_body( $manifest_response );
+		$filename = rawurldecode( basename( (string) wp_parse_url( $package, PHP_URL_PATH ) ) );
+		$expected = self::manifest_digest( $manifest, $filename );
+		if ( is_wp_error( $expected ) ) {
+			return $expected;
+		}
+
+		$downloaded = is_string( $reply ) && '' !== $reply ? $reply : download_url( $package, 300, false );
+		if ( is_wp_error( $downloaded ) ) {
+			return new \WP_Error( 'stonewright_update_package_download_failed', __( 'Stonewright could not download the verified update package. The update was stopped.', 'stonewright' ) );
+		}
+		if ( ! is_string( $downloaded ) || ! is_file( $downloaded ) ) {
+			return new \WP_Error( 'stonewright_update_package_missing', __( 'The downloaded Stonewright update package is unavailable. The update was stopped.', 'stonewright' ) );
+		}
+
+		$actual = hash_file( 'sha256', $downloaded );
+		if ( ! is_string( $actual ) || ! hash_equals( $expected, strtolower( $actual ) ) ) {
+			wp_delete_file( $downloaded );
+			return new \WP_Error( 'stonewright_update_checksum_mismatch', __( 'The Stonewright update package checksum does not match the signed release manifest. The update was stopped.', 'stonewright' ) );
+		}
+
+		return $downloaded;
 	}
 
 	/**

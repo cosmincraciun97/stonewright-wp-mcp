@@ -11,6 +11,7 @@ import {
 	connectUse,
 	connectVerify,
 	extractRuntimeStatus,
+	runtimeToolResultIsSuccess,
 	resolveConnectPassword,
 	testCredentialOptions,
 } from '../src/cli/connect/commands.js';
@@ -432,7 +433,7 @@ describe('connect CLI acceptance matrix', () => {
 				fetchImpl,
 			},
 		);
-		expect(v1).toBe(0);
+		expect(v1).toBe(1);
 		expect(probed).toBe(false);
 		expect(logs.join('')).toMatch(/direct-only never probes|may_probe_plugin=false/);
 
@@ -826,9 +827,16 @@ describe('connect CLI acceptance matrix', () => {
 					detail: 'spawned runtime verified',
 					companion_version: '1.2.3',
 					active_alias: site.alias,
-					remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+					remote_tool_names: [
+						'stonewright-task-start',
+						'stonewright-setup-profile',
+						'stonewright-wordpress-mcp-status',
+						'stonewright-client-surface-check',
+					],
 					task_start_available: true,
+					setup_profile_available: true,
 					status_available: true,
+					surface_check_available: true,
 					refresh_required_tool_names: [],
 				});
 			},
@@ -841,7 +849,7 @@ describe('connect CLI acceptance matrix', () => {
 			ok: true,
 			active_alias: 'verified-site',
 			companion_version: '1.2.3',
-			remote_tool_count: 2,
+			remote_tool_count: 4,
 			task_start_available: true,
 			status_available: true,
 			refresh_required_tool_names: [],
@@ -906,6 +914,52 @@ describe('connect CLI acceptance matrix', () => {
 			companion_version: '1.0.0-beta.8',
 			refresh_required_tool_names: ['stonewright-new-tool'],
 		});
+	});
+
+	it.each([
+		['MCP isError', { isError: true, structuredContent: { ok: true } }],
+		['explicit failure', { structuredContent: { ok: false } }],
+		['malformed object', { structuredContent: { companion_version: '1.2.3' } }],
+		['malformed text', { content: [{ type: 'text', text: 'not-json' }] }],
+		['empty result', null],
+	])('rejects unsuccessful runtime tool result: %s', (_label, result) => {
+		expect(runtimeToolResultIsSuccess(result)).toBe(false);
+	});
+
+	it('accepts only an explicit successful runtime tool result', () => {
+		expect(runtimeToolResultIsSuccess({ structuredContent: { ok: true } })).toBe(true);
+		expect(runtimeToolResultIsSuccess({ content: [{ type: 'text', text: '{"ok":true}' }] })).toBe(true);
+	});
+
+	it('does not let a verifier ok fallback bypass the exact four runtime calls', async () => {
+		const h = harness();
+		capture();
+		await connectAdd({
+			alias: 'forged-runtime',
+			url: 'https://forged-runtime.example/',
+			username: 'editor',
+			password: 'example-password',
+			mode: 'plugin-only',
+		}, { sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true });
+
+		const code = await connectVerify('forged-runtime', {}, {
+			sitesFile: h.sitesFile,
+			homeDir: h.homeDir,
+			credentials: h.credentials,
+			skipAuth: true,
+			runtimeVerifier: () => Promise.resolve({
+				ok: true,
+				detail: 'fallback claims success',
+				active_alias: 'forged-runtime',
+				refresh_required_tool_names: [],
+			}),
+		});
+
+		expect(code).toBe(1);
+		const registry = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ last_verification?: { ok?: boolean } }>;
+		};
+		expect(registry.sites[0]?.last_verification?.ok).toBe(false);
 	});
 
 	it('repair --wp-root persists a canonical local WordPress root and refuses invalid ones', async () => {

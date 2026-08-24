@@ -9,6 +9,7 @@ import {
 } from './generic-json.js';
 import { codexAdapter } from './codex-toml.js';
 import type { ClientAdapter, McpServerEntry, SupportTier } from './types.js';
+import { AUTHORITATIVE_CLIENT_CATALOG } from '../../contracts/client-catalog.generated.js';
 
 export type { ClientAdapter, McpServerEntry, SupportTier, ApplyResult, RemoveResult, VerifyConfigResult, PackageUpdateResult } from './types.js';
 export { ClientConfigError } from './types.js';
@@ -38,218 +39,6 @@ export interface ClientCatalogMeta {
 	adapterImplemented: boolean;
 }
 
-const STUB_CLIENTS: ClientCatalogMeta[] = [
-	{
-		id: 'claude-code',
-		label: 'Claude Code',
-		supportTier: 'community',
-		configFormat: 'cli-only',
-		officialCliAdd: 'claude mcp add',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'restart-session',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'gemini-cli',
-		label: 'Gemini CLI',
-		supportTier: 'community',
-		configFormat: 'cli-only',
-		officialCliAdd: 'gemini mcp add',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'restart-session',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'cline',
-		label: 'Cline',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'reload-window',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'windsurf',
-		label: 'Windsurf',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'reload-window',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'zed',
-		label: 'Zed',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'restart-session',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'opencode',
-		label: 'OpenCode',
-		supportTier: 'unknown',
-		configFormat: 'unknown',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'unknown',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'roo-code',
-		label: 'Roo Code',
-		supportTier: 'unknown',
-		configFormat: 'unknown',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'unknown',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'kilo-code',
-		label: 'Kilo Code',
-		supportTier: 'unknown',
-		configFormat: 'unknown',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'unknown',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'amazon-q',
-		label: 'Amazon Q',
-		supportTier: 'community',
-		configFormat: 'unknown',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'unknown',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'antigravity',
-		label: 'Antigravity',
-		supportTier: 'unknown',
-		configFormat: 'unknown',
-		officialCliAdd: '',
-		oauthSupport: false,
-		appPasswordSupport: true,
-		relistBehavior: 'unknown',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'antigravity-cli',
-		label: 'Antigravity CLI',
-		supportTier: 'unknown',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: true,
-		appPasswordSupport: true,
-		relistBehavior: 'restart-session',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'chatgpt-desktop',
-		label: 'Codex in ChatGPT Desktop',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: true,
-		appPasswordSupport: true,
-		relistBehavior: 'restart-app',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'chatgpt',
-		label: 'ChatGPT',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: true,
-		appPasswordSupport: true,
-		relistBehavior: 'reload-or-restart',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'claude-ai',
-		label: 'Claude.ai',
-		supportTier: 'community',
-		configFormat: 'json-mcp',
-		officialCliAdd: '',
-		oauthSupport: true,
-		appPasswordSupport: true,
-		relistBehavior: 'reload-or-restart',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-	{
-		id: 'github-copilot',
-		label: 'GitHub Copilot',
-		supportTier: 'community',
-		configFormat: 'json-servers',
-		officialCliAdd: '',
-		oauthSupport: true,
-		appPasswordSupport: true,
-		relistBehavior: 'reload-window',
-		newTaskRequiredAfterCatalogChange: true,
-		safeToolBudget: 40,
-		defaultProfile: 'essential-static',
-		adapterImplemented: false,
-	},
-];
 
 function implementedAdapters(): ClientAdapter[] {
 	return [codexAdapter(), cursorAdapter(), claudeDesktopAdapter(), vscodeAdapter(), genericMcpAdapter()];
@@ -270,24 +59,12 @@ export function getClientAdapter(id: string): ClientAdapter | null {
 }
 
 export function listClientCatalog(): ClientCatalogMeta[] {
-	const implemented = implementedAdapters().map(
-		(a): ClientCatalogMeta => ({
-			id: a.id,
-			label: a.label,
-			supportTier: a.supportTier,
-			configFormat: a.configFormat,
-			officialCliAdd: a.officialCliAdd ?? '',
-			oauthSupport: false,
-			appPasswordSupport: true,
-			relistBehavior: a.id === 'codex' ? 'restart-or-reload-mcp' : 'reload-window',
-			newTaskRequiredAfterCatalogChange: true,
-			safeToolBudget: 40,
-			defaultProfile: 'essential-static',
-			adapterImplemented: true,
-		}),
-	);
-	const implementedIds = new Set(implemented.map((c) => c.id));
-	const codex = implemented.find((client) => client.id === 'codex')!;
+	const clients = AUTHORITATIVE_CLIENT_CATALOG.map((client): ClientCatalogMeta => ({
+		...client,
+		supportTier: client.supportTier as SupportTier,
+		adapterImplemented: getClientAdapter(client.id) !== null,
+	}));
+	const codex = clients.find((client) => client.id === 'codex')!;
 	const desktopAlias: ClientCatalogMeta = {
 		...codex,
 		id: 'chatgpt-desktop',
@@ -295,9 +72,8 @@ export function listClientCatalog(): ClientCatalogMeta[] {
 		adapterImplemented: true,
 	};
 	return [
-		...implemented,
+		...clients,
 		desktopAlias,
-		...STUB_CLIENTS.filter((c) => !implementedIds.has(c.id) && c.id !== desktopAlias.id),
 	].sort((a, b) =>
 		a.label.localeCompare(b.label),
 	);
@@ -342,7 +118,8 @@ export function detectClients(homeDir = homedir()): DetectedClient[] {
 		windsurf: join(homeDir, '.codeium', 'windsurf', 'mcp_config.json'),
 		zed: join(homeDir, '.config', 'zed', 'settings.json'),
 	};
-	for (const stub of STUB_CLIENTS.filter((client) => client.id !== 'chatgpt-desktop')) {
+	const detectedIds = new Set(results.map((client) => client.id));
+	for (const stub of listClientCatalog().filter((client) => !detectedIds.has(client.id))) {
 		const configPath = stubPaths[stub.id] ?? null;
 		results.push({
 			id: stub.id,

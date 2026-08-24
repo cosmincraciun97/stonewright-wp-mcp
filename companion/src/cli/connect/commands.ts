@@ -19,8 +19,8 @@ import {
 	storeSiteSecret,
 } from '../../credentials/index.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
-import { stonewrightPackageIdentity, stonewrightPackageVersion } from '../clients/package-reference.js';
+import { readTextFile, restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
+import { sha256Text, stonewrightPackageIdentity, stonewrightPackageVersion } from '../clients/package-reference.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -36,6 +36,7 @@ import {
 } from './mode-policy.js';
 import {
 	buildSiteRecord,
+	atomicWriteRegistry,
 	findSiteByAlias,
 	findSiteById,
 	findDuplicateEndpoint,
@@ -48,6 +49,7 @@ import {
 	setDefaultSite,
 	upsertSite,
 	type LoadRegistryOptions,
+	withRegistryLock,
 } from './registry.js';
 import { mcpServerName } from './server-name.js';
 import {
@@ -90,6 +92,7 @@ export interface RuntimeVerification {
 	task_start_available?: boolean | undefined;
 	setup_profile_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	surface_check_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
 	process_start_id?: string | undefined;
 	catalog_digest?: string | undefined;
@@ -297,6 +300,36 @@ function findStatusField(value: unknown, key: string): unknown {
 	return undefined;
 }
 
+function runtimeToolPayload(result: unknown): Record<string, unknown> | null {
+	if (!result || typeof result !== 'object') return null;
+	const record = result as Record<string, unknown>;
+	if (record['isError'] === true) return null;
+	if (record['structuredContent'] && typeof record['structuredContent'] === 'object') {
+		return record['structuredContent'] as Record<string, unknown>;
+	}
+	if (Array.isArray(record['content'])) {
+		for (const part of record['content']) {
+			if (!part || typeof part !== 'object' || typeof (part as { text?: unknown }).text !== 'string') continue;
+			try {
+				const parsed = JSON.parse((part as { text: string }).text) as unknown;
+				if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+			} catch {
+				return null;
+			}
+		}
+	}
+	return null;
+}
+
+export function runtimeToolResultIsSuccess(result: unknown): boolean {
+	return runtimeToolPayload(result)?.['ok'] === true;
+}
+
+function catalogObservationFromDescription(description: unknown): string | undefined {
+	if (typeof description !== 'string') return undefined;
+	return /(?:^|\s)catalog_observation=([^;\s]+)/.exec(description)?.[1];
+}
+
 export function extractRuntimeStatus(status: unknown): {
 	companion_version?: string | undefined;
 	refresh_required_tool_names: string[];
@@ -346,8 +379,10 @@ async function defaultRuntimeVerifier(
 			const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
 			const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 			const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+			const surfaceName = names.find((name) => toolNameMatches([name], 'stonewright-client-surface-check'));
+			let taskResult: unknown = null;
 			if (taskName) {
-				await client.callTool({
+				taskResult = await client.callTool({
 					name: taskName,
 					arguments: {
 						task: 'Verify the saved Stonewright site connection.',
@@ -356,30 +391,44 @@ async function defaultRuntimeVerifier(
 					},
 				}, undefined, { timeout: 20_000 });
 			}
+			if (taskName && !runtimeToolResultIsSuccess(taskResult)) return { ok: false, detail: 'Spawned runtime task-start returned an unsuccessful or malformed result.' };
+			let setupResult: unknown = null;
 			if (setupName) {
-				await client.callTool({ name: setupName, arguments: {} }, undefined, { timeout: 20_000 });
+				setupResult = await client.callTool({ name: setupName, arguments: {} }, undefined, { timeout: 20_000 });
 			}
+			if (setupName && !runtimeToolResultIsSuccess(setupResult)) return { ok: false, detail: 'Spawned runtime setup-profile returned an unsuccessful or malformed result.' };
 			const status = statusName
 				? await client.callTool({ name: statusName, arguments: {} }, undefined, { timeout: 20_000 })
 				: null;
+			if (statusName && !runtimeToolResultIsSuccess(status)) return { ok: false, detail: 'Spawned runtime status returned an unsuccessful or malformed result.' };
+			const surfaceTool = listed.tools.find((tool) => tool.name === surfaceName);
+			const observation = catalogObservationFromDescription(surfaceTool?.description);
+			const surfaceResult = surfaceName
+				? await client.callTool({ name: surfaceName, arguments: {
+					expected_tool: 'stonewright-task-start',
+					...(observation ? { catalog_observation: observation } : {}),
+				} }, undefined, { timeout: 20_000 })
+				: null;
+			if (surfaceName && !runtimeToolResultIsSuccess(surfaceResult)) return { ok: false, detail: 'Spawned runtime client-surface-check returned an unsuccessful or malformed result.' };
 			const runtimeStatus = extractRuntimeStatus(status);
 			const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 			const required = site.plugin_expectations?.abilities ?? [];
 			const missing = required.filter((name) => !toolNameMatches(names, name));
 			return {
-				ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+				ok: Boolean(taskName && setupName && statusName && surfaceName && missing.length === 0 && refreshRequiredNames.length === 0),
 				attestation_scope: 'spawned-runtime',
 				detail: missing.length > 0
 					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
 					: refreshRequiredNames.length > 0
 						? `Spawned client runtime requires a client refresh for tools: ${refreshRequiredNames.join(', ')}`
 					: `Spawned client runtime exposed ${names.length} tools; task-start and status completed.`,
-				companion_version: runtimeStatus.companion_version ?? APP_VERSION,
+				companion_version: runtimeStatus.companion_version,
 				active_alias: entry.env.STONEWRIGHT_SITE_ALIAS ?? site.alias,
 				remote_tool_names: names,
 				task_start_available: Boolean(taskName),
 				setup_profile_available: Boolean(setupName),
 				status_available: Boolean(statusName),
+				surface_check_available: Boolean(surfaceName),
 				refresh_required_tool_names: refreshRequiredNames,
 				process_start_id: runtimeStatus.process_start_id,
 				catalog_digest: runtimeStatus.catalog_digest,
@@ -417,21 +466,33 @@ async function defaultRuntimeVerifier(
 		const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
 		const setupName = names.find((name) => toolNameMatches([name], 'stonewright-setup-profile'));
 		const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+		const surfaceName = names.find((name) => toolNameMatches([name], 'stonewright-client-surface-check'));
+		let taskResult: unknown = null;
 		if (taskName) {
-			await client.callTool(taskName, {
+			taskResult = await client.callTool(taskName, {
 				task: 'Verify the saved Stonewright site connection.',
 				intent: 'read-only connection verification',
 				surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
 			});
 		}
-		if (setupName) await client.callTool(setupName, {});
+		if (taskName && !runtimeToolResultIsSuccess(taskResult)) return { ok: false, detail: 'Live MCP task-start returned an unsuccessful or malformed result.' };
+		const setupResult = setupName ? await client.callTool(setupName, {}) : null;
+		if (setupName && !runtimeToolResultIsSuccess(setupResult)) return { ok: false, detail: 'Live MCP setup-profile returned an unsuccessful or malformed result.' };
 		const status = statusName ? await client.callTool(statusName, {}) : null;
+		if (statusName && !runtimeToolResultIsSuccess(status)) return { ok: false, detail: 'Live MCP status returned an unsuccessful or malformed result.' };
+		const surfaceTool = tools.find((tool) => tool.name === surfaceName);
+		const observation = catalogObservationFromDescription(surfaceTool?.description);
+		const surfaceResult = surfaceName ? await client.callTool(surfaceName, {
+			expected_tool: 'stonewright-task-start',
+			...(observation ? { catalog_observation: observation } : {}),
+		}) : null;
+		if (surfaceName && !runtimeToolResultIsSuccess(surfaceResult)) return { ok: false, detail: 'Live MCP client-surface-check returned an unsuccessful or malformed result.' };
 		const runtimeStatus = extractRuntimeStatus(status);
 		const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 		const required = site.plugin_expectations?.abilities ?? [];
 		const missing = required.filter((name) => !toolNameMatches(names, name));
 		return {
-			ok: Boolean(taskName && setupName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
+			ok: Boolean(taskName && setupName && statusName && surfaceName && missing.length === 0 && refreshRequiredNames.length === 0),
 			attestation_scope: 'site-runtime',
 			detail: missing.length > 0
 				? `Live MCP missing required tools: ${missing.join(', ')}`
@@ -444,6 +505,7 @@ async function defaultRuntimeVerifier(
 			task_start_available: Boolean(taskName),
 			setup_profile_available: Boolean(setupName),
 			status_available: Boolean(statusName),
+			surface_check_available: Boolean(surfaceName),
 			refresh_required_tool_names: refreshRequiredNames,
 		};
 	} catch (err) {
@@ -916,7 +978,28 @@ export function connectUpdate(
 	opts: { client: string; to: string },
 	ctx: ConnectContext = {},
 ): number {
-	const { registry } = loadWritableRegistry(ctx);
+	let path: string;
+	try {
+		path = loadWritableRegistry(ctx).path;
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
+	try {
+		return withRegistryLock(path, () => connectUpdateLocked(alias, opts, ctx, path));
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
+}
+
+function connectUpdateLocked(
+	alias: string,
+	opts: { client: string; to: string },
+	ctx: ConnectContext,
+	registryPath: string,
+): number {
+	const { registry } = loadRegistry(ctxPaths(ctx));
 	const site = findSiteByAlias(registry, alias);
 	if (!site) {
 		writeErr(`Unknown alias "${alias}"`);
@@ -987,10 +1070,20 @@ export function connectUpdate(
 			updated_at: now,
 		};
 		try {
-			saveRegistryForContext(upsertSite(registry, nextSite, { replace: true }), ctx);
+			const nextRegistry = upsertSite(registry, nextSite, { replace: true });
+			if (ctx.saveRegistryImpl) {
+				ctx.saveRegistryImpl(nextRegistry, ctxPaths(ctx));
+			} else {
+				atomicWriteRegistry(registryPath, nextRegistry);
+			}
 		} catch (err) {
-			restoreFileSnapshot(configPath, before);
-			throw new ConnectError('registry_write_failed', `Registry write failed; client config was rolled back: ${err instanceof Error ? err.message : String(err)}`);
+			const current = readTextFile(configPath);
+			const ownsCurrentWrite = current !== null && sha256Text(current) === applied.afterSha256;
+			if (ownsCurrentWrite) restoreFileSnapshot(configPath, before);
+			throw new ConnectError(
+				'registry_write_failed',
+				`Registry write failed; ${ownsCurrentWrite ? 'client config was rolled back' : 'a newer client config was preserved'}: ${err instanceof Error ? err.message : String(err)}`,
+			);
 		}
 		writeOut(JSON.stringify({
 			ok: true,
@@ -1169,7 +1262,12 @@ export async function connectVerify(
 	const runtime = await (ctx.runtimeVerifier
 		? ctx.runtimeVerifier(site, password, configuredEntry)
 		: defaultRuntimeVerifier(site, password, ctx.fetchImpl ?? fetch, configuredEntry));
-	const runtimeReady = runtime.ok && (runtime.refresh_required_tool_names?.length ?? 0) === 0;
+	const runtimeReady = runtime.ok
+		&& runtime.task_start_available === true
+		&& runtime.setup_profile_available === true
+		&& runtime.status_available === true
+		&& runtime.surface_check_available === true
+		&& (runtime.refresh_required_tool_names?.length ?? 0) === 0;
 	checks.push({ id: 'runtime', ok: runtimeReady, detail: runtime.detail });
 	const pendingRestart = verifiedClientId ? site.clients[verifiedClientId]?.pending_restart : undefined;
 	if (verifiedClientId && pendingRestart) {
@@ -1200,7 +1298,9 @@ export async function connectVerify(
 			remote_tool_count: remoteNames.length || undefined,
 			surface_digest: surfaceDigest,
 			task_start_available: runtime.task_start_available,
+			setup_profile_available: runtime.setup_profile_available,
 			status_available: runtime.status_available,
+			surface_check_available: runtime.surface_check_available,
 			refresh_required_tool_names: runtime.refresh_required_tool_names,
 			process_start_id: runtime.process_start_id,
 			catalog_digest: runtime.catalog_digest,

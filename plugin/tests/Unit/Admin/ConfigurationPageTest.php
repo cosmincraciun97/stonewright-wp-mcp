@@ -169,6 +169,19 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Download official companion', $html );
 		self::assertStringContainsString( 'browser cannot replace an stdio process', $html );
 		self::assertStringContainsString( 'live authenticated MCP loopback', $html );
+		self::assertStringContainsString( 'data-stonewright-runtime-verification-flow', $html );
+		$flow_start = strpos( $html, 'data-stonewright-runtime-verification-flow' );
+		self::assertNotFalse( $flow_start );
+		$flow = substr( $html, $flow_start, 1600 );
+		self::assertSame( 4, substr_count( $flow, '<li>' ) );
+		$offsets = array_map(
+			static fn( string $tool ): int|false => strpos( $flow, $tool ),
+			[ 'stonewright-task-start', 'stonewright-setup-profile', 'stonewright-wordpress-mcp-status', 'stonewright-client-surface-check' ]
+		);
+		self::assertNotContains( false, $offsets );
+		$sorted_offsets = $offsets;
+		sort( $sorted_offsets );
+		self::assertSame( $sorted_offsets, $offsets );
 		self::assertStringNotContainsString( 'Run connection test', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--ok', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--neutral', $html );

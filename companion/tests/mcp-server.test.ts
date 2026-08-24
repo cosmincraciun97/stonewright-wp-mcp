@@ -9,6 +9,21 @@ import { createMcpServer } from '../src/mcp-server.js';
 import { proxyToolNamesForProfile } from '../src/wordpress-mcp.js';
 
 describe('createMcpServer', () => {
+	it('fails startup closed when an explicit site alias cannot be resolved', async () => {
+		const env: NodeJS.ProcessEnv = {
+			STONEWRIGHT_SITE_ALIAS: 'missing-site',
+			STONEWRIGHT_SITES_FILE: '/nonexistent/stonewright-sites.json',
+			STONEWRIGHT_WP_URL: 'https://wrong.example',
+			STONEWRIGHT_WP_USERNAME: 'wrong-user',
+			STONEWRIGHT_WP_APP_PASSWORD: 'placeholder-wrong-site',
+		};
+
+		await expect(createMcpServer({ env })).rejects.toThrow(/site alias/i);
+		expect(env.STONEWRIGHT_WP_URL).toBeUndefined();
+		expect(env.STONEWRIGHT_WP_USERNAME).toBeUndefined();
+		expect(env.STONEWRIGHT_WP_APP_PASSWORD).toBeUndefined();
+	});
+
 	it('returns an McpServer instance without throwing', async () => {
 		await expect(createMcpServer()).resolves.toBeTruthy();
 	});

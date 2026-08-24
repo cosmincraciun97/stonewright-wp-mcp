@@ -4,6 +4,8 @@
 
 ### Security
 
+- Clear inherited WordPress credential variables before an explicit site alias
+  is resolved, and fail startup when that alias is unknown.
 - Replace self-signed restart proofs with one-time, expiring active-client
   attestations bound to private registry key material, exact package
   provenance/version, config hashes, restarted process, and a process-bound
@@ -14,6 +16,14 @@
 
 ### Fixed
 
+- Reject duplicate or ambiguous Codex TOML command/args assignments and
+  non-string argument members without mutating the file.
+- Serialize client-config and registry-receipt updates under one lock, and only
+  roll back a config whose current hash still matches the updater's own write.
+- Require explicit successful results from all four runtime verification calls;
+  malformed results and fallback values cannot produce a valid receipt.
+- Generate client OAuth, default-profile, and relist semantics from the plugin's
+  authoritative catalog and enforce parity in the end-to-end contract test.
 - Record restart-verification calls only after successful handlers and enforce
   `task-start` → `setup-profile` → `wordpress-mcp-status` →
   `client-surface-check`; caller-provided tool-name lists no longer attest a

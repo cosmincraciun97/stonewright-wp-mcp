@@ -211,23 +211,33 @@ function scanArrayStrings(text: string, start: number, limit: number): { end: nu
 			continue;
 		}
 		if (char === '"' || char === "'") {
+			if (depth !== 1) tomlParseFailure(text, i, 'TOML_ARGS_NESTED_VALUE');
 			const scanned = scanTomlString(text, i);
 			if (scanned.end > limit) tomlParseFailure(text, i, 'TOML_STRING_CROSSES_TABLE');
 			if (scanned.token) strings.push(scanned.token);
 			i = scanned.end;
 			continue;
 		}
-		if (char === '[') depth++;
+		if (char === '[') {
+			if (depth >= 1) tomlParseFailure(text, i, 'TOML_ARGS_NON_STRING_MEMBER');
+			depth++;
+			i++;
+			continue;
+		}
 		if (char === ']') {
 			depth--;
 			if (depth === 0) return { end: i + 1, strings };
+		}
+		if (depth === 1 && !/[\s,]/.test(char)) {
+			tomlParseFailure(text, i, 'TOML_ARGS_NON_STRING_MEMBER');
 		}
 		i++;
 	}
 	tomlParseFailure(text, start, 'TOML_UNCLOSED_ARRAY');
 }
 
-function findBareAssignment(text: string, table: TomlTableSpan, key: string): number | null {
+function findBareAssignments(text: string, table: TomlTableSpan, key: string): number[] {
+	const found: number[] = [];
 	let i = table.bodyStart;
 	let currentLineStart = text.lastIndexOf('\n', i - 1) + 1;
 	while (i < table.end) {
@@ -253,14 +263,20 @@ function findBareAssignment(text: string, table: TomlTableSpan, key: string): nu
 			if (text.slice(i, keyEnd) === key && text[equals] === '=') {
 				let value = equals + 1;
 				while (value < table.end && (text[value] === ' ' || text[value] === '\t')) value++;
-				return value;
+				found.push(value);
 			}
 			i = keyEnd;
 			continue;
 		}
 		i++;
 	}
-	return null;
+	return found;
+}
+
+function findBareAssignment(text: string, table: TomlTableSpan, key: string): number | null {
+	const found = findBareAssignments(text, table, key);
+	if (found.length > 1) tomlParseFailure(text, found[1], `TOML_DUPLICATE_${key.toUpperCase()}`);
+	return found[0] ?? null;
 }
 
 function tableArrayStrings(text: string, table: TomlTableSpan, key: string): TomlStringSpan[] | null {

@@ -19,6 +19,19 @@ const STONEWRIGHT_PAGES = [
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
 
+test('Setup shows the exact four-call post-update verification flow', async ({ page }) => {
+	await login(page);
+	await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+	const steps = page.locator('[data-stonewright-runtime-verification-flow] > li');
+	await expect(steps).toHaveCount(4);
+	await expect(steps).toHaveText([
+		'Call stonewright-task-start first with a non-empty task.',
+		'Call stonewright-setup-profile.',
+		'Call stonewright-wordpress-mcp-status.',
+		'Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.',
+	]);
+});
+
 /**
  * Hardened wp-admin login for flaky CI (reauth redirects, parallel workers).
  */

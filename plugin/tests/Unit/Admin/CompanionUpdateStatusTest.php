@@ -11,6 +11,17 @@ use Stonewright\WpMcp\Core\GitHubUpdater;
  * @covers \Stonewright\WpMcp\Admin\CompanionUpdateStatus
  */
 final class CompanionUpdateStatusTest extends TestCase {
+	public function test_runtime_verification_flow_is_exactly_four_ordered_calls(): void {
+		self::assertSame(
+			[
+				'Call stonewright-task-start first with a non-empty task.',
+				'Call stonewright-setup-profile.',
+				'Call stonewright-wordpress-mcp-status.',
+				'Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.',
+			],
+			CompanionUpdateStatus::verification_steps()
+		);
+	}
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_options']    = [];
@@ -71,6 +82,7 @@ final class CompanionUpdateStatusTest extends TestCase {
 		self::assertStringContainsString( 'refresh_required_tool_names', $report['update_prompt'] );
 		self::assertStringContainsString( 'stonewright-client-surface-check', $report['update_prompt'] );
 		self::assertStringContainsString( 'expected_tool=stonewright-task-start', $report['update_prompt'] );
+		self::assertStringNotContainsString( "\n5.", $report['update_prompt'] );
 		self::assertStringNotContainsString( 'Application Password:', $report['update_prompt'] );
 		self::assertStringContainsString( 'cannot replace a local stdio', $report['boundary'] );
 	}

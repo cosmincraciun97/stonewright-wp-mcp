@@ -214,6 +214,11 @@ paste a second generic block by hand. Restart Codex or reload the MCP session.
 In the Codex TUI, use `/mcp` after restart to confirm the named Stonewright
 entry is active.
 
+The updater rejects duplicate `command` or `args` assignments, non-string
+argument members, and ambiguous command values without changing the file.
+Client-config and registry-receipt writes share one lock; rollback only applies
+while the current config hash still matches the updater's own write.
+
 After every Stonewright release or skill sync, run `stonewright-task-start`,
 `stonewright-setup-profile`, `stonewright-wordpress-mcp-status`, then
 `stonewright-client-surface-check`. Check `site_alias`, companion/package,

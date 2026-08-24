@@ -150,12 +150,16 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 ```
 
 Verification spawns the configured stdio server, confirms site_alias and
-companion version when observable, lists tools, calls `stonewright-task-start`
-and status, checks required tools, and stores a surface digest. The receipt
+companion version when observable, lists tools, then requires explicit success
+from `stonewright-task-start`, `stonewright-setup-profile`,
+`stonewright-wordpress-mcp-status`, and
+`stonewright-client-surface-check` in that order. The receipt
 prints safe runtime proof, including `refresh_required_tool_names`, the ordered
 gateway results, and process-bound catalog evidence. A non-empty list,
 saved/effective mode or surface mismatch, or failed client visibility check
-fails verification. A parseable client config is only a structural check.
+fails verification. Error envelopes, `ok:false`, malformed results, and
+fallback values fail verification. A parseable client config is only a
+structural check.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,

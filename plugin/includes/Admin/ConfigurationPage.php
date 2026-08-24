@@ -937,8 +937,14 @@ final class ConfigurationPage {
 								<ol>
 									<li><?php esc_html_e( 'Replace the old stonewright-companion tarball URL in private MCP config with the current release URL below.', 'stonewright' ); ?></li>
 									<li><?php esc_html_e( 'Fully restart the AI client so the old process and cached tool list are gone.', 'stonewright' ); ?></li>
-									<li><?php esc_html_e( 'Call stonewright-task-start, then verify companion_version, expected_companion_package, and refresh_required_tool_names.', 'stonewright' ); ?></li>
 								</ol>
+								<p><strong><?php esc_html_e( 'After restart, complete these four calls in order:', 'stonewright' ); ?></strong></p>
+								<ol data-stonewright-runtime-verification-flow>
+									<?php foreach ( CompanionUpdateStatus::verification_steps() as $step ) : ?>
+										<li><?php echo esc_html( $step ); ?></li>
+									<?php endforeach; ?>
+								</ol>
+								<p><?php esc_html_e( 'Then verify the expected companion version, an empty refresh_required_tool_names list, and client_has_tool=true.', 'stonewright' ); ?></p>
 								<div class="sw-actions">
 									<button
 										type="button"

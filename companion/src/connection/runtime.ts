@@ -944,7 +944,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					const mcpError = (
 						remote && typeof remote === 'object' && (remote as Record<string, unknown>)['isError'] === true
 					) || structured['isError'] === true;
-					if (structured['ok'] === false || mcpError) {
+					if (structured['ok'] !== true || mcpError) {
 						const errorCode = typeof structured['error_code'] === 'string'
 							? structured['error_code']
 							: 'plugin_task_start_failed';

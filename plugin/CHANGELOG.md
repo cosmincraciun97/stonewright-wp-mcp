@@ -4,12 +4,19 @@
 
 ### Security
 
+- Fetch a bounded `SHA256SUMS.txt` manifest and verify the exact release ZIP at
+  WordPress's pre-download install/update gate. Missing, malformed, forged,
+  unavailable, empty, and mismatched checksums now fail closed with typed
+  errors.
 - Require an exact `SHA256SUMS.txt` release asset before accepting updater
   metadata or injecting an update transient, with a typed
   `missing_checksum_asset` recovery reason.
 
 ### Fixed
 
+- Show one authoritative four-step post-update verification flow in Setup and
+  the copied update prompt: task start, profile setup, status, then a
+  process-bound client surface check.
 - Require complete authenticated configured-package evidence in companion
   health responses and include `stonewright-client-surface-check` in the
   post-update verification prompt.

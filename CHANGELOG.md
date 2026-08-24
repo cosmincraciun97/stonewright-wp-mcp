@@ -13,6 +13,13 @@ development builds were never stable releases.
 
 ### Security
 
+- Verify the downloaded plugin ZIP against its exact entry in the bounded
+  `SHA256SUMS.txt` release manifest before WordPress may install it, with
+  typed fail-closed errors for missing, malformed, forged, unavailable, or
+  mismatched checksums.
+- Clear inherited WordPress credentials before resolving an explicit site
+  alias and refuse startup when that alias is unknown, preventing a stale
+  environment from selecting the wrong site.
 - Bind active-client update attestation to a private registry key and one-time
   expiring receipt, the owning MCP client, exact official package provenance
   and version, config hashes, restarted process, and process-bound catalog
@@ -24,6 +31,11 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Reject ambiguous Codex TOML, make config and receipt updates share one
+  transactional lock, and use compare-and-swap rollback so a failed update
+  cannot overwrite newer configuration or lose a concurrent receipt.
+- Generate companion client semantics from the plugin's authoritative catalog,
+  keeping OAuth support, default profiles, and relist behavior in parity.
 - Enforce the successful restart-verification order `task-start` →
   `setup-profile` → `wordpress-mcp-status` → `client-surface-check`, and use a
   process-bound catalog observation instead of caller-supplied tool names.

@@ -392,6 +392,34 @@ describe('permanent gateways integration', () => {
 		}));
 	});
 
+	it('preserves a malformed plugin task-start result as an authoritative failure', async () => {
+		const stateDir = mkdtempSync(join(tmpdir(), 'sw-task-start-malformed-'));
+		const server = await createMcpServer({
+			env: {
+				HOME: stateDir,
+				STONEWRIGHT_HOME: stateDir,
+				STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartResponse: { guidance: [] },
+			}),
+		});
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'malformed remote response' }) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string };
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'plugin_task_start_failed',
+		}));
+	});
+
 	it('reports authoritative full plugin surface and gates a stale client catalog despite an empty refresh list', async () => {
 		const remoteTools = Array.from({ length: 378 }, (_, index) => ({ name: `stonewright-synthetic-${index}` }));
 		remoteTools.splice(0, 3,

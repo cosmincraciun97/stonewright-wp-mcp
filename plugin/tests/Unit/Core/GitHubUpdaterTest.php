@@ -16,6 +16,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_filters']             = [];
 		$GLOBALS['stonewright_test_wp_remote_get']       = null;
 		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
+		$GLOBALS['stonewright_test_download_url']        = null;
 	}
 
 	protected function tearDown(): void {
@@ -23,6 +24,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_filters']             = [];
 		$GLOBALS['stonewright_test_wp_remote_get']       = null;
 		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
+		$GLOBALS['stonewright_test_download_url']        = null;
 	}
 
 	public function test_installed_channel_distinguishes_stable_and_prerelease_versions(): void {
@@ -383,6 +385,76 @@ final class GitHubUpdaterTest extends TestCase {
 	public function test_register_hooks_update_plugins_filter(): void {
 		GitHubUpdater::register();
 		self::assertArrayHasKey( 'site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
+		self::assertArrayHasKey( 'upgrader_pre_download', $GLOBALS['stonewright_test_filters'] );
+	}
+
+	public function test_checksum_manifest_requires_one_exact_zip_filename_and_digest(): void {
+		$filename = 'stonewright-1.3.0-beta.30.zip';
+		$digest   = str_repeat( 'a', 64 );
+
+		self::assertSame( $digest, GitHubUpdater::manifest_digest( $digest . '  ' . $filename . "\n", $filename ) );
+
+		foreach ( [
+			'',
+			str_repeat( 'x', 65537 ),
+			$digest . '  ../' . $filename . "\n",
+			$digest . '  other.zip' . "\n",
+			$digest . '  ' . $filename . "\n" . str_repeat( 'b', 64 ) . '  ' . $filename . "\n",
+			'not-a-digest  ' . $filename . "\n",
+		] as $manifest ) {
+			$result = GitHubUpdater::manifest_digest( $manifest, $filename );
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertStringStartsWith( 'stonewright_update_checksum_manifest_', $result->get_error_code() );
+		}
+	}
+
+	public function test_upgrader_pre_download_verifies_the_downloaded_stonewright_zip(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$release  = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+		self::assertIsArray( $release );
+		$package  = tempnam( sys_get_temp_dir(), 'stonewright-update-' );
+		self::assertIsString( $package );
+		file_put_contents( $package, 'verified synthetic package' );
+		$digest   = hash_file( 'sha256', $package );
+		$filename = basename( $release['package'] );
+		$GLOBALS['stonewright_test_download_url'] = static fn(): string => $package;
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => $digest . '  ' . $filename . "\n",
+		];
+
+		$result = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertSame( $package, $result );
+		self::assertFileExists( $package );
+		unlink( $package );
+	}
+
+	public function test_upgrader_pre_download_fails_closed_for_mismatch_and_manifest_network_error(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$release = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+		self::assertIsArray( $release );
+		$package = tempnam( sys_get_temp_dir(), 'stonewright-update-' );
+		self::assertIsString( $package );
+		file_put_contents( $package, 'tampered synthetic package' );
+		$GLOBALS['stonewright_test_download_url'] = static fn(): string => $package;
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => str_repeat( '0', 64 ) . '  ' . basename( $release['package'] ) . "\n",
+		];
+
+		$mismatch = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+		self::assertInstanceOf( \WP_Error::class, $mismatch );
+		self::assertSame( 'stonewright_update_checksum_mismatch', $mismatch->get_error_code() );
+		self::assertFileDoesNotExist( $package );
+
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): \WP_Error => new \WP_Error( 'http_request_failed', 'private upstream detail' );
+		$network = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+		self::assertInstanceOf( \WP_Error::class, $network );
+		self::assertSame( 'stonewright_update_checksum_manifest_unavailable', $network->get_error_code() );
+		self::assertStringNotContainsString( 'private upstream detail', $network->get_error_message() );
 	}
 
 	/** @return iterable<string, array{string, int, string}> */

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { codexAdapter, cursorAdapter } from '../src/cli/clients/index.js';
@@ -192,6 +192,22 @@ describe('connect update', () => {
 		expect(readFileSync(path, 'utf8')).toBe(before);
 	});
 
+	it.each([
+		['duplicate command', `command = "npx"\ncommand = "npx"\nargs = ["-y", "--package", "${OLD_PACKAGE}", "stonewright-mcp"]`],
+		['duplicate args', `command = "npx"\nargs = ["-y", "--package", "${OLD_PACKAGE}", "stonewright-mcp"]\nargs = ["-y", "--package", "${OLD_PACKAGE}", "stonewright-mcp"]`],
+		['non-string args member', `command = "npx"\nargs = ["-y", true, "--package", "${OLD_PACKAGE}", "stonewright-mcp"]`],
+		['ambiguous command value', `command = ["npx"]\nargs = ["-y", "--package", "${OLD_PACKAGE}", "stonewright-mcp"]`],
+	])('rejects ambiguous Codex TOML without mutation: %s', (_label, body) => {
+		const h = harness();
+		const path = join(h.dir, '.codex', 'config.toml');
+		const before = `[mcp_servers.site-a]\n${body}\n\n[unrelated]\nprivate = "keep"\n`;
+		writeFileSync(path, before, 'utf8');
+
+		expect(() => codexAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE))
+			.toThrowError(/config_parse_failure|official_executable_contract_invalid/);
+		expect(readFileSync(path, 'utf8')).toBe(before);
+	});
+
 	it('edits only the real TOML args array and ignores fake keys in comments and strings', () => {
 		const h = harness();
 		const path = join(h.dir, '.codex', 'config.toml');
@@ -333,6 +349,53 @@ describe('connect update', () => {
 		expect(code).toBe(1);
 		expect(readFileSync(configPath, 'utf8')).toBe(configBefore);
 		expect(readFileSync(h.sitesFile, 'utf8')).toBe(registryBefore);
+	});
+
+	it('holds the shared registry transaction lock while persisting the update receipt', async () => {
+		const h = harness();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		let lockObserved = false;
+
+		const code = connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.dir,
+			credentials: h.credentials,
+			saveRegistryImpl: (registry, options) => {
+				lockObserved = existsSync(`${h.sitesFile}.lock`);
+				writeFileSync(h.sitesFile, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+				return { path: options.sitesFile ?? h.sitesFile, backupPath: null };
+			},
+		});
+
+		expect(code).toBe(0);
+		expect(lockObserved).toBe(true);
+	});
+
+	it('never rolls back over a newer client config after registry persistence fails', async () => {
+		const h = harness();
+		const configPath = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd({
+			alias: 'site-a', url: 'https://site-a.example', username: 'editor', password: 'example-password',
+			client: 'cursor', clientConfigPath: configPath,
+		}, { sitesFile: h.sitesFile, homeDir: h.dir, credentials: h.credentials, skipAuth: true, packageSpec: OLD_PACKAGE });
+		const newerConfig = '{\n  "newer": true\n}\n';
+
+		const code = connectUpdate('site-a', { client: 'cursor', to: NEW_PACKAGE }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.dir,
+			credentials: h.credentials,
+			saveRegistryImpl: () => {
+				writeFileSync(configPath, newerConfig, 'utf8');
+				throw new Error('synthetic registry failure after newer config write');
+			},
+		});
+
+		expect(code).toBe(1);
+		expect(readFileSync(configPath, 'utf8')).toBe(newerConfig);
 	});
 
 	it('never accepts an injected CLI runtime assertion as active-client restart proof', async () => {

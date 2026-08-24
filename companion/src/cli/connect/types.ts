@@ -86,7 +86,9 @@ export interface LastVerification {
 	remote_tool_count?: number | undefined;
 	surface_digest?: string | undefined;
 	task_start_available?: boolean | undefined;
+	setup_profile_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	surface_check_available?: boolean | undefined;
 	refresh_required_tool_names?: string[] | undefined;
 	process_start_id?: string | undefined;
 	catalog_digest?: string | undefined;
