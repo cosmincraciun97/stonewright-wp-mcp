@@ -36,7 +36,10 @@ install/update gate it fetches a bounded manifest, requires one exact ZIP
 filename and SHA-256 digest, and verifies the downloaded package before
 installation. Missing, malformed, forged, unavailable, empty, or mismatched
 checksum evidence fails closed; do not bypass that failure with an unverified
-package.
+package. The queued ZIP is also bound to its exact release version, canonical
+package path, and manifest when the update transient is created. A later cache
+refresh, unavailable release feed, mismatched package, or query-string URL
+variant cannot bypass that binding.
 
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
@@ -94,6 +97,9 @@ alias or `active_mode=direct` is a failed plugin-mode update, not success.
 An explicit unknown alias clears inherited WordPress credential variables and
 stops startup; it never falls through to whichever site was left in the
 environment.
+`--credential-env STONEWRIGHT_WP_APP_PASSWORD` remains valid: the selected
+alias resolves that one value from a protected pre-clear snapshot, then writes
+only the selected site's URL, username, and password back to the runtime.
 The repair receipt is content-free: it confirms the server name, change/backup
 state, support tier, and browser consent without printing the surrounding
 private client configuration or absolute config/backup paths.
@@ -106,6 +112,15 @@ repeated.
 Config mutation and receipt persistence use one transaction lock. A failed
 registry write rolls back only when the config still has the updater's own
 hash, so it cannot overwrite a newer concurrent edit or receipt.
+Each TOML/JSONC config also has its own exclusive lock and an immediate
+pre-rename hash comparison. A concurrent edit is preserved and the Stonewright
+write is rejected; rollback applies the same comparison.
+
+The plugin task-start payload uses WorkflowPreflight schema version 2 and
+reports `saved_wordpress_mode` plus `effective_wordpress_mode`. The companion
+accepts those plugin values as authoritative. Unsupported schemas, malformed
+mode fields, saved/effective mismatch, or any required verification response
+without `ok === true` and non-error content blocks startup and attestation.
 
 The plugin JSON client catalog is authoritative. The companion catalog is
 generated from it and contract-tested for OAuth support, default profile, and

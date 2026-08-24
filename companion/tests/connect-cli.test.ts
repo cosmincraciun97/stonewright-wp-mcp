@@ -24,7 +24,12 @@ import {
 	listClientCatalog,
 } from '../src/cli/clients/index.js';
 import { ClientConfigError } from '../src/cli/clients/types.js';
-import { redactedDiff, writeWithRollback } from '../src/cli/clients/atomic-config.js';
+import {
+	redactedDiff,
+	restoreFileSnapshot,
+	snapshotFile,
+	writeWithRollback,
+} from '../src/cli/clients/atomic-config.js';
 
 describe('connect CLI acceptance matrix', () => {
 	const dirs: string[] = [];
@@ -556,6 +561,67 @@ describe('connect CLI acceptance matrix', () => {
 		void adapter;
 	});
 
+	it('holds a config-specific lock and rejects an edit made immediately before rename', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'sw-cfg-race-'));
+		dirs.push(dir);
+		const path = join(dir, 'mcp.json');
+		const before = '{"mcpServers":{}}\n';
+		const concurrent = '{"mcpServers":{},"concurrent":true}\n';
+		writeFileSync(path, before, 'utf8');
+
+		expect(() => writeWithRollback({
+			path,
+			expectedContents: before,
+			nextContents: '{"mcpServers":{"stonewright":{}}}\n',
+			validate: (candidatePath) => {
+				expect(existsSync(`${path}.lock`)).toBe(true);
+				JSON.parse(readFileSync(candidatePath, 'utf8'));
+				if (candidatePath !== path) writeFileSync(path, concurrent, 'utf8');
+			},
+		})).toThrowError(/config_concurrent_modification/);
+
+		expect(readFileSync(path, 'utf8')).toBe(concurrent);
+		expect(existsSync(`${path}.lock`)).toBe(false);
+	});
+
+	it('rollback CAS preserves a newer edit made after rename', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'sw-cfg-rollback-race-'));
+		dirs.push(dir);
+		const path = join(dir, 'config.toml');
+		const before = 'model = "before"\n';
+		const next = 'model = "stonewright"\n';
+		const concurrent = 'model = "concurrent"\n';
+		writeFileSync(path, before, 'utf8');
+
+		expect(() => writeWithRollback({
+			path,
+			expectedContents: before,
+			nextContents: next,
+			validate: (candidatePath) => {
+				if (candidatePath === path) {
+					writeFileSync(path, concurrent, 'utf8');
+					throw new Error('synthetic post-rename validation failure');
+				}
+			},
+		})).toThrow(ClientConfigError);
+
+		expect(readFileSync(path, 'utf8')).toBe(concurrent);
+	});
+
+	it('cross-resource rollback rejects a changed config instead of restoring over it', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'sw-cfg-snapshot-race-'));
+		dirs.push(dir);
+		const path = join(dir, 'config.toml');
+		writeFileSync(path, 'before\n', 'utf8');
+		const before = snapshotFile(path);
+		writeFileSync(path, 'transaction-write\n', 'utf8');
+		const transactionWrite = snapshotFile(path);
+		writeFileSync(path, 'newer-user-edit\n', 'utf8');
+
+		expect(() => restoreFileSnapshot(path, before, transactionWrite)).toThrowError(/config_rollback_conflict/);
+		expect(readFileSync(path, 'utf8')).toBe('newer-user-edit\n');
+	});
+
 	it('codex adapter upsert is idempotent and format-preserving for other keys', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'sw-toml-'));
 		dirs.push(dir);
@@ -630,6 +696,35 @@ describe('connect CLI acceptance matrix', () => {
 		expect(reg.sites[0]?.alias).toBe('env-pass-site');
 		expect(reg.sites[0]?.credential_ref).toMatch(/memory:\/\//);
 		expect(JSON.stringify(reg)).not.toContain('example-password-from-env');
+	});
+
+	it('connect add accepts --credential-env STONEWRIGHT_WP_APP_PASSWORD as an env reference', async () => {
+		const h = harness();
+		capture();
+		const env: NodeJS.ProcessEnv = {
+			STONEWRIGHT_WP_APP_PASSWORD: 'example-self-referenced-password',
+		};
+		const code = await connectAdd(
+			{
+				alias: 'self-ref-site',
+				url: 'https://self-ref.example/',
+				username: 'editor',
+				credentialEnv: 'STONEWRIGHT_WP_APP_PASSWORD',
+			},
+			{
+				sitesFile: h.sitesFile,
+				homeDir: h.homeDir,
+				skipAuth: true,
+				env,
+			},
+		);
+
+		expect(code).toBe(0);
+		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ credential_ref: string }>;
+		};
+		expect(reg.sites[0]?.credential_ref).toBe('env://STONEWRIGHT_WP_APP_PASSWORD');
+		expect(JSON.stringify(reg)).not.toContain('example-self-referenced-password');
 	});
 
 	it('persists Step 1 expectations and one-time browser consent per site and client', async () => {

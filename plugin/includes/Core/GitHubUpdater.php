@@ -14,6 +14,8 @@ final class GitHubUpdater {
 
 	public const CACHE_KEY = 'stonewright_github_release';
 	public const CACHE_SCHEMA_VERSION = 4;
+	private const PACKAGE_BINDING_SCHEMA_VERSION = 1;
+	private const PACKAGE_BINDING_CACHE_PREFIX = 'stonewright_update_package_binding_';
 	public const CACHE_TTL = 12 * HOUR_IN_SECONDS;
 	public const REPO      = 'cosmincraciun97/stonewright-wp-mcp';
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
@@ -174,6 +176,7 @@ final class GitHubUpdater {
 			'requires'    => $remote['requires'] ?? '',
 			'requires_php'=> $remote['requires_php'] ?? ( defined( 'STONEWRIGHT_MIN_PHP' ) ? (string) constant( 'STONEWRIGHT_MIN_PHP' ) : '8.1' ),
 		];
+		self::bind_queued_package( $remote );
 
 		return $transient;
 	}
@@ -232,17 +235,33 @@ final class GitHubUpdater {
 			return $reply;
 		}
 
-		$remote = self::fetch_latest_release();
-		if ( null === $remote || $package !== $remote['package'] ) {
-			return $reply;
-		}
 		$plugin = (string) ( $hook_extra['plugin'] ?? '' );
 		if ( '' !== $plugin && self::plugin_basename() !== $plugin ) {
 			return $reply;
 		}
+		$identity = self::package_identity( $package );
+		if ( '' === $plugin && null === $identity ) {
+			return $reply;
+		}
+		if ( null === $identity ) {
+			return new \WP_Error( 'stonewright_update_package_binding_invalid', __( 'The queued Stonewright update package URL is invalid. The update was stopped.', 'stonewright' ) );
+		}
+		$binding = get_transient( self::package_binding_cache_key( $identity['canonical_url'] ) );
+		if (
+			! is_array( $binding )
+			|| self::PACKAGE_BINDING_SCHEMA_VERSION !== ( $binding['schema_version'] ?? null )
+			|| self::plugin_basename() !== ( $binding['plugin'] ?? null )
+			|| $identity['canonical_url'] !== ( $binding['package'] ?? null )
+			|| $identity['version'] !== ( $binding['version'] ?? null )
+			|| $identity['filename'] !== ( $binding['filename'] ?? null )
+			|| ! is_string( $binding['checksums'] ?? null )
+			|| $identity['manifest_url'] !== $binding['checksums']
+		) {
+			return new \WP_Error( 'stonewright_update_package_binding_unavailable', __( 'Stonewright could not prove which verified release queued this package. The update was stopped.', 'stonewright' ) );
+		}
 
 		$manifest_response = wp_remote_get(
-			$remote['checksums'],
+			$binding['checksums'],
 			[
 				'timeout'             => 10,
 				'limit_response_size' => self::MAX_CHECKSUM_MANIFEST_BYTES,
@@ -256,7 +275,7 @@ final class GitHubUpdater {
 			return new \WP_Error( 'stonewright_update_checksum_manifest_unavailable', __( 'Stonewright could not securely retrieve the checksum manifest. The update was stopped.', 'stonewright' ) );
 		}
 		$manifest = wp_remote_retrieve_body( $manifest_response );
-		$filename = rawurldecode( basename( (string) wp_parse_url( $package, PHP_URL_PATH ) ) );
+		$filename = $identity['filename'];
 		$expected = self::manifest_digest( $manifest, $filename );
 		if ( is_wp_error( $expected ) ) {
 			return $expected;
@@ -277,6 +296,83 @@ final class GitHubUpdater {
 		}
 
 		return $downloaded;
+	}
+
+	/**
+	 * Persist the exact release identity used to queue a package. Verification
+	 * must not silently switch to whichever release happens to be latest later.
+	 *
+	 * @param array{version: string, package: string, checksums: string} $release
+	 */
+	private static function bind_queued_package( array $release ): void {
+		$identity = self::package_identity( $release['package'] );
+		if (
+			null === $identity
+			|| $identity['version'] !== $release['version']
+			|| $identity['manifest_url'] !== $release['checksums']
+		) {
+			return;
+		}
+		set_transient(
+			self::package_binding_cache_key( $identity['canonical_url'] ),
+			[
+				'schema_version' => self::PACKAGE_BINDING_SCHEMA_VERSION,
+				'plugin'         => self::plugin_basename(),
+				'version'        => $release['version'],
+				'package'        => $identity['canonical_url'],
+				'filename'       => $identity['filename'],
+				'checksums'      => $release['checksums'],
+			],
+			self::CACHE_TTL
+		);
+	}
+
+	private static function package_binding_cache_key( string $canonical_url ): string {
+		return self::PACKAGE_BINDING_CACHE_PREFIX . hash( 'sha256', $canonical_url );
+	}
+
+	/** @return array{canonical_url: string, manifest_url: string, version: string, filename: string}|null */
+	private static function package_identity( string $package ): ?array {
+		$parts = wp_parse_url( $package );
+		if (
+			! is_array( $parts )
+			|| 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) )
+			|| 'github.com' !== strtolower( (string) ( $parts['host'] ?? '' ) )
+			|| isset( $parts['user'] )
+			|| isset( $parts['pass'] )
+			|| isset( $parts['port'] )
+		) {
+			return null;
+		}
+		$path = (string) ( $parts['path'] ?? '' );
+		$prefix = '/' . self::REPO . '/releases/download/';
+		if ( ! str_starts_with( $path, $prefix ) ) {
+			return null;
+		}
+		$tail = substr( $path, strlen( $prefix ) );
+		if ( 1 !== preg_match( '#^([^/]+)/([^/]+)$#', $tail, $matches ) ) {
+			return null;
+		}
+		$tag      = rawurldecode( $matches[1] );
+		$filename = rawurldecode( $matches[2] );
+		if ( basename( $tag ) !== $tag || basename( $filename ) !== $filename ) {
+			return null;
+		}
+		$version  = ( str_starts_with( $tag, 'v' ) || str_starts_with( $tag, 'V' ) ) ? substr( $tag, 1 ) : $tag;
+		if (
+			1 !== preg_match( self::SEMVER_PATTERN, $version )
+			|| 'stonewright-' . $version . '.zip' !== $filename
+		) {
+			return null;
+		}
+
+		$release_prefix = 'https://github.com' . $prefix . rawurlencode( $tag ) . '/';
+		return [
+			'canonical_url' => $release_prefix . rawurlencode( $filename ),
+			'manifest_url'  => $release_prefix . 'SHA256SUMS.txt',
+			'version'       => $version,
+			'filename'      => $filename,
+		];
 	}
 
 	/**

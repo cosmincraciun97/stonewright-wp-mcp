@@ -25,7 +25,9 @@ import type { DirectSessionControls, DirectToolProfile } from '../direct/registr
 import * as selfImprove from '../direct/tools/self-improve.js';
 import {
 	ActiveClientCallSequence,
+	REQUIRED_ACTIVE_HOST_CALLS,
 	attestPendingRestartFromActiveHost,
+	requiredActiveHostCallSucceeded,
 } from './active-client-attestation.js';
 import {
 	ConnectionStateMachine,
@@ -490,11 +492,16 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const preflight = runtime.activeClientSequence.preflight(runtime.env, name);
 			if (preflight) return toolResponse(preflight);
 			const result = await handler(input ?? {});
-			if (result['ok'] !== false) {
+			const response = toolResponse(result);
+			const requiredSuccess = requiredActiveHostCallSucceeded(name, {
+				...result,
+				content: response.content,
+			});
+			if (requiredSuccess || (!(REQUIRED_ACTIVE_HOST_CALLS as readonly string[]).includes(name) && result['ok'] !== false)) {
 				runtime.markInvoked(name);
-				runtime.activeClientSequence.recordSuccess(runtime.env, name);
+				if (requiredSuccess) runtime.activeClientSequence.recordSuccess(runtime.env, name);
 			}
-			if (name === 'stonewright-client-surface-check' && result['ok'] !== false) {
+			if (name === 'stonewright-client-surface-check' && requiredSuccess) {
 				const v2 = runtime.buildStatusV2();
 				const restartAttestation = attestPendingRestartFromActiveHost({
 					env: runtime.env,
@@ -509,7 +516,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				});
 				return toolResponse({ ...result, restart_attestation: restartAttestation });
 			}
-			return toolResponse(result);
+			return response;
 		};
 	};
 
@@ -970,20 +977,42 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 							next_action: 'Fix the plugin input error, then call stonewright-task-start again.',
 						};
 					}
+					const workflowSchema = structured['schema_version'];
 					const savedMode = wordpressModeFromEnv(
 						typeof structured['saved_wordpress_mode'] === 'string'
 							? structured['saved_wordpress_mode']
-							: typeof structured['wordpress_mode'] === 'string'
-								? structured['wordpress_mode']
-								: undefined,
+							: undefined,
 					);
 					const effectiveMode = wordpressModeFromEnv(
-						typeof structured['wordpress_mode'] === 'string'
-							? structured['wordpress_mode']
-							: typeof structured['mode'] === 'string'
-								? structured['mode']
-								: undefined,
+						typeof structured['effective_wordpress_mode'] === 'string'
+							? structured['effective_wordpress_mode']
+							: undefined,
 					);
+					if (workflowSchema !== 2 || !savedMode || !effectiveMode) {
+						const errorCode = workflowSchema !== 2
+							? 'plugin_workflow_preflight_schema_unsupported'
+							: 'plugin_workflow_preflight_schema_invalid';
+						const failed = runtime.buildStatusV2({
+							ok: false,
+							startup_ready: false,
+							error_code: errorCode,
+						});
+						return {
+							ok: false,
+							source: 'plugin',
+							schema_version: failed.schema_version,
+							connection_stage: failed.connection_stage,
+							startup_ready: false,
+							connected: failed.connected,
+							configured_mode: failed.configured_mode,
+							active_mode: failed.active_mode,
+							surface: failed.surface,
+							reconciliation: failed.reconciliation,
+							refresh_required_tool_names: failed.refresh_required_tool_names,
+							error_code: errorCode,
+							next_action: 'Update Stonewright so plugin and companion use WorkflowPreflight schema version 2, then restart MCP.',
+						};
+					}
 					const savedSurface = wordpressSurfaceFromEnv(
 						typeof structured['configured_mcp_surface'] === 'string'
 							? structured['configured_mcp_surface']

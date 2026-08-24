@@ -486,7 +486,7 @@ export function codexAdapter(): ClientAdapter {
 			if (before === null) throw new ClientConfigError('config_missing', `${configPath} does not exist.`);
 			const replacement = findPackageReplacement(before, serverName, packageSpec);
 			const next = applyStringReplacement(before, replacement);
-			const written = writeWithRollback({ path: configPath, nextContents: next, validate: validateTomlHasStructure });
+			const written = writeWithRollback({ path: configPath, expectedContents: before, nextContents: next, validate: validateTomlHasStructure });
 			return {
 				configPath,
 				backupPath: written.backupPath,
@@ -501,7 +501,8 @@ export function codexAdapter(): ClientAdapter {
 		},
 
 		upsert(configPath: string, entry: McpServerEntry): ApplyResult {
-			const before = readTextFile(configPath) ?? '';
+			const beforeRaw = readTextFile(configPath);
+			const before = beforeRaw ?? '';
 			const parts = parseMcpSections(before);
 			const created = !parts.blocks.has(entry.serverName);
 			parts.blocks.set(entry.serverName, renderServerBlock(entry));
@@ -511,6 +512,7 @@ export function codexAdapter(): ClientAdapter {
 			const next = rebuildToml(parts);
 			const { backupPath, changed, diff } = writeWithRollback({
 				path: configPath,
+				expectedContents: beforeRaw,
 				nextContents: next,
 				validate: validateTomlHasStructure,
 			});
@@ -538,6 +540,7 @@ export function codexAdapter(): ClientAdapter {
 			const next = rebuildToml(parts);
 			const { backupPath } = writeWithRollback({
 				path: configPath,
+				expectedContents: before,
 				nextContents: next,
 				validate: validateTomlHasStructure,
 			});

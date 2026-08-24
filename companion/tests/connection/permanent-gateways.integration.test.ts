@@ -40,6 +40,30 @@ function catalogObservationFromToolList(server: unknown): string {
 	return match?.[1] ?? '';
 }
 
+function workflowPreflightPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		schema_version: 2,
+		ok: true,
+		context_token: 'synthetic-context-token',
+		expires_at: new Date(Date.now() + 60_000).toISOString(),
+		mode: 'development',
+		saved_wordpress_mode: 'development',
+		effective_wordpress_mode: 'development',
+		configured_mcp_surface: 'bootstrap',
+		surface_revision: 1,
+		session_tool_profile: 'bootstrap',
+		session_profile_applied: false,
+		session_profile_reason: 'bootstrap_profile_needs_no_expansion',
+		tool_profile: 'bootstrap',
+		tools_changed: false,
+		re_list_instruction: '',
+		auth_guidance: [],
+		fast_path: { tool_profile: { profile: 'bootstrap' } },
+		guidance: [],
+		...overrides,
+	};
+}
+
 function activeAttestationFixture(options: {
 	client?: string;
 	expiresAt?: string;
@@ -420,6 +444,62 @@ describe('permanent gateways integration', () => {
 		}));
 	});
 
+	it('uses versioned WorkflowPreflight saved and effective modes to gate startup on mismatch', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartResponse: workflowPreflightPayload({
+					mode: 'staging',
+					saved_wordpress_mode: 'staging',
+					effective_wordpress_mode: 'production-safe',
+				}),
+			}),
+		});
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify real plugin mode' }) as {
+			structuredContent?: {
+				ok?: boolean;
+				startup_ready?: boolean;
+				error_code?: string;
+				reconciliation?: { mismatch_reason?: string };
+			};
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'wordpress_reconciliation_mismatch',
+		}));
+		expect(result.structuredContent?.reconciliation?.mismatch_reason).toBe('saved_mode_differs_from_effective_mode');
+	});
+
+	it('rejects an unsupported WorkflowPreflight schema before accepting plugin mode', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartResponse: workflowPreflightPayload({ schema_version: 99 }),
+			}),
+		});
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'reject future schema' }) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string };
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'plugin_workflow_preflight_schema_unsupported',
+		}));
+	});
+
 	it('reports authoritative full plugin surface and gates a stale client catalog despite an empty refresh list', async () => {
 		const remoteTools = Array.from({ length: 378 }, (_, index) => ({ name: `stonewright-synthetic-${index}` }));
 		remoteTools.splice(0, 3,
@@ -436,15 +516,12 @@ describe('permanent gateways integration', () => {
 				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static',
 			},
 			fetchImpl: stonewrightMcpFetch(remoteTools, {
-				taskStartResponse: {
-					ok: true,
-					wordpress_mode: 'development',
+				taskStartResponse: workflowPreflightPayload({
 					configured_mcp_surface: 'full',
 					session_tool_profile: 'full',
 					tools_changed: true,
 					surface_revision: 9,
-					guidance: [],
-				},
+				}),
 			}),
 		});
 		const preRefreshObservation = catalogObservationFromToolList(server);
@@ -677,6 +754,58 @@ describe('permanent gateways integration', () => {
 			sites: Array<{ clients: Record<string, { pending_restart?: unknown }> }>;
 		};
 		expect(registry.sites[0].clients.codex.pending_restart).toBeDefined();
+	});
+
+	it.each([
+		['missing ok', workflowPreflightPayload({ ok: undefined })],
+		['non-boolean ok', workflowPreflightPayload({ ok: 'true' })],
+		['malformed schema', workflowPreflightPayload({ schema_version: '2' })],
+	])('does not advance restart verification after required call with %s', async (_label, taskStartResponse) => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture, 'Codex', taskStartResponse);
+
+		await toolHandler(server, 'stonewright-task-start')?.({ task: 'malformed required response' });
+		const setup = await toolHandler(server, 'stonewright-setup-profile')?.({
+			siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+		}) as { structuredContent?: { ok?: boolean; error_code?: string } };
+
+		expect(setup.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			error_code: 'restart_attestation_call_out_of_order',
+		}));
+	});
+
+	it('does not advance restart verification after required call returns MCP error content', async () => {
+		const fixture = activeAttestationFixture();
+		process.env.SW_ACTIVE_ATTEST_PASSWORD = 'example-password';
+		const server = await createMcpServer({
+			env: {
+				HOME: fixture.stateDir,
+				STONEWRIGHT_HOME: fixture.stateDir,
+				STONEWRIGHT_STATE_DIR: fixture.stateDir,
+				STONEWRIGHT_SITES_FILE: fixture.sitesFile,
+				STONEWRIGHT_SITE_ALIAS: 'site-a',
+				STONEWRIGHT_MODE: 'plugin',
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				STONEWRIGHT_WP_URL: 'https://example.com',
+				STONEWRIGHT_WP_USERNAME: 'editor',
+				STONEWRIGHT_WP_APP_PASSWORD: 'example-password',
+				SW_ACTIVE_ATTEST_PASSWORD: 'example-password',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], { taskStartIsError: true }),
+		});
+		delete process.env.SW_ACTIVE_ATTEST_PASSWORD;
+		setMcpClientIdentity(server, 'Codex');
+
+		await toolHandler(server, 'stonewright-task-start')?.({ task: 'error content' });
+		const setup = await toolHandler(server, 'stonewright-setup-profile')?.({
+			siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+		}) as { structuredContent?: { ok?: boolean; error_code?: string } };
+
+		expect(setup.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			error_code: 'restart_attestation_call_out_of_order',
+		}));
 	});
 
 	it('rejects an expired pending restart receipt', async () => {
@@ -957,7 +1086,7 @@ function stonewrightMcpFetch(
 						surface_revision: 1,
 					}
 					: name === 'stonewright-task-start'
-						? options.taskStartResponse ?? { ok: true, mode: 'plugin', guidance: [] }
+						? options.taskStartResponse ?? workflowPreflightPayload()
 						: name === 'stonewright-ping'
 							? { ok: true, pong: true }
 							: { ok: true };

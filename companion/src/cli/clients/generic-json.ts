@@ -142,7 +142,7 @@ export function createGenericJsonAdapter(meta: {
 			if (before === null) throw new ClientConfigError('config_missing', `${configPath} does not exist.`);
 			const replacement = findJsoncPackageReplacement(before, serverName, packageSpec);
 			const next = applyStringReplacement(before, replacement);
-			const written = writeWithRollback({ path: configPath, nextContents: next, validate: validateJsonFile });
+			const written = writeWithRollback({ path: configPath, expectedContents: before, nextContents: next, validate: validateJsonFile });
 			return {
 				configPath,
 				backupPath: written.backupPath,
@@ -171,6 +171,7 @@ export function createGenericJsonAdapter(meta: {
 			const next = `${JSON.stringify(root, null, 2)}\n`;
 			const { backupPath, changed, diff } = writeWithRollback({
 				path: configPath,
+				expectedContents: beforeRaw,
 				nextContents: next,
 				validate: validateJsonFile,
 			});
@@ -188,7 +189,8 @@ export function createGenericJsonAdapter(meta: {
 			if (!existsSync(configPath)) {
 				return { configPath, backupPath: null, removed: false, serverName };
 			}
-			const root = parseJson(configPath, readTextFile(configPath));
+			const before = readTextFile(configPath);
+			const root = parseJson(configPath, before);
 			const bucket = serverBucket(root);
 			if (!(serverName in bucket.map)) {
 				return { configPath, backupPath: null, removed: false, serverName };
@@ -198,6 +200,7 @@ export function createGenericJsonAdapter(meta: {
 			const next = `${JSON.stringify(root, null, 2)}\n`;
 			const { backupPath } = writeWithRollback({
 				path: configPath,
+				expectedContents: before,
 				nextContents: next,
 				validate: validateJsonFile,
 			});

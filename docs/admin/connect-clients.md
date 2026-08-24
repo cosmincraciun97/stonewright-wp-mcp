@@ -218,6 +218,9 @@ The updater rejects duplicate `command` or `args` assignments, non-string
 argument members, and ambiguous command values without changing the file.
 Client-config and registry-receipt writes share one lock; rollback only applies
 while the current config hash still matches the updater's own write.
+The TOML/JSONC file also has a config-specific exclusive lock and is compared
+again immediately before rename. Concurrent edits are preserved and rejected,
+including during rollback.
 
 After every Stonewright release or skill sync, run `stonewright-task-start`,
 `stonewright-setup-profile`, `stonewright-wordpress-mcp-status`, then

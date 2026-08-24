@@ -22,6 +22,20 @@ export const REQUIRED_ACTIVE_HOST_CALLS = [
 	'stonewright-client-surface-check',
 ] as const;
 
+export function requiredActiveHostCallSucceeded(name: string, result: unknown): boolean {
+	if (!(REQUIRED_ACTIVE_HOST_CALLS as readonly string[]).includes(name)) return false;
+	if (!result || typeof result !== 'object') return false;
+	const value = result as Record<string, unknown>;
+	if (value['ok'] !== true || value['schema_version'] !== 2 || value['isError'] === true) return false;
+	const content = value['content'];
+	if (!Array.isArray(content) || content.length === 0) return false;
+	return content.every((block) => {
+		if (!block || typeof block !== 'object') return false;
+		const row = block as Record<string, unknown>;
+		return row['type'] !== 'error' && row['isError'] !== true;
+	});
+}
+
 export type ActiveClientRestartAttestation =
 	| { status: 'not-required' }
 	| { status: 'incomplete'; missing_calls: string[] }

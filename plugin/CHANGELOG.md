@@ -8,11 +8,17 @@
   WordPress's pre-download install/update gate. Missing, malformed, forged,
   unavailable, empty, and mismatched checksums now fail closed with typed
   errors.
+- Persist the exact release/version/manifest binding when WordPress queues a
+  Stonewright ZIP, and refuse pre-install when that binding is unavailable or
+  mismatched instead of returning an unverified prior downloader result.
 - Require an exact `SHA256SUMS.txt` release asset before accepting updater
   metadata or injecting an update transient, with a typed
   `missing_checksum_asset` recovery reason.
 
 ### Fixed
+
+- Add schema-v2 authoritative saved/effective WordPress mode fields to full
+  and compact WorkflowPreflight/task-start responses.
 
 - Show one authoritative four-step post-update verification flow in Setup and
   the copied update prompt: task start, profile setup, status, then a

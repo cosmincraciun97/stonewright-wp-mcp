@@ -6,6 +6,9 @@
 
 - Clear inherited WordPress credential variables before an explicit site alias
   is resolved, and fail startup when that alias is unknown.
+- Allow `env://STONEWRIGHT_WP_APP_PASSWORD` for the selected alias by resolving
+  it from a protected pre-clear snapshot without retaining unrelated stale
+  credentials.
 - Replace self-signed restart proofs with one-time, expiring active-client
   attestations bound to private registry key material, exact package
   provenance/version, config hashes, restarted process, and a process-bound
@@ -20,8 +23,12 @@
   non-string argument members without mutating the file.
 - Serialize client-config and registry-receipt updates under one lock, and only
   roll back a config whose current hash still matches the updater's own write.
+- Add a per-config exclusive lock plus an immediate pre-rename hash recheck for
+  Codex TOML and generic JSONC writes; snapshot rollback also rejects drift.
 - Require explicit successful results from all four runtime verification calls;
   malformed results and fallback values cannot produce a valid receipt.
+- Require `ok === true`, schema version 2, and non-error MCP content before a
+  required active-host call advances attestation.
 - Generate client OAuth, default-profile, and relist semantics from the plugin's
   authoritative catalog and enforce parity in the end-to-end contract test.
 - Record restart-verification calls only after successful handlers and enforce
@@ -31,6 +38,8 @@
 - Preserve plugin task-start failures, remove the invalid site-alias
   translation, prefer authoritative plugin mode/surface state, and fail startup
   while the active client catalog is stale even when the refresh list is empty.
+- Consume schema-v2 WorkflowPreflight saved/effective mode fields from the real
+  plugin payload and block startup on unsupported schemas or mode mismatch.
 - Serve running and expected package truth from the real health endpoint and
   expose configured-package truth only to an authenticated request backed by a
   validated source.

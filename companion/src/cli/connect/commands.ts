@@ -937,6 +937,7 @@ function applyClientBinding(
 
 	const before = snapshotFile(configPath);
 	const applied = adapter.upsert(configPath, entry);
+	const appliedSnapshot = snapshotFile(configPath);
 	const now = new Date().toISOString();
 	const nextSite: SiteRecordV2 = {
 		...site,
@@ -969,7 +970,7 @@ function applyClientBinding(
 			support_tier: adapter.supportTier,
 			browser: nextSite.clients[adapter.id]?.browser,
 		},
-		rollback: () => restoreFileSnapshot(configPath, before),
+		rollback: () => restoreFileSnapshot(configPath, before, appliedSnapshot),
 	};
 }
 
@@ -1025,10 +1026,11 @@ function connectUpdateLocked(
 	const before = snapshotFile(configPath);
 	try {
 		const applied = adapter.updatePackageReference(configPath, binding.server_name, opts.to);
+		const appliedSnapshot = snapshotFile(configPath);
 		const readback = adapter.read(configPath, binding.server_name);
 		const packageMatches = readback?.args.filter((arg) => arg === opts.to).length ?? 0;
 		if (packageMatches !== 1) {
-			restoreFileSnapshot(configPath, before);
+			restoreFileSnapshot(configPath, before, appliedSnapshot);
 			throw new ConnectError('config_readback_failed', 'Config readback did not contain exactly one requested package token.');
 		}
 		const now = new Date().toISOString();
@@ -1079,7 +1081,7 @@ function connectUpdateLocked(
 		} catch (err) {
 			const current = readTextFile(configPath);
 			const ownsCurrentWrite = current !== null && sha256Text(current) === applied.afterSha256;
-			if (ownsCurrentWrite) restoreFileSnapshot(configPath, before);
+			if (ownsCurrentWrite) restoreFileSnapshot(configPath, before, appliedSnapshot);
 			throw new ConnectError(
 				'registry_write_failed',
 				`Registry write failed; ${ownsCurrentWrite ? 'client config was rolled back' : 'a newer client config was preserved'}: ${err instanceof Error ? err.message : String(err)}`,
@@ -1476,7 +1478,8 @@ export function connectRemove(
 			const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			const before = snapshotFile(configPath);
 			adapter.remove(configPath, binding.server_name);
-			rollbackClient = () => restoreFileSnapshot(configPath, before);
+			const removedSnapshot = snapshotFile(configPath);
+			rollbackClient = () => restoreFileSnapshot(configPath, before, removedSnapshot);
 		}
 		const rest = { ...site.clients };
 		delete rest[opts.client];
@@ -1512,7 +1515,8 @@ export function connectRemove(
 				const configPath = binding.config_path;
 				const before = snapshotFile(configPath);
 				adapter.remove(configPath, binding.server_name);
-				rollbackClients.push(() => restoreFileSnapshot(configPath, before));
+				const removedSnapshot = snapshotFile(configPath);
+				rollbackClients.push(() => restoreFileSnapshot(configPath, before, removedSnapshot));
 			}
 		}
 

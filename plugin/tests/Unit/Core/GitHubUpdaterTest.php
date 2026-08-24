@@ -69,6 +69,41 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( 'release_channel_version_incompatible', GitHubUpdater::release_rejection_reason( $release, 'beta' ) );
 	}
 
+	public function test_queued_binding_preserves_encoded_semver_build_metadata_urls(): void {
+		$this->set_installed_version( '1.0.0' );
+		$release = GitHubUpdater::select_release(
+			[ $this->release_with_version( $this->releases_fixture()[0], '1.2.3+build-1' ) ],
+			'stable'
+		);
+		self::assertIsArray( $release );
+		set_transient(
+			GitHubUpdater::cache_key( 'stable' ),
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'stable', 'release' => $release ],
+			GitHubUpdater::CACHE_TTL
+		);
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$queued = $transient->response[ GitHubUpdater::plugin_basename() ] ?? null;
+		self::assertIsObject( $queued );
+		self::assertStringContainsString( '1.2.3%2Bbuild-1', (string) $queued->package );
+		$downloaded = tempnam( sys_get_temp_dir(), 'stonewright-build-metadata-' );
+		self::assertIsString( $downloaded );
+		file_put_contents( $downloaded, 'encoded semver package' );
+		$digest = hash_file( 'sha256', $downloaded );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => $digest . '  stonewright-1.2.3+build-1.zip' . "\n",
+		];
+
+		$result = GitHubUpdater::verify_package_download(
+			$downloaded,
+			(string) $queued->package . '?download=1',
+			null,
+			[ 'plugin' => GitHubUpdater::plugin_basename() ]
+		);
+		self::assertSame( $downloaded, $result );
+		unlink( $downloaded );
+	}
+
 	/**
 	 * @dataProvider allowed_release_channel_cases
 	 */
@@ -411,6 +446,7 @@ final class GitHubUpdaterTest extends TestCase {
 	public function test_upgrader_pre_download_verifies_the_downloaded_stonewright_zip(): void {
 		$this->set_installed_version( '1.0.0-beta.1' );
 		$this->cache_release( 'beta' );
+		GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
 		$release  = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
 		self::assertIsArray( $release );
 		$package  = tempnam( sys_get_temp_dir(), 'stonewright-update-' );
@@ -434,6 +470,7 @@ final class GitHubUpdaterTest extends TestCase {
 	public function test_upgrader_pre_download_fails_closed_for_mismatch_and_manifest_network_error(): void {
 		$this->set_installed_version( '1.0.0-beta.1' );
 		$this->cache_release( 'beta' );
+		GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
 		$release = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
 		self::assertIsArray( $release );
 		$package = tempnam( sys_get_temp_dir(), 'stonewright-update-' );
@@ -455,6 +492,100 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $network );
 		self::assertSame( 'stonewright_update_checksum_manifest_unavailable', $network->get_error_code() );
 		self::assertStringNotContainsString( 'private upstream detail', $network->get_error_message() );
+	}
+
+	public function test_upgrader_pre_download_rejects_unbound_stonewright_package_when_release_metadata_is_unavailable(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): \WP_Error => new \WP_Error( 'http_request_failed', 'offline' );
+		$reply = tempnam( sys_get_temp_dir(), 'stonewright-unverified-' );
+		self::assertIsString( $reply );
+
+		$result = GitHubUpdater::verify_package_download(
+			$reply,
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.30/stonewright-1.3.0-beta.30.zip?download=1',
+			null,
+			[ 'plugin' => GitHubUpdater::plugin_basename() ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_package_binding_unavailable', $result->get_error_code() );
+		self::assertNotSame( $reply, $result );
+		unlink( $reply );
+	}
+
+	public function test_queued_package_binding_survives_latest_release_cache_change_and_url_query_variant(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$queued = $transient->response[ GitHubUpdater::plugin_basename() ] ?? null;
+		self::assertIsObject( $queued );
+
+		delete_transient( GitHubUpdater::cache_key( 'beta' ) );
+		$downloaded = tempnam( sys_get_temp_dir(), 'stonewright-bound-' );
+		self::assertIsString( $downloaded );
+		file_put_contents( $downloaded, 'bound synthetic package' );
+		$digest = hash_file( 'sha256', $downloaded );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => $digest . '  stonewright-1.3.0-beta.30.zip' . "\n",
+		];
+
+		$result = GitHubUpdater::verify_package_download(
+			$downloaded,
+			(string) $queued->package . '?download=1',
+			null,
+			[ 'plugin' => GitHubUpdater::plugin_basename() ]
+		);
+
+		self::assertSame( $downloaded, $result );
+		self::assertStringEndsWith( '/SHA256SUMS.txt', $GLOBALS['stonewright_test_wp_remote_get_calls'][0]['url'] );
+		unlink( $downloaded );
+	}
+
+	public function test_upgrader_pre_download_rejects_package_that_does_not_match_its_queued_binding(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$reply = tempnam( sys_get_temp_dir(), 'stonewright-unverified-' );
+		self::assertIsString( $reply );
+
+		$result = GitHubUpdater::verify_package_download(
+			$reply,
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.31/stonewright-1.3.0-beta.31.zip',
+			null,
+			[ 'plugin' => GitHubUpdater::plugin_basename() ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_package_binding_unavailable', $result->get_error_code() );
+		unlink( $reply );
+	}
+
+	public function test_upgrader_pre_download_rejects_binding_whose_manifest_url_no_longer_matches_the_release(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$queued = $transient->response[ GitHubUpdater::plugin_basename() ] ?? null;
+		self::assertIsObject( $queued );
+		foreach ( $GLOBALS['stonewright_test_transients'] as $key => $value ) {
+			if ( str_starts_with( (string) $key, 'stonewright_update_package_binding_' ) && is_array( $value ) ) {
+				$value['checksums'] = 'https://example.test/SHA256SUMS.txt';
+				$GLOBALS['stonewright_test_transients'][ $key ] = $value;
+			}
+		}
+		$reply = tempnam( sys_get_temp_dir(), 'stonewright-unverified-' );
+		self::assertIsString( $reply );
+
+		$result = GitHubUpdater::verify_package_download(
+			$reply,
+			(string) $queued->package,
+			null,
+			[ 'plugin' => GitHubUpdater::plugin_basename() ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_package_binding_unavailable', $result->get_error_code() );
+		unlink( $reply );
 	}
 
 	/** @return iterable<string, array{string, int, string}> */

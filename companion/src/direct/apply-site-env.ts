@@ -73,6 +73,9 @@ export function applySiteAliasToEnv(
 		return { applied: false, alias: null, injected: false };
 	}
 
+	const protectedCredentialSnapshot = Object.fromEntries(
+		WORDPRESS_CREDENTIAL_ENV_KEYS.map((key) => [key, env[key]]),
+	) as Partial<Record<(typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number], string | undefined>>;
 	// The alias is the routing authority. Clear every inherited single-site
 	// fallback before touching the registry so no failure path can retain a
 	// different site's credentials.
@@ -126,7 +129,12 @@ export function applySiteAliasToEnv(
 	try {
 		if (site.credential_ref.startsWith('env://')) {
 			const envKey = site.credential_ref.slice('env://'.length);
-			password = (env[envKey] ?? '').trim();
+			const protectedValue = WORDPRESS_CREDENTIAL_ENV_KEYS.includes(
+				envKey as (typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number],
+			)
+				? protectedCredentialSnapshot[envKey as (typeof WORDPRESS_CREDENTIAL_ENV_KEYS)[number]]
+				: undefined;
+			password = (protectedValue ?? env[envKey] ?? '').trim();
 			if (!password) throw new Error(`Environment credential ${envKey} is unavailable for site "${site.alias}".`);
 		} else {
 		const resolveOpts: {

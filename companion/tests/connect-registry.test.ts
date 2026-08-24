@@ -472,6 +472,37 @@ describe('multi-site registry schema v2', () => {
 		expect(env.STONEWRIGHT_WP_APP_PASSWORD).toBe('secret-b-only');
 	});
 
+	it('resolves reserved app-password env self-reference from the pre-clear snapshot only', () => {
+		const { file } = tmpSites();
+		const site = buildSiteRecord({
+			alias: 'site-a',
+			url: 'https://site-a.example/',
+			username: 'editor-a',
+			credential_ref: 'env://STONEWRIGHT_WP_APP_PASSWORD',
+		});
+		saveRegistry(
+			{ schema_version: 2, default_site_id: site.id, sites: [site] },
+			{ sitesFile: file },
+		);
+		const env: NodeJS.ProcessEnv = {
+			STONEWRIGHT_SITE_ALIAS: 'site-a',
+			STONEWRIGHT_WP_URL: 'https://stale.example',
+			STONEWRIGHT_WP_USERNAME: 'stale-user',
+			STONEWRIGHT_WP_APP_PASSWORD: 'fixture-selected-site',
+			STONEWRIGHT_WP_PASSWORD: 'fixture-unrelated-stale',
+			WP_APP_PASSWORD: 'fixture-unrelated-legacy',
+		};
+
+		const result = applySiteAliasToEnv(env, { sitesFile: file });
+
+		expect(result).toEqual(expect.objectContaining({ applied: true, injected: true, alias: 'site-a' }));
+		expect(env.STONEWRIGHT_WP_URL).toBe('https://site-a.example');
+		expect(env.STONEWRIGHT_WP_USERNAME).toBe('editor-a');
+		expect(env.STONEWRIGHT_WP_APP_PASSWORD).toBe('fixture-selected-site');
+		expect(env.STONEWRIGHT_WP_PASSWORD).toBeUndefined();
+		expect(env.WP_APP_PASSWORD).toBeUndefined();
+	});
+
 	it('explicit alias clears a stale password when its credential cannot resolve', () => {
 		const { file, store } = tmpSites();
 		const site = buildSiteRecord({
