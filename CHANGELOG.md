@@ -20,6 +20,8 @@ development builds were never stable releases.
 
 ### Changed
 
+- Show formatted, sanitized GitHub release notes in the WordPress Plugins
+  View details modal.
 - Keep audit history until an operator configures scheduled retention, and
   coalesce routine heartbeat and successful authentication activity.
 

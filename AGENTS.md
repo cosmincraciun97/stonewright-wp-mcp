@@ -52,6 +52,15 @@ override default behavior.
    explicitly asks the agent to perform that approval step. Pluginless Direct
    mode may inspect custom CSS but must not write it because it has no
    authenticated wp-admin grant boundary.
+9. **GitHub release notes are untrusted Markdown.** Every updater or release
+   implementation must:
+   1. treat GitHub release bodies as untrusted Markdown input;
+   2. keep release-channel parsing on the original raw body;
+   3. render only the supported Markdown subset for WordPress View details;
+   4. sanitize that HTML with an explicit `wp_kses` allowlist and an
+      HTTPS-only link policy;
+   5. add security and formatting regression coverage whenever the
+      release-note format changes.
 
 ## Third-party source reuse
 

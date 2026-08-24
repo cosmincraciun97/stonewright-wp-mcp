@@ -12,19 +12,23 @@ use Stonewright\WpMcp\Core\GitHubUpdater;
 final class GitHubUpdaterTest extends TestCase {
 
 	protected function setUp(): void {
-		$GLOBALS['stonewright_test_transients']          = [];
-		$GLOBALS['stonewright_test_filters']             = [];
-		$GLOBALS['stonewright_test_wp_remote_get']       = null;
-		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
-		$GLOBALS['stonewright_test_download_url']        = null;
+		$GLOBALS['stonewright_test_transients']           = [];
+		$GLOBALS['stonewright_test_filters']              = [];
+		$GLOBALS['stonewright_test_wp_remote_get']        = null;
+		$GLOBALS['stonewright_test_wp_remote_get_calls']  = [];
+		$GLOBALS['stonewright_test_download_url']         = null;
+		$GLOBALS['stonewright_test_wp_kses_calls']        = [];
+		$GLOBALS['stonewright_test_wp_kses_post_calls']   = [];
 	}
 
 	protected function tearDown(): void {
-		$GLOBALS['stonewright_test_transients']          = [];
-		$GLOBALS['stonewright_test_filters']             = [];
-		$GLOBALS['stonewright_test_wp_remote_get']       = null;
-		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
-		$GLOBALS['stonewright_test_download_url']        = null;
+		$GLOBALS['stonewright_test_transients']           = [];
+		$GLOBALS['stonewright_test_filters']              = [];
+		$GLOBALS['stonewright_test_wp_remote_get']        = null;
+		$GLOBALS['stonewright_test_wp_remote_get_calls']  = [];
+		$GLOBALS['stonewright_test_download_url']         = null;
+		$GLOBALS['stonewright_test_wp_kses_calls']        = [];
+		$GLOBALS['stonewright_test_wp_kses_post_calls']   = [];
 	}
 
 	public function test_installed_channel_distinguishes_stable_and_prerelease_versions(): void {
@@ -149,6 +153,90 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertStringEndsWith( '/stonewright-1.3.0-beta.10.zip', $parsed['package'] );
 		self::assertStringEndsWith( '/stonewright-companion-1.3.0-beta.10.tgz', $parsed['companion_package'] );
 		self::assertStringEndsWith( '/SHA256SUMS.txt', $parsed['checksums'] );
+	}
+
+	public function test_plugins_api_renders_sanitized_release_notes_for_stonewright_slug(): void {
+		$release          = $this->parsed_beta_release();
+		$release['body']  = "# Fixes\n\nRelease channel: `supported`\n\n- One\n- Two\n\nSee [docs](https://example.com/docs).\n\n<script>alert(1)</script>\n";
+		$release['requires']     = '6.7';
+		$release['requires_php'] = '8.1';
+		$release['tested']       = '6.8';
+		$this->cache_parsed_release( $release, '1.0.0-beta.1' );
+
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+
+		self::assertIsObject( $info );
+		self::assertSame( 'Stonewright', $info->name );
+		self::assertSame( 'stonewright', $info->slug );
+		self::assertSame( $release['version'], $info->version );
+		self::assertSame( $release['url'], $info->homepage );
+		self::assertSame( $release['package'], $info->download_link );
+		self::assertSame( '6.7', $info->requires );
+		self::assertSame( '8.1', $info->requires_php );
+		self::assertSame( '6.8', $info->tested );
+		self::assertArrayHasKey( 'description', $info->sections );
+		$description = $info->sections['description'];
+		self::assertMatchesRegularExpression( '/<h1>\s*Fixes\s*<\/h1>/', $description );
+		self::assertMatchesRegularExpression( '/<ul>.*<li>\s*One\s*<\/li>.*<li>\s*Two\s*<\/li>.*<\/ul>/s', $description );
+		self::assertMatchesRegularExpression( '/<a href="https:\/\/example\.com\/docs"[^>]*>docs<\/a>/', $description );
+		self::assertStringNotContainsString( '# Fixes', $description );
+		self::assertDoesNotMatchRegularExpression( '/<script\b/i', $description );
+		self::assertStringContainsString( '&lt;script&gt;', $description );
+		self::assertNotEmpty( $GLOBALS['stonewright_test_wp_kses_calls'] );
+		self::assertSame( [ 'https' ], $GLOBALS['stonewright_test_wp_kses_calls'][0]['allowed_protocols'] );
+	}
+
+	public function test_plugins_api_uses_human_fallback_when_release_body_is_missing(): void {
+		$release = $this->parsed_beta_release();
+		unset( $release['body'] );
+		$this->cache_parsed_release( $release, '1.0.0-beta.1' );
+
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+
+		self::assertIsObject( $info );
+		self::assertSame( $release['version'], $info->version );
+		self::assertStringContainsString( 'Release notes are not available for this version.', $info->sections['description'] );
+		self::assertStringNotContainsString( 'AI builder tools for WordPress MCP.', $info->sections['description'] );
+	}
+
+	public function test_plugins_api_passes_through_non_stonewright_slugs_and_unrelated_actions(): void {
+		$passthrough = (object) [ 'name' => 'Other Plugin', 'slug' => 'akismet' ];
+		$release     = $this->parsed_beta_release();
+		$release['body'] = "# Should not leak\n";
+		$this->cache_parsed_release( $release, '1.0.0-beta.1' );
+
+		self::assertSame(
+			$passthrough,
+			GitHubUpdater::plugins_api( $passthrough, 'plugin_information', (object) [ 'slug' => 'akismet' ] )
+		);
+		self::assertSame(
+			$passthrough,
+			GitHubUpdater::plugins_api( $passthrough, 'query_plugins', (object) [ 'slug' => 'stonewright' ] )
+		);
+		self::assertSame(
+			$passthrough,
+			GitHubUpdater::plugins_api( $passthrough, 'plugin_information', (object) [ 'slug' => 'stonewright-extra' ] )
+		);
+	}
+
+	public function test_release_channel_metadata_still_reads_raw_markdown_body(): void {
+		$github_release          = $this->releases_fixture()[6];
+		$github_release['body']  = "# Fixes\n\nRelease channel: `supported`\n\n<script>alert(1)</script>\n";
+
+		self::assertNull( GitHubUpdater::release_rejection_reason( $github_release, 'beta' ) );
+		$parsed = GitHubUpdater::parse_release( $github_release );
+		self::assertIsArray( $parsed );
+		self::assertSame( $github_release['body'], $parsed['body'] );
+		self::assertStringContainsString( 'Release channel: `supported`', $parsed['body'] );
+		self::assertStringContainsString( '<script>alert(1)</script>', $parsed['body'] );
+		self::assertStringContainsString( '# Fixes', $parsed['body'] );
+
+		$this->cache_parsed_release( $parsed, '1.0.0-beta.1' );
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+		self::assertIsObject( $info );
+		self::assertNotSame( $parsed['body'], $info->sections['description'] );
+		self::assertDoesNotMatchRegularExpression( '/<script\b/i', $info->sections['description'] );
+		self::assertNull( GitHubUpdater::release_rejection_reason( $github_release, 'beta' ) );
 	}
 
 	public function test_release_without_sha256sums_is_rejected_with_a_typed_reason(): void {
@@ -766,6 +854,28 @@ final class GitHubUpdaterTest extends TestCase {
 			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'release' => $release ],
 			GitHubUpdater::CACHE_TTL
 		);
+	}
+
+	/**
+	 * @param array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $release
+	 */
+	private function cache_parsed_release( array $release, string $installed_version ): void {
+		$this->set_installed_version( $installed_version );
+		$channel = GitHubUpdater::installed_channel( $installed_version );
+		set_transient(
+			GitHubUpdater::cache_key( $channel ),
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => $channel, 'release' => $release ],
+			GitHubUpdater::CACHE_TTL
+		);
+	}
+
+	/**
+	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string}
+	 */
+	private function parsed_beta_release(): array {
+		$release = GitHubUpdater::select_release( $this->releases_fixture(), 'beta' );
+		self::assertIsArray( $release );
+		return $release;
 	}
 
 	/**
