@@ -406,7 +406,12 @@ final class AuditLog {
 		if ( false === $deleted ) {
 			return $base;
 		}
-		IncidentStore::enforce_retention( $days, $now );
+		$incident_receipt = IncidentStore::enforce_retention( $days, $now );
+		if ( 'completed' !== (string) ( $incident_receipt['status'] ?? '' ) ) {
+			$base['status'] = 'failed';
+			update_option( self::RETENTION_RECEIPT_OPTION, $base, false );
+			return $base;
+		}
 		set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
 		return $base;
 	}
@@ -982,9 +987,37 @@ final class AuditLog {
 				$out[ $key ] = self::redact_sensitive( $value );
 				continue;
 			}
-			$out[ $key ] = $value;
+			$out[ $key ] = is_string( $value ) ? self::redact_free_text( $value ) : $value;
 		}
 		return $out;
+	}
+
+	private static function redact_free_text( string $value ): string {
+		$value = (string) preg_replace(
+			'/\b(Basic|Bearer)\s+[A-Za-z0-9._~+\/=\-]+/i',
+			'$1 [redacted]',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/\b(password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie)\b(\s*(?::|=|\bis\b|\bwas\b)\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'$1$2[redacted]',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/(https?:\/\/[^\/\s:@]+:)[^\/\s@]+@/i',
+			'$1[redacted]@',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/',
+			'[redacted-app-password]',
+			$value
+		);
+		return (string) preg_replace(
+			'/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?(?:-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|$)/s',
+			'[redacted-private-key]',
+			$value
+		);
 	}
 
 	private static function esc_like( string $value ): string {

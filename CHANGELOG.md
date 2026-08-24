@@ -22,6 +22,20 @@ development builds were never stable releases.
   idempotency, operation classifications, redaction, and crash-safe rotation.
 - Stop the block finalizer after terminal client errors or browser shutdown,
   retry only transient failures, and count only accepted results as applied.
+- Scope Direct idempotency receipts to a canonical site fingerprint, recover
+  only stale malformed locks, and compact retained terminal markers under the
+  interprocess audit lock.
+- Record ordinary Direct REST failures once from dispatch context, persist one
+  blocked event for terminal finalizer heartbeat denials, and fail audit
+  retention when incident retention cannot delete its batch.
+
+### Security
+
+- Route Direct theme activation, plugin deletion, user deletion, Application
+  Password revocation, and skill deletion through the central write gate in
+  addition to their explicit confirmation checks.
+- Recursively redact credential patterns from every audit free-text value
+  before sanitized arguments or error metadata are persisted.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

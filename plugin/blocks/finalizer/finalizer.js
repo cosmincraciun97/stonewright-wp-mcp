@@ -357,6 +357,27 @@
 		return response && typeof response.json === 'function' ? response.json() : response;
 	}
 
+	function pendingReceipt(data) {
+		if (!data || typeof data !== 'object' || !Array.isArray(data.items)) {
+			throw new FinalizerError('malformed_pending_receipt', '', 'The finalizer pending response was malformed.');
+		}
+		return data;
+	}
+
+	function resultReceipt(data, result) {
+		var failed = result && result.errors && result.errors.length;
+		if (data && data.ok === false && data.status === 'queued' && data.retryable === true) {
+			return { accepted: false, retryable: true };
+		}
+		if (failed && data && data.ok === false && data.status === 'failed') {
+			return { accepted: true, retryable: false };
+		}
+		if (!failed && data && data.ok === true && data.status === 'serialized') {
+			return { accepted: true, retryable: false };
+		}
+		throw new FinalizerError('malformed_result_receipt', '', 'The finalizer result response was malformed.');
+	}
+
 	function statusOfError(error) {
 		if (!error) {
 			return 0;
@@ -365,9 +386,21 @@
 		return Number.isFinite(status) ? status : 0;
 	}
 
-	function isTerminalHttpError(error) {
+	function isRetryableTransportError(error) {
 		var status = statusOfError(error);
-		return status >= 400 && status < 500 && status !== 408;
+		if (status >= 500 && status < 600) {
+			return true;
+		}
+		if (status > 0) {
+			return false;
+		}
+		var name = String((error && error.name) || '');
+		var code = String((error && error.code) || '');
+		var message = String((error && error.message) || '');
+		return name === 'AbortError'
+			|| name === 'TimeoutError'
+			|| /^(?:ETIMEDOUT|ECONNRESET|ENETUNREACH|EHOSTUNREACH|fetch_error|http_request_failed|network_error)$/i.test(code)
+			|| /(?:failed to fetch|network(?: request)? failed|networkerror|timed? out|timeout)/i.test(message);
 	}
 
 	var sessionApplied = 0;
@@ -487,7 +520,7 @@
 			? wp.apiFetch({ path: '/stonewright/v1/block-finalizer/pending?' + query })
 			: fetch(url, { credentials: 'same-origin', headers: headers() }).then(jsonResponse);
 
-		return Promise.resolve(request).then(function (data) {
+		return Promise.resolve(request).then(pendingReceipt).then(function (data) {
 			setOnline(true);
 			var items = (data && data.items) || [];
 			items.forEach(function (item) {
@@ -506,7 +539,13 @@
 							renderStrip(data);
 							return;
 						}
-						return postResult(item.id, result).then(function () {
+						return postResult(item.id, result).then(function (receipt) {
+							if (receipt && receipt.retryable) {
+								retryableItemSeen = true;
+								rememberItem(item, { status: 'queued', result: result });
+								renderStrip(data);
+								return;
+							}
 							var failed = result && result.errors && result.errors.length;
 							if (failed) {
 								sessionFailed += 1;
@@ -581,10 +620,12 @@
 				body.hash_unavailable = true;
 			}
 			if (window.wp && wp.apiFetch) {
-				return wp.apiFetch({
+				return Promise.resolve(wp.apiFetch({
 					path: '/stonewright/v1/block-finalizer/result',
 					method: 'POST',
 					data: body,
+				})).then(function (receipt) {
+					return resultReceipt(receipt, result);
 				});
 			}
 			return fetch(restBase + 'result', {
@@ -592,7 +633,9 @@
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			}).then(requireOk);
+			}).then(jsonResponse).then(function (receipt) {
+				return resultReceipt(receipt, result);
+			});
 		});
 	}
 
@@ -651,7 +694,7 @@
 				scheduleNextTick(2000);
 			}
 		}).catch(function (error) {
-			if (isTerminalHttpError(error)) {
+			if (!isRetryableTransportError(error)) {
 				stop();
 				return;
 			}
@@ -687,7 +730,7 @@
 			setOnline(true);
 			scheduleHeartbeat(15000);
 		}).catch(function (error) {
-			if (isTerminalHttpError(error)) {
+			if (!isRetryableTransportError(error)) {
 				stop();
 				return;
 			}

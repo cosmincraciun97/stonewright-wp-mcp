@@ -6,5 +6,6 @@ export interface DirectToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
+  env?: NodeJS.ProcessEnv | undefined;
   fetchImpl?: typeof fetch | undefined;
 }

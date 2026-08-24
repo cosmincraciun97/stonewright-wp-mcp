@@ -2,7 +2,7 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdir
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { DirectIncidentStore } from './incidents.js';
+import { DirectIncidentStore, directIncidentFingerprint } from './incidents.js';
 
 export interface DirectAuditEntry {
 	tool: string;
@@ -73,6 +73,8 @@ const DEFAULT_ROTATION: Required<Omit<DirectAuditRotationPolicy, 'now'>> = {
 
 const LOCK_STALE_MS = 30_000;
 const LOCK_ATTEMPTS = 500;
+const MARKER_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const MARKER_INDEX_MAX_ENTRIES = 1000;
 
 export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
 	const override = (env['STONEWRIGHT_STATE_DIR'] ?? '').trim();
@@ -128,6 +130,7 @@ function appendDirectAuditUnlocked(
 	const lifecyclePhase = entry.lifecyclePhase ?? 'terminal';
 	const terminal = lifecyclePhase === 'terminal';
 	const terminalOwner = terminal ? (entry.terminalOwner ?? 'direct-registry') : null;
+	const siteFingerprint = directIncidentFingerprint(entry.site);
 	const payloadHash = createHash('sha256').update(stableJson(entry.payload ?? {
 		code: entry.code ?? null,
 		error: entry.error ?? null,
@@ -140,6 +143,7 @@ function appendDirectAuditUnlocked(
 			entry.idempotencyKey ?? eventId,
 			entry.tool,
 			entry.resource ?? '',
+			siteFingerprint,
 			payloadHash,
 			entry.status,
 			operationId,
@@ -150,12 +154,16 @@ function appendDirectAuditUnlocked(
 	if (terminal) {
 		mkdirSync(markerDir, { recursive: true, mode: 0o700 });
 		markerPath = join(markerDir, idempotencyKey);
+		compactMarkerIndex(markerDir, existsSync(markerPath) ? MARKER_INDEX_MAX_ENTRIES : MARKER_INDEX_MAX_ENTRIES - 1);
 		if (existsSync(markerPath)) {
-			const existing = readDirectAuditByIdempotency(idempotencyKey, path);
+			const existing = readDirectAuditByIdempotency(idempotencyKey, siteFingerprint, path);
 			if (existing) return existing;
 			try {
 				const persisted = JSON.parse(readFileSync(markerPath, 'utf8')) as PersistedDirectAuditEntry;
-				if (persisted['idempotency_key'] === idempotencyKey) return persisted;
+				if (
+					persisted['idempotency_key'] === idempotencyKey &&
+					persisted.site_fingerprint === siteFingerprint
+				) return persisted;
 			} catch {
 				// The global audit lock proves no writer still owns this marker.
 			}
@@ -175,7 +183,6 @@ function appendDirectAuditUnlocked(
 	const code = entry.code
 		? redactDirectAuditText(entry.code).slice(0, 190)
 		: null;
-	const siteFingerprint = createHash('sha256').update(entry.site).digest('hex');
 	const category = entry.category ?? directCategory(entry);
 	const operationClass = entry.operationClass ?? directOperationClass(category);
 	const row: PersistedDirectAuditEntry = {
@@ -396,8 +403,10 @@ function withAuditLock<T>(path: string, operation: () => T): T {
 }
 
 function staleLock(lockPath: string): boolean {
+	let modifiedAt = 0;
 	try {
 		const stat = statSync(lockPath);
+		modifiedAt = stat.mtimeMs;
 		const parsed = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: number };
 		if (Number.isInteger(parsed.pid) && Number(parsed.pid) > 0) {
 			try {
@@ -407,9 +416,35 @@ function staleLock(lockPath: string): boolean {
 				return true;
 			}
 		}
-		return Date.now() - stat.mtimeMs > LOCK_STALE_MS;
+		return Date.now() - modifiedAt > LOCK_STALE_MS;
 	} catch {
-		return false;
+		return modifiedAt > 0 && Date.now() - modifiedAt > LOCK_STALE_MS;
+	}
+}
+
+function compactMarkerIndex(markerDir: string, maxEntries: number): void {
+	const now = Date.now();
+	const markers = readdirSync(markerDir)
+		.filter((name) => /^[a-f0-9]{64}$/.test(name))
+		.map((name) => {
+			try {
+				return { name, mtimeMs: statSync(join(markerDir, name)).mtimeMs };
+			} catch {
+				return null;
+			}
+		})
+		.filter((marker): marker is { name: string; mtimeMs: number } => marker !== null);
+
+	for (const marker of markers) {
+		if (now - marker.mtimeMs <= MARKER_RETENTION_MS) continue;
+		try { unlinkSync(join(markerDir, marker.name)); } catch { /* another recovery may remove it */ }
+	}
+
+	const retained = markers
+		.filter((marker) => existsSync(join(markerDir, marker.name)))
+		.sort((a, b) => b.mtimeMs - a.mtimeMs || b.name.localeCompare(a.name));
+	for (const marker of retained.slice(Math.max(0, maxEntries))) {
+		try { unlinkSync(join(markerDir, marker.name)); } catch { /* another recovery may remove it */ }
 	}
 }
 
@@ -475,6 +510,7 @@ function pruneAuditArchives(path: string, maxFiles: number): void {
 
 function readDirectAuditByIdempotency(
 	idempotencyKey: string,
+	siteFingerprint: string,
 	path: string,
 ): PersistedDirectAuditEntry | null {
 	if (!existsSync(path)) return null;
@@ -482,7 +518,10 @@ function readDirectAuditByIdempotency(
 		if (!line) continue;
 		try {
 			const row = JSON.parse(line) as PersistedDirectAuditEntry;
-			if (row['idempotency_key'] === idempotencyKey) return row;
+			if (
+				row['idempotency_key'] === idempotencyKey &&
+				row.site_fingerprint === siteFingerprint
+			) return row;
 		} catch {
 			// Corrupt lines are never idempotency proof.
 		}

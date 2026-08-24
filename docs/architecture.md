@@ -169,8 +169,11 @@ scrubbed lesson. A later matching failure reopens the incident and marks that
 lesson stale instead of deleting history.
 
 Direct mode mirrors the lifecycle in a private file namespaced by the site
-binding fingerprint. It stores bounded classifications and hashes, writes by
-atomic replacement, and never copies runtime state into the companion package.
+binding fingerprint. Terminal idempotency is site-bound, and its bounded marker
+index is compacted under the audit interprocess lock. Malformed locks are
+recovered only after their file age is stale; a live malformed lock is never
+stolen. It stores bounded classifications and hashes, writes by atomic
+replacement, and never copies runtime state into the companion package.
 When Direct audit lacks independent resource/change-set proof, the recorder
 returns guidance only and does not resolve or learn. See
 [Verified learning](verified-learning.md).

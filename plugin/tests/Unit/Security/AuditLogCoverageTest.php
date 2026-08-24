@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Core\RestRoutes;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Security\AuditLog
@@ -129,6 +131,50 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertStringNotContainsString( 'secret', $encoded );
 		self::assertStringContainsString( 'visible', $encoded );
 		self::assertStringContainsString( '[redacted]', $encoded );
+	}
+
+	public function test_redacts_credentials_embedded_in_meta_error_message_and_nested_free_text(): void {
+		AuditLog::record(
+			'stonewright/test',
+			[
+				'note'   => 'password=sentinel-free-text-password',
+				'nested' => [ 'message' => 'Authorization: Bearer sentinel-free-text-bearer' ],
+				'_meta'  => [
+					'error_message' => 'Request failed with token=sentinel-meta-error-token',
+				],
+			],
+			'error'
+		);
+
+		$encoded = (string) $GLOBALS['wpdb']->inserts[0]['data']['sanitized_args'];
+		self::assertStringNotContainsString( 'sentinel-free-text-password', $encoded );
+		self::assertStringNotContainsString( 'sentinel-free-text-bearer', $encoded );
+		self::assertStringNotContainsString( 'sentinel-meta-error-token', $encoded );
+		self::assertStringContainsString( '[redacted]', $encoded );
+	}
+
+	public function test_expired_finalizer_heartbeat_records_exactly_one_blocked_security_event(): void {
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$denial  = new \WP_Error(
+			'stonewright_finalizer_token_expired',
+			'Finalizer token expired.',
+			[ 'status' => 403 ]
+		);
+
+		RestRoutes::audit_post_dispatch( $denial, null, $request );
+		RestRoutes::audit_post_dispatch( $denial, null, $request );
+
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+		$row = $GLOBALS['wpdb']->inserts[0]['data'];
+		self::assertSame( 'blocked', $row['result_status'] );
+		self::assertSame( 'SAFETY', $row['category'] );
+		self::assertSame( 'BLOCKED', $row['outcome'] );
+		self::assertSame( 'stonewright_finalizer_token_expired', $row['error_code'] );
+
+		AuditLog::reset_request_state();
+		$GLOBALS['wpdb']->inserts = [];
+		RestRoutes::audit_post_dispatch( new \WP_REST_Response( [ 'ok' => true ], 200 ), null, $request );
+		self::assertCount( 0, $GLOBALS['wpdb']->inserts );
 	}
 
 	public function test_count_and_blocked_status(): void {
@@ -310,6 +356,21 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( 2, $retried['deleted_rows'] );
 	}
 
+	public function test_incident_retention_delete_false_returns_failure_and_prevents_daily_success_transient(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+		unset( $GLOBALS['stonewright_test_transients']['stonewright_audit_retention_ran'] );
+		$GLOBALS['wpdb'] = $this->make_incident_wpdb( [ 2, false ] );
+
+		$receipt = AuditLog::enforce_retention( true, 1787520000 );
+
+		self::assertSame( 'failed', $receipt['status'] );
+		self::assertSame( 2, $receipt['deleted_rows'] );
+		self::assertFalse( get_transient( 'stonewright_audit_retention_ran' ) );
+		$incident_receipt = get_option( 'stonewright_incident_retention_receipt' );
+		self::assertIsArray( $incident_receipt );
+		self::assertSame( 'failed', $incident_receipt['status'] );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';
@@ -358,6 +419,34 @@ final class AuditLogCoverageTest extends TestCase {
 				}
 				$this->inserts[] = [ 'table' => $table, 'data' => $data ];
 				return 1;
+			}
+		};
+	}
+
+	/** @param list<int|false> $query_results */
+	private function make_incident_wpdb( array $query_results ): object {
+		return new class( $query_results ) extends \wpdb {
+			public string $prefix = 'wp_';
+			public string $last_query = '';
+			/** @var list<mixed> */
+			public array $last_prepared_args = [];
+			/** @var list<int|false> */
+			private array $query_results;
+
+			/** @param list<int|false> $query_results */
+			public function __construct( array $query_results ) {
+				$this->query_results = $query_results;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->last_query = $query;
+				$this->last_prepared_args = $args;
+				return $query;
+			}
+
+			public function query( string $query ): int|false {
+				$this->last_query = $query;
+				return array_shift( $this->query_results ) ?? 0;
 			}
 		};
 	}

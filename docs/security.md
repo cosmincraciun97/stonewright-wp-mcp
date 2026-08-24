@@ -31,7 +31,9 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   mutations only**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
   dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
-  REST traffic is not logged.
+  REST traffic is not logged. Successful finalizer heartbeats stay out of the
+  stream, while a terminal token or capability denial creates exactly one
+  blocked security event.
 - Treat the Audit page degraded-state notice as a failed safety control, not a
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.
@@ -90,8 +92,9 @@ Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct
 memory/skill writes reject high-confidence credential material, and Direct
 audit diagnostics redact authorization headers, tokens, and Application
-Passwords. Release archives exclude Direct sites config, memory, and audit
-state.
+Passwords. Plugin audit persistence recursively redacts the same credential
+patterns from every free-text value, including nested error metadata. Release
+archives exclude Direct sites config, memory, and audit state.
 
 ## Hardening checklist
 

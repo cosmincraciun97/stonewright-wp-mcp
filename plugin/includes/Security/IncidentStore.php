@@ -318,7 +318,18 @@ final class IncidentStore {
 			$table = self::table_name();
 			$sql = $wpdb->prepare( "DELETE FROM {$table} WHERE state IN ('resolved','suppressed') AND COALESCE(resolved_at, last_seen) < %s LIMIT 1000", $cutoff ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table is plugin-owned.
 			$result = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- bounded retention on owned table.
-			$deleted = false === $result ? 0 : max( 0, (int) $result );
+			if ( false === $result ) {
+				$receipt = [
+					'status'         => 'failed',
+					'retention_days' => $days,
+					'cutoff_utc'     => $cutoff,
+					'deleted_rows'   => 0,
+					'run_at'         => gmdate( 'c', $now ),
+				];
+				update_option( 'stonewright_incident_retention_receipt', $receipt, false );
+				return $receipt;
+			}
+			$deleted = max( 0, (int) $result );
 		} else {
 			$stored = self::$fallback;
 			if ( [] === $stored && function_exists( 'get_option' ) ) {

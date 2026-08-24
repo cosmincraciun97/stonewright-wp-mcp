@@ -195,6 +195,14 @@ export async function pluginDelete(
   input: { plugin: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-delete");
+  assertWriteAllowed({
+    site: ctx.site.alias,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-plugin-delete",
+    env: ctx.env ?? process.env,
+  });
   if (input.confirm !== true) {
     throw new DirectSafetyBlockedError(
       "confirmation_required",

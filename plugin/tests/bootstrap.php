@@ -2542,6 +2542,10 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
 }
 
 if ( ! class_exists( 'WP_REST_Request' ) ) {
+	if ( ! class_exists( 'wpdb' ) ) {
+		class wpdb {}
+	}
+
 	class WP_REST_Request {
 		private string $method = 'GET';
 

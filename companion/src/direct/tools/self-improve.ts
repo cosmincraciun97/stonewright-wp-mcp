@@ -29,7 +29,7 @@ import {
   type SkillMeta,
 } from "../skills-store.js";
 import { PLUGIN_ONLY_CAPABILITIES } from "./site-discover.js";
-import { DirectSafetyBlockedError, markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
+import { assertWriteAllowed, DirectSafetyBlockedError, markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
 import { ensureStonewrightAgentsMd, pointerInstalled } from "../agents-md.js";
 import { globalRulesDigest } from "../global-rules.js";
 import { permanentRulesGuidance } from "../permanent-rules.js";
@@ -228,6 +228,16 @@ export function skillDelete(
   ctx: SelfImproveContext,
   input: { slug: string; confirm?: boolean; global?: boolean; site?: string },
 ) {
+  const resolved = resolveSelfImproveScope(ctx, input.site);
+  const site = configuredSite(ctx, resolved.siteAlias ?? input.site);
+  assertWriteAllowed({
+    site: resolved.siteAlias ?? "_global",
+    mode: resolveDirectWriteMode(ctx.env, site?.url),
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-skill-delete",
+    env: ctx.env,
+  });
   if (input.confirm !== true) {
     throw new DirectSafetyBlockedError(
       "confirmation_required",
@@ -236,7 +246,6 @@ export function skillDelete(
       input.site ?? "_global",
     );
   }
-  const resolved = resolveSelfImproveScope(ctx, input.site);
   const scope = input.global ? "_global" : resolved.scope;
   const result = deleteSkill({
     baseDir: resolved.baseDir,

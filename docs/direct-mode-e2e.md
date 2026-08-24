@@ -82,6 +82,12 @@ user-created skills, or audit file; packaged generic built-ins are still
 available. Restarting or updating the companion preserves the state already
 stored under `~/.stonewright/`. Credential-like memory and skill payloads are
 rejected, and Direct audit diagnostic text is redacted before persistence.
+Terminal idempotency includes the canonical site fingerprint, so a receipt can
+never replay across site bindings. Marker retention is bounded and compacted
+under the same interprocess lock that protects append and stale-lock recovery.
+Ordinary REST read failures are recorded once from dispatch context. Always-
+confirm theme, plugin, user, Application Password, and skill deletions also
+pass the central write-mode and task-start gate before execution.
 
 `task-start` binds learning to an alias, normalized URL, target fingerprint,
 backend, and expiry. A configured target change requires a new task-start.

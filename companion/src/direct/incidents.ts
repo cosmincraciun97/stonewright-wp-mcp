@@ -62,7 +62,25 @@ function sha256(value: string): string {
 }
 
 export function directIncidentFingerprint(siteBinding: string): string {
-	return sha256(siteBinding);
+	const trimmed = siteBinding.trim();
+	try {
+		const parsed = new URL(trimmed);
+		parsed.username = '';
+		parsed.password = '';
+		parsed.search = '';
+		parsed.hash = '';
+		parsed.hostname = parsed.hostname.toLowerCase();
+		if ((parsed.protocol === 'http:' && parsed.port === '80') || (parsed.protocol === 'https:' && parsed.port === '443')) {
+			parsed.port = '';
+		}
+		parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+		return sha256(`url:${parsed.toString().replace(/\/$/, '')}`);
+	} catch {
+		// Resolved aliases are already the canonical persisted identity. Preserve
+		// their historical fingerprint so companion upgrades do not orphan Direct
+		// incident state.
+		return sha256(trimmed);
+	}
 }
 
 export type DirectIncidentAction = {

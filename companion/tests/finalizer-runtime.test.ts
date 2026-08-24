@@ -93,13 +93,43 @@ describe('block finalizer runtime lifecycle', () => {
 			const runtime = harness((url) => {
 				if (!url.includes('pending?')) return Promise.resolve(response(200));
 				if (failure === '500') return Promise.resolve(response(500));
-				return Promise.reject(new Error(failure));
+				if (failure === 'network') return Promise.reject(new TypeError('Failed to fetch'));
+				const timeout = new Error('The request timed out');
+				timeout.name = 'AbortError';
+				return Promise.reject(timeout);
 			});
 			await settle();
 			const delays = runtime.activeTimers().map((timer) => timer.delay);
 			expect(delays).toContain(2000);
 			expect(delays).toContain(15000);
 		}
+	});
+
+	it('stops on malformed JSON from a successful HTTP response', async () => {
+		const runtime = harness((url) => {
+			if (!url.includes('pending?')) return Promise.resolve(response(200));
+			return Promise.resolve({
+				ok: true,
+				status: 200,
+				json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+			});
+		});
+		await settle();
+
+		expect(runtime.activeTimers()).toHaveLength(0);
+		const before = runtime.fetches.length;
+		for (const timer of runtime.timers) timer.callback();
+		await settle();
+		expect(runtime.fetches).toHaveLength(before);
+	});
+
+	it('stops on an unexpected runtime failure', async () => {
+		const runtime = harness((url) => url.includes('pending?')
+			? Promise.reject(new Error('Unexpected runtime failure'))
+			: Promise.resolve(response(200)));
+		await settle();
+
+		expect(runtime.activeTimers()).toHaveLength(0);
 	});
 
 	it('does not count a rejected result submission as applied', async () => {
@@ -115,6 +145,24 @@ describe('block finalizer runtime lifecycle', () => {
 		expect(runtime.fetches.some((url) => url.endsWith('result'))).toBe(true);
 		expect(runtime.element('stonewright-finalizer-applied-count').textContent).toBe('0');
 		expect(runtime.activeTimers()).toHaveLength(0);
+	});
+
+	it('does not accept or count an HTTP 200 ok:false queued result receipt', async () => {
+		const runtime = harness((url) => {
+			if (url.includes('pending?')) {
+				return Promise.resolve(response(200, { items: [{ id: 'change-queued', post_id: 42, editor_url: '/editor', status: 'queued', block_spec: { name: 'core/paragraph' } }] }));
+			}
+			if (url.endsWith('result')) {
+				return Promise.resolve(response(200, { ok: false, status: 'queued', retryable: true }));
+			}
+			return Promise.resolve(response(200));
+		});
+		await settle();
+
+		expect(runtime.fetches.some((url) => url.endsWith('result'))).toBe(true);
+		expect(runtime.element('stonewright-finalizer-applied-count').textContent).toBe('0');
+		expect(runtime.element('stonewright-finalizer-failed-count').textContent).toBe('0');
+		expect(runtime.activeTimers().map((timer) => timer.delay)).toContain(2000);
 	});
 
 	it('cleans up timers on unload and stays closed', async () => {

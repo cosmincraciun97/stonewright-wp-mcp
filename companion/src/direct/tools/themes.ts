@@ -1,4 +1,4 @@
-import { assertToolEnabled, DirectSafetyBlockedError } from "../writes.js";
+import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -54,6 +54,14 @@ export async function themeActivate(
   input: { stylesheet: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-theme-activate");
+  assertWriteAllowed({
+    site: ctx.site.alias,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-theme-activate",
+    env: ctx.env ?? process.env,
+  });
   if (input.confirm !== true) {
     throw new DirectSafetyBlockedError(
       "confirmation_required",

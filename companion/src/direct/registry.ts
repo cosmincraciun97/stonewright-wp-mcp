@@ -380,7 +380,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 			: err instanceof WpRestError
 			? String(err.toJSON().code ?? 'wp_rest_error')
 			: 'error';
-	if (blocked || meta?.tool) {
+	if (blocked || meta?.tool || dispatch) {
 		try {
 			appendDirectAudit({
 				tool,
@@ -436,6 +436,8 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
 	const site = resolveSite(config, siteAlias);
+	const dispatch = directDispatchContext.getStore();
+	if (dispatch) dispatch.site = site.alias;
 	const client = new WpRestClient(site, {
 		fetchImpl: ctx.fetchImpl,
 		timeoutMs: ctx.timeoutMs,
@@ -445,6 +447,7 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 		client,
 		site,
 		writeMode,
+		env: ctx.env,
 		...(ctx.fetchImpl ? { fetchImpl: ctx.fetchImpl } : {}),
 	};
 }

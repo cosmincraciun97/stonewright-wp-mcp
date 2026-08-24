@@ -12,6 +12,7 @@ import { markTaskStartSeen, resetTaskStartSeenForTests } from '../../src/direct/
 export function installTaskStartGateFixture(): void {
 	beforeEach(() => {
 		markTaskStartSeen();
+		markTaskStartSeen('_global');
 		markTaskStartSeen('local');
 		markTaskStartSeen('remote');
 	});

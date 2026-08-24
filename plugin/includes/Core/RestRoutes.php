@@ -1081,6 +1081,10 @@ final class RestRoutes {
 	 * @return mixed
 	 */
 	public static function audit_pre_dispatch( $result, $server, $request ) {
+		if ( self::is_finalizer_heartbeat( $request ) ) {
+			AuditLog::begin_request();
+			return $result;
+		}
 		if ( ! self::is_stonewright_mutation( $request ) ) {
 			return $result;
 		}
@@ -1103,6 +1107,9 @@ final class RestRoutes {
 		// that must never be summarized into the generic mutation row.
 		if ( self::is_oauth_endpoint( $request ) ) {
 			return self::audit_oauth_dispatch( $response, $request );
+		}
+		if ( self::is_finalizer_heartbeat( $request ) ) {
+			return self::audit_finalizer_heartbeat_denial( $response, $request );
 		}
 		if ( ! self::is_stonewright_mutation( $request ) ) {
 			return $response;
@@ -1523,6 +1530,51 @@ final class RestRoutes {
 			return false;
 		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
+	}
+
+	private static function is_finalizer_heartbeat( \WP_REST_Request $request ): bool {
+		return '/stonewright/v1/block-finalizer/heartbeat' === (string) $request->get_route()
+			&& 'POST' === strtoupper( (string) $request->get_method() );
+	}
+
+	/**
+	 * Persist terminal heartbeat token/capability denials without logging routine
+	 * successful liveness traffic.
+	 *
+	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
+	 * @return mixed
+	 */
+	private static function audit_finalizer_heartbeat_denial( $response, \WP_REST_Request $request ) {
+		if ( AuditLog::was_audited() ) {
+			return $response;
+		}
+		$envelope = self::build_rest_error_envelope( $request, $response );
+		if ( $envelope['http_status'] < 400 || $envelope['http_status'] >= 500 ) {
+			return $response;
+		}
+		AuditLog::record_rest_mutation(
+			$envelope['route'],
+			$envelope['method'],
+			[
+				'source' => 'rest',
+				'route'  => $envelope['route'],
+				'method' => $envelope['method'],
+				'mode'   => (string) get_option( 'stonewright_mode', 'development' ),
+				'_meta'  => [
+					'error_code'      => $envelope['error_code'],
+					'public_message'  => $envelope['public_message'],
+					'error_message'   => $envelope['public_message'],
+					'http_status'     => $envelope['http_status'],
+					'operation_class' => 'finalizer_heartbeat_security',
+					'resource_type'   => 'finalizer_session',
+					'resource_ref'    => 'block-finalizer/heartbeat',
+					'retryable'       => false,
+					'correlation_id'  => AuditLog::request_id(),
+				],
+			],
+			'blocked'
+		);
+		return $response;
 	}
 
 	/**

@@ -8,6 +8,14 @@
   operation classifications as Plugin mode.
 - Recover interrupted idempotency markers and rotate Direct audit logs under a
   process lock without losing appends or carrying legacy secrets into archives.
+- Require the central Direct write gate as well as explicit confirmation for
+  theme activation, plugin deletion, user deletion, Application Password
+  revocation, and skill deletion.
+- Bind terminal audit idempotency to canonical site identity, reject cross-site
+  receipt replay, recover stale malformed locks without stealing live locks,
+  and compact marker retention under the audit lock.
+- Audit ordinary REST read failures exactly once from asynchronous dispatch
+  metadata even when the thrown REST error has no explicit tool metadata.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

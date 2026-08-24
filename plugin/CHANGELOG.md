@@ -15,6 +15,19 @@
   the operation, resource, payload, status, and ability.
 - Stop the browser finalizer on terminal HTTP responses and page shutdown,
   retry only transient failures, and count only accepted result submissions.
+- Persist exactly one blocked security event for terminal finalizer heartbeat
+  denials while keeping successful heartbeats outside the mutation stream.
+- Treat incident-retention delete failures as failed audit retention runs so
+  the daily success transient cannot suppress a retry.
+- Stop finalizer retries for malformed successful responses and unexpected
+  runtime failures; keep queued `ok:false` receipts pending without counting
+  them as applied or failed.
+
+### Security
+
+- Redact credential assignments, authorization carriers, Application Password
+  shapes, credentialed URLs, and private-key bodies recursively from every
+  free-text audit value before persistence.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 
