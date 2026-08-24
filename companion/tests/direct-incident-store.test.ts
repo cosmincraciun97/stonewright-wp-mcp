@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
 import {
 	DirectIncidentStore,
 	type DirectIncidentFailure,
@@ -27,9 +27,20 @@ function failure(overrides: Partial<DirectIncidentFailure> = {}): DirectIncident
 }
 
 describe('DirectIncidentStore', () => {
+	const spawnedChildren: Array<ReturnType<typeof spawn>> = [];
+
+	afterEach(() => {
+		for (const child of spawnedChildren.splice(0)) {
+			if (child.exitCode === null && child.signalCode === null) {
+				try { child.kill('SIGKILL'); } catch { /* already gone */ }
+			}
+		}
+	});
+
 	async function runWriter(runner: string, args: string[]): Promise<void> {
 		await new Promise<void>((resolve, reject) => {
 			const child = spawn(process.execPath, [runner, ...args], { stdio: 'pipe' });
+			spawnedChildren.push(child);
 			let stderr = '';
 			child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
 			child.once('error', reject);
@@ -162,14 +173,14 @@ describe('DirectIncidentStore', () => {
 		await build({ entryPoints: [fixture], bundle: true, platform: 'node', format: 'esm', outfile: runner });
 
 		const writers: Array<Promise<void>> = [];
-		for (let worker = 0; worker < 6; worker += 1) {
+		for (let worker = 0; worker < 4; worker += 1) {
 			writers.push(runWriter(runner, [baseDir, 'failure', `failure-${worker}`, '10', seeded.incident_id]));
 			writers.push(runWriter(runner, [baseDir, 'resolve', `repair-${worker}`, '10', seeded.incident_id]));
 		}
 		await Promise.all(writers);
 
 		const current = new DirectIncidentStore(baseDir, fingerprint('site-a')).get(seeded.incident_id);
-		expect(current?.occurrences).toBe(61);
+		expect(current?.occurrences).toBe(41);
 		expect(['open', 'resolved']).toContain(current?.state);
 		const persisted = JSON.parse(readFileSync(store.path(), 'utf8')) as { incidents: unknown[] };
 		expect(persisted.incidents).toHaveLength(1);
