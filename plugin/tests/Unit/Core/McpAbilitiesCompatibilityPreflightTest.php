@@ -13,6 +13,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_filters'] = [];
+		unset( $GLOBALS['stonewright_manifest_side_effect'] );
 		unset( $GLOBALS['wp_version'] );
 		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 	}
@@ -373,6 +374,22 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			'classmap decoy' => [ 'release-invalid-classmap' ],
 			'psr-4 decoy'    => [ 'release-invalid-psr4' ],
 		];
+	}
+
+	public function test_manifest_inspection_does_not_execute_side_effects_or_accept_dynamic_adapter_mapping(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => CompatibleAdapterFixture::class,
+			'abilities_registry' => CompatibleRegistryFixture::class,
+			'ability'            => CompatibleAbilityFixture::class,
+		];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-dynamic-classmap' ] );
+
+		self::assertArrayNotHasKey( 'stonewright_manifest_side_effect', $GLOBALS );
+		self::assertFalse( $result['compatible'] );
+		self::assertSame( 'incompatible', $result['adapter']['abi']['status'] );
+		self::assertContains( 'jetpack_manifest_missing', $result['adapter']['abi']['issues'] );
 	}
 
 	public function test_release_package_with_missing_runtime_class_blocks_boot(): void {

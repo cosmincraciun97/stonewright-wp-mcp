@@ -424,23 +424,82 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	private static function jetpack_manifest_maps_adapter( string $root ): bool {
 		$composer_dir = $root . '/vendor/composer/';
-		$psr4 = self::manifest_array( $composer_dir . 'jetpack_autoload_psr4.php' );
-		if ( array_key_exists( 'WP\\MCP\\', $psr4 ) ) {
+		if ( self::manifest_has_exact_key( $composer_dir . 'jetpack_autoload_psr4.php', 'WP\\MCP\\' ) ) {
 			return true;
 		}
-		$classmap = self::manifest_array( $composer_dir . 'jetpack_autoload_classmap.php' );
-		return array_key_exists( 'WP\\MCP\\Core\\McpAdapter', $classmap );
+		return self::manifest_has_exact_key( $composer_dir . 'jetpack_autoload_classmap.php', 'WP\\MCP\\Core\\McpAdapter' );
 	}
 
-	/** @return array<mixed> */
-	private static function manifest_array( string $path ): array {
+	private static function manifest_has_exact_key( string $path, string $expected_key ): bool {
 		if ( ! is_file( $path ) ) {
-			return [];
+			return false;
 		}
-		$manifest = ( static function ( string $manifest_path ): mixed {
-			return include $manifest_path;
-		} )( $path );
-		return is_array( $manifest ) ? $manifest : [];
+		$source = file_get_contents( $path );
+		if ( ! is_string( $source ) ) {
+			return false;
+		}
+		$tokens = token_get_all( $source );
+		foreach ( $tokens as $index => $token ) {
+			if ( ! is_array( $token ) || T_RETURN !== $token[0] ) {
+				continue;
+			}
+			$start = self::next_manifest_token( $tokens, $index + 1 );
+			if ( null === $start ) {
+				return false;
+			}
+			if ( is_array( $tokens[ $start ] ) && T_ARRAY === $tokens[ $start ][0] ) {
+				$start = self::next_manifest_token( $tokens, $start + 1 );
+				if ( null === $start || '(' !== $tokens[ $start ] ) {
+					return false;
+				}
+			} elseif ( '[' !== $tokens[ $start ] ) {
+				return false;
+			}
+			return self::static_manifest_array_has_key( $tokens, $start, $expected_key );
+		}
+		return false;
+	}
+
+	/** @param list<array{int,string,int}|string> $tokens */
+	private static function next_manifest_token( array $tokens, int $offset ): ?int {
+		for ( $index = $offset, $count = count( $tokens ); $index < $count; ++$index ) {
+			$token = $tokens[ $index ];
+			if ( ! is_array( $token ) || ! in_array( $token[0], [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true ) ) {
+				return $index;
+			}
+		}
+		return null;
+	}
+
+	/** @param list<array{int,string,int}|string> $tokens */
+	private static function static_manifest_array_has_key( array $tokens, int $start, string $expected_key ): bool {
+		$depth = 1;
+		for ( $index = $start + 1, $count = count( $tokens ); $index < $count; ++$index ) {
+			$token = $tokens[ $index ];
+			if ( '(' === $token || '[' === $token || '{' === $token ) {
+				++$depth;
+				continue;
+			}
+			if ( ')' === $token || ']' === $token || '}' === $token ) {
+				--$depth;
+				if ( 0 === $depth ) {
+					return false;
+				}
+				continue;
+			}
+			if ( 1 !== $depth || ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
+				continue;
+			}
+			$arrow = self::next_manifest_token( $tokens, $index + 1 );
+			if ( null === $arrow || ! is_array( $tokens[ $arrow ] ) || T_DOUBLE_ARROW !== $tokens[ $arrow ][0] ) {
+				continue;
+			}
+			$key = substr( $token[1], 1, -1 );
+			if ( $expected_key === str_replace( '\\\\', '\\', $key ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** @return list<string> */
