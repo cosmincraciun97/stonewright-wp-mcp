@@ -399,6 +399,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		return [
 			'truncated exact classmap' => [ 'release-truncated-classmap' ],
 			'nested exact return'      => [ 'release-nested-return-classmap' ],
+			'compile-error suffix'     => [ 'release-compile-error-classmap' ],
 		];
 	}
 

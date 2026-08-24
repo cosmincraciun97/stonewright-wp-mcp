@@ -441,7 +441,7 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		try {
 			$tokens = token_get_all( $source, TOKEN_PARSE );
-		} catch ( \ParseError ) {
+		} catch ( \Throwable ) {
 			return false;
 		}
 		$tokens = array_values(
