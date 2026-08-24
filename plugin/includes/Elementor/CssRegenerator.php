@@ -84,12 +84,33 @@ final class CssRegenerator {
 	/** @param array{path:string,url:string} $expected */
 	private static function reported_location_matches( array $expected, string $path, string $url ): bool {
 		return self::path_matches( $expected['path'], $path )
-			&& $url === $expected['url']
-			&& self::same_origin( home_url( '/' ), $url );
+			&& self::css_url_matches( $expected['url'], $url );
 	}
 
 	private static function path_matches( string $expected, string $actual ): bool {
-		return wp_normalize_path( $actual ) === wp_normalize_path( $expected );
+		return self::canonical_filesystem_path( $actual ) === self::canonical_filesystem_path( $expected );
+	}
+
+	private static function canonical_filesystem_path( string $path ): string {
+		$path = str_replace( '\\', '/', trim( $path ) );
+		if ( 1 === preg_match( '#^(?:https?|file)://(/.*)$#i', $path, $matches ) ) {
+			$path = $matches[1];
+		}
+		return wp_normalize_path( $path );
+	}
+
+	private static function css_url_matches( string $expected, string $actual ): bool {
+		if ( ! self::same_origin( home_url( '/' ), $actual ) || ! self::same_origin( $expected, $actual ) ) {
+			return false;
+		}
+		$expected_parts = wp_parse_url( $expected );
+		$actual_parts   = wp_parse_url( $actual );
+		if ( ! is_array( $expected_parts ) || ! is_array( $actual_parts ) ) {
+			return false;
+		}
+		$expected_path = wp_normalize_path( (string) ( $expected_parts['path'] ?? '' ) );
+		$actual_path   = wp_normalize_path( (string) ( $actual_parts['path'] ?? '' ) );
+		return '' !== $expected_path && $expected_path === $actual_path;
 	}
 
 	private static function same_origin( string $left, string $right ): bool {

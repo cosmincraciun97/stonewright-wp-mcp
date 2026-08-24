@@ -11,7 +11,7 @@ use Stonewright\WpMcp\Elementor\Write\CssDirectoryLease;
 final class CssAssetTransaction {
 	private const MAX_FILES = 2000;
 	private const MAX_BYTES = 67108864;
-	private const LEASE_TTL = 30;
+	private const LEASE_TTL = 120;
 
 	/**
 	 * @param callable():(array<string,mixed>|\WP_Error) $operation
@@ -47,16 +47,21 @@ final class CssAssetTransaction {
 			if ( $before instanceof \WP_Error ) {
 				return $before;
 			}
-			$probes_before = self::probe_protected_assets( $post_id, $before, $location );
+			$probes_before = self::probe_protected_assets( $post_id, $before, $location, $lease );
 			if ( $probes_before instanceof \WP_Error ) {
 				return $probes_before;
 			}
 
 			$lease_check = self::renew_lease( $lease );
 			if ( $lease_check instanceof \WP_Error ) {
-				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost before the write.', $lease, [], true );
+				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost before the write.', $lease );
 			}
 			$lease = $lease_check;
+
+			$valid = self::revalidate_location( $location );
+			if ( $valid instanceof \WP_Error ) {
+				return $valid;
+			}
 
 			try {
 				$operation_result = $operation();
@@ -98,7 +103,7 @@ final class CssAssetTransaction {
 
 			$lease_check = self::renew_lease( $lease );
 			if ( $lease_check instanceof \WP_Error ) {
-				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during verification.', $lease, [], true );
+				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during verification.', $lease );
 			}
 			$lease = $lease_check;
 			$after = self::capture( $location );
@@ -134,10 +139,10 @@ final class CssAssetTransaction {
 
 			$lease_check = self::renew_lease( $lease );
 			if ( $lease_check instanceof \WP_Error ) {
-				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during the protected asset check.', $lease, [], true );
+				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during the protected asset check.', $lease );
 			}
 			$lease = $lease_check;
-			$probes_after = self::probe_protected_assets( $post_id, $after, $location );
+			$probes_after = self::probe_protected_assets( $post_id, $after, $location, $lease );
 			if ( $probes_after instanceof \WP_Error ) {
 				return self::rollback_error(
 					$location,
@@ -207,7 +212,7 @@ final class CssAssetTransaction {
 
 		$basedir   = rtrim( wp_normalize_path( $basedir ), '/' );
 		$base_real = realpath( $basedir );
-		if ( false === $base_real || is_link( $basedir ) ) {
+		if ( false === $base_real ) {
 			return self::error( 'stonewright_elementor_css_path_unsafe', 'The Elementor CSS directory boundary is unsafe.' );
 		}
 		$base_real = rtrim( wp_normalize_path( $base_real ), '/' );
@@ -248,7 +253,7 @@ final class CssAssetTransaction {
 		if ( '' === $basedir || '' === $baseurl || ! empty( $uploads['error'] ) || $basedir !== dirname( $location['dir'], 2 ) || $baseurl !== $location['baseurl'] ) {
 			return self::error( 'stonewright_elementor_css_path_changed', 'The Elementor CSS directory boundary changed during the transaction.' );
 		}
-		if ( is_link( $basedir ) || is_link( $basedir . '/elementor' ) || is_link( $location['dir'] ) ) {
+		if ( is_link( $basedir . '/elementor' ) || is_link( $location['dir'] ) ) {
 			return self::error( 'stonewright_elementor_css_path_unsafe', 'The Elementor CSS directory boundary is unsafe.' );
 		}
 		$base_real = realpath( $basedir );
@@ -327,8 +332,8 @@ final class CssAssetTransaction {
 		return [ 'files' => $files, 'file_count' => count( $files ), 'total_bytes' => $total ];
 	}
 
-	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @return list<array{asset:string,status:int,url_sha256:string}>|\WP_Error */
-	private static function probe_protected_assets( int $post_id, array $manifest, array $location ): array|\WP_Error {
+	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string}>|\WP_Error */
+	private static function probe_protected_assets( int $post_id, array $manifest, array $location, array &$lease ): array|\WP_Error {
 		$valid = self::revalidate_location( $location );
 		if ( $valid instanceof \WP_Error ) {
 			return $valid;
@@ -339,6 +344,11 @@ final class CssAssetTransaction {
 			if ( ! isset( $manifest['files'][ $asset ] ) ) {
 				continue;
 			}
+			$lease_check = self::renew_lease( $lease );
+			if ( $lease_check instanceof \WP_Error ) {
+				return $lease_check;
+			}
+			$lease = $lease_check;
 			$url = $location['url'] . '/' . rawurlencode( $asset );
 			if ( ! self::same_origin( home_url( '/' ), $url ) ) {
 				return self::error( 'stonewright_elementor_css_probe_unsafe_origin', 'A protected Elementor CSS URL is not same-origin.' );
@@ -425,8 +435,8 @@ final class CssAssetTransaction {
 	}
 
 	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $before @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @param array<string,mixed> $extra */
-	private static function rollback_error( array $location, int $post_id, array $before, array $metadata_before, string $code, string $message, array &$lease, array $extra = [], bool $lease_lost = false ): \WP_Error {
-		$rollback = self::restore( $location, $post_id, $before, $metadata_before, $lease, $lease_lost );
+	private static function rollback_error( array $location, int $post_id, array $before, array $metadata_before, string $code, string $message, array &$lease, array $extra = [] ): \WP_Error {
+		$rollback = self::restore( $location, $post_id, $before, $metadata_before, $lease );
 		$data = array_merge(
 			[
 				'status'                   => 500,
@@ -440,26 +450,16 @@ final class CssAssetTransaction {
 	}
 
 	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $before @param array{exists:bool,value:mixed} $metadata_before @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return array{ok:bool,manifest_status:string,metadata_status:string} */
-	private static function restore( array $location, int $post_id, array $before, array $metadata_before, array &$lease, bool $lease_lost = false ): array {
-		$metadata_status = 'failed';
-		$manifest_status = 'failed';
-		if ( $lease_lost ) {
+	private static function restore( array $location, int $post_id, array $before, array $metadata_before, array &$lease ): array {
+		$reclaimed = CssDirectoryLease::reclaim( $lease, self::LEASE_TTL );
+		if ( $reclaimed instanceof \WP_Error ) {
 			return [
 				'ok'              => false,
 				'manifest_status' => 'not_attempted_lock_lost',
 				'metadata_status' => 'not_attempted_lock_lost',
 			];
 		}
-
-		$renewed = self::renew_lease( $lease );
-		if ( $renewed instanceof \WP_Error ) {
-			return [
-				'ok'              => false,
-				'manifest_status' => 'not_attempted_lock_lost',
-				'metadata_status' => 'not_attempted_lock_lost',
-			];
-		}
-		$lease  = $renewed;
+		$lease   = $reclaimed;
 		$current = self::capture( $location );
 		if ( ! is_array( $current ) ) {
 			return [
@@ -520,9 +520,7 @@ final class CssAssetTransaction {
 	/** @param array{exists:bool,value:mixed} $expected */
 	private static function restore_css_metadata( int $post_id, array $expected ): bool {
 		if ( $expected['exists'] ) {
-			if ( false === update_post_meta( $post_id, '_elementor_css', $expected['value'] ) ) {
-				return false;
-			}
+			update_post_meta( $post_id, '_elementor_css', $expected['value'] );
 		} elseif ( self::meta_exists( $post_id, '_elementor_css' ) && ! delete_post_meta( $post_id, '_elementor_css' ) ) {
 			return false;
 		}
@@ -597,18 +595,25 @@ final class CssAssetTransaction {
 	}
 
 	private static function atomic_write( string $path, string $bytes, int $mode ): bool {
-		$tmp = tempnam( dirname( $path ), '.stonewright-css-restore-' );
+		$tmp = tempnam( sys_get_temp_dir(), 'stonewright-css-restore-' );
 		if ( false === $tmp ) {
 			return false;
 		}
 		$written = file_put_contents( $tmp, $bytes );
-		if ( strlen( $bytes ) !== $written || ! chmod( $tmp, $mode ) || ! rename( $tmp, $path ) ) {
+		if ( strlen( $bytes ) !== $written || ! chmod( $tmp, $mode ) ) {
 			if ( is_file( $tmp ) ) {
 				unlink( $tmp );
 			}
 			return false;
 		}
-		return true;
+		if ( @rename( $tmp, $path ) ) {
+			return true;
+		}
+		$copied = @copy( $tmp, $path );
+		if ( is_file( $tmp ) ) {
+			unlink( $tmp );
+		}
+		return $copied && chmod( $path, $mode );
 	}
 
 	/** @param array<string,mixed> $data */

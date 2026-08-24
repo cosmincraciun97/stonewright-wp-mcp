@@ -28,7 +28,9 @@ For every Elementor document mutation in Plugin mode:
    directory, probes existing protected URLs, regenerates only the target
    post's CSS through Elementor's official Post CSS API, renders without a
    second CSS pass, and restores its bounded asset snapshot if another file
-   changes or a probe fails.
+   changes or a probe fails. Restore is skipped only when a later live CSS
+   directory owner holds the lease, not because the lease TTL expired with no
+   successor.
 7. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.

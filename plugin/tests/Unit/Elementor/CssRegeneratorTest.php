@@ -52,6 +52,100 @@ final class CssRegeneratorTest extends TestCase {
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result['url_sha256'] );
 	}
 
+	public function test_accepts_elementor_query_versioned_css_url(): void {
+		$updated = 0;
+		Post::$factory = static function () use ( &$updated ): object {
+			return new class( $updated ) {
+				/** @var int */
+				private $updated;
+
+				public function __construct( int &$updated ) {
+					$this->updated = &$updated;
+				}
+
+				public function update(): void {
+					++$this->updated;
+				}
+
+				public function get_path(): string {
+					return rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css';
+				}
+
+				public function get_url(): string {
+					return add_query_arg( 'ver', '123', 'https://example.test/wp-content/uploads/elementor/css/post-701.css' );
+				}
+			};
+		};
+
+		$result = CssRegenerator::regenerate_post( 701 );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'elementor_post_css_update', $result['method'] );
+		self::assertSame( 1, $updated );
+	}
+
+	public function test_accepts_scheme_prefixed_filesystem_path(): void {
+		$updated = 0;
+		Post::$factory = static function () use ( &$updated ): object {
+			return new class( $updated ) {
+				/** @var int */
+				private $updated;
+
+				public function __construct( int &$updated ) {
+					$this->updated = &$updated;
+				}
+
+				public function update(): void {
+					++$this->updated;
+				}
+
+				public function get_path(): string {
+					return 'http:///' . ltrim( rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css', '/' );
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+				}
+			};
+		};
+
+		$result = CssRegenerator::regenerate_post( 701 );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 1, $updated );
+	}
+
+	public function test_fails_closed_when_url_path_differs_on_the_same_host(): void {
+		$updated = 0;
+		Post::$factory = static function () use ( &$updated ): object {
+			return new class( $updated ) {
+				private int $updated;
+
+				public function __construct( int &$updated ) {
+					$this->updated = &$updated;
+				}
+
+				public function get_path(): string {
+					return rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css';
+				}
+
+				public function get_url(): string {
+					return add_query_arg( 'ver', '123', 'https://example.test/wp-content/uploads/elementor/css/post-999.css' );
+				}
+
+				public function update(): void {
+					++$this->updated;
+				}
+			};
+		};
+
+		$result = CssRegenerator::regenerate_post( 701 );
+
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'url_mismatch', $result['detail'] );
+		self::assertSame( 0, $updated );
+	}
+
 	public function test_fails_closed_when_elementor_reports_a_different_path_before_update(): void {
 		$updated = 0;
 		Post::$factory = static function () use ( &$updated ): object {

@@ -278,8 +278,10 @@ Recommend against stable 1.0 while any required gate is missing:
   through the verifier's post-only guarded transaction, which inventories the
   direct CSS directory, probes any existing target, `custom-frontend.min.css`,
   and `custom-pro-widget-nav-menu.min.css` assets before and after, rejects
-  collateral changes, and restores its bounded asset snapshot. Never call a
-  site-wide Elementor files-manager clear for one post.
+  collateral changes, and restores its bounded asset snapshot. Rollback is
+  skipped only when a later live CSS directory owner holds the lease — not on
+  mere TTL expiry. Never call a site-wide Elementor files-manager clear for one
+  post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,

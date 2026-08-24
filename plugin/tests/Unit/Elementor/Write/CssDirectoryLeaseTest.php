@@ -65,6 +65,35 @@ final class CssDirectoryLeaseTest extends TestCase {
 		self::assertSame( 'txn-three', $GLOBALS['stonewright_test_options'][ $first['key'] ]['owner'] );
 	}
 
+	public function test_reclaim_succeeds_after_expiry_when_no_successor_owns_the_lease(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_options'][ $lease['key'] ]['expires_at'] = time() - 1;
+
+		$reclaimed = CssDirectoryLease::reclaim( $lease, 120 );
+
+		self::assertIsArray( $reclaimed );
+		self::assertSame( 'txn-one', $reclaimed['owner'] );
+		self::assertGreaterThan( time(), $reclaimed['expires_at'] );
+	}
+
+	public function test_reclaim_refuses_when_a_different_live_owner_holds_the_lease(): void {
+		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 30 );
+		self::assertIsArray( $lease );
+		$GLOBALS['stonewright_test_options'][ $lease['key'] ] = [
+			'scope'       => $lease['scope'],
+			'owner'       => 'txn-foreign',
+			'acquired_at' => time(),
+			'expires_at'  => time() + 120,
+			'ttl'         => 120,
+		];
+
+		$reclaimed = CssDirectoryLease::reclaim( $lease, 120 );
+
+		self::assertInstanceOf( \WP_Error::class, $reclaimed );
+		self::assertSame( 'stonewright_elementor_css_lease_busy', $reclaimed->get_error_code() );
+	}
+
 	public function test_owner_can_renew_and_wrong_owner_cannot_release(): void {
 		$lease = CssDirectoryLease::acquire( 'uploads/elementor/css', 'txn-one', 5 );
 		self::assertIsArray( $lease );

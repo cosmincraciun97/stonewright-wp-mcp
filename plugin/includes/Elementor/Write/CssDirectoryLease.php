@@ -15,7 +15,7 @@ final class CssDirectoryLease {
 	/**
 	 * @return array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}|\WP_Error
 	 */
-	public static function acquire( string $scope, string $owner, int $ttl = 30 ): array|\WP_Error {
+	public static function acquire( string $scope, string $owner, int $ttl = 120 ): array|\WP_Error {
 		$scope = self::scope_hash( $scope );
 		return self::acquire_hashed( $scope, $owner, $ttl );
 	}
@@ -103,7 +103,7 @@ final class CssDirectoryLease {
 			return self::error( 'stonewright_elementor_css_lease_lost', 'The Elementor CSS lease is no longer owned by this transaction.', 409 );
 		}
 
-		$ttl = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 30 ) );
+		$ttl = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 120 ) );
 		$next = [
 			'scope'       => $scope,
 			'owner'       => $owner,
@@ -134,6 +134,54 @@ final class CssDirectoryLease {
 			'expires_at'  => $next['expires_at'],
 			'ttl'         => $ttl,
 		];
+	}
+
+	/**
+	 * Keep restoring when this owner still holds the directory, or when the
+	 * lease expired / disappeared with no live successor. Skip only when a
+	 * different live owner holds the lease.
+	 *
+	 * @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease
+	 * @return array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int}|\WP_Error
+	 */
+	public static function reclaim( array $lease, int $ttl = 0 ): array|\WP_Error {
+		$key   = sanitize_key( (string) ( $lease['key'] ?? '' ) );
+		$scope = sanitize_key( (string) ( $lease['scope'] ?? '' ) );
+		$owner = sanitize_key( (string) ( $lease['owner'] ?? '' ) );
+		if ( '' === $key || '' === $scope || '' === $owner || ! str_starts_with( $key, self::PREFIX ) ) {
+			return self::error( 'stonewright_elementor_css_lease_invalid', 'The Elementor CSS lease identity is invalid.', 400 );
+		}
+
+		$ttl     = self::bounded_ttl( $ttl > 0 ? $ttl : (int) ( $lease['ttl'] ?? 120 ) );
+		$renewed = self::renew( $lease, $ttl );
+		if ( is_array( $renewed ) ) {
+			return $renewed;
+		}
+
+		$current    = get_option( $key, [] );
+		$now        = time();
+		$live_owner = is_array( $current ) && (int) ( $current['expires_at'] ?? 0 ) > $now
+			? sanitize_key( (string) ( $current['owner'] ?? '' ) )
+			: '';
+		if ( '' !== $live_owner && ! hash_equals( $owner, $live_owner ) ) {
+			$retry_after = max( 1, min( 120, (int) ( $current['expires_at'] ?? $now + 5 ) - $now ) );
+			return self::error(
+				'stonewright_elementor_css_lease_busy',
+				'Another Elementor CSS transaction owns the shared asset lease.',
+				409,
+				[
+					'retryable'           => true,
+					'retry_after'         => $retry_after,
+					'retry_after_seconds' => $retry_after,
+					'lease_fingerprint'   => hash( 'sha256', $scope . '|' . $live_owner ),
+				]
+			);
+		}
+		if ( '' !== $live_owner ) {
+			return self::renew( $lease, $ttl );
+		}
+
+		return self::acquire_hashed( $scope, $owner, $ttl );
 	}
 
 	/**

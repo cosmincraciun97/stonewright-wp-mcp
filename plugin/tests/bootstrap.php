@@ -1185,6 +1185,9 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
 			$post                              = $GLOBALS['stonewright_test_posts'][ $post_id ];
 			$meta                              = (array) ( $post->meta ?? [] );
+			if ( array_key_exists( $meta_key, $meta ) && $meta[ $meta_key ] === $meta_value ) {
+				return false;
+			}
 			$meta[ $meta_key ]                 = $meta_value;
 			$post->meta                        = $meta;
 			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
@@ -1616,6 +1619,9 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
 
 if ( ! function_exists( 'wp_upload_dir' ) ) {
 	function wp_upload_dir(): array {
+		if ( isset( $GLOBALS['stonewright_test_upload_dir'] ) && is_array( $GLOBALS['stonewright_test_upload_dir'] ) ) {
+			return $GLOBALS['stonewright_test_upload_dir'];
+		}
 		$base = WP_CONTENT_DIR . '/uploads';
 		wp_mkdir_p( $base );
 		return [
