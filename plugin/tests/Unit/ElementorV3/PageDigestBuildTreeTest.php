@@ -92,7 +92,11 @@ final class PageDigestBuildTreeTest extends TestCase {
 		$this->remove_css_assets();
 		$GLOBALS['stonewright_test_posts'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = [];
-		unset( $GLOBALS['stonewright_test_home_url'] );
+		unset(
+			$GLOBALS['stonewright_test_home_url'],
+			$GLOBALS['stonewright_test_before_option_update'],
+			$GLOBALS['stonewright_test_option_cas_miss_remaining']
+		);
 	}
 
 	public function test_registry_has_new_abilities(): void {
@@ -304,6 +308,83 @@ final class PageDigestBuildTreeTest extends TestCase {
 		self::assertSame( 'post-css-committed', (string) file_get_contents( $this->css_dir . '/post-' . $this->post_id . '.css' ) );
 		self::assertStringContainsString( 'Committed after lock loss', (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
 		self::assertSame( 'frontend-safe', (string) file_get_contents( $this->css_dir . '/custom-frontend.min.css' ) );
+	}
+
+	public function test_build_tree_continues_css_when_lock_renew_cas_misses_but_lease_is_still_owned(): void {
+		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 1;
+
+		$result = ( new BuildTree() )->execute(
+			[
+				'post_id' => $this->post_id,
+				'tree'    => [
+					[
+						'id'       => 'cas001',
+						'elType'   => 'container',
+						'settings' => [],
+						'elements' => [
+							[
+								'id'         => 'cashead',
+								'elType'     => 'widget',
+								'widgetType' => 'heading',
+								'settings'   => [ 'title' => 'CAS miss still owned' ],
+								'elements'   => [],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'post-9201.css', $result['css']['target'] );
+		self::assertSame( 0, $result['css']['collateral_change_count'] );
+		self::assertSame( 'frontend-safe', (string) file_get_contents( $this->css_dir . '/custom-frontend.min.css' ) );
+		self::assertStringContainsString( 'CAS miss still owned', (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
+	}
+
+	public function test_build_tree_restores_snapshot_when_the_lock_is_lost_after_document_write(): void {
+		$original = (string) get_post_meta( $this->post_id, '_elementor_data', true );
+		$post_id  = $this->post_id;
+		$GLOBALS['stonewright_test_before_option_update'] = static function ( string $option ) use ( $post_id ): void {
+			if ( ! str_starts_with( $option, 'stonewright_elementor_lock_' ) ) {
+				return;
+			}
+			$GLOBALS['stonewright_test_options'][ $option ] = [
+				'post_id'     => $post_id,
+				'owner'       => 'foreign-writer',
+				'acquired_at' => time(),
+				'expires_at'  => time() + 120,
+			];
+		};
+
+		$result = ( new BuildTree() )->execute(
+			[
+				'post_id' => $this->post_id,
+				'tree'    => [
+					[
+						'id'       => 'lost001',
+						'elType'   => 'container',
+						'settings' => [],
+						'elements' => [
+							[
+								'id'         => 'losthead',
+								'elType'     => 'widget',
+								'widgetType' => 'heading',
+								'settings'   => [ 'title' => 'Should be rolled back' ],
+								'elements'   => [],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_lock_lost', $result->get_error_code() );
+		self::assertSame( $original, (string) get_post_meta( $this->post_id, '_elementor_data', true ) );
+		self::assertSame( 'frontend-safe', (string) file_get_contents( $this->css_dir . '/custom-frontend.min.css' ) );
+		self::assertFileDoesNotExist( $this->css_dir . '/post-' . $this->post_id . '.css' );
 	}
 
 	public function test_build_tree_restores_post_and_css_snapshot_when_regeneration_touches_global_asset(): void {

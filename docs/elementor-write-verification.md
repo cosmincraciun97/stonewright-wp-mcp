@@ -37,7 +37,10 @@ For every Elementor document mutation in Plugin mode:
   CSS transaction, a later post-lock renew failure is non-fatal
   (`lock.renew_after_commit=lost_after_commit`): the write is already closed,
   release is best-effort, and rolling CSS or the document back would desync
-  a committed pair.
+  a committed pair. Before CSS starts, post-lock renew retries a same-owner
+  WordPress options CAS miss and continues while this writer still owns a
+  live lease. `stonewright_elementor_lock_lost` means the lease is gone,
+  expired, or foreign — not a serialization false-negative.
 7. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.

@@ -84,6 +84,10 @@ final class PostWriteLock {
 	/**
 	 * Renew the exact owner lease with a compare-and-swap update.
 	 *
+	 * A WordPress options CAS miss is not proof of ownership loss: `$wpdb->update`
+	 * reports changed rows, so a same-second identical payload or a serialization
+	 * mismatch can return 0 while this writer still holds a live lease.
+	 *
 	 * @param array{post_id:int,owner:string,expires_at:int,acquired_at:int} $lease
 	 * @return array{post_id:int,owner:string,expires_at:int,acquired_at:int}|\WP_Error
 	 */
@@ -101,22 +105,79 @@ final class PostWriteLock {
 		$key     = self::key( $post_id );
 		$current = get_option( $key, [] );
 		$now     = time();
-		if ( ! is_array( $current )
-			|| ! hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
-			|| (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
-			return new \WP_Error(
-				'stonewright_elementor_lock_lost',
-				__( 'The Elementor write lock is no longer owned by this transaction.', 'stonewright' ),
-				[ 'status' => 409 ]
-			);
+		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+			if ( $attempt > 0 ) {
+				wp_cache_delete( $key, 'options' );
+				$current = get_option( $key, [] );
+				$now     = time();
+			}
+			if ( ! self::is_live_owner( $current, $owner, $now ) ) {
+				return self::lock_lost();
+			}
+
+			$next = self::next_lease( $post_id, $owner, $current, $lease, $now, $ttl );
+			if ( self::cas_replace( $key, $current, $next ) ) {
+				return $next;
+			}
 		}
 
-		$next = [
+		wp_cache_delete( $key, 'options' );
+		$observed = get_option( $key, [] );
+		$now      = time();
+		if ( self::is_live_owner( $observed, $owner, $now ) ) {
+			return [
+				'post_id'     => $post_id,
+				'owner'       => $owner,
+				'acquired_at' => (int) ( $observed['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
+				'expires_at'  => (int) ( $observed['expires_at'] ?? 0 ),
+			];
+		}
+
+		return self::lock_lost();
+	}
+
+	private static function key( int $post_id ): string {
+		return self::PREFIX . $post_id;
+	}
+
+	/**
+	 * @param mixed $current
+	 */
+	private static function is_live_owner( mixed $current, string $owner, int $now ): bool {
+		return is_array( $current )
+			&& '' !== $owner
+			&& hash_equals( $owner, (string) ( $current['owner'] ?? '' ) )
+			&& (int) ( $current['expires_at'] ?? 0 ) > $now;
+	}
+
+	/**
+	 * @param array<string, mixed> $current
+	 * @param array<string, mixed> $lease
+	 * @return array{post_id:int,owner:string,expires_at:int,acquired_at:int}
+	 */
+	private static function next_lease( int $post_id, string $owner, array $current, array $lease, int $now, int $ttl ): array {
+		$ttl_expires = $now + max( 5, min( 120, $ttl ) );
+		return [
 			'post_id'     => $post_id,
 			'owner'       => $owner,
 			'acquired_at' => (int) ( $current['acquired_at'] ?? $lease['acquired_at'] ?? $now ),
-			'expires_at'  => $now + max( 5, min( 120, $ttl ) ),
+			'expires_at'  => max( $ttl_expires, (int) ( $current['expires_at'] ?? 0 ) + 1 ),
 		];
+	}
+
+	private static function lock_lost(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_elementor_lock_lost',
+			__( 'The Elementor write lock is no longer owned by this transaction.', 'stonewright' ),
+			[ 'status' => 409 ]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $current
+	 * @param array<string, mixed> $next
+	 */
+	private static function cas_replace( string $key, array $current, array $next ): bool {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$updated = $wpdb->update(
@@ -127,19 +188,8 @@ final class PostWriteLock {
 			[ '%s', '%s' ]
 		);
 		wp_cache_delete( $key, 'options' );
-		if ( 1 !== $updated ) {
-			return new \WP_Error(
-				'stonewright_elementor_lock_lost',
-				__( 'The Elementor write lock could not be renewed safely.', 'stonewright' ),
-				[ 'status' => 409 ]
-			);
-		}
 
-		return $next;
-	}
-
-	private static function key( int $post_id ): string {
-		return self::PREFIX . $post_id;
+		return 1 === $updated;
 	}
 
 	/** @param array<string, mixed> $observed */

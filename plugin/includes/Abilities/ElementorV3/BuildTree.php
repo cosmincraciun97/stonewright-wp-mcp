@@ -145,9 +145,16 @@ final class BuildTree extends AbilityKernel {
 
 					$renewed = PostWriteLock::renew( $lease, 120 );
 					if ( $renewed instanceof \WP_Error ) {
-						return $renewed;
+						// Renew can still error after a CAS false-negative. Continue CSS
+						// while this writer owns a live lease; restore only when ownership
+						// is actually gone so a verified document write is not left half-closed.
+						if ( ! PostWriteLock::owned_by( $post_id, $owner ) ) {
+							Backup::restore_snapshot( $post_id, $snapshot_id );
+							return $renewed;
+						}
+					} else {
+						$lease = $renewed;
 					}
-					$lease = $renewed;
 					$transaction = CssAssetTransaction::run(
 						$post_id,
 						static function () use ( $post_id ): array {

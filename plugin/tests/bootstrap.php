@@ -644,6 +644,11 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 						return 0;
 					}
 				}
+				$cas_misses = (int) ( $GLOBALS['stonewright_test_option_cas_miss_remaining'] ?? 0 );
+				if ( $cas_misses > 0 ) {
+					$GLOBALS['stonewright_test_option_cas_miss_remaining'] = $cas_misses - 1;
+					return 0;
+				}
 				if ( array_key_exists( 'option_value', $data ) ) {
 					$GLOBALS['stonewright_test_options'][ $option ] = maybe_unserialize( $data['option_value'] );
 				}
