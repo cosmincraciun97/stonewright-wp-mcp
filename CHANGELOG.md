@@ -13,6 +13,14 @@ development builds were never stable releases.
 
 ### Added
 
+- Nothing yet.
+
+## [1.0.0-beta.12] - 2026-08-24
+
+
+
+### Added
+
 - Add read-only Elementor provider discovery with ownership, trust, compatibility,
   certification, Status and Troubleshoot visibility, and certified
   native-preferred metadata for Elementor default styles; expose it in the
@@ -196,7 +204,6 @@ development builds were never stable releases.
   the first event and bounded count summaries.
 - Validate Direct lock owners with available host, boot, and per-PID process-start
   identity plus a bounded lease so a live decoy or reused PID cannot block forever.
-
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed
@@ -435,18 +442,9 @@ development builds were never stable releases.
   controls over CSS/JavaScript, treat editor-canvas visibility as non-proof,
   and require settings readback plus frontend-class verification.
 
-## [1.0.0-beta.8] - 2026-08-12
-
-### Fixed
-
-- Accept `playwright` as the natural browser-provider value while preserving
-  the existing recommended-provider registry contract.
-- Make `connect verify` print content-safe runtime proof for companion version,
-  active alias, task-start/status availability, and refresh-required tools;
-  verification now fails while any refresh-required tool remains.
-
 ## Older releases
 
+- [1.0.0-beta.8](docs/releases/1.0.0-beta.8.md)
 - [1.0.0-beta.7](docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](docs/releases/1.0.0-beta.6.md)
 - [1.0.0-beta.5](docs/releases/1.0.0-beta.5.md)

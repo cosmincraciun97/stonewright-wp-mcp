@@ -2,33 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Nothing yet.
+
+## [1.0.0-beta.12] - 2026-08-24
+
 ### Fixed
 
 - Contended Direct state-lock acquisition no longer re-resolves the lock owner's
   process start identity on every retry, which made lock waits slow on macOS.
 - Kill leaked child writer processes after concurrent Direct audit and incident
   stress tests so one timed-out test cannot poison the rest of the suite.
-
-### Security
-
-- Redact nested private keys, PEM certificates, and credential blobs from
-  rotated Direct archives without removing surrounding safe text, and keep
-  encoded archive output bounded.
-- Clear inherited WordPress credential variables before an explicit site alias
-  is resolved, and fail startup when that alias is unknown.
-- Allow `env://STONEWRIGHT_WP_APP_PASSWORD` for the selected alias by resolving
-  it from a protected pre-clear snapshot without retaining unrelated stale
-  credentials.
-- Replace self-signed restart proofs with one-time, expiring active-client
-  attestations bound to private registry key material, exact package
-  provenance/version, config hashes, restarted process, and a process-bound
-  catalog observation.
-- Validate installer-managed TOML and JSONC entries as exact official
-  `npx`/`npx.cmd --package <Stonewright package> stonewright-mcp` commands before
-  updating them, while preserving unrelated bytes.
-
-### Fixed
-
 - Preserve Elementor CSS metadata during Direct data writes and never run the
   site-wide Elementor `flush-css` command; report that guarded target-post CSS
   closure still requires Plugin mode.
@@ -95,6 +80,24 @@
   expose configured-package truth only to an authenticated request backed by a
   validated source.
 - Resolve `chatgpt-desktop` through the Codex TOML adapter and catalog metadata.
+
+### Security
+
+- Redact nested private keys, PEM certificates, and credential blobs from
+  rotated Direct archives without removing surrounding safe text, and keep
+  encoded archive output bounded.
+- Clear inherited WordPress credential variables before an explicit site alias
+  is resolved, and fail startup when that alias is unknown.
+- Allow `env://STONEWRIGHT_WP_APP_PASSWORD` for the selected alias by resolving
+  it from a protected pre-clear snapshot without retaining unrelated stale
+  credentials.
+- Replace self-signed restart proofs with one-time, expiring active-client
+  attestations bound to private registry key material, exact package
+  provenance/version, config hashes, restarted process, and a process-bound
+  catalog observation.
+- Validate installer-managed TOML and JSONC entries as exact official
+  `npx`/`npx.cmd --package <Stonewright package> stonewright-mcp` commands before
+  updating them, while preserving unrelated bytes.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

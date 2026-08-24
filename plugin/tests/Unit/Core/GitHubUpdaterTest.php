@@ -261,6 +261,18 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( 'Do not update. Publish SHA256SUMS.txt, then try again.', $result['reason']['action'] );
 	}
 
+	public function test_inject_update_records_no_update_when_installed_version_matches_remote(): void {
+		$release = $this->parsed_beta_release();
+		$this->cache_parsed_release( $release, $release['version'] );
+
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$plugin    = GitHubUpdater::plugin_basename();
+
+		self::assertArrayNotHasKey( $plugin, $transient->response );
+		self::assertArrayHasKey( $plugin, $transient->no_update );
+		self::assertSame( $release['version'], $transient->no_update[ $plugin ]->new_version ?? null );
+	}
+
 	public function test_transient_injection_refuses_cached_release_without_sha256sums(): void {
 		$this->set_installed_version( '1.0.0-beta.1' );
 		$release = [
