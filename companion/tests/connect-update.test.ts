@@ -418,8 +418,8 @@ describe('connect update', () => {
 			prefix_sha256: interval.prefixSha256,
 			suffix_sha256: interval.suffixSha256,
 			unrelated_bytes_unchanged: true,
-			backup_created: expect.any(Boolean),
 		}));
+		expect(typeof receipt.backup_created).toBe('boolean');
 		expect(receipt.prefix_sha256).toBe(afterInterval.prefixSha256);
 		expect(receipt.suffix_sha256).toBe(afterInterval.suffixSha256);
 		expect(output).not.toContain('backupPath');
