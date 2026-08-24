@@ -121,9 +121,10 @@ architecture target is ambiguous. `stonewright/elementor-document-health`
 reports the mixed counts, serialized size, invalid settings, and bounded
 `e-paragraph` ids before an agent chooses the surgical target.
 
-Successful writes invalidate only the target post's generated Elementor CSS.
-Stonewright no longer clears Elementor's global CSS cache after every document
-mutation, avoiding unnecessary regeneration work on the next editor load.
+Successful writes invalidate only the target post's HTML/object cache and
+preserve CSS metadata. CSS closes separately through the guarded target-post
+verifier. Stonewright never clears Elementor's global CSS cache for one
+document mutation.
 
 ## Compatibility abilities
 

@@ -13,6 +13,10 @@ const PLUGIN_POLICY = resolve(
 	import.meta.dirname,
 	'../../plugin/includes/Core/McpUsePolicy.php',
 );
+const PLUGIN_RULES = resolve(
+	import.meta.dirname,
+	'../../plugin/data/global-rules.json',
+);
 
 describe('permanent rules parity', () => {
 	it('exports nine canonical rules', () => {
@@ -72,6 +76,14 @@ describe('permanent rules parity', () => {
 			)
 			.digest('hex');
 		expect(canonicalRulesFingerprint()).toBe(expectedFp);
+	});
+
+	it('keeps the shipped global Elementor closure rule CSS-safe', () => {
+		const records = JSON.parse(readFileSync(PLUGIN_RULES, 'utf8')) as Array<{ id?: string; rule?: string }>;
+		const rule = records.find((record) => record.id === 'elementor-frontend-write-closure');
+		expect(rule?.rule).toContain('invalidate only the post HTML/object cache');
+		expect(rule?.rule).toContain('Plugin-mode guarded post CSS verification');
+		expect(rule?.rule).not.toContain('invalidate the post HTML and CSS caches');
 	});
 
 });

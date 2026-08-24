@@ -404,6 +404,22 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( [ 'elementor/manage-default-styles' ], array_column( $provider['write_primitives'], 'name' ) );
 	}
 
+	public function test_manage_elements_is_explicitly_non_routable_when_upstream_clears_global_css_cache(): void {
+		$ability = self::authentic_manage_default_styles_ability();
+		$ability['name'] = 'elementor/manage-elements';
+		$ability['runtime_class'] = 'Elementor\\Modules\\Mcp\\Abilities\\Manage_Elements_Ability';
+
+		$result = $this->router( 'v3', [], [ 'items' => [], 'issues' => [] ], [ $ability ] )->inspect();
+		$preference = $result['native_preferred']['elementor/manage-elements'];
+
+		self::assertTrue( $preference['available'] );
+		self::assertSame( 'unsupported', $preference['selection'] );
+		self::assertSame( 'upstream_global_clear_cache', $preference['reason'] );
+		self::assertFalse( $preference['routable_write'] );
+		self::assertTrue( $preference['safety_closure_required'] );
+		self::assertSame( 'elementor-core', $preference['provider_id'] );
+	}
+
 	public function test_manage_default_styles_is_discovered_but_not_preferred_when_contract_is_incomplete(): void {
 		$ability = self::authentic_manage_default_styles_ability();
 		$ability['description'] = 'Bulk update and delete default styles.';

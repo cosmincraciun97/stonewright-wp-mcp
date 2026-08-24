@@ -339,10 +339,10 @@ All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates
 the document, persists it, and proves serialized readback before generated
 state is touched. Only then does
-`PostCacheInvalidator` delete the official document cache key, clear that
-post's CSS state, clean the WordPress post cache, and notify Elementor's atomic
-style layer. A failed readback restores the previous document and invalidates
-the restored state.
+`PostCacheInvalidator` deletes the official document cache key and cleans the
+WordPress post cache. It preserves CSS metadata and never triggers a global
+files or atomic-style clear. A failed readback restores the previous document
+and invalidates only its HTML/object cache.
 
 Elementor kit globals use the separate typed
 `stonewright/elementor-v3-kit-batch-mutate` transaction because kit settings
@@ -353,11 +353,15 @@ attempts snapshot restoration and can never be reported as success. An
 identical plan is a verified no-op without a snapshot or write.
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-closure
-ability. It regenerates post-scoped CSS, warms Elementor through
-`get_builder_content_for_display()`, and returns bounded element/content
-assertions plus a render hash. It never returns page HTML. Browser measurement
-remains a separate required gate because a successful renderer call cannot
-prove responsive geometry, visibility, carousel peeks, or asset fidelity.
+ability. It preserves normal CSS metadata, inventories direct Elementor CSS
+assets, probes existing protected URLs, updates only the target through
+`Elementor\Core\Files\CSS\Post::create()->update()`, and restores the bounded
+asset snapshot if collateral changes or probes fail. It then renders through
+`get_builder_content_for_display( $post_id, false )` so the render cannot start
+a second CSS pass, returning only bounded assertions and hashes. Browser
+measurement remains a separate required gate because a successful renderer
+call cannot prove responsive geometry, visibility, carousel peeks, or asset
+fidelity.
 
 Mixed V3/V4 health responses expose maximal `v3_safe_roots`; V3 mutation stays
 inside those subtrees. Local Direct writes invalidate the target post's cache

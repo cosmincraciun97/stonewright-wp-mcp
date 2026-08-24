@@ -272,6 +272,21 @@ Recommend against stable 1.0 while any required gate is missing:
   desktop/tablet/mobile in a separate frontend tab. For boxed containers measure
   both the outer element and its direct `.e-con-inner`. Meta readback alone is
   not completion.
+- **Elementor CSS safety (hard):** never pass `regenerate_css` to
+  `stonewright-elementor-post-write-verify`; that input no longer exists. A
+  normal Elementor write may invalidate only post HTML/object cache. CSS closes
+  through the verifier's post-only guarded transaction, which inventories the
+  direct CSS directory, probes any existing target, `custom-frontend.min.css`,
+  and `custom-pro-widget-nav-menu.min.css` assets before and after, rejects
+  collateral changes, and restores its bounded asset snapshot. Restore runs
+  only while the CSS directory lease still identifies this writer, including
+  an expired-but-ours lease. A vacant lease after another writer committed
+  and released is a successor fence: skip restore (`not_attempted_lock_lost`)
+  and do not reclaim the empty slot. Post-lock and CSS-directory-lease renew
+  retry a same-owner options CAS miss and continue while this writer still
+  owns a live lease; `stonewright_elementor_lock_lost` /
+  `stonewright_elementor_css_lease_lost` mean ownership is gone, expired, or
+  foreign. Never call a site-wide Elementor files-manager clear for one post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,

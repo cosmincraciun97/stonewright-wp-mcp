@@ -2,6 +2,7 @@
   "core": "WordPress/WordPress#6.9",
   "phpVersion": "8.2",
   "plugins": [
+    "https://downloads.wordpress.org/plugin/elementor.3.30.0.zip",
     "https://downloads.wordpress.org/plugin/woocommerce.10.9.4.zip",
     "../dist/e2e-unpacked/stonewright"
   ],

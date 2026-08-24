@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { appendDirectAudit, defaultStateDir } from "../audit.js";
+import { appendDirectAudit, defaultAuditPath, defaultStateDir } from "../audit.js";
 import {
   assertWriteAllowed as integrityAssertWrite,
   encodeTreeOnce,
@@ -13,7 +13,7 @@ export type ElementorCli = typeof runWpCli;
 
 /** Minimal REST client shape used for remote Elementor meta when WP-CLI is absent. */
 export type ElementorRestClient = {
-	target?: Readonly<{ alias: string; url: string; siteId?: string | undefined }>;
+    target?: Readonly<{ alias: string; url: string; siteId?: string | undefined }>;
   get: <T>(
     path: string,
     opts?: {
@@ -46,6 +46,16 @@ function asFull(result: WpCliCommandResult): {
       : {}),
     ...(typeof result.error === "string" ? { error: result.error } : {}),
   };
+}
+
+function metadataReadbackIsAbsent(result: ReturnType<typeof asFull>): boolean {
+    if (result.ok) {
+        if (result.parsed_json !== undefined) {
+            return result.parsed_json === null || (typeof result.parsed_json === "string" && result.parsed_json.trim() === "");
+        }
+        return result.stdout.trim() === "";
+    }
+    return /could not get|no metadata|does not exist|not found/i.test(`${result.stdout}\n${result.stderr}`);
 }
 
 function parseElementorTree(raw: unknown): unknown {
@@ -707,7 +717,7 @@ export async function elementorDataUpdate(
           0,
           200,
         ),
-      });
+      }, defaultAuditPath(env));
       throw new Error(
         updated.stderr || updated.error || "Failed to update _elementor_data",
       );
@@ -736,44 +746,53 @@ export async function elementorDataUpdate(
       /could not delete|no metadata|does not exist|not found/i.test(
         `${elementCache.stdout}\n${elementCache.stderr}`,
       );
-
-    const cssMeta = asFull(
+    const elementCacheReadback = asFull(
       await cli(
         {
           command: [
             "post",
             "meta",
-            "delete",
+            "get",
             String(input.post_id),
-            "_elementor_css",
+            "_elementor_element_cache",
+            "--format=json",
           ],
           ...base,
+          parseJson: true,
         },
         undefined,
         env,
       ),
     );
-    const cssMetaAbsent =
-      cssMeta.ok ||
-      /could not delete|no metadata|does not exist|not found/i.test(
-        `${cssMeta.stdout}\n${cssMeta.stderr}`,
-      );
-
-    let cssFlushed = false;
-    const help = asFull(
-      await cli({ command: ["help", "elementor"], ...base }, undefined, env),
-    );
-    const helpText = `${help.stdout}\n${help.stderr}`.toLowerCase();
-    const flushCmd = helpText.includes("flush-css")
-      ? ["elementor", "flush-css"]
-      : helpText.includes("flush_css")
-        ? ["elementor", "flush_css"]
-        : null;
-    if (flushCmd) {
-      const flush = asFull(
-        await cli({ command: flushCmd, ...base }, undefined, env),
-      );
-      cssFlushed = flush.ok;
+    const cacheClosed = elementCacheAbsent && metadataReadbackIsAbsent(elementCacheReadback);
+    if (!cacheClosed) {
+      appendDirectAudit({
+        tool: "stonewright-elementor-data-update",
+        site: scope,
+        targetIdentity: auditTargetIdentity,
+        resource: `post:${input.post_id}`,
+        status: "error",
+        code: "elementor_element_cache_invalidation_failed",
+        error: "Element HTML cache invalidation or readback failed.",
+        verificationStatus: "failed",
+      }, defaultAuditPath(env));
+      return {
+        ok: false,
+        post_id: input.post_id,
+        transport: "wp-cli" as const,
+        backup_path: backupPath,
+        element_cache_invalidated: false,
+        css_meta_invalidated: false,
+        css_flushed: false,
+        css_safety_status: "blocked_pending_plugin_verification" as const,
+        verification_status: "failed" as const,
+        error_code: "elementor_element_cache_invalidation_failed",
+        error: "Element HTML cache invalidation or readback failed.",
+        guidance: [
+          "Do not report this Elementor write complete. Inspect the post HTML cache before retrying.",
+          "CSS metadata was preserved and no global CSS flush was run. Use Plugin mode post-write verification for guarded CSS closure.",
+        ],
+      };
     }
 
     appendDirectAudit({
@@ -782,19 +801,20 @@ export async function elementorDataUpdate(
       targetIdentity: auditTargetIdentity,
       resource: `post:${input.post_id}`,
       status: "ok",
-    });
+    }, defaultAuditPath(env));
 
     return {
       ok: true,
       post_id: input.post_id,
       transport: "wp-cli" as const,
       backup_path: backupPath,
-      element_cache_invalidated: elementCacheAbsent,
-      css_meta_invalidated: cssMetaAbsent,
-      css_flushed: cssFlushed,
+      element_cache_invalidated: cacheClosed,
+      css_meta_invalidated: false,
+      css_flushed: false,
+      css_safety_status: "preserved_pending_plugin_verification" as const,
       verification_status: "browser_required" as const,
       verify:
-        "reload the frontend URL in a separate browser tab and verify desktop, tablet, and mobile; for boxed containers measure both the outer element and .e-con-inner",
+        "Direct mode preserves Elementor CSS metadata and never runs a global CSS flush. Use Plugin mode stonewright-elementor-post-write-verify for guarded target-post CSS closure, then verify desktop, tablet, and mobile in a separate browser tab.",
       guidance: [
         "Direct mode has no live Elementor control schema. Prefer plugin batch-mutate for complex widgets and production work.",
         ...(elementCacheAbsent
@@ -802,11 +822,7 @@ export async function elementorDataUpdate(
           : [
               "Element HTML cache invalidation failed. Do not report the write complete; use Plugin mode post-write verification.",
             ]),
-        ...(cssFlushed || cssMetaAbsent
-          ? []
-          : [
-              "CSS was not invalidated. Open the page in Elementor once or use Plugin mode post-write verification.",
-            ]),
+        "CSS metadata was intentionally preserved. Do not call Elementor flush-css; use Plugin mode post-write verification before accepting the change.",
       ],
     };
   }
@@ -844,7 +860,7 @@ export async function elementorDataUpdate(
       resource: `post:${input.post_id}`,
       status: "error",
       error: message.slice(0, 200),
-    });
+    }, defaultAuditPath(env));
     throw new Error(
       `REST Elementor meta update failed: ${message}. Meta may not be REST-writable. Install the Stonewright plugin for typed batch-mutate instead of raw meta.`,
     );
@@ -856,7 +872,7 @@ export async function elementorDataUpdate(
     targetIdentity: auditTargetIdentity,
     resource: `post:${input.post_id}`,
     status: "ok",
-  });
+  }, defaultAuditPath(env));
 
   return {
     ok: true,
@@ -867,6 +883,7 @@ export async function elementorDataUpdate(
     element_cache_invalidated: false,
     css_meta_invalidated: false,
     css_flushed: false,
+    css_safety_status: "preserved_pending_plugin_verification" as const,
     verification_status: "not_checked" as const,
     verify:
       "remote Direct REST cannot invalidate Elementor HTML/CSS caches; use Plugin mode elementor-post-write-verify before accepting the change",

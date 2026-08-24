@@ -41,7 +41,7 @@ Agent / Ability
       │      ├─ _elementor_edit_mode = 'builder'
       │      └─ _elementor_version = ELEMENTOR_VERSION constant
       │
-      ├─ 6. Cache clear: Plugin::$instance->files_manager->clear_cache()
+      ├─ 6. Post-only HTML/object cache invalidation (CSS untouched)
       │
       └─ 7. AuditLog::record()
 ```
@@ -96,12 +96,14 @@ Three post-meta keys are written:
 | `_elementor_edit_mode` | `'builder'` |
 | `_elementor_version` | Current `ELEMENTOR_VERSION` constant or `'3.0.0'` fallback |
 
-### Step 6 — Cache clear
+### Step 6 — Cache and CSS closure
 
-`\Elementor\Plugin::$instance->files_manager->clear_cache()` is called after the meta
-writes so Elementor regenerates its CSS files on the next page load. The call is
-wrapped in a try/catch — failure is silently ignored because the cache layer is
-optional (non-fatal, and absent in test environments).
+The write removes only Elementor's target-post HTML cache key and cleans the
+WordPress post cache. It preserves `_elementor_css` and never calls Elementor's
+site-wide files-manager clear. After the typed write, call
+`stonewright-elementor-post-write-verify`; it regenerates only the target post
+through Elementor's official Post CSS API inside a bounded asset transaction.
+Never pass `regenerate_css`.
 
 ### Step 7 — Audit log
 

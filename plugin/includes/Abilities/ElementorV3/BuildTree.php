@@ -5,9 +5,11 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
 use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -29,7 +31,7 @@ final class BuildTree extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates CSS for the post, and returns a compact digest. Errors include the exact tree path (e.g. sections[1].elements[3].settings.title).', 'stonewright' );
+		return __( 'Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates only target post CSS inside a guarded asset transaction, and returns a compact digest. Errors include the exact tree path (e.g. sections[1].elements[3].settings.title).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -124,34 +126,97 @@ final class BuildTree extends AbilityKernel {
 					];
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
+				$owner = 'build-' . substr( hash( 'sha256', wp_generate_uuid4() . '|' . $post_id ), 0, 32 );
+				$lease = PostWriteLock::acquire( $post_id, $owner, 120 );
+				if ( $lease instanceof \WP_Error ) {
+					return $lease;
 				}
+				try {
+					$snapshot_id = Backup::snapshot_post( $post_id );
+					if ( '' === $snapshot_id ) {
+						return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
+					}
 
-				// Full tree writes are intentional replacements after snapshot.
-				if ( ! ElementorData::write( $post_id, $normalized, [ 'force_destructive' => true ] ) ) {
-					return $this->error( 'write_failed', __( 'Failed to persist Elementor tree.', 'stonewright' ) );
+					// Full tree writes are intentional replacements after snapshot. The
+					// outer lease remains held through CSS verification and rollback.
+					if ( ! ElementorData::write( $post_id, $normalized, [ 'force_destructive' => true, 'lock_owner' => $owner ] ) ) {
+						return ElementorData::write_error_for_ability( 'write_failed' );
+					}
+
+					$renewed = PostWriteLock::renew( $lease, 120 );
+					if ( $renewed instanceof \WP_Error ) {
+						// Renew can still error after a CAS false-negative. Continue CSS
+						// while this writer owns a live lease; restore only when ownership
+						// is actually gone so a verified document write is not left half-closed.
+						if ( ! PostWriteLock::owned_by( $post_id, $owner ) ) {
+							Backup::restore_snapshot( $post_id, $snapshot_id );
+							return $renewed;
+						}
+					} else {
+						$lease = $renewed;
+					}
+					$transaction = CssAssetTransaction::run(
+						$post_id,
+						static function () use ( $post_id ): array {
+							return CssRegenerator::regenerate_post( $post_id );
+						}
+					);
+					if ( $transaction instanceof \WP_Error ) {
+						$data = $transaction->get_error_data();
+						$data = is_array( $data ) ? $data : [];
+						$data['snapshot_id'] = $snapshot_id;
+						$data['css_rollback_status'] = (string) ( $data['rollback_status'] ?? 'unknown' );
+						$restore_lease = PostWriteLock::renew( $lease, 120 );
+						if ( $restore_lease instanceof \WP_Error ) {
+							$data['post_rollback_status'] = 'not_attempted_lock_lost';
+							$data['rollback_status'] = 'failed';
+							$data['root_error_code'] = 'stonewright_elementor_lock_lost';
+						} else {
+							$lease = $restore_lease;
+							$data['post_rollback_status'] = Backup::restore_snapshot( $post_id, $snapshot_id ) ? 'succeeded' : 'failed';
+						}
+						$transaction->add_data( $data );
+						return $transaction;
+					}
+					// Document write and CSS transaction already committed. Renew
+					// failure is best-effort: restoring only the document would
+					// desync CSS, and another live lock owner must not be overwritten.
+					// Codes: lock.renew_after_commit=ok|lost_after_commit.
+					$lock_renew_after_commit = 'ok';
+					$renewed = PostWriteLock::renew( $lease, 120 );
+					if ( $renewed instanceof \WP_Error ) {
+						$lock_renew_after_commit = 'lost_after_commit';
+					} else {
+						$lease = $renewed;
+					}
+					$operation = is_array( $transaction['operation_result'] ?? null ) ? $transaction['operation_result'] : [];
+					$css = array_merge(
+						$operation,
+						is_array( $transaction['css_evidence'] ?? null ) ? $transaction['css_evidence'] : []
+					);
+					$digest = ( new PageDigest() )->execute(
+						[
+							'post_id'   => $post_id,
+							'max_nodes' => 80,
+						]
+					);
+
+					return [
+						'ok'              => true,
+						'post_id'         => $post_id,
+						'snapshot_id'     => $snapshot_id,
+						'dry_run'         => false,
+						'element_count'   => count( ElementorData::flatten( $normalized ) ),
+						'aliases_applied' => $aliases_applied,
+						'css'             => $css,
+						'digest'          => is_array( $digest ) ? $digest : [],
+						'lock'            => [
+							'renew_after_commit' => $lock_renew_after_commit,
+						],
+					];
+				} finally {
+					PostWriteLock::release( $post_id, $owner );
 				}
-
-				$css    = CssRegenerator::regenerate_post( $post_id );
-				$digest = ( new PageDigest() )->execute(
-					[
-						'post_id'   => $post_id,
-						'max_nodes' => 80,
-					]
-				);
-
-				return [
-					'ok'              => true,
-					'post_id'         => $post_id,
-					'snapshot_id'     => $snapshot_id,
-					'dry_run'         => false,
-					'element_count'   => count( ElementorData::flatten( $normalized ) ),
-					'aliases_applied' => $aliases_applied,
-					'css'             => $css,
-					'digest'          => is_array( $digest ) ? $digest : [],
-				];
 			}
 		);
 	}

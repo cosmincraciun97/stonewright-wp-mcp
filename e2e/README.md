@@ -62,7 +62,7 @@ The `e2e-admin-ui` job in `.github/workflows/ci.yml`:
 1. Installs clean production plugin dependencies
 2. Builds and extracts the exact release ZIP layout
 3. Verifies every Jetpack Autoloader manifest path in that extracted archive
-4. Starts `wp-env` from `e2e/.wp-env.package.json` with WooCommerce active
+4. Starts `wp-env` from `e2e/.wp-env.package.json` with pinned Elementor 3.30.0 and WooCommerce active
 5. Runs `npx playwright test`
 
 ## WordPress matrix (Phase 12)

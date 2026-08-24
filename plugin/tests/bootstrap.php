@@ -629,6 +629,31 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $where
 		 */
 		public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+			if ( $this->options === $table && isset( $where['option_name'], $where['option_value'] ) ) {
+				$option = (string) $where['option_name'];
+				if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+					return 0;
+				}
+				if ( is_callable( $GLOBALS['stonewright_test_before_option_update'] ?? null ) ) {
+					$callback = $GLOBALS['stonewright_test_before_option_update'];
+					unset( $GLOBALS['stonewright_test_before_option_update'] );
+					$callback( $option );
+					if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+						|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+						return 0;
+					}
+				}
+				$cas_misses = (int) ( $GLOBALS['stonewright_test_option_cas_miss_remaining'] ?? 0 );
+				if ( $cas_misses > 0 ) {
+					$GLOBALS['stonewright_test_option_cas_miss_remaining'] = $cas_misses - 1;
+					return 0;
+				}
+				if ( array_key_exists( 'option_value', $data ) ) {
+					$GLOBALS['stonewright_test_options'][ $option ] = maybe_unserialize( $data['option_value'] );
+				}
+				return 1;
+			}
 			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {
 				$id = (int) $where['id'];
 				if ( isset( $this->direction_rows[ $id ] ) ) {
@@ -1165,6 +1190,9 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
 			$post                              = $GLOBALS['stonewright_test_posts'][ $post_id ];
 			$meta                              = (array) ( $post->meta ?? [] );
+			if ( array_key_exists( $meta_key, $meta ) && $meta[ $meta_key ] === $meta_value ) {
+				return false;
+			}
 			$meta[ $meta_key ]                 = $meta_value;
 			$post->meta                        = $meta;
 			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
@@ -1596,6 +1624,9 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
 
 if ( ! function_exists( 'wp_upload_dir' ) ) {
 	function wp_upload_dir(): array {
+		if ( isset( $GLOBALS['stonewright_test_upload_dir'] ) && is_array( $GLOBALS['stonewright_test_upload_dir'] ) ) {
+			return $GLOBALS['stonewright_test_upload_dir'];
+		}
 		$base = WP_CONTENT_DIR . '/uploads';
 		wp_mkdir_p( $base );
 		return [
@@ -2130,7 +2161,8 @@ if ( ! function_exists( 'wp_safe_remote_get' ) ) {
 		// Per-URL override for asset sideloading tests.
 		$asset_overrides = $GLOBALS['stonewright_test_asset_responses'] ?? [];
 		if ( array_key_exists( $url, $asset_overrides ) ) {
-			return $asset_overrides[ $url ];
+			$response = $asset_overrides[ $url ];
+			return is_callable( $response ) ? $response( $url, $args ) : $response;
 		}
 
 		// Default: return a successful image response.

@@ -37,7 +37,6 @@ final class ProductionSafeCoverageTest extends TestCase {
 		'stonewright/media-set-alt' => 'Updates attachment alt meta only; no post/user/menu/template/skill/memory/plugin/settings mutation.',
 		'stonewright/site-backup-page' => 'Creates a restore snapshot; does not change live post content.',
 		'stonewright/elementor-v3-backup-page' => 'Creates an Elementor restore snapshot; does not change live post content.',
-		'stonewright/elementor-post-write-verify' => 'Cache/CSS regen and HTML assertions after a write; does not mutate post content.',
 	];
 
 	/**

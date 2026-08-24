@@ -408,6 +408,7 @@ final class PublicApiContractSnapshot {
 			|| str_contains( $source, 'require_sandbox_confirmation' )
 			|| str_contains( $source, 'confirmation_token_error(' )
 			|| str_contains( $source, 'production_safe_token_error(' )
+			|| str_contains( $source, 'audit_write(' )
 			|| str_contains( $source, 'new BuildPageFromSpec()' );
 	}
 

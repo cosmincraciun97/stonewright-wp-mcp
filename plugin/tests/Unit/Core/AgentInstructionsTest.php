@@ -67,6 +67,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
 		$this->assertStringContainsString( 'stonewright/php-execute', $instructions );
 		$this->assertStringContainsString( 'Every Elementor V3 node needs a non-empty unique id', $instructions );
+		$this->assertStringContainsString( 'Never pass regenerate_css', $instructions );
+		$this->assertStringContainsString( 'custom-frontend.min.css', $instructions );
+		$this->assertStringContainsString( 'post-only guarded transaction', $instructions );
 		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
 		$this->assertStringContainsString( 'stonewright-wp-cli-install', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );

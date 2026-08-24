@@ -349,10 +349,38 @@ describe('direct elementor tools', () => {
 			calls.some(
 				(c) => c.command.join(' ') === 'post meta delete 9 _elementor_css',
 			),
-		).toBe(true);
+		).toBe(false);
+		expect(calls.some((c) => c.command.join(' ') === 'help elementor')).toBe(false);
+		expect(calls.some((c) => c.command.includes('flush-css'))).toBe(false);
 		expect(result.element_cache_invalidated).toBe(true);
-		expect(result.css_meta_invalidated).toBe(true);
+		expect(result.css_meta_invalidated).toBe(false);
+		expect(result.css_flushed).toBe(false);
+		expect(result.css_safety_status).toBe('preserved_pending_plugin_verification');
 		expect(result.verification_status).toBe('browser_required');
+	});
+
+	it('data-update returns structured failure and failed audit when cache readback remains present', async () => {
+		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
+		const cli = mockCli({
+			'cli info': () => ({ ok: true, available: true }),
+			'_elementor_data': () => ({ ok: true, parsed_json: tree }),
+			'post meta get 9 _elementor_element_cache': () => ({ ok: true, parsed_json: '<div>still cached</div>' }),
+		});
+		const env = { STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_WRITES: 'on' };
+
+		const result = await elementorDataUpdate(
+			env,
+			{ post_id: 9, data: tree, confirm: true },
+			cli as never,
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.element_cache_invalidated).toBe(false);
+		expect(result.error_code).toBe('elementor_element_cache_invalidation_failed');
+		expect(result.verification_status).toBe('failed');
+		expect(result.css_flushed).toBe(false);
+		const audit = readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8');
+		expect(audit).toContain('"status":"error"');
 	});
 
 	it('data-update rejects invalid json string', async () => {

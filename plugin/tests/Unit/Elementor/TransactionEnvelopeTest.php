@@ -31,6 +31,7 @@ final class TransactionEnvelopeTest extends TestCase {
 					'_elementor_data'      => '[{"id":"root","elType":"container","settings":{"container_type":"flex"},"elements":[]}]',
 					'_elementor_edit_mode' => 'builder',
 					'_elementor_version'   => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0',
+					'_elementor_css'       => [ 'time' => 456, 'status' => 'file' ],
 				],
 			],
 		];
@@ -196,8 +197,9 @@ final class TransactionEnvelopeTest extends TestCase {
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'full_tree', $result['mode'] ?? null );
 		self::assertNotEmpty( $result['snapshot_id'] );
-		self::assertSame( [ 601 ], $posts_css_manager->post_ids );
+		self::assertSame( [], $posts_css_manager->post_ids );
 		self::assertSame( 0, $files_manager->calls, 'Full-tree transactions must not perform a second global cache clear.' );
+		self::assertSame( [ 'time' => 456, 'status' => 'file' ], $GLOBALS['stonewright_test_posts'][601]->meta['_elementor_css'] );
 		$read = ElementorData::read( 601 );
 		self::assertSame( 'center', $read[0]['settings']['flex_align_items'] ?? null );
 	}

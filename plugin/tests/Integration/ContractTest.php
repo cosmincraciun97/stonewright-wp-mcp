@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Tests\Integration;
 
+use Elementor\Core\Files\CSS\Post;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Core\AbilityRegistry;
@@ -27,6 +28,7 @@ final class ContractTest extends TestCase {
 
 	/** Change id created by seed_finalizer_cancel_record(). */
 	private string $finalizer_cancel_change_id = '';
+	private string $elementor_css_dir = '';
 
 	protected function setUp(): void {
 		IncidentStore::reset_for_tests();
@@ -114,6 +116,31 @@ final class ContractTest extends TestCase {
 
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_companion_responses'] = [];
+		$GLOBALS['stonewright_test_home_url'] = 'https://example.test/';
+		$uploads = wp_upload_dir();
+		$this->elementor_css_dir = rtrim( (string) $uploads['basedir'], '/\\' ) . '/elementor/css';
+		wp_mkdir_p( $this->elementor_css_dir );
+		$this->remove_elementor_css_fixtures();
+		file_put_contents( $this->elementor_css_dir . '/custom-frontend.min.css', 'contract-frontend-css' );
+		Post::$factory = function ( int $post_id ): object {
+			$path = $this->elementor_css_dir . '/post-' . $post_id . '.css';
+			return new class( $path ) {
+				public function __construct( private string $path ) {
+				}
+
+				public function update(): void {
+					file_put_contents( $this->path, 'contract-post-css' );
+				}
+
+				public function get_path(): string {
+					return $this->path;
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/' . basename( $this->path );
+				}
+			};
+		};
 		// Seed nav-menu state so menu-* contract fixtures have a real menu to
 		// reference (id=5001) and a real registered location to assign to.
 		// The menu-create fixture builds its own menu under a different name,
@@ -143,7 +170,22 @@ final class ContractTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		Post::$factory = null;
+		$this->remove_elementor_css_fixtures();
+		unset( $GLOBALS['stonewright_test_home_url'] );
 		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+	}
+
+	private function remove_elementor_css_fixtures(): void {
+		if ( '' === $this->elementor_css_dir || ! is_dir( $this->elementor_css_dir ) ) {
+			return;
+		}
+		foreach ( [ 'post-1.css', 'custom-frontend.min.css' ] as $name ) {
+			$path = $this->elementor_css_dir . '/' . $name;
+			if ( is_file( $path ) || is_link( $path ) ) {
+				unlink( $path );
+			}
+		}
 	}
 
 	/**
