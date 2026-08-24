@@ -30,6 +30,11 @@ activation, packaging, or compatibility issue that affects the site.
    ZIP, and choose **Replace current with uploaded**.
 4. Return to **Stonewright → Setup** and run **Verify connection**.
 
+The native updater offers a release only when exact plugin, companion, and
+`SHA256SUMS.txt` assets are present on the trusted release URL. A missing
+manifest returns `missing_checksum_asset` and refuses transient injection; do
+not bypass that failure with a manual unverified package.
+
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
 or Stonewright settings.
@@ -55,13 +60,20 @@ the linked SHA-256 manifest.
 2. Replace the old `stonewright-companion-VERSION.tgz` release URL with the URL
    from the current release. Keep credentials private; never paste them into an
    issue, chat, repository, or command saved in shell history.
+   Installer-managed TOML/JSONC entries must remain an exact `npx` or
+   `npx.cmd` invocation with one `--package`, one exact Stonewright package,
+   and the `stonewright-mcp` executable in that order. Shell wrappers, extra
+   packages, duplicate flags, and unrelated package strings are rejected.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
-4. Call `stonewright-task-start`, then
-   `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`. Confirm
+4. Call `stonewright-task-start`, then `stonewright-setup-profile`,
+   `stonewright-wordpress-mcp-status`, and
+   `stonewright-client-surface-check` in that exact successful order. Confirm
    `companion_version` matches the installed plugin when using stdio,
    `expected_companion_package` is current, and
-   `refresh_required_tool_names` is empty.
+   `refresh_required_tool_names` is empty. The surface check must also report
+   the required tool as client-visible; an empty refresh list alone is not
+   update proof.
 
 For alias-based stdio installs, prefer the versioned repair command over
 editing a generic MCP block:
@@ -77,9 +89,12 @@ alias or `active_mode=direct` is a failed plugin-mode update, not success.
 The repair receipt is content-free: it confirms the server name, change/backup
 state, support tier, and browser consent without printing the surrounding
 private client configuration or absolute config/backup paths.
-The verification receipt includes the companion version, active alias,
-task-start/status availability, and `refresh_required_tool_names`; any non-empty
-refresh list is a failed update until the client is fully restarted.
+The verification receipt includes the companion version, active alias, exact
+successful gateway sequence, process/catalog evidence, and
+`refresh_required_tool_names`. A non-empty refresh list, saved/effective
+mode-or-surface mismatch, stale catalog, or failed client visibility check is a
+failed update until the exact remediation is completed and verification is
+repeated.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

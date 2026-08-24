@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Security
+
+- Replace self-signed restart proofs with one-time, expiring active-client
+  attestations bound to private registry key material, exact package
+  provenance/version, config hashes, restarted process, and a process-bound
+  catalog observation.
+- Validate installer-managed TOML and JSONC entries as exact official
+  `npx`/`npx.cmd --package <Stonewright package> stonewright-mcp` commands before
+  updating them, while preserving unrelated bytes.
+
+### Fixed
+
+- Record restart-verification calls only after successful handlers and enforce
+  `task-start` → `setup-profile` → `wordpress-mcp-status` →
+  `client-surface-check`; caller-provided tool-name lists no longer attest a
+  client catalog.
+- Preserve plugin task-start failures, remove the invalid site-alias
+  translation, prefer authoritative plugin mode/surface state, and fail startup
+  while the active client catalog is stale even when the refresh list is empty.
+- Serve running and expected package truth from the real health endpoint and
+  expose configured-package truth only to an authenticated request backed by a
+  validated source.
+- Resolve `chatgpt-desktop` through the Codex TOML adapter and catalog metadata.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Changed

@@ -21,6 +21,8 @@ describe('connection status reconciliation', () => {
 			catalogDigest: 'sha256:catalog',
 			observedToolNames: ['stonewright-task-start'],
 			reconciliation: {
+				client_expected_wordpress_mode: 'development',
+				client_expected_wp_surface: 'full',
 				saved_wordpress_mode: 'development',
 				effective_wordpress_mode: 'development',
 				saved_wp_surface: 'full',
@@ -37,6 +39,8 @@ describe('connection status reconciliation', () => {
 		expect(status.catalog_digest).toBe('sha256:catalog');
 		expect(status.observed_tool_names).toEqual(['stonewright-task-start']);
 		expect(status.reconciliation).toEqual({
+			client_expected_wordpress_mode: 'development',
+			client_expected_wp_surface: 'full',
 			saved_wordpress_mode: 'development',
 			effective_wordpress_mode: 'development',
 			saved_wp_surface: 'full',
@@ -58,6 +62,7 @@ describe('connection status reconciliation', () => {
 			},
 			startupReady: true,
 			reconciliation: {
+				client_expected_wordpress_mode: 'development', client_expected_wp_surface: 'full',
 				saved_wordpress_mode: 'development', effective_wordpress_mode: 'development',
 				saved_wp_surface: 'full', effective_companion_profile: 'essential-static',
 				profile_source: 'client-lock', mismatch_reason: 'saved_surface_differs_from_effective_profile',
@@ -65,12 +70,13 @@ describe('connection status reconciliation', () => {
 			},
 		});
 
-		expect(status.ok).toBe(true);
+		expect(status.ok).toBe(false);
+		expect(status.startup_ready).toBe(false);
 		expect(status.reconciliation.mismatch_reason).toBe('saved_surface_differs_from_effective_profile');
 		expect(status.reconciliation.mismatch_action).toMatch(/restart MCP/);
 	});
 
-	it('derives saved state from client config and updates effective state only from live evidence', () => {
+	it('keeps client hints separate from authoritative site-saved state', () => {
 		const runtime = createConnectionRuntime({
 			env: {
 				STONEWRIGHT_MODE: 'plugin',
@@ -83,15 +89,19 @@ describe('connection status reconciliation', () => {
 		});
 		const locked = runtime.buildStatusV2();
 		expect(locked.reconciliation).toEqual(expect.objectContaining({
-			saved_wordpress_mode: 'development',
+			client_expected_wordpress_mode: 'development',
+			client_expected_wp_surface: 'full',
+			saved_wordpress_mode: null,
 			effective_wordpress_mode: null,
-			saved_wp_surface: 'full',
+			saved_wp_surface: null,
 			effective_companion_profile: 'essential-static',
 			profile_source: 'client-lock',
-			mismatch_reason: 'saved_surface_differs_from_effective_profile',
+			mismatch_reason: null,
 		}));
 
 		runtime.env.STONEWRIGHT_MCP_TOOL_PROFILE_LOCK = '0';
+		runtime.savedWordPressMode = 'development';
+		runtime.savedWordPressSurface = 'full';
 		runtime.effectiveWordPressMode = 'development';
 		runtime.effectiveWordPressSurface = 'full';
 		const reconciled = runtime.buildStatusV2();

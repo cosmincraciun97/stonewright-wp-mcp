@@ -26,20 +26,57 @@ export function stonewrightPackageVersion(value: string): string | null {
 	return archive[1];
 }
 
+export function stonewrightPackageIdentity(value: string): {
+	version: string;
+	provenance: 'npm-registry' | 'github-release';
+} | null {
+	const version = stonewrightPackageVersion(value);
+	if (!version) return null;
+	return {
+		version,
+		provenance: value.startsWith('@stonewright/companion@') ? 'npm-registry' : 'github-release',
+	};
+}
+
 export function isStonewrightPackageReference(value: string): boolean {
 	return stonewrightPackageVersion(value) !== null;
 }
 
-export function requireOnePackageReference(
-	candidates: Array<{ start: number; end: number; value: string; quote?: string }>,
-	packageSpec: string,
-): StringReplacement {
+export function requireValidTargetPackageReference(packageSpec: string): void {
 	if (!isStonewrightPackageReference(packageSpec)) {
 		throw new ClientConfigError(
 			'package_reference_invalid',
 			'package_reference_invalid: --to must be @stonewright/companion@VERSION or the exact official GitHub release archive with matching SemVer.',
 		);
 	}
+}
+
+/** Fail closed unless an entry matches the documented npx Stonewright launch shape. */
+export function validateOfficialStonewrightNpxEntry(command: string, args: readonly string[]): void {
+	const executable = command.trim().replaceAll('\\', '/').split('/').at(-1)?.toLowerCase();
+	const start = args[0] === '-y' || args[0] === '--yes' ? 1 : 0;
+	const packageSpec = args[start + 1];
+	const valid = (executable === 'npx' || executable === 'npx.cmd')
+		&& args.length === start + 3
+		&& args[start] === '--package'
+		&& typeof packageSpec === 'string'
+		&& isStonewrightPackageReference(packageSpec)
+		&& args[start + 2] === 'stonewright-mcp'
+		&& args.filter((arg) => arg === '--package').length === 1
+		&& args.filter((arg) => isStonewrightPackageReference(arg)).length === 1;
+	if (!valid) {
+		throw new ClientConfigError(
+			'official_executable_contract_invalid',
+			'official_executable_contract_invalid: expected npx or npx.cmd with optional -y, exactly one --package followed by one exact Stonewright package, then stonewright-mcp.',
+		);
+	}
+}
+
+export function requireOnePackageReference(
+	candidates: Array<{ start: number; end: number; value: string; quote?: string }>,
+	packageSpec: string,
+): StringReplacement {
+	requireValidTargetPackageReference(packageSpec);
 	const matches = candidates.filter((candidate) => isStonewrightPackageReference(candidate.value));
 	if (matches.length === 0) {
 		throw new ClientConfigError(
@@ -210,6 +247,7 @@ function objectValues(node: JsonNode, key: string): JsonNode[] {
 }
 
 export function findJsoncPackageReplacement(text: string, serverName: string, packageSpec: string): StringReplacement {
+	requireValidTargetPackageReference(packageSpec);
 	const root = parseJsoncTree(text);
 	if (root.type !== 'object') jsoncParseFailure(text, root.start, 'JSONC_ROOT_NOT_OBJECT');
 	const buckets = [
@@ -224,17 +262,26 @@ export function findJsoncPackageReplacement(text: string, serverName: string, pa
 	if (serverNodes.length !== 1) {
 		throw new ClientConfigError('server_entry_ambiguous', `server_entry_ambiguous: found ${serverNodes.length} entries named "${serverName}".`);
 	}
+	const commandNodes = objectValues(serverNodes[0], 'command');
+	const command = commandNodes.length === 1 && commandNodes[0].type === 'value' && commandNodes[0].token?.type === 'string'
+		? commandNodes[0].token.value
+		: '';
 	const argsNodes = objectValues(serverNodes[0], 'args');
 	if (argsNodes.length !== 1 || argsNodes[0].type !== 'array') {
 		throw new ClientConfigError('package_reference_not_found', 'package_reference_not_found: target server has no unique args array.');
 	}
-	const strings = (argsNodes[0].items ?? [])
+	const items = argsNodes[0].items ?? [];
+	const strings = items
 		.filter((node) => node.type === 'value' && node.token?.type === 'string')
 		.map((node) => ({
 			start: node.token!.start,
 			end: node.token!.end,
 			value: node.token!.value,
 		}));
+	if (strings.length !== items.length) {
+		throw new ClientConfigError('official_executable_contract_invalid', 'official_executable_contract_invalid: command and args must be strings.');
+	}
+	validateOfficialStonewrightNpxEntry(command, strings.map((item) => item.value));
 	return requireOnePackageReference(strings, packageSpec);
 }
 

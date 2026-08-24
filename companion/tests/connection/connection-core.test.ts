@@ -199,10 +199,10 @@ describe('client_has_tool truthfulness', () => {
 		expect(clientHasTool('stonewright-reconnect')).toBe(true);
 	});
 
-	it('is true from observed_tool_names attestation or session invocation', () => {
+	it('ignores caller-supplied observed_tool_names and trusts successful invocation only', () => {
 		expect(clientHasTool('stonewright-php-execute', {
 			observedToolNames: ['stonewright-php-execute'],
-		})).toBe(true);
+		})).toBe(false);
 		expect(clientHasTool('stonewright-php-execute', {
 			invokedToolNames: new Set(['stonewright-php-execute']),
 		})).toBe(true);

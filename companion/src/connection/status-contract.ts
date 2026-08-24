@@ -43,6 +43,8 @@ export type WordPressSurface = 'bootstrap' | 'essential' | 'full';
 export type ProfileSource = 'site' | 'client-lock' | 'task' | 'default';
 
 export interface ConnectionReconciliation {
+	client_expected_wordpress_mode: WordPressMode | null;
+	client_expected_wp_surface: WordPressSurface | null;
 	saved_wordpress_mode: WordPressMode | null;
 	effective_wordpress_mode: WordPressMode | null;
 	saved_wp_surface: WordPressSurface | null;
@@ -90,7 +92,7 @@ export interface ConnectionStatusV2 {
 }
 
 export interface ClientHasToolContext {
-	/** Tool names the client attested via observed_tool_names. */
+	/** Deprecated caller claim. Retained for wire compatibility and never trusted. */
 	observedToolNames?: readonly string[] | null;
 	/** Tool names successfully invoked this session. */
 	invokedToolNames?: ReadonlySet<string> | null;
@@ -103,9 +105,6 @@ export interface ClientHasToolContext {
 export function clientHasTool(toolName: string, ctx: ClientHasToolContext = {}): boolean {
 	const normalized = normalizeToolName(toolName);
 	if (permanentGatewayMembership(normalized)) {
-		return true;
-	}
-	if (ctx.observedToolNames?.some((name) => normalizeToolName(name) === normalized)) {
 		return true;
 	}
 	if (ctx.invokedToolNames?.has(normalized)) {
@@ -125,8 +124,8 @@ export function clientVisibilityFromEvidence(
 	if (options.invoked || (ctx.invokedToolNames && ctx.invokedToolNames.size > 0)) {
 		return { state: 'invoked', reason: 'At least one tool was invoked this session.' };
 	}
-	if (options.attested || (ctx.observedToolNames && ctx.observedToolNames.length > 0)) {
-		return { state: 'attested', reason: 'Client supplied observed_tool_names attestation.' };
+	if (options.attested) {
+		return { state: 'attested', reason: 'Client presented the process-bound token from the current tools/list catalog.' };
 	}
 	return defaultClientVisibility();
 }
@@ -182,7 +181,21 @@ export function buildConnectionStatusV2(input: {
 		|| input.connectionStage === 'direct-ready'
 		|| input.connectionStage === 'plugin-registering'
 		|| input.connectionStage === 'plugin-authenticated';
-	const ok = input.ok ?? (input.startupReady && !input.errorCode);
+	const reconciliationMismatch = Boolean(input.reconciliation?.mismatch_reason);
+	const clientCatalogStale = input.surface.relist_required || input.clientTaskCatalogStale === true;
+	const startupReady = input.startupReady && !reconciliationMismatch && !clientCatalogStale;
+	const errorCode = input.errorCode
+		?? (reconciliationMismatch
+			? 'wordpress_reconciliation_mismatch'
+			: clientCatalogStale
+				? 'client_catalog_relist_required'
+				: null);
+	const nextAction = reconciliationMismatch
+		? input.reconciliation?.mismatch_action ?? 'Reconcile the saved and effective WordPress mode/surface, then restart MCP.'
+		: clientCatalogStale
+			? 'Re-list tools and present the current catalog observation to stonewright-client-surface-check.'
+			: input.nextAction ?? null;
+	const ok = input.ok === false ? false : startupReady && !errorCode;
 
 	const catalogDigest = input.catalogDigest ?? input.surface.digest;
 	return {
@@ -211,6 +224,8 @@ export function buildConnectionStatusV2(input: {
 		catalog_digest: catalogDigest,
 		observed_tool_names: input.observedToolNames ?? [],
 		reconciliation: input.reconciliation ?? {
+			client_expected_wordpress_mode: null,
+			client_expected_wp_surface: null,
 			saved_wordpress_mode: null,
 			effective_wordpress_mode: null,
 			saved_wp_surface: null,
@@ -219,11 +234,11 @@ export function buildConnectionStatusV2(input: {
 			mismatch_reason: null,
 			mismatch_action: null,
 		},
-		error_code: input.errorCode ?? null,
-		next_action: input.nextAction ?? null,
+		error_code: errorCode,
+		next_action: nextAction,
 		connected,
 		ok,
-		startup_ready: input.startupReady,
+		startup_ready: startupReady,
 		refresh_required_tool_names: input.refreshRequiredToolNames ?? [],
 		...(input.clientTaskCatalogStale !== undefined
 			? { client_task_catalog_stale: input.clientTaskCatalogStale }

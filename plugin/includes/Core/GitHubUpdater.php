@@ -13,7 +13,7 @@ namespace Stonewright\WpMcp\Core;
 final class GitHubUpdater {
 
 	public const CACHE_KEY = 'stonewright_github_release';
-	public const CACHE_SCHEMA_VERSION = 3;
+	public const CACHE_SCHEMA_VERSION = 4;
 	public const CACHE_TTL = 12 * HOUR_IN_SECONDS;
 	public const REPO      = 'cosmincraciun97/stonewright-wp-mcp';
 	public const API_URL   = 'https://api.github.com/repos/cosmincraciun97/stonewright-wp-mcp/releases?per_page=50';
@@ -84,7 +84,13 @@ final class GitHubUpdater {
 			return 'installed_channel_incompatible';
 		}
 
-		return null === self::parse_release( $release ) ? 'missing_required_assets' : null;
+		if ( null !== self::parse_release( $release ) ) {
+			return null;
+		}
+		$assets = self::release_asset_urls( $release, $version );
+		return '' !== $assets['package'] && '' !== $assets['companion_package'] && '' === $assets['checksums']
+			? 'missing_checksum_asset'
+			: 'missing_required_assets';
 	}
 
 	/**
@@ -145,7 +151,7 @@ final class GitHubUpdater {
 		$plugin = self::plugin_basename();
 		$current = self::installed_version();
 
-		if ( null === $remote || ! version_compare( $current, $remote['version'], '<' ) ) {
+		if ( null === $remote || '' === ( $remote['checksums'] ?? '' ) || ! version_compare( $current, $remote['version'], '<' ) ) {
 			$transient->no_update[ $plugin ] = (object) [
 				'slug'        => self::SLUG,
 				'plugin'      => $plugin,
@@ -245,6 +251,8 @@ final class GitHubUpdater {
 				$channel === ( $cached['channel'] ?? null ) &&
 				is_array( $cached['release'] ?? null ) &&
 				isset( $cached['release']['version'], $cached['release']['package'], $cached['release']['companion_package'], $cached['release']['url'] )
+				&& is_string( $cached['release']['checksums'] ?? null )
+				&& '' !== $cached['release']['checksums']
 			) {
 				/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $release */
 				$release = $cached['release'];
@@ -324,21 +332,32 @@ final class GitHubUpdater {
 		$parsed = self::select_release( array_values( $data ), $channel );
 		if ( null === $parsed ) {
 			$missing_artifacts = false;
+			$missing_checksum  = false;
 			foreach ( $data as $release ) {
-				if ( 'missing_required_assets' === self::release_rejection_reason( $release, $channel ) ) {
-					$missing_artifacts = true;
+				$rejection = self::release_rejection_reason( $release, $channel );
+				if ( 'missing_checksum_asset' === $rejection ) {
+					$missing_checksum = true;
 					break;
+				}
+				if ( 'missing_required_assets' === $rejection ) {
+					$missing_artifacts = true;
 				}
 			}
 
-			$result = $missing_artifacts
+			$result = $missing_checksum
+				? self::lookup_failure(
+					'missing_checksum_asset',
+					__( 'The compatible Stonewright release is missing SHA256SUMS.txt.', 'stonewright' ),
+					__( 'Do not update. Publish SHA256SUMS.txt, then try again.', 'stonewright' )
+				)
+				: ( $missing_artifacts
 				? self::lookup_failure(
 					'missing_required_artifacts',
 					__( 'The compatible Stonewright release is missing required plugin or companion artifacts.', 'stonewright' ),
 					__( 'Do not update. Publish both required packages, then try again.', 'stonewright' )
 				)
-				: self::lookup_not_available();
-			self::cache_lookup_result( $cache_key, $channel, $result, $missing_artifacts ? HOUR_IN_SECONDS : self::CACHE_TTL );
+				: self::lookup_not_available() );
+			self::cache_lookup_result( $cache_key, $channel, $result, ( $missing_artifacts || $missing_checksum ) ? HOUR_IN_SECONDS : self::CACHE_TTL );
 			return $result;
 		}
 
@@ -453,34 +472,12 @@ final class GitHubUpdater {
 			return null;
 		}
 
-		$package           = '';
-		$companion_package = '';
-		$checksums         = '';
-		$assets            = $release['assets'] ?? [];
-		if ( is_array( $assets ) ) {
-			$expected           = 'stonewright-' . $version . '.zip';
-			$expected_companion = 'stonewright-companion-' . $version . '.tgz';
-			$download_prefix    = 'https://github.com/' . self::REPO . '/releases/download/' . rawurlencode( $tag ) . '/';
-			foreach ( $assets as $asset ) {
-				if ( ! is_array( $asset ) ) {
-					continue;
-				}
-				$name = (string) ( $asset['name'] ?? '' );
-				$url  = (string) ( $asset['browser_download_url'] ?? '' );
-				if ( '' === $url || $url !== $download_prefix . rawurlencode( $name ) ) {
-					continue;
-				}
-				if ( $name === $expected ) {
-					$package = $url;
-				} elseif ( $name === $expected_companion ) {
-					$companion_package = $url;
-				} elseif ( 'SHA256SUMS.txt' === $name ) {
-					$checksums = $url;
-				}
-			}
-		}
+		$asset_urls       = self::release_asset_urls( $release, $version );
+		$package           = $asset_urls['package'];
+		$companion_package = $asset_urls['companion_package'];
+		$checksums         = $asset_urls['checksums'];
 
-		if ( '' === $package || '' === $companion_package ) {
+		if ( '' === $package || '' === $companion_package || '' === $checksums ) {
 			return null;
 		}
 
@@ -503,6 +500,40 @@ final class GitHubUpdater {
 		}
 
 		return $parsed;
+	}
+
+	/**
+	 * @param array<string, mixed> $release Decoded GitHub release JSON.
+	 * @return array{package: string, companion_package: string, checksums: string}
+	 */
+	private static function release_asset_urls( array $release, string $version ): array {
+		$found = [ 'package' => '', 'companion_package' => '', 'checksums' => '' ];
+		$tag   = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
+		$assets = $release['assets'] ?? [];
+		if ( ! is_array( $assets ) ) {
+			return $found;
+		}
+		$expected           = 'stonewright-' . $version . '.zip';
+		$expected_companion = 'stonewright-companion-' . $version . '.tgz';
+		$download_prefix    = 'https://github.com/' . self::REPO . '/releases/download/' . rawurlencode( $tag ) . '/';
+		foreach ( $assets as $asset ) {
+			if ( ! is_array( $asset ) ) {
+				continue;
+			}
+			$name = (string) ( $asset['name'] ?? '' );
+			$url  = (string) ( $asset['browser_download_url'] ?? '' );
+			if ( '' === $url || $url !== $download_prefix . rawurlencode( $name ) ) {
+				continue;
+			}
+			if ( $name === $expected ) {
+				$found['package'] = $url;
+			} elseif ( $name === $expected_companion ) {
+				$found['companion_package'] = $url;
+			} elseif ( 'SHA256SUMS.txt' === $name ) {
+				$found['checksums'] = $url;
+			}
+		}
+		return $found;
 	}
 
 	/**

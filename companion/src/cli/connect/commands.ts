@@ -20,7 +20,7 @@ import {
 } from '../../credentials/index.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
-import { stonewrightPackageVersion } from '../clients/package-reference.js';
+import { stonewrightPackageIdentity, stonewrightPackageVersion } from '../clients/package-reference.js';
 import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -933,7 +933,8 @@ export function connectUpdate(
 		return 1;
 	}
 	const expectedVersion = stonewrightPackageVersion(opts.to);
-	if (!expectedVersion) {
+	const packageIdentity = stonewrightPackageIdentity(opts.to);
+	if (!expectedVersion || !packageIdentity) {
 		writeErr('package_version_unknown: --to must contain an exact companion version.');
 		return 1;
 	}
@@ -948,7 +949,12 @@ export function connectUpdate(
 			throw new ConnectError('config_readback_failed', 'Config readback did not contain exactly one requested package token.');
 		}
 		const now = new Date().toISOString();
-		const priorProof = binding.last_restart_proof && verifyActiveClientRestartProof(binding.last_restart_proof)
+		const attestationKey = binding.restart_attestation_key ?? randomBytes(32).toString('base64url');
+		const priorProof = binding.last_restart_proof && verifyActiveClientRestartProof(
+			binding.last_restart_proof,
+			attestationKey,
+			binding.last_consumed_restart_receipt_id,
+		)
 			? binding.last_restart_proof
 			: null;
 		const priorActiveVerification = site.last_verification?.attestation_scope === 'active-client'
@@ -961,13 +967,15 @@ export function connectUpdate(
 				[adapter.id]: {
 					...binding,
 					last_applied_at: now,
+					restart_attestation_key: attestationKey,
 					pending_restart: {
 						receipt_id: randomUUID(),
-						attestation_challenge: randomBytes(32).toString('base64url'),
 						created_at: now,
+						expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
 						status: 'restart-required',
 						client: adapter.id,
 						expected_package: opts.to,
+						expected_package_provenance: packageIdentity.provenance,
 						expected_version: expectedVersion,
 						pre_restart_process_start_id: priorProof?.process_start_id ?? priorActiveVerification?.process_start_id ?? null,
 						pre_restart_catalog_digest: priorProof?.catalog_digest ?? priorActiveVerification?.catalog_digest ?? null,

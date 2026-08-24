@@ -7,8 +7,10 @@ import { join } from 'node:path';
 import { readTextFile, writeWithRollback } from './atomic-config.js';
 import {
 	applyStringReplacement,
+	requireValidTargetPackageReference,
 	requireOnePackageReference,
 	sha256Text,
+	validateOfficialStonewrightNpxEntry,
 } from './package-reference.js';
 import {
 	type ApplyResult,
@@ -423,6 +425,7 @@ function validateTomlHasStructure(path: string): void {
 }
 
 function findPackageReplacement(text: string, serverName: string, packageSpec: string) {
+	requireValidTargetPackageReference(packageSpec);
 	const tables = exactTables(text, `mcp_servers.${serverName}`);
 	if (tables.length === 0) {
 		throw new ClientConfigError('server_entry_not_found', `server_entry_not_found: no [mcp_servers.${serverName}] block.`);
@@ -434,6 +437,8 @@ function findPackageReplacement(text: string, serverName: string, packageSpec: s
 	if (!strings) {
 		throw new ClientConfigError('package_reference_not_found', 'package_reference_not_found: target server has no args array.');
 	}
+	const command = tableStringValue(text, tables[0], 'command') ?? '';
+	validateOfficialStonewrightNpxEntry(command, strings.map((item) => item.value));
 	return requireOnePackageReference(strings, packageSpec);
 }
 

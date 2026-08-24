@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Security
+
+- Require an exact `SHA256SUMS.txt` release asset before accepting updater
+  metadata or injecting an update transient, with a typed
+  `missing_checksum_asset` recovery reason.
+
+### Fixed
+
+- Require complete authenticated configured-package evidence in companion
+  health responses and include `stonewright-client-surface-check` in the
+  post-update verification prompt.
+- Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
+  admin OAuth browser test's stale client count with tab/panel parity checks.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed

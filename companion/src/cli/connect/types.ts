@@ -35,16 +35,19 @@ export interface SiteClientBinding {
 	browser?: BrowserPreferences | undefined;
 	pending_restart?: RestartReceipt | undefined;
 	last_restart_proof?: RestartProof | undefined;
+	/** Private HMAC key retained only in the local registry. Never return it. */
+	restart_attestation_key?: string | undefined;
+	last_consumed_restart_receipt_id?: string | undefined;
 }
 
 export interface RestartReceipt {
 	receipt_id: string;
-	/** Random local-only HMAC key. Never print it or copy it into public receipts. */
-	attestation_challenge: string;
 	created_at: string;
+	expires_at: string;
 	status: 'restart-required';
 	client: string;
 	expected_package: string;
+	expected_package_provenance: 'npm-registry' | 'github-release';
 	expected_version: string;
 	pre_restart_process_start_id: string | null;
 	pre_restart_catalog_digest: string | null;
@@ -58,15 +61,18 @@ export interface RestartProof {
 	attestation_scope: 'active-client';
 	receipt_id: string;
 	client: string;
+	mcp_client_name: string;
 	expected_package: string;
+	expected_package_provenance: 'npm-registry' | 'github-release';
 	expected_version: string;
 	companion_version: string;
+	config_before_sha256: string;
+	config_after_sha256: string;
 	process_start_id: string;
 	catalog_digest: string;
-	observed_tool_names: string[];
+	catalog_observation_digest: string;
+	expires_at: string;
 	attestation_digest: string;
-	/** Local verification key retained only in the private registry; never print it. */
-	attestation_challenge: string;
 }
 
 export interface LastVerification {

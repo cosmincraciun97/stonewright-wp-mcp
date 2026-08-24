@@ -263,6 +263,7 @@ export function getClientAdapter(id: string): ClientAdapter | null {
 		'vs-code': 'vscode-copilot',
 		claude: 'claude-desktop',
 		'codex-cli': 'codex',
+		'chatgpt-desktop': 'codex',
 	};
 	const key = map[normalized] ?? normalized;
 	return implementedAdapters().find((a) => a.id === key) ?? null;
@@ -286,7 +287,18 @@ export function listClientCatalog(): ClientCatalogMeta[] {
 		}),
 	);
 	const implementedIds = new Set(implemented.map((c) => c.id));
-	return [...implemented, ...STUB_CLIENTS.filter((c) => !implementedIds.has(c.id))].sort((a, b) =>
+	const codex = implemented.find((client) => client.id === 'codex')!;
+	const desktopAlias: ClientCatalogMeta = {
+		...codex,
+		id: 'chatgpt-desktop',
+		label: 'Codex in ChatGPT Desktop',
+		adapterImplemented: true,
+	};
+	return [
+		...implemented,
+		desktopAlias,
+		...STUB_CLIENTS.filter((c) => !implementedIds.has(c.id) && c.id !== desktopAlias.id),
+	].sort((a, b) =>
 		a.label.localeCompare(b.label),
 	);
 }
@@ -315,6 +327,14 @@ export function detectClients(homeDir = homedir()): DetectedClient[] {
 			officialCliAdd: adapter.officialCliAdd ?? '',
 		});
 	}
+	const codex = results.find((client) => client.id === 'codex');
+	if (codex) {
+		results.push({
+			...codex,
+			id: 'chatgpt-desktop',
+			label: 'Codex in ChatGPT Desktop',
+		});
+	}
 	// Heuristic paths for stubs
 	const stubPaths: Record<string, string> = {
 		'claude-code': join(homeDir, '.claude.json'),
@@ -322,7 +342,7 @@ export function detectClients(homeDir = homedir()): DetectedClient[] {
 		windsurf: join(homeDir, '.codeium', 'windsurf', 'mcp_config.json'),
 		zed: join(homeDir, '.config', 'zed', 'settings.json'),
 	};
-	for (const stub of STUB_CLIENTS) {
+	for (const stub of STUB_CLIENTS.filter((client) => client.id !== 'chatgpt-desktop')) {
 		const configPath = stubPaths[stub.id] ?? null;
 		results.push({
 			id: stub.id,

@@ -27,11 +27,19 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { log } from './lib/log.js';
-import { buildHttpGuard, loadGuardConfig, readBodyWithLimit, type GuardConfig } from './lib/security.js';
+import {
+	buildHttpGuard,
+	extractBearer,
+	isBearerValid,
+	loadGuardConfig,
+	readBodyWithLimit,
+	type GuardConfig,
+} from './lib/security.js';
 import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
-import { APP_VERSION } from './version.js';
+import { APP_VERSION, companionPackageSpec } from './version.js';
+import { stonewrightPackageIdentity } from './cli/clients/package-reference.js';
 import {
 	runWpCli,
 	runWpCliBatch,
@@ -87,6 +95,30 @@ export interface OptionalHttpStartResult {
 	error?: string;
 }
 
+export function buildHealthPayload(
+	req: IncomingMessage,
+	config: GuardConfig,
+	env: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+	const payload: Record<string, string> = {
+		status: 'ok',
+		contract_version: CONTRACT_VERSION,
+		version: APP_VERSION,
+		expected_companion_package: companionPackageSpec(),
+	};
+	const configuredPackage = (env['STONEWRIGHT_CONFIGURED_PACKAGE'] ?? '').trim();
+	const identity = stonewrightPackageIdentity(configuredPackage);
+	const authenticated = config.bearerToken !== null
+		&& isBearerValid(extractBearer(req), config.bearerToken);
+	if (authenticated && identity) {
+		payload['configured_package'] = configuredPackage;
+		payload['configured_package_version'] = identity.version;
+		payload['configured_package_provenance'] = identity.provenance;
+		payload['configured_package_source'] = 'authenticated-environment';
+	}
+	return payload;
+}
+
 /**
  * Boots the HTTP transport on the given port.
  *
@@ -120,7 +152,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		// Health check - no auth required; advertises contract_version
 		if (url === '/health') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ status: 'ok', contract_version: CONTRACT_VERSION, version: APP_VERSION }));
+			res.end(JSON.stringify(buildHealthPayload(req, config)));
 			return;
 		}
 

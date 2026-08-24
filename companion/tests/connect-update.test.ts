@@ -101,10 +101,10 @@ describe('connect update', () => {
 		const path = join(h.dir, '.codex', 'config.toml');
 
 		writeFileSync(path, '[mcp_servers.site-a]\ncommand = "npx"\nargs = ["-y", "other-package"]\n', 'utf8');
-		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/package_reference_not_found/);
+		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/official_executable_contract_invalid/);
 
 		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}", "@stonewright/companion@1.0.0-beta.11.1"]\n`, 'utf8');
-		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/package_reference_multiple/);
+		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/official_executable_contract_invalid/);
 
 		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n\n[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n`, 'utf8');
 		expect(() => adapter.updatePackageReference(path, 'site-a', NEW_PACKAGE)).toThrowError(/server_entry_ambiguous/);
@@ -113,7 +113,7 @@ describe('connect update', () => {
 	it('rejects non-exact or unofficial target package references', () => {
 		const h = harness();
 		const path = join(h.dir, '.codex', 'config.toml');
-		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["${OLD_PACKAGE}"]\n`, 'utf8');
+		writeFileSync(path, `[mcp_servers.site-a]\ncommand = "npx"\nargs = ["-y", "--package", "${OLD_PACKAGE}", "stonewright-mcp"]\n`, 'utf8');
 
 		for (const invalid of [
 			'@stonewright/companion@latest',
@@ -127,6 +127,58 @@ describe('connect update', () => {
 		}
 
 		expect(() => codexAdapter().updatePackageReference(path, 'site-a', '@stonewright/companion@1.0.0-beta.12')).not.toThrow();
+	});
+
+	it.each([
+		['bash launcher', 'bash', ['-lc', `npx -y --package ${OLD_PACKAGE} stonewright-mcp`]],
+		['non-npx launcher', 'node', ['--package', OLD_PACKAGE, 'stonewright-mcp']],
+		['absent package flag', 'npx', ['-y', OLD_PACKAGE, 'stonewright-mcp']],
+		['misordered package flag', 'npx', [OLD_PACKAGE, '--package', 'stonewright-mcp']],
+		['duplicate package flag', 'npx', ['--package', OLD_PACKAGE, '--package', OLD_PACKAGE, 'stonewright-mcp']],
+		['unrelated package string', 'npx', ['--package', OLD_PACKAGE, '@unrelated/example@1.0.0', 'stonewright-mcp']],
+		['wrong executable', 'npx', ['--package', OLD_PACKAGE, 'not-stonewright']],
+	])('rejects malformed official executable contract in TOML: %s', (_label, command, args) => {
+		const h = harness();
+		const path = join(h.dir, '.codex', 'config.toml');
+		writeFileSync(path, `[mcp_servers.site-a]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(args)}\n`, 'utf8');
+
+		expect(() => codexAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE))
+			.toThrowError(/official_executable_contract_invalid/);
+	});
+
+	it.each([
+		['bash launcher', 'bash', ['-lc', `npx -y --package ${OLD_PACKAGE} stonewright-mcp`]],
+		['non-npx launcher', 'node', ['--package', OLD_PACKAGE, 'stonewright-mcp']],
+		['absent package flag', 'npx', ['-y', OLD_PACKAGE, 'stonewright-mcp']],
+		['misordered package flag', 'npx', [OLD_PACKAGE, '--package', 'stonewright-mcp']],
+		['duplicate package flag', 'npx', ['--package', OLD_PACKAGE, '--package', OLD_PACKAGE, 'stonewright-mcp']],
+		['unrelated package string', 'npx', ['--package', OLD_PACKAGE, '@unrelated/example@1.0.0', 'stonewright-mcp']],
+		['wrong executable', 'npx', ['--package', OLD_PACKAGE, 'not-stonewright']],
+	])('rejects malformed official executable contract in JSONC: %s', (_label, command, args) => {
+		const h = harness();
+		const path = join(h.dir, '.cursor', 'mcp.json');
+		writeFileSync(path, `${JSON.stringify({
+			mcpServers: { 'site-a': { command, args, unknown: 'keep' } },
+		}, null, 2)}\n`, 'utf8');
+
+		expect(() => cursorAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE))
+			.toThrowError(/official_executable_contract_invalid/);
+	});
+
+	it.each([
+		['/usr/local/bin/npx', ['-y', '--package', OLD_PACKAGE, 'stonewright-mcp']],
+		['C:\\Program Files\\nodejs\\npx.cmd', ['--package', OLD_PACKAGE, 'stonewright-mcp']],
+	])('accepts documented npx executable equivalent %s without rewriting surrounding bytes', (command, args) => {
+		const h = harness();
+		const path = join(h.dir, '.cursor', 'mcp.json');
+		const before = `{
+	// preserve comment
+	"mcpServers": { "site-a": { "command": ${JSON.stringify(command)}, "args": ${JSON.stringify(args)}, "unknown": true } }
+}\n`;
+		writeFileSync(path, before, 'utf8');
+
+		cursorAdapter().updatePackageReference(path, 'site-a', NEW_PACKAGE);
+		expect(readFileSync(path, 'utf8')).toBe(before.replace(OLD_PACKAGE, NEW_PACKAGE));
 	});
 
 	it('never crosses a TOML server header with an inline comment', () => {
@@ -220,20 +272,26 @@ describe('connect update', () => {
 		expect(code).toBe(0);
 
 		const registry = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
-			sites: Array<{ clients: Record<string, { pending_restart?: Record<string, unknown> }> }>;
+			sites: Array<{ clients: Record<string, {
+				pending_restart?: Record<string, unknown>;
+				restart_attestation_key?: string;
+			}> }>;
 		};
 		expect(registry.sites[0].clients.cursor.pending_restart).toEqual(expect.objectContaining({
 			expected_package: NEW_PACKAGE,
+			expected_package_provenance: 'github-release',
 			expected_version: '1.0.0-beta.12',
 			pre_restart_process_start_id: null,
 			pre_restart_catalog_digest: null,
 			status: 'restart-required',
 		}));
-		const challenge = registry.sites[0].clients.cursor.pending_restart?.attestation_challenge;
-		expect(challenge).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+		expect(registry.sites[0].clients.cursor.pending_restart?.expires_at).toEqual(expect.any(String));
+		expect(registry.sites[0].clients.cursor.pending_restart).not.toHaveProperty('attestation_challenge');
+		const privateKey = registry.sites[0].clients.cursor.restart_attestation_key;
+		expect(privateKey).toMatch(/^[A-Za-z0-9_-]{40,}$/);
 		expect(logs.join('')).toContain('restart-required');
 		expect(logs.join('')).not.toContain('example-password');
-		expect(logs.join('')).not.toContain(String(challenge));
+		expect(logs.join('')).not.toContain(String(privateKey));
 	});
 
 	it('exposes the dedicated connect update CLI syntax', async () => {

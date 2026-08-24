@@ -111,6 +111,54 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( '1.3.0-beta.10', $parsed['version'] );
 		self::assertStringEndsWith( '/stonewright-1.3.0-beta.10.zip', $parsed['package'] );
 		self::assertStringEndsWith( '/stonewright-companion-1.3.0-beta.10.tgz', $parsed['companion_package'] );
+		self::assertStringEndsWith( '/SHA256SUMS.txt', $parsed['checksums'] );
+	}
+
+	public function test_release_without_sha256sums_is_rejected_with_a_typed_reason(): void {
+		$release = $this->releases_fixture()[2];
+		$release['assets'] = array_values(
+			array_filter(
+				$release['assets'],
+				static fn( array $asset ): bool => 'SHA256SUMS.txt' !== ( $asset['name'] ?? '' )
+			)
+		);
+
+		self::assertNull( GitHubUpdater::parse_release( $release ) );
+		self::assertSame( 'missing_checksum_asset', GitHubUpdater::release_rejection_reason( $release, 'beta' ) );
+
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $release ] ),
+		];
+		$result = GitHubUpdater::release_metadata( true, '1.0.0-beta.1' );
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'missing_checksum_asset', $result['reason']['code'] );
+		self::assertSame( 'Do not update. Publish SHA256SUMS.txt, then try again.', $result['reason']['action'] );
+	}
+
+	public function test_transient_injection_refuses_cached_release_without_sha256sums(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$release = [
+			'version'           => '1.3.0-beta.30',
+			'package'           => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.30/stonewright-1.3.0-beta.30.zip',
+			'companion_package' => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.30/stonewright-companion-1.3.0-beta.30.tgz',
+			'checksums'         => '',
+			'url'               => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.3.0-beta.30',
+		];
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => $release ],
+			GitHubUpdater::CACHE_TTL
+		);
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [] ),
+		];
+
+		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$plugin = GitHubUpdater::plugin_basename();
+
+		self::assertArrayNotHasKey( $plugin, $result->response );
 	}
 
 	public function test_fetch_release_list_selects_installed_channel_and_caches_with_channel(): void {
@@ -167,7 +215,12 @@ final class GitHubUpdaterTest extends TestCase {
 
 	public function test_release_metadata_reports_missing_required_artifacts_separately(): void {
 		$release = $this->releases_fixture()[2];
-		array_pop( $release['assets'] );
+		$release['assets'] = array_values(
+			array_filter(
+				$release['assets'],
+				static fn( array $asset ): bool => 'stonewright-companion-1.3.0-beta.10.tgz' !== ( $asset['name'] ?? '' )
+			)
+		);
 		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
 			'response' => [ 'code' => 200 ],
 			'body'     => (string) wp_json_encode( [ $release ] ),
@@ -422,8 +475,13 @@ final class GitHubUpdaterTest extends TestCase {
 		$malformed_body['body'] = "Release channel: preview\n";
 		yield 'malformed release body' => [ $malformed_body, 'beta', 'malformed_release_channel' ];
 
-		$missing_assets = $releases[2];
-		array_pop( $missing_assets['assets'] );
+		$missing_assets           = $releases[2];
+		$missing_assets['assets'] = array_values(
+			array_filter(
+				$missing_assets['assets'],
+				static fn( array $asset ): bool => 'stonewright-companion-1.3.0-beta.10.tgz' !== ( $asset['name'] ?? '' )
+			)
+		);
 		yield 'missing required package assets' => [ $missing_assets, 'beta', 'missing_required_assets' ];
 
 		foreach ( [ 'v1.3.0-beta..30', 'v01.0.0', 'v1.0.0-beta.01', 'vv1.3.0-beta.30' ] as $tag ) {
@@ -476,6 +534,10 @@ final class GitHubUpdaterTest extends TestCase {
 			[
 				'name'                 => 'stonewright-companion-' . $version . '.tgz',
 				'browser_download_url' => 'https://github.com/' . GitHubUpdater::REPO . '/releases/download/' . rawurlencode( $tag ) . '/' . rawurlencode( 'stonewright-companion-' . $version . '.tgz' ),
+			],
+			[
+				'name'                 => 'SHA256SUMS.txt',
+				'browser_download_url' => 'https://github.com/' . GitHubUpdater::REPO . '/releases/download/' . rawurlencode( $tag ) . '/SHA256SUMS.txt',
 			],
 		];
 

@@ -15,7 +15,13 @@ import {
 	testCredentialOptions,
 } from '../src/cli/connect/commands.js';
 import { runInit } from '../src/cli/init.js';
-import { codexAdapter, cursorAdapter } from '../src/cli/clients/index.js';
+import {
+	codexAdapter,
+	cursorAdapter,
+	detectClients,
+	getClientAdapter,
+	listClientCatalog,
+} from '../src/cli/clients/index.js';
 import { ClientConfigError } from '../src/cli/clients/types.js';
 import { redactedDiff, writeWithRollback } from '../src/cli/clients/atomic-config.js';
 
@@ -54,6 +60,24 @@ describe('connect CLI acceptance matrix', () => {
 		mkdirSync(join(dir, '.codex'), { recursive: true });
 		return { dir, sitesFile, homeDir, store, credentials };
 	}
+
+	it('resolves ChatGPT Desktop as the Codex TOML adapter across catalog and detection', () => {
+		const h = harness();
+		const adapter = getClientAdapter('chatgpt-desktop');
+		const meta = listClientCatalog().find((client) => client.id === 'chatgpt-desktop');
+		const detected = detectClients(h.homeDir);
+		const codex = detected.find((client) => client.id === 'codex');
+		const desktop = detected.find((client) => client.id === 'chatgpt-desktop');
+
+		expect(adapter).toEqual(expect.objectContaining({ id: 'codex', configFormat: 'toml-codex' }));
+		expect(meta).toEqual(expect.objectContaining({
+			id: 'chatgpt-desktop', configFormat: 'toml-codex', adapterImplemented: true,
+		}));
+		expect(desktop).toEqual(expect.objectContaining({
+			adapterImplemented: true,
+			configPath: codex?.configPath,
+		}));
+	});
 
 	it('first site + first client; same site rerun no duplicate', async () => {
 		const h = harness();

@@ -11,6 +11,33 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Security
+
+- Bind active-client update attestation to a private registry key and one-time
+  expiring receipt, the owning MCP client, exact official package provenance
+  and version, config hashes, restarted process, and process-bound catalog
+  observation. Forged, replayed, expired, stale, cross-client, and drifted
+  attestations now fail closed without exposing key material.
+- Require exact official `npx`/`npx.cmd --package <Stonewright package>
+  stonewright-mcp` client entries, and refuse updater metadata or transient
+  injection when the release omits `SHA256SUMS.txt`.
+
+### Fixed
+
+- Enforce the successful restart-verification order `task-start` →
+  `setup-profile` → `wordpress-mcp-status` → `client-surface-check`, and use a
+  process-bound catalog observation instead of caller-supplied tool names.
+- Preserve plugin task-start failures, stop forwarding the companion-only site
+  alias into the plugin schema, and reconcile authoritative saved/effective
+  WordPress mode and surface against client hints and client-visible tools.
+  Empty refresh lists no longer override a failed visibility check.
+- Make the real companion health payload report running and expected package
+  truth, with configured package evidence available only from an authenticated,
+  validated source; include `client-surface-check` in the update prompt.
+- Resolve ChatGPT Desktop consistently through the Codex TOML adapter, and make
+  the OAuth UI browser check assert matching unique client tabs and panels
+  instead of a stale hard-coded count.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed

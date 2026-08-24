@@ -1,8 +1,8 @@
 # Getting Started With Codex
 
-Stonewright treats **Codex in ChatGPT Desktop** and **Codex CLI** as separate
-clients. Pick the surface you actually use. `--client codex` still aliases to
-CLI, but installer commands should use the canonical slugs below.
+Stonewright uses one canonical Codex local adapter. `--client codex-cli` is the
+canonical slug; `--client codex` and the compatibility slug
+`--client chatgpt-desktop` resolve to the same Codex TOML entry.
 
 ## Codex CLI
 
@@ -13,12 +13,9 @@ Installer flag: `--client codex-cli`.
 
 ## Codex in ChatGPT Desktop
 
-The ChatGPT Desktop app stores GUI MCP servers in
-`~/Library/Application Support/ChatGPT/mcp_config.json` (`mcpServers` JSON with
-`url` for remote HTTP, or `command`/`args` for local stdio). Do not paste CLI
-TOML into that file.
-
-Installer flag: `--client chatgpt-desktop`.
+For Stonewright local stdio, `--client chatgpt-desktop` is a compatibility alias
+for the Codex adapter above. It reads and writes `~/.codex/config.toml` (or the
+trusted project TOML), not a second Desktop JSON file.
 
 ## Add Stonewright
 
@@ -34,7 +31,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
-Codex in ChatGPT Desktop (`mcpServers` JSON):
+ChatGPT Desktop compatibility alias (same Codex TOML target):
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
@@ -44,9 +41,8 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 ```
 
 The hidden prompt keeps the password off argv and shell history. Do not add a
-second generic `[mcp_servers.stonewright]` block (CLI) or a second generic
-`mcpServers.stonewright` key (Desktop). If the alias already exists, reuse its
-saved credential:
+second generic `[mcp_servers.stonewright]` block or a Desktop JSON duplicate. If
+the alias already exists, reuse its saved credential:
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex-cli --mode plugin-only
@@ -75,12 +71,13 @@ site-a --client codex-cli` or `--client chatgpt-desktop`; require the same
 alias, Plugin mode, the expected companion, task-start, status, and no missing
 required tools.
 
-Then call:
+Then call these tools in this exact successful order:
 
 ```text
 stonewright-task-start
 stonewright-setup-profile
 stonewright-wordpress-mcp-status
+stonewright-client-surface-check
 ```
 
 `stonewright-task-start` is the canonical first WordPress call. If neither it
@@ -97,8 +94,10 @@ For a client that cannot hold the full catalog, activate opt-in
 After every Stonewright release or skill sync, restart Codex and rerun:
 
 ```text
+stonewright-task-start
 stonewright-setup-profile
 stonewright-wordpress-mcp-status
+stonewright-client-surface-check
 ```
 
 Check these fields:
@@ -107,9 +106,12 @@ Check these fields:
 |---|---|
 | `companion_version` | The companion process Codex is actually running. |
 | `expected_companion_package` | The release tarball the config should point to. |
-| `refresh_required_tool_names` | Required tools that prove the visible tool list is current. |
+| `refresh_required_tool_names` | Server-required refresh candidates; an empty list is not client visibility proof. |
+| saved/effective mode and surface | Authoritative plugin state; it must agree with the active runtime. |
+| `client_has_tool` / `relist_required` | Actual visibility gate for the required client tool and catalog. |
 
 If the version or package is old, rerun the versioned `connect repair` command
-for that client slug, then restart Codex. If required tools are missing, reload
-the MCP session so Codex refreshes the tool list. Never copy the alias entry to
-a generic server name: that reintroduces cross-site ambiguity.
+for that client slug, then restart Codex. If saved/effective mode or surface
+differs, follow the returned Setup remediation. If visibility fails or relisting
+is required, reload the MCP session and repeat all four calls. Never copy the
+alias entry to a generic server name: that reintroduces cross-site ambiguity.

@@ -50,6 +50,7 @@ final class CompanionUpdateStatus {
 			$running_status = true === ( $bridge['reachable'] ?? false ) ? $companion_status : 'unavailable';
 		}
 		$configured_version  = true === ( $bridge['reachable'] ?? false ) ? (string) ( $bridge['configured_package_version'] ?? '' ) : '';
+		$configured_package  = $configured_version !== '' ? (string) ( $bridge['configured_package'] ?? '' ) : '';
 		$configured_attested = '' !== $configured_version;
 		$configured_reason   = $configured_attested
 			? __( 'Version supplied by an explicit bridge health attestation.', 'stonewright' )
@@ -73,7 +74,7 @@ final class CompanionUpdateStatus {
 			'configured_companion'    => [
 				'status'  => $configured_attested ? 'attested' : 'not_visible',
 				'version' => $configured_version,
-				'package' => '',
+				'package' => $configured_package,
 				'source'  => $configured_attested ? 'http_bridge_attestation' : 'wordpress',
 				'reason'  => $configured_reason,
 			],
@@ -89,7 +90,7 @@ final class CompanionUpdateStatus {
 
 	/**
 	 * @param callable|null $transport Test seam matching wp_safe_remote_get.
-	 * @return array{configured: bool, state: string, reachable: bool, version: string, configured_package_version: string, contract_version: string, detail: string}
+	 * @return array{configured: bool, state: string, reachable: bool, version: string, configured_package: string, configured_package_version: string, contract_version: string, detail: string}
 	 */
 	private static function bridge_health( ?callable $transport = null ): array {
 		$base  = rtrim( (string) get_option( 'stonewright_companion_url', '' ), '/' );
@@ -100,6 +101,7 @@ final class CompanionUpdateStatus {
 				'state'           => 'not_configured',
 				'reachable'                  => false,
 				'version'                    => '',
+				'configured_package'          => '',
 				'configured_package_version' => '',
 				'contract_version'           => '',
 				'detail'                     => __( 'No HTTP bridge is configured. This is normal for local stdio and remote OAuth connections.', 'stonewright' ),
@@ -122,6 +124,7 @@ final class CompanionUpdateStatus {
 				'state'           => 'unreachable',
 				'reachable'                  => false,
 				'version'                    => '',
+				'configured_package'          => '',
 				'configured_package_version' => '',
 				'contract_version'           => '',
 				'detail'                     => __( 'Configured HTTP bridge is not reachable. Local stdio remains private to the AI client.', 'stonewright' ),
@@ -136,6 +139,7 @@ final class CompanionUpdateStatus {
 				'state'           => 'invalid_response',
 				'reachable'                  => false,
 				'version'                    => '',
+				'configured_package'          => '',
 				'configured_package_version' => '',
 				'contract_version'           => '',
 				'detail'                     => __( 'Configured HTTP bridge did not return a valid health response.', 'stonewright' ),
@@ -144,16 +148,15 @@ final class CompanionUpdateStatus {
 
 		$version                    = isset( $data['version'] ) && is_string( $data['version'] ) ? $data['version'] : '';
 		$contract                   = isset( $data['contract_version'] ) && is_string( $data['contract_version'] ) ? $data['contract_version'] : '';
-		$configured_package_version = '' !== $token && isset( $data['configured_package_version'] ) && is_string( $data['configured_package_version'] )
-			? $data['configured_package_version']
-			: '';
+		$configured_attestation = self::configured_package_attestation( $data, $token );
 
 		return [
 			'configured'                => true,
 			'state'                     => 'reachable',
 			'reachable'                 => true,
 			'version'                   => $version,
-			'configured_package_version' => $configured_package_version,
+			'configured_package'          => $configured_attestation['package'],
+			'configured_package_version'  => $configured_attestation['version'],
 			'contract_version'          => $contract,
 			'detail'                    => '' !== $version
 				? sprintf(
@@ -165,6 +168,48 @@ final class CompanionUpdateStatus {
 		];
 	}
 
+	/**
+	 * @param array<string, mixed> $data Health payload.
+	 * @return array{package: string, version: string}
+	 */
+	private static function configured_package_attestation( array $data, string $token ): array {
+		$empty = [ 'package' => '', 'version' => '' ];
+		if (
+			'' === $token
+			|| 'authenticated-environment' !== ( $data['configured_package_source'] ?? '' )
+			|| ! isset( $data['configured_package'], $data['configured_package_version'], $data['configured_package_provenance'] )
+			|| ! is_string( $data['configured_package'] )
+			|| ! is_string( $data['configured_package_version'] )
+			|| ! is_string( $data['configured_package_provenance'] )
+		) {
+			return $empty;
+		}
+
+		$package    = $data['configured_package'];
+		$version    = $data['configured_package_version'];
+		$provenance = $data['configured_package_provenance'];
+		$semver     = '(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?';
+		$npm_match  = [];
+		$gh_match   = [];
+		$is_npm     = 1 === preg_match( '/^@stonewright\/companion@(' . $semver . ')$/', $package, $npm_match );
+		$is_github  = 1 === preg_match(
+			'/^https:\/\/github\.com\/cosmincraciun97\/stonewright-wp-mcp\/releases\/download\/v(' . $semver . ')\/stonewright-companion-(' . $semver . ')\.tgz$/',
+			$package,
+			$gh_match
+		);
+		if ( $is_npm && 'npm-registry' === $provenance && ( $npm_match[1] ?? '' ) === $version ) {
+			return [ 'package' => $package, 'version' => $version ];
+		}
+		if (
+			$is_github && 'github-release' === $provenance
+			&& $gh_match[1] === $version
+			&& $gh_match[1] === $gh_match[2]
+		) {
+			return [ 'package' => $package, 'version' => $version ];
+		}
+		return $empty;
+	}
+
 	private static function update_prompt( string $version, string $package ): string {
 		return sprintf(
 			"Update the Stonewright companion used by this AI client to %1\$s.\n\n"
@@ -174,8 +219,9 @@ final class CompanionUpdateStatus {
 			. "1. Confirm stonewright-task-start is visible.\n"
 			. "2. Call stonewright-task-start first.\n"
 			. "3. Call stonewright-setup-profile and stonewright-wordpress-mcp-status.\n"
-			. "4. Verify companion_version is %1\$s and refresh_required_tool_names is empty.\n"
-			. "5. Stop and report the exact failure if the version or tool list is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
+			. "4. Call stonewright-client-surface-check with expected_tool=stonewright-task-start and the process-bound catalog observation from the current tool list.\n"
+			. "5. Verify companion_version is %1\$s, refresh_required_tool_names is empty, and client_has_tool is true for the required tool.\n"
+			. "6. Stop and report the exact failure if version, reconciliation, or client visibility is still stale. Do not use a generic adapter, scratch runner, direct REST workaround, or shell WP-CLI.",
 			$version,
 			$package
 		);

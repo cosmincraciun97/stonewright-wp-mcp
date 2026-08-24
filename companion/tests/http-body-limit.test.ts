@@ -9,6 +9,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startHttp } from '../src/index.js';
+import { APP_VERSION, companionPackageSpec } from '../src/version.js';
 
 describe('HTTP body limit', () => {
 	let server: Awaited<ReturnType<typeof startHttp>>;
@@ -24,6 +25,7 @@ describe('HTTP body limit', () => {
 		process.env['COMPANION_ALLOWED_ORIGINS'] = origin;
 		process.env['COMPANION_MAX_BODY_BYTES'] = '1024'; // 1 KB
 		process.env['COMPANION_BIND_HOST'] = '127.0.0.1';
+		process.env['STONEWRIGHT_CONFIGURED_PACKAGE'] = companionPackageSpec();
 
 		server = await startHttp(0);
 		const addr = server.address();
@@ -40,6 +42,7 @@ describe('HTTP body limit', () => {
 		delete process.env['COMPANION_ALLOWED_ORIGINS'];
 		delete process.env['COMPANION_MAX_BODY_BYTES'];
 		delete process.env['COMPANION_BIND_HOST'];
+		delete process.env['STONEWRIGHT_CONFIGURED_PACKAGE'];
 	});
 
 	it('rejects POST /mcp bodies larger than the limit with 413', async () => {
@@ -83,6 +86,26 @@ describe('HTTP body limit', () => {
 	it('serves /health without auth even at startup', async () => {
 		const res = await fetch(`${baseUrl}/health`);
 		expect(res.status).toBe(200);
+		const body = await res.json() as Record<string, unknown>;
+		expect(body).toEqual(expect.objectContaining({
+			status: 'ok', contract_version: '1.0.0', version: APP_VERSION,
+			expected_companion_package: companionPackageSpec(),
+		}));
+		expect(body).not.toHaveProperty('configured_package_version');
+	});
+
+	it('returns configured package truth only to an authenticated health request', async () => {
+		const res = await fetch(`${baseUrl}/health`, {
+			headers: { Authorization: `Bearer ${bearer}` },
+		});
+		expect(res.status).toBe(200);
+		const body = await res.json() as Record<string, unknown>;
+		expect(body).toEqual(expect.objectContaining({
+			configured_package: companionPackageSpec(),
+			configured_package_version: APP_VERSION,
+			configured_package_provenance: 'github-release',
+			configured_package_source: 'authenticated-environment',
+		}));
 	});
 
 	it('rejects mismatched origin with 403', async () => {

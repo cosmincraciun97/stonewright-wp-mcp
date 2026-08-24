@@ -4,13 +4,17 @@
  * coalesces and preserves prior registry on failure.
  */
 
-import { describe, expect, it } from 'vitest';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createHmac } from 'node:crypto';
+import { describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createMcpServer } from '../../src/mcp-server.js';
 import { PERMANENT_GATEWAY_TOOL_NAMES } from '../../src/connection/index.js';
 import { NEVER_DISABLE_TOOL_NAMES, proxyToolNamesForProfile } from '../../src/wordpress-mcp.js';
 import { APP_VERSION, companionPackageSpec } from '../../src/version.js';
 import { verifyActiveClientRestartProof } from '../../src/connection/active-client-attestation.js';
+import { sha256Text } from '../../src/cli/clients/package-reference.js';
 
 function registeredToolNames(server: unknown): string[] {
 	return Object.keys((server as { _registeredTools?: Record<string, unknown> })._registeredTools ?? {});
@@ -19,6 +23,124 @@ function registeredToolNames(server: unknown): string[] {
 function toolHandler(server: unknown, name: string) {
 	const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
 	return tools[name]?.handler;
+}
+
+function setMcpClientIdentity(server: unknown, name: string): void {
+	const protocol = (server as { server?: { _clientVersion?: { name: string; version: string } } }).server;
+	if (protocol) protocol._clientVersion = { name, version: 'test-client-1.0.0' };
+}
+
+function catalogObservationFromToolList(server: unknown): string {
+	const tools = (server as {
+		_registeredTools?: Record<string, { description?: string }>;
+	})._registeredTools ?? {};
+	const description = tools['stonewright-client-surface-check']?.description ?? '';
+	const match = /catalog_observation=([A-Za-z0-9_-]{32,})/.exec(description);
+	expect(match, 'client-surface-check must expose a process-bound observation in its tools/list description').not.toBeNull();
+	return match?.[1] ?? '';
+}
+
+function activeAttestationFixture(options: {
+	client?: string;
+	expiresAt?: string;
+	packageSpec?: string;
+	configText?: string;
+} = {}) {
+	const stateDir = mkdtempSync(join(tmpdir(), 'sw-active-attest-'));
+	const sitesFile = join(stateDir, 'sites.json');
+	const client = options.client ?? 'codex';
+	const expectedPackage = options.packageSpec ?? companionPackageSpec();
+	const configPath = client === 'codex'
+		? join(stateDir, '.codex', 'config.toml')
+		: join(stateDir, `.${client}`, 'mcp.json');
+	const configText = options.configText ?? (client === 'codex'
+		? `[mcp_servers.stonewright-site-a]\ncommand = "npx"\nargs = ["-y", "--package", "${expectedPackage}", "stonewright-mcp"]\n`
+		: `${JSON.stringify({
+			mcpServers: {
+				'stonewright-site-a': {
+					command: 'npx',
+					args: ['-y', '--package', expectedPackage, 'stonewright-mcp'],
+				},
+			},
+		}, null, 2)}\n`);
+	mkdirSync(join(configPath, '..'), { recursive: true });
+	writeFileSync(configPath, configText, 'utf8');
+	const receipt = {
+		receipt_id: 'receipt-active-host',
+		created_at: new Date(Date.now() - 1_000).toISOString(),
+		expires_at: options.expiresAt ?? new Date(Date.now() + 60_000).toISOString(),
+		status: 'restart-required',
+		client,
+		expected_package: expectedPackage,
+		expected_package_provenance: 'github-release',
+		expected_version: APP_VERSION,
+		pre_restart_process_start_id: 'old-process',
+		pre_restart_catalog_digest: 'sha256:old',
+		config_before_sha256: 'sha256:before',
+		config_after_sha256: sha256Text(configText),
+	};
+	writeFileSync(sitesFile, `${JSON.stringify({
+		schema_version: 2,
+		default_site_id: 'SITEA',
+		sites: [{
+			id: 'SITEA', alias: 'site-a', environment: 'development', canonical_url: 'https://site-a.example',
+			url_fingerprint: 'sha256:test', username_hint: 'editor', credential_ref: 'env://SW_ACTIVE_ATTEST_PASSWORD',
+			auth_method: 'application-password', configured_mode: 'plugin-only', preferred_active_mode: 'plugin',
+			fallback_policy: 'never', companion_profile: 'bootstrap',
+			clients: {
+				[client]: {
+					server_name: 'stonewright-site-a',
+					config_path: configPath,
+					restart_attestation_key: 'private-registry-key-never-exported',
+					pending_restart: receipt,
+				},
+			},
+		}],
+	}, null, 2)}\n`, 'utf8');
+	return { stateDir, sitesFile, configPath, configText, expectedPackage, receipt, client };
+}
+
+async function activeAttestationServer(
+	fixture: ReturnType<typeof activeAttestationFixture>,
+	mcpClient = 'Codex',
+	taskStartResponse?: Record<string, unknown>,
+) {
+	process.env.SW_ACTIVE_ATTEST_PASSWORD = 'example-password';
+	const server = await createMcpServer({
+		env: {
+			HOME: fixture.stateDir,
+			STONEWRIGHT_HOME: fixture.stateDir,
+			STONEWRIGHT_STATE_DIR: fixture.stateDir,
+			STONEWRIGHT_SITES_FILE: fixture.sitesFile,
+			STONEWRIGHT_SITE_ALIAS: 'site-a',
+			STONEWRIGHT_MODE: 'plugin',
+			STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
+			STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+			STONEWRIGHT_WP_URL: 'https://example.com',
+			STONEWRIGHT_WP_USERNAME: 'editor',
+			STONEWRIGHT_WP_APP_PASSWORD: 'example-password',
+			SW_ACTIVE_ATTEST_PASSWORD: 'example-password',
+		},
+		fetchImpl: stonewrightMcpFetch(
+			proxyToolNamesForProfile('bootstrap').map((name) => ({ name })),
+			{ taskStartResponse },
+		),
+	});
+	delete process.env.SW_ACTIVE_ATTEST_PASSWORD;
+	setMcpClientIdentity(server, mcpClient);
+	return server;
+}
+
+async function completeRequiredAttestationSequence(server: unknown) {
+	await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify active host restart' });
+	await toolHandler(server, 'stonewright-setup-profile')?.({
+		siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+	});
+	await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({});
+	return toolHandler(server, 'stonewright-client-surface-check')?.({
+		expected_tool: 'stonewright-task-start',
+		catalog_observation: catalogObservationFromToolList(server),
+	});
 }
 
 describe('permanent gateways integration', () => {
@@ -124,7 +246,7 @@ describe('permanent gateways integration', () => {
 		expect(taskStart.structuredContent?.ok).toBe(true);
 	});
 
-	it('client_has_tool is never true from counts alone', async () => {
+	it('client_has_tool is never true from counts or caller-supplied names alone', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
@@ -151,7 +273,7 @@ describe('permanent gateways integration', () => {
 			expected_tool: 'stonewright-php-execute',
 			observed_tool_names: ['stonewright-php-execute'],
 		}) as { structuredContent?: { client_has_tool?: boolean } };
-		expect(attested.structuredContent?.client_has_tool).toBe(true);
+		expect(attested.structuredContent?.client_has_tool).toBe(false);
 
 		// Permanent gateways report true via membership.
 		const gatewayCheck = await toolHandler(server, 'stonewright-client-surface-check')?.({
@@ -160,80 +282,310 @@ describe('permanent gateways integration', () => {
 		expect(gatewayCheck.structuredContent?.client_has_tool).toBe(true);
 	});
 
-	it('closes a pending restart only inside the active host after the required gateway sequence', async () => {
-		const fs = await import('node:fs');
-		const os = await import('node:os');
-		const path = await import('node:path');
-		const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-active-attest-'));
-		const sitesFile = path.join(stateDir, 'sites.json');
-		const expectedPackage = companionPackageSpec();
-		writeFileSync(sitesFile, `${JSON.stringify({
-			schema_version: 2,
-			default_site_id: 'SITEA',
-			sites: [{
-				id: 'SITEA', alias: 'site-a', environment: 'development', canonical_url: 'https://site-a.example',
-				url_fingerprint: 'sha256:test', username_hint: 'editor', credential_ref: 'env://SW_ACTIVE_ATTEST_PASSWORD',
-				auth_method: 'application-password', configured_mode: 'plugin-only', preferred_active_mode: 'plugin',
-				fallback_policy: 'never', companion_profile: 'bootstrap',
-				clients: {
-					codex: {
-						server_name: 'stonewright-site-a',
-						pending_restart: {
-							receipt_id: 'receipt-active-host', attestation_challenge: 'challenge-active-host',
-							created_at: '2026-08-24T00:00:00.000Z', status: 'restart-required', client: 'codex',
-							expected_package: expectedPackage, expected_version: APP_VERSION,
-							pre_restart_process_start_id: 'old-process', pre_restart_catalog_digest: 'sha256:old',
-							config_before_sha256: 'sha256:before', config_after_sha256: 'sha256:after',
-						},
-					},
-				},
-			}],
-		}, null, 2)}\n`, 'utf8');
+	it('does not translate companion site_alias into the plugin task-start schema', async () => {
+		let remoteArgs: Record<string, unknown> | undefined;
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static',
+			},
+			fetchImpl: stonewrightMcpFetch(
+				proxyToolNamesForProfile('essential-static').map((name) => ({ name })),
+				{ onTaskStart: (args) => { remoteArgs = args; } },
+			),
+		});
 
-		process.env.SW_ACTIVE_ATTEST_PASSWORD = 'example-password';
+		const result = await toolHandler(server, 'stonewright-task-start')?.({
+			task: 'inspect schema translation', intent: 'read-only', site_alias: 'site-a', surface: 'essential',
+		}) as { structuredContent?: { ok?: boolean } };
+
+		expect(result.structuredContent?.ok).toBe(true);
+		expect(remoteArgs).toEqual({ task: 'inspect schema translation', intent: 'read-only', surface: 'essential' });
+	});
+
+	it('preserves plugin task-start failure instead of reporting false success', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartResponse: {
+					ok: false,
+					error_code: 'invalid_input',
+					message: 'site is not a valid property of the object.',
+				},
+			}),
+		});
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'invalid remote request' }) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string };
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'invalid_input',
+		}));
+	});
+
+	it('preserves a plugin JSON-RPC task-start rejection instead of falling back to local success', async () => {
+		const stateDir = mkdtempSync(join(tmpdir(), 'sw-task-start-reject-'));
 		const server = await createMcpServer({
 			env: {
 				HOME: stateDir,
 				STONEWRIGHT_HOME: stateDir,
 				STONEWRIGHT_STATE_DIR: stateDir,
-				STONEWRIGHT_SITES_FILE: sitesFile,
-				STONEWRIGHT_SITE_ALIAS: 'site-a',
-				STONEWRIGHT_MODE: 'plugin',
-				STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
-				SW_ACTIVE_ATTEST_PASSWORD: 'example-password',
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
 			},
-			fetchImpl: stonewrightMcpFetch(proxyToolNamesForProfile('bootstrap').map((name) => ({ name }))),
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartError: {
+					code: -32602,
+					message: 'Invalid task-start input.',
+				},
+			}),
 		});
-		delete process.env.SW_ACTIVE_ATTEST_PASSWORD;
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'rejected remote request' }) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string; next_action?: string };
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'plugin_task_start_failed',
+		}));
+		expect(result.structuredContent?.next_action).toContain('Fix the plugin task-start failure');
+	});
+
+	it('preserves an MCP isError task-start result instead of treating error content as success', async () => {
+		const stateDir = mkdtempSync(join(tmpdir(), 'sw-task-start-is-error-'));
+		const server = await createMcpServer({
+			env: {
+				HOME: stateDir,
+				STONEWRIGHT_HOME: stateDir,
+				STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([{ name: 'stonewright-task-start' }], {
+				taskStartIsError: true,
+			}),
+		});
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'invalid MCP tool input' }) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string };
+		};
+
+		expect(result.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'plugin_task_start_failed',
+		}));
+	});
+
+	it('reports authoritative full plugin surface and gates a stale client catalog despite an empty refresh list', async () => {
+		const remoteTools = Array.from({ length: 378 }, (_, index) => ({ name: `stonewright-synthetic-${index}` }));
+		remoteTools.splice(0, 3,
+			{ name: 'stonewright-task-start' },
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-skills-get' },
+		);
+		remoteTools.push({ name: 'stonewright-elementor-v3-container-schema' });
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static',
+			},
+			fetchImpl: stonewrightMcpFetch(remoteTools, {
+				taskStartResponse: {
+					ok: true,
+					wordpress_mode: 'development',
+					configured_mcp_surface: 'full',
+					session_tool_profile: 'full',
+					tools_changed: true,
+					surface_revision: 9,
+					guidance: [],
+				},
+			}),
+		});
+		const preRefreshObservation = catalogObservationFromToolList(server);
+
+		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({ task: 'use full plugin surface' }) as {
+			structuredContent?: {
+				ok?: boolean; startup_ready?: boolean; error_code?: string; next_action?: string; refresh_required_tool_names?: string[];
+				surface?: { profile?: string; remote_tool_count?: number; registered_tool_count?: number; relist_required?: boolean };
+				reconciliation?: Record<string, unknown>;
+			};
+		};
+
+		expect(taskStart.structuredContent?.surface).toEqual(expect.objectContaining({
+			profile: 'full', remote_tool_count: 379, relist_required: true,
+		}));
+		expect(taskStart.structuredContent?.surface?.registered_tool_count).toBeGreaterThan(0);
+		expect(taskStart.structuredContent?.refresh_required_tool_names).toEqual([]);
+		expect(taskStart.structuredContent?.reconciliation).toEqual(expect.objectContaining({
+			saved_wordpress_mode: 'development',
+			saved_wp_surface: 'full',
+			effective_wordpress_mode: 'development',
+			effective_companion_profile: 'full',
+		}));
+		expect(taskStart.structuredContent).toEqual(expect.objectContaining({
+			ok: false, startup_ready: false, error_code: 'client_catalog_relist_required',
+		}));
+		expect(catalogObservationFromToolList(server)).not.toBe(preRefreshObservation);
+
+		const status = await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({}) as {
+			structuredContent?: {
+				ok?: boolean; startup_ready?: boolean; error_code?: string; refresh_required_tool_names?: string[];
+				tool_profile?: string; live_tool_profile?: string; proxied_tool_count?: number;
+				live_enabled_tool_count?: number;
+				surface?: { profile?: string; remote_tool_count?: number; relist_required?: boolean };
+			};
+		};
+		expect(status.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			startup_ready: false,
+			error_code: 'client_catalog_relist_required',
+			refresh_required_tool_names: [],
+			tool_profile: 'full',
+			live_tool_profile: 'full',
+		}));
+		expect(status.structuredContent?.surface).toEqual(expect.objectContaining({
+			profile: 'full',
+			remote_tool_count: 379,
+			relist_required: true,
+		}));
+		expect(status.structuredContent?.proxied_tool_count).toBe(status.structuredContent?.live_enabled_tool_count);
+		expect(status.structuredContent?.next_action).toBe(
+			'Re-list tools and present the current catalog observation to stonewright-client-surface-check.',
+		);
+
+		const surface = await toolHandler(server, 'stonewright-client-surface-check')?.({
+			expected_tool: 'stonewright-elementor-v3-container-schema',
+			catalog_observation: preRefreshObservation,
+		}) as {
+			structuredContent?: { ok?: boolean; client_has_tool?: boolean; startup_ready?: boolean; error_code?: string };
+		};
+		expect(surface.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			client_has_tool: false,
+			startup_ready: false,
+			error_code: 'client_tool_not_registered',
+		}));
+
+		const attestedSurface = await toolHandler(server, 'stonewright-client-surface-check')?.({
+			expected_tool: 'stonewright-elementor-v3-container-schema',
+			catalog_observation: catalogObservationFromToolList(server),
+		}) as { structuredContent?: {
+			ok?: boolean; client_has_tool?: boolean; startup_ready?: boolean; error_code?: string;
+			surface?: { profile?: string; relist_required?: boolean };
+		} };
+		expect(attestedSurface.structuredContent).toEqual(expect.objectContaining({
+			ok: true,
+			client_has_tool: true,
+			startup_ready: true,
+			error_code: 'ok',
+		}));
+		expect(attestedSurface.structuredContent?.surface).toEqual(expect.objectContaining({
+			profile: 'full',
+			relist_required: false,
+		}));
+
+		const reconciledStatus = await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({}) as {
+			structuredContent?: { ok?: boolean; startup_ready?: boolean; error_code?: string | null; surface?: { relist_required?: boolean } };
+		};
+		expect(reconciledStatus.structuredContent).toEqual(expect.objectContaining({
+			ok: true,
+			startup_ready: true,
+			error_code: null,
+		}));
+		expect(reconciledStatus.structuredContent?.surface?.relist_required).toBe(false);
+	});
+
+	it('rejects a proof signed with key material embedded in that same proof', () => {
+		const proof = {
+			verified_at: new Date().toISOString(),
+			status: 'verified',
+			attestation_scope: 'active-client',
+			receipt_id: 'forged-receipt',
+			client: 'codex',
+			expected_package: companionPackageSpec(),
+			expected_version: APP_VERSION,
+			companion_version: APP_VERSION,
+			process_start_id: 'forged-process',
+			catalog_digest: 'sha256:forged-catalog',
+			observed_tool_names: ['stonewright-task-start'],
+			attestation_challenge: 'attacker-selected-key',
+		};
+		const material = JSON.stringify({
+			status: proof.status,
+			attestation_scope: proof.attestation_scope,
+			receipt_id: proof.receipt_id,
+			client: proof.client,
+			expected_package: proof.expected_package,
+			expected_version: proof.expected_version,
+			companion_version: proof.companion_version,
+			process_start_id: proof.process_start_id,
+			catalog_digest: proof.catalog_digest,
+			observed_tool_names: proof.observed_tool_names,
+		});
+		const forged = {
+			...proof,
+			attestation_digest: `hmac-sha256:${createHmac('sha256', proof.attestation_challenge).update(material).digest('hex')}`,
+		};
+
+		expect(verifyActiveClientRestartProof(forged)).toBe(false);
+	});
+
+	it('closes a pending restart only inside the active host after the required gateway sequence', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture);
 
 		const premature = await toolHandler(server, 'stonewright-client-surface-check')?.({
 			expected_tool: 'stonewright-task-start',
-		}) as { structuredContent?: { restart_attestation?: { status?: string; missing_calls?: string[] } } };
-		expect(premature.structuredContent?.restart_attestation?.status).toBe('incomplete');
-		expect(premature.structuredContent?.restart_attestation?.missing_calls).toEqual(expect.arrayContaining([
-			'stonewright-task-start',
-			'stonewright-setup-profile',
-			'stonewright-wordpress-mcp-status',
-		]));
-		const pendingRegistry = JSON.parse(readFileSync(sitesFile, 'utf8')) as {
+		}) as { structuredContent?: { ok?: boolean; error_code?: string; next_action?: string } };
+		expect(premature.structuredContent?.ok).toBe(false);
+		expect(premature.structuredContent?.error_code).toBe('restart_attestation_call_out_of_order');
+		expect(premature.structuredContent?.next_action).toContain('stonewright-task-start');
+		const pendingRegistry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
 			sites: Array<{ clients: Record<string, { pending_restart?: unknown }> }>;
 		};
 		expect(pendingRegistry.sites[0].clients.codex.pending_restart).toBeDefined();
 
-		await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify active host restart' });
-		await toolHandler(server, 'stonewright-setup-profile')?.({});
+		const activeTask = await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify active host restart' }) as {
+			structuredContent?: { ok?: boolean; error_code?: string };
+		};
+		expect(activeTask.structuredContent?.ok).toBe(true);
+		const activeSetup = await toolHandler(server, 'stonewright-setup-profile')?.({
+			siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+		}) as {
+			structuredContent?: { ok?: boolean; error_code?: string; checks?: Array<{ id: string; status: string }> };
+		};
+		expect(activeSetup.structuredContent?.checks?.filter((check) => check.status !== 'ok')).toEqual([]);
+		expect(activeSetup.structuredContent?.ok).toBe(true);
 		const activeStatus = await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({}) as {
 			structuredContent?: { refresh_required_tool_names?: string[] };
 		};
 		expect(activeStatus.structuredContent?.refresh_required_tool_names).toEqual([]);
 		const completed = await toolHandler(server, 'stonewright-client-surface-check')?.({
 			expected_tool: 'stonewright-task-start',
-			observed_tool_names: [...registeredToolNames(server), 'stonewright-not-registered'],
+			catalog_observation: catalogObservationFromToolList(server),
 		}) as { structuredContent?: { restart_attestation?: { status?: string; attestation_digest?: string } } };
 
 		expect(completed.structuredContent?.restart_attestation?.status).toBe('verified');
 		expect(completed.structuredContent?.restart_attestation?.attestation_digest).toMatch(/^hmac-sha256:/);
-		const registry = JSON.parse(readFileSync(sitesFile, 'utf8')) as {
+		const registry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
 			sites: Array<{ clients: Record<string, {
 				pending_restart?: unknown;
 				last_restart_proof?: {
@@ -241,32 +593,169 @@ describe('permanent gateways integration', () => {
 					attestation_scope?: string;
 					receipt_id?: string;
 					expected_package?: string;
+					expected_package_provenance?: string;
 					expected_version?: string;
+					config_before_sha256?: string;
+					config_after_sha256?: string;
+					expires_at?: string;
 					attestation_digest?: string;
 					attestation_challenge?: string;
-					observed_tool_names?: string[];
+					catalog_observation_digest?: string;
 				};
+				restart_attestation_key?: string;
+				last_consumed_restart_receipt_id?: string;
 			}> }>;
 		};
 		expect(registry.sites[0].clients.codex.pending_restart).toBeUndefined();
 		const proof = registry.sites[0].clients.codex.last_restart_proof;
 		expect(proof).toMatchObject({
 			status: 'verified', attestation_scope: 'active-client', receipt_id: 'receipt-active-host',
-			expected_package: expectedPackage, expected_version: APP_VERSION,
+			expected_package: fixture.expectedPackage, expected_package_provenance: 'github-release',
+			expected_version: APP_VERSION,
+			config_before_sha256: fixture.receipt.config_before_sha256,
+			config_after_sha256: fixture.receipt.config_after_sha256,
 		});
 		expect(proof?.attestation_digest).toMatch(/^hmac-sha256:/);
-		expect(proof?.observed_tool_names).toEqual(expect.arrayContaining([
-				'stonewright-task-start',
-				'stonewright-setup-profile',
-				'stonewright-wordpress-mcp-status',
-				'stonewright-client-surface-check',
-				'stonewright-ping',
-		]));
-		expect(proof?.observed_tool_names).not.toContain('stonewright-not-registered');
-		expect(verifyActiveClientRestartProof(proof)).toBe(true);
-		expect(verifyActiveClientRestartProof({ ...proof, catalog_digest: 'sha256:tampered' })).toBe(false);
-		expect(verifyActiveClientRestartProof({ ...proof, status: 'restart-required' })).toBe(false);
-		expect(JSON.stringify(completed)).not.toContain('challenge-active-host');
+		expect(proof?.catalog_observation_digest).toMatch(/^sha256:/);
+		expect(proof?.expires_at).toBe(fixture.receipt.expires_at);
+		expect(proof).not.toHaveProperty('attestation_challenge');
+		expect(registry.sites[0].clients.codex.last_consumed_restart_receipt_id).toBe('receipt-active-host');
+		expect(JSON.stringify(completed)).not.toContain('private-registry-key-never-exported');
+	});
+
+	it('does not advance restart verification after a failed required call', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture, 'Codex', {
+			ok: false,
+			error_code: 'invalid_input',
+			message: 'Synthetic task-start failure.',
+		});
+
+		const failedTask = await toolHandler(server, 'stonewright-task-start')?.({ task: 'fail before recording' }) as {
+			structuredContent?: { ok?: boolean };
+		};
+		expect(failedTask.structuredContent?.ok).toBe(false);
+
+		const setup = await toolHandler(server, 'stonewright-setup-profile')?.({
+			siteUrl: 'https://example.com', username: 'editor', appPassword: 'example-password',
+		}) as { structuredContent?: { ok?: boolean; error_code?: string; next_action?: string } };
+		expect(setup.structuredContent).toEqual(expect.objectContaining({
+			ok: false,
+			error_code: 'restart_attestation_call_out_of_order',
+		}));
+		expect(setup.structuredContent?.next_action).toContain('stonewright-task-start');
+
+		const registry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
+			sites: Array<{ clients: Record<string, { pending_restart?: unknown }> }>;
+		};
+		expect(registry.sites[0].clients.codex.pending_restart).toBeDefined();
+	});
+
+	it('rejects an expired pending restart receipt', async () => {
+		const fixture = activeAttestationFixture({ expiresAt: new Date(Date.now() - 1_000).toISOString() });
+		const server = await activeAttestationServer(fixture);
+		const result = await completeRequiredAttestationSequence(server) as {
+			structuredContent?: { restart_attestation?: { status?: string; error_code?: string } };
+		};
+
+		expect(result.structuredContent?.restart_attestation).toMatchObject({
+			status: 'blocked', error_code: 'restart_attestation_expired',
+		});
+	});
+
+	it('rejects a correctly signed restart proof after its expiry', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture);
+		await completeRequiredAttestationSequence(server);
+		const registry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
+			sites: Array<{ clients: Record<string, {
+				last_restart_proof?: Record<string, unknown>;
+				last_consumed_restart_receipt_id?: string;
+			}> }>;
+		};
+		const binding = registry.sites[0].clients.codex;
+		expect(verifyActiveClientRestartProof(
+			binding.last_restart_proof,
+			'private-registry-key-never-exported',
+			binding.last_consumed_restart_receipt_id,
+		)).toBe(true);
+
+		vi.useFakeTimers();
+		try {
+			vi.setSystemTime(Date.parse(fixture.receipt.expires_at) + 1);
+			expect(verifyActiveClientRestartProof(
+				binding.last_restart_proof,
+				'private-registry-key-never-exported',
+				binding.last_consumed_restart_receipt_id,
+			)).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('rejects a pending receipt from the wrong active MCP client', async () => {
+		const fixture = activeAttestationFixture({ client: 'codex' });
+		const server = await activeAttestationServer(fixture, 'Cursor');
+		const result = await completeRequiredAttestationSequence(server) as {
+			structuredContent?: { restart_attestation?: { status?: string; error_code?: string } };
+		};
+
+		expect(result.structuredContent?.restart_attestation).toMatchObject({
+			status: 'blocked', error_code: 'restart_attestation_client_mismatch',
+		});
+	});
+
+	it('rejects config drift after the package update', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture);
+		writeFileSync(fixture.configPath, `${fixture.configText}# changed after update\n`, 'utf8');
+		const result = await completeRequiredAttestationSequence(server) as {
+			structuredContent?: { restart_attestation?: { status?: string; error_code?: string } };
+		};
+
+		expect(result.structuredContent?.restart_attestation).toMatchObject({
+			status: 'blocked', error_code: 'restart_attestation_config_changed',
+		});
+	});
+
+	it('rejects a different package source loaded after the update', async () => {
+		const fixture = activeAttestationFixture();
+		const server = await activeAttestationServer(fixture);
+		writeFileSync(
+			fixture.configPath,
+			fixture.configText.replace(fixture.expectedPackage, '@stonewright/companion@1.0.0-beta.11'),
+			'utf8',
+		);
+		const result = await completeRequiredAttestationSequence(server) as {
+			structuredContent?: { restart_attestation?: { status?: string; error_code?: string } };
+		};
+
+		expect(result.structuredContent?.restart_attestation).toMatchObject({
+			status: 'blocked', error_code: 'restart_attestation_source_changed',
+		});
+	});
+
+	it('consumes a pending receipt once and rejects replay', async () => {
+		const fixture = activeAttestationFixture();
+		const firstServer = await activeAttestationServer(fixture);
+		const first = await completeRequiredAttestationSequence(firstServer) as {
+			structuredContent?: { restart_attestation?: { status?: string } };
+		};
+		expect(first.structuredContent?.restart_attestation?.status).toBe('verified');
+
+		const registry = JSON.parse(readFileSync(fixture.sitesFile, 'utf8')) as {
+			sites: Array<{ clients: Record<string, { pending_restart?: unknown }> }>;
+		};
+		registry.sites[0].clients.codex.pending_restart = fixture.receipt;
+		writeFileSync(fixture.sitesFile, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+		const replayServer = await activeAttestationServer(fixture);
+		const replay = await completeRequiredAttestationSequence(replayServer) as {
+			structuredContent?: { restart_attestation?: { status?: string; error_code?: string } };
+		};
+
+		expect(replay.structuredContent?.restart_attestation).toMatchObject({
+			status: 'blocked', error_code: 'restart_attestation_replayed',
+		});
 	});
 
 	it('concurrent reconnect requests coalesce', async () => {
@@ -366,7 +855,15 @@ describe('permanent gateways integration', () => {
 	});
 });
 
-function stonewrightMcpFetch(tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>): typeof fetch {
+function stonewrightMcpFetch(
+	tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>,
+	options: {
+		taskStartResponse?: Record<string, unknown>;
+		taskStartError?: { code: number; message: string };
+		taskStartIsError?: boolean;
+		onTaskStart?: (args: Record<string, unknown>) => void;
+	} = {},
+): typeof fetch {
 	return (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
 		const url = String(_url);
 		if (url.includes('/wp-json/stonewright/v1/skills')) {
@@ -405,6 +902,24 @@ function stonewrightMcpFetch(tools: Array<{ name: string; description?: string; 
 		}
 		if (body.method === 'tools/call') {
 			const name = body.params?.name ?? '';
+			if (name === 'stonewright-task-start') options.onTaskStart?.(body.params?.arguments ?? {});
+			if (name === 'stonewright-task-start' && options.taskStartError) {
+				return Promise.resolve(new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 3,
+					error: options.taskStartError,
+				}), { headers: { 'content-type': 'application/json' } }));
+			}
+			if (name === 'stonewright-task-start' && options.taskStartIsError) {
+				return Promise.resolve(new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 3,
+					result: {
+						isError: true,
+						content: [{ type: 'text', text: 'Invalid task-start input.' }],
+					},
+				}), { headers: { 'content-type': 'application/json' } }));
+			}
 			const structuredContent =
 				name === 'stonewright-tool-profile'
 					? {
@@ -414,7 +929,7 @@ function stonewrightMcpFetch(tools: Array<{ name: string; description?: string; 
 						surface_revision: 1,
 					}
 					: name === 'stonewright-task-start'
-						? { ok: true, mode: 'plugin', guidance: [] }
+						? options.taskStartResponse ?? { ok: true, mode: 'plugin', guidance: [] }
 						: name === 'stonewright-ping'
 							? { ok: true, pong: true }
 							: { ok: true };

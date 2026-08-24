@@ -172,7 +172,29 @@ test.describe('Stonewright admin UI', () => {
 			'[data-stonewright-auth-method="application-password"]',
 		);
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
-		await expect(page.locator('[data-sw-oauth-tab]')).toHaveCount(21);
+		const oauthTabs = page.locator('[data-sw-oauth-tab]');
+		const oauthPanels = page.locator('[data-sw-oauth-panel]');
+		const tabSlugs = await oauthTabs.evaluateAll((tabs) =>
+			tabs.map((tab) => tab.getAttribute('data-sw-oauth-tab') ?? ''),
+		);
+		const panelSlugs = await oauthPanels.evaluateAll((panels) =>
+			panels.map((panel) => panel.getAttribute('data-sw-oauth-panel') ?? ''),
+		);
+		expect(new Set(tabSlugs).size, 'OAuth client tabs must be unique').toBe(tabSlugs.length);
+		expect(panelSlugs, 'every OAuth tab must own one matching panel').toEqual(tabSlugs);
+		expect(tabSlugs).toEqual(expect.arrayContaining([
+			'chatgpt',
+			'claude-ai',
+			'claude-desktop',
+			'claude-code',
+			'windsurf',
+			'codex-cli',
+			'cursor',
+			'vscode',
+			'generic-mcp',
+		]));
+		expect(tabSlugs).not.toContain('codex');
+		expect(tabSlugs).not.toContain('chatgpt-desktop');
 
 		const codexTab = page.locator('[data-sw-oauth-tab="codex-cli"]');
 		await codexTab.click();

@@ -191,15 +191,16 @@ by the companion.
 
 ## Codex
 
-Codex in ChatGPT Desktop and Codex CLI are **separate** clients. Do not paste
-CLI TOML into the Desktop `mcp_config.json`.
+Codex CLI is the canonical local adapter. The ChatGPT Desktop compatibility
+slug resolves to the same Codex TOML binding.
 
 | Surface | Installer flag | Config |
 |---|---|---|
 | Codex CLI | `--client codex-cli` | `~/.codex/config.toml` (or trusted project `.codex/config.toml`) |
-| Codex in ChatGPT Desktop | `--client chatgpt-desktop` | `~/Library/Application Support/ChatGPT/mcp_config.json` |
+| ChatGPT Desktop alias | `--client chatgpt-desktop` | `~/.codex/config.toml` |
 
-`--client codex` still aliases to `codex-cli`. Prefer the canonical slugs.
+`--client codex` and `--client chatgpt-desktop` both alias to `codex-cli`.
+Do not create a second Desktop JSON entry.
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
@@ -213,11 +214,12 @@ paste a second generic block by hand. Restart Codex or reload the MCP session.
 In the Codex TUI, use `/mcp` after restart to confirm the named Stonewright
 entry is active.
 
-After every Stonewright release or skill sync, run `stonewright-setup-profile`
-and `stonewright-wordpress-mcp-status`. Check `site_alias`, `companion_version`,
-`expected_companion_package`, and `refresh_required_tool_names`; if the expected
-package or required tools are stale, Codex is still running an old companion
-process or cached tool list.
+After every Stonewright release or skill sync, run `stonewright-task-start`,
+`stonewright-setup-profile`, `stonewright-wordpress-mcp-status`, then
+`stonewright-client-surface-check`. Check `site_alias`, companion/package,
+authoritative saved/effective mode and surface, refresh/relist state, and actual
+client visibility. An empty refresh list does not override a failed surface
+check.
 
 See [Getting started with Codex](../getting-started/codex.md) and
 [Updating Stonewright](../updates.md) for the plugin/companion version
@@ -241,11 +243,10 @@ claude mcp add stonewright-site-a \
 
 The server is registered for the current user. Restart or reload the client
 after adding it.
-After each Stonewright release or skill sync, rerun
-`stonewright-setup-profile` and `stonewright-wordpress-mcp-status`. The
-`companion_version`, `expected_companion_package`, and
-`refresh_required_tool_names` fields tell agents whether the visible tool list
-is current or the IDE/client still needs a restart.
+After each Stonewright release or skill sync, rerun the ordered four-call
+verification ending with `stonewright-client-surface-check`. Package, saved and
+effective mode/surface, refresh/relist, and actual client visibility must all
+agree before the setup is current.
 
 ---
 

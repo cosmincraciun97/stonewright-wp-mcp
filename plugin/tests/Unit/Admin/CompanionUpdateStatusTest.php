@@ -69,6 +69,8 @@ final class CompanionUpdateStatusTest extends TestCase {
 		self::assertSame( '1.0.0-beta.2', $report['bridge']['version'] );
 		self::assertStringContainsString( 'stonewright-companion-1.0.0-beta.99.tgz', $report['companion_package'] );
 		self::assertStringContainsString( 'refresh_required_tool_names', $report['update_prompt'] );
+		self::assertStringContainsString( 'stonewright-client-surface-check', $report['update_prompt'] );
+		self::assertStringContainsString( 'expected_tool=stonewright-task-start', $report['update_prompt'] );
 		self::assertStringNotContainsString( 'Application Password:', $report['update_prompt'] );
 		self::assertStringContainsString( 'cannot replace a local stdio', $report['boundary'] );
 	}
@@ -101,9 +103,12 @@ final class CompanionUpdateStatusTest extends TestCase {
 			'response' => [ 'code' => 200 ],
 			'body'     => (string) wp_json_encode(
 				[
-					'status'                     => 'ok',
-					'version'                    => '1.0.0-beta.98',
-					'configured_package_version' => '1.0.0-beta.97',
+					'status'                        => 'ok',
+					'version'                       => '1.0.0-beta.98',
+					'configured_package_version'    => '1.0.0-beta.97',
+					'configured_package'            => 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.97/stonewright-companion-1.0.0-beta.97.tgz',
+					'configured_package_provenance' => 'github-release',
+					'configured_package_source'     => 'authenticated-environment',
 				]
 			),
 		];
@@ -113,8 +118,29 @@ final class CompanionUpdateStatusTest extends TestCase {
 		self::assertSame( 'attested', $report['configured_companion']['status'] ?? null );
 		self::assertSame( '1.0.0-beta.97', $report['configured_companion']['version'] );
 		self::assertSame( 'http_bridge_attestation', $report['configured_companion']['source'] ?? null );
-		self::assertSame( '', $report['configured_companion']['package'] );
+		self::assertStringContainsString( 'stonewright-companion-1.0.0-beta.97.tgz', $report['configured_companion']['package'] );
 		self::assertStringContainsString( 'explicit bridge health attestation', strtolower( (string) ( $report['configured_companion']['reason'] ?? '' ) ) );
+	}
+
+	public function test_report_rejects_a_bare_caller_supplied_configured_version_as_attestation(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_companion_url']   = 'http://127.0.0.1:8765';
+		$GLOBALS['stonewright_test_options']['stonewright_companion_token'] = 'trusted-test-token';
+		$transport = static fn( string $url, array $args ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode(
+				[
+					'status'                     => 'ok',
+					'version'                    => '1.0.0-beta.98',
+					'configured_package_version' => '9.9.9',
+				]
+			),
+		];
+
+		$report = CompanionUpdateStatus::report( $transport );
+
+		self::assertSame( 'not_visible', $report['configured_companion']['status'] ?? null );
+		self::assertSame( '', $report['configured_companion']['version'] );
+		self::assertSame( '', $report['configured_companion']['package'] );
 	}
 
 	public function test_report_returns_typed_actionable_release_error(): void {
