@@ -1426,7 +1426,67 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 
 if ( ! function_exists( 'wp_kses_post' ) ) {
 	function wp_kses_post( string $content ): string {
+		$GLOBALS['stonewright_test_wp_kses_post_calls'][] = $content;
 		return $content;
+	}
+}
+
+if ( ! function_exists( 'wp_kses' ) ) {
+	/**
+	 * Minimal wp_kses stand-in that honors an explicit tag/protocol allowlist.
+	 *
+	 * @param array<string, mixed>|string $allowed_html
+	 * @param array<int, string>          $allowed_protocols
+	 */
+	function wp_kses( string $content, $allowed_html, array $allowed_protocols = [] ): string {
+		$GLOBALS['stonewright_test_wp_kses_calls'][] = [
+			'content'           => $content,
+			'allowed_html'      => $allowed_html,
+			'allowed_protocols' => $allowed_protocols,
+		];
+
+		if ( ! is_array( $allowed_html ) ) {
+			return '';
+		}
+
+		$allowed_html = array_change_key_case( $allowed_html, CASE_LOWER );
+		$content      = preg_replace( '/<!--.*?-->/s', '', $content ) ?? '';
+
+		return preg_replace_callback(
+			'/<(\/)?([a-zA-Z0-9]+)([^>]*)>/',
+			static function ( array $matches ) use ( $allowed_html, $allowed_protocols ): string {
+				$closing = '/' === $matches[1];
+				$tag     = strtolower( $matches[2] );
+				if ( ! isset( $allowed_html[ $tag ] ) ) {
+					return '';
+				}
+				if ( $closing ) {
+					return '</' . $tag . '>';
+				}
+
+				$allowed_attrs = is_array( $allowed_html[ $tag ] ) ? $allowed_html[ $tag ] : [];
+				$attrs_out     = '';
+				if ( preg_match_all( '/([a-zA-Z_:][a-zA-Z0-9:._-]*)\s*=\s*(["\'])(.*?)\2/s', $matches[3], $attr_matches, PREG_SET_ORDER ) ) {
+					foreach ( $attr_matches as $attr ) {
+						$name = strtolower( $attr[1] );
+						if ( ! array_key_exists( $name, $allowed_attrs ) ) {
+							continue;
+						}
+						$value = html_entity_decode( $attr[3], ENT_QUOTES, 'UTF-8' );
+						if ( in_array( $name, [ 'href', 'src' ], true ) && [] !== $allowed_protocols ) {
+							$scheme = strtolower( (string) ( parse_url( $value, PHP_URL_SCHEME ) ?: '' ) );
+							if ( ! in_array( $scheme, $allowed_protocols, true ) ) {
+								continue;
+							}
+						}
+						$attrs_out .= ' ' . $name . '="' . htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ) . '"';
+					}
+				}
+
+				return '<' . $tag . $attrs_out . '>';
+			},
+			$content
+		) ?? '';
 	}
 }
 

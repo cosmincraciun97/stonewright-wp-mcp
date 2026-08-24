@@ -43,6 +43,10 @@ variant cannot bypass that binding. Non-Stonewright plugin downloads, including
 wordpress.org packages, are left unchanged; the gate fail-closes only for
 official Stonewright ZIPs or the Stonewright plugin basename.
 
+Plugins → Stonewright → **View details** shows the GitHub release notes as
+readable WordPress HTML. Raw HTML in a release body is treated as text, and
+only HTTPS links are clickable.
+
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
 or Stonewright settings.

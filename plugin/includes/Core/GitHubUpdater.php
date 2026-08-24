@@ -408,7 +408,9 @@ final class GitHubUpdater {
 			'tested'         => $remote['tested'] ?? '',
 			'download_link'  => $remote['package'],
 			'sections'       => [
-				'description' => $remote['body'] ?? __( 'AI builder tools for WordPress MCP.', 'stonewright' ),
+				'description' => ReleaseNotesRenderer::render(
+					isset( $remote['body'] ) && is_string( $remote['body'] ) ? $remote['body'] : ''
+				),
 			],
 		];
 	}

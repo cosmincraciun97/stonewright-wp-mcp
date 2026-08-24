@@ -11,6 +11,8 @@
 
 ### Changed
 
+- Show formatted, sanitized GitHub release notes in the WordPress Plugins
+  View details modal.
 - Disable automatic audit retention by default and run deletion only through
   an explicitly configured daily policy.
 - Coalesce successful authentication polling and omit finalizer heartbeats from
