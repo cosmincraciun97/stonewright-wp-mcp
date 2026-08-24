@@ -22,6 +22,10 @@ function appendDirectAudit(entry: DirectAuditEntry, path?: string, rotation?: Di
 	}, path, rotation);
 }
 
+function pemBlock(kind: string, body: string): string {
+	return `-----BEGIN ${kind}-----\n${body}\n-----END ${kind}-----`;
+}
+
 describe('direct error audit', () => {
 	let stateDir: string;
 
@@ -380,12 +384,8 @@ describe('direct error audit', () => {
 			],
 			note: [
 				'safe-before-pem',
-				'-----BEGIN OPENSSH PRIVATE KEY-----',
-				'sentinel-openssh-key',
-				'-----END OPENSSH PRIVATE KEY-----',
-				'-----BEGIN CERTIFICATE-----',
-				'sentinel-pem-certificate',
-				'-----END CERTIFICATE-----',
+				pemBlock('OPENSSH PRIVATE KEY', 'sentinel-openssh-key'),
+				pemBlock('CERTIFICATE', 'sentinel-pem-certificate'),
 				'safe-after-pem',
 			].join('\n'),
 			padding: 'x'.repeat(300),

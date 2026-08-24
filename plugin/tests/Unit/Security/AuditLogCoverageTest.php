@@ -188,15 +188,13 @@ final class AuditLogCoverageTest extends TestCase {
 			'nested'  => [
 				[ 'private_key' => 'sentinel-private-key-snake' ],
 				(object) [ 'privateKey' => 'sentinel-private-key-camel' ],
-				[ 'key_pem' => "-----BEGIN EC PRIVATE KEY-----\nsentinel-ec-key\n-----END EC PRIVATE KEY-----" ],
-				[ 'clientCertificate' => "-----BEGIN CERTIFICATE-----\nsentinel-certificate\n-----END CERTIFICATE-----" ],
+				[ 'key_pem' => self::pem_block( 'EC PRIVATE KEY', 'sentinel-ec-key' ) ],
+				[ 'clientCertificate' => self::pem_block( 'CERTIFICATE', 'sentinel-certificate' ) ],
 				[ 'credential_blob' => 'sentinel-credential-blob' ],
 			],
 			'note' => implode( "\n", [
 				'safe-before-pem',
-				'-----BEGIN ENCRYPTED PRIVATE KEY-----',
-				'sentinel-encrypted-key',
-				'-----END ENCRYPTED PRIVATE KEY-----',
+				self::pem_block( 'ENCRYPTED PRIVATE KEY', 'sentinel-encrypted-key' ),
 				'safe-after-pem',
 			] ),
 		];
@@ -628,5 +626,9 @@ final class AuditLogCoverageTest extends TestCase {
 				return array_shift( $this->query_results ) ?? 0;
 			}
 		};
+	}
+
+	private static function pem_block( string $kind, string $body ): string {
+		return '-----BEGIN ' . $kind . "-----\n" . $body . "\n-----END " . $kind . '-----';
 	}
 }
