@@ -9,7 +9,15 @@ use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 
 /** Selects read-only provider evidence after document architecture is known. */
 final class ProviderRouter {
-	private const MAX_ISSUES = 20;
+	private const MAX_ISSUES                  = 20;
+	private const MAX_PROVIDERS               = 50;
+	private const MAX_CAPABILITIES            = 200;
+	private const MAX_RUNTIME_CLASSES         = 50;
+	private const MAX_REPAIR_TOOLS            = 20;
+	private const MAX_SCHEMA_DEPTH            = 8;
+	private const MAX_SCHEMA_KEYS             = 256;
+	private const MAX_SCHEMA_BYTES            = 32768;
+	private const MAX_DYNAMIC_STRING_BYTES    = 1000;
 
 	private \Closure $architecture;
 	private \Closure $v3;
@@ -25,7 +33,7 @@ final class ProviderRouter {
 
 	/** @return array<string,mixed> */
 	public function inspect( int $post_id = 0, string $requested = 'auto' ): array {
-		$architecture = ( $this->architecture )( $post_id, $requested );
+		$architecture = self::bounded_architecture( (array) ( $this->architecture )( $post_id, $requested ) );
 		$issues       = [];
 		$issue_count  = 0;
 		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues, $issue_count );
@@ -54,7 +62,13 @@ final class ProviderRouter {
 			if ( ! is_array( $ability ) || ! str_starts_with( (string) ( $ability['name'] ?? '' ), 'elementor/' ) ) {
 				continue;
 			}
-			$schema_fingerprint = self::fingerprint( [ $ability['input_schema'] ?? [], $ability['output_schema'] ?? [] ] );
+			$input_summary  = self::schema_summary( (array) ( $ability['input_schema'] ?? [] ) );
+			$output_summary = self::schema_summary( (array) ( $ability['output_schema'] ?? [] ) );
+			$ability['input_schema'] = $input_summary['truncated'] ? [] : (array) ( $ability['input_schema'] ?? [] );
+			$ability['output_schema'] = $output_summary['truncated'] ? [] : (array) ( $ability['output_schema'] ?? [] );
+			$ability['input_schema_summary']  = $input_summary;
+			$ability['output_schema_summary'] = $output_summary;
+			$schema_fingerprint = self::fingerprint( [ $ability['input_schema'], $ability['output_schema'] ] );
 			$ability['schema_fingerprint'] = $schema_fingerprint;
 			$upstream[ (string) $ability['name'] ] = $ability;
 			$meta = (array) ( $ability['meta'] ?? [] );
@@ -75,6 +89,9 @@ final class ProviderRouter {
 		}
 		unset( $provider );
 
+		$providers_count    = count( $provider_rows );
+		$capabilities_count = array_sum( array_map( static fn( array $provider ): int => count( (array) ( $provider['capabilities'] ?? [] ) ), $provider_rows ) );
+
 		$document = (string) ( $architecture['document_architecture'] ?? 'unknown' );
 		$target   = in_array( $document, [ 'v3', 'v4', 'mixed' ], true ) ? $document : (string) ( $architecture['write_target'] ?? 'unknown' );
 		$supported = 'mixed' !== $target && in_array( $target, [ 'v3', 'v4' ], true ) && self::has_architecture( $provider_rows, $target );
@@ -82,6 +99,7 @@ final class ProviderRouter {
 
 		$manage = $upstream['elementor/manage-default-styles'] ?? null;
 		$certification = is_array( $manage ) ? self::certify_manage_default_styles( $manage ) : [ 'state' => 'unsupported', 'reason' => 'upstream_ability_not_registered', 'contract' => [] ];
+		$schema_output = is_array( $manage ) && 'certified' === $certification['state'];
 		$native_preferred = [
 			'elementor/manage-default-styles' => is_array( $manage )
 				? [
@@ -91,13 +109,14 @@ final class ProviderRouter {
 					'reason'                  => $certification['reason'],
 					'contract'                => $certification['contract'],
 					'provider_id'             => RuntimeOwnership::provider_id( (string) ( $manage['source_plugin'] ?? ( $manage['meta']['source_plugin'] ?? '' ) ) ),
-					'description'             => (string) ( $manage['description'] ?? '' ),
-					'input_schema'            => (array) ( $manage['input_schema'] ?? [] ),
-					'output_schema'           => (array) ( $manage['output_schema'] ?? [] ),
+					'description'             => self::bounded_string( (string) ( $manage['description'] ?? '' ) ),
+					'input_schema_summary'    => (array) $manage['input_schema_summary'],
+					'output_schema_summary'   => (array) $manage['output_schema_summary'],
+					'schema_output'           => $schema_output ? 'full_bounded' : 'summary_only_untrusted_or_rejected',
 					'schema_fingerprint'      => (string) $manage['schema_fingerprint'],
 					'routable_write'          => false,
 					'safety_closure_required' => true,
-					'provenance'              => (array) ( $manage['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ),
+					'provenance'              => self::bounded_provenance( (array) ( $manage['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
 				]
 				: [
 					'available'  => false,
@@ -106,15 +125,27 @@ final class ProviderRouter {
 					'reason'     => 'upstream_ability_not_registered',
 				],
 		];
+		if ( $schema_output && is_array( $manage ) ) {
+			$native_preferred['elementor/manage-default-styles']['input_schema']  = (array) $manage['input_schema'];
+			$native_preferred['elementor/manage-default-styles']['output_schema'] = (array) $manage['output_schema'];
+		}
+
+		$provider_rows = self::bounded_provider_rows( $provider_rows );
+		$output_capabilities = array_sum( array_map( static fn( array $provider ): int => count( (array) ( $provider['capabilities'] ?? [] ) ), $provider_rows ) );
 
 		return [
 			'architecture'     => $architecture,
 			'selection'        => [ 'status' => $supported ? 'supported' : 'unsupported', 'architecture' => $target, 'reason' => $reason ],
 			'providers'        => $provider_rows,
+			'providers_count'  => $providers_count,
+			'providers_truncated' => $providers_count > count( $provider_rows ),
+			'capabilities_count' => $capabilities_count,
+			'capabilities_truncated' => $capabilities_count > $output_capabilities,
 			'issues'           => array_values( $issues ),
 			'issues_count'     => $issue_count,
 			'issues_truncated' => $issue_count > count( $issues ),
 			'native_preferred' => $native_preferred,
+			'schema_limits'    => [ 'max_depth' => self::MAX_SCHEMA_DEPTH, 'max_keys' => self::MAX_SCHEMA_KEYS, 'max_bytes' => self::MAX_SCHEMA_BYTES ],
 			'writes_enabled'   => false,
 			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
@@ -139,7 +170,13 @@ final class ProviderRouter {
 	private static function record_issue( array &$issues, int &$issue_count, array $issue ): void {
 		++$issue_count;
 		if ( count( $issues ) < self::MAX_ISSUES ) {
-			$issues[] = $issue;
+			$bounded = [];
+			foreach ( $issue as $key => $value ) {
+				if ( is_scalar( $value ) || null === $value ) {
+					$bounded[ self::bounded_string( (string) $key, 100 ) ] = is_string( $value ) ? self::bounded_string( $value ) : $value;
+				}
+			}
+			$issues[] = $bounded;
 		}
 	}
 
@@ -159,8 +196,9 @@ final class ProviderRouter {
 
 	/** @param array<string,array<string,mixed>> $providers @param list<array<string,mixed>> $issues @param string|list<string> $architecture @param array<string,mixed> $evidence */
 	private static function add_capability( array &$providers, array &$issues, int &$issue_count, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
-		$plugin = (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) );
-		$class  = (string) ( $evidence['runtime_class'] ?? '' );
+		$plugin = self::bounded_string( (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) ) );
+		$class  = self::bounded_string( (string) ( $evidence['runtime_class'] ?? '' ) );
+		$name   = self::bounded_string( $name );
 		$id     = RuntimeOwnership::provider_id( $plugin );
 		if ( '' === $name || '' === $fingerprint || '' === $class || 'unknown' === $id ) {
 			self::record_issue( $issues, $issue_count, [ 'code' => 'incomplete_provider_evidence', 'capability' => $name, 'kind' => $kind ] );
@@ -179,7 +217,7 @@ final class ProviderRouter {
 				'trust'             => is_array( $atomic_policy ) ? $atomic_policy['trust'] : ( $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ) ),
 				'certification'     => is_array( $atomic_policy ) ? $atomic_policy['certification'] : 'discovered',
 				'source_plugin'     => $plugin,
-				'source_version'    => (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ),
+				'source_version'    => self::bounded_string( (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ), 100 ),
 				'architectures'     => [],
 				'runtime_classes'   => [],
 				'capabilities'      => [],
@@ -201,7 +239,7 @@ final class ProviderRouter {
 			'kind'               => $kind,
 			'name'               => $name,
 			'schema_fingerprint' => $fingerprint,
-			'provenance'         => (array) ( $evidence['provenance'] ?? [] ),
+			'provenance'         => self::bounded_provenance( (array) ( $evidence['provenance'] ?? [] ) ),
 			'routable'           => false,
 			'write_eligible'     => $write_eligible,
 		];
@@ -384,6 +422,105 @@ final class ProviderRouter {
 			}
 		}
 		return true;
+	}
+
+	/** @param array<string,mixed> $architecture @return array<string,mixed> */
+	private static function bounded_architecture( array $architecture ): array {
+		$out = [];
+		foreach ( [ 'elementor_version', 'document_architecture', 'requested_architecture', 'write_target', 'reason' ] as $key ) {
+			if ( array_key_exists( $key, $architecture ) ) {
+				$out[ $key ] = self::bounded_string( (string) $architecture[ $key ], 'reason' === $key ? self::MAX_DYNAMIC_STRING_BYTES : 100 );
+			}
+		}
+		foreach ( [ 'site_v4', 'document_inspected', 'write_blocked', 'surgical_v3_allowed', 'high_level_write_blocked', 'implicit_conversion' ] as $key ) {
+			if ( array_key_exists( $key, $architecture ) ) {
+				$out[ $key ] = (bool) $architecture[ $key ];
+			}
+		}
+		if ( array_key_exists( 'post_id', $architecture ) ) {
+			$out['post_id'] = max( 0, (int) $architecture['post_id'] );
+		}
+		if ( is_array( $architecture['repair_tools'] ?? null ) ) {
+			$tools = array_values( array_map( static fn( mixed $tool ): string => self::bounded_string( (string) $tool, 100 ), $architecture['repair_tools'] ) );
+			$out['repair_tools']           = array_slice( $tools, 0, self::MAX_REPAIR_TOOLS );
+			$out['repair_tools_count']     = count( $tools );
+			$out['repair_tools_truncated'] = count( $tools ) > count( $out['repair_tools'] );
+		}
+		return $out;
+	}
+
+	/** @param list<array<string,mixed>> $providers @return list<array<string,mixed>> */
+	private static function bounded_provider_rows( array $providers ): array {
+		$providers = array_slice( $providers, 0, self::MAX_PROVIDERS );
+		$remaining_capabilities = self::MAX_CAPABILITIES;
+		foreach ( $providers as &$provider ) {
+			$capabilities = (array) ( $provider['capabilities'] ?? [] );
+			$total_capabilities = count( $capabilities );
+			$allowed = min( $remaining_capabilities, $total_capabilities );
+			$provider['capabilities'] = array_slice( $capabilities, 0, $allowed );
+			$provider['capabilities_count'] = $total_capabilities;
+			$provider['capabilities_truncated'] = $allowed < $total_capabilities;
+			$remaining_capabilities -= $allowed;
+
+			$runtime_classes = array_values( array_map( [ self::class, 'bounded_string' ], (array) ( $provider['runtime_classes'] ?? [] ) ) );
+			$provider['runtime_classes_count'] = count( $runtime_classes );
+			$provider['runtime_classes'] = array_slice( $runtime_classes, 0, self::MAX_RUNTIME_CLASSES );
+			$provider['runtime_classes_truncated'] = count( $runtime_classes ) > count( $provider['runtime_classes'] );
+			$provider['write_primitives'] = array_slice( (array) ( $provider['write_primitives'] ?? [] ), 0, self::MAX_CAPABILITIES );
+		}
+		unset( $provider );
+		return $providers;
+	}
+
+	/** @return array{keys_count:int,max_depth:int,bytes:int,truncated:bool} */
+	private static function schema_summary( array $schema ): array {
+		$keys_count = 0;
+		$max_depth  = 0;
+		self::measure_schema( $schema, 1, $keys_count, $max_depth );
+		$encoded = json_encode( $schema, JSON_PARTIAL_OUTPUT_ON_ERROR, 2048 );
+		$bytes   = is_string( $encoded ) ? strlen( $encoded ) : self::MAX_SCHEMA_BYTES + 1;
+		return [
+			'keys_count' => $keys_count,
+			'max_depth'  => $max_depth,
+			'bytes'      => $bytes,
+			'truncated'  => $keys_count > self::MAX_SCHEMA_KEYS || $max_depth > self::MAX_SCHEMA_DEPTH || $bytes > self::MAX_SCHEMA_BYTES,
+		];
+	}
+
+	private static function measure_schema( mixed $value, int $depth, int &$keys_count, int &$max_depth ): void {
+		if ( ! is_array( $value ) ) {
+			return;
+		}
+		$max_depth = min( self::MAX_SCHEMA_DEPTH + 1, max( $max_depth, $depth ) );
+		$keys_count = min( self::MAX_SCHEMA_KEYS + 1, $keys_count + count( $value ) );
+		if ( $depth >= self::MAX_SCHEMA_DEPTH + 1 ) {
+			return;
+		}
+		foreach ( $value as $child ) {
+			self::measure_schema( $child, $depth + 1, $keys_count, $max_depth );
+		}
+	}
+
+	/** @param array<string,mixed> $provenance @return array<string,string|int|float|bool|null> */
+	private static function bounded_provenance( array $provenance ): array {
+		$allowed = [ 'metadata', 'schema', 'ownership', 'controls', 'certification', 'source_repository', 'source_commit', 'source_path' ];
+		$out = [];
+		foreach ( $allowed as $key ) {
+			$value = $provenance[ $key ] ?? null;
+			if ( is_string( $value ) ) {
+				$out[ $key ] = self::bounded_string( $value );
+			} elseif ( is_int( $value ) || is_float( $value ) || is_bool( $value ) || ( null === $value && array_key_exists( $key, $provenance ) ) ) {
+				$out[ $key ] = $value;
+			}
+		}
+		return $out;
+	}
+
+	private static function bounded_string( string $value, int $max_bytes = self::MAX_DYNAMIC_STRING_BYTES ): string {
+		if ( strlen( $value ) <= $max_bytes ) {
+			return $value;
+		}
+		return substr( $value, 0, max( 0, $max_bytes - 3 ) ) . '...';
 	}
 
 	/** @param list<array<string,mixed>> $providers */

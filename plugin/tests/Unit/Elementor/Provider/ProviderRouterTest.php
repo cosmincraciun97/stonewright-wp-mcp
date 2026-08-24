@@ -37,6 +37,32 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( [ 'architecture', 'v3', 'atomic', 'abilities' ], $order );
 	}
 
+	public function test_architecture_payload_is_allowlisted_and_bounded_in_the_shared_response(): void {
+		$repair_tools = array_fill( 0, 1000, str_repeat( 'tool-', 300 ) );
+		$router = new ProviderRouter(
+			static fn(): array => [
+				'document_architecture' => 'v3',
+				'write_target'          => 'v3',
+				'write_blocked'         => false,
+				'reason'                => str_repeat( 'reason-', 1000 ),
+				'repair_tools'          => $repair_tools,
+				'arbitrary_payload'     => array_fill( 0, 1000, str_repeat( 'payload', 1000 ) ),
+			],
+			static fn(): array => [],
+			static fn(): array => [ 'items' => [], 'issues' => [] ],
+			static fn(): array => []
+		);
+
+		$result = $router->inspect();
+
+		self::assertArrayNotHasKey( 'arbitrary_payload', $result['architecture'] );
+		self::assertLessThanOrEqual( 1000, strlen( $result['architecture']['reason'] ) );
+		self::assertCount( 20, $result['architecture']['repair_tools'] );
+		self::assertSame( 1000, $result['architecture']['repair_tools_count'] );
+		self::assertTrue( $result['architecture']['repair_tools_truncated'] );
+		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
+	}
+
 	public function test_each_throwing_provider_is_isolated_and_surviving_providers_continue(): void {
 		$providers = [ 'v3', 'atomic', 'abilities' ];
 		foreach ( $providers as $throwing ) {
@@ -189,6 +215,77 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $result['issues_truncated'] );
 		self::assertSame( 'schema_issue_0', $result['issues'][0]['code'] );
 		self::assertSame( 'schema_issue_19', $result['issues'][19]['code'] );
+	}
+
+	public function test_adversarial_provider_inventory_is_capped_with_total_metadata(): void {
+		$schemas = [];
+		for ( $index = 0; $index < 1000; ++$index ) {
+			$schemas[] = self::v3_widget(
+				'widget-' . $index,
+				'provider-' . $index . '/bootstrap.php',
+				'1.0.0',
+				'Provider' . $index . '\\Widget',
+				'hash-' . $index
+			);
+		}
+
+		$result = $this->router( 'v3', $schemas )->inspect();
+
+		self::assertCount( 50, $result['providers'] );
+		self::assertSame( 1000, $result['providers_count'] );
+		self::assertTrue( $result['providers_truncated'] );
+		self::assertSame( 1000, $result['capabilities_count'] );
+		self::assertTrue( $result['capabilities_truncated'] );
+		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
+	}
+
+	public function test_huge_untrusted_schemas_and_capabilities_are_summary_only_and_bounded(): void {
+		$deep = [ 'type' => 'string' ];
+		for ( $depth = 0; $depth < 20; ++$depth ) {
+			$deep = [ 'nested' => $deep ];
+		}
+		$huge = [ 'type' => 'object', 'properties' => [ 'deep' => $deep ] ];
+		for ( $index = 0; $index < 1000; ++$index ) {
+			$huge['properties'][ 'field_' . $index ] = [ 'type' => 'string', 'description' => str_repeat( 'x', 100 ) ];
+		}
+		$manage = self::authentic_manage_default_styles_ability();
+		$manage['source_plugin'] = 'third-party/bootstrap.php';
+		$manage['meta']['source_plugin'] = 'elementor/elementor.php';
+		$manage['input_schema'] = $huge;
+		$manage['output_schema'] = $huge;
+		$abilities = [ $manage ];
+		for ( $index = 1; $index < 1000; ++$index ) {
+			$abilities[] = [
+				'name' => 'elementor/third-party-' . $index,
+				'description' => str_repeat( 'description-', 100 ),
+				'input_schema' => $huge,
+				'output_schema' => $huge,
+				'meta' => [ 'annotations' => [ 'readonly' => true ] ],
+				'source_plugin' => 'third-party/bootstrap.php',
+				'source_version' => '1.0.0',
+				'runtime_class' => 'ThirdParty\\Ability',
+				'provenance' => [ 'ownership' => 'active_plugin_header', 'payload' => $huge ],
+			];
+		}
+
+		$result = $this->router( 'v4', [], [ 'items' => [], 'issues' => [] ], $abilities )->inspect();
+		$provider = self::index_by( $result['providers'], 'id' )['plugin:third-party'];
+		$preference = $result['native_preferred']['elementor/manage-default-styles'];
+
+		self::assertCount( 200, $provider['capabilities'] );
+		self::assertSame( 1000, $provider['capabilities_count'] );
+		self::assertTrue( $provider['capabilities_truncated'] );
+		self::assertSame( 1000, $result['capabilities_count'] );
+		self::assertTrue( $result['capabilities_truncated'] );
+		self::assertArrayNotHasKey( 'input_schema', $preference );
+		self::assertArrayNotHasKey( 'output_schema', $preference );
+		self::assertGreaterThan( 256, $preference['input_schema_summary']['keys_count'] );
+		self::assertGreaterThan( 8, $preference['input_schema_summary']['max_depth'] );
+		self::assertGreaterThan( 32768, $preference['input_schema_summary']['bytes'] );
+		self::assertTrue( $preference['input_schema_summary']['truncated'] );
+		self::assertSame( 'summary_only_untrusted_or_rejected', $preference['schema_output'] );
+		self::assertSame( [ 'max_depth' => 8, 'max_keys' => 256, 'max_bytes' => 32768 ], $result['schema_limits'] );
+		self::assertLessThan( 200000, strlen( (string) wp_json_encode( $result ) ) );
 	}
 
 	public function test_incomplete_or_unknown_provider_evidence_is_unsupported_and_never_guessed(): void {

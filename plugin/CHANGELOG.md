@@ -11,7 +11,8 @@
 ### Security
 
 - Block MCP startup before adapter creation when required MCP Adapter or
-  Abilities API symbols are missing, conflicting, or ABI-incompatible.
+  Abilities API symbols are missing, conflicting, or ABI-incompatible, and
+  repeat that preflight at the actual adapter registration callback.
 - Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
   fallback as one compatible owner, ignore inactive plugin manifests, validate
   the exact loaded ABI before invocation, and report every blocked symbol with
@@ -19,6 +20,8 @@
 - Keep third-party Atomic schemas discoverable but read-only, and admit only
   schemas identical to Stonewright's immutable bundled or verified-official
   authority into renderers and mutators.
+- Derive upstream Elementor provider identity from the registered callback's
+  verified class and active-plugin file boundary, never self-declared metadata.
 
 ### Fixed
 
@@ -30,6 +33,9 @@
 - Isolate Elementor provider discovery failures so Status and Troubleshoot
   retain surviving providers and expose at most 20 diagnostics with the full
   issue count and truncation state.
+- Bound provider discovery to 50 providers and 200 capabilities, report full
+  totals and truncation state, and replace rejected or untrusted schemas with
+  depth/key/byte summaries.
 - Keep third-party `pro-elements/*` runtimes distinct from official Elementor
   Pro and read-only without exact Stonewright-owned certification.
 - Abort Elementor V4 spec rendering before mutation when the required backup

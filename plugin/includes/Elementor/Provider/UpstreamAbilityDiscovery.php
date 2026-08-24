@@ -43,8 +43,8 @@ final class UpstreamAbilityDiscovery {
 				unset( $error );
 				continue;
 			}
-			$plugin    = is_string( $meta['source_plugin'] ?? null ) && '' !== trim( (string) $meta['source_plugin'] ) ? (string) $meta['source_plugin'] : $ownership['source_plugin'];
-			$version   = is_string( $meta['source_version'] ?? null ) ? (string) $meta['source_version'] : $ownership['source_version'];
+			$plugin    = $ownership['source_plugin'];
+			$version   = $ownership['source_version'];
 			$runtime_contract = self::runtime_contract( $callback );
 			$out[] = [
 				'name'           => $name,
@@ -59,7 +59,7 @@ final class UpstreamAbilityDiscovery {
 				'provenance'     => [
 					'metadata' => 'upstream_registered_ability',
 					'schema'   => 'upstream_registered_ability',
-					'ownership' => is_string( $meta['source_plugin'] ?? null ) && '' !== trim( (string) $meta['source_plugin'] ) ? 'explicit_registration_metadata' : $ownership['provenance']['ownership'],
+					'ownership' => $ownership['provenance']['ownership'],
 				],
 				'runtime_contract' => $runtime_contract,
 			];

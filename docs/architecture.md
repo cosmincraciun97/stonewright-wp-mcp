@@ -267,12 +267,16 @@ The read-only Provider Router reports each live provider as `discovered`,
 callback and an active plugin main file; the main filename does not need to
 match its folder, and metadata is read safely in REST/MCP requests without an
 admin-only API. Generic ability wrappers, inactive plugins, and third-party
-lookalikes such as `pro-elements/*` are never treated as official owners.
+lookalikes or callbacks that self-declare `elementor-core` or `elementor-pro`
+are never treated as official owners.
 Third-party Atomic schemas remain inventory-only until they have an exact
 Stonewright-owned certification, and every write consumer uses the same central
-trust decision. Provider diagnostics are capped at 20 by the router and include
-the full issue count plus a truncation flag, so Status, MCP, and Troubleshoot
-responses stay bounded. The official `elementor/manage-default-styles` ability
+trust decision. The router caps output at 50 providers, 200 capabilities, 50
+runtime classes per provider, and 20 diagnostics while reporting full provider,
+capability, and issue totals plus truncation state. Schemas are limited to eight
+levels, 256 keys, and 32 KiB; rejected or untrusted schemas are summary-only.
+Status, MCP, and Troubleshoot therefore share the same bounded response. The
+official `elementor/manage-default-styles` ability
 is native-preferred only when its live contract proves the exact object
 schemas, required fields, update/delete and tag semantics, raw CSS responsive
 and pseudo-state behavior, patch/replace/null behavior, `idempotent=false`,
@@ -288,6 +292,9 @@ fallback are one compatible runtime, while two active/autoloadable
 implementations still conflict. Exact class/namespace, visibility/static
 modifiers, required and maximum arity, parameter/return types including
 nullability and unions, constants, and versions are checked before invocation.
+The same preflight runs again inside the actual `mcp_adapter_init` server
+registration callback, so a late incompatible or hostile adapter cannot invoke
+server creation.
 Troubleshoot renders every blocked symbol with its exact owners, versions,
 reason, ABI issues, and safe remediation instead of flattening owners or
 exposing filesystem paths.

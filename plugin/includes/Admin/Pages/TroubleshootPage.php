@@ -122,6 +122,8 @@ final class TroubleshootPage {
 	private static function render_elementor_provider_discovery(): void {
 		$report = ( new ProviderRouter() )->inspect( 0, 'auto' );
 		$providers = is_array( $report['providers'] ?? null ) ? $report['providers'] : [];
+		$provider_count = max( count( $providers ), (int) ( $report['providers_count'] ?? 0 ) );
+		$provider_suffix = true === ( $report['providers_truncated'] ?? false ) ? __( ' (showing a bounded summary)', 'stonewright' ) : '';
 		$issues = is_array( $report['issues'] ?? null ) ? $report['issues'] : [];
 		$preference = is_array( $report['native_preferred']['elementor/manage-default-styles'] ?? null ) ? $report['native_preferred']['elementor/manage-default-styles'] : [];
 		$state = sanitize_key( (string) ( $preference['certification'] ?? 'unsupported' ) );
@@ -133,7 +135,7 @@ final class TroubleshootPage {
 				<span class="sw-diag-card__body">
 					<strong class="sw-diag-card__label"><?php esc_html_e( 'elementor/manage-default-styles', 'stonewright' ); ?></strong>
 					<span class="sw-diag-card__detail">
-						<?php echo esc_html( sprintf( __( 'Certification: %1$s. Providers discovered: %2$d. Upstream writes remain disabled until the full Stonewright safety closure is available.', 'stonewright' ), $state, count( $providers ) ) ); ?>
+						<?php echo esc_html( sprintf( __( 'Certification: %1$s. Providers discovered: %2$d%3$s. Upstream writes remain disabled until the full Stonewright safety closure is available.', 'stonewright' ), $state, $provider_count, $provider_suffix ) ); ?>
 					</span>
 				</span>
 			</div>
