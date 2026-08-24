@@ -25,6 +25,25 @@ const HOST_IDENTITY = hostname().trim().toLowerCase();
 const BOOT_IDENTITY = bootIdentity();
 const PROCESS_STARTED_AT = Math.floor(Date.now() - process.uptime() * 1000);
 const PROCESS_START_IDENTITY = processStartIdentity(process.pid) ?? `epoch:${PROCESS_STARTED_AT}`;
+// Contended lock acquisition retries up to LOCK_ATTEMPTS times; resolving the
+// owner's start identity spawns `ps` on macOS, so cache lookups briefly.
+// A 2s-stale identity can only delay stale-lock recovery, never steal a held lock.
+const PROCESS_IDENTITY_CACHE_TTL_MS = 2_000;
+const PROCESS_IDENTITY_CACHE_MAX = 64;
+const processIdentityCache = new Map<number, { identity: string | null; checkedAt: number }>();
+
+function cachedProcessStartIdentity(pid: number): string | null {
+	const now = Date.now();
+	const hit = processIdentityCache.get(pid);
+	if (hit !== undefined && now - hit.checkedAt < PROCESS_IDENTITY_CACHE_TTL_MS) return hit.identity;
+	const identity = processStartIdentity(pid);
+	if (processIdentityCache.size >= PROCESS_IDENTITY_CACHE_MAX) {
+		const oldest = processIdentityCache.keys().next().value;
+		if (oldest !== undefined) processIdentityCache.delete(oldest);
+	}
+	processIdentityCache.set(pid, { identity, checkedAt: now });
+	return identity;
+}
 
 type OwnedFile = {
 	fd: number;
@@ -57,7 +76,7 @@ export function withOwnedFileLock<T>(lockPath: string, operation: () => T): T {
 			releaseOwnedFile(`${lockPath}.recovery-mutex`, mutex, 'release');
 			closeOwnedFile(mutex);
 		}
-		if (owned === null) waitBriefly();
+		if (owned === null) waitBriefly(attempt);
 	}
 	if (owned === null) throw new Error(`Timed out waiting for Direct state lock: ${lockPath}`);
 
@@ -83,7 +102,7 @@ function acquireRecoveryMutex(lockPath: string): OwnedFile {
 		if (owned !== null) return owned;
 		const stale = staleLockSnapshot(mutexPath);
 		if (stale !== null) quarantineObserved(mutexPath, stale, 'recovery');
-		waitBriefly();
+		waitBriefly(attempt);
 	}
 	throw new Error(`Timed out waiting for Direct recovery mutex: ${mutexPath}`);
 }
@@ -200,7 +219,7 @@ function staleLockSnapshot(path: string): LockSnapshot | null {
 				processAlive = true;
 			}
 			if (processAlive) {
-				const actualStart = processStartIdentity(Number(parsed.pid));
+				const actualStart = cachedProcessStartIdentity(Number(parsed.pid));
 				if (
 					actualStart !== null &&
 					typeof parsed.process_start_identity === 'string' &&
@@ -321,6 +340,7 @@ function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function waitBriefly(): void {
-	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+function waitBriefly(attempt = 0): void {
+	const delayMs = Math.min(10 + attempt * 2, 50);
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
 }
