@@ -1,8 +1,9 @@
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { loadSitesConfig, resolveSite, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
-import { hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
+import { DirectSafetyBlockedError, hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
 import * as media from './tools/media.js';
 import * as taxonomy from './tools/taxonomy.js';
@@ -31,9 +32,15 @@ import * as gutenbergValidate from './tools/gutenberg-validate.js';
 import * as agentsMd from './agents-md.js';
 import {
 	appendDirectAudit,
+	directTerminalAuditReceipt,
+	defaultAuditPath,
 	escalateDirectError,
 	noteDirectErrorOccurrence,
+	setDirectAuditTargetIdentity,
+	withDirectAuditReceiptContext,
 } from './audit.js';
+
+const directDispatchContext = new AsyncLocalStorage<{ tool: string; site: string; auditPath: string }>();
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -333,8 +340,10 @@ export function maybeAttachTaskStartHint(
 
 function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 	let payload: unknown = data;
+	const dispatch = directDispatchContext.getStore();
+	const tool = meta?.tool ?? dispatch?.tool;
 	if (
-		meta?.tool &&
+		tool &&
 		payload &&
 		typeof payload === 'object' &&
 		(payload as { ok?: unknown }).ok === false
@@ -342,9 +351,23 @@ function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 		const row = payload as { ok: false; error?: string; message?: string; [key: string]: unknown };
 		const error = String(row.error ?? 'error');
 		const message = String(row.message ?? row.error ?? 'error');
-		const count = noteDirectErrorOccurrence(meta.tool, error, message);
+		if (!directTerminalAuditReceipt()) {
+			try {
+				appendDirectAudit({
+					tool,
+					site: dispatch?.site ?? meta?.site ?? '_global',
+					status: 'error',
+					code: error,
+					error: message.slice(0, 200),
+					payload: { code: error, message: message.slice(0, 200) },
+				}, dispatch?.auditPath ?? defaultAuditPath());
+			} catch {
+				// best-effort audit
+			}
+		}
+		const count = noteDirectErrorOccurrence(tool, error, message);
 		payload = escalateDirectError(
-			meta.tool,
+			tool,
 			{ ...row, ok: false, error, message },
 			count,
 		);
@@ -366,23 +389,35 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 			: err instanceof Error
 				? err.message
 				: String(err);
-	const tool = meta?.tool && meta.tool.length > 0 ? meta.tool : 'stonewright-direct';
+	const dispatch = directDispatchContext.getStore();
+	const tool = meta?.tool && meta.tool.length > 0 ? meta.tool : (dispatch?.tool ?? (err instanceof DirectSafetyBlockedError ? err.tool : 'stonewright-direct'));
+	const site = meta?.site && meta.site.length > 0 ? meta.site : (dispatch?.site ?? (err instanceof DirectSafetyBlockedError ? err.site : '_global'));
+	const blocked = err instanceof DirectSafetyBlockedError;
 	const errorCode =
-		err instanceof WpRestError
+		blocked
+			? err.code
+			: err instanceof WpRestError
 			? String(err.toJSON().code ?? 'wp_rest_error')
 			: 'error';
-	if (meta?.tool) {
+	if ((blocked || meta?.tool || dispatch) && !directTerminalAuditReceipt()) {
 		try {
 			appendDirectAudit({
-				tool: meta.tool,
-				site: meta.site && meta.site.length > 0 ? meta.site : '_global',
-				status: 'error',
+				tool,
+				site,
+				status: blocked ? 'blocked' : 'error',
 				code: errorCode,
 				error: message.slice(0, 200),
-			});
+				payload: { code: errorCode, message: message.slice(0, 200) },
+			}, dispatch?.auditPath ?? defaultAuditPath());
 		} catch {
 			// best-effort audit
 		}
+	}
+	if (blocked) {
+		return {
+			isError: true as const,
+			content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: errorCode, message: message.slice(0, 500), blocked: true }, null, 2) }],
+		};
 	}
 	const count = noteDirectErrorOccurrence(tool, errorCode, message.slice(0, 200));
 	const escalated = escalateDirectError(
@@ -420,6 +455,9 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
 	const site = resolveSite(config, siteAlias);
+	setDirectAuditTargetIdentity(site.url);
+	const dispatch = directDispatchContext.getStore();
+	if (dispatch) dispatch.site = site.alias;
 	const client = new WpRestClient(site, {
 		fetchImpl: ctx.fetchImpl,
 		timeoutMs: ctx.timeoutMs,
@@ -429,6 +467,7 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 		client,
 		site,
 		writeMode,
+		env: ctx.env,
 		...(ctx.fetchImpl ? { fetchImpl: ctx.fetchImpl } : {}),
 	};
 }
@@ -464,22 +503,39 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			toolHandles.set(name, noop);
 			return noop;
 		}
+		const [description, paramsSchema, callback] = rest as unknown as [
+			string,
+			Record<string, z.ZodTypeAny>,
+			RegisteredTool['handler'],
+		];
+		const wrappedCallback = ((input: unknown, ...args: unknown[]) => {
+			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
+				? String((input as { site: string }).site)
+				: '_global';
+			return withDirectAuditReceiptContext(() => directDispatchContext.run(
+				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
+				() => {
+					try {
+						const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
+						setDirectAuditTargetIdentity(resolveSite(config, site === '_global' ? undefined : site).url);
+					} catch {
+						if (site === '_global') setDirectAuditTargetIdentity('direct-global:_global');
+					}
+					return (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args);
+				},
+			));
+		}) as RegisteredTool['handler'];
 		const existing = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })
 			._registeredTools?.[name];
 		let sdkHandle: RegisteredTool | undefined;
 		if (existing) {
-			const [description, paramsSchema, callback] = rest as unknown as [
-				string,
-				Record<string, z.ZodTypeAny>,
-				RegisteredTool['handler'],
-			];
 			existing.description = description;
 			existing.inputSchema = z.object(paramsSchema);
-			existing.handler = callback;
+			existing.handler = wrappedCallback;
 			existing.enabled = true;
 			sdkHandle = existing;
 		} else {
-			sdkHandle = (server as unknown as ToolRegistrar).tool(name, ...rest) as RegisteredTool | undefined;
+			sdkHandle = (server as unknown as ToolRegistrar).tool(name, description as never, paramsSchema as never, wrappedCallback as never) as RegisteredTool | undefined;
 		}
 		const fallbackHandle: RegisteredTool = {
 			enabled: true,

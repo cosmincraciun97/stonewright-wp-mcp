@@ -35,7 +35,19 @@ final class BlockQueueTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_user_logged_in']  = false;
-		unset( $GLOBALS['stonewright_test_filters'], $GLOBALS['stonewright_test_queue_writes'], $GLOBALS['stonewright_test_user_can_callback'] );
+		unset( $GLOBALS['stonewright_test_filters'], $GLOBALS['stonewright_test_queue_writes'], $GLOBALS['stonewright_test_user_can_callback'], $GLOBALS['stonewright_test_update_option_failures'] );
+	}
+
+	public function test_enqueue_fails_closed_when_queue_option_cannot_be_persisted(): void {
+		$GLOBALS['stonewright_test_update_option_failures'][ BlockQueue::OPTION ] = true;
+
+		$result = BlockQueue::enqueue( $this->card_args( 'Persistence failure' ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_finalizer_persistence_failed', $result->get_error_code() );
+		self::assertSame( 500, (int) ( $result->get_error_data()['status'] ?? 0 ) );
+		self::assertTrue( (bool) ( $result->get_error_data()['retryable'] ?? false ) );
+		self::assertSame( [], get_option( BlockQueue::OPTION, [] ) );
 	}
 
 	public function test_queues_third_party_spec_as_name_attributes_inner_blocks_not_html(): void {
@@ -206,7 +218,166 @@ final class BlockQueueTest extends TestCase {
 		self::assertSame( 7, (int) $second['owner_user_id'] );
 		self::assertSame( 42, (int) $first['post_id'] );
 		self::assertSame( 42, (int) $second['post_id'] );
-		self::assertSame( 2, (int) ( get_option( BlockQueue::OPTION )['schema_version'] ?? 0 ) );
+		self::assertSame( 3, (int) ( get_option( BlockQueue::OPTION )['schema_version'] ?? 0 ) );
+	}
+
+	public function test_session_lease_is_single_owner_until_expiry(): void {
+		$queued = $this->enqueue_card( 'Lease me' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+
+		$first = BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+		$overlap = BlockQueue::lease_pending_for_scope( $scope, 'browser-b', 45, 1001 );
+		$after_expiry = BlockQueue::lease_pending_for_scope( $scope, 'browser-b', 45, 1046 );
+
+		self::assertCount( 1, $first );
+		self::assertSame( 'browser-a', $first[0]['lease_id'] );
+		self::assertSame( [], $overlap );
+		self::assertCount( 1, $after_expiry );
+		self::assertSame( 'browser-b', $after_expiry[0]['lease_id'] );
+		self::assertSame( 2, (int) $after_expiry[0]['lease_attempt'] );
+	}
+
+	public function test_heartbeat_renews_only_the_active_browser_lease(): void {
+		$queued = $this->enqueue_card( 'Long serialization' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+
+		self::assertSame( 1, BlockQueue::renew_lease_for_scope( $scope, 'browser-a', 45, 1040 ) );
+		self::assertSame( 0, BlockQueue::renew_lease_for_scope( $scope, 'browser-b', 45, 1041 ) );
+		self::assertSame( [], BlockQueue::lease_pending_for_scope( $scope, 'browser-b', 45, 1050 ) );
+		self::assertSame( 'browser-a', BlockQueue::get( (string) $queued['id'] )['lease_id'] ?? '' );
+	}
+
+	public function test_result_rejects_stale_lease_and_replays_duplicate_receipt_without_rewrite(): void {
+		$queued = $this->enqueue_card( 'Serialize once' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+		$html = '<!-- wp:vendor/card /-->';
+
+		$stale = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$html,
+			hash( 'sha256', $html ),
+			$scope,
+			'browser-b',
+			'result-1',
+			1001
+		);
+		self::assertInstanceOf( \WP_Error::class, $stale );
+		self::assertSame( 'stonewright_finalizer_stale_lease', $stale->get_error_code() );
+
+		$first = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$html,
+			hash( 'sha256', $html ),
+			$scope,
+			'browser-a',
+			'result-1',
+			1001
+		);
+		$duplicate = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$html,
+			hash( 'sha256', $html ),
+			$scope,
+			'browser-a',
+			'result-1',
+			1002
+		);
+
+		self::assertIsArray( $first );
+		self::assertFalse( $first['duplicate'] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $first['event_id'] );
+		self::assertIsArray( $duplicate );
+		self::assertTrue( $duplicate['duplicate'] );
+		self::assertSame( $first['idempotency_key'], $duplicate['idempotency_key'] );
+		self::assertSame( 'serialized', BlockQueue::get( (string) $queued['id'] )['status'] ?? '' );
+	}
+
+	public function test_serialized_result_checks_active_lease_then_rejects_oversize_without_writing_state(): void {
+		$queued = $this->enqueue_card( 'Bound the browser result' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+		$oversize = str_repeat( 'x', BlockQueue::MAX_SERIALIZED_BYTES + 1 );
+
+		$stale = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$oversize,
+			hash( 'sha256', $oversize ),
+			$scope,
+			'browser-b',
+			'oversize-stale',
+			1001
+		);
+		self::assertInstanceOf( \WP_Error::class, $stale );
+		self::assertSame( 'stonewright_finalizer_stale_lease', $stale->get_error_code() );
+
+		$rejected = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$oversize,
+			hash( 'sha256', $oversize ),
+			$scope,
+			'browser-a',
+			'oversize-active',
+			1001
+		);
+		self::assertInstanceOf( \WP_Error::class, $rejected );
+		self::assertSame( 'stonewright_finalizer_html_too_large', $rejected->get_error_code() );
+		$after = BlockQueue::get( (string) $queued['id'] );
+		self::assertSame( 'queued', $after['status'] ?? null );
+		self::assertSame( 'browser-a', $after['lease_id'] ?? null );
+		self::assertSame( '', $after['serialized_html'] ?? null );
+		self::assertSame( '', $after['result_id'] ?? null );
+
+		$html = '<!-- wp:vendor/card /-->';
+		$accepted = BlockQueue::accept_serialized_result(
+			(string) $queued['id'],
+			$html,
+			hash( 'sha256', $html ),
+			$scope,
+			'browser-a',
+			'bounded-active',
+			1002
+		);
+		self::assertIsArray( $accepted );
+		self::assertSame( 'serialized', $accepted['status'] ?? null );
+	}
+
+	public function test_failed_result_is_terminal_and_idempotent_for_one_result_id(): void {
+		$queued = $this->enqueue_card( 'Fail once' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+
+		$first = BlockQueue::accept_failed_result( (string) $queued['id'], 'roundtrip failed', '<!-- broken -->', 'roundtrip_failed', $scope, 'browser-a', 'result-failed-1', 1001 );
+		$duplicate = BlockQueue::accept_failed_result( (string) $queued['id'], 'roundtrip failed', '<!-- broken -->', 'roundtrip_failed', $scope, 'browser-a', 'result-failed-1', 1002 );
+
+		self::assertIsArray( $first );
+		self::assertFalse( $first['duplicate'] );
+		self::assertSame( 'failed', $first['status'] );
+		self::assertIsArray( $duplicate );
+		self::assertTrue( $duplicate['duplicate'] );
+		self::assertSame( $first['idempotency_key'], $duplicate['idempotency_key'] );
+		self::assertSame( 'failed', BlockQueue::get( (string) $queued['id'] )['status'] ?? '' );
 	}
 
 	public function test_enqueue_refuses_logged_out_owner_zero(): void {

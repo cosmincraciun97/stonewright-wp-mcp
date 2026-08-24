@@ -12,8 +12,9 @@ import { markTaskStartSeen, resetTaskStartSeenForTests } from '../../src/direct/
 export function installTaskStartGateFixture(): void {
 	beforeEach(() => {
 		markTaskStartSeen();
-		markTaskStartSeen('local');
-		markTaskStartSeen('remote');
+		markTaskStartSeen('_global');
+		markTaskStartSeen({ alias: 'local', url: 'http://example.test' });
+		markTaskStartSeen({ alias: 'remote', url: 'https://example.com' });
 	});
 	afterEach(() => {
 		resetTaskStartSeenForTests();

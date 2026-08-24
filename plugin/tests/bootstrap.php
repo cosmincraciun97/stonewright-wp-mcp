@@ -354,6 +354,9 @@ if ( ! function_exists( 'update_option' ) ) {
 	function update_option( string $option, mixed $value, bool|string $autoload = true ): bool {
 		$old   = $GLOBALS['stonewright_test_options'][ $option ] ?? false;
 		$value = apply_filters( 'pre_update_option', $value, $option, $old );
+		if ( ! empty( $GLOBALS['stonewright_test_update_option_failures'][ $option ] ) ) {
+			return false;
+		}
 		$GLOBALS['stonewright_test_options'][ $option ] = $value;
 		return true;
 	}
@@ -2542,6 +2545,10 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
 }
 
 if ( ! class_exists( 'WP_REST_Request' ) ) {
+	if ( ! class_exists( 'wpdb' ) ) {
+		class wpdb {}
+	}
+
 	class WP_REST_Request {
 		private string $method = 'GET';
 

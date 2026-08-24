@@ -111,7 +111,7 @@ async function updateCollection(
 ) {
   assertToolEnabled(ctx.site, tool);
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool,
@@ -128,6 +128,7 @@ async function updateCollection(
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
@@ -136,6 +137,7 @@ async function updateCollection(
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "error",
     });
@@ -235,7 +237,7 @@ export async function templateCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-template-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -251,6 +253,7 @@ export async function templateCreate(
   appendDirectAudit({
     tool: "stonewright-template-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `templates/${created.id}`,
     status: "ok",
   });
@@ -267,7 +270,7 @@ export async function templateDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-template-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -282,6 +285,7 @@ export async function templateDelete(
   appendDirectAudit({
     tool: "stonewright-template-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `templates/${input.id}`,
     status: "ok",
   });
@@ -300,7 +304,7 @@ export async function templatePartCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-template-part-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -316,6 +320,7 @@ export async function templatePartCreate(
   appendDirectAudit({
     tool: "stonewright-template-part-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `template-parts/${created.id}`,
     status: "ok",
   });
@@ -332,7 +337,7 @@ export async function templatePartDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-template-part-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -347,6 +352,7 @@ export async function templatePartDelete(
   appendDirectAudit({
     tool: "stonewright-template-part-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `template-parts/${input.id}`,
     status: "ok",
   });

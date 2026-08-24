@@ -13,6 +13,7 @@ export type ElementorCli = typeof runWpCli;
 
 /** Minimal REST client shape used for remote Elementor meta when WP-CLI is absent. */
 export type ElementorRestClient = {
+	target?: Readonly<{ alias: string; url: string; siteId?: string | undefined }>;
   get: <T>(
     path: string,
     opts?: {
@@ -588,15 +589,18 @@ export async function elementorDataUpdate(
   rest?: ElementorRestClient,
 ) {
   const writeMode = resolveDirectWriteMode(env);
+  const auditTargetIdentity = rest?.target?.url ?? env["STONEWRIGHT_WP_URL"] ?? `direct-global:${resolveScope(input.site)}`;
   assertWriteAllowed({
     mode: writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-elementor-data-update",
     env,
-    ...(input.site !== undefined && input.site !== ""
-      ? { site: input.site }
-      : {}),
+    ...(rest?.target
+      ? { site: rest.target }
+      : input.site !== undefined && input.site !== ""
+        ? { site: input.site }
+        : {}),
   });
 
   const normalized = normalizeToTree(input.data);
@@ -696,6 +700,7 @@ export async function elementorDataUpdate(
       appendDirectAudit({
         tool: "stonewright-elementor-data-update",
         site: scope,
+        targetIdentity: auditTargetIdentity,
         resource: `post:${input.post_id}`,
         status: "error",
         error: (updated.stderr || updated.error || "meta update failed").slice(
@@ -774,6 +779,7 @@ export async function elementorDataUpdate(
     appendDirectAudit({
       tool: "stonewright-elementor-data-update",
       site: scope,
+      targetIdentity: auditTargetIdentity,
       resource: `post:${input.post_id}`,
       status: "ok",
     });
@@ -834,6 +840,7 @@ export async function elementorDataUpdate(
     appendDirectAudit({
       tool: "stonewright-elementor-data-update",
       site: scope,
+      targetIdentity: auditTargetIdentity,
       resource: `post:${input.post_id}`,
       status: "error",
       error: message.slice(0, 200),
@@ -846,6 +853,7 @@ export async function elementorDataUpdate(
   appendDirectAudit({
     tool: "stonewright-elementor-data-update",
     site: scope,
+    targetIdentity: auditTargetIdentity,
     resource: `post:${input.post_id}`,
     status: "ok",
   });

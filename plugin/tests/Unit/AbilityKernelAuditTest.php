@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * Verifies that AbilityKernel redacts confirmation_token (and other sensitive
@@ -21,6 +22,7 @@ final class AbilityKernelAuditTest extends TestCase {
 		$GLOBALS['stonewright_test_wpdb_inserts']     = [];
 		$GLOBALS['stonewright_test_options']          = [];
 		$GLOBALS['stonewright_test_current_user_id']  = 1;
+		IncidentStore::reset_for_tests();
 
 		// Concrete anonymous subclass — only implements the abstract surface.
 		$this->kernel = new class() extends AbilityKernel {
@@ -73,6 +75,7 @@ final class AbilityKernelAuditTest extends TestCase {
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
+		IncidentStore::reset_for_tests();
 	}
 
 	// -------------------------------------------------------------------------
@@ -236,6 +239,73 @@ final class AbilityKernelAuditTest extends TestCase {
 		$meta = is_array( $decoded['_meta'] ?? null ) ? $decoded['_meta'] : [];
 		$this->assertArrayNotHasKey( 'error_code', $meta );
 		$this->assertArrayNotHasKey( 'error_message', $meta );
+	}
+
+	public function test_audit_converts_a_thrown_callback_into_one_failed_audit_and_incident(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string { return 'stonewright/test-throwable'; }
+			public function label(): string { return 'Throwable'; }
+			public function description(): string { return 'Synthetic throwable boundary.'; }
+			public function category(): string { return 'test'; }
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static function (): never {
+						throw new \RuntimeException( 'Synthetic callback failure.' );
+					}
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = $kernel->execute( [ 'post_id' => 41 ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_ability_throwable', $result->get_error_code() );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		self::assertSame( 'error', $row['result_status'] ?? null );
+		self::assertSame( 'FAILED', $row['outcome'] ?? null );
+		self::assertNotSame( 'SUCCESS', $row['outcome'] ?? null );
+		$incidents = IncidentStore::recent();
+		self::assertCount( 1, $incidents );
+		self::assertSame( 'stonewright_ability_throwable', $incidents[0]['root_error_code'] ?? null );
+		self::assertSame( 1, $incidents[0]['occurrence_count'] ?? null );
+	}
+
+	public function test_audit_classifies_structured_ok_false_as_one_failed_audit_and_incident(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string { return 'stonewright/test-structured-failure'; }
+			public function label(): string { return 'Structured failure'; }
+			public function description(): string { return 'Synthetic structured failure.'; }
+			public function category(): string { return 'test'; }
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn (): array => [
+						'ok'         => false,
+						'error_code' => 'stonewright_structured_failure',
+						'error'      => 'Synthetic structured failure.',
+					]
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = $kernel->execute( [ 'post_id' => 42 ] );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['ok'] );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		self::assertSame( 'error', $row['result_status'] ?? null );
+		self::assertSame( 'stonewright_structured_failure', $row['error_code'] ?? null );
+		self::assertSame( 'FAILED', $row['outcome'] ?? null );
+		self::assertNotSame( 'SUCCESS', $row['outcome'] ?? null );
+		$incidents = IncidentStore::recent();
+		self::assertCount( 1, $incidents );
+		self::assertSame( 'stonewright_structured_failure', $incidents[0]['root_error_code'] ?? null );
+		self::assertSame( 1, $incidents[0]['occurrence_count'] ?? null );
 	}
 
 	/** @dataProvider safety_block_code_provider */

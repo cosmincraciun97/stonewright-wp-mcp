@@ -123,6 +123,10 @@ export class WpRestClient {
 		return this.site.restBase;
 	}
 
+	get target(): Readonly<Pick<ResolvedSite, 'alias' | 'url' | 'siteId'>> {
+		return this.site;
+	}
+
 	async get<T>(path: string, opts: RequestOpts = {}): Promise<T> {
 		return this.request<T>('GET', path, opts);
 	}

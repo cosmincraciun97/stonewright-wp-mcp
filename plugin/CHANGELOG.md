@@ -2,8 +2,68 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Disable automatic audit retention by default and run deletion only through
+  an explicitly configured daily policy.
+- Coalesce successful authentication polling and omit finalizer heartbeats from
+  the mutation audit stream.
+
+### Fixed
+
+- Accept WordPress `init` hook arguments in audit retention scheduling so an
+  empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
+- Skip audit and incident table `dbDelta` after a healthy schema is installed,
+  so admin requests do not re-reconcile unique indexes on every `init`.
+- Persist canonical audit lifecycle identity and bind terminal idempotency to
+  the operation, resource, payload, status, and ability.
+- Stop the browser finalizer on terminal HTTP responses and page shutdown,
+  retry only transient failures, and count only accepted result submissions.
+- Persist exactly one blocked security event for terminal finalizer heartbeat
+  denials while keeping successful heartbeats outside the mutation stream.
+- Treat incident-retention delete failures as failed audit retention runs so
+  the daily success transient cannot suppress a retry.
+- Stop finalizer retries for malformed successful responses and unexpected
+  runtime failures; keep queued `ok:false` receipts pending without counting
+  them as applied or failed.
+- Record thrown ability callbacks and structured `ok:false` results as one
+  failed audit event and incident, never as `SUCCESS`.
+- Reject oversized serialized finalizer results only after validating the
+  active lease and before changing persistent queue state.
+- Retry incident observation against the latest generation when a concurrent
+  failure lands, and refuse automatic resolution that would close over that
+  failure.
+- Mark verified-repair learning stale when linking it to the incident fails.
+- Resolve and promote incident repairs only while their generation,
+  update-time, and occurrence token remains unchanged; install the added
+  incident schema columns during normal version upgrades.
+- Preserve the authoritative terminal audit receipt when incident persistence
+  fails and expose that failure only as bounded secondary receipt metadata.
+- Require explicit `retryable:false` on terminal browser-finalizer receipts.
+- Leave wordpress.org and other non-Stonewright plugin downloads unchanged at
+  the pre-download gate. Fail closed only for official Stonewright packages or
+  the Stonewright plugin basename.
+- Add schema-v2 authoritative saved/effective WordPress mode fields to full
+  and compact WorkflowPreflight/task-start responses.
+- Show one authoritative four-step post-update verification flow in Setup and
+  the copied update prompt: task start, profile setup, status, then a
+  process-bound client surface check.
+- Require complete authenticated configured-package evidence in companion
+  health responses and include `stonewright-client-surface-check` in the
+  post-update verification prompt.
+- Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
+  admin OAuth browser test's stale client count with tab/panel parity checks.
+
 ### Security
 
+- Redact nested private keys, PEM certificates, and credential blobs from audit
+  payloads without removing surrounding safe text, and keep encoded output bounded.
+- Redact credential assignments, authorization carriers, Application Password
+  shapes, credentialed URLs, and private-key bodies recursively from every
+  free-text audit value before persistence.
+- Coalesce identical permission and safety denials by site, ability, and error,
+  retaining the first event plus bounded count summaries and severity under a
+  stale-recoverable option mutex with compare-and-delete ownership.
 - Fetch a bounded `SHA256SUMS.txt` manifest and verify the exact release ZIP at
   WordPress's pre-download install/update gate. Missing, malformed, forged,
   unavailable, empty, and mismatched checksums now fail closed with typed
@@ -17,24 +77,6 @@
 - Require an exact `SHA256SUMS.txt` release asset before accepting updater
   metadata or injecting an update transient, with a typed
   `missing_checksum_asset` recovery reason.
-
-### Fixed
-
-- Leave wordpress.org and other non-Stonewright plugin downloads unchanged at
-  the pre-download gate. Fail closed only for official Stonewright packages or
-  the Stonewright plugin basename.
-
-- Add schema-v2 authoritative saved/effective WordPress mode fields to full
-  and compact WorkflowPreflight/task-start responses.
-
-- Show one authoritative four-step post-update verification flow in Setup and
-  the copied update prompt: task start, profile setup, status, then a
-  process-bound client surface check.
-- Require complete authenticated configured-package evidence in companion
-  health responses and include `stonewright-client-surface-check` in the
-  post-update verification prompt.
-- Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
-  admin OAuth browser test's stale client count with tab/panel parity checks.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

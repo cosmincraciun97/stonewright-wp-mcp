@@ -49,15 +49,15 @@ describe('Direct persistent-state lifecycle', () => {
 		});
 		const auditPath = join(stateDir, 'audit-direct.jsonl');
 		appendDirectAudit(
-			{ tool: 'stonewright-content-update', site: 'default', status: 'error', code: 'write_failed' },
+			{ tool: 'stonewright-content-update', site: 'default', targetIdentity: 'https://default.example.test', status: 'error', code: 'write_failed' },
 			auditPath,
 		);
 		appendDirectAudit(
-			{ tool: 'stonewright-content-update', site: 'default', status: 'error', code: 'write_failed' },
+			{ tool: 'stonewright-content-update', site: 'default', targetIdentity: 'https://default.example.test', status: 'error', code: 'write_failed' },
 			auditPath,
 		);
 		const beforeAudit = readFileSync(auditPath, 'utf8');
-		const incidentStore = new DirectIncidentStore(stateDir, directIncidentFingerprint('default'));
+		const incidentStore = new DirectIncidentStore(stateDir, directIncidentFingerprint('https://default.example.test'));
 		const beforeIncident = readFileSync(incidentStore.path(), 'utf8');
 
 		await createMcpServer({ env });
@@ -66,7 +66,7 @@ describe('Direct persistent-state lifecycle', () => {
 		expect(listSkills({ baseDir: stateDir, scope: '_global' }).items).toHaveLength(1);
 		expect(readFileSync(auditPath, 'utf8')).toBe(beforeAudit);
 		expect(readFileSync(incidentStore.path(), 'utf8')).toBe(beforeIncident);
-		expect(new DirectIncidentStore(stateDir, directIncidentFingerprint('default')).list()[0])
+		expect(new DirectIncidentStore(stateDir, directIncidentFingerprint('https://default.example.test')).list()[0])
 			.toMatchObject({ state: 'open', occurrences: 2 });
 	});
 });

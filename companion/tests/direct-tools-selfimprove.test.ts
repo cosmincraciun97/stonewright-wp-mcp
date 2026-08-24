@@ -16,9 +16,16 @@ import {
 	incidentRepairRecord,
 	type SelfImproveContext,
 } from '../src/direct/tools/self-improve.js';
-import { appendDirectAudit } from '../src/direct/audit.js';
+import { appendDirectAudit as appendDirectAuditRaw, type DirectAuditEntry } from '../src/direct/audit.js';
 import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
+
+function appendDirectAudit(entry: DirectAuditEntry, path?: string) {
+	return appendDirectAuditRaw({
+		...entry,
+		targetIdentity: entry.targetIdentity ?? (entry.site === '_global' ? 'direct-global:_global' : 'https://site-a.example.test'),
+	}, path);
+}
 
 function ctx(): SelfImproveContext {
 	return {
@@ -216,7 +223,7 @@ describe('direct self-improve tools', () => {
 			resource: 'post:42', changeSetId: 'change-set-42', verificationStatus: 'failed',
 			timestamp: '2026-08-12T08:01:00.000Z',
 		}, auditPath);
-		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('_global'));
+		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('direct-global:_global'));
 		const incident = store.list()[0];
 		const verified = appendDirectAudit({
 			tool: 'stonewright-content-get', site: '_global', status: 'ok',
@@ -260,7 +267,7 @@ describe('direct self-improve tools', () => {
 			tool: 'stonewright-content-update', site: '_global', status: 'error',
 			code: 'write_failed', causeKey: 'content-update|write_failed',
 		}, auditPath);
-		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('_global'));
+		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('direct-global:_global'));
 		const incident = store.list()[0];
 		const unverified = appendDirectAudit({
 			tool: 'stonewright-content-update', site: '_global', status: 'ok',

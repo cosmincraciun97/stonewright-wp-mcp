@@ -52,7 +52,7 @@ Tokens are stored as WordPress transients, so they expire automatically and are 
 
 ### Audit log
 
-All write ability executions are recorded in the `{prefix}stonewright_audit_log` custom table. Each row stores:
+All write ability executions are recorded in the `{prefix}stonewright_audit_log` custom table. Healthy finalizer heartbeat traffic is excluded. Repeated identical permission and safety denials are scoped by site, ability, and error: the first blocked row and bounded count summaries retain severity while routine repeats are coalesced. Every nested free-text value is credential-redacted before persistence. Each row stores:
 
 - ability name
 - user ID
@@ -62,10 +62,12 @@ All write ability executions are recorded in the `{prefix}stonewright_audit_log`
 - request UUID
 - timestamp
 
-Normal writes are append-only. The dedicated runtime-history purge is the only
-plugin path that deletes rows: it requires `manage_options`, a count-only dry
-run, matching state and plan hashes, a production-safe confirmation token when
-applicable, and preserves one cleanup receipt. Read via
+Normal writes are append-only. Audit rows are deleted only by an explicitly
+configured bounded retention policy or the dedicated runtime-history purge.
+Retention records success only when both audit and incident batches complete;
+a failed incident delete leaves the daily retry eligible. The purge requires
+`manage_options`, a count-only dry run, matching state and plan hashes, a
+production-safe confirmation token when applicable, and preserves one cleanup receipt. Read via
 `GET /wp-json/stonewright/v1/audit-log` (requires `manage_options`).
 
 ### OAuth authorization

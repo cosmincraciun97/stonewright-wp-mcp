@@ -21,14 +21,31 @@ final class AuditLog {
 
 	/** Longest persisted OAuth diagnostic string. */
 	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
+	public const RETENTION_OPTION = 'stonewright_audit_retention_days';
+	public const RETENTION_RECEIPT_OPTION = 'stonewright_audit_retention_receipt';
+	public const RETENTION_HOOK = 'stonewright_audit_retention';
+	private const RETENTION_TRANSIENT = 'stonewright_audit_retention_ran';
 	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
 	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
+	private const AUTH_SUCCESS_COALESCE_WINDOW_SECONDS = 30 * MINUTE_IN_SECONDS;
+	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
+	private const DENIAL_LOCK_TTL_SECONDS = 5;
+	private const DENIAL_LOCK_ATTEMPTS = 500;
+	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_OPTION = 'stonewright_audit_schema_version';
+
+	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
+	private static ?bool $schema_healthy = null;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
 
 	/** @var list<int> */
 	private const AUTH_TERMINAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
+	private const AUTH_SUCCESS_COALESCE_RECORD_COUNTS = [ 1 ];
+
+	/** @var list<int> */
+	private const DENIAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
 
 	/**
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
@@ -79,6 +96,12 @@ final class AuditLog {
 	 */
 	private static ?string $request_correlation_id = null;
 
+	/** @var array<string, true> */
+	private static array $terminal_events = [];
+
+	/** @var array<string,mixed> */
+	private static array $last_terminal_receipt = [];
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
@@ -87,6 +110,13 @@ final class AuditLog {
 	public static function reset_request_state(): void {
 		self::$request_already_audited = false;
 		self::$request_correlation_id  = null;
+		self::$terminal_events         = [];
+		self::$last_terminal_receipt  = [];
+	}
+
+	/** @return array<string,mixed> */
+	public static function last_terminal_receipt(): array {
+		return self::$last_terminal_receipt;
 	}
 
 	public static function begin_request( ?string $correlation_id = null ): string {
@@ -110,8 +140,105 @@ final class AuditLog {
 		return self::$request_correlation_id;
 	}
 
+	public static function reset_schema_health_cache_for_tests(): void {
+		self::$schema_healthy = null;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function required_columns(): array {
+		return [
+			'id',
+			'ability_name',
+			'user_id',
+			'args_hash',
+			'sanitized_args',
+			'result_status',
+			'ip_hash',
+			'ua_hash',
+			'request_id',
+			'correlation_id',
+			'operation_id',
+			'parent_event_id',
+			'attempt',
+			'idempotency_key',
+			'terminal_idempotency_key',
+			'lifecycle_phase',
+			'is_terminal',
+			'terminal_owner',
+			'parent_request_id',
+			'event_type',
+			'operation_class',
+			'resource_type',
+			'resource_ref',
+			'change_set_id',
+			'execution_status',
+			'verification_status',
+			'effect_verified',
+			'rollback_status',
+			'before_sha256',
+			'after_sha256',
+			'changed_bytes',
+			'validator_summary',
+			'smoke_summary',
+			'error_code',
+			'cause_key',
+			'duration_ms',
+			'backend',
+			'site_fingerprint',
+			'mode',
+			'severity',
+			'event_id',
+			'schema_version',
+			'category',
+			'outcome',
+			'severity_level',
+			'root_error_code',
+			'resource_key_hash',
+			'normalized_path',
+			'cause_fingerprint',
+			'strategy_fingerprint',
+			'transaction_id',
+			'context_token_id_hash',
+			'expected_verifier',
+			'remediation_code',
+			'retryable',
+			'retry_after_seconds',
+			'incident_id',
+			'redacted_details',
+			'created_at',
+		];
+	}
+
+	public static function table_schema_ok(): bool {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_col' ) ) {
+			return false;
+		}
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! is_array( $columns ) || [] === $columns ) {
+			return false;
+		}
+		$columns = array_map( 'strval', $columns );
+		return [] === array_diff( self::required_columns(), $columns );
+	}
+
 	public static function maybe_install_table(): void {
 		global $wpdb;
+
+		if ( true === self::$schema_healthy ) {
+			return;
+		}
+
+		$current_version = (int) get_option( self::SCHEMA_OPTION, 0 );
+		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			return;
+		}
+
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 		$sql     = "CREATE TABLE {$table} (
@@ -124,6 +251,15 @@ final class AuditLog {
 			ip_hash CHAR(64) NOT NULL DEFAULT '',
 			ua_hash CHAR(64) NOT NULL DEFAULT '',
 			request_id CHAR(36) NOT NULL DEFAULT '',
+			correlation_id CHAR(36) NOT NULL DEFAULT '',
+			operation_id CHAR(36) NOT NULL DEFAULT '',
+			parent_event_id CHAR(36) NOT NULL DEFAULT '',
+			attempt INT UNSIGNED NOT NULL DEFAULT 1,
+			idempotency_key CHAR(64) NOT NULL DEFAULT '',
+			terminal_idempotency_key CHAR(64) NULL DEFAULT NULL,
+			lifecycle_phase VARCHAR(24) NOT NULL DEFAULT 'terminal',
+			is_terminal TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
+			terminal_owner VARCHAR(96) NOT NULL DEFAULT 'audit-log',
 			parent_request_id CHAR(36) NOT NULL DEFAULT '',
 			event_type VARCHAR(32) NOT NULL DEFAULT 'mutation',
 			operation_class VARCHAR(96) NOT NULL DEFAULT '',
@@ -177,12 +313,28 @@ final class AuditLog {
 			KEY outcome_idx (outcome),
 			KEY incident_idx (incident_id),
 			KEY root_error_idx (root_error_code),
+			KEY idempotency_idx (idempotency_key),
+			UNIQUE KEY terminal_idempotency_idx (terminal_idempotency_key),
 			KEY created_idx (created_at)
 		) {$charset};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		AuditReconciler::maybe_migrate();
+
+		if ( self::table_schema_ok() ) {
+			self::$schema_healthy = true;
+			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
+		} else {
+			self::$schema_healthy = false;
+			Logger::error(
+				'audit_schema_install_failed',
+				[
+					'table'          => self::table_name(),
+					'target_version' => self::SCHEMA_VERSION,
+				]
+			);
+		}
 	}
 
 	/**
@@ -195,8 +347,30 @@ final class AuditLog {
 
 		$status = in_array( $status, self::STATUSES, true ) ? $status : 'error';
 		$sanitized_args = self::redact_sensitive( $sanitized_args );
-		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		if ( ! isset( $sanitized_args['_meta'] ) || ! is_array( $sanitized_args['_meta'] ) ) {
+			$sanitized_args['_meta'] = [];
+		}
+		if ( empty( $sanitized_args['_meta']['correlation_id'] ) ) {
+			$sanitized_args['_meta']['correlation_id'] = self::request_id();
+		}
+		$meta  = $sanitized_args['_meta'];
 		$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
+		if ( 'blocked' === $status ) {
+			$coalesced = self::coalesce_security_denial( $ability, (string) ( $event['root_error_code'] ?? '' ) );
+			if ( ! $coalesced['record'] ) {
+				self::mark_audited();
+				return true;
+			}
+			if ( $coalesced['count'] > 1 ) {
+				$sanitized_args['_meta']['coalesced_count'] = $coalesced['count'];
+				$meta  = $sanitized_args['_meta'];
+				$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
+			}
+		}
+		if ( $event['terminal'] && isset( self::$terminal_events[ $event['idempotency_key'] ] ) ) {
+			self::mark_audited();
+			return true;
+		}
 		$verification = self::meta_string( $meta, 'verification_status' );
 		$rollback     = self::meta_string( $meta, 'rollback_status', 'not_needed' );
 		$event_type   = 'mutation';
@@ -227,9 +401,18 @@ final class AuditLog {
 				'ip_hash'        => self::hash_value( $_SERVER['REMOTE_ADDR'] ?? '' ),
 				'ua_hash'        => self::hash_value( $_SERVER['HTTP_USER_AGENT'] ?? '' ),
 				'request_id'     => self::request_id(),
-				'parent_request_id' => self::meta_string( $meta, 'parent_request_id' ),
+				'correlation_id' => $event['correlation_id'],
+				'operation_id'   => $event['operation_id'],
+				'parent_event_id'=> $event['parent_event_id'],
+				'attempt'        => $event['attempt'],
+				'idempotency_key'=> $event['idempotency_key'],
+				'terminal_idempotency_key' => $event['terminal'] ? $event['idempotency_key'] : null,
+				'lifecycle_phase'=> $event['lifecycle_phase'],
+				'is_terminal'    => $event['terminal'] ? 1 : 0,
+				'terminal_owner' => $event['terminal_owner'],
+				'parent_request_id' => '' !== $event['parent_event_id'] ? $event['parent_event_id'] : self::meta_string( $meta, 'parent_request_id' ),
 				'event_type'        => $event_type,
-				'operation_class'   => self::meta_string( $meta, 'operation_class' ),
+				'operation_class'   => $event['operation_class'],
 				'resource_type'     => self::meta_string( $meta, 'resource_type' ),
 				'resource_ref'      => self::logical_resource_ref( $meta, $sanitized_args ),
 				'change_set_id'     => self::meta_string( $meta, 'change_set_id' ),
@@ -246,7 +429,7 @@ final class AuditLog {
 				'cause_key'         => mb_substr( sanitize_text_field( self::meta_string( $meta, 'cause_key' ) ), 0, 255 ),
 				'duration_ms'       => max( 0, (int) ( $meta['duration_ms'] ?? 0 ) ),
 				'backend'           => 'plugin',
-				'site_fingerprint'  => hash( 'sha256', home_url( '/' ) . '|' . (string) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 ) ),
+				'site_fingerprint'  => self::site_fingerprint(),
 				'mode'              => sanitize_key( (string) get_option( 'stonewright_mode', 'development' ) ),
 				'severity'          => $severity,
 				'event_id'          => $event['event_id'],
@@ -273,6 +456,18 @@ final class AuditLog {
 		);
 
 		if ( false === $result ) {
+			if ( str_contains( strtolower( (string) ( $wpdb->last_error ?? '' ) ), 'duplicate' ) ) {
+					self::mark_audited();
+					self::$terminal_events[ $event['idempotency_key'] ] = true;
+					self::$last_terminal_receipt = [
+						'event_id'         => $event['event_id'],
+						'idempotency_key'  => $event['idempotency_key'],
+						'persisted'        => true,
+						'replayed'         => true,
+						'secondary_errors' => [],
+					];
+					return true;
+			}
 			// Do not recursively audit the audit failure.
 			Logger::error(
 				'audit_log_insert_failed',
@@ -295,13 +490,29 @@ final class AuditLog {
 		}
 
 		self::mark_audited();
+		if ( $event['terminal'] ) {
+			self::$terminal_events[ $event['idempotency_key'] ] = true;
+			self::$last_terminal_receipt = [
+				'event_id'         => $event['event_id'],
+				'idempotency_key'  => $event['idempotency_key'],
+				'persisted'        => true,
+				'replayed'         => false,
+				'secondary_errors' => [],
+			];
+		}
 		delete_option( 'stonewright_audit_degraded' );
 		try {
 			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
 				IncidentStore::observe( $event );
 			}
-		} catch ( \Throwable $t ) {
-			Logger::error( 'incident_store_observe_threw', [ 'ability' => $ability, 'error' => $t->getMessage() ] );
+			} catch ( \Throwable $t ) {
+				if ( $event['terminal'] ) {
+					self::$last_terminal_receipt['secondary_errors'][] = [
+						'component' => 'incident_store',
+						'code'      => 'incident_persistence_failed',
+					];
+				}
+				Logger::error( 'incident_store_observe_threw', [ 'ability' => $ability, 'error' => $t->getMessage() ] );
 		}
 
 		// Learn from recurring errors without blocking the audit write path.
@@ -322,6 +533,72 @@ final class AuditLog {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Delete a bounded batch of expired audit rows and persist a redacted receipt.
+	 * A zero-day policy explicitly disables automatic retention.
+	 *
+	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
+	 */
+	public static function enforce_retention( bool $force = false, ?int $now = null ): array {
+		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
+		$now  = $now ?? time();
+		$base = [
+			'status'         => 0 === $days ? 'disabled' : 'skipped',
+			'retention_days' => $days,
+			'cutoff_utc'     => 0 === $days ? '' : gmdate( 'Y-m-d H:i:s', $now - ( $days * DAY_IN_SECONDS ) ),
+			'deleted_rows'   => 0,
+			'run_at'         => gmdate( 'c', $now ),
+		];
+		if ( 0 === $days || ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) ) {
+			return $base;
+		}
+
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'query' ) ) {
+			$base['status'] = 'unavailable';
+			return $base;
+		}
+		$table = self::table_name();
+		$sql = $wpdb->prepare( "DELETE FROM {$table} WHERE created_at < %s LIMIT 5000", $base['cutoff_utc'] ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table is plugin-owned.
+		$deleted = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- bounded retention on owned table.
+		$base['status']       = false === $deleted ? 'failed' : 'completed';
+		$base['deleted_rows'] = false === $deleted ? 0 : max( 0, (int) $deleted );
+		update_option( self::RETENTION_RECEIPT_OPTION, $base, false );
+		if ( false === $deleted ) {
+			return $base;
+		}
+		$incident_receipt = IncidentStore::enforce_retention( $days, $now );
+		if ( 'completed' !== (string) ( $incident_receipt['status'] ?? '' ) ) {
+			$base['status'] = 'failed';
+			update_option( self::RETENTION_RECEIPT_OPTION, $base, false );
+			return $base;
+		}
+		set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
+		return $base;
+	}
+
+	public static function sync_retention_schedule( mixed $now = null ): void {
+		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
+		if ( 0 === $days ) {
+			if ( wp_next_scheduled( self::RETENTION_HOOK ) ) {
+				wp_clear_scheduled_hook( self::RETENTION_HOOK );
+			}
+			return;
+		}
+		if ( ! wp_next_scheduled( self::RETENTION_HOOK ) ) {
+			$timestamp = is_int( $now ) ? $now : time();
+			wp_schedule_event( $timestamp + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );
+		}
+	}
+
+	public static function run_scheduled_retention(): void {
+		self::enforce_retention( true );
+	}
+
+	public static function unschedule_retention(): void {
+		wp_clear_scheduled_hook( self::RETENTION_HOOK );
 	}
 
 	/**
@@ -443,14 +720,12 @@ final class AuditLog {
 	 * @return array{record:bool,count:int}
 	 */
 	private static function coalesce_auth_event( string $endpoint, string $client_id, int $http, string $error, string $reason ): array {
-		if ( $http < 400 || $http > 599 ) {
-			return [ 'record' => true, 'count' => 1 ];
-		}
-		$terminal = $http < 500
+		$success  = $http >= 200 && $http < 400;
+		$terminal = ! $success && $http < 500
 			&& 429 !== $http
 			&& ! in_array( $error, [ 'temporarily_unavailable', 'server_error' ], true );
-		$window     = $terminal ? self::AUTH_TERMINAL_COALESCE_WINDOW_SECONDS : self::AUTH_COALESCE_WINDOW_SECONDS;
-		$thresholds = $terminal ? self::AUTH_TERMINAL_COALESCE_RECORD_COUNTS : self::AUTH_COALESCE_RECORD_COUNTS;
+		$window     = $success ? self::AUTH_SUCCESS_COALESCE_WINDOW_SECONDS : ( $terminal ? self::AUTH_TERMINAL_COALESCE_WINDOW_SECONDS : self::AUTH_COALESCE_WINDOW_SECONDS );
+		$thresholds = $success ? self::AUTH_SUCCESS_COALESCE_RECORD_COUNTS : ( $terminal ? self::AUTH_TERMINAL_COALESCE_RECORD_COUNTS : self::AUTH_COALESCE_RECORD_COUNTS );
 		$salt  = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-oauth';
 		$fingerprint = sanitize_key( $error ) . '|' . sanitize_key( $reason );
 		$key   = 'stonewright_oauth_audit_' . hash_hmac( 'sha256', $endpoint . '|' . $client_id . '|' . $http . '|' . $fingerprint, $salt );
@@ -482,6 +757,111 @@ final class AuditLog {
 			'record' => $record,
 			'count'  => $delta,
 		];
+	}
+
+	/**
+	 * Bound repeated identical permission and safety denials by site, ability,
+	 * and normalized error while retaining the first row and count summaries.
+	 *
+	 * @return array{record:bool,count:int}
+	 */
+	private static function coalesce_security_denial( string $ability, string $error_code ): array {
+		$salt = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-denial';
+		$digest = hash_hmac(
+			'sha256',
+			self::site_fingerprint() . '|' . sanitize_text_field( $ability ) . '|' . sanitize_key( $error_code ),
+			$salt
+		);
+		$key  = 'stonewright_denial_audit_' . $digest;
+		$lock = self::acquire_denial_lock( 'stonewright_denial_lock_' . $digest );
+		if ( null === $lock ) {
+			Logger::warning( 'denial_coalesce_lock_timeout', [ 'ability' => mb_substr( sanitize_text_field( $ability ), 0, 190 ) ] );
+			return [ 'record' => true, 'count' => 1 ];
+		}
+		try {
+		$now     = time();
+		$state   = get_transient( $key );
+		$state   = is_array( $state ) ? $state : [];
+		$last    = (int) ( $state['last_at'] ?? 0 );
+		$count   = max( 0, (int) ( $state['count'] ?? 0 ) );
+		$emitted = max( 0, (int) ( $state['emitted_count'] ?? 0 ) );
+		if ( $count > 0 && $now - $last >= self::DENIAL_COALESCE_WINDOW_SECONDS ) {
+			$delta = max( 1, ( $count - $emitted ) + 1 );
+			set_transient(
+				$key,
+				[ 'count' => 1, 'emitted_count' => 1, 'last_at' => $now ],
+				2 * self::DENIAL_COALESCE_WINDOW_SECONDS
+			);
+			return [ 'record' => true, 'count' => $delta ];
+		}
+
+		++$count;
+		$record = in_array( $count, self::DENIAL_COALESCE_RECORD_COUNTS, true );
+		$delta  = $record ? max( 1, $count - $emitted ) : 0;
+		set_transient(
+			$key,
+			[
+				'count'         => $count,
+				'emitted_count' => $record ? $count : $emitted,
+				'last_at'       => $now,
+			],
+			2 * self::DENIAL_COALESCE_WINDOW_SECONDS
+		);
+		return [ 'record' => $record, 'count' => $delta ];
+		} finally {
+			self::release_denial_lock( 'stonewright_denial_lock_' . $digest, $lock );
+		}
+	}
+
+	/** @return array{token:string,expires_at:int}|null */
+	private static function acquire_denial_lock( string $key ): ?array {
+		for ( $attempt = 0; $attempt < self::DENIAL_LOCK_ATTEMPTS; ++$attempt ) {
+			$now   = time();
+			$lease = [
+				'token'      => wp_generate_uuid4(),
+				'expires_at' => $now + self::DENIAL_LOCK_TTL_SECONDS,
+			];
+			if ( add_option( $key, $lease, '', false ) ) {
+				return $lease;
+			}
+			$current = get_option( $key, [] );
+			if ( is_array( $current ) && (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
+				self::delete_denial_lock_if_unchanged( $key, $current );
+				continue;
+			}
+			usleep( 1000 );
+		}
+		return null;
+	}
+
+	/** @param array{token:string,expires_at:int} $lease */
+	private static function release_denial_lock( string $key, array $lease ): void {
+		$current = get_option( $key, [] );
+		if ( ! is_array( $current ) || ! hash_equals( (string) ( $current['token'] ?? '' ), $lease['token'] ) ) {
+			return;
+		}
+		self::delete_denial_lock_if_unchanged( $key, $current );
+	}
+
+	/** @param array<string,mixed> $observed */
+	private static function delete_denial_lock_if_unchanged( string $key, array $observed ): bool {
+		global $wpdb;
+		if ( is_object( $wpdb ) && isset( $wpdb->options ) && method_exists( $wpdb, 'delete' ) ) {
+			// The exact serialized lease is the CAS guard against deleting a newer owner.
+			$deleted = $wpdb->delete(
+				$wpdb->options,
+				[ 'option_name' => $key, 'option_value' => maybe_serialize( $observed ) ],
+				[ '%s', '%s' ]
+			); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- short-lived plugin-owned mutex.
+			wp_cache_delete( $key, 'options' );
+			return 1 === $deleted;
+		}
+		$current = get_option( $key, [] );
+		return is_array( $current ) && maybe_serialize( $current ) === maybe_serialize( $observed ) && delete_option( $key );
+	}
+
+	private static function site_fingerprint(): string {
+		return hash( 'sha256', home_url( '/' ) . '|' . (string) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 ) );
 	}
 
 	private static function retry_after_seconds( object $response ): int {
@@ -580,6 +960,7 @@ final class AuditLog {
 		[ $where_sql, $params ] = self::build_filter_clause( $filters );
 
 		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
+				correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
 				event_type, operation_class, resource_type, resource_ref, change_set_id,
 				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
 				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,
@@ -865,7 +1246,17 @@ final class AuditLog {
 				$out[ $key ] = strtolower( (string) $value );
 				continue;
 			}
-			if ( in_array( $lk, $keys, true ) || str_contains( $lk, 'password' ) || str_contains( $lk, 'token' ) || str_contains( $lk, 'secret' ) ) {
+			if (
+				in_array( $lk, $keys, true )
+				|| str_contains( $lk, 'password' )
+				|| str_contains( $lk, 'token' )
+				|| str_contains( $lk, 'secret' )
+				|| str_contains( $lk, 'private_key' )
+				|| str_contains( $lk, 'privatekey' )
+				|| str_contains( $lk, 'key_pem' )
+				|| str_contains( $lk, 'certificate' )
+				|| str_contains( $lk, 'credential' )
+			) {
 				$out[ $key ] = is_string( $value ) && str_starts_with( $value, '[redacted' )
 					? $value
 					: '[redacted]';
@@ -875,9 +1266,44 @@ final class AuditLog {
 				$out[ $key ] = self::redact_sensitive( $value );
 				continue;
 			}
-			$out[ $key ] = $value;
+			if ( is_object( $value ) ) {
+				$vars = get_object_vars( $value );
+				if ( [] !== $vars ) {
+					$out[ $key ] = self::redact_sensitive( $vars );
+					continue;
+				}
+			}
+			$out[ $key ] = is_string( $value ) ? self::redact_free_text( $value ) : $value;
 		}
 		return $out;
+	}
+
+	private static function redact_free_text( string $value ): string {
+		$value = (string) preg_replace(
+			'/\b(Basic|Bearer)\s+[A-Za-z0-9._~+\/=\-]+/i',
+			'$1 [redacted]',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/\b(password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie)\b(\s*(?::|=|\bis\b|\bwas\b)\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'$1$2[redacted]',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/(https?:\/\/[^\/\s:@]+:)[^\/\s@]+@/i',
+			'$1[redacted]@',
+			$value
+		);
+		$value = (string) preg_replace(
+			'/\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/',
+			'[redacted-app-password]',
+			$value
+		);
+		return (string) preg_replace(
+			'/-----BEGIN ((?:ENCRYPTED |RSA |EC |OPENSSH )?PRIVATE KEY|CERTIFICATE)-----.*?-----END \1-----/s',
+			'[redacted-private-key]',
+			$value
+		);
 	}
 
 	private static function esc_like( string $value ): string {

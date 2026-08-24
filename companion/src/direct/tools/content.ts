@@ -151,7 +151,7 @@ export async function contentCreate(
         : "stonewright-content-create";
   assertToolEnabled(ctx.site, tool);
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool,
@@ -174,6 +174,7 @@ export async function contentCreate(
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${post.id}`,
       status: "ok",
     });
@@ -182,6 +183,7 @@ export async function contentCreate(
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: collection,
       status: "error",
       code: err instanceof Error ? err.name : "error",
@@ -205,7 +207,7 @@ export async function contentUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-content-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     tool: "stonewright-content-update",
@@ -227,6 +229,7 @@ export async function contentUpdate(
     appendDirectAudit({
       tool: "stonewright-content-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
@@ -235,6 +238,7 @@ export async function contentUpdate(
     appendDirectAudit({
       tool: "stonewright-content-update",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "error",
     });
@@ -254,7 +258,7 @@ export async function contentDelete(
   assertToolEnabled(ctx.site, "stonewright-content-delete");
   const force = input.force === true;
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: force,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -271,6 +275,7 @@ export async function contentDelete(
     appendDirectAudit({
       tool: "stonewright-content-delete",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
@@ -279,6 +284,7 @@ export async function contentDelete(
     appendDirectAudit({
       tool: "stonewright-content-delete",
       site: ctx.site.alias,
+      targetIdentity: ctx.site.url,
       resource: `${collection}/${input.id}`,
       status: "error",
     });
@@ -349,7 +355,7 @@ export async function contentRevisionDelete(
 ) {
   assertToolEnabled(ctx.site, "stonewright-content-revision-delete");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -363,6 +369,7 @@ export async function contentRevisionDelete(
   appendDirectAudit({
     tool: "stonewright-content-revision-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `${collection}/${input.id}/revisions/${input.revision_id}`,
     status: "ok",
   });
@@ -419,7 +426,7 @@ export async function contentAutosaveCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-content-autosave-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: false,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -436,6 +443,7 @@ export async function contentAutosaveCreate(
   appendDirectAudit({
     tool: "stonewright-content-autosave-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `${collection}/${input.id}/autosaves`,
     status: "ok",
   });

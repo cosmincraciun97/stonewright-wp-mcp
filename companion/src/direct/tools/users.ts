@@ -1,4 +1,4 @@
-import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -86,9 +86,14 @@ export async function userMe(ctx: DirectToolContext) {
   return compactUser(user, true);
 }
 
-function requireConfirm(confirm: boolean | undefined, tool: string): void {
+function requireConfirm(confirm: boolean | undefined, tool: string, site: string): void {
   if (confirm !== true) {
-    throw new Error(`confirm:true is required for this tool (${tool})`);
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
+      `confirm:true is required for this tool (${tool})`,
+      tool,
+      site,
+    );
   }
 }
 
@@ -105,7 +110,7 @@ export async function userCreate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-create");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -123,6 +128,7 @@ export async function userCreate(
   appendDirectAudit({
     tool: "stonewright-user-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${user.id}`,
     status: "ok",
   });
@@ -142,7 +148,7 @@ export async function userUpdate(
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-update");
   assertWriteAllowed({
-    site: ctx.site.alias,
+    site: ctx.site,
     mode: ctx.writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
@@ -159,6 +165,7 @@ export async function userUpdate(
   appendDirectAudit({
     tool: "stonewright-user-update",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
     status: "ok",
   });
@@ -170,13 +177,22 @@ export async function userDelete(
   input: { id: number; reassign: number; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-delete");
-  requireConfirm(input.confirm, "stonewright-user-delete");
+  assertWriteAllowed({
+    site: ctx.site,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-user-delete",
+    env: ctx.env ?? process.env,
+  });
+  requireConfirm(input.confirm, "stonewright-user-delete", ctx.site.alias);
   const result = await ctx.client.del(`/wp/v2/users/${input.id}`, {
     query: { force: true, reassign: input.reassign },
   });
   appendDirectAudit({
     tool: "stonewright-user-delete",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
     status: "ok",
   });
@@ -216,7 +232,15 @@ export async function appPasswordCreate(
   input: { user_id: number; name: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-create");
-  requireConfirm(input.confirm, "stonewright-app-password-create");
+  assertWriteAllowed({
+    site: ctx.site,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-app-password-create",
+    env: ctx.env ?? process.env,
+  });
+  requireConfirm(input.confirm, "stonewright-app-password-create", ctx.site.alias);
   const created = await ctx.client.post<AppPassword>(
     `/wp/v2/users/${input.user_id}/application-passwords`,
     { body: { name: input.name } },
@@ -224,6 +248,7 @@ export async function appPasswordCreate(
   appendDirectAudit({
     tool: "stonewright-app-password-create",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords`,
     status: "ok",
   });
@@ -240,13 +265,22 @@ export async function appPasswordRevoke(
   input: { user_id: number; uuid: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-revoke");
-  requireConfirm(input.confirm, "stonewright-app-password-revoke");
+  assertWriteAllowed({
+    site: ctx.site,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-app-password-revoke",
+    env: ctx.env ?? process.env,
+  });
+  requireConfirm(input.confirm, "stonewright-app-password-revoke", ctx.site.alias);
   const result = await ctx.client.del(
     `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(input.uuid)}`,
   );
   appendDirectAudit({
     tool: "stonewright-app-password-revoke",
     site: ctx.site.alias,
+    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords/${input.uuid}`,
     status: "ok",
   });
