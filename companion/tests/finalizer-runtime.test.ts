@@ -165,6 +165,27 @@ describe('block finalizer runtime lifecycle', () => {
 		expect(runtime.activeTimers().map((timer) => timer.delay)).toContain(2000);
 	});
 
+	it('honors retryable true from a 409 result payload and resumes bounded polling', async () => {
+		const runtime = harness((url) => {
+			if (url.includes('pending?')) {
+				return Promise.resolve(response(200, { items: [{ id: 'change-conflict', post_id: 42, editor_url: '/editor', status: 'queued', block_spec: { name: 'core/paragraph' } }] }));
+			}
+			if (url.endsWith('result')) {
+				return Promise.resolve(response(409, {
+					code: 'stonewright_finalizer_busy',
+					message: 'The finalizer queue is busy.',
+					data: { status: 409, retryable: true },
+				}));
+			}
+			return Promise.resolve(response(200));
+		});
+		await settle();
+
+		expect(runtime.element('stonewright-finalizer-applied-count').textContent).toBe('0');
+		expect(runtime.element('stonewright-finalizer-failed-count').textContent).toBe('0');
+		expect(runtime.activeTimers().map((timer) => timer.delay)).toContain(2000);
+	});
+
 	it('cleans up timers on unload and stays closed', async () => {
 		const runtime = harness((url) => Promise.resolve(url.includes('pending?') ? response(200, { items: [] }) : response(200)));
 		await settle();

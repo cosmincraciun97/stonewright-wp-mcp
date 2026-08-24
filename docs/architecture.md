@@ -176,12 +176,16 @@ the failure and verifier from persisted audit storage, creates a receipt only
 for an exact correlated verified effect, then writes and reads back one
 scrubbed lesson. A later matching failure reopens the incident and marks that
 lesson stale instead of deleting history.
+Repair validation returns a generation, update-time, and occurrence token.
+Resolution and learning each compare that token atomically; a failure recorded
+after validation wins and stale evidence cannot close or teach from the incident.
 
 Direct mode mirrors the lifecycle in a private file namespaced by the site
 binding fingerprint. Terminal idempotency is site-bound, and its bounded marker
 index is compacted under the audit interprocess lock. Malformed locks are
-recovered only after their file age is stale; a live malformed lock is never
-stolen. It stores bounded classifications and hashes, writes by atomic
+recovered only after bounded age and lease checks. Host, boot, and real
+process-start identity are validated where the platform exposes them, so a
+live decoy or reused PID cannot hold the store indefinitely. It stores bounded classifications and hashes, writes by atomic
 replacement, and never copies runtime state into the companion package.
 When Direct audit lacks independent resource/change-set proof, the recorder
 returns guidance only and does not resolve or learn. See
@@ -234,6 +238,10 @@ debt: resolution requires correlated evidence for the same incident. Unresolved
 incidents are reporting state, not active learning. Only a verified repair or an
 explicit user correction may promote reusable guidance into memory; paginated
 legacy reconciliation stays retryable if any eligible memory update fails.
+The authoritative audit row establishes the terminal receipt before incident
+observation. Incident persistence failure is one bounded secondary receipt
+error and never triggers a fallback terminal row. Plugin denial aggregation is
+serialized by a stale-recoverable option lease with compare-and-delete release.
 
 ### Release-channel update discovery
 

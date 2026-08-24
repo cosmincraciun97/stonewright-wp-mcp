@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const race = vi.hoisted(() => ({
@@ -116,6 +117,7 @@ import { appendDirectAudit } from '../src/direct/audit.js';
 
 describe('Direct audit lock ownership', () => {
 	let stateDir: string;
+	let child: ChildProcess | null = null;
 
 	beforeEach(() => {
 		stateDir = mkdtempSync(join(tmpdir(), 'sw-audit-lock-owner-'));
@@ -136,6 +138,8 @@ describe('Direct audit lock ownership', () => {
 	});
 
 	afterEach(() => {
+		if (child?.pid) child.kill('SIGKILL');
+		child = null;
 		rmSync(stateDir, { recursive: true, force: true });
 	});
 
@@ -172,6 +176,31 @@ describe('Direct audit lock ownership', () => {
 			token: 'reused-pid-owner',
 			boot_id: 'synthetic-previous-boot',
 			process_started_at: 1,
+		})}\n`, { mode: 0o600 });
+		const stale = new Date(Date.now() - 120_000);
+		utimesSync(lock, stale, stale);
+		vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
+
+		expect(() => appendDirectAudit({
+			tool: 'stonewright-content-get',
+			site: 'https://site-a.example.test',
+			status: 'ok',
+		}, path)).not.toThrow();
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+	});
+
+	it('validates process start identity for another live PID and bounds a decoy lease', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const lock = `${path}.lock`;
+		child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+		expect(child.pid).toBeTypeOf('number');
+		writeFileSync(lock, `${JSON.stringify({
+			pid: child.pid,
+			created_at: 1,
+			lease_expires_at: 2,
+			token: 'live-decoy-pid',
+			hostname: hostname(),
+			process_start_identity: 'synthetic-wrong-start',
 		})}\n`, { mode: 0o600 });
 		const stale = new Date(Date.now() - 120_000);
 		utimesSync(lock, stale, stale);

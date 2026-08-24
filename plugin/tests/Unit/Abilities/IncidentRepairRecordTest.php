@@ -143,6 +143,25 @@ final class IncidentRepairRecordTest extends TestCase {
 		self::assertSame( 'none', IncidentStore::get( $this->incident_id() )['learning_status'] );
 	}
 
+	public function test_failure_arriving_after_validation_blocks_stale_resolution_and_learning(): void {
+		$this->seed_open_incident();
+		$this->db->audit_events = [
+			'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' => $this->failure_row(),
+			'dddddddd-dddd-4ddd-8ddd-dddddddddddd' => $this->success_row(),
+		];
+		$this->db->on_success_lookup = function (): void {
+			IncidentStore::observe( $this->incident_failure( 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' ) );
+		};
+
+		$result = ( new IncidentRepairRecord() )->execute( $this->repair_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_incident_state_changed', $result->get_error_code() );
+		self::assertSame( 'open', IncidentStore::get( $this->incident_id() )['state'] );
+		self::assertSame( 3, IncidentStore::get( $this->incident_id() )['occurrence_count'] );
+		self::assertCount( 0, $this->db->memory_rows );
+	}
+
 	/** @return array<string, string> */
 	private function repair_args(): array {
 		return [
@@ -221,7 +240,8 @@ final class IncidentRepairRecordTest extends TestCase {
 			public string $last_error = '';
 			public int $insert_id = 0;
 			public bool $fail_memory_write = false;
-			public bool $fail_memory_readback = false;
+				public bool $fail_memory_readback = false;
+				public mixed $on_success_lookup = null;
 			/** @var array<string, array<string, mixed>> */
 			public array $audit_events = [];
 			/** @var array<int, array<string, mixed>> */
@@ -244,9 +264,15 @@ final class IncidentRepairRecordTest extends TestCase {
 				return null;
 			}
 			/** @return list<array<string, mixed>> */
-			public function get_results( string $query, string $output = 'OBJECT' ): array {
-				if ( str_contains( $query, 'stonewright_audit_log' ) ) {
-					$event = $this->audit_events[ (string) ( $this->args[0] ?? '' ) ] ?? null;
+				public function get_results( string $query, string $output = 'OBJECT' ): array {
+					if ( str_contains( $query, 'stonewright_audit_log' ) ) {
+						$event_id = (string) ( $this->args[0] ?? '' );
+						if ( 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' === $event_id && is_callable( $this->on_success_lookup ) ) {
+							$callback = $this->on_success_lookup;
+							$this->on_success_lookup = null;
+							$callback();
+						}
+						$event = $this->audit_events[ $event_id ] ?? null;
 					return is_array( $event ) ? [ $event ] : [];
 				}
 				return [];

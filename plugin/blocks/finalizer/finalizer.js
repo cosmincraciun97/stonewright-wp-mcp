@@ -366,13 +366,13 @@
 
 	function resultReceipt(data, result) {
 		var failed = result && result.errors && result.errors.length;
-		if (data && data.ok === false && data.status === 'queued' && data.retryable === true) {
+		if (data && data.retryable === true) {
 			return { accepted: false, retryable: true };
 		}
-		if (failed && data && data.ok === false && data.status === 'failed') {
+		if (failed && data && data.ok === false && data.status === 'failed' && data.retryable === false) {
 			return { accepted: true, retryable: false };
 		}
-		if (!failed && data && data.ok === true && data.status === 'serialized') {
+		if (!failed && data && data.ok === true && data.status === 'serialized' && data.retryable === false) {
 			return { accepted: true, retryable: false };
 		}
 		throw new FinalizerError('malformed_result_receipt', '', 'The finalizer result response was malformed.');
@@ -624,18 +624,35 @@
 					path: '/stonewright/v1/block-finalizer/result',
 					method: 'POST',
 					data: body,
-				})).then(function (receipt) {
-					return resultReceipt(receipt, result);
-				});
-			}
-			return fetch(restBase + 'result', {
+					})).then(function (receipt) {
+						return resultReceipt(receipt, result);
+					}).catch(function (error) {
+						var payload = error && error.data && typeof error.data === 'object' ? error.data : null;
+						if (payload && payload.retryable === true) {
+							return resultReceipt(payload, result);
+						}
+						throw error;
+					});
+				}
+				return fetch(restBase + 'result', {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
 				body: JSON.stringify(body),
-			}).then(jsonResponse).then(function (receipt) {
-				return resultReceipt(receipt, result);
-			});
+				}).then(function (response) {
+					return Promise.resolve(response && typeof response.json === 'function' ? response.json() : response).then(function (receipt) {
+						var retryableReceipt = receipt && receipt.retryable === true
+							? receipt
+							: receipt && receipt.data && receipt.data.retryable === true
+								? receipt.data
+								: null;
+						if (retryableReceipt) {
+							return resultReceipt(retryableReceipt, result);
+						}
+						requireOk(response);
+						return resultReceipt(receipt, result);
+					});
+				});
 		});
 	}
 

@@ -87,9 +87,12 @@ identity, never the mutable alias, so repointing an alias cannot replay or
 suppress another site's terminal event. Marker retention is bounded and
 compacted under the same interprocess lock that protects append and stale-lock
 recovery. Audit and incident mutations use an exclusive recovery mutex plus
-token, boot, process-start, descriptor, and inode ownership. Recovery
+token, host, boot, real per-PID process-start, bounded lease, descriptor, and inode ownership. Recovery
 revalidates a stale candidate before atomic quarantine, never renames a
 replacement canonical owner, and bounds stale recovery/release artifacts.
+Incident repair validation is CAS-bound to generation, update-time, and
+occurrence state. The authoritative terminal row establishes its receipt before
+incident persistence, whose failure remains a bounded secondary error.
 Ordinary REST read failures are recorded once from dispatch context. Always-
 confirm theme, plugin, user, Application Password, and skill deletions also
 pass the central write-mode and task-start gate before execution.

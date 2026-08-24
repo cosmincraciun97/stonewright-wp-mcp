@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendDirectAudit as appendDirectAuditRaw, recentRecurringErrors, defaultAuditPath, rotateDirectAudit, type DirectAuditEntry, type DirectAuditRotationPolicy } from '../src/direct/audit.js';
+import { appendDirectAudit as appendDirectAuditRaw, directTerminalAuditReceipt, recentRecurringErrors, defaultAuditPath, rotateDirectAudit, withDirectAuditReceiptContext, type DirectAuditEntry, type DirectAuditRotationPolicy } from '../src/direct/audit.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { resetTaskStartSeenForTests } from '../src/direct/writes.js';
 
@@ -237,6 +237,33 @@ describe('direct error audit', () => {
 		expect(body).not.toContain('private-value');
 		expect(body).not.toContain('customer.example');
 		expect(body).not.toContain('private-token');
+	});
+
+	it('returns one terminal receipt with a bounded secondary error when incident persistence fails', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		writeFileSync(join(stateDir, 'incidents'), 'synthetic-conflict\n', { mode: 0o600 });
+		let contextReceipt: Record<string, unknown> | null = null;
+		const input = {
+			tool: 'stonewright-content-update', site: 'site-a', status: 'error' as const,
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+			idempotencyKey: 'incident-persistence-failure',
+			operationId: '33333333-3333-4333-8333-333333333333',
+		};
+
+		const first = withDirectAuditReceiptContext(() => {
+			const receipt = appendDirectAudit(input, path);
+			contextReceipt = directTerminalAuditReceipt();
+			return receipt;
+		});
+		const replay = appendDirectAudit(input, path);
+
+		expect(readFileSync(path, 'utf8').trim().split('\n')).toHaveLength(1);
+		expect(first).toMatchObject({
+			terminal: true,
+			secondary_errors: [{ component: 'incident_store', code: 'incident_persistence_failed' }],
+		});
+		expect(contextReceipt).toEqual(first);
+		expect(replay['idempotency_key']).toBe(first['idempotency_key']);
 	});
 
 	it('redacts credentials from all free-text audit fields', () => {

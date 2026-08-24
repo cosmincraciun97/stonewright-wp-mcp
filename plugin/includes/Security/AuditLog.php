@@ -29,6 +29,8 @@ final class AuditLog {
 	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 	private const AUTH_SUCCESS_COALESCE_WINDOW_SECONDS = 30 * MINUTE_IN_SECONDS;
 	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
+	private const DENIAL_LOCK_TTL_SECONDS = 5;
+	private const DENIAL_LOCK_ATTEMPTS = 500;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
@@ -92,6 +94,9 @@ final class AuditLog {
 	/** @var array<string, true> */
 	private static array $terminal_events = [];
 
+	/** @var array<string,mixed> */
+	private static array $last_terminal_receipt = [];
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
@@ -101,6 +106,12 @@ final class AuditLog {
 		self::$request_already_audited = false;
 		self::$request_correlation_id  = null;
 		self::$terminal_events         = [];
+		self::$last_terminal_receipt  = [];
+	}
+
+	/** @return array<string,mixed> */
+	public static function last_terminal_receipt(): array {
+		return self::$last_terminal_receipt;
 	}
 
 	public static function begin_request( ?string $correlation_id = null ): string {
@@ -330,9 +341,16 @@ final class AuditLog {
 
 		if ( false === $result ) {
 			if ( str_contains( strtolower( (string) ( $wpdb->last_error ?? '' ) ), 'duplicate' ) ) {
-				self::mark_audited();
-				self::$terminal_events[ $event['idempotency_key'] ] = true;
-				return true;
+					self::mark_audited();
+					self::$terminal_events[ $event['idempotency_key'] ] = true;
+					self::$last_terminal_receipt = [
+						'event_id'         => $event['event_id'],
+						'idempotency_key'  => $event['idempotency_key'],
+						'persisted'        => true,
+						'replayed'         => true,
+						'secondary_errors' => [],
+					];
+					return true;
 			}
 			// Do not recursively audit the audit failure.
 			Logger::error(
@@ -358,14 +376,27 @@ final class AuditLog {
 		self::mark_audited();
 		if ( $event['terminal'] ) {
 			self::$terminal_events[ $event['idempotency_key'] ] = true;
+			self::$last_terminal_receipt = [
+				'event_id'         => $event['event_id'],
+				'idempotency_key'  => $event['idempotency_key'],
+				'persisted'        => true,
+				'replayed'         => false,
+				'secondary_errors' => [],
+			];
 		}
 		delete_option( 'stonewright_audit_degraded' );
 		try {
 			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
 				IncidentStore::observe( $event );
 			}
-		} catch ( \Throwable $t ) {
-			Logger::error( 'incident_store_observe_threw', [ 'ability' => $ability, 'error' => $t->getMessage() ] );
+			} catch ( \Throwable $t ) {
+				if ( $event['terminal'] ) {
+					self::$last_terminal_receipt['secondary_errors'][] = [
+						'component' => 'incident_store',
+						'code'      => 'incident_persistence_failed',
+					];
+				}
+				Logger::error( 'incident_store_observe_threw', [ 'ability' => $ability, 'error' => $t->getMessage() ] );
 		}
 
 		// Learn from recurring errors without blocking the audit write path.
@@ -619,11 +650,18 @@ final class AuditLog {
 	 */
 	private static function coalesce_security_denial( string $ability, string $error_code ): array {
 		$salt = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-denial';
-		$key  = 'stonewright_denial_audit_' . hash_hmac(
+		$digest = hash_hmac(
 			'sha256',
 			self::site_fingerprint() . '|' . sanitize_text_field( $ability ) . '|' . sanitize_key( $error_code ),
 			$salt
 		);
+		$key  = 'stonewright_denial_audit_' . $digest;
+		$lock = self::acquire_denial_lock( 'stonewright_denial_lock_' . $digest );
+		if ( null === $lock ) {
+			Logger::warning( 'denial_coalesce_lock_timeout', [ 'ability' => mb_substr( sanitize_text_field( $ability ), 0, 190 ) ] );
+			return [ 'record' => true, 'count' => 1 ];
+		}
+		try {
 		$now     = time();
 		$state   = get_transient( $key );
 		$state   = is_array( $state ) ? $state : [];
@@ -653,6 +691,56 @@ final class AuditLog {
 			2 * self::DENIAL_COALESCE_WINDOW_SECONDS
 		);
 		return [ 'record' => $record, 'count' => $delta ];
+		} finally {
+			self::release_denial_lock( 'stonewright_denial_lock_' . $digest, $lock );
+		}
+	}
+
+	/** @return array{token:string,expires_at:int}|null */
+	private static function acquire_denial_lock( string $key ): ?array {
+		for ( $attempt = 0; $attempt < self::DENIAL_LOCK_ATTEMPTS; ++$attempt ) {
+			$now   = time();
+			$lease = [
+				'token'      => wp_generate_uuid4(),
+				'expires_at' => $now + self::DENIAL_LOCK_TTL_SECONDS,
+			];
+			if ( add_option( $key, $lease, '', false ) ) {
+				return $lease;
+			}
+			$current = get_option( $key, [] );
+			if ( is_array( $current ) && (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
+				self::delete_denial_lock_if_unchanged( $key, $current );
+				continue;
+			}
+			usleep( 1000 );
+		}
+		return null;
+	}
+
+	/** @param array{token:string,expires_at:int} $lease */
+	private static function release_denial_lock( string $key, array $lease ): void {
+		$current = get_option( $key, [] );
+		if ( ! is_array( $current ) || ! hash_equals( (string) ( $current['token'] ?? '' ), $lease['token'] ) ) {
+			return;
+		}
+		self::delete_denial_lock_if_unchanged( $key, $current );
+	}
+
+	/** @param array<string,mixed> $observed */
+	private static function delete_denial_lock_if_unchanged( string $key, array $observed ): bool {
+		global $wpdb;
+		if ( is_object( $wpdb ) && isset( $wpdb->options ) && method_exists( $wpdb, 'delete' ) ) {
+			// The exact serialized lease is the CAS guard against deleting a newer owner.
+			$deleted = $wpdb->delete(
+				$wpdb->options,
+				[ 'option_name' => $key, 'option_value' => maybe_serialize( $observed ) ],
+				[ '%s', '%s' ]
+			); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- short-lived plugin-owned mutex.
+			wp_cache_delete( $key, 'options' );
+			return 1 === $deleted;
+		}
+		$current = get_option( $key, [] );
+		return is_array( $current ) && maybe_serialize( $current ) === maybe_serialize( $observed ) && delete_option( $key );
 	}
 
 	private static function site_fingerprint(): string {

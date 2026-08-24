@@ -26,6 +26,12 @@
   failed audit event and incident, never as `SUCCESS`.
 - Reject oversized serialized finalizer results only after validating the
   active lease and before changing persistent queue state.
+- Resolve and promote incident repairs only while their generation,
+  update-time, and occurrence token remains unchanged; install the added
+  incident schema columns during normal version upgrades.
+- Preserve the authoritative terminal audit receipt when incident persistence
+  fails and expose that failure only as bounded secondary receipt metadata.
+- Require explicit `retryable:false` on terminal browser-finalizer receipts.
 
 ### Security
 
@@ -33,7 +39,8 @@
   shapes, credentialed URLs, and private-key bodies recursively from every
   free-text audit value before persistence.
 - Coalesce identical permission and safety denials by site, ability, and error,
-  retaining the first event plus bounded count summaries and severity.
+  retaining the first event plus bounded count summaries and severity under a
+  stale-recoverable option mutex with compare-and-delete ownership.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

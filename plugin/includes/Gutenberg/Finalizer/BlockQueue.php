@@ -1465,6 +1465,7 @@ final class BlockQueue {
 			'correlation_id'  => (string) ( $record['correlation_id'] ?? $record['session_id'] ?? '' ),
 			'idempotency_key' => $idempotency_key,
 			'terminal_owner'  => 'block-finalizer-result',
+			'retryable'       => false,
 		];
 	}
 

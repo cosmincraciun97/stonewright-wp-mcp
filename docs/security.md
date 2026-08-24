@@ -34,7 +34,10 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
   stream. Repeated identical permission and safety denials are scoped by site,
   ability, and error: the first blocked event and bounded count summaries retain
-  severity while routine repeats are coalesced.
+  severity while routine repeats are coalesced under an atomic, stale-recoverable
+  option lock. Terminal receipts exist as soon as the audit row is authoritative;
+  an incident-store failure is reported as bounded secondary metadata and cannot
+  cause a duplicate fallback row.
 - Treat the Audit page degraded-state notice as a failed safety control, not a
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.

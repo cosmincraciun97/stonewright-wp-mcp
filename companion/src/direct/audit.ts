@@ -295,16 +295,23 @@ function appendDirectAuditUnlocked(
 		chmodSync(path, 0o600);
 	}
 	if (entry.status === 'error') {
-		new DirectIncidentStore(dirname(path), siteFingerprint).observeFailure({
-			event_id: eventId,
-			correlation_id: correlationId,
-			idempotency_key: idempotencyKey,
-			ability: entry.tool,
-			error_code: code ?? 'unknown_error',
-			cause_key: entry.causeKey ?? `${entry.tool}|${code ?? 'unknown_error'}`,
-			severity: entry.severity ?? 'error',
-			timestamp: String(row['timestamp']),
-		});
+		try {
+			new DirectIncidentStore(dirname(path), siteFingerprint).observeFailure({
+				event_id: eventId,
+				correlation_id: correlationId,
+				idempotency_key: idempotencyKey,
+				ability: entry.tool,
+				error_code: code ?? 'unknown_error',
+				cause_key: entry.causeKey ?? `${entry.tool}|${code ?? 'unknown_error'}`,
+				severity: entry.severity ?? 'error',
+				timestamp: String(row['timestamp']),
+			});
+		} catch {
+			row['secondary_errors'] = [{
+				component: 'incident_store',
+				code: 'incident_persistence_failed',
+			}];
+		}
 	}
 	return row;
 }

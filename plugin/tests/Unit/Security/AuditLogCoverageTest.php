@@ -35,6 +35,7 @@ final class AuditLogCoverageTest extends TestCase {
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
 		unset( $GLOBALS['stonewright_test_home_url'] );
+		$GLOBALS['stonewright_test_update_option_failures'] = [];
 	}
 
 	public function test_record_checks_insert_result(): void {
@@ -75,6 +76,28 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( $row['idempotency_key'], $row['terminal_idempotency_key'] );
 		self::assertSame( 1, $row['is_terminal'] );
 		self::assertSame( 'block-finalizer-result', $row['terminal_owner'] );
+	}
+
+	public function test_terminal_receipt_survives_incident_persistence_failure_as_secondary_error(): void {
+		$GLOBALS['stonewright_test_update_option_failures'][ IncidentStore::OPTION_KEY ] = true;
+		$args = [
+			'_meta' => [
+				'idempotency_key' => 'incident-persistence-failure',
+				'error_code'      => 'stonewright_synthetic_failure',
+			],
+		];
+
+		self::assertTrue( AuditLog::record( 'stonewright/test-write', $args, 'error' ) );
+
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+		self::assertSame(
+			[
+				'component' => 'incident_store',
+				'code'      => 'incident_persistence_failed',
+			],
+			AuditLog::last_terminal_receipt()['secondary_errors'][0]
+		);
+		self::assertTrue( AuditLog::last_terminal_receipt()['persisted'] );
 	}
 
 	public function test_reused_caller_key_does_not_suppress_a_distinct_terminal_write(): void {
@@ -210,6 +233,57 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( 'BLOCKED', $summary['outcome'] );
 		$details = json_decode( (string) $summary['redacted_details'], true );
 		self::assertSame( 24, $details['coalesced_count'] ?? null );
+	}
+
+	public function test_security_denial_coalescing_serializes_competing_count_before_threshold_decision(): void {
+		$digest = hash_hmac(
+			'sha256',
+			hash( 'sha256', home_url( '/' ) . '|1' ) . '|stonewright/content-update|stonewright_confirmation_required',
+			wp_salt( 'auth' )
+		);
+		$state_key = 'stonewright_denial_audit_' . $digest;
+		$lock_key  = 'stonewright_denial_lock_' . $digest;
+		$GLOBALS['stonewright_test_after_add_option'] = static function ( string $option ) use ( $lock_key, $state_key ): void {
+			if ( $lock_key !== $option ) {
+				return;
+			}
+			set_transient(
+				$state_key,
+				[ 'count' => 24, 'emitted_count' => 1, 'last_at' => time() ],
+				2 * DAY_IN_SECONDS
+			);
+		};
+
+		AuditLog::record(
+			'stonewright/content-update',
+			[ '_meta' => [ 'error_code' => 'stonewright_confirmation_required' ] ],
+			'blocked'
+		);
+
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+		$details = json_decode( (string) $GLOBALS['wpdb']->inserts[0]['data']['redacted_details'], true );
+		self::assertSame( 24, $details['coalesced_count'] ?? null );
+		self::assertSame( 25, $GLOBALS['stonewright_test_transients'][ $state_key ]['count'] ?? null );
+		self::assertArrayNotHasKey( $lock_key, $GLOBALS['stonewright_test_options'] );
+	}
+
+	public function test_security_denial_coalescing_recovers_an_expired_lock(): void {
+		$digest = hash_hmac(
+			'sha256',
+			hash( 'sha256', home_url( '/' ) . '|1' ) . '|stonewright/content-update|stonewright_confirmation_required',
+			wp_salt( 'auth' )
+		);
+		$lock_key = 'stonewright_denial_lock_' . $digest;
+		update_option( $lock_key, [ 'token' => 'expired-owner', 'expires_at' => time() - 1 ], false );
+
+		AuditLog::record(
+			'stonewright/content-update',
+			[ '_meta' => [ 'error_code' => 'stonewright_confirmation_required' ] ],
+			'blocked'
+		);
+
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+		self::assertArrayNotHasKey( $lock_key, $GLOBALS['stonewright_test_options'] );
 	}
 
 	public function test_security_denial_coalescing_is_site_ability_and_error_scoped_with_bounded_retention(): void {
@@ -424,7 +498,8 @@ final class AuditLogCoverageTest extends TestCase {
 
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
-			public string $prefix = 'wp_';
+				public string $prefix = 'wp_';
+				public string $options = 'wp_options';
 			public string $last_error = '';
 			public int $row_count = 0;
 			public string $last_query = '';
@@ -463,14 +538,28 @@ final class AuditLogCoverageTest extends TestCase {
 				return [];
 			}
 
-			/** @param array<string, mixed> $data */
-			public function insert( string $table, array $data, array $format = [] ): int|false {
-				if ( ! $this->insert_ok ) {
-					return false;
+				/** @param array<string, mixed> $data */
+				public function insert( string $table, array $data, array $format = [] ): int|false {
+					if ( ! $this->insert_ok ) {
+						return false;
+					}
+					$this->inserts[] = [ 'table' => $table, 'data' => $data ];
+					return 1;
 				}
-				$this->inserts[] = [ 'table' => $table, 'data' => $data ];
-				return 1;
-			}
+
+				/** @param array<string,mixed> $where */
+				public function delete( string $table, array $where, array $where_format = [] ): int|false {
+					if ( $this->options !== $table || ! isset( $where['option_name'], $where['option_value'] ) ) {
+						return 0;
+					}
+					$key = (string) $where['option_name'];
+					if ( ! array_key_exists( $key, $GLOBALS['stonewright_test_options'] )
+						|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $key ] ) !== $where['option_value'] ) {
+						return 0;
+					}
+					unset( $GLOBALS['stonewright_test_options'][ $key ] );
+					return 1;
+				}
 		};
 	}
 

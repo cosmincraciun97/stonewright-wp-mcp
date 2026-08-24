@@ -12,14 +12,19 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { dirname, basename, join } from 'node:path';
-import { uptime } from 'node:os';
+import { hostname, platform, uptime } from 'node:os';
 
 const LOCK_STALE_MS = 30_000;
 const LOCK_ATTEMPTS = 500;
 const QUARANTINE_MAX_PER_KIND = 32;
-const BOOT_IDENTITY = `boot:${Math.floor((Date.now() - uptime() * 1000) / 60_000)}`;
+const LOCK_LEASE_MS = 60_000;
+const LOCK_MAX_LEASE_MS = 5 * 60_000;
+const HOST_IDENTITY = hostname().trim().toLowerCase();
+const BOOT_IDENTITY = bootIdentity();
 const PROCESS_STARTED_AT = Math.floor(Date.now() - process.uptime() * 1000);
+const PROCESS_START_IDENTITY = processStartIdentity(process.pid) ?? `epoch:${PROCESS_STARTED_AT}`;
 
 type OwnedFile = {
 	fd: number;
@@ -91,8 +96,11 @@ function tryCreateOwnedFile(path: string): OwnedFile | null {
 			pid: process.pid,
 			created_at: Date.now(),
 			token: randomUUID(),
-			boot_id: BOOT_IDENTITY,
-			process_started_at: PROCESS_STARTED_AT,
+				boot_id: BOOT_IDENTITY,
+				process_started_at: PROCESS_STARTED_AT,
+				process_start_identity: PROCESS_START_IDENTITY,
+				hostname: HOST_IDENTITY,
+				lease_expires_at: Date.now() + LOCK_LEASE_MS,
 		})}\n`;
 		writeFileSync(fd, contents, { encoding: 'utf8' });
 		const stat = fstatSync(fd);
@@ -148,27 +156,98 @@ function staleLockSnapshot(path: string): LockSnapshot | null {
 		const after = statSync(path);
 		if (before.dev !== after.dev || before.ino !== after.ino || before.mtimeMs !== after.mtimeMs) return null;
 		const snapshot = { contents, modifiedAt: after.mtimeMs, device: after.dev, inode: after.ino };
-		let parsed: { pid?: number; boot_id?: string; process_started_at?: number };
+		let parsed: {
+			pid?: number;
+			boot_id?: string;
+			process_started_at?: number;
+			process_start_identity?: string;
+			hostname?: string;
+			created_at?: number;
+			lease_expires_at?: number;
+		};
 		try {
-			parsed = JSON.parse(contents) as { pid?: number; boot_id?: string; process_started_at?: number };
+			parsed = JSON.parse(contents) as typeof parsed;
 		} catch {
 			return Date.now() - after.mtimeMs > LOCK_STALE_MS ? snapshot : null;
 		}
 		if (Number.isInteger(parsed.pid) && Number(parsed.pid) > 0) {
+			const now = Date.now();
+			const createdAt = Number.isFinite(parsed.created_at) ? Number(parsed.created_at) : after.mtimeMs;
+			const claimedLease = Number.isFinite(parsed.lease_expires_at)
+				? Number(parsed.lease_expires_at)
+				: createdAt + LOCK_MAX_LEASE_MS;
+			const leaseDeadline = Math.min(
+				claimedLease,
+				createdAt + LOCK_MAX_LEASE_MS,
+				after.mtimeMs + LOCK_MAX_LEASE_MS,
+			);
+			const leaseExpired = now > leaseDeadline && now - after.mtimeMs > LOCK_STALE_MS;
+			if (typeof parsed.hostname === 'string' && parsed.hostname.trim().toLowerCase() !== HOST_IDENTITY) {
+				return leaseExpired ? snapshot : null;
+			}
 			if (typeof parsed.boot_id === 'string' && parsed.boot_id !== BOOT_IDENTITY) return snapshot;
 			if (
 				Number(parsed.pid) === process.pid &&
 				Number.isFinite(parsed.process_started_at) &&
 				Number(parsed.process_started_at) !== PROCESS_STARTED_AT
 			) return snapshot;
+			let processAlive = false;
 			try {
 				process.kill(Number(parsed.pid), 0);
-				return null;
+				processAlive = true;
 			} catch (error) {
-				return (error as NodeJS.ErrnoException).code === 'EPERM' ? null : snapshot;
+				if ((error as NodeJS.ErrnoException).code !== 'EPERM') return snapshot;
+				processAlive = true;
+			}
+			if (processAlive) {
+				const actualStart = processStartIdentity(Number(parsed.pid));
+				if (
+					actualStart !== null &&
+					typeof parsed.process_start_identity === 'string' &&
+					actualStart !== parsed.process_start_identity
+				) return snapshot;
+				return leaseExpired ? snapshot : null;
 			}
 		}
 		return Date.now() - after.mtimeMs > LOCK_STALE_MS ? snapshot : null;
+	} catch {
+		return null;
+	}
+}
+
+function bootIdentity(): string {
+	try {
+		if (platform() === 'linux') {
+			const value = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+			if (value) return `linux:${value}`;
+		}
+		if (platform() === 'darwin') {
+			const value = execFileSync('/usr/sbin/sysctl', ['-n', 'kern.boottime'], { encoding: 'utf8', timeout: 1000 }).trim();
+			if (value) return `darwin:${value}`;
+		}
+	} catch {
+		// Fall through to the bounded uptime-derived identity.
+	}
+	return `boot:${Math.floor((Date.now() - uptime() * 1000) / 60_000)}`;
+}
+
+function processStartIdentity(pid: number): string | null {
+	try {
+		if (platform() === 'linux') {
+			const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+			const close = stat.lastIndexOf(')');
+			const fields = close >= 0 ? stat.slice(close + 1).trim().split(/\s+/) : [];
+			return fields[19] ? `linux:${fields[19]}` : null;
+		}
+		if (platform() === 'win32') {
+			const output = execFileSync('wmic', ['process', 'where', `ProcessId=${pid}`, 'get', 'CreationDate', '/value'], {
+				encoding: 'utf8', timeout: 1000, windowsHide: true,
+			});
+			const value = output.match(/CreationDate=([^\r\n]+)/)?.[1]?.trim();
+			return value ? `win32:${value}` : null;
+		}
+		const output = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', timeout: 1000 }).trim();
+		return output ? `${platform()}:${output.replace(/\s+/g, ' ')}` : null;
 	} catch {
 		return null;
 	}

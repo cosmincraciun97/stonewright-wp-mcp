@@ -99,6 +99,7 @@ final class IncidentRepairRecord extends AbilityKernel {
 				if ( isset( $input['repair_scope'] ) && '' !== trim( (string) $input['repair_scope'] ) ) {
 					$receipt['repair_scope'] = mb_substr( sanitize_text_field( (string) $input['repair_scope'] ), 0, 190 );
 				}
+				$receipt['version_token'] = $incident['version_token'];
 
 				$confirmation_args = [
 					'incident_id'         => $incident_id,
@@ -146,7 +147,7 @@ final class IncidentRepairRecord extends AbilityKernel {
 				if ( null === $readback || $memory_key !== (string) ( $readback['memory_key'] ?? '' ) ) {
 					return $this->error( 'repair_learning_readback_failed', __( 'Verified learning write could not be confirmed.', 'stonewright' ), [ 'status' => 500 ] );
 				}
-				if ( ! IncidentStore::mark_learning_promoted( $incident_id, $memory_key, (string) $receipt['repair_receipt_id'] ) ) {
+				if ( ! IncidentStore::mark_learning_promoted( $incident_id, $memory_key, (string) $receipt['repair_receipt_id'], $resolved['version_token'] ) ) {
 					return $this->error( 'repair_learning_link_failed', __( 'Verified learning could not be linked to its incident.', 'stonewright' ), [ 'status' => 500 ] );
 				}
 

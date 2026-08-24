@@ -20,10 +20,17 @@ for (let index = 0; index < count; index += 1) {
 			timestamp: new Date(Date.UTC(2026, 7, 24, 8, 0, index)).toISOString(),
 		});
 	} else if (action === 'resolve' && incidentId) {
+		const current = store.get(incidentId);
+		if (!current) continue;
 		store.markResolved(incidentId, {
 			repair_receipt_id: createHash('sha256').update(`repair|${worker}|${index}`).digest('hex'),
 			resolution_event_id: `${worker}-${index}`,
 			resolved_at: new Date(Date.UTC(2026, 7, 24, 9, 0, index)).toISOString(),
+			expected_version: {
+				generation: current.generation,
+				updated_at: current.updated_at,
+				occurrences: current.occurrences,
+			},
 		});
 	} else {
 		process.exit(3);

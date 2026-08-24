@@ -25,6 +25,14 @@
   a replacement live lock cannot be renamed at the recovery boundary.
 - Make Direct incident failure, resolution, and learning updates atomic across
   processes, and bound stale recovery/release quarantine cleanup.
+- Reject stale Direct repair resolution and learning when a newer failure
+  changes the incident generation, update-time, or occurrence token.
+- Return the authoritative terminal audit receipt even when incident storage
+  fails, with one bounded secondary error and no duplicate fallback append.
+- Validate any inspectable lock PID by its real process-start identity and bound
+  unknown, remote-host, or decoy ownership with host, boot, age, and lease data.
+- Honor browser-finalizer `retryable:true` response bodies even on HTTP 409 and
+  resume bounded polling instead of treating the result as terminal.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

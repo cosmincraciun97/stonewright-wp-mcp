@@ -216,6 +216,7 @@ final class PluginRegistration {
 		if ( $stored === STONEWRIGHT_VERSION ) {
 			return;
 		}
+		IncidentStore::maybe_install_table();
 		SkillsSeeder::seed();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}

@@ -38,6 +38,13 @@ development builds were never stable releases.
   locks, and clean bounded recovery/release quarantine artifacts.
 - Reject oversized browser-finalizer results after validating the active lease
   and before changing queue state.
+- Bind Plugin and Direct repair validation to generation, update-time, and
+  occurrence CAS tokens so a newer failure blocks stale resolution or learning.
+- Establish terminal receipts immediately after the authoritative audit row,
+  reporting incident persistence failures as bounded secondary errors without
+  fallback duplicates.
+- Honor browser-finalizer `retryable:true` payloads independently of HTTP 409,
+  and accept terminal result receipts only when `retryable:false` is explicit.
 
 ### Security
 
@@ -50,7 +57,10 @@ development builds were never stable releases.
   an exclusive recovery mutex so PID reuse or a replacement lock cannot be
   renamed or deleted.
 - Coalesce repeated identical Plugin permission and safety denials by site,
-  ability, and error while retaining the first event and bounded count summaries.
+  ability, and error under a stale-recoverable CAS option lock while retaining
+  the first event and bounded count summaries.
+- Validate Direct lock owners with available host, boot, and per-PID process-start
+  identity plus a bounded lease so a live decoy or reused PID cannot block forever.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

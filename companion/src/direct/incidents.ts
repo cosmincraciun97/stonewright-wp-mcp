@@ -37,6 +37,8 @@ export type DirectIncident = {
 	cause_key_hash: string;
 	severity: string;
 	occurrences: number;
+	generation: number;
+	updated_at: string;
 	reopened_count: number;
 	first_seen: string;
 	last_seen: string;
@@ -50,6 +52,12 @@ export type DirectIncident = {
 	learned_at: string | null;
 	resolved_at: string | null;
 	resolution_event_id: string | null;
+};
+
+export type DirectIncidentVersion = {
+	generation: number;
+	updated_at: string;
+	occurrences: number;
 };
 
 type DirectIncidentDocument = {
@@ -202,6 +210,8 @@ export class DirectIncidentStore {
 			if (idempotencyKey && existing.last_idempotency_key === idempotencyKey) return { ...existing };
 			const wasResolved = existing.state === 'resolved';
 			existing.occurrences += 1;
+			existing.generation += 1;
+			existing.updated_at = timestamp;
 			existing.last_seen = timestamp;
 			existing.failure_event_id = classification(input.event_id, 'unknown-event');
 			existing.correlation_id = classification(input.correlation_id ?? input.event_id, 'unknown-correlation');
@@ -231,6 +241,8 @@ export class DirectIncidentStore {
 			cause_key_hash: causeKeyHash,
 			severity: severity(input.severity),
 			occurrences: 1,
+			generation: 1,
+			updated_at: timestamp,
 			reopened_count: 0,
 			first_seen: timestamp,
 			last_seen: timestamp,
@@ -255,39 +267,68 @@ export class DirectIncidentStore {
 
 	markResolved(
 		incidentId: string,
-		input: { repair_receipt_id: string; resolution_event_id: string; resolved_at?: string },
+		input: {
+			repair_receipt_id: string;
+			resolution_event_id: string;
+			resolved_at?: string;
+			expected_version: DirectIncidentVersion;
+		},
 	): DirectIncident | null {
 		return this.withLock(() => this.markResolvedUnlocked(incidentId, input));
 	}
 
 	private markResolvedUnlocked(
 		incidentId: string,
-		input: { repair_receipt_id: string; resolution_event_id: string; resolved_at?: string },
+		input: {
+			repair_receipt_id: string;
+			resolution_event_id: string;
+			resolved_at?: string;
+			expected_version: DirectIncidentVersion;
+		},
 	): DirectIncident | null {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
-		if (!incident) return null;
+		if (!incident || !['open', 'observing'].includes(incident.state) || !this.versionMatches(incident, input.expected_version)) return null;
 		incident.state = 'resolved';
 		incident.repair_phase = 'complete';
 		incident.repair_receipt_id = classification(input.repair_receipt_id, 'invalid-receipt');
 		incident.resolution_event_id = classification(input.resolution_event_id, 'invalid-event');
 		incident.resolved_at = iso(input.resolved_at);
+		incident.generation += 1;
+		incident.updated_at = incident.resolved_at;
 		this.write(document);
 		return { ...incident };
 	}
 
-	markLearningPromoted(incidentId: string, memoryKey: string, receiptId: string): boolean {
-		return this.withLock(() => this.markLearningPromotedUnlocked(incidentId, memoryKey, receiptId));
+	markLearningPromoted(
+		incidentId: string,
+		memoryKey: string,
+		receiptId: string,
+		expectedVersion: DirectIncidentVersion,
+	): boolean {
+		return this.withLock(() => this.markLearningPromotedUnlocked(incidentId, memoryKey, receiptId, expectedVersion));
 	}
 
-	private markLearningPromotedUnlocked(incidentId: string, memoryKey: string, receiptId: string): boolean {
+	private markLearningPromotedUnlocked(
+		incidentId: string,
+		memoryKey: string,
+		receiptId: string,
+		expectedVersion: DirectIncidentVersion,
+	): boolean {
 		const document = this.read();
 		const incident = document.incidents.find((row) => row.incident_id === incidentId);
-		if (!incident || incident.state !== 'resolved') return false;
+		if (
+			!incident ||
+			incident.state !== 'resolved' ||
+			incident.repair_receipt_id !== classification(receiptId, 'invalid-receipt') ||
+			!this.versionMatches(incident, expectedVersion)
+		) return false;
 		incident.learning_status = 'promoted';
 		incident.learning_memory_key = classification(memoryKey, 'verified-repair');
 		incident.repair_receipt_id = classification(receiptId, 'invalid-receipt');
 		incident.learned_at = new Date().toISOString();
+		incident.generation += 1;
+		incident.updated_at = incident.learned_at;
 		this.write(document);
 		return true;
 	}
@@ -312,6 +353,12 @@ export class DirectIncidentStore {
 			}
 			parsed.incidents = parsed.incidents.map((incident) => ({
 				...incident,
+				generation: Number.isInteger(incident.generation) && incident.generation > 0
+					? incident.generation
+					: Math.max(1, Number(incident.occurrences) || 1),
+				updated_at: typeof incident.updated_at === 'string'
+					? incident.updated_at
+					: incident.last_seen,
 				correlation_id: typeof incident.correlation_id === 'string'
 					? incident.correlation_id
 					: incident.failure_event_id,
@@ -325,6 +372,12 @@ export class DirectIncidentStore {
 			if (!existsSync(corrupt)) renameSync(this.file, corrupt);
 			return emptyDocument(this.siteFingerprint);
 		}
+	}
+
+	private versionMatches(incident: DirectIncident, expected: DirectIncidentVersion): boolean {
+		return incident.generation === expected.generation
+			&& incident.updated_at === expected.updated_at
+			&& incident.occurrences === expected.occurrences;
 	}
 
 	private write(document: DirectIncidentDocument): void {

@@ -66,6 +66,8 @@ final class IncidentStore {
 			expected_verifier VARCHAR(190) NOT NULL DEFAULT '',
 			remediation_code VARCHAR(190) NOT NULL DEFAULT '',
 			occurrence_count BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+			generation BIGINT(20) UNSIGNED NOT NULL DEFAULT 1,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			reopened_count BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
 			first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -171,6 +173,9 @@ final class IncidentStore {
 		if ( 'resolved' === (string) ( $row['state'] ?? '' ) && hash_equals( (string) ( $row['repair_receipt_id'] ?? '' ), $receipt_id ) ) {
 			return self::public_row( $row );
 		}
+		if ( ! self::version_matches( $row, $receipt['version_token'] ?? null ) ) {
+			return self::state_changed_error();
+		}
 
 		if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true )
 			|| 'verified' !== strtolower( (string) ( $receipt['verification_status'] ?? '' ) )
@@ -190,15 +195,20 @@ final class IncidentStore {
 			'change_set_id'       => self::safe_text( $receipt['change_set_id'] ?? '', 96 ),
 			'after_sha256'        => self::safe_hash( is_array( $receipt['evidence'] ?? null ) ? ( $receipt['evidence']['after_sha256'] ?? '' ) : '' ),
 		] );
-		self::persist( $row, true );
+		$row['generation'] = (int) ( $row['generation'] ?? 1 ) + 1;
+		$row['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+		if ( ! self::persist_cas( $row, $receipt['version_token'] ) ) {
+			return self::state_changed_error();
+		}
 		return self::public_row( $row );
 	}
 
-	public static function mark_learning_promoted( string $incident_id, string $memory_key, string $receipt_id ): bool {
+	/** @param array<string,mixed> $version_token */
+	public static function mark_learning_promoted( string $incident_id, string $memory_key, string $receipt_id, array $version_token ): bool {
 		$row        = self::find( self::safe_hash( $incident_id ) );
 		$receipt_id = self::safe_hash( $receipt_id );
 		$memory_key = self::safe_text( $memory_key, 190 );
-		if ( null === $row || 'resolved' !== (string) ( $row['state'] ?? '' ) || '' === $receipt_id || '' === $memory_key ) {
+		if ( null === $row || 'resolved' !== (string) ( $row['state'] ?? '' ) || '' === $receipt_id || '' === $memory_key || ! self::version_matches( $row, $version_token ) ) {
 			return false;
 		}
 		if ( ! hash_equals( (string) ( $row['repair_receipt_id'] ?? '' ), $receipt_id ) ) {
@@ -207,8 +217,9 @@ final class IncidentStore {
 		$row['learning_status']     = 'promoted';
 		$row['learning_memory_key'] = $memory_key;
 		$row['learned_at']          = gmdate( 'Y-m-d H:i:s' );
-		self::persist( $row, true );
-		return true;
+		$row['generation']          = (int) ( $row['generation'] ?? 1 ) + 1;
+		$row['updated_at']          = gmdate( 'Y-m-d H:i:s' );
+		return self::persist_cas( $row, $version_token );
 	}
 
 	public static function mark_learning_stale( string $incident_id ): bool {
@@ -402,6 +413,8 @@ final class IncidentStore {
 			'expected_verifier'    => self::safe_text( $event['expected_verifier'] ?? '', 190 ),
 			'remediation_code'     => self::safe_text( $event['remediation_code'] ?? '', 190 ),
 			'occurrence_count'     => $count,
+			'generation'           => (int) ( $existing['generation'] ?? 0 ) + 1,
+			'updated_at'           => $now,
 			'reopened_count'       => (int) ( $existing['reopened_count'] ?? 0 ),
 			'first_seen'           => (string) ( $existing['first_seen'] ?? $now ),
 			'last_seen'            => $now,
@@ -514,24 +527,77 @@ final class IncidentStore {
 		return $wpdb instanceof \wpdb;
 	}
 
-	/** @param array<string, mixed> $row */
+	/**
+	 * @param array<string, mixed> $row
+	 * @throws \RuntimeException When the owned incident row cannot be persisted.
+	 */
 	private static function persist( array $row, bool $update ): void {
 		global $wpdb;
 		if ( self::db_available() ) {
 			$table = self::table_name();
 			$data = $row;
 			unset( $data['id'] );
-			if ( $update ) {
-				$wpdb->update( $table, $data, [ 'incident_id' => $row['incident_id'] ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
-			} else {
-				$wpdb->insert( $table, $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
+			$result = $update
+				? $wpdb->update( $table, $data, [ 'incident_id' => $row['incident_id'] ] ) // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
+				: $wpdb->insert( $table, $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
+			if ( false === $result ) {
+				throw new \RuntimeException( 'Incident persistence failed.' );
 			}
 			return;
 		}
-		self::$fallback[ (string) $row['incident_id'] ] = $row;
-		if ( function_exists( 'update_option' ) ) {
-			update_option( self::OPTION_KEY, self::$fallback, false );
+		$next = self::$fallback;
+		$next[ (string) $row['incident_id'] ] = $row;
+		if ( function_exists( 'update_option' ) && ! update_option( self::OPTION_KEY, $next, false ) ) {
+			throw new \RuntimeException( 'Incident persistence failed.' );
 		}
+		self::$fallback = $next;
+	}
+
+	/** @param array<string,mixed> $row @param array<string,mixed> $token */
+	private static function persist_cas( array $row, array $token ): bool {
+		global $wpdb;
+		if ( self::db_available() ) {
+			$data = $row;
+			unset( $data['id'] );
+			$result = $wpdb->update(
+				self::table_name(),
+				$data,
+				[
+					'incident_id'      => $row['incident_id'],
+					'generation'       => (int) $token['generation'],
+					'updated_at'       => (string) $token['updated_at'],
+					'occurrence_count' => (int) $token['occurrences'],
+				]
+			); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle CAS update.
+			return 1 === $result;
+		}
+		$current = self::$fallback[ (string) $row['incident_id'] ] ?? null;
+		if ( ! is_array( $current ) || ! self::version_matches( $current, $token ) ) {
+			return false;
+		}
+		$next = self::$fallback;
+		$next[ (string) $row['incident_id'] ] = $row;
+		if ( function_exists( 'update_option' ) && ! update_option( self::OPTION_KEY, $next, false ) ) {
+			return false;
+		}
+		self::$fallback = $next;
+		return true;
+	}
+
+	private static function version_matches( array $row, mixed $token ): bool {
+		if ( ! is_array( $token ) ) {
+			return false;
+		}
+		return (int) ( $row['generation'] ?? 1 ) === (int) ( $token['generation'] ?? 0 )
+			&& (string) ( $row['updated_at'] ?? $row['last_seen'] ?? '' ) === (string) ( $token['updated_at'] ?? '' )
+			&& (int) ( $row['occurrence_count'] ?? 0 ) === (int) ( $token['occurrences'] ?? -1 );
+	}
+
+	private static function state_changed_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_incident_state_changed',
+			__( 'Incident changed after repair validation; run validation again.', 'stonewright' )
+		);
 	}
 
 	/** @param array<string, mixed> $row @return array<string, mixed> */
@@ -553,6 +619,13 @@ final class IncidentStore {
 			'expected_verifier'    => (string) ( $row['expected_verifier'] ?? '' ),
 			'remediation_code'     => (string) ( $row['remediation_code'] ?? '' ),
 			'occurrence_count'     => (int) ( $row['occurrence_count'] ?? 0 ),
+			'generation'           => max( 1, (int) ( $row['generation'] ?? $row['occurrence_count'] ?? 1 ) ),
+			'updated_at'           => (string) ( $row['updated_at'] ?? $row['last_seen'] ?? '' ),
+			'version_token'        => [
+				'generation'  => max( 1, (int) ( $row['generation'] ?? $row['occurrence_count'] ?? 1 ) ),
+				'updated_at'  => (string) ( $row['updated_at'] ?? $row['last_seen'] ?? '' ),
+				'occurrences' => (int) ( $row['occurrence_count'] ?? 0 ),
+			],
 			'reopened_count'       => (int) ( $row['reopened_count'] ?? 0 ),
 			'first_seen'           => (string) ( $row['first_seen'] ?? '' ),
 			'last_seen'            => (string) ( $row['last_seen'] ?? '' ),

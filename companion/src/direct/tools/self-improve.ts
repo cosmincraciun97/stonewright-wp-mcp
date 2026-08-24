@@ -387,6 +387,11 @@ export function incidentRepairRecord(
     repair_receipt_id: receiptId,
     resolution_event_id: input.resolution_event_id,
     resolved_at: proofString(resolution!, "timestamp"),
+		expected_version: {
+			generation: incident.generation,
+			updated_at: incident.updated_at,
+			occurrences: incident.occurrences,
+		},
   });
   if (!resolved) {
     throw new Error("Direct incident disappeared before resolution. code=incident_state_changed");
@@ -406,7 +411,11 @@ export function incidentRepairRecord(
   if (!readback || readback.text !== recipe || readback.status !== "active") {
     throw new Error("Verified repair memory readback failed. code=memory_readback_mismatch");
   }
-  if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId)) {
+  if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId, {
+		generation: resolved.generation,
+		updated_at: resolved.updated_at,
+		occurrences: resolved.occurrences,
+	})) {
     setMemoryStatus({ baseDir, scope, id: memory.id, status: "stale" });
     throw new Error("Verified repair could not link learning to incident. code=incident_state_changed");
   }
