@@ -312,8 +312,8 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 	}
 
 	/**
-	 * WooCommerce 10.9 vendors wordpress/mcp-adapter at the same 0.3.0 as Stonewright.
-	 * Duplicate official copies must stay visible without blocking MCP boot.
+	 * WooCommerce 10.9 vendors wordpress/mcp-adapter 0.3.0 with a classmap
+	 * Jetpack manifest instead of jetpack_autoload_psr4.php.
 	 *
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled

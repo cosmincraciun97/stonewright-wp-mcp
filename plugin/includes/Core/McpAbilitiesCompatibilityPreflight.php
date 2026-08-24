@@ -409,8 +409,13 @@ final class McpAbilitiesCompatibilityPreflight {
 				if ( ! is_array( $package ) || $package_name !== ( $package['name'] ?? null ) ) {
 					continue;
 				}
-				$jetpack = $root . '/vendor/composer/jetpack_autoload_psr4.php';
-				$jetpack_source = is_file( $jetpack ) ? (string) file_get_contents( $jetpack ) : '';
+				$jetpack_source = '';
+				foreach ( [ 'jetpack_autoload_psr4.php', 'jetpack_autoload_classmap.php' ] as $jetpack_manifest ) {
+					$jetpack = $root . '/vendor/composer/' . $jetpack_manifest;
+					if ( is_file( $jetpack ) ) {
+						$jetpack_source .= (string) file_get_contents( $jetpack );
+					}
+				}
 				$result[] = [
 					'_path'            => $candidate,
 					'owner'            => 'plugin:' . sanitize_key( basename( $root ) ),

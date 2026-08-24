@@ -17,6 +17,7 @@
 
 ### Fixed
 
+- Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP compatibility preflight.
 - Accept WordPress `init` hook arguments in audit retention scheduling so an
   empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
 - Skip audit and incident table `dbDelta` after a healthy schema is installed,
