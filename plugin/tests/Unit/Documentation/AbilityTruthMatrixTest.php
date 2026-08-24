@@ -185,6 +185,13 @@ final class AbilityTruthMatrixTest extends TestCase {
 		);
 	}
 
+	public function test_elementor_provider_certification_documents_the_exact_runtime_limit(): void {
+		$matrix = (string) file_get_contents( self::$matrix_path );
+
+		self::assertStringContainsString( 'runtime operation limit exactly 20', $matrix );
+		self::assertStringNotContainsString( 'runtime operation limit no greater than 20', $matrix );
+	}
+
 	public function test_write_template_row_shows_correct_signals(): void {
 		$row = $this->find_row( 'stonewright/fse-write-template' );
 

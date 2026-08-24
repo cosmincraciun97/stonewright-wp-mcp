@@ -288,6 +288,53 @@ cover CTA, testimonial carousel, chip, and Button-icon output is selected only
 when the live widget/control contract supports the requested settings. Catalog
 presence alone is never availability proof.
 
+The read-only Provider Router reports each live provider as `discovered`,
+`rejected`, or `certified`. Ownership comes from the registered execution
+callback and an active plugin main file; the main filename does not need to
+match its folder, and metadata is read safely in REST/MCP requests without an
+admin-only API. Generic ability wrappers, inactive plugins, and third-party
+lookalikes or callbacks that self-declare `elementor-core` or `elementor-pro`
+are never treated as official owners.
+Third-party Atomic schemas remain inventory-only until they have an exact
+Stonewright-owned certification, and every write consumer uses the same central
+trust decision. The router caps output at 50 providers, 200 capabilities, 50
+runtime classes per provider, and 20 diagnostics while reporting full provider,
+capability, issue, blocker, and warning totals plus per-severity truncation.
+Blockers are reserved ahead of warnings, so a late critical failure remains
+visible in a capped response. Schemas are limited to eight
+levels, 256 keys, and 32 KiB; rejected or untrusted schemas are summary-only.
+Capability fingerprints are either canonical lowercase 64-character SHA-256
+values or fixed-size invalid-fingerprint diagnostics. Rejected default-style
+action enums retain at most 20 normalized values of 100 bytes each and report
+the source total plus truncation state, including when the source schema itself
+exceeds the schema cap.
+Status, MCP, and Troubleshoot therefore share the same bounded response. The
+official `elementor/manage-default-styles` ability
+is native-preferred only when its live contract proves the exact object
+schemas, required fields, update/delete and tag semantics, raw CSS responsive
+and pseudo-state behavior, patch/replace/null behavior, `idempotent=false`,
+`CLASS_TYPE=class`, and the exact upstream `MAX_BATCH_SIZE=20`. Discovery
+never routes a write: permission, mode, confirmation token, backup, validation,
+write lock, readback, frontend verification, rollback, and audit gates must all
+exist first.
+
+Before the MCP adapter is instantiated, the compatibility preflight inspects
+Stonewright plus active-plugin Composer and Jetpack manifests. Inactive
+manifests are ignored. WordPress 6.9 core Abilities and Stonewright's guarded
+fallback are one compatible runtime, while two active/autoloadable
+implementations still conflict. Exact class/namespace, visibility/static
+modifiers, required and maximum arity, parameter/return types including
+nullability and unions, constants, and versions are checked before invocation.
+The same preflight runs again inside the actual `mcp_adapter_init` server
+registration callback. Its target is the exact runtime adapter object's class;
+the Ability and Registry targets remain the canonical runtime classes. Filters
+may contribute diagnostic class observations and additive ownership candidates,
+but cannot substitute a compatible decoy or remove a discovered owner, so a
+late incompatible or hostile runtime cannot invoke server creation.
+Troubleshoot renders every blocked symbol with its exact owners, versions,
+reason, ABI issues, and safe remediation instead of flattening owners or
+exposing filesystem paths.
+
 All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates
 the document, persists it, and proves serialized readback before generated

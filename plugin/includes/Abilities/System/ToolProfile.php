@@ -692,6 +692,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/security-issue-confirmation-token',
 				'stonewright/design-validate-spec',
 				'stonewright/design-native-plan',
+				'stonewright/elementor-provider-discovery',
 				// Design intent is read before any render, so the reads outrank builders.
 				'stonewright/design-direction-list',
 				'stonewright/design-direction-brief',

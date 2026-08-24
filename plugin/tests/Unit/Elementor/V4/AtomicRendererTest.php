@@ -5,11 +5,16 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\V4;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\V4\AtomicRenderer;
+use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\V4\AtomicRenderer
  */
 final class AtomicRendererTest extends TestCase {
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_filters'] = [];
+		AtomicSchemaRepository::invalidate();
+	}
 
 	public function test_renders_heading_with_typed_envelope_props(): void {
 		$out = AtomicRenderer::render_node(
@@ -158,6 +163,32 @@ final class AtomicRendererTest extends TestCase {
 		$this->assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
 	}
 
+	public function test_uncertified_third_party_schema_never_reaches_renderer_validation(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-acme-card'] = self::provider_schema( 'AcmeCard', 'untrusted', 'discovered' );
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$out = AtomicRenderer::render_node( [ 'type' => 'AcmeCard', 'props' => [ 'title' => 'No' ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $out );
+		self::assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
+	}
+
+	public function test_filtered_provider_cannot_self_assert_certification_to_render(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-certified-card'] = self::provider_schema( 'CertifiedCard', 'trusted', 'certified' );
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$out = AtomicRenderer::render_node( [ 'type' => 'CertifiedCard', 'props' => [ 'title' => 'Blocked' ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $out );
+		self::assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
+	}
+
 	public function test_missing_type_field_is_a_structured_error(): void {
 		$out = AtomicRenderer::render_node( [ 'props' => [ 'text' => 'orphan' ] ] );
 
@@ -235,5 +266,22 @@ final class AtomicRendererTest extends TestCase {
 		$out = AtomicRenderer::render_node( [ 'type' => 'Heading', 'props' => [ 'text' => 'A', 'invented' => true ] ] );
 		$this->assertInstanceOf( \WP_Error::class, $out );
 		$this->assertSame( 'stonewright_v4_unknown_property', $out->get_error_code() );
+	}
+
+	/** @return array<string,mixed> */
+	private static function provider_schema( string $design_type, string $trust, string $certification ): array {
+		return [
+			'kind'                   => 'widget',
+			'design_types'           => [ $design_type ],
+			'version'                => '0.0',
+			'props'                  => [ 'title' => [ 'key' => 'title', 'type' => 'string' ] ],
+			'source'                 => 'live_runtime',
+			'source_plugin'          => 'certified-provider/bootstrap.php',
+			'source_version'         => '1.0.0',
+			'provider_id'            => 'plugin:certified-provider',
+			'provider_trust'         => $trust,
+			'provider_certification' => $certification,
+			'provenance'             => [ 'certification' => 'stonewright_explicit_certification' ],
+		];
 	}
 }

@@ -6,14 +6,17 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\Pages\TroubleshootPage
  * @covers \Stonewright\WpMcp\Admin\DiagnosticsPanel
  */
 final class TroubleshootPageTest extends TestCase {
+	private object $original_elementor_instance;
 
 	protected function setUp(): void {
+		$this->original_elementor_instance = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_options']         = [
@@ -27,12 +30,14 @@ final class TroubleshootPageTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->original_elementor_instance;
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_submenu_pages']   = [];
 		$_GET  = [];
 		$_POST = [];
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 	}
 
 	public function test_slug_lives_in_connect_group(): void {
@@ -138,5 +143,66 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'Press Ctrl/Cmd+C', $html );
 		self::assertStringContainsString( 'data-stonewright-copy-modal', $html );
 		self::assertStringContainsString( '1 Warnings', $html );
+	}
+
+	public function test_render_shows_sanitized_mcp_compatibility_preflight_and_remediation(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\MissingAdapter', [ $fixtures . '/release-a', $fixtures . '/release-b' ] );
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'MCP runtime compatibility', $html );
+		self::assertStringContainsString( 'Elementor provider discovery', $html );
+		self::assertStringContainsString( 'manage-default-styles', $html );
+		self::assertStringContainsString( 'Vendor\\MissingAdapter', $html );
+		self::assertStringContainsString( 'WP_Abilities_Registry', $html );
+		self::assertStringContainsString( 'WP_Ability', $html );
+		self::assertStringContainsString( 'plugin:release-a — 0.3.0', $html );
+		self::assertStringContainsString( 'plugin:release-b — 0.4.0', $html );
+		self::assertStringContainsString( 'plugin:release-a — 0.1.1', $html );
+		self::assertStringContainsString( 'plugin:release-b — 0.2.0', $html );
+		self::assertStringContainsString( 'multiple_incompatible_class_owners', $html );
+		self::assertStringContainsString( 'Deactivate all but one active plugin that loads this symbol', $html );
+		self::assertStringNotContainsString( $fixtures, $html );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_render_shows_missing_required_symbols_and_remediation(): void {
+		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\AbsentAdapter', [] );
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Vendor\\AbsentAdapter', $html );
+		self::assertStringContainsString( 'WP_Abilities_Registry', $html );
+		self::assertStringContainsString( 'WP_Ability', $html );
+		self::assertStringContainsString( 'required_symbol_unavailable', $html );
+		self::assertStringContainsString( 'Install or activate the package that provides this required symbol', $html );
+	}
+
+	public function test_render_survives_a_throwing_provider_and_shows_bounded_diagnostics(): void {
+		\Elementor\Plugin::$instance = (object) [
+			'widgets_manager' => new class() {
+				public function get_widget_types( ?string $name = null ): never {
+					unset( $name );
+					throw new \RuntimeException( 'private troubleshoot provider detail' );
+				}
+			},
+		];
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'provider_discovery_failed', $html );
+		self::assertStringContainsString( 'v3', $html );
+		self::assertStringContainsString( 'RuntimeException', $html );
+		self::assertStringNotContainsString( 'private troubleshoot provider detail', $html );
 	}
 }

@@ -72,6 +72,7 @@ use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\Diagnostics\CapabilityPreflight;
 use Stonewright\WpMcp\Abilities\Diagnostics\FormDeliveryDiagnostic;
 use Stonewright\WpMcp\Abilities\Diagnostics\OAuthHeaderDiagnostic;
+use Stonewright\WpMcp\Abilities\Elementor\ProviderDiscovery;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
@@ -419,6 +420,7 @@ final class AbilityRegistry {
 			ThemeJsonHandoff::class,
 
 			// Elementor V3.
+			ProviderDiscovery::class,
 			ElementorStatus::class,
 			ElementorV3CapabilitiesSummary::class,
 			GetKitGlobals::class,
@@ -1235,6 +1237,7 @@ final class AbilityRegistry {
 			'stonewright/design-motion-plan',
 			'stonewright/design-native-plan',
 			'stonewright/elementor-v3-capabilities-summary',
+			'stonewright/elementor-provider-discovery',
 			'stonewright/elementor-v3-container-schema',
 			'stonewright/elementor-widget-implementation-guide',
 		];

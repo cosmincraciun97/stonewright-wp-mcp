@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\ServerRegistration;
 
 /**
@@ -15,6 +16,11 @@ use Stonewright\WpMcp\Core\ServerRegistration;
 final class ServerRegistrationTest extends TestCase {
 
 	protected function setUp(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
+		$GLOBALS['stonewright_test_actions'] = [];
+		$GLOBALS['stonewright_test_filters'] = [];
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_enabled'                      => true,
 			'stonewright_custom_instructions_enabled'  => true,
@@ -28,7 +34,10 @@ final class ServerRegistrationTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		remove_all_actions( 'mcp_adapter_init' );
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		$GLOBALS['stonewright_test_filters']    = [];
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];
 	}
@@ -95,6 +104,7 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertGreaterThan( 30, count( $tools ) );
 		self::assertContains( 'stonewright/site-pulse', $tools );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $tools );
+		self::assertContains( 'stonewright/elementor-provider-discovery', $tools );
 	}
 
 	public function test_registers_separate_application_password_and_oauth_servers(): void {
@@ -110,6 +120,34 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertSame( $adapter->calls[0][9], $adapter->calls[1][9] );
 	}
 
+	public function test_mcp_adapter_init_refuses_a_hostile_incompatible_adapter_before_server_invocation(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => HostileMcpAdapter::class,
+			'abilities_registry' => CompatibleRegistryFixture::class,
+			'ability'            => CompatibleAbilityFixture::class,
+		];
+		$adapter = new HostileMcpAdapter();
+		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
+
+		do_action( 'mcp_adapter_init', $adapter );
+
+		self::assertSame( 0, $adapter->invocations );
+	}
+
+	public function test_compatible_filter_decoy_cannot_authorize_a_hostile_runtime_adapter(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => CapturingMcpAdapter::class,
+			'abilities_registry' => RegistrationCompatibleRegistry::class,
+			'ability'            => RegistrationCompatibleAbility::class,
+		];
+		$adapter = new HostileMcpAdapter();
+
+		ServerRegistration::register_server( $adapter );
+
+		self::assertSame( 0, $adapter->invocations );
+		self::assertSame( HostileMcpAdapter::class, McpAbilitiesCompatibilityPreflight::current()['adapter']['class'] ?? null );
+	}
+
 	/**
 	 * @return mixed
 	 */
@@ -122,13 +160,85 @@ final class ServerRegistrationTest extends TestCase {
 }
 
 final class CapturingMcpAdapter {
+	public const VERSION = '0.3.0';
 
 	/**
 	 * @var list<list<mixed>>
 	 */
 	public array $calls = [];
 
+	public static function instance(): self {
+		return new self();
+	}
+
+	public function create_server(
+		string $id,
+		string $namespace,
+		string $route,
+		string $name,
+		string $description,
+		string $version,
+		array $transports,
+		?string $error_handler,
+		?string $observability_handler = null,
+		array $tools = [],
+		array $resources = [],
+		array $prompts = [],
+		?callable $configure = null
+	) {
+		$this->calls[] = func_get_args();
+		unset( $id, $namespace, $route, $name, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
+	}
+}
+
+final class HostileMcpAdapter {
+
+	public int $invocations = 0;
+
 	public function create_server( mixed ...$args ): void {
-		$this->calls[] = $args;
+		unset( $args );
+		++$this->invocations;
+	}
+}
+
+final class RegistrationCompatibleRegistry {
+
+	private function __construct() {}
+
+	public static function get_instance(): self {
+		return new self();
+	}
+
+	public function register( string $name, array $properties = [] ): ?RegistrationCompatibleAbility {
+		return new RegistrationCompatibleAbility( $name, $properties );
+	}
+}
+
+final class RegistrationCompatibleAbility {
+
+	public function __construct( private string $name, private array $properties ) {}
+
+	public function get_name(): string {
+		return $this->name;
+	}
+
+	public function get_label(): string {
+		return $this->name;
+	}
+
+	public function get_description(): string {
+		return $this->name;
+	}
+
+	public function get_meta(): array {
+		return $this->properties;
+	}
+
+	public function get_input_schema(): array {
+		return [];
+	}
+
+	public function get_output_schema(): array {
+		return [];
 	}
 }

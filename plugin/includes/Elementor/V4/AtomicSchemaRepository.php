@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\V4;
 
+use Stonewright\WpMcp\Elementor\Provider\RuntimeOwnership;
+
 /**
  * Compact, versioned Elementor Atomic schema repository.
  *
@@ -26,7 +28,7 @@ final class AtomicSchemaRepository {
 			return self::$schemas;
 		}
 
-		$schemas = [
+		$bundled = [
 			'e-div-block' => self::layout( 'Div', [] ),
 			'e-flexbox'   => self::layout( 'Container', [ 'direction' => 'string', 'gap' => 'size' ] ),
 			'e-grid'      => self::layout( 'Grid', [ 'columns' => 'string', 'rows' => 'string', 'gap' => 'size' ] ),
@@ -38,7 +40,15 @@ final class AtomicSchemaRepository {
 			'e-svg'       => self::widget( 'Icon', [ 'url' => [ 'key' => 'svg', 'type' => 'svg-src' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 		];
 
-		$schemas = array_replace( $schemas, self::discover_runtime() );
+		$runtime = self::runtime_discovery();
+		$runtime_schemas = self::index_runtime_items( $runtime['items'] );
+		$schemas = array_replace( $bundled, $runtime_schemas );
+		$authority = $bundled;
+		foreach ( $runtime_schemas as $type => $schema ) {
+			if ( self::is_write_certified( $schema ) ) {
+				$authority[ $type ] = $schema;
+			}
+		}
 
 		/**
 		 * Supplies schemas discovered from the installed Elementor runtime.
@@ -47,7 +57,7 @@ final class AtomicSchemaRepository {
 		 * @param array<string, array<string, mixed>> $schemas
 		 */
 		$filtered = apply_filters( 'stonewright_elementor_v4_atomic_schemas', $schemas );
-		self::$schemas = is_array( $filtered ) ? self::sanitize_schemas( $filtered ) : $schemas;
+		self::$schemas = self::sanitize_schemas( is_array( $filtered ) ? $filtered : $schemas, $authority );
 
 		return self::$schemas;
 	}
@@ -84,15 +94,46 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
+	 * Applies the single trust policy used by provider routing and every Atomic write schema consumer.
+	 *
+	 * @param array<string,mixed> $evidence
+	 * @return array{trust:string,certification:string,write_eligible:bool,reason:string}
+	 */
+	public static function provider_policy( array $evidence ): array {
+		$provider = (string) ( $evidence['provider_id'] ?? '' );
+		$provenance = (array) ( $evidence['provenance'] ?? [] );
+		$ownership_evidence = (string) ( $provenance['ownership'] ?? '' );
+		$certification_evidence = (string) ( $provenance['certification'] ?? '' );
+		$bundled = 'elementor-core' === $provider && 'stonewright_bundled_contract' === $certification_evidence;
+		$official_runtime = in_array( $provider, [ 'elementor-core', 'elementor-pro' ], true )
+			&& in_array( $ownership_evidence, [ 'active_plugin_header', 'active_plugin_boundary' ], true )
+			&& 'live_runtime' === ( $evidence['source'] ?? null );
+		$eligible = $bundled || $official_runtime;
+
+		return [
+			'trust'         => $eligible ? 'trusted' : 'untrusted',
+			'certification' => $eligible ? 'certified' : 'discovered',
+			'write_eligible' => $eligible,
+			'reason'        => $bundled ? 'bundled_contract' : ( $official_runtime ? 'verified_official_runtime' : 'provider_not_certified' ),
+		];
+	}
+
+	/** @param array<string,mixed> $schema */
+	public static function is_write_certified( array $schema ): bool {
+		return true === self::provider_policy( $schema )['write_eligible'];
+	}
+
+	/**
 	 * Discovers every installed Atomic layout/widget and its prop JSON schemas.
 	 *
-	 * @return array<string, array<string, mixed>>
+	 * @return array{items:list<array<string,mixed>>,issues:list<array<string,mixed>>}
 	 */
-	private static function discover_runtime(): array {
+	public static function runtime_discovery(): array {
 		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return [];
+			return [ 'items' => [], 'issues' => [] ];
 		}
-		$out = [];
+		$items  = [];
+		$issues = [];
 		try {
 			$sources = [];
 			$elements_manager = \Elementor\Plugin::$instance->elements_manager ?? null;
@@ -105,35 +146,97 @@ final class AtomicSchemaRepository {
 			}
 			foreach ( $sources as $kind => $instances ) {
 				if ( ! is_array( $instances ) ) {
-continue; }
+					continue;
+				}
 				foreach ( $instances as $registered_type => $instance ) {
 					$type = (string) $registered_type;
 					if ( ! str_starts_with( $type, 'e-' ) || ! is_object( $instance ) || ! method_exists( $instance, 'get_props_schema' ) ) {
-continue; }
+						continue;
+					}
 					$props = [];
-					$runtime_props = call_user_func( [ $instance, 'get_props_schema' ] );
+					try {
+						$runtime_props = call_user_func( [ $instance, 'get_props_schema' ] );
+					} catch ( \Throwable $error ) {
+						$issues[] = [ 'code' => 'schema_unavailable', 'atomic_type' => $type, 'error_class' => get_class( $error ) ];
+						continue;
+					}
 					if ( ! is_array( $runtime_props ) ) {
-continue; }
+						$issues[] = [ 'code' => 'schema_invalid', 'atomic_type' => $type ];
+						continue;
+					}
+					$valid_props = true;
 					foreach ( $runtime_props as $name => $prop_schema ) {
 						if ( ! is_object( $prop_schema ) || ! method_exists( $prop_schema, 'to_json_schema' ) ) {
-continue; }
-						$json_schema = $prop_schema->to_json_schema();
+							$issues[] = [ 'code' => 'prop_schema_invalid', 'atomic_type' => $type, 'prop' => (string) $name ];
+							$valid_props = false;
+							break;
+						}
+						try {
+							$json_schema = $prop_schema->to_json_schema();
+						} catch ( \Throwable $error ) {
+							$issues[] = [ 'code' => 'prop_schema_unavailable', 'atomic_type' => $type, 'prop' => (string) $name, 'error_class' => get_class( $error ) ];
+							$valid_props = false;
+							break;
+						}
 						$props[ (string) $name ] = [ 'key' => (string) $name, 'type' => 'raw-json', 'json_schema' => $json_schema ];
 					}
-					$out[ $type ] = [
+					if ( ! $valid_props ) {
+						continue;
+					}
+					$ownership = RuntimeOwnership::describe( $instance );
+					$schema = [
+						'atomic_type'  => $type,
 						'kind'          => $kind,
 						'design_types'  => [ $type ],
 						'version'       => self::ELEMENT_VERSION,
 						'props'         => $props,
 						'source'        => 'live_runtime',
-						'runtime_class' => get_class( $instance ),
+						'source_plugin' => $ownership['source_plugin'],
+						'source_version' => $ownership['source_version'],
+						'runtime_class' => $ownership['runtime_class'],
+						'provider_id'   => $ownership['provider_id'],
+						'ownership'     => $ownership['ownership'],
+						'provenance'    => [ 'schema' => 'live_elementor_runtime', 'ownership' => $ownership['provenance']['ownership'] ],
 					];
+					$policy = self::provider_policy( $schema );
+					$schema['provider_trust'] = $policy['trust'];
+					$schema['provider_certification'] = $policy['certification'];
+					$schema['write_eligible'] = $policy['write_eligible'];
+					$schema['schema_fingerprint'] = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $schema ) ) );
+					$items[] = $schema;
 				}
 			}
 		} catch ( \Throwable $error ) {
-			return [];
+			$issues[] = [ 'code' => 'runtime_discovery_failed', 'error_class' => get_class( $error ) ];
+		}
+		return [ 'items' => $items, 'issues' => $issues ];
+	}
+
+	/** @param list<array<string,mixed>> $items @return array<string,array<string,mixed>> */
+	private static function index_runtime_items( array $items ): array {
+		$out = [];
+		foreach ( $items as $item ) {
+			$type = (string) ( $item['atomic_type'] ?? '' );
+			if ( '' !== $type ) {
+				$copy = $item;
+				unset( $copy['atomic_type'] );
+				$out[ $type ] = $copy;
+			}
 		}
 		return $out;
+	}
+
+	private static function canonicalize( mixed $value ): mixed {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		if ( ! array_is_list( $value ) ) {
+			ksort( $value );
+		}
+		foreach ( $value as $key => $item ) {
+			$value[ $key ] = self::canonicalize( $item );
+		}
+		return $value;
 	}
 
 	/**
@@ -158,6 +261,11 @@ continue; }
 			'version'      => self::ELEMENT_VERSION,
 			'props'        => $mapped,
 			'source'       => 'elementor_official_docs',
+			'provider_id'  => 'elementor-core',
+			'provider_trust' => 'trusted',
+			'provider_certification' => 'certified',
+			'write_eligible' => true,
+			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
 		];
 	}
 
@@ -172,14 +280,20 @@ continue; }
 			'version'      => self::ELEMENT_VERSION,
 			'props'        => $props,
 			'source'       => 'elementor_official_docs',
+			'provider_id'  => 'elementor-core',
+			'provider_trust' => 'trusted',
+			'provider_certification' => 'certified',
+			'write_eligible' => true,
+			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
 		];
 	}
 
 	/**
-	 * @param array<string, mixed> $schemas
+	 * @param array<string, mixed>                $schemas
+	 * @param array<string, array<string, mixed>> $authority
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function sanitize_schemas( array $schemas ): array {
+	private static function sanitize_schemas( array $schemas, array $authority ): array {
 		$out = [];
 		foreach ( $schemas as $type => $schema ) {
 			if ( ! is_string( $type ) || ! str_starts_with( $type, 'e-' ) || ! is_array( $schema ) ) {
@@ -188,6 +302,14 @@ continue; }
 			if ( ! in_array( $schema['kind'] ?? '', [ 'layout', 'widget' ], true ) || empty( $schema['version'] ) || ! isset( $schema['props'] ) || ! is_array( $schema['props'] ) ) {
 				continue;
 			}
+			$certified = $authority[ $type ] ?? null;
+			if ( ! is_array( $certified ) || self::canonicalize( $schema ) !== self::canonicalize( $certified ) ) {
+				continue;
+			}
+			$policy = self::provider_policy( $certified );
+			$schema['provider_trust'] = $policy['trust'];
+			$schema['provider_certification'] = $policy['certification'];
+			$schema['write_eligible'] = true;
 			$out[ $type ] = $schema;
 		}
 		return $out;

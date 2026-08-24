@@ -71,6 +71,15 @@ audit to report abandoned packages without failing when there are zero security
 advisories. Remove the compatibility package only when Stonewright's supported
 WordPress floor includes the core Abilities API.
 
+On WordPress 6.9 and newer, core owns `WP_Ability` and
+`WP_Abilities_Registry`; Stonewright's package remains a guarded fallback and
+is not a competing loaded owner. The startup preflight considers Stonewright
+and active plugins only, ignores inactive plugin manifests, and checks exact
+class names, visibility/static modifiers, required and maximum arity,
+parameter and return types, nullability/unions, constants, and versions before
+any adapter method can run. Troubleshoot reports each blocked symbol and its
+active owner/version separately without exposing filesystem paths.
+
 ### Companion exposure
 
 The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.

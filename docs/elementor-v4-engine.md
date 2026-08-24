@@ -9,8 +9,12 @@ a placeholder.
 The repository starts with a small verified core and expands it from the active
 Elementor runtime. Runtime discovery reads every registered `e-*` layout and
 widget, calls its public `get_props_schema()` API, and stores the compact JSON
-schema with an exact fingerprint. Add-ons therefore become available without a
-Stonewright release; writes remain blocked until their live schema is present.
+schema with an exact fingerprint. Discovery is inventory, not write authority:
+third-party schemas remain read-only unless a future Stonewright release ships
+their exact provider, version, provenance, and contract in its immutable
+authority. Every renderer, validator, and mutator reads the same write-safe
+repository, which currently admits only bundled or verified-official schemas
+that remain byte-for-contract identical after filters run.
 
 The bundled structures are based on Elementor's official documentation for
 [Atomic elements](https://developers.elementor.com/docs/data-structure/atomic-elements/index.html),
@@ -28,6 +32,8 @@ The runtime source was verified at Elementor commit
   `interactions`, `styles`, and `elements`.
 - Unknown nodes, properties, prop types, malformed styles, duplicate responsive
   variants, and unresolved CTA actions are structured errors.
+- An Atomic type without a trusted, certified schema is rejected before dry-run
+  validation or mutation; a typed envelope cannot bypass provider trust.
 - Classes use Elementor `Global_Classes_Repository`; variables use
   `Variables_Service`. The obsolete guessed kit keys are not used.
 - Every mutation snapshots, validates, writes through the verified runtime API,
@@ -43,9 +49,10 @@ node by id (merge or replace). It:
    lifted `atomic_tree` projection from `elementor-v4-read-atomic-tree`.
 2. Rejects pure V3 / empty documents (`v4_architecture_mismatch`) and
    non-atomic targets (`non_atomic_target`).
-3. Validates patched keys against the Atomic schema reverse map (or requires a
-   `$$type`/`value` envelope for new keys); unknown keys already on the node are
-   preserved with a warning.
+3. Requires a trusted, certified Atomic schema, then validates patched keys
+   against its reverse map. Unknown keys already on a certified node are
+   preserved with a warning; new keys still require a `$$type`/`value`
+   envelope.
 4. Snapshots with `Backup::snapshot_post`, then writes through
    `ElementorData::write` **without** `skip_integrity`.
 5. Supports `dry_run:true` to return the planned settings without writing.

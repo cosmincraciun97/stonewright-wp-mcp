@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add read-only Elementor provider discovery with ownership, trust, compatibility,
+  certification, Status and Troubleshoot visibility, and certified
+  native-preferred metadata for Elementor default styles; expose it in the
+  normal Elementor design profile and resulting MCP tool catalog.
+
 ### Changed
 
 - Disable automatic audit retention by default and run deletion only through
@@ -11,6 +18,11 @@
 
 ### Fixed
 
+- Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP
+  compatibility preflight, while requiring their classmap or PSR-4 entry to
+  resolve to the canonical adapter target.
+- Normalize two-component WordPress core versions such as 6.9 so guarded
+  Abilities API fallbacks cannot falsely block the MCP server.
 - Accept WordPress `init` hook arguments in audit retention scheduling so an
   empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
 - Skip audit and incident table `dbDelta` after a healthy schema is installed,
@@ -53,17 +65,49 @@
   post-update verification prompt.
 - Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
   admin OAuth browser test's stale client count with tab/panel parity checks.
+- Match Elementor's `elementor/manage-default-styles` contract at commit
+  `3afafe33b7499b4e8fcb4c684e55111721bb0c96`, including non-idempotent write
+  annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
+  constants, and an exact 20-operation runtime limit; reject added schema
+  keywords and every annotation or contract mismatch.
+- Treat PHP `self` and `parent` return types as the declaring class so MCP ABI
+  preflight accepts adapters on PHP 8.1–8.4, not only 8.5.
+- Keep MCP adapter boot when two active plugins vendor the same
+  `wordpress/mcp-adapter` version, so WooCommerce 10.9 can sit beside Stonewright
+  without dropping `/mcp/stonewright`.
+- Isolate Elementor provider discovery failures so Status and Troubleshoot
+  retain surviving providers and expose at most 20 diagnostics with full
+  blocker and warning counts, per-severity truncation, and reserved visibility
+  for critical blockers.
+- Bound provider discovery to 50 providers and 200 capabilities, report full
+  totals and truncation state, and replace rejected or untrusted schemas with
+  depth/key/byte summaries; canonicalize schema fingerprints and cap rejected
+  default-style actions with truthful totals.
+- Keep third-party `pro-elements/*` runtimes distinct from official Elementor
+  Pro and read-only without exact Stonewright-owned certification.
+- Abort Elementor V4 spec rendering before mutation when the required backup
+  snapshot cannot be verified.
+- Resolve runtime ownership from active plugin main files and safe plugin
+  headers even when the main filename differs from its folder in REST/MCP
+  requests.
 
 ### Security
 
-- Redact nested private keys, PEM certificates, and credential blobs from audit
-  payloads without removing surrounding safe text, and keep encoded output bounded.
-- Redact credential assignments, authorization carriers, Application Password
-  shapes, credentialed URLs, and private-key bodies recursively from every
-  free-text audit value before persistence.
-- Coalesce identical permission and safety denials by site, ability, and error,
-  retaining the first event plus bounded count summaries and severity under a
-  stale-recoverable option mutex with compare-and-delete ownership.
+- Block MCP startup before adapter creation when required MCP Adapter or
+  Abilities API symbols are missing, conflicting, or ABI-incompatible, repeat
+  that preflight against the exact runtime adapter class at registration, and
+  keep the canonical Ability and Registry targets plus discovered ownership
+  candidates immutable so filters cannot authorize compatible decoys or hide
+  an active owner.
+- Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
+  fallback as one compatible owner, ignore inactive plugin manifests, validate
+  the exact loaded ABI before invocation, and report every blocked symbol with
+  its owner, version, reason, and safe remediation.
+- Keep third-party Atomic schemas discoverable but read-only, and admit only
+  schemas identical to Stonewright's immutable bundled or verified-official
+  authority into renderers and mutators.
+- Derive upstream Elementor provider identity from the registered callback's
+  verified class and active-plugin file boundary, never self-declared metadata.
 - Fetch a bounded `SHA256SUMS.txt` manifest and verify the exact release ZIP at
   WordPress's pre-download install/update gate. Missing, malformed, forged,
   unavailable, empty, and mismatched checksums now fail closed with typed
@@ -77,6 +121,14 @@
 - Require an exact `SHA256SUMS.txt` release asset before accepting updater
   metadata or injecting an update transient, with a typed
   `missing_checksum_asset` recovery reason.
+- Redact nested private keys, PEM certificates, and credential blobs from audit
+  payloads without removing surrounding safe text, and keep encoded output bounded.
+- Redact credential assignments, authorization carriers, Application Password
+  shapes, credentialed URLs, and private-key bodies recursively from every
+  free-text audit value before persistence.
+- Coalesce identical permission and safety denials by site, ability, and error,
+  retaining the first event plus bounded count summaries and severity under a
+  stale-recoverable option mutex with compare-and-delete ownership.
 
 ## [1.0.0-beta.11.1] - 2026-08-24
 

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
+use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode
@@ -16,6 +17,7 @@ final class V4UpdateNodeTest extends TestCase {
 	private const POST_MIXED = 9103;
 
 	protected function setUp(): void {
+		AtomicSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_mode'               => 'development',
 			'stonewright_elementor_v4_atomic' => true,
@@ -101,6 +103,8 @@ final class V4UpdateNodeTest extends TestCase {
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_user_logged_in']  = false;
+		$GLOBALS['stonewright_test_filters']         = [];
+		AtomicSchemaRepository::invalidate();
 	}
 
 	public function test_dry_run_returns_planned_settings_without_writing(): void {
@@ -283,6 +287,86 @@ final class V4UpdateNodeTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_unknown_settings_key', $result->get_error_code() );
+	}
+
+	public function test_uncertified_third_party_atomic_schema_is_blocked_before_dry_run_mutation(): void {
+		$tree = json_decode( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'], true );
+		self::assertIsArray( $tree );
+		$tree[0]['elements'][] = [
+			'id'         => 'third01',
+			'version'    => '0.0',
+			'elType'     => 'widget',
+			'widgetType' => 'e-third-party',
+			'settings'   => [],
+			'elements'   => [],
+		];
+		$GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] = wp_json_encode( $tree );
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-third-party'] = [
+				'kind'                   => 'widget',
+				'design_types'           => [ 'ThirdParty' ],
+				'version'                => '0.0',
+				'props'                  => [ 'title' => [ 'key' => 'title', 'type' => 'string' ] ],
+				'provider_id'            => 'plugin:third-party',
+				'provider_trust'         => 'untrusted',
+				'provider_certification' => 'discovered',
+			];
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'third01',
+				'settings'   => [ 'title' => [ '$$type' => 'string', 'value' => 'Blocked' ] ],
+				'dry_run'    => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_atomic_provider_not_certified', $result->get_error_code() );
+	}
+
+	public function test_self_asserted_filtered_certification_cannot_enter_update_path(): void {
+		$tree = json_decode( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'], true );
+		self::assertIsArray( $tree );
+		$tree[0]['elements'][] = [
+			'id'         => 'forged01',
+			'version'    => '0.0',
+			'elType'     => 'widget',
+			'widgetType' => 'e-self-certified',
+			'settings'   => [],
+			'elements'   => [],
+		];
+		$GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] = wp_json_encode( $tree );
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-self-certified'] = [
+				'kind'                   => 'widget',
+				'design_types'           => [ 'SelfCertified' ],
+				'version'                => '0.0',
+				'props'                  => [ 'title' => [ 'key' => 'title', 'type' => 'string' ] ],
+				'source'                 => 'live_runtime',
+				'provider_id'            => 'plugin:self-certified',
+				'provider_trust'         => 'trusted',
+				'provider_certification' => 'certified',
+				'provenance'             => [ 'certification' => 'stonewright_explicit_certification' ],
+			];
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'forged01',
+				'settings'   => [ 'title' => [ '$$type' => 'string', 'value' => 'Blocked' ] ],
+				'dry_run'    => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_atomic_provider_not_certified', $result->get_error_code() );
 	}
 
 	public function test_permission_callback_uses_edit_post_not_return_true(): void {

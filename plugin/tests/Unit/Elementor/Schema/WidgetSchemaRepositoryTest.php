@@ -71,6 +71,8 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertContains( 'link', $schema['link_capable_controls'] );
 		self::assertSame( 'live_elementor_runtime', $schema['controls']['link']['provenance'] );
 		self::assertSame( 'live_elementor_runtime', $schema['provenance']['controls'] );
+		self::assertSame( 'unknown', $schema['source_plugin'] );
+		self::assertSame( 'unknown', $schema['provider_id'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['schema_hash'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['runtime_fingerprint'] );
 		self::assertStringNotContainsString( '/Users/', (string) wp_json_encode( $schema ) );
