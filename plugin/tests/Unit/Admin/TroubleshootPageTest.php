@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\Pages\TroubleshootPage
@@ -33,6 +34,7 @@ final class TroubleshootPageTest extends TestCase {
 		$GLOBALS['stonewright_test_submenu_pages']   = [];
 		$_GET  = [];
 		$_POST = [];
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 	}
 
 	public function test_slug_lives_in_connect_group(): void {
@@ -139,4 +141,34 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-copy-modal', $html );
 		self::assertStringContainsString( '1 Warnings', $html );
 	}
+
+	public function test_render_shows_sanitized_mcp_compatibility_preflight_and_remediation(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter' => 'Vendor\\MissingAdapter',
+			'abilities_registry' => 'Vendor\\MissingRegistry',
+			'ability' => 'Vendor\\MissingAbility',
+		];
+		McpAbilitiesCompatibilityPreflight::inspect(
+			[
+				new TroubleshootFakeClassLoader( '/srv/wp-content/plugins/adapter-a/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php' ),
+				new TroubleshootFakeClassLoader( '/srv/wp-content/plugins/adapter-b/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php' ),
+			]
+		);
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'MCP runtime compatibility', $html );
+		self::assertStringContainsString( 'Elementor provider discovery', $html );
+		self::assertStringContainsString( 'manage-default-styles', $html );
+		self::assertStringContainsString( 'plugin:adapter-a', $html );
+		self::assertStringContainsString( 'Disable the conflicting MCP or Abilities plugin', $html );
+		self::assertStringNotContainsString( '/srv/', $html );
+	}
+}
+
+final class TroubleshootFakeClassLoader {
+	public function __construct( private string $file ) {}
+	public function findFile( string $class ): string { unset( $class ); return $this->file; }
 }

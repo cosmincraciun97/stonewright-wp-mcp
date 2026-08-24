@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -12,6 +13,11 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class Status extends AbilityKernel {
+	private ProviderRouter $provider_router;
+
+	public function __construct( ?ProviderRouter $provider_router = null ) {
+		$this->provider_router = $provider_router ?? new ProviderRouter();
+	}
 
 	public function name(): string {
 		return 'stonewright/elementor-v3-status';
@@ -46,6 +52,7 @@ final class Status extends AbilityKernel {
 				'v4_write_ready'          => [ 'type' => 'boolean' ],
 				'recommended_renderer'    => [ 'type' => 'string' ],
 				'agent_action'            => [ 'type' => 'string' ],
+				'provider_discovery'      => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -77,6 +84,7 @@ final class Status extends AbilityKernel {
 			'v4_write_ready'           => $v4_ready,
 			'recommended_renderer'     => $v4_ready ? 'elementor-v4-atomic' : 'elementor-v3-native',
 			'agent_action'             => self::agent_action( $v4_ready ),
+			'provider_discovery'       => $this->provider_router->inspect( 0, 'auto' ),
 		];
 	}
 

@@ -58,10 +58,9 @@ final class ProviderRouter {
 				array_intersect( [ 'v3', 'v4' ], array_map( 'strval', (array) ( $meta['architectures'] ?? [] ) ) )
 			);
 			$ability_architectures = [] !== $declared_architectures ? $declared_architectures : [ 'global' ];
-			$annotations = (array) ( $meta['annotations'] ?? [] );
-			$is_known_write = 'elementor/manage-default-styles' === (string) $ability['name'];
-			$is_declared_write = array_key_exists( 'readOnlyHint', $annotations ) && false === $annotations['readOnlyHint'];
-			self::add_capability( $providers, $issues, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_known_write || $is_declared_write );
+			$annotations       = (array) ( $meta['annotations'] ?? [] );
+			$is_declared_write = false === ( $annotations['readonly'] ?? null ) || true === ( $annotations['destructive'] ?? false );
+			self::add_capability( $providers, $issues, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
 		}
 
 		ksort( $providers );
@@ -78,11 +77,15 @@ final class ProviderRouter {
 		$reason    = 'mixed' === $target ? 'mixed_architecture' : ( $supported ? 'provider_evidence_available' : 'provider_evidence_unavailable' );
 
 		$manage = $upstream['elementor/manage-default-styles'] ?? null;
+		$certification = is_array( $manage ) ? self::certify_manage_default_styles( $manage ) : [ 'state' => 'unsupported', 'reason' => 'upstream_ability_not_registered', 'contract' => [] ];
 		$native_preferred = [
 			'elementor/manage-default-styles' => is_array( $manage )
 				? [
 					'available'               => true,
-					'selection'               => 'native-preferred',
+					'selection'               => 'certified' === $certification['state'] ? 'native-preferred' : 'unsupported',
+					'certification'           => $certification['state'],
+					'reason'                  => $certification['reason'],
+					'contract'                => $certification['contract'],
 					'provider_id'             => RuntimeOwnership::provider_id( (string) ( $manage['source_plugin'] ?? ( $manage['meta']['source_plugin'] ?? '' ) ) ),
 					'description'             => (string) ( $manage['description'] ?? '' ),
 					'input_schema'            => (array) ( $manage['input_schema'] ?? [] ),
@@ -95,6 +98,7 @@ final class ProviderRouter {
 				: [
 					'available'  => false,
 					'selection'  => 'unsupported',
+					'certification' => 'unsupported',
 					'reason'     => 'upstream_ability_not_registered',
 				],
 		];
@@ -106,7 +110,7 @@ final class ProviderRouter {
 			'issues'           => array_values( $issues ),
 			'native_preferred' => $native_preferred,
 			'writes_enabled'   => false,
-			'safety_closure'   => [ 'permission', 'confirmation', 'backup', 'validation', 'readback', 'rollback', 'audit' ],
+			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
 	}
 
@@ -134,9 +138,14 @@ final class ProviderRouter {
 			return;
 		}
 		if ( ! isset( $providers[ $id ] ) ) {
+			$official = in_array( $id, [ 'elementor-core', 'elementor-pro' ], true );
+			$ownership_provenance = (string) ( $evidence['provenance']['ownership'] ?? '' );
+			$verified_official = $official && ( 'upstream-ability' !== $kind || self::verified_callback_ownership( $ownership_provenance ) );
 			$providers[ $id ] = [
 				'id'                => $id,
-				'ownership'         => in_array( $id, [ 'elementor-core', 'elementor-pro' ], true ) ? 'official' : 'third-party',
+				'ownership'         => $official ? 'official' : 'third-party',
+				'trust'             => $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ),
+				'certification'     => 'discovered',
 				'source_plugin'     => $plugin,
 				'source_version'    => (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ),
 				'architectures'     => [],
@@ -163,6 +172,9 @@ final class ProviderRouter {
 			'routable'           => false,
 		];
 		if ( $write_primitive ) {
+			$providers[ $id ]['read_only'] = false;
+			$certification = 'elementor/manage-default-styles' === $name ? self::certify_manage_default_styles( $evidence ) : [ 'state' => 'discovered' ];
+			$providers[ $id ]['certification'] = (string) ( $certification['state'] ?? 'discovered' );
 			$providers[ $id ]['write_primitives'][] = [
 				'name'                    => $name,
 				'source'                  => 'upstream_registered_ability',
@@ -170,6 +182,44 @@ final class ProviderRouter {
 				'safety_closure_required' => true,
 			];
 		}
+	}
+
+	/** @param array<string,mixed> $ability @return array{state:string,reason:string,contract:array<string,mixed>} */
+	private static function certify_manage_default_styles( array $ability ): array {
+		$meta        = (array) ( $ability['meta'] ?? [] );
+		$annotations = (array) ( $meta['annotations'] ?? [] );
+		$schema      = (array) ( $ability['input_schema'] ?? [] );
+		$operations  = (array) ( $schema['properties']['operations'] ?? [] );
+		$item        = (array) ( $operations['items'] ?? [] );
+		$properties  = (array) ( $item['properties'] ?? [] );
+		$actions     = array_values( array_map( 'strval', (array) ( $properties['action']['enum'] ?? [] ) ) );
+		$description = strtolower( (string) ( $ability['description'] ?? '' ) . ' ' . (string) ( $operations['description'] ?? '' ) . ' ' . (string) ( $properties['css']['description'] ?? '' ) );
+		$runtime     = (array) ( $ability['runtime_contract'] ?? ( $meta['contract'] ?? [] ) );
+		$ownership_verified = self::verified_callback_ownership( (string) ( $ability['provenance']['ownership'] ?? '' ) );
+		$limit       = (int) ( $runtime['runtime_operation_limit'] ?? 0 );
+		$contract    = [
+			'actions'                 => $actions,
+			'responsive_css'          => str_contains( $description, '@media(--breakpoint)' ),
+			'pseudo_states'           => str_contains( $description, '&:hover' ) && str_contains( $description, '&:focus' ) && str_contains( $description, '&:active' ),
+			'runtime_operation_limit' => $limit,
+		];
+		$compatible = false === ( $annotations['readonly'] ?? null )
+			&& true === ( $annotations['destructive'] ?? false )
+			&& array_diff( [ 'update', 'delete' ], $actions ) === [];
+		$certified = $compatible && $ownership_verified && $contract['responsive_css'] && $contract['pseudo_states'] && 20 === $limit;
+		return [
+			'state'    => $certified ? 'certified' : ( $compatible ? 'compatible' : 'discovered' ),
+			'reason'   => $certified ? 'official_contract_certified' : 'upstream_contract_not_certified',
+			'contract' => $contract,
+		];
+	}
+
+	private static function verified_callback_ownership( string $provenance ): bool {
+		return in_array(
+			$provenance,
+			[ 'registration_callback_and_wordpress_plugin_metadata', 'registration_callback_and_plugin_boundary' ],
+			true
+		);
 	}
 
 	/** @param list<array<string,mixed>> $providers */

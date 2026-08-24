@@ -7,6 +7,7 @@ use Elementor\Plugin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\Status as V3Status;
 use Stonewright\WpMcp\Abilities\ElementorV4\Status as V4Status;
+use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\Status
@@ -92,5 +93,20 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertFalse( $result['v4_write_ready'] );
 		self::assertSame( 'blocked-v4', $result['recommended_renderer'] );
 		self::assertSame( 'Block V4 writes until Atomic support is available and enabled; never translate a V4 payload to V3 implicitly.', $result['agent_action'] );
+	}
+
+	public function test_v3_status_includes_live_provider_policy_without_enabling_writes(): void {
+		$router = new ProviderRouter(
+			static fn(): array => [ 'document_architecture' => 'v4', 'write_target' => 'v4', 'write_blocked' => false ],
+			static fn(): array => [],
+			static fn(): array => [ 'items' => [], 'issues' => [] ],
+			static fn(): array => []
+		);
+
+		$result = ( new V3Status( $router ) )->execute( [] );
+
+		self::assertArrayHasKey( 'provider_discovery', $result );
+		self::assertFalse( $result['provider_discovery']['writes_enabled'] );
+		self::assertSame( 'unsupported', $result['provider_discovery']['native_preferred']['elementor/manage-default-styles']['selection'] );
 	}
 }

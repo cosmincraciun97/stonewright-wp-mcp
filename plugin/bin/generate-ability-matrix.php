@@ -662,6 +662,14 @@ foreach ( $groups as $cat => $rows ) {
 
 $lines[] = '---';
 $lines[] = '';
+$lines[] = '## Native-preferred upstream capabilities';
+$lines[] = '';
+$lines[] = '- `elementor/manage-default-styles`: **native-preferred**, certified only; Stonewright write routing stays disabled until the complete safety closure is available.';
+$lines[] = '';
+$lines[] = 'Certification requires Elementor ownership, the real `readonly` / `destructive` / `idempotent` annotations, update and delete operations, responsive CSS, pseudo-states, and the upstream 20-operation runtime limit.';
+$lines[] = '';
+$lines[] = '---';
+$lines[] = '';
 $lines[] = '## Summary';
 $lines[] = '';
 $lines[] = 'Total abilities registered: **' . $total_abilities . '**';

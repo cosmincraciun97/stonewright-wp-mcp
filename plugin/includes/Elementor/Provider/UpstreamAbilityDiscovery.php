@@ -31,7 +31,8 @@ final class UpstreamAbilityDiscovery {
 				continue;
 			}
 			try {
-				$ownership = RuntimeOwnership::describe( $ability );
+				$callback  = self::execution_callback( $ability );
+				$ownership = RuntimeOwnership::describe_callable( $callback );
 				$raw_meta  = method_exists( $ability, 'get_meta' ) ? $ability->get_meta() : [];
 				$meta      = is_array( $raw_meta ) ? $raw_meta : [];
 				$label     = method_exists( $ability, 'get_label' ) ? (string) $ability->get_label() : $name;
@@ -42,8 +43,9 @@ final class UpstreamAbilityDiscovery {
 				unset( $error );
 				continue;
 			}
-			$plugin    = is_string( $meta['source_plugin'] ?? null ) ? (string) $meta['source_plugin'] : $ownership['source_plugin'];
+			$plugin    = is_string( $meta['source_plugin'] ?? null ) && '' !== trim( (string) $meta['source_plugin'] ) ? (string) $meta['source_plugin'] : $ownership['source_plugin'];
 			$version   = is_string( $meta['source_version'] ?? null ) ? (string) $meta['source_version'] : $ownership['source_version'];
+			$runtime_contract = self::runtime_contract( $callback );
 			$out[] = [
 				'name'           => $name,
 				'label'          => $label,
@@ -57,11 +59,53 @@ final class UpstreamAbilityDiscovery {
 				'provenance'     => [
 					'metadata' => 'upstream_registered_ability',
 					'schema'   => 'upstream_registered_ability',
+					'ownership' => is_string( $meta['source_plugin'] ?? null ) && '' !== trim( (string) $meta['source_plugin'] ) ? 'explicit_registration_metadata' : $ownership['provenance']['ownership'],
 				],
+				'runtime_contract' => $runtime_contract,
 			];
 		}
 		usort( $out, static fn( array $left, array $right ): int => strcmp( (string) $left['name'], (string) $right['name'] ) );
 		return $out;
+	}
+
+	private static function execution_callback( object $ability ): mixed {
+		$reader = \Closure::bind(
+			static function ( object $target ): mixed {
+				return property_exists( $target, 'execute_callback' ) ? $target->execute_callback : null;
+			},
+			null,
+			get_class( $ability )
+		);
+		if ( ! $reader instanceof \Closure ) {
+			return null;
+		}
+		try {
+			return $reader( $ability );
+		} catch ( \Throwable $error ) {
+			unset( $error );
+			return null;
+		}
+	}
+
+	/** @return array<string,mixed> */
+	private static function runtime_contract( mixed $callback ): array {
+		$class = is_array( $callback ) && isset( $callback[0] )
+			? ( is_object( $callback[0] ) ? get_class( $callback[0] ) : ( is_string( $callback[0] ) ? $callback[0] : '' ) )
+			: '';
+		if ( '' === $class || ! class_exists( $class, false ) ) {
+			return [];
+		}
+		try {
+			$reflection = new \ReflectionClass( $class );
+			if ( ! $reflection->hasConstant( 'MAX_BATCH_SIZE' ) ) {
+				return [];
+			}
+			$limit      = $reflection->getConstant( 'MAX_BATCH_SIZE' );
+			return is_int( $limit ) ? [ 'runtime_operation_limit' => $limit ] : [];
+		} catch ( \ReflectionException $error ) {
+			unset( $error );
+			return [];
+		}
 	}
 
 	/** @return array<string,mixed> */

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-22T14:05:26+00:00",
+    "generated_at": "2026-08-24T00:26:21+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2674,6 +2674,20 @@
             }
         },
         {
+            "ability_name": "stonewright/elementor-provider-discovery",
+            "mcp_name": "stonewright-elementor-provider-discovery",
+            "kind": "Read",
+            "input_schema_hash": "53f83ac20d2996185eaff3604ac823df55e9ef696d6ecbf5485fd7f7b176eaa1",
+            "output_schema_hash": "4b0400d6fb59b85aa7ca664245713fb25f71cad92909b414832b846a2ffef127",
+            "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
             "ability_name": "stonewright/elementor-schema",
             "mcp_name": "stonewright-elementor-schema",
             "kind": "Read",
@@ -2972,7 +2986,7 @@
             "mcp_name": "stonewright-elementor-v3-status",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "099b0945c3d8f9529a3536cd9248ae1506ea0a30531b41c445aa22af266b845e",
+            "output_schema_hash": "e6027cfb6ee92c025affcf56ff2d3f8b2f94edd6648cde10e8b5e3f895ac2bff",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,

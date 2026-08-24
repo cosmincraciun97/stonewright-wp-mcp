@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add read-only Elementor provider discovery with ownership, trust, compatibility,
+  certification, Status and Troubleshoot visibility, and certified
+  native-preferred metadata for Elementor default styles.
+
+### Security
+
+- Block MCP startup before adapter creation when release manifests expose
+  conflicting or ABI-incompatible MCP Adapter or Abilities API packages.
+
 ## [1.0.0-beta.11.1] - 2026-08-24
 
 ### Fixed

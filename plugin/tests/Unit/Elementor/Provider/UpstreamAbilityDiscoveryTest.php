@@ -44,4 +44,36 @@ final class UpstreamAbilityDiscoveryTest extends TestCase {
 
 		self::assertSame( [], UpstreamAbilityDiscovery::from_abilities( [ $throwing, $foreign, 'invalid' ] ) );
 	}
+
+	public function test_callback_owner_is_used_instead_of_generic_ability_wrapper(): void {
+		$callback_owner = new ElementorCallbackFixture();
+		$ability = new GenericAbilityFixture( [ $callback_owner, 'execute_guarded' ] );
+
+		$result = UpstreamAbilityDiscovery::from_abilities( [ $ability ] );
+
+		self::assertCount( 1, $result );
+		self::assertSame( ElementorCallbackFixture::class, $result[0]['runtime_class'] );
+		self::assertSame( 'unknown', $result[0]['source_plugin'] );
+		self::assertSame( 'registration_callback', $result[0]['provenance']['ownership'] );
+		self::assertNotSame( GenericAbilityFixture::class, $result[0]['runtime_class'] );
+	}
+}
+
+final class ElementorCallbackFixture {
+	public function execute_guarded( array $input = [] ): array { return $input; }
+}
+
+final class GenericAbilityFixture {
+	/** @var callable */
+	protected $execute_callback;
+	public function __construct( callable $callback ) { $this->execute_callback = $callback; }
+	public function get_name(): string { return 'elementor/manage-default-styles'; }
+	public function get_label(): string { return 'Manage default styles'; }
+	public function get_description(): string { return 'Bulk update/delete with @media(--breakpoint), &:hover, and 20 operations.'; }
+	/** @return array<string,mixed> */
+	public function get_input_schema(): array { return [ 'type' => 'object' ]; }
+	/** @return array<string,mixed> */
+	public function get_output_schema(): array { return [ 'type' => 'object' ]; }
+	/** @return array<string,mixed> */
+	public function get_meta(): array { return [ 'annotations' => [ 'readonly' => false, 'destructive' => true, 'idempotent' => false ] ]; }
 }

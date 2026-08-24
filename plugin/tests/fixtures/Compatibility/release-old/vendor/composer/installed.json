@@ -1,0 +1,5 @@
+{
+  "packages": [
+    {"name": "wordpress/mcp-adapter", "version": "v0.2.9"}
+  ]
+}

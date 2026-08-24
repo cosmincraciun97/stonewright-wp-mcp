@@ -262,6 +262,25 @@ cover CTA, testimonial carousel, chip, and Button-icon output is selected only
 when the live widget/control contract supports the requested settings. Catalog
 presence alone is never availability proof.
 
+The read-only Provider Router reports each live provider as `discovered`,
+`compatible`, or `certified`. Ownership comes from the registered execution
+callback and its plugin boundary, or from explicit upstream source metadata;
+generic ability wrappers are never treated as owners. Third-party providers
+remain untrusted until they have an explicit Stonewright certification. The
+official `elementor/manage-default-styles` ability is native-preferred only
+when its live contract proves update and delete actions, Elementor's real
+write annotations, responsive CSS, pseudo-states, and the 20-operation runtime
+limit. Discovery never routes a write: permission, mode, confirmation token,
+backup, validation, write lock, readback, frontend verification, rollback, and
+audit gates must all exist first.
+
+Before the MCP adapter is instantiated, the compatibility preflight inspects
+the packaged Composer and Jetpack manifests used by installed releases. It
+checks the MCP Adapter, Abilities registry, and Ability class namespaces,
+constructors, methods, signatures, constants, and package versions. Competing
+owners or an incompatible ABI stop boot and appear in Troubleshoot with
+sanitized owner names and remediation instead of filesystem paths.
+
 All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates
 the document, persists it, and proves serialized readback before generated
