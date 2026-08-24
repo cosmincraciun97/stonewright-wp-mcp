@@ -32,9 +32,11 @@ import * as gutenbergValidate from './tools/gutenberg-validate.js';
 import * as agentsMd from './agents-md.js';
 import {
 	appendDirectAudit,
+	directTerminalAuditReceipt,
 	defaultAuditPath,
 	escalateDirectError,
 	noteDirectErrorOccurrence,
+	withDirectAuditReceiptContext,
 } from './audit.js';
 
 const directDispatchContext = new AsyncLocalStorage<{ tool: string; site: string; auditPath: string }>();
@@ -337,8 +339,10 @@ export function maybeAttachTaskStartHint(
 
 function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 	let payload: unknown = data;
+	const dispatch = directDispatchContext.getStore();
+	const tool = meta?.tool ?? dispatch?.tool;
 	if (
-		meta?.tool &&
+		tool &&
 		payload &&
 		typeof payload === 'object' &&
 		(payload as { ok?: unknown }).ok === false
@@ -346,9 +350,23 @@ function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 		const row = payload as { ok: false; error?: string; message?: string; [key: string]: unknown };
 		const error = String(row.error ?? 'error');
 		const message = String(row.message ?? row.error ?? 'error');
-		const count = noteDirectErrorOccurrence(meta.tool, error, message);
+		if (!directTerminalAuditReceipt()) {
+			try {
+				appendDirectAudit({
+					tool,
+					site: dispatch?.site ?? meta?.site ?? '_global',
+					status: 'error',
+					code: error,
+					error: message.slice(0, 200),
+					payload: { code: error, message: message.slice(0, 200) },
+				}, dispatch?.auditPath ?? defaultAuditPath());
+			} catch {
+				// best-effort audit
+			}
+		}
+		const count = noteDirectErrorOccurrence(tool, error, message);
 		payload = escalateDirectError(
-			meta.tool,
+			tool,
 			{ ...row, ok: false, error, message },
 			count,
 		);
@@ -380,7 +398,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 			: err instanceof WpRestError
 			? String(err.toJSON().code ?? 'wp_rest_error')
 			: 'error';
-	if (blocked || meta?.tool || dispatch) {
+	if ((blocked || meta?.tool || dispatch) && !directTerminalAuditReceipt()) {
 		try {
 			appendDirectAudit({
 				tool,
@@ -492,10 +510,10 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
 				? String((input as { site: string }).site)
 				: '_global';
-			return directDispatchContext.run(
+			return withDirectAuditReceiptContext(() => directDispatchContext.run(
 				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
 				() => (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args),
-			);
+			));
 		}) as RegisteredTool['handler'];
 		const existing = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })
 			._registeredTools?.[name];

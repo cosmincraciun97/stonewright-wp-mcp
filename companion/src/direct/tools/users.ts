@@ -229,6 +229,14 @@ export async function appPasswordCreate(
   input: { user_id: number; name: string; confirm?: boolean | undefined },
 ) {
   assertToolEnabled(ctx.site, "stonewright-app-password-create");
+  assertWriteAllowed({
+    site: ctx.site.alias,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-app-password-create",
+    env: ctx.env ?? process.env,
+  });
   requireConfirm(input.confirm, "stonewright-app-password-create", ctx.site.alias);
   const created = await ctx.client.post<AppPassword>(
     `/wp/v2/users/${input.user_id}/application-passwords`,

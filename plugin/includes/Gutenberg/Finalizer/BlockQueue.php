@@ -1355,7 +1355,17 @@ final class BlockQueue {
 				is_string( $encoded ) ? $bytes : 0
 			);
 		}
-		update_option( self::OPTION, $payload, false );
+		$saved = update_option( self::OPTION, $payload, false );
+		if ( ! $saved && get_option( self::OPTION, null ) !== $payload ) {
+			return new \WP_Error(
+				'stonewright_finalizer_persistence_failed',
+				__( 'The block finalizer queue could not be persisted.', 'stonewright' ),
+				[
+					'status'    => 500,
+					'retryable' => true,
+				]
+			);
+		}
 		return true;
 	}
 

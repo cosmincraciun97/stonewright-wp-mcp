@@ -1,5 +1,6 @@
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DirectIncidentStore, directIncidentFingerprint } from './incidents.js';
@@ -76,6 +77,20 @@ const LOCK_ATTEMPTS = 500;
 const MARKER_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MARKER_INDEX_MAX_ENTRIES = 1000;
 
+type DirectAuditReceiptContext = {
+	terminalReceipt?: PersistedDirectAuditEntry;
+};
+
+const directAuditReceiptContext = new AsyncLocalStorage<DirectAuditReceiptContext>();
+
+export function withDirectAuditReceiptContext<T>(operation: () => T): T {
+	return directAuditReceiptContext.run({}, operation);
+}
+
+export function directTerminalAuditReceipt(): PersistedDirectAuditEntry | null {
+	return directAuditReceiptContext.getStore()?.terminalReceipt ?? null;
+}
+
 export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
 	const override = (env['STONEWRIGHT_STATE_DIR'] ?? '').trim();
 	if (override) {
@@ -111,7 +126,12 @@ export function appendDirectAudit(
 	if (process.platform !== 'win32') {
 		chmodSync(dir, 0o700);
 	}
-	return withAuditLock(path, () => appendDirectAuditUnlocked(entry, path, rotation));
+	const receipt = withAuditLock(path, () => appendDirectAuditUnlocked(entry, path, rotation));
+	if (receipt['terminal'] === true) {
+		const context = directAuditReceiptContext.getStore();
+		if (context) context.terminalReceipt = receipt;
+	}
+	return receipt;
 }
 
 function appendDirectAuditUnlocked(
@@ -250,13 +270,17 @@ function appendDirectAuditUnlocked(
 		throw error;
 	}
 	if (markerPath) {
+		let markerTemp = '';
 		try {
-			const markerTemp = `${markerPath}.${randomUUID()}.tmp`;
+			markerTemp = `${markerPath}.${randomUUID()}.tmp`;
 			writeFileSync(markerTemp, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
 			renameSync(markerTemp, markerPath);
 		} catch {
 			// The append is authoritative. Keep the exclusive marker so a replay
 			// cannot create a second terminal row after a receipt-write failure.
+			if (markerTemp && existsSync(markerTemp)) {
+				try { unlinkSync(markerTemp); } catch { /* bounded cleanup retries on the next append */ }
+			}
 		}
 	}
 	if (process.platform !== 'win32') {
@@ -378,17 +402,20 @@ function recoverDirectAuditRotation(path: string, maxFiles: number): DirectAudit
 
 function withAuditLock<T>(path: string, operation: () => T): T {
 	const lockPath = `${path}.lock`;
+	const token = randomUUID();
+	const lockContents = `${JSON.stringify({ pid: process.pid, created_at: Date.now(), token })}\n`;
 	let acquired = false;
 	for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
 		try {
-			writeFileSync(lockPath, `${JSON.stringify({ pid: process.pid, created_at: Date.now() })}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+			writeFileSync(lockPath, lockContents, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
 			acquired = true;
 			break;
 		} catch (error) {
 			const code = (error as NodeJS.ErrnoException).code;
 			if (code !== 'EEXIST') throw error;
-			if (staleLock(lockPath)) {
-				try { unlinkSync(lockPath); } catch { /* another process recovered it */ }
+			const staleContents = staleLockContents(lockPath);
+			if (staleContents !== null) {
+				unlinkLockIfUnchanged(lockPath, staleContents);
 				continue;
 			}
 			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
@@ -398,33 +425,54 @@ function withAuditLock<T>(path: string, operation: () => T): T {
 	try {
 		return operation();
 	} finally {
-		try { unlinkSync(lockPath); } catch { /* a crashed/recovered owner may already remove it */ }
+		unlinkLockIfUnchanged(lockPath, lockContents);
 	}
 }
 
-function staleLock(lockPath: string): boolean {
+function staleLockContents(lockPath: string): string | null {
 	let modifiedAt = 0;
 	try {
 		const stat = statSync(lockPath);
 		modifiedAt = stat.mtimeMs;
-		const parsed = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: number };
+		const contents = readFileSync(lockPath, 'utf8');
+		let parsed: { pid?: number };
+		try {
+			parsed = JSON.parse(contents) as { pid?: number };
+		} catch {
+			return Date.now() - modifiedAt > LOCK_STALE_MS ? contents : null;
+		}
 		if (Number.isInteger(parsed.pid) && Number(parsed.pid) > 0) {
 			try {
 				process.kill(Number(parsed.pid), 0);
-				return false;
+				return null;
 			} catch {
-				return true;
+				return contents;
 			}
 		}
-		return Date.now() - modifiedAt > LOCK_STALE_MS;
+		return Date.now() - modifiedAt > LOCK_STALE_MS ? contents : null;
 	} catch {
-		return modifiedAt > 0 && Date.now() - modifiedAt > LOCK_STALE_MS;
+		return null;
+	}
+}
+
+function unlinkLockIfUnchanged(lockPath: string, observedContents: string): boolean {
+	try {
+		if (readFileSync(lockPath, 'utf8') !== observedContents) return false;
+		unlinkSync(lockPath);
+		return true;
+	} catch {
+		return false;
 	}
 }
 
 function compactMarkerIndex(markerDir: string, maxEntries: number): void {
 	const now = Date.now();
-	const markers = readdirSync(markerDir)
+	const entries = readdirSync(markerDir);
+	for (const name of entries) {
+		if (!/^[a-f0-9]{64}\.[a-f0-9-]+\.tmp$/.test(name)) continue;
+		try { unlinkSync(join(markerDir, name)); } catch { /* another cleanup may remove it */ }
+	}
+	const markers = entries
 		.filter((name) => /^[a-f0-9]{64}$/.test(name))
 		.map((name) => {
 			try {

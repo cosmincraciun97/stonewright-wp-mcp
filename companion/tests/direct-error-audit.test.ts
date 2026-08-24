@@ -396,6 +396,37 @@ describe('direct error audit', () => {
 		}
 	});
 
+	it('cleans interrupted marker receipt replacements and keeps the marker directory bounded', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		appendDirectAudit({
+			tool: 'stonewright-bootstrap',
+			site: 'site-a',
+			status: 'ok',
+			idempotencyKey: 'bootstrap-temp-cleanup',
+		}, path);
+		const markerDir = join(stateDir, '.audit-idempotency');
+		for (let index = 0; index < 70; index += 1) {
+			const marker = index.toString(16).padStart(64, '0');
+			const suffix = index.toString(16).padStart(12, '0');
+			writeFileSync(
+				join(markerDir, `${marker}.00000000-0000-4000-8000-${suffix}.tmp`),
+				'{"state":"interrupted"}\n',
+				{ mode: 0o600 },
+			);
+		}
+
+		appendDirectAudit({
+			tool: 'stonewright-content-get',
+			site: 'site-a',
+			status: 'ok',
+			idempotencyKey: 'after-interrupted-replacement',
+		}, path);
+
+		const entries = readdirSync(markerDir);
+		expect(entries.filter((name) => name.endsWith('.tmp'))).toHaveLength(0);
+		expect(entries.length).toBeLessThanOrEqual(1000);
+	});
+
 	it('serializes concurrent rotation without losing or corrupting appends', async () => {
 		const path = join(stateDir, 'audit-direct.jsonl');
 		const fixture = join(process.cwd(), 'tests', 'fixtures', 'direct-audit-writer.ts');
@@ -472,6 +503,7 @@ describe('direct error audit', () => {
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],
 			['stonewright-plugin-delete', { plugin: 'synthetic/plugin', confirm: true }],
 			['stonewright-user-delete', { id: 9, reassign: 1, confirm: true }],
+			['stonewright-app-password-create', { user_id: 9, name: 'synthetic-client', confirm: true }],
 			['stonewright-app-password-revoke', { user_id: 9, uuid: 'synthetic-uuid', confirm: true }],
 			['stonewright-skill-delete', { slug: 'synthetic-skill', confirm: true }],
 		];
@@ -505,6 +537,7 @@ describe('direct error audit', () => {
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],
 			['stonewright-plugin-delete', { plugin: 'synthetic/plugin', confirm: true }],
 			['stonewright-user-delete', { id: 9, reassign: 1, confirm: true }],
+			['stonewright-app-password-create', { user_id: 9, name: 'synthetic-client', confirm: true }],
 			['stonewright-app-password-revoke', { user_id: 9, uuid: 'synthetic-uuid', confirm: true }],
 			['stonewright-skill-delete', { slug: 'synthetic-skill', confirm: true }],
 		];
@@ -542,6 +575,85 @@ describe('direct error audit', () => {
 			category: 'READ',
 			outcome: 'FAILED',
 		});
+	});
+
+	it('audits one Elementor-style structured read failure and opens one incident', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct', STONEWRIGHT_MCP_TOOL_PROFILE: 'full', STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
+				STONEWRIGHT_WP_CLI_BIN: join(stateDir, 'missing-wp-cli'), STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY: '1',
+			},
+			fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ code: 'rest_post_invalid_id', message: 'Synthetic missing document', data: { status: 404 } }), {
+				status: 404,
+				headers: { 'content-type': 'application/json' },
+			})),
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ content: Array<{ text: string }> }> }> })._registeredTools ?? {};
+		const result = await tools['stonewright-elementor-data-get']?.handler?.({ post_id: 42 });
+		const payload = JSON.parse(result?.content[0]?.text ?? '{}') as Record<string, unknown>;
+
+		expect(payload).toMatchObject({ ok: false });
+		const rows = readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			tool: 'stonewright-elementor-data-get',
+			status: 'error',
+			category: 'READ',
+			outcome: 'FAILED',
+		});
+		const incidentDir = join(stateDir, 'incidents');
+		expect(readdirSync(incidentDir).filter((name) => name.endsWith('.json'))).toHaveLength(1);
+	});
+
+	it('audits a structured read failure through the registry dispatch context when wrapper metadata is omitted', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct', STONEWRIGHT_MCP_TOOL_PROFILE: 'full', STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
+			},
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ content: Array<{ text: string }> }> }> })._registeredTools ?? {};
+		const result = await tools['stonewright-blueprint-get']?.handler?.({ id: 'missing-synthetic-blueprint' });
+		const payload = JSON.parse(result?.content[0]?.text ?? '{}') as Record<string, unknown>;
+
+		expect(payload).toMatchObject({ ok: false, error: 'not_found' });
+		expect(readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1);
+	});
+
+	it('persists one terminal audit row for one failed Direct write', async () => {
+		const originalStateDir = process.env.STONEWRIGHT_STATE_DIR;
+		const originalTaskGate = process.env.STONEWRIGHT_DIRECT_REQUIRE_TASK_START;
+		process.env.STONEWRIGHT_STATE_DIR = stateDir;
+		process.env.STONEWRIGHT_DIRECT_REQUIRE_TASK_START = 'off';
+		try {
+			const server = await createMcpServer({
+				env: {
+					STONEWRIGHT_MODE: 'direct', STONEWRIGHT_MCP_TOOL_PROFILE: 'full', STONEWRIGHT_STATE_DIR: stateDir,
+					STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
+					STONEWRIGHT_DIRECT_WRITES: 'on', STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
+				},
+				fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ code: 'rest_write_failed', message: 'Synthetic write failure', data: { status: 500 } }), {
+					status: 500,
+					headers: { 'content-type': 'application/json' },
+				})),
+			});
+			const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+			await tools['stonewright-content-update']?.handler?.({ id: 42, title: 'Synthetic title' });
+
+			const rows = readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
+			expect(rows).toHaveLength(1);
+			expect(rows[0]).toMatchObject({
+				tool: 'stonewright-content-update',
+				status: 'error',
+				terminal: true,
+			});
+		} finally {
+			if (originalStateDir === undefined) delete process.env.STONEWRIGHT_STATE_DIR;
+			else process.env.STONEWRIGHT_STATE_DIR = originalStateDir;
+			if (originalTaskGate === undefined) delete process.env.STONEWRIGHT_DIRECT_REQUIRE_TASK_START;
+			else process.env.STONEWRIGHT_DIRECT_REQUIRE_TASK_START = originalTaskGate;
+		}
 	});
 
 	it('recovers an interrupted age rotation exactly once before appending', () => {

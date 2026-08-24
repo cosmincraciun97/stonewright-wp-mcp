@@ -35,7 +35,19 @@ final class BlockQueueTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_user_logged_in']  = false;
-		unset( $GLOBALS['stonewright_test_filters'], $GLOBALS['stonewright_test_queue_writes'], $GLOBALS['stonewright_test_user_can_callback'] );
+		unset( $GLOBALS['stonewright_test_filters'], $GLOBALS['stonewright_test_queue_writes'], $GLOBALS['stonewright_test_user_can_callback'], $GLOBALS['stonewright_test_update_option_failures'] );
+	}
+
+	public function test_enqueue_fails_closed_when_queue_option_cannot_be_persisted(): void {
+		$GLOBALS['stonewright_test_update_option_failures'][ BlockQueue::OPTION ] = true;
+
+		$result = BlockQueue::enqueue( $this->card_args( 'Persistence failure' ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_finalizer_persistence_failed', $result->get_error_code() );
+		self::assertSame( 500, (int) ( $result->get_error_data()['status'] ?? 0 ) );
+		self::assertTrue( (bool) ( $result->get_error_data()['retryable'] ?? false ) );
+		self::assertSame( [], get_option( BlockQueue::OPTION, [] ) );
 	}
 
 	public function test_queues_third_party_spec_as_name_attributes_inner_blocks_not_html(): void {
