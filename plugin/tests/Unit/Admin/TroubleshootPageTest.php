@@ -13,8 +13,10 @@ use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
  * @covers \Stonewright\WpMcp\Admin\DiagnosticsPanel
  */
 final class TroubleshootPageTest extends TestCase {
+	private object $original_elementor_instance;
 
 	protected function setUp(): void {
+		$this->original_elementor_instance = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_options']         = [
@@ -28,6 +30,7 @@ final class TroubleshootPageTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->original_elementor_instance;
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_options']         = [];
@@ -168,5 +171,44 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'multiple_incompatible_class_owners', $html );
 		self::assertStringContainsString( 'Deactivate all but one active plugin that loads this symbol', $html );
 		self::assertStringNotContainsString( $fixtures, $html );
+	}
+
+	public function test_render_shows_missing_required_symbols_and_remediation(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => 'Vendor\\AbsentAdapter',
+			'abilities_registry' => 'Vendor\\AbsentRegistry',
+			'ability'            => 'Vendor\\AbsentAbility',
+		];
+		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\AbsentAdapter', [] );
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Vendor\\AbsentAdapter', $html );
+		self::assertStringContainsString( 'Vendor\\AbsentRegistry', $html );
+		self::assertStringContainsString( 'Vendor\\AbsentAbility', $html );
+		self::assertStringContainsString( 'required_symbol_unavailable', $html );
+		self::assertStringContainsString( 'Install or activate the package that provides this required symbol', $html );
+	}
+
+	public function test_render_survives_a_throwing_provider_and_shows_bounded_diagnostics(): void {
+		\Elementor\Plugin::$instance = (object) [
+			'widgets_manager' => new class() {
+				public function get_widget_types( ?string $name = null ): never {
+					unset( $name );
+					throw new \RuntimeException( 'private troubleshoot provider detail' );
+				}
+			},
+		];
+
+		ob_start();
+		TroubleshootPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'provider_discovery_failed', $html );
+		self::assertStringContainsString( 'v3', $html );
+		self::assertStringContainsString( 'RuntimeException', $html );
+		self::assertStringNotContainsString( 'private troubleshoot provider detail', $html );
 	}
 }

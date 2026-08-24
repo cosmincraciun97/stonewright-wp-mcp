@@ -37,6 +37,38 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( [ 'architecture', 'v3', 'atomic', 'abilities' ], $order );
 	}
 
+	public function test_each_throwing_provider_is_isolated_and_surviving_providers_continue(): void {
+		$providers = [ 'v3', 'atomic', 'abilities' ];
+		foreach ( $providers as $throwing ) {
+			$callbacks = [
+				'v3'       => static fn(): array => [ self::v3_widget( 'heading', 'elementor/elementor.php', '3.30.0', 'Elementor\\Widget_Heading', 'core-hash' ) ],
+				'atomic'   => static fn(): array => [ 'items' => [], 'issues' => [] ],
+				'abilities'=> static fn(): array => [],
+			];
+			$callbacks[ $throwing ] = static function () use ( $throwing ): never {
+				throw new \RuntimeException( 'private provider detail for ' . $throwing );
+			};
+			$router = new ProviderRouter(
+				static fn(): array => self::architecture( 'v3' ),
+				$callbacks['v3'],
+				$callbacks['atomic'],
+				$callbacks['abilities']
+			);
+
+			$result = $router->inspect( 42 );
+
+			self::assertSame(
+				[ 'code' => 'provider_discovery_failed', 'provider' => $throwing, 'error_class' => \RuntimeException::class ],
+				$result['issues'][0],
+				$throwing
+			);
+			self::assertStringNotContainsString( 'private provider detail', (string) wp_json_encode( $result ), $throwing );
+			if ( 'v3' !== $throwing ) {
+				self::assertSame( [ 'elementor-core' ], array_column( $result['providers'], 'id' ), $throwing );
+			}
+		}
+	}
+
 	public function test_discovers_official_and_third_party_v3_ownership_from_live_schema_evidence(): void {
 		$router = $this->router(
 			'v3',
@@ -94,7 +126,7 @@ final class ProviderRouterTest extends TestCase {
 		self::assertSame( 'live_elementor_runtime', $provider['capabilities'][0]['provenance']['schema'] );
 	}
 
-	public function test_explicitly_certified_atomic_provider_is_write_eligible(): void {
+	public function test_third_party_atomic_provider_cannot_self_assert_write_certification(): void {
 		$schema = [
 			'atomic_type'            => 'e-certified-card',
 			'kind'                   => 'widget',
@@ -112,10 +144,11 @@ final class ProviderRouterTest extends TestCase {
 		$result = $this->router( 'v4', [], [ 'items' => [ $schema ], 'issues' => [] ] )->inspect();
 		$provider = self::index_by( $result['providers'], 'id' )['plugin:certified-provider'];
 
-		self::assertSame( 'supported', $result['selection']['status'] );
-		self::assertSame( 'trusted', $provider['trust'] );
-		self::assertSame( 'certified', $provider['certification'] );
-		self::assertTrue( $provider['capabilities'][0]['write_eligible'] );
+		self::assertSame( 'unsupported', $result['selection']['status'] );
+		self::assertSame( 'untrusted', $provider['trust'] );
+		self::assertSame( 'discovered', $provider['certification'] );
+		self::assertFalse( $provider['capabilities'][0]['write_eligible'] );
+		self::assertTrue( $provider['read_only'] );
 	}
 
 	public function test_incomplete_or_unknown_provider_evidence_is_unsupported_and_never_guessed(): void {
@@ -226,7 +259,13 @@ final class ProviderRouterTest extends TestCase {
 		$cases['mode_default'] = $ability;
 		$ability = self::authentic_manage_default_styles_ability();
 		$ability['runtime_contract']['runtime_operation_limit'] = 21;
-		$cases['batch_limit'] = $ability;
+		$cases['batch_limit_21'] = $ability;
+		$ability = self::authentic_manage_default_styles_ability();
+		$ability['runtime_contract']['runtime_operation_limit'] = 19;
+		$cases['batch_limit_19'] = $ability;
+		$ability = self::authentic_manage_default_styles_ability();
+		$ability['input_schema']['additionalProperties'] = false;
+		$cases['additional_properties_keyword'] = $ability;
 		$ability = self::authentic_manage_default_styles_ability();
 		$ability['runtime_contract']['class_type'] = 'selector';
 		$cases['class_type'] = $ability;

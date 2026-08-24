@@ -82,7 +82,7 @@ final class TroubleshootPage {
 					<?php
 					$status = sanitize_key( (string) ( $symbol['status'] ?? '' ) );
 					$abi_status = sanitize_key( (string) ( $symbol['abi']['status'] ?? '' ) );
-					if ( 'conflict' !== $status && 'incompatible' !== $abi_status ) {
+					if ( ! in_array( $status, [ 'conflict', 'unavailable' ], true ) && ! in_array( $abi_status, [ 'incompatible', 'unavailable' ], true ) ) {
 						continue;
 					}
 					$class = sanitize_text_field( (string) ( $symbol['class'] ?? 'unknown' ) );
@@ -122,6 +122,7 @@ final class TroubleshootPage {
 	private static function render_elementor_provider_discovery(): void {
 		$report = ( new ProviderRouter() )->inspect( 0, 'auto' );
 		$providers = is_array( $report['providers'] ?? null ) ? $report['providers'] : [];
+		$issues = is_array( $report['issues'] ?? null ) ? array_slice( $report['issues'], 0, 20 ) : [];
 		$preference = is_array( $report['native_preferred']['elementor/manage-default-styles'] ?? null ) ? $report['native_preferred']['elementor/manage-default-styles'] : [];
 		$state = sanitize_key( (string) ( $preference['certification'] ?? 'unsupported' ) );
 		?>
@@ -136,6 +137,24 @@ final class TroubleshootPage {
 					</span>
 				</span>
 			</div>
+			<?php foreach ( $issues as $issue ) : ?>
+				<?php
+				if ( ! is_array( $issue ) ) {
+					continue;
+				}
+				$code = sanitize_key( (string) ( $issue['code'] ?? 'provider_issue' ) );
+				$provider = sanitize_key( (string) ( $issue['provider'] ?? 'runtime' ) );
+				$error_class = sanitize_text_field( (string) ( $issue['error_class'] ?? '' ) );
+				$detail = '' === $error_class ? $provider : $provider . ' — ' . $error_class;
+				?>
+				<div class="sw-diag-card sw-diag-card--error">
+					<span class="sw-diag-card__icon" aria-hidden="true">×</span>
+					<span class="sw-diag-card__body">
+						<strong class="sw-diag-card__label"><?php echo esc_html( $code ); ?></strong>
+						<span class="sw-diag-card__detail"><?php echo esc_html( $detail ); ?></span>
+					</span>
+				</div>
+			<?php endforeach; ?>
 		</section>
 		<?php
 	}

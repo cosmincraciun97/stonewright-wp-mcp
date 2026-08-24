@@ -25,14 +25,12 @@ final class ProviderRouter {
 	/** @return array<string,mixed> */
 	public function inspect( int $post_id = 0, string $requested = 'auto' ): array {
 		$architecture = ( $this->architecture )( $post_id, $requested );
-		$v3           = ( $this->v3 )();
-		$atomic       = ( $this->atomic )();
-		$abilities    = ( $this->abilities )();
-		$v3           = is_array( $v3 ) ? $v3 : [];
-		$atomic       = is_array( $atomic ) ? $atomic : [];
-		$abilities    = is_array( $abilities ) ? $abilities : [];
+		$issues       = [];
+		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues );
+		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues );
+		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues );
 
-		$issues    = is_array( $atomic['issues'] ?? null ) ? array_values( $atomic['issues'] ) : [];
+		$issues    = array_merge( $issues, is_array( $atomic['issues'] ?? null ) ? array_values( $atomic['issues'] ) : [] );
 		$providers = [];
 		foreach ( $v3 as $schema ) {
 			if ( is_array( $schema ) ) {
@@ -112,6 +110,21 @@ final class ProviderRouter {
 			'writes_enabled'   => false,
 			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
+	}
+
+	/** @param array<string,mixed>|list<mixed> $fallback @param list<array<string,string>> $issues @return array<string,mixed>|list<mixed> */
+	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues ): array {
+		try {
+			$result = $callback();
+			return is_array( $result ) ? $result : $fallback;
+		} catch ( \Throwable $error ) {
+			$issues[] = [
+				'code'        => 'provider_discovery_failed',
+				'provider'    => $provider,
+				'error_class' => get_class( $error ),
+			];
+			return $fallback;
+		}
 	}
 
 	/** @return list<array<string,mixed>> */
@@ -210,13 +223,13 @@ final class ProviderRouter {
 		if ( 'elementor-core' !== RuntimeOwnership::provider_id( (string) ( $ability['source_plugin'] ?? ( $meta['source_plugin'] ?? '' ) ) ) ) {
 			$issues[] = 'official_owner_mismatch';
 		}
-		if ( 3 !== count( $annotations ) || false !== ( $annotations['readonly'] ?? null ) || false !== ( $annotations['idempotent'] ?? null ) || true !== ( $annotations['destructive'] ?? null ) ) {
+		if ( self::fingerprint( $annotations ) !== self::fingerprint( [ 'readonly' => false, 'destructive' => true, 'idempotent' => false ] ) ) {
 			$issues[] = 'annotations_mismatch';
 		}
-		if ( ! self::exact_object_schema( $output, [ 'status', 'results' ], [ 'status' => 'string', 'results' => 'array' ] ) ) {
+		if ( self::fingerprint( $output ) !== self::fingerprint( self::manage_default_styles_output_schema() ) ) {
 			$issues[] = 'output_schema_mismatch';
 		}
-		if ( 'object' !== ( $input['type'] ?? null ) || ! self::same_set( (array) ( $input['required'] ?? [] ), [ 'operations' ] ) || [ 'operations' ] !== array_keys( (array) ( $input['properties'] ?? [] ) ) ) {
+		if ( self::fingerprint( $input ) !== self::fingerprint( self::manage_default_styles_input_schema() ) ) {
 			$issues[] = 'input_schema_mismatch';
 		}
 		if ( 'array' !== ( $operations['type'] ?? null ) || 'object' !== ( $item['type'] ?? null ) || ! self::same_set( (array) ( $item['required'] ?? [] ), [ 'action', 'tag' ] ) || ! self::same_set( array_keys( $properties ), [ 'action', 'tag', 'css', 'mode' ] ) ) {
@@ -238,10 +251,10 @@ final class ProviderRouter {
 		if ( ! self::contains_all( (string) ( $operations['description'] ?? '' ), [ '1–20', 'action and tag', 'raw css string', 'site-wide', 'patch = upsert variants', 'replace = overwrite variants', 'delete removes' ] ) ) {
 			$issues[] = 'operation_semantics_mismatch';
 		}
-		if ( ! self::contains_all( (string) ( $ability['description'] ?? '' ), [ 'site-wide default styles', 'html wrapper tag', 'v4 atomic element', 'base_styles', 'inline or global class overrides', 'action=update', 'action=delete', 'raw css string', '@media(--breakpoint)', '&:hover', '&:focus', '&:active' ] ) ) {
+		if ( self::manage_default_styles_description() !== ( $ability['description'] ?? null ) ) {
 			$issues[] = 'ability_semantics_mismatch';
 		}
-		if ( $limit < 1 || $limit > 20 || 'class' !== ( $runtime['class_type'] ?? null ) ) {
+		if ( 20 !== $limit || self::fingerprint( $runtime ) !== self::fingerprint( [ 'runtime_operation_limit' => 20, 'class_type' => 'class' ] ) ) {
 			$issues[] = 'runtime_constants_mismatch';
 		}
 		if ( ! $ownership_verified ) {
@@ -260,6 +273,57 @@ final class ProviderRouter {
 			'state'    => $certified ? 'certified' : 'rejected',
 			'reason'   => $certified ? 'official_contract_certified' : 'upstream_contract_not_certified',
 			'contract' => $contract,
+		];
+	}
+
+	private static function manage_default_styles_description(): string {
+		return 'Bulk manage the active kit\'s site-wide default styles, keyed by HTML wrapper tag (h1..h6, p, a, section, div, ...). These styles apply to every V4 atomic element that renders that tag on the whole site, sitting on top of each widget\'s built-in base_styles and beneath any inline or global class overrides. Use action=update to upsert (patch or replace) a tag\'s variants via a raw CSS string (supports @media(--breakpoint) + &:hover/&:focus/&:active), and action=delete to remove a tag\'s default style entirely.';
+	}
+
+	/** @return array<string,mixed> */
+	private static function manage_default_styles_input_schema(): array {
+		return [
+			'type' => 'object',
+			'required' => [ 'operations' ],
+			'properties' => [
+				'operations' => [
+					'type' => 'array',
+					'description' => 'Bulk operations (1–20). Each item requires action and tag. update needs css (raw CSS string, same format as manage-classes) and applies site-wide to that HTML tag. Use mode to control merge behaviour on update (patch = upsert variants, replace = overwrite variants for the affected breakpoints). delete removes the tag\'s default style entirely.',
+					'items' => [
+						'type' => 'object',
+						'required' => [ 'action', 'tag' ],
+						'properties' => [
+							'action' => [ 'type' => 'string', 'enum' => [ 'update', 'delete' ] ],
+							'tag' => [
+								'type' => 'string',
+								'description' => 'HTML wrapper tag to target (e.g. h1, h2, p, a). Must be one of Elementor\'s allowed wrapper tags.',
+							],
+							'css' => [
+								'type' => 'string',
+								'description' => 'Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: "prop: null" removes that prop; "all: null" wipes the variant.',
+							],
+							'mode' => [
+								'type' => 'string',
+								'enum' => [ 'patch', 'replace' ],
+								'default' => 'patch',
+								'description' => 'patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect.',
+							],
+						],
+					],
+				],
+			],
+		];
+	}
+
+	/** @return array<string,mixed> */
+	private static function manage_default_styles_output_schema(): array {
+		return [
+			'type' => 'object',
+			'required' => [ 'status', 'results' ],
+			'properties' => [
+				'status' => [ 'type' => 'string' ],
+				'results' => [ 'type' => 'array' ],
+			],
 		];
 	}
 

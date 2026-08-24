@@ -255,7 +255,7 @@ final class UpdateNode extends AbilityKernel {
 				[
 					'status'      => 409,
 					'atomic_type' => $atomic_type,
-					'repair'      => 'Use a bundled schema or explicitly certify the installed provider contract before writing this Atomic type.',
+					'repair'      => 'Use a schema shipped in Stonewright\'s immutable bundled or verified-official authority before writing this Atomic type.',
 				]
 			);
 		}

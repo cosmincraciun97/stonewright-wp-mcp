@@ -176,18 +176,17 @@ final class AtomicRendererTest extends TestCase {
 		self::assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
 	}
 
-	public function test_explicitly_certified_provider_schema_can_render(): void {
+	public function test_filtered_provider_cannot_self_assert_certification_to_render(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
 			$schemas['e-certified-card'] = self::provider_schema( 'CertifiedCard', 'trusted', 'certified' );
 			return $schemas;
 		};
 		AtomicSchemaRepository::invalidate();
 
-		$out = AtomicRenderer::render_node( [ 'type' => 'CertifiedCard', 'props' => [ 'title' => 'Allowed' ] ] );
+		$out = AtomicRenderer::render_node( [ 'type' => 'CertifiedCard', 'props' => [ 'title' => 'Blocked' ] ] );
 
-		self::assertIsArray( $out );
-		self::assertSame( 'e-certified-card', $out['widgetType'] );
-		self::assertSame( 'Allowed', $out['settings']['title']['value'] );
+		self::assertInstanceOf( \WP_Error::class, $out );
+		self::assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
 	}
 
 	public function test_missing_type_field_is_a_structured_error(): void {

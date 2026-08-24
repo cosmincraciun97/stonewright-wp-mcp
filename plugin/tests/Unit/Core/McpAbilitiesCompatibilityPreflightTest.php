@@ -125,6 +125,27 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( [], $result['blocking_reasons'] );
 	}
 
+	public function test_every_missing_required_symbol_blocks_with_reason_and_remediation(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
+			'adapter'            => 'Vendor\\AbsentAdapter',
+			'abilities_registry' => 'Vendor\\AbsentRegistry',
+			'ability'            => 'Vendor\\AbsentAbility',
+		];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\AbsentAdapter', [] );
+
+		self::assertFalse( $result['compatible'] );
+		self::assertSame(
+			[ 'adapter_unavailable', 'abilities_registry_unavailable', 'ability_unavailable' ],
+			$result['blocking_reasons']
+		);
+		foreach ( [ $result['adapter'], $result['abilities']['registry'], $result['abilities']['ability'] ] as $symbol ) {
+			self::assertSame( 'unavailable', $symbol['status'] );
+			self::assertSame( 'required_symbol_unavailable', $symbol['reason'] );
+			self::assertNotSame( '', $symbol['remediation'] );
+		}
+	}
+
 	public function test_wordpress_core_abilities_and_guarded_stonewright_fallback_are_compatible(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$GLOBALS['wp_version'] = '6.9.1';

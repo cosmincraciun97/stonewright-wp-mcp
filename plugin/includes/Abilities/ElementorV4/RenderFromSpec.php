@@ -138,6 +138,9 @@ return $gate; }
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
+				}
 
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );

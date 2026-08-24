@@ -48,6 +48,31 @@ final class AtomicFoundationTest extends TestCase {
 		$this->assertSame( 'certified', $grid['provider_certification'] );
 	}
 
+	public function test_self_asserted_filtered_schema_cannot_enter_renderer_path(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-self-certified'] = [
+				'kind'                   => 'widget',
+				'design_types'           => [ 'SelfCertified' ],
+				'version'                => '0.0',
+				'props'                  => [ 'text' => [ 'key' => 'text', 'type' => 'html-v3' ] ],
+				'source'                 => 'live_runtime',
+				'provider_id'            => 'plugin:self-certified',
+				'provider_trust'         => 'trusted',
+				'provider_certification' => 'certified',
+				'provenance'             => [ 'certification' => 'stonewright_explicit_certification' ],
+			];
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$result = AtomicRenderer::render_node( [ 'type' => 'SelfCertified', 'props' => [ 'text' => 'Blocked' ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_v4_unknown_node', $result->get_error_code() );
+		$GLOBALS['stonewright_test_filters'] = [];
+		AtomicSchemaRepository::invalidate();
+	}
+
 	public function test_class_adapter_uses_apply_changes_and_readback(): void {
 		$repo = new class() {
 			public array $items = [];

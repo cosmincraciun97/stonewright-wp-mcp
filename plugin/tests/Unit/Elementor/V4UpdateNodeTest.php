@@ -328,6 +328,47 @@ final class V4UpdateNodeTest extends TestCase {
 		self::assertSame( 'stonewright_atomic_provider_not_certified', $result->get_error_code() );
 	}
 
+	public function test_self_asserted_filtered_certification_cannot_enter_update_path(): void {
+		$tree = json_decode( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'], true );
+		self::assertIsArray( $tree );
+		$tree[0]['elements'][] = [
+			'id'         => 'forged01',
+			'version'    => '0.0',
+			'elType'     => 'widget',
+			'widgetType' => 'e-self-certified',
+			'settings'   => [],
+			'elements'   => [],
+		];
+		$GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] = wp_json_encode( $tree );
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_v4_atomic_schemas'] = static function ( array $schemas ): array {
+			$schemas['e-self-certified'] = [
+				'kind'                   => 'widget',
+				'design_types'           => [ 'SelfCertified' ],
+				'version'                => '0.0',
+				'props'                  => [ 'title' => [ 'key' => 'title', 'type' => 'string' ] ],
+				'source'                 => 'live_runtime',
+				'provider_id'            => 'plugin:self-certified',
+				'provider_trust'         => 'trusted',
+				'provider_certification' => 'certified',
+				'provenance'             => [ 'certification' => 'stonewright_explicit_certification' ],
+			];
+			return $schemas;
+		};
+		AtomicSchemaRepository::invalidate();
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'forged01',
+				'settings'   => [ 'title' => [ '$$type' => 'string', 'value' => 'Blocked' ] ],
+				'dry_run'    => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_atomic_provider_not_certified', $result->get_error_code() );
+	}
+
 	public function test_permission_callback_uses_edit_post_not_return_true(): void {
 		$ability = new UpdateNode();
 		$source  = file_get_contents( (string) ( new \ReflectionClass( UpdateNode::class ) )->getFileName() );

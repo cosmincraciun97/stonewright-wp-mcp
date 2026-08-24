@@ -109,4 +109,33 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertFalse( $result['provider_discovery']['writes_enabled'] );
 		self::assertSame( 'unsupported', $result['provider_discovery']['native_preferred']['elementor/manage-default-styles']['selection'] );
 	}
+
+	public function test_v3_status_survives_a_throwing_provider_and_reports_bounded_diagnostics(): void {
+		$router = new ProviderRouter(
+			static fn(): array => [ 'document_architecture' => 'v3', 'write_target' => 'v3', 'write_blocked' => false ],
+			static fn(): array => [
+				[
+					'widget_type'    => 'heading',
+					'source_plugin'  => 'elementor/elementor.php',
+					'source_version' => '3.30.0',
+					'runtime_class'  => 'Elementor\\Widget_Heading',
+					'schema_hash'    => 'status-hash',
+				],
+			],
+			static function (): never {
+				throw new \RuntimeException( 'private status provider detail' );
+			},
+			static fn(): array => []
+		);
+
+		$result = ( new V3Status( $router ) )->execute( [] );
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'elementor-core' ], array_column( $result['provider_discovery']['providers'], 'id' ) );
+		self::assertSame(
+			[ 'code' => 'provider_discovery_failed', 'provider' => 'atomic', 'error_class' => \RuntimeException::class ],
+			$result['provider_discovery']['issues'][0]
+		);
+		self::assertStringNotContainsString( 'private status provider detail', (string) wp_json_encode( $result ) );
+	}
 }

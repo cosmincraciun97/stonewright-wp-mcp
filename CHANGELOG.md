@@ -19,22 +19,27 @@ development builds were never stable releases.
 
 ### Security
 
-- Block MCP startup before adapter creation when release manifests expose
-  conflicting or ABI-incompatible MCP Adapter or Abilities API packages.
+- Block MCP startup before adapter creation when required MCP Adapter or
+  Abilities API symbols are missing, conflicting, or ABI-incompatible.
 - Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
   fallback as one compatible owner, ignore inactive plugin manifests, validate
   the exact loaded ABI before invocation, and report every blocked symbol with
   its owner, version, reason, and safe remediation.
-- Keep untrusted or uncertified third-party Atomic schemas out of every write
-  validator and mutator; only bundled, verified official, or explicitly
-  certified provider schemas can enter the write repository.
+- Keep third-party Atomic schemas discoverable but read-only, and admit only
+  schemas identical to Stonewright's immutable bundled or verified-official
+  authority into renderers and mutators.
 
 ### Fixed
 
 - Match Elementor's `elementor/manage-default-styles` contract at commit
   `3afafe33b7499b4e8fcb4c684e55111721bb0c96`, including non-idempotent write
   annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
-  constants, and the 20-operation ceiling.
+  constants, and an exact 20-operation runtime limit; reject added schema
+  keywords and every annotation or contract mismatch.
+- Isolate Elementor provider discovery failures so Status and Troubleshoot
+  retain surviving providers and expose only bounded diagnostics.
+- Abort Elementor V4 spec rendering before mutation when the required backup
+  snapshot cannot be verified.
 - Resolve runtime ownership from active plugin main files and safe plugin
   headers even when the main filename differs from its folder in REST/MCP
   requests.

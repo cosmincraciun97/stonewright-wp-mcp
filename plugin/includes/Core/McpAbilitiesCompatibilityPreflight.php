@@ -24,8 +24,9 @@ final class McpAbilitiesCompatibilityPreflight {
 		foreach ( [ 'adapter' => $adapter, 'abilities_registry' => $registry, 'ability' => $ability ] as $role => $symbol ) {
 			if ( 'conflict' === ( $symbol['status'] ?? '' ) ) {
 				$blocking[] = $role . '_multiple_owners';
-			}
-			if ( 'incompatible' === ( $symbol['abi']['status'] ?? '' ) ) {
+			} elseif ( 'unavailable' === ( $symbol['status'] ?? '' ) || 'unavailable' === ( $symbol['abi']['status'] ?? '' ) ) {
+				$blocking[] = $role . '_unavailable';
+			} elseif ( 'incompatible' === ( $symbol['abi']['status'] ?? '' ) ) {
 				$blocking[] = $role . '_abi_incompatible';
 			}
 		}
@@ -112,10 +113,12 @@ final class McpAbilitiesCompatibilityPreflight {
 		$active_paths = array_values( array_unique( $active_paths ) );
 		$status = count( $active_paths ) > 1 ? 'conflict' : ( $loaded ? 'loaded' : ( 1 === count( $active_paths ) || $core_owned ? 'available' : 'unavailable' ) );
 		$abi = 'conflict' === $status ? [ 'status' => 'not_checked', 'issues' => [ 'multiple_owners' ], 'version' => '' ] : self::inspect_abi( $role, $class, $ability_class, $packages, $core_owned );
-		$reason = 'conflict' === $status ? 'multiple_incompatible_class_owners' : ( 'incompatible' === $abi['status'] ? 'runtime_abi_incompatible' : null );
+		$reason = 'conflict' === $status ? 'multiple_incompatible_class_owners' : ( 'unavailable' === $status || 'unavailable' === $abi['status'] ? 'required_symbol_unavailable' : ( 'incompatible' === $abi['status'] ? 'runtime_abi_incompatible' : null ) );
 		$remediation = null;
 		if ( 'conflict' === $status ) {
 			$remediation = 'Deactivate all but one active plugin that loads this symbol, then reload WordPress and rerun diagnostics.';
+		} elseif ( 'unavailable' === $status || 'unavailable' === $abi['status'] ) {
+			$remediation = 'Install or activate the package that provides this required symbol, reload WordPress, and rerun diagnostics.';
 		} elseif ( 'incompatible' === $abi['status'] ) {
 			$remediation = 'Update or deactivate the incompatible active owner; do not bypass the ABI check. Reload WordPress and rerun diagnostics.';
 		}

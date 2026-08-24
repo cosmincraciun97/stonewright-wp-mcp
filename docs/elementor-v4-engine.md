@@ -10,10 +10,11 @@ The repository starts with a small verified core and expands it from the active
 Elementor runtime. Runtime discovery reads every registered `e-*` layout and
 widget, calls its public `get_props_schema()` API, and stores the compact JSON
 schema with an exact fingerprint. Discovery is inventory, not write authority:
-third-party schemas remain read-only until Stonewright explicitly certifies the
-provider, version, provenance, and contract. Every renderer, validator, and
-mutator reads the same write-safe repository, which admits only bundled,
-verified official, or explicitly certified schemas.
+third-party schemas remain read-only unless a future Stonewright release ships
+their exact provider, version, provenance, and contract in its immutable
+authority. Every renderer, validator, and mutator reads the same write-safe
+repository, which currently admits only bundled or verified-official schemas
+that remain byte-for-contract identical after filters run.
 
 The bundled structures are based on Elementor's official documentation for
 [Atomic elements](https://developers.elementor.com/docs/data-structure/atomic-elements/index.html),

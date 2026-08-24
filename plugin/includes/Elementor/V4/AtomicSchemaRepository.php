@@ -28,7 +28,7 @@ final class AtomicSchemaRepository {
 			return self::$schemas;
 		}
 
-		$schemas = [
+		$bundled = [
 			'e-div-block' => self::layout( 'Div', [] ),
 			'e-flexbox'   => self::layout( 'Container', [ 'direction' => 'string', 'gap' => 'size' ] ),
 			'e-grid'      => self::layout( 'Grid', [ 'columns' => 'string', 'rows' => 'string', 'gap' => 'size' ] ),
@@ -41,7 +41,14 @@ final class AtomicSchemaRepository {
 		];
 
 		$runtime = self::runtime_discovery();
-		$schemas = array_replace( $schemas, self::index_runtime_items( $runtime['items'] ) );
+		$runtime_schemas = self::index_runtime_items( $runtime['items'] );
+		$schemas = array_replace( $bundled, $runtime_schemas );
+		$authority = $bundled;
+		foreach ( $runtime_schemas as $type => $schema ) {
+			if ( self::is_write_certified( $schema ) ) {
+				$authority[ $type ] = $schema;
+			}
+		}
 
 		/**
 		 * Supplies schemas discovered from the installed Elementor runtime.
@@ -50,7 +57,7 @@ final class AtomicSchemaRepository {
 		 * @param array<string, array<string, mixed>> $schemas
 		 */
 		$filtered = apply_filters( 'stonewright_elementor_v4_atomic_schemas', $schemas );
-		self::$schemas = is_array( $filtered ) ? self::sanitize_schemas( $filtered ) : $schemas;
+		self::$schemas = self::sanitize_schemas( is_array( $filtered ) ? $filtered : $schemas, $authority );
 
 		return self::$schemas;
 	}
@@ -101,16 +108,13 @@ final class AtomicSchemaRepository {
 		$official_runtime = in_array( $provider, [ 'elementor-core', 'elementor-pro' ], true )
 			&& in_array( $ownership_evidence, [ 'active_plugin_header', 'active_plugin_boundary' ], true )
 			&& 'live_runtime' === ( $evidence['source'] ?? null );
-		$explicit = 'trusted' === ( $evidence['provider_trust'] ?? null )
-			&& 'certified' === ( $evidence['provider_certification'] ?? null )
-			&& 'stonewright_explicit_certification' === $certification_evidence;
-		$eligible = $bundled || $official_runtime || $explicit;
+		$eligible = $bundled || $official_runtime;
 
 		return [
-			'trust'         => $eligible ? 'trusted' : (string) ( $evidence['provider_trust'] ?? 'untrusted' ),
-			'certification' => $eligible ? 'certified' : (string) ( $evidence['provider_certification'] ?? 'discovered' ),
+			'trust'         => $eligible ? 'trusted' : 'untrusted',
+			'certification' => $eligible ? 'certified' : 'discovered',
 			'write_eligible' => $eligible,
-			'reason'        => $bundled ? 'bundled_contract' : ( $official_runtime ? 'verified_official_runtime' : ( $explicit ? 'explicit_provider_certification' : 'provider_not_certified' ) ),
+			'reason'        => $bundled ? 'bundled_contract' : ( $official_runtime ? 'verified_official_runtime' : 'provider_not_certified' ),
 		];
 	}
 
@@ -285,10 +289,11 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
-	 * @param array<string, mixed> $schemas
+	 * @param array<string, mixed>                $schemas
+	 * @param array<string, array<string, mixed>> $authority
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function sanitize_schemas( array $schemas ): array {
+	private static function sanitize_schemas( array $schemas, array $authority ): array {
 		$out = [];
 		foreach ( $schemas as $type => $schema ) {
 			if ( ! is_string( $type ) || ! str_starts_with( $type, 'e-' ) || ! is_array( $schema ) ) {
@@ -297,10 +302,11 @@ final class AtomicSchemaRepository {
 			if ( ! in_array( $schema['kind'] ?? '', [ 'layout', 'widget' ], true ) || empty( $schema['version'] ) || ! isset( $schema['props'] ) || ! is_array( $schema['props'] ) ) {
 				continue;
 			}
-			$policy = self::provider_policy( $schema );
-			if ( ! $policy['write_eligible'] ) {
+			$certified = $authority[ $type ] ?? null;
+			if ( ! is_array( $certified ) || self::canonicalize( $schema ) !== self::canonicalize( $certified ) ) {
 				continue;
 			}
+			$policy = self::provider_policy( $certified );
 			$schema['provider_trust'] = $policy['trust'];
 			$schema['provider_certification'] = $policy['certification'];
 			$schema['write_eligible'] = true;
