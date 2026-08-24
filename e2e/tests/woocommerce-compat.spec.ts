@@ -54,7 +54,20 @@ test('Stonewright and WooCommerce activate together without an autoloader fatal'
 	const restIndex = await page.request.get('/wp-json/');
 	expect(restIndex.ok()).toBe(true);
 	const body = (await restIndex.json()) as { routes?: Record<string, unknown> };
-	expect(body.routes).toHaveProperty('/mcp/stonewright');
+	let compatibilityDiagnostics = '';
+	if (!Object.hasOwn(body.routes ?? {}, '/mcp/stonewright')) {
+		await page.goto('/wp-admin/admin.php?page=stonewright-troubleshoot', {
+			waitUntil: 'domcontentloaded',
+		});
+		compatibilityDiagnostics = await page
+			.locator('section[aria-label="MCP runtime compatibility"]')
+			.innerText()
+			.catch(() => 'Compatibility diagnostics were unavailable.');
+	}
+	expect(
+		body.routes,
+		`Stonewright MCP route missing. ${compatibilityDiagnostics}`,
+	).toHaveProperty('/mcp/stonewright');
 });
 
 test('native WooCommerce catalog save verifies readback and cleans up', async ({
