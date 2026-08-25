@@ -1581,6 +1581,10 @@ export class WordPressMcpClient {
 			if (error instanceof PluginTransportError) {
 				throw error;
 			}
+			// Preserve OAuth manager/storage failures instead of masking them as transport noise.
+			if (error instanceof Error && /oauth/i.test(error.message)) {
+				throw error;
+			}
 			const diagnostic = classifyTransportFailure(error, {
 				phase,
 				attempt,
