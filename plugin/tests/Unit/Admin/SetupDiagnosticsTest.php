@@ -34,6 +34,8 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 
 		self::assertArrayHasKey( 'ready', $report );
+		self::assertArrayHasKey( 'method', $report );
+		self::assertArrayHasKey( 'counts', $report );
 		self::assertGreaterThanOrEqual( 11, count( $report['checks'] ) );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'connection' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'endpoint' )['status'] );
@@ -46,6 +48,24 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( '0.0.0-test', $report['versions']['plugin'] );
 		self::assertSame( '1.0.0', $report['versions']['companion_contract'] );
 		self::assertLessThanOrEqual( 30, $report['versions']['tool_count'] );
+		self::assertArrayHasKey( 'problem', $report['counts'] );
+		self::assertArrayHasKey( 'skipped', $report['counts'] );
+		self::assertSame( 0, $report['counts']['skipped'] );
+	}
+
+	public function test_disabled_plugin_skips_dependent_connection_checks(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = false;
+
+		$report = SetupDiagnostics::report();
+		$plugin = $this->find_check( $report['checks'], 'plugin' );
+		$connection = $this->find_check( $report['checks'], 'connection' );
+
+		self::assertFalse( $report['ready'] );
+		self::assertSame( 'problem', $plugin['status'] );
+		self::assertSame( 'skipped', $connection['status'] );
+		self::assertStringContainsString( 'plugin', (string) ( $connection['summary'] ?? $connection['detail'] ?? '' ) );
+		self::assertGreaterThanOrEqual( 1, $report['counts']['problem'] );
+		self::assertGreaterThanOrEqual( 1, $report['counts']['skipped'] );
 	}
 
 	public function test_tool_budget_passes_at_essential_maximum(): void {
@@ -71,8 +91,8 @@ final class SetupDiagnosticsTest extends TestCase {
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
 		self::assertSame( 32, $report['versions']['tool_count'] );
-		self::assertSame( 'warn', $budget['status'] );
-		self::assertStringContainsString( 'essential', strtolower( (string) $budget['detail'] ) );
+		self::assertSame( 'warning', $budget['status'] );
+		self::assertStringContainsString( 'essential', strtolower( (string) ( $budget['summary'] ?? $budget['detail'] ?? '' ) ) );
 	}
 
 	public function test_tool_budget_is_info_when_full_surface_is_selected(): void {
@@ -87,7 +107,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( 'info', $budget['status'] );
 		self::assertSame(
 			sprintf( 'Full surface selected — %d tools. Compact profiles reduce agent token cost.', $count ),
-			$budget['detail']
+			(string) ( $budget['summary'] ?? $budget['detail'] ?? '' )
 		);
 	}
 
@@ -116,7 +136,7 @@ final class SetupDiagnosticsTest extends TestCase {
 				$configured_count,
 				$session_count
 			),
-			$card['detail']
+			(string) ( $card['summary'] ?? $card['detail'] ?? '' )
 		);
 		self::assertSame( $configured_count, $report['versions']['tool_count'] );
 	}
@@ -142,10 +162,10 @@ final class SetupDiagnosticsTest extends TestCase {
 		$probe = $this->find_check( $report['checks'], 'connection_probe' );
 		$waf   = $this->find_check( $report['checks'], 'waf' );
 
-		self::assertSame( 'error', $probe['status'] );
-		self::assertSame( 'error', $waf['status'] );
-		self::assertStringContainsString( 'example.test', $probe['detail'] );
-		self::assertStringNotContainsString( 'wp.test', $probe['detail'] );
+		self::assertSame( 'problem', $probe['status'] );
+		self::assertSame( 'problem', $waf['status'] );
+		self::assertStringContainsString( 'example.test', (string) ( $probe['summary'] ?? $probe['detail'] ?? '' ) );
+		self::assertStringNotContainsString( 'wp.test', (string) ( $probe['summary'] ?? $probe['detail'] ?? '' ) );
 	}
 
 	public function test_bot_filter_probe_warns_on_user_agent_403_with_hosting_ticket(): void {
@@ -181,13 +201,13 @@ final class SetupDiagnosticsTest extends TestCase {
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
 		self::assertSame( [ 'python-httpx', 'node', 'Go-http-client' ], $uas );
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertArrayHasKey( 'ticket', $bot );
-		self::assertStringContainsString( 'example.test', (string) $bot['ticket'] );
-		self::assertStringContainsString( 'python-httpx', (string) $bot['ticket'] );
-		self::assertStringContainsString( 'User-Agent', (string) $bot['ticket'] );
-		self::assertStringNotContainsString( 'Novamira', (string) $bot['ticket'] );
-		self::assertStringNotContainsString( 'wp.test', (string) $bot['ticket'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertNotSame( '', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'example.test', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'python-httpx', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'User-Agent', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringNotContainsString( 'Novamira', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringNotContainsString( 'wp.test', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
 	}
 
 	public function test_oauth_registration_probe_warns_with_timeout_error_string(): void {
@@ -222,8 +242,8 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertCount( 1, $posts );
 		self::assertStringContainsString( 'oauth/register', (string) $posts[0]['url'] );
 		self::assertSame( 5, (int) $posts[0]['timeout'] );
-		self::assertSame( 'warn', $oauth['status'] );
-		self::assertStringContainsString( 'cURL error 28: Connection timed out after 5001 milliseconds', (string) $oauth['detail'] );
+		self::assertSame( 'warning', $oauth['status'] );
+		self::assertStringContainsString( 'cURL error 28: Connection timed out after 5001 milliseconds', (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
 	}
 
 	public function test_oauth_registration_probe_sets_self_test_transient_and_header_before_post(): void {
@@ -302,9 +322,9 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
 
-		self::assertSame( 'warn', $oauth['status'] );
-		self::assertStringContainsString( (string) $code, (string) $oauth['detail'] );
-		self::assertStringContainsString( $body, (string) $oauth['detail'] );
+		self::assertSame( 'warning', $oauth['status'] );
+		self::assertStringContainsString( (string) $code, (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
+		self::assertStringContainsString( $body, (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
 	}
 
 	/**
@@ -342,11 +362,11 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertStringContainsString( $error, (string) $bot['detail'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertStringContainsString( $error, (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
 		self::assertStringNotContainsString(
 			'reached the MCP endpoint without a 403/406 block',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
 		);
 	}
 
@@ -377,12 +397,12 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertStringContainsString( '502', (string) $bot['detail'] );
-		self::assertStringContainsString( 'Bad Gateway', (string) $bot['detail'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertStringContainsString( '502', (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
+		self::assertStringContainsString( 'Bad Gateway', (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
 		self::assertStringNotContainsString(
 			'reached the MCP endpoint without a 403/406 block',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
 		);
 	}
 
@@ -409,7 +429,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( 'ok', $bot['status'] );
 		self::assertSame(
 			'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
 		);
 	}
 
