@@ -23,13 +23,16 @@ final class OAuthConnectPanelTest extends TestCase {
 		);
 		$html = (string) ob_get_clean();
 
-		foreach ( OAuthClientConfig::client_labels() as $label ) {
-			self::assertStringContainsString( '>' . $label . '</button>', $html );
+		foreach ( \Stonewright\WpMcp\Admin\ClientCatalog::all() as $client ) {
+			self::assertStringContainsString( (string) $client['label'], $html );
 		}
+		self::assertStringContainsString( 'Grok Build / CLI', $html );
 		self::assertStringContainsString( 'stonewright-oauth', $html );
 		self::assertStringContainsString( 'Change server name (optional)', $html );
 		self::assertStringContainsString( 'Manage connected apps', $html );
 		self::assertStringNotContainsString( 'Novamira', $html );
+		self::assertSame( 0, substr_count( $html, 'role="tablist"' ) );
+		self::assertStringNotContainsString( 'data-sw-oauth-tab=', $html );
 	}
 
 	public function test_cursor_deeplink_renders_as_clickable_anchor(): void {
@@ -60,10 +63,10 @@ final class OAuthConnectPanelTest extends TestCase {
 		);
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( '>Codex CLI</button>', $html );
-		self::assertStringNotContainsString( '>Codex in ChatGPT Desktop</button>', $html );
-		self::assertDoesNotMatchRegularExpression( '/>Codex<\/button>/', $html );
+		self::assertStringContainsString( 'Codex CLI', $html );
+		self::assertStringNotContainsString( 'Codex in ChatGPT Desktop', $html );
 		self::assertStringNotContainsString( 'data-sw-oauth-tab="codex"', $html );
+		self::assertSame( 0, substr_count( $html, 'role="tablist"' ) );
 	}
 
 	public function test_local_host_renders_actionable_client_panels(): void {
@@ -86,5 +89,27 @@ final class OAuthConnectPanelTest extends TestCase {
 		self::assertStringContainsString( 'data-sw-oauth-panel="codex-cli"', $html );
 		self::assertStringContainsString( 'data-sw-oauth-panel="antigravity-cli"', $html );
 		self::assertStringContainsString( 'Copy install link', $html );
+	}
+
+	public function test_grok_oauth_instructions_include_native_toml_mcps_and_doctor(): void {
+		ob_start();
+		OAuthConnectPanel::render_client(
+			'grok-build',
+			'https://example.test/wp-json/mcp/stonewright-oauth',
+			'stonewright'
+		);
+		$html = html_entity_decode( (string) ob_get_clean(), ENT_QUOTES | ENT_HTML5 );
+
+		self::assertStringContainsString( '[mcp_servers.stonewright]', $html );
+		self::assertStringContainsString( 'url = "https://example.test/wp-json/mcp/stonewright-oauth"', $html );
+		self::assertStringContainsString( 'enabled = true', $html );
+		self::assertStringContainsString( 'grok mcp doctor stonewright', $html );
+		self::assertStringContainsString( '/mcps', $html );
+		self::assertStringContainsString( 'authenticate', strtolower( $html ) );
+		self::assertStringContainsString( 'stonewright-task-start', $html );
+		self::assertSame( 0, substr_count( $html, 'role="tablist"' ) );
+		self::assertStringNotContainsString( 'Novamira', $html );
+		self::assertStringNotContainsString( 'your-wp-username', $html );
+		self::assertStringNotContainsString( '<your-application-password>', $html );
 	}
 }

@@ -42,4 +42,22 @@ describe('authoritative client catalog parity', () => {
 			}));
 		}
 	});
+
+	it('includes the canonical Grok Build / CLI record and no grok-cli JSON duplicate', () => {
+		const dir = join(import.meta.dirname, '../../plugin/data/clients');
+		const names = readdirSync(dir).filter((name) => name.endsWith('.json'));
+		expect(names).toContain('grok-build.json');
+		expect(names).not.toContain('grok-cli.json');
+
+		const grok = JSON.parse(readFileSync(join(dir, 'grok-build.json'), 'utf8')) as PluginClient & {
+			config_path: string;
+		};
+		expect(grok.slug).toBe('grok-build');
+		expect(grok.label).toBe('Grok Build / CLI');
+		expect(grok.oauth_support).toBe(true);
+		expect(grok.app_password_support).toBe(true);
+		expect(grok.config_path).toBe('~/.grok/config.toml');
+		expect(listClientCatalog().some((client) => client.id === 'grok-build')).toBe(true);
+		expect(listClientCatalog().some((client) => client.id === 'grok-cli')).toBe(false);
+	});
 });

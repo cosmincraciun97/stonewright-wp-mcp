@@ -1,0 +1,38 @@
+{
+  "slug": "grok-build",
+  "label": "Grok Build / CLI",
+  "kind": "cli",
+  "snippet_kind": "toml",
+  "preferred_method": "http",
+  "official_cli_add": "grok mcp add --transport http",
+  "official_cli_update": "grok mcp add --transport http",
+  "official_cli_remove": "grok mcp remove",
+  "config_paths": {
+    "macos": "~/.grok/config.toml",
+    "linux": "~/.grok/config.toml",
+    "windows": "%USERPROFILE%\\.grok\\config.toml",
+    "wsl": "~/.grok/config.toml"
+  },
+  "config_path": "~/.grok/config.toml",
+  "notes": "Use native HTTP for OAuth and authenticate from /mcps. Use the local companion for Application Password so the credential is not stored in TOML. Verify with grok mcp doctor.",
+  "oauth_reauth_action": "Open /mcps, select Stonewright, authenticate, then run stonewright-task-start again.",
+  "verified_against_docs_on": "2026-08-25",
+  "secret_storage": "user-level",
+  "transport": "mixed",
+  "config_format": "toml",
+  "oauth_support": true,
+  "app_password_support": true,
+  "relist_behavior": "refresh-mcps",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential",
+  "support_tier": "compatible",
+  "certification_tier": "tier-2",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "compatible",
+    "restart_required": false,
+    "certification_report": ""
+  }
+}

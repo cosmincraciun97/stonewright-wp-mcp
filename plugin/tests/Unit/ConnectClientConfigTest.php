@@ -297,6 +297,45 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'v' . STONEWRIGHT_VERSION . '/stonewright-companion-' . STONEWRIGHT_VERSION . '.tgz', $prompt );
 	}
 
+	public function test_grok_oauth_config_is_native_http_toml(): void {
+		$config = ConnectClientConfig::oauth_config_for(
+			'grok-cli',
+			'https://example.test/wp-json/mcp/stonewright-oauth',
+			'stonewright'
+		);
+
+		$this->assertIsArray( $config );
+		$this->assertSame( 'code', $config['kind'] );
+		$this->assertStringContainsString( '[mcp_servers.stonewright]', (string) $config['code'] );
+		$this->assertStringContainsString(
+			'url = "https://example.test/wp-json/mcp/stonewright-oauth"',
+			(string) $config['code']
+		);
+		$this->assertStringContainsString( 'enabled = true', (string) $config['code'] );
+		$this->assertStringContainsString( 'grok mcp doctor stonewright', (string) $config['note'] );
+		$this->assertStringContainsString( '/mcps', (string) $config['note'] . (string) $config['hint'] );
+		$this->assertStringNotContainsString( 'your-wp-username', (string) $config['code'] );
+		$this->assertStringNotContainsString( '<your-application-password>', (string) $config['code'] );
+	}
+
+	public function test_grok_app_password_snippet_keeps_credential_out_of_toml(): void {
+		$result = ConnectClientConfig::snippet_for( 'grok-build', 'fixture-admin', 'xxxx xxxx', 'stdio' );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'toml', $result );
+		$this->assertStringContainsString( '[mcp_servers.' . self::SERVER_NAME . ']', $result['toml'] );
+		$this->assertStringContainsString( 'command = "npx"', $result['toml'] );
+		$this->assertStringContainsString( 'enabled = true', $result['toml'] );
+		$this->assertStringContainsString( 'stonewright-mcp', $result['toml'] );
+		$this->assertStringContainsString( 'private credential store', strtolower( (string) ( $result['note'] ?? '' ) ) );
+		$this->assertStringContainsString( 'never', strtolower( (string) ( $result['note'] ?? '' ) ) );
+		$this->assertStringContainsString( 'toml', strtolower( (string) ( $result['note'] ?? '' ) ) );
+		$this->assertStringNotContainsString( 'xxxx xxxx', $result['toml'] );
+		$this->assertStringNotContainsString( 'fixture-admin', $result['toml'] );
+		$this->assertStringNotContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $result['toml'] );
+		$this->assertStringNotContainsString( 'STONEWRIGHT_WP_USERNAME', $result['toml'] );
+	}
+
 	public function test_antigravity_prompt_splits_profile_from_wp_surface(): void {
 		$prompt = ConnectClientConfig::paste_to_agent_prompt( 'admin', 'pw1234', 'antigravity' );
 		$flags  = $this->prompt_connect_flags( $prompt );

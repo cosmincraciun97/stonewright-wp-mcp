@@ -183,6 +183,19 @@ export const AUTHORITATIVE_CLIENT_CATALOG = [
 		"defaultProfile": "essential"
 	},
 	{
+		"id": "grok-build",
+		"label": "Grok Build / CLI",
+		"supportTier": "compatible",
+		"configFormat": "toml",
+		"officialCliAdd": "grok mcp add --transport http",
+		"oauthSupport": true,
+		"appPasswordSupport": true,
+		"relistBehavior": "refresh-mcps",
+		"newTaskRequiredAfterCatalogChange": true,
+		"safeToolBudget": 40,
+		"defaultProfile": "essential"
+	},
+	{
 		"id": "kilo-code",
 		"label": "Kilo Code",
 		"supportTier": "unknown",

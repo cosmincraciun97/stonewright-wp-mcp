@@ -60,6 +60,7 @@ final class ConfigurationPageTest extends TestCase {
 			'stonewright_companion_token' => 'test-token',
 		];
 		$GLOBALS['stonewright_test_user_meta'] = [];
+		\Stonewright\WpMcp\Admin\ClientCatalog::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
@@ -212,7 +213,125 @@ final class ConfigurationPageTest extends TestCase {
 
 		self::assertSame( 'codex', $GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_client'] );
 		self::assertStringContainsString( 'data-stonewright-client-card="codex-cli"', $html );
-		self::assertMatchesRegularExpression( '/data-stonewright-client-card="codex-cli"[^>]*aria-selected="true"/', $html );
+		self::assertMatchesRegularExpression( '/data-stonewright-client-card="codex"[^>]*aria-selected="true"/', $html );
+	}
+
+	public function test_one_client_tablist_serves_both_authentication_methods(): void {
+		\Stonewright\WpMcp\Admin\ClientCatalog::reset_for_tests();
+		$expected = \Stonewright\WpMcp\Admin\ClientCatalog::slugs();
+		self::assertContains( 'grok-build', $expected );
+
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_client'] = 'grok-build';
+
+		foreach ( [ 'oauth', 'application-password' ] as $auth ) {
+			$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_auth_method'] = $auth;
+			ob_start();
+			ConfigurationPage::render();
+			$html = (string) ob_get_clean();
+
+			self::assertSame( 1, preg_match_all( '/role="tablist"/', $html ), $auth );
+			self::assertStringNotContainsString( 'data-sw-oauth-tab=', $html, $auth );
+			self::assertStringNotContainsString( 'class="sw-oauth-tabs"', $html, $auth );
+
+			preg_match_all( '/data-stonewright-client-card="([^"]+)"/', $html, $matches );
+			self::assertSame( $expected, $matches[1], $auth );
+			self::assertMatchesRegularExpression(
+				'/data-stonewright-client-card="grok-build"[^>]*aria-selected="true"/',
+				$html,
+				$auth
+			);
+		}
+	}
+
+	public function test_authentication_switch_keeps_selected_client_and_changes_instructions(): void {
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_client']      = 'grok-build';
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_auth_method'] = 'oauth';
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_method']      = 'http';
+
+		ob_start();
+		ConfigurationPage::render();
+		$oauth_html = (string) ob_get_clean();
+
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_auth_method'] = 'application-password';
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_method']      = 'stdio';
+
+		ob_start();
+		ConfigurationPage::render();
+		$app_html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/data-stonewright-client-card="grok-build"[^>]*aria-selected="true"/',
+			$oauth_html
+		);
+		self::assertMatchesRegularExpression(
+			'/data-stonewright-client-card="grok-build"[^>]*aria-selected="true"/',
+			$app_html
+		);
+		self::assertSame(
+			preg_match_all( '/data-stonewright-client-card="([^"]+)"/', $oauth_html, $oauth_tabs ) ? $oauth_tabs[1] : [],
+			preg_match_all( '/data-stonewright-client-card="([^"]+)"/', $app_html, $app_tabs ) ? $app_tabs[1] : []
+		);
+
+		self::assertStringContainsString( 'https://example.test/wp-json/mcp/stonewright-oauth', $oauth_html );
+		self::assertStringContainsString( 'grok mcp doctor stonewright', $oauth_html );
+		self::assertStringContainsString( '/mcps', $oauth_html );
+		self::assertStringContainsString( 'authenticate', strtolower( $oauth_html ) );
+
+		self::assertStringContainsString( 'private credential store', strtolower( $app_html ) );
+		self::assertStringContainsString( 'never', strtolower( $app_html ) );
+		self::assertStringContainsString( 'TOML', $app_html );
+		self::assertStringContainsString( 'command = &quot;npx&quot;', $app_html );
+		self::assertStringNotContainsString( 'test-fresh-app-password', $app_html );
+		preg_match(
+			'/id="sw-client-snippet-grok-build-stdio"[^>]*>[\s\S]*?<code>([\s\S]*?)<\/code>/',
+			$app_html,
+			$grok_snippet
+		);
+		self::assertNotEmpty( $grok_snippet );
+		self::assertStringNotContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $grok_snippet[1] );
+		self::assertStringNotContainsString( 'fixture-admin', $grok_snippet[1] );
+	}
+
+	public function test_setup_state_stores_credential_free_connection_tuple(): void {
+		$state = \Stonewright\WpMcp\Admin\SetupState::persist_partial(
+			[
+				'selected_client'  => 'grok-cli',
+				'auth_method'      => 'oauth',
+				'transport_method' => 'http',
+			],
+			42
+		);
+
+		self::assertSame(
+			[
+				'client'         => 'grok-build',
+				'authentication' => 'oauth',
+				'transport'      => 'http',
+			],
+			\Stonewright\WpMcp\Admin\SetupState::connection_selection( 42 )
+		);
+		self::assertSame( 'grok-build', $state['selected_client'] );
+		self::assertSame( 'oauth', $state['auth_method'] );
+		self::assertSame( 'http', $state['transport_method'] );
+		self::assertArrayNotHasKey( 'password', $state );
+		self::assertArrayNotHasKey( 'username', $state );
+	}
+
+	public function test_unsupported_auth_combination_stays_discoverable_and_disabled(): void {
+		$GLOBALS['stonewright_test_user_meta'][42]['stonewright_setup_auth_method'] = 'oauth';
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/data-stonewright-client-card="amazon-q"[^>]*aria-disabled="true"/',
+			$html
+		);
+		preg_match( '/<button[^>]*data-stonewright-client-card="grok-build"[^>]*>/', $html, $grok_tab );
+		self::assertNotEmpty( $grok_tab );
+		self::assertStringNotContainsString( 'aria-disabled="true"', $grok_tab[0] );
+		self::assertStringContainsString( 'does not support OAuth', $html );
 	}
 
 	public function test_oauth_ready_setup_does_not_require_an_application_password_to_reach_connect_step(): void {
