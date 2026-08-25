@@ -69,7 +69,10 @@ export {
 
 export {
 	ReconnectController,
+	createReconnectCoordinator,
+	projectTaskArgs,
 	type ReconnectInput,
 	type ReconnectResult,
+	type ReconnectToolResult,
 	type ReconnectExecutor,
 } from './reconnect.js';

@@ -41,16 +41,20 @@ import {
 	clientHasTool,
 	clientVisibilityFromEvidence,
 	computeRefreshRequiredToolNames,
+	createReconnectCoordinator,
 	defaultClientVisibility,
 	mapConfiguredMode,
 	modeCapabilitiesComparison,
 	normalizeToolName,
+	projectTaskArgs,
 	type ActiveMode,
 	type AuthenticationStatusV3,
 	type ConfiguredMode,
 	type ConnectionStatusV3,
 	type ReconnectInput,
 	type ReconnectResult,
+	type ReconnectToolResult,
+	type TransportDiagnostic,
 } from './index.js';
 
 export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
@@ -106,6 +110,8 @@ export interface ConnectionRuntime {
 	registry: RegistryBarrier;
 	surface: SurfaceRevisionTracker;
 	reconnect: ReconnectController;
+	reconnectCoordinator: { run: (reason: string) => Promise<ReconnectResult> };
+	lastTransportDiagnostic: TransportDiagnostic | null;
 	invokedToolNames: Set<string>;
 	observedToolNames: Set<string>;
 	processStartId: string;
@@ -124,7 +130,7 @@ export interface ConnectionRuntime {
 	wpReachable: boolean | null;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
-	performReconnect: (input: ReconnectInput) => Promise<ReconnectResult>;
+	performReconnect: (input: ReconnectInput) => Promise<ReconnectToolResult>;
 	/** Snapshot registered tool names from the MCP server. */
 	listRegisteredToolNames: () => string[];
 	/** Build schema v3 status for gateways. */
@@ -188,6 +194,8 @@ export function createConnectionRuntime(args: {
 		registry,
 		surface,
 		reconnect: null as unknown as ReconnectController,
+		reconnectCoordinator: null as unknown as { run: (reason: string) => Promise<ReconnectResult> },
+		lastTransportDiagnostic: null,
 		invokedToolNames,
 		observedToolNames,
 		processStartId,
@@ -388,6 +396,15 @@ export function createConnectionRuntime(args: {
 	};
 
 	runtime.reconnect = new ReconnectController(async (input) => runtime.performReconnect(input));
+	runtime.reconnectCoordinator = createReconnectCoordinator(async (reason) => {
+		const result = await runtime.reconnect.reconnect({ reason, force_probe: true });
+		return {
+			ok: result.ok,
+			diagnostic: runtime.lastTransportDiagnostic,
+		};
+	}, {
+		siteKey: env['STONEWRIGHT_SITE_ALIAS'] ?? env['STONEWRIGHT_WP_URL'] ?? 'default',
+	});
 
 	registry.seedLocal(PERMANENT_GATEWAY_TOOL_NAMES.map((name) => ({
 		name,
@@ -738,13 +755,29 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 		wrap('stonewright-connect-doctor', (input) => {
 			runtime.syncLegacyStatus();
 			const v3 = runtime.buildStatusV3();
+			const diagnostic = runtime.lastTransportDiagnostic;
+			const authState = v3.authentication.state;
 			let nextAction = v3.next_action;
 			let errorCode = v3.error_code;
-			if (!runtime.status.configured && runtime.status.configured_mode !== 'direct-only') {
+
+			if (authState === 'reauth_required') {
+				errorCode = 'reauthentication_required';
+				nextAction = v3.authentication.user_action
+					?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.';
+			} else if (diagnostic?.kind === 'plugin_route_missing') {
+				errorCode = 'plugin_route_missing';
+				nextAction = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true.';
+			} else if (diagnostic?.kind === 'auth_error') {
+				errorCode = 'authentication_failed';
+				nextAction = 'Verify credentials or reauthenticate, then call stonewright-task-start again.';
+			} else if (diagnostic?.retryable) {
+				errorCode = 'transport_transient';
+				nextAction = 'Retry stonewright-reconnect; the last failure looks transient.';
+			} else if (!runtime.status.configured && runtime.status.configured_mode !== 'direct-only') {
 				errorCode = 'not_configured';
 				nextAction = 'Call stonewright-setup-profile and set STONEWRIGHT_WP_URL plus credentials.';
 			} else if (runtime.status.configured_mode === 'plugin-only' && !runtime.status.connected) {
-				errorCode = 'plugin_unavailable';
+				errorCode = 'plugin_connection_unavailable';
 				nextAction = 'Install/enable the Stonewright plugin and credentials, then call stonewright-reconnect with force_probe=true.';
 			} else if (!runtime.status.startup_ready && runtime.status.mode === 'plugin') {
 				errorCode = errorCode ?? 'registry_not_ready';
@@ -765,12 +798,20 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				error_code: errorCode,
 				next_action: nextAction,
 				site_alias: typeof input['site_alias'] === 'string' ? input['site_alias'] : v3.site_alias,
+				recovery: {
+					...v3.recovery,
+					catalog_preserved: v3.recovery.catalog_preserved,
+					remote_calls_available: v3.recovery.remote_calls_available,
+					last_success_at: v3.recovery.last_success_at,
+				},
+				authentication: v3.authentication,
 				diagnosis: {
 					configured_mode: v3.configured_mode,
 					active_mode: v3.active_mode,
 					connection_stage: v3.connection_stage,
 					plugin: v3.plugin,
 					surface: v3.surface,
+					transport_kind: diagnostic?.kind ?? null,
 					permanent_gateways: [...PERMANENT_GATEWAY_TOOL_NAMES],
 				},
 				primary_next_action: nextAction,
@@ -957,14 +998,58 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					? input['site_alias']
 					: undefined;
 
+			const stage = runtime.stateMachine.getStage();
+			const pluginConfigured = runtime.status.configured_mode !== 'direct-only'
+				&& runtime.status.mode === 'plugin';
+			const needsRecovery = pluginConfigured
+				&& !runtime.status.connected
+				&& (stage === 'degraded' || stage === 'local-ready' || stage === 'probing');
+
+			if (needsRecovery) {
+				const recovery = await runtime.reconnectCoordinator.run('task-start');
+				runtime.syncLegacyStatus();
+				if (!recovery.ok || !runtime.callRemoteTool || !runtime.status.connected) {
+					const failed = runtime.buildStatusV3({
+						ok: false,
+						startup_ready: false,
+						error_code: recovery.diagnostic?.kind === 'auth_error'
+							? 'authentication_failed'
+							: recovery.cooldown_active
+								? 'transport_transient'
+								: 'plugin_connection_unavailable',
+						recovery: {
+							catalog_preserved: true,
+							remote_calls_available: false,
+							last_success_at: null,
+							reconnect_attempted: recovery.attempted,
+							reconnect_coalesced: recovery.coalesced,
+						},
+					});
+					return {
+						...failed,
+						ok: false,
+						source: 'local-gateway',
+						isError: true,
+						error_code: failed.error_code,
+						next_action: failed.authentication.state === 'reauth_required'
+							? (failed.authentication.user_action ?? 'Reauthenticate, then run stonewright-task-start again.')
+							: 'Call stonewright-reconnect with force_probe=true, then retry stonewright-task-start.',
+					};
+				}
+			}
+
 			// Plugin path: prefer remote task-start when connected and registry ready (or still registering).
 			if (runtime.callRemoteTool && runtime.status.mode === 'plugin' && runtime.status.connected) {
 				try {
-					const remote = await runtime.callRemoteTool('stonewright-task-start', {
-						task,
-						...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
-						...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
-					});
+					const remote = await runtime.callRemoteTool(
+						'stonewright-task-start',
+						projectTaskArgs({
+							task,
+							...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
+							...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
+							...(site !== undefined ? { site, site_alias: site } : {}),
+						}),
+					);
 					const structured = extractStructured(remote) ?? { remote };
 					const mcpError = (
 						remote && typeof remote === 'object' && (remote as Record<string, unknown>)['isError'] === true
