@@ -53,7 +53,7 @@ import {
 	PERMANENT_GATEWAY_TOOL_NAMES,
 	PERMANENT_GATEWAY_TOOL_NAME_SET,
 	type ReconnectInput,
-	type ReconnectResult,
+	type ReconnectToolResult as ReconnectResult,
 } from './connection/index.js';
 import {
 	createConnectionRuntime,
