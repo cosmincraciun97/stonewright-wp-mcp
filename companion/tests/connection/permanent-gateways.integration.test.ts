@@ -198,7 +198,7 @@ describe('permanent gateways integration', () => {
 				connection_stage?: string;
 			};
 		};
-		expect(status.structuredContent?.schema_version).toBe(2);
+		expect(status.structuredContent?.schema_version).toBe(3);
 		expect(status.structuredContent?.connected).toBe(false);
 
 		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({
@@ -742,7 +742,7 @@ describe('permanent gateways integration', () => {
 		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({ task: 'verify essential relist sequence' }) as {
 			structuredContent?: { ok?: boolean; schema_version?: number; isError?: boolean; startup_ready?: boolean };
 		};
-		expect(taskStart.structuredContent?.schema_version).toBe(2);
+		expect(taskStart.structuredContent?.schema_version).toBe(3);
 		expect(taskStart.structuredContent?.ok).toBe(false);
 		expect(taskStart.structuredContent?.startup_ready).toBe(false);
 		expect(taskStart.structuredContent?.isError).not.toBe(true);
@@ -994,7 +994,17 @@ describe('permanent gateways integration', () => {
 			};
 		};
 
-		expect(status.structuredContent?.authentication).toEqual({ configured: false, method: 'none' });
+		expect(status.structuredContent?.authentication).toEqual({
+			configured: false,
+			method: 'none',
+			state: 'unknown',
+			reason_code: null,
+			last_success_at: null,
+			refresh_expires_at: null,
+			continuity_target_seconds: 604800,
+			agent_notice_required: false,
+			user_action: null,
+		});
 		expect(status.structuredContent?.wordpress_runtime?.reachable).toBeNull();
 	});
 
@@ -1021,7 +1031,7 @@ describe('permanent gateways integration', () => {
 				connection_stage?: string;
 			};
 		};
-		expect(status.structuredContent?.schema_version).toBe(2);
+		expect(status.structuredContent?.schema_version).toBe(3);
 		expect(typeof status.structuredContent?.connected).toBe('boolean');
 		expect(typeof status.structuredContent?.startup_ready).toBe('boolean');
 		expect(status.structuredContent?.surface_digest).toMatch(/^sha256:/);
@@ -1046,7 +1056,7 @@ describe('permanent gateways integration', () => {
 		const result = await toolHandler(server, 'stonewright-connect-doctor')?.({}) as {
 			structuredContent?: { primary_next_action?: string; next_action?: string; schema_version?: number };
 		};
-		expect(result.structuredContent?.schema_version).toBe(2);
+		expect(result.structuredContent?.schema_version).toBe(3);
 		expect(result.structuredContent?.primary_next_action || result.structuredContent?.next_action).toBeTruthy();
 	});
 });

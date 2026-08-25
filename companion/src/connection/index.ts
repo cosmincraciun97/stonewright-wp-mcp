@@ -24,13 +24,20 @@ export {
 } from './client-defaults.js';
 
 export {
+	reauthenticationRequiredStatus,
+	type AuthenticationState,
+	type AuthenticationStatusV3,
+	type RecoveryStatus,
+} from './authentication-status.js';
+
+export {
 	STATUS_SCHEMA_VERSION,
 	clientHasTool,
 	defaultClientVisibility,
 	clientVisibilityFromEvidence,
 	computeRefreshRequiredToolNames,
 	mapConfiguredMode,
-	buildConnectionStatusV2,
+	buildConnectionStatusV3,
 	normalizeToolName,
 	modeCapabilitiesComparison,
 	type ConfiguredMode,
@@ -39,7 +46,7 @@ export {
 	type ClientVisibilityState,
 	type SurfaceStatus,
 	type PluginStatus,
-	type ConnectionStatusV2,
+	type ConnectionStatusV3,
 	type ClientHasToolContext,
 	type ModeCapabilityRow,
 } from './status-contract.js';

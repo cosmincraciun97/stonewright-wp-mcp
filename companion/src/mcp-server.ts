@@ -275,7 +275,7 @@ async function bootstrapConnection(
 		wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(registration.profile));
 		wpMcpStatus.local_tool_names = Array.from(localToolNames);
 		wpMcpStatus.prompt_skill_count = promptSkills.length;
-		wpMcpStatus.recovery = recoveryHints(
+		wpMcpStatus.recovery_steps = recoveryHints(
 			registration.filteredToolCount,
 			wpMcpStatus.startup_missing_tool_names.length,
 			wpMcpStatus.profile_missing_tool_names.length,
@@ -579,7 +579,7 @@ async function registerDirectMode(
 			'stonewright-site-discover',
 			'stonewright-setup-profile',
 		];
-		wpMcpStatus.recovery = [
+		wpMcpStatus.recovery_steps = [
 			'Direct mode is active: core REST tools are registered without the Stonewright plugin.',
 			'Call stonewright-task-start first; the compact Direct task profile unlocks for this session.',
 			'Use stonewright-site-discover when endpoint or plugin-only capability details are needed.',

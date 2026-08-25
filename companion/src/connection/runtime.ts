@@ -36,7 +36,8 @@ import {
 	ReconnectController,
 	RegistryBarrier,
 	SurfaceRevisionTracker,
-	buildConnectionStatusV2,
+	STATUS_SCHEMA_VERSION,
+	buildConnectionStatusV3,
 	clientHasTool,
 	clientVisibilityFromEvidence,
 	computeRefreshRequiredToolNames,
@@ -45,8 +46,9 @@ import {
 	modeCapabilitiesComparison,
 	normalizeToolName,
 	type ActiveMode,
+	type AuthenticationStatusV3,
 	type ConfiguredMode,
-	type ConnectionStatusV2,
+	type ConnectionStatusV3,
 	type ReconnectInput,
 	type ReconnectResult,
 } from './index.js';
@@ -79,7 +81,7 @@ export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	error: { message: string } | null;
 	agent_do_not_use: string[];
 	agent_use_instead: string[];
-	recovery: string[];
+	recovery_steps: string[];
 	mode: 'plugin' | 'direct';
 	mode_reason: string | null;
 	configured_mode: ConfiguredMode;
@@ -118,16 +120,16 @@ export interface ConnectionRuntime {
 	callRemoteTool: ((name: string, args: Record<string, unknown>) => Promise<unknown>) | null;
 	directSession: DirectSessionControls | null;
 	authConfigured: boolean;
-	authMethod: ConnectionStatusV2['authentication']['method'];
+	authMethod: AuthenticationStatusV3['method'];
 	wpReachable: boolean | null;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
 	performReconnect: (input: ReconnectInput) => Promise<ReconnectResult>;
 	/** Snapshot registered tool names from the MCP server. */
 	listRegisteredToolNames: () => string[];
-	/** Build schema v2 status for gateways. */
-	buildStatusV2: (overrides?: Partial<ConnectionStatusV2>) => ConnectionStatusV2;
-	/** Merge v2 fields into the mutable legacy status object. */
+	/** Build schema v3 status for gateways. */
+	buildStatusV3: (overrides?: Partial<ConnectionStatusV3>) => ConnectionStatusV3;
+	/** Merge v3 fields into the mutable legacy status object. */
 	syncLegacyStatus: () => void;
 	/** Mark a tool as invoked this session (for client_has_tool). */
 	markInvoked: (name: string) => void;
@@ -212,7 +214,7 @@ export function createConnectionRuntime(args: {
 				.map(([name]) => name)
 				.sort();
 		},
-		buildStatusV2: (overrides = {}) => {
+		buildStatusV3: (overrides = {}) => {
 			const stage = runtime.stateMachine.getStage();
 			const activeMode: ActiveMode = runtime.status.mode === 'direct'
 				? 'direct'
@@ -270,15 +272,31 @@ export function createConnectionRuntime(args: {
 				version: APP_VERSION,
 				tools: registered,
 			})).digest('hex')}`;
-			const base = buildConnectionStatusV2({
+			const base = buildConnectionStatusV3({
 				siteAlias: (runtime.env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim() || null,
 				configuredMode: runtime.status.configured_mode,
 				activeMode,
 				connectionStage: stage,
 				connectionGeneration: runtime.stateMachine.getGeneration(),
 				mcpUrl: runtime.status.url,
-				authConfigured: runtime.authConfigured,
-				authMethod: runtime.authMethod,
+				authentication: {
+					configured: runtime.authConfigured,
+					method: runtime.authMethod,
+					state: 'unknown',
+					reason_code: null,
+					last_success_at: null,
+					refresh_expires_at: null,
+					continuity_target_seconds: 604800,
+					agent_notice_required: false,
+					user_action: null,
+				},
+				recovery: {
+					catalog_preserved: true,
+					remote_calls_available: Boolean(runtime.callRemoteTool) && runtime.status.connected,
+					last_success_at: null,
+					reconnect_attempted: false,
+					reconnect_coalesced: false,
+				},
 				wpReachable: runtime.wpReachable,
 				siteUrl: siteUrlFromEnv(runtime.env),
 				plugin: {
@@ -327,23 +345,23 @@ export function createConnectionRuntime(args: {
 			return merged;
 		},
 		syncLegacyStatus: () => {
-			const v2 = runtime.buildStatusV2();
-			runtime.status.schema_version = v2.schema_version;
-			runtime.status.connected = v2.connected;
-			runtime.status.connection_stage = v2.connection_stage;
-			runtime.status.connection_generation = v2.connection_generation;
-			runtime.status.configured_mode = v2.configured_mode;
-			runtime.status.surface_revision = v2.surface.revision;
-			runtime.status.surface_digest = v2.surface.digest;
-			runtime.status.client_visibility = v2.client_visibility;
+			const v3 = runtime.buildStatusV3();
+			runtime.status.schema_version = v3.schema_version;
+			runtime.status.connected = v3.connected;
+			runtime.status.connection_stage = v3.connection_stage;
+			runtime.status.connection_generation = v3.connection_generation;
+			runtime.status.configured_mode = v3.configured_mode;
+			runtime.status.surface_revision = v3.surface.revision;
+			runtime.status.surface_digest = v3.surface.digest;
+			runtime.status.client_visibility = v3.client_visibility;
 			// Reconciliation/catalog gates are derived and reversible. Do not
 			// overwrite the underlying connection readiness with their blocked view.
-			if (!v2.surface.relist_required && !v2.reconciliation.mismatch_reason) {
-				runtime.status.error_code = v2.error_code;
-				runtime.status.next_action = v2.next_action;
-				runtime.status.startup_ready = v2.startup_ready;
+			if (!v3.surface.relist_required && !v3.reconciliation.mismatch_reason) {
+				runtime.status.error_code = v3.error_code;
+				runtime.status.next_action = v3.next_action;
+				runtime.status.startup_ready = v3.startup_ready;
 			}
-			runtime.status.refresh_required_tool_names = v2.refresh_required_tool_names;
+			runtime.status.refresh_required_tool_names = v3.refresh_required_tool_names;
 		},
 		markInvoked: (name: string) => {
 			runtime.invokedToolNames.add(normalizeToolName(name));
@@ -416,7 +434,7 @@ function createInitialStatus(profile: ProxyToolProfile): WordPressMcpConnectionS
 		error: null,
 		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),
 		agent_use_instead: agentUseInstead({ STONEWRIGHT_MCP_TOOL_PROFILE: profile }),
-		recovery: [
+		recovery_steps: [
 			'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
 			'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 			'Keep using permanent local gateways (task-start, connect-doctor, reconnect, setup-profile) while fixing the WordPress MCP connection.',
@@ -430,14 +448,14 @@ function createInitialStatus(profile: ProxyToolProfile): WordPressMcpConnectionS
 		direct_tool_names: [],
 		unavailable_plugin_capabilities: [],
 		live: null,
-		schema_version: 2,
+		schema_version: STATUS_SCHEMA_VERSION,
 		client_visibility: defaultClientVisibility(),
 		error_code: null,
 		next_action: 'Call stonewright-task-start or stonewright-connect-doctor to diagnose connectivity.',
 	};
 }
 
-function detectAuthMethod(env: NodeJS.ProcessEnv): ConnectionStatusV2['authentication']['method'] {
+function detectAuthMethod(env: NodeJS.ProcessEnv): AuthenticationStatusV3['method'] {
 	if (
 		(env['STONEWRIGHT_OAUTH_CLIENT_ID'] ?? '').trim()
 		&& (env['STONEWRIGHT_OAUTH_TOKEN_STORE'] ?? '').trim()
@@ -502,16 +520,16 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				if (requiredSuccess) runtime.activeClientSequence.recordSuccess(runtime.env, name);
 			}
 			if (name === 'stonewright-client-surface-check' && requiredSuccess) {
-				const v2 = runtime.buildStatusV2();
+				const v3 = runtime.buildStatusV3();
 				const restartAttestation = attestPendingRestartFromActiveHost({
 					env: runtime.env,
 					processStartId: runtime.processStartId,
-					catalogDigest: v2.catalog_digest,
+					catalogDigest: v3.catalog_digest,
 					catalogObservation: typeof input['catalog_observation'] === 'string' ? input['catalog_observation'] : '',
 					expectedCatalogObservation: runtime.catalogObservation,
 					successfulToolNames: runtime.activeClientSequence.successfulCalls(),
 					registeredToolNames: runtime.listRegisteredToolNames(),
-					refreshRequiredToolNames: v2.refresh_required_tool_names,
+					refreshRequiredToolNames: v3.refresh_required_tool_names,
 					mcpClientName: activeMcpClientName(runtime),
 				});
 				return toolResponse({ ...result, restart_attestation: restartAttestation });
@@ -543,19 +561,19 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				mode: runtime.status.mode,
 				...(runtime.status.mode_reason ? { mode_reason: runtime.status.mode_reason } : {}),
 			});
-			const statusV2 = runtime.buildStatusV2();
+			const statusV3 = runtime.buildStatusV3();
 			return {
 				...profile,
-				schema_version: statusV2.schema_version,
-				connection_stage: statusV2.connection_stage,
-				configured_mode: statusV2.configured_mode,
-				active_mode: statusV2.active_mode,
-				startup_ready: statusV2.startup_ready,
-				connected: statusV2.connected,
-				client_visibility: statusV2.client_visibility,
-				error_code: statusV2.error_code,
-				next_action: statusV2.next_action,
-				surface: statusV2.surface,
+				schema_version: statusV3.schema_version,
+				connection_stage: statusV3.connection_stage,
+				configured_mode: statusV3.configured_mode,
+				active_mode: statusV3.active_mode,
+				startup_ready: statusV3.startup_ready,
+				connected: statusV3.connected,
+				client_visibility: statusV3.client_visibility,
+				error_code: statusV3.error_code,
+				next_action: statusV3.next_action,
+				surface: statusV3.surface,
 			};
 		}),
 	);
@@ -563,7 +581,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 	server.registerTool(
 		'stonewright-wordpress-mcp-status',
 		{
-			description: 'Return truthful companion connection status (schema_version 2). Available offline so agents can recover without losing gateway tools.',
+			description: 'Return truthful companion connection status (schema_version 3). Available offline so agents can recover without losing gateway tools.',
 			inputSchema: {},
 		},
 		wrap('stonewright-wordpress-mcp-status', () => {
@@ -583,19 +601,19 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					live_tool_profile: null,
 					surface_revision: runtime.surface.getRevision(),
 				};
-			const v2 = runtime.buildStatusV2();
+			const v3 = runtime.buildStatusV3();
 			// Prefer plugin live revision when it is ahead of the local surface tracker.
 			const surfaceRevision = live?.surfaceRevision != null
-				&& (v2.surface.revision == null || live.surfaceRevision >= v2.surface.revision)
+				&& (v3.surface.revision == null || live.surfaceRevision >= v3.surface.revision)
 				? live.surfaceRevision
-				: v2.surface.revision;
+				: v3.surface.revision;
 			return {
 				...runtime.status,
 				...liveBlock,
-				...v2,
+				...v3,
 				surface_revision: surfaceRevision,
-				surface_digest: v2.surface.digest,
-				live_tool_profile: live?.profile ?? v2.surface.profile,
+				surface_digest: v3.surface.digest,
+				live_tool_profile: live?.profile ?? v3.surface.profile,
 			};
 		}),
 	);
@@ -659,7 +677,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				fix.push('relist_tools', 'present_current_catalog_observation', 'restart_mcp');
 			}
 
-			const v2 = runtime.buildStatusV2({
+			const v3 = runtime.buildStatusV3({
 				client_visibility: clientVisibilityFromEvidence({
 					invokedToolNames: runtime.invokedToolNames,
 				}, { attested: catalogObserved }),
@@ -669,15 +687,15 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			return {
 				ok: errorCode === 'ok',
 				error_code: errorCode,
-				schema_version: v2.schema_version,
+				schema_version: v3.schema_version,
 				server_has_tool: serverHas,
 				client_has_tool: clientHas,
 				expected_tool: expected,
-				connection_stage: v2.connection_stage,
-				startup_ready: v2.startup_ready,
-				connected: v2.connected,
-				client_visibility: v2.client_visibility,
-				surface: v2.surface,
+				connection_stage: v3.connection_stage,
+				startup_ready: v3.startup_ready,
+				connected: v3.connected,
+				client_visibility: v3.client_visibility,
+				surface: v3.surface,
 				next_action: errorCode === 'ok'
 					? 'Surface looks healthy for the expected tool.'
 					: fix[0] ?? 'call_connect_doctor',
@@ -712,16 +730,16 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 	server.registerTool(
 		'stonewright-connect-doctor',
 		{
-			description: 'Comprehensive Stonewright connection diagnosis with one primary next_action (schema_version 2).',
+			description: 'Comprehensive Stonewright connection diagnosis with one primary next_action (schema_version 3).',
 			inputSchema: {
 				site_alias: z.string().optional(),
 			},
 		},
 		wrap('stonewright-connect-doctor', (input) => {
 			runtime.syncLegacyStatus();
-			const v2 = runtime.buildStatusV2();
-			let nextAction = v2.next_action;
-			let errorCode = v2.error_code;
+			const v3 = runtime.buildStatusV3();
+			let nextAction = v3.next_action;
+			let errorCode = v3.error_code;
 			if (!runtime.status.configured && runtime.status.configured_mode !== 'direct-only') {
 				errorCode = 'not_configured';
 				nextAction = 'Call stonewright-setup-profile and set STONEWRIGHT_WP_URL plus credentials.';
@@ -742,17 +760,17 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			}
 
 			return {
-				...v2,
+				...v3,
 				ok: errorCode === null,
 				error_code: errorCode,
 				next_action: nextAction,
-				site_alias: typeof input['site_alias'] === 'string' ? input['site_alias'] : v2.site_alias,
+				site_alias: typeof input['site_alias'] === 'string' ? input['site_alias'] : v3.site_alias,
 				diagnosis: {
-					configured_mode: v2.configured_mode,
-					active_mode: v2.active_mode,
-					connection_stage: v2.connection_stage,
-					plugin: v2.plugin,
-					surface: v2.surface,
+					configured_mode: v3.configured_mode,
+					active_mode: v3.active_mode,
+					connection_stage: v3.connection_stage,
+					plugin: v3.plugin,
+					surface: v3.surface,
 					permanent_gateways: [...PERMANENT_GATEWAY_TOOL_NAMES],
 				},
 				primary_next_action: nextAction,
@@ -767,15 +785,15 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			inputSchema: {},
 		},
 		wrap('stonewright-mode-capabilities', () => {
-			const v2 = runtime.buildStatusV2();
+			const v3 = runtime.buildStatusV3();
 			return {
 				ok: true,
-				schema_version: v2.schema_version,
-				configured_mode: v2.configured_mode,
-				active_mode: v2.active_mode,
-				connection_stage: v2.connection_stage,
+				schema_version: v3.schema_version,
+				configured_mode: v3.configured_mode,
+				active_mode: v3.active_mode,
+				connection_stage: v3.connection_stage,
 				capabilities: modeCapabilitiesComparison(),
-				next_action: v2.next_action,
+				next_action: v3.next_action,
 			};
 		}),
 	);
@@ -797,18 +815,18 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				...(typeof input['site_alias'] === 'string' ? { site_alias: input['site_alias'] } : {}),
 				...(typeof input['force_probe'] === 'boolean' ? { force_probe: input['force_probe'] } : {}),
 			});
-			const v2 = runtime.buildStatusV2();
+			const v3 = runtime.buildStatusV3();
 			return {
 				...result,
-				schema_version: v2.schema_version,
-				connection_stage: v2.connection_stage,
-				startup_ready: v2.startup_ready,
-				connected: v2.connected,
-				surface: v2.surface,
+				schema_version: v3.schema_version,
+				connection_stage: v3.connection_stage,
+				startup_ready: v3.startup_ready,
+				connected: v3.connected,
+				surface: v3.surface,
 				next_action: result.ok
 					? 'Re-list tools (honor tools/list_changed) then call stonewright-task-start.'
 					: 'Prior registry preserved. Fix the reported error, then retry reconnect.',
-				status: v2,
+				status: v3,
 			};
 		}),
 	);
@@ -955,7 +973,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						const errorCode = typeof structured['error_code'] === 'string'
 							? structured['error_code']
 							: 'plugin_task_start_failed';
-						const failed = runtime.buildStatusV2({
+						const failed = runtime.buildStatusV3({
 							ok: false,
 							startup_ready: false,
 							error_code: errorCode,
@@ -993,7 +1011,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						const errorCode = workflowSchema !== 2
 							? 'plugin_workflow_preflight_schema_unsupported'
 							: 'plugin_workflow_preflight_schema_invalid';
-						const failed = runtime.buildStatusV2({
+						const failed = runtime.buildStatusV3({
 							ok: false,
 							startup_ready: false,
 							error_code: errorCode,
@@ -1050,7 +1068,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					if (typeof remoteRevision === 'number' && Number.isSafeInteger(remoteRevision) && runtime.status.live) {
 						runtime.status.live.surfaceRevision = remoteRevision;
 					}
-					const v2 = runtime.buildStatusV2();
+					const v3 = runtime.buildStatusV3();
 					const registered = new Set(runtime.listRegisteredToolNames());
 					const guidance = filterGuidanceToRegistered(
 						Array.isArray((structured as { guidance?: unknown }).guidance)
@@ -1060,30 +1078,30 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					);
 					return {
 						...structured,
-						ok: !v2.surface.relist_required && !v2.reconciliation.mismatch_reason,
+						ok: !v3.surface.relist_required && !v3.reconciliation.mismatch_reason,
 						source: 'plugin',
-						schema_version: v2.schema_version,
-						connection_stage: v2.connection_stage,
-						startup_ready: v2.startup_ready,
-						connected: v2.connected,
-						configured_mode: v2.configured_mode,
-						active_mode: v2.active_mode,
-						surface: v2.surface,
-						surface_revision: typeof remoteRevision === 'number' ? remoteRevision : v2.surface.revision,
-						client_visibility: v2.client_visibility,
-						reconciliation: v2.reconciliation,
-						refresh_required_tool_names: v2.refresh_required_tool_names,
-						error_code: v2.error_code,
-						next_action: v2.startup_ready
+						schema_version: v3.schema_version,
+						connection_stage: v3.connection_stage,
+						startup_ready: v3.startup_ready,
+						connected: v3.connected,
+						configured_mode: v3.configured_mode,
+						active_mode: v3.active_mode,
+						surface: v3.surface,
+						surface_revision: typeof remoteRevision === 'number' ? remoteRevision : v3.surface.revision,
+						client_visibility: v3.client_visibility,
+						reconciliation: v3.reconciliation,
+						refresh_required_tool_names: v3.refresh_required_tool_names,
+						error_code: v3.error_code,
+						next_action: v3.startup_ready
 							? 'Follow fast_path.tool_profile; only call tools present in the current MCP list.'
-							: v2.error_code === 'client_catalog_relist_required'
+							: v3.error_code === 'client_catalog_relist_required'
 								? 'Re-list tools and present the current catalog observation to stonewright-client-surface-check.'
 								: 'Registry barrier incomplete (startup_ready:false). Permanent gateways remain usable; wait or reconnect.',
 						guidance,
 						registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
 					};
 				} catch {
-					const failed = runtime.buildStatusV2({
+					const failed = runtime.buildStatusV3({
 						ok: false,
 						startup_ready: false,
 						error_code: 'plugin_task_start_failed',
@@ -1152,7 +1170,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				}
 			}
 
-			const v2 = runtime.buildStatusV2();
+			const v3 = runtime.buildStatusV3();
 			const registered = new Set(runtime.listRegisteredToolNames());
 			const guidance = filterGuidanceToRegistered(
 				Array.isArray((local as { guidance?: unknown }).guidance)
@@ -1165,12 +1183,12 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				...local,
 				ok: true,
 				source: runtime.status.mode === 'direct' ? 'direct' : 'local',
-				schema_version: v2.schema_version,
-				connection_stage: v2.connection_stage,
-				startup_ready: v2.startup_ready,
-				connected: v2.connected,
-				configured_mode: v2.configured_mode,
-				active_mode: v2.active_mode,
+				schema_version: v3.schema_version,
+				connection_stage: v3.connection_stage,
+				startup_ready: v3.startup_ready,
+				connected: v3.connected,
+				configured_mode: v3.configured_mode,
+				active_mode: v3.active_mode,
 				configured_mcp_surface: runtime.profile,
 				session_tool_profile: sessionProfile,
 				surface_revision: surfaceRevision,
@@ -1180,15 +1198,15 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				re_list_instruction: toolsChanged
 					? 'Re-list tools now (tools/list). The task profile is active for this session.'
 					: '',
-				client_visibility: v2.client_visibility,
-				error_code: v2.error_code,
-				next_action: v2.startup_ready
+				client_visibility: v3.client_visibility,
+				error_code: v3.error_code,
+				next_action: v3.startup_ready
 					? 'Use only tools present in the current MCP list / session_tools.'
 					: 'startup_ready is false (registry barrier incomplete). Permanent gateways remain callable; do not invent missing tools.',
 				guidance,
 				registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
-				plugin: v2.plugin,
-				surface: v2.surface,
+				plugin: v3.plugin,
+				surface: v3.surface,
 			};
 		}),
 	);

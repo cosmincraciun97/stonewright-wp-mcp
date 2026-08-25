@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/connection-status",
+  "title": "Connection status contract",
+  "description": "Companion connection status emitted by setup/doctor/task-start/status/client-surface-check. schema_version is 3. Credential and token fields are prohibited by omission.",
+  "type": "object",
+  "$ref": "#/$defs/ConnectionStatusV3",
+  "$defs": {
+    "AuthenticationState": {
+      "type": "string",
+      "enum": ["authenticated", "refreshing", "transient_failure", "reauth_required", "unknown"]
+    },
+    "AuthenticationStatusV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configured",
+        "method",
+        "state",
+        "reason_code",
+        "last_success_at",
+        "refresh_expires_at",
+        "continuity_target_seconds",
+        "agent_notice_required",
+        "user_action"
+      ],
+      "properties": {
+        "configured": { "type": "boolean" },
+        "method": {
+          "type": "string",
+          "enum": ["app-password", "authorization", "oauth", "none", "unknown"]
+        },
+        "state": { "$ref": "#/$defs/AuthenticationState" },
+        "reason_code": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          ]
+        },
+        "last_success_at": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "format": "date-time", "maxLength": 64 }
+          ]
+        },
+        "refresh_expires_at": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "format": "date-time", "maxLength": 64 }
+          ]
+        },
+        "continuity_target_seconds": { "type": "integer", "const": 604800 },
+        "agent_notice_required": { "type": "boolean" },
+        "user_action": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 512 }
+          ]
+        }
+      }
+    },
+    "RecoveryStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_preserved",
+        "remote_calls_available",
+        "last_success_at",
+        "reconnect_attempted",
+        "reconnect_coalesced"
+      ],
+      "properties": {
+        "catalog_preserved": { "type": "boolean" },
+        "remote_calls_available": { "type": "boolean" },
+        "last_success_at": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "format": "date-time", "maxLength": 64 }
+          ]
+        },
+        "reconnect_attempted": { "type": "boolean" },
+        "reconnect_coalesced": { "type": "boolean" }
+      }
+    },
+    "ConnectionTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "mcp_url"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["stdio", "http", "unknown"] },
+        "mcp_url": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "maxLength": 2048 }
+          ]
+        }
+      }
+    },
+    "WordPressRuntimeStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reachable", "site_url"],
+      "properties": {
+        "reachable": { "type": ["boolean", "null"] },
+        "site_url": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "maxLength": 2048 }
+          ]
+        }
+      }
+    },
+    "PluginStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reachable", "enabled_requested", "effective_state", "registry_ready"],
+      "properties": {
+        "reachable": { "type": ["boolean", "null"] },
+        "enabled_requested": { "type": "boolean" },
+        "effective_state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "registry_ready": { "type": "boolean" }
+      }
+    },
+    "SurfaceStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "local_tool_count",
+        "remote_tool_count",
+        "registered_tool_count",
+        "revision",
+        "digest",
+        "relist_required"
+      ],
+      "properties": {
+        "profile": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "local_tool_count": { "type": "integer", "minimum": 0 },
+        "remote_tool_count": { "type": "integer", "minimum": 0 },
+        "registered_tool_count": { "type": "integer", "minimum": 0 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "digest": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "relist_required": { "type": "boolean" }
+      }
+    },
+    "ClientVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reason"],
+      "properties": {
+        "state": { "type": "string", "enum": ["unverified", "attested", "invoked"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "ConnectionReconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "client_expected_wordpress_mode",
+        "client_expected_wp_surface",
+        "saved_wordpress_mode",
+        "effective_wordpress_mode",
+        "saved_wp_surface",
+        "effective_companion_profile",
+        "profile_source",
+        "mismatch_reason",
+        "mismatch_action"
+      ],
+      "properties": {
+        "client_expected_wordpress_mode": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["development", "staging", "production-safe"] }
+          ]
+        },
+        "client_expected_wp_surface": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["bootstrap", "essential", "full"] }
+          ]
+        },
+        "saved_wordpress_mode": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["development", "staging", "production-safe"] }
+          ]
+        },
+        "effective_wordpress_mode": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["development", "staging", "production-safe"] }
+          ]
+        },
+        "saved_wp_surface": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["bootstrap", "essential", "full"] }
+          ]
+        },
+        "effective_companion_profile": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "profile_source": { "type": "string", "enum": ["site", "client-lock", "task", "default"] },
+        "mismatch_reason": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          ]
+        },
+        "mismatch_action": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 512 }
+          ]
+        }
+      }
+    },
+    "ConnectionStatusV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "site_alias",
+        "configured_mode",
+        "active_mode",
+        "connection_stage",
+        "connection_generation",
+        "transport",
+        "authentication",
+        "recovery",
+        "wordpress_runtime",
+        "plugin",
+        "surface",
+        "client_visibility",
+        "process_start_id",
+        "catalog_digest",
+        "observed_tool_names",
+        "reconciliation",
+        "error_code",
+        "next_action",
+        "connected",
+        "ok",
+        "startup_ready",
+        "refresh_required_tool_names"
+      ],
+      "properties": {
+        "schema_version": { "type": "integer", "const": 3 },
+        "site_alias": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 128 }
+          ]
+        },
+        "configured_mode": { "type": "string", "enum": ["direct-only", "plugin-only", "auto"] },
+        "active_mode": { "type": "string", "enum": ["direct", "plugin", "local-only", "none"] },
+        "connection_stage": {
+          "type": "string",
+          "enum": [
+            "local-ready",
+            "probing",
+            "direct-ready",
+            "plugin-authenticated",
+            "plugin-registering",
+            "plugin-ready",
+            "degraded"
+          ]
+        },
+        "connection_generation": { "type": "integer", "minimum": 0 },
+        "transport": { "$ref": "#/$defs/ConnectionTransport" },
+        "authentication": { "$ref": "#/$defs/AuthenticationStatusV3" },
+        "recovery": { "$ref": "#/$defs/RecoveryStatus" },
+        "wordpress_runtime": { "$ref": "#/$defs/WordPressRuntimeStatus" },
+        "plugin": { "$ref": "#/$defs/PluginStatus" },
+        "surface": { "$ref": "#/$defs/SurfaceStatus" },
+        "client_visibility": { "$ref": "#/$defs/ClientVisibility" },
+        "process_start_id": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 256 }
+          ]
+        },
+        "catalog_digest": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "observed_tool_names": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "reconciliation": { "$ref": "#/$defs/ConnectionReconciliation" },
+        "error_code": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          ]
+        },
+        "next_action": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 512 }
+          ]
+        },
+        "connected": { "type": "boolean" },
+        "ok": { "type": "boolean" },
+        "startup_ready": { "type": "boolean" },
+        "refresh_required_tool_names": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "client_task_catalog_stale": { "type": "boolean" },
+        "relist_or_restart_action": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 512 }
+          ]
+        }
+      }
+    }
+  }
+}

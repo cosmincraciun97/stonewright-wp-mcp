@@ -1,15 +1,18 @@
 /**
- * Truthful connection status contract (schema_version: 2).
+ * Truthful connection status contract (schema_version: 3).
  *
  * Shared by setup/doctor/task-start/status/client-surface-check.
  * `connected` remains a backward-compatible derived field, not source of truth.
+ * Newly emitted statuses are V3. Inbound V2 objects may still be parsed at
+ * external compatibility boundaries (sites registry, plugin workflow preflight).
  */
 
 import type { ConnectionStage } from './state-machine.js';
+import type { AuthenticationStatusV3, RecoveryStatus } from './authentication-status.js';
 import { permanentGatewayMembership } from './permanent-gateways.js';
 
 /** Shared status contract schema version. */
-export const STATUS_SCHEMA_VERSION = 2;
+export const STATUS_SCHEMA_VERSION = 3;
 
 export type ConfiguredMode = 'direct-only' | 'plugin-only' | 'auto';
 export type ActiveMode = 'direct' | 'plugin' | 'local-only' | 'none';
@@ -54,8 +57,8 @@ export interface ConnectionReconciliation {
 	mismatch_action: string | null;
 }
 
-export interface ConnectionStatusV2 {
-	schema_version: 2;
+export interface ConnectionStatusV3 {
+	schema_version: 3;
 	site_alias: string | null;
 	configured_mode: ConfiguredMode;
 	active_mode: ActiveMode;
@@ -65,10 +68,8 @@ export interface ConnectionStatusV2 {
 		kind: 'stdio' | 'http' | 'unknown';
 		mcp_url: string | null;
 	};
-	authentication: {
-		configured: boolean;
-		method: 'app-password' | 'authorization' | 'oauth' | 'none' | 'unknown';
-	};
+	authentication: AuthenticationStatusV3;
+	recovery: RecoveryStatus;
 	wordpress_runtime: {
 		reachable: boolean | null;
 		site_url: string | null;
@@ -149,7 +150,7 @@ export function mapConfiguredMode(envMode: string | null | undefined): Configure
 	return 'auto';
 }
 
-export function buildConnectionStatusV2(input: {
+export function buildConnectionStatusV3(input: {
 	siteAlias?: string | null;
 	configuredMode: ConfiguredMode;
 	activeMode: ActiveMode;
@@ -157,8 +158,8 @@ export function buildConnectionStatusV2(input: {
 	connectionGeneration: number;
 	transportKind?: 'stdio' | 'http' | 'unknown';
 	mcpUrl?: string | null;
-	authConfigured: boolean;
-	authMethod?: ConnectionStatusV2['authentication']['method'];
+	authentication: AuthenticationStatusV3;
+	recovery: RecoveryStatus;
 	wpReachable?: boolean | null;
 	siteUrl?: string | null;
 	plugin: PluginStatus;
@@ -176,7 +177,7 @@ export function buildConnectionStatusV2(input: {
 	reconciliation?: ConnectionReconciliation;
 	/** Extra derived ok override. */
 	ok?: boolean;
-}): ConnectionStatusV2 {
+}): ConnectionStatusV3 {
 	const connected = input.connectionStage === 'plugin-ready'
 		|| input.connectionStage === 'direct-ready'
 		|| input.connectionStage === 'plugin-registering'
@@ -209,10 +210,8 @@ export function buildConnectionStatusV2(input: {
 			kind: input.transportKind ?? 'stdio',
 			mcp_url: input.mcpUrl ?? null,
 		},
-		authentication: {
-			configured: input.authConfigured,
-			method: input.authMethod ?? (input.authConfigured ? 'unknown' : 'none'),
-		},
+		authentication: input.authentication,
+		recovery: input.recovery,
 		wordpress_runtime: {
 			reachable: input.wpReachable ?? null,
 			site_url: input.siteUrl ?? null,
