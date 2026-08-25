@@ -158,6 +158,7 @@ async function bootstrapConnection(
 	runtime: ConnectionRuntime,
 	options: CreateMcpServerOptions,
 	fetchImpl: typeof fetch,
+	forceProbe = false,
 ): Promise<void> {
 	const env = runtime.env;
 	const profile = runtime.profile;
@@ -169,6 +170,7 @@ async function bootstrapConnection(
 	const modeProbe = await resolveRuntimeMode({
 		env,
 		fetchImpl,
+		forceProbe,
 	});
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
@@ -356,7 +358,7 @@ async function performReconnect(
 
 		const resumeListNotifications = pauseListNotifications(server);
 		try {
-			await bootstrapConnection(server, runtime, options, runtime.fetchImpl);
+			await bootstrapConnection(server, runtime, options, runtime.fetchImpl, Boolean(input.force_probe));
 		} finally {
 			resumeListNotifications();
 		}

@@ -31,6 +31,16 @@ export {
 } from './authentication-status.js';
 
 export {
+	classifyTransportFailure,
+	classifyHttpStatus,
+	PluginTransportError,
+	type TransportDiagnostic,
+	type TransportErrorKind,
+	type TransportPhase,
+	type TransportFailureContext,
+} from './transport-diagnostic.js';
+
+export {
 	STATUS_SCHEMA_VERSION,
 	clientHasTool,
 	defaultClientVisibility,
