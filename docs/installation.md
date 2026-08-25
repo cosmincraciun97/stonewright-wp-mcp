@@ -29,7 +29,7 @@ HTTPS and does not run or require a local companion.
 3. Fully restart the client and run the generated connection verification. A parseable config file is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first with the real task. Keep `essential` for normal work; `bootstrap` is startup diagnostics only.
 
-The Setup page offers OAuth when the client supports remote Streamable HTTP and Application Password/local stdio when a companion is required. Private credentials remain in the browser approval flow, OS credential store, environment reference, or private client configuration.
+The Setup page offers OAuth when the client supports remote Streamable HTTP and Application Password/local stdio when a companion is required. OAuth and Application Password share one client tablist, including **Grok Build / CLI**. Private credentials remain in the browser approval flow, OS credential store, environment reference, or private client configuration. If status reports `reauthentication_required`, relay `user_action` and stop until the operator reauthenticates.
 
 The release ZIP includes production Composer dependencies.
 
@@ -72,7 +72,7 @@ Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
 `--mode plugin-only`; `auto` is appropriate only when intentional Direct
 fallback is part of the connection policy. Working stdio client ids: cursor,
-claude-desktop, vscode-copilot, codex, generic-mcp.
+claude-desktop, vscode-copilot, codex, grok-build, generic-mcp.
 
 ```json
 {
@@ -187,7 +187,8 @@ Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
 WordPress Application Password. The setup diagnostics panel blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing. **Stonewright → Troubleshoot** runs the same probes in place with a
+is missing. **Stonewright → Troubleshoot** runs a dependency-ordered graph for
+OAuth, Application Password, local companion, or **Not sure**, in place with a
 loading state; see [Troubleshoot](admin/troubleshoot.md).
 
 Fastest MCP-client setup uses the alias installer, so Windows, macOS, and Linux

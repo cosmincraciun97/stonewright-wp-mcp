@@ -30,9 +30,12 @@ It routes the agent to the right specialized skill and MCP tools.
    version-incompatible guidance.
 5. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
-   direct `stonewright-wp-cli-*` tools only when WP-CLI is needed. Ask the
-   operator to run **Stonewright → Troubleshoot** when the client never sees
-   tools, fails auth, or cannot reach the site.
+   direct `stonewright-wp-cli-*` tools only when WP-CLI is needed. Status uses
+   schema version 3. If it reports `reauthentication_required`, relay
+   `user_action` and stop WordPress work until the operator reauthenticates.
+   Ask the operator to run **Stonewright → Troubleshoot** (OAuth, Application
+   Password, local companion, or Not sure) when the client never sees tools,
+   fails auth, or cannot reach the site. Degraded task-start reconnects once.
 
 Styling ladder (Elementor and Gutenberg): block supports / preset slugs → typed
 widget controls → custom CSS only through approval-gated tools. On
@@ -126,3 +129,8 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
 - For visual work, implement one or two sections at a time and verify desktop,
   tablet, and mobile before continuing.
 - For Elementor widgets, inspect schema or capability summary before writing.
+- After an Elementor apply, call `stonewright-elementor-css-regenerate` when
+  generated CSS must be rebuilt, then
+  `stonewright-elementor-post-write-verify`. The verifier is observation-only.
+- Generic content writes reject executable-code post types. Use the
+  approval-gated custom-code provider pipeline.

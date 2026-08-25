@@ -37,6 +37,7 @@ acceptance report can support a certified claim.
 | Zed | `zed` | compatible | JSON (`context_servers`) | — | 2026-07-16 | pending | |
 | OpenCode | `opencode` | compatible | JSON | — | 2026-07-16 | pending | |
 | Generic MCP | `generic-mcp` | compatible | JSON HTTP/stdio | — | 2026-07-16 | pending | Streamable HTTP or companion stdio |
+| Grok Build / CLI | `grok-build` | compatible | TOML | `grok mcp add --transport http` | 2026-08-25 | pending | One catalog entry; `grok-cli` / `grok` aliases. OAuth uses native HTTP and `~/.grok/config.toml`. Application Password uses local companion stdio. Keep `compatible` until a dated runtime smoke report exists. |
 
 ## Secret storage policy
 

@@ -195,10 +195,13 @@ include per-setting `settings_evidence` from the live schema. Apply only after
 the consolidated dry run passes against `expected_tree_hash`.
 
 Every successful apply returns a cache-closure receipt and a required next step.
-Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt,
-then `stonewright/elementor-post-write-verify` with all touched element IDs. The
-verifier is observation-only: it warms the official frontend builder renderer
-and asserts the IDs without returning page HTML or regenerating CSS. Only then
+Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
+(resolved post or loop target), then
+`stonewright/elementor-post-write-verify` with all touched element IDs. Never
+pass `regenerate_css`; that input does not exist. The verifier is
+observation-only: it warms the official frontend builder renderer with CSS
+generation disabled and asserts the IDs without returning page HTML,
+regenerating CSS, invalidating caches, or rolling back files. Only then
 perform visual acceptance in a separate frontend tab at desktop, tablet, and
 mobile.
 

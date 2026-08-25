@@ -93,10 +93,15 @@ tokens, and Application Passwords are redacted from Direct audit diagnostics
 before persistence.
 
 Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
-token pairs atomically with mode `0600`. Terminal grant/client failures clear
-the local state and return a reauthorization-required result; transient HTTP or
-network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
-breaker. See [Permanent remediation contracts](permanent-remediation-contracts.md).
+token pairs atomically with mode `0600`. Status reports use schema version 3.
+Terminal grant/client failures clear the local state and return
+`reauthentication_required` with a model-visible `user_action`; transient HTTP
+or network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
+breaker. Access tokens last one hour. Seven-day continuity is a refresh SLO
+against a fourteen-day grant family. Handshake and allowlisted read-only
+bootstrap calls may retry once; mutations never retry. Degraded
+`stonewright-task-start` reconnects once. See
+[Permanent remediation contracts](permanent-remediation-contracts.md).
 
 ## Plugin Integration
 

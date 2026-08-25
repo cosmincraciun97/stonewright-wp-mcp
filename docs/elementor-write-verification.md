@@ -150,7 +150,10 @@ verified write it removes only the target post's element/HTML cache. It
 preserves CSS metadata and never calls Elementor's global CSS flush command.
 The result reports `css_safety_status=preserved_pending_plugin_verification`
 and remains `browser_required`; use Plugin mode for guarded target-post CSS
-closure. Direct mode has no typed live-schema validator.
+closure via `stonewright-elementor-css-regenerate` then
+observation-only `stonewright-elementor-post-write-verify`. Direct mode has no
+typed live-schema validator and must not pass `regenerate_css` to verify;
+that input does not exist.
 
 Remote Direct REST cannot load Elementor's PHP renderer or post-cache manager.
 It reports cache and frontend verification as `not_checked` instead of

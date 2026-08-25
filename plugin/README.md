@@ -71,7 +71,11 @@ typed dry-run, returns `approval_url`, exact target path, byte counts, and a
 short summary, then stops. It must not open the approval page, issue or retrieve
 the one-time grant, or apply `custom_code_grant` unless the user explicitly asks
 the agent to perform that approval step. This applies to theme files,
-Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces.
+Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces. Generic
+content create/update/duplicate/bulk abilities reject provider-owned
+executable-code post types (`stonewright_custom_code_provider_required`) and
+never skip KSES to preserve PHP. WPCode active PHP uses the provider's public
+save and cache APIs.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you
@@ -81,6 +85,9 @@ WP-CLI already configured. Runtime agents should not recover by shelling out to
 `wp ...` or by switching to another PHP adapter. They should use
 `stonewright/php-execute` for direct WordPress runtime snippets and the
 tokenized `stonewright-wp-cli-*` MCP tools for WP-CLI workflows.
+Guarded php-execute installs a real `wpdb` subclass around the live handle so
+third-party type checks still pass; core-table and protected Elementor meta
+writes remain blocked.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients; keep `essential` for normal fast-path sessions.
 
@@ -139,10 +146,14 @@ Toggle in **Stonewright → Setup**. Contracts for the public ability list live 
 (initialize → tools/list → task-start). Preflight alone does not prove a live
 client session.
 
-**Stonewright → Troubleshoot** (also on Setup) runs the same class of probes
-from **Run diagnostics** without reloading the admin page when JavaScript is
-available. Use it when a client never lists Stonewright tools, fails auth, or
-cannot reach the site. Copy the report for support; it never includes secrets.
+**Stonewright → Troubleshoot** (also on Setup) runs a dependency-ordered
+diagnostic graph from **Run diagnostics** without reloading the admin page when
+JavaScript is available. Pick **How do you connect?** first: **OAuth**,
+**Application Password**, **Local companion**, or **Not sure** (safe discovery
+that recommends a method and does not guess credentials). Failed prerequisites
+mark dependents skipped instead of inventing secondary failures. Use it when a
+client never lists Stonewright tools, fails auth, or cannot reach the site.
+Copy the report for support; it never includes secrets.
 
 Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
 credentials, REST index/namespaces, REST auth, and MCP initialize without
@@ -267,12 +278,27 @@ the registry rather than restating rule text in PHP.
 ### Client Setup In Admin
 
 The Configuration page guides enablement, authentication, client connection,
-component updates, and live verification. Private client snippets may contain a
+component updates, and live verification. OAuth and Application Password share
+one client tablist; changing the authentication method updates instructions
+inside the same selected-client panel. Unsupported combinations stay visible
+but disabled. **Grok Build / CLI** is one catalog entry (`grok-build`;
+`grok-cli` and `grok` are aliases): OAuth uses native HTTP and
+`~/.grok/config.toml`; Application Password uses the local companion so the
+secret is not stored in TOML. The entry stays `compatible` until a dated
+runtime smoke report exists.
+
+Private client snippets may contain a
 newly generated one-time Application Password in current-tab memory; generation
 does not refresh the page, and the paste-to-agent prompt always uses
 placeholders. The no-JavaScript fallback returns one standalone no-store
 response and never stores plaintext in a transient. The dedicated Prompt
 Library labels Plugin/Direct support and includes requirements plus verification.
+
+Companion status reports use schema version 3. Call `stonewright-task-start`
+first; a degraded session reconnects once. Terminal OAuth failures return
+`reauthentication_required` with a model-visible `user_action`. Access tokens
+stay one hour; seven-day continuity is a refresh SLO against a fourteen-day
+grant family, not a seven-day bearer token.
 
 ### Design abilities (MCP)
 

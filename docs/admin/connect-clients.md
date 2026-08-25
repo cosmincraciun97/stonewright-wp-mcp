@@ -8,6 +8,7 @@ into client configuration.
 2. Enable Stonewright.
 3. Choose **OAuth**.
 4. Pick the client in **Connect Your AI Client** and follow its instructions.
+   OAuth and Application Password share the same client tablist.
 5. Approve the application in WordPress when the browser opens.
 
 The OAuth MCP resource is:
@@ -36,10 +37,17 @@ state; copy the report for support. See [Troubleshoot](troubleshoot.md).
 
 Terminal refresh failures (`refresh_token_expired`, `refresh_token_revoked`, or
 `refresh_token_invalid`) clear local token state and require one explicit
-reauthorization. Transient `429`/`temporarily_unavailable` responses retain
-`Retry-After` and are retried with bounded backoff; do not start a second manual
-refresh in parallel. Replaying a rotated refresh token revokes the entire token
-family and all access tokens for that grant.
+reauthorization. Companion status uses schema version 3. Terminal results set
+`reauthentication_required` with a model-visible `user_action`; relay that
+action and stop WordPress work until the operator reauthenticates. Transient
+`429`/`temporarily_unavailable` responses retain `Retry-After` and are retried
+with bounded backoff; do not start a second manual refresh in parallel.
+Replaying a rotated refresh token revokes the entire token family and all
+access tokens for that grant. Access tokens last one hour. Seven-day continuity
+is a refresh SLO against a fourteen-day grant family, not a seven-day bearer
+token. Handshake and allowlisted read-only bootstrap calls may retry once;
+mutations never retry. `stonewright-task-start` reconnects a degraded session
+once.
 
 ## Choose the connection method
 
@@ -105,7 +113,7 @@ keeps the Application Password in the OS credential store instead of copying
 it into every client configuration. Because this guide starts from an installed
 plugin, `plugin-only` is the correct policy. For automatic Direct fallback use
 `--mode auto` instead. Working stdio client ids: cursor, claude-desktop,
-vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai connect via the
+vscode-copilot, codex, grok-build, generic-mcp. ChatGPT Desktop / Claude.ai connect via the
 OAuth HTTP method, not the local installer.
 
 ```bash
@@ -317,6 +325,35 @@ Zed uses `context_servers`:
   }
 }
 ```
+
+---
+
+## Grok Build / CLI
+
+One catalog entry: `grok-build`. `grok-cli` and `grok` are aliases. Official
+CLI is the `grok` command. Config is `~/.grok/config.toml`. Support stays
+`compatible` until a dated runtime smoke report exists.
+
+OAuth uses native HTTP. Authenticate from `/mcps`, then run
+`stonewright-task-start` again:
+
+```toml
+[mcp_servers.stonewright]
+url = "https://example.test/wp-json/mcp/stonewright-oauth"
+enabled = true
+```
+
+```bash
+grok mcp add --transport http stonewright https://example.test/wp-json/mcp/stonewright-oauth
+grok mcp doctor stonewright
+```
+
+Application Password uses the local companion over stdio so the secret is not
+stored in TOML. Use the versioned installer with `--client grok-build` and a
+unique alias; the companion holds the credential.
+
+If OAuth expires, open `/mcps`, select Stonewright, authenticate, then run
+`stonewright-task-start` again.
 
 ---
 
