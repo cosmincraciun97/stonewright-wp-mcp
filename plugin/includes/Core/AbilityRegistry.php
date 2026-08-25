@@ -95,6 +95,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtReport;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtMigrate;
 use Stonewright\WpMcp\Abilities\ElementorV3\PageDigest;
 use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
+use Stonewright\WpMcp\Abilities\ElementorV3\CssRegenerate;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ListWidgets;
 use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
@@ -435,6 +436,7 @@ final class AbilityRegistry {
 			LegacyDebtReport::class,
 			LegacyDebtMigrate::class,
 			PostWriteVerify::class,
+			CssRegenerate::class,
 			BuildTree::class,
 			DesignMirrorExport::class,
 			GetElement::class,

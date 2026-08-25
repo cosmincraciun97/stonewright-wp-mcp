@@ -500,11 +500,12 @@ final class BatchMutate extends AbilityKernel {
 						? [
 							'tool'               => 'stonewright/elementor-v3-batch-mutate',
 							'expected_tree_hash' => $before_hash,
-							'then'               => 'stonewright/elementor-post-write-verify',
+							'then'               => 'stonewright/elementor-css-regenerate',
 						]
 						: [
-							'tool'        => 'stonewright/elementor-post-write-verify',
+							'tool'        => 'stonewright/elementor-css-regenerate',
 							'post_id'     => $post_id,
+							'then'        => 'stonewright/elementor-post-write-verify',
 							'element_ids' => $touched_ids,
 							'required_before_browser_acceptance' => true,
 						],

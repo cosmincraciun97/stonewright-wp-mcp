@@ -132,7 +132,8 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   connected browser, or none. Ask permission before scanning client
   tools/private config and separate permission before installing or configuring
   a missing provider; then verify the approved tool before the first write.
-- After any Elementor write, call
+- After any Elementor write, call stonewright-elementor-css-regenerate when
+  generated CSS must be rebuilt, then
   stonewright-elementor-post-write-verify with the touched element IDs. Do not
   call the task complete until its frontend assertions pass and desktop,
   tablet, and mobile browser measurements/screenshots are accepted.

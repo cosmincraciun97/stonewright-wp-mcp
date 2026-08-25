@@ -101,9 +101,11 @@ Three post-meta keys are written:
 The write removes only Elementor's target-post HTML cache key and cleans the
 WordPress post cache. It preserves `_elementor_css` and never calls Elementor's
 site-wide files-manager clear. After the typed write, call
-`stonewright-elementor-post-write-verify`; it regenerates only the target post
-through Elementor's official Post CSS API inside a bounded asset transaction.
-Never pass `regenerate_css`.
+`stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then
+`stonewright-elementor-post-write-verify`. The regenerator updates only the
+resolved target through Elementor's official `update_file()` API inside a
+bounded asset transaction. The verifier is observation-only and never
+regenerates CSS. Never pass `regenerate_css`.
 
 ### Step 7 — Audit log
 

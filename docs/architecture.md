@@ -369,13 +369,17 @@ single meta write, hash readback, and post-scoped cache invalidation; a mismatch
 attempts snapshot restoration and can never be reported as success. An
 identical plan is a verified no-op without a snapshot or write.
 
-`stonewright/elementor-post-write-verify` is the explicit frontend-closure
-ability. It preserves normal CSS metadata, inventories direct Elementor CSS
-assets, probes existing protected URLs, updates only the target through
-`Elementor\Core\Files\CSS\Post::create()->update()`, and restores the bounded
-asset snapshot if collateral changes or probes fail. It then renders through
-`get_builder_content_for_display( $post_id, false )` so the render cannot start
-a second CSS pass, returning only bounded assertions and hashes. Browser
+`stonewright/elementor-css-regenerate` is the only ability that mutates
+generated Elementor CSS. It snapshots the post, acquires the post lock and CSS
+directory lease, inventories direct Elementor CSS assets, probes existing
+protected URLs, updates only the resolved post or loop target through
+`update_file()`, and restores the bounded asset snapshot if collateral changes
+or probes fail.
+
+`stonewright/elementor-post-write-verify` is the explicit frontend-observation
+ability. It calls `get_builder_content_for_display( $post_id, false )` so the
+render cannot start a CSS pass, then returns only bounded assertions and hashes.
+It does not regenerate CSS, invalidate caches, or roll back files. Browser
 measurement remains a separate required gate because a successful renderer
 call cannot prove responsive geometry, visibility, carousel peeks, or asset
 fidelity.

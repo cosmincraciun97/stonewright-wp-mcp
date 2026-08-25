@@ -4,16 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
-use Stonewright\WpMcp\Elementor\CssAssetTransaction;
-use Stonewright\WpMcp\Elementor\CssRegenerator;
-use Stonewright\WpMcp\Elementor\CssTargetResolver;
-use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
-use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Closes an Elementor write by invalidating post-scoped caches, warming the
- * official frontend renderer, and checking bounded non-content assertions.
+ * Observes an Elementor frontend render. It does not regenerate CSS, invalidate
+ * caches, or roll back files. CSS mutation belongs to elementor-css-regenerate.
  *
  * @stonewright-status stable
  */
@@ -28,7 +23,7 @@ final class PostWriteVerify extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Invalidates one post HTML cache, regenerates only its CSS inside a guarded asset transaction, renders Elementor without a second CSS pass, and verifies requested element ids or content markers with automatic rollback on failure.', 'stonewright' );
+		return __( 'Renders Elementor with CSS generation disabled and checks bounded element ids or content markers. Observation only: it does not regenerate CSS, invalidate caches, or roll back files. Call after apply and CSS regenerate, then complete Browser QA.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -41,21 +36,20 @@ final class PostWriteVerify extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'post_id' ],
 			'properties'           => [
-				'confirmation_token' => [ 'type' => 'string' ],
-				'post_id'        => [ 'type' => 'integer', 'minimum' => 1 ],
-				'element_ids'    => [
+				'post_id'       => [ 'type' => 'integer', 'minimum' => 1 ],
+				'element_ids'   => [
 					'type'     => 'array',
 					'maxItems' => 50,
 					'items'    => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 80 ],
 					'default'  => [],
 				],
-				'html_contains'  => [
+				'html_contains' => [
 					'type'     => 'array',
 					'maxItems' => 20,
 					'items'    => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 200 ],
 					'default'  => [],
 				],
-				'write_receipt'  => [ 'type' => 'object', 'description' => 'Receipt returned by the originating batch transaction.' ],
+				'write_receipt' => [ 'type' => 'object', 'description' => 'Receipt returned by the originating batch transaction.' ],
 			],
 		];
 	}
@@ -71,15 +65,13 @@ final class PostWriteVerify extends AbilityKernel {
 				'effect_verified'     => [ 'type' => 'boolean' ],
 				'rendered_bytes'      => [ 'type' => 'integer' ],
 				'render_sha256'       => [ 'type' => 'string' ],
-				'cache'               => [ 'type' => 'object' ],
-				'css'                 => [ 'type' => 'object' ],
 				'element_checks'      => [ 'type' => 'array' ],
 				'content_checks'      => [ 'type' => 'array' ],
 				'browser_required'    => [ 'type' => 'boolean' ],
 				'browser_recipe'      => [ 'type' => 'object' ],
 				'write_receipt'       => [ 'type' => 'object' ],
 			],
-			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'rendered_bytes', 'render_sha256', 'cache', 'css', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
+			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'rendered_bytes', 'render_sha256', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
 		];
 	}
 
@@ -88,7 +80,7 @@ final class PostWriteVerify extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit_write(
+		return $this->audit(
 			$args,
 			function ( array $args ): array|\WP_Error {
 				$post_id = (int) ( $args['post_id'] ?? 0 );
@@ -113,135 +105,22 @@ final class PostWriteVerify extends AbilityKernel {
 					);
 				}
 
-				$owner = 'verify-' . substr( hash( 'sha256', wp_generate_uuid4() . '|' . $post_id ), 0, 32 );
-				$lease = PostWriteLock::acquire( $post_id, $owner, 120 );
-				if ( $lease instanceof \WP_Error ) {
-					return $lease;
-				}
 				try {
-				$cache_snapshot = PostCacheInvalidator::snapshot( $post_id );
-				$cache = PostCacheInvalidator::invalidate( $post_id );
-				if ( ! (bool) ( $cache['ok'] ?? false ) ) {
-					$cache_rollback_status = 'not_attempted_lock_lost';
-					$renewed = PostWriteLock::renew( $lease, 120 );
-					if ( ! $renewed instanceof \WP_Error ) {
-						$lease = $renewed;
-						$cache_rollback = PostCacheInvalidator::restore( $post_id, $cache_snapshot );
-						$cache_rollback_status = $cache_rollback['ok'] ? 'succeeded' : 'failed';
-					}
-					return $this->error(
-						'elementor_post_cache_invalidation_failed',
-						__( 'Elementor post HTML cache invalidation failed.', 'stonewright' ),
-						[ 'status' => 500, 'verification_status' => 'failed', 'cache_rollback_status' => $cache_rollback_status ]
-					);
+					$html = (string) $frontend->get_builder_content_for_display( $post_id, false );
+				} catch ( \Throwable $error ) {
+					return self::failure_response( $post_id, '', $args, 'renderer_failed' );
 				}
 
-				$renewed = PostWriteLock::renew( $lease, 120 );
-				if ( $renewed instanceof \WP_Error ) {
-					return $renewed;
-				}
-				$lease = $renewed;
-
-				$resolved = ( new CssTargetResolver() )->resolve( $post_id, 'auto' );
-				if ( $resolved instanceof \WP_Error ) {
-					return $resolved;
-				}
-
-				$transaction = CssAssetTransaction::run(
-					$resolved,
-					static function () use ( $resolved, $frontend, $args, $cache ): array {
-						$css = CssRegenerator::regenerate( $resolved );
-						if ( ! (bool) ( $css['ok'] ?? false ) ) {
-							return [
-								'ok'         => false,
-								'error_code' => 'css_regeneration_failed',
-							];
-						}
-						// CSS was already regenerated explicitly. Passing false prevents
-						// Elementor from starting another CSS write path during rendering.
-						$html = (string) $frontend->get_builder_content_for_display( $resolved->post_id(), false );
-						$verification = self::verification_evidence( $html, $args );
-						$checks       = array_merge( $verification['element_checks'], $verification['content_checks'] );
-						$passed       = '' !== $html
-							&& (bool) ( $cache['ok'] ?? false )
-							&& ! in_array( false, array_column( $checks, 'present' ), true );
-						if ( ! $passed ) {
-							return [ 'ok' => false, 'error_code' => 'frontend_verification_failed', 'verification' => $verification ];
-						}
-						return [
-							'ok'           => true,
-							'css'          => $css,
-							'html'         => $html,
-							'verification' => $verification,
-						];
-					}
-				);
-				if ( $transaction instanceof \WP_Error ) {
-					$data = $transaction->get_error_data();
-					$data = is_array( $data ) ? $data : [];
-					$data['cache_rollback_status'] = 'not_attempted_lock_lost';
-					$restore_lease = PostWriteLock::renew( $lease, 120 );
-					if ( ! $restore_lease instanceof \WP_Error ) {
-						$lease = $restore_lease;
-						$cache_rollback = PostCacheInvalidator::restore( $post_id, $cache_snapshot );
-						$data['cache_rollback_status'] = $cache_rollback['ok'] ? 'succeeded' : 'failed';
-					}
-					$transaction->add_data( $data );
-					$verification = is_array( $data['operation_evidence']['verification'] ?? null )
-						? $data['operation_evidence']['verification']
-						: [ 'rendered_bytes' => 0, 'render_sha256' => '', 'element_checks' => [], 'content_checks' => [] ];
-					return self::failure_response( $post_id, $cache, $verification, $data, $args );
-				}
-				// CSS commit and in-transaction assertions already closed. A later
-				// post-lock renew failure is best-effort: rolling CSS or cache back
-				// would desync a committed write, and another live lock owner must
-				// not be overwritten. Codes: lock.renew_after_commit=ok|lost_after_commit.
-				$lock_renew_after_commit = 'ok';
-				$renewed = PostWriteLock::renew( $lease, 120 );
-				if ( $renewed instanceof \WP_Error ) {
-					$lock_renew_after_commit = 'lost_after_commit';
-				} else {
-					$lease = $renewed;
-				}
-				$operation = is_array( $transaction['operation_result'] ?? null ) ? $transaction['operation_result'] : [];
-				$html      = (string) ( $operation['html'] ?? '' );
-				$css       = array_merge(
-					is_array( $operation['css'] ?? null ) ? $operation['css'] : [],
-					is_array( $transaction['css_evidence'] ?? null ) ? $transaction['css_evidence'] : []
-				);
-
-				$element_ids = self::bounded_strings( $args['element_ids'] ?? [], 50, 80 );
-				$markers     = self::bounded_strings( $args['html_contains'] ?? [], 20, 200 );
-				$element_checks = [];
-				foreach ( $element_ids as $element_id ) {
-					$element_checks[] = [
-						'element_id' => $element_id,
-						'selector'   => '.elementor-element-' . $element_id,
-						'present'    => str_contains( $html, 'elementor-element-' . $element_id ),
-					];
-				}
-				$content_checks = [];
-				foreach ( $markers as $marker ) {
-					$content_checks[] = [
-						'sha256'  => hash( 'sha256', $marker ),
-						'length'  => strlen( $marker ),
-						'present' => str_contains( $html, $marker ),
-					];
-				}
-
-				$checks = array_merge( $element_checks, $content_checks );
-				$passed = '' !== $html
-					&& (bool) ( $cache['ok'] ?? false )
-					&& (bool) ( $css['ok'] ?? false )
-					&& ! in_array( false, array_column( $checks, 'present' ), true );
+				$verification   = self::verification_evidence( $html, $args );
+				$element_checks = $verification['element_checks'];
+				$content_checks = $verification['content_checks'];
+				$checks         = array_merge( $element_checks, $content_checks );
+				$passed         = '' !== $html && ! in_array( false, array_column( $checks, 'present' ), true );
 
 				$write_receipt = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] ) ? self::sanitize_receipt( $args['write_receipt'] ) : [];
 				if ( [] !== $write_receipt ) {
 					$write_receipt['verification_status'] = $passed ? 'verified' : 'failed';
-					$write_receipt['root_error_code'] = $passed ? '' : 'stonewright_elementor_frontend_verification_failed';
-					$write_receipt['root_error_path'] = $passed ? '' : 'verify.frontend';
-					$write_receipt['rollback_status'] = $passed ? (string) ( $write_receipt['rollback_status'] ?? 'not_needed' ) : 'manual_required';
-					$write_receipt['recovery'] = $passed ? [] : [ 'action' => 'inspect_render_and_restore_snapshot_if_required', 'automatic_rollback' => false ];
+					$write_receipt['root_error_code']     = $passed ? '' : 'stonewright_elementor_frontend_verification_failed';
 				}
 
 				return [
@@ -249,34 +128,19 @@ final class PostWriteVerify extends AbilityKernel {
 					'post_id'             => $post_id,
 					'verification_status' => $passed ? 'passed' : 'failed',
 					'effect_verified'     => $passed,
-					'rendered_bytes'      => strlen( $html ),
-					'render_sha256'       => hash( 'sha256', $html ),
-					'cache'               => $cache,
-					'css'                 => $css,
+					'rendered_bytes'      => $verification['rendered_bytes'],
+					'render_sha256'       => $verification['render_sha256'],
 					'element_checks'      => $element_checks,
 					'content_checks'      => $content_checks,
 					'browser_required'    => true,
-					'browser_recipe'      => [
-						'desktop_tablet_mobile' => true,
-						'outer_selector'        => '.elementor-element-<element_id>',
-						'boxed_inner_selector'  => '.elementor-element-<element_id> > .e-con-inner',
-						'rule'                  => 'For boxed containers measure both outer and .e-con-inner. A builder render pass is not visual acceptance.',
-					],
+					'browser_recipe'      => self::browser_recipe(),
 					'write_receipt'       => $write_receipt,
-					'lock'                => [
-						'renew_after_commit' => $lock_renew_after_commit,
-					],
 				];
-				} finally {
-					PostWriteLock::release( $post_id, $owner );
-				}
 			}
 		);
 	}
 
 	/**
-	 * Build assertion evidence without retaining caller-provided marker text.
-	 *
 	 * @param array<string,mixed> $args
 	 * @return array{rendered_bytes:int,render_sha256:string,element_checks:list<array<string,mixed>>,content_checks:list<array<string,mixed>>}
 	 */
@@ -305,36 +169,27 @@ final class PostWriteVerify extends AbilityKernel {
 		];
 	}
 
-	/** @param array<string,mixed> $verification @param array<string,mixed> $data @param array<string,mixed> $args */
-	private static function failure_response( int $post_id, array $cache, array $verification, array $data, array $args ): array {
+	/** @param array<string,mixed> $args */
+	private static function failure_response( int $post_id, string $html, array $args, string $code ): array {
+		$verification = self::verification_evidence( $html, $args );
 		$write_receipt = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] ) ? self::sanitize_receipt( $args['write_receipt'] ) : [];
-		$rollback_status = (string) ( $data['rollback_status'] ?? 'failed' );
 		if ( [] !== $write_receipt ) {
 			$write_receipt['verification_status'] = 'failed';
-			$write_receipt['root_error_code'] = sanitize_key( (string) ( $data['root_error_code'] ?? 'stonewright_elementor_frontend_verification_failed' ) );
-			$write_receipt['root_error_path'] = 'verify.frontend';
-			$write_receipt['rollback_status'] = $rollback_status;
+			$write_receipt['root_error_code']     = sanitize_key( $code );
 		}
 		return [
 			'ok'                  => false,
 			'post_id'             => $post_id,
 			'verification_status' => 'failed',
 			'effect_verified'     => false,
-			'rendered_bytes'      => (int) ( $verification['rendered_bytes'] ?? 0 ),
-			'render_sha256'       => (string) ( $verification['render_sha256'] ?? '' ),
-			'cache'               => array_merge( $cache, [ 'rollback_status' => (string) ( $data['cache_rollback_status'] ?? 'failed' ) ] ),
-			'css'                 => [
-				'ok'                       => false,
-				'rollback_status'          => $rollback_status,
-				'manifest_rollback_status' => (string) ( $data['manifest_rollback_status'] ?? 'failed' ),
-				'metadata_rollback_status' => (string) ( $data['metadata_rollback_status'] ?? 'failed' ),
-				'root_error_code'          => sanitize_key( (string) ( $data['root_error_code'] ?? 'stonewright_elementor_frontend_verification_failed' ) ),
-			],
-			'element_checks'      => is_array( $verification['element_checks'] ?? null ) ? $verification['element_checks'] : [],
-			'content_checks'      => is_array( $verification['content_checks'] ?? null ) ? $verification['content_checks'] : [],
+			'rendered_bytes'      => $verification['rendered_bytes'],
+			'render_sha256'       => $verification['render_sha256'],
+			'element_checks'      => $verification['element_checks'],
+			'content_checks'      => $verification['content_checks'],
 			'browser_required'    => true,
 			'browser_recipe'      => self::browser_recipe(),
 			'write_receipt'       => $write_receipt,
+			'root_error_code'     => sanitize_key( $code ),
 		];
 	}
 
@@ -370,9 +225,6 @@ final class PostWriteVerify extends AbilityKernel {
 	}
 
 	/**
-	 * Keep the verification receipt useful for correlation without echoing
-	 * arbitrary caller-controlled data back through the MCP response.
-	 *
 	 * @param array<string,mixed> $receipt
 	 * @return array<string,mixed>
 	 */
@@ -421,14 +273,6 @@ final class PostWriteVerify extends AbilityKernel {
 				continue;
 			}
 			$out[ $key ] = $value;
-		}
-		if ( isset( $receipt['lock'] ) && is_array( $receipt['lock'] ) ) {
-			$out['lock'] = [
-				'status'      => sanitize_key( (string) ( $receipt['lock']['status'] ?? '' ) ),
-				'fingerprint' => is_scalar( $receipt['lock']['fingerprint'] ?? null ) && 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $receipt['lock']['fingerprint'] ) ? strtolower( (string) $receipt['lock']['fingerprint'] ) : '',
-				'age_seconds' => max( 0, (int) ( $receipt['lock']['age_seconds'] ?? 0 ) ),
-				'retry_after' => max( 0, (int) ( $receipt['lock']['retry_after'] ?? 0 ) ),
-			];
 		}
 		return $out;
 	}

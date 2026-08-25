@@ -22,12 +22,12 @@ Loop Grid/Carousel with live licensed schemas, a validated existing or newly sta
 loop-item template, one page write, readback verification, and rollback.
 
 Every verified Elementor document write now invalidates that post's generated
-element cache and CSS state. Close the frontend loop with
-`stonewright-elementor-post-write-verify`: it regenerates post-scoped CSS,
-warms Elementor's public frontend renderer, asserts bounded element IDs or
-content markers, and returns the browser measurement recipe still required for
-desktop, tablet, and mobile acceptance. See
-[Elementor write verification](../docs/elementor-write-verification.md).
+element cache. Close generated CSS with
+`stonewright-elementor-css-regenerate`, then close the frontend loop with
+`stonewright-elementor-post-write-verify`: the verifier is observation-only,
+asserts bounded element IDs or content markers, and returns the browser
+measurement recipe still required for desktop, tablet, and mobile acceptance.
+See [Elementor write verification](../docs/elementor-write-verification.md).
 
 ## Quick Start
 

@@ -17,7 +17,7 @@ use Stonewright\WpMcp\Support\ElementorData;
  * 4. Writes _elementor_data, _elementor_edit_mode, _elementor_version.
  * 5. Structural readback; rollback on empty/invalid tree when transactional.
  * 6. Invalidates only the target post's HTML/object cache.
- * 7. Writes audit log entry; post CSS closes through PostWriteVerify.
+ * 7. Writes audit log entry. CSS closes through elementor-css-regenerate; frontend checks use PostWriteVerify.
  */
 final class ElementorWriter {
 

@@ -195,11 +195,12 @@ include per-setting `settings_evidence` from the live schema. Apply only after
 the consolidated dry run passes against `expected_tree_hash`.
 
 Every successful apply returns a cache-closure receipt and a required next step.
-Call `stonewright/elementor-post-write-verify` with all touched element IDs. It
-deletes Elementor's post HTML cache, invalidates/regenerates post-scoped CSS,
-warms the official frontend builder renderer, and asserts the IDs without
-returning page HTML. Only then perform visual acceptance in a separate frontend
-tab at desktop, tablet, and mobile.
+Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt,
+then `stonewright/elementor-post-write-verify` with all touched element IDs. The
+verifier is observation-only: it warms the official frontend builder renderer
+and asserts the IDs without returning page HTML or regenerating CSS. Only then
+perform visual acceptance in a separate frontend tab at desktop, tablet, and
+mobile.
 
 For Theme Builder templates with display conditions, use
 `stonewright/theme-builder-apply-template`; do not edit Elementor condition

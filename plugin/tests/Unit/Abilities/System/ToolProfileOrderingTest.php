@@ -19,6 +19,7 @@ final class ToolProfileOrderingTest extends TestCase {
 			'stonewright/design-validate-spec',
 			'stonewright/elementor-v3-build-page-from-spec',
 			'stonewright/elementor-v3-batch-mutate',
+			'stonewright/elementor-css-regenerate',
 			'stonewright/elementor-post-write-verify',
 			'stonewright/elementor-wire-loop',
 			'stonewright/elementor-v3-apply-bundle',
@@ -42,7 +43,7 @@ final class ToolProfileOrderingTest extends TestCase {
 	public function test_elementor_design_set_is_unchanged_by_reorder(): void {
 		$names = ToolProfile::profile_tools( 'elementor-design' );
 
-		self::assertCount( 80, $names );
+		self::assertCount( 81, $names );
 		self::assertSame( $names, array_values( array_unique( $names ) ) );
 		self::assertContains( 'stonewright/elementor-provider-discovery', $names );
 		self::assertContains( 'stonewright/design-direction-brief', $names );

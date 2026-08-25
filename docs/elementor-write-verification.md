@@ -22,29 +22,33 @@ For every Elementor document mutation in Plugin mode:
    readback, then invalidates only the target post's element/HTML cache and
    WordPress object cache. It does not delete CSS metadata or clear Elementor's
    site-wide files manager.
-6. Call `stonewright-elementor-post-write-verify` with the touched element IDs
+6. Call `stonewright-elementor-css-regenerate` when the write affects generated
+   CSS. It snapshots the post, inventories the direct CSS directory, probes
+   existing protected URLs, regenerates only the resolved post or loop target
+   through Elementor's official `update_file()` API, and restores its bounded
+   asset snapshot if another file changes or a probe fails. Restore runs only
+   while the CSS directory lease still identifies this writer, including an
+   expired-but-ours lease. A vacant lease after another writer committed and
+   released is a successor fence: skip restore (`not_attempted_lock_lost` /
+   `stonewright_elementor_css_lease_lost`) and do not reclaim the empty slot. A
+   different owner, live or expired, is also a skip
+   (`stonewright_elementor_css_lease_busy`). After a successful CSS transaction,
+   a later post-lock renew failure is non-fatal
+   (`lock.renew_after_commit=lost_after_commit`): the write is already closed,
+   release is best-effort, and rolling CSS or the document back would desync a
+   committed pair. Before CSS starts, post-lock renew retries a same-owner
+   WordPress options CAS miss and continues while this writer still owns a live
+   lease. During CSS closure, CSS-directory-lease renew does the same: a
+   same-owner options CAS miss is retried, and a live owned lease is kept.
+   `stonewright_elementor_lock_lost` / `stonewright_elementor_css_lease_lost`
+   mean the lease is gone, expired, or foreign — not a serialization
+   false-negative.
+7. Call `stonewright-elementor-post-write-verify` with the touched element IDs
    and, only when needed, bounded content markers. Never pass `regenerate_css`;
-   that unsafe switch does not exist. The verifier inventories the direct CSS
-   directory, probes existing protected URLs, regenerates only the target
-  post's CSS through Elementor's official Post CSS API, renders without a
-  second CSS pass, and restores its bounded asset snapshot if another file
-  changes or a probe fails. Restore runs only while the CSS directory lease
-  still identifies this writer, including an expired-but-ours lease. A vacant
-  lease after another writer committed and released is a successor fence:
-  skip restore (`not_attempted_lock_lost` / `stonewright_elementor_css_lease_lost`)
-  and do not reclaim the empty slot. A different owner, live or expired,
-  is also a skip (`stonewright_elementor_css_lease_busy`). After a successful
-  CSS transaction, a later post-lock renew failure is non-fatal
-  (`lock.renew_after_commit=lost_after_commit`): the write is already closed,
-  release is best-effort, and rolling CSS or the document back would desync
-  a committed pair. Before CSS starts, post-lock renew retries a same-owner
-  WordPress options CAS miss and continues while this writer still owns a
-  live lease. During CSS closure, CSS-directory-lease renew does the same:
-  a same-owner options CAS miss is retried, and a live owned lease is kept.
-  `stonewright_elementor_lock_lost` / `stonewright_elementor_css_lease_lost`
-  mean the lease is gone, expired, or foreign — not a serialization
-  false-negative.
-7. Use a browser to measure and capture the logged-out frontend at desktop,
+   that unsafe switch does not exist. The verifier is observation-only: it
+   renders through Elementor with CSS generation disabled and returns bounded
+   assertions. It does not regenerate CSS, invalidate caches, or roll back files.
+8. Use a browser to measure and capture the logged-out frontend at desktop,
    tablet, and mobile. Cache and HTML assertions are necessary, but they are not
    visual acceptance.
 
@@ -67,14 +71,17 @@ compatible versions) and cleans the WordPress post cache. It preserves
 `_elementor_css`, never calls Elementor's global files-manager clear, and never
 emits a site-wide atomic-style clear for one post.
 
-`stonewright-elementor-post-write-verify` reports:
+`stonewright-elementor-css-regenerate` reports:
 
-- whether element-cache invalidation closed successfully;
-- the official post-scoped CSS regeneration method;
-- before/after direct-file counts and bounded manifest hashes;
-- HTTP 200/no-redirect probes for the target post CSS and any existing
+- target kind and filename (never raw path or URL);
+- hashed path/URL and before/after direct-file manifest hashes;
+- HTTP 200/no-redirect probes for the target CSS and any existing
   `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets;
 - collateral-change and rollback status;
+- backup snapshot id and `effect_verified`.
+
+`stonewright-elementor-post-write-verify` reports:
+
 - rendered byte count and SHA-256, never raw page HTML;
 - pass/fail for requested Elementor element IDs;
 - hashed pass/fail receipts for requested content markers;

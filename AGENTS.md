@@ -277,16 +277,20 @@ Recommend against stable 1.0 while any required gate is missing:
 - **Elementor write closure (hard):** read the live schema; for visual work send
   `settings_evidence` with `require_evidence:true`; consolidate one post into one
   dry-run batch and one apply; never run parallel Elementor writes. After apply,
-  call `stonewright-elementor-post-write-verify` with touched IDs, then verify
+  call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt,
+  then `stonewright-elementor-post-write-verify` with touched IDs, then verify
   desktop/tablet/mobile in a separate frontend tab. For boxed containers measure
   both the outer element and its direct `.e-con-inner`. Meta readback alone is
   not completion.
 - **Elementor CSS safety (hard):** never pass `regenerate_css` to
-  `stonewright-elementor-post-write-verify`; that input no longer exists. A
-  normal Elementor write may invalidate only post HTML/object cache. CSS closes
-  through the verifier's post-only guarded transaction, which inventories the
-  direct CSS directory, probes any existing target, `custom-frontend.min.css`,
-  and `custom-pro-widget-nav-menu.min.css` assets before and after, rejects
+  `stonewright-elementor-post-write-verify`; that input no longer exists. The
+  verifier is observation-only: it does not regenerate CSS, invalidate caches,
+  or roll back files. CSS mutation belongs only to
+  `stonewright-elementor-css-regenerate`. A normal Elementor write may invalidate
+  only post HTML/object cache. CSS closes through the regenerator's post-only
+  guarded transaction, which inventories the direct CSS directory, probes any
+  existing target, `custom-frontend.min.css`, and
+  `custom-pro-widget-nav-menu.min.css` assets before and after, rejects
   collateral changes, and restores its bounded asset snapshot. Restore runs
   only while the CSS directory lease still identifies this writer, including
   an expired-but-ours lease. A vacant lease after another writer committed

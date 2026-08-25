@@ -47,13 +47,15 @@ Do not claim absolute transactional ACID guarantees across WP-CLI, object cache,
 3. `stonewright-elementor-page-digest` (or structure get) on the target post
 4. Prefer `stonewright-design-native-plan` + DesignSpec when building from evidence
 5. `stonewright-elementor-v3-transaction-run` (or batch-mutate for smaller edits)
-6. Call `stonewright-elementor-post-write-verify` with the touched element IDs
-   or bounded content markers. It regenerates only target post CSS inside a
-   guarded asset transaction, renders without a second CSS pass, and returns
-   assertion results without returning page HTML. Never pass `regenerate_css`.
-7. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
+6. Call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt.
+   It regenerates only the resolved post or loop CSS inside a guarded asset
+   transaction and returns hashed health evidence. Never pass `regenerate_css`.
+7. Call `stonewright-elementor-post-write-verify` with the touched element IDs
+   or bounded content markers. It renders without a CSS pass and returns
+   assertion results without returning page HTML.
+8. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
    For boxed containers inspect both the outer container and `.e-con-inner`.
-8. Re-read health + digest; restore from audit/snapshot if verification fails.
+9. Re-read health + digest; restore from audit/snapshot if verification fails.
 
 ## Native policy note
 

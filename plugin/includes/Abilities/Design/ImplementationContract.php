@@ -229,7 +229,8 @@ final class ImplementationContract extends AbilityKernel {
 					'require_evidence_true',
 					'do_not_guess_control_keys_options_or_activators',
 				],
-				'closure_tool' => 'stonewright/elementor-post-write-verify',
+				'css_regenerate_tool' => 'stonewright/elementor-css-regenerate',
+				'closure_tool'        => 'stonewright/elementor-post-write-verify',
 			],
 			'native_first'        => [
 				'order' => [ 'builder_controls', 'global_classes_variables', 'native_widget_composition', 'wordpress_content_model' ],
@@ -247,10 +248,14 @@ final class ImplementationContract extends AbilityKernel {
 			],
 			'verification'        => [
 				'owner' => 'agent_playwright_or_browser_mcp',
+				'css_regenerate' => [
+					'tool'     => 'stonewright/elementor-css-regenerate',
+					'required' => 'when_generated_css_affected',
+				],
 				'builder_closure' => [
 					'tool'       => 'stonewright/elementor-post-write-verify',
 					'required'   => true,
-					'assertions' => [ 'post_html_cache_invalidated', 'post_css_regenerated', 'builder_render_non_empty', 'touched_element_ids_present' ],
+					'assertions' => [ 'builder_render_non_empty', 'touched_element_ids_present' ],
 				],
 				'measurement' => [
 					'breakpoints'      => [ 'desktop', 'tablet', 'mobile' ],
