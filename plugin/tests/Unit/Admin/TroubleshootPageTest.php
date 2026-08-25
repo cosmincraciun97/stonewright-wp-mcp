@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\Pages\TroubleshootPage
@@ -200,9 +201,71 @@ final class TroubleshootPageTest extends TestCase {
 		TroubleshootPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'provider_discovery_failed', $html );
-		self::assertStringContainsString( 'v3', $html );
-		self::assertStringContainsString( 'RuntimeException', $html );
+		self::assertStringContainsString( 'Provider discovery failed', $html );
+		self::assertStringContainsString( 'Elementor widgets', $html );
+		self::assertStringNotContainsString( 'provider_discovery_failed', $html );
+		self::assertStringNotContainsString( 'RuntimeException', $html );
 		self::assertStringNotContainsString( 'private troubleshoot provider detail', $html );
+	}
+
+	public function test_duplicate_provider_issues_render_as_one_actionable_card(): void {
+		$unbounded_prop = str_repeat( 'unbounded-prop-value-', 200 );
+		$runtime_class  = 'Acme\\Atomic\\BrokenDescriptor';
+		$issues         = [];
+		for ( $index = 0; $index < 21; ++$index ) {
+			$issues[] = [
+				'code'              => 'descriptor_unavailable',
+				'provider'          => 'atomic',
+				'descriptor_format' => 'elementor-json-serializable-v1',
+				'error_class'       => \RuntimeException::class,
+				'prop'              => $unbounded_prop . $index,
+				'atomic_type'       => 'e-broken',
+				'runtime_class'     => $runtime_class,
+			];
+		}
+
+		$report = ( new ProviderRouter(
+			static fn(): array => [
+				'document_architecture' => 'v4',
+				'write_target'          => 'v4',
+				'write_blocked'         => false,
+			],
+			static fn(): array => [],
+			static fn(): array => [
+				'items'  => [
+					[
+						'atomic_type'        => 'e-good',
+						'kind'               => 'widget',
+						'source_plugin'      => 'acme-atomic/acme.php',
+						'source_version'     => '1.2.0',
+						'runtime_class'      => 'Acme\\Atomic\\Card',
+						'schema_fingerprint' => hash( 'sha256', 'atomic-schema' ),
+						'provenance'         => [ 'schema' => 'live_elementor_runtime' ],
+					],
+				],
+				'issues' => $issues,
+			],
+			static fn(): array => []
+		) )->inspect();
+
+		ob_start();
+		TroubleshootPage::render_elementor_provider_report( $report );
+		$html = (string) ob_get_clean();
+
+		self::assertSame( 1, substr_count( $html, 'sw-diag-card--error' ) );
+		self::assertStringContainsString( '21', $html );
+		self::assertStringContainsString( 'occurrences', $html );
+		self::assertStringContainsString( 'Prop descriptor unavailable', $html );
+		self::assertStringContainsString( 'Update the extension so props serialize to a finite JSON object.', $html );
+		self::assertStringContainsString( 'Ownership trust', $html );
+		self::assertStringContainsString( 'Schema certification', $html );
+		self::assertStringContainsString( 'third-party', $html );
+		self::assertStringContainsString( 'inventory-only', $html );
+		self::assertStringContainsString( 'Write eligible', $html );
+		self::assertStringContainsString( 'disabled', $html );
+		self::assertStringNotContainsString( $runtime_class, $html );
+		self::assertStringNotContainsString( 'Acme\\Atomic\\Card', $html );
+		self::assertStringNotContainsString( $unbounded_prop, $html );
+		self::assertStringNotContainsString( 'descriptor_unavailable', $html );
 	}
 }

@@ -83,11 +83,12 @@ final class ProviderRouterTest extends TestCase {
 
 			$result = $router->inspect( 42 );
 
-			self::assertSame(
-				[ 'code' => 'provider_discovery_failed', 'provider' => $throwing, 'error_class' => \RuntimeException::class ],
-				$result['issues'][0],
-				$throwing
-			);
+			self::assertSame( 'provider_discovery_failed', $result['issues'][0]['code'], $throwing );
+			self::assertSame( $throwing, $result['issues'][0]['provider'], $throwing );
+			self::assertSame( \RuntimeException::class, $result['issues'][0]['error_class'], $throwing );
+			self::assertSame( 1, $result['issues'][0]['count'], $throwing );
+			self::assertSame( [], $result['issues'][0]['samples'], $throwing );
+			self::assertFalse( $result['issues'][0]['samples_truncated'], $throwing );
 			self::assertStringNotContainsString( 'private provider detail', (string) wp_json_encode( $result ), $throwing );
 			if ( 'v3' !== $throwing ) {
 				self::assertSame( [ 'elementor-core' ], array_column( $result['providers'], 'id' ), $throwing );
@@ -217,6 +218,86 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $result['issues_truncated'] );
 		self::assertSame( 'schema_issue_0', $result['issues'][0]['code'] );
 		self::assertSame( 'schema_issue_19', $result['issues'][19]['code'] );
+	}
+
+	public function test_duplicate_runtime_issues_aggregate_before_output_bounds(): void {
+		$unbounded_prop = str_repeat( 'unbounded-prop-value-', 200 );
+		$issues         = [];
+		for ( $index = 0; $index < 21; ++$index ) {
+			$issues[] = [
+				'code'              => 'descriptor_unavailable',
+				'provider'          => 'atomic',
+				'descriptor_format' => 'elementor-json-serializable-v1',
+				'error_class'       => \RuntimeException::class,
+				'prop'              => $unbounded_prop . $index,
+				'atomic_type'       => 'e-broken',
+				'runtime_class'     => 'Acme\\Atomic\\BrokenDescriptor',
+			];
+		}
+
+		$report = $this->router(
+			'v4',
+			[],
+			[
+				'items'  => [
+					[
+						'atomic_type'        => 'e-good',
+						'kind'               => 'widget',
+						'source_plugin'      => 'acme-atomic/acme.php',
+						'source_version'     => '1.2.0',
+						'runtime_class'      => 'Acme\\Atomic\\Card',
+						'schema_fingerprint' => hash( 'sha256', 'atomic-schema' ),
+						'provenance'         => [ 'schema' => 'live_elementor_runtime' ],
+					],
+				],
+				'issues' => $issues,
+			]
+		)->inspect();
+
+		self::assertCount( 1, $report['issues'] );
+		self::assertSame( 21, $report['issues'][0]['count'] );
+		self::assertCount( 5, $report['issues'][0]['samples'] );
+		self::assertTrue( $report['issues'][0]['samples_truncated'] );
+		self::assertSame( 'descriptor_unavailable', $report['issues'][0]['code'] );
+		self::assertSame( 'e-broken', $report['issues'][0]['samples'][0]['atomic_type'] );
+		self::assertMatchesRegularExpression( '/^sha256:[a-f0-9]{64}$/', $report['issues'][0]['samples'][0]['prop'] );
+		self::assertArrayNotHasKey( 'runtime_class', $report['issues'][0] );
+		self::assertSame( [ 'plugin:acme-atomic' ], array_column( $report['providers'], 'id' ) );
+		self::assertSame( 'third-party', $report['providers'][0]['ownership_trust'] );
+		self::assertSame( 'inventory-only', $report['providers'][0]['schema_certification'] );
+		self::assertFalse( $report['writes_enabled'] );
+		self::assertStringNotContainsString( $unbounded_prop, (string) wp_json_encode( $report ) );
+		self::assertStringNotContainsString( 'Acme\\Atomic\\BrokenDescriptor', (string) wp_json_encode( $report ) );
+	}
+
+	public function test_duplicate_issues_from_one_extension_do_not_hide_another_provider(): void {
+		$issues = [];
+		for ( $index = 0; $index < 21; ++$index ) {
+			$issues[] = [
+				'code'              => 'descriptor_unavailable',
+				'provider'          => 'atomic',
+				'descriptor_format' => 'elementor-json-serializable-v1',
+				'error_class'       => \RuntimeException::class,
+				'prop'              => 'title-' . $index,
+				'atomic_type'       => 'e-noisy',
+			];
+		}
+		$issues[] = [
+			'code'              => 'schema_unavailable',
+			'provider'          => 'other-plugin',
+			'descriptor_format' => 'legacy-json-schema-v1',
+			'error_class'       => \InvalidArgumentException::class,
+			'atomic_type'       => 'e-other',
+		];
+
+		$report = $this->router( 'v4', [], [ 'items' => [], 'issues' => $issues ] )->inspect();
+
+		self::assertCount( 2, $report['issues'] );
+		self::assertSame( 21, $report['issues'][0]['count'] );
+		self::assertSame( 'descriptor_unavailable', $report['issues'][0]['code'] );
+		self::assertSame( 1, $report['issues'][1]['count'] );
+		self::assertSame( 'schema_unavailable', $report['issues'][1]['code'] );
+		self::assertSame( 'other-plugin', $report['issues'][1]['provider'] );
 	}
 
 	public function test_late_critical_blocker_displaces_a_warning_without_losing_severity_totals(): void {

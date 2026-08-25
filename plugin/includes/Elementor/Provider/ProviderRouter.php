@@ -10,6 +10,8 @@ use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 /** Selects read-only provider evidence after document architecture is known. */
 final class ProviderRouter {
 	private const MAX_ISSUES                  = 20;
+	private const MAX_ISSUE_SAMPLES           = 5;
+	private const MAX_SAMPLE_BYTES            = 64;
 	private const MAX_PROVIDERS               = 50;
 	private const MAX_CAPABILITIES            = 200;
 	private const MAX_RUNTIME_CLASSES         = 50;
@@ -43,9 +45,13 @@ final class ProviderRouter {
 		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_counts );
 
 		foreach ( is_array( $atomic['issues'] ?? null ) ? $atomic['issues'] : [] as $issue ) {
-			if ( is_array( $issue ) ) {
-				self::record_issue( $issues, $issue_counts, $issue );
+			if ( ! is_array( $issue ) ) {
+				continue;
 			}
+			if ( ! isset( $issue['provider'] ) || ! is_string( $issue['provider'] ) || '' === $issue['provider'] ) {
+				$issue['provider'] = 'atomic';
+			}
+			self::record_issue( $issues, $issue_counts, $issue );
 		}
 		$providers = [];
 		foreach ( $v3 as $schema ) {
@@ -181,7 +187,7 @@ final class ProviderRouter {
 		];
 	}
 
-	/** @param array<string,mixed>|list<mixed> $fallback @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @return array<string,mixed>|list<mixed> */
+	/** @param array<string,mixed>|list<mixed> $fallback @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @return array<string,mixed>|list<mixed> */
 	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, array &$issue_counts ): array {
 		try {
 			$result = $callback();
@@ -196,19 +202,47 @@ final class ProviderRouter {
 		}
 	}
 
-	/** @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param array<string,mixed> $issue */
+	/** @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param array<string,mixed> $issue */
 	private static function record_issue( array &$issues, array &$issue_counts, array $issue ): void {
 		$severity = self::issue_severity( $issue );
 		++$issue_counts[ $severity ];
-		if ( count( $issues[ $severity ] ) < self::MAX_ISSUES ) {
-			$bounded = [];
-			foreach ( $issue as $key => $value ) {
-				if ( is_scalar( $value ) || null === $value ) {
-					$bounded[ self::bounded_string( (string) $key, 100 ) ] = is_string( $value ) ? self::bounded_string( $value ) : $value;
-				}
+
+		$code              = self::bounded_string( (string) ( $issue['code'] ?? 'provider_issue' ), 100 );
+		$provider          = self::bounded_string( (string) ( $issue['provider'] ?? '' ), 100 );
+		$descriptor_format = self::bounded_string( (string) ( $issue['descriptor_format'] ?? '' ), 100 );
+		$error_class       = self::bounded_string( (string) ( $issue['error_class'] ?? '' ), 100 );
+		$key               = implode( '|', [ $severity, $code, $provider, $descriptor_format, $error_class ] );
+
+		if ( ! isset( $issues[ $severity ][ $key ] ) ) {
+			if ( count( $issues[ $severity ] ) >= self::MAX_ISSUES ) {
+				return;
 			}
-			$issues[ $severity ][] = $bounded;
+			$issues[ $severity ][ $key ] = [
+				'severity'          => $severity,
+				'code'              => $code,
+				'provider'          => $provider,
+				'descriptor_format' => $descriptor_format,
+				'error_class'       => $error_class,
+				'count'             => 0,
+				'samples'           => [],
+				'samples_truncated' => false,
+			];
 		}
+
+		++$issues[ $severity ][ $key ]['count'];
+
+		$sample = [
+			'atomic_type' => self::sample_token( (string) ( $issue['atomic_type'] ?? '' ) ),
+			'prop'        => self::sample_token( (string) ( $issue['prop'] ?? '' ) ),
+		];
+		if ( '' === $sample['atomic_type'] && '' === $sample['prop'] ) {
+			return;
+		}
+		if ( count( $issues[ $severity ][ $key ]['samples'] ) >= self::MAX_ISSUE_SAMPLES ) {
+			$issues[ $severity ][ $key ]['samples_truncated'] = true;
+			return;
+		}
+		$issues[ $severity ][ $key ]['samples'][] = $sample;
 	}
 
 	/** @param array<string,mixed> $issue */
@@ -220,21 +254,25 @@ final class ProviderRouter {
 		return 'warning';
 	}
 
-	/** @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $counts @return array{issues:list<array<string,mixed>>,issues_count:int,issues_truncated:bool,truncated_by_severity:array{blocker:int,warning:int}} */
+	/** @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $counts @return array{issues:list<array<string,mixed>>,issues_count:int,issues_truncated:bool,truncated_by_severity:array{blocker:int,warning:int}} */
 	private static function issue_summary( array $issues, array $counts ): array {
-		$bounded = array_slice( array_merge( $issues['blocker'], $issues['warning'] ), 0, self::MAX_ISSUES );
-		$retained_blockers = min( count( $issues['blocker'] ), self::MAX_ISSUES );
-		$retained_warnings = min( count( $issues['warning'] ), self::MAX_ISSUES - $retained_blockers );
+		$groups  = array_merge( array_values( $issues['blocker'] ), array_values( $issues['warning'] ) );
+		$bounded = array_slice( $groups, 0, self::MAX_ISSUES );
+		$retained = [ 'blocker' => 0, 'warning' => 0 ];
+		foreach ( $bounded as $group ) {
+			$severity = self::issue_severity( $group );
+			$retained[ $severity ] += (int) ( $group['count'] ?? 0 );
+		}
 		$blocker_count = (int) $counts['blocker'];
 		$warning_count = (int) $counts['warning'];
-		$total = $blocker_count + $warning_count;
+		$total         = $blocker_count + $warning_count;
 		return [
 			'issues'                => $bounded,
 			'issues_count'          => $total,
 			'issues_truncated'      => $total > count( $bounded ),
 			'truncated_by_severity' => [
-				'blocker' => max( 0, $blocker_count - $retained_blockers ),
-				'warning' => max( 0, $warning_count - $retained_warnings ),
+				'blocker' => max( 0, $blocker_count - $retained['blocker'] ),
+				'warning' => max( 0, $warning_count - $retained['warning'] ),
 			],
 		];
 	}
@@ -253,7 +291,7 @@ final class ProviderRouter {
 		return $out;
 	}
 
-	/** @param array<string,array<string,mixed>> $providers @param array{blocker:list<array<string,mixed>>,warning:list<array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param string|list<string> $architecture @param array<string,mixed> $evidence */
+	/** @param array<string,array<string,mixed>> $providers @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param string|list<string> $architecture @param array<string,mixed> $evidence */
 	private static function add_capability( array &$providers, array &$issues, array &$issue_counts, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
 		$plugin = self::bounded_string( (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) ) );
 		$class  = self::bounded_string( (string) ( $evidence['runtime_class'] ?? '' ) );
@@ -272,18 +310,20 @@ final class ProviderRouter {
 			$ownership_provenance = (string) ( $evidence['provenance']['ownership'] ?? '' );
 			$verified_official = $official && ( 'upstream-ability' !== $kind || self::verified_callback_ownership( $ownership_provenance ) );
 			$providers[ $id ] = [
-				'id'                => $id,
-				'ownership'         => $official ? 'official' : 'third-party',
-				'trust'             => is_array( $atomic_policy ) ? $atomic_policy['trust'] : ( $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ) ),
-				'certification'     => is_array( $atomic_policy ) ? $atomic_policy['certification'] : 'discovered',
-				'source_plugin'     => $plugin,
-				'source_version'    => self::bounded_string( (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ), 100 ),
-				'architectures'     => [],
-				'runtime_classes'   => [],
-				'capabilities'      => [],
-				'write_primitives'  => [],
-				'read_only'         => true,
-				'provenance'        => [ 'ownership' => 'live_runtime_evidence' ],
+				'id'                   => $id,
+				'ownership'            => $official ? 'official' : 'third-party',
+				'ownership_trust'      => is_array( $atomic_policy ) ? $atomic_policy['ownership_trust'] : ( $official ? 'official' : 'third-party' ),
+				'trust'                => is_array( $atomic_policy ) ? $atomic_policy['trust'] : ( $verified_official ? 'trusted' : ( $official ? 'unverified' : 'untrusted' ) ),
+				'certification'        => is_array( $atomic_policy ) ? $atomic_policy['certification'] : 'discovered',
+				'schema_certification' => is_array( $atomic_policy ) ? $atomic_policy['schema_certification'] : 'discovered',
+				'source_plugin'        => $plugin,
+				'source_version'       => self::bounded_string( (string) ( $evidence['source_version'] ?? ( $evidence['meta']['source_version'] ?? '' ) ), 100 ),
+				'architectures'        => [],
+				'runtime_classes'      => [],
+				'capabilities'         => [],
+				'write_primitives'     => [],
+				'read_only'            => true,
+				'provenance'           => [ 'ownership' => 'live_runtime_evidence' ],
 			];
 		}
 		foreach ( is_array( $architecture ) ? $architecture : [ $architecture ] as $item ) {
@@ -307,6 +347,7 @@ final class ProviderRouter {
 			$certification = 'elementor/manage-default-styles' === $name ? self::certify_manage_default_styles( $evidence ) : [ 'state' => 'discovered' ];
 			$providers[ $id ]['certification'] = (string) ( $certification['state'] ?? 'discovered' );
 			if ( 'certified' === ( $certification['state'] ?? '' ) ) {
+				$providers[ $id ]['schema_certification'] = 'certified';
 				$providers[ $id ]['read_only'] = false;
 				$providers[ $id ]['capabilities'][ array_key_last( $providers[ $id ]['capabilities'] ) ]['write_eligible'] = true;
 				$providers[ $id ]['write_primitives'][] = [
@@ -604,6 +645,16 @@ final class ProviderRouter {
 			}
 		}
 		return $out;
+	}
+
+	private static function sample_token( string $value ): string {
+		if ( '' === $value ) {
+			return '';
+		}
+		if ( strlen( $value ) > self::MAX_SAMPLE_BYTES || str_contains( $value, '\\' ) ) {
+			return 'sha256:' . hash( 'sha256', $value );
+		}
+		return $value;
 	}
 
 	private static function bounded_string( string $value, int $max_bytes = self::MAX_DYNAMIC_STRING_BYTES ): string {
