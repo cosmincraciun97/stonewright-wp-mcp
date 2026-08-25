@@ -456,16 +456,44 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 // ---------------------------------------------------------------------------
 $GLOBALS['stonewright_test_wpdb_inserts'] ??= [];
 
-if ( ! isset( $GLOBALS['wpdb'] ) ) {
-	$GLOBALS['wpdb'] = new class() {
-		public string $prefix = 'wptests_';
-		public string $options = 'wptests_options';
-		public string $posts = 'wptests_posts';
-		public string $postmeta = 'wptests_postmeta';
-		public string $users = 'wptests_users';
-		public string $usermeta = 'wptests_usermeta';
-		public int $insert_id = 1;
+if ( ! class_exists( 'wpdb' ) ) {
+	/**
+	 * Test-harness wpdb. Declared properties match the live class enough for
+	 * ProtectedWpdbProxy to extend it and synchronize query/connection state.
+	 */
+	#[\AllowDynamicProperties]
+	class wpdb {
+		public $show_errors = false;
+		public $suppress_errors = false;
+		public $last_error = '';
+		public $num_queries = 0;
+		public $num_rows = 0;
+		public $rows_affected = 0;
+		public $insert_id = 0;
+		public $last_query;
+		public $last_result;
+		public $prefix = '';
+		public $ready = false;
+		public $func_call;
+		public $queries;
+		public $posts;
+		public $postmeta;
+		public $options;
+		public $users;
+		public $usermeta;
+		public $dbh;
+		protected $result;
 
+		public function suppress_errors( $suppress = true ) {
+			$previous             = $this->suppress_errors;
+			$this->suppress_errors = (bool) $suppress;
+			return $previous;
+		}
+	}
+}
+
+if ( ! isset( $GLOBALS['wpdb'] ) ) {
+	$GLOBALS['wpdb'] = new #[\AllowDynamicProperties] class() extends wpdb {
 		/** @var array<int, array<string, mixed>> */
 		public array $memory_rows = [];
 
@@ -474,6 +502,16 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 
 		/** @var array<int, array<string, mixed>> */
 		public array $direction_version_rows = [];
+
+		public function __construct() {
+			$this->prefix   = 'wptests_';
+			$this->options  = 'wptests_options';
+			$this->posts    = 'wptests_posts';
+			$this->postmeta = 'wptests_postmeta';
+			$this->users    = 'wptests_users';
+			$this->usermeta = 'wptests_usermeta';
+			$this->insert_id = 1;
+		}
 
 		/**
 		 * @param array<string, mixed> $data
