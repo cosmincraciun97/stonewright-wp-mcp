@@ -146,7 +146,7 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'sw-diag-card', $script );
 		self::assertStringContainsString( 'is-loading', $script );
 		self::assertStringContainsString( "setAttribute( 'aria-busy', 'true' )", $script );
-		self::assertStringContainsString( 'Copy ticket', $script );
+		self::assertStringContainsString( 'Copy hosting request', $script );
 		self::assertStringContainsString( 'scrollIntoView', $script );
 
 		$start = strpos( $script, 'function initRunDiagnostics()' );

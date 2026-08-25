@@ -9,7 +9,9 @@ use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
+use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
 use Stonewright\WpMcp\OAuth\Transport as OAuthTransport;
+use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
@@ -42,7 +44,8 @@ final class SetupDiagnostics {
 		$oauth_endpoint = OAuthBootstrap::resource_identifier();
 		$oauth_discovery = Discovery::protected_resource_metadata_url();
 		$stdio         = in_array( $method, [ 'application-password-stdio', 'stdio' ], true );
-		$probe         = (bool) ( $args['probe'] ?? false ) && ! $stdio;
+		$probe         = (bool) ( $args['probe'] ?? false );
+		$oauth_probe   = $probe && 'oauth-http' === $method;
 		$loopback_cb   = $args['loopback'] ?? null;
 		$scope         = $method;
 
@@ -179,7 +182,7 @@ final class SetupDiagnostics {
 		);
 
 		$probe_holder = [ 'result' => null ];
-		if ( $probe ) {
+		if ( $oauth_probe ) {
 			$graph->add(
 				'connection_probe',
 				[ 'endpoint' ],
@@ -212,15 +215,21 @@ final class SetupDiagnostics {
 				static fn() => self::bot_filter_check( $args, $endpoint, $scope )
 			);
 			$graph->add(
+				'oauth_challenge',
+				[ 'oauth_endpoint' ],
+				static fn() => self::oauth_challenge_check( $args, $oauth_endpoint, $scope )
+			);
+			$graph->add(
 				'oauth_registration',
 				[ 'oauth_discovery' ],
 				static fn() => self::oauth_registration_check( $args, $scope )
 			);
-		} elseif ( $stdio ) {
-			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::info( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), __( 'HTTP loopback skipped for local companion (stdio).', 'stonewright' ), [], $scope ) );
-			$graph->add( 'waf', [], static fn() => DiagnosticCheck::info( 'waf', __( 'WAF-ish blocks', 'stonewright' ), __( 'Not checked for stdio; WAF-ish blocks apply to remote HTTP.', 'stonewright' ), [], $scope ) );
-			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::info( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), __( 'Not checked for stdio; User-Agent probes apply to remote HTTP.', 'stonewright' ), [], $scope ) );
-			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::info( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), __( 'Not checked for stdio; OAuth registration applies to remote HTTP.', 'stonewright' ), [], $scope ) );
+		} elseif ( $probe && $stdio ) {
+			$reason = __( 'Skipped: remote HTTP probes are not used for this connection method.', 'stonewright' );
+			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::skipped( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'waf', [], static fn() => DiagnosticCheck::skipped( 'waf', __( 'WAF-ish blocks', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::skipped( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::skipped( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), $reason, [], $scope ) );
 			$companion_url = trim( (string) get_option( 'stonewright_companion_url', '' ) );
 			$graph->add(
 				'companion_url',
@@ -239,11 +248,57 @@ final class SetupDiagnostics {
 					);
 				}
 			);
+			if ( 'application-password-stdio' === $method ) {
+				$graph->add(
+					'credential_store',
+					[],
+					static function () use ( $app_passwords, $scope ) {
+						if ( $app_passwords ) {
+							return DiagnosticCheck::ok(
+								'credential_store',
+								__( 'Credential store', 'stonewright' ),
+								__( 'Application Passwords can be stored in Stonewright\'s private credential store.', 'stonewright' ),
+								[],
+								$scope
+							);
+						}
+						return DiagnosticCheck::warning(
+							'credential_store',
+							__( 'Credential store', 'stonewright' ),
+							__( 'Application Passwords are unavailable, so the companion cannot store a site credential.', 'stonewright' ),
+							__( 'Enable Application Passwords for this user, then run diagnostics again.', 'stonewright' ),
+							[],
+							$scope
+						);
+					}
+				);
+			}
+		} elseif ( $probe && 'not-sure' === $method ) {
+			$reason = __( 'Skipped: choose OAuth or Application Password before running active probes.', 'stonewright' );
+			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::skipped( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'waf', [], static fn() => DiagnosticCheck::skipped( 'waf', __( 'WAF-ish blocks', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::skipped( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::skipped( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), $reason, [], $scope ) );
+			$graph->add(
+				'recommendation',
+				[],
+				static function () use ( $oauth_allowed, $app_passwords, $scope ) {
+					if ( $oauth_allowed ) {
+						$summary = __( 'This site can use OAuth over HTTP. Select OAuth and run diagnostics again.', 'stonewright' );
+					} elseif ( $app_passwords ) {
+						$summary = __( 'Use Application Password with the local companion so the credential stays in Stonewright\'s private store.', 'stonewright' );
+					} else {
+						$summary = __( 'Use the local companion (stdio) on this machine.', 'stonewright' );
+					}
+					return DiagnosticCheck::info( 'recommendation', __( 'Recommended connection method', 'stonewright' ), $summary, [], $scope );
+				}
+			);
 		} else {
 			$pending = __( 'Not run yet — click Run diagnostics', 'stonewright' );
 			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::info( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), $pending, [], $scope ) );
 			$graph->add( 'waf', [], static fn() => DiagnosticCheck::info( 'waf', __( 'WAF-ish blocks', 'stonewright' ), $pending, [], $scope ) );
 			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::info( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), $pending, [], $scope ) );
+			$graph->add( 'oauth_challenge', [], static fn() => DiagnosticCheck::info( 'oauth_challenge', __( 'OAuth challenge', 'stonewright' ), $pending, [], $scope ) );
 			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::info( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), $pending, [], $scope ) );
 		}
 
@@ -262,6 +317,7 @@ final class SetupDiagnostics {
 					'php'                => PHP_VERSION,
 					'tool_count'         => $tool_count,
 				],
+				'correlation_id' => AuditLog::request_id(),
 			]
 		);
 	}
@@ -278,8 +334,9 @@ final class SetupDiagnostics {
 		}
 		$mode = isset( $args['mode'] ) ? sanitize_key( (string) $args['mode'] ) : 'both';
 		return match ( $mode ) {
-			'http'  => 'oauth-http',
-			'stdio' => 'application-password-stdio',
+			'http', 'oauth-http' => 'oauth-http',
+			'stdio' => 'stdio',
+			'application-password-stdio' => 'application-password-stdio',
 			default => 'not-sure',
 		};
 	}
@@ -508,14 +565,24 @@ final class SetupDiagnostics {
 	}
 
 	/**
-	 * @param array{http?:callable} $args
+	 * @param array{http?:callable,ephemeral_remaining?:int,ephemeral_count?:callable} $args
 	 */
 	private static function oauth_registration_check( array $args, string $scope ): DiagnosticCheck {
 		$label = __( 'OAuth dynamic registration', 'stonewright' );
 		$url   = rest_url( 'stonewright/v1/oauth/register' );
 		$token = bin2hex( random_bytes( 16 ) );
-		set_transient( 'stonewright_oauth_selftest_' . hash( 'sha256', $token ), '1', 30 );
+		$hash  = hash( 'sha256', $token );
+		set_transient( 'stonewright_oauth_selftest_' . $hash, $hash, 30 );
+		$body  = wp_json_encode(
+			[
+				'client_name'                => 'Stonewright diagnostics',
+				'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+				'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+				'token_endpoint_auth_method' => 'none',
+			]
+		);
 
+		$started  = hrtime( true );
 		$response = self::http(
 			$args,
 			'POST',
@@ -527,51 +594,185 @@ final class SetupDiagnostics {
 					'Accept'                  => 'application/json',
 					'x-stonewright-self-test' => $token,
 				],
-				'body'    => '{}',
+				'body'    => is_string( $body ) ? $body : '{}',
 			]
 		);
+		$duration = max( 0, (int) round( ( hrtime( true ) - $started ) / 1e6 ) );
 
 		if ( is_wp_error( $response ) ) {
-			return DiagnosticCheck::warning(
+			return DiagnosticCheck::problem(
 				'oauth_registration',
 				$label,
 				$response->get_error_message(),
 				__( 'Confirm the site URL and TLS, then run diagnostics again.', 'stonewright' ),
-				[],
-				$scope
+				$scope,
+				[ 'duration_ms' => $duration, 'error_code' => $response->get_error_code() ]
 			);
 		}
 
-		$code = (int) wp_remote_retrieve_response_code( $response );
+		$code     = (int) wp_remote_retrieve_response_code( $response );
+		$raw_body = trim( (string) wp_remote_retrieve_body( $response ) );
+		$evidence = [
+			'http_status' => $code,
+			'duration_ms' => $duration,
+		];
+
 		if ( 429 === $code || 503 === $code ) {
-			$body = trim( (string) wp_remote_retrieve_body( $response ) );
 			$summary = sprintf(
 				/* translators: 1: HTTP status, 2: response body suffix */
 				__( 'OAuth registration endpoint responded with HTTP %1$d%2$s', 'stonewright' ),
 				$code,
-				'' !== $body ? ': ' . $body : '.'
+				'' !== $raw_body ? ': ' . $raw_body : '.'
 			);
 			return DiagnosticCheck::warning(
 				'oauth_registration',
 				$label,
 				$summary,
 				__( 'Wait for the rate limit to expire, then run diagnostics again.', 'stonewright' ),
-				[ 'http_status' => $code ],
+				$evidence,
 				$scope
+			);
+		}
+
+		if ( 201 !== $code ) {
+			$summary = sprintf(
+				/* translators: %d: HTTP status */
+				__( 'OAuth registration requires HTTP 201, received HTTP %d.', 'stonewright' ),
+				$code
+			);
+			return DiagnosticCheck::problem(
+				'oauth_registration',
+				$label,
+				$summary,
+				__( 'Restore the OAuth register route so diagnostics can complete a valid RFC 7591 registration.', 'stonewright' ),
+				$scope,
+				$evidence
+			);
+		}
+
+		$payload = json_decode( $raw_body, true );
+		if ( ! is_array( $payload ) ) {
+			return DiagnosticCheck::problem(
+				'oauth_registration',
+				$label,
+				__( 'OAuth registration returned HTTP 201 with invalid json.', 'stonewright' ),
+				__( 'Fix the register endpoint so it returns RFC 7591 JSON, then run diagnostics again.', 'stonewright' ),
+				$scope,
+				$evidence
+			);
+		}
+
+		$client_id = (string) ( $payload['client_id'] ?? '' );
+		if ( 1 !== preg_match( '/^[a-f0-9]{32}$/', $client_id ) ) {
+			return DiagnosticCheck::problem(
+				'oauth_registration',
+				$label,
+				__( 'OAuth registration JSON is missing a valid client_id.', 'stonewright' ),
+				__( 'Return a 32-character hex client_id and delete the ephemeral client before responding.', 'stonewright' ),
+				$scope,
+				$evidence
+			);
+		}
+
+		$remaining = self::ephemeral_remaining( $args );
+		if ( $remaining > 0 ) {
+			return DiagnosticCheck::problem(
+				'oauth_registration',
+				$label,
+				sprintf(
+					/* translators: %d: leftover ephemeral client count */
+					__( 'OAuth registration left %d ephemeral client(s).', 'stonewright' ),
+					$remaining
+				),
+				__( 'Delete diagnostic clients in a finally block and keep the garbage-collection event scheduled.', 'stonewright' ),
+				$scope,
+				$evidence
 			);
 		}
 
 		return DiagnosticCheck::ok(
 			'oauth_registration',
 			$label,
-			sprintf(
-				/* translators: %d: HTTP status from the registration endpoint */
-				__( 'OAuth registration endpoint responded with HTTP %d.', 'stonewright' ),
-				$code
-			),
-			[ 'http_status' => $code ],
+			__( 'OAuth registration returned HTTP 201 and cleaned up the ephemeral client.', 'stonewright' ),
+			$evidence,
 			$scope
 		);
+	}
+
+	/**
+	 * @param array{http?:callable} $args
+	 */
+	private static function oauth_challenge_check( array $args, string $url, string $scope ): DiagnosticCheck {
+		$label = __( 'OAuth challenge', 'stonewright' );
+		if ( '' === $url ) {
+			return DiagnosticCheck::problem(
+				'oauth_challenge',
+				$label,
+				__( 'OAuth MCP endpoint is not configured.', 'stonewright' ),
+				__( 'Restore the OAuth MCP endpoint, then run diagnostics again.', 'stonewright' ),
+				$scope
+			);
+		}
+
+		$response = self::http(
+			$args,
+			'GET',
+			$url,
+			[
+				'timeout'     => 5,
+				'redirection' => 0,
+				'headers'     => [ 'Accept' => 'application/json' ],
+			]
+		);
+		if ( is_wp_error( $response ) ) {
+			return DiagnosticCheck::problem(
+				'oauth_challenge',
+				$label,
+				$response->get_error_message(),
+				__( 'Confirm the OAuth MCP endpoint is reachable, then run diagnostics again.', 'stonewright' ),
+				$scope,
+				[ 'error_code' => $response->get_error_code() ]
+			);
+		}
+
+		$code   = (int) wp_remote_retrieve_response_code( $response );
+		$header = (string) wp_remote_retrieve_header( $response, 'www-authenticate' );
+		if ( 401 === $code && str_contains( strtolower( $header ), 'bearer' ) ) {
+			return DiagnosticCheck::ok(
+				'oauth_challenge',
+				$label,
+				__( 'OAuth MCP endpoint returned HTTP 401 with a Bearer challenge.', 'stonewright' ),
+				[ 'http_status' => 401 ],
+				$scope
+			);
+		}
+
+		return DiagnosticCheck::problem(
+			'oauth_challenge',
+			$label,
+			sprintf(
+				/* translators: %d: HTTP status */
+				__( 'OAuth MCP endpoint did not return a Bearer challenge (HTTP %d).', 'stonewright' ),
+				$code
+			),
+			__( 'Return HTTP 401 with WWW-Authenticate: Bearer for unauthenticated OAuth MCP requests.', 'stonewright' ),
+			$scope,
+			[ 'http_status' => $code ]
+		);
+	}
+
+	/**
+	 * @param array{ephemeral_remaining?:int,ephemeral_count?:callable} $args
+	 */
+	private static function ephemeral_remaining( array $args ): int {
+		if ( isset( $args['ephemeral_remaining'] ) ) {
+			return max( 0, (int) $args['ephemeral_remaining'] );
+		}
+		if ( isset( $args['ephemeral_count'] ) && is_callable( $args['ephemeral_count'] ) ) {
+			return max( 0, (int) $args['ephemeral_count']() );
+		}
+
+		return ( new ClientRepository() )->count_ephemeral_clients();
 	}
 
 	/**

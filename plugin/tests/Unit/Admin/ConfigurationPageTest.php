@@ -570,8 +570,8 @@ final class ConfigurationPageTest extends TestCase {
 		}
 		self::assertArrayHasKey( 'companion_url', $by_id );
 		self::assertSame( 'ok', $by_id['companion_url']['status'] );
-		self::assertSame( 'info', $by_id['connection_probe']['status'] );
-		self::assertStringContainsString( 'stdio', strtolower( (string) $by_id['connection_probe']['detail'] ) );
+		self::assertSame( 'skipped', $by_id['connection_probe']['status'] );
+		self::assertStringContainsString( 'remote', strtolower( (string) ( $by_id['connection_probe']['summary'] ?? $by_id['connection_probe']['detail'] ?? '' ) ) );
 	}
 
 	public function test_ajax_run_diagnostics_forbidden_without_capability(): void {

@@ -94,11 +94,13 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'Connection checks', $html );
 		self::assertStringContainsString( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', $html );
 		self::assertStringContainsString( 'How do you connect?', $html );
-		self::assertStringContainsString( 'Not sure (check both)', $html );
-		self::assertStringContainsString( 'Remote Streamable HTTP / OAuth', $html );
-		self::assertStringContainsString( 'Local companion (stdio)', $html );
-		self::assertStringContainsString( 'value="both"', $html );
-		self::assertStringContainsString( 'value="http"', $html );
+		self::assertStringContainsString( 'Not sure', $html );
+		self::assertStringContainsString( 'OAuth', $html );
+		self::assertStringContainsString( 'Application Password', $html );
+		self::assertStringContainsString( 'Local companion', $html );
+		self::assertStringContainsString( 'value="not-sure"', $html );
+		self::assertStringContainsString( 'value="oauth-http"', $html );
+		self::assertStringContainsString( 'value="application-password-stdio"', $html );
 		self::assertStringContainsString( 'value="stdio"', $html );
 		self::assertStringContainsString( 'What do you see in your AI client?', $html );
 		self::assertStringContainsString( 'sw-diag-card', $html );
@@ -116,19 +118,34 @@ final class TroubleshootPageTest extends TestCase {
 	public function test_last_report_renders_bot_filter_ticket_copy_control(): void {
 		$_GET['stonewright_diagnostics'] = '1';
 		$GLOBALS['stonewright_test_options']['stonewright_diagnostics_last'] = [
-			'ready'    => true,
+			'ready'    => false,
+			'method'   => 'oauth-http',
 			'mode'     => 'http',
+			'counts'   => [
+				'problem' => 0,
+				'warning' => 1,
+				'info'    => 0,
+				'ok'      => 0,
+				'skipped' => 0,
+			],
 			'versions' => [
 				'plugin'             => '0.0.0-test',
 				'companion_contract' => '1.0.0',
 			],
 			'checks'   => [
 				[
-					'id'     => 'bot_filter',
-					'status' => 'warn',
-					'label'  => 'Bot / WAF user-agent filter',
-					'detail' => 'User-Agent python-httpx was blocked with HTTP 403.',
-					'ticket' => "Please allow AI HTTP clients to reach https://example.test/wp-json/mcp/stonewright\nUser-Agent python-httpx",
+					'id'      => 'bot_filter',
+					'status'  => 'warning',
+					'label'   => 'Bot / WAF user-agent filter',
+					'summary' => 'User-Agent python-httpx was blocked with HTTP 403.',
+					'detail'  => 'User-Agent python-httpx was blocked with HTTP 403.',
+					'copy'    => "Please allow AI HTTP clients to reach https://example.test/wp-json/mcp/stonewright\nUser-Agent python-httpx",
+					'ticket'  => "Please allow AI HTTP clients to reach https://example.test/wp-json/mcp/stonewright\nUser-Agent python-httpx",
+					'action'  => [
+						'type'   => 'copy',
+						'label'  => 'Copy hosting request',
+						'target' => 'stonewright-diag-ticket-bot_filter',
+					],
 				],
 			],
 		];
@@ -138,7 +155,7 @@ final class TroubleshootPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringNotContainsString( 'Not run yet — click Run diagnostics', $html );
-		self::assertStringContainsString( 'Copy ticket', $html );
+		self::assertStringContainsString( 'Copy hosting request', $html );
 		self::assertStringContainsString( 'example.test', $html );
 		self::assertStringContainsString( 'data-stonewright-copy="stonewright-diag-ticket-bot_filter"', $html );
 		self::assertStringContainsString( 'Press Ctrl/Cmd+C', $html );

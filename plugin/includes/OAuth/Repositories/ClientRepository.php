@@ -44,6 +44,12 @@ final class ClientEntity implements ClientEntityInterface {
 
 final class ClientRepository implements ClientRepositoryInterface {
 
+	public const EPHEMERAL_PURPOSE = 'ephemeral';
+
+	public const EPHEMERAL_GC_HOOK = 'stonewright_oauth_ephemeral_gc';
+
+	public const EPHEMERAL_TTL = 120;
+
 	/**
 	 * @param list<string> $redirect_uris Redirect URIs.
 	 */
@@ -51,26 +57,103 @@ final class ClientRepository implements ClientRepositoryInterface {
 		string $client_name,
 		array $redirect_uris,
 		string $registered_by_ip,
-		bool $admin_created = false
+		bool $admin_created = false,
+		string $purpose = '',
+		?string $expires_at = null
 	): string {
 		global $wpdb;
 
 		$client_id = bin2hex( random_bytes( 16 ) );
+		$row       = [
+			'client_id'             => $client_id,
+			'client_name'           => $client_name,
+			'redirect_uris'         => wp_json_encode( $redirect_uris ),
+			'is_confidential'       => 0,
+			'client_secret_hash'    => null,
+			'created_at'            => gmdate( 'Y-m-d H:i:s' ),
+			'last_used_at'          => null,
+			'registered_by_ip_hash' => hash( 'sha256', $registered_by_ip ),
+			'admin_created'         => $admin_created ? 1 : 0,
+			'registration_purpose'  => '' === $purpose ? null : $purpose,
+			'registration_expires_at' => $expires_at,
+		];
 		$wpdb->insert(
 			$wpdb->prefix . 'stonewright_oauth_clients',
-			[
-				'client_id'             => $client_id,
-				'client_name'           => $client_name,
-				'redirect_uris'         => wp_json_encode( $redirect_uris ),
-				'is_confidential'       => 0,
-				'client_secret_hash'    => null,
-				'created_at'            => gmdate( 'Y-m-d H:i:s' ),
-				'last_used_at'          => null,
-				'registered_by_ip_hash' => hash( 'sha256', $registered_by_ip ),
-				'admin_created'         => $admin_created ? 1 : 0,
-			]
+			$row
 		);
+		if ( isset( $wpdb->oauth_clients ) && is_array( $wpdb->oauth_clients ) ) {
+			$wpdb->oauth_clients[ $client_id ] = $row;
+		}
 		return $client_id;
+	}
+
+	/**
+	 * @param list<string> $redirect_uris Redirect URIs.
+	 */
+	public function create_ephemeral( string $client_name, array $redirect_uris, string $registered_by_ip ): string {
+		return $this->create(
+			$client_name,
+			$redirect_uris,
+			$registered_by_ip,
+			false,
+			self::EPHEMERAL_PURPOSE,
+			gmdate( 'Y-m-d H:i:s', time() + self::EPHEMERAL_TTL )
+		);
+	}
+
+	public function count_ephemeral_clients(): int {
+		global $wpdb;
+
+		if ( isset( $wpdb->oauth_clients ) && is_array( $wpdb->oauth_clients ) ) {
+			$count = 0;
+			foreach ( $wpdb->oauth_clients as $row ) {
+				if ( self::EPHEMERAL_PURPOSE === ( $row['registration_purpose'] ?? '' ) ) {
+					++$count;
+				}
+			}
+			return $count;
+		}
+
+		$sql = $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}stonewright_oauth_clients WHERE registration_purpose = %s",
+			self::EPHEMERAL_PURPOSE
+		);
+		return is_string( $sql ) ? (int) $wpdb->get_var( $sql ) : 0; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	public static function run_ephemeral_gc(): void {
+		self::purge_expired_ephemeral();
+	}
+
+	public static function purge_expired_ephemeral(): int {
+		global $wpdb;
+
+		$now = gmdate( 'Y-m-d H:i:s' );
+		if ( isset( $wpdb->oauth_clients ) && is_array( $wpdb->oauth_clients ) ) {
+			$removed = 0;
+			foreach ( $wpdb->oauth_clients as $id => $row ) {
+				$expires = (string) ( $row['registration_expires_at'] ?? '' );
+				if ( self::EPHEMERAL_PURPOSE === ( $row['registration_purpose'] ?? '' ) && ( '' === $expires || $expires <= $now ) ) {
+					unset( $wpdb->oauth_clients[ $id ] );
+					++$removed;
+				}
+			}
+			return $removed;
+		}
+
+		$sql = $wpdb->prepare(
+			"DELETE FROM {$wpdb->prefix}stonewright_oauth_clients
+			WHERE registration_purpose = %s AND registration_expires_at IS NOT NULL AND registration_expires_at < %s",
+			self::EPHEMERAL_PURPOSE,
+			$now
+		);
+		return is_string( $sql ) ? (int) $wpdb->query( $sql ) : 0; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	public function schedule_ephemeral_gc(): void {
+		if ( ! wp_next_scheduled( self::EPHEMERAL_GC_HOOK ) ) {
+			wp_schedule_single_event( time() + self::EPHEMERAL_TTL, self::EPHEMERAL_GC_HOOK );
+		}
 	}
 
 	public function getClientEntity( mixed $clientIdentifier ): ?ClientEntityInterface {
@@ -119,6 +202,9 @@ final class ClientRepository implements ClientRepositoryInterface {
 	public function revoke( string $client_id ): void {
 		global $wpdb;
 		$wpdb->delete( $wpdb->prefix . 'stonewright_oauth_clients', [ 'client_id' => $client_id ] );
+		if ( isset( $wpdb->oauth_clients ) && is_array( $wpdb->oauth_clients ) ) {
+			unset( $wpdb->oauth_clients[ $client_id ] );
+		}
 	}
 
 	/**

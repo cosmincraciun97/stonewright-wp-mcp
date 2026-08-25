@@ -3,6 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
+use Stonewright\WpMcp\Admin\Diagnostics\SupportReport;
+
 /**
  * Shared diagnostics markup for Setup and Troubleshoot.
  */
@@ -21,26 +24,10 @@ final class DiagnosticsPanel {
 
 		$checks   = isset( $report['checks'] ) && is_array( $report['checks'] ) ? $report['checks'] : [];
 		$versions = isset( $report['versions'] ) && is_array( $report['versions'] ) ? $report['versions'] : [];
-		$mode     = isset( $report['mode'] ) ? sanitize_key( (string) $report['mode'] ) : 'both';
-		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
-			$mode = 'both';
-		}
-
-		$errors = 0;
-		$warns  = 0;
-		foreach ( $checks as $check ) {
-			if ( ! is_array( $check ) ) {
-				continue;
-			}
-			$status = (string) ( $check['status'] ?? 'error' );
-			if ( 'error' === $status ) {
-				++$errors;
-			} elseif ( 'warn' === $status ) {
-				++$warns;
-			}
-		}
-
-		$copy = self::plaintext_report( $report );
+		$method   = SetupDiagnostics::resolve_method( $report );
+		$grouped  = self::group_checks( $checks );
+		$counts   = self::counts_from_report( $report, $grouped );
+		$copy     = self::plaintext_report( $report );
 		?>
 		<section class="sw-setup-diagnostics" data-stonewright-diagnostics aria-label="<?php echo esc_attr( $heading ); ?>">
 			<h2><?php echo esc_html( $heading ); ?></h2>
@@ -73,30 +60,45 @@ final class DiagnosticsPanel {
 				<div class="sw-diag-field">
 					<label for="stonewright-diag-mode"><?php esc_html_e( 'How do you connect?', 'stonewright' ); ?></label>
 					<select id="stonewright-diag-mode" name="mode" data-stonewright-diag-mode>
-						<option value="both"<?php selected( $mode, 'both' ); ?>><?php esc_html_e( 'Not sure (check both)', 'stonewright' ); ?></option>
-						<option value="http"<?php selected( $mode, 'http' ); ?>><?php esc_html_e( 'Remote Streamable HTTP / OAuth', 'stonewright' ); ?></option>
-						<option value="stdio"<?php selected( $mode, 'stdio' ); ?>><?php esc_html_e( 'Local companion (stdio)', 'stonewright' ); ?></option>
+						<option value="oauth-http"<?php selected( $method, 'oauth-http' ); ?>><?php esc_html_e( 'OAuth', 'stonewright' ); ?></option>
+						<option value="application-password-stdio"<?php selected( $method, 'application-password-stdio' ); ?>><?php esc_html_e( 'Application Password', 'stonewright' ); ?></option>
+						<option value="stdio"<?php selected( $method, 'stdio' ); ?>><?php esc_html_e( 'Local companion', 'stonewright' ); ?></option>
+						<option value="not-sure"<?php selected( $method, 'not-sure' ); ?>><?php esc_html_e( 'Not sure', 'stonewright' ); ?></option>
 					</select>
 				</div>
 
 				<div class="sw-diag-pills" data-stonewright-diag-pills>
-					<button type="button" class="sw-diag-pill sw-diag-pill--error" data-stonewright-diag-problems<?php echo 0 === $errors ? ' hidden' : ''; ?>>
-						<?php echo esc_html( sprintf( '%d Problems', $errors ) ); ?>
+					<button type="button" class="sw-diag-pill sw-diag-pill--error" data-stonewright-diag-problems<?php echo 0 === $counts['problem'] ? ' hidden' : ''; ?>>
+						<?php echo esc_html( sprintf( '%d Problems', $counts['problem'] ) ); ?>
 					</button>
-					<button type="button" class="sw-diag-pill sw-diag-pill--warn" data-stonewright-diag-warnings<?php echo 0 === $warns ? ' hidden' : ''; ?>>
-						<?php echo esc_html( sprintf( '%d Warnings', $warns ) ); ?>
+					<button type="button" class="sw-diag-pill sw-diag-pill--warn" data-stonewright-diag-warnings<?php echo 0 === $counts['warning'] ? ' hidden' : ''; ?>>
+						<?php echo esc_html( sprintf( '%d Warnings', $counts['warning'] ) ); ?>
 					</button>
 				</div>
 
 				<div class="sw-diag-cards" data-stonewright-diag-cards aria-live="polite">
-					<?php foreach ( $checks as $check ) : ?>
-						<?php
-						if ( ! is_array( $check ) ) {
-							continue;
-						}
-						self::render_card( $check );
-						?>
+					<?php foreach ( $grouped['problem'] as $check ) : ?>
+						<?php self::render_card( $check ); ?>
 					<?php endforeach; ?>
+					<?php foreach ( $grouped['warning'] as $check ) : ?>
+						<?php self::render_card( $check ); ?>
+					<?php endforeach; ?>
+					<?php foreach ( $grouped['skipped'] as $check ) : ?>
+						<?php self::render_card( $check ); ?>
+					<?php endforeach; ?>
+					<?php
+					$success = array_merge( $grouped['ok'], $grouped['info'] );
+					if ( [] !== $success ) :
+						?>
+						<details class="sw-diag-success">
+							<summary>
+								<?php echo esc_html( sprintf( '%d successful checks', count( $success ) ) ); ?>
+							</summary>
+							<?php foreach ( $success as $check ) : ?>
+								<?php self::render_card( $check ); ?>
+							<?php endforeach; ?>
+						</details>
+					<?php endif; ?>
 				</div>
 
 				<div class="sw-diag-actions">
@@ -137,49 +139,11 @@ final class DiagnosticsPanel {
 	 * @param array<string, mixed> $report
 	 */
 	public static function plaintext_report( array $report ): string {
-		$lines    = [ 'Stonewright diagnostics' ];
-		$mode     = isset( $report['mode'] ) ? (string) $report['mode'] : '';
-		$versions = isset( $report['versions'] ) && is_array( $report['versions'] ) ? $report['versions'] : [];
-		$checks   = isset( $report['checks'] ) && is_array( $report['checks'] ) ? $report['checks'] : [];
-
-		if ( '' !== $mode ) {
-			$lines[] = 'Mode: ' . $mode;
-		}
-		if ( isset( $versions['plugin'] ) ) {
-			$lines[] = 'Plugin: ' . (string) $versions['plugin'];
-		}
-		if ( isset( $versions['companion_contract'] ) ) {
-			$lines[] = 'Companion HTTP contract: ' . (string) $versions['companion_contract'];
-		}
-		if ( isset( $versions['wordpress'] ) ) {
-			$lines[] = 'WordPress: ' . (string) $versions['wordpress'];
-		}
-		if ( isset( $versions['php'] ) ) {
-			$lines[] = 'PHP: ' . (string) $versions['php'];
-		}
-		$lines[] = '';
-
-		foreach ( $checks as $check ) {
-			if ( ! is_array( $check ) ) {
-				continue;
-			}
-			$lines[] = '[' . (string) ( $check['status'] ?? 'error' ) . '] ' . (string) ( $check['label'] ?? '' );
-			$detail  = (string) ( $check['detail'] ?? '' );
-			if ( '' !== $detail ) {
-				$lines[] = $detail;
-			}
-			$ticket = (string) ( $check['ticket'] ?? '' );
-			if ( '' !== $ticket ) {
-				$lines[] = $ticket;
-			}
-			$lines[] = '';
-		}
-
-		return trim( implode( "\n", $lines ) );
+		return SupportReport::render( $report );
 	}
 
 	/**
-	 * @return array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>, mode?: string}
+	 * @return array<string, mixed>
 	 */
 	private static function report_for_display(): array {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only flag after nonce-checked admin-post.
@@ -188,7 +152,6 @@ final class DiagnosticsPanel {
 		if ( $show_last ) {
 			$last = get_option( 'stonewright_diagnostics_last' );
 			if ( is_array( $last ) && isset( $last['checks'] ) && is_array( $last['checks'] ) ) {
-				/** @var array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>, mode?: string} $last */
 				return $last;
 			}
 		}
@@ -200,32 +163,160 @@ final class DiagnosticsPanel {
 	 * @param array<string, mixed> $check
 	 */
 	private static function render_card( array $check ): void {
-		$status = sanitize_key( (string) ( $check['status'] ?? 'error' ) );
-		if ( ! in_array( $status, [ 'ok', 'warn', 'error', 'info' ], true ) ) {
-			$status = 'error';
-		}
-		$icon = match ( $status ) {
-			'ok'   => '✓',
-			'warn' => '!',
-			'info' => 'ⓘ',
-			default => '✗',
+		$status     = self::normalize_status( (string) ( $check['status'] ?? 'problem' ) );
+		$css_status = self::css_status( $status );
+		$icon       = match ( $status ) {
+			'ok'      => '✓',
+			'warning' => '!',
+			'info', 'skipped' => 'ⓘ',
+			default   => '✗',
 		};
-		$ticket    = (string) ( $check['ticket'] ?? '' );
-		$ticket_id = 'stonewright-diag-ticket-' . sanitize_key( (string) ( $check['id'] ?? '' ) );
+		$summary = (string) ( $check['summary'] ?? $check['detail'] ?? '' );
+		$remedy  = (string) ( $check['remedy'] ?? '' );
+		$copy    = (string) ( $check['copy'] ?? $check['ticket'] ?? '' );
+		$check_id = sanitize_key( (string) ( $check['id'] ?? '' ) );
+		$copy_id  = '' !== $check_id ? 'stonewright-diag-ticket-' . $check_id : '';
+		$action   = self::safe_action( $check['action'] ?? null, $copy_id, $copy );
+		if ( is_array( $action ) && 'copy' === $action['type'] && '' !== $action['target'] ) {
+			$copy_id = $action['target'];
+		}
 		?>
-		<div class="sw-diag-card sw-diag-card--<?php echo esc_attr( $status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
+		<div class="sw-diag-card sw-diag-card--<?php echo esc_attr( $css_status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
 			<span class="sw-diag-card__icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></span>
 			<span class="sw-diag-card__body">
 				<strong class="sw-diag-card__label"><?php echo esc_html( (string) ( $check['label'] ?? '' ) ); ?></strong>
-				<span class="sw-diag-card__detail"><?php echo esc_html( (string) ( $check['detail'] ?? '' ) ); ?></span>
-				<?php if ( '' !== $ticket && 'stonewright-diag-ticket-' !== $ticket_id ) : ?>
-					<button type="button" class="button" data-stonewright-copy="<?php echo esc_attr( $ticket_id ); ?>">
-						<?php esc_html_e( 'Copy ticket', 'stonewright' ); ?>
-					</button>
-					<textarea id="<?php echo esc_attr( $ticket_id ); ?>" class="sw-diag-copy-source" readonly hidden><?php echo esc_textarea( $ticket ); ?></textarea>
+				<span class="sw-diag-card__detail"><?php echo esc_html( $summary ); ?></span>
+				<?php if ( '' !== $remedy && in_array( $status, [ 'problem', 'warning' ], true ) ) : ?>
+					<span class="sw-diag-card__detail"><?php echo esc_html( $remedy ); ?></span>
+				<?php endif; ?>
+				<?php if ( null !== $action ) : ?>
+					<?php if ( 'link' === $action['type'] ) : ?>
+						<a class="button" href="<?php echo esc_url( $action['target'] ); ?>">
+							<?php echo esc_html( $action['label'] ); ?>
+						</a>
+					<?php elseif ( 'retry' === $action['type'] ) : ?>
+						<button type="button" class="button" data-stonewright-run-diagnostics>
+							<?php echo esc_html( $action['label'] ); ?>
+						</button>
+					<?php else : ?>
+						<button type="button" class="button" data-stonewright-copy="<?php echo esc_attr( $action['target'] ); ?>">
+							<?php echo esc_html( $action['label'] ); ?>
+						</button>
+					<?php endif; ?>
+				<?php endif; ?>
+				<?php if ( '' !== $copy && '' !== $check_id ) : ?>
+					<textarea id="<?php echo esc_attr( $copy_id ); ?>" class="sw-diag-copy-source" readonly hidden><?php echo esc_textarea( $copy ); ?></textarea>
 				<?php endif; ?>
 			</span>
 		</div>
 		<?php
+	}
+
+	/**
+	 * @param list<mixed> $checks
+	 * @return array{problem: list<array<string, mixed>>, warning: list<array<string, mixed>>, skipped: list<array<string, mixed>>, ok: list<array<string, mixed>>, info: list<array<string, mixed>>}
+	 */
+	private static function group_checks( array $checks ): array {
+		$grouped = [
+			'problem' => [],
+			'warning' => [],
+			'skipped' => [],
+			'ok'      => [],
+			'info'    => [],
+		];
+		foreach ( $checks as $check ) {
+			if ( ! is_array( $check ) ) {
+				continue;
+			}
+			$status = self::normalize_status( (string) ( $check['status'] ?? 'problem' ) );
+			$grouped[ isset( $grouped[ $status ] ) ? $status : 'problem' ][] = $check;
+		}
+
+		return $grouped;
+	}
+
+	/**
+	 * @param array<string, mixed> $report
+	 * @param array<string, list<array<string, mixed>>> $grouped
+	 * @return array{problem: int, warning: int, info: int, ok: int, skipped: int}
+	 */
+	private static function counts_from_report( array $report, array $grouped ): array {
+		$counts = [
+			'problem' => count( $grouped['problem'] ),
+			'warning' => count( $grouped['warning'] ),
+			'info'    => count( $grouped['info'] ),
+			'ok'      => count( $grouped['ok'] ),
+			'skipped' => count( $grouped['skipped'] ),
+		];
+		if ( isset( $report['counts'] ) && is_array( $report['counts'] ) ) {
+			foreach ( $counts as $key => $value ) {
+				if ( isset( $report['counts'][ $key ] ) && is_numeric( $report['counts'][ $key ] ) ) {
+					$counts[ $key ] = (int) $report['counts'][ $key ];
+				}
+			}
+		}
+
+		return $counts;
+	}
+
+	private static function normalize_status( string $status ): string {
+		$status = sanitize_key( $status );
+		return match ( $status ) {
+			'error' => 'problem',
+			'warn'  => 'warning',
+			'ok', 'info', 'warning', 'problem', 'skipped' => $status,
+			default => 'problem',
+		};
+	}
+
+	private static function css_status( string $status ): string {
+		return match ( $status ) {
+			'ok'      => 'ok',
+			'warning' => 'warn',
+			'info', 'skipped' => 'info',
+			default   => 'error',
+		};
+	}
+
+	/**
+	 * @param mixed $action Raw action.
+	 * @return array{type: string, label: string, target: string}|null
+	 */
+	private static function safe_action( mixed $action, string $copy_id, string $copy ): ?array {
+		if ( is_array( $action ) ) {
+			$type   = sanitize_key( (string) ( $action['type'] ?? '' ) );
+			$label  = sanitize_text_field( (string) ( $action['label'] ?? '' ) );
+			$target = trim( (string) ( $action['target'] ?? '' ) );
+			if ( in_array( $type, DiagnosticCheck::ACTION_TYPES, true ) && '' !== $label && '' !== $target ) {
+				if ( 'link' === $type ) {
+					if ( str_starts_with( strtolower( $target ), 'javascript:' ) ) {
+						return null;
+					}
+					$safe = esc_url_raw( $target );
+					if ( '' === $safe ) {
+						return null;
+					}
+					return [
+						'type'   => 'link',
+						'label'  => $label,
+						'target' => $safe,
+					];
+				}
+				return [
+					'type'   => $type,
+					'label'  => $label,
+					'target' => sanitize_html_class( $target ),
+				];
+			}
+		}
+		if ( '' !== $copy && '' !== $copy_id ) {
+			return [
+				'type'   => 'copy',
+				'label'  => __( 'Copy hosting request', 'stonewright' ),
+				'target' => $copy_id,
+			];
+		}
+
+		return null;
 	}
 }

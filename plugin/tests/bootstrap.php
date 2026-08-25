@@ -511,6 +511,7 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 			$this->users    = 'wptests_users';
 			$this->usermeta = 'wptests_usermeta';
 			$this->insert_id = 1;
+			$this->oauth_clients = [];
 		}
 
 		/**
@@ -2596,6 +2597,17 @@ if ( ! function_exists( 'wp_next_scheduled' ) ) {
 	function wp_next_scheduled( string $hook, array $args = [] ): int|false {
 		unset( $args );
 		return $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_single_event' ) ) {
+	/**
+	 * @param array<int, mixed> $args
+	 */
+	function wp_schedule_single_event( int $timestamp, string $hook, array $args = [], bool $wp_error = false ): bool|\WP_Error {
+		unset( $args, $wp_error );
+		$GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] = $timestamp;
+		return true;
 	}
 }
 

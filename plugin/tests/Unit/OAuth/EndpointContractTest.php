@@ -15,6 +15,7 @@ use Stonewright\WpMcp\OAuth\Endpoints\Register;
 use Stonewright\WpMcp\OAuth\Endpoints\Revoke;
 use Stonewright\WpMcp\OAuth\Endpoints\Token;
 use Stonewright\WpMcp\OAuth\ClientValidation;
+use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -23,8 +24,14 @@ final class EndpointContractTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_rest_routes'] = [];
 		$GLOBALS['stonewright_test_transients']  = [];
+		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$_SERVER['REMOTE_ADDR']                  = '';
 		$GLOBALS['stonewright_test_filters']     = [];
+		if ( isset( $GLOBALS['wpdb'] ) && is_object( $GLOBALS['wpdb'] ) ) {
+			$GLOBALS['wpdb']->oauth_clients = [];
+		}
 	}
 
 	public function test_registers_all_oauth_rest_endpoints(): void {
@@ -131,5 +138,68 @@ final class EndpointContractTest extends TestCase {
 
 		self::assertSame( 200, $result->get_status() );
 		self::assertSame( [ 'active' => false ], $result->get_data() );
+	}
+
+	public function test_self_test_registration_is_ephemeral_and_deleted_before_return(): void {
+		$request = $this->self_test_request( $this->valid_dcr_body() );
+		$result  = Register::handle( $request );
+		$repository = new ClientRepository();
+
+		self::assertInstanceOf( WP_REST_Response::class, $result );
+		$http_status = $result->get_status();
+		$payload     = $result->get_data();
+		self::assertSame( 201, $http_status );
+		self::assertIsArray( $payload );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{32}$/', (string) $payload['client_id'] );
+		self::assertSame( 'Stonewright diagnostics', $payload['client_name'] );
+		self::assertSame( [ 'http://127.0.0.1/stonewright-oauth/callback' ], $payload['redirect_uris'] );
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $payload['grant_types'] );
+		self::assertSame( 'none', $payload['token_endpoint_auth_method'] );
+		self::assertSame( 0, $repository->count_ephemeral_clients() );
+		self::assertArrayHasKey( ClientRepository::EPHEMERAL_GC_HOOK, $GLOBALS['stonewright_test_scheduled_hooks'] );
+	}
+
+	public function test_self_test_token_is_consumed_and_not_reusable(): void {
+		$body  = $this->valid_dcr_body();
+		$first = Register::handle( $this->self_test_request( $body ) );
+		self::assertSame( 201, $first->get_status() );
+
+		$replay = new WP_REST_Request( 'POST', '/oauth/register' );
+		$replay->set_header( 'x-stonewright-self-test', 'diagnostic-self-test-token' );
+		self::assertFalse( Register::is_self_test_request( $replay ) );
+		self::assertSame( 0, ( new ClientRepository() )->count_ephemeral_clients() );
+	}
+
+	public function test_empty_self_test_body_is_invalid_request(): void {
+		$request = $this->self_test_request( [] );
+		$result  = Register::handle( $request );
+
+		self::assertSame( 'invalid_request', $result->get_error_code() );
+		self::assertSame( 400, $result->get_error_data()['status'] );
+		self::assertSame( 0, ( new ClientRepository() )->count_ephemeral_clients() );
+	}
+
+	/**
+	 * @param array<string, mixed> $body
+	 */
+	private function self_test_request( array $body, string $token = 'diagnostic-self-test-token' ): WP_REST_Request {
+		$hash = hash( 'sha256', $token );
+		set_transient( 'stonewright_oauth_selftest_' . $hash, $hash, 30 );
+		$request = new WP_REST_Request( 'POST', '/oauth/register' );
+		$request->set_header( 'x-stonewright-self-test', $token );
+		$request->set_json_params( $body );
+		return $request;
+	}
+
+	/**
+	 * @return array{client_name: string, redirect_uris: list<string>, grant_types: list<string>, token_endpoint_auth_method: string}
+	 */
+	private function valid_dcr_body(): array {
+		return [
+			'client_name'                => 'Stonewright diagnostics',
+			'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+			'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+			'token_endpoint_auth_method' => 'none',
+		];
 	}
 }

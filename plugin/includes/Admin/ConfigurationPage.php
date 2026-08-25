@@ -128,10 +128,7 @@ final class ConfigurationPage {
 
 		check_admin_referer( 'stonewright_run_diagnostics' );
 
-		$mode = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : 'both';
-		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
-			$mode = 'both';
-		}
+		$method = self::diagnostics_method_from_request();
 
 		$return = isset( $_POST['stonewright_diagnostics_return'] )
 			? sanitize_key( (string) wp_unslash( $_POST['stonewright_diagnostics_return'] ) )
@@ -142,8 +139,9 @@ final class ConfigurationPage {
 
 		$report = SetupDiagnostics::report(
 			[
-				'probe' => 'stdio' !== $mode,
-				'mode'  => $mode,
+				'probe'  => true,
+				'method' => $method,
+				'mode'   => $method,
 			]
 		);
 		update_option( 'stonewright_diagnostics_last', $report, false );
@@ -168,19 +166,40 @@ final class ConfigurationPage {
 
 		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
 
-		$mode = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : 'both';
-		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
-			$mode = 'both';
-		}
+		$method = self::diagnostics_method_from_request();
 
 		$report = SetupDiagnostics::report(
 			[
-				'probe' => 'stdio' !== $mode,
-				'mode'  => $mode,
+				'probe'  => true,
+				'method' => $method,
+				'mode'   => $method,
 			]
 		);
 		update_option( 'stonewright_diagnostics_last', $report, false );
 		wp_send_json_success( $report );
+	}
+
+	/**
+	 * Canonical connection method from the diagnostics form.
+	 */
+	private static function diagnostics_method_from_request(): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Callers verify the diagnostics nonce first.
+		$raw = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : '';
+		if ( '' === $raw && isset( $_POST['method'] ) ) {
+			$raw = sanitize_key( (string) wp_unslash( $_POST['method'] ) );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$allowed = array_merge( SetupDiagnostics::METHODS, [ 'both', 'http', 'stdio' ] );
+		if ( ! in_array( $raw, $allowed, true ) ) {
+			$raw = 'not-sure';
+		}
+
+		return SetupDiagnostics::resolve_method(
+			[
+				'method' => $raw,
+				'mode'   => $raw,
+			]
+		);
 	}
 
 	/**
