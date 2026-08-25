@@ -246,7 +246,7 @@ final class OAuthRateLimiter {
 		// The unit harness extends wpdb so ProtectedWpdbProxy stays a real wpdb
 		// subclass, but it does not emulate atomic INSERT ... ON DUPLICATE KEY
 		// UPDATE. Production WordPress sets ready after a live connection.
-		return $wpdb instanceof \wpdb && true === ( $wpdb->ready ?? false );
+		return $wpdb instanceof \wpdb && true === $wpdb->ready;
 	}
 
 	private static function atomic_upsert_sql( string $table ): string {
