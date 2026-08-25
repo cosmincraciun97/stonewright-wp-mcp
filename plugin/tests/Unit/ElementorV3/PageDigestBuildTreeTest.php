@@ -42,7 +42,7 @@ final class PageDigestBuildTreeTest extends TestCase {
 				public function __construct( private string $path ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->path, 'post-css-safe' );
 				}
 
@@ -217,7 +217,7 @@ final class PageDigestBuildTreeTest extends TestCase {
 					$this->lease_seen = &$lease_seen;
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					$lease = get_option( 'stonewright_elementor_lock_' . $this->post_id, [] );
 					$this->lease_seen = is_array( $lease ) && (int) ( $lease['expires_at'] ?? 0 ) > time();
 					file_put_contents( $this->path, 'post-css-safe' );
@@ -260,7 +260,7 @@ final class PageDigestBuildTreeTest extends TestCase {
 				public function __construct( private string $path, private int $post_id ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->path, 'post-css-committed' );
 					$GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ] = [
 						'post_id'     => $this->post_id,
@@ -429,7 +429,7 @@ final class PageDigestBuildTreeTest extends TestCase {
 				public function __construct( private string $target, private string $global ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->target, 'unsafe-post-css' );
 					unlink( $this->global );
 				}

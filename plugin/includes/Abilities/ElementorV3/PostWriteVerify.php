@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
+use Stonewright\WpMcp\Elementor\CssTargetResolver;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Permissions;
@@ -141,10 +142,15 @@ final class PostWriteVerify extends AbilityKernel {
 				}
 				$lease = $renewed;
 
+				$resolved = ( new CssTargetResolver() )->resolve( $post_id, 'auto' );
+				if ( $resolved instanceof \WP_Error ) {
+					return $resolved;
+				}
+
 				$transaction = CssAssetTransaction::run(
-					$post_id,
-					static function () use ( $post_id, $frontend, $args, $cache ): array {
-						$css = CssRegenerator::regenerate_post( $post_id );
+					$resolved,
+					static function () use ( $resolved, $frontend, $args, $cache ): array {
+						$css = CssRegenerator::regenerate( $resolved );
 						if ( ! (bool) ( $css['ok'] ?? false ) ) {
 							return [
 								'ok'         => false,
@@ -153,7 +159,7 @@ final class PostWriteVerify extends AbilityKernel {
 						}
 						// CSS was already regenerated explicitly. Passing false prevents
 						// Elementor from starting another CSS write path during rendering.
-						$html = (string) $frontend->get_builder_content_for_display( $post_id, false );
+						$html = (string) $frontend->get_builder_content_for_display( $resolved->post_id(), false );
 						$verification = self::verification_evidence( $html, $args );
 						$checks       = array_merge( $verification['element_checks'], $verification['content_checks'] );
 						$passed       = '' !== $html

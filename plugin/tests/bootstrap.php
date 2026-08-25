@@ -2253,6 +2253,22 @@ if ( ! function_exists( 'gethostbyname' ) ) {
 	// using $GLOBALS['stonewright_test_gethostbyname'] override via test-helper closures.
 }
 
+if ( ! function_exists( 'wp_safe_remote_request' ) ) {
+	function wp_safe_remote_request( string $url, array $args = [] ): array|\WP_Error {
+		$asset_overrides = $GLOBALS['stonewright_test_asset_responses'] ?? [];
+		if ( array_key_exists( $url, $asset_overrides ) ) {
+			$response = $asset_overrides[ $url ];
+			return is_callable( $response ) ? $response( $url, $args ) : $response;
+		}
+
+		return [
+			'response' => [ 'code' => 200 ],
+			'headers'  => [],
+			'body'     => '',
+		];
+	}
+}
+
 // Allow tests to override wp_safe_remote_get (distinct from wp_safe_remote_post).
 if ( ! function_exists( 'wp_safe_remote_get' ) ) {
 	function wp_safe_remote_get( string $url, array $args = [] ): array|\WP_Error {

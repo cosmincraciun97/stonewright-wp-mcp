@@ -74,7 +74,7 @@ final class PostWriteVerifyTest extends TestCase {
 					$this->updates = &$updates;
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					++$this->updates;
 					file_put_contents( $this->get_path(), 'post-css' );
 				}
@@ -144,7 +144,7 @@ final class PostWriteVerifyTest extends TestCase {
 				public function __construct( private int $post_id, private string $css_dir ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->get_path(), 'post-css' );
 					$GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ] = [
 						'post_id'     => $this->post_id,
@@ -248,7 +248,7 @@ final class PostWriteVerifyTest extends TestCase {
 				public function __construct( private int $post_id, private string $css_dir ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->get_path(), 'post-css' );
 				}
 

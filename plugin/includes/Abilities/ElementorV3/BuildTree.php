@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
+use Stonewright\WpMcp\Elementor\CssTargetResolver;
 use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
@@ -155,10 +156,15 @@ final class BuildTree extends AbilityKernel {
 					} else {
 						$lease = $renewed;
 					}
+					$resolved = ( new CssTargetResolver() )->resolve( $post_id, 'auto' );
+					if ( $resolved instanceof \WP_Error ) {
+						Backup::restore_snapshot( $post_id, $snapshot_id );
+						return $resolved;
+					}
 					$transaction = CssAssetTransaction::run(
-						$post_id,
-						static function () use ( $post_id ): array {
-							return CssRegenerator::regenerate_post( $post_id );
+						$resolved,
+						static function () use ( $resolved ): array {
+							return CssRegenerator::regenerate( $resolved );
 						}
 					);
 					if ( $transaction instanceof \WP_Error ) {
