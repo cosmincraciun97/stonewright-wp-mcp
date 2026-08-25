@@ -42,9 +42,6 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 	private ?int $active_user_id = null;
 
-	/** @var array<string, true> */
-	private array $claimed_hashes_this_request = [];
-
 	private ?string $last_revoked_reason = null;
 
 	public function getNewRefreshToken(): ?RefreshTokenEntityInterface {
@@ -150,7 +147,6 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		);
 
 		if ( 1 === (int) $claimed ) {
-			$this->claimed_hashes_this_request[ $identifier_hash ] = true;
 			$this->last_revoked_reason = 'rotated';
 			return;
 		}
