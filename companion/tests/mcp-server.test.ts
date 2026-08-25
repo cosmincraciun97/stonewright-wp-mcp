@@ -164,7 +164,7 @@ describe('createMcpServer', () => {
 
 		expect(response.structuredContent?.ok).toBe(false);
 		expect(response.structuredContent?.connected).toBe(false);
-		expect(response.structuredContent?.error?.message).toContain('network down');
+		expect(response.structuredContent?.error?.message).toContain('WordPress MCP transport failure during initialize');
 		expect(response.structuredContent?.tool_profile).toBe('elementor-design');
 		expect(response.structuredContent?.profile_expected_tool_count).toBeGreaterThan(20);
 		expect(response.structuredContent?.profile_missing_tool_names).toContain('stonewright-elementor-v3-build-page-from-spec');
