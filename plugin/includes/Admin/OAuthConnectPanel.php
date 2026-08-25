@@ -199,7 +199,7 @@ final class OAuthConnectPanel {
 			if (input) {
 				input.addEventListener('input', function () {
 					var value = input.value.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64);
-					root.querySelectorAll('[data-sw-oauth-template]').forEach(function (node) {
+					document.querySelectorAll('[data-sw-oauth-template]').forEach(function (node) {
 						var original = node.getAttribute('data-sw-oauth-original-name') || '';
 						var template = node.getAttribute('data-sw-oauth-template') || '';
 						node.textContent = template.split(original).join(value || original);

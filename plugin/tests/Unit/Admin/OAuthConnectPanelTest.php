@@ -91,6 +91,15 @@ final class OAuthConnectPanelTest extends TestCase {
 		self::assertStringContainsString( 'Copy install link', $html );
 	}
 
+	public function test_name_change_script_rewrites_templates_document_wide(): void {
+		ob_start();
+		OAuthConnectPanel::render_script();
+		$script = (string) ob_get_clean();
+
+		self::assertStringContainsString( "document.querySelectorAll('[data-sw-oauth-template]')", $script );
+		self::assertStringNotContainsString( "root.querySelectorAll('[data-sw-oauth-template]')", $script );
+	}
+
 	public function test_grok_oauth_instructions_include_native_toml_mcps_and_doctor(): void {
 		ob_start();
 		OAuthConnectPanel::render_client(
