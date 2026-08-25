@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { describe, expect, it, vi } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OAuthRefreshLock } from '../src/oauth-refresh-lock.js';
+import { OAuthRefreshLock, oauthRefreshLockPathFor } from '../src/oauth-refresh-lock.js';
 import { OAuthTokenManager, OAuthTokenStore, type OAuthTokenSet } from '../src/oauth-token-manager.js';
 
 function expiredTokens(): OAuthTokenSet {
@@ -128,11 +128,45 @@ describe('OAuthRefreshLock unit', () => {
 	it('acquires and releases a lease', async () => {
 		const directory = mkdtempSync(join(tmpdir(), 'stonewright-lock-unit-'));
 		try {
-			const lock = new OAuthRefreshLock(join(directory, 'tokens.json'));
+			const path = join(directory, 'tokens.json');
+			const lock = new OAuthRefreshLock(path);
+			const lockFile = oauthRefreshLockPathFor(path);
 			const lease = await lock.acquire(1_000);
+			expect(existsSync(lockFile)).toBe(true);
 			await lease.release();
+			expect(existsSync(lockFile)).toBe(false);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('renews the lease while held and never deletes a successor lock', async () => {
+		vi.useFakeTimers();
+		const directory = mkdtempSync(join(tmpdir(), 'stonewright-lock-renew-'));
+		try {
+			const path = join(directory, 'tokens.json');
+			const lock = new OAuthRefreshLock(path);
+			const lockFile = oauthRefreshLockPathFor(path);
+			const lease = await lock.acquire(1_000);
+			const first = JSON.parse(readFileSync(lockFile, 'utf8')) as { owner: string; expiresAt: number };
+			expect(typeof first.owner).toBe('string');
+
+			vi.advanceTimersByTime(10_000);
+			const renewed = JSON.parse(readFileSync(lockFile, 'utf8')) as { owner: string; expiresAt: number };
+			expect(renewed.owner).toBe(first.owner);
+			expect(renewed.expiresAt).toBeGreaterThan(first.expiresAt);
+
+			// Simulate a takeover by another process after lease expiry.
+			writeFileSync(
+				lockFile,
+				`${JSON.stringify({ pid: process.pid, owner: 'successor-owner', startedAt: Date.now(), expiresAt: Date.now() + 30_000 })}\n`,
+			);
+			await lease.release();
+			expect(existsSync(lockFile)).toBe(true);
+			unlinkSync(lockFile);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+			vi.useRealTimers();
 		}
 	});
 });
