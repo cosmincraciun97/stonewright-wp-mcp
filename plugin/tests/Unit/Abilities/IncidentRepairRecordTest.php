@@ -256,9 +256,9 @@ final class IncidentRepairRecordTest extends TestCase {
 
 	private function database(): object {
 		return new class() {
-			public string $prefix = 'wptests_';
-			public string $last_error = '';
-			public int $insert_id = 0;
+			public $prefix = 'wptests_';
+			public $last_error = '';
+			public $insert_id = 0;
 			public bool $fail_memory_write = false;
 			public bool $fail_memory_readback = false;
 			public mixed $on_success_lookup = null;

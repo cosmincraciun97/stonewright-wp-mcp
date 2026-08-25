@@ -25,7 +25,7 @@ final class ConsentCompletionTest extends TestCase {
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$GLOBALS['wpdb']                        = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				foreach ( $args as $arg ) {

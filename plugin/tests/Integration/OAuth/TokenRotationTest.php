@@ -22,7 +22,7 @@ final class TokenRotationTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb']     = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/**
 			 * @var array<string, bool>

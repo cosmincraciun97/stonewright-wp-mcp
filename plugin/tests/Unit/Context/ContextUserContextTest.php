@@ -342,7 +342,7 @@ final class ContextUserContextTest extends TestCase {
 	 */
 	private function make_matching_wpdb( array $memory_rows ): object {
 		return new class( $memory_rows ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var array<int, array<string, mixed>> */
 			public array $memory_rows;
 			/** @var array<int, mixed> */
@@ -418,7 +418,7 @@ final class ContextUserContextTest extends TestCase {
 
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $query ): string {
 				return 'table_exists';

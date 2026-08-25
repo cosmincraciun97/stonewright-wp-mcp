@@ -69,7 +69,7 @@ final class SkillsListTest extends TestCase {
 
 	private function wpdb_with_rows(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $query ): string {
 				return 'wp_stonewright_skills';

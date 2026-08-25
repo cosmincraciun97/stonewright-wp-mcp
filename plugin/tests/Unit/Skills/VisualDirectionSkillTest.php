@@ -218,9 +218,9 @@ final class VisualDirectionSkillTest extends TestCase {
 	 */
 	private function seeded_row( string $slug ): ?array {
 		$capture = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
-			public int $insert_id = 0;
+			public $insert_id = 0;
 
 			/** @var array<string, array<string, mixed>> */
 			public array $rows = [];
@@ -277,7 +277,7 @@ final class VisualDirectionSkillTest extends TestCase {
 	 */
 	private function make_matching_wpdb( array $row ): object {
 		return new class( $row ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @param array<string, mixed> $row Seeded visual-direction row. */
 			public function __construct( private array $row ) {}

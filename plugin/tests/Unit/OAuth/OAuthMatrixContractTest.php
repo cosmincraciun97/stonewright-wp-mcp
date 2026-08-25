@@ -265,6 +265,7 @@ final class OAuthMatrixContractTest extends TestCase {
 			[
 				'error'             => 'invalid_target',
 				'error_description' => 'The requested resource is not served here.',
+				'reason'            => 'invalid_resource',
 			],
 			$result->get_data()
 		);
@@ -279,7 +280,7 @@ final class OAuthMatrixContractTest extends TestCase {
 		return [
 			'expired'              => [ 'invalid_grant', 'The refresh token has expired', 'refresh_token_expired' ],
 			'revoked'              => [ 'invalid_grant', 'Token has been revoked', 'refresh_token_revoked' ],
-			'already_used'         => [ 'invalid_grant', 'Refresh token was already used', 'refresh_token_revoked' ],
+			'already_used'         => [ 'invalid_grant', 'Refresh token was already used', 'refresh_token_invalid' ],
 			'generic_invalid'      => [ 'invalid_grant', 'Cannot decrypt the refresh token', 'refresh_token_invalid' ],
 			'invalid_request_as_grant' => [ 'invalid_request', 'Missing refresh token', 'refresh_token_invalid' ],
 		];

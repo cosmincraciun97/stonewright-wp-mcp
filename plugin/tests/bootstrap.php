@@ -503,6 +503,9 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		/** @var array<int, array<string, mixed>> */
 		public array $direction_version_rows = [];
 
+		/** @var array<string, array<string, mixed>> */
+		public array $incident_rows = [];
+
 		public function __construct() {
 			$this->prefix   = 'wptests_';
 			$this->options  = 'wptests_options';
@@ -518,12 +521,14 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $data
 		 * @param array<int, string>   $format
 		 */
-		public function insert( string $table, array $data, array $format = [] ): int {
+		public function insert( string $table, array $data, array $format = [] ): int|false {
 			$this->insert_id++;
-			$GLOBALS['stonewright_test_wpdb_inserts'][] = [
-				'table' => $table,
-				'data'  => $data,
-			];
+			if ( ! str_contains( $table, 'stonewright_incidents' ) ) {
+				$GLOBALS['stonewright_test_wpdb_inserts'][] = [
+					'table' => $table,
+					'data'  => $data,
+				];
+			}
 			if ( str_contains( $table, 'stonewright_design_direction_versions' ) ) {
 				$this->direction_version_rows[ $this->insert_id ] = array_merge(
 					[ 'id' => $this->insert_id ],
@@ -534,6 +539,14 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 					[ 'id' => $this->insert_id ],
 					$data
 				);
+			}
+			if ( str_contains( $table, 'stonewright_incidents' ) ) {
+				$incident_id = (string) ( $data['incident_id'] ?? '' );
+				if ( '' === $incident_id || isset( $this->incident_rows[ $incident_id ] ) ) {
+					return false;
+				}
+				$data['id'] = $this->insert_id;
+				$this->incident_rows[ $incident_id ] = $data;
 			}
 			if ( str_contains( $table, 'stonewright_memory' ) ) {
 				$this->memory_rows[ $this->insert_id ] = array_merge(
@@ -585,6 +598,15 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				return $rows;
 			}
 
+			if ( str_contains( $query, 'stonewright_incidents' ) ) {
+				$rows = array_values( $this->incident_rows );
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => strcmp( (string) ( $b['last_seen'] ?? '' ), (string) ( $a['last_seen'] ?? '' ) )
+				);
+				return $rows;
+			}
+
 			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
 				$status = self::matched_string( $query, "/status\s*=\s*'([^']*)'/" );
 				$rows   = array_values(
@@ -611,6 +633,14 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				}
 				$row = end( $this->memory_rows );
 				return is_array( $row ) ? $row : null;
+			}
+
+			if ( str_contains( $query, 'stonewright_incidents' ) ) {
+				$incident_id = self::matched_string( $query, "/incident_id\\s*=\\s*'([^']+)'/" );
+				if ( null === $incident_id ) {
+					return null;
+				}
+				return $this->incident_rows[ $incident_id ] ?? null;
 			}
 
 			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
@@ -694,6 +724,19 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				if ( array_key_exists( 'option_value', $data ) ) {
 					$GLOBALS['stonewright_test_options'][ $option ] = maybe_unserialize( $data['option_value'] );
 				}
+				return 1;
+			}
+			if ( str_contains( $table, 'stonewright_incidents' ) ) {
+				$incident_id = (string) ( $where['incident_id'] ?? '' );
+				if ( ! isset( $this->incident_rows[ $incident_id ] ) ) {
+					return 0;
+				}
+				foreach ( $where as $key => $expected ) {
+					if ( (string) ( $this->incident_rows[ $incident_id ][ $key ] ?? '' ) !== (string) $expected ) {
+						return 0;
+					}
+				}
+				$this->incident_rows[ $incident_id ] = array_merge( $this->incident_rows[ $incident_id ], $data );
 				return 1;
 			}
 			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {

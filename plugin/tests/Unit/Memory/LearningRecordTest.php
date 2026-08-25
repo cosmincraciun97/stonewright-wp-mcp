@@ -159,9 +159,9 @@ final class LearningRecordTest extends TestCase {
 
 	private function make_wpdb( bool $insert_ok = true ): object {
 		return new class( $insert_ok ) {
-			public string $prefix     = 'wp_';
-			public int $insert_id     = 100;
-			public string $last_error = '';
+			public $prefix     = 'wp_';
+			public $insert_id     = 100;
+			public $last_error = '';
 			private bool $insert_ok;
 
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */

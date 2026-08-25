@@ -208,7 +208,7 @@ final class DesignPageTest extends TestCase {
 	 */
 	private function empty_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;

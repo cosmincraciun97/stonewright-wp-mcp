@@ -66,7 +66,7 @@ final class AdminPagesPolishTest extends TestCase {
 
 	public function test_skills_page_uses_shared_shell_and_external_admin_controls(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $query = '' ): ?string {
 				return 'wp_stonewright_skills';
@@ -148,7 +148,7 @@ final class AdminPagesPolishTest extends TestCase {
 
 	public function test_memory_page_uses_callout_cards_and_actions_layout(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;
@@ -180,7 +180,7 @@ final class AdminPagesPolishTest extends TestCase {
 
 	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;

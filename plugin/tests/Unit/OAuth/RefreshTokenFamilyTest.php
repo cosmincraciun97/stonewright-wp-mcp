@@ -34,7 +34,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 		$replayed_hash = hash( 'sha256', 'replayed-refresh' );
 		$current_hash  = hash( 'sha256', 'current-refresh' );
 		$database      = new class( $replayed_hash, $current_hash ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var array<string, array{revoked:int,expires_at:string,grant_family_hash:string,access_token_hash:string}> */
 			public array $refresh_rows;
@@ -150,7 +150,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 	public function test_rotated_refresh_inherits_the_active_grant_family(): void {
 		$current_hash = hash( 'sha256', 'current-refresh' );
 		$database     = new class( $current_hash ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var array<string, mixed> */
 			public array $inserted = [];

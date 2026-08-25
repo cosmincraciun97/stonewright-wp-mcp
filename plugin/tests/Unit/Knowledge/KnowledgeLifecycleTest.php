@@ -270,8 +270,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 
 	private static function wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 100;
+			public $prefix = 'wp_';
+			public $insert_id = 100;
 			/** @var array<int, array<string, mixed>> */
 			public array $candidates = [];
 			/** @var array<int, array<string, mixed>> */

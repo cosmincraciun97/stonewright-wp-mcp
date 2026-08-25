@@ -151,7 +151,7 @@ final class SkillExporterTest extends TestCase {
 	/** @param list<array<string, mixed>> $rows */
 	private function wpdb( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var list<mixed> */
 			private array $last_args = [];
 

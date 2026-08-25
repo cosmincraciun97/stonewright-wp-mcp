@@ -62,8 +62,8 @@ final class KnowledgeBundleAbilitiesTest extends TestCase {
 
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 50;
+			public $prefix = 'wp_';
+			public $insert_id = 50;
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;

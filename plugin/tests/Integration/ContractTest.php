@@ -32,6 +32,7 @@ final class ContractTest extends TestCase {
 
 	protected function setUp(): void {
 		IncidentStore::reset_for_tests();
+		WidgetSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_audit_rows'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = array_fill_keys(
 			[

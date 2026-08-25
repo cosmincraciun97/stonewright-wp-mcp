@@ -150,7 +150,7 @@ final class LandingPlaybookRetirementTest extends TestCase {
 	 */
 	private function make_wpdb_with_skill( array $row ): object {
 		return new class( $row ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public int $delete_calls = 0;
 

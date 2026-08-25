@@ -90,7 +90,7 @@ final class DesignDirectionVersionsTableTest extends TestCase {
 
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_charset_collate(): string {
 				return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';

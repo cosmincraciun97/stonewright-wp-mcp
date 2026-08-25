@@ -222,8 +222,8 @@ final class RestRoutesErrorEnvelopeTest extends TestCase {
 	/** @return object */
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 0;
+			public $prefix = 'wp_';
+			public $insert_id = 0;
 			/** @var list<array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];
 

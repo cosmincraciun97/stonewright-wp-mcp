@@ -113,9 +113,9 @@ final class MemorySchemaTest extends TestCase {
 		ini_set( 'error_log', $log_file );
 
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix     = 'wp_';
-			public string $last_error = 'Table does not exist';
-			public int $insert_id    = 0;
+			public $prefix     = 'wp_';
+			public $last_error = 'Table does not exist';
+			public $insert_id    = 0;
 
 			public function get_var( string $query ): mixed {
 				return null;
@@ -178,7 +178,7 @@ final class MemorySchemaTest extends TestCase {
 	public function test_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
 		update_option( 'stonewright_memory_schema_version', 4 );
 		$GLOBALS['wpdb'] = new class( self::V4_COLUMNS ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			public int $charset_calls = 0;
 			/** @var array<int, string> */
 			private array $columns;
@@ -210,7 +210,7 @@ final class MemorySchemaTest extends TestCase {
 		update_option( 'stonewright_memory_schema_version', 4 );
 		// Incomplete columns: must attempt reinstall (charset/dbDelta path).
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix       = 'wp_';
+			public $prefix       = 'wp_';
 			public int $charset_calls   = 0;
 			/** @var array<int, string> */
 			public array $columns       = [ 'id', 'scope', 'memory_key' ];
@@ -257,7 +257,7 @@ final class MemorySchemaTest extends TestCase {
 	 */
 	private function make_wpdb( array $columns ): object {
 		return new class( $columns ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var array<int, string> */
 			private array $columns;
 
@@ -306,7 +306,7 @@ final class MemorySchemaTest extends TestCase {
 	 */
 	private function make_matching_wpdb( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var array<int, array<string, mixed>> */
 			public array $rows;
 			/** @var array<int, mixed> */

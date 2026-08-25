@@ -47,7 +47,7 @@ final class AuditLogPageTest extends TestCase {
 
 	public function test_render_outputs_filters_expandable_rows_and_semantic_badges(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;
@@ -177,7 +177,7 @@ final class AuditLogPageTest extends TestCase {
 
 	public function test_render_empty_state(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;
@@ -205,7 +205,7 @@ final class AuditLogPageTest extends TestCase {
 
 	public function test_error_row_expand_shows_code_message_target_mode_and_repair(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
 				return $query;
@@ -457,7 +457,7 @@ final class AuditLogPageTest extends TestCase {
 	 */
 	private function make_audit_wpdb( array $rows, int $count ): object {
 		return new class( $rows, $count ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var list<string> */
 			public array $queries = [];
 			/** @var array<int, array<string, mixed>> */
@@ -492,7 +492,7 @@ final class AuditLogPageTest extends TestCase {
 
 	private function make_purge_wpdb( int $event_count ): object {
 		return new class( $event_count ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			public int $event_count;
 			/** @var list<string> */
 			public array $queries = [];

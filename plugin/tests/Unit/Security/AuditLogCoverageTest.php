@@ -546,11 +546,11 @@ final class AuditLogCoverageTest extends TestCase {
 
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
-				public string $prefix = 'wp_';
+				public $prefix = 'wp_';
 				public string $options = 'wp_options';
-			public string $last_error = '';
+			public $last_error = '';
 			public int $row_count = 0;
-			public string $last_query = '';
+			public $last_query = '';
 			/** @var list<mixed> */
 			public array $last_prepared_args = [];
 			public int|false $query_result = 0;
@@ -614,8 +614,6 @@ final class AuditLogCoverageTest extends TestCase {
 	/** @param list<int|false> $query_results */
 	private function make_incident_wpdb( array $query_results ): object {
 		return new class( $query_results ) extends \wpdb {
-			public string $prefix = 'wp_';
-			public string $last_query = '';
 			/** @var list<mixed> */
 			public array $last_prepared_args = [];
 			/** @var list<int|false> */
@@ -624,6 +622,8 @@ final class AuditLogCoverageTest extends TestCase {
 			/** @param list<int|false> $query_results */
 			public function __construct( array $query_results ) {
 				$this->query_results = $query_results;
+				$this->prefix        = 'wp_';
+				$this->last_query    = '';
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {

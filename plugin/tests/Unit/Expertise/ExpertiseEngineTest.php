@@ -22,8 +22,8 @@ final class ExpertiseEngineTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 10;
+			public $prefix = 'wp_';
+			public $insert_id = 10;
 			public function get_charset_collate(): string { return 'DEFAULT CHARACTER SET utf8mb4'; }
 			public function prepare( string $query, mixed ...$args ): string { return $query; }
 			public function get_var( string $query ): mixed { return str_contains( $query, 'SHOW TABLES' ) ? null : null; }
@@ -161,8 +161,8 @@ final class ExpertiseEngineTest extends TestCase {
 			'critical_failures'        => 0,
 		];
 		$GLOBALS['wpdb'] = new class( $scorecard ) {
-			public string $prefix = 'wp_';
-			public int $insert_id = 10;
+			public $prefix = 'wp_';
+			public $insert_id = 10;
 			/** @var list<array<string, mixed>> */
 			public array $rows = [];
 			/** @param array<string, mixed> $scorecard */

@@ -60,9 +60,9 @@ final class MemorySaveTest extends TestCase {
 	public function test_insert_failure_returns_memory_save_failed_not_ok_id_zero(): void {
 		$original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix     = 'wp_';
-			public string $last_error = 'Table does not exist';
-			public int $insert_id     = 0;
+			public $prefix     = 'wp_';
+			public $last_error = 'Table does not exist';
+			public $insert_id     = 0;
 
 			public function get_var( string $query ): mixed {
 				return null;

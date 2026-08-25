@@ -27,6 +27,7 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 	protected function tearDown(): void {
 		Plugin::$instance = $this->original_instance;
 		$GLOBALS['stonewright_test_options'] = [];
+		\Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository::invalidate();
 	}
 
 	public function test_v3_status_reports_widget_inventory_and_v4_flag(): void {
@@ -133,7 +134,16 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( [ 'elementor-core' ], array_column( $result['provider_discovery']['providers'], 'id' ) );
 		self::assertSame(
-			[ 'code' => 'provider_discovery_failed', 'provider' => 'atomic', 'error_class' => \RuntimeException::class ],
+			[
+				'severity'          => 'blocker',
+				'code'              => 'provider_discovery_failed',
+				'provider'          => 'atomic',
+				'descriptor_format' => '',
+				'error_class'       => \RuntimeException::class,
+				'count'             => 1,
+				'samples'           => [],
+				'samples_truncated' => false,
+			],
 			$result['provider_discovery']['issues'][0]
 		);
 		self::assertStringNotContainsString( 'private status provider detail', (string) wp_json_encode( $result ) );

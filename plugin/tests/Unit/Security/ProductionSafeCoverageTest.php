@@ -47,6 +47,7 @@ final class ProductionSafeCoverageTest extends TestCase {
 	 */
 	private const EXTRA_WRITERS = [
 		'stonewright/design-quality-check',
+		'stonewright/elementor-css-regenerate',
 	];
 
 	/**
@@ -199,6 +200,11 @@ final class ProductionSafeCoverageTest extends TestCase {
 			return true;
 		}
 
+		$row = PublicApiContractSnapshot::collect_ability( $class );
+		if ( is_array( $row ) && 'Read' === ( $row['kind'] ?? '' ) ) {
+			return false;
+		}
+
 		$ability = new $class();
 		$meta    = $ability->meta();
 		if ( true === ( $meta['destructive'] ?? false ) || true === ( $meta['write'] ?? false ) ) {
@@ -209,7 +215,6 @@ final class ProductionSafeCoverageTest extends TestCase {
 			return true;
 		}
 
-		$row = PublicApiContractSnapshot::collect_ability( $class );
 		return is_array( $row ) && 'Write' === ( $row['kind'] ?? '' );
 	}
 
