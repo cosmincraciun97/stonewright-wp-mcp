@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -89,6 +90,10 @@ final class BulkUpsertPosts extends AbilityKernel {
 	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
+		$blocked   = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+		if ( $blocked instanceof \WP_Error ) {
+			return $blocked;
+		}
 		if ( ! self::post_type_is_available( $post_type ) ) {
 			return new \WP_Error(
 				'stonewright_invalid_post_type',
@@ -149,6 +154,10 @@ final class BulkUpsertPosts extends AbilityKernel {
 					$validation = self::validate_item( $item, $index );
 					if ( is_wp_error( $validation ) ) {
 						return $validation;
+					}
+					$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+					if ( $blocked instanceof \WP_Error ) {
+						return $blocked;
 					}
 					$id   = $this->target_post_id( $item, $post_type );
 					$slug = sanitize_title( (string) ( $item['slug'] ?? '' ) );

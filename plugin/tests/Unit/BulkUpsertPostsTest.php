@@ -5,6 +5,9 @@ namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
+use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
+use Stonewright\WpMcp\CustomCode\ProviderInterface;
+use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
@@ -25,8 +28,12 @@ final class BulkUpsertPostsTest extends TestCase {
 		$GLOBALS['stonewright_test_inserted_posts']         = [];
 		$GLOBALS['stonewright_test_wp_insert_post_return']  = null;
 		$GLOBALS['stonewright_test_wp_update_post_return']  = null;
+		$GLOBALS['stonewright_test_wp_insert_post_calls']   = [];
+		$GLOBALS['stonewright_test_wp_update_post_calls']   = [];
+		$GLOBALS['stonewright_test_wp_kses_post_calls']     = [];
 
 		$this->registerPostType( 'homepage_section', 'edit_posts', 'publish_posts' );
+		ProviderRegistry::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
@@ -41,6 +48,10 @@ final class BulkUpsertPostsTest extends TestCase {
 		$GLOBALS['stonewright_test_inserted_posts']         = [];
 		$GLOBALS['stonewright_test_wp_insert_post_return']  = null;
 		$GLOBALS['stonewright_test_wp_update_post_return']  = null;
+		$GLOBALS['stonewright_test_wp_insert_post_calls']   = [];
+		$GLOBALS['stonewright_test_wp_update_post_calls']   = [];
+		$GLOBALS['stonewright_test_wp_kses_post_calls']     = [];
+		ProviderRegistry::reset_for_tests();
 	}
 
 	public function test_upserts_many_posts_with_meta_in_one_call(): void {
@@ -281,5 +292,93 @@ final class BulkUpsertPostsTest extends TestCase {
 		);
 		self::assertIsArray( $dev );
 		self::assertSame( 1, $dev['created'] );
+	}
+
+	public function test_rejects_provider_owned_code_post_type_before_kses_and_write(): void {
+		$this->loginAs( [ 'edit_posts', 'publish_posts' ] );
+		$this->registerPostType( 'synthetic-code-type', 'edit_posts', 'publish_posts' );
+		ProviderRegistry::set_for_tests(
+			[
+				'synthetic-provider' => $this->syntheticOwnedProvider(),
+			]
+		);
+
+		$result = ( new BulkUpsertPosts() )->execute(
+			[
+				'post_type' => 'synthetic-code-type',
+				'items'     => [
+					[
+						'slug'    => 'secret-snippet',
+						'title'   => 'Secret Snippet Title',
+						'content' => '<?php $service->run();',
+						'status'  => 'draft',
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_provider_required', $result->get_error_code() );
+		$wp_insert_post_calls = count( $GLOBALS['stonewright_test_wp_insert_post_calls'] ?? [] );
+		$wp_update_post_calls = count( $GLOBALS['stonewright_test_wp_update_post_calls'] ?? [] );
+		$kses_calls           = count( $GLOBALS['stonewright_test_wp_kses_post_calls'] ?? [] );
+		self::assertSame( 0, $wp_insert_post_calls );
+		self::assertSame( 0, $wp_update_post_calls );
+		self::assertSame( 0, $kses_calls );
+	}
+
+	private function syntheticOwnedProvider(): ProviderInterface {
+		return new class() implements ProviderInterface, OwnsPostTypesInterface {
+			public function id(): string {
+				return 'synthetic-provider';
+			}
+
+			public function label(): string {
+				return 'Synthetic';
+			}
+
+			/** @return list<string> */
+			public function owned_post_types(): array {
+				return [ 'synthetic-code-type' ];
+			}
+
+			public function discover(): array {
+				return [
+					'id'           => 'synthetic-provider',
+					'label'        => 'Synthetic',
+					'available'    => true,
+					'active'       => true,
+					'version'      => '0.0.0',
+					'supported'    => true,
+					'plugin_file'  => '',
+					'capabilities' => [],
+					'notes'        => '',
+				];
+			}
+
+			public function list( array $args = [] ) {
+				return [ 'ok' => true, 'items' => [] ];
+			}
+
+			public function read( string $target_id ) {
+				return new \WP_Error( 'stonewright_unsupported', 'unused' );
+			}
+
+			public function dry_run( array $args ) {
+				return new \WP_Error( 'stonewright_unsupported', 'unused' );
+			}
+
+			public function apply( array $args ) {
+				return new \WP_Error( 'stonewright_unsupported', 'unused' );
+			}
+
+			public function verify( array $args ) {
+				return new \WP_Error( 'stonewright_unsupported', 'unused' );
+			}
+
+			public function rollback( array $args ) {
+				return new \WP_Error( 'stonewright_unsupported', 'unused' );
+			}
+		};
 	}
 }

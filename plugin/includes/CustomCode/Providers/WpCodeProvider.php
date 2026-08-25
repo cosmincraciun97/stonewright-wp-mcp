@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\CustomCode\Providers;
 
+use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
 use Stonewright\WpMcp\CustomCode\ProviderSupport;
 
@@ -12,7 +13,7 @@ use Stonewright\WpMcp\CustomCode\ProviderSupport;
  * Uses WPCode public snippet APIs when present — never blind table writes.
  * Supported when `wpcode()` / `WPCode` / `wpcode_get_snippet` surfaces are available.
  */
-final class WpCodeProvider implements ProviderInterface {
+final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface {
 
 	public const PLUGIN_FILE = 'insert-headers-and-footers/ihaf.php';
 	public const PLUGIN_FILE_ALT = 'wpcode-premium/wpcode.php';
@@ -34,6 +35,19 @@ final class WpCodeProvider implements ProviderInterface {
 
 	public function label(): string {
 		return 'WPCode';
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function owned_post_types(): array {
+		$owned = [];
+		foreach ( [ 'wpcode', 'wpcode-snippets' ] as $type ) {
+			if ( $this->is_registered_owned_post_type( $type ) ) {
+				$owned[] = $type;
+			}
+		}
+		return $owned;
 	}
 
 	public function discover(): array {
@@ -515,6 +529,17 @@ final class WpCodeProvider implements ProviderInterface {
 			return post_type_exists( $post_type );
 		}
 		return true;
+	}
+
+	private function is_registered_owned_post_type( string $post_type ): bool {
+		$post_type = sanitize_key( $post_type );
+		if ( ! in_array( $post_type, [ 'wpcode', 'wpcode-snippets' ], true ) ) {
+			return false;
+		}
+		if ( function_exists( 'post_type_exists' ) ) {
+			return (bool) post_type_exists( $post_type );
+		}
+		return null !== get_post_type_object( $post_type );
 	}
 
 	/** @param mixed $snippet */

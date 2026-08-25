@@ -1357,6 +1357,8 @@ $GLOBALS['stonewright_test_next_post_id']          ??= 1001;
 $GLOBALS['stonewright_test_inserted_posts']        ??= [];
 $GLOBALS['stonewright_test_wp_insert_post_return'] ??= null;
 $GLOBALS['stonewright_test_wp_update_post_return'] ??= null;
+$GLOBALS['stonewright_test_wp_insert_post_calls']  ??= [];
+$GLOBALS['stonewright_test_wp_update_post_calls']  ??= [];
 
 if ( ! function_exists( 'wp_insert_post' ) ) {
 	/**
@@ -1364,6 +1366,7 @@ if ( ! function_exists( 'wp_insert_post' ) ) {
 	 * @return int|\WP_Error
 	 */
 	function wp_insert_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		$GLOBALS['stonewright_test_wp_insert_post_calls'][] = $postarr;
 		if ( null !== $GLOBALS['stonewright_test_wp_insert_post_return'] ) {
 			$ret = $GLOBALS['stonewright_test_wp_insert_post_return'];
 			$GLOBALS['stonewright_test_wp_insert_post_return'] = null;
@@ -1396,6 +1399,7 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 	 * @return int|\WP_Error
 	 */
 	function wp_update_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		$GLOBALS['stonewright_test_wp_update_post_calls'][] = $postarr;
 		if ( null !== $GLOBALS['stonewright_test_wp_update_post_return'] ) {
 			$ret = $GLOBALS['stonewright_test_wp_update_post_return'];
 			$GLOBALS['stonewright_test_wp_update_post_return'] = null;

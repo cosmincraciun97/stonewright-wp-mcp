@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -79,6 +80,11 @@ final class DuplicatePage extends AbilityKernel {
 			);
 		}
 
+		$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+		if ( $blocked instanceof \WP_Error ) {
+			return $blocked;
+		}
+
 		if ( ! Permissions::edit_post( $id ) ) {
 			return new \WP_Error(
 				'stonewright_forbidden',
@@ -106,6 +112,11 @@ final class DuplicatePage extends AbilityKernel {
 				$post = get_post( $id );
 				if ( ! $post ) {
 					return $this->error( 'not_found', __( 'Page not found.', 'stonewright' ) );
+				}
+
+				$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+				if ( $blocked instanceof \WP_Error ) {
+					return $blocked;
 				}
 
 				$suffix = (string) ( $args['title_suffix'] ?? ' (copy)' );

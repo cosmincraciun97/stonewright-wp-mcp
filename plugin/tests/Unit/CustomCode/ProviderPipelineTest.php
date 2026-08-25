@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\CustomCode;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\CustomCode\ProviderOps;
+use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\CustomCode\Providers\CodeSnippetsProvider;
 use Stonewright\WpMcp\CustomCode\Providers\WpCodeProvider;
@@ -34,6 +35,7 @@ final class ProviderPipelineTest extends TestCase {
 		$GLOBALS['stonewright_test_options']         = [
 			'stonewright_mode' => 'development',
 		];
+		$GLOBALS['stonewright_test_post_types']      = [];
 		$this->wpcode_store = [
 			'12' => [
 				'code'     => "<?php\necho 'before';\n",
@@ -67,6 +69,7 @@ final class ProviderPipelineTest extends TestCase {
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_user_caps']  = [];
+		$GLOBALS['stonewright_test_post_types'] = [];
 	}
 
 	public function test_discover_lists_first_party_providers(): void {
@@ -376,6 +379,41 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $mismatch );
 		self::assertSame( 'stonewright_code_snippets_snapshot_target_mismatch', $mismatch->get_error_code() );
 		self::assertSame( $candidate, $this->snippets_store['7']['code'] );
+	}
+
+	public function test_wpcode_reports_registered_owned_post_types(): void {
+		$provider = new WpCodeProvider();
+		self::assertInstanceOf( OwnsPostTypesInterface::class, $provider );
+		self::assertSame( [], $provider->owned_post_types() );
+
+		$GLOBALS['stonewright_test_post_types']['wpcode'] = (object) [
+			'cap' => (object) [
+				'create_posts'  => 'edit_posts',
+				'publish_posts' => 'publish_posts',
+			],
+		];
+		self::assertSame( [ 'wpcode' ], $provider->owned_post_types() );
+
+		$GLOBALS['stonewright_test_post_types']['wpcode-snippets'] = (object) [
+			'cap' => (object) [
+				'create_posts'  => 'edit_posts',
+				'publish_posts' => 'publish_posts',
+			],
+		];
+		self::assertSame( [ 'wpcode', 'wpcode-snippets' ], $provider->owned_post_types() );
+	}
+
+	public function test_registry_maps_wpcode_owned_post_types_and_deduplicates(): void {
+		$GLOBALS['stonewright_test_post_types']['wpcode'] = (object) [
+			'cap' => (object) [
+				'create_posts'  => 'edit_posts',
+				'publish_posts' => 'publish_posts',
+			],
+		];
+		ProviderRegistry::reset_for_tests();
+		$ownership = ProviderRegistry::post_type_ownership();
+		self::assertSame( 'wpcode', $ownership['owners']['wpcode'] ?? null );
+		self::assertSame( [], $ownership['conflicts'] );
 	}
 
 	public function test_wpcode_post_type_guard_rejects_arbitrary_posts(): void {

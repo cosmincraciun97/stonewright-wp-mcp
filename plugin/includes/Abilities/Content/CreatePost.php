@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -68,6 +69,10 @@ final class CreatePost extends AbilityKernel {
 	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
+		$blocked   = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+		if ( $blocked instanceof \WP_Error ) {
+			return $blocked;
+		}
 
 		if ( ! Permissions::can_create_post_type( $post_type ) ) {
 			return new \WP_Error(
@@ -94,13 +99,19 @@ final class CreatePost extends AbilityKernel {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
+				$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
+				$blocked   = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+				if ( $blocked instanceof \WP_Error ) {
+					return $blocked;
+				}
+
 				$id = wp_insert_post(
 					[
 						'post_title'   => sanitize_text_field( (string) $args['title'] ),
 						'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
 						'post_excerpt' => sanitize_text_field( (string) ( $args['excerpt'] ?? '' ) ),
 						'post_status'  => (string) ( $args['status'] ?? 'draft' ),
-						'post_type'    => sanitize_key( (string) ( $args['post_type'] ?? 'post' ) ),
+						'post_type'    => $post_type,
 					],
 					true
 				);
