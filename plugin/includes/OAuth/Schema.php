@@ -123,7 +123,8 @@ final class Schema {
 		$fallback_expiry = gmdate( 'Y-m-d H:i:s', time() + ( 14 * DAY_IN_SECONDS ) );
 		$now             = gmdate( 'Y-m-d H:i:s' );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is prefix-derived.
+		// Table name is derived from $wpdb->prefix only (not user input).
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$families = $wpdb->get_results(
 			"SELECT grant_family_hash, MIN(expires_at) AS earliest_expiry, MAX(expires_at) AS latest_expiry
 			FROM `{$table}`
@@ -132,6 +133,7 @@ final class Schema {
 			GROUP BY grant_family_hash",
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( ! is_array( $families ) ) {
 			return;

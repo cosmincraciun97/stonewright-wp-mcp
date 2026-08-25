@@ -29,6 +29,23 @@ final class MiddlewareTest extends TestCase {
 		);
 	}
 
+	public function test_invalid_bearer_returns_challenge_without_secrets(): void {
+		$response = Middleware::challenge_response(
+			'invalid_token',
+			'The access token is invalid or expired.',
+			401
+		);
+		self::assertSame( 401, $response->get_status() );
+		$challenge = (string) $response->get_headers()['WWW-Authenticate'];
+		self::assertStringStartsWith( 'Bearer ', $challenge );
+		self::assertStringContainsString( 'error="invalid_token"', $challenge );
+		self::assertStringContainsString( 'resource_metadata="https://example.test/', $challenge );
+		// Synthetic bearer fixtures must never appear in the JSON body or challenge.
+		$encoded = (string) wp_json_encode( $response->get_data() );
+		self::assertStringNotContainsString( 'synthetic-secret-marker', $encoded );
+		self::assertStringNotContainsString( 'synthetic-secret-marker', $challenge );
+	}
+
 	public function test_route_isolation_preserves_application_password_server(): void {
 		self::assertTrue( Middleware::is_mcp_route( '/mcp/stonewright-oauth' ) );
 		self::assertTrue( Middleware::is_mcp_route( '/mcp/stonewright-oauth/tools/list' ) );

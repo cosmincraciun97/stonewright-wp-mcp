@@ -1155,3 +1155,75 @@ function stonewrightMcpFetch(
 		);
 	};
 }
+
+describe('permanent gateway OAuth reauthorization notice', () => {
+	it('surfaces invalid_grant as reauthentication_required with agent notice', async () => {
+		const { createConnectionRuntime, registerPermanentGateways } = await import('../../src/connection/runtime.js');
+		const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
+		const runtime = createConnectionRuntime({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright-oauth',
+				STONEWRIGHT_OAUTH_CLIENT_ID: 'client-example',
+				STONEWRIGHT_OAUTH_TOKEN_STORE: '/tmp/example-tokens-unused.json',
+			},
+			profile: 'bootstrap',
+		});
+		runtime.authConfigured = true;
+		runtime.authMethod = 'oauth';
+		runtime.status.configured = true;
+		runtime.status.configured_mode = 'plugin-only';
+		runtime.status.mode = 'plugin';
+		runtime.status.connected = true;
+		runtime.callRemoteTool = async () => {
+			const { OAuthReauthRequiredError } = await import('../../src/oauth-token-manager.js');
+			throw new OAuthReauthRequiredError('refresh_token_revoked');
+		};
+		const server = new McpServer({ name: 'stonewright-test', version: '0.0.0' });
+		registerPermanentGateways(server, runtime);
+		setMcpClientIdentity(server, 'cursor');
+
+		const result = await toolHandler(server, 'stonewright-task-start')?.({ task: 'probe' }) as {
+			structuredContent?: {
+				ok?: boolean;
+				error_code?: string;
+				next_action?: string;
+				authentication?: {
+					state?: string;
+					agent_notice_required?: boolean;
+					user_action?: string | null;
+				};
+			};
+		};
+
+		expect(result.structuredContent).toMatchObject({
+			ok: false,
+			error_code: 'reauthentication_required',
+			authentication: {
+				state: 'reauth_required',
+				agent_notice_required: true,
+			},
+		});
+		expect(result.structuredContent?.authentication?.user_action).toContain('run stonewright-task-start again');
+		expect(result.structuredContent?.next_action).toContain('run stonewright-task-start again');
+		expect(result.structuredContent?.next_action).not.toContain('install the plugin');
+
+		const doctor = await toolHandler(server, 'stonewright-connect-doctor')?.({}) as {
+			structuredContent?: { error_code?: string; authentication?: { agent_notice_required?: boolean } };
+		};
+		expect(doctor.structuredContent?.error_code).toBe('reauthentication_required');
+		expect(doctor.structuredContent?.authentication?.agent_notice_required).toBe(true);
+	});
+
+	it('permanent instructions require relaying user_action on reauth', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct',
+				STONEWRIGHT_WP_URL: 'https://example.com',
+			},
+		});
+		const instructions = (server as unknown as { server?: { _instructions?: string } }).server?._instructions ?? '';
+		expect(instructions).toContain('authentication.state=reauth_required');
+		expect(instructions).toContain('relay authentication.user_action');
+		expect(instructions).toContain('stop WordPress work until reauthentication succeeds');
+	});
+});

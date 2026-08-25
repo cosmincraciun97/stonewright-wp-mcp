@@ -4,6 +4,10 @@
  * Registered by the companion BEFORE any remote handshake and never removed by
  * profiles, advisory filters, or reconnect failures. Local gateway owns the
  * name when the remote plugin exposes the same canonical tool.
+ *
+ * When authentication.state is reauth_required, relay authentication.user_action
+ * to the human immediately and stop WordPress work until reauthentication
+ * succeeds. task-start, status, and doctor stay locally callable.
  */
 
 export const PERMANENT_GATEWAY_TOOL_NAMES = [

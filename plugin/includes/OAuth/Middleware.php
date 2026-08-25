@@ -26,9 +26,12 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Middleware {
 
+	private static ?string $pending_www_authenticate = null;
+
 	public static function register(): void {
 		add_filter( 'rest_authentication_errors', [ self::class, 'authenticate' ], 20 );
 		add_filter( 'rest_pre_dispatch', [ self::class, 'challenge_unauthenticated' ], 10, 3 );
+		add_filter( 'rest_post_dispatch', [ self::class, 'attach_pending_www_authenticate' ], 10, 3 );
 	}
 
 	public static function challenge_unauthenticated(
@@ -44,29 +47,65 @@ final class Middleware {
 			return null;
 		}
 
-		$response = new WP_REST_Response(
+		return self::challenge_response( null, 'OAuth authentication required.', 401, 'rest_oauth_required' );
+	}
+
+	/**
+	 * Standards-compliant Bearer challenge for MCP OAuth routes.
+	 *
+	 * Never embeds token material, refresh reasons that identify database rows,
+	 * or caller-supplied secrets in the JSON body or WWW-Authenticate header.
+	 */
+	public static function challenge_response(
+		?string $error,
+		string $message,
+		int $status = 401,
+		string $code = 'rest_oauth_error'
+	): WP_REST_Response {
+		$safe_message = self::bound_description( $message );
+		$response     = new WP_REST_Response(
 			[
-				'code'    => 'rest_oauth_required',
-				'message' => 'OAuth authentication required.',
+				'code'    => $code,
+				'message' => $safe_message,
 			],
-			401
+			$status
 		);
-		$response->header( 'WWW-Authenticate', self::www_authenticate_header() );
+		$response->header( 'WWW-Authenticate', self::www_authenticate_header( $error ) );
 		return $response;
 	}
 
 	public static function www_authenticate_header( ?string $error = null ): string {
-		$value = 'Bearer resource_metadata="' . Discovery::protected_resource_metadata_url() . '"';
-		if ( null !== $error ) {
-			$value .= ', error="' . $error . '"';
+		$metadata = self::quoted_string( Discovery::protected_resource_metadata_url() );
+		$value    = 'Bearer resource_metadata="' . $metadata . '"';
+		if ( null !== $error && '' !== $error ) {
+			$value .= ', error="' . self::quoted_string( $error ) . '"';
 		}
 		return $value . ', scope="mcp"';
 	}
 
 	public static function send_www_authenticate( string $error ): void {
+		$header = self::www_authenticate_header( $error );
+		self::$pending_www_authenticate = $header;
 		if ( ! headers_sent() ) {
-			header( 'WWW-Authenticate: ' . self::www_authenticate_header( $error ) );
+			header( 'WWW-Authenticate: ' . $header );
 		}
+	}
+
+	public static function attach_pending_www_authenticate(
+		mixed $result,
+		mixed $server,
+		WP_REST_Request $request
+	): mixed {
+		unset( $server );
+		$header = self::$pending_www_authenticate;
+		self::$pending_www_authenticate = null;
+		if ( null === $header || ! self::is_mcp_route( $request->get_route() ) ) {
+			return $result;
+		}
+		if ( $result instanceof WP_REST_Response ) {
+			$result->header( 'WWW-Authenticate', $header );
+		}
+		return $result;
 	}
 
 	public static function authenticate( mixed $result ): mixed {
@@ -117,16 +156,37 @@ final class Middleware {
 			}
 			return true;
 		} catch ( OAuthServerException $exception ) {
+			$status = (int) $exception->getHttpStatusCode();
+			if ( 403 === $status ) {
+				self::send_www_authenticate( 'insufficient_scope' );
+				return new WP_Error(
+					'rest_oauth_error',
+					'Token is missing the required mcp scope.',
+					[ 'status' => 403 ]
+				);
+			}
 			self::send_www_authenticate( 'invalid_token' );
 			return new WP_Error(
 				'rest_oauth_error',
-				$exception->getMessage(),
-				[ 'status' => $exception->getHttpStatusCode() ]
+				'The access token is invalid or expired.',
+				[ 'status' => 401 ]
 			);
 		} catch ( \Throwable $exception ) {
 			unset( $exception );
 			return new WP_Error( 'rest_oauth_error', 'Authentication failed.', [ 'status' => 500 ] );
 		}
+	}
+
+	private static function quoted_string( string $value ): string {
+		return str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], $value );
+	}
+
+	private static function bound_description( string $message ): string {
+		$trimmed = trim( preg_replace( '/\s+/', ' ', $message ) ?? '' );
+		if ( strlen( $trimmed ) > 180 ) {
+			return substr( $trimmed, 0, 177 ) . '...';
+		}
+		return '' !== $trimmed ? $trimmed : 'OAuth authentication required.';
 	}
 
 	public static function is_mcp_route( string $route ): bool {

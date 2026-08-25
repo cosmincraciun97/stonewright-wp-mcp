@@ -47,6 +47,7 @@ import {
 	modeCapabilitiesComparison,
 	normalizeToolName,
 	projectTaskArgs,
+	reauthenticationRequiredStatus,
 	type ActiveMode,
 	type AuthenticationStatusV3,
 	type ConfiguredMode,
@@ -56,6 +57,7 @@ import {
 	type ReconnectToolResult,
 	type TransportDiagnostic,
 } from './index.js';
+import { OAuthReauthRequiredError } from '../oauth-token-manager.js';
 
 export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	ok: boolean;
@@ -127,6 +129,10 @@ export interface ConnectionRuntime {
 	directSession: DirectSessionControls | null;
 	authConfigured: boolean;
 	authMethod: AuthenticationStatusV3['method'];
+	/** Latched terminal OAuth/auth state for status V3 and permanent gateways. */
+	authenticationLatch: AuthenticationStatusV3 | null;
+	/** True after a terminal OAuth failure until clearAuthenticationLatch(). */
+	reauthenticationRequired: boolean;
 	wpReachable: boolean | null;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
@@ -141,6 +147,10 @@ export interface ConnectionRuntime {
 	markInvoked: (name: string) => void;
 	/** Recompute surface digest/revision from live registrations. */
 	refreshSurfaceFromServer: (options?: { forceBump?: boolean }) => void;
+	/** Latch terminal OAuth reauthentication for model-visible notices. */
+	markReauthenticationRequired: (reasonCode: string, userAction?: string) => void;
+	/** Clear a prior reauth latch after successful reconnect/auth. */
+	clearAuthenticationLatch: () => void;
 }
 
 function catalogObservationDescription(runtime: ConnectionRuntime): string {
@@ -211,6 +221,8 @@ export function createConnectionRuntime(args: {
 		directSession: null,
 		authConfigured: initialAuthMethod !== 'none',
 		authMethod: initialAuthMethod,
+		authenticationLatch: null,
+		reauthenticationRequired: false,
 		wpReachable: null,
 		server: null,
 		performReconnect: () => Promise.reject(new Error('Reconnect executor not wired')),
@@ -221,6 +233,24 @@ export function createConnectionRuntime(args: {
 				.filter(([, handle]) => handle?.enabled !== false)
 				.map(([name]) => name)
 				.sort();
+		},
+		markReauthenticationRequired: (reasonCode, userAction) => {
+			const action = userAction
+				?? reauthUserActionForClient(activeMcpClientName(runtime));
+			runtime.authenticationLatch = reauthenticationRequiredStatus(reasonCode, action);
+			runtime.reauthenticationRequired = true;
+			runtime.status.connected = false;
+			runtime.status.ok = false;
+			runtime.status.error_code = 'reauthentication_required';
+			runtime.status.next_action = action;
+			runtime.status.error = { message: 'OAuth authorization is required again.' };
+			runtime.callRemoteTool = null;
+			runtime.stateMachine.transition('degraded', { error: 'reauthentication_required' });
+			runtime.syncLegacyStatus();
+		},
+		clearAuthenticationLatch: () => {
+			runtime.authenticationLatch = null;
+			runtime.reauthenticationRequired = false;
 		},
 		buildStatusV3: (overrides = {}) => {
 			const stage = runtime.stateMachine.getStage();
@@ -280,6 +310,21 @@ export function createConnectionRuntime(args: {
 				version: APP_VERSION,
 				tools: registered,
 			})).digest('hex')}`;
+			const authentication = runtime.authenticationLatch ?? {
+				configured: runtime.authConfigured,
+				method: runtime.authMethod,
+				state: (runtime.status.connected && runtime.authConfigured
+					? 'authenticated'
+					: runtime.authConfigured
+						? 'unknown'
+						: 'unknown') as AuthenticationStatusV3['state'],
+				reason_code: null,
+				last_success_at: null,
+				refresh_expires_at: null,
+				continuity_target_seconds: 604800 as const,
+				agent_notice_required: false,
+				user_action: null,
+			};
 			const base = buildConnectionStatusV3({
 				siteAlias: (runtime.env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim() || null,
 				configuredMode: runtime.status.configured_mode,
@@ -287,20 +332,11 @@ export function createConnectionRuntime(args: {
 				connectionStage: stage,
 				connectionGeneration: runtime.stateMachine.getGeneration(),
 				mcpUrl: runtime.status.url,
-				authentication: {
-					configured: runtime.authConfigured,
-					method: runtime.authMethod,
-					state: 'unknown',
-					reason_code: null,
-					last_success_at: null,
-					refresh_expires_at: null,
-					continuity_target_seconds: 604800,
-					agent_notice_required: false,
-					user_action: null,
-				},
+				authentication,
 				recovery: {
 					catalog_preserved: true,
-					remote_calls_available: Boolean(runtime.callRemoteTool) && runtime.status.connected,
+					remote_calls_available: Boolean(runtime.callRemoteTool) && runtime.status.connected
+						&& runtime.authenticationLatch?.state !== 'reauth_required',
 					last_success_at: null,
 					reconnect_attempted: false,
 					reconnect_coalesced: false,
@@ -526,32 +562,56 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 		return async (input: Record<string, unknown>) => {
 			const preflight = runtime.activeClientSequence.preflight(runtime.env, name);
 			if (preflight) return toolResponse(preflight);
-			const result = await handler(input ?? {});
-			const response = toolResponse(result);
-			const requiredSuccess = requiredActiveHostCallSucceeded(name, {
-				...result,
-				content: response.content,
-			});
-			if (requiredSuccess || (!(REQUIRED_ACTIVE_HOST_CALLS as readonly string[]).includes(name) && result['ok'] !== false)) {
-				runtime.markInvoked(name);
-				if (requiredSuccess) runtime.activeClientSequence.recordSuccess(runtime.env, name);
-			}
-			if (name === 'stonewright-client-surface-check' && requiredSuccess) {
-				const v3 = runtime.buildStatusV3();
-				const restartAttestation = attestPendingRestartFromActiveHost({
-					env: runtime.env,
-					processStartId: runtime.processStartId,
-					catalogDigest: v3.catalog_digest,
-					catalogObservation: typeof input['catalog_observation'] === 'string' ? input['catalog_observation'] : '',
-					expectedCatalogObservation: runtime.catalogObservation,
-					successfulToolNames: runtime.activeClientSequence.successfulCalls(),
-					registeredToolNames: runtime.listRegisteredToolNames(),
-					refreshRequiredToolNames: v3.refresh_required_tool_names,
-					mcpClientName: activeMcpClientName(runtime),
+			try {
+				const result = await handler(input ?? {});
+				const response = toolResponse(result);
+				const requiredSuccess = requiredActiveHostCallSucceeded(name, {
+					...result,
+					content: response.content,
 				});
-				return toolResponse({ ...result, restart_attestation: restartAttestation });
+				if (requiredSuccess || (!(REQUIRED_ACTIVE_HOST_CALLS as readonly string[]).includes(name) && result['ok'] !== false)) {
+					runtime.markInvoked(name);
+					if (requiredSuccess) runtime.activeClientSequence.recordSuccess(runtime.env, name);
+				}
+				if (name === 'stonewright-client-surface-check' && requiredSuccess) {
+					const v3 = runtime.buildStatusV3();
+					const restartAttestation = attestPendingRestartFromActiveHost({
+						env: runtime.env,
+						processStartId: runtime.processStartId,
+						catalogDigest: v3.catalog_digest,
+						catalogObservation: typeof input['catalog_observation'] === 'string' ? input['catalog_observation'] : '',
+						expectedCatalogObservation: runtime.catalogObservation,
+						successfulToolNames: runtime.activeClientSequence.successfulCalls(),
+						registeredToolNames: runtime.listRegisteredToolNames(),
+						refreshRequiredToolNames: v3.refresh_required_tool_names,
+						mcpClientName: activeMcpClientName(runtime),
+					});
+					return toolResponse({ ...result, restart_attestation: restartAttestation });
+				}
+				return response;
+			} catch (error) {
+				if (error instanceof OAuthReauthRequiredError) {
+					runtime.markReauthenticationRequired(error.reasonCode);
+					const failed = runtime.buildStatusV3({
+						ok: false,
+						startup_ready: false,
+						error_code: 'reauthentication_required',
+					});
+					return toolResponse({
+						ok: false,
+						isError: true,
+						source: 'local-gateway',
+						error_code: 'reauthentication_required',
+						authentication: failed.authentication,
+						next_action: failed.authentication.user_action
+							?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.',
+						schema_version: failed.schema_version,
+						connection_stage: failed.connection_stage,
+						recovery: failed.recovery,
+					});
+				}
+				throw error;
 			}
-			return response;
 		};
 	};
 
@@ -998,6 +1058,29 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					? input['site_alias']
 					: undefined;
 
+			if (runtime.reauthenticationRequired) {
+				const failed = runtime.buildStatusV3({
+					ok: false,
+					startup_ready: false,
+					error_code: 'reauthentication_required',
+				});
+				return {
+					ok: false,
+					source: 'local-gateway',
+					isError: true,
+					error_code: 'reauthentication_required',
+					authentication: failed.authentication,
+					next_action: failed.authentication.user_action
+						?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.',
+					schema_version: failed.schema_version,
+					connection_stage: failed.connection_stage,
+					startup_ready: false,
+					connected: false,
+					recovery: failed.recovery,
+					registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
+				};
+			}
+
 			const stage = runtime.stateMachine.getStage();
 			const pluginConfigured = runtime.status.configured_mode !== 'direct-only'
 				&& runtime.status.mode === 'plugin';
@@ -1009,32 +1092,25 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				const recovery = await runtime.reconnectCoordinator.run('task-start');
 				runtime.syncLegacyStatus();
 				if (!recovery.ok || !runtime.callRemoteTool || !runtime.status.connected) {
-					const failed = runtime.buildStatusV3({
-						ok: false,
-						startup_ready: false,
-						error_code: recovery.diagnostic?.kind === 'auth_error'
-							? 'authentication_failed'
-							: recovery.cooldown_active
-								? 'transport_transient'
-								: 'plugin_connection_unavailable',
-						recovery: {
-							catalog_preserved: true,
-							remote_calls_available: false,
-							last_success_at: null,
-							reconnect_attempted: recovery.attempted,
-							reconnect_coalesced: recovery.coalesced,
-						},
-					});
-					return {
-						...failed,
-						ok: false,
-						source: 'local-gateway',
-						isError: true,
-						error_code: failed.error_code,
-						next_action: failed.authentication.state === 'reauth_required'
-							? (failed.authentication.user_action ?? 'Reauthenticate, then run stonewright-task-start again.')
-							: 'Call stonewright-reconnect with force_probe=true, then retry stonewright-task-start.',
-					};
+					if (runtime.reauthenticationRequired) {
+						const failed = runtime.buildStatusV3({
+							ok: false,
+							startup_ready: false,
+							error_code: 'reauthentication_required',
+						});
+						return {
+							...failed,
+							ok: false,
+							source: 'local-gateway',
+							isError: true,
+							error_code: 'reauthentication_required',
+							authentication: failed.authentication,
+							next_action: failed.authentication.user_action
+								?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.',
+							registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
+						};
+					}
+					// Stay offline: permanent gateways must still produce a local task-start.
 				}
 			}
 
@@ -1185,7 +1261,30 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						guidance,
 						registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
 					};
-				} catch {
+				} catch (error) {
+					if (error instanceof OAuthReauthRequiredError) {
+						runtime.markReauthenticationRequired(error.reasonCode);
+						const failed = runtime.buildStatusV3({
+							ok: false,
+							startup_ready: false,
+							error_code: 'reauthentication_required',
+						});
+						return {
+							ok: false,
+							source: 'local-gateway',
+							isError: true,
+							error_code: 'reauthentication_required',
+							authentication: failed.authentication,
+							next_action: failed.authentication.user_action
+								?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.',
+							schema_version: failed.schema_version,
+							connection_stage: failed.connection_stage,
+							startup_ready: false,
+							connected: false,
+							recovery: failed.recovery,
+							registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
+						};
+					}
 					const failed = runtime.buildStatusV3({
 						ok: false,
 						startup_ready: false,
@@ -1295,6 +1394,20 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			};
 		}),
 	);
+}
+
+function reauthUserActionForClient(clientName: string): string {
+	const normalized = clientName.trim().toLowerCase();
+	if (normalized.includes('cursor')) {
+		return 'Reauthenticate the Stonewright MCP server in Cursor Settings → MCP, then run stonewright-task-start again.';
+	}
+	if (normalized.includes('claude') || normalized.includes('anthropic')) {
+		return 'Reauthenticate the Stonewright MCP server in your Claude MCP settings, then run stonewright-task-start again.';
+	}
+	if (normalized.includes('grok') || normalized.includes('xai')) {
+		return 'Reauthenticate the Stonewright MCP server for Grok Build / CLI, then run stonewright-task-start again.';
+	}
+	return 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.';
 }
 
 function toDirectProfile(profile: ProxyToolProfile): DirectToolProfile {

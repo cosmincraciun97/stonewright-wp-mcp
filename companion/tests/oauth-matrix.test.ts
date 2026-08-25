@@ -119,10 +119,13 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 			expect(params.get('grant_type')).toBe('refresh_token');
 			expect(params.get('resource')).toBe('https://example.test/wp-json/mcp/stonewright-oauth');
 			expect(params.get('refresh_token')).toBe('example-old-refresh');
-			expect(store.load()).toEqual({
+			expect(store.load()).toMatchObject({
+				version: 2,
 				accessToken: 'example-rotated-access',
 				refreshToken: 'example-rotated-refresh',
 				expiresAt: now + 90_000,
+				clientId: 'client-example',
+				resource: 'https://example.test/wp-json/mcp/stonewright-oauth',
 				tokenType: 'Bearer',
 			});
 		});
@@ -182,7 +185,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 				await Promise.resolve();
 				calls += 1;
 				if (calls === 1) {
-					return makeResponse({ error: 'temporarily_unavailable' }, 429, { 'retry-after': '3' });
+					return makeResponse({ error: 'temporarily_unavailable' }, 429, { 'retry-after': '3', 'x-stonewright-refresh-consumed': '0' });
 				}
 				return makeResponse({
 					access_token: 'example-recovered-access',
@@ -214,7 +217,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 				manager.getAccessToken(async () => {
 					await Promise.resolve();
 					calls += 1;
-					return makeResponse({ error: 'temporarily_unavailable' }, 503);
+					return makeResponse({ error: 'temporarily_unavailable' }, 503, { 'x-stonewright-refresh-consumed': '0' });
 				}, 'https://example.test/oauth/token', 'client-example'),
 			).rejects.toBeInstanceOf(OAuthTransientError);
 
@@ -222,7 +225,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 				manager.getAccessToken(async () => {
 					await Promise.resolve();
 					calls += 1;
-					return makeResponse({ error: 'temporarily_unavailable' }, 503);
+					return makeResponse({ error: 'temporarily_unavailable' }, 503, { 'x-stonewright-refresh-consumed': '0' });
 				}, 'https://example.test/oauth/token', 'client-example'),
 			).rejects.toBeInstanceOf(OAuthTransientError);
 
