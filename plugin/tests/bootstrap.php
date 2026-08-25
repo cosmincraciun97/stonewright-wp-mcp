@@ -61,6 +61,9 @@ if ( ! function_exists( 'dbDelta' ) ) {
 	 * @return array<string, string>
 	 */
 	function dbDelta( $queries = '', $execute = true ): array {
+		$serialized = is_array( $queries ) ? implode( "\n", $queries ) : (string) $queries;
+		$GLOBALS['stonewright_test_dbdelta_queries'] ??= [];
+		$GLOBALS['stonewright_test_dbdelta_queries'][] = $serialized;
 		return [];
 	}
 }

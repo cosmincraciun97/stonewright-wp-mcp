@@ -15,6 +15,9 @@ final class ServerFactoryTest extends TestCase {
 	}
 
 	public function test_builds_authorization_and_resource_servers(): void {
+		self::assertSame( 'PT1H', ServerFactory::ACCESS_TOKEN_TTL );
+		self::assertSame( 'P14D', ServerFactory::REFRESH_FAMILY_TTL );
+		self::assertSame( 604800, ServerFactory::CONTINUITY_TARGET_SECONDS );
 		self::assertInstanceOf( AuthorizationServer::class, ServerFactory::authorization_server() );
 		self::assertInstanceOf( ResourceServer::class, ServerFactory::resource_server() );
 	}

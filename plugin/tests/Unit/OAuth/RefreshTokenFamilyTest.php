@@ -100,6 +100,9 @@ final class RefreshTokenFamilyTest extends TestCase {
 						if ( isset( $where['grant_family_hash'] ) && $row['grant_family_hash'] !== $where['grant_family_hash'] ) {
 							continue;
 						}
+						if ( isset( $where['identifier_hash'] ) ) {
+							// handled via keyed update below when needed
+						}
 						$row = array_merge( $row, $data );
 						++$changed;
 					}
@@ -113,6 +116,27 @@ final class RefreshTokenFamilyTest extends TestCase {
 						return 1;
 					}
 				}
+				return 0;
+			}
+
+			public function query( string $query ): int {
+				if ( preg_match( "/grant_family_hash = '([^']+)'/", $query, $matches ) ) {
+					$family = $matches[1];
+					$changed = 0;
+					foreach ( $this->refresh_rows as &$row ) {
+						if ( $row['grant_family_hash'] === $family ) {
+							$row['revoked'] = 1;
+							$row['revoked_reason'] = 'replayed';
+							++$changed;
+						}
+					}
+					unset( $row );
+					return $changed;
+				}
+				return 0;
+			}
+
+			public function get_var( string $query ): int|string|null {
 				return 0;
 			}
 		};
@@ -148,10 +172,19 @@ final class RefreshTokenFamilyTest extends TestCase {
 					return null;
 				}
 				return [
-					'revoked'          => 0,
+					'revoked'           => 0,
 					'expires_at'        => '2099-01-01 00:00:00',
+					'family_expires_at' => '2099-01-01 00:00:00',
 					'grant_family_hash' => 'family-one',
+					'consumed_at'       => null,
+					'revoked_reason'    => null,
+					'client_id'         => 'client-a',
+					'user_id'           => 1,
 				];
+			}
+
+			public function get_var( string $query ): int|string|null {
+				return 0;
 			}
 
 			/** @param array<string, mixed> $data */
