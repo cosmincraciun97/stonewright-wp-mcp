@@ -13,13 +13,13 @@ use Stonewright\WpMcp\Admin\Diagnostics\SupportReport;
 final class SupportReportTest extends TestCase {
 
 	private const SECRET_MARKERS = [
-		'secret-marker-token',
-		'secret-marker-cookie',
-		'secret-marker-query',
-		'secret-marker-password',
-		'secret-marker-path',
-		'secret-marker-html',
-		'secret-marker-nested',
+		'sentinel-marker-token',
+		'sentinel-marker-cookie',
+		'sentinel-marker-query',
+		'sentinel-marker-password',
+		'sentinel-marker-path',
+		'sentinel-marker-html',
+		'sentinel-marker-nested',
 	];
 
 	public function test_report_keeps_safe_fields_and_drops_injected_secrets(): void {
@@ -33,12 +33,12 @@ final class SupportReportTest extends TestCase {
 				'http_status'   => 404,
 				'duration_ms'   => 43,
 				'error_code'    => 'missing_route',
-				'authorization' => 'Bearer secret-marker-token',
-				'cookie'        => 'secret-marker-cookie',
-				'access_token'  => 'secret-marker-query',
-				'password'      => 'secret-marker-password',
-				'path'          => '/var/www/secret-marker-path/wp-config.php',
-				'html'          => '<script>secret-marker-html</script>',
+				'authorization' => 'Bearer sentinel-marker-token',
+				'cookie'        => 'sentinel-marker-cookie',
+				'access_token'  => 'sentinel-marker-query',
+				'password'      => 'sentinel-marker-password',
+				'path'          => '/var/www/sentinel-marker-path/wp-config.php',
+				'html'          => '<script>sentinel-marker-html</script>',
 			]
 		)->with_copy( "Site: https://example.test\nMCP endpoint: https://example.test/wp-json/mcp/stonewright" );
 
@@ -61,16 +61,16 @@ final class SupportReportTest extends TestCase {
 				],
 				'correlation_id'  => 'corr-example-1234',
 				'headers'         => [
-					'Authorization' => 'Bearer secret-marker-token',
-					'Cookie'        => 'wordpress_logged_in=secret-marker-cookie',
+					'Authorization' => 'Bearer sentinel-marker-token',
+					'Cookie'        => 'sentinel-marker-cookie',
 				],
-				'cookies'         => [ 'wordpress_logged_in' => 'secret-marker-cookie' ],
-				'query'           => [ 'access_token' => 'secret-marker-query' ],
-				'password'        => 'secret-marker-password',
-				'path'            => '/var/www/secret-marker-path/wp-config.php',
-				'html'            => '<p>secret-marker-html</p>',
-				'nested'          => [ 'token' => 'secret-marker-nested' ],
-				'server'          => [ 'HTTP_AUTHORIZATION' => 'Bearer secret-marker-token' ],
+				'cookies'         => [ 'wordpress_logged_in' => 'sentinel-marker-cookie' ],
+				'query'           => [ 'access_token' => 'sentinel-marker-query' ],
+				'password'        => 'sentinel-marker-password',
+				'path'            => '/var/www/sentinel-marker-path/wp-config.php',
+				'html'            => '<p>sentinel-marker-html</p>',
+				'nested'          => [ 'token' => 'sentinel-marker-nested' ],
+				'server'          => [ 'HTTP_AUTHORIZATION' => 'Bearer sentinel-marker-token' ],
 			]
 		);
 
@@ -101,15 +101,15 @@ final class SupportReportTest extends TestCase {
 		$text = SupportReport::render(
 			[
 				'REQUEST' => [
-					'headers' => [ 'Authorization' => 'Bearer secret-marker-token' ],
+					'headers' => [ 'Authorization' => 'Bearer sentinel-marker-token' ],
 				],
-				'_SERVER' => [ 'HTTP_COOKIE' => 'secret-marker-cookie' ],
+				'_SERVER' => [ 'HTTP_COOKIE' => 'sentinel-marker-cookie' ],
 			]
 		);
 
 		self::assertStringContainsString( 'Stonewright support report', $text );
-		self::assertStringNotContainsString( 'secret-marker-token', $text );
-		self::assertStringNotContainsString( 'secret-marker-cookie', $text );
+		self::assertStringNotContainsString( 'sentinel-marker-token', $text );
+		self::assertStringNotContainsString( 'sentinel-marker-cookie', $text );
 		self::assertStringNotContainsString( 'Authorization', $text );
 	}
 }

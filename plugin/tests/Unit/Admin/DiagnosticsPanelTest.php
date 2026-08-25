@@ -75,7 +75,7 @@ final class DiagnosticsPanelTest extends TestCase {
 				'companion_contract' => '1.0.0',
 			],
 			'correlation_id' => 'corr-example-1234',
-			'headers'        => [ 'Authorization' => 'Bearer secret-marker-token' ],
+			'headers'        => [ 'Authorization' => 'Bearer sentinel-marker-token' ],
 		];
 
 		ob_start();
@@ -105,13 +105,13 @@ final class DiagnosticsPanelTest extends TestCase {
 		self::assertStringContainsString( 'value="stdio"', $html );
 		self::assertStringContainsString( 'value="not-sure"', $html );
 		self::assertStringContainsString( 'Copy report for support', $html );
-		self::assertStringNotContainsString( 'secret-marker-token', $html );
+		self::assertStringNotContainsString( 'sentinel-marker-token', $html );
 		self::assertStringNotContainsString( 'javascript:', $html );
 
 		$copy = DiagnosticsPanel::plaintext_report( $report );
 		self::assertStringContainsString( 'oauth-http', $copy );
 		self::assertStringContainsString( 'corr-example-1234', $copy );
-		self::assertStringNotContainsString( 'secret-marker-token', $copy );
+		self::assertStringNotContainsString( 'sentinel-marker-token', $copy );
 		self::assertSame( $copy, SupportReport::render( $report ) );
 	}
 
