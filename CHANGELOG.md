@@ -15,6 +15,54 @@ development builds were never stable releases.
 
 - Nothing yet.
 
+## [1.0.0-beta.13] - 2026-08-25
+
+### Added
+
+- Add `stonewright-elementor-css-regenerate` to rebuild one post or loop CSS
+  file after an Elementor write; post-write verification is observation-only.
+- Add one shared Setup client tablist for OAuth and Application Password,
+  including a Grok Build / CLI catalog entry.
+- Add dependency-aware Troubleshoot diagnostics that skip dependents when a
+  prerequisite fails.
+- Add connection status schema version 3 with truthful authentication state,
+  including `reauth_required` and a model-visible `user_action`.
+
+### Changed
+
+- Close Elementor generated CSS only through the dedicated regenerator, then
+  observation-only verify, then the browser recipe.
+- Route provider-owned executable-code post types through the custom-code
+  approval pipeline instead of generic content writers.
+- Reconnect a degraded session once from `stonewright-task-start`, preserve the
+  last good catalog, and never silently enable Direct writes from a plugin
+  transport failure.
+- Restrict automatic retry to handshake and allowlisted read-only bootstrap;
+  mutations are never retried.
+- Expose the generated **389**-ability Plugin and **101**-tool Direct contracts.
+
+### Fixed
+
+- Surface terminal OAuth reauthorization to clients instead of generic
+  transport errors.
+- Make Elementor CSS recovery target-aware for post and loop assets.
+- Preserve OAuth session continuity across refresh rotation and recover
+  degraded plugin sessions without dropping transport failure evidence.
+- Normalize Elementor atomic runtime descriptors and keep php-execute `wpdb`
+  guards type-compatible with the live handle.
+- Verify custom-code provider runtime cache after save and roll back on
+  verification failure.
+- Group Elementor provider diagnostics so Status and Troubleshoot stay
+  readable.
+
+### Security
+
+- Harden OAuth grant-family rotation and replay revocation.
+- Reject generic content writes to executable-code surfaces; WPCode active PHP
+  uses the provider save and cache path.
+- Install php-execute write guards as a real `wpdb` subclass around the live
+  handle.
+
 ## [1.0.0-beta.12] - 2026-08-24
 
 
@@ -426,24 +474,9 @@ development builds were never stable releases.
   published as prereleases while stable tags alone become GitHub's latest
   release.
 
-## [1.0.0-beta.9] - 2026-08-12
-
-### Fixed
-
-- Derive companion refresh diagnostics from the exact profile catalog resolved
-  by the connected plugin, eliminating false stale-surface failures when the
-  local fallback catalog is newer than the live profile.
-- Reject bare or cross-device Elementor responsive visibility values and accept
-  only each primary device's native switcher value or the empty off state.
-
-### Changed
-
-- Ship responsive visibility as a native global Elementor rule: prefer builder
-  controls over CSS/JavaScript, treat editor-canvas visibility as non-proof,
-  and require settings readback plus frontend-class verification.
-
 ## Older releases
 
+- [1.0.0-beta.9](docs/releases/1.0.0-beta.9.md)
 - [1.0.0-beta.8](docs/releases/1.0.0-beta.8.md)
 - [1.0.0-beta.7](docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](docs/releases/1.0.0-beta.6.md)

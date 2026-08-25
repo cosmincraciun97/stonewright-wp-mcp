@@ -6,6 +6,45 @@
 
 - Nothing yet.
 
+## [1.0.0-beta.13] - 2026-08-25
+
+### Added
+
+- Add `stonewright/elementor-css-regenerate` to rebuild one post or loop CSS
+  file through Elementor's official update API inside a guarded asset
+  transaction; `stonewright/elementor-post-write-verify` is observation-only.
+- Add one shared Setup client tablist for OAuth and Application Password,
+  including a Grok Build / CLI catalog entry.
+- Add dependency-aware Troubleshoot diagnostics that skip dependents when a
+  prerequisite fails.
+
+### Changed
+
+- Close Elementor generated CSS only through the dedicated regenerator, then
+  observation-only verify, then the browser recipe.
+- Route provider-owned executable-code post types through the custom-code
+  approval pipeline instead of generic content writers.
+- Expose the generated **389**-ability Plugin contract.
+
+### Fixed
+
+- Make Elementor CSS recovery target-aware for post and loop assets.
+- Normalize Elementor atomic runtime descriptors and keep php-execute `wpdb`
+  guards type-compatible with the live handle.
+- Verify custom-code provider runtime cache after save and roll back on
+  verification failure.
+- Group Elementor provider diagnostics so Status and Troubleshoot stay
+  readable.
+- Recover degraded plugin sessions without dropping transport failure evidence.
+
+### Security
+
+- Harden OAuth grant-family rotation and replay revocation.
+- Reject generic content writes to executable-code surfaces; WPCode active PHP
+  uses the provider save and cache path.
+- Install php-execute write guards as a real `wpdb` subclass around the live
+  handle.
+
 ## [1.0.0-beta.12] - 2026-08-24
 
 
@@ -372,21 +411,9 @@
   prerelease channel, using channel-specific caches and exact trusted release
   assets without cross-channel fallback.
 
-## [1.0.0-beta.9] - 2026-08-12
-
-### Added
-
-- Add a site-independent Elementor responsive-visibility rule to the packaged
-  native rule registry used by Plugin and Direct sessions.
-
-### Fixed
-
-- Reject bare `hidden` and cross-device values for the primary Elementor
-  `hide_*` switches; accept only the matching native device value or an empty
-  off state before any document write.
-
 ## Older releases
 
+- [1.0.0-beta.9](../docs/releases/1.0.0-beta.9.md)
 - [1.0.0-beta.8](../docs/releases/1.0.0-beta.8.md)
 - [1.0.0-beta.7](../docs/releases/1.0.0-beta.7.md)
 - [1.0.0-beta.6](../docs/releases/1.0.0-beta.6.md)
