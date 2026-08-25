@@ -17,6 +17,7 @@ use Stonewright\WpMcp\OAuth\Bootstrap;
 use Stonewright\WpMcp\OAuth\Bridge;
 use Stonewright\WpMcp\OAuth\ClientValidation;
 use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
+use Stonewright\WpMcp\OAuth\Repositories\RefreshTokenRepository;
 use Stonewright\WpMcp\OAuth\ServerFactory;
 use Stonewright\WpMcp\Security\AuditLog;
 use WP_REST_Request;
@@ -79,6 +80,7 @@ final class Token {
 		}
 
 		try {
+			RefreshTokenRepository::reset_last_persisted_family_expires_at();
 			$server   = ServerFactory::authorization_server();
 			$response = $server->respondToAccessTokenRequest( Bridge::to_psr7( $request ), Bridge::new_psr7_response() );
 			if ( '' !== $client_id ) {
@@ -96,7 +98,15 @@ final class Token {
 				$data = $wp_response->get_data();
 				if ( is_array( $data ) ) {
 					$interval = new \DateInterval( ServerFactory::REFRESH_FAMILY_TTL );
-					$seconds  = ( new \DateTimeImmutable( '@0' ) )->add( $interval )->getTimestamp();
+					$full_ttl = ( new \DateTimeImmutable( '@0' ) )->add( $interval )->getTimestamp();
+					$seconds  = $full_ttl;
+					// The family expiration is fixed at first issuance; advertise the
+					// remaining lifetime so clients never outlive the real deadline.
+					$family_expires_at = RefreshTokenRepository::last_persisted_family_expires_at();
+					if ( null !== $family_expires_at && '' !== $family_expires_at ) {
+						$remaining = ( new \DateTimeImmutable( $family_expires_at . ' UTC' ) )->getTimestamp() - time();
+						$seconds   = max( 0, min( $full_ttl, $remaining ) );
+					}
 					$data['refresh_token_expires_in'] = $seconds;
 					$wp_response->set_data( $data );
 				}

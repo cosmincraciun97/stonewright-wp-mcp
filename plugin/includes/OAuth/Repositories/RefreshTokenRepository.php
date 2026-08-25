@@ -44,6 +44,8 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 	private ?string $last_revoked_reason = null;
 
+	private static ?string $last_persisted_family_expires_at = null;
+
 	public function getNewRefreshToken(): ?RefreshTokenEntityInterface {
 		return new RefreshTokenEntity();
 	}
@@ -106,6 +108,8 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		if ( false === $inserted ) {
 			throw OAuthServerException::serverError( 'Unable to persist refresh token' );
 		}
+
+		self::$last_persisted_family_expires_at = $family_expires_at;
 
 		// Recheck family state after insert — concurrent replay must revoke the child.
 		$still_active = (int) $wpdb->get_var(
@@ -274,5 +278,13 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			)
 		);
 		return is_string( $value ) ? $value : '';
+	}
+
+	public static function last_persisted_family_expires_at(): ?string {
+		return self::$last_persisted_family_expires_at;
+	}
+
+	public static function reset_last_persisted_family_expires_at(): void {
+		self::$last_persisted_family_expires_at = null;
 	}
 }

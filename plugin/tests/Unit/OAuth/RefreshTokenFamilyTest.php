@@ -24,6 +24,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
+		RefreshTokenRepository::reset_last_persisted_family_expires_at();
 	}
 
 	protected function tearDown(): void {
@@ -208,5 +209,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 		$repository->persistNewRefreshToken( $refresh );
 
 		self::assertSame( 'family-one', $database->inserted['grant_family_hash'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', $database->inserted['family_expires_at'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', RefreshTokenRepository::last_persisted_family_expires_at() );
 	}
 }
