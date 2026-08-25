@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
+use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 
 /**
@@ -326,5 +327,14 @@ final class AtomicParityTest extends TestCase {
 		self::assertSame( 'mixed', $stats['architecture'] ?? '' );
 		self::assertSame( 2, (int) ( $stats['atomic_count'] ?? -1 ) );
 		self::assertSame( 4, (int) ( $stats['non_atomic_count'] ?? -1 ) );
+	}
+
+	public function test_bundled_atomic_contracts_remain_write_eligible(): void {
+		$schema = AtomicSchemaRepository::for_atomic_type( 'e-paragraph' );
+		self::assertIsArray( $schema );
+		self::assertSame( 'official', $schema['ownership_trust'] );
+		self::assertSame( 'bundled', $schema['schema_certification'] );
+		self::assertTrue( $schema['write_eligible'] );
+		self::assertTrue( AtomicSchemaRepository::is_write_certified( $schema ) );
 	}
 }

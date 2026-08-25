@@ -94,28 +94,32 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
-	 * Applies the single trust policy used by provider routing and every Atomic write schema consumer.
+	 * Ownership trust and schema certification are independent.
+	 * Official ownership makes inventory trustworthy; it does not certify a write schema.
 	 *
 	 * @param array<string,mixed> $evidence
-	 * @return array{trust:string,certification:string,write_eligible:bool,reason:string}
+	 * @return array{ownership_trust:string,schema_certification:string,write_eligible:bool,reason:string,trust:string,certification:string}
 	 */
 	public static function provider_policy( array $evidence ): array {
 		$provider = (string) ( $evidence['provider_id'] ?? '' );
 		$provenance = (array) ( $evidence['provenance'] ?? [] );
-		$ownership_evidence = (string) ( $provenance['ownership'] ?? '' );
 		$certification_evidence = (string) ( $provenance['certification'] ?? '' );
+		$ownership_trust = self::ownership_trust( $provider, $evidence );
 		$bundled = 'elementor-core' === $provider && 'stonewright_bundled_contract' === $certification_evidence;
-		$official_runtime = in_array( $provider, [ 'elementor-core', 'elementor-pro' ], true )
-			&& in_array( $ownership_evidence, [ 'active_plugin_header', 'active_plugin_boundary' ], true )
-			&& 'live_runtime' === ( $evidence['source'] ?? null );
-		$eligible = $bundled || $official_runtime;
 
-		return [
-			'trust'         => $eligible ? 'trusted' : 'untrusted',
-			'certification' => $eligible ? 'certified' : 'discovered',
-			'write_eligible' => $eligible,
-			'reason'        => $bundled ? 'bundled_contract' : ( $official_runtime ? 'verified_official_runtime' : 'provider_not_certified' ),
-		];
+		if ( $bundled ) {
+			return self::policy_result( 'official', 'bundled', true, 'bundled_contract' );
+		}
+
+		if ( self::adapter_certified( $evidence ) ) {
+			return self::policy_result( $ownership_trust, 'adapter-certified', true, 'adapter_certified' );
+		}
+
+		if ( in_array( $certification_evidence, [ 'stonewright_bundled_contract', 'stonewright_adapter_contract', 'stonewright_explicit_certification' ], true ) ) {
+			return self::policy_result( $ownership_trust, 'rejected', false, 'provider_not_certified' );
+		}
+
+		return self::policy_result( $ownership_trust, 'inventory-only', false, 'schema_inventory_only' );
 	}
 
 	/** @param array<string,mixed> $schema */
@@ -165,43 +169,73 @@ final class AtomicSchemaRepository {
 						continue;
 					}
 					$valid_props = true;
+					$ownership   = RuntimeOwnership::describe( $instance );
+					$elementor_version = self::elementor_version(
+						[
+							'source_version' => $ownership['source_version'],
+						]
+					);
 					foreach ( $runtime_props as $name => $prop_schema ) {
-						if ( ! is_object( $prop_schema ) || ! method_exists( $prop_schema, 'to_json_schema' ) ) {
-							$issues[] = [ 'code' => 'prop_schema_invalid', 'atomic_type' => $type, 'prop' => (string) $name ];
+						$prop_name = self::bounded_name( (string) $name );
+						if ( ! is_object( $prop_schema ) ) {
+							$issues[] = [
+								'code'        => 'descriptor_unavailable',
+								'atomic_type' => $type,
+								'prop'        => $prop_name,
+								'error_class' => '',
+							];
 							$valid_props = false;
 							break;
 						}
-						try {
-							$json_schema = $prop_schema->to_json_schema();
-						} catch ( \Throwable $error ) {
-							$issues[] = [ 'code' => 'prop_schema_unavailable', 'atomic_type' => $type, 'prop' => (string) $name, 'error_class' => get_class( $error ) ];
+						$normalized = AtomicPropDescriptorNormalizer::normalize( $prop_schema );
+						if ( ! $normalized['ok'] ) {
+							$issue = is_array( $normalized['issue'] ) ? $normalized['issue'] : [];
+							$issues[] = [
+								'code'        => (string) ( $issue['code'] ?? 'descriptor_unavailable' ),
+								'atomic_type' => $type,
+								'prop'        => $prop_name,
+								'error_class' => (string) ( $issue['error_class'] ?? '' ),
+							];
 							$valid_props = false;
 							break;
 						}
-						$props[ (string) $name ] = [ 'key' => (string) $name, 'type' => 'raw-json', 'json_schema' => $json_schema ];
+						$prop = [
+							'key'                    => $prop_name,
+							'runtime_descriptor'     => $normalized['runtime_descriptor'],
+							'descriptor_format'      => $normalized['descriptor_format'],
+							'descriptor_fingerprint' => AtomicPropContractAdapter::fingerprint( $normalized['runtime_descriptor'] ),
+						];
+						$certified = AtomicPropContractAdapter::certify(
+							$normalized,
+							[ 'elementor_version' => $elementor_version ]
+						);
+						if ( true === $certified['matched'] && is_array( $certified['compact_contract'] ) ) {
+							$prop['key']  = $certified['compact_contract']['key'];
+							$prop['type'] = $certified['compact_contract']['type'];
+						}
+						$props[ $prop_name ] = $prop;
 					}
 					if ( ! $valid_props ) {
 						continue;
 					}
-					$ownership = RuntimeOwnership::describe( $instance );
 					$schema = [
-						'atomic_type'  => $type,
-						'kind'          => $kind,
-						'design_types'  => [ $type ],
-						'version'       => self::ELEMENT_VERSION,
-						'props'         => $props,
-						'source'        => 'live_runtime',
-						'source_plugin' => $ownership['source_plugin'],
+						'atomic_type'    => $type,
+						'kind'           => $kind,
+						'design_types'   => [ $type ],
+						'version'        => self::ELEMENT_VERSION,
+						'props'          => $props,
+						'source'         => 'live_runtime',
+						'source_plugin'  => $ownership['source_plugin'],
 						'source_version' => $ownership['source_version'],
-						'runtime_class' => $ownership['runtime_class'],
-						'provider_id'   => $ownership['provider_id'],
-						'ownership'     => $ownership['ownership'],
-						'provenance'    => [ 'schema' => 'live_elementor_runtime', 'ownership' => $ownership['provenance']['ownership'] ],
+						'runtime_class'  => $ownership['runtime_class'],
+						'provider_id'    => $ownership['provider_id'],
+						'ownership'      => $ownership['ownership'],
+						'provenance'     => [
+							'schema'    => 'live_elementor_runtime',
+							'ownership' => $ownership['provenance']['ownership'],
+						],
 					];
-					$policy = self::provider_policy( $schema );
-					$schema['provider_trust'] = $policy['trust'];
-					$schema['provider_certification'] = $policy['certification'];
-					$schema['write_eligible'] = $policy['write_eligible'];
+					$schema = self::with_policy( $schema );
 					$schema['schema_fingerprint'] = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $schema ) ) );
 					$items[] = $schema;
 				}
@@ -255,18 +289,17 @@ final class AtomicSchemaRepository {
 				'gap'     => [ 'key' => 'gap', 'type' => 'style-size' ],
 			];
 		}
-		return [
-			'kind'         => 'layout',
-			'design_types' => 'Container' === $design_type ? [ 'Section', 'Column', 'Container' ] : [ $design_type ],
-			'version'      => self::ELEMENT_VERSION,
-			'props'        => $mapped,
-			'source'       => 'elementor_official_docs',
-			'provider_id'  => 'elementor-core',
-			'provider_trust' => 'trusted',
-			'provider_certification' => 'certified',
-			'write_eligible' => true,
-			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
-		];
+		return self::with_policy(
+			[
+				'kind'         => 'layout',
+				'design_types' => 'Container' === $design_type ? [ 'Section', 'Column', 'Container' ] : [ $design_type ],
+				'version'      => self::ELEMENT_VERSION,
+				'props'        => $mapped,
+				'source'       => 'elementor_official_docs',
+				'provider_id'  => 'elementor-core',
+				'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
+			]
+		);
 	}
 
 	/**
@@ -274,18 +307,17 @@ final class AtomicSchemaRepository {
 	 * @return array<string, mixed>
 	 */
 	private static function widget( string $design_type, array $props ): array {
-		return [
-			'kind'         => 'widget',
-			'design_types' => [ $design_type ],
-			'version'      => self::ELEMENT_VERSION,
-			'props'        => $props,
-			'source'       => 'elementor_official_docs',
-			'provider_id'  => 'elementor-core',
-			'provider_trust' => 'trusted',
-			'provider_certification' => 'certified',
-			'write_eligible' => true,
-			'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
-		];
+		return self::with_policy(
+			[
+				'kind'         => 'widget',
+				'design_types' => [ $design_type ],
+				'version'      => self::ELEMENT_VERSION,
+				'props'        => $props,
+				'source'       => 'elementor_official_docs',
+				'provider_id'  => 'elementor-core',
+				'provenance'   => [ 'certification' => 'stonewright_bundled_contract' ],
+			]
+		);
 	}
 
 	/**
@@ -306,12 +338,114 @@ final class AtomicSchemaRepository {
 			if ( ! is_array( $certified ) || self::canonicalize( $schema ) !== self::canonicalize( $certified ) ) {
 				continue;
 			}
-			$policy = self::provider_policy( $certified );
-			$schema['provider_trust'] = $policy['trust'];
-			$schema['provider_certification'] = $policy['certification'];
-			$schema['write_eligible'] = true;
-			$out[ $type ] = $schema;
+			$out[ $type ] = self::with_policy( $certified );
 		}
 		return $out;
+	}
+
+	/**
+	 * @param array<string,mixed> $schema
+	 * @return array<string,mixed>
+	 */
+	private static function with_policy( array $schema ): array {
+		$policy = self::provider_policy( $schema );
+		$schema['ownership_trust']         = $policy['ownership_trust'];
+		$schema['schema_certification']    = $policy['schema_certification'];
+		$schema['provider_trust']          = $policy['trust'];
+		$schema['provider_certification']  = $policy['certification'];
+		$schema['write_eligible']          = $policy['write_eligible'];
+		return $schema;
+	}
+
+	/**
+	 * @return array{ownership_trust:string,schema_certification:string,write_eligible:bool,reason:string,trust:string,certification:string}
+	 */
+	private static function policy_result( string $ownership_trust, string $schema_certification, bool $write_eligible, string $reason ): array {
+		return [
+			'ownership_trust'      => $ownership_trust,
+			'schema_certification' => $schema_certification,
+			'write_eligible'       => $write_eligible,
+			'reason'               => $reason,
+			'trust'                => 'official' === $ownership_trust ? 'trusted' : 'untrusted',
+			'certification'        => in_array( $schema_certification, [ 'bundled', 'adapter-certified' ], true ) ? 'certified' : 'discovered',
+		];
+	}
+
+	/**
+	 * @param array<string,mixed> $evidence
+	 */
+	private static function ownership_trust( string $provider, array $evidence ): string {
+		$explicit = $evidence['ownership'] ?? null;
+		if ( in_array( $provider, [ 'elementor-core', 'elementor-pro' ], true ) ) {
+			return 'official';
+		}
+		if ( str_starts_with( $provider, 'plugin:' ) ) {
+			return 'third-party';
+		}
+		if ( in_array( $explicit, [ 'official', 'third-party', 'unknown' ], true ) ) {
+			return (string) $explicit;
+		}
+		return 'unknown';
+	}
+
+	/**
+	 * @param array<string,mixed> $evidence
+	 */
+	private static function adapter_certified( array $evidence ): bool {
+		$version = self::elementor_version( $evidence );
+		$props   = $evidence['props'] ?? null;
+		if ( is_array( $props ) && [] !== $props ) {
+			foreach ( $props as $prop ) {
+				if ( ! is_array( $prop ) || ! isset( $prop['runtime_descriptor'], $prop['descriptor_format'] ) ) {
+					return false;
+				}
+				$result = AtomicPropContractAdapter::certify(
+					[
+						'ok'                 => true,
+						'descriptor_format'  => $prop['descriptor_format'],
+						'runtime_descriptor' => $prop['runtime_descriptor'],
+					],
+					[ 'elementor_version' => $version ]
+				);
+				if ( true !== $result['matched'] ) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		if ( ! isset( $evidence['runtime_descriptor'], $evidence['descriptor_format'] ) ) {
+			return false;
+		}
+
+		$result = AtomicPropContractAdapter::certify(
+			[
+				'ok'                 => true,
+				'descriptor_format'  => $evidence['descriptor_format'],
+				'runtime_descriptor' => $evidence['runtime_descriptor'],
+			],
+			[ 'elementor_version' => $version ]
+		);
+		return true === $result['matched'];
+	}
+
+	/**
+	 * @param array<string,mixed> $evidence
+	 */
+	private static function elementor_version( array $evidence ): string {
+		if ( is_string( $evidence['elementor_version'] ?? null ) && '' !== $evidence['elementor_version'] ) {
+			return $evidence['elementor_version'];
+		}
+		if ( defined( 'ELEMENTOR_VERSION' ) ) {
+			return (string) constant( 'ELEMENTOR_VERSION' );
+		}
+		return is_string( $evidence['source_version'] ?? null ) ? $evidence['source_version'] : '';
+	}
+
+	private static function bounded_name( string $name ): string {
+		if ( strlen( $name ) <= 1000 ) {
+			return $name;
+		}
+		return substr( $name, 0, 1000 );
 	}
 }
