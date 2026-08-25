@@ -82,7 +82,7 @@ describe('OAuth seven-day continuity (fake clock)', () => {
 
 			const createManager = () => new OAuthTokenManager(store, {
 				now: () => now,
-				sleep: async () => undefined,
+				sleep: () => Promise.resolve(),
 				random: () => 0,
 				lockTimeoutMs: 1_000,
 			});

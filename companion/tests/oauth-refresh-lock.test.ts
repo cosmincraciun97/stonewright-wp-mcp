@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OAuthRefreshLock, oauthRefreshLockPathFor } from '../src/oauth-refresh-lock.js';
@@ -26,8 +26,8 @@ describe('OAuthRefreshLock', () => {
 				await new Promise((r) => setTimeout(r, 40));
 				calls += 1;
 				return makeResponse({
-					access_token: 'shared-access',
-					refresh_token: 'shared-refresh',
+					access_token: 'fixture-shared-access',
+					refresh_token: 'fixture-shared-refresh',
 					expires_in: 3600,
 					refresh_token_expires_in: 1_209_600,
 				});
@@ -52,8 +52,7 @@ describe('OAuthRefreshLock', () => {
 			const link = join(directory, 'link.json');
 			writeFileSync(real, JSON.stringify(expiredTokens()));
 			try {
-				// eslint-disable-next-line @typescript-eslint/no-require-imports
-				require('node:fs').symlinkSync(real, link);
+				symlinkSync(real, link);
 			} catch {
 				// platforms without symlink support
 				return;
@@ -74,9 +73,10 @@ describe('consumption-aware refresh', () => {
 			const store = new OAuthTokenStore(path);
 			store.save(expiredTokens());
 			let calls = 0;
-			const manager = new OAuthTokenManager(store, { random: () => 0, baseBackoffMs: 1, sleep: async () => undefined });
+			const manager = new OAuthTokenManager(store, { random: () => 0, baseBackoffMs: 1, sleep: () => Promise.resolve() });
 			const token = await manager.getAccessToken(
 				async () => {
+					await Promise.resolve();
 					calls += 1;
 					if (calls === 1) {
 						return makeResponse({ error: 'temporarily_unavailable' }, 503, {
@@ -111,6 +111,7 @@ describe('consumption-aware refresh', () => {
 			await expect(
 				manager.getAccessToken(
 					async () => {
+						await Promise.resolve();
 						throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } });
 					},
 					'https://example.test/oauth/token',

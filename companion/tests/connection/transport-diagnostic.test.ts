@@ -80,6 +80,7 @@ describe('probePluginEndpoint controllers', () => {
 	it('HEAD timeout does not poison a successful GET fallback', async () => {
 		const signals: Array<AbortSignal | null | undefined> = [];
 		const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+			await Promise.resolve();
 			signals.push(init?.signal);
 			if (signals.length === 1) {
 				// Simulate HEAD abort without marking the shared signal for later attempts.
