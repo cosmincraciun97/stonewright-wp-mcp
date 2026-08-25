@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\CustomCode\Providers;
 use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
 use Stonewright\WpMcp\CustomCode\ProviderSupport;
+use Stonewright\WpMcp\CustomCode\WpCodeRuntimeValidator;
 
 /**
  * WPCode (Insert Headers and Footers / WPCodebox successor) adapter.
@@ -228,6 +229,19 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 			return $validation;
 		}
 
+		if ( $this->needs_runtime_preflight( $snippet, $language ) ) {
+			$preflight = WpCodeRuntimeValidator::preflight(
+				function ( string $op, array $api_args ) {
+					return $this->dispatch( $op, $api_args );
+				},
+				$target,
+				$code
+			);
+			if ( $preflight instanceof \WP_Error ) {
+				return $preflight;
+			}
+		}
+
 		$grant = ProviderSupport::consume_grant(
 			(string) ( $args['custom_code_grant'] ?? '' ),
 			$path,
@@ -239,16 +253,49 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 			return $grant;
 		}
 
-		$snapshot = ProviderSupport::snapshot_record( $this->id(), $target, $path, $before );
-		$saved    = $this->save_snippet( $target, $code, $language, $snippet );
+		$snapshot = ProviderSupport::snapshot_record(
+			$this->id(),
+			$target,
+			$path,
+			$before,
+			[ 'active' => (bool) $snippet['active'] ]
+		);
+		$saved = $this->save_snippet( $target, $code, $language, $snippet );
 		if ( $saved instanceof \WP_Error ) {
 			return $saved;
+		}
+
+		$rebuilt = $this->dispatch( 'rebuild_cache', [ 'target_id' => $target ] );
+		if ( $rebuilt instanceof \WP_Error ) {
+			$rollback = $this->rollback(
+				[
+					'snapshot_id' => $snapshot['snapshot_id'],
+					'target_id'   => $target,
+				]
+			);
+			return new \WP_Error(
+				'stonewright_wpcode_cache_rebuild_failed',
+				__( 'WPCode cache rebuild failed after native save; snapshot rollback attempted.', 'stonewright' ),
+				[
+					'status'              => 500,
+					'provider'            => $this->id(),
+					'target_id'           => $target,
+					'before_sha256'       => $snapshot['before_sha256'],
+					'after_sha256'        => $after_hash,
+					'verification_status' => 'failed',
+					'rollback_status'     => is_array( $rollback ) && ! empty( $rollback['effect_verified'] ) ? 'restored' : 'failed',
+					'snapshot_id'         => $snapshot['snapshot_id'],
+					'execution_status'    => 'ok',
+					'effect_verified'     => false,
+				]
+			);
 		}
 
 		$verify = $this->verify(
 			[
 				'target_id'       => $target,
 				'expected_sha256' => $after_hash,
+				'expected_active' => (bool) $snippet['active'],
 			]
 		);
 		if ( $verify instanceof \WP_Error || true !== ( $verify['effect_verified'] ?? false ) ) {
@@ -305,8 +352,20 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 		if ( $snippet instanceof \WP_Error ) {
 			return $snippet;
 		}
-		$hash = ProviderSupport::content_hash( (string) $snippet['code'] );
-		$ok   = '' === $expected || hash_equals( $expected, $hash );
+		$hash          = ProviderSupport::content_hash( (string) $snippet['code'] );
+		$hash_ok       = '' === $expected || hash_equals( $expected, $hash );
+		$active        = (bool) $snippet['active'];
+		$expect_active = array_key_exists( 'expected_active', $args ) ? (bool) $args['expected_active'] : $active;
+		$active_ok     = $expect_active === $active;
+
+		$cache = $this->dispatch( 'inspect_cache', [ 'id' => $target, 'target_id' => $target ] );
+		if ( $cache instanceof \WP_Error ) {
+			return $cache;
+		}
+		$member    = is_array( $cache ) && ! empty( $cache['member'] );
+		$member_ok = $active ? $member : ! $member;
+		$ok        = $hash_ok && $active_ok && $member_ok;
+
 		return [
 			'ok'                  => true,
 			'provider'            => $this->id(),
@@ -314,6 +373,8 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 			'path'                => $this->path_for( $target ),
 			'content_sha256'      => $hash,
 			'expected_sha256'     => $expected,
+			'active'              => $active,
+			'cache_member'        => $member,
 			'effect_verified'     => $ok,
 			'verification_status' => $ok ? 'verified' : 'failed',
 		];
@@ -355,12 +416,18 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 		if ( $saved instanceof \WP_Error ) {
 			return $saved;
 		}
-		$verify = $this->verify(
-			[
-				'target_id'       => $target,
-				'expected_sha256' => (string) $snap['before_sha256'],
-			]
-		);
+		$rebuilt = $this->dispatch( 'rebuild_cache', [ 'target_id' => $target ] );
+		if ( $rebuilt instanceof \WP_Error ) {
+			return $rebuilt;
+		}
+		$verify_args = [
+			'target_id'       => $target,
+			'expected_sha256' => (string) $snap['before_sha256'],
+		];
+		if ( array_key_exists( 'active', $snap ) ) {
+			$verify_args['expected_active'] = (bool) $snap['active'];
+		}
+		$verify = $this->verify( $verify_args );
 		return [
 			'ok'                  => true,
 			'rolled_back'         => true,
@@ -465,54 +532,19 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 	 * @return true|\WP_Error
 	 */
 	private function save_snippet( string $id, string $code, string $language, array $current ) {
-		if ( null !== $this->backend ) {
-			$result = ( $this->backend )(
-				'save',
-				[
-					'id'       => $id,
-					'code'     => $code,
-					'language' => $language,
-					'current'  => $current,
-				]
-			);
-			if ( $result instanceof \WP_Error ) {
-				return $result;
-			}
-			return true;
+		$result = $this->dispatch(
+			'native_save',
+			[
+				'id'       => $id,
+				'code'     => $code,
+				'language' => $language,
+				'current'  => $current,
+				'active'   => (bool) ( $current['active'] ?? false ),
+			]
+		);
+		if ( $result instanceof \WP_Error ) {
+			return $result;
 		}
-
-		if ( function_exists( 'wpcode_get_snippet' ) ) {
-			$snippet = wpcode_get_snippet( (int) $id );
-			if ( is_object( $snippet ) ) {
-				if ( method_exists( $snippet, 'set_code' ) ) {
-					$snippet->set_code( $code );
-				} else {
-					$snippet->code = $code;
-				}
-				if ( method_exists( $snippet, 'save' ) ) {
-					$snippet->save();
-					return true;
-				}
-			}
-		}
-
-		// Last-resort public meta update for known WPCode post types only.
-		$post = get_post( (int) $id );
-		if ( ! $post instanceof \WP_Post ) {
-			return new \WP_Error( 'stonewright_wpcode_not_found', __( 'WPCode snippet not found.', 'stonewright' ), [ 'status' => 404 ] );
-		}
-		if ( ! $this->is_wpcode_post_type( (string) $post->post_type ) ) {
-			return new \WP_Error(
-				'stonewright_wpcode_not_found',
-				__( 'Post is not a WPCode snippet type.', 'stonewright' ),
-				[
-					'status'    => 404,
-					'target_id' => $id,
-					'post_type' => (string) $post->post_type,
-				]
-			);
-		}
-		update_post_meta( (int) $id, '_wpcode_snippet_code', $code );
 		return true;
 	}
 
@@ -634,5 +666,244 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface 
 			}
 		}
 		return self::PLUGIN_FILE;
+	}
+
+	/**
+	 * @param array{id:string,title:string,code:string,language:string,active:bool} $snippet
+	 */
+	private function needs_runtime_preflight( array $snippet, string $language ): bool {
+		return 'php' === $language && ! empty( $snippet['active'] );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return mixed
+	 */
+	private function dispatch( string $op, array $args ) {
+		if ( null !== $this->backend ) {
+			return ( $this->backend )( $op, $args );
+		}
+		return $this->live_dispatch( $op, $args );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return mixed
+	 */
+	private function live_dispatch( string $op, array $args ) {
+		if ( 'list_active' === $op ) {
+			return $this->live_list_active();
+		}
+		if ( 'assemble_runtime' === $op ) {
+			return $this->live_assemble_runtime( is_array( $args['snippets'] ?? null ) ? $args['snippets'] : [], sanitize_text_field( (string) ( $args['target_id'] ?? '' ) ) );
+		}
+		if ( 'lint_runtime' === $op ) {
+			$payload = (string) ( $args['payload'] ?? '' );
+			$lint    = ProviderSupport::validate_code( $payload, 'php' );
+			if ( $lint instanceof \WP_Error ) {
+				return $lint;
+			}
+			return [
+				'ok'     => true,
+				'sha256' => ProviderSupport::content_hash( $payload ),
+			];
+		}
+		if ( 'native_save' === $op ) {
+			return $this->live_native_save(
+				sanitize_text_field( (string) ( $args['id'] ?? '' ) ),
+				(string) ( $args['code'] ?? '' ),
+				(bool) ( $args['active'] ?? false )
+			);
+		}
+		if ( 'rebuild_cache' === $op ) {
+			return $this->live_rebuild_cache();
+		}
+		if ( 'inspect_cache' === $op ) {
+			return $this->live_inspect_cache( sanitize_text_field( (string) ( $args['id'] ?? $args['target_id'] ?? '' ) ) );
+		}
+		return null;
+	}
+
+	/**
+	 * @return array{ok:bool,provider:string,count:int,items:list<array<string,mixed>>}|\WP_Error
+	 */
+	private function live_list_active() {
+		$list = $this->list( [ 'limit' => 200 ] );
+		if ( $list instanceof \WP_Error ) {
+			return $list;
+		}
+		$items = [];
+		foreach ( is_array( $list['items'] ?? null ) ? $list['items'] : [] as $item ) {
+			if ( ! is_array( $item ) || empty( $item['active'] ) ) {
+				continue;
+			}
+			$language = sanitize_key( (string) ( $item['language'] ?? 'php' ) );
+			if ( 'php' !== $language ) {
+				continue;
+			}
+			$id      = sanitize_text_field( (string) ( $item['id'] ?? '' ) );
+			$snippet = $this->load_live_snippet_object( $id );
+			$code    = '';
+			if ( is_object( $snippet ) && method_exists( $snippet, 'get_code' ) ) {
+				$code = (string) $snippet->get_code();
+			} elseif ( is_object( $snippet ) ) {
+				$code = (string) ( $snippet->code ?? '' );
+			} else {
+				$read = $this->load_snippet( $id );
+				$code = $read instanceof \WP_Error ? '' : (string) $read['code'];
+			}
+			$items[] = [
+				'id'       => $id,
+				'title'    => (string) ( $item['title'] ?? '' ),
+				'language' => 'php',
+				'active'   => true,
+				'code'     => $code,
+			];
+		}
+		return [
+			'ok'       => true,
+			'provider' => $this->id(),
+			'count'    => count( $items ),
+			'items'    => $items,
+		];
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $snippets
+	 * @return array{ok:bool,count:int,sha256:string,payload:string}|\WP_Error
+	 */
+	private function live_assemble_runtime( array $snippets, string $target_id ) {
+		$parts = [];
+		foreach ( $snippets as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id      = sanitize_text_field( (string) ( $row['id'] ?? '' ) );
+			$snippet = $this->load_live_snippet_object( $id );
+			if ( ! is_object( $snippet ) || ! method_exists( $snippet, 'get_data_for_caching' ) ) {
+				return ProviderSupport::wpcode_runtime_preflight_unavailable( $target_id );
+			}
+			if ( $id === $target_id ) {
+				$code = (string) ( $row['code'] ?? '' );
+				if ( method_exists( $snippet, 'set_code' ) ) {
+					$snippet->set_code( $code );
+				} elseif ( property_exists( $snippet, 'code' ) ) {
+					$snippet->code = $code;
+				} else {
+					return ProviderSupport::wpcode_runtime_preflight_unavailable( $target_id );
+				}
+			}
+			$data = $snippet->get_data_for_caching();
+			if ( ! is_array( $data ) ) {
+				return ProviderSupport::wpcode_runtime_preflight_unavailable( $target_id );
+			}
+			$parts[] = (string) ( $data['code'] ?? '' );
+		}
+		$payload = implode( "\n", $parts );
+		return [
+			'ok'      => true,
+			'count'   => count( $parts ),
+			'sha256'  => ProviderSupport::content_hash( $payload ),
+			'payload' => $payload,
+		];
+	}
+
+	/**
+	 * @return true|\WP_Error
+	 */
+	private function live_native_save( string $id, string $code, bool $active ) {
+		$snippet = $this->load_live_snippet_object( $id );
+		if ( ! is_object( $snippet ) || ! method_exists( $snippet, 'save' ) ) {
+			return ProviderSupport::wpcode_native_unavailable( $id );
+		}
+		$can_set = method_exists( $snippet, 'set_code' ) || property_exists( $snippet, 'code' );
+		if ( ! $can_set ) {
+			return ProviderSupport::wpcode_native_unavailable( $id );
+		}
+		if ( method_exists( $snippet, 'set_code' ) ) {
+			$snippet->set_code( $code );
+		} else {
+			$snippet->code = $code;
+		}
+		$saved = $snippet->save();
+		if ( false === $saved ) {
+			return new \WP_Error(
+				'stonewright_wpcode_native_save_failed',
+				__( 'WPCode native snippet save() failed.', 'stonewright' ),
+				[
+					'status'     => 500,
+					'provider'   => $this->id(),
+					'target_id'  => $id,
+					'retryable'  => false,
+				]
+			);
+		}
+		unset( $active );
+		return true;
+	}
+
+	/**
+	 * @return true|\WP_Error
+	 */
+	private function live_rebuild_cache() {
+		if ( ! function_exists( 'wpcode' ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_cache_rebuild_failed',
+				__( 'WPCode cache API is unavailable.', 'stonewright' ),
+				[ 'status' => 503, 'provider' => $this->id(), 'retryable' => false ]
+			);
+		}
+		$plugin = wpcode();
+		if ( ! is_object( $plugin ) || ! isset( $plugin->cache ) || ! is_object( $plugin->cache ) || ! method_exists( $plugin->cache, 'cache_all_loaded_snippets' ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_cache_rebuild_failed',
+				__( 'WPCode cache rebuild API is unavailable.', 'stonewright' ),
+				[ 'status' => 503, 'provider' => $this->id(), 'retryable' => false ]
+			);
+		}
+		$plugin->cache->cache_all_loaded_snippets();
+		return true;
+	}
+
+	/**
+	 * @return array{ok:bool,member:bool,count:int}|\WP_Error
+	 */
+	private function live_inspect_cache( string $id ) {
+		if ( ! function_exists( 'wpcode' ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_cache_inspect_failed',
+				__( 'WPCode cache API is unavailable.', 'stonewright' ),
+				[ 'status' => 503, 'provider' => $this->id(), 'retryable' => false ]
+			);
+		}
+		$plugin = wpcode();
+		if ( ! is_object( $plugin ) || ! isset( $plugin->cache ) || ! is_object( $plugin->cache ) || ! method_exists( $plugin->cache, 'get_cached_snippets_by_id' ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_cache_inspect_failed',
+				__( 'WPCode cache inspect API is unavailable.', 'stonewright' ),
+				[ 'status' => 503, 'provider' => $this->id(), 'retryable' => false ]
+			);
+		}
+		$by_id = $plugin->cache->get_cached_snippets_by_id();
+		if ( ! is_array( $by_id ) ) {
+			$by_id = [];
+		}
+		$member = isset( $by_id[ (int) $id ] ) || isset( $by_id[ $id ] );
+		return [
+			'ok'     => true,
+			'member' => $member,
+			'count'  => count( $by_id ),
+		];
+	}
+
+	/**
+	 * @return object|null
+	 */
+	private function load_live_snippet_object( string $id ) {
+		if ( ! function_exists( 'wpcode_get_snippet' ) ) {
+			return null;
+		}
+		$snippet = wpcode_get_snippet( (int) $id );
+		return is_object( $snippet ) ? $snippet : null;
 	}
 }

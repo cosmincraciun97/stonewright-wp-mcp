@@ -173,9 +173,10 @@ final class ProviderSupport {
 	/**
 	 * Snapshot payload for provider records (hashes only in audit; full body kept in transient/option).
 	 *
-	 * @return array{snapshot_id:string,path:string,before_sha256:string,body:string,provider:string,target_id:string}
+	 * @param array<string, mixed> $extra Extra non-body fields stored with the snapshot (e.g. active).
+	 * @return array{snapshot_id:string,path:string,before_sha256:string,body:string,provider:string,target_id:string,active?:bool}
 	 */
-	public static function snapshot_record( string $provider, string $target_id, string $path, string $body ): array {
+	public static function snapshot_record( string $provider, string $target_id, string $path, string $body, array $extra = [] ): array {
 		$snapshot_id = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : substr( hash( 'sha256', uniqid( 'sw-snap-', true ) ), 0, 36 );
 		$payload     = [
 			'snapshot_id'   => $snapshot_id,
@@ -186,8 +187,11 @@ final class ProviderSupport {
 			'body'          => $body,
 			'created_at'    => time(),
 		];
+		if ( array_key_exists( 'active', $extra ) ) {
+			$payload['active'] = (bool) $extra['active'];
+		}
 		set_transient( 'sw_cc_snap_' . $snapshot_id, $payload, DAY_IN_SECONDS );
-		return [
+		$out = [
 			'snapshot_id'   => $snapshot_id,
 			'path'          => $path,
 			'before_sha256' => $payload['before_sha256'],
@@ -195,6 +199,10 @@ final class ProviderSupport {
 			'provider'      => $provider,
 			'target_id'     => $target_id,
 		];
+		if ( array_key_exists( 'active', $payload ) ) {
+			$out['active'] = $payload['active'];
+		}
+		return $out;
 	}
 
 	/**
@@ -237,5 +245,43 @@ final class ProviderSupport {
 			);
 		}
 		return true;
+	}
+
+	/**
+	 * @return \WP_Error
+	 */
+	public static function wpcode_native_unavailable( string $target_id = '' ): \WP_Error {
+		$data = [
+			'status'    => 503,
+			'provider'  => 'wpcode',
+			'retryable' => false,
+		];
+		if ( '' !== $target_id ) {
+			$data['target_id'] = $target_id;
+		}
+		return new \WP_Error(
+			'stonewright_wpcode_native_api_unavailable',
+			__( 'WPCode native snippet save() is unavailable. Active and draft writes fail closed.', 'stonewright' ),
+			$data
+		);
+	}
+
+	/**
+	 * @return \WP_Error
+	 */
+	public static function wpcode_runtime_preflight_unavailable( string $target_id = '' ): \WP_Error {
+		$data = [
+			'status'    => 503,
+			'provider'  => 'wpcode',
+			'retryable' => false,
+		];
+		if ( '' !== $target_id ) {
+			$data['target_id'] = $target_id;
+		}
+		return new \WP_Error(
+			'stonewright_wpcode_runtime_preflight_unavailable',
+			__( 'WPCode assembled-runtime preflight is unavailable. Active PHP writes fail closed.', 'stonewright' ),
+			$data
+		);
 	}
 }

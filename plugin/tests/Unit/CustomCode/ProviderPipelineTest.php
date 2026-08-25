@@ -21,6 +21,12 @@ final class ProviderPipelineTest extends TestCase {
 	/** @var array<string, array{code:string,title:string,language:string,active:bool}> */
 	private array $wpcode_store = [];
 
+	/** @var list<string> */
+	private array $wpcode_calls = [];
+
+	/** @var array<string, string> */
+	private array $wpcode_cache = [];
+
 	/** @var array<string, array{code:string,title:string,language:string,active:bool,scope:string}> */
 	private array $snippets_store = [];
 
@@ -36,6 +42,8 @@ final class ProviderPipelineTest extends TestCase {
 			'stonewright_mode' => 'development',
 		];
 		$GLOBALS['stonewright_test_post_types']      = [];
+		$this->wpcode_calls = [];
+		$this->wpcode_cache = [];
 		$this->wpcode_store = [
 			'12' => [
 				'code'     => "<?php\necho 'before';\n",
@@ -150,6 +158,7 @@ final class ProviderPipelineTest extends TestCase {
 		);
 		self::assertIsArray( $grant );
 
+		$this->wpcode_calls = [];
 		$applied = $provider->apply(
 			[
 				'target_id'              => '12',
@@ -163,6 +172,11 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertTrue( $applied['effect_verified'] );
 		self::assertSame( 'verified', $applied['verification_status'] );
 		self::assertSame( $candidate, $this->wpcode_store['12']['code'] );
+		self::assertSame(
+			[ 'read', 'list_active', 'assemble_runtime', 'lint_runtime', 'native_save', 'rebuild_cache', 'read', 'inspect_cache' ],
+			$this->wpcode_calls
+		);
+		self::assertArrayHasKey( '12', $this->wpcode_cache );
 
 		$rollback = $provider->rollback(
 			[
@@ -492,17 +506,25 @@ final class ProviderPipelineTest extends TestCase {
 	/** @return callable */
 	private function wpcode_backend(): callable {
 		return function ( string $op, array $args ) {
+			$tracked = [ 'read', 'list_active', 'assemble_runtime', 'lint_runtime', 'native_save', 'rebuild_cache', 'inspect_cache' ];
+			if ( in_array( $op, $tracked, true ) ) {
+				$this->wpcode_calls[] = $op;
+			}
 			if ( 'discover' === $op ) {
 				return [ 'active' => true, 'version' => '2.2.0' ];
 			}
-			if ( 'list' === $op ) {
+			if ( 'list' === $op || 'list_active' === $op ) {
 				$items = [];
 				foreach ( $this->wpcode_store as $id => $row ) {
+					if ( 'list_active' === $op && ( empty( $row['active'] ) || 'php' !== $row['language'] ) ) {
+						continue;
+					}
 					$items[] = [
 						'id'       => (string) $id,
 						'title'    => $row['title'],
 						'language' => $row['language'],
 						'active'   => $row['active'],
+						'code'     => $row['code'],
 						'path'     => 'wpcode/snippet/' . $id,
 					];
 				}
@@ -522,10 +544,54 @@ final class ProviderPipelineTest extends TestCase {
 					'active'   => $row['active'],
 				];
 			}
-			if ( 'save' === $op ) {
+			if ( 'assemble_runtime' === $op ) {
+				$snippets = is_array( $args['snippets'] ?? null ) ? $args['snippets'] : [];
+				$parts    = [];
+				foreach ( $snippets as $snippet ) {
+					$parts[] = (string) ( $snippet['code'] ?? '' );
+				}
+				$payload = implode( "\n", $parts );
+				return [
+					'ok'      => true,
+					'count'   => count( $snippets ),
+					'sha256'  => hash( 'sha256', $payload ),
+					'payload' => $payload,
+				];
+			}
+			if ( 'lint_runtime' === $op ) {
+				$payload = (string) ( $args['payload'] ?? '' );
+				$lint    = \Stonewright\WpMcp\CustomCode\ProviderSupport::validate_code( $payload, 'php' );
+				if ( $lint instanceof \WP_Error ) {
+					return $lint;
+				}
+				return [ 'ok' => true, 'sha256' => hash( 'sha256', $payload ) ];
+			}
+			if ( 'save' === $op || 'native_save' === $op ) {
 				$id = (string) ( $args['id'] ?? '' );
 				$this->wpcode_store[ $id ]['code'] = (string) ( $args['code'] ?? '' );
+				if ( array_key_exists( 'active', $args ) ) {
+					$this->wpcode_store[ $id ]['active'] = (bool) $args['active'];
+				}
 				return true;
+			}
+			if ( 'rebuild_cache' === $op ) {
+				$this->wpcode_cache = [];
+				foreach ( $this->wpcode_store as $id => $row ) {
+					if ( ! empty( $row['active'] ) ) {
+						$this->wpcode_cache[ $id ] = hash( 'sha256', $row['code'] );
+					}
+				}
+				return true;
+			}
+			if ( 'inspect_cache' === $op ) {
+				$id = (string) ( $args['id'] ?? '' );
+				return [
+					'ok'          => true,
+					'member'      => isset( $this->wpcode_cache[ $id ] ),
+					'member_ids'  => array_map( 'strval', array_keys( $this->wpcode_cache ) ),
+					'member_hash' => $this->wpcode_cache[ $id ] ?? '',
+					'count'       => count( $this->wpcode_cache ),
+				];
 			}
 			return null;
 		};
