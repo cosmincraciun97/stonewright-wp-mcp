@@ -24,6 +24,15 @@ final class GitHubUpdater {
 	private const RELEASE_CHANNELS = [ 'supported', 'preview', 'stable' ];
 	private const SEMVER_PATTERN = '/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:\d*[A-Za-z-][0-9A-Za-z-]*)))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/';
 
+	/**
+	 * One forced GitHub lookup per request. wp_update_plugins both reads and
+	 * writes the update_plugins transient, which would otherwise double-fetch
+	 * and let a later failure wipe a successful discovery.
+	 *
+	 * @var bool
+	 */
+	private static bool $forced_release_lookup_used = false;
+
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
 		add_filter( 'pre_set_site_transient_update_plugins', [ self::class, 'inject_update' ] );
@@ -422,12 +431,21 @@ final class GitHubUpdater {
 	 * WordPress Dashboard → Updates → Check again and the twice-daily
 	 * wp_update_plugins cron must not reuse a cached "you are current" release.
 	 * Ordinary Plugins-screen reads keep CACHE_TTL to avoid GitHub rate limits.
+	 *
+	 * Only the first forced lookup in a request hits GitHub. Later inject_update
+	 * calls (get then set of the same transient during wp_update_plugins) reuse
+	 * the warm cache so a second failure cannot erase a successful discovery.
 	 */
 	private static function wordpress_requested_fresh_release_lookup(): bool {
+		if ( self::$forced_release_lookup_used ) {
+			return false;
+		}
 		if ( function_exists( 'doing_action' ) && doing_action( 'wp_update_plugins' ) ) {
+			self::$forced_release_lookup_used = true;
 			return true;
 		}
 		if ( function_exists( 'did_action' ) && did_action( 'wp_update_plugins' ) > 0 ) {
+			self::$forced_release_lookup_used = true;
 			return true;
 		}
 		// WordPress core exposes force-check as an unauthenticated GET flag on update-core.php; capability is checked below.
@@ -436,7 +454,18 @@ final class GitHubUpdater {
 		if ( '' === $force_check || '0' === $force_check ) {
 			return false;
 		}
-		return ! function_exists( 'current_user_can' ) || current_user_can( 'update_plugins' );
+		if ( function_exists( 'current_user_can' ) && ! current_user_can( 'update_plugins' ) ) {
+			return false;
+		}
+		self::$forced_release_lookup_used = true;
+		return true;
+	}
+
+	/**
+	 * Reset per-request force-lookup state. Used by unit tests only.
+	 */
+	public static function reset_request_lookup_state(): void {
+		self::$forced_release_lookup_used = false;
 	}
 
 	/**

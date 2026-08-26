@@ -22,6 +22,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_did_actions']          = [];
 		$GLOBALS['stonewright_test_doing_action']         = [];
 		$_GET = [];
+		GitHubUpdater::reset_request_lookup_state();
 	}
 
 	protected function tearDown(): void {
@@ -35,6 +36,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_did_actions']          = [];
 		$GLOBALS['stonewright_test_doing_action']         = [];
 		$_GET = [];
+		GitHubUpdater::reset_request_lookup_state();
 	}
 
 	public function test_installed_channel_distinguishes_stable_and_prerelease_versions(): void {
@@ -349,6 +351,51 @@ final class GitHubUpdaterTest extends TestCase {
 
 		self::assertSame( '1.3.0-beta.30', $result->response[ $plugin ]->new_version );
 		self::assertArrayNotHasKey( $plugin, $result->no_update );
+	}
+
+	public function test_inject_update_force_refreshes_github_only_once_per_request(): void {
+		$this->set_installed_version( '1.0.0-beta.12' );
+		$stale = $this->parsed_beta_release();
+		$stale['version']           = '1.0.0-beta.12';
+		$stale['package']           = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-1.0.0-beta.12.zip';
+		$stale['companion_package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
+		$stale['checksums']         = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/SHA256SUMS.txt';
+		$stale['url']               = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.12';
+		$this->cache_parsed_release( $stale, '1.0.0-beta.12' );
+		$supported_beta = $this->releases_fixture()[6];
+		$calls          = 0;
+		$GLOBALS['stonewright_test_wp_remote_get'] = static function () use ( &$calls, $supported_beta ): array {
+			++$calls;
+			if ( 1 === $calls ) {
+				return [
+					'response' => [ 'code' => 200 ],
+					'body'     => (string) wp_json_encode( [ $supported_beta ] ),
+				];
+			}
+			return [
+				'response' => [ 'code' => 403 ],
+				'body'     => '{"message":"API rate limit exceeded"}',
+			];
+		};
+		$GLOBALS['stonewright_test_did_actions']['wp_update_plugins'] = 1;
+
+		$plugin = GitHubUpdater::plugin_basename();
+		$first  = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		self::assertSame( '1.3.0-beta.30', $first->response[ $plugin ]->new_version );
+		self::assertSame( 1, $calls );
+
+		// Simulate the second hook in the same wp_update_plugins cycle (get then set).
+		// A second forced GitHub call that fails must not wipe the discovered update.
+		$second = GitHubUpdater::inject_update(
+			(object) [
+				'response'  => [ $plugin => $first->response[ $plugin ] ],
+				'no_update' => [],
+			]
+		);
+		self::assertSame( '1.3.0-beta.30', $second->response[ $plugin ]->new_version );
+		self::assertArrayNotHasKey( $plugin, $second->no_update );
+		self::assertSame( 1, $calls, 'only one uncached GitHub lookup per request' );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
 	public function test_transient_injection_refuses_cached_release_without_sha256sums(): void {
