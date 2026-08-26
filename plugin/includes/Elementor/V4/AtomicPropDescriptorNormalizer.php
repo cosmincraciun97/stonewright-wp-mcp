@@ -102,7 +102,11 @@ final class AtomicPropDescriptorNormalizer {
 		if ( is_int( $value ) || is_bool( $value ) || is_float( $value ) || null === $value ) {
 			return [ 'ok' => true, 'value' => $value ];
 		}
-		if ( is_object( $value ) || ! is_array( $value ) ) {
+		if ( $value instanceof \stdClass ) {
+			// Elementor 4.2+ casts empty prop metadata to (object) [] so JSON
+			// keeps "{}". Plain data holders are safe to bound as arrays.
+			$value = get_object_vars( $value );
+		} elseif ( is_object( $value ) || ! is_array( $value ) ) {
 			return [ 'ok' => false, 'value' => null ];
 		}
 		if ( $depth > self::MAX_DEPTH ) {
