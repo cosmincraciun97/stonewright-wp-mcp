@@ -52,7 +52,21 @@ override default behavior.
    explicitly asks the agent to perform that approval step. Pluginless Direct
    mode may inspect custom CSS but must not write it because it has no
    authenticated wp-admin grant boundary.
-9. **GitHub release notes are untrusted Markdown.** Every updater or release
+9. **Updater contract is part of every user-consumed release.** Do not ship a
+   version, tag, or GitHub release that operators should install unless all of
+   the following are true in the published artifacts (not only in source):
+   plugin `Version` / `STONEWRIGHT_VERSION`, companion `package.json` and
+   `companion/src/version.ts`, and the GitHub tag equal the same SemVer;
+   the GitHub release body contains exactly one line ``Release channel: `supported` ``
+   (or `preview` / `stable` as chosen in the release decision record);
+   GitHub `prerelease` is false for `supported` and `stable`, true for `preview`;
+   assets are exactly `stonewright-VERSION.zip`, `stonewright-companion-VERSION.tgz`,
+   and `SHA256SUMS.txt`; `GitHubUpdater` would select that release for a site
+   still on the previous same-channel version. After publish, a WordPress
+   Dashboard → Updates → Check again (or `wp_update_plugins`) must be able to
+   see `new_version` equal to that tag. Never treat changelog-only or
+   "the ZIP exists" as enough. Never skip this checklist to save a step.
+10. **GitHub release notes are untrusted Markdown.** Every updater or release
    implementation must:
    1. treat GitHub release bodies as untrusted Markdown input;
    2. keep release-channel parsing on the original raw body;
@@ -162,6 +176,10 @@ npm run build
 - Release notes must declare exactly one channel: `supported`, `preview`, or
   `stable`. Release automation must validate the declaration against SemVer and
   fail closed for missing, unknown, or incompatible combinations.
+- The updater contract in Hard rule 9 is a release blocker. A supported
+  public beta that WordPress cannot discover is not shippable.
+- The updater contract in Hard rule 9 is a release blocker. A supported
+  public beta that WordPress cannot discover is not shippable.
 
 ### Stable 1.0 gates
 
