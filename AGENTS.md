@@ -66,6 +66,13 @@ override default behavior.
    Dashboard → Updates → Check again (or `wp_update_plugins`) must be able to
    see `new_version` equal to that tag. Never treat changelog-only or
    "the ZIP exists" as enough. Never skip this checklist to save a step.
+- After the plugin updates itself, release metadata caches must be
+  invalidated; Plugins → View details must never render a release older
+  than the installed version.
+- The plugin release ZIP must bundle the built-in skill pack
+  (`skills/` inside the plugin directory) and release packaging must fail
+  closed when it is missing, so ZIP installs seed the same built-in
+  skills as repository checkouts.
 10. **GitHub release notes are untrusted Markdown.** Every updater or release
    implementation must:
    1. treat GitHub release bodies as untrusted Markdown input;
