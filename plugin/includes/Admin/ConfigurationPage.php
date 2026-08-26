@@ -970,7 +970,7 @@ final class ConfigurationPage {
 										<?php
 										printf(
 											/* translators: %s: WordPress Updates URL. */
-											wp_kses_post( __( 'Open <a href="%s">Dashboard → Updates</a> and update Stonewright. If no update appears, upload the new release ZIP and choose Replace current with uploaded.', 'stonewright' ) ),
+											wp_kses_post( __( 'Open <a href="%s">Dashboard → Updates</a>, click Check again, then update Stonewright. Check again refetches GitHub Releases. If the row is still missing, click Check latest companion on this page, reload Updates, or upload the release ZIP and choose Replace current with uploaded.', 'stonewright' ) ),
 											esc_url( admin_url( 'update-core.php' ) )
 										);
 										?>
