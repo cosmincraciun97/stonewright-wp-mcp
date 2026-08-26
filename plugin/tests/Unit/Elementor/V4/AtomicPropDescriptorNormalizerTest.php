@@ -133,6 +133,59 @@ final class AtomicPropDescriptorNormalizerTest extends TestCase {
 		self::assertSame( 1000, strlen( (string) $result['runtime_descriptor']['alpha'] ) );
 	}
 
+	public function test_normalizes_props_whose_serialization_nests_empty_std_class_objects(): void {
+		$prop = new class() implements \JsonSerializable {
+			public function jsonSerialize(): array {
+				return [
+					'kind'          => 'plain',
+					'key'           => 'classes',
+					'default'       => [ '$$type' => 'classes', 'value' => [] ],
+					'meta'          => new \stdClass(),
+					'settings'      => new \stdClass(),
+					'dependencies'  => null,
+					'initial_value' => null,
+				];
+			}
+		};
+
+		$result = AtomicPropDescriptorNormalizer::normalize( $prop );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'elementor-json-serializable-v1', $result['descriptor_format'] );
+		self::assertSame( [], $result['runtime_descriptor']['meta'] );
+		self::assertSame( [], $result['runtime_descriptor']['settings'] );
+	}
+
+	public function test_normalizes_non_empty_std_class_values_recursively(): void {
+		$settings           = new \stdClass();
+		$settings->required = true;
+
+		$prop = new class( $settings ) implements \JsonSerializable {
+			public function __construct( private \stdClass $settings ) {}
+			public function jsonSerialize(): array {
+				return [ 'kind' => 'plain', 'settings' => $this->settings ];
+			}
+		};
+
+		$result = AtomicPropDescriptorNormalizer::normalize( $prop );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [ 'required' => true ], $result['runtime_descriptor']['settings'] );
+	}
+
+	public function test_still_rejects_non_std_class_objects_in_the_descriptor(): void {
+		$prop = new class() implements \JsonSerializable {
+			public function jsonSerialize(): array {
+				return [ 'kind' => 'plain', 'settings' => new \ArrayIterator( [] ) ];
+			}
+		};
+
+		$result = AtomicPropDescriptorNormalizer::normalize( $prop );
+
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'descriptor_unavailable', $result['issue']['code'] );
+	}
+
 	public function test_official_runtime_stays_inventory_only_until_adapter_matches(): void {
 		$normalized = AtomicPropDescriptorNormalizer::normalize( new SerializableProp() );
 		$evidence   = self::official_evidence( $normalized );

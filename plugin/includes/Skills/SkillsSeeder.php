@@ -26,7 +26,7 @@ final class SkillsSeeder {
 	];
 
 	public static function seed(): void {
-		self::$skills_dir = rtrim( dirname( __DIR__, 3 ), '/\\' ) . '/skills';
+		self::$skills_dir = self::resolve_skills_dir( self::candidate_skills_dirs() );
 
 		foreach ( self::RETIRED_PACKAGED_SLUGS as $slug ) {
 			Skills::retire_packaged_slug( $slug );
@@ -50,6 +50,33 @@ final class SkillsSeeder {
 
 		self::seed_playbooks();
 		self::seed_meta_skill();
+	}
+
+	/**
+	 * Candidate skill-pack locations, most specific first.
+	 *
+	 * Release ZIP installs bundle the pack at <plugin dir>/skills. Git
+	 * checkouts keep it at <repo root>/skills, one level higher.
+	 *
+	 * @return list<string>
+	 */
+	public static function candidate_skills_dirs(): array {
+		return [
+			rtrim( dirname( __DIR__, 2 ), '/\\' ) . '/skills',
+			rtrim( dirname( __DIR__, 3 ), '/\\' ) . '/skills',
+		];
+	}
+
+	/**
+	 * @param list<string> $candidates Ordered candidate directories.
+	 */
+	public static function resolve_skills_dir( array $candidates ): string {
+		foreach ( $candidates as $candidate ) {
+			if ( is_dir( $candidate ) ) {
+				return $candidate;
+			}
+		}
+		return '';
 	}
 
 	/**

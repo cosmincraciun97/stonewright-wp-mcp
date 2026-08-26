@@ -99,6 +99,7 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
+          rsync -a skills/ dist/stonewright/skills/
           cp LICENSE dist/stonewright/LICENSE
           STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
             node scripts/check-public-hygiene.mjs \
@@ -135,6 +136,14 @@ jobs:
           fi
           if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/assets/visual/workspace-browser\.js$' >/dev/null; then
             echo "Plugin archive is missing the Stonewright Visual bundle" >&2
+            exit 1
+          fi
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/skills/agent-operating-rules/SKILL\.md$' >/dev/null; then
+            echo 'plugin zip is missing the bundled skill pack' >&2
+            exit 1
+          fi
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/skills/playbooks/' >/dev/null; then
+            echo 'plugin zip is missing the bundled playbooks' >&2
             exit 1
           fi
           (cd dist && sha256sum "stonewright-${version}.zip" stonewright-companion-*.tgz stonewright-visual-*.tgz > SHA256SUMS.txt)
