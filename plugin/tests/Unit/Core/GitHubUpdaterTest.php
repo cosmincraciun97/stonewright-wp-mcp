@@ -260,6 +260,37 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
+	public function test_plugins_api_falls_back_when_forced_refetch_is_still_older_than_installed(): void {
+		$installed        = '1.0.0-beta.13.1';
+		$stale            = $this->parsed_beta_release();
+		$stale['version'] = '1.0.0-beta.12';
+		$stale['package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-1.0.0-beta.12.zip';
+		$stale['companion_package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
+		$stale['checksums'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/SHA256SUMS.txt';
+		$stale['url']       = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.12';
+		$this->set_installed_version( $installed );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[
+				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
+				'channel'        => 'beta',
+				'release'        => $stale,
+			],
+			GitHubUpdater::CACHE_TTL
+		);
+
+		$still_old = $this->release_with_version( $this->releases_fixture()[6], '1.0.0-beta.12' );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $still_old ] ),
+		];
+
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+
+		self::assertFalse( $info );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+	}
+
 	public function test_purge_release_cache_after_self_update_clears_both_channels(): void {
 		$sentinel = [ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => [ 'version' => 'stale' ] ];
 		set_transient( GitHubUpdater::cache_key( 'beta' ), $sentinel, GitHubUpdater::CACHE_TTL );

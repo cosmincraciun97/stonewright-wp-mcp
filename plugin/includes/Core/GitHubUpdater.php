@@ -431,7 +431,9 @@ final class GitHubUpdater {
 			// the operator is looking at the modal after an update.
 			$remote = self::fetch_latest_release( true );
 		}
-		if ( null === $remote ) {
+		if ( null === $remote || version_compare( (string) $remote['version'], self::installed_version(), '<' ) ) {
+			// Still older after a forced lookup (release deleted, reclassified,
+			// or feed gap): fall back instead of rendering stale metadata.
 			return $result;
 		}
 

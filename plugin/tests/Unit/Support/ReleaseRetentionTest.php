@@ -44,4 +44,20 @@ final class ReleaseRetentionTest extends TestCase {
 			self::assertStringContainsString( '../docs/releases/1.0.0-beta.' . $release_number . '.md', $plugin_raw );
 		}
 	}
+
+	public function test_claude_md_is_a_symlink_to_agents_md(): void {
+		$root   = dirname( __DIR__, 4 );
+		$claude = $root . '/CLAUDE.md';
+		$agents = $root . '/AGENTS.md';
+
+		self::assertTrue( is_link( $claude ), 'CLAUDE.md must stay a symlink so Hard rules are not duplicated.' );
+		self::assertSame( 'AGENTS.md', readlink( $claude ) );
+		self::assertFileEquals( $agents, $claude );
+
+		$body = (string) file_get_contents( $claude );
+		self::assertStringContainsString( 'Updater contract is part of every user-consumed release', $body );
+		self::assertStringContainsString( 'GitHub release notes are untrusted Markdown', $body );
+		self::assertStringContainsString( 'View details must never render a release older', $body );
+		self::assertStringContainsString( 'plugin release ZIP must bundle the built-in skill pack', $body );
+	}
 }
