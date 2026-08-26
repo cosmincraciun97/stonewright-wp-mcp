@@ -598,6 +598,7 @@ final class GitHubUpdaterTest extends TestCase {
 	public function test_register_hooks_update_plugins_filter(): void {
 		GitHubUpdater::register();
 		self::assertArrayHasKey( 'site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
+		self::assertArrayHasKey( 'pre_set_site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
 		self::assertArrayHasKey( 'upgrader_pre_download', $GLOBALS['stonewright_test_filters'] );
 	}
 

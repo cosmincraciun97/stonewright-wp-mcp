@@ -26,6 +26,7 @@ final class GitHubUpdater {
 
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
+		add_filter( 'pre_set_site_transient_update_plugins', [ self::class, 'inject_update' ] );
 		add_filter( 'plugins_api', [ self::class, 'plugins_api' ], 10, 3 );
 		add_filter( 'upgrader_pre_download', [ self::class, 'verify_package_download' ], 10, 4 );
 	}
@@ -151,11 +152,12 @@ final class GitHubUpdater {
 			$transient->no_update = [];
 		}
 
-		$remote = self::fetch_latest_release();
-		$plugin = self::plugin_basename();
+		$remote  = self::fetch_latest_release( self::wordpress_requested_fresh_release_lookup() );
+		$plugin  = self::plugin_basename();
 		$current = self::installed_version();
 
 		if ( null === $remote || '' === ( $remote['checksums'] ?? '' ) || ! version_compare( $current, $remote['version'], '<' ) ) {
+			unset( $transient->response[ $plugin ] );
 			$transient->no_update[ $plugin ] = (object) [
 				'slug'        => self::SLUG,
 				'plugin'      => $plugin,
@@ -166,6 +168,7 @@ final class GitHubUpdater {
 			return $transient;
 		}
 
+		unset( $transient->no_update[ $plugin ] );
 		$transient->response[ $plugin ] = (object) [
 			'slug'        => self::SLUG,
 			'plugin'      => $plugin,
@@ -413,6 +416,27 @@ final class GitHubUpdater {
 				),
 			],
 		];
+	}
+
+	/**
+	 * WordPress Dashboard → Updates → Check again and the twice-daily
+	 * wp_update_plugins cron must not reuse a cached "you are current" release.
+	 * Ordinary Plugins-screen reads keep CACHE_TTL to avoid GitHub rate limits.
+	 */
+	private static function wordpress_requested_fresh_release_lookup(): bool {
+		if ( function_exists( 'doing_action' ) && doing_action( 'wp_update_plugins' ) ) {
+			return true;
+		}
+		if ( function_exists( 'did_action' ) && did_action( 'wp_update_plugins' ) > 0 ) {
+			return true;
+		}
+		// WordPress core exposes force-check as an unauthenticated GET flag on update-core.php; capability is checked below.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- matches core update-core.php force-check.
+		$force_check = isset( $_GET['force-check'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['force-check'] ) ) : '';
+		if ( '' === $force_check || '0' === $force_check ) {
+			return false;
+		}
+		return ! function_exists( 'current_user_can' ) || current_user_can( 'update_plugins' );
 	}
 
 	/**
