@@ -13,6 +13,8 @@
 - Refetch GitHub Releases during WordPress plugin update checks so a newer
   supported beta appears on Dashboard → Updates instead of a stale cached
   "you are current" payload.
+- Force at most one uncached GitHub lookup per request during an update cycle
+  so a later transient write cannot rate-limit or wipe a successful discovery.
 
 ## [1.0.0-beta.13] - 2026-08-25
 

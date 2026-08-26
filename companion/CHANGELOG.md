@@ -12,6 +12,8 @@
 
 - Align companion package version with the plugin updater-discovery patch so
   WordPress and companion stay on the same SemVer after release.
+- Force at most one uncached GitHub lookup per request during an update cycle
+  so a later transient write cannot rate-limit or wipe a successful discovery.
 
 ## [1.0.0-beta.13] - 2026-08-25
 
