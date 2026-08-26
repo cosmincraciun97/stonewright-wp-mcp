@@ -1595,10 +1595,20 @@ if ( ! function_exists( 'clean_post_cache' ) ) {
 
 if ( ! function_exists( 'did_action' ) ) {
 	function did_action( string $hook_name ): int {
+		$override = $GLOBALS['stonewright_test_did_actions'][ $hook_name ] ?? null;
+		if ( is_int( $override ) || is_numeric( $override ) ) {
+			return (int) $override;
+		}
 		if ( 'elementor/loaded' === $hook_name ) {
 			return 1;
 		}
 		return 0;
+	}
+}
+
+if ( ! function_exists( 'doing_action' ) ) {
+	function doing_action( string $hook_name ): bool {
+		return did_action( $hook_name ) > 0 && ! empty( $GLOBALS['stonewright_test_doing_action'][ $hook_name ] );
 	}
 }
 
