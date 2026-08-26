@@ -218,7 +218,7 @@ final class UpdateElement extends AbilityKernel {
 						'next_step'   => [
 							'tool'               => 'stonewright/elementor-v3-update-element',
 							'expected_tree_hash' => $before_hash,
-							'then'               => 'stonewright/elementor-post-write-verify',
+							'then'               => 'stonewright/elementor-css-regenerate',
 						],
 					];
 				}
@@ -236,8 +236,9 @@ final class UpdateElement extends AbilityKernel {
 					'after_hash'  => $after_hash,
 					'post_write'  => ElementorData::last_write_receipt(),
 					'next_step'   => [
-						'tool'        => 'stonewright/elementor-post-write-verify',
+						'tool'        => 'stonewright/elementor-css-regenerate',
 						'post_id'     => $post_id,
+						'then'        => 'stonewright/elementor-post-write-verify',
 						'element_ids' => [ (string) $args['element_id'] ],
 						'required_before_browser_acceptance' => true,
 					],

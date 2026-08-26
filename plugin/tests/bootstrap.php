@@ -61,6 +61,9 @@ if ( ! function_exists( 'dbDelta' ) ) {
 	 * @return array<string, string>
 	 */
 	function dbDelta( $queries = '', $execute = true ): array {
+		$serialized = is_array( $queries ) ? implode( "\n", $queries ) : (string) $queries;
+		$GLOBALS['stonewright_test_dbdelta_queries'] ??= [];
+		$GLOBALS['stonewright_test_dbdelta_queries'][] = $serialized;
 		return [];
 	}
 }
@@ -453,16 +456,44 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 // ---------------------------------------------------------------------------
 $GLOBALS['stonewright_test_wpdb_inserts'] ??= [];
 
-if ( ! isset( $GLOBALS['wpdb'] ) ) {
-	$GLOBALS['wpdb'] = new class() {
-		public string $prefix = 'wptests_';
-		public string $options = 'wptests_options';
-		public string $posts = 'wptests_posts';
-		public string $postmeta = 'wptests_postmeta';
-		public string $users = 'wptests_users';
-		public string $usermeta = 'wptests_usermeta';
-		public int $insert_id = 1;
+if ( ! class_exists( 'wpdb' ) ) {
+	/**
+	 * Test-harness wpdb. Declared properties match the live class enough for
+	 * ProtectedWpdbProxy to extend it and synchronize query/connection state.
+	 */
+	#[\AllowDynamicProperties]
+	class wpdb {
+		public $show_errors = false;
+		public $suppress_errors = false;
+		public $last_error = '';
+		public $num_queries = 0;
+		public $num_rows = 0;
+		public $rows_affected = 0;
+		public $insert_id = 0;
+		public $last_query;
+		public $last_result;
+		public $prefix = '';
+		public $ready = false;
+		public $func_call;
+		public $queries;
+		public $posts;
+		public $postmeta;
+		public $options;
+		public $users;
+		public $usermeta;
+		public $dbh;
+		protected $result;
 
+		public function suppress_errors( $suppress = true ) {
+			$previous             = $this->suppress_errors;
+			$this->suppress_errors = (bool) $suppress;
+			return $previous;
+		}
+	}
+}
+
+if ( ! isset( $GLOBALS['wpdb'] ) ) {
+	$GLOBALS['wpdb'] = new #[\AllowDynamicProperties] class() extends wpdb {
 		/** @var array<int, array<string, mixed>> */
 		public array $memory_rows = [];
 
@@ -472,16 +503,32 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		/** @var array<int, array<string, mixed>> */
 		public array $direction_version_rows = [];
 
+		/** @var array<string, array<string, mixed>> */
+		public array $incident_rows = [];
+
+		public function __construct() {
+			$this->prefix   = 'wptests_';
+			$this->options  = 'wptests_options';
+			$this->posts    = 'wptests_posts';
+			$this->postmeta = 'wptests_postmeta';
+			$this->users    = 'wptests_users';
+			$this->usermeta = 'wptests_usermeta';
+			$this->insert_id = 1;
+			$this->oauth_clients = [];
+		}
+
 		/**
 		 * @param array<string, mixed> $data
 		 * @param array<int, string>   $format
 		 */
-		public function insert( string $table, array $data, array $format = [] ): int {
+		public function insert( string $table, array $data, array $format = [] ): int|false {
 			$this->insert_id++;
-			$GLOBALS['stonewright_test_wpdb_inserts'][] = [
-				'table' => $table,
-				'data'  => $data,
-			];
+			if ( ! str_contains( $table, 'stonewright_incidents' ) ) {
+				$GLOBALS['stonewright_test_wpdb_inserts'][] = [
+					'table' => $table,
+					'data'  => $data,
+				];
+			}
 			if ( str_contains( $table, 'stonewright_design_direction_versions' ) ) {
 				$this->direction_version_rows[ $this->insert_id ] = array_merge(
 					[ 'id' => $this->insert_id ],
@@ -492,6 +539,14 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 					[ 'id' => $this->insert_id ],
 					$data
 				);
+			}
+			if ( str_contains( $table, 'stonewright_incidents' ) ) {
+				$incident_id = (string) ( $data['incident_id'] ?? '' );
+				if ( '' === $incident_id || isset( $this->incident_rows[ $incident_id ] ) ) {
+					return false;
+				}
+				$data['id'] = $this->insert_id;
+				$this->incident_rows[ $incident_id ] = $data;
 			}
 			if ( str_contains( $table, 'stonewright_memory' ) ) {
 				$this->memory_rows[ $this->insert_id ] = array_merge(
@@ -543,6 +598,15 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				return $rows;
 			}
 
+			if ( str_contains( $query, 'stonewright_incidents' ) ) {
+				$rows = array_values( $this->incident_rows );
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => strcmp( (string) ( $b['last_seen'] ?? '' ), (string) ( $a['last_seen'] ?? '' ) )
+				);
+				return $rows;
+			}
+
 			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
 				$status = self::matched_string( $query, "/status\s*=\s*'([^']*)'/" );
 				$rows   = array_values(
@@ -569,6 +633,14 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				}
 				$row = end( $this->memory_rows );
 				return is_array( $row ) ? $row : null;
+			}
+
+			if ( str_contains( $query, 'stonewright_incidents' ) ) {
+				$incident_id = self::matched_string( $query, "/incident_id\\s*=\\s*'([^']+)'/" );
+				if ( null === $incident_id ) {
+					return null;
+				}
+				return $this->incident_rows[ $incident_id ] ?? null;
 			}
 
 			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
@@ -652,6 +724,19 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				if ( array_key_exists( 'option_value', $data ) ) {
 					$GLOBALS['stonewright_test_options'][ $option ] = maybe_unserialize( $data['option_value'] );
 				}
+				return 1;
+			}
+			if ( str_contains( $table, 'stonewright_incidents' ) ) {
+				$incident_id = (string) ( $where['incident_id'] ?? '' );
+				if ( ! isset( $this->incident_rows[ $incident_id ] ) ) {
+					return 0;
+				}
+				foreach ( $where as $key => $expected ) {
+					if ( (string) ( $this->incident_rows[ $incident_id ][ $key ] ?? '' ) !== (string) $expected ) {
+						return 0;
+					}
+				}
+				$this->incident_rows[ $incident_id ] = array_merge( $this->incident_rows[ $incident_id ], $data );
 				return 1;
 			}
 			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {
@@ -1316,6 +1401,8 @@ $GLOBALS['stonewright_test_next_post_id']          ??= 1001;
 $GLOBALS['stonewright_test_inserted_posts']        ??= [];
 $GLOBALS['stonewright_test_wp_insert_post_return'] ??= null;
 $GLOBALS['stonewright_test_wp_update_post_return'] ??= null;
+$GLOBALS['stonewright_test_wp_insert_post_calls']  ??= [];
+$GLOBALS['stonewright_test_wp_update_post_calls']  ??= [];
 
 if ( ! function_exists( 'wp_insert_post' ) ) {
 	/**
@@ -1323,6 +1410,7 @@ if ( ! function_exists( 'wp_insert_post' ) ) {
 	 * @return int|\WP_Error
 	 */
 	function wp_insert_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		$GLOBALS['stonewright_test_wp_insert_post_calls'][] = $postarr;
 		if ( null !== $GLOBALS['stonewright_test_wp_insert_post_return'] ) {
 			$ret = $GLOBALS['stonewright_test_wp_insert_post_return'];
 			$GLOBALS['stonewright_test_wp_insert_post_return'] = null;
@@ -1355,6 +1443,7 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 	 * @return int|\WP_Error
 	 */
 	function wp_update_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		$GLOBALS['stonewright_test_wp_update_post_calls'][] = $postarr;
 		if ( null !== $GLOBALS['stonewright_test_wp_update_post_return'] ) {
 			$ret = $GLOBALS['stonewright_test_wp_update_post_return'];
 			$GLOBALS['stonewright_test_wp_update_post_return'] = null;
@@ -2208,6 +2297,22 @@ if ( ! function_exists( 'gethostbyname' ) ) {
 	// using $GLOBALS['stonewright_test_gethostbyname'] override via test-helper closures.
 }
 
+if ( ! function_exists( 'wp_safe_remote_request' ) ) {
+	function wp_safe_remote_request( string $url, array $args = [] ): array|\WP_Error {
+		$asset_overrides = $GLOBALS['stonewright_test_asset_responses'] ?? [];
+		if ( array_key_exists( $url, $asset_overrides ) ) {
+			$response = $asset_overrides[ $url ];
+			return is_callable( $response ) ? $response( $url, $args ) : $response;
+		}
+
+		return [
+			'response' => [ 'code' => 200 ],
+			'headers'  => [],
+			'body'     => '',
+		];
+	}
+}
+
 // Allow tests to override wp_safe_remote_get (distinct from wp_safe_remote_post).
 if ( ! function_exists( 'wp_safe_remote_get' ) ) {
 	function wp_safe_remote_get( string $url, array $args = [] ): array|\WP_Error {
@@ -2535,6 +2640,17 @@ if ( ! function_exists( 'wp_next_scheduled' ) ) {
 	function wp_next_scheduled( string $hook, array $args = [] ): int|false {
 		unset( $args );
 		return $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_single_event' ) ) {
+	/**
+	 * @param array<int, mixed> $args
+	 */
+	function wp_schedule_single_event( int $timestamp, string $hook, array $args = [], bool $wp_error = false ): bool|\WP_Error {
+		unset( $args, $wp_error );
+		$GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] = $timestamp;
+		return true;
 	}
 }
 

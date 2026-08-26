@@ -183,7 +183,7 @@ const WRITE_PATTERNS = [
 	'ExpertiseEvaluator::evaluate(', 'ExpertisePromotion::promote(',
 	'ExpertisePromotion::set_terminal_status(',
 	'ElementorWriter::write',
-	'PostCacheInvalidator::invalidate', 'CssRegenerator::regenerate_post',
+	'PostCacheInvalidator::invalidate', 'CssRegenerator::regenerate',
 	// Design Direction service write delegates.
 	'service->save(', 'service->activate(', 'service->restore(',
 	// Design quality report ledger write delegate.

@@ -38,6 +38,8 @@ final class PhpExecuteCustomCssGuardTest extends TestCase {
 	}
 
 	public function test_wp_update_custom_css_post_is_blocked_and_points_at_theme_custom_css(): void {
+		$original = $GLOBALS['wpdb'];
+
 		$result = ( new PhpExecute() )->execute(
 			[
 				'code' => 'wp_update_custom_css_post(".x{color:red}"); return true;',
@@ -50,6 +52,7 @@ final class PhpExecuteCustomCssGuardTest extends TestCase {
 		self::assertSame( 'stonewright/theme-custom-css', $result->get_error_data()['gated_tool'] );
 		self::assertSame( 'stonewright-theme-custom-css', $result->get_error_data()['gated_mcp_tool'] );
 		self::assertSame( '', $GLOBALS['stonewright_test_custom_css'] );
+		self::assertSame( $original, $GLOBALS['wpdb'] );
 	}
 
 	public function test_direct_option_custom_css_write_is_blocked(): void {

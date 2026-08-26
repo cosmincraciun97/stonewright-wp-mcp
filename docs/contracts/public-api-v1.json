@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-24T15:55:23+00:00",
+    "generated_at": "2026-08-25T17:01:51+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2538,7 +2538,7 @@
             "mcp_name": "stonewright-elementor-build-tree",
             "kind": "Write",
             "input_schema_hash": "8dd7acda3219d467f2b8c29e0b3708a8aaa777fc1451024e3d405d8bea32388c",
-            "output_schema_hash": "b24286b27e046cdfc7ac2766e29e8c4c1d01ec49fcc30fbc8407f2dc79938fd5",
+            "output_schema_hash": "585842dbfaeee760dc38f36b909f56e501d7f4fa30144e7bb86282f718905e54",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -2556,6 +2556,20 @@
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
                 "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-css-regenerate",
+            "mcp_name": "stonewright-elementor-css-regenerate",
+            "kind": "Write",
+            "input_schema_hash": "eb7718421af5102b2b5ed009e4f750b8bfee85935aefcde10d188f481f774e09",
+            "output_schema_hash": "e664831d5c76988fe4701c85109c776a3a782969ceba9dc0aa1d3b8c91b9400d",
+            "permission_class": "Permissions::edit_post( (int)",
+            "gates": {
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -2662,13 +2676,13 @@
         {
             "ability_name": "stonewright/elementor-post-write-verify",
             "mcp_name": "stonewright-elementor-post-write-verify",
-            "kind": "Write",
-            "input_schema_hash": "65ddcceb40a0aa9abcc366a3f7c74e20f1f556f93f23006e6015955e20060f2b",
-            "output_schema_hash": "fb652a52a7d0a3f616d1b08d035c2c56ea961ca371ff1ff3cbc15e754f09571f",
+            "kind": "Read",
+            "input_schema_hash": "8a52e6cfde1a3690e94ac1204dbe62eeccc7bf724554105bdff21d14d93de07e",
+            "output_schema_hash": "9cb30a4d74b4267fd5f215334139944a8dce3510185d3a6bf4b8336c036fd0db",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
-                "token": true,
+                "token": false,
                 "validator": false,
                 "audit": true
             }
@@ -2790,7 +2804,7 @@
             "mcp_name": "stonewright-elementor-v3-capabilities-summary",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "e2402ce755617eb3fd2870efd3066c3be42bd2e56dafb601a5cc462b31af58f0",
+            "output_schema_hash": "eb152245ff14d087ff687c9d128eeb1fdfb020ee4d2c1df15709619e01c5b382",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
@@ -4722,7 +4736,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "d2b753992bbe3ff2f656adfd032c457f8bf9d316c87d569468e380b835a64610",
+            "output_schema_hash": "f2411c4808ff87b93a174a04a6569c90759c36bf37ed04be9952634177776400",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -5366,7 +5380,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "d2b753992bbe3ff2f656adfd032c457f8bf9d316c87d569468e380b835a64610",
+            "output_schema_hash": "f2411c4808ff87b93a174a04a6569c90759c36bf37ed04be9952634177776400",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

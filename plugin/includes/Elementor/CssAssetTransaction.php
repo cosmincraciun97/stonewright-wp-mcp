@@ -17,10 +17,9 @@ final class CssAssetTransaction {
 	 * @param callable():(array<string,mixed>|\WP_Error) $operation
 	 * @return array{ok:true,operation_result:array<string,mixed>,css_evidence:array<string,mixed>}|\WP_Error
 	 */
-	public static function run( int $post_id, callable $operation ): array|\WP_Error {
-		if ( $post_id <= 0 ) {
-			return self::error( 'stonewright_elementor_css_invalid_post', 'A valid Elementor post id is required.', [ 'status' => 400 ] );
-		}
+	public static function run( CssTarget $target, callable $operation ): array|\WP_Error {
+		$post_id  = $target->post_id();
+		$filename = $target->filename();
 
 		$location = self::css_location();
 		if ( $location instanceof \WP_Error ) {
@@ -28,7 +27,7 @@ final class CssAssetTransaction {
 		}
 		$lease = CssDirectoryLease::acquire(
 			$location['canonical_scope'],
-			'css-' . substr( hash( 'sha256', wp_generate_uuid4() . '|' . $post_id ), 0, 32 ),
+			'css-' . substr( hash( 'sha256', wp_generate_uuid4() . '|' . $post_id . '|' . $filename ), 0, 32 ),
 			self::LEASE_TTL
 		);
 		if ( $lease instanceof \WP_Error ) {
@@ -47,7 +46,7 @@ final class CssAssetTransaction {
 			if ( $before instanceof \WP_Error ) {
 				return $before;
 			}
-			$probes_before = self::probe_protected_assets( $post_id, $before, $location, $lease );
+			$probes_before = self::probe_protected_assets( $filename, $before, $location, $lease );
 			if ( $probes_before instanceof \WP_Error ) {
 				return $probes_before;
 			}
@@ -119,9 +118,9 @@ final class CssAssetTransaction {
 				);
 			}
 
-			$target     = 'post-' . $post_id . '.css';
-			$collateral = self::collateral_changes( $before, $after, $target );
-			if ( [] !== $collateral || ! isset( $after['files'][ $target ] ) ) {
+			$target_name = $filename;
+			$collateral  = self::collateral_changes( $before, $after, $target_name );
+			if ( [] !== $collateral || ! isset( $after['files'][ $target_name ] ) ) {
 				return self::rollback_error(
 					$location,
 					$post_id,
@@ -132,7 +131,7 @@ final class CssAssetTransaction {
 					$lease,
 					[
 						'collateral_count' => count( $collateral ),
-						'target_present'   => isset( $after['files'][ $target ] ),
+						'target_present'   => isset( $after['files'][ $target_name ] ),
 					]
 				);
 			}
@@ -142,7 +141,7 @@ final class CssAssetTransaction {
 				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during the protected asset check.', $lease );
 			}
 			$lease = $lease_check;
-			$probes_after = self::probe_protected_assets( $post_id, $after, $location, $lease );
+			$probes_after = self::probe_protected_assets( $filename, $after, $location, $lease );
 			if ( $probes_after instanceof \WP_Error ) {
 				return self::rollback_error(
 					$location,
@@ -161,7 +160,7 @@ final class CssAssetTransaction {
 				'ok'               => true,
 				'operation_result' => $operation_result,
 				'css_evidence'     => [
-					'target'                  => $target,
+					'target'                  => $filename,
 					'before_file_count'       => $before['file_count'],
 					'after_file_count'        => $after['file_count'],
 					'before_manifest_sha256'  => self::manifest_hash( $before ),
@@ -185,22 +184,22 @@ final class CssAssetTransaction {
 	}
 
 	/**
-	 * Return the exact path and same-origin URL Elementor must report for one post.
+	 * Return the exact path and same-origin URL Elementor must report for one asset.
 	 * This is an internal typed boundary; callers must not expose the path.
 	 *
 	 * @return array{path:string,url:string}|\WP_Error
 	 */
-	public static function expected_post_css_location( int $post_id ): array|\WP_Error {
-		if ( $post_id <= 0 ) {
-			return self::error( 'stonewright_elementor_css_invalid_post', 'A valid Elementor post id is required.', [ 'status' => 400 ] );
+	public static function expected_asset_location( string $filename ): array|\WP_Error {
+		if ( ! self::safe_filename( $filename ) ) {
+			return self::error( 'stonewright_elementor_css_invalid_post', 'A valid Elementor CSS filename is required.', [ 'status' => 400 ] );
 		}
 		$location = self::css_location();
 		if ( $location instanceof \WP_Error ) {
 			return $location;
 		}
 		return [
-			'path' => $location['dir'] . '/post-' . $post_id . '.css',
-			'url'  => $location['url'] . '/post-' . $post_id . '.css',
+			'path' => $location['dir'] . '/' . $filename,
+			'url'  => $location['url'] . '/' . $filename,
 		];
 	}
 
@@ -342,12 +341,12 @@ final class CssAssetTransaction {
 	}
 
 	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string}>|\WP_Error */
-	private static function probe_protected_assets( int $post_id, array $manifest, array $location, array &$lease ): array|\WP_Error {
+	private static function probe_protected_assets( string $filename, array $manifest, array $location, array &$lease ): array|\WP_Error {
 		$valid = self::revalidate_location( $location );
 		if ( $valid instanceof \WP_Error ) {
 			return $valid;
 		}
-		$protected = [ 'post-' . $post_id . '.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css' ];
+		$protected = [ $filename, 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css' ];
 		$probes = [];
 		foreach ( $protected as $asset ) {
 			if ( ! isset( $manifest['files'][ $asset ] ) ) {
@@ -362,26 +361,66 @@ final class CssAssetTransaction {
 			if ( ! self::same_origin( home_url( '/' ), $url ) ) {
 				return self::error( 'stonewright_elementor_css_probe_unsafe_origin', 'A protected Elementor CSS URL is not same-origin.' );
 			}
-			$response = wp_safe_remote_get(
-				$url,
-				[
-					'timeout'             => 10,
-					'redirection'         => 0,
-					'limit_response_size' => 1,
-					'sslverify'           => true,
-				]
-			);
-			if ( $response instanceof \WP_Error ) {
-				return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL could not be fetched.' );
-			}
-			$status   = wp_remote_retrieve_response_code( $response );
-			$redirect = (string) wp_remote_retrieve_header( $response, 'location' );
-			if ( 200 !== $status || '' !== $redirect ) {
-				return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+			$status = self::probe_url( $url );
+			if ( $status instanceof \WP_Error ) {
+				return $status;
 			}
 			$probes[] = [ 'asset' => $asset, 'status' => $status, 'url_sha256' => hash( 'sha256', $url ) ];
 		}
 		return $probes;
+	}
+
+	private static function probe_url( string $url ): int|\WP_Error {
+		$head = wp_safe_remote_request(
+			$url,
+			[
+				'method'              => 'HEAD',
+				'timeout'             => 10,
+				'redirection'         => 0,
+				'limit_response_size' => 1,
+				'sslverify'           => true,
+			]
+		);
+		$head_status = self::probe_status( $head );
+		if ( $head_status instanceof \WP_Error ) {
+			return $head_status;
+		}
+		if ( 200 === $head_status ) {
+			return 200;
+		}
+		if ( 405 !== $head_status ) {
+			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+		}
+
+		$get = wp_safe_remote_get(
+			$url,
+			[
+				'timeout'             => 10,
+				'redirection'         => 0,
+				'limit_response_size' => 1,
+				'sslverify'           => true,
+			]
+		);
+		$get_status = self::probe_status( $get );
+		if ( $get_status instanceof \WP_Error ) {
+			return $get_status;
+		}
+		if ( 200 !== $get_status ) {
+			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+		}
+		return 200;
+	}
+
+	private static function probe_status( array|\WP_Error $response ): int|\WP_Error {
+		if ( $response instanceof \WP_Error ) {
+			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL could not be fetched.' );
+		}
+		$status   = (int) wp_remote_retrieve_response_code( $response );
+		$redirect = (string) wp_remote_retrieve_header( $response, 'location' );
+		if ( '' !== $redirect ) {
+			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+		}
+		return $status;
 	}
 
 	private static function same_origin( string $left, string $right ): bool {

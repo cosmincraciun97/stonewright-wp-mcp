@@ -159,6 +159,32 @@ explicit specialist choice. `stonewright/php-execute` is on `full` only.
 The operator's saved site surface remains the source of truth; a client
 profile may narrow it but never silently broaden it.
 
+### Connection status and recovery
+
+Companion setup, doctor, task-start, status, and client-surface-check emit
+connection status **schema version 3**. `connected` is a derived compatibility
+field, not the source of truth. Authentication state is `authenticated`,
+`refreshing`, `transient_failure`, `reauth_required`, or `unknown`.
+
+When a session is degraded, `stonewright-task-start` reconnects once, preserves
+the last good remote catalog, and either continues with the remote task-start
+call or returns a truthful local gateway result. Plugin-only mode never
+silently enables Direct writes on a transport failure.
+
+Automatic retry is restricted to handshake and explicitly allowlisted read-only
+bootstrap operations. Tool mutations are never retried.
+
+Terminal OAuth results use `error_code: reauthentication_required` (never
+`plugin_unavailable` and never a generic transport error). Companion-backed
+clients must relay the returned `user_action` before more WordPress work.
+Native HTTP hosts receive a standards-compliant `401` Bearer challenge;
+Stonewright does not claim it can force every host to show model-visible prose.
+
+OAuth access tokens remain one hour. Continuity for at least seven days is an
+acceptance SLO from durable refresh, not a seven-day bearer token. Each grant
+family has a fixed fourteen-day maximum lifetime; rotation does not extend it.
+Refresh rotation and grant-family replay revocation remain enabled.
+
 ### Authentication and custom-code boundaries
 
 Remote HTTP OAuth keeps grants, access tokens, refresh tokens, rotation, and
@@ -174,6 +200,23 @@ exact approval URL, then stops. Apply and rollback require the matching human
 grant plus their normal permission, concurrency, backup, readback, audit, and
 production confirmation gates. Direct mode cannot write arbitrary custom code:
 without the plugin there is no authenticated wp-admin one-time-grant boundary.
+
+Generic content create, update, duplicate, bulk create, and bulk upsert reject
+provider-owned executable-code post types before sanitization with
+`stonewright_custom_code_provider_required` and
+`next_ability: stonewright-custom-code-provider-ops`. They never skip KSES to
+preserve PHP. WPCode active PHP uses the provider's public `save()` path, lints
+candidate and assembled runtime when that contract is available, rebuilds the
+provider cache, and rolls back on verification failure. Inactive drafts must
+not appear in the execution cache.
+
+Setup uses one client tablist shared by OAuth and Application Password.
+Changing authentication updates instructions inside the same selected-client
+panel; unsupported combinations stay visible but disabled. **Grok Build / CLI**
+(`grok-build`, with `grok-cli` / `grok` aliases) is one catalog entry. OAuth
+uses native HTTP to `~/.grok/config.toml`; Application Password uses the local
+companion over stdio so the secret is not stored in TOML. Until a dated runtime
+smoke report exists, the entry is `compatible`, not certified.
 
 ### Persistent state lifecycle
 
@@ -225,8 +268,11 @@ Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
 **full-profile** tool, not part of bootstrap or essential. WP-CLI execution is
 tokenized and runs through `execFile`; WP-CLI PHP and shell entry points are
 blocked. Runtime `$wpdb` writes to core tables, concatenated protected meta
-keys, and Elementor document meta are intercepted; see
-[php-execute runtime guards](security.md#php-execute-runtime-guards).
+keys, and Elementor document meta are intercepted. The install-time guard is a
+real `wpdb` subclass (`ProtectedWpdbProxy extends wpdb`): it copies the live
+connection and table prefix, intercepts `query()` as the write choke point, and
+restores the original global in `finally`. Compatibility does not weaken the
+guard. See [php-execute runtime guards](security.md#php-execute-runtime-guards).
 
 ### Audit error codes
 
@@ -369,13 +415,17 @@ single meta write, hash readback, and post-scoped cache invalidation; a mismatch
 attempts snapshot restoration and can never be reported as success. An
 identical plan is a verified no-op without a snapshot or write.
 
-`stonewright/elementor-post-write-verify` is the explicit frontend-closure
-ability. It preserves normal CSS metadata, inventories direct Elementor CSS
-assets, probes existing protected URLs, updates only the target through
-`Elementor\Core\Files\CSS\Post::create()->update()`, and restores the bounded
-asset snapshot if collateral changes or probes fail. It then renders through
-`get_builder_content_for_display( $post_id, false )` so the render cannot start
-a second CSS pass, returning only bounded assertions and hashes. Browser
+`stonewright/elementor-css-regenerate` is the only ability that mutates
+generated Elementor CSS. It snapshots the post, acquires the post lock and CSS
+directory lease, inventories direct Elementor CSS assets, probes existing
+protected URLs, updates only the resolved post or loop target through
+`update_file()`, and restores the bounded asset snapshot if collateral changes
+or probes fail.
+
+`stonewright/elementor-post-write-verify` is the explicit frontend-observation
+ability. It calls `get_builder_content_for_display( $post_id, false )` so the
+render cannot start a CSS pass, then returns only bounded assertions and hashes.
+It does not regenerate CSS, invalidate caches, or roll back files. Browser
 measurement remains a separate required gate because a successful renderer
 call cannot prove responsive geometry, visibility, carousel peeks, or asset
 fidelity.
@@ -810,7 +860,8 @@ Profile and surface switching is transport-specific. Agents should treat
   S256; authorization and refresh requests carry the canonical resource;
   access tokens are rejected on audience mismatch. Resource metadata exposes
   only the `mcp` scope. Refresh tokens rotate, and replay revokes the complete
-  refresh family plus its access tokens.
+  refresh family plus its access tokens. Access-token TTL is one hour; the
+  grant family lasts fourteen days; seven-day continuity is the acceptance SLO.
 
 ### stdio companion transport
 

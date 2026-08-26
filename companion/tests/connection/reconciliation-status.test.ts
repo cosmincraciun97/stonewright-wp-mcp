@@ -1,16 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { buildConnectionStatusV2 } from '../../src/connection/status-contract.js';
+import { buildConnectionStatusV3 } from '../../src/connection/status-contract.js';
 import { createConnectionRuntime } from '../../src/connection/runtime.js';
+
+const TOKEN_SHAPED_KEY = /^(access_token|refresh_token|authorization|password|cookie|bearer|app_password|secret|token)$/i;
+
+function collectObjectKeys(value: unknown, keys: string[] = []): string[] {
+	if (!value || typeof value !== 'object') return keys;
+	for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+		keys.push(key);
+		collectObjectKeys(child, keys);
+	}
+	return keys;
+}
+
+const sampleAuthentication = {
+	configured: true,
+	method: 'app-password' as const,
+	state: 'authenticated' as const,
+	reason_code: null,
+	last_success_at: null,
+	refresh_expires_at: null,
+	continuity_target_seconds: 604800 as const,
+	agent_notice_required: false,
+	user_action: null,
+};
+
+const sampleRecovery = {
+	catalog_preserved: true,
+	remote_calls_available: true,
+	last_success_at: null,
+	reconnect_attempted: false,
+	reconnect_coalesced: false,
+};
 
 describe('connection status reconciliation', () => {
 	it('reports saved and effective WordPress state separately from transport mode', () => {
-		const status = buildConnectionStatusV2({
+		const status = buildConnectionStatusV3({
 			configuredMode: 'plugin-only',
 			activeMode: 'plugin',
 			connectionStage: 'plugin-ready',
 			connectionGeneration: 4,
 			transportKind: 'stdio',
-			authConfigured: true,
+			authentication: sampleAuthentication,
+			recovery: sampleRecovery,
 			plugin: { reachable: true, enabled_requested: true, effective_state: 'ready', registry_ready: true },
 			surface: {
 				profile: 'full', local_tool_count: 16, remote_tool_count: 387, registered_tool_count: 403,
@@ -49,12 +81,19 @@ describe('connection status reconciliation', () => {
 			mismatch_reason: null,
 			mismatch_action: null,
 		});
+		expect(status.recovery.catalog_preserved).toBe(true);
+		expect(status.recovery.remote_calls_available).toBe(true);
+		expect(status.authentication.last_success_at).toBeNull();
+		for (const key of collectObjectKeys(status)) {
+			expect(key).not.toMatch(TOKEN_SHAPED_KEY);
+		}
 	});
 
 	it('reports a client-lock mismatch with one concrete remediation', () => {
-		const status = buildConnectionStatusV2({
+		const status = buildConnectionStatusV3({
 			configuredMode: 'auto', activeMode: 'plugin', connectionStage: 'plugin-ready', connectionGeneration: 1,
-			authConfigured: true,
+			authentication: sampleAuthentication,
+			recovery: sampleRecovery,
 			plugin: { reachable: true, enabled_requested: true, effective_state: 'ready', registry_ready: true },
 			surface: {
 				profile: 'essential-static', local_tool_count: 16, remote_tool_count: 387,
@@ -87,7 +126,14 @@ describe('connection status reconciliation', () => {
 			},
 			profile: 'essential-static',
 		});
-		const locked = runtime.buildStatusV2();
+		const locked = runtime.buildStatusV3();
+		expect(locked.schema_version).toBe(3);
+		expect(locked.recovery.catalog_preserved).toBe(true);
+		expect(locked.recovery.remote_calls_available).toBe(false);
+		expect(locked.authentication.last_success_at).toBeNull();
+		for (const key of collectObjectKeys(locked)) {
+			expect(key).not.toMatch(TOKEN_SHAPED_KEY);
+		}
 		expect(locked.reconciliation).toEqual(expect.objectContaining({
 			client_expected_wordpress_mode: 'development',
 			client_expected_wp_surface: 'full',
@@ -104,7 +150,7 @@ describe('connection status reconciliation', () => {
 		runtime.savedWordPressSurface = 'full';
 		runtime.effectiveWordPressMode = 'development';
 		runtime.effectiveWordPressSurface = 'full';
-		const reconciled = runtime.buildStatusV2();
+		const reconciled = runtime.buildStatusV3();
 		expect(reconciled.reconciliation).toEqual(expect.objectContaining({
 			effective_wordpress_mode: 'development',
 			effective_companion_profile: 'full',

@@ -246,6 +246,20 @@ final class PhpExecuteTest extends TestCase {
 		);
 	}
 
+	public function test_guarded_runtime_exposes_real_wpdb_instance(): void {
+		$original = $GLOBALS['wpdb'];
+
+		$result = ( new PhpExecute() )->execute(
+			[
+				'code' => 'global $wpdb; return $wpdb instanceof \\wpdb;',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['result'] );
+		self::assertSame( $original, $GLOBALS['wpdb'] );
+	}
+
 	public function test_runtime_blocks_wpdb_update_on_prefixed_postmeta_table(): void {
 		$blocked = ( new PhpExecute() )->execute(
 			[

@@ -302,6 +302,25 @@
 	margin-top: var(--sw-space-2);
 }
 
+.sw-diag-success {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface);
+}
+
+.sw-diag-success > summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.sw-diag-success .sw-diag-card {
+	margin: 0;
+}
+
 .sw-copy-modal {
 	position: fixed;
 	inset: 0;

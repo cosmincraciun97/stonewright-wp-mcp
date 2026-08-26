@@ -17,26 +17,31 @@ use Stonewright\WpMcp\OAuth\ConnectedApps;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Render OAuth client tabs and instructions.
+ * Render OAuth client instructions inside the shared setup tablist.
  */
 final class OAuthConnectPanel {
 
 	public static function render( string $mcp_url, string $server_name ): void {
-		$configs = OAuthClientConfig::configs( $mcp_url, $server_name );
-		$labels  = OAuthClientConfig::client_labels();
-		$first   = (string) array_key_first( $labels );
+		$clients = ClientCatalog::all();
+		$first   = isset( $clients[0]['slug'] ) ? (string) $clients[0]['slug'] : '';
 
 		echo '<div class="sw-oauth-connect" data-stonewright-oauth-connect>';
-		echo '<div class="sw-oauth-tabs" role="tablist" aria-label="' . esc_attr( __( 'AI clients', 'stonewright' ) ) . '">';
-		foreach ( $labels as $slug => $label ) {
-			echo '<button type="button" role="tab" class="button sw-oauth-tab';
-			echo $slug === $first ? ' is-active' : '';
-			echo '" data-sw-oauth-tab="' . esc_attr( $slug ) . '" aria-selected="';
-			echo $slug === $first ? 'true' : 'false';
-			echo '">' . esc_html( $label ) . '</button>';
+		self::render_name_controls( $server_name );
+		foreach ( $clients as $client ) {
+			$slug = (string) ( $client['slug'] ?? '' );
+			if ( '' === $slug ) {
+				continue;
+			}
+			self::render_client( $slug, $mcp_url, $server_name, $slug === $first );
 		}
+		echo '<p class="sw-oauth-connected-apps"><a href="';
+		echo esc_url( admin_url( 'admin.php?page=' . ConnectedApps::PAGE_SLUG ) ) . '">';
+		echo esc_html__( 'Manage connected apps', 'stonewright' ) . '</a></p>';
 		echo '</div>';
+		self::render_script();
+	}
 
+	public static function render_name_controls( string $server_name ): void {
 		echo '<p><button type="button" class="button-link" data-sw-oauth-name-toggle aria-expanded="false">';
 		echo esc_html__( 'Change server name (optional)', 'stonewright' ) . '</button></p>';
 		echo '<div class="sw-oauth-name" data-sw-oauth-name-field hidden>';
@@ -45,29 +50,19 @@ final class OAuthConnectPanel {
 		echo 'data-sw-oauth-server-name data-original-name="' . esc_attr( $server_name ) . '">';
 		echo '<p class="description">' . esc_html__( 'Use letters, numbers, hyphens, and underscores.', 'stonewright' ) . '</p>';
 		echo '</div>';
+	}
 
-		foreach ( $labels as $slug => $label ) {
-			$config  = $configs[ $slug ] ?? [
-				'kind'    => 'notice',
-				'message' => sprintf(
-					/* translators: %s: client label. */
-					__( '%s cannot reach a site that is available only on this local machine.', 'stonewright' ),
-					$label
-				),
-			];
-			$visible = $slug === $first;
-			echo '<section class="sw-oauth-client-panel' . ( $visible ? ' is-active' : '' ) . '" role="tabpanel" data-sw-oauth-panel="' . esc_attr( $slug ) . '"';
-			echo $visible ? '' : ' hidden';
-			echo '>';
-			self::render_config( $slug, $label, $config, $server_name );
-			echo '</section>';
-		}
+	public static function render_client( string $slug, string $mcp_url, string $server_name, bool $visible = true ): void {
+		$client = ClientCatalog::get( $slug );
+		$label  = is_array( $client ) ? (string) $client['label'] : $slug;
+		$config = ConnectClientConfig::oauth_config_for( $slug, $mcp_url, $server_name );
 
-		echo '<p class="sw-oauth-connected-apps"><a href="';
-		echo esc_url( admin_url( 'admin.php?page=' . ConnectedApps::PAGE_SLUG ) ) . '">';
-		echo esc_html__( 'Manage connected apps', 'stonewright' ) . '</a></p>';
-		echo '</div>';
-		self::render_script();
+		echo '<section class="sw-oauth-client-panel' . ( $visible ? ' is-active' : '' ) . '" data-sw-oauth-panel="' . esc_attr( $slug ) . '"';
+		echo $visible ? '' : ' hidden';
+		echo '>';
+		echo '<h3 class="sw-oauth-client-title">' . esc_html( $label ) . '</h3>';
+		self::render_config( $slug, $label, $config, $server_name );
+		echo '</section>';
 	}
 
 	/**
@@ -171,7 +166,7 @@ final class OAuthConnectPanel {
 		echo esc_html__( 'Copy', 'stonewright' ) . '</button></div>';
 	}
 
-	private static function render_script(): void {
+	public static function render_script(): void {
 		?>
 		<script>
 		(function () {
@@ -204,7 +199,7 @@ final class OAuthConnectPanel {
 			if (input) {
 				input.addEventListener('input', function () {
 					var value = input.value.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64);
-					root.querySelectorAll('[data-sw-oauth-template]').forEach(function (node) {
+					document.querySelectorAll('[data-sw-oauth-template]').forEach(function (node) {
 						var original = node.getAttribute('data-sw-oauth-original-name') || '';
 						var template = node.getAttribute('data-sw-oauth-template') || '';
 						node.textContent = template.split(original).join(value || original);

@@ -65,76 +65,71 @@ export function pluginMcpEndpoint(siteBase: string): string {
  * Route present (200/401/403/405) => plugin mode.
  * Explicit 404 => Direct mode.
  * Network errors => treat as unknown/plugin so existing proxy recovery stays intact.
+ *
+ * Each HEAD/GET attempt uses its own AbortController so a timed-out HEAD cannot
+ * abort a subsequent GET. Route reachability is never proof of authentication
+ * or a successful MCP initialize.
  */
 export async function probePluginEndpoint(
 	endpoint: string,
 	fetchImpl: typeof fetch = fetch,
 	timeoutMs = 5_000,
 ): Promise<{ status: number | null; present: boolean | null }> {
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeoutMs);
-	const isPresentStatus = (status: number) =>
+	const routeReachable = (status: number) =>
 		status === 200 || status === 401 || status === 403 || status === 405;
+	const routeMissing = (status: number) => status === 404;
 
-	try {
-		const head = await fetchImpl(endpoint, {
-			method: 'HEAD',
-			signal: controller.signal,
-			headers: { accept: 'application/json' },
-		});
-		if (isPresentStatus(head.status)) {
-			return { status: head.status, present: true };
-		}
-		if (head.status === 404) {
-			return { status: 404, present: false };
-		}
-		// Some hosts block HEAD; try GET.
-		const get = await fetchImpl(endpoint, {
-			method: 'GET',
-			signal: controller.signal,
-			headers: { accept: 'application/json' },
-		});
-		if (isPresentStatus(get.status)) {
-			return { status: get.status, present: true };
-		}
-		if (get.status === 404) {
-			return { status: 404, present: false };
-		}
-		// Ambiguous non-404 response: prefer plugin path (unchanged recovery).
-		return { status: get.status, present: true };
-	} catch {
+	const attempt = async (method: 'HEAD' | 'GET'): Promise<{ status: number | null; present: boolean | null; failed: boolean }> => {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), timeoutMs);
 		try {
-			const get = await fetchImpl(endpoint, {
-				method: 'GET',
+			const response = await fetchImpl(endpoint, {
+				method,
 				signal: controller.signal,
 				headers: { accept: 'application/json' },
 			});
-			if (isPresentStatus(get.status)) {
-				return { status: get.status, present: true };
+			if (routeReachable(response.status)) {
+				return { status: response.status, present: true, failed: false };
 			}
-			if (get.status === 404) {
-				return { status: 404, present: false };
+			if (routeMissing(response.status)) {
+				return { status: 404, present: false, failed: false };
 			}
-			return { status: get.status, present: true };
+			// Ambiguous non-404 response: prefer plugin path (unchanged recovery).
+			return { status: response.status, present: true, failed: false };
 		} catch {
-			// Unreachable: keep plugin proxy path so existing error/status behavior is preserved.
-			return { status: null, present: null };
+			return { status: null, present: null, failed: true };
+		} finally {
+			clearTimeout(timer);
 		}
-	} finally {
-		clearTimeout(timer);
+	};
+
+	const head = await attempt('HEAD');
+	if (!head.failed) {
+		return { status: head.status, present: head.present };
 	}
+
+	const get = await attempt('GET');
+	if (!get.failed) {
+		return { status: get.status, present: get.present };
+	}
+
+	// Unreachable: keep plugin proxy path so existing error/status behavior is preserved.
+	return { status: null, present: null };
 }
 
 export async function resolveRuntimeMode(args: {
 	env?: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
+	/** When true, probe even in plugin-only mode. Never changes configured mode. */
+	forceProbe?: boolean;
 }): Promise<ProbeResult> {
 	const env = args.env ?? process.env;
 	const requested = resolveRequestedMode(env);
 	const configured = resolveConfiguredMode(env);
 	const siteBase = siteBaseFromEnv(env);
 	const endpoint = siteBase ? pluginMcpEndpoint(siteBase) : null;
+	const forceProbe = args.forceProbe === true;
 
 	// direct-only: never probe/switch to plugin.
 	if (requested === 'direct') {
@@ -149,7 +144,8 @@ export async function resolveRuntimeMode(args: {
 	}
 
 	// plugin-only: prefer plugin path; caller fails closed (no Direct tools) if unavailable.
-	if (requested === 'plugin') {
+	// force_probe:true still executes a real probe without changing configured mode.
+	if (requested === 'plugin' && !forceProbe) {
 		return {
 			mode: 'plugin',
 			requested,
@@ -160,7 +156,7 @@ export async function resolveRuntimeMode(args: {
 		};
 	}
 
-	// auto: prefer healthy plugin; fall back Direct when endpoint is explicitly absent.
+	// auto (or plugin-only + force_probe): prefer healthy plugin; fall back Direct when endpoint is explicitly absent (auto only).
 	if (!endpoint) {
 		return {
 			mode: 'plugin',
@@ -173,6 +169,39 @@ export async function resolveRuntimeMode(args: {
 	}
 
 	const probe = await probePluginEndpoint(endpoint, args.fetchImpl ?? fetch, args.timeoutMs ?? 5_000);
+
+	if (requested === 'plugin') {
+		// Plugin-only never falls back to Direct, even when the route is missing.
+		if (probe.present === true) {
+			return {
+				mode: 'plugin',
+				requested,
+				configured,
+				endpoint,
+				pluginEndpointStatus: probe.status,
+				reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
+			};
+		}
+		if (probe.present === false) {
+			return {
+				mode: 'plugin',
+				requested,
+				configured,
+				endpoint,
+				pluginEndpointStatus: probe.status,
+				reason: 'Plugin MCP endpoint returned 404 under plugin-only force_probe; Direct fallback remains disabled.',
+			};
+		}
+		return {
+			mode: 'plugin',
+			requested,
+			configured,
+			endpoint,
+			pluginEndpointStatus: probe.status,
+			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only force_probe; Direct fallback remains disabled.',
+		};
+	}
+
 	if (probe.present === false) {
 		return {
 			mode: 'direct',

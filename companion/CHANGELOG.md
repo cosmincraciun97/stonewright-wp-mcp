@@ -6,6 +6,35 @@
 
 - Nothing yet.
 
+## [1.0.0-beta.13] - 2026-08-25
+
+### Added
+
+- Add connection status schema version 3 with truthful authentication state,
+  including `reauth_required` and a model-visible `user_action`.
+- Add one shared Setup client tablist for OAuth and Application Password,
+  including a Grok Build / CLI catalog entry.
+
+### Changed
+
+- Reconnect a degraded session once from `stonewright-task-start`, preserve the
+  last good catalog, and never silently enable Direct writes from a plugin
+  transport failure.
+- Restrict automatic retry to handshake and allowlisted read-only bootstrap;
+  mutations are never retried.
+
+### Fixed
+
+- Surface terminal OAuth reauthorization to clients instead of generic
+  transport errors.
+- Preserve OAuth session continuity across refresh rotation and recover
+  degraded plugin sessions without dropping transport failure evidence.
+- Serialize OAuth refresh so concurrent clients cannot race grant rotation.
+
+### Security
+
+- Harden OAuth grant-family rotation and replay revocation.
+
 ## [1.0.0-beta.12] - 2026-08-24
 
 ### Fixed

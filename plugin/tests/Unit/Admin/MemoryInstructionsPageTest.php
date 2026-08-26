@@ -270,7 +270,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 	 */
 	private function make_wpdb_with_rows( array $rows, bool $schema_ok ): object {
 		return new class( $rows, $schema_ok ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var array<int, array<string, mixed>> */
 			private array $rows;
 			private bool $schema_ok;
@@ -322,9 +322,9 @@ final class MemoryInstructionsPageTest extends TestCase {
 	 */
 	private function make_memory_wpdb( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix     = 'wp_';
-			public int $insert_id     = 0;
-			public string $last_error = '';
+			public $prefix     = 'wp_';
+			public $insert_id     = 0;
+			public $last_error = '';
 			/** @var array<int, array<string, mixed>> */
 			public array $rows = [];
 			/** @var array<int, mixed> */

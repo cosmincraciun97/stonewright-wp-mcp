@@ -70,9 +70,9 @@ final class ErrorPatternsTest extends TestCase {
 		ini_set( 'error_log', $log_file );
 
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix     = 'wp_';
-			public string $last_error = 'Unknown column topic';
-			public int $insert_id    = 0;
+			public $prefix     = 'wp_';
+			public $last_error = 'Unknown column topic';
+			public $insert_id    = 0;
 
 			public function get_var( string $query ): mixed {
 				return null;
@@ -131,9 +131,9 @@ final class ErrorPatternsTest extends TestCase {
 		ini_set( 'error_log', $log_file );
 
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix     = 'wp_';
-			public string $last_error = '';
-			public int $insert_id    = 1;
+			public $prefix     = 'wp_';
+			public $last_error = '';
+			public $insert_id    = 1;
 
 			/** @param array<string, mixed> $data */
 			public function insert( string $table, array $data, array $format = [] ): int {
@@ -311,7 +311,7 @@ final class ErrorPatternsTest extends TestCase {
 
 	public function test_memory_entry_lookup_passes_sql_string_and_scalar_binds_to_prepare(): void {
 		$wpdb = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var list<array{query:string,args:list<mixed>}> */
 			public array $prepare_calls = [];
 

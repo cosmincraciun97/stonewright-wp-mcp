@@ -22,7 +22,7 @@ final class AuditEventIncidentTest extends TestCase {
 		// Exercise the option fallback used only by test doubles; the production
 		// path is the dedicated atomic lifecycle table.
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wptests_';
+			public $prefix = 'wptests_';
 		};
 		$GLOBALS['stonewright_test_options'] = [];
 		IncidentStore::reset_for_tests();
@@ -487,7 +487,7 @@ final class AuditEventIncidentTest extends TestCase {
 	/** @param list<array<string,mixed>> $rows */
 	private static function migration_wpdb( array $rows, int $fail_id = 0 ): object {
 		return new class( $rows, $fail_id ) {
-			public string $prefix = 'wptests_';
+			public $prefix = 'wptests_';
 			/** @var list<array<string,mixed>> */
 			public array $rows;
 			public int $updates = 0;

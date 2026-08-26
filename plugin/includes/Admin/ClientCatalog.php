@@ -14,6 +14,9 @@ namespace Stonewright\WpMcp\Admin;
  */
 final class ClientCatalog {
 
+	public const DEFAULT_OAUTH_REAUTH_ACTION = 'Re-authenticate this MCP client, then run stonewright-task-start again.';
+	private const OAUTH_REAUTH_ACTION_MAX    = 240;
+
 	/**
 	 * @var list<array<string, mixed>>|null
 	 */
@@ -52,6 +55,7 @@ final class ClientCatalog {
 	 *   default_profile:string,
 	 *   support_tier:string,
 	 *   certification_tier:string,
+	 *   oauth_reauth_action:string,
 	 *   evidence:array{
 	 *     manual_smoke:string,
 	 *     oauth_http:string,
@@ -119,6 +123,8 @@ final class ClientCatalog {
 			'vs-code'         => 'vscode-copilot',
 			'claude'          => 'claude-desktop',
 			'chatgpt-desktop' => 'codex',
+			'grok-cli'        => 'grok-build',
+			'grok'            => 'grok-build',
 		];
 		return $aliases[ $slug ] ?? $slug;
 	}
@@ -278,6 +284,17 @@ final class ClientCatalog {
 			? sanitize_text_field( (string) $evidence_raw['certification_report'] )
 			: '';
 
+		$reauth = isset( $data['oauth_reauth_action'] )
+			? sanitize_text_field( (string) $data['oauth_reauth_action'] )
+			: '';
+		$reauth = trim( $reauth );
+		if ( strlen( $reauth ) > self::OAUTH_REAUTH_ACTION_MAX ) {
+			$reauth = rtrim( substr( $reauth, 0, self::OAUTH_REAUTH_ACTION_MAX ) );
+		}
+		if ( '' === $reauth ) {
+			$reauth = self::DEFAULT_OAUTH_REAUTH_ACTION;
+		}
+
 		$has_certified_transport = in_array( 'certified', [ $oauth_http, $stdio ], true );
 		if ( 'certified' === $support_tier && ( 'pass' !== $manual_smoke || ! $has_certified_transport || '' === $certification_report ) ) {
 			$support_tier = 'compatible';
@@ -307,6 +324,7 @@ final class ClientCatalog {
 			'default_profile'          => $default_profile,
 			'support_tier'             => $support_tier,
 			'certification_tier'       => $certification_tier,
+			'oauth_reauth_action'      => $reauth,
 			'evidence'                 => [
 				'manual_smoke'         => $manual_smoke,
 				'oauth_http'           => $oauth_http,

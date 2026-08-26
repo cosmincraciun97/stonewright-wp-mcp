@@ -92,7 +92,15 @@ describe('OAuth token manager', () => {
 				'https://example.test/mcp',
 			);
 			expect(token).toBe('example-access');
-			expect(fixture.store.load()).toEqual({ accessToken: 'example-access', refreshToken: 'example-refresh', expiresAt: now + 120_000, tokenType: 'Bearer' });
+			expect(fixture.store.load()).toMatchObject({
+				version: 2,
+				accessToken: 'example-access',
+				refreshToken: 'example-refresh',
+				expiresAt: now + 120_000,
+				clientId: 'client-example',
+				resource: 'https://example.test/mcp',
+				tokenType: 'Bearer',
+			});
 		} finally {
 			rmSync(fixture.directory, { recursive: true, force: true });
 		}
@@ -112,6 +120,8 @@ describe('OAuth token manager', () => {
 			const manager = new OAuthTokenManager(fixture.store, { now: () => 1_700_000_000_000 });
 			const first = manager.getAccessToken(fetchImpl, 'https://example.test/oauth/token', 'client-example');
 			const second = manager.getAccessToken(fetchImpl, 'https://example.test/oauth/token', 'client-example');
+			await Promise.resolve();
+			await Promise.resolve();
 			expect(calls).toBe(1);
 			release(makeResponse({ access_token: 'example-shared-access', refresh_token: 'example-shared-refresh', expires_in: 300 }));
 			expect(await Promise.all([first, second])).toEqual(['example-shared-access', 'example-shared-access']);
@@ -221,14 +231,17 @@ describe('OAuth token manager', () => {
 			await expect(manager.getAccessToken(async () => {
 				await Promise.resolve();
 				calls += 1;
-				return makeResponse({ error: 'temporarily_unavailable' }, 429, { 'retry-after': '2' });
+				return makeResponse({ error: 'temporarily_unavailable' }, 429, {
+					'retry-after': '2',
+					'X-Stonewright-Refresh-Consumed': '0',
+				});
 			}, 'https://example.test/oauth/token', 'client-example')).rejects.toBeInstanceOf(OAuthTransientError);
 			expect(calls).toBe(2);
 			expect(waits).toEqual([2_000]);
 			await expect(manager.getAccessToken(async () => {
 				await Promise.resolve();
 				calls += 1;
-				return makeResponse({}, 503);
+				return makeResponse({}, 503, { 'X-Stonewright-Refresh-Consumed': '0' });
 			}, 'https://example.test/oauth/token', 'client-example')).rejects.toBeInstanceOf(OAuthTransientError);
 			expect(calls).toBe(2);
 		} finally {
@@ -251,7 +264,10 @@ describe('OAuth token manager', () => {
 			const token = await manager.getAccessToken(async () => {
 				await Promise.resolve();
 				calls += 1;
-				if (calls === 1) return makeResponse({ error: 'temporarily_unavailable' }, 400, { 'retry-after': '1' });
+				if (calls === 1) return makeResponse({ error: 'temporarily_unavailable' }, 400, {
+					'retry-after': '1',
+					'X-Stonewright-Refresh-Consumed': '0',
+				});
 				return makeResponse({ access_token: 'example-recovered', refresh_token: 'example-rotated', expires_in: 60 });
 			}, 'https://example.test/oauth/token', 'client-example');
 

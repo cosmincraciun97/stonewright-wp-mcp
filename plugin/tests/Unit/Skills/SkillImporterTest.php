@@ -295,8 +295,8 @@ final class SkillImporterTest extends TestCase {
 	/** @param list<array<string, mixed>> $rows */
 	private function wpdb( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix = 'wp_';
-			public int $insert_id = 500;
+			public $prefix = 'wp_';
+			public $insert_id = 500;
 			/** @var list<array<string, mixed>> */
 			public array $inserted = [];
 			/** @var list<mixed> */

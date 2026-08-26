@@ -432,7 +432,7 @@ final class SkillPresenceGateTest extends TestCase {
 	 */
 	private function wpdb_with_rows( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var list<array<string, string>> */
 			private array $rows;

@@ -42,16 +42,17 @@ final class ConnectClientConfig {
 	 */
 	public static function chooser_clients(): array {
 		$clients = [];
-		foreach ( OAuthClientConfig::client_labels() as $slug => $label ) {
-			$meta    = ClientCatalog::get( $slug );
-			$notes   = (string) ( $meta['notes'] ?? '' );
+		foreach ( ClientCatalog::all() as $meta ) {
+			$notes = (string) ( $meta['notes'] ?? '' );
 			$clients[] = [
-				'slug'         => $slug,
-				'label'        => $label,
-				'config_path'  => (string) ( $meta['config_path'] ?? '' ),
-				'kind'         => (string) ( $meta['kind'] ?? 'editor' ),
-				'notes'        => $notes . ' ' . McpUsePolicy::client_note_suffix(),
-				'snippet_kind' => (string) ( $meta['snippet_kind'] ?? 'json' ),
+				'slug'                  => (string) $meta['slug'],
+				'label'                 => (string) $meta['label'],
+				'config_path'           => (string) ( $meta['config_path'] ?? '' ),
+				'kind'                  => (string) ( $meta['kind'] ?? 'editor' ),
+				'notes'                 => $notes . ' ' . McpUsePolicy::client_note_suffix(),
+				'snippet_kind'          => (string) ( $meta['snippet_kind'] ?? 'json' ),
+				'oauth_support'         => (bool) ( $meta['oauth_support'] ?? false ),
+				'app_password_support'  => (bool) ( $meta['app_password_support'] ?? true ),
 			];
 		}
 
@@ -185,14 +186,16 @@ final class ConnectClientConfig {
 			array_unique(
 				array_merge(
 					array_column( self::clients(), 'slug' ),
-					array_keys( OAuthClientConfig::client_labels() )
+					array_keys( OAuthClientConfig::client_labels() ),
+					[ 'grok-build', 'grok-cli' ]
 				)
 			)
 		);
 		if ( 'chatgpt-desktop' === sanitize_key( $client_slug ) ) {
 			$client_slug = 'codex';
 		}
-		if ( ! in_array( $client_slug, $known_slugs, true ) ) {
+		$client_slug = self::resolve_client_slug( $client_slug );
+		if ( ! in_array( $client_slug, $known_slugs, true ) && 'grok-build' !== $client_slug ) {
 			return new \WP_Error(
 				'stonewright_unknown_client',
 				sprintf( __( 'Unknown client slug: %s', 'stonewright' ), $client_slug )
@@ -200,6 +203,10 @@ final class ConnectClientConfig {
 		}
 
 		$resolved = self::resolve_client_slug( $client_slug );
+
+		if ( 'grok-build' === $resolved ) {
+			return self::grok_stdio_snippet();
+		}
 
 		if ( 'claude-code' === $resolved ) {
 			$server_name = self::mcp_server_name();
@@ -395,6 +402,92 @@ final class ConnectClientConfig {
 		return $base;
 	}
 
+	/**
+	 * OAuth instruction payload for one catalog client.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function oauth_config_for( string $client_slug, string $mcp_url, string $server_name ): array {
+		$resolved = self::resolve_client_slug( sanitize_key( $client_slug ) );
+		if ( 'grok-build' === $resolved ) {
+			return self::grok_oauth_config( $mcp_url, $server_name );
+		}
+
+		$configs = OAuthClientConfig::configs( $mcp_url, $server_name );
+		if ( isset( $configs[ $client_slug ] ) && is_array( $configs[ $client_slug ] ) ) {
+			return $configs[ $client_slug ];
+		}
+		if ( isset( $configs[ $resolved ] ) && is_array( $configs[ $resolved ] ) ) {
+			return $configs[ $resolved ];
+		}
+
+		$label = (string) ( ClientCatalog::get( $resolved )['label'] ?? $resolved );
+		return [
+			'kind'    => 'notice',
+			'message' => sprintf(
+				/* translators: %s: client label. */
+				__( '%s cannot reach a site that is available only on this local machine.', 'stonewright' ),
+				$label
+			),
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function grok_oauth_config( string $mcp_url, string $server_name ): array {
+		$client = ClientCatalog::get( 'grok-build' );
+		$reauth = is_array( $client )
+			? (string) ( $client['oauth_reauth_action'] ?? ClientCatalog::DEFAULT_OAUTH_REAUTH_ACTION )
+			: ClientCatalog::DEFAULT_OAUTH_REAUTH_ACTION;
+
+		return [
+			'kind'  => 'code',
+			'code'  => "[mcp_servers.{$server_name}]\nurl = " . self::toml_string( $mcp_url ) . "\nenabled = true",
+			'hint'  => __( 'Use native HTTP for OAuth. Open /mcps, select Stonewright, authenticate, then run grok mcp doctor stonewright.', 'stonewright' ),
+			'paths' => [
+				'macOS / Linux' => '~/.grok/config.toml',
+				'Windows'       => '%USERPROFILE%\\.grok\\config.toml',
+			],
+			'note'  => 'grok mcp add --transport http ' . $server_name . ' ' . $mcp_url . "\n"
+				. "grok mcp doctor stonewright\n"
+				. $reauth,
+		];
+	}
+
+	/**
+	 * Application Password uses local companion stdio so the secret stays out of TOML.
+	 *
+	 * @return array{toml: string, note: string}
+	 */
+	private static function grok_stdio_snippet(): array {
+		$args        = array_map( [ self::class, 'toml_string' ], self::companion_mcp_args() );
+		$server_name = self::mcp_server_name();
+		$profile     = self::profile_for_client( 'grok-build' );
+		$toml        = implode(
+			"\n",
+			[
+				'[mcp_servers.' . $server_name . ']',
+				'command = "npx"',
+				'args = [' . implode( ', ', $args ) . ']',
+				'enabled = true',
+				'',
+				'[mcp_servers.' . $server_name . '.env]',
+				'STONEWRIGHT_MODE = ' . self::toml_string( 'plugin' ),
+				'STONEWRIGHT_SITE_ALIAS = ' . self::toml_string( '<your-site-alias>' ),
+				'STONEWRIGHT_MCP_TOOL_PROFILE = ' . self::toml_string( $profile ),
+			]
+		);
+
+		return [
+			'toml' => $toml,
+			'note' => __(
+				'The Application Password belongs in Stonewright\'s private credential store, never in TOML.',
+				'stonewright'
+			),
+		];
+	}
+
 	private static function resolve_client_slug( string $client_slug ): string {
 		$map = [
 			'vscode'          => 'vscode-copilot',
@@ -402,6 +495,8 @@ final class ConnectClientConfig {
 			'codex-cli'       => 'codex',
 			'claude'          => 'claude-desktop',
 			'chatgpt-desktop' => 'codex',
+			'grok-cli'        => 'grok-build',
+			'grok'            => 'grok-build',
 		];
 		$client_slug = sanitize_key( $client_slug );
 		return $map[ $client_slug ] ?? $client_slug;

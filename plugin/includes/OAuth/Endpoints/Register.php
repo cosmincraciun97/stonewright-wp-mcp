@@ -37,6 +37,7 @@ final class Register {
 				'callback'            => [ self::class, 'handle' ],
 			]
 		);
+		add_action( ClientRepository::EPHEMERAL_GC_HOOK, [ ClientRepository::class, 'run_ephemeral_gc' ] );
 	}
 
 	public static function allow_public_oauth(): bool {
@@ -49,10 +50,11 @@ final class Register {
 			return false;
 		}
 
-		$key   = 'stonewright_oauth_selftest_' . hash( 'sha256', $token );
+		$hash  = hash( 'sha256', $token );
+		$key   = 'stonewright_oauth_selftest_' . $hash;
 		$found = get_transient( $key );
 		delete_transient( $key );
-		return '1' === $found || 1 === $found;
+		return is_string( $found ) && hash_equals( $hash, $found );
 	}
 
 	public static function handle( WP_REST_Request $request ): WP_REST_Response|WP_Error {
@@ -72,7 +74,7 @@ final class Register {
 		) {
 			return self::rate_limited( 'Too many registered clients from this address', HOUR_IN_SECONDS );
 		}
-		if ( ClientValidation::active_client_count() >= ClientValidation::max_clients_per_site() ) {
+		if ( ! $self_test && ClientValidation::active_client_count() >= ClientValidation::max_clients_per_site() ) {
 			return self::rate_limited( 'Client cap reached', MINUTE_IN_SECONDS, 503, 'temporarily_unavailable' );
 		}
 
@@ -105,19 +107,32 @@ final class Register {
 		}
 
 		$clean_uris = array_values( array_unique( $clean_uris ) );
-		$client_id  = ( new ClientRepository() )->create( $client_name, $clean_uris, $client_ip );
+		$repository = new ClientRepository();
+		$client_id  = null;
+		try {
+			$client_id = $self_test
+				? $repository->create_ephemeral( $client_name, $clean_uris, $client_ip )
+				: $repository->create( $client_name, $clean_uris, $client_ip );
 
-		return new WP_REST_Response(
-			[
-				'client_id'                  => $client_id,
-				'client_name'                => $client_name,
-				'redirect_uris'              => $clean_uris,
-				'token_endpoint_auth_method' => 'none',
-				'grant_types'                => [ 'authorization_code', 'refresh_token' ],
-				'response_types'             => [ 'code' ],
-			],
-			201
-		);
+			return new WP_REST_Response(
+				[
+					'client_id'                  => $client_id,
+					'client_name'                => $client_name,
+					'redirect_uris'              => $clean_uris,
+					'token_endpoint_auth_method' => 'none',
+					'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+					'response_types'             => [ 'code' ],
+				],
+				201
+			);
+		} finally {
+			if ( $self_test ) {
+				if ( is_string( $client_id ) && '' !== $client_id ) {
+					$repository->revoke( $client_id );
+				}
+				$repository->schedule_ephemeral_gc();
+			}
+		}
 	}
 
 	private static function rate_limited( string $message, int $retry_after, int $status = 429, string $code = 'rate_limited' ): WP_REST_Response {

@@ -407,8 +407,8 @@ final class SkillsRestApiTest extends TestCase {
 	 */
 	private function make_wpdb( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix    = 'wp_';
-			public int    $insert_id = 300;
+			public $prefix    = 'wp_';
+			public $insert_id = 300;
 
 			/** @var list<array{table: string, data: array<string, mixed>}> */
 			public array $inserted = [];

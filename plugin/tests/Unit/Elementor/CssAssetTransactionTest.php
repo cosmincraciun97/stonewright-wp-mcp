@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
+use Stonewright\WpMcp\Elementor\CssTarget;
 
 /** @covers \Stonewright\WpMcp\Elementor\CssAssetTransaction */
 final class CssAssetTransactionTest extends TestCase {
@@ -39,7 +40,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'custom-pro-widget-nav-menu.min.css', 'pro-nav' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'new-post' );
 				return [ 'ok' => true, 'method' => 'post_css_update' ];
@@ -63,7 +64,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'custom-pro-widget-nav-menu.min.css', 'pro-nav' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				foreach ( [ 'post-701.css', 'post-999.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css' ] as $name ) {
 					unlink( $this->css_dir . '/' . $name );
@@ -92,7 +93,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-701.css', 'old-post' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				update_post_meta( 701, '_elementor_css', [ 'revision' => 5 ] );
 				$this->write( 'post-701.css', 'partial-post' );
@@ -106,7 +107,7 @@ final class CssAssetTransactionTest extends TestCase {
 
 		unset( $GLOBALS['stonewright_test_posts'][701]->meta['_elementor_css'] );
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				update_post_meta( 701, '_elementor_css', [ 'revision' => 6 ] );
 				return [ 'ok' => false, 'error_code' => 'synthetic_failure' ];
@@ -126,7 +127,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-999.css', 'sibling' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'partial-post' );
 				unlink( $this->css_dir . '/post-999.css' );
@@ -148,7 +149,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$called = false;
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			static function () use ( &$called ): array {
 				$called = true;
 				return [ 'ok' => true ];
@@ -170,7 +171,7 @@ final class CssAssetTransactionTest extends TestCase {
 		};
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'new-post' );
 				return [ 'ok' => true ];
@@ -184,7 +185,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	public function test_requires_the_target_post_css_after_regeneration(): void {
-		$result = CssAssetTransaction::run( 701, static fn(): array => [ 'ok' => true ] );
+		$result = CssAssetTransaction::run( $this->target( 701 ), static fn(): array => [ 'ok' => true ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_elementor_css_collateral_change', $result->get_error_code() );
@@ -196,7 +197,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-701.css', 'old-post' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): never {
 				$this->write( 'post-701.css', 'partial-post' );
 				throw new \RuntimeException( 'private failure detail' );
@@ -225,7 +226,7 @@ final class CssAssetTransactionTest extends TestCase {
 
 		try {
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				function () use ( &$called ): array {
 					$called = true;
 					$this->write( 'post-701.css', 'new-post' );
@@ -287,7 +288,7 @@ final class CssAssetTransactionTest extends TestCase {
 		usleep( 5000 );
 		try {
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				function () use ( $payload ): array {
 					unlink( $this->css_dir . '/post-999.css' );
 					$this->write( 'post-701.css', str_replace( 'old-post', 'new-post', $payload ) );
@@ -324,7 +325,7 @@ final class CssAssetTransactionTest extends TestCase {
 
 		try {
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				static function () use ( &$called ): array {
 					$called = true;
 					return [ 'ok' => true ];
@@ -350,7 +351,7 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertTrue( symlink( $real_dir, $this->css_dir ) );
 
 		try {
-			$result = CssAssetTransaction::run( 701, static fn(): array => [ 'ok' => true ] );
+			$result = CssAssetTransaction::run( $this->target( 701 ), static fn(): array => [ 'ok' => true ] );
 
 			self::assertInstanceOf( \WP_Error::class, $result );
 			self::assertSame( 'stonewright_elementor_css_path_unsafe', $result->get_error_code() );
@@ -381,7 +382,7 @@ final class CssAssetTransactionTest extends TestCase {
 		try {
 			$this->write( 'post-701.css', 'old-post' );
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				function (): array {
 					$this->write( 'post-701.css', 'new-post' );
 					return [ 'ok' => true ];
@@ -416,7 +417,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'safe.css', 'safe' );
 		self::assertTrue( file_put_contents( $this->css_dir . '/unsafe name.css', 'unsafe' ) > 0 );
 
-		$result = CssAssetTransaction::run( 701, static fn(): array => [ 'ok' => true ] );
+		$result = CssAssetTransaction::run( $this->target( 701 ), static fn(): array => [ 'ok' => true ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_elementor_css_manifest_unsafe', $result->get_error_code() );
@@ -431,7 +432,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-999.css', 'sibling' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'partial-post' );
 				unlink( $this->css_dir . '/post-999.css' );
@@ -455,11 +456,11 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-999.css', 's0-sibling' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->expire_css_leases();
 				$successor = CssAssetTransaction::run(
-					999,
+					$this->target( 999 ),
 					function (): array {
 						$this->write( 'post-999.css', 't2-committed' );
 						return [ 'ok' => true ];
@@ -488,7 +489,7 @@ final class CssAssetTransactionTest extends TestCase {
 
 		try {
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				function (): array {
 					$this->write( 'post-701.css', 'new-post' );
 					return [ 'ok' => true ];
@@ -515,7 +516,7 @@ final class CssAssetTransactionTest extends TestCase {
 
 		try {
 			$result = CssAssetTransaction::run(
-				701,
+				$this->target( 701 ),
 				function (): array {
 					unlink( $this->css_dir . '/post-999.css' );
 					$this->write( 'post-701.css', 'partial-post' );
@@ -539,7 +540,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-701.css', 'old-post' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'partial-post' );
 				foreach ( array_keys( $GLOBALS['stonewright_test_options'] ?? [] ) as $key ) {
@@ -573,7 +574,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-701.css', 'old-post' );
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function () use ( &$ttl ): array {
 				foreach ( $GLOBALS['stonewright_test_options'] ?? [] as $key => $value ) {
 					if ( str_starts_with( (string) $key, 'stonewright_elementor_css_lease_' ) && is_array( $value ) ) {
@@ -592,7 +593,7 @@ final class CssAssetTransactionTest extends TestCase {
 	public function test_holds_and_releases_the_shared_css_directory_lease(): void {
 		$seen_lease = false;
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function () use ( &$seen_lease ): array {
 				foreach ( array_keys( $GLOBALS['stonewright_test_options'] ?? [] ) as $key ) {
 					if ( str_starts_with( (string) $key, 'stonewright_elementor_css_lease_' ) ) {
@@ -616,7 +617,7 @@ final class CssAssetTransactionTest extends TestCase {
 		$GLOBALS['stonewright_test_option_cas_miss_remaining'] = 1;
 
 		$result = CssAssetTransaction::run(
-			701,
+			$this->target( 701 ),
 			function (): array {
 				$this->write( 'post-701.css', 'new-post' );
 				return [ 'ok' => true, 'method' => 'post_css_update' ];
@@ -629,12 +630,162 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'frontend-safe', $this->read( 'custom-frontend.min.css' ) );
 	}
 
+	public function test_allows_only_the_resolved_loop_css_and_probes_loop_asset(): void {
+		$this->write( 'loop-202.css', 'old-loop' );
+		$this->write( 'post-202.css', 'same-id-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 202, 'loop' ),
+			function (): array {
+				$this->write( 'loop-202.css', 'new-loop' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'loop-202.css', $result['css_evidence']['target'] );
+		self::assertSame( 'new-loop', $this->read( 'loop-202.css' ) );
+		self::assertSame( 'same-id-post', $this->read( 'post-202.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		$probed = array_column( $result['css_evidence']['protected_probes_after'], 'asset' );
+		self::assertContains( 'loop-202.css', $probed );
+		self::assertNotContains( 'post-202.css', $probed );
+	}
+
+	public function test_treats_same_id_post_css_as_collateral_during_a_loop_write(): void {
+		$this->write( 'loop-202.css', 'old-loop' );
+		$this->write( 'post-202.css', 'same-id-post' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 202, 'loop' ),
+			function (): array {
+				$this->write( 'loop-202.css', 'new-loop' );
+				$this->write( 'post-202.css', 'mutated-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_collateral_change', $result->get_error_code() );
+		self::assertSame( 'old-loop', $this->read( 'loop-202.css' ) );
+		self::assertSame( 'same-id-post', $this->read( 'post-202.css' ) );
+	}
+
+	public function test_head_405_uses_one_bounded_get_fallback(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$url     = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$methods = [];
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ) use ( &$methods ): array {
+			$methods[] = strtoupper( (string) ( $args['method'] ?? 'GET' ) );
+			if ( 'HEAD' === strtoupper( (string) ( $args['method'] ?? 'GET' ) ) ) {
+				return [ 'response' => [ 'code' => 405 ], 'headers' => [], 'body' => '' ];
+			}
+			return [ 'response' => [ 'code' => 200 ], 'headers' => [], 'body' => '' ];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertContains( 'HEAD', $methods );
+		self::assertContains( 'GET', $methods );
+	}
+
+	public function test_head_and_get_failures_reject_commit(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ): array {
+			$code = 'HEAD' === strtoupper( (string) ( $args['method'] ?? 'GET' ) ) ? 405 : 500;
+			return [ 'response' => [ 'code' => $code ], 'headers' => [], 'body' => '' ];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
+		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+	}
+
+	public function test_target_redirect_rejects_commit(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): array {
+			return [
+				'response' => [ 'code' => 200 ],
+				'headers'  => [ 'location' => 'https://example.test/login' ],
+				'body'     => '',
+			];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
+		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+	}
+
+	public function test_restores_collateral_file_bytes_and_modes(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		self::assertTrue( chmod( $this->css_dir . '/post-999.css', 0600 ) );
+		$mode = fileperms( $this->css_dir . '/post-999.css' ) & 0777;
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				unlink( $this->css_dir . '/post-999.css' );
+				$this->write( 'post-999.css', 'rewritten' );
+				chmod( $this->css_dir . '/post-999.css', 0644 );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( $mode, fileperms( $this->css_dir . '/post-999.css' ) & 0777 );
+	}
+
 	private function expire_css_leases(): void {
 		foreach ( array_keys( $GLOBALS['stonewright_test_options'] ?? [] ) as $key ) {
 			if ( str_starts_with( (string) $key, 'stonewright_elementor_css_lease_' ) && is_array( $GLOBALS['stonewright_test_options'][ $key ] ) ) {
 				$GLOBALS['stonewright_test_options'][ $key ]['expires_at'] = time() - 1;
 			}
 		}
+	}
+
+	private function target( int $post_id, string $kind = 'post' ): CssTarget {
+		$filename = $kind . '-' . $post_id . '.css';
+		$uploads  = wp_upload_dir();
+		$dir      = rtrim( (string) $uploads['basedir'], '/\\' ) . '/elementor/css';
+		$url      = rtrim( (string) $uploads['baseurl'], '/' ) . '/elementor/css/' . $filename;
+		$class    = 'loop' === $kind
+			? 'ElementorPro\\Modules\\LoopBuilder\\Files\\Css\\Loop'
+			: \Elementor\Core\Files\CSS\Post::class;
+
+		return new CssTarget( $post_id, $kind, $class, $filename, $dir . '/' . $filename, $url );
 	}
 
 	private function write( string $name, string $bytes ): void {
@@ -646,7 +797,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	private function remove_test_assets(): void {
-		foreach ( [ 'post-701.css', 'post-999.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css', 'unsafe-link.css', 'created-during-transaction.css', 'safe.css', 'unsafe name.css' ] as $name ) {
+		foreach ( [ 'post-701.css', 'post-999.css', 'post-202.css', 'loop-202.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css', 'unsafe-link.css', 'created-during-transaction.css', 'safe.css', 'unsafe name.css' ] as $name ) {
 			$path = $this->css_dir . '/' . $name;
 			if ( is_file( $path ) || is_link( $path ) ) {
 				unlink( $path );

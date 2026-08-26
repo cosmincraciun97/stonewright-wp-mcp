@@ -24,6 +24,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
+		RefreshTokenRepository::reset_last_persisted_family_expires_at();
 	}
 
 	protected function tearDown(): void {
@@ -34,7 +35,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 		$replayed_hash = hash( 'sha256', 'replayed-refresh' );
 		$current_hash  = hash( 'sha256', 'current-refresh' );
 		$database      = new class( $replayed_hash, $current_hash ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var array<string, array{revoked:int,expires_at:string,grant_family_hash:string,access_token_hash:string}> */
 			public array $refresh_rows;
@@ -100,6 +101,9 @@ final class RefreshTokenFamilyTest extends TestCase {
 						if ( isset( $where['grant_family_hash'] ) && $row['grant_family_hash'] !== $where['grant_family_hash'] ) {
 							continue;
 						}
+						if ( isset( $where['identifier_hash'] ) ) {
+							// handled via keyed update below when needed
+						}
 						$row = array_merge( $row, $data );
 						++$changed;
 					}
@@ -115,6 +119,27 @@ final class RefreshTokenFamilyTest extends TestCase {
 				}
 				return 0;
 			}
+
+			public function query( string $query ): int {
+				if ( preg_match( "/grant_family_hash = '([^']+)'/", $query, $matches ) ) {
+					$family = $matches[1];
+					$changed = 0;
+					foreach ( $this->refresh_rows as &$row ) {
+						if ( $row['grant_family_hash'] === $family ) {
+							$row['revoked'] = 1;
+							$row['revoked_reason'] = 'replayed';
+							++$changed;
+						}
+					}
+					unset( $row );
+					return $changed;
+				}
+				return 0;
+			}
+
+			public function get_var( string $query ): int|string|null {
+				return 0;
+			}
 		};
 		$GLOBALS['wpdb'] = $database;
 
@@ -126,7 +151,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 	public function test_rotated_refresh_inherits_the_active_grant_family(): void {
 		$current_hash = hash( 'sha256', 'current-refresh' );
 		$database     = new class( $current_hash ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var array<string, mixed> */
 			public array $inserted = [];
@@ -148,10 +173,19 @@ final class RefreshTokenFamilyTest extends TestCase {
 					return null;
 				}
 				return [
-					'revoked'          => 0,
+					'revoked'           => 0,
 					'expires_at'        => '2099-01-01 00:00:00',
+					'family_expires_at' => '2099-01-01 00:00:00',
 					'grant_family_hash' => 'family-one',
+					'consumed_at'       => null,
+					'revoked_reason'    => null,
+					'client_id'         => 'client-a',
+					'user_id'           => 1,
 				];
+			}
+
+			public function get_var( string $query ): int|string|null {
+				return 0;
 			}
 
 			/** @param array<string, mixed> $data */
@@ -175,5 +209,7 @@ final class RefreshTokenFamilyTest extends TestCase {
 		$repository->persistNewRefreshToken( $refresh );
 
 		self::assertSame( 'family-one', $database->inserted['grant_family_hash'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', $database->inserted['family_expires_at'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', RefreshTokenRepository::last_persisted_family_expires_at() );
 	}
 }

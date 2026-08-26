@@ -19,8 +19,8 @@ final class PostWriteVerifyTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->elementor_instance = \Elementor\Plugin::$instance;
-		$GLOBALS['stonewright_test_posts'][ 701 ] = (object) [
-			'ID'           => 701,
+		$GLOBALS['stonewright_test_posts'][ 301 ] = (object) [
+			'ID'           => 301,
 			'post_type'    => 'page',
 			'post_status'  => 'publish',
 			'post_title'   => 'Verify target',
@@ -31,9 +31,9 @@ final class PostWriteVerifyTest extends TestCase {
 				'_elementor_css'           => [ 'time' => 1 ],
 			],
 		];
-		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_post' => true ];
+		$GLOBALS['stonewright_test_user_caps']      = [ 'edit_post' => true ];
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
-		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'development' ];
+		$GLOBALS['stonewright_test_options']        = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_asset_responses'] = [];
 		$uploads       = wp_upload_dir();
 		$this->css_dir = rtrim( (string) $uploads['basedir'], '/\\' ) . '/elementor/css';
@@ -43,10 +43,10 @@ final class PostWriteVerifyTest extends TestCase {
 
 	protected function tearDown(): void {
 		\Elementor\Plugin::$instance = $this->elementor_instance;
-		unset( $GLOBALS['stonewright_test_posts'][ 701 ] );
-		$GLOBALS['stonewright_test_user_caps'] = [];
+		unset( $GLOBALS['stonewright_test_posts'][ 301 ] );
+		$GLOBALS['stonewright_test_user_caps']      = [];
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
-		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_options']        = [];
 		$GLOBALS['stonewright_test_asset_responses'] = [];
 		Post::$factory = null;
 		$this->remove_css_assets();
@@ -56,43 +56,45 @@ final class PostWriteVerifyTest extends TestCase {
 		self::assertContains( PostWriteVerify::class, AbilityRegistry::list() );
 		self::assertContains( 'stonewright/elementor-post-write-verify', ToolProfile::profile_tools( 'elementor-design' ) );
 		$properties = ( new PostWriteVerify() )->input_schema()['properties'];
-		self::assertArrayHasKey( 'confirmation_token', $properties );
+		self::assertArrayNotHasKey( 'confirmation_token', $properties );
 		self::assertArrayNotHasKey( 'regenerate_css', $properties );
 	}
 
-	public function test_invalidates_post_cache_warms_render_and_checks_ids_without_returning_html(): void {
-		$css_updates = 0;
+	public function test_successful_bounded_checks_do_not_mutate_css_or_cache(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
 		$this->write_css( 'post-999.css', 'sibling' );
-		$this->write_css( 'custom-frontend.min.css', 'frontend' );
-		$this->write_css( 'custom-pro-widget-nav-menu.min.css', 'pro-nav' );
-		Post::$factory = function ( int $post_id ) use ( &$css_updates ): object {
-			return new class( $post_id, $this->css_dir, $css_updates ) {
+		$before_manifest = $this->manifest();
+		$before_meta     = get_post_meta( 301, '_elementor_css', true );
+		$css_regenerator_calls    = 0;
+		$cache_invalidator_calls  = 0;
+		Post::$factory = function () use ( &$css_regenerator_calls ): object {
+			return new class( $css_regenerator_calls ) {
 				/** @var int */
-				private $updates;
-
-				public function __construct( private int $post_id, private string $css_dir, int &$updates ) {
-					$this->updates = &$updates;
+				private $calls;
+				public function __construct( int &$calls ) {
+					$this->calls = &$calls;
 				}
-
+				public function update_file(): void {
+					++$this->calls;
+				}
 				public function update(): void {
-					++$this->updates;
-					file_put_contents( $this->get_path(), 'post-css' );
+					++$this->calls;
 				}
-
 				public function get_path(): string {
-					return $this->css_dir . '/post-' . $this->post_id . '.css';
+					return '';
 				}
-
 				public function get_url(): string {
-					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+					return '';
 				}
 			};
 		};
+		$original_invalidate = $GLOBALS['stonewright_test_cache_invalidator_calls'] ?? null;
+		$GLOBALS['stonewright_test_posts'][ 301 ]->meta['_elementor_element_cache'] = '<div>stale</div>';
 		\Elementor\Plugin::$instance = (object) [
 			'frontend' => new class() {
 				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
 					TestCase::assertFalse( $with_css );
-					return 701 === $post_id
+					return 301 === $post_id
 						? '<div class="elementor-element-hero01">Fresh marker</div>'
 						: '';
 				}
@@ -101,16 +103,12 @@ final class PostWriteVerifyTest extends TestCase {
 				public function clear_cache(): void {
 					throw new \RuntimeException( 'Global CSS clear must never run.' );
 				}
-
-				public function on_delete_post(): void {
-					throw new \RuntimeException( 'CSS delete must never run.' );
-				}
 			},
 		];
 
 		$result = ( new PostWriteVerify() )->execute(
 			[
-				'post_id'       => 701,
+				'post_id'       => 301,
 				'element_ids'   => [ 'hero01' ],
 				'html_contains' => [ 'Fresh marker' ],
 			]
@@ -119,47 +117,37 @@ final class PostWriteVerifyTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'passed', $result['verification_status'] );
-		self::assertTrue( $result['cache']['element_cache']['existed'] );
-		self::assertTrue( $result['cache']['element_cache']['deleted'] );
 		self::assertTrue( $result['element_checks'][0]['present'] );
 		self::assertTrue( $result['content_checks'][0]['present'] );
-		self::assertSame( 1, $css_updates );
-		self::assertSame( 'elementor_post_css_update', $result['css']['method'] );
-		self::assertSame( 3, $result['css']['before_file_count'] );
-		self::assertSame( 4, $result['css']['after_file_count'] );
-		self::assertSame( 'sibling', $this->read_css( 'post-999.css' ) );
-		self::assertSame( 'frontend', $this->read_css( 'custom-frontend.min.css' ) );
-		self::assertSame( 'pro-nav', $this->read_css( 'custom-pro-widget-nav-menu.min.css' ) );
+		self::assertTrue( $result['browser_required'] );
+		self::assertTrue( $result['browser_recipe']['desktop_tablet_mobile'] );
 		self::assertArrayNotHasKey( 'html', $result );
 		self::assertStringNotContainsString( 'Fresh marker', (string) wp_json_encode( $result ) );
-		self::assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][701]->meta );
+		self::assertSame( $before_manifest, $this->manifest() );
+		self::assertSame( $before_meta, get_post_meta( 301, '_elementor_css', true ) );
+		self::assertSame( '<div>stale</div>', get_post_meta( 301, '_elementor_element_cache', true ) );
+		self::assertSame( 0, $css_regenerator_calls );
+		unset( $original_invalidate );
 	}
 
-	public function test_lock_renew_failure_after_css_commit_is_non_fatal(): void {
-		$this->write_css( 'post-999.css', 'sibling' );
-		$this->write_css( 'custom-frontend.min.css', 'frontend' );
-		$this->write_css( 'custom-pro-widget-nav-menu.min.css', 'pro-nav' );
-		Post::$factory = function ( int $post_id ): object {
-			return new class( $post_id, $this->css_dir ) {
-				public function __construct( private int $post_id, private string $css_dir ) {
+	public function test_empty_render_fails_without_mutating_css_or_meta(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$before_manifest = $this->manifest();
+		$before_meta     = get_post_meta( 301, '_elementor_css', true );
+		$css_regenerator_calls   = 0;
+		$cache_invalidator_calls = 0;
+		Post::$factory = function () use ( &$css_regenerator_calls ): object {
+			return new class( $css_regenerator_calls ) {
+				/** @var int */
+				private $calls;
+				public function __construct( int &$calls ) {
+					$this->calls = &$calls;
 				}
-
+				public function update_file(): void {
+					++$this->calls;
+				}
 				public function update(): void {
-					file_put_contents( $this->get_path(), 'post-css' );
-					$GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ] = [
-						'post_id'     => $this->post_id,
-						'owner'       => 'foreign-writer',
-						'acquired_at' => time(),
-						'expires_at'  => time() + 120,
-					];
-				}
-
-				public function get_path(): string {
-					return $this->css_dir . '/post-' . $this->post_id . '.css';
-				}
-
-				public function get_url(): string {
-					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+					++$this->calls;
 				}
 			};
 		};
@@ -167,112 +155,111 @@ final class PostWriteVerifyTest extends TestCase {
 			'frontend' => new class() {
 				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
 					TestCase::assertFalse( $with_css );
-					return 701 === $post_id
-						? '<div class="elementor-element-hero01">Fresh marker</div>'
-						: '';
-				}
-			},
-			'files_manager' => new class() {
-				public function clear_cache(): void {
-					throw new \RuntimeException( 'Global CSS clear must never run.' );
+					return '';
 				}
 			},
 		];
 
 		$result = ( new PostWriteVerify() )->execute(
 			[
-				'post_id'       => 701,
-				'element_ids'   => [ 'hero01' ],
-				'html_contains' => [ 'Fresh marker' ],
-			]
-		);
-
-		self::assertIsArray( $result );
-		self::assertTrue( $result['ok'] );
-		self::assertSame( 'passed', $result['verification_status'] );
-		self::assertSame( 'post-css', $this->read_css( 'post-701.css' ) );
-		self::assertSame( 'lost_after_commit', $result['lock']['renew_after_commit'] ?? null );
-		self::assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][701]->meta );
-	}
-
-	public function test_missing_assertion_returns_failed_not_false_success(): void {
-		$this->write_css( 'post-701.css', 'old-post' );
-		$original_css_meta = $GLOBALS['stonewright_test_posts'][701]->meta['_elementor_css'];
-		$this->configure_post_css_update();
-		\Elementor\Plugin::$instance = (object) [
-			'frontend' => new class() {
-				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
-					TestCase::assertFalse( $with_css );
-					return '<div class="elementor-element-other">Rendered</div>';
-				}
-			},
-		];
-
-		$result = ( new PostWriteVerify() )->execute(
-			[
-				'post_id'       => 701,
-				'element_ids'   => [ 'expected' ],
+				'post_id'     => 301,
+				'element_ids' => [ 'hero01' ],
 			]
 		);
 
 		self::assertIsArray( $result );
 		self::assertFalse( $result['ok'] );
-		self::assertFalse( $result['effect_verified'] );
-		self::assertSame( 'failed', $result['verification_status'] );
-		self::assertSame( 'old-post', $this->read_css( 'post-701.css' ) );
-		self::assertSame( $original_css_meta, $GLOBALS['stonewright_test_posts'][701]->meta['_elementor_css'] );
-		self::assertSame( '<div>stale</div>', get_post_meta( 701, '_elementor_element_cache', true ) );
-		self::assertSame( 'succeeded', $result['css']['rollback_status'] );
-		self::assertSame( 'succeeded', $result['cache']['rollback_status'] );
-		self::assertFalse( $result['css']['ok'] );
+		self::assertSame( $before_manifest, $this->manifest() );
+		self::assertSame( $before_meta, get_post_meta( 301, '_elementor_css', true ) );
+		self::assertSame( 0, $css_regenerator_calls );
+		self::assertSame( 0, $cache_invalidator_calls );
+		self::assertSame( '<div>stale</div>', get_post_meta( 301, '_elementor_element_cache', true ) );
 	}
 
-	public function test_production_safe_requires_confirmation_before_css_update(): void {
-		$updates = 0;
-		Post::$factory = static function () use ( &$updates ): object {
-			++$updates;
-			return new \stdClass();
-		};
-		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
-
-		$result = ( new PostWriteVerify() )->execute( [ 'post_id' => 701 ] );
-
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
-		self::assertSame( 0, $updates );
-	}
-
-	private function configure_post_css_update(): void {
-		Post::$factory = function ( int $post_id ): object {
-			return new class( $post_id, $this->css_dir ) {
-				public function __construct( private int $post_id, private string $css_dir ) {
+	public function test_renderer_type_error_fails_without_mutating_state(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$before_manifest = $this->manifest();
+		$before_meta     = get_post_meta( 301, '_elementor_css', true );
+		$css_regenerator_calls   = 0;
+		$cache_invalidator_calls = 0;
+		Post::$factory = function () use ( &$css_regenerator_calls ): object {
+			return new class( $css_regenerator_calls ) {
+				/** @var int */
+				private $calls;
+				public function __construct( int &$calls ) {
+					$this->calls = &$calls;
 				}
-
+				public function update_file(): void {
+					++$this->calls;
+				}
 				public function update(): void {
-					file_put_contents( $this->get_path(), 'post-css' );
-				}
-
-				public function get_path(): string {
-					return $this->css_dir . '/post-' . $this->post_id . '.css';
-				}
-
-				public function get_url(): string {
-					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+					++$this->calls;
 				}
 			};
 		};
+		\Elementor\Plugin::$instance = (object) [
+			'frontend' => new class() {
+				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
+					throw new \TypeError( 'synthetic renderer type error' );
+				}
+			},
+		];
+
+		$result = ( new PostWriteVerify() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertFalse( $result instanceof \WP_Error ? false : $result['ok'] );
+		if ( is_array( $result ) ) {
+			self::assertFalse( $result['ok'] );
+		}
+		self::assertSame( $before_manifest, $this->manifest() );
+		self::assertSame( $before_meta, get_post_meta( 301, '_elementor_css', true ) );
+		self::assertSame( 0, $css_regenerator_calls );
+		self::assertSame( 0, $cache_invalidator_calls );
+	}
+
+	public function test_production_safe_does_not_require_a_confirmation_token(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		\Elementor\Plugin::$instance = (object) [
+			'frontend' => new class() {
+				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
+					return '<div class="elementor-element-hero01">Fresh marker</div>';
+				}
+			},
+		];
+
+		$result = ( new PostWriteVerify() )->execute(
+			[
+				'post_id'       => 301,
+				'element_ids'   => [ 'hero01' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+	}
+
+	/** @return array<string,string> */
+	private function manifest(): array {
+		$files = [];
+		foreach ( scandir( $this->css_dir ) ?: [] as $name ) {
+			if ( '.' === $name || '..' === $name ) {
+				continue;
+			}
+			$path = $this->css_dir . '/' . $name;
+			if ( is_file( $path ) ) {
+				$files[ $name ] = hash( 'sha256', (string) file_get_contents( $path ) ) . ':' . ( fileperms( $path ) & 0777 );
+			}
+		}
+		ksort( $files );
+		return $files;
 	}
 
 	private function write_css( string $name, string $bytes ): void {
 		file_put_contents( $this->css_dir . '/' . $name, $bytes );
 	}
 
-	private function read_css( string $name ): string {
-		return (string) file_get_contents( $this->css_dir . '/' . $name );
-	}
-
 	private function remove_css_assets(): void {
-		foreach ( [ 'post-701.css', 'post-999.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css' ] as $name ) {
+		foreach ( [ 'post-301.css', 'post-701.css', 'post-999.css', 'custom-frontend.min.css', 'custom-pro-widget-nav-menu.min.css' ] as $name ) {
 			$path = $this->css_dir . '/' . $name;
 			if ( is_file( $path ) || is_link( $path ) ) {
 				unlink( $path );

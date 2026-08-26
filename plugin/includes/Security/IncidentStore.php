@@ -490,6 +490,9 @@ final class IncidentStore {
 		if ( function_exists( 'delete_option' ) ) {
 			delete_option( self::OPTION_KEY );
 		}
+		if ( isset( $GLOBALS['wpdb'] ) && is_object( $GLOBALS['wpdb'] ) && isset( $GLOBALS['wpdb']->incident_rows ) && is_array( $GLOBALS['wpdb']->incident_rows ) ) {
+			$GLOBALS['wpdb']->incident_rows = [];
+		}
 	}
 
 	/** @return array<string, mixed>|null */

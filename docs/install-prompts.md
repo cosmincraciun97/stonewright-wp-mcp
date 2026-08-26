@@ -22,6 +22,7 @@ when changing versions.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
 5. **Stonewright > Design** and **Context** tabs hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
+6. Setup uses one client tablist for OAuth and Application Password, including **Grok Build / CLI**. If status reports `reauthentication_required`, relay `user_action` and stop until the operator reauthenticates.
 
 The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
 
@@ -41,7 +42,10 @@ PHP/CSS/JS/HTML surfaces, the agent must run the approval-gated typed tool with
 summary, then stop. The agent must not open the approval page, issue or retrieve
 the grant, or apply `custom_code_grant` unless the user explicitly asks it to
 perform that approval step. Direct mode does not write custom code because it
-has no authenticated wp-admin grant boundary.
+has no authenticated wp-admin grant boundary. Generic content create, update,
+duplicate, and bulk tools reject executable-code post types
+(`stonewright_custom_code_provider_required`) and never skip KSES to preserve
+PHP.
 
 ## OAuth connection (recommended in Plugin mode)
 
@@ -56,6 +60,30 @@ initialize, tools/list, and stonewright-task-start. Do not request or store a
 WordPress password.
 ```
 
+## Grok Build / CLI
+
+OAuth (native HTTP):
+
+```text
+Configure Grok Build / CLI for Stonewright OAuth.
+
+Write ~/.grok/config.toml:
+
+[mcp_servers.stonewright]
+url = "https://example.test/wp-json/mcp/stonewright-oauth"
+enabled = true
+
+Then run:
+grok mcp add --transport http stonewright https://example.test/wp-json/mcp/stonewright-oauth
+grok mcp doctor stonewright
+
+Open /mcps, authenticate, restart if needed, and call stonewright-task-start first.
+Keep Grok compatible until a dated runtime smoke report exists.
+```
+
+Application Password uses the local companion installer with `--client grok-build`
+so the secret is not stored in TOML.
+
 ## Option A — With the Stonewright plugin (full surface)
 
 ```text
@@ -67,8 +95,10 @@ OAuth HTTP under the same server name.
 For local stdio, use the versioned installer with a unique alias, a
 collision-safe named server, and --mode plugin-only. For automatic Direct
 fallback use `--mode auto` instead. Working stdio client ids: cursor,
-claude-desktop, vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai
-connect via the OAuth HTTP method, not the local installer. Ask for the
+claude-desktop, vscode-copilot, codex, grok-build, generic-mcp. ChatGPT Desktop / Claude.ai
+connect via the OAuth HTTP method, not the local installer. Grok Build / CLI
+uses native HTTP for OAuth (`~/.grok/config.toml`) and local companion stdio
+for Application Password. Ask for the
 environment, WordPress mode, MCP surface, Elementor V4 choice, and target
 client. Let the installer request the Application Password through its hidden
 prompt, or use --password-env with a temporary variable; never put a password
@@ -113,6 +143,10 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   client_has_tool=false as blocking even when refresh_required_tool_names is
   empty. Follow the returned exact remediation and repeat the ordered checks.
 - Status and gateway reports must be honest when disconnected or unauthorized.
+  Schema version 3 includes authentication state. Terminal OAuth failures set
+  `reauthentication_required` with a model-visible `user_action`; relay it and
+  stop. `stonewright-task-start` reconnects a degraded session once. Mutations
+  are never retried.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
   returns a header or token fragment.
@@ -132,7 +166,8 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   connected browser, or none. Ask permission before scanning client
   tools/private config and separate permission before installing or configuring
   a missing provider; then verify the approved tool before the first write.
-- After any Elementor write, call
+- After any Elementor write, call stonewright-elementor-css-regenerate when
+  generated CSS must be rebuilt, then
   stonewright-elementor-post-write-verify with the touched element IDs. Do not
   call the task complete until its frontend assertions pass and desktop,
   tablet, and mobile browser measurements/screenshots are accepted.

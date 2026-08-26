@@ -74,7 +74,7 @@ final class PublicApiContractSnapshot {
 		'ExpertisePromotion::set_terminal_status(',
 		'ElementorWriter::write',
 		'PostCacheInvalidator::invalidate',
-		'CssRegenerator::regenerate_post',
+		'CssRegenerator::regenerate',
 		'new UploadMedia()',
 		'new BuildPageFromSpec()',
 		'ConfirmationGuard',

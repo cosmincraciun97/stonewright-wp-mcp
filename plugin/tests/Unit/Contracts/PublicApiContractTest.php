@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Contracts;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\ElementorV3\CssRegenerate;
 use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Support\PublicApiContractSnapshot;
@@ -209,12 +210,22 @@ final class PublicApiContractTest extends TestCase {
 	}
 
 	public function test_audit_write_wrapper_also_counts_as_confirmation_token_gate(): void {
-		$row = PublicApiContractSnapshot::collect_ability( PostWriteVerify::class );
+		$row = PublicApiContractSnapshot::collect_ability( CssRegenerate::class );
 		$this->assertIsArray( $row );
 		$this->assertTrue(
 			(bool) $row['gates']['token'],
-			'The verifier uses audit_write, so its production-safe confirmation gate must be public contract data.'
+			'CSS regeneration uses audit_write, so its production-safe confirmation gate must be public contract data.'
 		);
+	}
+
+	public function test_post_write_verify_is_not_a_confirmation_gated_write(): void {
+		$row = PublicApiContractSnapshot::collect_ability( PostWriteVerify::class );
+		$this->assertIsArray( $row );
+		$this->assertFalse(
+			(bool) $row['gates']['token'],
+			'Post write verification is observation-only and must not require a confirmation token.'
+		);
+		$this->assertSame( 'Read', $row['kind'] );
 	}
 
 	public function test_removing_an_audit_call_is_still_a_contract_violation(): void {

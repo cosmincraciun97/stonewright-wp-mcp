@@ -178,10 +178,18 @@ WordPress user.
 
 ## Card 3 - Connect Your AI Client
 
-The OAuth panel provides instructions for Claude Code, Claude Desktop,
-Claude.ai, ChatGPT, Codex in ChatGPT Desktop, Codex CLI, Antigravity, Cursor,
-VS Code, GitHub Copilot, Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed,
-Kilo Code, and OpenCode.
+OAuth and Application Password share one client tablist. Changing the
+authentication method updates instructions and snippets inside the same
+selected-client panel. Unsupported combinations stay visible but disabled with
+an explanation. Selection is per WordPress user and contains no credential.
+
+The catalog includes Claude Code, Claude Desktop, Claude.ai, ChatGPT, Codex in
+ChatGPT Desktop, Codex CLI, Antigravity, Cursor, VS Code, GitHub Copilot,
+Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed, Kilo Code, OpenCode, and
+**Grok Build / CLI** (`grok-build`; `grok-cli` and `grok` are aliases). Grok
+OAuth uses native HTTP and `~/.grok/config.toml`. Grok Application Password
+uses the local companion over stdio so the secret is not stored in TOML. Grok
+stays `compatible` until a dated runtime smoke report exists.
 
 ### MCP endpoint URL
 
@@ -296,9 +304,12 @@ refresh hints. It never prints secrets.
 ### Troubleshoot / Run diagnostics
 
 **Stonewright → Troubleshoot** (and the same panel on Setup) is the operator
-path when a client cannot connect. **Run diagnostics** posts over AJAX, shows
-a loading spinner, and paints status cards without reloading the page. A
-no-JavaScript form still posts to `admin-post.php`. See
+path when a client cannot connect. Pick **How do you connect?** first:
+**OAuth**, **Application Password**, **Local companion**, or **Not sure**.
+**Not sure** runs safe discovery and recommends a method; it does not guess
+credentials. **Run diagnostics** posts over AJAX, shows a loading spinner, and
+paints status cards without reloading the page. Failed prerequisites mark
+dependents skipped. A no-JavaScript form still posts to `admin-post.php`. See
 [Troubleshoot](troubleshoot.md).
 
 Client definitions live in `plugin/data/clients/*.json` (see

@@ -92,15 +92,35 @@ final class SetupState {
 	}
 
 	public static function selected_client( int $user_id ): string {
+		$known   = ClientCatalog::slugs();
+		$default = in_array( 'claude-code', $known, true ) ? 'claude-code' : ( $known[0] ?? 'claude-code' );
 		if ( $user_id <= 0 ) {
-			return 'claude-code';
+			return $default;
 		}
-		$saved = sanitize_key( (string) get_user_meta( $user_id, self::META_CLIENT, true ) );
-		$known = ClientCatalog::slugs();
-		if ( '' !== $saved && in_array( $saved, $known, true ) ) {
-			return $saved;
+		$saved    = sanitize_key( (string) get_user_meta( $user_id, self::META_CLIENT, true ) );
+		$resolved = ClientCatalog::resolve_slug( $saved );
+		if ( '' !== $resolved && in_array( $resolved, $known, true ) ) {
+			if ( $resolved !== $saved ) {
+				update_user_meta( $user_id, self::META_CLIENT, $resolved );
+			}
+			return $resolved;
 		}
-		return in_array( 'claude-code', $known, true ) ? 'claude-code' : ( $known[0] ?? 'claude-code' );
+		return $default;
+	}
+
+	/**
+	 * Credential-free per-user connection chooser.
+	 *
+	 * @return array{client: string, authentication: string, transport: string}
+	 */
+	public static function connection_selection( ?int $user_id = null ): array {
+		$user_id = null !== $user_id ? $user_id : get_current_user_id();
+
+		return [
+			'client'         => self::selected_client( $user_id ),
+			'authentication' => self::auth_method( $user_id ),
+			'transport'      => self::transport_method( $user_id ),
+		];
 	}
 
 	public static function transport_method( int $user_id ): string {
@@ -208,7 +228,7 @@ final class SetupState {
 		}
 
 		if ( array_key_exists( 'selected_client', $fields ) && is_string( $fields['selected_client'] ) ) {
-			$slug  = sanitize_key( $fields['selected_client'] );
+			$slug  = ClientCatalog::resolve_slug( sanitize_key( $fields['selected_client'] ) );
 			$known = ClientCatalog::slugs();
 			if ( in_array( $slug, $known, true ) && $user_id > 0 ) {
 				update_user_meta( $user_id, self::META_CLIENT, $slug );

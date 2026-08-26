@@ -21,7 +21,7 @@ final class Schema {
 
 	public const SCHEMA_VERSION_OPTION = 'stonewright_oauth_schema_version';
 
-	public const CURRENT_SCHEMA_VERSION = '3';
+	public const CURRENT_SCHEMA_VERSION = '4';
 
 	public const GC_HOOK = 'stonewright_oauth_gc';
 
@@ -52,8 +52,11 @@ final class Schema {
 				last_used_at DATETIME DEFAULT NULL,
 				registered_by_ip_hash CHAR(64) NOT NULL,
 				admin_created TINYINT(1) NOT NULL DEFAULT 0,
+				registration_purpose VARCHAR(64) DEFAULT NULL,
+				registration_expires_at DATETIME DEFAULT NULL,
 				PRIMARY KEY (id),
-				UNIQUE KEY client_id (client_id)
+				UNIQUE KEY client_id (client_id),
+				KEY registration_expires_at (registration_expires_at)
 			) {$collation};"
 		);
 
@@ -90,15 +93,77 @@ final class Schema {
 				identifier_hash CHAR(64) NOT NULL,
 				access_token_hash CHAR(64) NOT NULL,
 				grant_family_hash CHAR(64) NOT NULL,
+				client_id VARCHAR(64) DEFAULT NULL,
+				user_id BIGINT UNSIGNED DEFAULT NULL,
+				parent_identifier_hash CHAR(64) DEFAULT NULL,
+				family_expires_at DATETIME DEFAULT NULL,
+				consumed_at DATETIME DEFAULT NULL,
+				revoked_reason VARCHAR(64) DEFAULT NULL,
 				expires_at DATETIME NOT NULL,
 				revoked TINYINT(1) NOT NULL DEFAULT 0,
 				PRIMARY KEY (identifier_hash),
 				KEY expires_at (expires_at),
-				KEY grant_family_hash (grant_family_hash)
+				KEY grant_family_hash (grant_family_hash),
+				KEY family_expires_at (family_expires_at),
+				KEY consumed_at (consumed_at)
 			) {$collation};"
 		);
 
+		self::backfill_family_expiry();
+
 		update_option( self::SCHEMA_VERSION_OPTION, self::CURRENT_SCHEMA_VERSION, false );
+	}
+
+	/**
+	 * Additive backfill for family_expires_at. Never extends an already-expired grant.
+	 */
+	private static function backfill_family_expiry(): void {
+		global $wpdb;
+		$table = $wpdb->prefix . 'stonewright_oauth_refresh_tokens';
+		$fallback_expiry = gmdate( 'Y-m-d H:i:s', time() + ( 14 * DAY_IN_SECONDS ) );
+		$now             = gmdate( 'Y-m-d H:i:s' );
+
+		// Table name is derived from $wpdb->prefix only (not user input).
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$families = $wpdb->get_results(
+			"SELECT grant_family_hash, MIN(expires_at) AS earliest_expiry, MAX(expires_at) AS latest_expiry
+			FROM `{$table}`
+			WHERE grant_family_hash IS NOT NULL AND grant_family_hash != ''
+			AND (family_expires_at IS NULL OR family_expires_at = '0000-00-00 00:00:00')
+			GROUP BY grant_family_hash",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( ! is_array( $families ) ) {
+			return;
+		}
+
+		foreach ( $families as $family ) {
+			if ( ! is_array( $family ) ) {
+				continue;
+			}
+			$family_hash = (string) ( $family['grant_family_hash'] ?? '' );
+			if ( '' === $family_hash ) {
+				continue;
+			}
+			$earliest = (string) ( $family['earliest_expiry'] ?? '' );
+			$latest   = (string) ( $family['latest_expiry'] ?? '' );
+			// Prefer earliest stored expiry; fallback only when the family cannot be reconstructed.
+			$family_expires_at = '' !== $earliest ? $earliest : $fallback_expiry;
+			if ( '' !== $latest && $latest < $now ) {
+				// Never extend an already-expired grant.
+				$family_expires_at = '' !== $earliest ? $earliest : $latest;
+			}
+
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET family_expires_at = %s WHERE grant_family_hash = %s AND (family_expires_at IS NULL OR family_expires_at = '0000-00-00 00:00:00')", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$family_expires_at,
+					$family_hash
+				)
+			);
+		}
 	}
 
 	/**
@@ -114,6 +179,15 @@ final class Schema {
 			$sql   = $wpdb->prepare( "DELETE FROM `{$table}` WHERE expires_at < %s", $cutoff ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		}
+
+		// Ephemeral diagnostic clients (Task 9) with registration_expires_at in the past.
+		$clients = $prefix . 'clients';
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM `{$clients}` WHERE registration_expires_at IS NOT NULL AND registration_expires_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$cutoff
+			)
+		);
 	}
 
 	/**

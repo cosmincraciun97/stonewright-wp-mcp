@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -84,6 +85,11 @@ final class UpdatePost extends AbilityKernel {
 			);
 		}
 
+		$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+		if ( $blocked instanceof \WP_Error ) {
+			return $blocked;
+		}
+
 		if ( ! Permissions::edit_post( $id ) ) {
 			return new \WP_Error(
 				'stonewright_forbidden',
@@ -112,7 +118,15 @@ final class UpdatePost extends AbilityKernel {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$id          = (int) $args['id'];
+				$id   = (int) $args['id'];
+				$post = get_post( $id );
+				if ( $post ) {
+					$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+					if ( $blocked instanceof \WP_Error ) {
+						return $blocked;
+					}
+				}
+
 				$snapshot_id = Backup::snapshot_post( $id );
 
 				$payload = [ 'ID' => $id ];

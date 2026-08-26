@@ -17,6 +17,7 @@ use Stonewright\WpMcp\OAuth\Bootstrap;
 use Stonewright\WpMcp\OAuth\Bridge;
 use Stonewright\WpMcp\OAuth\ClientValidation;
 use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
+use Stonewright\WpMcp\OAuth\Repositories\RefreshTokenRepository;
 use Stonewright\WpMcp\OAuth\ServerFactory;
 use Stonewright\WpMcp\Security\AuditLog;
 use WP_REST_Request;
@@ -51,38 +52,41 @@ final class Token {
 		$client_id = is_array( $body ) ? (string) ( $body['client_id'] ?? '' ) : '';
 		$endpoint  = ClientValidation::endpoint_rate_limit( 'token', $client_ip, $client_id );
 		if ( ! $endpoint['allowed'] ) {
-			return self::rate_limited( $endpoint['retry_after'] );
+			return self::rate_limited( $endpoint['retry_after'], true );
 		}
 		$is_refresh       = 'refresh_token' === (string) ( $body['grant_type'] ?? '' );
 		$refresh_reserved = false;
 		if ( $is_refresh ) {
 			$refresh = ClientValidation::refresh_rate_limit( $client_ip, $client_id );
 			if ( ! $refresh['allowed'] ) {
-				return self::rate_limited( $refresh['retry_after'] );
+				return self::rate_limited( $refresh['retry_after'], true );
 			}
 			$refresh_reserved = true;
 		}
 
 		$resource = (string) $request->get_param( 'resource' );
 		if ( ! Bootstrap::resource_request_allowed( $resource, Bootstrap::resource_identifier() ) ) {
-			return self::annotate( new WP_REST_Response(
-				[
-					'error'             => 'invalid_target',
-					'error_description' => 'The requested resource is not served here.',
-				],
-				400
-			) );
+			return self::annotate(
+				new WP_REST_Response(
+					[
+						'error'             => 'invalid_target',
+						'error_description' => 'The requested resource is not served here.',
+						'reason'            => 'invalid_resource',
+					],
+					400
+				),
+				'0'
+			);
 		}
 
 		try {
+			RefreshTokenRepository::reset_last_persisted_family_expires_at();
 			$server   = ServerFactory::authorization_server();
 			$response = $server->respondToAccessTokenRequest( Bridge::to_psr7( $request ), Bridge::new_psr7_response() );
 			if ( '' !== $client_id ) {
 				try {
 					( new ClientRepository() )->touchLastUsed( $client_id );
 				} catch ( \Throwable $exception ) {
-					// Usage metadata must never suppress a token already issued by the
-					// authorization server; pruning can recover on a later request.
 					unset( $exception );
 				}
 			}
@@ -90,36 +94,58 @@ final class Token {
 			if ( $refresh_reserved && $wp_response->get_status() < 400 ) {
 				ClientValidation::release_refresh_rate_limit( $client_ip, $client_id );
 			}
-			return self::annotate( $wp_response );
+			if ( $wp_response->get_status() < 400 && $is_refresh ) {
+				$data = $wp_response->get_data();
+				if ( is_array( $data ) ) {
+					$interval = new \DateInterval( ServerFactory::REFRESH_FAMILY_TTL );
+					$full_ttl = ( new \DateTimeImmutable( '@0' ) )->add( $interval )->getTimestamp();
+					$seconds  = $full_ttl;
+					// The family expiration is fixed at first issuance; advertise the
+					// remaining lifetime so clients never outlive the real deadline.
+					$family_expires_at = RefreshTokenRepository::last_persisted_family_expires_at();
+					if ( null !== $family_expires_at && '' !== $family_expires_at ) {
+						$remaining = ( new \DateTimeImmutable( $family_expires_at . ' UTC' ) )->getTimestamp() - time();
+						$seconds   = max( 0, min( $full_ttl, $remaining ) );
+					}
+					$data['refresh_token_expires_in'] = $seconds;
+					$wp_response->set_data( $data );
+				}
+				return self::annotate( $wp_response, '1' );
+			}
+			return self::annotate( $wp_response, $is_refresh ? null : null );
 		} catch ( OAuthServerException $exception ) {
 			$refresh_rejection = self::refresh_rejection_response( $exception, is_array( $body ) ? $body : [] );
 			if ( null !== $refresh_rejection ) {
 				$auth = ClientValidation::auth_failure_rate_limit( $client_ip, $client_id );
 				if ( ! $auth['allowed'] ) {
-					return self::rate_limited( $auth['retry_after'] );
+					return self::rate_limited( $auth['retry_after'], true );
 				}
-				return self::annotate( $refresh_rejection );
+				return self::annotate( $refresh_rejection, null );
 			}
 			$response = Bridge::from_psr7( $exception->generateHttpResponse( Bridge::new_psr7_response() ) );
 			if ( $response->get_status() >= 400 && $response->get_status() < 500 ) {
 				$auth = ClientValidation::auth_failure_rate_limit( $client_ip, $client_id );
 				if ( ! $auth['allowed'] ) {
-					return self::rate_limited( $auth['retry_after'] );
+					return self::rate_limited( $auth['retry_after'], true );
 				}
 			}
-			return self::annotate( $response );
+			return self::annotate( $response, null );
 		} catch ( \Exception $exception ) {
-			return self::annotate( Bridge::from_psr7(
-				OAuthServerException::serverError( 'Internal server error', $exception )
-					->generateHttpResponse( Bridge::new_psr7_response() )
-			) );
+			// Ambiguous internal failure — omit consumption header.
+			return self::annotate(
+				Bridge::from_psr7(
+					OAuthServerException::serverError( 'Internal server error', $exception )
+						->generateHttpResponse( Bridge::new_psr7_response() )
+				),
+				null
+			);
 		}
 	}
 
-	private static function rate_limited( int $retry_after ): WP_REST_Response {
+	private static function rate_limited( int $retry_after, bool $pre_league = false ): WP_REST_Response {
 		$response = new WP_REST_Response( [ 'error' => 'temporarily_unavailable', 'reason' => 'rate_limited' ], 429 );
 		$response->header( 'Retry-After', (string) max( 1, min( 86400, $retry_after ) ) );
-		return self::annotate( $response );
+		return self::annotate( $response, $pre_league ? '0' : null );
 	}
 
 	private static function refresh_rejection_response( OAuthServerException $exception, array $body ): ?WP_REST_Response {
@@ -131,23 +157,42 @@ final class Token {
 		}
 
 		$diagnostic = strtolower( trim( (string) $exception->getMessage() . ' ' . ( method_exists( $exception, 'getHint' ) ? (string) $exception->getHint() : '' ) ) );
-		$reason = str_contains( $diagnostic, 'expired' )
-			? 'refresh_token_expired'
-			: ( str_contains( $diagnostic, 'revok' ) || str_contains( $diagnostic, 'already' ) ? 'refresh_token_revoked' : 'refresh_token_invalid' );
+		$reason     = 'invalid_grant';
+		if ( str_contains( $diagnostic, 'replay' ) || str_contains( $diagnostic, 'already been used' ) ) {
+			$reason = 'replayed';
+		} elseif ( str_contains( $diagnostic, 'expired' ) || str_contains( $diagnostic, 'family has expired' ) ) {
+			$reason = 'expired';
+		} elseif ( str_contains( $diagnostic, 'revok' ) ) {
+			$reason = 'revoked';
+		} elseif ( str_contains( $diagnostic, 'client' ) ) {
+			$reason = 'invalid_client';
+		}
 
 		return new WP_REST_Response(
 			[
 				'error'             => 'invalid_grant',
 				'error_description' => 'The refresh token is no longer valid.',
-				'reason'            => $reason,
+				'reason'            => match ( $reason ) {
+					'replayed' => 'refresh_token_replayed',
+					'expired' => 'refresh_token_expired',
+					'revoked' => 'refresh_token_revoked',
+					'invalid_client' => 'invalid_client',
+					default => 'refresh_token_invalid',
+				},
 			],
 			400
 		);
 	}
 
-	private static function annotate( WP_REST_Response $response ): WP_REST_Response {
+	/**
+	 * @param '0'|'1'|null $refresh_consumed Explicit consumption evidence; null omits the header.
+	 */
+	private static function annotate( WP_REST_Response $response, ?string $refresh_consumed = null ): WP_REST_Response {
 		$response->header( 'Cache-Control', 'no-store' );
 		$response->header( 'Pragma', 'no-cache' );
+		if ( null !== $refresh_consumed ) {
+			$response->header( 'X-Stonewright-Refresh-Consumed', $refresh_consumed );
+		}
 		if ( $response->get_status() >= 400 ) {
 			$response->header( 'X-Stonewright-Correlation-ID', AuditLog::request_id() );
 		}

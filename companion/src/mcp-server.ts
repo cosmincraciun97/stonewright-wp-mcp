@@ -22,6 +22,7 @@ import {
 	type WpCliRunInput,
 } from './wp-cli.js';
 import { MCP_MISSING_BOOTSTRAP_STOP, buildToolInventory } from './setup-profile.js';
+import { OAuthReauthRequiredError } from './oauth-token-manager.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -53,7 +54,7 @@ import {
 	PERMANENT_GATEWAY_TOOL_NAMES,
 	PERMANENT_GATEWAY_TOOL_NAME_SET,
 	type ReconnectInput,
-	type ReconnectResult,
+	type ReconnectToolResult as ReconnectResult,
 } from './connection/index.js';
 import {
 	createConnectionRuntime,
@@ -158,6 +159,7 @@ async function bootstrapConnection(
 	runtime: ConnectionRuntime,
 	options: CreateMcpServerOptions,
 	fetchImpl: typeof fetch,
+	forceProbe = false,
 ): Promise<void> {
 	const env = runtime.env;
 	const profile = runtime.profile;
@@ -169,6 +171,7 @@ async function bootstrapConnection(
 	const modeProbe = await resolveRuntimeMode({
 		env,
 		fetchImpl,
+		forceProbe,
 	});
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
@@ -239,7 +242,19 @@ async function bootstrapConnection(
 			server,
 			mergeServerInstructions(companionInstructions(profile), registration.remoteInstructions),
 		);
-		runtime.callRemoteTool = registration.callRemoteTool;
+		runtime.callRemoteTool = async (name, args) => {
+			try {
+				const result = await registration.callRemoteTool(name, args);
+				runtime.clearAuthenticationLatch();
+				return result;
+			} catch (error) {
+				if (error instanceof OAuthReauthRequiredError) {
+					runtime.markReauthenticationRequired(error.reasonCode);
+				}
+				throw error;
+			}
+		};
+		runtime.clearAuthenticationLatch();
 		runtime.registry.stageMany(
 			registration.registeredTools.map((tool) => ({ name: tool.name, source: 'remote' as const })),
 		);
@@ -275,7 +290,7 @@ async function bootstrapConnection(
 		wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(registration.profile));
 		wpMcpStatus.local_tool_names = Array.from(localToolNames);
 		wpMcpStatus.prompt_skill_count = promptSkills.length;
-		wpMcpStatus.recovery = recoveryHints(
+		wpMcpStatus.recovery_steps = recoveryHints(
 			registration.filteredToolCount,
 			wpMcpStatus.startup_missing_tool_names.length,
 			wpMcpStatus.profile_missing_tool_names.length,
@@ -286,6 +301,18 @@ async function bootstrapConnection(
 		runtime.refreshSurfaceFromServer({ forceBump: true });
 		runtime.syncLegacyStatus();
 	} catch (err) {
+		if (err instanceof OAuthReauthRequiredError) {
+			runtime.markReauthenticationRequired(err.reasonCode);
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message: 'OAuth authorization is required again.' };
+			wpMcpStatus.error_code = 'reauthentication_required';
+			wpMcpStatus.next_action = runtime.authenticationLatch?.user_action
+				?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.';
+			runtime.stateMachine.transition('degraded', { error: 'reauthentication_required' });
+			runtime.syncLegacyStatus();
+			return;
+		}
 		const message = err instanceof Error ? err.message : String(err);
 		runtime.registry.abort(message);
 		// plugin-only: fail closed, no Direct fallback.
@@ -356,7 +383,7 @@ async function performReconnect(
 
 		const resumeListNotifications = pauseListNotifications(server);
 		try {
-			await bootstrapConnection(server, runtime, options, runtime.fetchImpl);
+			await bootstrapConnection(server, runtime, options, runtime.fetchImpl, Boolean(input.force_probe));
 		} finally {
 			resumeListNotifications();
 		}
@@ -579,7 +606,7 @@ async function registerDirectMode(
 			'stonewright-site-discover',
 			'stonewright-setup-profile',
 		];
-		wpMcpStatus.recovery = [
+		wpMcpStatus.recovery_steps = [
 			'Direct mode is active: core REST tools are registered without the Stonewright plugin.',
 			'Call stonewright-task-start first; the compact Direct task profile unlocks for this session.',
 			'Use stonewright-site-discover when endpoint or plugin-only capability details are needed.',
@@ -644,6 +671,8 @@ function companionInstructions(
 		'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for tokenized WP-CLI work.',
 		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',
+		'- If any gateway returns authentication.state=reauth_required or error_code=reauthentication_required, immediately relay authentication.user_action to the human and stop WordPress work until reauthentication succeeds and stonewright-task-start works again.',
+		'- Permanent local gateways (task-start, status, doctor, reconnect) remain available while remote WordPress calls are blocked for reauthentication.',
 	];
 
 	if (mode === 'direct') {

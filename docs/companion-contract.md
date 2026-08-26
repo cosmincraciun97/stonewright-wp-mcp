@@ -214,6 +214,25 @@ MCP surface: exactly three tools — `stonewright-command-list`,
 `wp-cli`, `site-admin`, `full`, and `discover-execute` profiles. No HTTP
 routes are added for commands.
 
+## Connection status v3
+
+Setup, doctor, task-start, status, and client-surface-check emit
+`schema_version: 3`. The JSON Schema lives in
+`companion/src/contracts/connection-status.schema.json`. Credential and token
+fields are prohibited by omission.
+
+`connected` is a derived compatibility field. Authentication state is
+`authenticated`, `refreshing`, `transient_failure`, `reauth_required`, or
+`unknown`. Terminal OAuth failures set `error_code: reauthentication_required`
+with `authentication.agent_notice_required: true` and a client-specific
+`user_action`. Continuity target is 604800 seconds (seven days) against a
+fourteen-day grant family. Automatic retry is handshake and allowlisted
+read-only bootstrap only; mutations are never retried.
+
+Degraded `stonewright-task-start` reconnects once. Recovery fields report
+whether the last good catalog is preserved and whether remote calls are
+available.
+
 ## Schema Files
 
 The companion keeps the stable health schema in `companion/src/contracts/`.

@@ -275,8 +275,8 @@ final class SkillsTest extends TestCase {
 
 	public function test_save_defaults_skill_mode_flags_from_enabled(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 100;
+			public $prefix = 'wp_';
+			public $insert_id = 100;
 
 			/** @var array<string, mixed> */
 			public array $inserted = [];
@@ -363,7 +363,7 @@ final class SkillsTest extends TestCase {
 
 	public function test_delete_refuses_builtin_skills(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			public bool $delete_called = false;
 
 			public function get_var( string $q ): string {
@@ -664,8 +664,8 @@ final class SkillsTest extends TestCase {
 	 */
 	private function make_wpdb_lifecycle( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix    = 'wp_';
-			public int    $insert_id = 90;
+			public $prefix    = 'wp_';
+			public $insert_id = 90;
 
 			/** @var array<string, mixed> */
 			public array $updated = [];
@@ -743,8 +743,8 @@ final class SkillsTest extends TestCase {
 				$this->rows = $rows;
 			}
 
-			public string $prefix    = 'wp_';
-			public int    $insert_id = 42;
+			public $prefix    = 'wp_';
+			public $insert_id = 42;
 
 			// Returns a non-null value so table_exists() → true.
 			public function get_var( string $q ): string {
@@ -785,7 +785,7 @@ final class SkillsTest extends TestCase {
 		return new class( $rows ) {
 			/** @var array<int, array<string, string>> */
 			private array $rows;
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @param array<int, array<string, string>> $rows */
 			public function __construct( array $rows ) {
@@ -806,7 +806,7 @@ final class SkillsTest extends TestCase {
 	/** @param array<string, mixed> $row */
 	private function make_wpdb_with_captured_update( array $row ): object {
 		return new class( $row ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			/** @var array<string, mixed> */
 			public array $updated = [];
 			/** @param array<string, mixed> $row */
@@ -836,7 +836,7 @@ final class SkillsTest extends TestCase {
 	/** Creates a minimal wpdb mock where the table does NOT exist (get_var → null). */
 	private function make_wpdb_no_table(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $q ): ?string {
 				return null; // null → table_exists() = false.
@@ -851,7 +851,7 @@ final class SkillsTest extends TestCase {
 	/** Creates a minimal wpdb mock for table_name() only. */
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_charset_collate(): string {
 				return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';

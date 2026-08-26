@@ -15,21 +15,37 @@ final class ProtectedWpdbWriteGuard {
 
 	private const CORE_TABLES = [ 'postmeta', 'posts', 'options', 'users', 'usermeta' ];
 
+	private static ?\wpdb $installed_original = null;
+
 	/**
 	 * Wrap the global $wpdb for the duration of a php-execute snippet.
 	 *
-	 * @return object The original $wpdb instance to restore in uninstall().
+	 * @return \wpdb The original $wpdb instance to restore in uninstall().
+	 * @throws \LogicException When the global database handle is not a wpdb instance.
 	 */
-	public static function install( bool $read_only ): object {
+	public static function install( bool $read_only ): \wpdb {
 		global $wpdb;
+		if ( ! $wpdb instanceof \wpdb ) {
+			throw new \LogicException( 'ProtectedWpdbWriteGuard::install() requires a live wpdb instance.' );
+		}
+
 		$original = $wpdb;
+		self::$installed_original = $original;
 		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- php-execute wraps the live handle for the snippet duration.
 		$wpdb = new ProtectedWpdbProxy( $original, $read_only );
 		return $original;
 	}
 
-	public static function uninstall( object $original ): void {
+	public static function uninstall( \wpdb $original ): void {
+		if ( $original !== self::$installed_original ) {
+			return;
+		}
+		$current = $GLOBALS['wpdb'] ?? null;
+		if ( $current instanceof ProtectedWpdbProxy ) {
+			$current->flush_to_inner();
+		}
 		$GLOBALS['wpdb'] = $original; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restore the original handle after php-execute.
+		self::$installed_original = null;
 	}
 
 	/**

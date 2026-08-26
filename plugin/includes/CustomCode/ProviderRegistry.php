@@ -42,6 +42,56 @@ final class ProviderRegistry {
 	}
 
 	/**
+	 * Map sanitized post types to a single owner. Duplicate claims are conflicts
+	 * and still block generic content writes.
+	 *
+	 * @return array{
+	 *   owners: array<string, string>,
+	 *   conflicts: array<string, list<string>>
+	 * }
+	 */
+	public static function post_type_ownership(): array {
+		$owners    = [];
+		$conflicts = [];
+
+		foreach ( self::all() as $provider ) {
+			if ( ! $provider instanceof OwnsPostTypesInterface ) {
+				continue;
+			}
+
+			$seen = [];
+			foreach ( $provider->owned_post_types() as $raw ) {
+				$type = sanitize_key( (string) $raw );
+				if ( '' === $type || isset( $seen[ $type ] ) ) {
+					continue;
+				}
+				$seen[ $type ] = true;
+				$id            = $provider->id();
+
+				if ( isset( $conflicts[ $type ] ) ) {
+					if ( ! in_array( $id, $conflicts[ $type ], true ) ) {
+						$conflicts[ $type ][] = $id;
+					}
+					continue;
+				}
+
+				if ( isset( $owners[ $type ] ) && $owners[ $type ] !== $id ) {
+					$conflicts[ $type ] = [ $owners[ $type ], $id ];
+					unset( $owners[ $type ] );
+					continue;
+				}
+
+				$owners[ $type ] = $id;
+			}
+		}
+
+		return [
+			'owners'    => $owners,
+			'conflicts' => $conflicts,
+		];
+	}
+
+	/**
 	 * @return list<array<string, mixed>>
 	 */
 	public static function discover_all(): array {

@@ -143,7 +143,10 @@ relist behavior.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site
-configuration, backups, or audit history.
+configuration, backups, or audit history. Plugin reinstall of a prior beta
+must not delete OAuth grants, memory, skills, audit history, or Direct state.
+OAuth schema changes in this line are additive; the previous beta tolerates
+extra columns.
 
 ## Fresh install versus update
 

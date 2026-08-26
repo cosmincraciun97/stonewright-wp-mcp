@@ -30,6 +30,12 @@ defined( 'ABSPATH' ) || exit;
  */
 final class ServerFactory {
 
+	public const ACCESS_TOKEN_TTL = 'PT1H';
+
+	public const REFRESH_FAMILY_TTL = 'P14D';
+
+	public const CONTINUITY_TARGET_SECONDS = 604800;
+
 	public static function authorization_server(): AuthorizationServer {
 		$keys   = Keys::get();
 		$server = new AuthorizationServer(
@@ -45,12 +51,12 @@ final class ServerFactory {
 			new RefreshTokenRepository(),
 			new DateInterval( 'PT1M' )
 		);
-		$auth_code->setRefreshTokenTTL( new DateInterval( 'P14D' ) );
-		$server->enableGrantType( $auth_code, new DateInterval( 'PT1H' ) );
+		$auth_code->setRefreshTokenTTL( new DateInterval( self::REFRESH_FAMILY_TTL ) );
+		$server->enableGrantType( $auth_code, new DateInterval( self::ACCESS_TOKEN_TTL ) );
 
 		$refresh = new RefreshTokenGrant( new RefreshTokenRepository() );
-		$refresh->setRefreshTokenTTL( new DateInterval( 'P14D' ) );
-		$server->enableGrantType( $refresh, new DateInterval( 'PT1H' ) );
+		$refresh->setRefreshTokenTTL( new DateInterval( self::REFRESH_FAMILY_TTL ) );
+		$server->enableGrantType( $refresh, new DateInterval( self::ACCESS_TOKEN_TTL ) );
 
 		return $server;
 	}

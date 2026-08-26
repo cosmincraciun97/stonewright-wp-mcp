@@ -178,9 +178,9 @@ final class ErrorPatternsPromotionTest extends TestCase {
 	 */
 	private function make_memory_wpdb(): object {
 		return new class() {
-			public string $prefix     = 'wp_';
-			public int $insert_id     = 0;
-			public string $last_error = '';
+			public $prefix     = 'wp_';
+			public $insert_id     = 0;
+			public $last_error = '';
 
 			/** @var array<int, array<string, mixed>> */
 			public array $rows = [];

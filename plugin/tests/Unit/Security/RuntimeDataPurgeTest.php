@@ -137,7 +137,7 @@ final class RuntimeDataPurgeTest extends TestCase {
 
 	private static function database(): object {
 		return new class() {
-			public string $prefix = 'wptests_';
+			public $prefix = 'wptests_';
 			public string $options = 'wptests_options';
 			/** @var array<string,int> */
 			public array $counts = [

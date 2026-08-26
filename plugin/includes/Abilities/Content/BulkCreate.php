@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -74,6 +75,10 @@ final class BulkCreate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
 		foreach ( (array) ( $args['items'] ?? [] ) as $i => $item ) {
 			$item_post_type = sanitize_key( (string) ( $item['post_type'] ?? 'page' ) );
+			$blocked        = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
+			if ( $blocked instanceof \WP_Error ) {
+				return $blocked;
+			}
 
 			if ( ! Permissions::can_create_post_type( $item_post_type ) ) {
 				return new \WP_Error(
@@ -115,12 +120,18 @@ final class BulkCreate extends AbilityKernel {
 				$created = [];
 				$errors  = [];
 				foreach ( (array) ( $args['items'] ?? [] ) as $idx => $item ) {
+					$item_post_type = sanitize_key( (string) ( $item['post_type'] ?? 'page' ) );
+					$blocked        = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
+					if ( $blocked instanceof \WP_Error ) {
+						return $blocked;
+					}
+
 					$id = wp_insert_post(
 						[
 							'post_title'   => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
 							'post_content' => wp_kses_post( (string) ( $item['content'] ?? '' ) ),
 							'post_status'  => (string) ( $item['status'] ?? 'draft' ),
-							'post_type'    => sanitize_key( (string) ( $item['post_type'] ?? 'page' ) ),
+							'post_type'    => $item_post_type,
 						],
 						true
 					);

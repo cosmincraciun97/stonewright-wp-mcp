@@ -21,6 +21,7 @@ use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use Stonewright\WpMcp\OAuth\ServerFactory;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -33,27 +34,102 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 	private string $active_grant_family_hash = '';
 
+	private ?string $active_family_expires_at = null;
+
+	private ?string $active_parent_identifier_hash = null;
+
+	private ?string $active_client_id = null;
+
+	private ?int $active_user_id = null;
+
+	private ?string $last_revoked_reason = null;
+
+	private static ?string $last_persisted_family_expires_at = null;
+
 	public function getNewRefreshToken(): ?RefreshTokenEntityInterface {
 		return new RefreshTokenEntity();
 	}
 
 	public function persistNewRefreshToken( RefreshTokenEntityInterface $refreshTokenEntity ): void {
 		global $wpdb;
+
 		$family_hash = $this->active_grant_family_hash;
 		if ( '' === $family_hash ) {
 			$family_hash = hash( 'sha256', random_bytes( 32 ) );
+			$this->active_grant_family_hash = $family_hash;
 		}
 
-		$wpdb->insert(
+		$family_expires_at = $this->active_family_expires_at;
+		if ( null === $family_expires_at || '' === $family_expires_at ) {
+			$family_expires_at = ( new DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) ) )
+				->add( new \DateInterval( ServerFactory::REFRESH_FAMILY_TTL ) )
+				->format( 'Y-m-d H:i:s' );
+			$this->active_family_expires_at = $family_expires_at;
+		}
+
+		$family_expiry = new DateTimeImmutable( $family_expires_at . ' UTC' );
+		if ( $family_expiry < new DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) ) ) {
+			throw OAuthServerException::invalidGrant( 'Refresh token family has expired' );
+		}
+
+		// Clamp entity expiry to the fixed family expiry (no sliding window).
+		$refreshTokenEntity->setExpiryDateTime( $family_expiry );
+
+		$identifier_hash = hash( 'sha256', (string) $refreshTokenEntity->getIdentifier() );
+		$access_hash     = hash( 'sha256', (string) $refreshTokenEntity->getAccessToken()->getIdentifier() );
+
+		// Conditional insert: reject if family was revoked concurrently.
+		$revoked_family = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				WHERE grant_family_hash = %s AND revoked = 1 AND revoked_reason IN ('replayed','revoked','expired')",
+				$family_hash
+			)
+		);
+		if ( $revoked_family > 0 ) {
+			throw OAuthServerException::invalidGrant( 'Refresh token family has been revoked' );
+		}
+
+		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'stonewright_oauth_refresh_tokens',
 			[
-				'identifier_hash'  => hash( 'sha256', (string) $refreshTokenEntity->getIdentifier() ),
-				'access_token_hash' => hash( 'sha256', (string) $refreshTokenEntity->getAccessToken()->getIdentifier() ),
-				'grant_family_hash' => $family_hash,
-				'expires_at'       => $refreshTokenEntity->getExpiryDateTime()->format( 'Y-m-d H:i:s' ),
-				'revoked'          => 0,
+				'identifier_hash'        => $identifier_hash,
+				'access_token_hash'      => $access_hash,
+				'grant_family_hash'      => $family_hash,
+				'client_id'              => $this->active_client_id,
+				'user_id'                => $this->active_user_id,
+				'parent_identifier_hash' => $this->active_parent_identifier_hash,
+				'family_expires_at'      => $family_expires_at,
+				'expires_at'             => $family_expires_at,
+				'revoked'                => 0,
 			]
 		);
+
+		if ( false === $inserted ) {
+			throw OAuthServerException::serverError( 'Unable to persist refresh token' );
+		}
+
+		self::$last_persisted_family_expires_at = $family_expires_at;
+
+		// Recheck family state after insert — concurrent replay must revoke the child.
+		$still_active = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				WHERE grant_family_hash = %s AND revoked = 1 AND revoked_reason = 'replayed'",
+				$family_hash
+			)
+		);
+		if ( $still_active > 0 ) {
+			$wpdb->update(
+				$wpdb->prefix . 'stonewright_oauth_refresh_tokens',
+				[
+					'revoked'        => 1,
+					'revoked_reason' => 'replayed',
+				],
+				[ 'identifier_hash' => $identifier_hash ]
+			);
+			throw OAuthServerException::invalidGrant( 'Refresh token has already been used' );
+		}
 	}
 
 	/**
@@ -62,17 +138,35 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 	public function revokeRefreshToken( mixed $tokenId ): void {
 		global $wpdb;
 
-		$claimed = $wpdb->update(
-			$wpdb->prefix . 'stonewright_oauth_refresh_tokens',
-			[ 'revoked' => 1 ],
-			[
-				'identifier_hash' => hash( 'sha256', (string) $tokenId ),
-				'revoked'         => 0,
-			]
+		$identifier_hash = hash( 'sha256', (string) $tokenId );
+
+		$claimed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				SET consumed_at = %s, revoked = 1, revoked_reason = 'rotated'
+				WHERE identifier_hash = %s AND consumed_at IS NULL AND revoked = 0",
+				gmdate( 'Y-m-d H:i:s' ),
+				$identifier_hash
+			)
 		);
-		if ( 1 !== $claimed ) {
-			throw OAuthServerException::invalidGrant( 'Refresh token has already been used' );
+
+		if ( 1 === (int) $claimed ) {
+			$this->last_revoked_reason = 'rotated';
+			return;
 		}
+
+		// Second claim = replay.
+		$this->last_revoked_reason = 'replayed';
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT grant_family_hash FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens WHERE identifier_hash = %s",
+				$identifier_hash
+			),
+			ARRAY_A
+		);
+		$family = is_array( $row ) ? (string) ( $row['grant_family_hash'] ?? '' ) : '';
+		$this->revoke_grant_family( $family, 'replayed' );
+		throw OAuthServerException::invalidGrant( 'Refresh token has already been used' );
 	}
 
 	public function isRefreshTokenRevoked( mixed $tokenId ): bool {
@@ -81,7 +175,8 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT revoked, expires_at, grant_family_hash FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				"SELECT revoked, expires_at, grant_family_hash, family_expires_at, consumed_at, revoked_reason, client_id, user_id
+				FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
 				WHERE identifier_hash = %s",
 				$identifier_hash
 			),
@@ -101,20 +196,46 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			);
 		}
 
-		if ( 1 === (int) ( $row['revoked'] ?? 0 ) ) {
-			$this->revoke_grant_family( $family_hash );
+		$family_expires_at = (string) ( $row['family_expires_at'] ?? '' );
+		if ( '' === $family_expires_at || '0000-00-00 00:00:00' === $family_expires_at ) {
+			$family_expires_at = (string) ( $row['expires_at'] ?? '' );
+		}
+
+		if ( 1 === (int) ( $row['revoked'] ?? 0 ) || null !== ( $row['consumed_at'] ?? null ) ) {
+			$this->last_revoked_reason = (string) ( $row['revoked_reason'] ?? 'revoked' );
+			$this->revoke_grant_family( $family_hash, 'replayed' );
 			return true;
 		}
 
-		$this->active_grant_family_hash = $family_hash;
+		$now = new DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) );
+		if ( '' !== $family_expires_at && new DateTimeImmutable( $family_expires_at . ' UTC' ) < $now ) {
+			$this->last_revoked_reason = 'expired';
+			$this->revoke_grant_family( $family_hash, 'expired' );
+			return true;
+		}
 
-		return new DateTimeImmutable( (string) $row['expires_at'] . ' UTC' ) < new DateTimeImmutable( 'now' );
+		if ( new DateTimeImmutable( (string) $row['expires_at'] . ' UTC' ) < $now ) {
+			$this->last_revoked_reason = 'expired';
+			return true;
+		}
+
+		$this->active_grant_family_hash     = $family_hash;
+		$this->active_family_expires_at     = $family_expires_at;
+		$this->active_parent_identifier_hash = $identifier_hash;
+		$this->active_client_id             = isset( $row['client_id'] ) && is_string( $row['client_id'] ) ? $row['client_id'] : null;
+		$this->active_user_id               = isset( $row['user_id'] ) ? (int) $row['user_id'] : null;
+
+		return false;
+	}
+
+	public function last_revoked_reason(): ?string {
+		return $this->last_revoked_reason;
 	}
 
 	/**
-	 * Revoke every refresh and access token descended from a replayed grant.
+	 * Revoke every refresh and access token descended from a replayed/expired grant.
 	 */
-	private function revoke_grant_family( string $family_hash ): void {
+	private function revoke_grant_family( string $family_hash, string $reason = 'replayed' ): void {
 		if ( '' === $family_hash ) {
 			return;
 		}
@@ -124,12 +245,18 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		$access_table  = $wpdb->prefix . 'stonewright_oauth_access_tokens';
 		$access_hashes = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT access_token_hash FROM {$refresh_table} WHERE grant_family_hash = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is an internal constant-derived name; the value is prepared.
+				"SELECT access_token_hash FROM {$refresh_table} WHERE grant_family_hash = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$family_hash
 			)
 		);
 
-		$wpdb->update( $refresh_table, [ 'revoked' => 1 ], [ 'grant_family_hash' => $family_hash ] );
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$refresh_table} SET revoked = 1, revoked_reason = %s WHERE grant_family_hash = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$reason,
+				$family_hash
+			)
+		);
 		if ( ! is_array( $access_hashes ) ) {
 			return;
 		}
@@ -151,5 +278,13 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			)
 		);
 		return is_string( $value ) ? $value : '';
+	}
+
+	public static function last_persisted_family_expires_at(): ?string {
+		return self::$last_persisted_family_expires_at;
+	}
+
+	public static function reset_last_persisted_family_expires_at(): void {
+		self::$last_persisted_family_expires_at = null;
 	}
 }

@@ -120,13 +120,26 @@ final class TroubleshootPage {
 	}
 
 	private static function render_elementor_provider_discovery(): void {
-		$report = ( new ProviderRouter() )->inspect( 0, 'auto' );
+		self::render_elementor_provider_report( ( new ProviderRouter() )->inspect( 0, 'auto' ) );
+	}
+
+	/** @param array<string,mixed> $report */
+	public static function render_elementor_provider_report( array $report ): void {
 		$providers = is_array( $report['providers'] ?? null ) ? $report['providers'] : [];
 		$provider_count = max( count( $providers ), (int) ( $report['providers_count'] ?? 0 ) );
 		$provider_suffix = true === ( $report['providers_truncated'] ?? false ) ? __( ' (showing a bounded summary)', 'stonewright' ) : '';
 		$issues = is_array( $report['issues'] ?? null ) ? $report['issues'] : [];
 		$preference = is_array( $report['native_preferred']['elementor/manage-default-styles'] ?? null ) ? $report['native_preferred']['elementor/manage-default-styles'] : [];
 		$state = sanitize_key( (string) ( $preference['certification'] ?? 'unsupported' ) );
+		$writes_enabled = true === ( $report['writes_enabled'] ?? false );
+		$any_write_eligible = self::report_has_write_eligible( $providers );
+		if ( $writes_enabled ) {
+			$writes_copy = __( 'Upstream writes are enabled for write-eligible contracts.', 'stonewright' );
+		} elseif ( $any_write_eligible ) {
+			$writes_copy = __( 'Write-eligible contracts are inventoried. Upstream writes stay disabled until Stonewright safety closure can route them.', 'stonewright' );
+		} else {
+			$writes_copy = __( 'Upstream writes remain disabled until a write-eligible contract is certified and the full Stonewright safety closure is available.', 'stonewright' );
+		}
 		?>
 		<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'Elementor provider discovery', 'stonewright' ); ?>">
 			<h2><?php esc_html_e( 'Elementor provider discovery', 'stonewright' ); ?></h2>
@@ -135,8 +148,34 @@ final class TroubleshootPage {
 				<span class="sw-diag-card__body">
 					<strong class="sw-diag-card__label"><?php esc_html_e( 'elementor/manage-default-styles', 'stonewright' ); ?></strong>
 					<span class="sw-diag-card__detail">
-						<?php echo esc_html( sprintf( __( 'Certification: %1$s. Providers discovered: %2$d%3$s. Upstream writes remain disabled until the full Stonewright safety closure is available.', 'stonewright' ), $state, $provider_count, $provider_suffix ) ); ?>
+						<?php echo esc_html( sprintf( __( 'Native preference: %1$s. Providers discovered: %2$d%3$s.', 'stonewright' ), $state, $provider_count, $provider_suffix ) ); ?>
 					</span>
+					<?php foreach ( $providers as $provider ) : ?>
+						<?php
+						if ( ! is_array( $provider ) ) {
+							continue;
+						}
+						$provider_id = self::bounded_public_token( (string) ( $provider['id'] ?? '' ) );
+						$ownership_trust = self::bounded_public_token( (string) ( $provider['ownership_trust'] ?? $provider['ownership'] ?? '' ) );
+						$schema_certification = self::bounded_public_token( (string) ( $provider['schema_certification'] ?? $provider['certification'] ?? '' ) );
+						$write_eligible = self::provider_is_write_eligible( $provider );
+						?>
+						<span class="sw-diag-card__detail">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: 1: provider id, 2: ownership trust, 3: schema certification, 4: yes/no */
+									__( '%1$s — Ownership trust: %2$s. Schema certification: %3$s. Write eligible: %4$s.', 'stonewright' ),
+									$provider_id,
+									$ownership_trust,
+									$schema_certification,
+									$write_eligible ? __( 'yes', 'stonewright' ) : __( 'no', 'stonewright' )
+								)
+							);
+							?>
+						</span>
+					<?php endforeach; ?>
+					<span class="sw-diag-card__detail"><?php echo esc_html( $writes_copy ); ?></span>
 				</span>
 			</div>
 			<?php foreach ( $issues as $issue ) : ?>
@@ -145,19 +184,109 @@ final class TroubleshootPage {
 					continue;
 				}
 				$code = sanitize_key( (string) ( $issue['code'] ?? 'provider_issue' ) );
-				$provider = sanitize_key( (string) ( $issue['provider'] ?? 'runtime' ) );
-				$error_class = sanitize_text_field( (string) ( $issue['error_class'] ?? '' ) );
-				$detail = '' === $error_class ? $provider : $provider . ' — ' . $error_class;
+				$copy = self::provider_issue_copy( $code );
+				$count = max( 1, (int) ( $issue['count'] ?? 1 ) );
+				$source = self::provider_issue_source( (string) ( $issue['provider'] ?? '' ) );
+				$count_copy = sprintf(
+					_n( '%d occurrence', '%d occurrences', $count, 'stonewright' ),
+					$count
+				);
 				?>
 				<div class="sw-diag-card sw-diag-card--error">
 					<span class="sw-diag-card__icon" aria-hidden="true">×</span>
 					<span class="sw-diag-card__body">
-						<strong class="sw-diag-card__label"><?php echo esc_html( $code ); ?></strong>
-						<span class="sw-diag-card__detail"><?php echo esc_html( $detail ); ?></span>
+						<strong class="sw-diag-card__label"><?php echo esc_html( $copy['label'] ); ?></strong>
+						<span class="sw-diag-card__detail"><?php echo esc_html( $copy['explanation'] ); ?></span>
+						<span class="sw-diag-card__detail"><?php echo esc_html( sprintf( __( '%1$s. Source: %2$s.', 'stonewright' ), $count_copy, $source ) ); ?></span>
+						<span class="sw-diag-card__detail"><?php echo esc_html( $copy['remedy'] ); ?></span>
 					</span>
 				</div>
 			<?php endforeach; ?>
 		</section>
 		<?php
+	}
+
+	/**
+	 * @param list<mixed> $providers
+	 */
+	private static function report_has_write_eligible( array $providers ): bool {
+		foreach ( $providers as $provider ) {
+			if ( is_array( $provider ) && self::provider_is_write_eligible( $provider ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** @param array<string,mixed> $provider */
+	private static function provider_is_write_eligible( array $provider ): bool {
+		if ( false === ( $provider['read_only'] ?? true ) ) {
+			return true;
+		}
+		foreach ( (array) ( $provider['capabilities'] ?? [] ) as $capability ) {
+			if ( is_array( $capability ) && true === ( $capability['write_eligible'] ?? false ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** @return array{label:string,explanation:string,remedy:string} */
+	private static function provider_issue_copy( string $code ): array {
+		return match ( $code ) {
+			'provider_discovery_failed' => [
+				'label'       => __( 'Provider discovery failed', 'stonewright' ),
+				'explanation' => __( 'One Elementor provider threw while Stonewright inventoried installed widgets and abilities. Other providers were still recorded.', 'stonewright' ),
+				'remedy'      => __( 'Update or disable the failing Elementor add-on, then reload this page.', 'stonewright' ),
+			],
+			'incomplete_provider_evidence' => [
+				'label'       => __( 'Incomplete provider evidence', 'stonewright' ),
+				'explanation' => __( 'A discovered capability was missing a required plugin, class, or schema fingerprint, so it was omitted from inventory.', 'stonewright' ),
+				'remedy'      => __( 'Update the source plugin so each widget or ability exposes complete runtime evidence.', 'stonewright' ),
+			],
+			'schema_unavailable' => [
+				'label'       => __( 'Atomic schema unavailable', 'stonewright' ),
+				'explanation' => __( 'An Atomic extension threw while exposing its props schema. Other Atomic types remain in inventory.', 'stonewright' ),
+				'remedy'      => __( 'Update or disable the failing Atomic extension, then reload this page.', 'stonewright' ),
+			],
+			'schema_invalid' => [
+				'label'       => __( 'Atomic schema invalid', 'stonewright' ),
+				'explanation' => __( 'An Atomic extension returned a props schema that is not a map of prop objects.', 'stonewright' ),
+				'remedy'      => __( 'Update the extension so its props schema is a finite object map.', 'stonewright' ),
+			],
+			'descriptor_unavailable' => [
+				'label'       => __( 'Prop descriptor unavailable', 'stonewright' ),
+				'explanation' => __( 'A runtime prop could not be normalized into a bounded descriptor, so that Atomic type stayed inventory-only.', 'stonewright' ),
+				'remedy'      => __( 'Update the extension so props serialize to a finite JSON object.', 'stonewright' ),
+			],
+			'runtime_discovery_failed' => [
+				'label'       => __( 'Atomic runtime discovery failed', 'stonewright' ),
+				'explanation' => __( 'Elementor Atomic discovery stopped before the installed type list could be read.', 'stonewright' ),
+				'remedy'      => __( 'Verify Elementor is loaded, then reload this page.', 'stonewright' ),
+			],
+			default => [
+				'label'       => __( 'Provider discovery issue', 'stonewright' ),
+				'explanation' => __( 'Stonewright recorded a bounded diagnostic and kept other providers in inventory.', 'stonewright' ),
+				'remedy'      => __( 'Copy the report for support. Keep writes disabled until the issue is understood.', 'stonewright' ),
+			],
+		};
+	}
+
+	private static function provider_issue_source( string $provider ): string {
+		return match ( $provider ) {
+			'v3'        => __( 'Elementor widgets', 'stonewright' ),
+			'atomic'    => __( 'Atomic widgets', 'stonewright' ),
+			'abilities' => __( 'Upstream abilities', 'stonewright' ),
+			''          => __( 'Elementor runtime', 'stonewright' ),
+			default     => self::bounded_public_token( $provider ),
+		};
+	}
+
+	private static function bounded_public_token( string $value ): string {
+		$value = str_replace( '\\', '', sanitize_text_field( $value ) );
+		if ( strlen( $value ) <= 100 ) {
+			return $value;
+		}
+		return substr( $value, 0, 97 ) . '...';
 	}
 }

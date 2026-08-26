@@ -12,12 +12,15 @@ what to fix. It does **not** replace a live client restart.
 ## How it runs
 
 1. Pick **How do you connect?**
-   - **Not sure (check both)** — HTTP loopback plus local companion checks.
-   - **Remote Streamable HTTP / OAuth** — live MCP loopback (`initialize` →
-     `tools/list` → `task-start`), WAF-style 403/406 detection, User-Agent
-     bot-filter probes, and OAuth dynamic registration.
-   - **Local companion (stdio)** — skips the HTTP loopback and reports whether
-     a companion URL is configured.
+   - **Not sure** — safe discovery that recommends a method. It does not guess
+     credentials.
+   - **OAuth** (`oauth-http`) — live MCP loopback (`initialize` → `tools/list`
+     → `task-start`), WAF-style 403/406 detection, User-Agent bot-filter
+     probes, and OAuth dynamic registration.
+   - **Application Password** (`application-password-stdio`) — local companion
+     checks for Application Password stdio.
+   - **Local companion** (`stdio`) — skips the HTTP loopback and reports
+     whether a companion URL is configured.
 2. Click **Run diagnostics**.
 3. With JavaScript, the request posts to `admin-ajax.php`
    (`action=stonewright_run_diagnostics`) and paints result cards in place. The
@@ -25,13 +28,24 @@ what to fix. It does **not** replace a live client restart.
 4. Without JavaScript, the form posts to `admin-post.php` and redirects back
    with `?stonewright_diagnostics=1`.
 
+Checks run as a dependency-ordered graph. Failed prerequisites mark dependents
+`skipped`; they do not invent secondary failures. Successful checks collapse
+into a summary. Problems and warnings show evidence, remedy, a safe action, and
+copyable support text. Support reports omit Authorization, cookies, token
+bodies, passwords, filesystem paths, user content, and database values.
+
+The OAuth registration diagnostic sends valid RFC 7591 metadata, requires HTTP
+`201` plus a valid response shape, creates an explicitly ephemeral client, and
+deletes it before responding. Invalid JSON, `400`, `401`, `403`, `429`, `5xx`,
+timeout, and cleanup failure are never success.
+
 Before the first run, live-probe cards say **Not run yet — click Run
 diagnostics**. After a run, the **N Problems** pill scrolls to the first
 non-pass card.
 
 Results are stored in `stonewright_diagnostics_last` (autoload off). Cards use
-`ok` / `warn` / `error` / `info` statuses. Problem and warning pills appear
-when those counts are greater than zero. **Copy report for support** copies a
+`ok` / `info` / `warning` / `problem` / `skipped` statuses. Problem and warning
+pills appear when those counts are greater than zero. **Copy report for support** copies a
 plaintext report (no secrets). On non-HTTPS pages, if the clipboard API fails,
 the panel falls back to `document.execCommand('copy')`, then a readonly
 textarea modal with **Press Ctrl/Cmd+C**. Optional **What do you see in your
@@ -62,10 +76,12 @@ path.
 ## OAuth dynamic registration
 
 The same HTTP run `POST`s to the local OAuth dynamic-registration endpoint
-(`/wp-json/stonewright/v1/oauth/register`) with a 5 second timeout. Timeout or
-connection refusal is a warning and shows the exact error string. An HTTP
-response from the endpoint (including 4xx validation) means the route is
-reachable.
+(`/wp-json/stonewright/v1/oauth/register`) with valid RFC 7591 metadata. Success
+requires HTTP `201` plus a valid response shape. The diagnostic creates an
+explicitly ephemeral client and deletes it before responding. Invalid JSON,
+`400`, `401`, `403`, `429`, `5xx`, timeout, and cleanup failure are never
+success. A `finally` cleanup and scheduled garbage collection cover lost
+diagnostic responses.
 
 See also [Configuration](configuration.md) (**Verify connection** vs this
 panel) and [Connect clients](connect-clients.md).

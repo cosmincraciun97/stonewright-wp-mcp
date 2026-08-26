@@ -285,8 +285,8 @@ final class DesignDirectionRepositoryTest extends TestCase {
 	 */
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 101;
+			public $prefix = 'wp_';
+			public $insert_id = 101;
 			public bool $fail_writes = false;
 			public ?string $last_query = null;
 

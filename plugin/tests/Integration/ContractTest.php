@@ -32,6 +32,7 @@ final class ContractTest extends TestCase {
 
 	protected function setUp(): void {
 		IncidentStore::reset_for_tests();
+		WidgetSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_audit_rows'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = array_fill_keys(
 			[
@@ -128,7 +129,7 @@ final class ContractTest extends TestCase {
 				public function __construct( private string $path ) {
 				}
 
-				public function update(): void {
+				public function update_file(): void {
 					file_put_contents( $this->path, 'contract-post-css' );
 				}
 

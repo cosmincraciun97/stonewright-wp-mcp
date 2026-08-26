@@ -369,10 +369,26 @@
 		if ( status === 'passed' || status === 'ok' ) {
 			return 'ok';
 		}
-		if ( status === 'warn' ) {
-			return 'warn';
+		if ( status === 'warn' || status === 'warning' ) {
+			return 'warning';
 		}
 		if ( status === 'info' ) {
+			return 'info';
+		}
+		if ( status === 'skipped' ) {
+			return 'skipped';
+		}
+		return 'problem';
+	}
+
+	function diagnosticCssStatus( status ) {
+		if ( status === 'ok' ) {
+			return 'ok';
+		}
+		if ( status === 'warning' ) {
+			return 'warn';
+		}
+		if ( status === 'info' || status === 'skipped' ) {
 			return 'info';
 		}
 		return 'error';
@@ -395,9 +411,10 @@
 		list.hidden = false;
 		( checks || [] ).forEach( function ( check ) {
 			var status = normalizeChecklistStatus( check.status || 'error' );
-			var icon = status === 'ok' ? '✓' : ( status === 'warn' ? '!' : '✗' );
+			var cssStatus = diagnosticCssStatus( status );
+			var icon = status === 'ok' ? '✓' : ( status === 'warning' ? '!' : ( status === 'info' || status === 'skipped' ? 'ⓘ' : '✗' ) );
 			var li = document.createElement( 'li' );
-			li.className = 'sw-checklist__item sw-checklist__item--' + status;
+			li.className = 'sw-checklist__item sw-checklist__item--' + cssStatus;
 			li.setAttribute( 'data-status', status );
 			li.innerHTML =
 				'<span class="sw-checklist__icon" aria-hidden="true">' + icon + '</span>' +
@@ -1395,45 +1412,165 @@
 		if ( status === 'ok' ) {
 			return '✓';
 		}
-		if ( status === 'warn' ) {
+		if ( status === 'warning' ) {
 			return '!';
 		}
-		if ( status === 'info' ) {
+		if ( status === 'info' || status === 'skipped' ) {
 			return 'ⓘ';
 		}
 		return '✗';
 	}
 
 	function formatDiagnosticsCopy( report ) {
-		var lines = [ 'Stonewright diagnostics' ];
+		var lines = [ 'Stonewright support report' ];
+		var evidenceKeys = [ 'http_status', 'duration_ms', 'error_code', 'error_class', 'timeout' ];
+		var countKeys = [ 'problem', 'warning', 'info', 'ok', 'skipped' ];
+		var versionKeys = [ 'plugin', 'companion_contract', 'wordpress', 'php', 'tool_count' ];
+		var versionLabels = {
+			plugin: 'Plugin',
+			companion_contract: 'Companion',
+			wordpress: 'WordPress',
+			php: 'PHP',
+			tool_count: 'Tools',
+		};
+		if ( report && report.method ) {
+			lines.push( 'Method: ' + String( report.method ).replace( /[^a-z0-9_-]/gi, '' ) );
+		}
+		if ( report && report.correlation_id ) {
+			lines.push( 'Correlation: ' + String( report.correlation_id ).slice( 0, 64 ) );
+		}
 		var versions = report && report.versions ? report.versions : {};
-		if ( report && report.mode ) {
-			lines.push( 'Mode: ' + report.mode );
+		versionKeys.forEach( function ( key ) {
+			if ( versions[ key ] === undefined || versions[ key ] === null ) {
+				return;
+			}
+			lines.push( ( versionLabels[ key ] || key ) + ': ' + String( versions[ key ] ) );
+		} );
+		var counts = report && report.counts ? report.counts : {};
+		var countBits = [];
+		countKeys.forEach( function ( key ) {
+			if ( typeof counts[ key ] === 'number' ) {
+				countBits.push( key + '=' + counts[ key ] );
+			}
+		} );
+		if ( countBits.length ) {
+			lines.push( 'Counts: ' + countBits.join( ' ' ) );
 		}
-		if ( versions.plugin ) {
-			lines.push( 'Plugin: ' + versions.plugin );
-		}
-		if ( versions.companion_contract ) {
-			lines.push( 'Companion HTTP contract: ' + versions.companion_contract );
-		}
-		if ( versions.wordpress ) {
-			lines.push( 'WordPress: ' + versions.wordpress );
-		}
-		if ( versions.php ) {
-			lines.push( 'PHP: ' + versions.php );
-		}
-		lines.push( '' );
 		( ( report && report.checks ) || [] ).forEach( function ( check ) {
-			lines.push( '[' + ( check.status || 'error' ) + '] ' + ( check.label || '' ) );
-			if ( check.detail ) {
-				lines.push( check.detail );
+			if ( ! check || ! check.id || ! check.status ) {
+				return;
 			}
-			if ( check.ticket ) {
-				lines.push( check.ticket );
-			}
-			lines.push( '' );
+			lines.push( '[' + check.status + '] ' + check.id );
+			var evidence = check.evidence || {};
+			evidenceKeys.forEach( function ( key ) {
+				if ( evidence[ key ] === undefined || evidence[ key ] === null ) {
+					return;
+				}
+				if ( typeof evidence[ key ] === 'object' ) {
+					return;
+				}
+				lines.push( '  ' + key + '=' + String( evidence[ key ] ).slice( 0, 200 ) );
+			} );
 		} );
 		return lines.join( '\n' ).trim();
+	}
+
+	function declaredAction( check ) {
+		var action = check && check.action ? check.action : null;
+		if ( ! action || typeof action !== 'object' ) {
+			return null;
+		}
+		var type = String( action.type || '' );
+		var label = String( action.label || '' );
+		var target = String( action.target || '' ).trim();
+		if ( [ 'copy', 'link', 'retry' ].indexOf( type ) === -1 || ! label || ! target ) {
+			return null;
+		}
+		if ( type === 'link' && /^javascript:/i.test( target ) ) {
+			return null;
+		}
+		return { type: type, label: label, target: target };
+	}
+
+	function appendDiagnosticCard( parent, check ) {
+		var status = normalizeChecklistStatus( check.status || 'problem' );
+		var cssStatus = diagnosticCssStatus( status );
+		var card = document.createElement( 'div' );
+		card.className = 'sw-diag-card sw-diag-card--' + cssStatus;
+		card.setAttribute( 'data-status', status );
+
+		var icon = document.createElement( 'span' );
+		icon.className = 'sw-diag-card__icon';
+		icon.setAttribute( 'aria-hidden', 'true' );
+		icon.textContent = diagnosticIcon( status );
+
+		var bodyEl = document.createElement( 'span' );
+		bodyEl.className = 'sw-diag-card__body';
+
+		var label = document.createElement( 'strong' );
+		label.className = 'sw-diag-card__label';
+		label.textContent = check.label || '';
+
+		var detail = document.createElement( 'span' );
+		detail.className = 'sw-diag-card__detail';
+		detail.textContent = check.summary || check.detail || '';
+
+		bodyEl.appendChild( label );
+		bodyEl.appendChild( detail );
+
+		if ( ( status === 'problem' || status === 'warning' ) && check.remedy ) {
+			var remedy = document.createElement( 'span' );
+			remedy.className = 'sw-diag-card__detail';
+			remedy.textContent = String( check.remedy );
+			bodyEl.appendChild( remedy );
+		}
+
+		var copyText = String( check.copy || check.ticket || '' );
+		var action = declaredAction( check );
+		if ( ! action && copyText ) {
+			action = {
+				type: 'copy',
+				label: 'Copy hosting request',
+				target: 'stonewright-diag-ticket-' + String( check.id || 'check' ).replace( /[^a-z0-9_-]/gi, '' ),
+			};
+		}
+		if ( action ) {
+			if ( action.type === 'link' ) {
+				var link = document.createElement( 'a' );
+				link.className = 'button';
+				link.href = action.target;
+				link.textContent = action.label;
+				bodyEl.appendChild( link );
+			} else if ( action.type === 'retry' ) {
+				var retry = document.createElement( 'button' );
+				retry.type = 'button';
+				retry.className = 'button';
+				retry.setAttribute( 'data-stonewright-run-diagnostics', '' );
+				retry.textContent = action.label;
+				bodyEl.appendChild( retry );
+			} else {
+				var copyId = action.target;
+				var copyBtn = document.createElement( 'button' );
+				copyBtn.type = 'button';
+				copyBtn.className = 'button';
+				copyBtn.setAttribute( 'data-stonewright-copy', copyId );
+				copyBtn.textContent = action.label;
+
+				var copyArea = document.createElement( 'textarea' );
+				copyArea.id = copyId;
+				copyArea.className = 'sw-diag-copy-source';
+				copyArea.setAttribute( 'readonly', '' );
+				copyArea.hidden = true;
+				copyArea.value = copyText;
+
+				bodyEl.appendChild( copyBtn );
+				bodyEl.appendChild( copyArea );
+			}
+		}
+
+		card.appendChild( icon );
+		card.appendChild( bodyEl );
+		parent.appendChild( card );
 	}
 
 	function paintDiagnosticCards( root, report ) {
@@ -1442,73 +1579,65 @@
 			return;
 		}
 		cards.textContent = '';
-		var errorCount = 0;
-		var warnCount = 0;
+		var grouped = {
+			problem: [],
+			warning: [],
+			skipped: [],
+			ok: [],
+			info: [],
+		};
 		( ( report && report.checks ) || [] ).forEach( function ( check ) {
-			var status = normalizeChecklistStatus( check.status || 'error' );
-			if ( status === 'error' ) {
-				errorCount += 1;
+			var status = normalizeChecklistStatus( check.status || 'problem' );
+			if ( ! grouped[ status ] ) {
+				grouped.problem.push( check );
+				return;
 			}
-			if ( status === 'warn' ) {
-				warnCount += 1;
-			}
-
-			var card = document.createElement( 'div' );
-			card.className = 'sw-diag-card sw-diag-card--' + status;
-			card.setAttribute( 'data-status', status );
-
-			var icon = document.createElement( 'span' );
-			icon.className = 'sw-diag-card__icon';
-			icon.setAttribute( 'aria-hidden', 'true' );
-			icon.textContent = diagnosticIcon( status );
-
-			var bodyEl = document.createElement( 'span' );
-			bodyEl.className = 'sw-diag-card__body';
-
-			var label = document.createElement( 'strong' );
-			label.className = 'sw-diag-card__label';
-			label.textContent = check.label || '';
-
-			var detail = document.createElement( 'span' );
-			detail.className = 'sw-diag-card__detail';
-			detail.textContent = check.detail || '';
-
-			bodyEl.appendChild( label );
-			bodyEl.appendChild( detail );
-
-			if ( check.ticket ) {
-				var ticketId = 'stonewright-diag-ticket-' + String( check.id || 'check' ).replace( /[^a-z0-9_-]/gi, '' );
-				var ticketBtn = document.createElement( 'button' );
-				ticketBtn.type = 'button';
-				ticketBtn.className = 'button';
-				ticketBtn.setAttribute( 'data-stonewright-copy', ticketId );
-				ticketBtn.textContent = 'Copy ticket';
-
-				var ticketArea = document.createElement( 'textarea' );
-				ticketArea.id = ticketId;
-				ticketArea.className = 'sw-diag-copy-source';
-				ticketArea.setAttribute( 'readonly', '' );
-				ticketArea.hidden = true;
-				ticketArea.value = String( check.ticket );
-
-				bodyEl.appendChild( ticketBtn );
-				bodyEl.appendChild( ticketArea );
-			}
-
-			card.appendChild( icon );
-			card.appendChild( bodyEl );
-			cards.appendChild( card );
+			grouped[ status ].push( check );
 		} );
+
+		grouped.problem.forEach( function ( check ) {
+			appendDiagnosticCard( cards, check );
+		} );
+		grouped.warning.forEach( function ( check ) {
+			appendDiagnosticCard( cards, check );
+		} );
+		grouped.skipped.forEach( function ( check ) {
+			appendDiagnosticCard( cards, check );
+		} );
+
+		var success = grouped.ok.concat( grouped.info );
+		if ( success.length ) {
+			var details = document.createElement( 'details' );
+			details.className = 'sw-diag-success';
+			var summary = document.createElement( 'summary' );
+			summary.textContent = success.length + ' successful checks';
+			details.appendChild( summary );
+			success.forEach( function ( check ) {
+				appendDiagnosticCard( details, check );
+			} );
+			cards.appendChild( details );
+		}
+
+		var problemCount = grouped.problem.length;
+		var warningCount = grouped.warning.length;
+		if ( report && report.counts ) {
+			if ( typeof report.counts.problem === 'number' ) {
+				problemCount = report.counts.problem;
+			}
+			if ( typeof report.counts.warning === 'number' ) {
+				warningCount = report.counts.warning;
+			}
+		}
 
 		var problems = root.querySelector( '[data-stonewright-diag-problems]' );
 		var warnings = root.querySelector( '[data-stonewright-diag-warnings]' );
 		if ( problems ) {
-			problems.textContent = errorCount + ' Problems';
-			problems.hidden = errorCount === 0;
+			problems.textContent = problemCount + ' Problems';
+			problems.hidden = problemCount === 0;
 		}
 		if ( warnings ) {
-			warnings.textContent = warnCount + ' Warnings';
-			warnings.hidden = warnCount === 0;
+			warnings.textContent = warningCount + ' Warnings';
+			warnings.hidden = warningCount === 0;
 		}
 
 		var copy = document.getElementById( 'stonewright-diagnostics-copy' );
@@ -1559,12 +1688,16 @@
 			warnings.addEventListener( 'click', scrollToFirstIssue );
 		}
 
+		var modeSelect = root.querySelector( '[data-stonewright-diag-mode]' );
 		var running = false;
 		function finishLoading() {
 			running = false;
 			button.disabled = false;
 			button.classList.remove( 'is-loading' );
 			button.setAttribute( 'aria-busy', 'false' );
+			if ( modeSelect ) {
+				modeSelect.disabled = false;
+			}
 		}
 
 		function runDiagnostics( event ) {
@@ -1576,12 +1709,14 @@
 				return;
 			}
 
-			var modeSelect = root.querySelector( '[data-stonewright-diag-mode]' );
-			var mode = modeSelect && modeSelect.value ? modeSelect.value : 'both';
+			var mode = modeSelect && modeSelect.value ? modeSelect.value : 'not-sure';
 			running = true;
 			button.disabled = true;
 			button.classList.add( 'is-loading' );
 			button.setAttribute( 'aria-busy', 'true' );
+			if ( modeSelect ) {
+				modeSelect.disabled = true;
+			}
 
 			var body = new window.URLSearchParams();
 			body.set( 'action', 'stonewright_run_diagnostics' );

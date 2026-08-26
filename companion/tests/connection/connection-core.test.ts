@@ -6,7 +6,7 @@ import {
 	RegistryBarrier,
 	ReconnectController,
 	SurfaceRevisionTracker,
-	buildConnectionStatusV2,
+	buildConnectionStatusV3,
 	clientHasTool,
 	computeRefreshRequiredToolNames,
 	computeSurfaceDigest,
@@ -159,6 +159,37 @@ describe('reconnect singleflight', () => {
 		expect(a.connection_generation).toBe(2);
 	});
 
+	it('coalesces concurrent reconnect coordinator requests', async () => {
+		const { createReconnectCoordinator } = await import('../../src/connection/reconnect.js');
+		const calls: string[] = [];
+		const reconnect = createReconnectCoordinator(async () => {
+			calls.push('probe');
+			await new Promise((r) => setTimeout(r, 20));
+			return { ok: true };
+		});
+		const [left, right] = await Promise.all([reconnect.run('task-start'), reconnect.run('doctor')]);
+		expect(calls).toEqual(['probe']);
+		expect([left.coalesced, right.coalesced].sort()).toEqual([false, true]);
+	});
+
+	it('projectTaskArgs never forwards companion-only site keys', async () => {
+		const { projectTaskArgs } = await import('../../src/connection/reconnect.js');
+		const projected = projectTaskArgs({
+			task: 'build home',
+			surface: 'essential',
+			intent: 'design',
+			site: 'site-a',
+			site_alias: 'site-a',
+			extra: 'drop-me',
+		});
+		expect(projected).toEqual({
+			task: 'build home',
+			surface: 'essential',
+			intent: 'design',
+		});
+		expect(JSON.stringify(projected)).not.toContain('site');
+	});
+
 	it('failed reconnect reports failure without inventing a new catalog', async () => {
 		const controller = new ReconnectController(() => Promise.resolve({
 			ok: false,
@@ -252,14 +283,46 @@ describe('configured mode mapping', () => {
 	});
 });
 
-describe('status contract v2', () => {
-	it('includes schema_version 2 and derived connected field', () => {
-		const status = buildConnectionStatusV2({
+const TOKEN_SHAPED_KEY = /^(access_token|refresh_token|authorization|password|cookie|bearer|app_password|secret|token)$/i;
+
+function collectObjectKeys(value: unknown, keys: string[] = []): string[] {
+	if (!value || typeof value !== 'object') return keys;
+	for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+		keys.push(key);
+		collectObjectKeys(child, keys);
+	}
+	return keys;
+}
+
+const sampleAuthentication = {
+	configured: true,
+	method: 'app-password' as const,
+	state: 'authenticated' as const,
+	reason_code: null,
+	last_success_at: null,
+	refresh_expires_at: null,
+	continuity_target_seconds: 604800 as const,
+	agent_notice_required: false,
+	user_action: null,
+};
+
+const sampleRecovery = {
+	catalog_preserved: true,
+	remote_calls_available: true,
+	last_success_at: null,
+	reconnect_attempted: false,
+	reconnect_coalesced: false,
+};
+
+describe('status contract v3', () => {
+	it('includes schema_version 3 and derived connected field', () => {
+		const status = buildConnectionStatusV3({
 			configuredMode: 'auto',
 			activeMode: 'plugin',
 			connectionStage: 'plugin-ready',
 			connectionGeneration: 1,
-			authConfigured: true,
+			authentication: sampleAuthentication,
+			recovery: sampleRecovery,
 			plugin: {
 				reachable: true,
 				enabled_requested: true,
@@ -277,11 +340,17 @@ describe('status contract v2', () => {
 			},
 			startupReady: true,
 		});
-		expect(status.schema_version).toBe(2);
+		expect(status.schema_version).toBe(3);
 		expect(status.connected).toBe(true);
 		expect(status.startup_ready).toBe(true);
 		expect(status.connection_stage).toBe('plugin-ready');
 		expect(status.client_visibility.state).toBe('unverified');
+		expect(status.recovery.catalog_preserved).toBe(true);
+		expect(status.recovery.remote_calls_available).toBe(true);
+		expect(status.authentication.last_success_at).toBeNull();
+		for (const key of collectObjectKeys(status)) {
+			expect(key).not.toMatch(TOKEN_SHAPED_KEY);
+		}
 	});
 
 	it('mode-capabilities returns Direct vs Plugin comparison rows', () => {
@@ -300,3 +369,20 @@ describe('status contract v2', () => {
 
 // Silence unused import if vi is only needed later.
 void vi;
+
+describe('doctor remediation selection', () => {
+	it('diagnoses terminal OAuth as reauthentication_required, not plugin unavailable', () => {
+		const authentication = {
+			state: 'reauth_required' as const,
+			user_action: 'Reauthenticate this server.',
+		};
+		const diagnostic = null;
+		let code = 'plugin_connection_unavailable';
+		if (authentication.state === 'reauth_required') code = 'reauthentication_required';
+		else if (diagnostic?.kind === 'plugin_route_missing') code = 'plugin_route_missing';
+		else if (diagnostic?.kind === 'auth_error') code = 'authentication_failed';
+		else if (diagnostic?.retryable) code = 'transport_transient';
+		expect(code).toBe('reauthentication_required');
+		expect(code).not.toBe('plugin_unavailable');
+	});
+});

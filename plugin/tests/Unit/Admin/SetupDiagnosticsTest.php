@@ -34,6 +34,8 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 
 		self::assertArrayHasKey( 'ready', $report );
+		self::assertArrayHasKey( 'method', $report );
+		self::assertArrayHasKey( 'counts', $report );
 		self::assertGreaterThanOrEqual( 11, count( $report['checks'] ) );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'connection' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'endpoint' )['status'] );
@@ -46,6 +48,24 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( '0.0.0-test', $report['versions']['plugin'] );
 		self::assertSame( '1.0.0', $report['versions']['companion_contract'] );
 		self::assertLessThanOrEqual( 30, $report['versions']['tool_count'] );
+		self::assertArrayHasKey( 'problem', $report['counts'] );
+		self::assertArrayHasKey( 'skipped', $report['counts'] );
+		self::assertSame( 0, $report['counts']['skipped'] );
+	}
+
+	public function test_disabled_plugin_skips_dependent_connection_checks(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = false;
+
+		$report = SetupDiagnostics::report();
+		$plugin = $this->find_check( $report['checks'], 'plugin' );
+		$connection = $this->find_check( $report['checks'], 'connection' );
+
+		self::assertFalse( $report['ready'] );
+		self::assertSame( 'problem', $plugin['status'] );
+		self::assertSame( 'skipped', $connection['status'] );
+		self::assertStringContainsString( 'plugin', (string) ( $connection['summary'] ?? $connection['detail'] ?? '' ) );
+		self::assertGreaterThanOrEqual( 1, $report['counts']['problem'] );
+		self::assertGreaterThanOrEqual( 1, $report['counts']['skipped'] );
 	}
 
 	public function test_tool_budget_passes_at_essential_maximum(): void {
@@ -71,8 +91,8 @@ final class SetupDiagnosticsTest extends TestCase {
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
 		self::assertSame( 32, $report['versions']['tool_count'] );
-		self::assertSame( 'warn', $budget['status'] );
-		self::assertStringContainsString( 'essential', strtolower( (string) $budget['detail'] ) );
+		self::assertSame( 'warning', $budget['status'] );
+		self::assertStringContainsString( 'essential', strtolower( (string) ( $budget['summary'] ?? $budget['detail'] ?? '' ) ) );
 	}
 
 	public function test_tool_budget_is_info_when_full_surface_is_selected(): void {
@@ -87,7 +107,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( 'info', $budget['status'] );
 		self::assertSame(
 			sprintf( 'Full surface selected — %d tools. Compact profiles reduce agent token cost.', $count ),
-			$budget['detail']
+			(string) ( $budget['summary'] ?? $budget['detail'] ?? '' )
 		);
 	}
 
@@ -116,7 +136,7 @@ final class SetupDiagnosticsTest extends TestCase {
 				$configured_count,
 				$session_count
 			),
-			$card['detail']
+			(string) ( $card['summary'] ?? $card['detail'] ?? '' )
 		);
 		self::assertSame( $configured_count, $report['versions']['tool_count'] );
 	}
@@ -125,6 +145,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => false,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -142,10 +163,10 @@ final class SetupDiagnosticsTest extends TestCase {
 		$probe = $this->find_check( $report['checks'], 'connection_probe' );
 		$waf   = $this->find_check( $report['checks'], 'waf' );
 
-		self::assertSame( 'error', $probe['status'] );
-		self::assertSame( 'error', $waf['status'] );
-		self::assertStringContainsString( 'example.test', $probe['detail'] );
-		self::assertStringNotContainsString( 'wp.test', $probe['detail'] );
+		self::assertSame( 'problem', $probe['status'] );
+		self::assertSame( 'problem', $waf['status'] );
+		self::assertStringContainsString( 'example.test', (string) ( $probe['summary'] ?? $probe['detail'] ?? '' ) );
+		self::assertStringNotContainsString( 'wp.test', (string) ( $probe['summary'] ?? $probe['detail'] ?? '' ) );
 	}
 
 	public function test_bot_filter_probe_warns_on_user_agent_403_with_hosting_ticket(): void {
@@ -153,6 +174,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -162,17 +184,31 @@ final class SetupDiagnosticsTest extends TestCase {
 					if ( 'GET' === strtoupper( $method ) ) {
 						$headers = (array) ( $args['headers'] ?? [] );
 						$ua      = (string) ( $headers['User-Agent'] ?? $headers['user-agent'] ?? '' );
-						$uas[]   = $ua;
-						$code    = in_array( $ua, [ 'python-httpx', 'node', 'Go-http-client' ], true ) ? 403 : 200;
+						if ( in_array( $ua, [ 'python-httpx', 'node', 'Go-http-client' ], true ) ) {
+							$uas[] = $ua;
+							return [
+								'response' => [ 'code' => 403 ],
+								'body'     => '',
+							];
+						}
 						return [
-							'response' => [ 'code' => $code ],
+							'response' => [ 'code' => 401 ],
+							'headers'  => [ 'www-authenticate' => 'Bearer realm="stonewright"' ],
 							'body'     => '',
 						];
 					}
 
 					return [
 						'response' => [ 'code' => 201 ],
-						'body'     => '{}',
+						'body'     => wp_json_encode(
+							[
+								'client_id'                  => str_repeat( 'ab', 16 ),
+								'client_name'                => 'Stonewright diagnostics',
+								'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+								'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+								'token_endpoint_auth_method' => 'none',
+							]
+						),
 					];
 				},
 			]
@@ -181,13 +217,13 @@ final class SetupDiagnosticsTest extends TestCase {
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
 		self::assertSame( [ 'python-httpx', 'node', 'Go-http-client' ], $uas );
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertArrayHasKey( 'ticket', $bot );
-		self::assertStringContainsString( 'example.test', (string) $bot['ticket'] );
-		self::assertStringContainsString( 'python-httpx', (string) $bot['ticket'] );
-		self::assertStringContainsString( 'User-Agent', (string) $bot['ticket'] );
-		self::assertStringNotContainsString( 'Novamira', (string) $bot['ticket'] );
-		self::assertStringNotContainsString( 'wp.test', (string) $bot['ticket'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertNotSame( '', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'example.test', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'python-httpx', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringContainsString( 'User-Agent', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringNotContainsString( 'Novamira', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
+		self::assertStringNotContainsString( 'wp.test', (string) ( $bot['copy'] ?? $bot['ticket'] ?? '' ) );
 	}
 
 	public function test_oauth_registration_probe_warns_with_timeout_error_string(): void {
@@ -195,6 +231,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -222,8 +259,9 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertCount( 1, $posts );
 		self::assertStringContainsString( 'oauth/register', (string) $posts[0]['url'] );
 		self::assertSame( 5, (int) $posts[0]['timeout'] );
-		self::assertSame( 'warn', $oauth['status'] );
-		self::assertStringContainsString( 'cURL error 28: Connection timed out after 5001 milliseconds', (string) $oauth['detail'] );
+		self::assertSame( 'problem', $oauth['status'] );
+		self::assertStringContainsString( 'cURL error 28: Connection timed out after 5001 milliseconds', (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
+		self::assertNotSame( '', (string) ( $oauth['remedy'] ?? '' ) );
 	}
 
 	public function test_oauth_registration_probe_sets_self_test_transient_and_header_before_post(): void {
@@ -231,6 +269,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report   = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -266,10 +305,11 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		self::assertNotSame( '', $captured['token'] ?? '' );
 		self::assertTrue( (bool) ( $captured['key_exists'] ?? false ), 'Self-test transient must be set before POST.' );
-		self::assertSame( '1', (string) ( $captured['transient'] ?? '' ) );
+		self::assertSame( hash( 'sha256', (string) $captured['token'] ), (string) ( $captured['transient'] ?? '' ) );
 		self::assertSame( 30, (int) ( $captured['ttl'] ?? 0 ) );
-		self::assertSame( 'ok', $oauth['status'] );
-		self::assertStringContainsString( 'HTTP 400', (string) $oauth['detail'] );
+		self::assertSame( 'problem', $oauth['status'] );
+		self::assertSame( 400, (int) ( $oauth['evidence']['http_status'] ?? 0 ) );
+		self::assertNotSame( '', (string) ( $oauth['remedy'] ?? '' ) );
 	}
 
 	/**
@@ -279,6 +319,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -302,9 +343,11 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
 
-		self::assertSame( 'warn', $oauth['status'] );
-		self::assertStringContainsString( (string) $code, (string) $oauth['detail'] );
-		self::assertStringContainsString( $body, (string) $oauth['detail'] );
+		self::assertSame( 'warning', $oauth['status'] );
+		self::assertStringContainsString( (string) $code, (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
+		self::assertStringContainsString( $body, (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) );
+		self::assertSame( $code, (int) ( $oauth['evidence']['http_status'] ?? 0 ) );
+		self::assertNotSame( '', (string) ( $oauth['remedy'] ?? '' ) );
 	}
 
 	/**
@@ -322,6 +365,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -342,11 +386,11 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertStringContainsString( $error, (string) $bot['detail'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertStringContainsString( $error, (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
 		self::assertStringNotContainsString(
 			'reached the MCP endpoint without a 403/406 block',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
 		);
 	}
 
@@ -354,6 +398,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -377,12 +422,12 @@ final class SetupDiagnosticsTest extends TestCase {
 
 		$bot = $this->find_check( $report['checks'], 'bot_filter' );
 
-		self::assertSame( 'warn', $bot['status'] );
-		self::assertStringContainsString( '502', (string) $bot['detail'] );
-		self::assertStringContainsString( 'Bad Gateway', (string) $bot['detail'] );
+		self::assertSame( 'warning', $bot['status'] );
+		self::assertStringContainsString( '502', (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
+		self::assertStringContainsString( 'Bad Gateway', (string) ( $bot['summary'] ?? $bot['detail'] ?? '' ) );
 		self::assertStringNotContainsString(
 			'reached the MCP endpoint without a 403/406 block',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
 		);
 	}
 
@@ -390,6 +435,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report(
 			[
 				'probe'    => true,
+				'method'   => 'oauth-http',
 				'loopback' => static fn (): array => [
 					'ok'       => true,
 					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
@@ -409,7 +455,230 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertSame( 'ok', $bot['status'] );
 		self::assertSame(
 			'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.',
-			(string) $bot['detail']
+			(string) ( $bot['summary'] ?? $bot['detail'] ?? '' )
+		);
+	}
+
+	public function test_oauth_http_schedules_discovery_waf_registration_challenge_and_loopback(): void {
+		$report = $this->probed_report( [ 'method' => 'oauth-http' ] );
+		$ids    = array_column( $report['checks'], 'id' );
+
+		self::assertSame( 'oauth-http', $report['method'] );
+		self::assertContains( 'oauth_discovery', $ids );
+		self::assertContains( 'bot_filter', $ids );
+		self::assertContains( 'oauth_registration', $ids );
+		self::assertContains( 'oauth_challenge', $ids );
+		self::assertContains( 'connection_probe', $ids );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_registration' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_challenge' )['status'] );
+	}
+
+	public function test_application_password_stdio_skips_remote_dcr_and_checks_companion_store(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_companion_url'] = 'http://127.0.0.1:8765';
+		$http_called = false;
+		$report      = SetupDiagnostics::report(
+			[
+				'probe'  => true,
+				'method' => 'application-password-stdio',
+				'http'   => static function () use ( &$http_called ): array {
+					$http_called = true;
+					return [
+						'response' => [ 'code' => 201 ],
+						'body'     => '{}',
+					];
+				},
+			]
+		);
+
+		self::assertFalse( $http_called );
+		self::assertSame( 'skipped', $this->find_check( $report['checks'], 'oauth_registration' )['status'] );
+		self::assertSame( 'skipped', $this->find_check( $report['checks'], 'bot_filter' )['status'] );
+		self::assertSame( 'skipped', $this->find_check( $report['checks'], 'connection_probe' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'companion_url' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'credential_store' )['status'] );
+	}
+
+	public function test_not_sure_runs_safe_discovery_and_one_recommendation(): void {
+		$posts = 0;
+		$report = SetupDiagnostics::report(
+			[
+				'probe'  => true,
+				'method' => 'not-sure',
+				'http'   => static function ( string $method ) use ( &$posts ): array {
+					if ( 'POST' === strtoupper( $method ) ) {
+						++$posts;
+					}
+					return [
+						'response' => [ 'code' => 201 ],
+						'body'     => '{}',
+					];
+				},
+			]
+		);
+
+		self::assertSame( 0, $posts );
+		self::assertSame( 'not-sure', $report['method'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_discovery' )['status'] );
+		$recommendation = $this->find_check( $report['checks'], 'recommendation' );
+		self::assertSame( 'info', $recommendation['status'] );
+		self::assertNotSame( '', (string) ( $recommendation['summary'] ?? '' ) );
+		self::assertSame( 'skipped', $this->find_check( $report['checks'], 'oauth_registration' )['status'] );
+	}
+
+	/**
+	 * @dataProvider oauth_registration_failure_provider
+	 * @param array<string, mixed>|\WP_Error $response
+	 */
+	public function test_oauth_registration_probe_rejects_non_201_shapes( mixed $response, string $marker ): void {
+		$report = $this->probed_report(
+			[
+				'http' => static function ( string $method ) use ( $response ): array|\WP_Error {
+					if ( 'POST' === strtoupper( $method ) ) {
+						return $response;
+					}
+					return [
+						'response' => [ 'code' => 401 ],
+						'headers'  => [ 'www-authenticate' => 'Bearer realm="stonewright"' ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
+		self::assertSame( 'problem', $oauth['status'] );
+		self::assertStringContainsString( $marker, (string) ( $oauth['summary'] ?? $oauth['detail'] ?? '' ) . wp_json_encode( $oauth['evidence'] ?? [] ) );
+		self::assertNotSame( '', (string) ( $oauth['remedy'] ?? '' ) );
+	}
+
+	/**
+	 * @return array<string, array{0: array<string, mixed>|\WP_Error, 1: string}>
+	 */
+	public static function oauth_registration_failure_provider(): array {
+		return [
+			'unauthorized'     => [ [ 'response' => [ 'code' => 401 ], 'body' => '{"error":"invalid_token"}' ], '401' ],
+			'forbidden'        => [ [ 'response' => [ 'code' => 403 ], 'body' => 'Forbidden' ], '403' ],
+			'server error'     => [ [ 'response' => [ 'code' => 500 ], 'body' => 'oops' ], '500' ],
+			'invalid json'     => [ [ 'response' => [ 'code' => 201 ], 'body' => '{not-json' ], 'json' ],
+			'missing client'   => [ [ 'response' => [ 'code' => 201 ], 'body' => '{"client_name":"x"}' ], 'client_id' ],
+		];
+	}
+
+	public function test_oauth_registration_probe_sends_rfc7591_metadata_and_accepts_201(): void {
+		$captured = [];
+		$client_id = str_repeat( 'cd', 16 );
+		$report    = $this->probed_report(
+			[
+				'ephemeral_remaining' => 0,
+				'http'                => static function ( string $method, string $url, array $args ) use ( &$captured, $client_id ): array {
+					if ( 'POST' === strtoupper( $method ) ) {
+						$captured = $args;
+						return [
+							'response' => [ 'code' => 201 ],
+							'body'     => wp_json_encode(
+								[
+									'client_id'                  => $client_id,
+									'client_name'                => 'Stonewright diagnostics',
+									'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+									'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+									'token_endpoint_auth_method' => 'none',
+								]
+							),
+						];
+					}
+					return [
+						'response' => [ 'code' => 401 ],
+						'headers'  => [ 'www-authenticate' => 'Bearer realm="stonewright"' ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+
+		$body = json_decode( (string) ( $captured['body'] ?? '' ), true );
+		self::assertIsArray( $body );
+		self::assertNotSame( '', (string) ( $body['client_name'] ?? '' ) );
+		self::assertSame( [ 'http://127.0.0.1/stonewright-oauth/callback' ], $body['redirect_uris'] ?? null );
+		self::assertContains( 'authorization_code', (array) ( $body['grant_types'] ?? [] ) );
+		self::assertContains( 'refresh_token', (array) ( $body['grant_types'] ?? [] ) );
+		self::assertSame( 'none', $body['token_endpoint_auth_method'] ?? null );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_registration' )['status'] );
+	}
+
+	public function test_oauth_registration_probe_fails_when_ephemeral_clients_remain(): void {
+		$client_id = str_repeat( 'ef', 16 );
+		$report    = $this->probed_report(
+			[
+				'ephemeral_remaining' => 1,
+				'http'                => static function ( string $method ) use ( $client_id ): array {
+					if ( 'POST' === strtoupper( $method ) ) {
+						return [
+							'response' => [ 'code' => 201 ],
+							'body'     => wp_json_encode(
+								[
+									'client_id'                  => $client_id,
+									'client_name'                => 'Stonewright diagnostics',
+									'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+									'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+									'token_endpoint_auth_method' => 'none',
+								]
+							),
+						];
+					}
+					return [
+						'response' => [ 'code' => 401 ],
+						'headers'  => [ 'www-authenticate' => 'Bearer realm="stonewright"' ],
+						'body'     => '',
+					];
+				},
+			]
+		);
+		$oauth = $this->find_check( $report['checks'], 'oauth_registration' );
+		self::assertSame( 'problem', $oauth['status'] );
+		self::assertStringContainsString( 'ephemeral', strtolower( (string) ( $oauth['summary'] ?? '' ) . (string) ( $oauth['remedy'] ?? '' ) ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>
+	 */
+	private function probed_report( array $args = [] ): array {
+		$http = $args['http'] ?? static function ( string $method ): array {
+			if ( 'POST' === strtoupper( $method ) ) {
+				return [
+					'response' => [ 'code' => 201 ],
+					'body'     => wp_json_encode(
+						[
+							'client_id'                  => str_repeat( 'ab', 16 ),
+							'client_name'                => 'Stonewright diagnostics',
+							'redirect_uris'              => [ 'http://127.0.0.1/stonewright-oauth/callback' ],
+							'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+							'token_endpoint_auth_method' => 'none',
+						]
+					),
+				];
+			}
+			return [
+				'response' => [ 'code' => 401 ],
+				'headers'  => [ 'www-authenticate' => 'Bearer realm="stonewright"' ],
+				'body'     => '',
+			];
+		};
+		unset( $args['http'] );
+
+		return SetupDiagnostics::report(
+			array_merge(
+				[
+					'probe'    => true,
+					'method'   => 'oauth-http',
+					'loopback' => static fn (): array => [
+						'ok'       => true,
+						'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+						'steps'    => [],
+					],
+					'http'     => $http,
+				],
+				$args
+			)
 		);
 	}
 

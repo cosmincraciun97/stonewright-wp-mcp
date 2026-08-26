@@ -68,7 +68,7 @@ final class SkillsExperienceTest extends TestCase {
 
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @var array<int, array<string, mixed>> */
 			public array $rows = [];

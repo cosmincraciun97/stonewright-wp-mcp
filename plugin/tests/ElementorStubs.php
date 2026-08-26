@@ -257,6 +257,9 @@ final class Post {
 			public function update(): void {
 			}
 
+			public function update_file(): void {
+			}
+
 			public function get_path(): string {
 				return '';
 			}

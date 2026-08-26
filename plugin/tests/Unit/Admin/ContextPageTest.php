@@ -135,7 +135,7 @@ final class ContextPageTest extends TestCase {
 	 */
 	private function empty_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $query = '' ): ?string {
 				return 'wp_stonewright_skills';

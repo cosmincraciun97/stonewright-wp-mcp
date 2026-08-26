@@ -85,10 +85,10 @@ evidence hash, section manifest, and live schema summaries.
    document are sequential; never race them in parallel. The ability
    snapshots first, preserves unknown settings, reads the effect back, and
    refuses V3 writes into V4/mixed documents.
-7. Call `stonewright-elementor-post-write-verify` with the touched IDs. It
-   invalidates post HTML cache, regenerates only target post CSS inside a
-   guarded asset transaction, warms the public Elementor frontend renderer
-   without a second CSS pass, and asserts the bounded targets. Never pass
+7. Call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt,
+   then `stonewright-elementor-post-write-verify` with the touched IDs. The
+   verifier is observation-only: it warms the public Elementor frontend renderer
+   without a CSS pass and asserts the bounded targets. Never pass
    `regenerate_css`.
 8. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
    For boxed containers measure outer, `.e-con-inner`, and the first semantic

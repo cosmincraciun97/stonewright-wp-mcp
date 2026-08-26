@@ -329,9 +329,9 @@ final class AuditAuthClassificationTest extends TestCase {
 
 	private static function make_wpdb(): object {
 		return new class() {
-			public string $prefix     = 'wp_';
-			public string $last_error = '';
-			public int $insert_id     = 0;
+			public $prefix     = 'wp_';
+			public $last_error = '';
+			public $insert_id     = 0;
 
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];

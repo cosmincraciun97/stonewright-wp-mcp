@@ -34,8 +34,8 @@ final class SkillsSaveTest extends TestCase {
 
 	public function test_save_persists_skill_exposure_flags(): void {
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 40;
+			public $prefix = 'wp_';
+			public $insert_id = 40;
 
 			/** @var array<string, mixed> */
 			public array $inserted = [];
@@ -95,8 +95,8 @@ final class SkillsSaveTest extends TestCase {
 		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
 
 		$GLOBALS['wpdb'] = new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 40;
+			public $prefix = 'wp_';
+			public $insert_id = 40;
 
 			public function get_var( string $query ): string {
 				return 'wp_stonewright_skills';

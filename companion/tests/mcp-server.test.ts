@@ -156,7 +156,7 @@ describe('createMcpServer', () => {
 				profile_expected_tool_count?: number;
 				profile_missing_tool_names?: string[];
 				local_tool_names?: string[];
-				recovery?: string[];
+				recovery_steps?: string[];
 				agent_do_not_use?: string[];
 				agent_use_instead?: string[];
 			};
@@ -164,7 +164,7 @@ describe('createMcpServer', () => {
 
 		expect(response.structuredContent?.ok).toBe(false);
 		expect(response.structuredContent?.connected).toBe(false);
-		expect(response.structuredContent?.error?.message).toContain('network down');
+		expect(response.structuredContent?.error?.message).toContain('WordPress MCP transport failure during initialize');
 		expect(response.structuredContent?.tool_profile).toBe('elementor-design');
 		expect(response.structuredContent?.profile_expected_tool_count).toBeGreaterThan(20);
 		expect(response.structuredContent?.profile_missing_tool_names).toContain('stonewright-elementor-v3-build-page-from-spec');
@@ -193,7 +193,7 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-install',
 		]));
-		expect(response.structuredContent?.recovery).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
+		expect(response.structuredContent?.recovery_steps).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
 	});
 
 	it('keeps local tools available when WordPress MCP config resolution fails', async () => {
@@ -550,7 +550,7 @@ describe('createMcpServer', () => {
 				refresh_required_tool_names?: string[];
 				local_recovery_tool_names?: string[];
 				local_tool_names?: string[];
-				recovery?: string[];
+				recovery_steps?: string[];
 			};
 		};
 
@@ -591,8 +591,8 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-install',
 		]));
-		expect(response.structuredContent?.recovery).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
-		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
+		expect(response.structuredContent?.recovery_steps).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
+		expect(response.structuredContent?.recovery_steps).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
 	});
 
 	it('uses the plugin-resolved profile catalog for refresh diagnostics', async () => {
@@ -943,7 +943,7 @@ describe('createMcpServer', () => {
 				startup_ready?: boolean;
 				profile_expected_tool_count?: number;
 				profile_missing_tool_names?: string[];
-				recovery?: string[];
+				recovery_steps?: string[];
 			};
 		};
 
@@ -951,7 +951,7 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.profile_expected_tool_count).toBeGreaterThan(20);
 		expect(response.structuredContent?.profile_missing_tool_names).toContain('stonewright-elementor-v3-build-page-from-spec');
 		expect(response.structuredContent?.profile_missing_tool_names).not.toContain('stonewright-wp-cli-batch-run');
-		expect(response.structuredContent?.recovery).toContain('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
+		expect(response.structuredContent?.recovery_steps).toContain('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
 	});
 
 	it('registers command recipe tools on WP-CLI-capable profiles only', async () => {

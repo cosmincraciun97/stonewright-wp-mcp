@@ -242,10 +242,26 @@ test('real Elementor regenerates only target post CSS and survives verification'
 		);
 		expect(build.ok, JSON.stringify(build.body)).toBeTruthy();
 		const built = resultPayload(build.body);
-		const buildCss = (built.css ?? {}) as Record<string, unknown>;
-		expect(buildCss.target).toBe(`post-${postId}.css`);
-		expect(buildCss.collateral_change_count).toBe(0);
-		expect(Number(buildCss.after_file_count ?? 0)).toBeGreaterThanOrEqual(1);
+		const nextStep = (built.next_step ?? {}) as Record<string, unknown>;
+		expect(nextStep.tool).toBe('stonewright/elementor-css-regenerate');
+
+		const regenerate = await runAbilityWithProfileConfirmation(
+			page,
+			nonce,
+			contextToken,
+			'stonewright/elementor-css-regenerate',
+			{
+				post_id: postId,
+				stonewright_context_token: contextToken,
+			},
+		);
+		expect(regenerate.ok, JSON.stringify(regenerate.body)).toBeTruthy();
+		const regenerated = resultPayload(regenerate.body);
+		expect(regenerated.ok, JSON.stringify(regenerate.body)).toBe(true);
+		expect(regenerated.filename).toBe(`post-${postId}.css`);
+		expect(regenerated.effect_verified).toBe(true);
+		expect(regenerated.rollback_status).toBe('not_needed');
+
 		const afterBuild = await readCssManifest(page, nonce, contextToken);
 		expect(afterBuild.file_count).toBe(beforeBuild.file_count + 1);
 		assertProtectedSentinelsPreserved(beforeBuild, afterBuild);
@@ -265,18 +281,15 @@ test('real Elementor regenerates only target post CSS and survives verification'
 		);
 		expect(verify.ok, JSON.stringify(verify.body)).toBeTruthy();
 		const verified = resultPayload(verify.body);
+		expect(verified.ok).toBe(true);
 		expect(verified.verification_status).toBe('passed');
-		const verifyCss = (verified.css ?? {}) as Record<string, unknown>;
-		expect(verifyCss.target).toBe(`post-${postId}.css`);
-		expect(verifyCss.collateral_change_count).toBe(0);
-		expect(Number(verifyCss.before_file_count ?? 0)).toBeGreaterThanOrEqual(1);
-		expect(Number(verifyCss.after_file_count ?? 0)).toBeGreaterThanOrEqual(1);
+		expect(verified.effect_verified).toBe(true);
 		const afterVerify = await readCssManifest(page, nonce, contextToken);
 		expect(afterVerify.files).toEqual(afterBuild.files);
 		assertProtectedSentinelsPreserved(beforeBuild, afterVerify);
 		await assertCssHttp200(page, PROTECTED_SENTINELS);
 		await assertCssHttp200(page, [`post-${postId}.css`]);
-		const probes = (verifyCss.protected_probes_after ?? []) as Array<{
+		const probes = (regenerated.probes ?? []) as Array<{
 			asset?: string;
 			status?: number;
 			url_sha256?: string;
@@ -324,10 +337,14 @@ test('real Elementor regenerates only target post CSS and survives verification'
 		const negativeResult = resultPayload(negative.body);
 		expect(negativeResult.ok).toBe(false);
 		expect(negativeResult.verification_status).toBe('failed');
-		const negativeCss = (negativeResult.css ?? {}) as Record<string, unknown>;
-		expect(negativeCss.rollback_status).toBe('succeeded');
-		expect(negativeCss.manifest_rollback_status).toBe('succeeded');
-		expect(negativeCss.metadata_rollback_status).toBe('succeeded');
+		expect(negativeResult.effect_verified).toBe(false);
+		const elementChecks = (negativeResult.element_checks ?? []) as Array<{
+			element_id?: string;
+			present?: boolean;
+		}>;
+		expect(elementChecks).toContainEqual(
+			expect.objectContaining({ element_id: 'missing-css-assertion', present: false }),
+		);
 		const afterNegative = await readCssManifest(page, nonce, contextToken);
 		expect(afterNegative.files).toEqual(beforeNegative.files);
 		await assertCssHttp200(page, PROTECTED_SENTINELS);

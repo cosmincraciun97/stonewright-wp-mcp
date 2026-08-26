@@ -45,6 +45,7 @@ final class ClientCatalogTest extends TestCase {
 			'secret_storage',
 			'support_tier',
 			'certification_tier',
+			'oauth_reauth_action',
 			'evidence',
 		];
 
@@ -202,15 +203,6 @@ final class ClientCatalogTest extends TestCase {
 		self::assertSame( 'codex mcp add', $cli['official_cli_add'] );
 	}
 
-	public function test_oauth_and_app_password_choosers_share_client_set(): void {
-		$oauth_slugs = array_keys( \Stonewright\WpMcp\Admin\OAuthClientConfig::client_labels() );
-		$app_slugs   = array_column( ConnectClientConfig::chooser_clients(), 'slug' );
-		self::assertSame( $oauth_slugs, $app_slugs );
-		foreach ( [ 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'windsurf', 'codex-cli' ] as $slug ) {
-			self::assertContains( $slug, $app_slugs );
-		}
-	}
-
 	public function test_app_password_snippets_match_client_schemas(): void {
 		$windsurf = ConnectClientConfig::snippet_for( 'windsurf', 'fixture-admin', 'xxxx xxxx', 'http' );
 		self::assertIsArray( $windsurf );
@@ -235,5 +227,57 @@ final class ClientCatalogTest extends TestCase {
 		self::assertIsArray( $cursor );
 		self::assertArrayHasKey( 'deeplink', $cursor );
 		self::assertStringStartsWith( 'cursor://anysphere.cursor-deeplink/mcp/install?', (string) $cursor['deeplink'] );
+	}
+
+	public function test_grok_cli_alias_resolves_to_canonical_grok_build_record(): void {
+		$grok = ClientCatalog::get( 'grok-cli' );
+		self::assertIsArray( $grok );
+		self::assertSame( 'grok-build', $grok['slug'] );
+		self::assertSame( 'Grok Build / CLI', $grok['label'] );
+		self::assertTrue( $grok['oauth_support'] );
+		self::assertTrue( $grok['app_password_support'] );
+		self::assertSame( '~/.grok/config.toml', $grok['config_path'] );
+		self::assertSame(
+			'Open /mcps, select Stonewright, authenticate, then run stonewright-task-start again.',
+			$grok['oauth_reauth_action']
+		);
+
+		$canonical = ClientCatalog::get( 'grok-build' );
+		self::assertIsArray( $canonical );
+		self::assertSame( $grok, $canonical );
+		self::assertContains( 'grok-build', ClientCatalog::slugs() );
+		self::assertNotContains( 'grok-cli', ClientCatalog::slugs() );
+	}
+
+	public function test_oauth_reauth_action_is_bounded_and_defaults_for_existing_clients(): void {
+		$cursor = ClientCatalog::get( 'cursor' );
+		self::assertIsArray( $cursor );
+		self::assertSame(
+			'Re-authenticate this MCP client, then run stonewright-task-start again.',
+			$cursor['oauth_reauth_action']
+		);
+
+		$normalize = new \ReflectionMethod( ClientCatalog::class, 'normalize' );
+		$oversized = $normalize->invoke(
+			null,
+			[
+				'slug'                => 'synthetic-reauth',
+				'label'               => 'Synthetic Reauth',
+				'oauth_reauth_action' => str_repeat( 'Authenticate now. ', 40 ),
+			]
+		);
+		self::assertIsArray( $oversized );
+		self::assertLessThanOrEqual( 240, strlen( (string) $oversized['oauth_reauth_action'] ) );
+		self::assertStringNotContainsString( "\n", (string) $oversized['oauth_reauth_action'] );
+	}
+
+	public function test_oauth_and_app_password_choosers_share_client_set(): void {
+		$catalog_slugs = ClientCatalog::slugs();
+		$chooser_slugs = array_column( ConnectClientConfig::chooser_clients(), 'slug' );
+		self::assertSame( $catalog_slugs, $chooser_slugs );
+		self::assertContains( 'grok-build', $chooser_slugs );
+		foreach ( [ 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'windsurf', 'codex-cli' ] as $slug ) {
+			self::assertContains( $slug, $chooser_slugs );
+		}
 	}
 }

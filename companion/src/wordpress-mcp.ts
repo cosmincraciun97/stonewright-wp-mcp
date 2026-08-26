@@ -5,7 +5,13 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { z, type ZodTypeAny } from 'zod';
 import { PERMANENT_GATEWAY_TOOL_NAMES, isPermanentGatewayTool } from './connection/permanent-gateways.js';
-import { OAuthTokenManager, OAuthTokenStore } from './oauth-token-manager.js';
+import {
+	PluginTransportError,
+	classifyHttpStatus,
+	classifyTransportFailure,
+	type TransportPhase,
+} from './connection/transport-diagnostic.js';
+import { OAuthTokenManager, OAuthTokenStore, OAuthReauthRequiredError, OAuthTransientError } from './oauth-token-manager.js';
 import { runWpCli, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
 
@@ -1467,16 +1473,19 @@ export class WordPressMcpClient {
 
 	public async listTools(): Promise<RemoteTool[]> {
 		await this.ensureInitialized();
-		const result = await this.request('tools/list', {});
+		const result = await this.request('tools/list', {}, 'tools_list');
 		return Array.isArray((result as ToolListResult).tools) ? (result as ToolListResult).tools ?? [] : [];
 	}
 
 	public async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
 		await this.ensureInitialized();
+		const phase: TransportPhase = name === 'stonewright-task-start' || name === 'stonewright/task-start'
+			? 'task_start'
+			: 'tool_call';
 		return this.request('tools/call', {
 			name,
 			arguments: args,
-		});
+		}, phase);
 	}
 
 	public async listPromptSkills(): Promise<PromptSkill[]> {
@@ -1511,24 +1520,28 @@ export class WordPressMcpClient {
 				name: 'stonewright-companion',
 				version: APP_VERSION,
 			},
-		});
+		}, 'initialize');
 
 		const instructions = asRecord(result)?.['instructions'];
 		if (typeof instructions === 'string' && instructions.trim() !== '') {
 			this.remoteInstructionsValue = instructions;
 		}
 
-		await this.notification('notifications/initialized', {});
+		await this.notification('notifications/initialized', {}, 'initialize');
 		this.initialized = true;
 	}
 
-	private async request(method: string, params: Record<string, unknown>): Promise<unknown> {
+	private async request(
+		method: string,
+		params: Record<string, unknown>,
+		phase: TransportPhase = 'tool_call',
+	): Promise<unknown> {
 		const response = await this.send({
 			jsonrpc: '2.0',
 			id: this.nextId++,
 			method,
 			params,
-		});
+		}, phase);
 
 		if (response.error) {
 			throw new Error(response.error.message ?? `WordPress MCP error calling ${method}`);
@@ -1536,17 +1549,23 @@ export class WordPressMcpClient {
 		return response.result ?? {};
 	}
 
-	private async notification(method: string, params: Record<string, unknown>): Promise<void> {
+	private async notification(
+		method: string,
+		params: Record<string, unknown>,
+		phase: TransportPhase = 'tool_call',
+	): Promise<void> {
 		await this.send({
 			jsonrpc: '2.0',
 			method,
 			params,
-		});
+		}, phase);
 	}
 
-	private async send(payload: Record<string, unknown>): Promise<JsonRpcResponse> {
+	private async send(payload: Record<string, unknown>, phase: TransportPhase = 'tool_call'): Promise<JsonRpcResponse> {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+		const startedAt = Date.now();
+		const attempt = 1;
 
 		let response: Response;
 		try {
@@ -1555,6 +1574,26 @@ export class WordPressMcpClient {
 				body: JSON.stringify(payload),
 				signal: controller.signal,
 			});
+		} catch (error) {
+			if (error instanceof OAuthReauthRequiredError || error instanceof OAuthTransientError) {
+				throw error;
+			}
+			if (error instanceof PluginTransportError) {
+				throw error;
+			}
+			// Preserve OAuth manager/storage failures instead of masking them as transport noise.
+			if (error instanceof Error && /oauth/i.test(error.message)) {
+				throw error;
+			}
+			const diagnostic = classifyTransportFailure(error, {
+				phase,
+				attempt,
+				startedAt,
+			});
+			throw new PluginTransportError(
+				`WordPress MCP transport failure during ${phase}`,
+				diagnostic,
+			);
 		} finally {
 			clearTimeout(timer);
 		}
@@ -1564,16 +1603,52 @@ export class WordPressMcpClient {
 			this.sessionId = sessionId;
 		}
 
-		const text = await response.text();
+		let text: string;
+		try {
+			text = await response.text();
+		} catch (error) {
+			const diagnostic = classifyTransportFailure(error, {
+				phase,
+				attempt,
+				startedAt,
+				httpStatus: response.status,
+			});
+			throw new PluginTransportError(
+				`WordPress MCP response body failure during ${phase}`,
+				diagnostic,
+			);
+		}
+
 		if (!response.ok) {
-			throw new Error(`WordPress MCP HTTP ${response.status}: ${text.slice(0, 300)}`);
+			const diagnostic = classifyHttpStatus(response.status, {
+				phase,
+				attempt,
+				startedAt,
+			});
+			throw new PluginTransportError(
+				`WordPress MCP HTTP ${response.status}`,
+				diagnostic,
+			);
 		}
 
 		if (text.trim() === '') {
 			return { result: {} };
 		}
 
-		return parseJsonRpcResponse(text, response.headers.get('content-type') ?? '');
+		try {
+			return parseJsonRpcResponse(text, response.headers.get('content-type') ?? '');
+		} catch (error) {
+			const diagnostic = classifyTransportFailure(error, {
+				phase,
+				attempt,
+				startedAt,
+				httpStatus: response.status,
+			});
+			throw new PluginTransportError(
+				`WordPress MCP response parse failure during ${phase}`,
+				diagnostic,
+			);
+		}
 	}
 
 	private async fetchAuthorized(input: string | URL | Request, init: RequestInit): Promise<Response> {

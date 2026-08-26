@@ -109,16 +109,24 @@ final class IncidentRepairLifecycleTest extends TestCase {
 	}
 
 	public function test_failed_fallback_cas_does_not_report_or_cache_a_resolved_incident(): void {
-		IncidentStore::observe( $this->failure() );
-		$open = IncidentStore::observe( $this->failure( 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' ) );
-		$GLOBALS['stonewright_test_update_option_failures'][ IncidentStore::OPTION_KEY ] = true;
+		$original_wpdb = $GLOBALS['wpdb'];
+		$GLOBALS['wpdb'] = (object) [ 'prefix' => 'wptests_' ];
+		try {
+			IncidentStore::reset_for_tests();
+			IncidentStore::observe( $this->failure() );
+			$open = IncidentStore::observe( $this->failure( 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' ) );
+			$GLOBALS['stonewright_test_update_option_failures'][ IncidentStore::OPTION_KEY ] = true;
 
-		$result = IncidentStore::record_verified_repair( $this->receipt( $open['version_token'] ) );
+			$result = IncidentStore::record_verified_repair( $this->receipt( $open['version_token'] ) );
 
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_incident_state_changed', $result->get_error_code() );
-		self::assertSame( 'open', IncidentStore::get( $this->incident_id() )['state'] );
-		self::assertSame( $open['version_token'], IncidentStore::get( $this->incident_id() )['version_token'] );
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_incident_state_changed', $result->get_error_code() );
+			self::assertSame( 'open', IncidentStore::get( $this->incident_id() )['state'] );
+			self::assertSame( $open['version_token'], IncidentStore::get( $this->incident_id() )['version_token'] );
+		} finally {
+			$GLOBALS['wpdb'] = $original_wpdb;
+			IncidentStore::reset_for_tests();
+		}
 	}
 
 	public function test_database_observation_retries_generation_cas_without_losing_a_concurrent_failure(): void {
@@ -215,8 +223,6 @@ final class IncidentRepairLifecycleTest extends TestCase {
 }
 
 final class IncidentRaceWpdb extends \wpdb {
-	public string $prefix = 'wptests_';
-	public string $last_error = '';
 	public bool $inject_failure_before_update = false;
 
 	/** @var array<string, array<string, mixed>> */
@@ -224,6 +230,11 @@ final class IncidentRaceWpdb extends \wpdb {
 
 	/** @var list<mixed> */
 	private array $prepared_args = [];
+
+	public function __construct() {
+		$this->prefix     = 'wptests_';
+		$this->last_error = '';
+	}
 
 	public function prepare( string $query, mixed ...$args ): string {
 		$this->prepared_args = $args;

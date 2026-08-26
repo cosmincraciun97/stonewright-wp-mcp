@@ -19,22 +19,22 @@
 </p>
 
 <!-- supported-release:start -->
-<p align="center"><strong>Current release: 1.0.0-beta.12 — Public Beta</strong></p>
+<p align="center"><strong>Current release: 1.0.0-beta.13 — Public Beta</strong></p>
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-1.0.0-beta.12.zip">Download Plugin</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13/stonewright-1.0.0-beta.13.zip">Download Plugin</a>
   ·
   <a href="docs/installation.md">Installation guide</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz">Companion</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13/stonewright-companion-1.0.0-beta.13.tgz">Companion</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/SHA256SUMS.txt">Checksums</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13/SHA256SUMS.txt">Checksums</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.12">Release notes</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.13">Release notes</a>
 </p>
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **388 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **389 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -79,7 +79,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 ## Common workflows
 
-- **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, run post-write verification, then complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
+- **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then run observation-only `stonewright-elementor-post-write-verify` and complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
 - **Change custom code:** discover the provider, dry-run the exact target, stop for human approval, apply the approved bytes, read back, and retain rollback evidence. [Custom-code recovery contract](docs/security.md#custom-code-and-theme-file-recovery)
 - **Run repeatable local maintenance safely:** save a parameterized WP-CLI recipe once, plan it, approve writes with a one-use hash, and get verified readback on every run. [Command recipes](companion/README.md#command-recipes-local-wp-cli)
 - **Stop repeating a failure:** classify the recurrence, surface a ranked incident action, verify the repair against correlated audit events, then promote one reusable lesson. [Verified learning](docs/verified-learning.md)
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **388** abilities
+### Plugin mode — **389** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -99,7 +99,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 |---|---:|---|
 | Elementor widgets (compat) | 94 | Generated per-widget builders |
 | Elementor widget builder | 4 | Custom widget project helpers |
-| Elementor V3 | 34 | Structure edit, batch-mutate, post-write verification, performance audit, legacy-debt report, kit globals, build-from-spec, transactions |
+| Elementor V3 | 35 | Structure edit, batch-mutate, CSS regenerate, observation-only post-write verification, performance audit, legacy-debt report, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
@@ -140,8 +140,9 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Inspect an existing WordPress site before changing it
 - Create or update Gutenberg content and block-theme structures (Plugin mode; partial Direct mode for core posts/pages)
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
-- Close Elementor writes with post-scoped HTML-cache invalidation, guarded
-  target-only CSS regeneration, bounded asset and frontend assertions, and an
+- Close Elementor writes with post-scoped HTML-cache invalidation, then
+  `stonewright-elementor-css-regenerate` for the resolved post or loop target,
+  then observation-only `stonewright-elementor-post-write-verify`, then an
   explicit browser verification recipe
 - Wire licensed Elementor Loop Grid/Carousel widgets transactionally from an
   existing loop-item template or a validated template spec (**Plugin mode**)
@@ -432,7 +433,9 @@ Passwords stay in private client configuration or the OS-backed site registry;
 paste-to-agent prompts contain placeholders. Direct mode has no plugin approval
 boundary, so it cannot write arbitrary PHP, CSS, JavaScript, HTML, WPCode, Code
 Snippets, or theme files. Plugin-mode custom-code providers always stop after a
-typed dry run until the user issues the exact one-time grant.
+typed dry run until the user issues the exact one-time grant. Generic
+create/update/duplicate/bulk writers reject executable-code post types and
+route them to the approval-gated provider pipeline.
 
 Audit success does not erase unrelated failures. Events coalesce noisy OAuth
 terminals, preserve the best available actor attribution, and feed an explicit
@@ -446,19 +449,26 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **388** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **389** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
 ## Connection methods, in plain language
 
-- **Local stdio:** Codex, Claude Code, Grok, or another AI client starts the
+- **Local stdio:** Codex, Claude Code, Grok Build / CLI, or another AI client starts the
   Stonewright companion on your computer and exchanges MCP messages with that
   local process through standard input/output. The companion is required for
   local stdio, pluginless Direct mode, and local WP-CLI.
 - **Remote Streamable HTTP:** the AI client connects straight to the
   Stonewright WordPress plugin over HTTPS. No companion process runs on the
   user's computer.
+
+Companion status, doctor, and task-start reports use **schema version 3**.
+`stonewright-task-start` is the first call; on a degraded session it reconnects
+once and either continues or returns a truthful local result. Terminal OAuth
+failures set `reauthentication_required` with a model-visible `user_action`.
+Automatic retry covers handshake and allowlisted read-only bootstrap only;
+mutations are never retried.
 
 Direct mode is a capability mode inside the companion, not a third transport.
 If the plugin is absent and you use Direct mode, you are using local stdio and
@@ -475,7 +485,7 @@ repository follow the common MCP server JSON shape used by several clients.
 | Companion stdio MCP | Documented | Primary install path in docs |
 | WordPress MCP endpoint `/wp-json/mcp/stonewright` | Documented | Plugin + MCP adapter |
 | Direct mode core REST | Documented + smoke script | [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) |
-| Specific desktop/CLI AI clients | Not uniformly verified | Use generic MCP config; do not assume a client is verified without a dedicated setup doc |
+| Specific desktop/CLI AI clients | Catalog + smoke template | Setup shares one client tablist for OAuth and Application Password. Grok Build / CLI stays `compatible` until a dated runtime smoke report exists. |
 
 ## Admin interface
 
@@ -521,6 +531,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
+- [Beta.13 runtime evidence template](docs/testing/beta13-runtime-evidence-template.md)
 - [Motion and UI excellence](docs/motion-and-ui-excellence.md)
 - [Licensing](docs/licensing.md)
 - [Upstream code reuse ledger](docs/upstream-code-reuse.md)

@@ -171,7 +171,7 @@ final class AuditLogSchemaTest extends TestCase {
 	 */
 	private function make_skip_wpdb( array $columns ): object {
 		return new class( $columns ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 			public int $charset_calls = 0;
 			/** @var list<string> */
 			private array $columns;

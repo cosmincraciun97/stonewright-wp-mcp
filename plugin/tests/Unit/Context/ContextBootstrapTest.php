@@ -345,7 +345,7 @@ final class ContextBootstrapTest extends TestCase {
 
 	private function make_wpdb(): object {
 		return new class() {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			public function get_var( string $query ): string {
 				return 'table_exists';

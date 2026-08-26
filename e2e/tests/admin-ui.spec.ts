@@ -184,37 +184,50 @@ test.describe('Stonewright admin UI', () => {
 		const passwordButton = page.locator(
 			'[data-stonewright-auth-method="application-password"]',
 		);
+		// Auth choice persists per user across tests — select OAuth explicitly.
+		await oauthButton.click();
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
-		const oauthTabs = page.locator('[data-sw-oauth-tab]');
+
+		const clientCards = page.locator('[data-stonewright-client-card]');
 		const oauthPanels = page.locator('[data-sw-oauth-panel]');
-		const tabSlugs = await oauthTabs.evaluateAll((tabs) =>
-			tabs.map((tab) => tab.getAttribute('data-sw-oauth-tab') ?? ''),
+		const cardSlugs = await clientCards.evaluateAll((cards) =>
+			cards.map((card) => card.getAttribute('data-stonewright-client-card') ?? ''),
 		);
 		const panelSlugs = await oauthPanels.evaluateAll((panels) =>
 			panels.map((panel) => panel.getAttribute('data-sw-oauth-panel') ?? ''),
 		);
-		expect(new Set(tabSlugs).size, 'OAuth client tabs must be unique').toBe(tabSlugs.length);
-		expect(panelSlugs, 'every OAuth tab must own one matching panel').toEqual(tabSlugs);
-		expect(tabSlugs).toEqual(expect.arrayContaining([
+		expect(new Set(cardSlugs).size, 'client cards must be unique').toBe(cardSlugs.length);
+		expect(panelSlugs, 'every client card must own one OAuth panel').toEqual(cardSlugs);
+		expect(cardSlugs).toEqual(expect.arrayContaining([
 			'chatgpt',
 			'claude-ai',
 			'claude-desktop',
 			'claude-code',
 			'windsurf',
+			'codex',
 			'codex-cli',
 			'cursor',
-			'vscode',
+			'vscode-copilot',
 			'generic-mcp',
+			'grok-build',
 		]));
-		expect(tabSlugs).not.toContain('codex');
-		expect(tabSlugs).not.toContain('chatgpt-desktop');
+		expect(cardSlugs).not.toContain('chatgpt-desktop');
+		expect(cardSlugs).not.toContain('vscode');
 
-		const codexTab = page.locator('[data-sw-oauth-tab="codex-cli"]');
-		await codexTab.click();
-		await expect(codexTab).toHaveAttribute('aria-selected', 'true');
-		await expect(page.locator('[data-sw-oauth-panel="codex-cli"]')).toBeVisible();
+		const codexCard = page.locator('[data-stonewright-client-card="codex-cli"]');
+		await codexCard.click();
+		await expect(page.locator('[data-stonewright-client-panel="codex-cli"]')).toBeVisible();
 		await expect(page.locator('#stonewright-oauth-code-codex-cli')).toContainText(
 			'[mcp_servers.',
+		);
+
+		// Regression: templates render outside the oauth-connect root, and a
+		// server rename must still rewrite every displayed config.
+		await page.locator('[data-sw-oauth-name-toggle]').click();
+		const nameInput = page.locator('[data-sw-oauth-server-name]');
+		await nameInput.fill('stonewright-renamed');
+		await expect(page.locator('#stonewright-oauth-code-codex-cli')).toContainText(
+			'stonewright-renamed',
 		);
 
 		await passwordButton.click();

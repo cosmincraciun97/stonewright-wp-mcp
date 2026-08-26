@@ -94,6 +94,9 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - This applies to theme files, Customizer CSS, WPCode, Code Snippets, Gutenberg
   style-tag HTML, theme.json css, Elementor custom_css, and equivalent code
   surfaces.
+- Generic content create, update, duplicate, and bulk tools reject
+  executable-code post types (`stonewright_custom_code_provider_required`).
+  Use `stonewright-custom-code-provider-ops`. Never skip KSES to preserve PHP.
 - Never write theme/plugin/core code files through `php-execute`.
 - Use the approval-gated typed tool with full validation, atomic write, smoke,
   and rollback. Direct mode may inspect custom CSS but must not write it because
@@ -105,9 +108,12 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   visual evidence, send `settings_evidence` and `require_evidence:true`.
 - Consolidate one post into one dry-run batch and one apply. Never run parallel
   Elementor writes.
-- After apply, call `stonewright-elementor-post-write-verify` with every touched
-  element id. It invalidates post HTML/CSS caches, regenerates targeted CSS,
-  warms Elementor frontend HTML, and checks those ids without returning content.
+- After apply, call `stonewright-elementor-css-regenerate` when generated CSS
+  must be rebuilt (post or loop target), then
+  `stonewright-elementor-post-write-verify` with every touched element id.
+  Never pass `regenerate_css`; that input does not exist. The verifier is
+  observation-only: it checks those ids without regenerating CSS, invalidating
+  caches, rolling back files, or returning content.
 - Then verify desktop, tablet, and mobile in the separate frontend tab. For a
   boxed container, measure the outer element and its direct `.e-con-inner`.
 - A successful meta readback is not completion.

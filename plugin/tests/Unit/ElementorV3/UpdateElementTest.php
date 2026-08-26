@@ -70,7 +70,8 @@ final class UpdateElementTest extends TestCase {
 		self::assertSame( 'custom', $settings['_flex_size'] );
 		self::assertSame( '1', $settings['_flex_grow'] );
 		self::assertSame( '0', $settings['_flex_shrink'] );
-		self::assertSame( 'stonewright/elementor-post-write-verify', $result['next_step']['tool'] );
+		self::assertSame( 'stonewright/elementor-css-regenerate', $result['next_step']['tool'] );
+		self::assertSame( 'stonewright/elementor-post-write-verify', $result['next_step']['then'] );
 		self::assertTrue( (bool) ( $result['post_write']['element_cache']['deleted'] ?? false ) );
 	}
 

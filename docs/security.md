@@ -95,8 +95,12 @@ removing it, so PID reuse and replacement-lock races fail closed.
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet
-the plugin wraps the live `$wpdb` handle (`ProtectedWpdbWriteGuard`):
+the plugin wraps the live `$wpdb` handle with a real `wpdb` subclass
+(`ProtectedWpdbProxy extends wpdb` via `ProtectedWpdbWriteGuard`):
 
+- The proxy copies the live connection and table prefix, intercepts `query()`
+  as the write choke point, and restores the original global in `finally`.
+  Type compatibility does not weaken the guard.
 - `read_only:true` rejects any WordPress state mutation.
 - Direct `$wpdb` `insert` / `update` / `replace` / `delete` / write `query` calls
   against core tables (`posts`, `postmeta`, `options`, `users`, `usermeta`) are
@@ -105,6 +109,9 @@ the plugin wraps the live `$wpdb` handle (`ProtectedWpdbWriteGuard`):
   or passed through an aliased `$wpdb` handle. Source-regex cannot see those
   writes; the proxy inspects the resolved table and payload at call time.
 - WordPress code-file mutation is blocked by `ProtectedFilesystemWriteGuard`.
+- Generic content abilities reject provider-owned executable-code post types
+  (`stonewright_custom_code_provider_required`) and never skip KSES to preserve
+  PHP. Route those writes through the approval-gated custom-code provider.
 
 These guards do not make php-execute a sandbox. Prefer typed abilities for
 Elementor, FSE, options, and post writes.

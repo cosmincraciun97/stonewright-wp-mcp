@@ -128,8 +128,8 @@ final class KnowledgeBundleTest extends TestCase {
 	 */
 	private function make_wpdb( array $memory_rows, array $skill_rows ): object {
 		return new class( $memory_rows, $skill_rows ) {
-			public string $prefix = 'wp_';
-			public int $insert_id = 100;
+			public $prefix = 'wp_';
+			public $insert_id = 100;
 			/** @var array<int, array<string, mixed>> */
 			public array $memory_writes = [];
 			/** @var array<int, array<string, mixed>> */

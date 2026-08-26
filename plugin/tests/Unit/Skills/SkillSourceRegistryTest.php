@@ -218,7 +218,7 @@ final class SkillSourceRegistryTest extends TestCase {
 	/** @param list<array<string, mixed>> $rows */
 	private function wpdb_with_rows( array $rows ): object {
 		return new class( $rows ) {
-			public string $prefix = 'wp_';
+			public $prefix = 'wp_';
 
 			/** @param list<array<string, mixed>> $rows */
 			public function __construct( private array $rows ) {}

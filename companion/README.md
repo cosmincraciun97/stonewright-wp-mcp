@@ -35,14 +35,28 @@ The companion derives the dedicated OAuth resource from the configured MCP URL
 and sends that exact `resource` during refresh. Audience mismatch or refresh
 family replay fails closed and requires explicit reauthorization.
 
+Setup, doctor, task-start, status, and client-surface-check emit **connection
+status schema version 3**. `connected` is a derived compatibility field.
+Authentication state includes `reauth_required`; terminal results use
+`reauthentication_required` plus a model-visible `user_action` that the agent
+must relay before more WordPress work. Access tokens stay one hour. Seven-day
+continuity is a refresh SLO against a fixed fourteen-day grant family.
+
+Automatic retry is restricted to handshake and explicitly allowlisted read-only
+bootstrap operations. Mutations are never retried. When the session is
+degraded, `stonewright-task-start` reconnects once and either continues with
+the remote call or returns a truthful local gateway result. Plugin-only mode
+never silently enables Direct writes on a transport failure.
+
 ## Default Plugin setup
 
 1. Install and activate the current Stonewright Plugin ZIP.
 2. Open **Stonewright > Setup**, enable AI Abilities, and use its guided client connection.
 3. Fully restart the client and run the generated connection verification; parsing private config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first. Keep `essential` as the working surface and use `bootstrap` only for startup diagnostics.
+5. If status reports `reauthentication_required`, relay `user_action` and stop WordPress work until the operator reauthenticates.
 
-The companion is needed for local stdio, Direct mode, and local WP-CLI. OAuth remote HTTP connects directly to the Plugin and does not start the companion.
+The companion is needed for local stdio, Direct mode, and local WP-CLI. OAuth remote HTTP connects directly to the Plugin and does not start the companion. Setup uses one client tablist for OAuth and Application Password, including **Grok Build / CLI** (`grok-build`).
 
 ## Direct mode (no plugin)
 
@@ -276,9 +290,10 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 
 Checks Node ≥ 20, credentials (env or `~/.stonewright/sites.json`), REST index
 namespaces (`wp/v2`), REST auth (`/wp/v2/users/me`), MCP initialize on
-`/wp-json/mcp/stonewright`, and a client tool-cache refresh hint. Never prints
-Application Passwords. Exit `0` only when MCP initialize succeeds without hard
-failures.
+`/wp-json/mcp/stonewright`, and a client tool-cache refresh hint. Doctor
+remediation is selected from structured transport and authentication state
+(schema version 3). Never prints Application Passwords. Exit `0` only when MCP
+initialize succeeds without hard failures.
 
 ### Capability tiers (honest limits)
 
