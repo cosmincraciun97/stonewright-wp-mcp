@@ -19,7 +19,7 @@ final class ReleaseRetentionTest extends TestCase {
 				$versioned[] = $name;
 			}
 		}
-		self::assertSame( [ '1.0.0-beta.1.md', '1.0.0-beta.10.md', '1.0.0-beta.11.1.md', '1.0.0-beta.11.md', '1.0.0-beta.12.md', '1.0.0-beta.13.md', '1.0.0-beta.2.md', '1.0.0-beta.3.md', '1.0.0-beta.4.md', '1.0.0-beta.5.md', '1.0.0-beta.6.md', '1.0.0-beta.7.md', '1.0.0-beta.8.md', '1.0.0-beta.9.md' ], $versioned );
+		self::assertSame( [ '1.0.0-beta.1.md', '1.0.0-beta.10.md', '1.0.0-beta.11.1.md', '1.0.0-beta.11.md', '1.0.0-beta.12.md', '1.0.0-beta.13.1.md', '1.0.0-beta.13.md', '1.0.0-beta.2.md', '1.0.0-beta.3.md', '1.0.0-beta.4.md', '1.0.0-beta.5.md', '1.0.0-beta.6.md', '1.0.0-beta.7.md', '1.0.0-beta.8.md', '1.0.0-beta.9.md' ], $versioned );
 	}
 
 	public function test_root_changelog_keeps_latest_five_releases_and_links_older_history(): void {
@@ -36,7 +36,7 @@ final class ReleaseRetentionTest extends TestCase {
 			)
 		);
 		self::assertContains( 'Unreleased', $headers );
-		self::assertSame( [ '1.0.0-beta.13', '1.0.0-beta.12', '1.0.0-beta.11.1', '1.0.0-beta.11', '1.0.0-beta.10' ], $versions );
+		self::assertSame( [ '1.0.0-beta.13.1', '1.0.0-beta.13', '1.0.0-beta.12', '1.0.0-beta.11.1', '1.0.0-beta.11' ], $versions );
 		self::assertStringContainsString( '## Older releases', $raw );
 		self::assertStringContainsString( '## Older releases', $plugin_raw );
 		foreach ( range( 1, 7 ) as $release_number ) {

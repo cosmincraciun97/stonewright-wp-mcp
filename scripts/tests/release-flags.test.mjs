@@ -16,6 +16,7 @@ const docsFreshness = readFileSync(
 test('supported public betas are latest releases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.10', 'supported'), ['--latest']);
 	assert.deepEqual(releaseFlags('1.0.0-beta.13', 'supported'), ['--latest']);
+	assert.deepEqual(releaseFlags('1.0.0-beta.13.1', 'supported'), ['--latest']);
 });
 
 test('preview beta and rc versions are prereleases', () => {

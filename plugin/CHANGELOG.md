@@ -6,6 +6,14 @@
 
 - Nothing yet.
 
+## [1.0.0-beta.13.1] - 2026-08-26
+
+### Fixed
+
+- Refetch GitHub Releases during WordPress plugin update checks so a newer
+  supported beta appears on Dashboard → Updates instead of a stale cached
+  "you are current" payload.
+
 ## [1.0.0-beta.13] - 2026-08-25
 
 ### Added
@@ -393,26 +401,9 @@
 - Stop the Block Editor Queue iframe from autosaving queued blocks into the live
   post before `blocks-finalize-batch`.
 
-## [1.0.0-beta.10] - 2026-08-12
-
-### Added
-
-- Add `stonewright/incident-repair-record` for persisted, correlated repair
-  receipts and one read-back verified reusable lesson.
-- Add canonical incident repair, learning, reopen, and stale metadata plus
-  ranked compact task-start actions.
-
-### Changed
-
-- Stop generic successful audit events from resolving incidents or promoting
-  audit-derived learning. Explicit user corrections remain immediately
-  recordable.
-- Keep Plugin and companion update discovery on the installed stable or
-  prerelease channel, using channel-specific caches and exact trusted release
-  assets without cross-channel fallback.
-
 ## Older releases
 
+- [1.0.0-beta.10](../docs/releases/1.0.0-beta.10.md)
 - [1.0.0-beta.9](../docs/releases/1.0.0-beta.9.md)
 - [1.0.0-beta.8](../docs/releases/1.0.0-beta.8.md)
 - [1.0.0-beta.7](../docs/releases/1.0.0-beta.7.md)
