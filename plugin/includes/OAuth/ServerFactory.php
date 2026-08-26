@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2026 Ovation S.r.l. <dev@novamira.ai>
  * SPDX-License-Identifier: AGPL-3.0-or-later
  * Derived from includes/oauth/server-factory.php
- * Source SHA-256: b380ba448da4736c501849ae3497679cafda5dc863ea7a9ea511b4e9a561a44e
+ * Source SHA-256: b380ba448da4736c501849ae1997679cafda5dc863ea7a9ea511b4e9a561a44e
  *
  * @package Stonewright\WpMcp
  */
