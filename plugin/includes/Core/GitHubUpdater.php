@@ -38,10 +38,31 @@ final class GitHubUpdater {
 		add_filter( 'pre_set_site_transient_update_plugins', [ self::class, 'inject_update' ] );
 		add_filter( 'plugins_api', [ self::class, 'plugins_api' ], 10, 3 );
 		add_filter( 'upgrader_pre_download', [ self::class, 'verify_package_download' ], 10, 4 );
+		add_action( 'upgrader_process_complete', [ self::class, 'purge_release_cache_after_self_update' ], 10, 2 );
 	}
 
 	public static function cache_key( string $channel ): string {
 		return self::CACHE_KEY . '_' . ( 'beta' === $channel ? 'beta' : 'stable' );
+	}
+
+	/**
+	 * After this plugin updates itself, the cached release (and View details
+	 * body) describes the pre-update world. Purge so the next read refetches.
+	 *
+	 * @param mixed $upgrader   Core upgrader instance (unused).
+	 * @param mixed $hook_extra Core upgrade context.
+	 */
+	public static function purge_release_cache_after_self_update( mixed $upgrader, mixed $hook_extra ): void {
+		unset( $upgrader );
+		if ( ! is_array( $hook_extra ) || 'plugin' !== (string) ( $hook_extra['type'] ?? '' ) ) {
+			return;
+		}
+		$plugins = isset( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ? $hook_extra['plugins'] : [];
+		if ( ! in_array( self::plugin_basename(), $plugins, true ) ) {
+			return;
+		}
+		delete_transient( self::cache_key( 'beta' ) );
+		delete_transient( self::cache_key( 'stable' ) );
 	}
 
 	public static function installed_channel( string $version ): string {
@@ -405,6 +426,11 @@ final class GitHubUpdater {
 		}
 
 		$remote = self::fetch_latest_release();
+		if ( null === $remote || version_compare( (string) $remote['version'], self::installed_version(), '<' ) ) {
+			// A cache older than the installed plugin is stale by definition:
+			// the operator is looking at the modal after an update.
+			$remote = self::fetch_latest_release( true );
+		}
 		if ( null === $remote ) {
 			return $result;
 		}

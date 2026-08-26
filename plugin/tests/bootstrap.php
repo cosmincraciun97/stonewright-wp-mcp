@@ -1078,6 +1078,9 @@ if ( ! function_exists( 'has_filter' ) ) {
 
 if ( ! function_exists( 'has_action' ) ) {
 	function has_action( string $hook_name, mixed $callback = false ): int|false {
+		if ( isset( $GLOBALS['stonewright_test_actions'][ $hook_name ] ) ) {
+			return 10;
+		}
 		return has_filter( $hook_name, $callback );
 	}
 }

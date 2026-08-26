@@ -227,6 +227,74 @@ final class GitHubUpdaterTest extends TestCase {
 		);
 	}
 
+	public function test_plugins_api_refetches_when_cached_release_is_older_than_installed(): void {
+		$installed        = '1.0.0-beta.13.1';
+		$stale            = $this->parsed_beta_release();
+		$stale['version'] = '1.0.0-beta.12';
+		$stale['package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-1.0.0-beta.12.zip';
+		$stale['companion_package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
+		$stale['checksums'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/SHA256SUMS.txt';
+		$stale['url']       = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.12';
+		$this->set_installed_version( $installed );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[
+				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
+				'channel'        => 'beta',
+				'release'        => $stale,
+			],
+			GitHubUpdater::CACHE_TTL
+		);
+
+		$fresh = $this->release_with_version( $this->releases_fixture()[6], $installed );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $fresh ] ),
+		];
+
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+
+		self::assertIsObject( $info );
+		self::assertSame( $installed, $info->version );
+		self::assertNotSame( '1.0.0-beta.12', $info->version );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+	}
+
+	public function test_purge_release_cache_after_self_update_clears_both_channels(): void {
+		$sentinel = [ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => [ 'version' => 'stale' ] ];
+		set_transient( GitHubUpdater::cache_key( 'beta' ), $sentinel, GitHubUpdater::CACHE_TTL );
+		set_transient( GitHubUpdater::cache_key( 'stable' ), $sentinel, GitHubUpdater::CACHE_TTL );
+
+		GitHubUpdater::purge_release_cache_after_self_update(
+			new \stdClass(),
+			[
+				'type'    => 'plugin',
+				'action'  => 'update',
+				'plugins' => [ GitHubUpdater::plugin_basename() ],
+			]
+		);
+
+		self::assertFalse( get_transient( GitHubUpdater::cache_key( 'beta' ) ) );
+		self::assertFalse( get_transient( GitHubUpdater::cache_key( 'stable' ) ) );
+	}
+
+	public function test_purge_release_cache_after_self_update_ignores_other_plugins(): void {
+		$sentinel = [ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => [ 'version' => 'keep' ] ];
+		set_transient( GitHubUpdater::cache_key( 'beta' ), $sentinel, GitHubUpdater::CACHE_TTL );
+		set_transient( GitHubUpdater::cache_key( 'stable' ), $sentinel, GitHubUpdater::CACHE_TTL );
+
+		GitHubUpdater::purge_release_cache_after_self_update(
+			new \stdClass(),
+			[
+				'type'    => 'plugin',
+				'plugins' => [ 'other/other.php' ],
+			]
+		);
+
+		self::assertSame( $sentinel, get_transient( GitHubUpdater::cache_key( 'beta' ) ) );
+		self::assertSame( $sentinel, get_transient( GitHubUpdater::cache_key( 'stable' ) ) );
+	}
+
 	public function test_release_channel_metadata_still_reads_raw_markdown_body(): void {
 		$github_release          = $this->releases_fixture()[6];
 		$github_release['body']  = "# Fixes\n\nRelease channel: `supported`\n\n<script>alert(1)</script>\n";
@@ -647,6 +715,7 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertArrayHasKey( 'site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
 		self::assertArrayHasKey( 'pre_set_site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
 		self::assertArrayHasKey( 'upgrader_pre_download', $GLOBALS['stonewright_test_filters'] );
+		self::assertTrue( (bool) has_action( 'upgrader_process_complete', [ GitHubUpdater::class, 'purge_release_cache_after_self_update' ] ) );
 	}
 
 	public function test_checksum_manifest_requires_one_exact_zip_filename_and_digest(): void {
