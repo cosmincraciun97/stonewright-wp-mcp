@@ -6,6 +6,13 @@
 
 - Nothing yet.
 
+## [1.0.0-beta.13.1] - 2026-08-26
+
+### Fixed
+
+- Align companion package version with the plugin updater-discovery patch so
+  WordPress and companion stay on the same SemVer after release.
+
 ## [1.0.0-beta.13] - 2026-08-25
 
 ### Added
