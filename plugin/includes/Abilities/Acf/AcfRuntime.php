@@ -179,7 +179,7 @@ final class AcfRuntime {
 	 * @param array<string, mixed> $field
 	 * @return true|\WP_Error
 	 */
-	public static function validate_value( mixed $value, array $field ): true|\WP_Error {
+	public static function validate_value( mixed $value, array $field ): bool|\WP_Error {
 		return self::validate_value_at( $value, $field, 0 );
 	}
 
@@ -279,7 +279,7 @@ final class AcfRuntime {
 	 * @param array<string, mixed> $field
 	 * @return true|\WP_Error
 	 */
-	private static function validate_value_at( mixed $value, array $field, int $depth ): true|\WP_Error {
+	private static function validate_value_at( mixed $value, array $field, int $depth ): bool|\WP_Error {
 		if ( $depth > 20 ) {
 			return self::invalid_value_error();
 		}
@@ -318,14 +318,14 @@ final class AcfRuntime {
 		);
 	}
 
-	private static function validate_true_false( mixed $value ): true|\WP_Error {
+	private static function validate_true_false( mixed $value ): bool|\WP_Error {
 		if ( true === $value || false === $value || 1 === $value || 0 === $value || '1' === $value || '0' === $value ) {
 			return true;
 		}
 		return self::invalid_value_error();
 	}
 
-	private static function validate_number( mixed $value ): true|\WP_Error {
+	private static function validate_number( mixed $value ): bool|\WP_Error {
 		if ( null === $value || '' === $value ) {
 			return true;
 		}
@@ -335,7 +335,7 @@ final class AcfRuntime {
 		return true;
 	}
 
-	private static function validate_page_link( mixed $value ): true|\WP_Error {
+	private static function validate_page_link( mixed $value ): bool|\WP_Error {
 		if ( self::is_empty_reference( $value ) ) {
 			return true;
 		}
@@ -345,7 +345,7 @@ final class AcfRuntime {
 		return self::validate_reference_value( $value, false );
 	}
 
-	private static function validate_reference_value( mixed $value, bool $required ): true|\WP_Error {
+	private static function validate_reference_value( mixed $value, bool $required ): bool|\WP_Error {
 		if ( self::is_empty_reference( $value ) ) {
 			return $required ? self::invalid_value_error() : true;
 		}
@@ -354,7 +354,7 @@ final class AcfRuntime {
 			: true;
 	}
 
-	private static function validate_reference_list( mixed $value ): true|\WP_Error {
+	private static function validate_reference_list( mixed $value ): bool|\WP_Error {
 		if ( self::is_empty_reference( $value ) ) {
 			return true;
 		}
@@ -376,7 +376,7 @@ final class AcfRuntime {
 	 * @param array<string, mixed> $field
 	 * @return true|\WP_Error
 	 */
-	private static function validate_group( mixed $value, array $field, int $depth ): true|\WP_Error {
+	private static function validate_group( mixed $value, array $field, int $depth ): bool|\WP_Error {
 		if ( ! is_array( $value ) ) {
 			return self::invalid_value_error();
 		}
@@ -398,7 +398,7 @@ final class AcfRuntime {
 	 * @param array<string, mixed> $field
 	 * @return true|\WP_Error
 	 */
-	private static function validate_rows( mixed $value, array $field, int $depth ): true|\WP_Error {
+	private static function validate_rows( mixed $value, array $field, int $depth ): bool|\WP_Error {
 		if ( ! is_array( $value ) ) {
 			return self::invalid_value_error();
 		}
