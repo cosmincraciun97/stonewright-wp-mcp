@@ -17,7 +17,7 @@ test('supported public betas are latest releases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.10', 'supported'), ['--latest']);
 	assert.deepEqual(releaseFlags('1.0.0-beta.13', 'supported'), ['--latest']);
 	assert.deepEqual(releaseFlags('1.0.0-beta.13.1', 'supported'), ['--latest']);
-	assert.deepEqual(releaseFlags('1.0.0-beta.13.2', 'supported'), ['--latest']);
+	assert.deepEqual(releaseFlags('1.0.0-beta.13.3', 'supported'), ['--latest']);
 });
 
 test('preview beta and rc versions are prereleases', () => {
@@ -68,15 +68,24 @@ test('archive inspections remain reliable with pipefail enabled', () => {
 	);
 });
 
+test('release workflow publishes exactly zip, companion tgz, and SHA256SUMS', () => {
+	assert.match(releaseWorkflow, /rm -f dist\/stonewright-visual-\*\.tgz/);
+	assert.match(releaseWorkflow, /check-release-artifacts\.mjs/);
+	assert.doesNotMatch(
+		releaseWorkflow,
+		/gh release create[\s\S]*stonewright-visual/,
+	);
+});
+
 test('README exposes one validated supported public beta path', () => {
 	assert.match(readme, /<!-- supported-release:start -->/);
 	assert.match(readme, /<!-- supported-release:end -->/);
-	assert.match(readme, /Current release: 1\.0\.0-beta\.13\.2 — Public Beta/);
-	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.13\.2/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.2\/stonewright-1\.0\.0-beta\.13\.2\.zip/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.2\/stonewright-companion-1\.0\.0-beta\.13\.2\.tgz/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.2\/SHA256SUMS\.txt/);
-	assert.doesNotMatch(readme, /1\.0\.0-beta\.13\.2.*not released/i);
+	assert.match(readme, /Current release: 1\.0\.0-beta\.13\.3 — Public Beta/);
+	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.13\.3/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/stonewright-1\.0\.0-beta\.13\.3\.zip/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/stonewright-companion-1\.0\.0-beta\.13\.3\.tgz/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/SHA256SUMS\.txt/);
+	assert.doesNotMatch(readme, /1\.0\.0-beta\.13\.3.*not released/i);
 	assert.match(readme, /docs\/installation\.md/);
 	assert.match(docsFreshness, /supported-release:start/);
 });

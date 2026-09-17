@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.13.3] - 2026-09-17
+
 ### Fixed
 
 - Select one compatible MCP adapter runtime (`wordpress/mcp-adapter` ^0.6.1
@@ -251,15 +253,10 @@
 - Coalesce identical permission and safety denials by site, ability, and error,
   retaining the first event plus bounded count summaries and severity under a
   stale-recoverable option mutex with compare-and-delete ownership.
-## [1.0.0-beta.11.1] - 2026-08-24
-
-### Fixed
-
-- Restore the native updater path for supported public betas published as
-  GitHub Latest, while rejecting incompatible release metadata.
 
 ## Older releases
 
+- [1.0.0-beta.11.1](../docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](../docs/releases/1.0.0-beta.11.md)
 - [1.0.0-beta.10](../docs/releases/1.0.0-beta.10.md)
 - [1.0.0-beta.9](../docs/releases/1.0.0-beta.9.md)

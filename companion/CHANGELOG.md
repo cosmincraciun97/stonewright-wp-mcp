@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.13.3] - 2026-09-17
+
 ### Fixed
 
 - Classify plugin MCP routes from GET evidence: HEAD 404 is not missing,

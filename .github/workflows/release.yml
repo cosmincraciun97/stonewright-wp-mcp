@@ -126,6 +126,7 @@ jobs:
             echo "Companion archive contains private persistent runtime state" >&2
             exit 1
           fi
+          rm -f dist/stonewright-visual-*.tgz
           if unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$' >/dev/null; then
             echo "Plugin archive contains development-only files" >&2
             exit 1
@@ -146,7 +147,8 @@ jobs:
             echo 'plugin zip is missing the bundled playbooks' >&2
             exit 1
           fi
-          (cd dist && sha256sum "stonewright-${version}.zip" stonewright-companion-*.tgz stonewright-visual-*.tgz > SHA256SUMS.txt)
+          (cd dist && sha256sum "stonewright-${version}.zip" "stonewright-companion-${version}.tgz" > SHA256SUMS.txt)
+          node scripts/check-release-artifacts.mjs --version "$version" --dir dist --inspect --require-production-vendor
 
       - name: Publish GitHub release
         env:
@@ -163,8 +165,7 @@ jobs:
           release_flag="$(node scripts/release-flags.mjs "$version" "$notes")"
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
-            dist/stonewright-companion-*.tgz \
-            dist/stonewright-visual-*.tgz \
+            "dist/stonewright-companion-${version}.tgz" \
             dist/SHA256SUMS.txt \
             --title "Stonewright ${GITHUB_REF_NAME}" \
             --notes-file "$notes" \

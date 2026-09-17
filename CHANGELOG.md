@@ -11,6 +11,8 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.13.3] - 2026-09-17
+
 ### Fixed
 
 - Select one compatible MCP adapter runtime (`wordpress/mcp-adapter` ^0.6.1
@@ -303,16 +305,10 @@ development builds were never stable releases.
   the first event and bounded count summaries.
 - Validate Direct lock owners with available host, boot, and per-PID process-start
   identity plus a bounded lease so a live decoy or reused PID cannot block forever.
-## [1.0.0-beta.11.1] - 2026-08-24
-
-### Fixed
-
-- Add a preview migration bridge so the native plugin updater validates
-  declared supported, preview, and stable release channels before selecting an
-  eligible update.
 
 ## Older releases
 
+- [1.0.0-beta.11.1](docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](docs/releases/1.0.0-beta.11.md)
 - [1.0.0-beta.10](docs/releases/1.0.0-beta.10.md)
 - [1.0.0-beta.9](docs/releases/1.0.0-beta.9.md)
