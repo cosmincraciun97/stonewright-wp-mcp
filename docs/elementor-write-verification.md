@@ -103,6 +103,18 @@ target is a V4 atomic node or crosses a V3/V4 boundary, stop and use the
 matching V4 ability or redesign the patch. Never strip unknown settings or
 remap widget types to force validation.
 
+## Stale editor save
+
+An Elementor editor session captures the server `_elementor_data` hash and
+`post_status` at `elementor/editor/init`. Persist through
+`elementor/document/before_save` re-reads that server copy. If MCP or another
+writer changed the document after the editor loaded, save is blocked with
+`stonewright_elementor_stale_editor`, the local editor draft is not discarded,
+and `post_status` stays unchanged. Visual `save` and the native editor button
+share that PHP gate. `expected_tree_hash` on
+`stonewright-elementor-v3-batch-mutate` is a different path: it protects a stale
+MCP plan, not an open editor.
+
 ## Schema evidence, not guessed controls
 
 The live Elementor schema is authoritative. Before the write:

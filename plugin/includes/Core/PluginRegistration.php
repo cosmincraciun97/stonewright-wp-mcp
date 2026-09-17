@@ -16,15 +16,16 @@ use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
+use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
-use Stonewright\WpMcp\Expertise\ExpertiseTable;
-use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
-use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
@@ -144,6 +145,7 @@ final class PluginRegistration {
 		WidgetLoader::register();
 		GitHubUpdater::register();
 		VendorGuard::register();
+		EditorSaveGuard::register();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();

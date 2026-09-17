@@ -29,6 +29,9 @@
   editor hashes, and keep Memory draft lessons from becoming global rules.
 - Surface a Loop Grid compile failure after CPT/ACF/content writes instead of
   returning `ok:true`, keep partial effects visible, and refuse a full recreate.
+- Block a stale Elementor editor save after a later MCP write, keep the local
+  draft, and leave `post_status` unchanged.
+- Refuse theme-file patches when a marker is missing or matches more than once.
 
 ## [1.0.0-beta.13.2] - 2026-08-26
 

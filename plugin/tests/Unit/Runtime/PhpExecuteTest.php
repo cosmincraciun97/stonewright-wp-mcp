@@ -316,4 +316,49 @@ final class PhpExecuteTest extends TestCase {
 		self::assertSame( hash( 'sha256', $secret_code ), $args['_meta']['code_sha256'] ?? null );
 		self::assertArrayHasKey( 'duration_ms', $args['_meta'] ?? [] );
 	}
+
+	public function test_real_newlines_execute_without_decode_flag(): void {
+		$result = ( new PhpExecute() )->execute(
+			[
+				'code' => "echo 'ok';\nreturn 3;",
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 3, $result['result'] );
+		self::assertSame( 'ok', $result['stdout'] );
+	}
+
+	public function test_literal_backslash_n_is_not_decoded_unless_opted_in(): void {
+		$literal = 'echo "a";\necho "b"; return 1;';
+
+		$blocked = ( new PhpExecute() )->execute( [ 'code' => $literal ] );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_php_parse_error', $blocked->get_error_code() );
+
+		$decoded = ( new PhpExecute() )->execute(
+			[
+				'code'                  => $literal,
+				'decode_escaped_layout' => true,
+			]
+		);
+		self::assertIsArray( $decoded );
+		self::assertTrue( $decoded['ok'] );
+		self::assertSame( 'ab', $decoded['stdout'] );
+		self::assertSame( 1, $decoded['result'] );
+	}
+
+	public function test_runtime_error_does_not_auto_retry_with_decode(): void {
+		$result = ( new PhpExecute() )->execute(
+			[
+				'code' => 'echo "once"; throw new \RuntimeException("runtime failed");',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_php_execute_failed', $result->get_error_code() );
+		self::assertArrayNotHasKey( 'retry', $result->get_error_data() );
+		self::assertSame( 'once', $result->get_error_data()['stdout'] ?? null );
+	}
 }

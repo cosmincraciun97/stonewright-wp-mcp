@@ -416,17 +416,9 @@ final class ThemeFilePatch extends AbilityKernel {
 				[ 'status' => 400 ]
 			);
 		}
-		$pos = strpos( $before, $marker );
-		if ( false === $pos ) {
-			return new \WP_Error(
-				'stonewright_theme_file_marker_missing',
-				__( 'Marker not found in theme file.', 'stonewright' ),
-				[
-					'status'     => 400,
-					'marker'     => $marker,
-					'error_code' => 'marker_missing',
-				]
-			);
+		$pos = self::unique_marker_offset( $before, $marker, 'marker' );
+		if ( $pos instanceof \WP_Error ) {
+			return $pos;
 		}
 		$insert_at = $pos + strlen( $marker );
 		return substr( $before, 0, $insert_at ) . "\n" . $content . substr( $before, $insert_at );
@@ -441,16 +433,15 @@ final class ThemeFilePatch extends AbilityKernel {
 				[ 'status' => 400 ]
 			);
 		}
-		$start_pos = strpos( $before, $start );
-		if ( false === $start_pos ) {
-			return new \WP_Error(
-				'stonewright_theme_file_marker_missing',
-				__( 'start_marker not found in theme file.', 'stonewright' ),
-				[ 'status' => 400, 'marker' => $start, 'error_code' => 'start_marker_missing' ]
-			);
+		$start_pos = self::unique_marker_offset( $before, $start, 'start_marker' );
+		if ( $start_pos instanceof \WP_Error ) {
+			return $start_pos;
 		}
-		$end_pos = strpos( $before, $end, $start_pos + strlen( $start ) );
-		if ( false === $end_pos ) {
+		$end_pos = self::unique_marker_offset( $before, $end, 'end_marker' );
+		if ( $end_pos instanceof \WP_Error ) {
+			return $end_pos;
+		}
+		if ( $end_pos < $start_pos + strlen( $start ) ) {
 			return new \WP_Error(
 				'stonewright_theme_file_marker_missing',
 				__( 'end_marker not found after start_marker.', 'stonewright' ),
@@ -459,6 +450,37 @@ final class ThemeFilePatch extends AbilityKernel {
 		}
 		$end_pos += strlen( $end );
 		return substr( $before, 0, $start_pos ) . $start . "\n" . $content . "\n" . $end . substr( $before, $end_pos );
+	}
+
+	/** @return int|\WP_Error */
+	private static function unique_marker_offset( string $haystack, string $marker, string $field ) {
+		$count = substr_count( $haystack, $marker );
+		if ( 0 === $count ) {
+			$code = 'start_marker' === $field ? 'start_marker_missing' : ( 'end_marker' === $field ? 'end_marker_missing' : 'marker_missing' );
+			return new \WP_Error(
+				'stonewright_theme_file_marker_missing',
+				__( 'Marker not found in theme file.', 'stonewright' ),
+				[
+					'status'     => 400,
+					'marker'     => $marker,
+					'error_code' => $code,
+				]
+			);
+		}
+		if ( $count > 1 ) {
+			return new \WP_Error(
+				'stonewright_theme_file_marker_ambiguous',
+				__( 'Marker matches more than once. Read the target segment and use a unique marker.', 'stonewright' ),
+				[
+					'status'     => 400,
+					'marker'     => $marker,
+					'error_code' => 'marker_ambiguous',
+					'matches'    => $count,
+				]
+			);
+		}
+		$pos = strpos( $haystack, $marker );
+		return false === $pos ? 0 : $pos;
 	}
 
 	private static function ends_with_newline( string $text ): bool {

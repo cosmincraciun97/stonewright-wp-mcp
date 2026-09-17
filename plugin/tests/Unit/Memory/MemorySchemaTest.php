@@ -290,6 +290,60 @@ final class MemorySchemaTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['wpdb']->rows );
 	}
 
+	public function test_draft_survives_update_without_metadata_then_export_import(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$id              = Memory::put_typed(
+			'reference',
+			'audit',
+			'synthetic-draft-chain',
+			'Draft lesson',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema.' ],
+			1.0,
+			[ 'status' => 'draft', 'precedence' => 0 ]
+		);
+		self::assertSame( 1, $id );
+
+		Memory::put_typed(
+			'reference',
+			'audit',
+			'synthetic-draft-chain',
+			'Draft lesson updated',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema again.' ],
+			1.0
+		);
+		$updated = Memory::get_by_id( $id );
+		self::assertSame( 'draft', $updated['status'] ?? null );
+		self::assertFalse( Memory::is_task_start_eligible( $updated ) );
+
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$imported        = \Stonewright\WpMcp\Knowledge\KnowledgeBundle::import(
+			[
+				'format'  => 'stonewright-knowledge-bundle',
+				'version' => 1,
+				'memory'  => [
+					'enabled' => true,
+					'entries' => [
+						[
+							'type'       => (string) ( $updated['type'] ?? 'reference' ),
+							'scope'      => (string) ( $updated['scope'] ?? 'audit' ),
+							'memory_key' => (string) ( $updated['memory_key'] ?? 'synthetic-draft-chain' ),
+							'name'       => (string) ( $updated['name'] ?? 'Draft lesson updated' ),
+							'value'      => $updated['value'] ?? [ 'source' => 'error-pattern-draft' ],
+							'status'     => (string) ( $updated['status'] ?? '' ),
+							'precedence' => (int) ( $updated['precedence'] ?? 0 ),
+						],
+					],
+				],
+			]
+		);
+
+		self::assertSame( 1, $imported['memory_imported'] );
+		$roundtrip = Memory::get_by_id( 1 );
+		self::assertSame( 'draft', $roundtrip['status'] ?? null );
+		self::assertFalse( Memory::is_task_start_eligible( $roundtrip ) );
+		self::assertNotContains( 1, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+	}
+
 	public function test_put_typed_blocks_credential_material_before_database_write(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
 		$credential      = implode( '-', [ 'real', 'private', 'value' ] );
