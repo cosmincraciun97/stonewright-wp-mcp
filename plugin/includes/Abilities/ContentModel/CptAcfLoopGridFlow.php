@@ -197,7 +197,8 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 							[ 'id' => 'loop_template', 'status' => 'not_started' ],
 							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
 						],
-						'not_required'
+						'not_attempted',
+						self::created_resources( $slug, $acf_payload, null, null )
 					);
 				}
 				if ( is_array( $content ) && false === ( $content['ok'] ?? true ) ) {
@@ -205,7 +206,7 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 						new \WP_Error(
 							'stonewright_content_upsert_failed',
 							__( 'Content upsert failed.', 'stonewright' ),
-							[ 'status' => 500, 'content' => $content ]
+							[ 'status' => 500 ]
 						),
 						'content',
 						[
@@ -215,7 +216,8 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 							[ 'id' => 'loop_template', 'status' => 'not_started' ],
 							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
 						],
-						'not_required'
+						'not_attempted',
+						self::created_resources( $slug, $acf_payload, $content, null )
 					);
 				}
 
@@ -231,15 +233,29 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 							[ 'id' => 'loop_template', 'status' => 'failed' ],
 							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
 						],
-						'not_required'
+						'not_attempted',
+						self::created_resources( $slug, $acf_payload, $content, null )
 					);
 				}
 
 				WidgetSchemaRepository::invalidate();
 				$applied = self::compile_loop_grid( $slug, $grid, (int) $loop_template['template_id'], false );
-				if ( ! is_wp_error( $applied ) ) {
-					$compiled = $applied;
+				if ( is_wp_error( $applied ) ) {
+					return self::wrap_child_error(
+						$applied,
+						'loop_grid',
+						[
+							[ 'id' => 'post_type', 'status' => 'applied' ],
+							[ 'id' => 'acf', 'status' => 'applied' ],
+							[ 'id' => 'content', 'status' => 'applied' ],
+							[ 'id' => 'loop_template', 'status' => 'applied' ],
+							[ 'id' => 'loop_grid', 'status' => 'failed' ],
+						],
+						'not_attempted',
+						self::created_resources( $slug, $acf_payload, $content, $loop_template )
+					);
 				}
+				$compiled = $applied;
 
 				$loop_grid_widget = self::loop_grid_widget_from_compiled( $compiled, (int) $loop_template['template_id'] );
 
@@ -486,17 +502,49 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 
 	/**
 	 * @param list<array{id:string,status:string}> $steps
+	 * @param array<string, mixed>                 $extra
 	 */
-	private static function wrap_child_error( \WP_Error $error, string $failed_step, array $steps, string $rollback_status ): \WP_Error {
+	private static function wrap_child_error( \WP_Error $error, string $failed_step, array $steps, string $rollback_status, array $extra = [] ): \WP_Error {
 		$data = $error->get_error_data();
 		$data = is_array( $data ) ? $data : [];
+		unset( $data['content'], $data['items'] );
 		$data['failed_step']     = $failed_step;
 		$data['root_error_code'] = (string) $error->get_error_code();
 		$data['steps']           = $steps;
 		$data['rollback_status'] = $rollback_status;
 		$data['ok']              = false;
+		if ( [] !== $extra ) {
+			$data = array_merge( $data, $extra );
+		}
 
 		return new \WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
+	}
+
+	/**
+	 * @param array<string, mixed>      $acf
+	 * @param array<string, mixed>|null $content
+	 * @param array<string, mixed>|null $loop_template
+	 * @return array<string, mixed>
+	 */
+	private static function created_resources( string $slug, array $acf, ?array $content, ?array $loop_template ): array {
+		$post_ids = [];
+		if ( is_array( $content ) ) {
+			foreach ( (array) ( $content['items'] ?? [] ) as $item ) {
+				if ( is_array( $item ) && isset( $item['id'] ) && (int) $item['id'] > 0 ) {
+					$post_ids[] = (int) $item['id'];
+				}
+			}
+		}
+		$template_id = is_array( $loop_template ) ? (int) ( $loop_template['template_id'] ?? 0 ) : 0;
+		return [
+			'created_resources' => [
+				'post_type'   => $slug,
+				'acf_group'   => sanitize_key( (string) ( $acf['field_group_key'] ?? '' ) ),
+				'post_ids'    => $post_ids,
+				'template_id' => $template_id > 0 ? $template_id : 0,
+			],
+			'retry'             => 'Read back created_resources, then retry only the failed step. Do not recreate the post type, fields, posts, or loop template.',
+		];
 	}
 
 	/**
@@ -555,5 +603,9 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 					: 'Insert the returned loop_grid_widget into the Elementor listing/archive page.',
 			],
 		];
+	}
+
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'items', 'fields' ] );
 	}
 }

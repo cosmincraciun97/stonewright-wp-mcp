@@ -34,6 +34,8 @@ development builds were never stable releases.
   raw value and reference rather than `update_field`'s return.
 - Preserve unknown Elementor settings on mobile-only deltas, reject stale
   editor hashes, and keep Memory draft lessons from becoming global rules.
+- Surface a Loop Grid compile failure after CPT/ACF/content writes instead of
+  returning `ok:true`, keep partial effects visible, and refuse a full recreate.
 
 ## [1.0.0-beta.13.2] - 2026-08-26
 

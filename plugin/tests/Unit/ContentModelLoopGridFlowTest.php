@@ -74,6 +74,7 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 	}
 
 	public function test_creates_cpt_acf_fields_rows_loop_template_and_grid_widget_contract(): void {
+		$this->include_registered_post_types_in_loop_schema();
 		$result = ( new CptAcfLoopGridFlow() )->execute(
 			[
 				'post_type'     => [
@@ -181,8 +182,73 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		self::assertSame( 'applied', $by_id['content']['status'] ?? null );
 		self::assertSame( 'failed', $by_id['loop_template']['status'] ?? null );
 		self::assertArrayHasKey( 'rollback_status', $data );
+		self::assertSame( 'not_attempted', $data['rollback_status'] );
 		self::assertArrayHasKey( 'ok', $data );
 		self::assertFalse( $data['ok'] );
+		self::assertSame( 'speaker', $data['created_resources']['post_type'] ?? null );
+		self::assertSame( [ 9100 ], $data['created_resources']['post_ids'] ?? null );
+		self::assertStringContainsString( 'retry only the failed step', (string) ( $data['retry'] ?? '' ) );
+		self::assertArrayNotHasKey( 'content', $data );
+	}
+
+	public function test_final_compile_fails_when_live_schema_still_omits_registered_cpt(): void {
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = ( new CptAcfLoopGridFlow() )->execute(
+			[
+				'post_type'     => [
+					'slug'     => 'featured_solution',
+					'singular' => 'Featured Solution',
+					'plural'   => 'Featured Solutions',
+				],
+				'fields'        => [
+					[ 'name' => 'subtitle', 'label' => 'Subtitle', 'type' => 'text' ],
+				],
+				'items'         => [
+					[
+						'slug'  => 'solar-roof',
+						'title' => 'Solar Roof',
+						'meta'  => [ 'subtitle' => 'Example ready' ],
+					],
+				],
+				'loop_template' => [
+					'title'        => 'Featured Solution Card',
+					'link_to_post' => true,
+					'spec'         => self::card_spec(),
+				],
+				'grid'          => [
+					'columns'        => 3,
+					'posts_per_page' => 6,
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_post_type_unsupported', $result->get_error_code() );
+		self::assertNotTrue( is_array( $result ) && true === ( $result['ok'] ?? false ) );
+		$data = $result->get_error_data();
+		self::assertSame( 'loop_grid', $data['failed_step'] );
+		self::assertSame( 'not_attempted', $data['rollback_status'] );
+		$by_id = [];
+		foreach ( (array) ( $data['steps'] ?? [] ) as $step ) {
+			$by_id[ (string) ( $step['id'] ?? '' ) ] = $step;
+		}
+		self::assertSame( 'applied', $by_id['post_type']['status'] ?? null );
+		self::assertSame( 'applied', $by_id['acf']['status'] ?? null );
+		self::assertSame( 'applied', $by_id['content']['status'] ?? null );
+		self::assertSame( 'applied', $by_id['loop_template']['status'] ?? null );
+		self::assertSame( 'failed', $by_id['loop_grid']['status'] ?? null );
+		self::assertSame( 'featured_solution', $data['created_resources']['post_type'] ?? null );
+		self::assertNotEmpty( $data['created_resources']['post_ids'] ?? [] );
+		self::assertGreaterThan( 0, (int) ( $data['created_resources']['template_id'] ?? 0 ) );
+		self::assertArrayHasKey( 'featured_solution', $GLOBALS['stonewright_test_post_types'] );
+		self::assertNotEmpty( $GLOBALS['stonewright_test_inserted_posts'] );
+		self::assertStringContainsString( 'Do not recreate', (string) ( $data['retry'] ?? '' ) );
+		self::assertStringNotContainsString( 'Solar Roof', wp_json_encode( $data ) );
+
+		$row = $this->last_audit_row( 'stonewright/content-model-loop-grid-flow' );
+		self::assertSame( 'error', $row['result_status'] ?? null );
+		self::assertNotSame( 'SUCCESS', $row['outcome'] ?? null );
+		self::assertStringNotContainsString( 'Solar Roof', (string) ( $row['sanitized_args'] ?? '' ) );
 	}
 
 	public function test_incompatible_loop_schema_does_not_replace_query_with_static_cards(): void {
@@ -208,6 +274,36 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
 		self::assertSame( 'loop_grid', $result->get_error_data()['failed_step'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_inserted_posts'] );
+	}
+
+	private function last_audit_row( string $ability ): array {
+		$rows = array_reverse( $GLOBALS['stonewright_test_wpdb_inserts'] ?? [] );
+		foreach ( $rows as $insert ) {
+			$data = is_array( $insert['data'] ?? null ) ? $insert['data'] : [];
+			if ( $ability === (string) ( $data['ability_name'] ?? '' ) ) {
+				return $data;
+			}
+		}
+		return [];
+	}
+
+	private function include_registered_post_types_in_loop_schema(): void {
+		$GLOBALS['stonewright_test_loop_control_overrides']['*'] = static function ( array $controls, string $widget ): array {
+			unset( $widget );
+			foreach ( array_keys( $GLOBALS['stonewright_test_post_types'] ?? [] ) as $type ) {
+				$type = sanitize_key( (string) $type );
+				if ( '' === $type ) {
+					continue;
+				}
+				if ( isset( $controls['query_post_type'] ) && is_array( $controls['query_post_type'] ) ) {
+					$controls['query_post_type']['options']                 = is_array( $controls['query_post_type']['options'] ?? null )
+						? $controls['query_post_type']['options']
+						: [];
+					$controls['query_post_type']['options'][ $type ] = $type;
+				}
+			}
+			return $controls;
+		};
 	}
 
 	private static function card_spec(): array {
