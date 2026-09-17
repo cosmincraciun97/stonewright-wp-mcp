@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Acf;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupList;
+use Stonewright\WpMcp\Abilities\Acf\AcfRuntime;
 use Stonewright\WpMcp\Abilities\Acf\AcfValueUpdate;
 use Stonewright\WpMcp\Abilities\Acf\AcfValuesGet;
 
@@ -26,6 +27,7 @@ final class AcfAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_acf_update_field_calls']      = 0;
 		$GLOBALS['stonewright_test_acf_update_field_args']       = [];
 		$GLOBALS['stonewright_test_acf_flush_calls']             = [];
+		$GLOBALS['stonewright_test_acf_references']              = [];
 		$GLOBALS['stonewright_test_backup_calls']                = [];
 		unset(
 			$GLOBALS['stonewright_test_acf_get_field_callback'],
@@ -46,6 +48,7 @@ final class AcfAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_acf_update_field_calls'] = 0;
 		$GLOBALS['stonewright_test_acf_update_field_args']  = [];
 		$GLOBALS['stonewright_test_acf_flush_calls']        = [];
+		$GLOBALS['stonewright_test_acf_references']         = [];
 	}
 
 	public function test_names(): void {
@@ -286,8 +289,8 @@ final class AcfAbilitiesTest extends TestCase {
 		$result = $this->update( 5, 'color', 'blue' );
 		$this->assertIsArray( $result );
 		$this->assertTrue( $result['ok'] );
-		$this->assertFalse( $result['changed'] );
-		$this->assertSame( 'unchanged', $result['execution_status'] );
+		$this->assertTrue( $result['changed'] );
+		$this->assertSame( 'applied', $result['execution_status'] );
 		$this->assertTrue( $result['effect_verified'] );
 		$this->assertSame( 'blue', $result['value'] );
 		$this->assertSame( 1, $this->update_calls() );
@@ -321,8 +324,8 @@ final class AcfAbilitiesTest extends TestCase {
 		$result = $this->update( 5, 'color', 'blue' );
 		$this->assertIsArray( $result );
 		$this->assertFalse( $result['ok'] );
-		$this->assertTrue( $result['changed'] );
-		$this->assertSame( 'applied', $result['execution_status'] );
+		$this->assertFalse( $result['changed'] );
+		$this->assertSame( 'failed', $result['execution_status'] );
 		$this->assertSame( 'failed', $result['verification_status'] );
 		$this->assertFalse( $result['effect_verified'] );
 		$this->assertSame( 'stonewright_acf_readback_mismatch', $result['error_code'] );
@@ -342,6 +345,177 @@ final class AcfAbilitiesTest extends TestCase {
 		$this->assertStringContainsString( 'my_custom_transform', (string) $result['limitation'] );
 		$this->assertSame( [ 'after' => 2 ], $result['value'] );
 		$this->assertSame( 1, $this->update_calls() );
+		$this->assertNotTrue( $result['effect_verified'] );
+	}
+
+	public function test_garbage_image_is_input_error_not_noop(): void {
+		$this->activate_acf();
+		$this->seed_post( 5 );
+		$this->map_field( 'hero', 'image' );
+		$GLOBALS['stonewright_test_acf_fields'] = [ 'hero' => null ];
+		$result = $this->update( 5, 'hero', 'not-an-id' );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_acf_invalid_value', $result->get_error_code() );
+		$this->assertSame( 0, $this->update_calls() );
+		$this->assertSame( [], $GLOBALS['stonewright_test_backup_calls'] ?? [] );
+	}
+
+	public function test_boolean_accepts_explicit_literals_only(): void {
+		$this->assertTrue( AcfRuntime::validate_value( true, [ 'type' => 'true_false' ] ) );
+		$this->assertTrue( AcfRuntime::validate_value( false, [ 'type' => 'true_false' ] ) );
+		$this->assertTrue( AcfRuntime::validate_value( 1, [ 'type' => 'true_false' ] ) );
+		$this->assertTrue( AcfRuntime::validate_value( 0, [ 'type' => 'true_false' ] ) );
+		$this->assertTrue( AcfRuntime::validate_value( '1', [ 'type' => 'true_false' ] ) );
+		$this->assertTrue( AcfRuntime::validate_value( '0', [ 'type' => 'true_false' ] ) );
+		foreach ( [ 'false', 'true', 'yes', 'no', 2, 1.0, [], (object) [] ] as $invalid ) {
+			$this->assertInstanceOf(
+				\WP_Error::class,
+				AcfRuntime::validate_value( $invalid, [ 'type' => 'true_false' ] )
+			);
+		}
+	}
+
+	public function test_reference_ids_reject_fractions_negatives_and_unexpected_keys(): void {
+		$image = [ 'type' => 'image' ];
+		$this->assertTrue( AcfRuntime::validate_value( null, $image ) );
+		$this->assertTrue( AcfRuntime::validate_value( false, $image ) );
+		$this->assertTrue( AcfRuntime::validate_value( '', $image ) );
+		$this->assertTrue( AcfRuntime::validate_value( 10, $image ) );
+		$this->assertTrue( AcfRuntime::validate_value( '10', $image ) );
+		$this->assertTrue( AcfRuntime::validate_value( [ 'ID' => 10 ], $image ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( 0, $image ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( -1, $image ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( 1.5, $image ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( '10.0', $image ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( 'not-an-id', $image ) );
+		$this->assertInstanceOf(
+			\WP_Error::class,
+			AcfRuntime::validate_value( [ 'ID' => 10, 'url' => 'https://example.test/x.jpg' ], $image )
+		);
+
+		$rel = [ 'type' => 'relationship' ];
+		$this->seed_post( 10 );
+		$this->seed_post( 11 );
+		$this->assertTrue( AcfRuntime::validate_value( [], $rel ) );
+		$this->assertTrue( AcfRuntime::validate_value( [ 10, 11 ], $rel ) );
+		$this->assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( [ 10, 'nope' ], $rel ) );
+		$this->assertTrue( AcfRuntime::references_valid( [], $rel ) );
+		$this->assertTrue( AcfRuntime::references_valid( [ 10 ], $rel ) );
+		$this->assertFalse( AcfRuntime::references_valid( [ 10, 'nope' ], $rel ) );
+	}
+
+	public function test_number_decimal_equality_without_float_collapse(): void {
+		$number = [ 'type' => 'number' ];
+		self::assertTrue( AcfRuntime::values_equal( 1.0, '1', $number ) );
+		self::assertTrue( AcfRuntime::values_equal( '1.00', 1, $number ) );
+		self::assertFalse( AcfRuntime::values_equal( '1.01', 1, $number ) );
+		self::assertInstanceOf(
+			\WP_Error::class,
+			AcfRuntime::validate_value( 'not-an-id', [ 'type' => 'image' ] )
+		);
+		self::assertTrue( AcfRuntime::values_equal( 0, '0', $number ) );
+		self::assertTrue( AcfRuntime::values_equal( -2.5, '-2.50', $number ) );
+		self::assertTrue( AcfRuntime::values_equal( '1e2', 100, $number ) );
+		self::assertTrue( AcfRuntime::values_equal( '9007199254740993', '9007199254740993', $number ) );
+		self::assertFalse( AcfRuntime::values_equal( '9007199254740993', '9007199254740994', $number ) );
+		self::assertFalse( AcfRuntime::values_equal( '', 0, $number ) );
+		self::assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( NAN, $number ) );
+		self::assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( INF, $number ) );
+		self::assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( '1.2.3', $number ) );
+		self::assertInstanceOf( \WP_Error::class, AcfRuntime::validate_value( [], $number ) );
+	}
+
+	public function test_empty_relationship_is_not_an_invalid_reference(): void {
+		$this->activate_acf();
+		$this->seed_post( 5 );
+		$this->map_field( 'related', 'relationship' );
+		$GLOBALS['stonewright_test_acf_fields'] = [ 'related' => [] ];
+		$result = $this->update( 5, 'related', [] );
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertFalse( $result['changed'] );
+		$this->assertSame( 0, $this->update_calls() );
+	}
+
+	public function test_missing_field_reference_writes_even_when_value_matches(): void {
+		$this->activate_acf();
+		$this->seed_post( 5 );
+		$this->map_field( 'color' );
+		$GLOBALS['stonewright_test_acf_fields'] = [ 'color' => 'blue' ];
+		$GLOBALS['stonewright_test_acf_references'][5]['color']       = false;
+		$GLOBALS['stonewright_test_acf_references'][5]['field_color'] = false;
+		$result = $this->update( 5, 'color', 'blue' );
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertTrue( $result['changed'] );
+		$this->assertSame( 'applied', $result['execution_status'] );
+		$this->assertSame( 1, $this->update_calls() );
+		$this->assertSame( 'field_color', $GLOBALS['stonewright_test_acf_update_field_args'][0]['selector'] );
+		$this->assertSame( 'field_color', $GLOBALS['stonewright_test_acf_references'][5]['color'] );
+		$snaps = get_post_meta( 5, '_stonewright_backups', true );
+		$this->assertIsArray( $snaps );
+		$this->assertCount( 1, $snaps );
+	}
+
+	public function test_wrong_field_reference_repairs_via_field_key(): void {
+		$this->activate_acf();
+		$this->seed_post( 5 );
+		$this->map_field( 'color' );
+		$GLOBALS['stonewright_test_acf_fields'] = [ 'color' => 'blue' ];
+		$GLOBALS['stonewright_test_acf_references'][5]['color']       = 'field_other';
+		$GLOBALS['stonewright_test_acf_references'][5]['field_color'] = 'field_other';
+		$result = $this->update( 5, 'color', 'blue' );
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertTrue( $result['changed'] );
+		$this->assertSame( 1, $this->update_calls() );
+		$this->assertSame( 'field_color', $GLOBALS['stonewright_test_acf_references'][5]['color'] );
+	}
+
+	public function test_group_validates_sub_fields_by_name_and_key(): void {
+		$group = [
+			'type'       => 'group',
+			'sub_fields' => [
+				[
+					'key'  => 'field_title',
+					'name' => 'title',
+					'type' => 'text',
+				],
+				[
+					'key'  => 'field_hero',
+					'name' => 'hero',
+					'type' => 'image',
+				],
+			],
+		];
+		$this->assertTrue( AcfRuntime::validate_value( [ 'title' => 'Hi', 'hero' => 10 ], $group ) );
+		$this->assertTrue( AcfRuntime::validate_value( [ 'field_title' => 'Hi', 'field_hero' => 10 ], $group ) );
+		$this->assertInstanceOf(
+			\WP_Error::class,
+			AcfRuntime::validate_value( [ 'title' => 'Hi', 'mystery' => 1 ], $group )
+		);
+		$this->assertInstanceOf(
+			\WP_Error::class,
+			AcfRuntime::validate_value( [ 'hero' => 'not-an-id' ], $group )
+		);
+	}
+
+	public function test_audit_redacts_acf_field_value(): void {
+		$this->activate_acf();
+		$this->seed_post( 5 );
+		$this->map_field( 'secret' );
+		$GLOBALS['stonewright_test_acf_fields'] = [ 'secret' => 'old' ];
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = $this->update( 5, 'secret', 'super-secret-acf-value' );
+		$this->assertIsArray( $result );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'] ?? [];
+		$encoded = (string) ( $row['sanitized_args'] ?? '' );
+		$this->assertStringNotContainsString( 'super-secret-acf-value', $encoded );
+		$decoded = json_decode( $encoded, true );
+		$this->assertIsArray( $decoded );
+		$this->assertArrayHasKey( 'value', $decoded );
+		$this->assertIsString( $decoded['value'] );
+		$this->assertStringContainsString( '[redacted', $decoded['value'] );
 	}
 
 	private function activate_acf(): void {

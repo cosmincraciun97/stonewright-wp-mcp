@@ -29,6 +29,9 @@ development builds were never stable releases.
 - Treat HTTP 200 `ok:false` ability results as audit failures, keep ACF writes
   idempotent when the stored raw value already matches, and separate Elementor
   CSS generation from HTTP delivery evidence.
+- Reject invalid ACF values before a no-op, repair a missing or wrong field
+  key reference through `field_*`, and compute `changed` from before/after
+  raw value and reference rather than `update_field`'s return.
 - Preserve unknown Elementor settings on mobile-only deltas, reject stale
   editor hashes, and keep Memory draft lessons from becoming global rules.
 

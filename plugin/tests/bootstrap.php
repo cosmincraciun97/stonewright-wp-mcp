@@ -3584,6 +3584,16 @@ if ( ! function_exists( 'update_field' ) ) {
 					if ( '' !== $key ) {
 						$GLOBALS['stonewright_test_acf_fields'][ $key ] = $value;
 					}
+					$post_id = (int) $post_id;
+					if ( $post_id > 0 ) {
+						$GLOBALS['stonewright_test_acf_references'][ $post_id ] = $GLOBALS['stonewright_test_acf_references'][ $post_id ] ?? [];
+						if ( '' !== $name && '' !== $key ) {
+							$GLOBALS['stonewright_test_acf_references'][ $post_id ][ $name ] = $key;
+						}
+						if ( '' !== $key ) {
+							$GLOBALS['stonewright_test_acf_references'][ $post_id ][ $key ] = $key;
+						}
+					}
 				}
 			}
 		}
@@ -3591,6 +3601,26 @@ if ( ! function_exists( 'update_field' ) ) {
 			return $GLOBALS['stonewright_test_acf_update_field_return'];
 		}
 		return true;
+	}
+}
+if ( ! function_exists( 'acf_get_reference' ) ) {
+	function acf_get_reference( $selector, $post_id = 0 ) {
+		$selector = (string) $selector;
+		$post_id  = (int) $post_id;
+		$row      = $GLOBALS['stonewright_test_acf_references'][ $post_id ] ?? [];
+		if ( is_array( $row ) && array_key_exists( $selector, $row ) ) {
+			return $row[ $selector ];
+		}
+		if ( function_exists( 'acf_get_field' ) ) {
+			$field = acf_get_field( $selector );
+			if ( is_array( $field ) ) {
+				$key = (string) ( $field['key'] ?? '' );
+				if ( str_starts_with( $key, 'field_' ) ) {
+					return $key;
+				}
+			}
+		}
+		return false;
 	}
 }
 if ( ! function_exists( 'acf_flush_value_cache' ) ) {

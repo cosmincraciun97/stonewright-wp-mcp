@@ -52,6 +52,10 @@ final class AcfRuntime {
 		'user'         => 'user',
 	];
 
+	private const ID_MAP_KEYS = [ 'ID', 'id', 'attachment_id' ];
+
+	private const DECIMAL_MAX_DIGITS = 80;
+
 	public static function is_active(): bool {
 		// Unit tests toggle this without unloading function stubs.
 		if ( array_key_exists( 'stonewright_test_acf_active', $GLOBALS ) ) {
@@ -122,6 +126,37 @@ final class AcfRuntime {
 	}
 
 	/**
+	 * Stored ACF field key for this post (`acf_get_reference` or `_{$name}` meta).
+	 *
+	 * @param array<string, mixed> $field
+	 */
+	public static function read_reference( array $field, int $post_id ): string {
+		$name = (string) ( $field['name'] ?? '' );
+		$key  = self::field_key( $field );
+		$selectors = array_values(
+			array_filter(
+				[ $name, $key ],
+				static fn( string $selector ): bool => '' !== $selector
+			)
+		);
+		if ( function_exists( 'acf_get_reference' ) ) {
+			foreach ( $selectors as $selector ) {
+				$ref = acf_get_reference( $selector, $post_id );
+				if ( is_string( $ref ) && str_starts_with( $ref, 'field_' ) ) {
+					return $ref;
+				}
+			}
+		}
+		foreach ( $selectors as $selector ) {
+			$meta = get_post_meta( $post_id, '_' . $selector, true );
+			if ( is_string( $meta ) && str_starts_with( $meta, 'field_' ) ) {
+				return $meta;
+			}
+		}
+		return '';
+	}
+
+	/**
 	 * @param array<string, mixed> $field
 	 */
 	public static function flush_value_cache( int $post_id, array $field ): void {
@@ -139,6 +174,16 @@ final class AcfRuntime {
 	}
 
 	/**
+	 * Shape-check a proposed stored value before compare or write.
+	 *
+	 * @param array<string, mixed> $field
+	 * @return true|\WP_Error
+	 */
+	public static function validate_value( mixed $value, array $field ): true|\WP_Error {
+		return self::validate_value_at( $value, $field, 0 );
+	}
+
+	/**
 	 * @param array<string, mixed> $field
 	 */
 	public static function values_equal( mixed $expected, mixed $actual, array $field ): bool {
@@ -149,6 +194,9 @@ final class AcfRuntime {
 	 * @param array<string, mixed> $field
 	 */
 	public static function references_valid( mixed $value, array $field ): bool {
+		if ( self::validate_value( $value, $field ) instanceof \WP_Error ) {
+			return false;
+		}
 		$type = self::field_type( $field );
 		$kind = self::REFERENCE_TYPES[ $type ] ?? '';
 		if ( '' === $kind ) {
@@ -227,6 +275,30 @@ final class AcfRuntime {
 		return mb_substr( $type, 0, 40 );
 	}
 
+	/**
+	 * @param array<string, mixed> $field
+	 * @return true|\WP_Error
+	 */
+	private static function validate_value_at( mixed $value, array $field, int $depth ): true|\WP_Error {
+		if ( $depth > 20 ) {
+			return self::invalid_value_error();
+		}
+		$type = self::field_type( $field );
+		return match ( $type ) {
+			'true_false' => self::validate_true_false( $value ),
+			'number', 'range' => self::validate_number( $value ),
+			'image', 'file' => self::validate_reference_value( $value, false ),
+			'gallery', 'relationship' => self::validate_reference_list( $value ),
+			'post_object', 'user', 'taxonomy' => is_array( $value ) && ! self::is_id_map( $value )
+				? self::validate_reference_list( $value )
+				: self::validate_reference_value( $value, false ),
+			'page_link' => self::validate_page_link( $value ),
+			'group' => self::validate_group( $value, $field, $depth ),
+			'repeater', 'flexible_content' => self::validate_rows( $value, $field, $depth ),
+			default => true,
+		};
+	}
+
 	private static function unknown_selector_error( string $selector ): \WP_Error {
 		return new \WP_Error(
 			'stonewright_acf_unknown_selector',
@@ -238,6 +310,108 @@ final class AcfRuntime {
 		);
 	}
 
+	private static function invalid_value_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_acf_invalid_value',
+			__( 'ACF value does not match the field type.', 'stonewright' ),
+			[ 'status' => 400 ]
+		);
+	}
+
+	private static function validate_true_false( mixed $value ): true|\WP_Error {
+		if ( true === $value || false === $value || 1 === $value || 0 === $value || '1' === $value || '0' === $value ) {
+			return true;
+		}
+		return self::invalid_value_error();
+	}
+
+	private static function validate_number( mixed $value ): true|\WP_Error {
+		if ( null === $value || '' === $value ) {
+			return true;
+		}
+		if ( null === self::normalize_decimal( $value ) ) {
+			return self::invalid_value_error();
+		}
+		return true;
+	}
+
+	private static function validate_page_link( mixed $value ): true|\WP_Error {
+		if ( self::is_empty_reference( $value ) ) {
+			return true;
+		}
+		if ( is_string( $value ) && ! is_numeric( $value ) ) {
+			return true;
+		}
+		return self::validate_reference_value( $value, false );
+	}
+
+	private static function validate_reference_value( mixed $value, bool $required ): true|\WP_Error {
+		if ( self::is_empty_reference( $value ) ) {
+			return $required ? self::invalid_value_error() : true;
+		}
+		return self::parse_positive_id( $value ) instanceof \WP_Error
+			? self::invalid_value_error()
+			: true;
+	}
+
+	private static function validate_reference_list( mixed $value ): true|\WP_Error {
+		if ( self::is_empty_reference( $value ) ) {
+			return true;
+		}
+		if ( ! is_array( $value ) ) {
+			return self::validate_reference_value( $value, true );
+		}
+		if ( self::is_id_map( $value ) ) {
+			return self::validate_reference_value( $value, true );
+		}
+		foreach ( $value as $item ) {
+			if ( self::validate_reference_value( $item, true ) instanceof \WP_Error ) {
+				return self::invalid_value_error();
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $field
+	 * @return true|\WP_Error
+	 */
+	private static function validate_group( mixed $value, array $field, int $depth ): true|\WP_Error {
+		if ( ! is_array( $value ) ) {
+			return self::invalid_value_error();
+		}
+		$subs = self::sub_field_index( $field );
+		foreach ( $value as $key => $item ) {
+			$sub = $subs[ (string) $key ] ?? null;
+			if ( ! is_array( $sub ) ) {
+				return self::invalid_value_error();
+			}
+			$inner = self::validate_value_at( $item, $sub, $depth + 1 );
+			if ( $inner instanceof \WP_Error ) {
+				return $inner;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $field
+	 * @return true|\WP_Error
+	 */
+	private static function validate_rows( mixed $value, array $field, int $depth ): true|\WP_Error {
+		if ( ! is_array( $value ) ) {
+			return self::invalid_value_error();
+		}
+		$rows = array_is_list( $value ) ? $value : array_values( $value );
+		foreach ( $rows as $row ) {
+			$inner = self::validate_group( $row, $field, $depth );
+			if ( $inner instanceof \WP_Error ) {
+				return $inner;
+			}
+		}
+		return true;
+	}
+
 	private static function canonicalize_true_false( mixed $value ): int {
 		if ( true === $value || 1 === $value || '1' === $value ) {
 			return 1;
@@ -246,34 +420,19 @@ final class AcfRuntime {
 	}
 
 	private static function canonicalize_number( mixed $value ): mixed {
-		if ( is_int( $value ) || is_float( $value ) ) {
-			return $value + 0;
+		if ( null === $value || '' === $value ) {
+			return '';
 		}
-		if ( is_string( $value ) && is_numeric( $value ) ) {
-			return str_contains( $value, '.' ) ? (float) $value : (int) $value;
-		}
-		return $value;
+		$normalized = self::normalize_decimal( $value );
+		return null === $normalized ? $value : $normalized;
 	}
 
 	private static function canonicalize_id( mixed $value ): ?int {
-		if ( false === $value || null === $value || '' === $value ) {
+		if ( self::is_empty_reference( $value ) ) {
 			return null;
 		}
-		if ( is_object( $value ) && isset( $value->ID ) ) {
-			return (int) $value->ID;
-		}
-		if ( is_array( $value ) ) {
-			foreach ( [ 'ID', 'id', 'attachment_id' ] as $key ) {
-				if ( isset( $value[ $key ] ) && is_numeric( $value[ $key ] ) ) {
-					return (int) $value[ $key ];
-				}
-			}
-			return null;
-		}
-		if ( is_numeric( $value ) ) {
-			return (int) $value;
-		}
-		return null;
+		$parsed = self::parse_positive_id( $value );
+		return $parsed instanceof \WP_Error ? null : $parsed;
 	}
 
 	/**
@@ -281,6 +440,10 @@ final class AcfRuntime {
 	 */
 	private static function canonicalize_id_list( mixed $value ): array {
 		if ( ! is_array( $value ) ) {
+			$id = self::canonicalize_id( $value );
+			return null === $id ? [] : [ $id ];
+		}
+		if ( self::is_id_map( $value ) ) {
 			$id = self::canonicalize_id( $value );
 			return null === $id ? [] : [ $id ];
 		}
@@ -351,23 +514,36 @@ final class AcfRuntime {
 		if ( ! is_array( $value ) ) {
 			return self::canonicalize_generic( $value );
 		}
-		$sub_fields = [];
+		$subs = self::sub_field_index( $field );
+		$out  = [];
+		foreach ( $value as $key => $item ) {
+			$sub = $subs[ (string) $key ] ?? [ 'type' => 'text', 'key' => 'field_nested_' . $key ];
+			$out[ (string) $key ] = self::canonicalize( $item, $sub, $depth + 1 );
+		}
+		ksort( $out );
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $field
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function sub_field_index( array $field ): array {
+		$subs = [];
 		foreach ( (array) ( $field['sub_fields'] ?? [] ) as $sub ) {
 			if ( ! is_array( $sub ) ) {
 				continue;
 			}
 			$name = (string) ( $sub['name'] ?? '' );
+			$key  = (string) ( $sub['key'] ?? '' );
 			if ( '' !== $name ) {
-				$sub_fields[ $name ] = $sub;
+				$subs[ $name ] = $sub;
+			}
+			if ( '' !== $key ) {
+				$subs[ $key ] = $sub;
 			}
 		}
-		$out = [];
-		foreach ( $value as $key => $item ) {
-			$sub       = $sub_fields[ (string) $key ] ?? [ 'type' => 'text', 'key' => 'field_nested_' . $key ];
-			$out[ (string) $key ] = self::canonicalize( $item, $sub, $depth + 1 );
-		}
-		ksort( $out );
-		return $out;
+		return $subs;
 	}
 
 	/**
@@ -390,5 +566,123 @@ final class AcfRuntime {
 
 	private static function is_id_map( mixed $value ): bool {
 		return is_array( $value ) && ( isset( $value['ID'] ) || isset( $value['id'] ) || isset( $value['attachment_id'] ) );
+	}
+
+	private static function is_empty_reference( mixed $value ): bool {
+		return null === $value || false === $value || '' === $value;
+	}
+
+	private static function parse_positive_id( mixed $value ): int|\WP_Error {
+		if ( is_int( $value ) ) {
+			return $value >= 1 ? $value : self::invalid_value_error();
+		}
+		if ( is_float( $value ) ) {
+			if ( is_finite( $value ) && $value >= 1 && $value === floor( $value ) && $value <= PHP_INT_MAX ) {
+				return (int) $value;
+			}
+			return self::invalid_value_error();
+		}
+		if ( is_string( $value ) ) {
+			if ( 1 !== preg_match( '/^\+?[1-9]\d*$/', $value ) ) {
+				return self::invalid_value_error();
+			}
+			$digits = ltrim( $value, '+' );
+			$as_int = (int) $digits;
+			if ( (string) $as_int !== $digits ) {
+				return self::invalid_value_error();
+			}
+			return $as_int;
+		}
+		if ( is_object( $value ) ) {
+			$vars = get_object_vars( $value );
+			if ( isset( $value->ID ) && 1 === count( $vars ) ) {
+				return self::parse_positive_id( $value->ID );
+			}
+			return self::invalid_value_error();
+		}
+		if ( is_array( $value ) ) {
+			foreach ( array_keys( $value ) as $key ) {
+				if ( ! in_array( (string) $key, self::ID_MAP_KEYS, true ) ) {
+					return self::invalid_value_error();
+				}
+			}
+			$raw = $value['ID'] ?? $value['id'] ?? $value['attachment_id'] ?? null;
+			if ( null === $raw ) {
+				return self::invalid_value_error();
+			}
+			return self::parse_positive_id( $raw );
+		}
+		return self::invalid_value_error();
+	}
+
+	private static function normalize_decimal( mixed $value ): ?string {
+		if ( is_bool( $value ) || is_array( $value ) || is_object( $value ) || null === $value ) {
+			return null;
+		}
+		if ( is_int( $value ) ) {
+			return (string) $value;
+		}
+		if ( is_float( $value ) ) {
+			if ( ! is_finite( $value ) ) {
+				return null;
+			}
+			$encoded = json_encode( $value );
+			return is_string( $encoded ) ? self::canonical_decimal_string( $encoded ) : null;
+		}
+		if ( ! is_string( $value ) ) {
+			return null;
+		}
+		return self::canonical_decimal_string( trim( $value ) );
+	}
+
+	private static function canonical_decimal_string( string $raw ): ?string {
+		if ( '' === $raw ) {
+			return '';
+		}
+		if ( 1 !== preg_match( '/^([+-])?(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/', $raw, $match ) ) {
+			return null;
+		}
+		$sign = '-' === ( $match[1] ?? '' ) ? '-' : '';
+		if ( '' !== ( $match[4] ?? '' ) ) {
+			$int  = '';
+			$frac = $match[4];
+		} else {
+			$int  = $match[2] ?? '';
+			$frac = $match[3] ?? '';
+		}
+		if ( '' === $int && '' === $frac ) {
+			return null;
+		}
+		$digits = $int . $frac;
+		$exp    = isset( $match[5] ) && '' !== $match[5] ? (int) $match[5] : 0;
+		if ( abs( $exp ) > self::DECIMAL_MAX_DIGITS ) {
+			return null;
+		}
+		$point = strlen( $int ) + $exp;
+		if ( $point <= 0 ) {
+			$normalized = '0.' . str_repeat( '0', -$point ) . $digits;
+		} elseif ( $point >= strlen( $digits ) ) {
+			$normalized = $digits . str_repeat( '0', $point - strlen( $digits ) );
+		} else {
+			$normalized = substr( $digits, 0, $point ) . '.' . substr( $digits, $point );
+		}
+		if ( str_contains( $normalized, '.' ) ) {
+			[ $whole, $fraction ] = explode( '.', $normalized, 2 );
+			$whole    = ltrim( $whole, '0' );
+			$whole    = '' === $whole ? '0' : $whole;
+			$fraction = rtrim( $fraction, '0' );
+			$normalized = '' === $fraction ? $whole : $whole . '.' . $fraction;
+		} else {
+			$normalized = ltrim( $normalized, '0' );
+			$normalized = '' === $normalized ? '0' : $normalized;
+		}
+		$digit_count = strlen( str_replace( '.', '', $normalized ) );
+		if ( $digit_count > self::DECIMAL_MAX_DIGITS ) {
+			return null;
+		}
+		if ( '0' === $normalized ) {
+			return '0';
+		}
+		return $sign . $normalized;
 	}
 }

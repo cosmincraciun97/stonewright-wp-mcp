@@ -119,13 +119,28 @@ final class AcfValueUpdate extends AbilityKernel {
 					return $field;
 				}
 
-				$field_key  = AcfRuntime::field_key( $field );
-				$expected   = $args['value'];
-				$current    = AcfRuntime::read_raw( $field_key, $post_id );
-				$comparable = AcfRuntime::is_comparable( $field );
-				$refs_ok    = AcfRuntime::references_valid( $expected, $field );
+				$expected = $args['value'];
+				$valid    = AcfRuntime::validate_value( $expected, $field );
+				if ( $valid instanceof \WP_Error ) {
+					return $valid;
+				}
 
-				if ( $comparable && $refs_ok && AcfRuntime::values_equal( $expected, $current, $field ) ) {
+				$field_key   = AcfRuntime::field_key( $field );
+				$current     = AcfRuntime::read_raw( $field_key, $post_id );
+				$current_ref = AcfRuntime::read_reference( $field, $post_id );
+				$comparable  = AcfRuntime::is_comparable( $field );
+
+				if ( ! AcfRuntime::references_valid( $expected, $field ) ) {
+					return new \WP_Error(
+						'stonewright_acf_invalid_reference',
+						__( 'ACF reference value points at a missing post or user.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
+				}
+
+				$value_same = $comparable && AcfRuntime::values_equal( $expected, $current, $field );
+				$ref_same   = $field_key === $current_ref;
+				if ( $value_same && $ref_same ) {
 					return AcfRuntime::result(
 						$post_id,
 						$selector,
@@ -140,14 +155,6 @@ final class AcfValueUpdate extends AbilityKernel {
 					);
 				}
 
-				if ( ! $refs_ok ) {
-					return new \WP_Error(
-						'stonewright_acf_invalid_reference',
-						__( 'ACF reference value points at a missing post or user.', 'stonewright' ),
-						[ 'status' => 400 ]
-					);
-				}
-
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				if ( '' === $snapshot_id ) {
 					return new \WP_Error(
@@ -157,9 +164,12 @@ final class AcfValueUpdate extends AbilityKernel {
 					);
 				}
 
-				$updated = update_field( $field_key, $expected, $post_id );
+				update_field( $field_key, $expected, $post_id );
 				AcfRuntime::flush_value_cache( $post_id, $field );
-				$readback = AcfRuntime::read_raw( $field_key, $post_id );
+				$readback     = AcfRuntime::read_raw( $field_key, $post_id );
+				$readback_ref = AcfRuntime::read_reference( $field, $post_id );
+				$changed      = ! AcfRuntime::values_equal( $current, $readback, $field )
+					|| $current_ref !== $readback_ref;
 
 				if ( ! $comparable ) {
 					return AcfRuntime::result(
@@ -168,8 +178,8 @@ final class AcfValueUpdate extends AbilityKernel {
 						$readback,
 						[
 							'ok'                  => true,
-							'changed'             => false !== $updated,
-							'execution_status'    => false !== $updated ? 'applied' : 'unchanged',
+							'changed'             => $changed,
+							'execution_status'    => $changed ? 'applied' : 'unchanged',
 							'verification_status' => 'limited',
 							'effect_verified'     => false,
 							'limitation'          => sprintf(
@@ -181,17 +191,17 @@ final class AcfValueUpdate extends AbilityKernel {
 				}
 
 				$matches = AcfRuntime::values_equal( $expected, $readback, $field )
-					&& AcfRuntime::references_valid( $readback, $field );
+					&& AcfRuntime::references_valid( $readback, $field )
+					&& $field_key === $readback_ref;
 				if ( $matches ) {
-					$unchanged = false === $updated;
 					return AcfRuntime::result(
 						$post_id,
 						$selector,
 						$readback,
 						[
 							'ok'                  => true,
-							'changed'             => ! $unchanged,
-							'execution_status'    => $unchanged ? 'unchanged' : 'applied',
+							'changed'             => $changed,
+							'execution_status'    => $changed ? 'applied' : 'unchanged',
 							'verification_status' => 'verified',
 							'effect_verified'     => true,
 						]
@@ -204,8 +214,8 @@ final class AcfValueUpdate extends AbilityKernel {
 					$readback,
 					[
 						'ok'                  => false,
-						'changed'             => false !== $updated,
-						'execution_status'    => false !== $updated ? 'applied' : 'failed',
+						'changed'             => $changed,
+						'execution_status'    => $changed ? 'applied' : 'failed',
 						'verification_status' => 'failed',
 						'effect_verified'     => false,
 						'error_code'          => 'stonewright_acf_readback_mismatch',
@@ -214,5 +224,9 @@ final class AcfValueUpdate extends AbilityKernel {
 				);
 			}
 		);
+	}
+
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'value' ] );
 	}
 }
