@@ -444,10 +444,15 @@ final class CssAssetTransaction {
 		if ( in_array( $head_probe['classification'], [ 'protected', 'unsafe_redirect' ], true ) ) {
 			return $head_probe;
 		}
-		if ( 200 === $head_probe['status'] && 'available' === $head_probe['classification'] ) {
+		$head_css = 200 === $head_probe['status']
+			&& 'available' === $head_probe['classification']
+			&& 'css' === $head_probe['content_type_kind'];
+		if ( $head_css ) {
 			return $head_probe;
 		}
-		if ( 405 !== $head_probe['status'] ) {
+		$needs_get = 405 === $head_probe['status']
+			|| ( 200 === $head_probe['status'] && 'css' !== $head_probe['content_type_kind'] );
+		if ( ! $needs_get ) {
 			return $head_probe;
 		}
 
@@ -519,21 +524,27 @@ final class CssAssetTransaction {
 						'content_type_kind' => 'html',
 					];
 				}
-				if ( '' === trim( $body ) ) {
+				if ( '' === trim( $body ) || 'css' !== $mime ) {
 					return [
 						'status'            => $status,
 						'classification'    => 'failed',
 						'content_type_kind' => $mime,
 					];
 				}
-				if ( 'other' === $mime ) {
-					return [
-						'status'            => $status,
-						'classification'    => 'failed',
-						'content_type_kind' => $mime,
-					];
-				}
-			} elseif ( 'html' === $mime ) {
+				return [
+					'status'            => 200,
+					'classification'    => 'available',
+					'content_type_kind' => 'css',
+				];
+			}
+			if ( 'css' === $mime ) {
+				return [
+					'status'            => 200,
+					'classification'    => 'available',
+					'content_type_kind' => 'css',
+				];
+			}
+			if ( 'html' === $mime ) {
 				return [
 					'status'            => $status,
 					'classification'    => 'invalid_body',
@@ -542,7 +553,7 @@ final class CssAssetTransaction {
 			}
 			return [
 				'status'            => 200,
-				'classification'    => 'available',
+				'classification'    => 'unverified',
 				'content_type_kind' => $mime,
 			];
 		}
@@ -581,6 +592,9 @@ final class CssAssetTransaction {
 		}
 		if ( str_contains( $type, 'html' ) ) {
 			return 'html';
+		}
+		if ( 'application/pdf' === $type ) {
+			return 'other';
 		}
 		if ( 'application/octet-stream' === $type || 'text/plain' === $type ) {
 			return 'unknown';

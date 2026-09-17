@@ -2320,7 +2320,7 @@ if ( ! function_exists( 'wp_safe_remote_request' ) ) {
 
 		return [
 			'response' => [ 'code' => 200 ],
-			'headers'  => [],
+			'headers'  => [ 'content-type' => 'text/css' ],
 			'body'     => '',
 		];
 	}
