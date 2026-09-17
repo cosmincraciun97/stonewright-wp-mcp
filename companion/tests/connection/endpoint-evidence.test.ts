@@ -7,6 +7,7 @@ import {
 	restIndexUrl,
 } from '../../src/direct/mode.js';
 import { buildConnectionStatusV3, defaultEndpointEvidence } from '../../src/connection/status-contract.js';
+import { readBoundedBody } from '../../src/wordpress-mcp.js';
 
 function registeredToolNames(server: unknown): string[] {
 	return Object.keys((server as { _registeredTools?: Record<string, unknown> })._registeredTools ?? {});
@@ -120,8 +121,9 @@ describe('endpoint evidence', () => {
 				startup_ready?: boolean;
 				ok?: boolean;
 				mode?: string;
-				endpoint_evidence?: { plugin_route_state?: string; initialized?: boolean };
+				endpoint_evidence?: { plugin_route_state?: string; initialized?: boolean; plugin_http_status?: number | null; active_url?: string | null; last_checked_at?: string | null };
 				plugin?: { reachable?: boolean | null; registry_ready?: boolean };
+				error_code?: string | null;
 			};
 		};
 		expect(status.structuredContent?.connected).toBe(false);
@@ -129,6 +131,12 @@ describe('endpoint evidence', () => {
 		expect(status.structuredContent?.ok).toBe(false);
 		expect(status.structuredContent?.mode).not.toBe('direct');
 		expect(status.structuredContent?.plugin?.registry_ready).toBe(false);
+		expect(status.structuredContent?.plugin?.reachable).toBe(false);
+		expect(status.structuredContent?.error_code).toBe('plugin_route_missing');
+		expect(status.structuredContent?.endpoint_evidence?.plugin_route_state).toBe('missing');
+		expect(status.structuredContent?.endpoint_evidence?.plugin_http_status).toBe(404);
+		expect(status.structuredContent?.endpoint_evidence?.active_url).toBeNull();
+		expect(status.structuredContent?.endpoint_evidence?.last_checked_at).toEqual(expect.any(String));
 	});
 
 	it('auto plus a missing plugin route falls back to Direct with explicit evidence', async () => {
@@ -255,5 +263,305 @@ describe('endpoint evidence', () => {
 		expect(result.configured).toBe('plugin-only');
 		expect(result.pluginRouteState).toBe('missing');
 		expect(result.errorCode).toBe('plugin_route_missing');
+	});
+
+	it('caps response bytes while reading instead of slicing an unbounded body', async () => {
+		const body = `${'n'.repeat(5000)}rest_no_route`;
+		const result = await readBoundedBody(new Response(body));
+		expect(result.truncated).toBe(true);
+		expect(result.text.length).toBe(4096);
+		expect(result.text.includes('rest_no_route')).toBe(false);
+	});
+
+	it('does not treat a truncated REST body as a missing plugin route', async () => {
+		const padded = JSON.stringify({
+			code: 'rest_no_route',
+			message: 'No route was found matching the URL and request method.',
+			pad: 'x'.repeat(6000),
+		});
+		const probe = await probePluginEndpoint(
+			'https://example.test/wp-json/mcp/stonewright',
+			vi.fn<typeof fetch>(() => Promise.resolve(new Response(padded, {
+				status: 404,
+				headers: { 'content-type': 'application/json' },
+			}))),
+		);
+		expect(probe.route_state).toBe('inconclusive');
+		expect(probe.present).toBeNull();
+	});
+
+	it('HEAD 200 then initialize rest_no_route overwrites present evidence and falls back in auto', async () => {
+		const site = 'https://example.test';
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'auto',
+				STONEWRIGHT_WP_URL: site,
+				STONEWRIGHT_MCP_URL: `${site}/wp-json/mcp/stonewright`,
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: vi.fn<typeof fetch>((input, init) => {
+				const url = String(input);
+				const method = init?.method ?? 'GET';
+				if (method === 'HEAD') {
+					return Promise.resolve(new Response('', { status: 200 }));
+				}
+				if (url.replace(/\/+$/, '').endsWith('/wp-json')) {
+					return Promise.resolve(jsonResponse({ namespaces: ['wp/v2'] }));
+				}
+				return Promise.resolve(restNoRoute());
+			}),
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const status = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				connected?: boolean;
+				mode?: string;
+				endpoint_evidence?: {
+					plugin_route_state?: string;
+					plugin_http_status?: number | null;
+					initialized?: boolean;
+					active_url?: string | null;
+					configured_mcp_url?: string | null;
+				};
+				plugin?: { reachable?: boolean | null; registry_ready?: boolean };
+			};
+		};
+		expect(status.structuredContent?.mode).toBe('direct');
+		expect(status.structuredContent?.endpoint_evidence?.plugin_route_state).toBe('missing');
+		expect(status.structuredContent?.endpoint_evidence?.plugin_http_status).toBe(404);
+		expect(status.structuredContent?.endpoint_evidence?.initialized).toBe(false);
+		expect(status.structuredContent?.plugin?.reachable).toBe(false);
+		expect(status.structuredContent?.plugin?.registry_ready).toBe(false);
+		expect(status.structuredContent?.endpoint_evidence?.active_url).toBe(restIndexUrl(site));
+		expect(status.structuredContent?.endpoint_evidence?.active_url).not.toBe(
+			status.structuredContent?.endpoint_evidence?.configured_mcp_url,
+		);
+	});
+
+	it('does not treat HTML 404, timeouts, refused sockets, or JSON-RPC not found as plugin absence', async () => {
+		const cases: Array<{ name: string; fetchImpl: typeof fetch; expectState: string }> = [
+			{
+				name: 'html',
+				fetchImpl: vi.fn<typeof fetch>(() => Promise.resolve(html404())),
+				expectState: 'inconclusive',
+			},
+			{
+				name: 'timeout',
+				fetchImpl: vi.fn<typeof fetch>(() => {
+					const err = new Error('timeout');
+					err.name = 'TimeoutError';
+					return Promise.reject(err);
+				}),
+				expectState: 'inconclusive',
+			},
+			{
+				name: 'refused',
+				fetchImpl: vi.fn<typeof fetch>(() => {
+					const err = new Error('connect ECONNREFUSED');
+					(err as Error & { code?: string }).code = 'ECONNREFUSED';
+					return Promise.reject(err);
+				}),
+				expectState: 'inconclusive',
+			},
+		];
+		for (const testCase of cases) {
+			const server = await createMcpServer({
+				env: {
+					STONEWRIGHT_MODE: 'auto',
+					STONEWRIGHT_WP_URL: 'https://example.test',
+					STONEWRIGHT_MCP_URL: 'https://example.test/wp-json/mcp/stonewright',
+					WP_API_USERNAME: 'admin',
+					WP_API_PASSWORD: 'pw',
+				},
+				fetchImpl: testCase.fetchImpl,
+			});
+			const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+			const status = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+				structuredContent?: {
+					mode?: string;
+					connected?: boolean;
+					endpoint_evidence?: { plugin_route_state?: string; active_url?: string | null };
+				};
+			};
+			expect(status.structuredContent?.mode, testCase.name).not.toBe('direct');
+			expect(status.structuredContent?.connected, testCase.name).toBe(false);
+			expect(status.structuredContent?.endpoint_evidence?.plugin_route_state, testCase.name).toBe(testCase.expectState);
+			expect(status.structuredContent?.endpoint_evidence?.active_url, testCase.name).toBeNull();
+		}
+
+		const jsonRpcFetch = vi.fn<typeof fetch>((_input, init) => {
+			if (init?.method === 'HEAD') {
+				return Promise.resolve(new Response('', { status: 200 }));
+			}
+			return Promise.resolve(jsonResponse({
+				jsonrpc: '2.0',
+				id: 1,
+				error: { code: -32601, message: 'Method not found' },
+			}));
+		});
+		const rpcServer = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'auto',
+				STONEWRIGHT_WP_URL: 'https://example.test',
+				STONEWRIGHT_MCP_URL: 'https://example.test/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: jsonRpcFetch,
+		});
+		const rpcTools = (rpcServer as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const rpcStatus = await rpcTools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				mode?: string;
+				connected?: boolean;
+				endpoint_evidence?: { plugin_route_state?: string };
+			};
+		};
+		expect(rpcStatus.structuredContent?.mode).not.toBe('direct');
+		expect(rpcStatus.structuredContent?.connected).toBe(false);
+		expect(rpcStatus.structuredContent?.endpoint_evidence?.plugin_route_state).toBe('present');
+	});
+
+	it('keeps 401 and 403 fail-closed without Direct fallback', async () => {
+		for (const statusCode of [401, 403]) {
+			const server = await createMcpServer({
+				env: {
+					STONEWRIGHT_MODE: 'auto',
+					STONEWRIGHT_WP_URL: 'https://example.test',
+					STONEWRIGHT_MCP_URL: 'https://example.test/wp-json/mcp/stonewright',
+					WP_API_USERNAME: 'admin',
+					WP_API_PASSWORD: 'pw',
+				},
+				fetchImpl: vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse({
+					code: 'rest_forbidden',
+					message: 'Sorry, you are not allowed to do that.',
+				}, statusCode))),
+			});
+			const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+			const status = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+				structuredContent?: {
+					mode?: string;
+					connected?: boolean;
+					error_code?: string | null;
+					endpoint_evidence?: { plugin_route_state?: string; plugin_http_status?: number | null };
+				};
+			};
+			expect(status.structuredContent?.mode).not.toBe('direct');
+			expect(status.structuredContent?.connected).toBe(false);
+			expect(status.structuredContent?.error_code).toBe('auth_error');
+			expect(status.structuredContent?.endpoint_evidence?.plugin_route_state).toBe('present');
+			expect(status.structuredContent?.endpoint_evidence?.plugin_http_status).toBe(statusCode);
+		}
+	});
+
+	it('does not mark connected from Direct tool registration without a backend read probe', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct',
+			},
+		});
+		const names = registeredToolNames(server);
+		expect(names).toContain('stonewright-wordpress-mcp-status');
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const status = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				connected?: boolean;
+				mode?: string;
+				connection_stage?: string;
+				endpoint_evidence?: { active_url?: string | null };
+			};
+		};
+		expect(status.structuredContent?.mode).toBe('direct');
+		expect(status.structuredContent?.connected).toBe(false);
+		expect(status.structuredContent?.connection_stage).not.toBe('direct-ready');
+		expect(status.structuredContent?.endpoint_evidence?.active_url).toBeNull();
+	});
+
+	it('failed reconnect keeps last success separate from the latest attempt', async () => {
+		const site = 'https://example.test';
+		let healthy = true;
+		const fetchImpl = vi.fn<typeof fetch>((input, init) => {
+			const url = String(input);
+			const method = init?.method ?? 'GET';
+			if (!healthy) {
+				return Promise.resolve(jsonResponse({
+					code: 'rest_forbidden',
+					message: 'Sorry, you are not allowed to do that.',
+				}, 401));
+			}
+			if (method === 'HEAD' || (method === 'GET' && url.includes('/wp-json') && !url.includes('/mcp/'))) {
+				return Promise.resolve(new Response('', { status: 200 }));
+			}
+			const payload = JSON.parse(String(init?.body ?? '{}')) as { method?: string; id?: number };
+			if (payload.method === 'initialize') {
+				return Promise.resolve(jsonResponse({
+					jsonrpc: '2.0',
+					id: payload.id ?? 1,
+					result: { protocolVersion: '2025-06-18', instructions: 'ok' },
+				}));
+			}
+			if (payload.method === 'notifications/initialized') {
+				return Promise.resolve(new Response('', { status: 202 }));
+			}
+			if (payload.method === 'tools/list') {
+				return Promise.resolve(jsonResponse({
+					jsonrpc: '2.0',
+					id: payload.id ?? 2,
+					result: {
+						tools: [
+							{ name: 'stonewright-context-bootstrap', inputSchema: { type: 'object', properties: {} } },
+							{ name: 'stonewright-task-start', inputSchema: { type: 'object', properties: {} } },
+							{ name: 'stonewright-skills-get', inputSchema: { type: 'object', properties: {} } },
+						],
+					},
+				}));
+			}
+			return Promise.resolve(jsonResponse({ jsonrpc: '2.0', id: payload.id ?? 3, result: {} }));
+		});
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'plugin',
+				STONEWRIGHT_WP_URL: site,
+				STONEWRIGHT_MCP_URL: `${site}/wp-json/mcp/stonewright`,
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const connected = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				connected?: boolean;
+				endpoint_evidence?: { initialized?: boolean };
+				recovery?: { last_success_at?: string | null; remote_calls_available?: boolean; reconnect_attempted?: boolean };
+			};
+		};
+		expect(connected.structuredContent?.connected).toBe(true);
+		expect(connected.structuredContent?.endpoint_evidence?.initialized).toBe(true);
+		const lastSuccess = connected.structuredContent?.recovery?.last_success_at;
+		expect(lastSuccess).toEqual(expect.any(String));
+
+		healthy = false;
+		const reconnect = await tools['stonewright-reconnect']?.handler?.({ reason: 'rotate credentials' }) as {
+			structuredContent?: { ok?: boolean; prior_registry_preserved?: boolean };
+		};
+		expect(reconnect.structuredContent?.ok).toBe(false);
+		expect(reconnect.structuredContent?.prior_registry_preserved).toBe(true);
+
+		const after = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				connected?: boolean;
+				endpoint_evidence?: { initialized?: boolean; plugin_route_state?: string; plugin_http_status?: number | null };
+				recovery?: { last_success_at?: string | null; remote_calls_available?: boolean; reconnect_attempted?: boolean };
+			};
+		};
+		expect(after.structuredContent?.connected).toBe(false);
+		expect(after.structuredContent?.endpoint_evidence?.initialized).toBe(false);
+		expect(after.structuredContent?.endpoint_evidence?.plugin_route_state).toBe('present');
+		expect(after.structuredContent?.endpoint_evidence?.plugin_http_status).toBe(401);
+		expect(after.structuredContent?.recovery?.last_success_at).toBe(lastSuccess);
+		expect(after.structuredContent?.recovery?.reconnect_attempted).toBe(true);
+		expect(after.structuredContent?.recovery?.remote_calls_available).toBe(true);
 	});
 });

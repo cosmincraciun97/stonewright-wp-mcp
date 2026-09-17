@@ -1,3 +1,10 @@
+import {
+	classifyMcpHttpPayload,
+	isHtmlPayload,
+	parseJsonObject,
+	readBoundedBody,
+} from '../wordpress-mcp-http.js';
+
 export type StonewrightRuntimeMode = 'auto' | 'direct' | 'plugin';
 export type ResolvedRuntimeMode = 'direct' | 'plugin';
 /** Configured mode policy surface (env mapping). */
@@ -113,144 +120,19 @@ function emptyProbeResult(
 	};
 }
 
-function isHtmlPayload(contentType: string, body: string): boolean {
-	if (/text\/html|application\/xhtml\+xml/i.test(contentType)) {
-		return true;
-	}
-	const trimmed = body.trimStart().slice(0, 64).toLowerCase();
-	return trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html');
-}
-
-function parseJsonObject(body: string): Record<string, unknown> | null {
-	const trimmed = body.trim();
-	if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-		return null;
-	}
-	try {
-		const parsed: unknown = JSON.parse(trimmed);
-		return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-			? parsed as Record<string, unknown>
-			: null;
-	} catch {
-		return null;
-	}
-}
-
-async function readBoundedBody(response: Response, limit = 4096): Promise<string> {
-	try {
-		const text = await response.clone().text();
-		return text.slice(0, limit);
-	} catch {
-		return '';
-	}
-}
-
-function classifyHttpResponse(status: number, contentType: string, body: string): EndpointProbe {
-	const json = parseJsonObject(body);
-	const restCode = typeof json?.code === 'string' ? json.code : null;
-	const html = isHtmlPayload(contentType, body);
-	const jsonRpc = json !== null && (json.jsonrpc === '2.0' || 'result' in json || 'error' in json && 'id' in json);
-
-	if (status === 401 || status === 403 || status === 405) {
-		return {
-			status,
-			present: true,
-			route_state: 'present',
-			body_kind: json ? 'wp_rest_error' : (html ? 'html' : (body === '' ? 'empty' : 'unknown')),
-			rest_code: restCode,
-			plugin_namespace_detected: null,
-		};
-	}
-
-	if (status === 200) {
-		if (json && restCode === 'rest_no_route') {
-			return {
-				status,
-				present: false,
-				route_state: 'missing',
-				body_kind: 'wp_rest_error',
-				rest_code: 'rest_no_route',
-				plugin_namespace_detected: null,
-			};
-		}
-		if (jsonRpc) {
-			return {
-				status,
-				present: true,
-				route_state: 'present',
-				body_kind: 'json_rpc',
-				rest_code: restCode,
-				plugin_namespace_detected: null,
-			};
-		}
-		if (html) {
-			return {
-				status,
-				present: null,
-				route_state: 'inconclusive',
-				body_kind: 'html',
-				rest_code: null,
-				plugin_namespace_detected: null,
-			};
-		}
-		return {
-			status,
-			present: true,
-			route_state: 'present',
-			body_kind: json ? 'wp_rest_error' : (body === '' ? 'empty' : 'unknown'),
-			rest_code: restCode,
-			plugin_namespace_detected: null,
-		};
-	}
-
-	if (status === 404) {
-		if (json && restCode === 'rest_no_route') {
-			return {
-				status: 404,
-				present: false,
-				route_state: 'missing',
-				body_kind: 'wp_rest_error',
-				rest_code: 'rest_no_route',
-				plugin_namespace_detected: null,
-			};
-		}
-		if (html) {
-			return {
-				status: 404,
-				present: null,
-				route_state: 'inconclusive',
-				body_kind: 'html',
-				rest_code: null,
-				plugin_namespace_detected: null,
-			};
-		}
-		return {
-			status: 404,
-			present: false,
-			route_state: 'missing',
-			body_kind: json ? 'wp_rest_error' : (body === '' ? 'empty' : 'unknown'),
-			rest_code: restCode,
-			plugin_namespace_detected: null,
-		};
-	}
-
-	if (status >= 500) {
-		return {
-			status,
-			present: null,
-			route_state: 'inconclusive',
-			body_kind: json ? 'wp_rest_error' : (html ? 'html' : (body === '' ? 'empty' : 'unknown')),
-			rest_code: restCode,
-			plugin_namespace_detected: null,
-		};
-	}
-
+function classifyHttpResponse(
+	status: number,
+	contentType: string,
+	body: string,
+	truncated = false,
+): EndpointProbe {
+	const classified = classifyMcpHttpPayload(status, contentType, body, truncated);
 	return {
-		status,
-		present: true,
-		route_state: 'present',
-		body_kind: json ? 'wp_rest_error' : (html ? 'html' : (body === '' ? 'empty' : 'unknown')),
-		rest_code: restCode,
+		status: classified.status,
+		present: classified.present,
+		route_state: classified.route_state,
+		body_kind: classified.body_kind,
+		rest_code: classified.rest_code,
 		plugin_namespace_detected: null,
 	};
 }
@@ -270,8 +152,13 @@ async function fetchOnce(
 			headers: { accept: 'application/json' },
 		});
 		const contentType = response.headers.get('content-type') ?? '';
-		const body = method === 'HEAD' ? '' : await readBoundedBody(response);
-		return { failed: false, probe: classifyHttpResponse(response.status, contentType, body) };
+		const bounded = method === 'HEAD'
+			? { text: '', truncated: false }
+			: await readBoundedBody(response);
+		return {
+			failed: false,
+			probe: classifyHttpResponse(response.status, contentType, bounded.text, bounded.truncated),
+		};
 	} catch {
 		return { failed: true, probe: { ...EMPTY_PROBE, route_state: 'inconclusive' } };
 	} finally {
@@ -316,11 +203,11 @@ async function probeRestIndex(
 			headers: { accept: 'application/json' },
 		});
 		const contentType = response.headers.get('content-type') ?? '';
-		const body = await readBoundedBody(response, 65_536);
-		if (isHtmlPayload(contentType, body)) {
+		const bounded = await readBoundedBody(response, 65_536);
+		if (bounded.truncated || isHtmlPayload(contentType, bounded.text)) {
 			return null;
 		}
-		return restIndexHasPluginSurface(parseJsonObject(body));
+		return restIndexHasPluginSurface(parseJsonObject(bounded.text));
 	} catch {
 		return null;
 	} finally {
@@ -376,6 +263,30 @@ export async function probePluginEndpoint(
 	return { ...EMPTY_PROBE, route_state: 'inconclusive' };
 }
 
+/**
+ * Read-only public REST index probe for Direct backend readiness.
+ * Does not send credentials. HTML, truncation, and socket failures are not reachability.
+ */
+export async function probePublicRestIndex(
+	siteBase: string,
+	fetchImpl: typeof fetch = fetch,
+	timeoutMs = 5_000,
+): Promise<{ reachable: boolean; status: number | null }> {
+	const index = restIndexUrl(siteBase);
+	const result = await fetchOnce(index, 'GET', fetchImpl, timeoutMs);
+	if (result.failed) {
+		return { reachable: false, status: result.probe.status };
+	}
+	if (result.probe.route_state === 'inconclusive' || result.probe.body_kind === 'html') {
+		return { reachable: false, status: result.probe.status };
+	}
+	const status = result.probe.status;
+	if (status === 200 || status === 401 || status === 403) {
+		return { reachable: true, status };
+	}
+	return { reachable: false, status };
+}
+
 export async function resolveRuntimeMode(args: {
 	env?: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
@@ -388,7 +299,6 @@ export async function resolveRuntimeMode(args: {
 	const configured = resolveConfiguredMode(env);
 	const siteBase = siteBaseFromEnv(env);
 	const endpoint = siteBase ? pluginMcpEndpoint(siteBase) : null;
-	const forceProbe = args.forceProbe === true;
 
 	// direct-only: never probe/switch to plugin.
 	if (requested === 'direct') {
@@ -402,20 +312,8 @@ export async function resolveRuntimeMode(args: {
 		});
 	}
 
-	// plugin-only: prefer plugin path; caller fails closed (no Direct tools) if unavailable.
-	// force_probe:true still executes a real probe without changing configured mode.
-	if (requested === 'plugin' && !forceProbe) {
-		return emptyProbeResult({
-			mode: 'plugin',
-			requested,
-			configured,
-			endpoint,
-			pluginEndpointStatus: null,
-			reason: 'STONEWRIGHT_MODE=plugin (plugin-only); Direct tools will not be registered as fallback.',
-		});
-	}
-
-	// auto (or plugin-only + force_probe): prefer healthy plugin; fall back Direct when endpoint is explicitly absent (auto only).
+	// plugin-only and auto both probe when a site URL exists. Plugin-only never
+	// falls back to Direct; the caller fails closed when the route is missing.
 	if (!endpoint) {
 		return emptyProbeResult({
 			mode: 'plugin',
@@ -453,7 +351,7 @@ export async function resolveRuntimeMode(args: {
 				pluginRouteState: 'missing',
 				pluginNamespaceDetected: probe.plugin_namespace_detected,
 				errorCode: 'plugin_route_missing',
-				reason: 'Plugin MCP endpoint returned 404 under plugin-only force_probe; Direct fallback remains disabled.',
+				reason: 'Plugin MCP endpoint returned 404 under plugin-only mode; Direct fallback remains disabled.',
 			});
 		}
 		return emptyProbeResult({
@@ -464,7 +362,7 @@ export async function resolveRuntimeMode(args: {
 			pluginEndpointStatus: probe.status,
 			pluginRouteState: probe.route_state,
 			pluginNamespaceDetected: probe.plugin_namespace_detected,
-			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only force_probe; Direct fallback remains disabled.',
+			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only mode; Direct fallback remains disabled.',
 		});
 	}
 

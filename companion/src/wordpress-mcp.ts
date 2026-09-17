@@ -7,10 +7,21 @@ import { z, type ZodTypeAny } from 'zod';
 import { PERMANENT_GATEWAY_TOOL_NAMES, isPermanentGatewayTool } from './connection/permanent-gateways.js';
 import {
 	PluginTransportError,
-	classifyHttpStatus,
 	classifyTransportFailure,
 	type TransportPhase,
 } from './connection/transport-diagnostic.js';
+import {
+	WordPressMcpHttpError,
+	classifyMcpHttpPayload,
+	readBoundedBody,
+} from './wordpress-mcp-http.js';
+
+export {
+	WordPressMcpHttpError,
+	isConfirmedPluginRouteAbsence,
+	isWordPressMcpAuthFailure,
+	readBoundedBody,
+} from './wordpress-mcp-http.js';
 import { OAuthTokenManager, OAuthTokenStore, OAuthReauthRequiredError, OAuthTransientError } from './oauth-token-manager.js';
 import { runWpCli, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
@@ -1544,7 +1555,13 @@ export class WordPressMcpClient {
 		}, phase);
 
 		if (response.error) {
-			throw new Error(response.error.message ?? `WordPress MCP error calling ${method}`);
+			throw new WordPressMcpHttpError(
+				`WordPress MCP JSON-RPC error during ${phase}`,
+				200,
+				null,
+				'json_rpc',
+				new Date().toISOString(),
+			);
 		}
 		return response.result ?? {};
 	}
@@ -1603,9 +1620,9 @@ export class WordPressMcpClient {
 			this.sessionId = sessionId;
 		}
 
-		let text: string;
+		let bounded: { text: string; truncated: boolean };
 		try {
-			text = await response.text();
+			bounded = await readBoundedBody(response, 1_048_576);
 		} catch (error) {
 			const diagnostic = classifyTransportFailure(error, {
 				phase,
@@ -1619,24 +1636,37 @@ export class WordPressMcpClient {
 			);
 		}
 
-		if (!response.ok) {
-			const diagnostic = classifyHttpStatus(response.status, {
-				phase,
-				attempt,
-				startedAt,
-			});
-			throw new PluginTransportError(
-				`WordPress MCP HTTP ${response.status}`,
-				diagnostic,
+		const contentType = response.headers.get('content-type') ?? '';
+		const classified = classifyMcpHttpPayload(
+			response.status,
+			contentType,
+			bounded.text,
+			bounded.truncated,
+		);
+		const checkedAt = new Date().toISOString();
+
+		if (
+			bounded.truncated
+			|| classified.rest_code === 'rest_no_route'
+			|| !response.ok
+			|| classified.body_kind === 'html'
+		) {
+			throw new WordPressMcpHttpError(
+				`WordPress MCP HTTP ${response.status} during ${phase}`,
+				response.status,
+				classified.rest_code,
+				classified.body_kind,
+				checkedAt,
+				bounded.truncated,
 			);
 		}
 
-		if (text.trim() === '') {
+		if (bounded.text.trim() === '') {
 			return { result: {} };
 		}
 
 		try {
-			return parseJsonRpcResponse(text, response.headers.get('content-type') ?? '');
+			return parseJsonRpcResponse(bounded.text, contentType);
 		} catch (error) {
 			const diagnostic = classifyTransportFailure(error, {
 				phase,

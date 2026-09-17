@@ -137,6 +137,11 @@ export interface ConnectionRuntime {
 	reauthenticationRequired: boolean;
 	wpReachable: boolean | null;
 	endpointEvidence: EndpointEvidence;
+	/** Timestamp of the last successful plugin handshake or Direct REST probe. */
+	lastSuccessAt: string | null;
+	/** MCP URL that last completed initialize. Not reused for a different target. */
+	lastHandshakeUrl: string | null;
+	reconnectAttempted: boolean;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
 	performReconnect: (input: ReconnectInput) => Promise<ReconnectToolResult>;
@@ -228,6 +233,9 @@ export function createConnectionRuntime(args: {
 		reauthenticationRequired: false,
 		wpReachable: null,
 		endpointEvidence: defaultEndpointEvidence(),
+		lastSuccessAt: null,
+		lastHandshakeUrl: null,
+		reconnectAttempted: false,
 		server: null,
 		performReconnect: () => Promise.reject(new Error('Reconnect executor not wired')),
 		listRegisteredToolNames: () => {
@@ -323,11 +331,20 @@ export function createConnectionRuntime(args: {
 						? 'unknown'
 						: 'unknown') as AuthenticationStatusV3['state'],
 				reason_code: null,
-				last_success_at: null,
+				last_success_at: runtime.lastSuccessAt,
 				refresh_expires_at: null,
 				continuity_target_seconds: 604800 as const,
 				agent_notice_required: false,
 				user_action: null,
+			};
+			const handshakeMatchesTarget = Boolean(
+				runtime.endpointEvidence.initialized
+				&& runtime.lastHandshakeUrl
+				&& runtime.endpointEvidence.configured_mcp_url === runtime.lastHandshakeUrl,
+			);
+			const endpointEvidence = {
+				...runtime.endpointEvidence,
+				initialized: handshakeMatchesTarget,
 			};
 			const base = buildConnectionStatusV3({
 				siteAlias: (runtime.env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim() || null,
@@ -336,13 +353,16 @@ export function createConnectionRuntime(args: {
 				connectionStage: stage,
 				connectionGeneration: runtime.stateMachine.getGeneration(),
 				mcpUrl: runtime.endpointEvidence.configured_mcp_url ?? runtime.status.url,
-				authentication,
+				authentication: {
+					...authentication,
+					last_success_at: runtime.lastSuccessAt,
+				},
 				recovery: {
 					catalog_preserved: true,
-					remote_calls_available: Boolean(runtime.callRemoteTool) && runtime.status.connected
+					remote_calls_available: Boolean(runtime.callRemoteTool)
 						&& runtime.authenticationLatch?.state !== 'reauth_required',
-					last_success_at: null,
-					reconnect_attempted: false,
+					last_success_at: runtime.lastSuccessAt,
+					reconnect_attempted: runtime.reconnectAttempted,
 					reconnect_coalesced: false,
 				},
 				wpReachable: runtime.wpReachable,
@@ -353,7 +373,7 @@ export function createConnectionRuntime(args: {
 					effective_state: stage,
 					registry_ready: activeMode === 'plugin' && (runtime.registry.isReady || stage === 'plugin-ready'),
 				},
-				endpointEvidence: runtime.endpointEvidence,
+				endpointEvidence,
 				surface: {
 					profile: effectiveProfile,
 					local_tool_count: localCount,
