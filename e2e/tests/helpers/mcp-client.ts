@@ -112,7 +112,26 @@ export async function mcpHandshake(
 ): Promise<McpHandshakeResult> {
 	const target = endpoint !== '' ? endpoint : await mcpEndpointPath(page);
 	const auth = basicAuth(credentials.username, credentials.password);
-	const request = page.request;
+	const origin = new URL(page.url()).origin;
+	const browser = page.context().browser();
+	if (!browser) {
+		throw new Error('MCP handshake needs a browser-backed request context');
+	}
+	const isolated = await browser.newContext({
+		baseURL: origin,
+	});
+	try {
+		return await runMcpHandshake(isolated.request, target, auth);
+	} finally {
+		await isolated.close();
+	}
+}
+
+async function runMcpHandshake(
+	request: APIRequestContext,
+	target: string,
+	auth: string,
+): Promise<McpHandshakeResult> {
 
 	const initialize = await postRpc(request, target, auth, '', {
 		jsonrpc: '2.0',

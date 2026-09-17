@@ -42,6 +42,8 @@ development builds were never stable releases.
   returning `ok:true`, keep partial effects visible, and refuse a full recreate.
 - Block a stale Elementor editor save after a later MCP write, keep the local
   draft, and leave `post_status` unchanged.
+- Hydrate Application Password Basic credentials into `PHP_AUTH_*` when Apache
+  or php-fpm only expose `HTTP_AUTHORIZATION`.
 - Refuse theme-file patches when a marker is missing or matches more than once.
 
 ## [1.0.0-beta.13.2] - 2026-08-26

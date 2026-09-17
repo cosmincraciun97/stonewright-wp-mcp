@@ -32,6 +32,7 @@ use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
 use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\BasicAuthCredentials;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -146,6 +147,7 @@ final class PluginRegistration {
 		GitHubUpdater::register();
 		VendorGuard::register();
 		EditorSaveGuard::register();
+		BasicAuthCredentials::register();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();

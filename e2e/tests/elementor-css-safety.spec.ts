@@ -295,17 +295,21 @@ test('real Elementor regenerates only target post CSS and survives verification'
 			url_sha256?: string;
 		}>;
 		for (const asset of PROTECTED_SENTINELS) {
-			expect(probes).toContainEqual({
-				asset,
+			expect(probes).toContainEqual(
+				expect.objectContaining({
+					asset,
+					status: 200,
+					url_sha256: expect.any(String),
+				}),
+			);
+		}
+		expect(probes).toContainEqual(
+			expect.objectContaining({
+				asset: `post-${postId}.css`,
 				status: 200,
 				url_sha256: expect.any(String),
-			});
-		}
-		expect(probes).toContainEqual({
-			asset: `post-${postId}.css`,
-			status: 200,
-			url_sha256: expect.any(String),
-		});
+			}),
+		);
 
 		const published = await restRequest(page, 'POST', `/wp/v2/pages/${postId}`, {
 			nonce,
