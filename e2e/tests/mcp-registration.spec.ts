@@ -36,8 +36,8 @@ test('Stonewright MCP registers and completes an authenticated handshake', async
 	const index = await restGet(page, '/');
 	expect(index.ok, JSON.stringify(index.body)).toBeTruthy();
 	const names = routeNames(index.body);
-	expect(names).toContain('/mcp/stonewright');
-	expect(names).toContain('/mcp/stonewright-oauth');
+		expect(names.filter((name) => name === '/mcp/stonewright')).toHaveLength(1);
+		expect(names.filter((name) => name === '/mcp/stonewright-oauth')).toHaveLength(1);
 
 	const nonce = await wpRestNonce(page);
 	const credential = await createApplicationPassword(page, nonce, `stonewright-e2e-mcp-${Date.now()}`);

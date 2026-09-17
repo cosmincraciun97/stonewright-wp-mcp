@@ -169,6 +169,9 @@ jobs:
       - name: Install plugin production dependencies
         working-directory: plugin
         run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
+      - name: Install synthetic MCP provider dependencies
+        working-directory: e2e/fixtures/synthetic-mcp-provider
+        run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
       - uses: actions/setup-node@v6
         with:
           node-version: "22"

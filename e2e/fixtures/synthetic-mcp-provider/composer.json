@@ -1,0 +1,20 @@
+{
+	"name": "stonewright/synthetic-mcp-provider",
+	"description": "Synthetic second MCP adapter vendor for Stonewright coexistence e2e.",
+	"type": "wordpress-plugin",
+	"license": "MIT",
+	"require": {
+		"php": ">=8.1",
+		"automattic/jetpack-autoloader": "^5.0",
+		"wordpress/mcp-adapter": "0.6.1"
+	},
+	"config": {
+		"allow-plugins": {
+			"automattic/jetpack-autoloader": true
+		},
+		"platform": {
+			"php": "8.1.0"
+		},
+		"sort-packages": true
+	}
+}

@@ -61,21 +61,17 @@ final class McpAbilitiesCompatibilityPreflight {
 		$canonical = [ 'adapter' => 'WP\\MCP\\Core\\McpAdapter', 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ];
 		$packages = ( $explicit_roots || ( $canonical[ $role ] ?? '' ) === $class ) ? self::manifest_candidates( $role, $package_roots ) : [];
 		$loaded = class_exists( $class, false );
-		$loaded_path = null;
+		if ( ! $loaded && ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' ) ) {
+			class_exists( $class, true );
+			$loaded = class_exists( $class, false );
+		}
+		$loaded_path = self::loaded_class_path( $class, $loaded );
 		$runtime_paths = [];
-		if ( $loaded ) {
-			try {
-				$file = ( new \ReflectionClass( $class ) )->getFileName();
-				if ( is_string( $file ) && '' !== $file ) {
-					$loaded_path = self::normalize_path( $file );
-					$canonical_loaded = ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' );
-					$is_core_file = 'wordpress-core' === self::owner( $loaded_path );
-					if ( ! $explicit_roots || $is_core_file || ( $canonical_loaded && 'adapter' === $role ) ) {
-						$runtime_paths[] = $loaded_path;
-					}
-				}
-			} catch ( \ReflectionException $error ) {
-				unset( $error );
+		$canonical_loaded = ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' );
+		if ( is_string( $loaded_path ) && '' !== $loaded_path ) {
+			$is_core_file = 'wordpress-core' === self::owner( $loaded_path );
+			if ( ! $explicit_roots || $is_core_file || ( $canonical_loaded && 'adapter' === $role ) ) {
+				$runtime_paths[] = $loaded_path;
 			}
 		}
 		foreach ( $autoloaders as $autoloader ) {
@@ -127,7 +123,7 @@ final class McpAbilitiesCompatibilityPreflight {
 		$owners = array_values( array_unique( array_column( $owner_details, 'owner' ) ) );
 		sort( $owners );
 
-		$selection = self::resolve_selection( $role, $runtime_paths, $packages, $loaded, $loaded_path, $core_owned );
+		$selection = self::resolve_selection( $role, $class, $runtime_paths, $packages, $loaded, $loaded_path, $core_owned );
 		$abi_packages = self::abi_packages( $selection, $packages );
 		$selection_state = (string) $selection['state'];
 		$abi = [ 'status' => 'not_checked', 'issues' => [], 'version' => '' ];
@@ -353,6 +349,19 @@ final class McpAbilitiesCompatibilityPreflight {
 		return $version;
 	}
 
+	private static function loaded_class_path( string $class, bool $loaded ): ?string {
+		if ( ! $loaded ) {
+			return null;
+		}
+		try {
+			$file = ( new \ReflectionClass( $class ) )->getFileName();
+		} catch ( \ReflectionException $error ) {
+			unset( $error );
+			return null;
+		}
+		return is_string( $file ) && '' !== $file ? self::normalize_path( $file ) : null;
+	}
+
 	/** @param list<array<string,mixed>> $packages @return array<string,mixed>|null */
 	private static function package_for_path( string $path, array $packages ): ?array {
 		foreach ( $packages as $package ) {
@@ -381,21 +390,22 @@ final class McpAbilitiesCompatibilityPreflight {
 	 * @param list<array<string,mixed>> $packages
 	 * @return array{state:string,path:?string,package:?array<string,mixed>}
 	 */
-	private static function resolve_selection( string $role, array $runtime_paths, array $packages, bool $loaded, ?string $loaded_path, bool $core_owned ): array {
+	private static function resolve_selection( string $role, string $class, array $runtime_paths, array $packages, bool $loaded, ?string $loaded_path, bool $core_owned ): array {
+		$canonical = [ 'adapter' => 'WP\\MCP\\Core\\McpAdapter', 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ];
 		if ( $core_owned && 'adapter' !== $role ) {
 			return [ 'state' => 'selected', 'path' => $loaded_path, 'package' => null ];
 		}
 
-		if ( $loaded && is_string( $loaded_path ) && '' !== $loaded_path && in_array( $loaded_path, $runtime_paths, true ) ) {
+		if ( $loaded && is_string( $loaded_path ) && '' !== $loaded_path ) {
 			$package = self::package_for_path( $loaded_path, $packages );
-			if ( null === $package && 1 === count( $packages ) ) {
-				$package = $packages[0];
+			$canonical_hit = ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' );
+			if ( $canonical_hit || null !== $package || in_array( $loaded_path, $runtime_paths, true ) ) {
+				return [
+					'state'   => 'selected',
+					'path'    => $loaded_path,
+					'package' => $package,
+				];
 			}
-			return [
-				'state'   => 'selected',
-				'path'    => $loaded_path,
-				'package' => $package,
-			];
 		}
 
 		$deduped = self::dedupe_equivalent_package_paths( $runtime_paths, $packages );
@@ -404,14 +414,10 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		if ( 1 === count( $deduped ) ) {
 			$path = $deduped[0];
-			$package = self::package_for_path( $path, $packages );
-			if ( null === $package && 1 === count( $packages ) ) {
-				$package = $packages[0];
-			}
 			return [
 				'state'   => 'selected',
 				'path'    => $path,
-				'package' => $package,
+				'package' => self::package_for_path( $path, $packages ),
 			];
 		}
 
@@ -500,22 +506,46 @@ final class McpAbilitiesCompatibilityPreflight {
 		if ( '' === $version || ! self::is_semver( $version ) || version_compare( $version, '0.6.1', '<' ) ) {
 			return;
 		}
-		$required = [
-			'WP\\MCP\\Core\\McpServer',
-			'WP\\MCP\\Transport\\HttpTransport',
-			'WP\\MCP\\Infrastructure\\ErrorHandling\\Contracts\\McpErrorHandlerInterface',
-			'WP\\MCP\\Infrastructure\\Observability\\Contracts\\McpObservabilityHandlerInterface',
-			'WP\\McpSchema\\Common\\McpConstants',
-		];
-		foreach ( $required as $symbol ) {
-			$exists = class_exists( $symbol ) || interface_exists( $symbol );
-			if ( $exists ) {
-				continue;
-			}
+		if ( ! class_exists( $class, false ) ) {
 			$abi['issues'][] = 'incoherent_adapter_family';
 			$abi['status'] = 'incompatible';
 			$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
 			return;
+		}
+		$adapter_file = self::loaded_class_path( $class, true );
+		if ( ! is_string( $adapter_file ) || '' === $adapter_file ) {
+			$abi['issues'][] = 'incoherent_adapter_family';
+			$abi['status'] = 'incompatible';
+			$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
+			return;
+		}
+		$mcp_root = self::normalize_path( dirname( $adapter_file, 3 ) );
+		$schema_root = self::normalize_path( dirname( $mcp_root ) . '/php-mcp-schema' );
+		$required = [
+			'WP\\MCP\\Core\\McpServer' => $mcp_root,
+			'WP\\MCP\\Transport\\HttpTransport' => $mcp_root,
+			'WP\\MCP\\Infrastructure\\ErrorHandling\\Contracts\\McpErrorHandlerInterface' => $mcp_root,
+			'WP\\MCP\\Infrastructure\\Observability\\Contracts\\McpObservabilityHandlerInterface' => $mcp_root,
+			'WP\\McpSchema\\Common\\McpConstants' => $schema_root,
+		];
+		foreach ( $required as $symbol => $root ) {
+			$exists = class_exists( $symbol ) || interface_exists( $symbol );
+			$file = null;
+			if ( $exists ) {
+				try {
+					$reflected = ( new \ReflectionClass( $symbol ) )->getFileName();
+					$file = is_string( $reflected ) && '' !== $reflected ? self::normalize_path( $reflected ) : null;
+				} catch ( \ReflectionException $error ) {
+					unset( $error );
+				}
+			}
+			$prefix = rtrim( $root, '/' ) . '/';
+			if ( ! $exists || ! is_string( $file ) || ! str_starts_with( $file, $prefix ) ) {
+				$abi['issues'][] = 'incoherent_adapter_family';
+				$abi['status'] = 'incompatible';
+				$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
+				return;
+			}
 		}
 	}
 

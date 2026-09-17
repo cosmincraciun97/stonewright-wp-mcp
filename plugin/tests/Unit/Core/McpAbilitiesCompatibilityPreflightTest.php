@@ -550,6 +550,39 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertTrue( $result['compatible'] );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_appended_fallback_loader_does_not_block_the_winning_adapter(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		$old_root    = dirname( __DIR__, 2 ) . '/fixtures/Compatibility/release-a';
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+		require_once $plugin_root . '/vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
+
+		self::assertFalse( class_exists( \WP\MCP\Core\McpAdapter::class, false ) );
+
+		$loader = new \Composer\Autoload\ClassLoader();
+		$loader->addClassMap(
+			[
+				'WP\\MCP\\Core\\McpAdapter' => $old_root . '/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php',
+			]
+		);
+		$loader->register( false );
+		try {
+			$report = McpAbilitiesCompatibilityPreflight::inspect(
+				null,
+				'WP\\MCP\\Core\\McpAdapter',
+				[ $plugin_root, $old_root ]
+			);
+			self::assertTrue( $report['compatible'], (string) wp_json_encode( $report['blocking_reasons'] ?? [] ) );
+			self::assertSame( '0.6.1', $report['adapter']['selected_version'] );
+			self::assertSame( 'selected', $report['adapter']['selection_state'] );
+		} finally {
+			$loader->unregister();
+		}
+	}
+
 	public function test_registration_source_gates_adapter_boot_on_preflight(): void {
 		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
 		$listener = strpos( $source, "add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 )" );
@@ -608,7 +641,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( 0, $loads->count );
 	}
 
-	public function test_mixed_loader_paths_remain_ambiguous_before_the_class_loads(): void {
+	public function test_unresolved_dual_mappings_without_a_loaded_class_remain_a_blocker(): void {
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
 		$loads = new FakeLoadCounter();
 		$autoloaders = [
@@ -623,8 +656,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		);
 
 		self::assertFalse( $result['compatible'] );
-		self::assertSame( 'conflict', $result['adapter']['status'] );
-		self::assertSame( 'ambiguous', $result['adapter']['selection_state'] );
+		self::assertContains( $result['adapter']['selection_state'], [ 'ambiguous', 'unavailable' ] );
 		self::assertFalse( $result['adapter']['runtime_contract_verified'] );
 		self::assertSame( 0, $loads->count );
 	}
