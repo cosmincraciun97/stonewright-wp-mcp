@@ -54,12 +54,12 @@ describe('endpoint evidence', () => {
 	it('does not treat HEAD 404 plus GET 401 as a missing plugin route', async () => {
 		const probe = await probePluginEndpoint(
 			'https://example.test/wp-json/mcp/stonewright',
-			vi.fn((_url, init) => {
+			vi.fn<typeof fetch>((_input, init) => {
 				if (init?.method === 'HEAD') {
 					return Promise.resolve(new Response('', { status: 404 }));
 				}
 				return Promise.resolve(new Response('', { status: 401 }));
-			}) as unknown as typeof fetch,
+			}),
 		);
 		expect(probe.present).toBe(true);
 		expect(probe.route_state).toBe('present');

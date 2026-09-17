@@ -1,3 +1,6 @@
+<?php
+declare( strict_types=1 );
+
 /**
  * Plugin Name: Stonewright Synthetic MCP Provider
  * Description: Boots the WordPress MCP adapter early so e2e can prove Stonewright still registers after another plugin calls McpAdapter::instance().

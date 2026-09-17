@@ -207,9 +207,6 @@ export async function createApplicationPassword(
 		nonce,
 		data: { name },
 	});
-		nonce,
-		data: { name },
-	});
 	const body = created.body as { password?: string; uuid?: string };
 	if (!created.ok || typeof body.password !== 'string' || typeof body.uuid !== 'string') {
 		throw new Error(`Could not mint application password: ${JSON.stringify(created.body)}`);
@@ -222,5 +219,8 @@ export async function deleteApplicationPassword(
 	nonce: string,
 	uuid: string,
 ): Promise<void> {
-	await restRequest(page, 'DELETE', `/wp/v2/users/me/application-passwords/${uuid}`, { nonce });
+	const deleted = await restRequest(page, 'DELETE', `/wp/v2/users/me/application-passwords/${uuid}`, { nonce });
+	if (!deleted.ok) {
+		throw new Error(`Could not delete application password ${uuid}: HTTP ${deleted.status}`);
+	}
 }

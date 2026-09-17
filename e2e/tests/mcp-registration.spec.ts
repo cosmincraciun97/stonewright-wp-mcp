@@ -43,18 +43,24 @@ test('Stonewright MCP registers and completes an authenticated handshake', async
 	const credential = await createApplicationPassword(page, nonce, `stonewright-e2e-mcp-${Date.now()}`);
 	try {
 		if (names.includes('/mcp')) {
+			const defaultEndpoint = restUrl('/mcp', await detectRestMode(page));
+			let defaultHandshake: Awaited<ReturnType<typeof mcpHandshake>> | null = null;
+			let defaultTransportError: string | null = null;
 			try {
-				const defaultEndpoint = restUrl('/mcp', await detectRestMode(page));
-				const defaultHandshake = await mcpHandshake(page, {
+				defaultHandshake = await mcpHandshake(page, {
 					username: WP_USER,
 					password: credential.password,
 				}, defaultEndpoint);
+			} catch (error) {
+				defaultTransportError = error instanceof Error ? error.message : 'transport_error';
+			}
+			if (defaultHandshake !== null) {
 				const defaultName = String(
 					((defaultHandshake.initializeResult.serverInfo as { name?: string } | undefined)?.name) ?? '',
 				);
 				expect(defaultName).not.toBe('Stonewright');
-			} catch {
-				// Default adapter auth failure still does not prove Stonewright identity.
+			} else {
+				expect(defaultTransportError).not.toBeNull();
 			}
 		}
 

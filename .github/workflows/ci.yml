@@ -175,6 +175,14 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci
+      - name: Collect Playwright tests before environment start
+        run: |
+          set -euo pipefail
+          output="$(npx --no-install playwright test --list)"
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -F 'mcp-registration.spec.ts'
+          total="$(printf '%s\n' "$output" | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | tail -n 1)"
+          test "${total:-0}" -gt 0
       - run: npx playwright install --with-deps chromium
       - name: Build the Stonewright Visual bundle
         working-directory: visual
