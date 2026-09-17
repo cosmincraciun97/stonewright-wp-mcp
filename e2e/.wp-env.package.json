@@ -1,6 +1,7 @@
 {
   "core": "WordPress/WordPress#6.9",
   "phpVersion": "8.2",
+  "testsEnvironment": false,
   "plugins": [
     "https://downloads.wordpress.org/plugin/elementor.3.30.0.zip",
     "https://downloads.wordpress.org/plugin/woocommerce.10.9.4.zip",
@@ -13,6 +14,8 @@
     "WP_DEBUG_DISPLAY": true,
     "WP_ENVIRONMENT_TYPE": "local",
     "WP_DISABLE_FATAL_ERROR_HANDLER": true,
+    "WP_MEMORY_LIMIT": "256M",
+    "WP_MAX_MEMORY_LIMIT": "256M",
     "SCRIPT_DEBUG": true
   }
 }
