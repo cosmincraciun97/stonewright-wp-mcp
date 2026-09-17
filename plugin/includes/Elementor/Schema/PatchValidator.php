@@ -46,7 +46,7 @@ final class PatchValidator {
 		}
 		$settings = 'replace' === $mode ? $normalized_patch : self::merge_settings( $before, $normalized_patch );
 		$changed_paths = self::changed_paths( $before, $settings );
-		$full     = SettingsValidator::validate( $widget_type, $settings, false, false, true );
+		$full     = SettingsValidator::validate( $widget_type, $settings, false, true, true );
 		$legacy_warnings = [];
 		if ( $full instanceof \WP_Error ) {
 			$data = (array) $full->get_error_data();
@@ -171,7 +171,7 @@ final class PatchValidator {
 		}
 		$settings = 'replace' === $mode ? $patch_result['settings'] : self::merge_settings( $before, $patch_result['settings'] );
 		$changed_paths = self::changed_paths( $before, $settings );
-		$full = SettingsValidator::validate_container( $settings, $element_type, false, true );
+		$full = SettingsValidator::validate_container( $settings, $element_type, true, true );
 		$legacy_warnings = [];
 		if ( $full instanceof \WP_Error ) {
 			$data = (array) $full->get_error_data();

@@ -603,6 +603,10 @@ final class AuditLogPage {
 			if ( '' !== $verify ) {
 				echo '<span>' . esc_html( 'verify: ' . $verify ) . '</span>';
 			}
+			$execution = (string) ( $row['execution_status'] ?? '' );
+			if ( '' !== $execution ) {
+				echo '<br><span>' . esc_html( 'execution: ' . $execution ) . '</span>';
+			}
 			if ( '' !== $rollback && 'not_needed' !== $rollback ) {
 				echo '<br><span>' . esc_html( 'rollback: ' . $rollback ) . '</span>';
 			}
@@ -869,14 +873,15 @@ final class AuditLogPage {
 		$status  = strtolower( (string) ( $row['result_status'] ?? '' ) );
 		if ( in_array( $status, [ 'error', 'blocked', 'auth' ], true ) ) {
 			$error_code    = self::first_detail_text( [ $details['error_code'] ?? null, $row['error_code'] ?? null, $row['root_error_code'] ?? null ], 190 );
+			$cause_code    = self::first_detail_text( [ $details['root_error_code'] ?? null, $row['root_error_code'] ?? null, $error_code ], 190 );
 			$error_message = self::first_detail_text( [ $details['error_message'] ?? null ], 500 );
 			$target        = self::first_detail_text( [ $details['target'] ?? null, $details['target_id'] ?? null, $row['resource_ref'] ?? null ], 64 );
 			$mode          = self::first_detail_text( [ $row['mode'] ?? null, $details['mode'] ?? null ], 32 );
-			$hint_code     = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $error_code ], 190 );
+			$hint_code     = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $cause_code, $error_code ], 190 );
 			$ability       = (string) ( $row['ability_name'] ?? '' );
 			$remediation   = '';
 			if ( '' !== $hint_code ) {
-				$hint    = RemediationHints::for_code( $hint_code, $ability );
+				$hint    = RemediationHints::for_code( $cause_code, $ability, $error_code );
 				$generic = RemediationHints::for_code( '', '' );
 				if ( $hint !== $generic ) {
 					$remediation = $hint;
@@ -933,14 +938,15 @@ final class AuditLogPage {
 		$decoded = json_decode( $details_raw, true );
 		$details = is_array( $decoded ) ? AuditLog::redact_sensitive( $decoded ) : [];
 		$code    = self::first_detail_text( [ $details['error_code'] ?? null, $row['error_code'] ?? null, $row['root_error_code'] ?? null ], 190 );
+		$cause   = self::first_detail_text( [ $details['root_error_code'] ?? null, $row['root_error_code'] ?? null, $code ], 190 );
 		$message = self::first_detail_text( [ $details['error_message'] ?? null ], 500 );
 		$mode    = self::first_detail_text( [ $row['mode'] ?? null, $details['mode'] ?? null ], 32 );
 		$target  = self::first_detail_text( [ $details['target'] ?? null, $details['target_id'] ?? null, $row['resource_ref'] ?? null ], 64 );
 		$ability = (string) ( $row['ability_name'] ?? '' );
 		$repair  = '';
-		$hint    = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $code ], 190 );
+		$hint    = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $cause, $code ], 190 );
 		if ( '' !== $hint ) {
-			$text    = RemediationHints::for_code( $hint, $ability );
+			$text    = RemediationHints::for_code( $cause, $ability, $code );
 			$generic = RemediationHints::for_code( '', '' );
 			if ( $text !== $generic ) {
 				$repair = $text;

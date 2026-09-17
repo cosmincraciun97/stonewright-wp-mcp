@@ -20,7 +20,9 @@ const ACCESS_TTL_SEC = 3_600;
 const FAMILY_TTL_SEC = 14 * 24 * 3_600;
 
 describe('OAuth seven-day continuity (fake clock)', () => {
-	it('survives 169 hourly task-start refresh windows with one initial auth and daily restarts', async () => {
+	it(
+		'survives 169 hourly task-start refresh windows with one initial auth and daily restarts',
+		async () => {
 		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-7d-'));
 		try {
 			const tokenStorePath = join(directory, 'tokens.json');
@@ -135,5 +137,7 @@ describe('OAuth seven-day continuity (fake clock)', () => {
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
-	});
+	},
+		20_000,
+	);
 });

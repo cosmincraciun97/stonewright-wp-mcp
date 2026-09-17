@@ -83,7 +83,10 @@ final class AuditEvent {
 		}
 
 		$category = self::category( $ability, $status, $code, $meta );
-		$outcome  = self::outcome( $status, $category, $meta );
+		if ( self::is_dry_run( $args, $meta ) && ! in_array( $category, [ self::CATEGORY_PERMISSION, self::CATEGORY_SAFETY, self::CATEGORY_AUTH, self::CATEGORY_ROLLBACK ], true ) ) {
+			$category = self::CATEGORY_VALIDATION;
+		}
+		$outcome  = self::outcome( $status, $category, $meta, $code );
 		if ( self::OUTCOME_SUCCESS !== $outcome && self::CATEGORY_WRITE === $category && '' !== (string) ( $meta['verification_status'] ?? '' ) ) {
 			$category = self::CATEGORY_VERIFY;
 		}
@@ -126,6 +129,17 @@ final class AuditEvent {
 		);
 		$incident_id    = hash( 'sha256', implode( '|', [ $category, $ability_family, $code, $resource_key, $path, $cause, $strategy ] ) );
 		$retry_after    = self::retry_after( $meta );
+		$retry_limit    = 0;
+		if ( self::is_write_busy( $code, $meta ) ) {
+			if ( $retry_after <= 0 ) {
+				$retry_after = 2;
+			}
+			$retry_limit = 3;
+		}
+		$execution_status = self::safe_text( self::first_scalar( $meta, $args, [ 'execution_status' ] ), 32 );
+		if ( self::is_dry_run( $args, $meta ) && '' === $execution_status && 'ok' === strtolower( $status ) ) {
+			$execution_status = 'planned';
+		}
 		$operation_class = self::safe_text( self::first_scalar( $meta, $args, [ 'operation_class' ] ), 96 );
 		if ( '' === $operation_class ) {
 			$operation_class = match ( $category ) {
@@ -167,6 +181,7 @@ final class AuditEvent {
 			'transaction_id'          => $transaction_id,
 			'context_token_id_hash'   => $context_hash,
 			'verification_status'     => $verification_status,
+			'execution_status'        => $execution_status,
 			'rollback_status'         => $rollback_status,
 			'expected_verifier'       => $expected_verifier,
 			'remediation_code'        => $remediation_code,
@@ -184,6 +199,8 @@ final class AuditEvent {
 					'incident_id'      => $incident_id,
 					'target_id'        => $target_id,
 					'remediation_code' => $remediation_code,
+					'retry_limit'      => $retry_limit,
+					'execution_status' => $execution_status,
 				]
 			),
 		];
@@ -250,17 +267,17 @@ final class AuditEvent {
 		if ( self::contains_any( $hint, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] ) ) {
 			return self::CATEGORY_PERMISSION;
 		}
-		if ( self::contains_any( $hint, [ 'safety', 'blocked', 'confirmation', 'grant_required', 'read_only', 'rule_violation' ] ) ) {
+		if ( self::contains_any( $hint, [ 'safety', 'blocked', 'confirmation', 'grant_required', 'read_only', 'rule_violation', 'css_classes_not_approved', 'not_approved' ] ) ) {
 			return self::CATEGORY_SAFETY;
 		}
-		if ( self::contains_any( $hint, [ 'busy', 'conflict', 'rate', 'retry', 'temporarily', 'lock' ] ) ) {
+		if ( 'failed' === strtolower( (string) ( $meta['rollback_status'] ?? '' ) ) || self::contains_any( $hint, [ 'rollback', 'restore' ] ) ) {
+			return self::CATEGORY_ROLLBACK;
+		}
+		if ( self::is_write_busy( $code, $meta ) || ( self::contains_any( $hint, [ 'busy', 'conflict', 'temporarily', 'lock' ] ) && ! self::refuses_identical_retry( $code, $meta ) ) ) {
 			return self::CATEGORY_TRANSIENT;
 		}
 		if ( self::contains_any( $hint, [ 'validation', 'schema', 'invalid', 'unsupported' ] ) ) {
 			return self::CATEGORY_VALIDATION;
-		}
-		if ( self::contains_any( $hint, [ 'rollback', 'restore' ] ) || 'failed' === strtolower( (string) ( $meta['rollback_status'] ?? '' ) ) ) {
-			return self::CATEGORY_ROLLBACK;
 		}
 		if ( self::contains_any( $hint, [ 'verify', 'readback', 'effect_verified' ] ) || 'failed' === strtolower( (string) ( $meta['verification_status'] ?? '' ) ) ) {
 			return self::CATEGORY_VERIFY;
@@ -321,20 +338,52 @@ final class AuditEvent {
 		return $value;
 	}
 
-	private static function outcome( string $status, string $category, array $meta ): string {
+	private static function outcome( string $status, string $category, array $meta, string $code = '' ): string {
 		if ( 'ok' === strtolower( $status ) && ! in_array( strtolower( (string) ( $meta['verification_status'] ?? '' ) ), [ 'failed', 'missing' ], true ) && 'failed' !== strtolower( (string) ( $meta['rollback_status'] ?? '' ) ) ) {
 			return self::OUTCOME_SUCCESS;
+		}
+		if ( self::refuses_identical_retry( $code, $meta ) ) {
+			if ( 'blocked' === strtolower( $status ) || self::CATEGORY_PERMISSION === $category || self::CATEGORY_SAFETY === $category || self::CATEGORY_AUTH === $category ) {
+				return self::OUTCOME_BLOCKED;
+			}
+			return self::OUTCOME_FAILED;
 		}
 		if ( self::CATEGORY_AUTH === $category && (int) ( $meta['http_status'] ?? 0 ) >= 500 ) {
 			return self::OUTCOME_RETRYABLE;
 		}
-		if ( ! empty( $meta['retryable'] ) || self::CATEGORY_TRANSIENT === $category || 429 === (int) ( $meta['http_status'] ?? 0 ) ) {
+		if ( ! empty( $meta['retryable'] ) || self::CATEGORY_TRANSIENT === $category || 429 === (int) ( $meta['http_status'] ?? 0 ) || self::is_write_busy( $code, $meta ) ) {
 			return self::OUTCOME_RETRYABLE;
 		}
 		if ( 'blocked' === strtolower( $status ) || self::CATEGORY_PERMISSION === $category || self::CATEGORY_SAFETY === $category || self::CATEGORY_AUTH === $category ) {
 			return self::OUTCOME_BLOCKED;
 		}
 		return self::OUTCOME_FAILED;
+	}
+
+	/** @param array<string, mixed> $args @param array<string, mixed> $meta */
+	private static function is_dry_run( array $args, array $meta ): bool {
+		if ( ! empty( $args['dry_run'] ) ) {
+			return true;
+		}
+		return 'planned' === strtolower( (string) ( $meta['execution_status'] ?? '' ) )
+			|| 'planned' === strtolower( (string) ( $meta['verification_status'] ?? '' ) );
+	}
+
+	/** @param array<string, mixed> $meta */
+	private static function is_write_busy( string $code, array $meta ): bool {
+		$haystack = strtolower( $code . '|' . (string) ( $meta['error_code'] ?? '' ) . '|' . (string) ( $meta['root_error_code'] ?? '' ) );
+		return str_contains( $haystack, 'write_busy' );
+	}
+
+	/** @param array<string, mixed> $meta */
+	private static function refuses_identical_retry( string $code, array $meta ): bool {
+		$haystack = strtolower( $code . '|' . (string) ( $meta['error_code'] ?? '' ) . '|' . (string) ( $meta['root_error_code'] ?? '' ) );
+		foreach ( [ 'settings_invalid', 'invalid_schema', 'schema_missing', 'css_classes_not_approved', 'read_only_violation', 'php_parse_error', 'parse_error' ] as $marker ) {
+			if ( str_contains( $haystack, $marker ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static function severity( string $status, string $outcome, array $meta ): string {
@@ -479,6 +528,8 @@ final class AuditEvent {
 			'root_error_code',
 			'incident_id',
 			'target_id',
+			'retry_limit',
+			'execution_status',
 		];
 		$source = $meta;
 		foreach ( $computed as $key => $value ) {

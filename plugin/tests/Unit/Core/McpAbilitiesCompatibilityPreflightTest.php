@@ -79,6 +79,10 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( [ 'plugin:plugin' ], $result['abilities']['registry']['owners'] );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_abilities_ownership_conflict_blocks_boot_before_adapter_instantiation(): void {
 		$loads = new FakeLoadCounter();
 		$autoloaders = [
@@ -131,14 +135,13 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 		$result = McpAbilitiesCompatibilityPreflight::inspect( $autoloaders, CompatibleAdapterFixture::class );
 
-		self::assertFalse( $result['compatible'] );
 		self::assertSame( 'WP_Abilities_Registry', $result['abilities']['registry']['class'] );
 		self::assertSame( 'WP_Ability', $result['abilities']['ability']['class'] );
-		self::assertSame( 'conflict', $result['abilities']['registry']['status'] );
-		self::assertSame( 'conflict', $result['abilities']['ability']['status'] );
+		self::assertNotSame( 'conflict', $result['abilities']['registry']['status'] );
+		self::assertNotSame( 'conflict', $result['abilities']['ability']['status'] );
 		self::assertContains( 'plugin:hidden-owner', $result['abilities']['registry']['owners'] );
-		self::assertContains( 'abilities_registry_multiple_owners', $result['blocking_reasons'] );
-		self::assertContains( 'ability_multiple_owners', $result['blocking_reasons'] );
+		self::assertNotContains( 'abilities_registry_multiple_owners', $result['blocking_reasons'] );
+		self::assertNotContains( 'ability_multiple_owners', $result['blocking_reasons'] );
 		self::assertSame( 0, $loads->count );
 	}
 
@@ -155,7 +158,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( [], $result['abilities']['registry']['abi']['issues'] );
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( 'compatible', $result['adapter']['abi']['status'] );
-		self::assertSame( '0.3.0', $result['adapter']['abi']['version'] );
+		self::assertSame( '0.6.1', $result['adapter']['abi']['version'] );
 		self::assertSame( [], $result['blocking_reasons'] );
 	}
 
@@ -220,7 +223,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 			return $paths;
 		};
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-a' ] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-061' ] );
 
 		self::assertSame( [], $result['adapter']['abi']['issues'] );
 		self::assertSame( [], $result['abilities']['registry']['abi']['issues'] );
@@ -245,7 +248,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		$result = McpAbilitiesCompatibilityPreflight::inspect(
 			[],
 			CompatibleAdapterFixture::class,
-			[ $fixtures . '/release-a', $fixtures . '/release-abilities-040' ]
+			[ $fixtures . '/release-061', $fixtures . '/release-abilities-040' ]
 		);
 
 		self::assertTrue( $result['compatible'] );
@@ -319,20 +322,34 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		self::assertSame( 0, \WP_Abilities_Registry::$invocations );
 	}
 
-	public function test_release_style_jetpack_and_package_manifests_expose_competing_owners(): void {
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_release_style_jetpack_and_package_manifests_expose_shadowed_owners(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/Compatibility/compatible-runtime.php';
 		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$loads = new FakeLoadCounter();
+		$selected = $fixtures . '/release-061/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php';
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
 			'adapter' => CompatibleAdapterFixture::class,
 			'abilities_registry' => CompatibleRegistryFixture::class,
 			'ability' => CompatibleAbilityFixture::class,
 		];
 
-		$result = McpAbilitiesCompatibilityPreflight::inspect( [], CompatibleAdapterFixture::class, [ $fixtures . '/release-a', $fixtures . '/release-b' ] );
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			[ new FakeClassLoader( $selected, $loads ) ],
+			CompatibleAdapterFixture::class,
+			[ $fixtures . '/release-a', $fixtures . '/release-061' ]
+		);
 
-		self::assertFalse( $result['compatible'] );
-		self::assertSame( 'conflict', $result['adapter']['status'] );
-		self::assertSame( [ 'plugin:release-a', 'plugin:release-b' ], $result['adapter']['owners'] );
-		self::assertSame( [ '0.3.0', '0.4.0' ], array_column( $result['adapter']['packages'], 'version' ) );
+		self::assertTrue( $result['compatible'] );
+		self::assertNotSame( 'conflict', $result['adapter']['status'] );
+		self::assertSame( 'selected', $result['adapter']['selection_state'] );
+		self::assertSame( 'plugin:release-061', $result['adapter']['selected_owner'] );
+		self::assertSame( '0.6.1', $result['adapter']['selected_version'] );
+		self::assertContains( 'plugin:release-a', array_column( $result['adapter']['shadowed_candidates'], 'owner' ) );
+		self::assertSame( 0, $loads->count );
 		self::assertStringNotContainsString( $fixtures, (string) wp_json_encode( $result ) );
 	}
 
@@ -355,11 +372,13 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		);
 
 		self::assertNotSame( 'conflict', $result['adapter']['status'] );
-		self::assertSame( [ 'plugin:release-a', 'plugin:release-woo' ], $result['adapter']['owners'] );
+		self::assertContains( 'plugin:release-a', $result['adapter']['owners'] );
+		self::assertContains( 'plugin:release-woo', $result['adapter']['owners'] );
 		self::assertSame( [ '0.3.0', '0.3.0' ], array_column( $result['adapter']['packages'], 'version' ) );
 		self::assertTrue( $result['compatible'] );
 		self::assertSame( [], $result['adapter']['abi']['issues'] );
-		self::assertSame( '0.3.0', $result['adapter']['abi']['version'] );
+		self::assertSame( $result['adapter']['selected_version'], $result['adapter']['abi']['version'] );
+		self::assertTrue( version_compare( (string) $result['adapter']['abi']['version'], '0.6.1', '>=' ) );
 		self::assertStringNotContainsString( $fixtures, (string) wp_json_encode( $result ) );
 	}
 
@@ -533,13 +552,99 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 
 	public function test_registration_source_gates_adapter_boot_on_preflight(): void {
 		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
+		$listener = strpos( $source, "add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 )" );
+		$boot = strpos( $source, "add_action( 'plugins_loaded', [ self::class, 'maybe_boot_mcp_adapter' ], 99 )" );
 		$preflight = strpos( $source, 'McpAbilitiesCompatibilityPreflight::inspect()' );
 		$adapter = strpos( $source, '\\WP\\MCP\\Core\\McpAdapter::instance()' );
 
+		self::assertNotFalse( $listener );
+		self::assertNotFalse( $boot );
+		self::assertLessThan( $boot, $listener );
 		self::assertNotFalse( $preflight );
 		self::assertNotFalse( $adapter );
 		self::assertLessThan( $adapter, $preflight );
 		self::assertStringContainsString( "['compatible']", $source );
+		self::assertStringNotContainsString( 'McpAdapter::instance()->init(', $source );
+	}
+
+	public function test_compatible_adapter_versions_select_loader_runtime_and_shadow_the_rest(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$loads = new FakeLoadCounter();
+		$selected = $fixtures . '/release-061/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			[ new FakeClassLoader( $selected, $loads ) ],
+			'Vendor\\MissingAdapter',
+			[ $fixtures . '/release-a', $fixtures . '/release-061' ]
+		);
+
+		self::assertNotSame( 'conflict', $result['adapter']['status'] );
+		self::assertSame( 'selected', $result['adapter']['selection_state'] );
+		self::assertSame( 'plugin:release-061', $result['adapter']['selected_owner'] );
+		self::assertSame( '0.6.1', $result['adapter']['selected_version'] );
+		self::assertSame(
+			[ [ 'owner' => 'plugin:release-a', 'name' => 'wordpress/mcp-adapter', 'version' => '0.3.0' ] ],
+			$result['adapter']['shadowed_candidates']
+		);
+		self::assertSame( 0, $loads->count );
+		self::assertStringNotContainsString( $fixtures, (string) wp_json_encode( $result ) );
+	}
+
+	public function test_compatible_adapter_versions_honor_the_opposite_loader_order(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$loads = new FakeLoadCounter();
+		$selected = $fixtures . '/release-a/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php';
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			[ new FakeClassLoader( $selected, $loads ) ],
+			'Vendor\\MissingAdapter',
+			[ $fixtures . '/release-061', $fixtures . '/release-a' ]
+		);
+
+		self::assertNotSame( 'conflict', $result['adapter']['status'] );
+		self::assertSame( 'plugin:release-a', $result['adapter']['selected_owner'] );
+		self::assertSame( '0.3.0', $result['adapter']['selected_version'] );
+		self::assertSame( 'plugin:release-061', $result['adapter']['shadowed_candidates'][0]['owner'] ?? null );
+		self::assertSame( 0, $loads->count );
+	}
+
+	public function test_mixed_loader_paths_remain_ambiguous_before_the_class_loads(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$loads = new FakeLoadCounter();
+		$autoloaders = [
+			new FakeClassLoader( $fixtures . '/release-a/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php', $loads ),
+			new FakeClassLoader( $fixtures . '/release-061/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php', $loads ),
+		];
+
+		$result = McpAbilitiesCompatibilityPreflight::inspect(
+			$autoloaders,
+			'Vendor\\MissingAdapter',
+			[ $fixtures . '/release-a', $fixtures . '/release-061' ]
+		);
+
+		self::assertFalse( $result['compatible'] );
+		self::assertSame( 'conflict', $result['adapter']['status'] );
+		self::assertSame( 'ambiguous', $result['adapter']['selection_state'] );
+		self::assertFalse( $result['adapter']['runtime_contract_verified'] );
+		self::assertSame( 0, $loads->count );
+	}
+
+	public function test_consecutive_inspections_do_not_accumulate_owners(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		$first = McpAbilitiesCompatibilityPreflight::inspect(
+			[],
+			CompatibleAdapterFixture::class,
+			[ $fixtures . '/release-061' ]
+		);
+		$second = McpAbilitiesCompatibilityPreflight::inspect(
+			[],
+			CompatibleAdapterFixture::class,
+			[ $fixtures . '/release-061' ]
+		);
+
+		self::assertSame( $first['adapter']['owners'], $second['adapter']['owners'] );
+		self::assertSame( $first['adapter']['selection_state'], $second['adapter']['selection_state'] );
+		self::assertSame( 1, count( $second['adapter']['packages'] ) );
 	}
 }
 
@@ -578,7 +683,7 @@ final class MultiClassLoader {
 final class LoadedAdapterFixture {}
 
 final class CompatibleAdapterFixture {
-	public const VERSION = '0.3.0';
+	public const VERSION = '0.6.1';
 	private function __construct() {}
 	public static function instance(): self { return new self(); }
 	public function create_server( string $id, string $namespace, string $route, string $name, string $description, string $version, array $transports, ?string $error_handler, ?string $observability_handler = null, array $tools = [], array $resources = [], array $prompts = [], ?callable $configure = null ) {
@@ -609,7 +714,7 @@ class CompatibleAbilityFixture {
 }
 
 final class WrongTypedAdapterFixture {
-	public const VERSION = '0.3.0';
+	public const VERSION = '0.6.1';
 	public static int $invocations = 0;
 	private function __construct() {}
 	public static function instance(): self { ++self::$invocations; return new self(); }

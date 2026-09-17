@@ -2,9 +2,23 @@
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- Nothing yet.
+- Select one compatible MCP adapter runtime (`wordpress/mcp-adapter` ^0.6.1
+  with Jetpack Autoloader ^5.0) instead of treating every installed copy as an
+  active conflict, and delay adapter boot until `plugins_loaded` 99 so another
+  plugin can load first.
+- Report MCP server registration failures instead of swallowing `create_server`
+  `WP_Error` results, and keep the default upstream MCP server distinct from
+  Stonewright.
+- Keep Setup/Troubleshoot `info` checks out of the successful-check count, and
+  require a Stonewright `serverInfo` handshake (`initialize` →
+  `notifications/initialized` → `tools/list` → `stonewright-task-start`).
+- Treat HTTP 200 `ok:false` ability results as audit failures, keep ACF writes
+  idempotent when the stored raw value already matches, and separate Elementor
+  CSS generation from HTTP delivery evidence.
+- Preserve unknown Elementor settings on mobile-only deltas, reject stale
+  editor hashes, and keep Memory draft lessons from becoming global rules.
 
 ## [1.0.0-beta.13.2] - 2026-08-26
 

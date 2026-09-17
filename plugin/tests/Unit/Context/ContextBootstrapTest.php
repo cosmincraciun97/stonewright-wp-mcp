@@ -396,6 +396,8 @@ final class ContextBootstrapTest extends TestCase {
 						'name'        => 'No HTML widgets',
 						'value_json'  => wp_json_encode( 'Do not use Elementor HTML widgets unless explicitly requested.' ),
 						'confidence'  => '1.0000',
+						'status'      => 'active',
+						'precedence'  => 10,
 						'created_at'  => '2026-05-25 00:00:00',
 						'updated_at'  => '2026-05-25 00:00:00',
 					],

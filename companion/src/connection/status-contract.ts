@@ -41,6 +41,28 @@ export interface PluginStatus {
 	registry_ready: boolean;
 }
 
+export type PluginRouteState = 'not_checked' | 'present' | 'missing' | 'inconclusive';
+
+export interface EndpointEvidence {
+	configured_mcp_url: string | null;
+	active_url: string | null;
+	plugin_route_state: PluginRouteState;
+	plugin_http_status: number | null;
+	initialized: boolean;
+	last_checked_at: string | null;
+}
+
+export function defaultEndpointEvidence(): EndpointEvidence {
+	return {
+		configured_mcp_url: null,
+		active_url: null,
+		plugin_route_state: 'not_checked',
+		plugin_http_status: null,
+		initialized: false,
+		last_checked_at: null,
+	};
+}
+
 export type WordPressMode = 'development' | 'staging' | 'production-safe';
 export type WordPressSurface = 'bootstrap' | 'essential' | 'full';
 export type ProfileSource = 'site' | 'client-lock' | 'task' | 'default';
@@ -75,6 +97,7 @@ export interface ConnectionStatusV3 {
 		site_url: string | null;
 	};
 	plugin: PluginStatus;
+	endpoint_evidence: EndpointEvidence;
 	surface: SurfaceStatus;
 	client_visibility: ClientVisibility;
 	process_start_id: string | null;
@@ -163,6 +186,7 @@ export function buildConnectionStatusV3(input: {
 	wpReachable?: boolean | null;
 	siteUrl?: string | null;
 	plugin: PluginStatus;
+	endpointEvidence?: EndpointEvidence;
 	surface: SurfaceStatus;
 	clientVisibility?: ClientVisibility;
 	errorCode?: string | null;
@@ -179,9 +203,7 @@ export function buildConnectionStatusV3(input: {
 	ok?: boolean;
 }): ConnectionStatusV3 {
 	const connected = input.connectionStage === 'plugin-ready'
-		|| input.connectionStage === 'direct-ready'
-		|| input.connectionStage === 'plugin-registering'
-		|| input.connectionStage === 'plugin-authenticated';
+		|| input.connectionStage === 'direct-ready';
 	const reconciliationMismatch = Boolean(input.reconciliation?.mismatch_reason);
 	const clientCatalogStale = input.surface.relist_required || input.clientTaskCatalogStale === true;
 	const startupReady = input.startupReady && !reconciliationMismatch && !clientCatalogStale;
@@ -217,6 +239,7 @@ export function buildConnectionStatusV3(input: {
 			site_url: input.siteUrl ?? null,
 		},
 		plugin: input.plugin,
+		endpoint_evidence: input.endpointEvidence ?? defaultEndpointEvidence(),
 		surface: input.surface,
 		client_visibility: input.clientVisibility ?? defaultClientVisibility(),
 		process_start_id: input.processStartId ?? null,

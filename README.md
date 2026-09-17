@@ -507,7 +507,7 @@ Persistent user data and the typed MCP design/blueprint engines remain intact;
 
 ## Requirements
 
-- WordPress 6.7+ (plugin mode uses `wordpress/mcp-adapter` where applicable)
+- WordPress 6.7+ (plugin mode uses `wordpress/mcp-adapter` ^0.6.1)
 - PHP 8.1+
 - Node.js 20+ for the companion
 - Elementor 3.21+ only when using Elementor abilities

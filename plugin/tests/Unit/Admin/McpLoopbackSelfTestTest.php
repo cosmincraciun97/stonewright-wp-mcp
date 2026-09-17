@@ -45,13 +45,14 @@ final class McpLoopbackSelfTestTest extends TestCase {
 						'result'  => [
 							'protocolVersion' => '2024-11-05',
 							'serverInfo'      => [
-								'name'    => 'stonewright',
+								'name'    => 'Stonewright',
 								'version' => '1.0.0',
 							],
 						],
 					],
 					[ 'mcp-session-id' => 'sess-1' ]
 				),
+				$this->http_json( 202, [] ),
 				$this->http_json(
 					200,
 					[
@@ -92,11 +93,11 @@ final class McpLoopbackSelfTestTest extends TestCase {
 
 		self::assertTrue( $result['ok'] );
 		self::assertSame(
-			[ 'mint_credential', 'initialize', 'tools_list', 'task_start', 'cleanup' ],
+			[ 'mint_credential', 'initialize', 'initialized', 'tools_list', 'task_start', 'cleanup' ],
 			array_column( $result['steps'], 'id' )
 		);
 		self::assertSame(
-			[ 'passed', 'passed', 'passed', 'passed', 'passed' ],
+			[ 'passed', 'passed', 'passed', 'passed', 'passed', 'passed' ],
 			array_column( $result['steps'], 'status' )
 		);
 		self::assertStringContainsString( 'mcp/stonewright', $result['endpoint'] );
@@ -113,9 +114,13 @@ final class McpLoopbackSelfTestTest extends TestCase {
 					[
 						'jsonrpc' => '2.0',
 						'id'      => 1,
-						'result'  => [ 'protocolVersion' => '2024-11-05' ],
+						'result'  => [
+							'protocolVersion' => '2024-11-05',
+							'serverInfo'      => [ 'name' => 'Stonewright' ],
+						],
 					]
 				),
+				$this->http_json( 202, [] ),
 				$this->http_json(
 					200,
 					[
@@ -176,9 +181,13 @@ final class McpLoopbackSelfTestTest extends TestCase {
 					[
 						'jsonrpc' => '2.0',
 						'id'      => 1,
-						'result'  => [ 'protocolVersion' => '2024-11-05' ],
+						'result'  => [
+							'protocolVersion' => '2024-11-05',
+							'serverInfo'      => [ 'name' => 'Stonewright' ],
+						],
 					]
 				),
+				$this->http_json( 202, [] ),
 				[
 					'response' => [ 'code' => 500 ],
 					'headers'  => [],
@@ -203,9 +212,13 @@ final class McpLoopbackSelfTestTest extends TestCase {
 					[
 						'jsonrpc' => '2.0',
 						'id'      => 1,
-						'result'  => [ 'protocolVersion' => '2024-11-05' ],
+						'result'  => [
+							'protocolVersion' => '2024-11-05',
+							'serverInfo'      => [ 'name' => 'Stonewright' ],
+						],
 					]
 				),
+				$this->http_json( 202, [] ),
 				$this->http_json(
 					200,
 					[
@@ -233,6 +246,82 @@ final class McpLoopbackSelfTestTest extends TestCase {
 
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'passed', $this->step_by_id( $result['steps'], 'tools_list' )['status'] );
+	}
+
+	public function test_default_adapter_server_does_not_pass_initialize(): void {
+		$transport = $this->transport_sequence(
+			[
+				$this->http_json(
+					200,
+					[
+						'jsonrpc' => '2.0',
+						'id'      => 1,
+						'result'  => [
+							'protocolVersion' => '2024-11-05',
+							'serverInfo'      => [
+								'name' => 'Default',
+							],
+						],
+					]
+				),
+			]
+		);
+
+		$result = McpLoopbackSelfTest::run( $transport );
+
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'failed', $this->step_by_id( $result['steps'], 'initialize' )['status'] );
+		self::assertStringContainsString( 'Stonewright', $this->step_by_id( $result['steps'], 'initialize' )['detail'] );
+		self::assertSame( 'passed', $this->step_by_id( $result['steps'], 'cleanup' )['status'] );
+	}
+
+	public function test_http_200_task_start_ok_false_fails(): void {
+		$transport = $this->transport_sequence(
+			[
+				$this->http_json(
+					200,
+					[
+						'jsonrpc' => '2.0',
+						'id'      => 1,
+						'result'  => [
+							'protocolVersion' => '2024-11-05',
+							'serverInfo'      => [ 'name' => 'Stonewright' ],
+						],
+					]
+				),
+				$this->http_json( 202, [] ),
+				$this->http_json(
+					200,
+					[
+						'jsonrpc' => '2.0',
+						'id'      => 2,
+						'result'  => [
+							'tools' => [ [ 'name' => 'stonewright-task-start' ] ],
+						],
+					]
+				),
+				$this->http_json(
+					200,
+					[
+						'jsonrpc' => '2.0',
+						'id'      => 3,
+						'result'  => [
+							'content' => [
+								[
+									'type' => 'text',
+									'text' => wp_json_encode( [ 'ok' => false, 'startup_ready' => false ] ),
+								],
+							],
+						],
+					]
+				),
+			]
+		);
+
+		$result = McpLoopbackSelfTest::run( $transport );
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'failed', $this->step_by_id( $result['steps'], 'task_start' )['status'] );
+		self::assertSame( 'passed', $this->step_by_id( $result['steps'], 'cleanup' )['status'] );
 	}
 
 	/**

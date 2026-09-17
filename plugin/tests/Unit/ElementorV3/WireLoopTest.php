@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\WireLoop;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\WireLoop
@@ -102,7 +103,80 @@ final class WireLoopTest extends TestCase {
 		self::assertSame( [ 'carousel', 'grid' ], $schema['properties']['display']['enum'] );
 		self::assertArrayHasKey( 'template_id', $schema['properties'] );
 		self::assertArrayHasKey( 'template_spec', $schema['properties'] );
+		self::assertArrayHasKey( 'responsive_scope', $schema['properties'] );
+		self::assertArrayHasKey( 'instances', $schema['properties'] );
 		self::assertArrayNotHasKey( 'settings', $schema['properties'] );
+	}
+
+	public function test_mobile_only_posts_per_page_is_rejected_by_the_public_contract(): void {
+		require_once dirname( __DIR__ ) . '/Elementor/Loop/SyntheticLoopWidgets.php';
+		$original = \Elementor\Plugin::$instance;
+		\Elementor\Plugin::$instance = (object) [
+			'widgets_manager' => new \Stonewright\WpMcp\Tests\Unit\Elementor\Loop\SyntheticLoopWidgetManager(),
+		];
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_options']['active_plugins'] = [];
+		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_posts'] = [
+			9049 => (object) [
+				'ID'           => 9049,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Target',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'meta'         => [
+					'_elementor_data'      => wp_json_encode(
+						[
+							[
+								'id'       => 'parent-a',
+								'elType'   => 'container',
+								'settings' => [ 'container_type' => 'flex' ],
+								'elements' => [],
+							],
+						]
+					),
+					'_elementor_edit_mode' => 'builder',
+				],
+			],
+			77   => (object) [
+				'ID'           => 77,
+				'post_type'    => 'elementor_library',
+				'post_status'  => 'publish',
+				'post_title'   => 'Card',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'meta'         => [
+					'_elementor_template_type' => 'loop-item',
+					'_elementor_data'          => wp_json_encode( [] ),
+					'_elementor_edit_mode'     => 'builder',
+				],
+			],
+		];
+		$GLOBALS['stonewright_test_post_types']['project'] = (object) [ 'name' => 'project', 'public' => true ];
+		$GLOBALS['stonewright_test_search_posts'] = [ (object) [ 'ID' => 301 ] ];
+
+		try {
+			$result = ( new WireLoop() )->execute(
+				array_merge(
+					self::base_args(),
+					[
+						'template_id'      => 77,
+						'query'            => [ 'posts_per_page' => 3 ],
+						'responsive_scope' => [ 'mobile' ],
+						'dry_run'          => true,
+					]
+				)
+			);
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_loop_non_responsive_control', $result->get_error_code() );
+		} finally {
+			\Elementor\Plugin::$instance = $original;
+			WidgetSchemaRepository::reset_request_cache();
+			$GLOBALS['stonewright_test_posts'] = [];
+			$GLOBALS['stonewright_test_search_posts'] = [];
+			$GLOBALS['stonewright_test_transients'] = [];
+		}
 	}
 
 	/** @return array<string, mixed> */

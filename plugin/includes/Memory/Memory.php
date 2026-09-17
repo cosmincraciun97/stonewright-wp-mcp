@@ -258,7 +258,7 @@ final class Memory {
 			'topic'      => (string) ( $row['topic'] ?? '' ),
 			'version_fingerprint' => (string) ( $row['version_fingerprint'] ?? '' ),
 			'expires_at' => isset( $row['expires_at'] ) ? (string) $row['expires_at'] : '',
-			'status'     => (string) ( $row['status'] ?? 'active' ),
+			'status'     => (string) ( $row['status'] ?? '' ),
 			'precedence' => (int) ( $row['precedence'] ?? 0 ),
 			'created_at' => (string) $row['created_at'],
 			'updated_at' => (string) $row['updated_at'],
@@ -310,6 +310,17 @@ final class Memory {
 			return 0;
 		}
 
+		if ( self::claims_permanent_product_rule( $value, $metadata ) ) {
+			Logger::error(
+				'memory_product_rule_claim_blocked',
+				[
+					'scope'      => $scope,
+					'memory_key' => $key,
+				]
+			);
+			return 0;
+		}
+
 		$type = self::sanitize_type( $type );
 		$name = self::sanitize_name( $name );
 
@@ -321,6 +332,13 @@ final class Memory {
 			)
 		);
 
+		$existing = $existing_id > 0 ? self::get_by_id( $existing_id ) : null;
+		$existing_status = is_array( $existing ) ? (string) ( $existing['status'] ?? '' ) : '';
+		$existing_precedence = is_array( $existing ) ? (int) ( $existing['precedence'] ?? 0 ) : 0;
+		$existing_fingerprint = is_array( $existing ) ? (string) ( $existing['version_fingerprint'] ?? '' ) : '';
+		$existing_expiry = is_array( $existing ) ? ( $existing['expires_at'] ?? null ) : null;
+		$existing_topic = is_array( $existing ) ? (string) ( $existing['topic'] ?? '' ) : '';
+
 		$data = [
 			'type'       => $type,
 			'scope'      => $scope,
@@ -328,11 +346,25 @@ final class Memory {
 			'name'       => $name,
 			'value_json' => Json::encode( $value ),
 			'confidence' => $confidence,
-			'topic'      => sanitize_text_field( (string) ( $metadata['topic'] ?? $name ) ),
-			'version_fingerprint' => sanitize_text_field( (string) ( $metadata['version_fingerprint'] ?? '' ) ),
-			'expires_at' => self::sanitize_expiry( $metadata['expires_at'] ?? null ),
-			'status'     => self::sanitize_status( $metadata['status'] ?? 'active', 'active' ),
-			'precedence' => max( -1000, min( 1000, (int) ( $metadata['precedence'] ?? 0 ) ) ),
+			'topic'      => sanitize_text_field( (string) ( $metadata['topic'] ?? ( '' !== $existing_topic ? $existing_topic : $name ) ) ),
+			'version_fingerprint' => sanitize_text_field(
+				(string) ( array_key_exists( 'version_fingerprint', $metadata )
+					? $metadata['version_fingerprint']
+					: $existing_fingerprint )
+			),
+			'expires_at' => self::sanitize_expiry(
+				array_key_exists( 'expires_at', $metadata ) ? $metadata['expires_at'] : $existing_expiry
+			),
+			'status'     => array_key_exists( 'status', $metadata )
+				? self::sanitize_status( $metadata['status'], '' !== $existing_status ? $existing_status : 'active' )
+				: ( '' !== $existing_status ? $existing_status : 'active' ),
+			'precedence' => max(
+				-1000,
+				min(
+					1000,
+					(int) ( array_key_exists( 'precedence', $metadata ) ? $metadata['precedence'] : $existing_precedence )
+				)
+			),
 			'created_by' => get_current_user_id(),
 		];
 
@@ -470,7 +502,11 @@ final class Memory {
 
 		$out = [];
 		foreach ( (array) $rows as $row ) {
-			$out[] = self::decode_row( $row );
+			$entry = self::decode_row( $row );
+			if ( ! self::is_task_start_eligible( $entry ) ) {
+				continue;
+			}
+			$out[] = $entry;
 		}
 		return $out;
 	}
@@ -636,11 +672,73 @@ final class Memory {
 
 	/** @param array<string, mixed> $entry */
 	public static function is_active( array $entry ): bool {
-		if ( 'active' !== (string) ( $entry['status'] ?? 'active' ) ) {
+		if ( 'active' !== (string) ( $entry['status'] ?? '' ) ) {
 			return false;
 		}
 		$expires_at = trim( (string) ( $entry['expires_at'] ?? '' ) );
 		return '' === $expires_at || ( strtotime( $expires_at . ' UTC' ) ?: 0 ) > time();
+	}
+
+	/**
+	 * Task-start may load only explicit active rows that are not draft lessons,
+	 * dangerous unverified workarounds, or payloads claiming to be product rules.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	public static function is_task_start_eligible( array $entry ): bool {
+		if ( ! self::is_active( $entry ) ) {
+			return false;
+		}
+		if ( self::claims_permanent_product_rule( $entry['value'] ?? null, [] ) ) {
+			return false;
+		}
+		if ( self::is_error_pattern_draft( $entry ) ) {
+			return false;
+		}
+		return ! self::is_dangerous_unverified( $entry );
+	}
+
+	/** @param array<string, mixed> $entry */
+	private static function is_error_pattern_draft( array $entry ): bool {
+		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+		if ( 'error-pattern-draft' === (string) ( $value['source'] ?? '' ) ) {
+			return true;
+		}
+		return str_starts_with( (string) ( $entry['memory_key'] ?? '' ), 'draft-lesson-' );
+	}
+
+	/** @param array<string, mixed> $entry */
+	private static function is_dangerous_unverified( array $entry ): bool {
+		$value  = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+		$source = (string) ( $value['source'] ?? '' );
+		if ( 'verified-repair' === $source ) {
+			return false;
+		}
+		if ( 'unverified-workaround' === $source ) {
+			return true;
+		}
+		return ! empty( $value['dangerous'] ) || ( ! empty( $value['unverified'] ) && ! empty( $value['workaround'] ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $metadata
+	 */
+	private static function claims_permanent_product_rule( mixed $value, array $metadata ): bool {
+		foreach ( [ 'product_rule', 'permanent_product_rule' ] as $flag ) {
+			if ( ! empty( $metadata[ $flag ] ) ) {
+				return true;
+			}
+		}
+		if ( ! is_array( $value ) ) {
+			return false;
+		}
+		foreach ( [ 'product_rule', 'permanent_product_rule' ] as $flag ) {
+			if ( ! empty( $value[ $flag ] ) ) {
+				return true;
+			}
+		}
+		$kind = sanitize_key( (string) ( $value['kind'] ?? $value['rule_kind'] ?? '' ) );
+		return in_array( $kind, [ 'permanent-product-rule', 'product_rule' ], true );
 	}
 
 	private static function sanitize_status( mixed $status, string $fallback = 'active' ): string {

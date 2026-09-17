@@ -7,6 +7,9 @@ use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticGraph;
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Core\McpRegistrationState;
+use Stonewright\WpMcp\Core\ServerRegistration;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
 use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
@@ -92,21 +95,36 @@ final class SetupDiagnostics {
 		$graph->add(
 			'endpoint',
 			[],
-			static fn() => self::pass_or_problem(
+			static fn() => DiagnosticCheck::info(
 				'endpoint',
-				'' !== $endpoint,
-				__( 'MCP endpoint', 'stonewright' ),
-				$endpoint,
+				__( 'MCP endpoint configured', 'stonewright' ),
+				'' !== $endpoint ? $endpoint : __( 'No MCP endpoint URL is configured.', 'stonewright' ),
+				[],
 				$scope
 			)
 		);
 		$graph->add(
+			'mcp_runtime',
+			[ 'plugin' ],
+			static fn() => self::mcp_runtime_check( $scope )
+		);
+		$graph->add(
+			'mcp_server_registration',
+			[ 'mcp_runtime' ],
+			static fn() => self::mcp_registration_check( $scope )
+		);
+		$graph->add(
+			'mcp_route',
+			[ 'endpoint', 'mcp_server_registration' ],
+			static fn() => self::mcp_route_check( $endpoint, $scope )
+		);
+		$graph->add(
 			'connection',
-			[ 'plugin', 'endpoint' ],
+			[ 'plugin', 'mcp_runtime' ],
 			static fn() => DiagnosticCheck::ok(
 				'connection',
 				__( 'Connection', 'stonewright' ),
-				__( 'Abilities are enabled and an MCP endpoint is configured.', 'stonewright' ),
+				__( 'Configuration was verified; the connection has not been tested.', 'stonewright' ),
 				[],
 				$scope
 			)
@@ -794,6 +812,131 @@ final class SetupDiagnostics {
 		$lines[] = 'Please allow User-Agent values python-httpx, node, and Go-http-client (or allow the /wp-json/mcp/ path) so MCP clients can connect.';
 
 		return implode( "\n", $lines );
+	}
+
+	private static function mcp_runtime_check( string $scope ): DiagnosticCheck {
+		$report = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
+		$compatible = true === ( $report['compatible'] ?? false );
+		$adapter = is_array( $report['adapter'] ?? null ) ? $report['adapter'] : [];
+		$owner = sanitize_text_field( is_scalar( $adapter['selected_owner'] ?? null ) ? (string) $adapter['selected_owner'] : '' );
+		$version = sanitize_text_field( is_scalar( $adapter['selected_version'] ?? null ) ? (string) $adapter['selected_version'] : '' );
+		$state = sanitize_key( is_scalar( $adapter['selection_state'] ?? null ) ? (string) $adapter['selection_state'] : '' );
+		$reasons = array_values( array_filter( array_map( 'sanitize_key', (array) ( $report['blocking_reasons'] ?? [] ) ) ) );
+		$evidence = [
+			'compatible'       => $compatible ? 'yes' : 'no',
+			'selected_owner'   => $owner,
+			'selected_version' => $version,
+			'selection_state'  => $state,
+			'blocking_reasons' => [] === $reasons ? '' : implode( ',', $reasons ),
+		];
+		if ( $compatible ) {
+			$summary = '' !== $owner
+				? sprintf(
+					/* translators: 1: package owner, 2: version */
+					__( 'Selected MCP adapter %1$s %2$s is compatible.', 'stonewright' ),
+					$owner,
+					$version
+				)
+				: __( 'The selected MCP adapter runtime is compatible.', 'stonewright' );
+			return DiagnosticCheck::ok( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $evidence, $scope );
+		}
+		$summary = sprintf(
+			/* translators: %s: blocking reason codes */
+			__( 'MCP runtime is blocked (%s).', 'stonewright' ),
+			[] === $reasons ? 'runtime_incompatible' : implode( ', ', $reasons )
+		);
+		$remedy = sanitize_text_field( (string) ( $report['remediation'] ?? '' ) );
+		if ( '' === $remedy ) {
+			$remedy = __( 'Install a tested compatible MCP adapter build. Do not disable unrelated business plugins.', 'stonewright' );
+		}
+		return DiagnosticCheck::problem( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $remedy, $scope, $evidence );
+	}
+
+	private static function mcp_registration_check( string $scope ): DiagnosticCheck {
+		$report = McpRegistrationState::report();
+		$servers = is_array( $report['servers'] ?? null ) ? $report['servers'] : [];
+		$row = [];
+		foreach ( $servers as $server ) {
+			if ( is_array( $server ) && ServerRegistration::SERVER_ID === (string) ( $server['server_id'] ?? '' ) ) {
+				$row = $server;
+				break;
+			}
+		}
+		$state = sanitize_key( (string) ( $row['state'] ?? 'not_checked' ) );
+		$evidence = [
+			'server_id'  => ServerRegistration::SERVER_ID,
+			'state'      => $state,
+			'error_code' => sanitize_key( (string) ( $row['error_code'] ?? '' ) ),
+		];
+		if ( 'registered' === $state ) {
+			return DiagnosticCheck::ok(
+				'mcp_server_registration',
+				__( 'MCP server registration', 'stonewright' ),
+				__( 'The Stonewright MCP server is registered.', 'stonewright' ),
+				$evidence,
+				$scope
+			);
+		}
+		if ( 'not_checked' === $state ) {
+			return DiagnosticCheck::info(
+				'mcp_server_registration',
+				__( 'MCP server registration', 'stonewright' ),
+				__( 'REST routes have not been initialized in this request.', 'stonewright' ),
+				$evidence,
+				$scope
+			);
+		}
+		$message = sanitize_text_field( (string) ( $row['message'] ?? '' ) );
+		if ( '' === $message ) {
+			$message = __( 'Stonewright MCP server registration failed.', 'stonewright' );
+		}
+		return DiagnosticCheck::problem(
+			'mcp_server_registration',
+			__( 'MCP server registration', 'stonewright' ),
+			$message,
+			__( 'Reload WordPress after installing a compatible MCP adapter. Keep other plugins enabled unless their adapter copy is actually incompatible.', 'stonewright' ),
+			$scope,
+			$evidence
+		);
+	}
+
+	private static function mcp_route_check( string $endpoint, string $scope ): DiagnosticCheck {
+		$registered = false;
+		$checked = false;
+		if ( function_exists( 'rest_get_server' ) ) {
+			$server = rest_get_server();
+			if ( is_object( $server ) && method_exists( $server, 'get_routes' ) ) {
+				$checked = true;
+				$routes = $server->get_routes();
+				$registered = is_array( $routes ) && ( isset( $routes['/mcp/stonewright'] ) || isset( $routes['/mcp/stonewright-oauth'] ) );
+			}
+		}
+		if ( ! $checked ) {
+			return DiagnosticCheck::info(
+				'mcp_route',
+				__( 'MCP route registered', 'stonewright' ),
+				__( 'REST routes have not been initialized in this request.', 'stonewright' ),
+				[ 'endpoint' => $endpoint ],
+				$scope
+			);
+		}
+		if ( $registered ) {
+			return DiagnosticCheck::ok(
+				'mcp_route',
+				__( 'MCP route registered', 'stonewright' ),
+				__( 'REST catalog includes /mcp/stonewright.', 'stonewright' ),
+				[ 'endpoint' => $endpoint ],
+				$scope
+			);
+		}
+		return DiagnosticCheck::problem(
+			'mcp_route',
+			__( 'MCP route registered', 'stonewright' ),
+			__( 'REST catalog does not include /mcp/stonewright.', 'stonewright' ),
+			__( 'Confirm Stonewright registered its MCP server, then reload permalinks and retry.', 'stonewright' ),
+			$scope,
+			[ 'endpoint' => $endpoint ]
+		);
 	}
 
 	/**

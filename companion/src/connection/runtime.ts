@@ -43,6 +43,7 @@ import {
 	computeRefreshRequiredToolNames,
 	createReconnectCoordinator,
 	defaultClientVisibility,
+	defaultEndpointEvidence,
 	mapConfiguredMode,
 	modeCapabilitiesComparison,
 	normalizeToolName,
@@ -52,6 +53,7 @@ import {
 	type AuthenticationStatusV3,
 	type ConfiguredMode,
 	type ConnectionStatusV3,
+	type EndpointEvidence,
 	type ReconnectInput,
 	type ReconnectResult,
 	type ReconnectToolResult,
@@ -134,6 +136,7 @@ export interface ConnectionRuntime {
 	/** True after a terminal OAuth failure until clearAuthenticationLatch(). */
 	reauthenticationRequired: boolean;
 	wpReachable: boolean | null;
+	endpointEvidence: EndpointEvidence;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
 	performReconnect: (input: ReconnectInput) => Promise<ReconnectToolResult>;
@@ -224,6 +227,7 @@ export function createConnectionRuntime(args: {
 		authenticationLatch: null,
 		reauthenticationRequired: false,
 		wpReachable: null,
+		endpointEvidence: defaultEndpointEvidence(),
 		server: null,
 		performReconnect: () => Promise.reject(new Error('Reconnect executor not wired')),
 		listRegisteredToolNames: () => {
@@ -331,7 +335,7 @@ export function createConnectionRuntime(args: {
 				activeMode,
 				connectionStage: stage,
 				connectionGeneration: runtime.stateMachine.getGeneration(),
-				mcpUrl: runtime.status.url,
+				mcpUrl: runtime.endpointEvidence.configured_mcp_url ?? runtime.status.url,
 				authentication,
 				recovery: {
 					catalog_preserved: true,
@@ -344,11 +348,12 @@ export function createConnectionRuntime(args: {
 				wpReachable: runtime.wpReachable,
 				siteUrl: siteUrlFromEnv(runtime.env),
 				plugin: {
-					reachable: runtime.status.mode === 'plugin' && runtime.status.connected ? true : null,
+					reachable: pluginReachableFromEvidence(runtime.endpointEvidence),
 					enabled_requested: runtime.status.configured_mode !== 'direct-only',
 					effective_state: stage,
-					registry_ready: runtime.registry.isReady || stage === 'direct-ready',
+					registry_ready: activeMode === 'plugin' && (runtime.registry.isReady || stage === 'plugin-ready'),
 				},
+				endpointEvidence: runtime.endpointEvidence,
 				surface: {
 					profile: effectiveProfile,
 					local_tool_count: localCount,
@@ -1429,6 +1434,16 @@ function filterGuidanceToRegistered(guidance: string[], registered: Set<string>)
 		// Keep if any mentioned tool is registered, or if line is general advice.
 		return matches.some((name) => registered.has(name)) || matches.every((name) => !name.startsWith('stonewright-'));
 	});
+}
+
+function pluginReachableFromEvidence(evidence: EndpointEvidence): boolean | null {
+	if (evidence.plugin_route_state === 'present') {
+		return true;
+	}
+	if (evidence.plugin_route_state === 'missing') {
+		return false;
+	}
+	return null;
 }
 
 function extractStructured(raw: unknown): Record<string, unknown> | null {

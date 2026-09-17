@@ -26,8 +26,10 @@ final class TroubleshootPageTest extends TestCase {
 			'stonewright_companion_url' => 'http://127.0.0.1:8765',
 		];
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		$GLOBALS['stonewright_test_filters']       = [];
 		$_GET  = [];
 		$_POST = [];
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
@@ -182,7 +184,8 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'plugin:release-a — 0.1.1', $html );
 		self::assertStringContainsString( 'plugin:release-b — 0.2.0', $html );
 		self::assertStringContainsString( 'multiple_incompatible_class_owners', $html );
-		self::assertStringContainsString( 'Deactivate all but one active plugin that loads this symbol', $html );
+		self::assertStringContainsString( 'The runtime could not choose a single owner for this symbol', $html );
+		self::assertStringContainsString( '1 Problems', $html );
 		self::assertStringNotContainsString( $fixtures, $html );
 	}
 

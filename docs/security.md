@@ -59,10 +59,11 @@ transaction and smoke gates. Do not expose or accept absolute backup paths.
 
 ### Supply chain
 
-Stonewright depends on `wordpress/mcp-adapter`, `wordpress/abilities-api`, and
-`opis/json-schema`. Check these dependencies for security advisories on each
-update. The Composer `composer.lock` file pins exact versions; review it when
-updating.
+Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
+`wordpress/php-mcp-schema`, `wordpress/abilities-api`,
+`automattic/jetpack-autoloader` ^5.0, and `opis/json-schema`. Check these
+dependencies for security advisories on each update. The Composer
+`composer.lock` file pins exact versions; review it when updating.
 
 `wordpress/abilities-api` is kept as a compatibility package for WordPress
 versions that do not yet ship the Abilities API in core. Packagist marks the

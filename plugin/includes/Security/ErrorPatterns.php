@@ -153,6 +153,10 @@ final class ErrorPatterns {
 			return;
 		}
 		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		$execution = strtolower( (string) ( $meta['execution_status'] ?? '' ) );
+		if ( in_array( $execution, [ 'unchanged', 'planned' ], true ) ) {
+			return;
+		}
 		if ( ! empty( $meta['retryable'] ) || AuditEvent::OUTCOME_RETRYABLE === (string) ( $meta['outcome'] ?? '' ) ) {
 			// Transient failures have their own incident threshold and must not
 			// become durable repair instructions after a single burst.
@@ -474,9 +478,17 @@ final class ErrorPatterns {
 			],
 			1.0,
 			[
-				'topic'      => $name,
-				'status'     => 'draft',
-				'precedence' => 0,
+				'topic'                 => $name,
+				'status'                => 'draft',
+				'precedence'            => 0,
+				'version_fingerprint'   => substr(
+					hash(
+						'sha256',
+						$signature . '|' . ( defined( 'STONEWRIGHT_VERSION' ) ? (string) STONEWRIGHT_VERSION : '' )
+					),
+					0,
+					40
+				),
 			]
 		);
 		if ( $id > 0 ) {
@@ -555,7 +567,7 @@ final class ErrorPatterns {
 	 */
 	private static function error_code( array $args, string $ability = '', string $status = '' ): string {
 		$meta = is_array( $args['_meta'] ?? null ) ? $args['_meta'] : [];
-		foreach ( [ 'error_code', 'code', 'wp_error_code' ] as $key ) {
+		foreach ( [ 'root_error_code', 'error_code', 'code', 'wp_error_code' ] as $key ) {
 			if ( ! empty( $meta[ $key ] ) && is_scalar( $meta[ $key ] ) ) {
 				return self::normalize_code( (string) $meta[ $key ], $ability, $status );
 			}

@@ -160,6 +160,136 @@ final class MemorySchemaTest extends TestCase {
 		self::assertStringContainsString( 'Table does not exist', $log );
 	}
 
+	public function test_put_typed_update_without_metadata_preserves_draft_status(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$id = Memory::put_typed(
+			'reference',
+			'audit',
+			'synthetic-draft',
+			'Draft lesson',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema.' ],
+			1.0,
+			[ 'status' => 'draft', 'precedence' => 0 ]
+		);
+		self::assertSame( 1, $id );
+		$entry = Memory::get_by_id( $id );
+		self::assertSame( 'draft', $entry['status'] ?? null );
+
+		Memory::put_typed(
+			'reference',
+			'audit',
+			'synthetic-draft',
+			'Draft lesson updated',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema again.' ],
+			1.0
+		);
+		$updated = Memory::get_by_id( $id );
+		self::assertSame( 'draft', $updated['status'] ?? null );
+		self::assertSame( 'Draft lesson updated', $updated['name'] ?? null );
+		self::assertNotContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+	}
+
+	public function test_missing_status_is_not_treated_as_active(): void {
+		self::assertFalse( Memory::is_active( [] ) );
+		self::assertFalse( Memory::is_active( [ 'status' => '' ] ) );
+		self::assertFalse( Memory::is_active( [ 'status' => 'draft' ] ) );
+		self::assertTrue( Memory::is_active( [ 'status' => 'active' ] ) );
+	}
+
+	public function test_error_pattern_draft_is_not_task_start_eligible_even_if_marked_active(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$id = Memory::put_typed(
+			'reference',
+			'audit',
+			'draft-lesson-forced',
+			'Draft lesson',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema.' ],
+			1.0,
+			[ 'status' => 'active', 'precedence' => 900 ]
+		);
+		$entry = Memory::get_by_id( $id );
+		self::assertIsArray( $entry );
+		self::assertFalse( Memory::is_task_start_eligible( $entry ) );
+		self::assertNotContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+	}
+
+	public function test_put_typed_rejects_payload_self_declaring_permanent_product_rule(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$id = Memory::put_typed(
+			'reference',
+			'_global',
+			'fake-product-rule',
+			'Fake product rule',
+			[
+				'product_rule' => true,
+				'correction'   => 'This is not a shipped product rule.',
+			],
+			1.0,
+			[ 'status' => 'active' ]
+		);
+		self::assertSame( 0, $id );
+		self::assertSame( [], $GLOBALS['wpdb']->rows );
+	}
+
+	public function test_dangerous_unverified_memory_is_not_auto_promoted(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$id = Memory::put_typed(
+			'feedback',
+			'audit',
+			'unverified-workaround',
+			'Unverified workaround',
+			[
+				'source'     => 'unverified-workaround',
+				'dangerous'  => true,
+				'workaround' => 'Write raw document JSON to skip validation.',
+				'unverified' => true,
+			],
+			1.0,
+			[ 'status' => 'active', 'precedence' => 900 ]
+		);
+		$entry = Memory::get_by_id( $id );
+		self::assertIsArray( $entry );
+		self::assertFalse( Memory::is_task_start_eligible( $entry ) );
+		self::assertNotContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+	}
+
+	public function test_import_preserves_activation_and_rejects_product_rule_claim(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$imported = \Stonewright\WpMcp\Knowledge\KnowledgeBundle::import(
+			[
+				'format'  => 'stonewright-knowledge-bundle',
+				'version' => 1,
+				'memory'  => [
+					'enabled' => true,
+					'entries' => [
+						[
+							'type'       => 'reference',
+							'scope'      => 'audit',
+							'memory_key' => 'keep-draft',
+							'name'       => 'Keep draft',
+							'value'      => [ 'source' => 'error-pattern-draft' ],
+							'status'     => 'draft',
+							'precedence' => 0,
+						],
+						[
+							'type'       => 'reference',
+							'scope'      => '_global',
+							'memory_key' => 'claimed-product',
+							'name'       => 'Claimed product',
+							'value'      => [ 'permanent_product_rule' => true, 'correction' => 'No.' ],
+							'status'     => 'active',
+						],
+					],
+				],
+			]
+		);
+
+		self::assertSame( 1, $imported['memory_imported'] );
+		$draft = Memory::get_by_id( 1 );
+		self::assertSame( 'draft', $draft['status'] ?? null );
+		self::assertCount( 1, $GLOBALS['wpdb']->rows );
+	}
+
 	public function test_put_typed_blocks_credential_material_before_database_write(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
 		$credential      = implode( '-', [ 'real', 'private', 'value' ] );
@@ -361,6 +491,108 @@ final class MemorySchemaTest extends TestCase {
 				$limit  = $ints[0] ?? 100;
 				$offset = $ints[1] ?? 0;
 				return array_slice( $rows, $offset, $limit );
+			}
+		};
+	}
+
+	/**
+	 * @return object
+	 */
+	private function make_crud_wpdb(): object {
+		return new class() {
+			public $prefix     = 'wp_';
+			public $insert_id     = 0;
+			public $last_error = '';
+			/** @var array<int, array<string, mixed>> */
+			public array $rows = [];
+			/** @var array<int, mixed> */
+			public array $last_prepare_args = [];
+
+			public function get_charset_collate(): string {
+				return '';
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [
+					'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence',
+					'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence',
+					'created_by', 'created_at', 'updated_at', 'last_retrieved_at',
+				];
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				$this->last_prepare_args = $args;
+				return $query;
+			}
+
+			public function get_var( string $query ): mixed {
+				if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'memory_key' ) ) {
+					$scope = (string) ( $this->last_prepare_args[0] ?? '' );
+					$key   = (string) ( $this->last_prepare_args[1] ?? '' );
+					foreach ( $this->rows as $row ) {
+						if ( (string) $row['scope'] === $scope && (string) $row['memory_key'] === $key ) {
+							return (int) $row['id'];
+						}
+					}
+					return null;
+				}
+				return null;
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				$id = (int) ( $this->last_prepare_args[0] ?? 0 );
+				foreach ( $this->rows as $row ) {
+					if ( (int) $row['id'] === $id ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int {
+				++$this->insert_id;
+				$row               = $data;
+				$row['id']         = $this->insert_id;
+				$row['created_at'] = $row['created_at'] ?? gmdate( 'Y-m-d H:i:s' );
+				$row['updated_at'] = $row['updated_at'] ?? gmdate( 'Y-m-d H:i:s' );
+				$row['last_retrieved_at'] = $row['last_retrieved_at'] ?? '';
+				$this->rows[]      = $row;
+				return 1;
+			}
+
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				$id = (int) ( $where['id'] ?? 0 );
+				foreach ( $this->rows as $i => $row ) {
+					if ( (int) $row['id'] === $id ) {
+						$this->rows[ $i ] = array_merge( $row, $data, [ 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ] );
+						return 1;
+					}
+				}
+				return 0;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				$rows = $this->rows;
+				if ( str_contains( $query, 'status' ) ) {
+					$status = 'active';
+					foreach ( $this->last_prepare_args as $arg ) {
+						if ( is_string( $arg ) && in_array( $arg, [ 'active', 'draft', 'stale', 'rejected' ], true ) ) {
+							$status = $arg;
+							break;
+						}
+					}
+					$rows = array_values(
+						array_filter(
+							$rows,
+							static fn( array $row ): bool => ( $row['status'] ?? '' ) === $status
+						)
+					);
+				}
+				return $rows;
 			}
 		};
 	}

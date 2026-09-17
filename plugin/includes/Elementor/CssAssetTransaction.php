@@ -130,8 +130,31 @@ final class CssAssetTransaction {
 					'Elementor changed CSS assets outside the target post; the asset snapshot restore was attempted.',
 					$lease,
 					[
-						'collateral_count' => count( $collateral ),
-						'target_present'   => isset( $after['files'][ $target_name ] ),
+						'collateral_count'               => count( $collateral ),
+						'target_present'                 => isset( $after['files'][ $target_name ] ),
+						'generation_status'              => 'failed',
+						'delivery_status'                => 'not_checked',
+						'frontend_verification_status'   => 'not_checked',
+						'failed_check'                   => 'collateral',
+						'root_error_code'                => 'stonewright_elementor_css_collateral_change',
+					]
+				);
+			}
+			if ( (int) ( $after['files'][ $target_name ]['size'] ?? 0 ) < 1 ) {
+				return self::rollback_error(
+					$location,
+					$post_id,
+					$before,
+					$metadata_before,
+					'stonewright_elementor_css_empty_target',
+					'Elementor produced an empty CSS target file; the asset snapshot restore was attempted.',
+					$lease,
+					[
+						'generation_status'            => 'failed',
+						'delivery_status'              => 'not_checked',
+						'frontend_verification_status' => 'not_checked',
+						'failed_check'                 => 'generation',
+						'root_error_code'              => 'stonewright_elementor_css_empty_target',
 					]
 				);
 			}
@@ -143,37 +166,74 @@ final class CssAssetTransaction {
 			$lease = $lease_check;
 			$probes_after = self::probe_protected_assets( $filename, $after, $location, $lease );
 			if ( $probes_after instanceof \WP_Error ) {
+				$code = sanitize_key( (string) $probes_after->get_error_code() );
 				return self::rollback_error(
 					$location,
 					$post_id,
 					$before,
 					$metadata_before,
-					'stonewright_elementor_css_probe_failed',
+					$code,
 					'One or more protected Elementor CSS assets failed the post-write HTTP check.',
 					$lease,
-					[ 'root_error_code' => sanitize_key( (string) $probes_after->get_error_code() ) ]
+					[
+						'root_error_code'              => $code,
+						'generation_status'            => 'verified',
+						'delivery_status'              => 'failed',
+						'frontend_verification_status' => 'not_checked',
+						'failed_check'                 => 'delivery',
+					]
+				);
+			}
+
+			$delivery = self::delivery_outcome( $probes_before, $probes_after, $filename );
+			if ( $delivery instanceof \WP_Error ) {
+				$code = sanitize_key( (string) $delivery->get_error_code() );
+				return self::rollback_error(
+					$location,
+					$post_id,
+					$before,
+					$metadata_before,
+					$code,
+					'A public Elementor CSS asset became unavailable after regeneration; the asset snapshot restore was attempted.',
+					$lease,
+					[
+						'root_error_code'              => $code,
+						'generation_status'            => 'verified',
+						'delivery_status'              => 'failed',
+						'frontend_verification_status' => 'not_checked',
+						'failed_check'                 => 'delivery',
+					]
 				);
 			}
 
 			$metadata_after = self::capture_css_metadata( $post_id );
+			$delivery_status = (string) ( $delivery['status'] ?? 'not_checked' );
+			$evidence        = [
+				'target'                       => $filename,
+				'before_file_count'            => $before['file_count'],
+				'after_file_count'             => $after['file_count'],
+				'before_manifest_sha256'       => self::manifest_hash( $before ),
+				'after_manifest_sha256'        => self::manifest_hash( $after ),
+				'protected_probes_before'      => $probes_before,
+				'protected_probes_after'       => $probes_after,
+				'collateral_change_count'      => 0,
+				'css_metadata'                 => [
+					'before_present' => $metadata_before['exists'],
+					'after_present'  => $metadata_after['exists'],
+				],
+				'rollback_status'              => 'not_needed',
+				'generation_status'            => 'verified',
+				'delivery_status'              => $delivery_status,
+				'frontend_verification_status' => 'not_checked',
+			];
+			if ( isset( $delivery['code'] ) && is_string( $delivery['code'] ) && '' !== $delivery['code'] ) {
+				$evidence['root_error_code'] = $delivery['code'];
+				$evidence['failed_check']    = 'delivery';
+			}
 			return [
 				'ok'               => true,
 				'operation_result' => $operation_result,
-				'css_evidence'     => [
-					'target'                  => $filename,
-					'before_file_count'       => $before['file_count'],
-					'after_file_count'        => $after['file_count'],
-					'before_manifest_sha256'  => self::manifest_hash( $before ),
-					'after_manifest_sha256'   => self::manifest_hash( $after ),
-					'protected_probes_before' => $probes_before,
-					'protected_probes_after'  => $probes_after,
-					'collateral_change_count' => 0,
-					'css_metadata'            => [
-						'before_present' => $metadata_before['exists'],
-						'after_present'  => $metadata_after['exists'],
-					],
-					'rollback_status'         => 'not_needed',
-				],
+				'css_evidence'     => $evidence,
 			];
 		} finally {
 			if ( self::lease_still_ours( $lease ) ) {
@@ -340,7 +400,7 @@ final class CssAssetTransaction {
 		return [ 'files' => $files, 'file_count' => count( $files ), 'total_bytes' => $total ];
 	}
 
-	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string}>|\WP_Error */
+	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string,classification:string}>|\WP_Error */
 	private static function probe_protected_assets( string $filename, array $manifest, array $location, array &$lease ): array|\WP_Error {
 		$valid = self::revalidate_location( $location );
 		if ( $valid instanceof \WP_Error ) {
@@ -361,66 +421,316 @@ final class CssAssetTransaction {
 			if ( ! self::same_origin( home_url( '/' ), $url ) ) {
 				return self::error( 'stonewright_elementor_css_probe_unsafe_origin', 'A protected Elementor CSS URL is not same-origin.' );
 			}
-			$status = self::probe_url( $url );
-			if ( $status instanceof \WP_Error ) {
-				return $status;
+			$probe = self::probe_url( $url );
+			if ( 'unsafe_redirect' === $probe['classification'] ) {
+				return self::error( 'stonewright_elementor_css_probe_unsafe_redirect', 'A protected Elementor CSS URL redirected to an unsafe location.' );
 			}
-			$probes[] = [ 'asset' => $asset, 'status' => $status, 'url_sha256' => hash( 'sha256', $url ) ];
+			$probes[] = [
+				'asset'          => $asset,
+				'status'         => $probe['status'],
+				'url_sha256'     => hash( 'sha256', $url ),
+				'classification' => $probe['classification'],
+			];
 		}
 		return $probes;
 	}
 
-	private static function probe_url( string $url ): int|\WP_Error {
-		$head = wp_safe_remote_request(
-			$url,
-			[
-				'method'              => 'HEAD',
-				'timeout'             => 10,
-				'redirection'         => 0,
-				'limit_response_size' => 1,
-				'sslverify'           => true,
-			]
-		);
-		$head_status = self::probe_status( $head );
-		if ( $head_status instanceof \WP_Error ) {
-			return $head_status;
+	/**
+	 * @return array{status:int,classification:string,content_type_kind:string}
+	 */
+	private static function probe_url( string $url ): array {
+		$head = wp_safe_remote_request( $url, self::probe_request_args( 'HEAD', 1 ) );
+		$head_probe = self::classify_response( $url, $head, false );
+		if ( in_array( $head_probe['classification'], [ 'protected', 'unsafe_redirect' ], true ) ) {
+			return $head_probe;
 		}
-		if ( 200 === $head_status ) {
-			return 200;
+		if ( 200 === $head_probe['status'] && 'available' === $head_probe['classification'] ) {
+			return $head_probe;
 		}
-		if ( 405 !== $head_status ) {
-			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+		if ( 405 !== $head_probe['status'] ) {
+			return $head_probe;
 		}
 
-		$get = wp_safe_remote_get(
-			$url,
-			[
-				'timeout'             => 10,
-				'redirection'         => 0,
-				'limit_response_size' => 1,
-				'sslverify'           => true,
-			]
-		);
-		$get_status = self::probe_status( $get );
-		if ( $get_status instanceof \WP_Error ) {
-			return $get_status;
-		}
-		if ( 200 !== $get_status ) {
-			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
-		}
-		return 200;
+		$get = wp_safe_remote_get( $url, self::probe_request_args( 'GET', 4096 ) );
+		return self::classify_response( $url, $get, true );
 	}
 
-	private static function probe_status( array|\WP_Error $response ): int|\WP_Error {
+	/**
+	 * @return array<string,mixed>
+	 */
+	private static function probe_request_args( string $method, int $limit ): array {
+		return [
+			'method'              => strtoupper( $method ),
+			'timeout'             => 10,
+			'redirection'         => 0,
+			'limit_response_size' => max( 1, min( 8192, $limit ) ),
+			'sslverify'           => true,
+			'cookies'             => [],
+			'headers'             => [],
+		];
+	}
+
+	/**
+	 * @param array<string,mixed>|\WP_Error $response
+	 * @return array{status:int,classification:string,content_type_kind:string}
+	 */
+	private static function classify_response( string $request_url, array|\WP_Error $response, bool $inspect_body ): array {
 		if ( $response instanceof \WP_Error ) {
-			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL could not be fetched.' );
+			return [
+				'status'            => 0,
+				'classification'    => 'unavailable',
+				'content_type_kind' => 'unknown',
+			];
 		}
-		$status   = (int) wp_remote_retrieve_response_code( $response );
-		$redirect = (string) wp_remote_retrieve_header( $response, 'location' );
+		$status      = (int) wp_remote_retrieve_response_code( $response );
+		$redirect    = self::header_string( $response, 'location' );
+		$content_type = self::header_string( $response, 'content-type' );
+		$mime        = self::mime_kind( $content_type );
 		if ( '' !== $redirect ) {
-			return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+			$redirect_kind = self::classify_redirect( $request_url, $redirect );
+			if ( 'login' === $redirect_kind ) {
+				return [
+					'status'            => $status,
+					'classification'    => 'protected',
+					'content_type_kind' => $mime,
+				];
+			}
+			return [
+				'status'            => $status,
+				'classification'    => 'unsafe_redirect',
+				'content_type_kind' => $mime,
+			];
 		}
-		return $status;
+		if ( in_array( $status, [ 401, 403 ], true ) ) {
+			return [
+				'status'            => $status,
+				'classification'    => 'protected',
+				'content_type_kind' => $mime,
+			];
+		}
+		if ( 200 === $status ) {
+			if ( $inspect_body ) {
+				$body = (string) wp_remote_retrieve_body( $response );
+				$body = substr( $body, 0, 4096 );
+				if ( self::looks_like_html( $body ) || 'html' === $mime ) {
+					return [
+						'status'            => $status,
+						'classification'    => self::looks_like_login( $body ) ? 'protected' : 'invalid_body',
+						'content_type_kind' => 'html',
+					];
+				}
+				if ( '' === trim( $body ) ) {
+					return [
+						'status'            => $status,
+						'classification'    => 'failed',
+						'content_type_kind' => $mime,
+					];
+				}
+				if ( 'other' === $mime ) {
+					return [
+						'status'            => $status,
+						'classification'    => 'failed',
+						'content_type_kind' => $mime,
+					];
+				}
+			} elseif ( 'html' === $mime ) {
+				return [
+					'status'            => $status,
+					'classification'    => 'invalid_body',
+					'content_type_kind' => 'html',
+				];
+			}
+			return [
+				'status'            => 200,
+				'classification'    => 'available',
+				'content_type_kind' => $mime,
+			];
+		}
+		if ( $status >= 500 || 0 === $status ) {
+			return [
+				'status'            => $status,
+				'classification'    => 'unavailable',
+				'content_type_kind' => $mime,
+			];
+		}
+		return [
+			'status'            => $status,
+			'classification'    => 'failed',
+			'content_type_kind' => $mime,
+		];
+	}
+
+	/**
+	 * @param array<string,mixed> $response
+	 */
+	private static function header_string( array $response, string $name ): string {
+		$value = wp_remote_retrieve_header( $response, $name );
+		if ( is_array( $value ) ) {
+			$value = (string) ( $value[0] ?? '' );
+		}
+		return trim( (string) $value );
+	}
+
+	private static function mime_kind( string $content_type ): string {
+		$type = strtolower( trim( explode( ';', $content_type )[0] ?? '' ) );
+		if ( 'text/css' === $type ) {
+			return 'css';
+		}
+		if ( '' === $type ) {
+			return 'unknown';
+		}
+		if ( str_contains( $type, 'html' ) ) {
+			return 'html';
+		}
+		if ( 'application/octet-stream' === $type || 'text/plain' === $type ) {
+			return 'unknown';
+		}
+		return 'other';
+	}
+
+	private static function looks_like_html( string $body ): bool {
+		$slice = strtolower( ltrim( substr( $body, 0, 2048 ) ) );
+		return str_starts_with( $slice, '<!doctype' )
+			|| str_starts_with( $slice, '<html' )
+			|| str_contains( $slice, '<html' )
+			|| str_contains( $slice, '<head' )
+			|| str_contains( $slice, '<body' );
+	}
+
+	private static function looks_like_login( string $body ): bool {
+		$slice = strtolower( substr( $body, 0, 2048 ) );
+		return str_contains( $slice, 'wp-login' )
+			|| str_contains( $slice, 'loginform' )
+			|| str_contains( $slice, 'name="log"' )
+			|| str_contains( $slice, "name='log'" )
+			|| str_contains( $slice, 'name="pwd"' );
+	}
+
+	private static function classify_redirect( string $request_url, string $location ): string {
+		$location = trim( $location );
+		if ( '' === $location ) {
+			return 'disallowed';
+		}
+		$resolved = self::resolve_redirect_url( $request_url, $location );
+		$parts    = wp_parse_url( $resolved );
+		if ( ! is_array( $parts ) ) {
+			return 'disallowed';
+		}
+		$scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+		$host   = strtolower( (string) ( $parts['host'] ?? '' ) );
+		$path   = strtolower( (string) ( $parts['path'] ?? '' ) );
+		if ( ! in_array( $scheme, [ 'http', 'https' ], true ) || '' === $host ) {
+			return 'disallowed';
+		}
+		if ( self::is_disallowed_host( $host ) ) {
+			return 'disallowed';
+		}
+		$request_parts = wp_parse_url( $request_url );
+		if ( ! is_array( $request_parts ) ) {
+			return 'disallowed';
+		}
+		$request_scheme = strtolower( (string) ( $request_parts['scheme'] ?? '' ) );
+		if ( 'https' === $request_scheme && 'http' === $scheme ) {
+			return 'http_downgrade';
+		}
+		if ( ! self::same_origin( home_url( '/' ), $resolved ) || ! self::same_origin( $request_url, $resolved ) ) {
+			return 'cross_origin';
+		}
+		$request_path = strtolower( (string) ( $request_parts['path'] ?? '' ) );
+		if ( $host === strtolower( (string) ( $request_parts['host'] ?? '' ) ) && $path === $request_path ) {
+			return 'loop';
+		}
+		if ( str_contains( $path, 'wp-login.php' ) || 1 === preg_match( '#/login/?$#', $path ) ) {
+			return 'login';
+		}
+		return 'unexpected';
+	}
+
+	private static function resolve_redirect_url( string $request_url, string $location ): string {
+		$parts = wp_parse_url( $location );
+		if ( is_array( $parts ) && isset( $parts['scheme'] ) ) {
+			return $location;
+		}
+		$base = wp_parse_url( $request_url );
+		if ( ! is_array( $base ) || empty( $base['scheme'] ) || empty( $base['host'] ) ) {
+			return $location;
+		}
+		$origin = $base['scheme'] . '://' . $base['host'];
+		if ( isset( $base['port'] ) ) {
+			$origin .= ':' . $base['port'];
+		}
+		if ( str_starts_with( $location, '//' ) ) {
+			return $base['scheme'] . ':' . $location;
+		}
+		if ( str_starts_with( $location, '/' ) ) {
+			return $origin . $location;
+		}
+		$base_path = (string) ( $base['path'] ?? '/' );
+		$dir       = str_contains( $base_path, '/' ) ? substr( $base_path, 0, (int) strrpos( $base_path, '/' ) + 1 ) : '/';
+		return $origin . $dir . $location;
+	}
+
+	private static function is_disallowed_host( string $host ): bool {
+		$host = strtolower( $host );
+		if ( in_array( $host, [ '169.254.169.254', 'metadata.google.internal', 'metadata.google.com' ], true ) ) {
+			return true;
+		}
+		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			$home_host = strtolower( (string) ( wp_parse_url( home_url( '/' ), PHP_URL_HOST ) ?? '' ) );
+			if ( $host !== $home_host && self::ip_is_non_public( $host ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static function ip_is_non_public( string $ip ): bool {
+		$flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
+		return false === filter_var( $ip, FILTER_VALIDATE_IP, $flags );
+	}
+
+	/**
+	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $before
+	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $after
+	 * @return array{status:string,code?:string}|\WP_Error
+	 */
+	private static function delivery_outcome( array $before, array $after, string $target ): array|\WP_Error {
+		$before_map = [];
+		foreach ( $before as $probe ) {
+			if ( isset( $probe['asset'] ) && is_string( $probe['asset'] ) ) {
+				$before_map[ $probe['asset'] ] = $probe;
+			}
+		}
+		$after_map = [];
+		foreach ( $after as $probe ) {
+			if ( isset( $probe['asset'] ) && is_string( $probe['asset'] ) ) {
+				$after_map[ $probe['asset'] ] = $probe;
+			}
+		}
+		foreach ( $after_map as $asset => $probe ) {
+			$previous = $before_map[ $asset ] ?? null;
+			$after_class = (string) ( $probe['classification'] ?? 'failed' );
+			if ( is_array( $previous ) && 'available' === ( $previous['classification'] ?? '' ) && 'available' !== $after_class ) {
+				return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
+			}
+		}
+		$target_probe = $after_map[ $target ] ?? null;
+		if ( ! is_array( $target_probe ) ) {
+			return [ 'status' => 'not_checked' ];
+		}
+		$class = (string) ( $target_probe['classification'] ?? 'failed' );
+		return match ( $class ) {
+			'available' => [ 'status' => 'verified' ],
+			'protected' => [
+				'status' => 'blocked',
+				'code'   => 'stonewright_elementor_css_delivery_protected',
+			],
+			'unavailable' => [ 'status' => 'not_checked' ],
+			default => [
+				'status' => 'failed',
+				'code'   => 'stonewright_elementor_css_probe_failed',
+			],
+		};
 	}
 
 	private static function same_origin( string $left, string $right ): bool {
@@ -487,13 +797,25 @@ final class CssAssetTransaction {
 		$rollback = self::restore( $location, $post_id, $before, $metadata_before, $lease );
 		$data = array_merge(
 			[
-				'status'                   => 500,
-				'rollback_status'          => $rollback['ok'] ? 'succeeded' : 'failed',
-				'manifest_rollback_status' => $rollback['manifest_status'],
-				'metadata_rollback_status' => $rollback['metadata_status'],
+				'status'                       => 500,
+				'rollback_status'              => $rollback['ok'] ? 'succeeded' : 'failed',
+				'manifest_rollback_status'     => $rollback['manifest_status'],
+				'metadata_rollback_status'     => $rollback['metadata_status'],
+				'frontend_verification_status' => 'not_checked',
+				'generation_status'            => 'failed',
+				'delivery_status'              => 'not_checked',
 			],
 			$extra
 		);
+		if ( 'not_attempted_lock_lost' === ( $rollback['manifest_status'] ?? '' ) ) {
+			$data['failed_check']    = 'lease';
+			$data['delivery_status'] = 'blocked';
+		} elseif ( 'failed' === ( $rollback['manifest_status'] ?? '' ) && ! isset( $extra['failed_check'] ) ) {
+			$data['failed_check'] = 'rollback';
+		}
+		if ( ! isset( $data['root_error_code'] ) ) {
+			$data['root_error_code'] = sanitize_key( $code );
+		}
 		return self::error( $code, $message, $data );
 	}
 

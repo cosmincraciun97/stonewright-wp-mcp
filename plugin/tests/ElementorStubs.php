@@ -163,10 +163,35 @@ Plugin::$instance = (object) [
 
 					/** @return array<string, array<string, mixed>> */
 					public function get_controls(): array {
+						$options = [
+							'by_id'         => 'Manual Selection',
+							'current_query' => 'Current Query',
+							'post'          => 'Posts',
+							'page'          => 'Pages',
+							'product'       => 'Products',
+						];
+						foreach ( (array) ( $GLOBALS['stonewright_test_registered_post_types'] ?? [] ) as $slug => $args ) {
+							$slug = sanitize_key( (string) $slug );
+							if ( '' === $slug || isset( $options[ $slug ] ) ) {
+								continue;
+							}
+							$label = $slug;
+							if ( is_array( $args ) ) {
+								$labels = is_array( $args['labels'] ?? null ) ? $args['labels'] : [];
+								$label  = (string) ( $args['label'] ?? $labels['name'] ?? $slug );
+							}
+							$options[ $slug ] = $label;
+						}
+
 						return [
-							'template_id' => [ 'type' => 'number', 'required' => true ],
-							'post_type'   => [ 'type' => 'text' ],
-							'columns'     => [ 'type' => 'number', 'responsive' => true ],
+							'template_id'     => [ 'type' => 'query', 'label' => 'Choose template' ],
+							'query_post_type' => [
+								'type'    => 'select',
+								'label'   => 'Source',
+								'options' => $options,
+							],
+							'posts_per_page' => [ 'type' => 'number', 'min' => 1, 'max' => 100 ],
+							'columns'        => [ 'type' => 'number', 'responsive' => true ],
 						];
 					}
 				},

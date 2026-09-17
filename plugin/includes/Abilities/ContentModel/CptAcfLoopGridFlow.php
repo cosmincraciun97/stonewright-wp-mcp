@@ -6,7 +6,9 @@ namespace Stonewright\WpMcp\Abilities\ContentModel;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Elementor\Loop\LoopIntentCompiler;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
@@ -137,7 +139,23 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 
 				$post_type_payload = self::post_type_payload( $slug, $singular, $plural, $post_type );
 				$acf_payload       = self::acf_payload( $slug, $singular, $fields );
-				$loop_grid_widget  = self::loop_grid_widget( 0, $slug, $grid );
+
+				$compiled = self::compile_loop_grid( $slug, $grid, 1 );
+				if ( $compiled instanceof \WP_Error ) {
+					return self::wrap_child_error(
+						$compiled,
+						'loop_grid',
+						[
+							[ 'id' => 'loop_grid', 'status' => 'failed' ],
+							[ 'id' => 'post_type', 'status' => 'not_started' ],
+							[ 'id' => 'acf', 'status' => 'not_started' ],
+							[ 'id' => 'content', 'status' => 'not_started' ],
+							[ 'id' => 'loop_template', 'status' => 'not_started' ],
+						],
+						'not_required'
+					);
+				}
+				$loop_grid_widget = self::loop_grid_widget_from_compiled( $compiled, 0 );
 
 				if ( $dry_run ) {
 					return self::response(
@@ -169,15 +187,61 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 				}
 				$content = ( new BulkUpsertPosts() )->execute( $upsert_args );
 				if ( is_wp_error( $content ) ) {
-					return $content;
+					return self::wrap_child_error(
+						$content,
+						'content',
+						[
+							[ 'id' => 'post_type', 'status' => 'applied' ],
+							[ 'id' => 'acf', 'status' => 'applied' ],
+							[ 'id' => 'content', 'status' => 'failed' ],
+							[ 'id' => 'loop_template', 'status' => 'not_started' ],
+							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
+						],
+						'not_required'
+					);
+				}
+				if ( is_array( $content ) && false === ( $content['ok'] ?? true ) ) {
+					return self::wrap_child_error(
+						new \WP_Error(
+							'stonewright_content_upsert_failed',
+							__( 'Content upsert failed.', 'stonewright' ),
+							[ 'status' => 500, 'content' => $content ]
+						),
+						'content',
+						[
+							[ 'id' => 'post_type', 'status' => 'applied' ],
+							[ 'id' => 'acf', 'status' => 'applied' ],
+							[ 'id' => 'content', 'status' => 'failed' ],
+							[ 'id' => 'loop_template', 'status' => 'not_started' ],
+							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
+						],
+						'not_required'
+					);
 				}
 
 				$loop_template = self::create_loop_template( $loop_template_args, $slug );
 				if ( is_wp_error( $loop_template ) ) {
-					return $loop_template;
+					return self::wrap_child_error(
+						$loop_template,
+						'loop_template',
+						[
+							[ 'id' => 'post_type', 'status' => 'applied' ],
+							[ 'id' => 'acf', 'status' => 'applied' ],
+							[ 'id' => 'content', 'status' => 'applied' ],
+							[ 'id' => 'loop_template', 'status' => 'failed' ],
+							[ 'id' => 'loop_grid', 'status' => 'not_started' ],
+						],
+						'not_required'
+					);
 				}
 
-				$loop_grid_widget = self::loop_grid_widget( (int) $loop_template['template_id'], $slug, $grid );
+				WidgetSchemaRepository::invalidate();
+				$applied = self::compile_loop_grid( $slug, $grid, (int) $loop_template['template_id'], false );
+				if ( ! is_wp_error( $applied ) ) {
+					$compiled = $applied;
+				}
+
+				$loop_grid_widget = self::loop_grid_widget_from_compiled( $compiled, (int) $loop_template['template_id'] );
 
 				return self::response(
 					true,
@@ -384,19 +448,73 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 
 	/**
 	 * @param array<string, mixed> $grid
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function compile_loop_grid( string $post_type, array $grid, int $template_id, bool $pending_post_type = true ): array|\WP_Error {
+		$intent = [
+			'pending_post_type' => $pending_post_type,
+			'query'             => [
+				'posts_per_page' => max( 1, (int) ( $grid['posts_per_page'] ?? 6 ) ),
+			],
+		];
+		if ( isset( $grid['columns'] ) ) {
+			$intent['responsive'] = [ 'desktop' => max( 1, (int) $grid['columns'] ) ];
+		}
+		if ( array_key_exists( 'pagination', $grid ) ) {
+			$intent['pagination'] = '' !== (string) $grid['pagination'] && 'none' !== (string) $grid['pagination'];
+		}
+
+		return LoopIntentCompiler::compile( 'grid', $template_id, $post_type, $intent );
+	}
+
+	/**
+	 * @param array<string, mixed> $compiled
+	 * @return array<string, mixed>
+	 */
+	private static function loop_grid_widget_from_compiled( array $compiled, int $template_id ): array {
+		$settings = is_array( $compiled['settings'] ?? null ) ? $compiled['settings'] : [];
+		$template_key = (string) ( $compiled['resolved_controls']['template'] ?? 'template_id' );
+		if ( '' !== $template_key ) {
+			$settings[ $template_key ] = $template_id;
+		}
+
+		return [
+			'widgetType' => (string) ( $compiled['widget_type'] ?? 'loop-grid' ),
+			'settings'   => $settings,
+		];
+	}
+
+	/**
+	 * @param list<array{id:string,status:string}> $steps
+	 */
+	private static function wrap_child_error( \WP_Error $error, string $failed_step, array $steps, string $rollback_status ): \WP_Error {
+		$data = $error->get_error_data();
+		$data = is_array( $data ) ? $data : [];
+		$data['failed_step']     = $failed_step;
+		$data['root_error_code'] = (string) $error->get_error_code();
+		$data['steps']           = $steps;
+		$data['rollback_status'] = $rollback_status;
+		$data['ok']              = false;
+
+		return new \WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
+	}
+
+	/**
+	 * @param array<string, mixed> $grid
 	 * @return array<string, mixed>
 	 */
 	private static function loop_grid_widget( int $template_id, string $post_type, array $grid ): array {
-		return [
-			'widgetType' => 'loop-grid',
-			'settings'   => [
-				'template_id'    => $template_id,
-				'post_type'      => $post_type,
-				'posts_per_page' => max( 1, (int) ( $grid['posts_per_page'] ?? 6 ) ),
-				'columns'        => max( 1, (int) ( $grid['columns'] ?? 3 ) ),
-				'pagination'     => (string) ( $grid['pagination'] ?? 'load_more' ),
-			],
-		];
+		$compiled = self::compile_loop_grid( $post_type, $grid, max( 1, $template_id ) );
+		if ( $compiled instanceof \WP_Error ) {
+			return [
+				'widgetType' => 'loop-grid',
+				'settings'   => [
+					'template_id' => $template_id,
+				],
+			];
+		}
+
+		return self::loop_grid_widget_from_compiled( $compiled, $template_id );
 	}
 
 	/**

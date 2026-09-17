@@ -239,6 +239,44 @@ final class SparseSettingsNormalizerTest extends TestCase {
 		self::assertSame( $existing['flex_gap'], $next['flex_gap'] );
 	}
 
+	public function test_mobile_patch_does_not_drop_inactive_desktop_boxed_width(): void {
+		$existing = [
+			'content_width' => 'full',
+			'boxed_width'   => [
+				'unit'  => 'px',
+				'size'  => '',
+				'sizes' => [],
+			],
+			'padding'       => [
+				'top' => '24', 'right' => '24', 'bottom' => '24', 'left' => '24', 'unit' => 'px', 'isLinked' => true,
+			],
+			'third_party_marker' => 'keep-me-exactly',
+		];
+		$incoming = [
+			'padding_mobile' => [
+				'top' => '8', 'right' => '8', 'bottom' => '8', 'left' => '8', 'unit' => 'px', 'isLinked' => true,
+			],
+		];
+		$merged = array_merge( $existing, $incoming );
+
+		$next = SparseSettingsNormalizer::for_write(
+			$merged,
+			[
+				'content_width' => [ 'type' => 'select' ],
+				'boxed_width'   => [ 'type' => 'slider', 'responsive' => true, 'condition' => [ 'content_width' => 'boxed' ] ],
+				'padding'       => [ 'type' => 'dimensions', 'responsive' => true ],
+			],
+			$incoming,
+			$existing
+		);
+
+		self::assertSame( $existing['boxed_width'], $next['boxed_width'] );
+		self::assertSame( 'keep-me-exactly', $next['third_party_marker'] );
+		self::assertSame( $existing['padding'], $next['padding'] );
+		self::assertSame( $incoming['padding_mobile'], $next['padding_mobile'] );
+		self::assertSame( array_keys( $existing ), array_values( array_intersect( array_keys( $next ), array_keys( $existing ) ) ) );
+	}
+
 	public function test_unknown_keys_still_error_before_sparse_normalize(): void {
 		$result = SettingsValidator::validate( 'sparse-card', [ 'made_up' => 'x' ] );
 

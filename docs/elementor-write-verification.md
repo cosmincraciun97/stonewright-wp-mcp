@@ -75,10 +75,14 @@ emits a site-wide atomic-style clear for one post.
 
 - target kind and filename (never raw path or URL);
 - hashed path/URL and before/after direct-file manifest hashes;
-- HTTP 200/no-redirect probes for the target CSS and any existing
-  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets;
+- distinct `generation_status`, `delivery_status`, and
+  `frontend_verification_status` (`verified|blocked|failed|not_checked`);
+- HTTP probes for the target CSS and any existing
+  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets
+  (a login 302 is delivery blocked, not a generation failure);
 - collateral-change and rollback status;
-- backup snapshot id and `effect_verified`.
+- backup snapshot id and `effect_verified` only when the requested effect
+  actually closed.
 
 `stonewright-elementor-post-write-verify` reports:
 

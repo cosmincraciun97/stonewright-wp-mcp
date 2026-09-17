@@ -74,6 +74,64 @@ final class RemediationHintsTest extends TestCase {
 		];
 	}
 
+	public function test_cause_code_is_resolved_before_wrapper(): void {
+		$hint = RemediationHints::for_code(
+			'stonewright_php_parse_error',
+			'stonewright/php-execute',
+			'stonewright_structured_failure'
+		);
+		self::assertStringContainsString( 'parse', strtolower( $hint ) );
+		self::assertStringContainsString( 'no dry_run', $hint );
+		self::assertStringNotContainsString( 'dry_run:true', $hint );
+	}
+
+	public function test_batch_operation_hint_includes_supported_patch_repeater_row(): void {
+		$hint = RemediationHints::for_code( 'stonewright_batch_operation_failed', 'stonewright/elementor-v3-batch-mutate' );
+		self::assertStringContainsString( 'patch_repeater_row', $hint );
+	}
+
+	public function test_php_execute_and_css_regenerate_hints_do_not_recommend_dry_run(): void {
+		$php = RemediationHints::for_code( 'totally_unknown', 'stonewright/php-execute' );
+		$css = RemediationHints::for_code( 'totally_unknown', 'stonewright/elementor-css-regenerate' );
+
+		self::assertStringContainsString( 'no dry_run', $php );
+		self::assertStringNotContainsString( 'dry_run:true', $php );
+		self::assertStringContainsString( 'no dry_run', $css );
+		self::assertStringNotContainsString( 'dry_run:true', $css );
+	}
+
+	public function test_generic_hint_still_mentions_dry_run_where_supported(): void {
+		$hint = RemediationHints::for_code( 'totally_unknown', 'stonewright/not-a-mapped-ability' );
+		self::assertStringContainsString( 'dry_run:true where supported', $hint );
+	}
+
+	public function test_write_busy_hint_is_retryable_with_interval_and_limit(): void {
+		$hint = RemediationHints::for_code( 'stonewright_elementor_write_busy' );
+		self::assertStringContainsString( 'retry', strtolower( $hint ) );
+		self::assertMatchesRegularExpression( '/\b(limit|retry_after|seconds)\b/i', $hint );
+	}
+
+	public function test_non_transient_codes_do_not_recommend_identical_auto_retry(): void {
+		$schema   = RemediationHints::for_code( 'stonewright_elementor_settings_invalid' );
+		$css      = RemediationHints::for_code( 'stonewright_css_classes_not_approved' );
+		$readonly = RemediationHints::for_code( 'stonewright_php_read_only_violation' );
+		$parse    = RemediationHints::for_code( 'stonewright_php_parse_error' );
+
+		foreach ( [ $schema, $css, $readonly, $parse ] as $hint ) {
+			self::assertStringNotContainsString( 'auto-retry the identical', strtolower( $hint ) );
+		}
+		self::assertStringContainsString( 'live control schema', $schema );
+		self::assertStringContainsString( 'approved_css_classes', $css );
+		self::assertStringContainsString( 'typed ability', $readonly );
+		self::assertStringContainsString( 'no dry_run', $parse );
+	}
+
+	public function test_rollback_failed_hint_is_stop_not_generic_retry(): void {
+		$hint = RemediationHints::for_code( 'stonewright_rollback_failed' );
+		self::assertStringContainsString( 'stop', strtolower( $hint ) );
+		self::assertStringNotContainsString( 'dry_run:true where supported', $hint );
+	}
+
 	public function test_error_patterns_persist_error_code_and_repair(): void {
 		ErrorPatterns::observe(
 			'stonewright/elementor-v3-batch-mutate',
@@ -101,5 +159,23 @@ final class RemediationHintsTest extends TestCase {
 		$this->assertStringContainsString( 'Tree hash', $rows[0]['message'] );
 		$this->assertNotSame( '', $rows[0]['repair'] );
 		$this->assertStringContainsString( 'stale', strtolower( $rows[0]['repair'] ) );
+	}
+
+	public function test_unchanged_execution_does_not_write_a_draft_lesson(): void {
+		for ( $i = 0; $i < 12; $i++ ) {
+			ErrorPatterns::observe(
+				'stonewright/acf-value-update',
+				'error',
+				[
+					'_meta' => [
+						'error_code'       => 'stonewright_acf_update_false',
+						'execution_status' => 'unchanged',
+						'error_message'    => 'Value already stored.',
+					],
+				]
+			);
+		}
+
+		self::assertSame( [], ErrorPatterns::recurring( 20 ) );
 	}
 }

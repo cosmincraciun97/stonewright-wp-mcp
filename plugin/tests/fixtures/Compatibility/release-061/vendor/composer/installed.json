@@ -1,0 +1,6 @@
+{
+  "packages": [
+    {"name": "wordpress/mcp-adapter", "version": "v0.6.1"},
+    {"name": "wordpress/abilities-api", "version": "v0.1.1"}
+  ]
+}

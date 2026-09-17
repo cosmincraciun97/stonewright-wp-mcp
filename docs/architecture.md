@@ -383,20 +383,29 @@ exist first.
 
 Before the MCP adapter is instantiated, the compatibility preflight inspects
 Stonewright plus active-plugin Composer and Jetpack manifests. Inactive
-manifests are ignored. WordPress 6.9 core Abilities and Stonewright's guarded
-fallback are one compatible runtime, while two active/autoloadable
-implementations still conflict. Exact class/namespace, visibility/static
-modifiers, required and maximum arity, parameter/return types including
-nullability and unions, constants, and versions are checked before invocation.
+manifests are ignored. Installed copies that Jetpack did not select are
+reported as shadowed, not automatically incompatible. The tested runtime is
+`wordpress/mcp-adapter` ^0.6.1 with Jetpack Autoloader ^5.0 and
+`wordpress/php-mcp-schema`. WordPress 6.9 core Abilities and Stonewright's
+guarded fallback are one compatible runtime, while two active/autoloadable
+incompatible implementations still conflict. Exact class/namespace,
+visibility/static modifiers, required and maximum arity, parameter/return
+types including nullability and unions, constants, and versions are checked
+before invocation. Stonewright registers `mcp_adapter_init` early and boots
+`McpAdapter::instance()` on `plugins_loaded` 99 so another plugin can load a
+supported adapter first; it does not call `init()` a second time.
 The same preflight runs again inside the actual `mcp_adapter_init` server
 registration callback. Its target is the exact runtime adapter object's class;
 the Ability and Registry targets remain the canonical runtime classes. Filters
 may contribute diagnostic class observations and additive ownership candidates,
 but cannot substitute a compatible decoy or remove a discovered owner, so a
 late incompatible or hostile runtime cannot invoke server creation.
-Troubleshoot renders every blocked symbol with its exact owners, versions,
-reason, ABI issues, and safe remediation instead of flattening owners or
-exposing filesystem paths.
+`create_server()` results are recorded in request-local
+`McpRegistrationState`. A default upstream MCP server is never treated as
+Stonewright. Troubleshoot renders every blocked symbol with its exact owners,
+versions, reason, ABI issues, and safe remediation instead of flattening
+owners or exposing filesystem paths. Do not disable unrelated business plugins
+as the standard fix.
 
 All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates
@@ -420,7 +429,10 @@ generated Elementor CSS. It snapshots the post, acquires the post lock and CSS
 directory lease, inventories direct Elementor CSS assets, probes existing
 protected URLs, updates only the resolved post or loop target through
 `update_file()`, and restores the bounded asset snapshot if collateral changes
-or probes fail.
+or probes fail. Local generation, HTTP delivery, and frontend verification are
+separate statuses. A private page that 302s to login can still have verified
+generation with blocked delivery; that is not CSS health from a login HTML
+body.
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-observation
 ability. It calls `get_builder_content_for_display( $post_id, false )` so the

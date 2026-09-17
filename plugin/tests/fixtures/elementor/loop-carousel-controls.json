@@ -1,0 +1,67 @@
+{
+	"widget_type": "loop-carousel",
+	"source": "synthetic-elementor-pro-4.2",
+	"note": "Synthetic Loop Carousel controls for schema confirmation. No client templates or site content.",
+	"controls": {
+		"template_id": {
+			"type": "query",
+			"label": "Choose template"
+		},
+		"query_post_type": {
+			"type": "select",
+			"label": "Source",
+			"options": {
+				"by_id": "Manual Selection",
+				"current_query": "Current Query",
+				"post": "Posts",
+				"page": "Pages",
+				"product": "Products",
+				"project": "project",
+				"featured_solution": "featured_solution",
+				"speaker": "speaker"
+			}
+		},
+		"posts_per_page": {
+			"type": "number",
+			"label": "Posts Per Page",
+			"responsive": false,
+			"min": 1,
+			"max": 100
+		},
+		"slides_to_show": {
+			"type": "number",
+			"label": "Slides to show",
+			"responsive": true
+		},
+		"slides_to_scroll": {
+			"type": "number",
+			"label": "Slides to scroll"
+		},
+		"arrows": {
+			"type": "switcher",
+			"return_value": "yes"
+		},
+		"pagination_type": {
+			"type": "select",
+			"label": "Pagination",
+			"default": "",
+			"options": {
+				"": "None",
+				"dots": "Dots",
+				"numbers": "Numbers"
+			}
+		},
+		"hide_desktop": {
+			"type": "switcher",
+			"return_value": "hidden-desktop"
+		},
+		"hide_tablet": {
+			"type": "switcher",
+			"return_value": "hidden-tablet"
+		},
+		"hide_mobile": {
+			"type": "switcher",
+			"return_value": "hidden-mobile"
+		}
+	}
+}

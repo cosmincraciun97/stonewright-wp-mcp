@@ -4,30 +4,30 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f9ed8fae25dc672ff151de249e2f3d02",
+    "content-hash": "fa0b0db63a41511b6427163b7604ae19",
     "packages": [
         {
             "name": "automattic/jetpack-autoloader",
-            "version": "v4.0.0",
+            "version": "v5.0.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Automattic/jetpack-autoloader.git",
-                "reference": "40b9d16cbc3a37cea1a6873516e58270d7ff82c6"
+                "reference": "d11b2d621035dcb920abce8ae09bebd5da5f9ff8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Automattic/jetpack-autoloader/zipball/40b9d16cbc3a37cea1a6873516e58270d7ff82c6",
-                "reference": "40b9d16cbc3a37cea1a6873516e58270d7ff82c6",
+                "url": "https://api.github.com/repos/Automattic/jetpack-autoloader/zipball/d11b2d621035dcb920abce8ae09bebd5da5f9ff8",
+                "reference": "d11b2d621035dcb920abce8ae09bebd5da5f9ff8",
                 "shasum": ""
             },
             "require": {
-                "composer-plugin-api": "^1.1 || ^2.0",
+                "composer-plugin-api": "^2.2",
                 "php": ">=7.2"
             },
             "require-dev": {
-                "automattic/jetpack-changelogger": "^5.0.0",
-                "composer/composer": "^1.1 || ^2.0",
-                "yoast/phpunit-polyfills": "^1.1.1"
+                "automattic/phpunit-select-config": "^1.0.9",
+                "composer/composer": "^2.2",
+                "yoast/phpunit-polyfills": "^4.0.0"
             },
             "type": "composer-plugin",
             "extra": {
@@ -35,7 +35,7 @@
                 "autotagger": true,
                 "mirror-repo": "Automattic/jetpack-autoloader",
                 "branch-alias": {
-                    "dev-trunk": "4.0.x-dev"
+                    "dev-trunk": "5.0.x-dev"
                 },
                 "changelogger": {
                     "link-template": "https://github.com/Automattic/jetpack-autoloader/compare/v${old}...v${new}"
@@ -66,9 +66,9 @@
                 "wordpress"
             ],
             "support": {
-                "source": "https://github.com/Automattic/jetpack-autoloader/tree/v4.0.0"
+                "source": "https://github.com/Automattic/jetpack-autoloader/tree/v5.0.23"
             },
-            "time": "2024-11-14T20:14:03+00:00"
+            "time": "2026-08-11T18:32:06+00:00"
         },
         {
             "name": "defuse/php-encryption",
@@ -1185,49 +1185,47 @@
         },
         {
             "name": "wordpress/mcp-adapter",
-            "version": "v0.3.0",
+            "version": "v0.6.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/WordPress/mcp-adapter.git",
-                "reference": "653ca8d95180b25809b1a1dc489d8305ec5beb63"
+                "url": "https://github.com/WordPress/mcp-adapter",
+                "reference": "23cb53e0b82f39238eec1c38cb055e28aa30fa7c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/WordPress/mcp-adapter/zipball/653ca8d95180b25809b1a1dc489d8305ec5beb63",
-                "reference": "653ca8d95180b25809b1a1dc489d8305ec5beb63",
+                "url": "https://api.github.com/repos/WordPress/mcp-adapter/zipball/23cb53e0b82f39238eec1c38cb055e28aa30fa7c",
+                "reference": "23cb53e0b82f39238eec1c38cb055e28aa30fa7c",
                 "shasum": ""
             },
             "require": {
-                "php": "^7.4 || ^8.0"
+                "automattic/jetpack-autoloader": "^5.0",
+                "ext-json": "*",
+                "php": "^7.4 || ^8.0",
+                "wordpress/php-mcp-schema": "^0.1.0"
             },
             "require-dev": {
-                "automattic/vipwpcs": "^3.0",
+                "automattic/vipwpcs": "^3.1",
+                "php-stubs/wordpress-stubs": "^6.9",
                 "php-stubs/wp-cli-stubs": "^2.12",
-                "phpcompatibility/php-compatibility": "10.x-dev as 9.99.99",
-                "phpcompatibility/phpcompatibility-wp": "^2.1",
+                "phpcompatibility/phpcompatibility-wp": "^3.0.0-alpha",
                 "phpstan/extension-installer": "^1.3",
-                "phpstan/php-8-stubs": "^0.4.24",
-                "phpstan/phpstan": "^2.1.22",
-                "phpstan/phpstan-deprecation-rules": "^2.0.3",
+                "phpstan/php-8-stubs": "^0.4.36",
+                "phpstan/phpstan": "^2.2.6",
+                "phpstan/phpstan-deprecation-rules": "^2.0.5",
                 "phpunit/phpunit": "^9.6",
                 "slevomat/coding-standard": "^8.0",
                 "szepeviktor/phpstan-wordpress": "^2.0",
-                "wp-phpunit/wp-phpunit": "^6.5",
-                "wpackagist-plugin/plugin-check": "^1.6",
+                "wp-phpunit/wp-phpunit": "^7.0",
                 "yoast/phpunit-polyfills": "^4.0"
             },
-            "type": "library",
-            "extra": {
-                "installer-paths": {
-                    "vendor/{$vendor}/{$name}/": [
-                        "wpackagist-plugin/plugin-check"
-                    ]
-                }
-            },
+            "type": "wordpress-plugin",
             "autoload": {
                 "psr-4": {
                     "WP\\MCP\\": "includes/"
-                }
+                },
+                "exclude-from-classmap": [
+                    "tests/phpunit/"
+                ]
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
@@ -1255,7 +1253,54 @@
                 "issues": "https://github.com/wordpress/mcp-adapter/issues",
                 "source": "https://github.com/wordpress/mcp-adapter"
             },
-            "time": "2025-11-06T14:56:51+00:00"
+            "time": "2026-08-13T05:16:13+00:00"
+        },
+        {
+            "name": "wordpress/php-mcp-schema",
+            "version": "v0.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/WordPress/php-mcp-schema",
+                "reference": "b2fcf97aa023ce46e9f03493c194a72d5a46bea2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/WordPress/php-mcp-schema/zipball/b2fcf97aa023ce46e9f03493c194a72d5a46bea2",
+                "reference": "b2fcf97aa023ce46e9f03493c194a72d5a46bea2",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.10"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "WP\\McpSchema\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "WordPress",
+                    "homepage": "https://wordpress.org"
+                }
+            ],
+            "description": "PHP DTOs for the Model Context Protocol (MCP) specification",
+            "homepage": "https://github.com/WordPress/php-mcp-schema",
+            "keywords": [
+                "dto",
+                "mcp",
+                "model-context-protocol",
+                "php",
+                "schema"
+            ],
+            "time": "2026-08-10T09:12:14+00:00"
         }
     ],
     "packages-dev": [

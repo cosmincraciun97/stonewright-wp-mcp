@@ -176,6 +176,7 @@ final class ElementorData {
 	private static function write_locked( int $post_id, array $tree, array $options ): bool {
 		$previous            = self::read( $post_id );
 		$previous_meta_state = self::capture_document_meta_state( $post_id );
+		$before_status        = get_post_status( $post_id );
 		$before_hash          = TreeHasher::hash( $previous );
 		$planned_hash         = TreeHasher::hash( $tree );
 		$receipt              = self::new_write_receipt( $post_id, $tree, $options, $previous, $before_hash, $planned_hash );
@@ -237,6 +238,12 @@ final class ElementorData {
 
 		$ok = self::persist_encoded( $post_id, $json, $tree );
 		if ( $ok ) {
+			$status_error = self::assert_post_status_preserved( $post_id, $before_status, $previous_meta_state );
+			if ( $status_error instanceof \WP_Error ) {
+				self::$last_write_error = $status_error;
+				self::$last_elementor_write_receipt = $receipt->fail( $status_error, 'write.post_status' )->to_array();
+				return false;
+			}
 			self::$last_write_receipt = PostCacheInvalidator::invalidate( $post_id );
 			$after_hash = TreeHasher::hash( self::read( $post_id ) );
 			$receipt->set_hashes( $before_hash, $planned_hash, $after_hash, $after_hash )->verified();
@@ -596,6 +603,37 @@ final class ElementorData {
 			return $settings;
 		}
 		return is_object( $settings ) ? (array) $settings : [];
+	}
+
+	/**
+	 * @param array<string, mixed> $previous_meta_state
+	 */
+	private static function assert_post_status_preserved( int $post_id, string|false $before_status, array $previous_meta_state ): ?\WP_Error {
+		$after_status = get_post_status( $post_id );
+		if ( ! is_string( $before_status ) || ! is_string( $after_status ) || $before_status === $after_status ) {
+			return null;
+		}
+
+		self::restore_document_meta_state( $post_id, $previous_meta_state );
+		if ( (string) get_post_status( $post_id ) !== $before_status ) {
+			wp_update_post(
+				[
+					'ID'          => $post_id,
+					'post_status' => $before_status,
+				]
+			);
+		}
+
+		return new \WP_Error(
+			'stonewright_elementor_post_status_changed',
+			__( 'Elementor write aborted because post_status changed during persist.', 'stonewright' ),
+			[
+				'status'                => 500,
+				'expected_post_status'  => $before_status,
+				'actual_post_status'    => $after_status,
+				'retryable'             => false,
+			]
+		);
 	}
 
 	/**

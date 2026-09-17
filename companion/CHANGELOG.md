@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- Nothing yet.
+- Classify plugin MCP routes from GET evidence: HEAD 404 is not missing,
+  WordPress `rest_no_route` JSON is missing, HTML/CDN 404 is inconclusive, and
+  401/403 means the route exists. Plugin-only never falls back to Direct.
+- Publish `endpoint_evidence` on connection status, keep `transport.mcp_url` as
+  the configured plugin MCP URL, and set Direct `url` to the REST index.
+- Reject invalid WP-CLI `--url` values before spawn with
+  `stonewright_wp_cli_url_invalid`.
 
 ## [1.0.0-beta.13.2] - 2026-08-26
 

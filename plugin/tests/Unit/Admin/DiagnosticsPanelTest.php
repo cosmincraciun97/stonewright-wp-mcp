@@ -146,4 +146,28 @@ final class DiagnosticsPanelTest extends TestCase {
 		self::assertStringNotContainsString( 'javascript:alert(1)', $html );
 		self::assertStringNotContainsString( 'Run payload', $html );
 	}
+
+	public function test_info_checks_are_not_counted_as_successful(): void {
+		$report = [
+			'ready'    => false,
+			'method'   => 'oauth-http',
+			'counts'   => [ 'problem' => 1, 'warning' => 0, 'info' => 2, 'ok' => 1, 'skipped' => 0 ],
+			'checks'   => [
+				DiagnosticCheck::problem( 'mcp_runtime', 'MCP runtime', 'Blocked.', 'Install a compatible adapter.' )->to_array(),
+				DiagnosticCheck::info( 'endpoint', 'MCP endpoint configured', 'https://example.test/wp-json/mcp/stonewright' )->to_array(),
+				DiagnosticCheck::info( 'mcp_server_registration', 'MCP server registration', 'REST routes have not been initialized in this request.' )->to_array(),
+				DiagnosticCheck::ok( 'transport', 'Connection transport', 'HTTPS active.' )->to_array(),
+			],
+			'versions' => [ 'plugin' => '0.0.0-test' ],
+		];
+
+		ob_start();
+		DiagnosticsPanel::render( 'stonewright-troubleshoot', 'Connection checks', $report );
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '1 Problems', $html );
+		self::assertStringContainsString( '1 successful checks', $html );
+		self::assertStringNotContainsString( '3 successful checks', $html );
+		self::assertStringContainsString( 'MCP endpoint configured', $html );
+	}
 }

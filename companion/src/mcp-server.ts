@@ -47,7 +47,8 @@ import {
 import { findSiteByAlias, loadRegistry } from './cli/connect/registry.js';
 import type { SiteRecordV2 } from './cli/connect/types.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
-import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
+import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, type ProbeResult } from './direct/mode.js';
+import { type EndpointEvidence } from './connection/status-contract.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import {
@@ -176,7 +177,24 @@ async function bootstrapConnection(
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
-	runtime.wpReachable = modeProbe.pluginEndpointStatus !== null ? true : null;
+	runtime.endpointEvidence = evidenceFromProbe(modeProbe, env);
+	runtime.wpReachable = modeProbe.pluginEndpointStatus !== null || modeProbe.pluginRouteState !== 'not_checked'
+		? modeProbe.pluginRouteState !== 'inconclusive'
+			? modeProbe.pluginRouteState === 'present'
+			: null
+		: null;
+
+	if (modeProbe.configured === 'plugin-only' && modeProbe.pluginRouteState === 'missing') {
+		wpMcpStatus.ok = false;
+		wpMcpStatus.connected = false;
+		wpMcpStatus.startup_ready = false;
+		wpMcpStatus.error = { message: modeProbe.reason };
+		wpMcpStatus.error_code = modeProbe.errorCode ?? 'plugin_route_missing';
+		wpMcpStatus.next_action = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.';
+		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
+		runtime.syncLegacyStatus();
+		return;
+	}
 
 	if (modeProbe.mode === 'direct') {
 		// plugin-only must never fall into Direct tools (resolveRuntimeMode already
@@ -185,8 +203,8 @@ async function bootstrapConnection(
 		return;
 	}
 
-	// Plugin path (plugin-only or auto preferring plugin).
-	runtime.stateMachine.transition('plugin-authenticated');
+	// Plugin path (plugin-only or auto preferring plugin). Stay probing until initialize succeeds.
+	runtime.stateMachine.transition('plugin-registering');
 	let wpMcpConfig = null;
 	try {
 		wpMcpConfig = await resolveWordPressMcpConfig(env);
@@ -298,6 +316,15 @@ async function bootstrapConnection(
 		wpMcpStatus.error = null;
 		wpMcpStatus.error_code = null;
 		wpMcpStatus.next_action = 'Call stonewright-task-start and follow fast_path.tool_profile.';
+		runtime.endpointEvidence = {
+			...runtime.endpointEvidence,
+			configured_mcp_url: wpMcpConfig.url,
+			active_url: wpMcpConfig.url,
+			plugin_route_state: 'present',
+			plugin_http_status: runtime.endpointEvidence.plugin_http_status,
+			initialized: true,
+			last_checked_at: new Date().toISOString(),
+		};
 		runtime.refreshSurfaceFromServer({ forceBump: true });
 		runtime.syncLegacyStatus();
 	} catch (err) {
@@ -578,7 +605,17 @@ async function registerDirectMode(
 		runtime.callRemoteTool = null;
 		wpMcpStatus.live = null;
 		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
-		wpMcpStatus.url = modeProbe.endpoint;
+		const siteBase = siteBaseFromEnv(env);
+		wpMcpStatus.url = siteBase ? restIndexUrl(siteBase) : modeProbe.endpoint;
+		runtime.endpointEvidence = {
+			...runtime.endpointEvidence,
+			configured_mcp_url: modeProbe.endpoint,
+			active_url: wpMcpStatus.url,
+			plugin_route_state: modeProbe.pluginRouteState,
+			plugin_http_status: modeProbe.pluginEndpointStatus,
+			initialized: false,
+			last_checked_at: new Date().toISOString(),
+		};
 		wpMcpStatus.tool_profile = directProfile;
 		wpMcpStatus.direct_tool_count = registered.length;
 		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
@@ -993,5 +1030,19 @@ function toolResponse<T extends Record<string, unknown>>(result: T): {
 			},
 		],
 		structuredContent: result,
+	};
+}
+
+function evidenceFromProbe(probe: ProbeResult, env: NodeJS.ProcessEnv): EndpointEvidence {
+	const siteBase = siteBaseFromEnv(env);
+	const configured = probe.endpoint;
+	const active = probe.mode === 'direct' && siteBase ? restIndexUrl(siteBase) : configured;
+	return {
+		configured_mcp_url: configured,
+		active_url: active,
+		plugin_route_state: probe.pluginRouteState,
+		plugin_http_status: probe.pluginEndpointStatus,
+		initialized: false,
+		last_checked_at: probe.pluginRouteState === 'not_checked' ? null : new Date().toISOString(),
 	};
 }

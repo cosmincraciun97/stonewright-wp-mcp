@@ -182,6 +182,10 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
 		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+		self::assertSame( 'verified', $result->get_error_data()['generation_status'] ?? null );
+		self::assertSame( 'failed', $result->get_error_data()['delivery_status'] ?? null );
+		self::assertSame( 'delivery', $result->get_error_data()['failed_check'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_data()['root_error_code'] ?? null );
 	}
 
 	public function test_requires_the_target_post_css_after_regeneration(): void {
@@ -567,6 +571,9 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'partial-post', $this->read( 'post-701.css' ) );
 		self::assertSame( 'not_attempted_lock_lost', $result->get_error_data()['manifest_rollback_status'] ?? null );
 		self::assertSame( 'not_attempted_lock_lost', $result->get_error_data()['metadata_rollback_status'] ?? null );
+		self::assertSame( 'failed', $result->get_error_data()['generation_status'] ?? null );
+		self::assertSame( 'blocked', $result->get_error_data()['delivery_status'] ?? null );
+		self::assertSame( 'lease', $result->get_error_data()['failed_check'] ?? null );
 	}
 
 	public function test_css_directory_lease_ttl_covers_the_probe_budget(): void {
@@ -678,12 +685,18 @@ final class CssAssetTransactionTest extends TestCase {
 		$this->write( 'post-701.css', 'old-post' );
 		$url     = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
 		$methods = [];
-		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ) use ( &$methods ): array {
+		$get_limits = [];
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ) use ( &$methods, &$get_limits ): array {
 			$methods[] = strtoupper( (string) ( $args['method'] ?? 'GET' ) );
 			if ( 'HEAD' === strtoupper( (string) ( $args['method'] ?? 'GET' ) ) ) {
 				return [ 'response' => [ 'code' => 405 ], 'headers' => [], 'body' => '' ];
 			}
-			return [ 'response' => [ 'code' => 200 ], 'headers' => [], 'body' => '' ];
+			$get_limits[] = (int) ( $args['limit_response_size'] ?? 0 );
+			return [
+				'response' => [ 'code' => 200 ],
+				'headers'  => [ 'content-type' => 'text/css; charset=UTF-8' ],
+				'body'     => '.elementor-701{color:red}',
+			];
 		};
 
 		$result = CssAssetTransaction::run(
@@ -696,14 +709,26 @@ final class CssAssetTransactionTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'verified', $result['css_evidence']['delivery_status'] ?? null );
 		self::assertContains( 'HEAD', $methods );
 		self::assertContains( 'GET', $methods );
+		self::assertNotContains( 0, $get_limits );
+		foreach ( $get_limits as $limit ) {
+			self::assertGreaterThan( 1, $limit );
+			self::assertLessThanOrEqual( 8192, $limit );
+		}
 	}
 
 	public function test_head_and_get_failures_reject_commit(): void {
 		$this->write( 'post-701.css', 'old-post' );
 		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
-		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ): array {
+		$calls = 0;
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ) use ( &$calls ): array {
+			++$calls;
+			if ( $calls < 2 ) {
+				return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => '' ];
+			}
 			$code = 'HEAD' === strtoupper( (string) ( $args['method'] ?? 'GET' ) ) ? 405 : 500;
 			return [ 'response' => [ 'code' => $code ], 'headers' => [], 'body' => '' ];
 		};
@@ -719,6 +744,8 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
 		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+		self::assertSame( 'failed', $result->get_error_data()['delivery_status'] ?? null );
 	}
 
 	public function test_target_redirect_rejects_commit(): void {
@@ -726,8 +753,8 @@ final class CssAssetTransactionTest extends TestCase {
 		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
 		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): array {
 			return [
-				'response' => [ 'code' => 200 ],
-				'headers'  => [ 'location' => 'https://example.test/login' ],
+				'response' => [ 'code' => 302 ],
+				'headers'  => [ 'location' => 'https://evil.test/steal' ],
 				'body'     => '',
 			];
 		};
@@ -741,8 +768,174 @@ final class CssAssetTransactionTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
+		self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code() );
 		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+	}
+
+	public function test_login_redirect_keeps_generated_file_and_blocks_delivery(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$seen_urls = [];
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ) use ( &$seen_urls ): array {
+			$seen_urls[] = $request_url;
+			self::assertSame( 0, (int) ( $args['redirection'] ?? -1 ) );
+			self::assertSame( [], $args['cookies'] ?? null );
+			self::assertArrayNotHasKey( 'Authorization', $args['headers'] ?? [] );
+			self::assertArrayNotHasKey( 'authorization', $args['headers'] ?? [] );
+			return [
+				'response' => [ 'code' => 302 ],
+				'headers'  => [ 'location' => 'https://example.test/wp-login.php?redirect_to=css' ],
+				'body'     => '<html><body>Secret private page title XYZ</body></html>',
+			];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'frontend', $this->read( 'custom-frontend.min.css' ) );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'not_checked', $result['css_evidence']['frontend_verification_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['css_evidence']['root_error_code'] ?? null );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
+		$encoded = (string) wp_json_encode( $result );
+		self::assertStringNotContainsString( 'Secret private page title XYZ', $encoded );
+		self::assertStringNotContainsString( '<html', $encoded );
+		self::assertNotContains( 'https://example.test/wp-login.php?redirect_to=css', $seen_urls );
+	}
+
+	public function test_head_405_html_get_is_not_valid_css_and_does_not_store_private_body(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function ( string $request_url, array $args = [] ): array {
+			if ( 'HEAD' === strtoupper( (string) ( $args['method'] ?? 'GET' ) ) ) {
+				return [ 'response' => [ 'code' => 405 ], 'headers' => [], 'body' => '' ];
+			}
+			self::assertGreaterThan( 1, (int) ( $args['limit_response_size'] ?? 0 ) );
+			self::assertLessThanOrEqual( 8192, (int) ( $args['limit_response_size'] ?? 0 ) );
+			return [
+				'response' => [ 'code' => 200 ],
+				'headers'  => [ 'content-type' => 'text/html; charset=UTF-8' ],
+				'body'     => '<!DOCTYPE html><html><body class="login"><form name="loginform">Secret private page title XYZ</form></body></html>',
+			];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'frontend', $this->read( 'custom-frontend.min.css' ) );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['css_evidence']['root_error_code'] ?? null );
+		$encoded = (string) wp_json_encode( $result );
+		self::assertStringNotContainsString( 'Secret private page title XYZ', $encoded );
+		self::assertStringNotContainsString( 'loginform', $encoded );
+	}
+
+	public function test_preexisting_http_unavailability_is_baseline_not_corruption(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): \WP_Error {
+			return new \WP_Error( 'http_request_failed', 'Could not connect to example.test' );
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'not_checked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
+	}
+
+	public function test_rolls_back_a_zero_byte_target_and_keeps_siblings(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$this->write( 'post-999.css', 'sibling' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', '' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_empty_target', $result->get_error_code() );
+		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'frontend', $this->read( 'custom-frontend.min.css' ) );
+		self::assertSame( 'failed', $result->get_error_data()['generation_status'] ?? null );
+		self::assertSame( 'not_checked', $result->get_error_data()['delivery_status'] ?? null );
+		self::assertSame( 'generation', $result->get_error_data()['failed_check'] ?? null );
+		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+	}
+
+	public function test_rejects_http_downgrade_loop_and_disallowed_redirects_without_following(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$cases = [
+			'https://example.test/wp-content/uploads/elementor/css/post-701.css',
+			'http://example.test/wp-content/uploads/elementor/css/post-701.css',
+			'file:///etc/passwd',
+			'http://169.254.169.254/latest/meta-data/',
+		];
+		foreach ( $cases as $location ) {
+			$seen = [];
+			$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-701.css'] = static function ( string $request_url, array $args = [] ) use ( &$seen, $location ): array {
+				$seen[] = $request_url;
+				self::assertSame( 0, (int) ( $args['redirection'] ?? -1 ) );
+				self::assertSame( [], $args['cookies'] ?? null );
+				self::assertArrayNotHasKey( 'Authorization', $args['headers'] ?? [] );
+				return [
+					'response' => [ 'code' => 302 ],
+					'headers'  => [ 'location' => $location ],
+					'body'     => '',
+				];
+			};
+			$called = false;
+			$result = CssAssetTransaction::run(
+				$this->target( 701 ),
+				static function () use ( &$called ): array {
+					$called = true;
+					return [ 'ok' => true ];
+				}
+			);
+			self::assertInstanceOf( \WP_Error::class, $result, $location );
+			self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code(), $location );
+			self::assertFalse( $called, $location );
+			self::assertSame( [ 'https://example.test/wp-content/uploads/elementor/css/post-701.css' ], array_values( array_unique( $seen ) ) );
+			self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+		}
 	}
 
 	public function test_restores_collateral_file_bytes_and_modes(): void {

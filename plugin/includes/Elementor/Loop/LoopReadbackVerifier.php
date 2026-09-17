@@ -41,20 +41,66 @@ final class LoopReadbackVerifier {
 			return self::mismatch( 'widget_type' );
 		}
 
-		$settings     = is_array( $widget['settings'] ?? null ) ? $widget['settings'] : [];
-		$template_key = (string) ( $expected['template_control'] ?? '' );
-		if ( '' === $template_key || (int) ( $settings[ $template_key ] ?? 0 ) !== (int) ( $expected['template_id'] ?? 0 ) ) {
-			return self::mismatch( 'template', [ 'control' => $template_key ] );
-		}
-		foreach ( (array) ( $expected['settings'] ?? [] ) as $control => $value ) {
-			if ( ! array_key_exists( $control, $settings ) || $settings[ $control ] !== $value ) {
-				return self::mismatch( 'settings', [ 'control' => sanitize_key( (string) $control ) ] );
+		$instances = is_array( $expected['instances'] ?? null ) ? $expected['instances'] : [];
+		$targets   = [] !== $instances
+			? $instances
+			: [
+				[
+					'widget_id'        => $widget_id,
+					'widget_type'      => (string) ( $expected['widget_type'] ?? '' ),
+					'template_id'      => (int) ( $expected['template_id'] ?? 0 ),
+					'template_control' => (string) ( $expected['template_control'] ?? '' ),
+					'settings'         => (array) ( $expected['settings'] ?? [] ),
+				],
+			];
+
+		$checks = [ 'hash', 'parent' ];
+		foreach ( $targets as $index => $target ) {
+			$target = is_array( $target ) ? $target : [];
+			$target_id = (string) ( $target['widget_id'] ?? $widget_id );
+			$target_path = $index === 0 && $target_id === $widget_id
+				? $widget_path
+				: ElementorData::find_path( $tree, $target_id );
+			if ( null === $target_path ) {
+				return self::mismatch( 'widget_missing', [ 'widget_id' => $target_id ] );
 			}
+			if ( ! self::is_direct_child( $parent_path, $target_path ) ) {
+				return self::mismatch( 'parent', [ 'widget_id' => $target_id ] );
+			}
+			$node = self::resolve( $tree, $target_path );
+			if ( null === $node ) {
+				return self::mismatch( 'widget_missing', [ 'widget_id' => $target_id ] );
+			}
+			$expected_type = (string) ( $target['widget_type'] ?? $expected['widget_type'] ?? '' );
+			if ( (string) ( $node['widgetType'] ?? '' ) !== $expected_type ) {
+				return self::mismatch( 'widget_type', [ 'widget_id' => $target_id ] );
+			}
+			$settings     = is_array( $node['settings'] ?? null ) ? $node['settings'] : [];
+			$template_key = (string) ( $target['template_control'] ?? $expected['template_control'] ?? '' );
+			$template_id  = (int) ( $target['template_id'] ?? $expected['template_id'] ?? 0 );
+			if ( '' === $template_key || (int) ( $settings[ $template_key ] ?? 0 ) !== $template_id ) {
+				return self::mismatch( 'template', [ 'control' => $template_key, 'widget_id' => $target_id ] );
+			}
+			foreach ( (array) ( $target['settings'] ?? [] ) as $control => $value ) {
+				if ( ! array_key_exists( $control, $settings ) || $settings[ $control ] !== $value ) {
+					return self::mismatch( 'settings', [ 'control' => sanitize_key( (string) $control ), 'widget_id' => $target_id ] );
+				}
+			}
+			$probe = $expected['render_probe'] ?? null;
+			if ( is_callable( $probe ) && ! $probe( $node ) ) {
+				return self::mismatch( 'render', [ 'widget_id' => $target_id ] );
+			}
+		}
+		$checks[] = 'widget_type';
+		$checks[] = 'template';
+		$checks[] = 'settings';
+		if ( is_callable( $expected['render_probe'] ?? null ) ) {
+			$checks[] = 'render';
 		}
 
 		return [
 			'verified'      => true,
-			'checks'        => [ 'hash', 'parent', 'widget_type', 'template', 'settings' ],
+			'checks'        => $checks,
 			'readback_hash' => $actual_hash,
 		];
 	}

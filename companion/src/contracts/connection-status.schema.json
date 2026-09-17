@@ -126,6 +126,44 @@
         "registry_ready": { "type": "boolean" }
       }
     },
+    "EndpointEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configured_mcp_url",
+        "active_url",
+        "plugin_route_state",
+        "plugin_http_status",
+        "initialized",
+        "last_checked_at"
+      ],
+      "properties": {
+        "configured_mcp_url": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "maxLength": 2048 }
+          ]
+        },
+        "active_url": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "maxLength": 2048 }
+          ]
+        },
+        "plugin_route_state": {
+          "type": "string",
+          "enum": ["not_checked", "present", "missing", "inconclusive"]
+        },
+        "plugin_http_status": { "type": ["integer", "null"] },
+        "initialized": { "type": "boolean" },
+        "last_checked_at": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "format": "date-time", "maxLength": 64 }
+          ]
+        }
+      }
+    },
     "SurfaceStatus": {
       "type": "object",
       "additionalProperties": false,
@@ -238,6 +276,7 @@
         "recovery",
         "wordpress_runtime",
         "plugin",
+        "endpoint_evidence",
         "surface",
         "client_visibility",
         "process_start_id",
@@ -279,6 +318,7 @@
         "recovery": { "$ref": "#/$defs/RecoveryStatus" },
         "wordpress_runtime": { "$ref": "#/$defs/WordPressRuntimeStatus" },
         "plugin": { "$ref": "#/$defs/PluginStatus" },
+        "endpoint_evidence": { "$ref": "#/$defs/EndpointEvidence" },
         "surface": { "$ref": "#/$defs/SurfaceStatus" },
         "client_visibility": { "$ref": "#/$defs/ClientVisibility" },
         "process_start_id": {

@@ -33,6 +33,53 @@ final class LoopReadbackVerifierTest extends TestCase {
 		self::assertSame( [ 'hash', 'parent', 'widget_type', 'template', 'settings' ], $result['checks'] );
 	}
 
+	public function test_verifies_template_query_post_type_and_pagination_from_widget(): void {
+		$tree = [
+			self::container_with_loop(
+				'parent-a',
+				'widget-a',
+				'loop-grid',
+				77,
+				[
+					'template_id'      => 77,
+					'query_post_type'  => 'project',
+					'posts_per_page'   => 6,
+					'pagination_type'  => 'numbers',
+					'columns'          => 3,
+				]
+			),
+		];
+
+		$result = LoopReadbackVerifier::verify(
+			$tree,
+			[
+				'tree_hash'        => TreeHasher::hash( $tree ),
+				'parent_id'        => 'parent-a',
+				'widget_id'        => 'widget-a',
+				'widget_type'      => 'loop-grid',
+				'template_id'      => 77,
+				'template_control' => 'template_id',
+				'settings'         => [
+					'template_id'     => 77,
+					'query_post_type' => 'project',
+					'posts_per_page'  => 6,
+					'pagination_type' => 'numbers',
+					'columns'         => 3,
+				],
+				'render_probe'     => static function ( array $widget ): bool {
+					$settings = is_array( $widget['settings'] ?? null ) ? $widget['settings'] : [];
+					return 77 === (int) ( $settings['template_id'] ?? 0 )
+						&& 'project' === (string) ( $settings['query_post_type'] ?? '' )
+						&& 'numbers' === (string) ( $settings['pagination_type'] ?? '' );
+				},
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['verified'] );
+		self::assertContains( 'render', $result['checks'] );
+	}
+
 	/**
 	 * @dataProvider mismatch_provider
 	 * @param array<string, mixed> $changes
@@ -70,12 +117,15 @@ final class LoopReadbackVerifierTest extends TestCase {
 		];
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @param array<string, mixed> $settings
+	 */
 	private static function container_with_loop(
 		string $parent_id,
 		string $widget_id,
 		string $widget_type,
-		int $template_id
+		int $template_id,
+		array $settings = []
 	): array {
 		return [
 			'id'       => $parent_id,
@@ -86,7 +136,7 @@ final class LoopReadbackVerifierTest extends TestCase {
 					'id'         => $widget_id,
 					'elType'     => 'widget',
 					'widgetType' => $widget_type,
-					'settings'   => [
+					'settings'   => $settings + [
 						'template_id' => $template_id,
 						'columns'     => 3,
 					],

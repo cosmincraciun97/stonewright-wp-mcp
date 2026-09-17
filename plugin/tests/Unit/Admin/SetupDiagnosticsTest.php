@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Admin\SetupDiagnostics;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Core\McpRegistrationState;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\SetupDiagnostics
@@ -21,13 +23,26 @@ final class SetupDiagnosticsTest extends TestCase {
 		];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_transient_ttls']  = [];
+		$GLOBALS['stonewright_test_filters']     = [];
+		$abilities = dirname( __DIR__, 3 ) . '/vendor/wordpress/abilities-api/includes/abilities-api';
+		if ( ! class_exists( 'WP_Ability', false ) && is_readable( $abilities . '/class-wp-ability.php' ) ) {
+			require_once $abilities . '/class-wp-ability.php';
+		}
+		if ( ! class_exists( 'WP_Abilities_Registry', false ) && is_readable( $abilities . '/class-wp-abilities-registry.php' ) ) {
+			require_once $abilities . '/class-wp-abilities-registry.php';
+		}
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
+		McpRegistrationState::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options']        = [];
 		$GLOBALS['stonewright_test_transients']     = [];
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		$GLOBALS['stonewright_test_filters']        = [];
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
+		McpRegistrationState::reset_for_tests();
 	}
 
 	public function test_report_is_compact_and_versioned(): void {
@@ -37,8 +52,10 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertArrayHasKey( 'method', $report );
 		self::assertArrayHasKey( 'counts', $report );
 		self::assertGreaterThanOrEqual( 11, count( $report['checks'] ) );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'mcp_runtime' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'connection' )['status'] );
-		self::assertSame( 'ok', $this->find_check( $report['checks'], 'endpoint' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'endpoint' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'mcp_server_registration' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'tool_surface' )['status'] );
 		self::assertSame( 'info', $this->find_check( $report['checks'], 'connection_probe' )['status'] );
 		self::assertSame( 'info', $this->find_check( $report['checks'], 'waf' )['status'] );
@@ -51,6 +68,41 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertArrayHasKey( 'problem', $report['counts'] );
 		self::assertArrayHasKey( 'skipped', $report['counts'] );
 		self::assertSame( 0, $report['counts']['skipped'] );
+		self::assertStringContainsString( 'has not been tested', (string) $this->find_check( $report['checks'], 'connection' )['summary'] );
+	}
+
+	public function test_mcp_runtime_conflict_is_a_problem_and_not_ready(): void {
+		$fixtures = dirname( __DIR__, 2 ) . '/fixtures/Compatibility';
+		McpAbilitiesCompatibilityPreflight::inspect( [], 'Vendor\\MissingAdapter', [ $fixtures . '/release-a', $fixtures . '/release-b' ] );
+
+		$report = SetupDiagnostics::report();
+		$runtime = $this->find_check( $report['checks'], 'mcp_runtime' );
+
+		self::assertFalse( $report['ready'] );
+		self::assertSame( 'problem', $runtime['status'] );
+		self::assertGreaterThanOrEqual( 1, $report['counts']['problem'] );
+		self::assertNotSame( '', (string) ( $runtime['remedy'] ?? '' ) );
+		self::assertStringNotContainsString( 'Gravity Forms', (string) ( $runtime['remedy'] ?? '' ) );
+	}
+
+	public function test_failed_server_registration_is_a_problem(): void {
+		McpRegistrationState::record(
+			'stonewright',
+			[
+				'state'      => 'failed',
+				'error_code' => 'invalid_transport',
+				'message'    => 'The selected MCP transport contract is incompatible.',
+				'owner'      => 'plugin:provider-a',
+				'version'    => '0.6.1',
+			]
+		);
+
+		$report = SetupDiagnostics::report();
+		$registration = $this->find_check( $report['checks'], 'mcp_server_registration' );
+
+		self::assertFalse( $report['ready'] );
+		self::assertSame( 'problem', $registration['status'] );
+		self::assertStringContainsString( 'incompatible', (string) $registration['summary'] );
 	}
 
 	public function test_disabled_plugin_skips_dependent_connection_checks(): void {

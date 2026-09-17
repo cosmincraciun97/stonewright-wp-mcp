@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
 
 /**
@@ -36,6 +37,8 @@ final class ServerRegistrationTest extends TestCase {
 	protected function tearDown(): void {
 		remove_all_actions( 'mcp_adapter_init' );
 		McpAbilitiesCompatibilityPreflight::reset_for_tests();
+		McpRegistrationState::reset_for_tests();
+		ErrorReturningMcpAdapter::reset();
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 		$GLOBALS['stonewright_test_filters']    = [];
 		$GLOBALS['stonewright_test_options']    = [];
@@ -120,6 +123,75 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertSame( $adapter->calls[0][9], $adapter->calls[1][9] );
 	}
 
+	public function test_create_server_wp_error_is_recorded_as_failed(): void {
+		$adapter = ErrorReturningMcpAdapter::returning(
+			new \WP_Error( 'invalid_transport', 'The selected MCP transport contract is incompatible.' )
+		);
+
+		ServerRegistration::register_server( $adapter );
+
+		$report = McpRegistrationState::report();
+		$by_id = array_column( $report['servers'], null, 'server_id' );
+		self::assertSame( 'failed', $by_id['stonewright']['state'] );
+		self::assertSame( 'invalid_transport', $by_id['stonewright']['error_code'] );
+		self::assertSame( 'The selected MCP transport contract is incompatible.', $by_id['stonewright']['message'] );
+		self::assertSame( 'failed', $by_id['stonewright-oauth']['state'] );
+	}
+
+	public function test_duplicate_hook_with_existing_stonewright_identity_is_idempotent(): void {
+		$adapter = new RegistryMcpAdapter();
+		ServerRegistration::register_server( $adapter );
+		ServerRegistration::register_server( $adapter );
+
+		self::assertSame( 2, $adapter->create_calls, 'Second hook must not recreate already-registered Stonewright servers.' );
+		$report = McpRegistrationState::report();
+		$by_id = array_column( $report['servers'], null, 'server_id' );
+		self::assertSame( 'registered', $by_id['stonewright']['state'] );
+		self::assertSame( 'registered', $by_id['stonewright-oauth']['state'] );
+	}
+
+	public function test_occupied_server_id_is_not_overwritten(): void {
+		$adapter = new RegistryMcpAdapter();
+		$adapter->seed(
+			'stonewright',
+			(object) [
+				'id'    => 'stonewright',
+				'route' => 'other',
+				'name'  => 'Other',
+			]
+		);
+
+		ServerRegistration::register_server( $adapter );
+
+		self::assertSame( 1, $adapter->create_calls );
+		$report = McpRegistrationState::report();
+		$by_id = array_column( $report['servers'], null, 'server_id' );
+		self::assertSame( 'failed', $by_id['stonewright']['state'] );
+		self::assertSame( 'duplicate_server_id', $by_id['stonewright']['error_code'] );
+		self::assertSame( 'other', $adapter->get_server( 'stonewright' )->get_server_route() );
+	}
+
+	public function test_default_adapter_server_does_not_count_as_stonewright_registered(): void {
+		$adapter = new RegistryMcpAdapter();
+		$adapter->seed(
+			'mcp-adapter-default-server',
+			(object) [
+				'id'    => 'mcp-adapter-default-server',
+				'route' => 'mcp-adapter-default-server',
+				'name'  => 'Default',
+			]
+		);
+
+		$report = McpRegistrationState::report();
+		self::assertSame( 'not_checked', $report['servers'][0]['state'] );
+
+		ServerRegistration::register_server( $adapter );
+		$report = McpRegistrationState::report();
+		$by_id = array_column( $report['servers'], null, 'server_id' );
+		self::assertSame( 'registered', $by_id['stonewright']['state'] );
+		self::assertNotSame( 'mcp-adapter-default-server', $by_id['stonewright']['server_id'] );
+	}
+
 	public function test_mcp_adapter_init_refuses_a_hostile_incompatible_adapter_before_server_invocation(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_compatibility_class_names'] = static fn(): array => [
 			'adapter'            => HostileMcpAdapter::class,
@@ -159,8 +231,112 @@ final class ServerRegistrationTest extends TestCase {
 	}
 }
 
+final class ErrorReturningMcpAdapter {
+	public const VERSION = '0.6.1';
+
+	private static ?\WP_Error $error = null;
+
+	public static function instance(): self {
+		return new self();
+	}
+
+	public static function returning( \WP_Error $error ): self {
+		self::$error = $error;
+		return new self();
+	}
+
+	public static function reset(): void {
+		self::$error = null;
+	}
+
+	public function create_server(
+		string $id,
+		string $namespace,
+		string $route,
+		string $name,
+		string $description,
+		string $version,
+		array $transports,
+		?string $error_handler,
+		?string $observability_handler = null,
+		array $tools = [],
+		array $resources = [],
+		array $prompts = [],
+		?callable $configure = null
+	) {
+		unset( $id, $namespace, $route, $name, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
+		return self::$error ?? new \WP_Error( 'invalid_transport', 'The selected MCP transport contract is incompatible.' );
+	}
+}
+
+final class FakeRegisteredMcpServer {
+	public function __construct(
+		private string $id,
+		private string $route,
+		private string $name
+	) {}
+
+	public function get_server_id(): string {
+		return $this->id;
+	}
+
+	public function get_server_route(): string {
+		return $this->route;
+	}
+
+	public function get_server_name(): string {
+		return $this->name;
+	}
+}
+
+final class RegistryMcpAdapter {
+	public const VERSION = '0.6.1';
+
+	public int $create_calls = 0;
+
+	public static function instance(): self {
+		return new self();
+	}
+
+	/** @var array<string, FakeRegisteredMcpServer> */
+	private array $servers = [];
+
+	public function seed( string $id, object $server ): void {
+		$this->servers[ $id ] = new FakeRegisteredMcpServer(
+			(string) ( $server->id ?? $id ),
+			(string) ( $server->route ?? '' ),
+			(string) ( $server->name ?? '' )
+		);
+	}
+
+	public function get_server( string $id ): ?FakeRegisteredMcpServer {
+		return $this->servers[ $id ] ?? null;
+	}
+
+	public function create_server(
+		string $id,
+		string $namespace,
+		string $route,
+		string $name,
+		string $description,
+		string $version,
+		array $transports,
+		?string $error_handler,
+		?string $observability_handler = null,
+		array $tools = [],
+		array $resources = [],
+		array $prompts = [],
+		?callable $configure = null
+	) {
+		unset( $namespace, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
+		++$this->create_calls;
+		$this->servers[ $id ] = new FakeRegisteredMcpServer( $id, $route, $name );
+		return $this;
+	}
+}
+
 final class CapturingMcpAdapter {
-	public const VERSION = '0.3.0';
+	public const VERSION = '0.6.1';
 
 	/**
 	 * @var list<list<mixed>>

@@ -175,6 +175,43 @@ final class IncidentRepairLifecycleTest extends TestCase {
 		}
 	}
 
+	public function test_rollback_failed_incident_is_not_closed_by_generic_later_success(): void {
+		$failure = $this->failure();
+		$failure['category']        = AuditEvent::CATEGORY_ROLLBACK;
+		$failure['severity_level']  = 'critical';
+		$failure['root_error_code'] = 'stonewright_rollback_failed';
+		$failure['rollback_status'] = 'failed';
+
+		IncidentStore::observe( $failure );
+		$retry = $failure;
+		$retry['event_id'] = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+		$open = IncidentStore::observe( $retry );
+		self::assertSame( 'open', $open['state'] );
+
+		$closed = IncidentStore::resolve( [
+			'incident_id'         => $this->incident_id(),
+			'event_id'            => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+			'outcome'             => AuditEvent::OUTCOME_SUCCESS,
+			'ability'             => 'stonewright/example-verify',
+			'verification_status' => 'verified',
+			'change_set_id'       => 'change-set-a',
+			'resource_key_hash'   => hash( 'sha256', 'resource' ),
+			'normalized_path'     => 'example/settings/title',
+		] );
+
+		self::assertFalse( $closed );
+		self::assertSame( 'open', IncidentStore::get( $this->incident_id() )['state'] );
+	}
+
+	public function test_unchanged_execution_never_opens_an_incident(): void {
+		$event = $this->failure();
+		$event['execution_status'] = 'unchanged';
+		$event['outcome']          = AuditEvent::OUTCOME_SUCCESS;
+
+		self::assertNull( IncidentStore::observe( $event ) );
+		self::assertSame( [], IncidentStore::recent() );
+	}
+
 	/** @return array<string, mixed> */
 	private function failure( string $event_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' ): array {
 		return [

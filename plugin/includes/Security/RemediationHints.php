@@ -31,7 +31,7 @@ final class RemediationHints {
 		'stonewright_widget_invalid_name'    => 'Widget name/type is invalid. Read the live widget registry before defining or registering.',
 		'stonewright_tree_hash_mismatch'     => 'Elementor tree hash is stale. Re-read page structure, recompute mutations against the fresh tree, then retry batch-mutate.',
 		'stonewright_element_not_found'      => 'Element id missing from the Elementor tree. Re-read page structure and use a live element id.',
-		'stonewright_batch_operation_failed' => 'Use only action=add_container|add_widget|update_element|move_element|remove_element. Read schema_requests, call each exact request once, replace only rejected settings, and rerun one consolidated dry-run with require_evidence:true for visual work. Never fall back to php-execute or WP-CLI.',
+		'stonewright_batch_operation_failed' => 'Use only action=add_container|add_widget|update_element|patch_repeater_row|move_element|remove_element. Read schema_requests, call each exact request once, replace only rejected settings, and rerun one consolidated dry-run with require_evidence:true for visual work. Never fall back to php-execute or WP-CLI.',
 		'stonewright_elementor_settings_invalid'      => 'Read the rejected setting path, expected control type, and received value from the error. Fetch that exact live control schema, replace only the invalid value, then rerun one consolidated dry-run. Do not strip unrelated settings or duplicate the widget.',
 		'stonewright_elementor_readback_failed_restored' => 'The previous document was restored. Re-read the current tree and hash, serialize all later writes to this document, rebuild the smallest mutation against fresh state, and retry one dry-run. Do not force a full-tree rewrite.',
 		'stonewright_elementor_size_collapse'         => 'The incoming tree is materially smaller than the live document. Re-read the full tree and use a surgical element mutation. Use force_destructive only for an explicitly approved full replacement with a fresh snapshot.',
@@ -50,6 +50,8 @@ final class RemediationHints {
 		'stonewright_custom_code_grant_invalid'      => 'The custom-code grant is malformed, expired, already used, or bound to a different candidate. Rerun dry_run, show the refreshed approval URL and exact candidate to the user, then stop. The human issues and returns a fresh one-time grant; never open or submit the approval page unless explicitly asked. Retry the unchanged candidate once.',
 		'stonewright_native_gap_required'             => 'Native implementation has not been disproved. Read the live schema and document the exact native methods tried and why each failed before requesting a custom-code grant. Never use php-execute or Sandbox to bypass this refusal.',
 		'stonewright_php_read_only_violation'         => 'The snippet declared read_only but attempted a mutation. Keep the inspection read-only, or rerun the intended mutation through the appropriate typed ability. php-execute read_only is not a write bypass.',
+		'stonewright_elementor_write_busy'            => 'Another write holds this post. Wait retry_after_seconds, then retry the same mutation up to the retry limit of 3. Do not change the payload or start a parallel write.',
+		'stonewright_rollback_failed'                 => 'Rollback failed. Stop. Do not retry the original write. Inspect backups and the live document, then investigate before any further mutation.',
 		'stonewright_theme_write_smoke_failed'       => 'Theme write was rolled back after fresh-bootstrap smoke failed. Inspect the backup under uploads/stonewright-theme-backups, fix the candidate, dry_run again, then re-apply with a new grant.',
 		'stonewright_non_atomic_target'              => 'The target id is not an Atomic node. Re-read with stonewright/elementor-v4-read-atomic-tree and pick an e-* id, or use stonewright/elementor-v3-update-element for classic widgets/containers.',
 		'stonewright_unknown_widget'         => 'Widget type is not registered on this site. List live widgets / read schema before writing controls.',
@@ -64,23 +66,38 @@ final class RemediationHints {
 		'stonewright/design-validate-spec'            => 'Fix every path listed in the validator errors; do not render until validation returns ok.',
 		'stonewright/content-update-page'             => 'Confirm the page id exists and the user can edit it; re-fetch content before overwriting.',
 		'stonewright/wp-cli-run'                      => 'Check stonewright-wp-cli-status, discover the exact command argv, and never use eval/shell entry points.',
+		'stonewright/php-execute'                     => 'Fix the snippet cause, then retry once. php-execute has no dry_run parameter. Never use it to bypass typed Elementor or theme-file writes.',
+		'stonewright/elementor-css-regenerate'        => 'Inspect the CSS transaction evidence, then retry the regenerator only after the write is confirmed. stonewright/elementor-css-regenerate has no dry_run parameter.',
 	];
 
 	private const GENERIC = 'Re-run the failing ability with dry_run:true where supported, read the per-operation errors and repair hints in the response, fix the cause, then retry once. If it recurs, record it with stonewright/learning-record.';
 
 	/**
-	 * @param string $code    Error code from audit _meta.error_code when present.
-	 * @param string $ability Ability name (slash form) for per-ability fallback.
+	 * @param string $code         Cause / root error code when present.
+	 * @param string $ability      Ability name (slash form) for per-ability fallback.
+	 * @param string $wrapper_code Outer wrapper code when distinct from the cause.
 	 */
-	public static function for_code( string $code, string $ability = '' ): string {
-		$code = sanitize_key( $code );
-		if ( '' !== $code && isset( self::CODE_HINTS[ $code ] ) ) {
-			return self::CODE_HINTS[ $code ];
+	public static function for_code( string $code, string $ability = '', string $wrapper_code = '' ): string {
+		foreach ( [ $code, $wrapper_code ] as $candidate ) {
+			$candidate = sanitize_key( $candidate );
+			if ( '' !== $candidate && isset( self::CODE_HINTS[ $candidate ] ) ) {
+				return self::CODE_HINTS[ $candidate ];
+			}
 		}
 		$ability = (string) $ability;
 		if ( '' !== $ability && isset( self::ABILITY_HINTS[ $ability ] ) ) {
 			return self::ABILITY_HINTS[ $ability ];
 		}
+		if ( false === self::ability_supports_dry_run( $ability ) ) {
+			return 'Fix the cause, then retry once. This ability has no dry_run parameter. If it recurs, record it with stonewright/learning-record.';
+		}
 		return self::GENERIC;
+	}
+
+	private static function ability_supports_dry_run( string $ability ): ?bool {
+		if ( in_array( $ability, [ 'stonewright/php-execute', 'stonewright/elementor-css-regenerate' ], true ) ) {
+			return false;
+		}
+		return null;
 	}
 }

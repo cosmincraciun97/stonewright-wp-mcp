@@ -21,6 +21,16 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 
 	private const ABILITY_REGISTRY = __DIR__ . '/../../includes/Core/AbilityRegistry.php';
 	private const VENDOR_ABILITY   = __DIR__ . '/../../vendor/wordpress/abilities-api/includes/abilities-api/class-wp-ability.php';
+	private const VENDOR_REGISTRY  = __DIR__ . '/../../vendor/wordpress/abilities-api/includes/abilities-api/class-wp-abilities-registry.php';
+
+	protected function setUp(): void {
+		if ( ! class_exists( 'WP_Ability', false ) && is_readable( self::VENDOR_ABILITY ) ) {
+			require_once self::VENDOR_ABILITY;
+		}
+		if ( ! class_exists( 'WP_Abilities_Registry', false ) && is_readable( self::VENDOR_REGISTRY ) ) {
+			require_once self::VENDOR_REGISTRY;
+		}
+	}
 
 	public function test_ability_registry_uses_stonewright_compatibility_class(): void {
 		$this->assertFileExists( self::ABILITY_REGISTRY );
@@ -35,10 +45,6 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 	}
 
 	public function test_registered_ability_exposes_has_permission_for_vendor_rest_controller(): void {
-		if ( ! class_exists( \WP_Ability::class ) ) {
-			require_once self::VENDOR_ABILITY;
-		}
-
 		$this->assertTrue( is_subclass_of( RegisteredAbility::class, \WP_Ability::class ) );
 		$this->assertTrue( method_exists( RegisteredAbility::class, 'has_permission' ) );
 
@@ -58,10 +64,6 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 	}
 
 	public function test_registered_ability_accepts_null_input_from_mcp_adapters(): void {
-		if ( ! class_exists( \WP_Ability::class ) ) {
-			require_once self::VENDOR_ABILITY;
-		}
-
 		$this->assertTrue( method_exists( RegisteredAbility::class, 'check_permissions' ) );
 
 		$ability = new RegisteredAbility(
@@ -81,10 +83,6 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 	}
 
 	public function test_registered_ability_validates_runtime_schema_placeholders_without_stdclass_fatal(): void {
-		if ( ! class_exists( \WP_Ability::class ) ) {
-			require_once self::VENDOR_ABILITY;
-		}
-
 		$ability = new RegisteredAbility(
 			'stonewright/test-runtime-schema-placeholders',
 			[

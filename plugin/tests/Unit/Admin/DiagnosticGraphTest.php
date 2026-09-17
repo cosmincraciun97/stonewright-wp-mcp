@@ -228,4 +228,16 @@ final class DiagnosticGraphTest extends TestCase {
 			$array
 		);
 	}
+
+	public function test_info_checks_are_counted_separately_from_successful_ok(): void {
+		$graph = new DiagnosticGraph();
+		$graph->add( 'endpoint', [], static fn() => DiagnosticCheck::info( 'endpoint', 'Endpoint', 'Configured URL only.' ) );
+		$graph->add( 'runtime', [], static fn() => DiagnosticCheck::ok( 'runtime', 'Runtime', 'Compatible.' ) );
+		$graph->add( 'conflict', [], static fn() => DiagnosticCheck::problem( 'conflict', 'Conflict', 'Blocked.', 'Install a compatible adapter.' ) );
+		$result = $graph->run();
+
+		self::assertSame( 1, $result['counts']['info'] );
+		self::assertSame( 1, $result['counts']['ok'] );
+		self::assertSame( 1, $result['counts']['problem'] );
+	}
 }

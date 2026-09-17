@@ -46,6 +46,7 @@ final class McpLoopbackSelfTest {
 		if ( 'passed' !== $credential['step']['status'] ) {
 			$ok = false;
 			$steps[] = self::skipped_step( 'initialize', __( 'Not run because credential mint failed.', 'stonewright' ) );
+			$steps[] = self::skipped_step( 'initialized', __( 'Not run because credential mint failed.', 'stonewright' ) );
 			$steps[] = self::skipped_step( 'tools_list', __( 'Not run because credential mint failed.', 'stonewright' ) );
 			$steps[] = self::skipped_step( 'task_start', __( 'Not run because credential mint failed.', 'stonewright' ) );
 			$steps[] = self::cleanup_credential( $credential['user_id'], $credential['uuid'] );
@@ -62,47 +63,59 @@ final class McpLoopbackSelfTest {
 		// Drop plaintext as soon as the Authorization header is built.
 		unset( $credential['password'] );
 
-		$init = self::step_initialize( $transport, $endpoint, $auth );
-		$steps[] = $init['step'];
-		if ( 'passed' !== $init['step']['status'] ) {
+		try {
+			$init = self::step_initialize( $transport, $endpoint, $auth );
+			$steps[] = $init['step'];
+			if ( 'passed' !== $init['step']['status'] ) {
+				$ok = false;
+				$steps[] = self::skipped_step( 'initialized', __( 'Not run because initialize failed.', 'stonewright' ) );
+				$steps[] = self::skipped_step( 'tools_list', __( 'Not run because initialize failed.', 'stonewright' ) );
+				$steps[] = self::skipped_step( 'task_start', __( 'Not run because initialize failed.', 'stonewright' ) );
+			} else {
+				$session_id = $init['session_id'];
+				$notify = self::step_initialized( $transport, $endpoint, $auth, $session_id );
+				$steps[] = $notify['step'];
+				if ( 'passed' !== $notify['step']['status'] ) {
+					$ok = false;
+					$steps[] = self::skipped_step( 'tools_list', __( 'Not run because initialize notification failed.', 'stonewright' ) );
+					$steps[] = self::skipped_step( 'task_start', __( 'Not run because initialize notification failed.', 'stonewright' ) );
+				} else {
+					if ( '' !== $notify['session_id'] ) {
+						$session_id = $notify['session_id'];
+					}
+					$tools = self::step_tools_list( $transport, $endpoint, $auth, $session_id );
+					$steps[] = $tools['step'];
+					if ( 'passed' !== $tools['step']['status'] ) {
+						$ok = false;
+						$steps[] = self::skipped_step( 'task_start', __( 'Not run because tools/list failed.', 'stonewright' ) );
+					} else {
+						if ( '' !== $tools['session_id'] ) {
+							$session_id = $tools['session_id'];
+						}
+						$task = self::step_task_start( $transport, $endpoint, $auth, $session_id );
+						$steps[] = $task['step'];
+						if ( 'passed' !== $task['step']['status'] ) {
+							$ok = false;
+						}
+					}
+				}
+			}
+		} catch ( \Throwable $error ) {
+			unset( $error );
 			$ok = false;
-			$steps[] = self::skipped_step( 'tools_list', __( 'Not run because initialize failed.', 'stonewright' ) );
-			$steps[] = self::skipped_step( 'task_start', __( 'Not run because initialize failed.', 'stonewright' ) );
-			$steps[] = self::cleanup_credential( $credential['user_id'], $credential['uuid'] );
-			if ( 'passed' !== $steps[ count( $steps ) - 1 ]['status'] ) {
+			$steps[] = self::step(
+				'handshake',
+				'failed',
+				__( 'MCP loopback failed before completing the handshake.', 'stonewright' ),
+				__( 'Retry Verify connection. If it recurs, inspect MCP adapter logs without sharing credentials.', 'stonewright' ),
+				true
+			);
+		} finally {
+			$cleanup = self::cleanup_credential( $credential['user_id'], $credential['uuid'] );
+			$steps[] = $cleanup;
+			if ( 'passed' !== $cleanup['status'] ) {
 				$ok = false;
 			}
-
-			return self::envelope( $ok, $steps, $endpoint, $version );
-		}
-		$session_id = $init['session_id'];
-
-		$tools = self::step_tools_list( $transport, $endpoint, $auth, $session_id );
-		$steps[] = $tools['step'];
-		if ( 'passed' !== $tools['step']['status'] ) {
-			$ok = false;
-			$steps[] = self::skipped_step( 'task_start', __( 'Not run because tools/list failed.', 'stonewright' ) );
-			$steps[] = self::cleanup_credential( $credential['user_id'], $credential['uuid'] );
-			if ( 'passed' !== $steps[ count( $steps ) - 1 ]['status'] ) {
-				$ok = false;
-			}
-
-			return self::envelope( $ok, $steps, $endpoint, $version );
-		}
-		if ( '' !== $tools['session_id'] ) {
-			$session_id = $tools['session_id'];
-		}
-
-		$task = self::step_task_start( $transport, $endpoint, $auth, $session_id );
-		$steps[] = $task['step'];
-		if ( 'passed' !== $task['step']['status'] ) {
-			$ok = false;
-		}
-
-		$cleanup = self::cleanup_credential( $credential['user_id'], $credential['uuid'] );
-		$steps[] = $cleanup;
-		if ( 'passed' !== $cleanup['status'] ) {
-			$ok = false;
 		}
 
 		return self::envelope( $ok, $steps, $endpoint, $version );
@@ -334,14 +347,31 @@ final class McpLoopbackSelfTest {
 		}
 
 		$result = is_array( $body['result'] ?? null ) ? $body['result'] : [];
-		$has_server_info = isset( $result['serverInfo'] ) && is_array( $result['serverInfo'] );
+		$server_info = is_array( $result['serverInfo'] ?? null ) ? $result['serverInfo'] : [];
+		$server_name = (string) ( $server_info['name'] ?? '' );
 		$has_protocol    = isset( $result['protocolVersion'] ) && '' !== (string) $result['protocolVersion'];
-		if ( ! $has_server_info && ! $has_protocol ) {
+		if ( 'Stonewright' !== $server_name ) {
 			return [
 				'step'       => self::step(
 					'initialize',
 					'failed',
-					__( 'Initialize response lacked serverInfo and protocolVersion.', 'stonewright' ),
+					sprintf(
+						/* translators: %s: server name from initialize. */
+						__( 'Initialize serverInfo.name was "%s", not Stonewright.', 'stonewright' ),
+						'' === $server_name ? 'missing' : $server_name
+					),
+					__( 'Confirm the Stonewright MCP server is registered. The adapter default server does not satisfy this check.', 'stonewright' ),
+					true
+				),
+				'session_id' => '',
+			];
+		}
+		if ( ! $has_protocol ) {
+			return [
+				'step'       => self::step(
+					'initialize',
+					'failed',
+					__( 'Initialize response lacked protocolVersion.', 'stonewright' ),
 					__( 'Confirm the MCP endpoint implements the Streamable HTTP initialize handshake.', 'stonewright' ),
 					true
 				),
@@ -350,17 +380,9 @@ final class McpLoopbackSelfTest {
 		}
 
 		$detail_parts = [];
-		if ( $has_protocol ) {
-			$detail_parts[] = 'protocolVersion=' . (string) $result['protocolVersion'];
-		}
-		if ( $has_server_info ) {
-			$server = $result['serverInfo'];
-			$name   = (string) ( $server['name'] ?? '' );
-			$ver    = (string) ( $server['version'] ?? '' );
-			if ( '' !== $name ) {
-				$detail_parts[] = 'server=' . $name . ( '' !== $ver ? ( '/' . $ver ) : '' );
-			}
-		}
+		$detail_parts[] = 'protocolVersion=' . (string) $result['protocolVersion'];
+		$ver = (string) ( $server_info['version'] ?? '' );
+		$detail_parts[] = 'server=Stonewright' . ( '' !== $ver ? ( '/' . $ver ) : '' );
 
 		return [
 			'step'       => self::step(
@@ -378,74 +400,156 @@ final class McpLoopbackSelfTest {
 	 * @param callable $transport Transport callable.
 	 * @return array{step: array{id: string, status: string, detail: string, fix: string, retryable: bool}, session_id: string}
 	 */
-	private static function step_tools_list( callable $transport, string $endpoint, string $auth, string $session_id ): array {
+	private static function step_initialized( callable $transport, string $endpoint, string $auth, string $session_id ): array {
 		$payload = [
 			'jsonrpc' => '2.0',
-			'id'      => 2,
-			'method'  => 'tools/list',
+			'method'  => 'notifications/initialized',
 			'params'  => new \stdClass(),
 		];
-
 		$response = self::mcp_request( $transport, $endpoint, $auth, $session_id, $payload );
 		if ( is_wp_error( $response ) ) {
 			return [
 				'step'       => self::step(
-					'tools_list',
+					'initialized',
 					'failed',
 					$response->get_error_message(),
-					__( 'Confirm the MCP endpoint is reachable and retry.', 'stonewright' ),
+					__( 'Confirm the MCP endpoint accepts notifications/initialized, then retry.', 'stonewright' ),
 					true
 				),
-				'session_id' => '',
+				'session_id' => $session_id,
 			];
 		}
-
 		$code = (int) $response['code'];
 		if ( $code < 200 || $code >= 300 ) {
 			return [
 				'step'       => self::step(
-					'tools_list',
+					'initialized',
 					'failed',
 					sprintf(
 						/* translators: %d: HTTP status code. */
-						__( 'tools/list returned HTTP %d.', 'stonewright' ),
+						__( 'notifications/initialized returned HTTP %d.', 'stonewright' ),
 						$code
 					),
-					__( 'Confirm authenticated MCP sessions remain valid after initialize.', 'stonewright' ),
+					__( 'Confirm the negotiated MCP transport accepts the initialized notification.', 'stonewright' ),
 					true
 				),
 				'session_id' => $response['session_id'],
 			];
 		}
-
 		$body = $response['json'];
 		if ( isset( $body['error'] ) && is_array( $body['error'] ) ) {
-			$message = (string) ( $body['error']['message'] ?? __( 'JSON-RPC error.', 'stonewright' ) );
 			return [
 				'step'       => self::step(
-					'tools_list',
+					'initialized',
 					'failed',
-					$message,
-					__( 'Inspect MCP adapter logs for tools/list failures.', 'stonewright' ),
+					(string) ( $body['error']['message'] ?? __( 'JSON-RPC error.', 'stonewright' ) ),
+					__( 'Inspect MCP adapter logs for notifications/initialized failures.', 'stonewright' ),
 					true
 				),
 				'session_id' => $response['session_id'],
 			];
 		}
+		return [
+			'step'       => self::step(
+				'initialized',
+				'passed',
+				__( 'Initialized notification accepted.', 'stonewright' ),
+				'',
+				false
+			),
+			'session_id' => $response['session_id'],
+		];
+	}
 
-		$result = is_array( $body['result'] ?? null ) ? $body['result'] : [];
-		$tools  = is_array( $result['tools'] ?? null ) ? $result['tools'] : [];
-		$names  = [];
-		foreach ( $tools as $tool ) {
-			if ( ! is_array( $tool ) ) {
-				continue;
+	/**
+	 * @param callable $transport Transport callable.
+	 * @return array{step: array{id: string, status: string, detail: string, fix: string, retryable: bool}, session_id: string}
+	 */
+	private static function step_tools_list( callable $transport, string $endpoint, string $auth, string $session_id ): array {
+		$names   = [];
+		$cursor  = '';
+		$page_id = 2;
+		for ( $page = 0; $page < 5; $page++ ) {
+			$params = new \stdClass();
+			if ( '' !== $cursor ) {
+				$params = [ 'cursor' => $cursor ];
 			}
-			$raw = (string) ( $tool['name'] ?? '' );
-			if ( '' === $raw ) {
-				continue;
+			$payload = [
+				'jsonrpc' => '2.0',
+				'id'      => $page_id,
+				'method'  => 'tools/list',
+				'params'  => $params,
+			];
+			++$page_id;
+
+			$response = self::mcp_request( $transport, $endpoint, $auth, $session_id, $payload );
+			if ( is_wp_error( $response ) ) {
+				return [
+					'step'       => self::step(
+						'tools_list',
+						'failed',
+						$response->get_error_message(),
+						__( 'Confirm the MCP endpoint is reachable and retry.', 'stonewright' ),
+						true
+					),
+					'session_id' => '',
+				];
 			}
-			$names[] = self::normalize_tool_name( $raw );
+
+			$code = (int) $response['code'];
+			if ( $code < 200 || $code >= 300 ) {
+				return [
+					'step'       => self::step(
+						'tools_list',
+						'failed',
+						sprintf(
+							/* translators: %d: HTTP status code. */
+							__( 'tools/list returned HTTP %d.', 'stonewright' ),
+							$code
+						),
+						__( 'Confirm authenticated MCP sessions remain valid after initialize.', 'stonewright' ),
+						true
+					),
+					'session_id' => $response['session_id'],
+				];
+			}
+
+			$body = $response['json'];
+			if ( isset( $body['error'] ) && is_array( $body['error'] ) ) {
+				$message = (string) ( $body['error']['message'] ?? __( 'JSON-RPC error.', 'stonewright' ) );
+				return [
+					'step'       => self::step(
+						'tools_list',
+						'failed',
+						$message,
+						__( 'Inspect MCP adapter logs for tools/list failures.', 'stonewright' ),
+						true
+					),
+					'session_id' => $response['session_id'],
+				];
+			}
+
+			$result = is_array( $body['result'] ?? null ) ? $body['result'] : [];
+			$tools  = is_array( $result['tools'] ?? null ) ? $result['tools'] : [];
+			foreach ( $tools as $tool ) {
+				if ( ! is_array( $tool ) ) {
+					continue;
+				}
+				$raw = (string) ( $tool['name'] ?? '' );
+				if ( '' === $raw ) {
+					continue;
+				}
+				$names[] = self::normalize_tool_name( $raw );
+			}
+
+			$next = is_string( $result['nextCursor'] ?? null ) ? (string) $result['nextCursor'] : '';
+			if ( '' === $next || $next === $cursor ) {
+				break;
+			}
+			$cursor = $next;
 		}
+
+		$names = array_values( array_unique( $names ) );
 
 		if ( ! in_array( self::TASK_START_NAME, $names, true ) ) {
 			return [
@@ -545,7 +649,8 @@ final class McpLoopbackSelfTest {
 		}
 
 		$result = is_array( $body['result'] ?? null ) ? $body['result'] : [];
-		if ( ! empty( $result['isError'] ) ) {
+		$payload = self::decode_tool_result( $result );
+		if ( true === ( $payload['isError'] ?? false ) ) {
 			return [
 				'step' => self::step(
 					'task_start',
@@ -556,24 +661,45 @@ final class McpLoopbackSelfTest {
 				),
 			];
 		}
+		if ( array_key_exists( 'ok', $payload ) && false === $payload['ok'] ) {
+			return [
+				'step' => self::step(
+					'task_start',
+					'failed',
+					__( 'stonewright-task-start returned ok:false.', 'stonewright' ),
+					__( 'Read the structured task-start result, fix the reported cause, then retry.', 'stonewright' ),
+					false
+				),
+			];
+		}
+		if ( array_key_exists( 'startup_ready', $payload ) && false === $payload['startup_ready'] ) {
+			return [
+				'step' => self::step(
+					'task_start',
+					'failed',
+					__( 'stonewright-task-start returned startup_ready:false.', 'stonewright' ),
+					__( 'Restore the required tool catalog, then retry Verify connection.', 'stonewright' ),
+					false
+				),
+			];
+		}
 
 		$detail = __( 'stonewright-task-start completed without a hard error.', 'stonewright' );
-		$blob   = wp_json_encode( $result );
-		if ( is_string( $blob ) ) {
-			$hints = [];
-			if ( false !== stripos( $blob, 'profile' ) ) {
-				$hints[] = 'profile';
-			}
-			if ( false !== stripos( $blob, 'version' ) ) {
-				$hints[] = 'version';
-			}
-			if ( [] !== $hints ) {
-				$detail = sprintf(
-					/* translators: %s: comma-separated field hints found in the result. */
-					__( 'stonewright-task-start succeeded (result includes %s).', 'stonewright' ),
-					implode( ', ', $hints )
-				);
-			}
+		$profile = is_string( $payload['profile'] ?? null ) ? (string) $payload['profile'] : '';
+		$plugin_version = is_string( $payload['version'] ?? null ) ? (string) $payload['version'] : '';
+		$hints = [];
+		if ( '' !== $profile ) {
+			$hints[] = 'profile=' . $profile;
+		}
+		if ( '' !== $plugin_version ) {
+			$hints[] = 'version=' . $plugin_version;
+		}
+		if ( [] !== $hints ) {
+			$detail = sprintf(
+				/* translators: %s: compact task-start fields. */
+				__( 'stonewright-task-start succeeded (%s).', 'stonewright' ),
+				implode( ', ', $hints )
+			);
 		}
 
 		return [
@@ -585,6 +711,28 @@ final class McpLoopbackSelfTest {
 				false
 			),
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $result MCP tools/call result.
+	 * @return array<string, mixed>
+	 */
+	private static function decode_tool_result( array $result ): array {
+		if ( isset( $result['structuredContent'] ) && is_array( $result['structuredContent'] ) ) {
+			return $result['structuredContent'];
+		}
+		if ( isset( $result['content'] ) && is_array( $result['content'] ) ) {
+			foreach ( $result['content'] as $part ) {
+				if ( ! is_array( $part ) || 'text' !== ( $part['type'] ?? '' ) || ! is_string( $part['text'] ?? null ) ) {
+					continue;
+				}
+				$parsed = json_decode( $part['text'], true );
+				if ( is_array( $parsed ) ) {
+					return $parsed;
+				}
+			}
+		}
+		return $result;
 	}
 
 	/**

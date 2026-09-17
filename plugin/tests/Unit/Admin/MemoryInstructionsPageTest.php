@@ -254,6 +254,74 @@ final class MemoryInstructionsPageTest extends TestCase {
 		self::assertSame( 'rejected', $discarded['status'] );
 	}
 
+	public function test_learned_rules_exclude_drafts_missing_status_and_error_pattern_drafts(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows(
+			[
+				[
+					'id'          => '21',
+					'type'        => 'feedback',
+					'scope'       => 'elementor',
+					'memory_key'  => 'learning-keep-native',
+					'name'        => 'Keep native widgets',
+					'value_json'  => wp_json_encode( [ 'correction' => 'KEEP-ACTIVE-LESSON', 'source' => 'user' ] ),
+					'confidence'  => '1.0000',
+					'status'      => 'active',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+				[
+					'id'          => '22',
+					'type'        => 'feedback',
+					'scope'       => 'elementor',
+					'memory_key'  => 'learning-draft-hidden',
+					'name'        => 'Draft learning',
+					'value_json'  => wp_json_encode( [ 'correction' => 'DRAFT-HIDDEN-LESSON', 'source' => 'user' ] ),
+					'confidence'  => '1.0000',
+					'status'      => 'draft',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+				[
+					'id'          => '23',
+					'type'        => 'feedback',
+					'scope'       => 'elementor',
+					'memory_key'  => 'learning-missing-status',
+					'name'        => 'Missing status',
+					'value_json'  => wp_json_encode( [ 'correction' => 'MISSING-STATUS-LESSON', 'source' => 'user' ] ),
+					'confidence'  => '1.0000',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+				[
+					'id'          => '24',
+					'type'        => 'reference',
+					'scope'       => 'audit',
+					'memory_key'  => 'draft-lesson-abc',
+					'name'        => 'Draft lesson: spec invalid',
+					'value_json'  => wp_json_encode( [ 'correction' => 'PATTERN-DRAFT-LESSON', 'source' => 'error-pattern-draft' ] ),
+					'confidence'  => '1.0000',
+					'status'      => 'draft',
+					'created_at'  => '2026-08-21 00:00:00',
+					'updated_at'  => '2026-08-21 00:00:00',
+				],
+			],
+			true
+		);
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertSame( 1, substr_count( $html, 'sw-learned-rules__item' ) );
+		self::assertStringContainsString( 'KEEP-ACTIVE-LESSON', $html );
+		self::assertDoesNotMatchRegularExpression(
+			'/sw-learned-rules__text[^>]*>\s*(DRAFT-HIDDEN-LESSON|MISSING-STATUS-LESSON|PATTERN-DRAFT-LESSON)/',
+			$html
+		);
+		self::assertStringContainsString( 'Activation:', $html );
+		self::assertStringContainsString( 'Lifecycle:', $html );
+	}
+
 	public function test_render_surfaces_schema_health_notice_when_table_broken(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], false );
 

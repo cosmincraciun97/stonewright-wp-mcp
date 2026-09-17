@@ -202,6 +202,10 @@ final class IncidentStore {
 		if ( in_array( $outcome, [ AuditEvent::OUTCOME_SUCCESS, AuditEvent::OUTCOME_BLOCKED ], true ) ) {
 			return null;
 		}
+		$execution = strtolower( (string) ( $event['execution_status'] ?? '' ) );
+		if ( in_array( $execution, [ 'unchanged', 'planned' ], true ) ) {
+			return null;
+		}
 		if ( self::is_input_shape_event( $event ) ) {
 			return null;
 		}
@@ -359,6 +363,13 @@ final class IncidentStore {
 			$row = self::find_correlated( $event );
 		}
 		if ( null === $row || ! in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true ) || ! self::correlates( $row, $event ) ) {
+			return false;
+		}
+		if ( AuditEvent::CATEGORY_ROLLBACK === (string) ( $row['category'] ?? '' ) ) {
+			return false;
+		}
+		$evidence = json_decode( (string) ( $row['evidence_json'] ?? '' ), true );
+		if ( is_array( $evidence ) && 'failed' === strtolower( (string) ( $evidence['rollback_status'] ?? '' ) ) ) {
 			return false;
 		}
 

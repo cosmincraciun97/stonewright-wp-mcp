@@ -74,6 +74,27 @@ describe('WP-CLI runner', () => {
 		expect(validateWpCliCommand(['option', 'get', 'home'])).toEqual(['option', 'get', 'home']);
 	});
 
+	it('rejects invalid WP-CLI --url values before spawn', () => {
+		expect(() => buildWpCliArgs({
+			command: ['post', 'list'],
+			url: 'not a url',
+		})).toThrow(/url/i);
+		expect(() => buildWpCliArgs({
+			command: ['post', 'list'],
+			url: 'file:///etc/passwd',
+		})).toThrow(/url/i);
+		expect(() => buildWpCliArgs({
+			command: ['post', 'list'],
+			url: 'https://user:secret@example.test',
+		})).toThrow(/url/i);
+		try {
+			buildWpCliArgs({ command: ['post', 'list'], url: 'javascript:alert(1)' });
+			throw new Error('expected url validation to throw');
+		} catch (error) {
+			expect(error).toMatchObject({ code: 'stonewright_wp_cli_url_invalid', field: 'url' });
+		}
+	});
+
 	it('runs through execFile options with shell disabled', async () => {
 		const calls: Array<{ file: string; args: string[]; shell: unknown }> = [];
 		const runner: ExecFileRunner = (file, args, options) => {

@@ -62,8 +62,22 @@ final class PostWriteVerify extends AbilityKernel {
 				'ok'                  => [ 'type' => 'boolean' ],
 				'post_id'             => [ 'type' => 'integer' ],
 				'verification_status' => [ 'type' => 'string', 'enum' => [ 'passed', 'failed' ] ],
-				'effect_verified'     => [ 'type' => 'boolean' ],
-				'rendered_bytes'      => [ 'type' => 'integer' ],
+				'effect_verified'              => [ 'type' => 'boolean' ],
+				'generation_status'            => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'delivery_status'              => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'frontend_verification_status' => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'root_error_code'              => [ 'type' => 'string' ],
+				'failed_check'                 => [ 'type' => 'string' ],
+				'rendered_bytes'               => [ 'type' => 'integer' ],
 				'render_sha256'       => [ 'type' => 'string' ],
 				'element_checks'      => [ 'type' => 'array' ],
 				'content_checks'      => [ 'type' => 'array' ],
@@ -71,7 +85,7 @@ final class PostWriteVerify extends AbilityKernel {
 				'browser_recipe'      => [ 'type' => 'object' ],
 				'write_receipt'       => [ 'type' => 'object' ],
 			],
-			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'rendered_bytes', 'render_sha256', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
+			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'generation_status', 'delivery_status', 'frontend_verification_status', 'rendered_bytes', 'render_sha256', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
 		];
 	}
 
@@ -86,6 +100,24 @@ final class PostWriteVerify extends AbilityKernel {
 				$post_id = (int) ( $args['post_id'] ?? 0 );
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
+				}
+
+				$mutating = [ 'regenerate_css', 'clear_cache', 'invalidate_cache', 'restore', 'rollback', 'files_manager' ];
+				foreach ( $mutating as $key ) {
+					if ( array_key_exists( $key, $args ) ) {
+						return $this->error(
+							'elementor_verify_mutating_arg',
+							__( 'Post-write verify is observation-only and rejects leftover CSS or cache mutation arguments.', 'stonewright' ),
+							[
+								'status'           => 400,
+								'failed_check'     => 'input',
+								'root_error_code'  => 'stonewright_elementor_verify_mutating_arg',
+								'generation_status'=> 'not_checked',
+								'delivery_status'  => 'not_checked',
+								'frontend_verification_status' => 'not_checked',
+							]
+						);
+					}
 				}
 
 				if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\\Elementor\\Plugin' ) ) {
@@ -123,19 +155,27 @@ final class PostWriteVerify extends AbilityKernel {
 					$write_receipt['root_error_code']     = $passed ? '' : 'stonewright_elementor_frontend_verification_failed';
 				}
 
-				return [
-					'ok'                  => $passed,
-					'post_id'             => $post_id,
-					'verification_status' => $passed ? 'passed' : 'failed',
-					'effect_verified'     => $passed,
-					'rendered_bytes'      => $verification['rendered_bytes'],
-					'render_sha256'       => $verification['render_sha256'],
-					'element_checks'      => $element_checks,
-					'content_checks'      => $content_checks,
-					'browser_required'    => true,
-					'browser_recipe'      => self::browser_recipe(),
-					'write_receipt'       => $write_receipt,
+				$result = [
+					'ok'                           => $passed,
+					'post_id'                      => $post_id,
+					'verification_status'          => $passed ? 'passed' : 'failed',
+					'effect_verified'              => $passed,
+					'generation_status'            => 'not_checked',
+					'delivery_status'              => 'not_checked',
+					'frontend_verification_status' => $passed ? 'verified' : 'failed',
+					'rendered_bytes'               => $verification['rendered_bytes'],
+					'render_sha256'                => $verification['render_sha256'],
+					'element_checks'               => $element_checks,
+					'content_checks'               => $content_checks,
+					'browser_required'             => true,
+					'browser_recipe'               => self::browser_recipe(),
+					'write_receipt'                => $write_receipt,
 				];
+				if ( ! $passed ) {
+					$result['root_error_code'] = 'stonewright_elementor_frontend_verification_failed';
+					$result['failed_check']    = 'frontend';
+				}
+				return $result;
 			}
 		);
 	}
@@ -178,18 +218,22 @@ final class PostWriteVerify extends AbilityKernel {
 			$write_receipt['root_error_code']     = sanitize_key( $code );
 		}
 		return [
-			'ok'                  => false,
-			'post_id'             => $post_id,
-			'verification_status' => 'failed',
-			'effect_verified'     => false,
-			'rendered_bytes'      => $verification['rendered_bytes'],
-			'render_sha256'       => $verification['render_sha256'],
-			'element_checks'      => $verification['element_checks'],
-			'content_checks'      => $verification['content_checks'],
-			'browser_required'    => true,
-			'browser_recipe'      => self::browser_recipe(),
-			'write_receipt'       => $write_receipt,
-			'root_error_code'     => sanitize_key( $code ),
+			'ok'                           => false,
+			'post_id'                      => $post_id,
+			'verification_status'          => 'failed',
+			'effect_verified'              => false,
+			'generation_status'            => 'not_checked',
+			'delivery_status'              => 'not_checked',
+			'frontend_verification_status' => 'failed',
+			'rendered_bytes'               => $verification['rendered_bytes'],
+			'render_sha256'                => $verification['render_sha256'],
+			'element_checks'               => $verification['element_checks'],
+			'content_checks'               => $verification['content_checks'],
+			'browser_required'             => true,
+			'browser_recipe'               => self::browser_recipe(),
+			'write_receipt'                => $write_receipt,
+			'root_error_code'              => sanitize_key( $code ),
+			'failed_check'                 => 'frontend',
 		];
 	}
 

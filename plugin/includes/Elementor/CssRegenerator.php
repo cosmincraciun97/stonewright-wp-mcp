@@ -54,6 +54,9 @@ final class CssRegenerator {
 			if ( ! self::reported_location_matches( $expected, $path, $url ) ) {
 				return self::failure( $target, self::path_matches( $expected['path'], $path ) ? 'url_mismatch' : 'path_mismatch' );
 			}
+			if ( is_file( $path ) && 0 === (int) filesize( $path ) ) {
+				return self::failure( $target, 'empty_css_file' );
+			}
 
 			return [
 				'ok'          => true,

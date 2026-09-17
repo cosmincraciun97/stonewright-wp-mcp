@@ -232,6 +232,34 @@ final class CssTargetResolverTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_css_target_ambiguous', $result->get_error_code() );
 	}
 
+	public function test_resolves_private_and_draft_pages_without_publishing(): void {
+		$GLOBALS['stonewright_test_wp_update_post_calls'] = [];
+		$GLOBALS['stonewright_test_posts'][ 501 ] = (object) [
+			'ID'          => 501,
+			'post_type'   => 'page',
+			'post_status' => 'private',
+			'meta'        => [],
+		];
+		$GLOBALS['stonewright_test_posts'][ 502 ] = (object) [
+			'ID'          => 502,
+			'post_type'   => 'page',
+			'post_status' => 'draft',
+			'meta'        => [],
+		];
+
+		$resolver = new CssTargetResolver( null, static fn( string $class ): bool => true );
+		$private  = $resolver->resolve( 501, 'auto' );
+		$draft    = $resolver->resolve( 502, 'auto' );
+
+		self::assertInstanceOf( CssTarget::class, $private );
+		self::assertSame( 'post-501.css', $private->filename() );
+		self::assertInstanceOf( CssTarget::class, $draft );
+		self::assertSame( 'post-502.css', $draft->filename() );
+		self::assertSame( 'private', get_post_status( 501 ) );
+		self::assertSame( 'draft', get_post_status( 502 ) );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_update_post_calls'] );
+	}
+
 	public function test_rejects_an_invalid_post_id(): void {
 		$resolver = $this->resolver( [] );
 
