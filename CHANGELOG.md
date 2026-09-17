@@ -23,6 +23,9 @@ development builds were never stable releases.
 - Keep Setup/Troubleshoot `info` checks out of the successful-check count, and
   require a Stonewright `serverInfo` handshake (`initialize` →
   `notifications/initialized` → `tools/list` → `stonewright-task-start`).
+- Check `/mcp/stonewright` and `/mcp/stonewright-oauth` separately, treat
+  “configuration verified, connection not tested” as info, and keep the live
+  handshake probe distinct from an OAuth HTTP 401 guard.
 - Treat HTTP 200 `ok:false` ability results as audit failures, keep ACF writes
   idempotent when the stored raw value already matches, and separate Elementor
   CSS generation from HTTP delivery evidence.

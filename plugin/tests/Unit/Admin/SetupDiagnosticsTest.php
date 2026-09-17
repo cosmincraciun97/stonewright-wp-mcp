@@ -53,7 +53,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertArrayHasKey( 'counts', $report );
 		self::assertGreaterThanOrEqual( 11, count( $report['checks'] ) );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'mcp_runtime' )['status'] );
-		self::assertSame( 'ok', $this->find_check( $report['checks'], 'connection' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'connection' )['status'] );
 		self::assertSame( 'info', $this->find_check( $report['checks'], 'endpoint' )['status'] );
 		self::assertSame( 'info', $this->find_check( $report['checks'], 'mcp_server_registration' )['status'] );
 		self::assertSame( 'ok', $this->find_check( $report['checks'], 'tool_surface' )['status'] );
@@ -69,6 +69,148 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertArrayHasKey( 'skipped', $report['counts'] );
 		self::assertSame( 0, $report['counts']['skipped'] );
 		self::assertStringContainsString( 'has not been tested', (string) $this->find_check( $report['checks'], 'connection' )['summary'] );
+	}
+
+	public function test_oauth_only_rest_catalog_does_not_satisfy_canonical_route(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'rest_routes' => [
+					'/mcp/stonewright-oauth' => [],
+				],
+			]
+		);
+
+		$canonical = $this->find_check( $report['checks'], 'mcp_route' );
+		$oauth = $this->find_check( $report['checks'], 'mcp_route_oauth' );
+
+		self::assertSame( 'problem', $canonical['status'] );
+		self::assertStringContainsString( '/mcp/stonewright', (string) $canonical['summary'] );
+		self::assertStringNotContainsString( 'stonewright-oauth', (string) $canonical['summary'] );
+		self::assertSame( 'ok', $oauth['status'] );
+	}
+
+	public function test_canonical_only_rest_catalog_leaves_oauth_route_as_problem(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'rest_routes' => [
+					'/mcp/stonewright' => [],
+				],
+			]
+		);
+
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'mcp_route' )['status'] );
+		self::assertSame( 'problem', $this->find_check( $report['checks'], 'mcp_route_oauth' )['status'] );
+	}
+
+	public function test_both_mcp_routes_present_are_ok(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'rest_routes' => [
+					'/mcp/stonewright'       => [],
+					'/mcp/stonewright-oauth' => [],
+				],
+			]
+		);
+
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'mcp_route' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'mcp_route_oauth' )['status'] );
+	}
+
+	public function test_uninitialized_rest_catalog_is_info_not_ok(): void {
+		$report = SetupDiagnostics::report();
+
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'mcp_route' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'mcp_route_oauth' )['status'] );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'mcp_oauth_registration' )['status'] );
+	}
+
+	public function test_selected_oauth_target_is_named_when_missing(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'endpoint'    => 'https://example.test/wp-json/mcp/stonewright-oauth',
+				'rest_routes' => [
+					'/mcp/stonewright' => [],
+				],
+			]
+		);
+
+		$oauth = $this->find_check( $report['checks'], 'mcp_route_oauth' );
+		self::assertSame( 'problem', $oauth['status'] );
+		self::assertStringContainsString( 'Selected target /mcp/stonewright-oauth', (string) $oauth['summary'] );
+	}
+
+	public function test_create_server_failure_is_a_registration_problem(): void {
+		McpRegistrationState::record(
+			'stonewright',
+			[
+				'state'      => 'failed',
+				'error_code' => 'invalid_transport',
+				'message'    => 'The selected MCP transport contract is incompatible.',
+				'owner'      => 'plugin:stonewright',
+				'version'    => '0.6.1',
+			]
+		);
+
+		$report = SetupDiagnostics::report();
+		$registration = $this->find_check( $report['checks'], 'mcp_server_registration' );
+		self::assertSame( 'problem', $registration['status'] );
+		self::assertStringContainsString( 'incompatible', (string) $registration['summary'] );
+		self::assertSame( 'skipped', $this->find_check( $report['checks'], 'mcp_route' )['status'] );
+	}
+
+	public function test_oauth_401_guard_is_not_a_passed_handshake(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'method'   => 'oauth-http',
+				'loopback' => static fn (): array => [
+					'ok'       => false,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright-oauth',
+					'steps'    => [
+						[
+							'id'     => 'initialize',
+							'status' => 'failed',
+							'detail' => 'MCP initialize rejected authentication (HTTP 401).',
+						],
+					],
+				],
+			]
+		);
+
+		$probe = $this->find_check( $report['checks'], 'connection_probe' );
+		$connection = $this->find_check( $report['checks'], 'connection' );
+
+		self::assertSame( 'problem', $probe['status'] );
+		self::assertStringContainsString( 'HTTP 401', (string) ( $probe['summary'] ?? '' ) );
+		self::assertSame( 'failed', $probe['evidence']['handshake'] ?? null );
+		self::assertSame( 'info', $connection['status'] );
+		self::assertNotSame( 'ok', $probe['status'] );
+	}
+
+	public function test_passed_handshake_records_a_timestamp(): void {
+		$report = SetupDiagnostics::report(
+			[
+				'probe'    => true,
+				'method'   => 'oauth-http',
+				'loopback' => static fn (): array => [
+					'ok'       => true,
+					'endpoint' => 'https://example.test/wp-json/mcp/stonewright',
+					'steps'    => [
+						[
+							'id'     => 'initialize',
+							'status' => 'passed',
+							'detail' => '',
+						],
+					],
+				],
+			]
+		);
+
+		$probe = $this->find_check( $report['checks'], 'connection_probe' );
+		self::assertSame( 'ok', $probe['status'] );
+		self::assertSame( 'passed', $probe['evidence']['handshake'] ?? null );
+		self::assertNotSame( '', (string) ( $probe['evidence']['checked_at'] ?? '' ) );
+		self::assertSame( 'info', $this->find_check( $report['checks'], 'connection' )['status'] );
 	}
 
 	public function test_mcp_runtime_conflict_is_a_problem_and_not_ready(): void {

@@ -177,12 +177,10 @@ final class TroubleshootPageTest extends TestCase {
 		self::assertStringContainsString( 'Elementor provider discovery', $html );
 		self::assertStringContainsString( 'manage-default-styles', $html );
 		self::assertStringContainsString( 'Vendor\\MissingAdapter', $html );
-		self::assertStringContainsString( 'WP_Abilities_Registry', $html );
-		self::assertStringContainsString( 'WP_Ability', $html );
 		self::assertStringContainsString( 'plugin:release-a — 0.3.0', $html );
 		self::assertStringContainsString( 'plugin:release-b — 0.4.0', $html );
-		self::assertStringContainsString( 'plugin:release-a — 0.1.1', $html );
-		self::assertStringContainsString( 'plugin:release-b — 0.2.0', $html );
+		self::assertStringNotContainsString( 'WP_Abilities_Registry', $html );
+		self::assertStringNotContainsString( 'WP_Ability', $html );
 		self::assertStringContainsString( 'multiple_incompatible_class_owners', $html );
 		self::assertStringContainsString( 'The runtime could not choose a single owner for this symbol', $html );
 		self::assertStringContainsString( '1 Problems', $html );

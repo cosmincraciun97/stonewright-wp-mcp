@@ -171,6 +171,28 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertSame( 'other', $adapter->get_server( 'stonewright' )->get_server_route() );
 	}
 
+	public function test_matching_id_on_a_foreign_namespace_is_not_stonewright_identity(): void {
+		$adapter = new RegistryMcpAdapter();
+		$adapter->seed(
+			'stonewright',
+			(object) [
+				'id'        => 'stonewright',
+				'route'     => 'stonewright',
+				'name'      => 'Stonewright',
+				'namespace' => 'other-mcp',
+			]
+		);
+
+		ServerRegistration::register_server( $adapter );
+
+		self::assertSame( 1, $adapter->create_calls );
+		$report = McpRegistrationState::report();
+		$by_id = array_column( $report['servers'], null, 'server_id' );
+		self::assertSame( 'failed', $by_id['stonewright']['state'] );
+		self::assertSame( 'duplicate_server_id', $by_id['stonewright']['error_code'] );
+		self::assertSame( 'other-mcp', $adapter->get_server( 'stonewright' )->get_server_route_namespace() );
+	}
+
 	public function test_default_adapter_server_does_not_count_as_stonewright_registered(): void {
 		$adapter = new RegistryMcpAdapter();
 		$adapter->seed(
@@ -273,7 +295,8 @@ final class FakeRegisteredMcpServer {
 	public function __construct(
 		private string $id,
 		private string $route,
-		private string $name
+		private string $name,
+		private string $namespace = 'mcp'
 	) {}
 
 	public function get_server_id(): string {
@@ -282,6 +305,10 @@ final class FakeRegisteredMcpServer {
 
 	public function get_server_route(): string {
 		return $this->route;
+	}
+
+	public function get_server_route_namespace(): string {
+		return $this->namespace;
 	}
 
 	public function get_server_name(): string {
@@ -305,7 +332,8 @@ final class RegistryMcpAdapter {
 		$this->servers[ $id ] = new FakeRegisteredMcpServer(
 			(string) ( $server->id ?? $id ),
 			(string) ( $server->route ?? '' ),
-			(string) ( $server->name ?? '' )
+			(string) ( $server->name ?? '' ),
+			(string) ( $server->namespace ?? 'mcp' )
 		);
 	}
 
@@ -328,9 +356,9 @@ final class RegistryMcpAdapter {
 		array $prompts = [],
 		?callable $configure = null
 	) {
-		unset( $namespace, $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
 		++$this->create_calls;
-		$this->servers[ $id ] = new FakeRegisteredMcpServer( $id, $route, $name );
+		$this->servers[ $id ] = new FakeRegisteredMcpServer( $id, $route, $name, $namespace );
+		unset( $description, $version, $transports, $error_handler, $observability_handler, $tools, $resources, $prompts, $configure );
 		return $this;
 	}
 }

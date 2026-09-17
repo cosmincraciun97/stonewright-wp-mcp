@@ -176,8 +176,14 @@ final class ServerRegistration {
 	private static function is_stonewright_identity( object $server, string $server_id, string $route ): bool {
 		$id = method_exists( $server, 'get_server_id' ) ? (string) $server->get_server_id() : '';
 		$server_route = method_exists( $server, 'get_server_route' ) ? (string) $server->get_server_route() : '';
+		$namespace = method_exists( $server, 'get_server_route_namespace' )
+			? (string) $server->get_server_route_namespace()
+			: '';
 		$name = method_exists( $server, 'get_server_name' ) ? (string) $server->get_server_name() : '';
-		return $server_id === $id && $route === $server_route && 'Stonewright' === $name;
+		return $server_id === $id
+			&& $route === $server_route
+			&& self::ROUTE_NAMESPACE === $namespace
+			&& 'Stonewright' === $name;
 	}
 
 	/**

@@ -32,9 +32,14 @@ what to fix. It does **not** replace a live client restart.
 Checks run as a dependency-ordered graph. Failed prerequisites mark dependents
 `skipped`; they do not invent secondary failures. `info` checks (configured URL,
 pending handshake) are listed separately and are not counted as successful
-checks. Problems and warnings show evidence, remedy, a safe action, and
-copyable support text. An MCP runtime conflict is a Problem with `ready:false`;
-do not disable unrelated business plugins as the standard remediation.
+checks. Canonical `/mcp/stonewright` and OAuth `/mcp/stonewright-oauth` are
+separate route and registration checks; an OAuth-only catalog does not pass
+the canonical route. “Configuration was verified; the connection has not been
+tested” stays `info`. Only the live handshake probe records a timestamped pass
+or fail; an OAuth HTTP 401 is not a successful initialize. Problems and
+warnings show evidence, remedy, a safe action, and copyable support text. An
+MCP runtime conflict is a Problem with `ready:false`; do not disable unrelated
+business plugins as the standard remediation.
 
 The OAuth registration diagnostic sends valid RFC 7591 metadata, requires HTTP
 `201` plus a valid response shape, creates an explicitly ephemeral client, and
