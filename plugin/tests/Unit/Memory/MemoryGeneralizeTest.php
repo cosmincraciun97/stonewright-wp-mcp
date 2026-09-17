@@ -100,6 +100,17 @@ final class MemoryGeneralizeTest extends TestCase {
 		self::assertSame( [], $GLOBALS['wpdb']->deletes );
 		foreach ( $GLOBALS['wpdb']->updates as $update ) {
 			self::assertNotSame( 33, (int) $update['where']['id'] );
+			self::assertArrayNotHasKey( 'status', $update['data'] );
+		}
+	}
+
+	public function test_apply_does_not_mass_stale_or_delete_existing_memory(): void {
+		( new MemoryGeneralize() )->execute( [ 'apply' => true ] );
+
+		self::assertSame( [], $GLOBALS['wpdb']->deletes );
+		foreach ( $GLOBALS['wpdb']->updates as $update ) {
+			self::assertArrayNotHasKey( 'status', $update['data'] );
+			self::assertArrayNotHasKey( 'precedence', $update['data'] );
 		}
 	}
 

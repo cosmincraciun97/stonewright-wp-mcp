@@ -360,4 +360,137 @@ final class AbilityKernelAuditTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'x', $result['title'] );
 	}
+
+	public function test_structured_failure_keeps_wrapper_and_cause_codes_distinct(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/test-wrapper-cause';
+			}
+			public function label(): string {
+				return 'Wrapper cause';
+			}
+			public function description(): string {
+				return 'Keep wrapper and cause distinct.';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn (): array => [
+						'ok'              => false,
+						'error_code'      => 'stonewright_structured_failure',
+						'root_error_code' => 'stonewright_elementor_settings_invalid',
+						'error'           => 'Setting rejected.',
+					]
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = $kernel->execute( [ 'post_id' => 12 ] );
+
+		self::assertIsArray( $result );
+		$row     = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		$decoded = json_decode( (string) ( $row['sanitized_args'] ?? '' ), true );
+		self::assertSame( 'error', $row['result_status'] ?? null );
+		self::assertSame( 'stonewright_structured_failure', $row['error_code'] ?? $decoded['_meta']['error_code'] ?? null );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $row['root_error_code'] ?? $decoded['_meta']['root_error_code'] ?? null );
+		self::assertNotSame( $row['error_code'] ?? null, $row['root_error_code'] ?? null );
+	}
+
+	public function test_structured_failure_is_last_resort_when_no_cause_code_exists(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/test-last-resort';
+			}
+			public function label(): string {
+				return 'Last resort';
+			}
+			public function description(): string {
+				return 'Last-resort structured failure.';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn (): array => [
+						'ok'    => false,
+						'error' => 'Synthetic unstructured failure.',
+					]
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [ 'post_id' => 13 ] );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		self::assertSame( 'stonewright_structured_failure', $row['error_code'] ?? null );
+		self::assertSame( 'stonewright_structured_failure', $row['root_error_code'] ?? null );
+	}
+
+	public function test_dry_run_success_is_validation_planned_not_write(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/example-update';
+			}
+			public function label(): string {
+				return 'Example';
+			}
+			public function description(): string {
+				return 'Dry-run fixture.';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit( $args, static fn (): array => [ 'ok' => true ] );
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [ 'post_id' => 14, 'dry_run' => true ] );
+		$row     = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		$decoded = json_decode( (string) ( $row['sanitized_args'] ?? '' ), true );
+		self::assertSame( 'VALIDATION', $row['category'] ?? null );
+		self::assertSame( 'SUCCESS', $row['outcome'] ?? null );
+		self::assertSame( 'planned', $row['execution_status'] ?? $decoded['_meta']['execution_status'] ?? null );
+	}
+
+	public function test_valid_noop_does_not_open_incident(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/acf-value-update';
+			}
+			public function label(): string {
+				return 'ACF';
+			}
+			public function description(): string {
+				return 'No-op fixture.';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn (): array => [
+						'ok'               => true,
+						'changed'          => false,
+						'execution_status' => 'unchanged',
+					]
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [ 'post_id' => 15 ] );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		self::assertSame( 'ok', $row['result_status'] ?? null );
+		self::assertSame( 'unchanged', $row['execution_status'] ?? null );
+		self::assertSame( [], IncidentStore::recent() );
+	}
 }

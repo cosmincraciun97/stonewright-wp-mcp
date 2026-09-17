@@ -75,6 +75,44 @@ final class WireLoop extends AbilityKernel {
 				'slides_to_scroll'     => [ 'type' => 'integer', 'minimum' => 1 ],
 				'arrows'               => [ 'type' => 'boolean' ],
 				'pagination'           => [ 'type' => 'boolean' ],
+				'pagination_load_type' => [ 'type' => 'string' ],
+				'responsive_scope'     => [
+					'type'  => 'array',
+					'items' => [ 'type' => 'string', 'enum' => [ 'desktop', 'tablet', 'mobile' ] ],
+				],
+				'instances'            => [
+					'type'     => 'array',
+					'maxItems' => 2,
+					'items'    => [
+						'type'                 => 'object',
+						'additionalProperties' => false,
+						'properties'           => [
+							'visibility' => [
+								'type'                 => 'object',
+								'additionalProperties' => false,
+								'properties'           => [
+									'hide_desktop' => [ 'type' => 'string' ],
+									'hide_tablet'  => [ 'type' => 'string' ],
+									'hide_mobile'  => [ 'type' => 'string' ],
+								],
+							],
+							'query'      => [
+								'type'                 => 'object',
+								'additionalProperties' => false,
+								'properties'           => [
+									'posts_per_page' => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 20 ],
+									'post__in'       => $id_list,
+									'post__not_in'   => $id_list,
+									'tax_query'      => [ 'type' => 'array' ],
+									'meta_query'     => [ 'type' => 'array' ],
+									'orderby'        => [ 'type' => 'string' ],
+									'order'          => [ 'type' => 'string', 'enum' => [ 'ASC', 'DESC' ] ],
+									'offset'         => [ 'type' => 'integer', 'minimum' => 0 ],
+								],
+							],
+						],
+					],
+				],
 				'require_results'      => [ 'type' => 'boolean', 'default' => false ],
 				'expected_tree_hash'   => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'idempotency_key'      => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
@@ -107,6 +145,7 @@ final class WireLoop extends AbilityKernel {
 				'resolved_controls'   => [ 'type' => 'object' ],
 				'resolved_settings'   => [ 'type' => 'object' ],
 				'warnings'            => [ 'type' => 'array', 'items' => [] ],
+				'plan_alternatives'   => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'diff'                => [ 'type' => 'object' ],
 				'execution_status'    => [ 'type' => 'string' ],
 				'verification_status' => [ 'type' => 'string' ],

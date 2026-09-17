@@ -110,7 +110,7 @@ abstract class AbilityKernel implements Ability {
 				: 'error';
 		} elseif ( is_array( $result ) ) {
 			if ( array_key_exists( 'ok', $result ) && false === $result['ok'] ) {
-				$structured_code = self::structured_error_code( $result );
+				$structured_code = self::structured_cause_code( $result );
 				$status = self::structured_result_is_blocked( $result, $structured_code ) ? 'blocked' : 'error';
 			}
 			// Mutation success requires effect verification when the ability reports it.
@@ -145,10 +145,11 @@ abstract class AbilityKernel implements Ability {
 				$metadata = self::merge_receipt_metadata( $metadata, is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [] );
 			}
 			if ( ! isset( $metadata['remediation_code'] ) || ! is_scalar( $metadata['remediation_code'] ) || '' === trim( (string) $metadata['remediation_code'] ) ) {
-				$hint_code = (string) ( $metadata['error_code'] ?? '' );
-				$hint      = RemediationHints::for_code( $hint_code, $this->name() );
-				if ( $hint !== RemediationHints::for_code( '', '' ) && '' !== $hint_code ) {
-					$metadata['remediation_code'] = $hint_code;
+				$cause   = (string) ( $metadata['root_error_code'] ?? '' );
+				$wrapper = (string) ( $metadata['error_code'] ?? '' );
+				$hint    = RemediationHints::for_code( $cause, $this->name(), $wrapper );
+				if ( $hint !== RemediationHints::for_code( '', '' ) && ( '' !== $cause || '' !== $wrapper ) ) {
+					$metadata['remediation_code'] = '' !== $cause ? $cause : $wrapper;
 				}
 			}
 		} elseif ( is_array( $result ) ) {
@@ -158,10 +159,13 @@ abstract class AbilityKernel implements Ability {
 				}
 			}
 			if ( false === ( $result['ok'] ?? true ) ) {
-				$error_code = self::structured_error_code( $result );
-				if ( '' !== $error_code ) {
-					$metadata['error_code']      = $error_code;
-					$metadata['root_error_code'] = $error_code;
+				$wrapper = self::structured_wrapper_code( $result );
+				$cause   = self::structured_cause_code( $result );
+				if ( '' !== $wrapper ) {
+					$metadata['error_code'] = $wrapper;
+				}
+				if ( '' !== $cause ) {
+					$metadata['root_error_code'] = $cause;
 				}
 				$error_message = self::structured_error_message( $result );
 				if ( '' !== $error_message ) {
@@ -169,6 +173,14 @@ abstract class AbilityKernel implements Ability {
 				}
 			}
 			$metadata = self::merge_receipt_metadata( $metadata, is_array( $result['write_receipt'] ?? null ) ? $result['write_receipt'] : [] );
+		}
+		if ( ! empty( $args['dry_run'] ) && 'ok' === $status ) {
+			if ( ! isset( $metadata['execution_status'] ) || ! is_scalar( $metadata['execution_status'] ) || '' === trim( (string) $metadata['execution_status'] ) ) {
+				$metadata['execution_status'] = 'planned';
+			}
+			if ( ! isset( $metadata['verification_status'] ) || ! is_scalar( $metadata['verification_status'] ) || '' === trim( (string) $metadata['verification_status'] ) ) {
+				$metadata['verification_status'] = 'planned';
+			}
 		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;
@@ -234,7 +246,7 @@ abstract class AbilityKernel implements Ability {
 	}
 
 	private static function is_blocked_error_code( string $code ): bool {
-		foreach ( [ 'forbidden', 'blocked', 'permission', 'confirmation_required', 'grant_required', 'approval_required', 'read_only', 'raw_elementor', 'architecture_mismatch', 'migration_has_loss', 'rule_violation' ] as $marker ) {
+		foreach ( [ 'forbidden', 'blocked', 'permission', 'confirmation_required', 'grant_required', 'approval_required', 'read_only', 'raw_elementor', 'architecture_mismatch', 'migration_has_loss', 'rule_violation', 'not_approved' ] as $marker ) {
 			if ( str_contains( $code, $marker ) ) {
 				return true;
 			}
@@ -243,13 +255,61 @@ abstract class AbilityKernel implements Ability {
 	}
 
 	/** @param array<string, mixed> $result */
-	private static function structured_error_code( array $result ): string {
-		foreach ( [ 'root_error_code', 'error_code', 'code' ] as $key ) {
-			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) ) {
+	private static function structured_wrapper_code( array $result ): string {
+		foreach ( [ 'error_code', 'code' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && '' !== trim( (string) $result[ $key ] ) ) {
+				return sanitize_key( (string) $result[ $key ] );
+			}
+		}
+		$cause = self::structured_cause_code( $result, false );
+		return '' !== $cause ? $cause : 'stonewright_structured_failure';
+	}
+
+	/** @param array<string, mixed> $result */
+	private static function structured_cause_code( array $result, bool $fallback_wrapper = true ): string {
+		if ( isset( $result['root_error_code'] ) && is_scalar( $result['root_error_code'] ) && '' !== trim( (string) $result['root_error_code'] ) ) {
+			return sanitize_key( (string) $result['root_error_code'] );
+		}
+		$receipt = is_array( $result['write_receipt'] ?? null )
+			? $result['write_receipt']
+			: ( is_array( $result['receipt'] ?? null ) ? $result['receipt'] : [] );
+		if ( isset( $receipt['root_error_code'] ) && is_scalar( $receipt['root_error_code'] ) && '' !== trim( (string) $receipt['root_error_code'] ) ) {
+			return sanitize_key( (string) $receipt['root_error_code'] );
+		}
+		if ( isset( $result['steps'] ) && is_array( $result['steps'] ) ) {
+			foreach ( $result['steps'] as $step ) {
+				if ( ! is_array( $step ) ) {
+					continue;
+				}
+				$status = strtolower( (string) ( $step['status'] ?? '' ) );
+				if ( ! in_array( $status, [ 'failed', 'error' ], true ) ) {
+					continue;
+				}
+				foreach ( [ 'root_error_code', 'error_code', 'code' ] as $key ) {
+					if ( isset( $step[ $key ] ) && is_scalar( $step[ $key ] ) && '' !== trim( (string) $step[ $key ] ) ) {
+						return sanitize_key( (string) $step[ $key ] );
+					}
+				}
+				if ( isset( $step['id'] ) && is_scalar( $step['id'] ) ) {
+					return 'stonewright_step_' . sanitize_key( (string) $step['id'] ) . '_failed';
+				}
+				break;
+			}
+		}
+		if ( ! $fallback_wrapper ) {
+			return '';
+		}
+		foreach ( [ 'error_code', 'code' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && '' !== trim( (string) $result[ $key ] ) ) {
 				return sanitize_key( (string) $result[ $key ] );
 			}
 		}
 		return 'stonewright_structured_failure';
+	}
+
+	/** @param array<string, mixed> $result */
+	private static function structured_error_code( array $result ): string {
+		return self::structured_cause_code( $result );
 	}
 
 	/** @param array<string, mixed> $result */

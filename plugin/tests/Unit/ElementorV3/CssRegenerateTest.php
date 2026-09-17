@@ -32,7 +32,8 @@ final class CssRegenerateTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']        = [ 'edit_post' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']   = true;
 		$GLOBALS['stonewright_test_options']          = [ 'stonewright_mode' => 'development' ];
-		$GLOBALS['stonewright_test_asset_responses']  = [];
+		$GLOBALS['stonewright_test_asset_responses']     = [];
+		$GLOBALS['stonewright_test_wp_update_post_calls'] = [];
 		$uploads       = wp_upload_dir();
 		$this->css_dir = rtrim( (string) $uploads['basedir'], '/\\' ) . '/elementor/css';
 		wp_mkdir_p( $this->css_dir );
@@ -85,6 +86,9 @@ final class CssRegenerateTest extends TestCase {
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result['after_manifest_sha256'] );
 		self::assertNotSame( $result['before_manifest_sha256'], $result['after_manifest_sha256'] );
 		self::assertNotEmpty( $result['probes'] );
+		self::assertSame( 'verified', $result['generation_status'] ?? null );
+		self::assertSame( 'verified', $result['delivery_status'] ?? null );
+		self::assertSame( 'not_checked', $result['frontend_verification_status'] ?? null );
 		self::assertNotSame( '', $result['backup']['snapshot_id'] ?? '' );
 		self::assertArrayNotHasKey( 'path', $result );
 		self::assertArrayNotHasKey( 'url', $result );
@@ -148,6 +152,63 @@ final class CssRegenerateTest extends TestCase {
 		self::assertSame( 'old-post', $this->read_css( 'post-301.css' ) );
 		self::assertSame( 'sibling', $this->read_css( 'post-999.css' ) );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+	}
+
+	public function test_does_not_publish_private_or_draft_posts(): void {
+		foreach ( [ 'private', 'draft' ] as $status ) {
+			$GLOBALS['stonewright_test_posts'][ 301 ]->post_status = $status;
+			$GLOBALS['stonewright_test_wp_update_post_calls']      = [];
+			$this->write_css( 'post-301.css', 'old-post' );
+			$this->configure_update_file( 301 );
+
+			$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+			self::assertIsArray( $result, $status );
+			self::assertSame( $status, get_post_status( 301 ) );
+			foreach ( $GLOBALS['stonewright_test_wp_update_post_calls'] as $payload ) {
+				self::assertNotSame( 'publish', $payload['post_status'] ?? null, $status );
+			}
+			self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+		}
+	}
+
+	public function test_login_protected_delivery_returns_structured_false_without_rollback(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->write_css( 'post-999.css', 'sibling' );
+		$this->configure_update_file( 301 );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-301.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): array {
+			return [
+				'response' => [ 'code' => 302 ],
+				'headers'  => [ 'location' => 'https://example.test/wp-login.php' ],
+				'body'     => '<html>Secret private page title XYZ</html>',
+			];
+		};
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'verified', $result['generation_status'] ?? null );
+		self::assertSame( 'blocked', $result['delivery_status'] ?? null );
+		self::assertSame( 'not_checked', $result['frontend_verification_status'] ?? null );
+		self::assertFalse( $result['effect_verified'] );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['root_error_code'] ?? null );
+		self::assertSame( 'delivery', $result['failed_check'] ?? null );
+		self::assertFalse( $result['retryable'] );
+		self::assertSame( 'not_needed', $result['rollback_status'] ?? null );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+		self::assertSame( 'sibling', $this->read_css( 'post-999.css' ) );
+		self::assertStringNotContainsString( 'Secret private page title XYZ', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_output_schema_declares_generation_and_delivery_status(): void {
+		$properties = ( new CssRegenerate() )->output_schema()['properties'];
+		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['generation_status']['enum'] );
+		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['delivery_status']['enum'] );
+		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['frontend_verification_status']['enum'] );
+		self::assertArrayHasKey( 'root_error_code', $properties );
+		self::assertArrayHasKey( 'failed_check', $properties );
 	}
 
 	private function configure_update_file( int $post_id ): void {

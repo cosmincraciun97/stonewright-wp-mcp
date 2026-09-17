@@ -16,7 +16,7 @@ jobs:
           node-version: "22"
       - run: node scripts/check-docs-freshness.mjs
       - run: node scripts/check-license-metadata.mjs
-      - run: node --test scripts/tests/release-flags.test.mjs
+      - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
@@ -169,12 +169,23 @@ jobs:
       - name: Install plugin production dependencies
         working-directory: plugin
         run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
+      - name: Install synthetic MCP provider dependencies
+        working-directory: e2e/fixtures/synthetic-mcp-provider
+        run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci
+      - name: Collect Playwright tests before environment start
+        run: |
+          set -euo pipefail
+          output="$(npx --no-install playwright test --list)"
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -F 'mcp-registration.spec.ts'
+          total="$(printf '%s\n' "$output" | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | tail -n 1)"
+          test "${total:-0}" -gt 0
       - run: npx playwright install --with-deps chromium
       - name: Build the Stonewright Visual bundle
         working-directory: visual

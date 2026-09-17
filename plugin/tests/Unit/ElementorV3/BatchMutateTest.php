@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
+use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -30,9 +31,13 @@ final class BatchMutateTest extends TestCase {
 						if ( 'form' === $name ) {
 							return new BatchFormWidgetForTest();
 						}
+						if ( 'posts' === $name ) {
+							return new BatchFixedControlWidgetForTest();
+						}
 						if ( null === $name ) {
 							$widgets = (array) $this->base->get_widget_types();
 							$widgets['form'] = new BatchFormWidgetForTest();
+							$widgets['posts'] = new BatchFixedControlWidgetForTest();
 							return $widgets;
 						}
 						return $this->base->get_widget_types( $name );
@@ -381,7 +386,7 @@ final class BatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_tree_conflict', $result->get_error_code() );
+		self::assertSame( 'stonewright_elementor_revision_conflict', $result->get_error_code() );
 		self::assertSame( TreeHasher::hash( $intervening_tree ), $result->get_error_data()['current_tree_hash'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
@@ -540,11 +545,13 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( '0', $inner_settings['_flex_shrink'] );
 	}
 
-	public function test_batch_rejects_update_when_normalization_produces_no_change(): void {
+	public function test_identical_valid_update_is_unchanged_without_rewrite(): void {
+		$GLOBALS['wpdb']->incident_rows = [];
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+
 		$result = ( new BatchMutate() )->execute(
 			[
 				'post_id'    => 501,
-				'dry_run'    => true,
 				'operations' => [
 					[
 						'action'     => 'update_element',
@@ -555,9 +562,16 @@ final class BatchMutateTest extends TestCase {
 			]
 		);
 
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
-		self::assertSame( 'stonewright_no_effective_changes', $result->get_error_data()['cause_code'] );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['items'][0]['unchanged'] ?? false );
+		self::assertSame( 0, $result['applied'] );
+		self::assertSame( $result['before_hash'], $result['after_hash'] );
+		self::assertSame( '', $result['change_set_id'] );
+		self::assertSame( 'unchanged', $result['verification_status'] );
+		self::assertSame( [], $result['post_write'] );
+		self::assertSame( [], $result['next_step'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		self::assertSame( [], $GLOBALS['wpdb']->incident_rows );
 	}
 
 	public function test_remove_requires_confirmation_in_production_safe_mode(): void {
@@ -683,7 +697,7 @@ final class BatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_tree_conflict', $result->get_error_code() );
+		self::assertSame( 'stonewright_elementor_revision_conflict', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
@@ -1065,7 +1079,7 @@ final class BatchMutateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_responsive_scope_violation', $result->get_error_data()['cause_code'] );
+		self::assertSame( 'unsupported_responsive_control', $result->get_error_data()['cause_code'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
@@ -1130,6 +1144,309 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'No Elementor meta write may occur after an unpersisted snapshot.' );
 	}
 
+	public function test_mobile_padding_delta_preserves_every_existing_key_identically(): void {
+		$existing = $this->legacy_container_settings();
+		$this->seed_post( 901, [ $this->legacy_container( $existing ) ] );
+		$padding_mobile = self::box( '8' );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'          => 901,
+				'responsive_scope' => [ 'mobile' ],
+				'operations'       => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'hero',
+						'settings'   => [ 'padding_mobile' => $padding_mobile ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() . wp_json_encode( $result->get_error_data() ) : '' );
+		$tree     = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][901]->meta['_elementor_data'] ), true );
+		$settings = $tree[0]['settings'];
+		foreach ( $existing as $key => $value ) {
+			self::assertSame( $value, $settings[ $key ], $key );
+		}
+		self::assertSame( $padding_mobile, $settings['padding_mobile'] );
+		self::assertSame( array_keys( $existing ), array_values( array_intersect( array_keys( $settings ), array_keys( $existing ) ) ) );
+		self::assertSame( $result['items'][0]['non_target_before_hash'], $result['items'][0]['non_target_after_hash'] );
+		self::assertSame(
+			ResponsiveScope::hash_non_target_breakpoints( $existing, [ 'mobile' ] ),
+			$result['items'][0]['non_target_before_hash']
+		);
+		self::assertSame(
+			ResponsiveScope::hash_non_target_breakpoints( $settings, [ 'mobile' ] ),
+			$result['items'][0]['non_target_after_hash']
+		);
+	}
+
+	public function test_mobile_only_rejects_overflow_and_posts_per_page_without_widening_scope(): void {
+		$this->seed_post(
+			902,
+			[
+				[
+					'id'         => 'loop',
+					'elType'     => 'widget',
+					'widgetType' => 'posts',
+					'settings'   => [ 'posts_per_page' => 6 ],
+					'elements'   => [],
+				],
+			]
+		);
+
+		foreach ( [ 'overflow' => 'hidden', 'posts_per_page' => 3 ] as $key => $value ) {
+			$GLOBALS['stonewright_test_post_meta_calls'] = [];
+			$result = ( new BatchMutate() )->execute(
+				[
+					'post_id'    => 902,
+					'operations' => [
+						[
+							'action'              => 'update_element',
+							'element_id'          => 'loop',
+							'allowed_breakpoints' => [ 'mobile' ],
+							'settings'            => [ $key => $value ],
+						],
+					],
+				]
+			);
+
+			self::assertInstanceOf( \WP_Error::class, $result, $key );
+			self::assertSame( 'unsupported_responsive_control', $result->get_error_data()['cause_code'], $key );
+			self::assertSame( [ 'mobile' ], $result->get_error_data()['items'][0]['error']['data']['allowed_breakpoints'] ?? [] );
+			self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], $key );
+		}
+	}
+
+	public function test_add_widget_and_visibility_leave_locked_ancestor_settings_byte_identical(): void {
+		$existing = $this->legacy_container_settings();
+		$this->seed_post( 903, [ $this->legacy_container( $existing ) ] );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 903,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'op_id'       => 'loop',
+						'parent_id'   => 'hero',
+						'widget_type' => 'posts',
+						'settings'    => [ 'posts_per_page' => 4 ],
+					],
+					[
+						'action'      => 'update_element',
+						'element_ref' => 'loop',
+						'settings'    => [ 'hide_mobile' => 'hidden-mobile' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() . wp_json_encode( $result->get_error_data() ) : '' );
+		$tree = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][903]->meta['_elementor_data'] ), true );
+		foreach ( $existing as $key => $value ) {
+			self::assertSame( $value, $tree[0]['settings'][ $key ], $key );
+		}
+		self::assertSame( 'hidden-mobile', $tree[0]['elements'][0]['settings']['hide_mobile'] );
+		self::assertSame( 4, $tree[0]['elements'][0]['settings']['posts_per_page'] );
+		$warnings = $result['items'][1]['normalization_warnings'] ?? [];
+		self::assertNotContains( 'settings.boxed_width', array_column( $warnings, 'path' ) );
+	}
+
+	public function test_empty_default_lost_via_normalization_is_an_error_not_unchanged(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [
+							'flex_gap' => [
+								'unit'  => 'px',
+								'size'  => '',
+								'sizes' => [],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_setting_dropped', $result->get_error_data()['cause_code'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_mixed_unchanged_and_real_operation_writes_only_the_delta(): void {
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [ 'container_type' => 'flex' ],
+					],
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Only real delta' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['items'][0]['unchanged'] ?? false );
+		self::assertArrayNotHasKey( 'unchanged', $result['items'][1] );
+		self::assertSame( 1, $result['applied'] );
+		self::assertNotSame( '', $result['change_set_id'] );
+		$data_writes = array_values(
+			array_filter(
+				$GLOBALS['stonewright_test_post_meta_calls'],
+				static fn( array $call ): bool => '_elementor_data' === $call['meta_key']
+			)
+		);
+		self::assertCount( 1, $data_writes );
+		$tree = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] ), true );
+		self::assertSame( [ 'container_type' => 'flex' ], $tree[0]['settings'] );
+		self::assertSame( 'Only real delta', $tree[0]['elements'][0]['settings']['title'] );
+	}
+
+	public function test_per_op_scope_overrides_batch_scope_and_same_layer_conflict_is_rejected(): void {
+		$existing = $this->legacy_container_settings();
+		$this->seed_post( 904, [ $this->legacy_container( $existing ) ] );
+
+		$override = ( new BatchMutate() )->execute(
+			[
+				'post_id'          => 904,
+				'dry_run'          => true,
+				'responsive_scope' => [ 'desktop', 'tablet', 'mobile' ],
+				'operations'       => [
+					[
+						'action'              => 'update_element',
+						'element_id'          => 'hero',
+						'allowed_breakpoints' => [ 'mobile' ],
+						'settings'            => [
+							'padding'        => self::box( '40' ),
+							'padding_mobile' => self::box( '8' ),
+						],
+					],
+				],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $override );
+		self::assertSame( 'stonewright_responsive_scope_violation', $override->get_error_data()['cause_code'] );
+
+		$conflict = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 904,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'              => 'update_element',
+						'element_id'          => 'hero',
+						'allowed_breakpoints' => [ 'mobile' ],
+						'responsive_scope'    => [ 'desktop', 'mobile' ],
+						'settings'            => [ 'padding_mobile' => self::box( '8' ) ],
+					],
+				],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $conflict );
+		self::assertSame( 'stonewright_responsive_scope_conflict', $conflict->get_error_data()['cause_code'] ?? $conflict->get_error_code() );
+
+		$batch_conflict = ( new BatchMutate() )->execute(
+			[
+				'post_id'             => 904,
+				'dry_run'             => true,
+				'allowed_breakpoints' => [ 'mobile' ],
+				'responsive_scope'    => [ 'desktop', 'mobile' ],
+				'operations'          => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'hero',
+						'settings'   => [ 'padding_mobile' => self::box( '8' ) ],
+					],
+				],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $batch_conflict );
+		self::assertSame( 'stonewright_responsive_scope_conflict', $batch_conflict->get_error_code() );
+	}
+
+	public function test_write_restores_meta_when_post_status_changes(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'];
+		$GLOBALS['stonewright_test_posts'][501]->post_status = 'draft';
+		$GLOBALS['stonewright_test_status_flipped'] = false;
+		add_filter(
+			'update_post_metadata',
+			static function ( $check, int $post_id, string $meta_key ) {
+				if ( empty( $GLOBALS['stonewright_test_status_flipped'] ) && 501 === $post_id && '_elementor_data' === $meta_key ) {
+					$GLOBALS['stonewright_test_status_flipped'] = true;
+					$GLOBALS['stonewright_test_posts'][501]->post_status = 'publish';
+				}
+				return $check;
+			},
+			10,
+			3
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [ 'container_type' => 'grid' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_post_status_changed', $result->get_error_code() );
+		self::assertSame( 'draft', $GLOBALS['stonewright_test_posts'][501]->post_status );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] );
+	}
+
+	/** @return array<string, mixed> */
+	private static function box( string $size ): array {
+		return [
+			'top' => $size, 'right' => $size, 'bottom' => $size, 'left' => $size, 'unit' => 'px', 'isLinked' => true,
+		];
+	}
+
+	/** @return array<string, mixed> */
+	private function legacy_container_settings(): array {
+		return [
+			'container_type'     => 'flex',
+			'content_width'      => 'full',
+			'padding'            => self::box( '24' ),
+			'padding_tablet'     => self::box( '16' ),
+			'boxed_width'        => [ 'unit' => 'px', 'size' => '', 'sizes' => [] ],
+			'third_party_marker' => 'keep-me-exactly',
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @return array<string, mixed>
+	 */
+	private function legacy_container( array $settings ): array {
+		return [
+			'id'       => 'hero',
+			'elType'   => 'container',
+			'settings' => $settings,
+			'elements' => [],
+		];
+	}
+
 	/** @param array<int, array<string, mixed>> $tree */
 	private function seed_post( int $post_id, array $tree ): void {
 		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
@@ -1172,6 +1489,30 @@ final class BatchFormWidgetForTest {
 			'actions_after_submit' => [ 'type' => 'select2', 'multiple' => true, 'options' => [ 'email' => 'Email', 'newsman' => 'Newsman' ] ],
 			'email_to'             => [ 'type' => 'text' ],
 			'newsman_list'         => [ 'type' => 'text' ],
+		];
+	}
+}
+
+final class BatchFixedControlWidgetForTest {
+	public function get_title(): string {
+		return 'Posts';
+	}
+
+	/** @return list<string> */
+	public function get_categories(): array {
+		return [ 'pro-elements' ];
+	}
+
+	/** @return array<string, array<string, mixed>> */
+	public function get_controls(): array {
+		return [
+			'posts_per_page' => [ 'type' => 'number', 'responsive' => false ],
+			'overflow'       => [
+				'type'       => 'select',
+				'responsive' => false,
+				'options'    => [ 'default' => 'Default', 'hidden' => 'Hidden', 'auto' => 'Auto' ],
+			],
+			'hide_mobile'    => [ 'type' => 'switcher' ],
 		];
 	}
 }

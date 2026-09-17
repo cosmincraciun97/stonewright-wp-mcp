@@ -153,6 +153,7 @@ final class LoopTransaction {
 				'query_probe'         => $plan['query_probe'],
 				'schema_hash'         => (string) $plan['schema_hash'],
 				'resolved_controls'   => $plan['resolved_controls'],
+				'warnings'            => $plan['warnings'],
 				'execution_status'    => 'applied',
 				'verification_status' => 'verified',
 				'rollback_status'     => 'not_required',
@@ -304,47 +305,130 @@ final class LoopTransaction {
 		}
 
 		$compile_template_id = $template_id > 0 ? $template_id : 1;
-		$intent = [
-			'query'      => $query,
-			'responsive' => is_array( $args['responsive'] ?? null ) ? $args['responsive'] : [],
+		$base_intent = [
+			'query'            => $query,
+			'responsive'       => is_array( $args['responsive'] ?? null ) ? $args['responsive'] : [],
+			'responsive_scope' => $args['responsive_scope'] ?? [],
 		];
-		foreach ( [ 'slides_to_scroll', 'arrows', 'pagination' ] as $key ) {
+		foreach ( [ 'slides_to_scroll', 'arrows', 'pagination', 'pagination_load_type' ] as $key ) {
 			if ( array_key_exists( $key, $args ) ) {
-				$intent[ $key ] = $args[ $key ];
+				$base_intent[ $key ] = $args[ $key ];
 			}
 		}
-		$compiled_intent = LoopIntentCompiler::compile(
-			sanitize_key( (string) ( $args['display'] ?? '' ) ),
-			$compile_template_id,
-			sanitize_key( (string) ( $args['post_type'] ?? '' ) ),
-			$intent
-		);
-		if ( $compiled_intent instanceof \WP_Error ) {
-			return $compiled_intent;
+
+		$raw_instances = is_array( $args['instances'] ?? null ) ? $args['instances'] : [];
+		$instances     = [];
+		foreach ( $raw_instances as $raw ) {
+			if ( is_array( $raw ) ) {
+				$instances[] = $raw;
+			}
+		}
+		if ( [] === $instances ) {
+			$instances = [ [] ];
 		}
 
-		$widget_id = substr(
-			hash( 'sha256', $post_id . '|' . $parent_id . '|' . (string) ( $args['idempotency_key'] ?? '' ) ),
-			0,
-			8
-		);
-		$compiled_tree = ( new V3MutationCompiler() )->compile(
-			$tree,
-			[
-				[
-					'action'      => 'add_widget',
-					'parent_id'   => $parent_id,
-					'element_id'  => $widget_id,
-					'widget_type' => (string) $compiled_intent['widget_type'],
-					'settings'    => $compiled_intent['settings'],
-				],
-			]
-		);
+		$operations = [];
+		$compiled_rows = [];
+		$warnings = is_array( $query_probe['warnings'] ?? null ) ? $query_probe['warnings'] : [];
+		$display = sanitize_key( (string) ( $args['display'] ?? '' ) );
+		$post_type_key = sanitize_key( (string) ( $args['post_type'] ?? '' ) );
+		$idempotency_key = (string) ( $args['idempotency_key'] ?? '' );
+
+		foreach ( $instances as $index => $instance ) {
+			$intent = $base_intent;
+			if ( is_array( $instance['query'] ?? null ) ) {
+				$intent['query'] = array_merge( $query, $instance['query'] );
+			}
+			if ( is_array( $instance['visibility'] ?? null ) ) {
+				$intent['visibility'] = $instance['visibility'];
+			}
+			$compiled_intent = LoopIntentCompiler::compile(
+				$display,
+				$compile_template_id,
+				$post_type_key,
+				$intent
+			);
+			if ( $compiled_intent instanceof \WP_Error ) {
+				return $compiled_intent;
+			}
+			$widget_id = substr(
+				hash(
+					'sha256',
+					1 === count( $instances )
+						? $post_id . '|' . $parent_id . '|' . $idempotency_key
+						: $post_id . '|' . $parent_id . '|' . $idempotency_key . '|' . (string) $index
+				),
+				0,
+				8
+			);
+			$operations[] = [
+				'action'      => 'add_widget',
+				'parent_id'   => $parent_id,
+				'element_id'  => $widget_id,
+				'widget_type' => (string) $compiled_intent['widget_type'],
+				'settings'    => $compiled_intent['settings'],
+			];
+			$compiled_rows[] = [
+				'widget_id'         => $widget_id,
+				'compiled'          => $compiled_intent,
+			];
+			$warnings = array_merge( $warnings, (array) $compiled_intent['warnings'] );
+		}
+
+		if ( count( $compiled_rows ) > 1 ) {
+			$warnings[] = 'Two native loop widgets were written because instances was explicit. Extra queries add cost; keep unique IDs and native visibility. This is not the default.';
+		}
+
+		$compiled_tree = ( new V3MutationCompiler() )->compile( $tree, $operations );
 		if ( $compiled_tree instanceof \WP_Error ) {
 			return $compiled_tree;
 		}
-		$after_hash       = TreeHasher::hash( $compiled_tree['tree'] );
-		$template_control = (string) ( $compiled_intent['resolved_controls']['template'] ?? '' );
+		$after_hash        = TreeHasher::hash( $compiled_tree['tree'] );
+		$first             = $compiled_rows[0];
+		$compiled_intent   = $first['compiled'];
+		$widget_id         = (string) $first['widget_id'];
+		$template_control  = (string) ( $compiled_intent['resolved_controls']['template'] ?? '' );
+		$first_settings    = (array) $compiled_intent['settings'];
+		$expected_instances = [];
+		foreach ( $compiled_rows as $row ) {
+			$row_compiled = $row['compiled'];
+			$expected_instances[] = [
+				'widget_id'        => (string) $row['widget_id'],
+				'widget_type'      => (string) $row_compiled['widget_type'],
+				'template_id'      => $compile_template_id,
+				'template_control' => (string) ( $row_compiled['resolved_controls']['template'] ?? $template_control ),
+				'settings'         => (array) $row_compiled['settings'],
+			];
+		}
+
+		$expected_readback = [
+			'tree_hash'        => $after_hash,
+			'parent_id'        => $parent_id,
+			'widget_id'        => $widget_id,
+			'widget_type'      => (string) $compiled_intent['widget_type'],
+			'template_id'      => $compile_template_id,
+			'template_control' => $template_control,
+			'settings'         => $first_settings,
+			'render_probe'     => static function ( array $widget ) use ( $expected_instances ): bool {
+				$settings = is_array( $widget['settings'] ?? null ) ? $widget['settings'] : [];
+				$id       = (string) ( $widget['id'] ?? '' );
+				foreach ( $expected_instances as $instance ) {
+					if ( $id !== (string) $instance['widget_id'] ) {
+						continue;
+					}
+					foreach ( (array) $instance['settings'] as $control => $value ) {
+						if ( ( $settings[ $control ] ?? null ) !== $value ) {
+							return false;
+						}
+					}
+					return true;
+				}
+				return false;
+			},
+		];
+		if ( count( $expected_instances ) > 1 ) {
+			$expected_readback['instances'] = $expected_instances;
+		}
 
 		return [
 			'post_id'             => $post_id,
@@ -361,16 +445,8 @@ final class LoopTransaction {
 			'runtime_fingerprint' => (string) $compiled_intent['runtime_fingerprint'],
 			'resolved_controls'   => $compiled_intent['resolved_controls'],
 			'query_probe'         => $query_probe,
-			'warnings'            => array_values( array_unique( array_merge( $compiled_intent['warnings'], $query_probe['warnings'] ) ) ),
-			'expected_readback'   => [
-				'tree_hash'        => $after_hash,
-				'parent_id'        => $parent_id,
-				'widget_id'        => $widget_id,
-				'widget_type'      => (string) $compiled_intent['widget_type'],
-				'template_id'      => $compile_template_id,
-				'template_control' => $template_control,
-				'settings'         => $compiled_intent['settings'],
-			],
+			'warnings'            => array_values( $warnings ),
+			'expected_readback'   => $expected_readback,
 		];
 	}
 

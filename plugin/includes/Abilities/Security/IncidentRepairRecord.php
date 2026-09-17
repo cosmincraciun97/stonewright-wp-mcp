@@ -119,8 +119,9 @@ final class IncidentRepairRecord extends AbilityKernel {
 					return $resolved;
 				}
 
-				$memory_key = 'verified-repair-' . substr( (string) $receipt['repair_receipt_id'], 0, 16 );
-				$memory_id  = Memory::put_typed(
+				$memory_key  = 'verified-repair-' . substr( (string) $receipt['repair_receipt_id'], 0, 16 );
+				$fingerprint = self::scalar_fingerprint( $receipt['runtime_fingerprint'] ?? null, $incident['version_token'] ?? null );
+				$memory_id   = Memory::put_typed(
 					'feedback',
 					'verified-repairs',
 					$memory_key,
@@ -136,9 +137,16 @@ final class IncidentRepairRecord extends AbilityKernel {
 						'error_code'             => (string) ( $incident['root_error_code'] ?? '' ),
 						'verifier'               => (string) ( $receipt['evidence']['verifier'] ?? '' ),
 						'verified_at'            => current_time( 'mysql', true ),
+						'repair_receipt_id'      => (string) ( $receipt['repair_receipt_id'] ?? '' ),
+						'runtime_fingerprint'    => $fingerprint,
 					],
 					1.0,
-					[ 'topic' => (string) ( $incident['root_error_code'] ?? 'verified repair' ), 'status' => 'active', 'precedence' => 650 ]
+					[
+						'topic'               => (string) ( $incident['root_error_code'] ?? 'verified repair' ),
+						'status'              => 'active',
+						'precedence'          => 650,
+						'version_fingerprint' => $fingerprint,
+					]
 				);
 				if ( 0 === $memory_id ) {
 					return $this->error( 'repair_learning_write_failed', __( 'Incident resolved, but verified learning could not be stored.', 'stonewright' ), [ 'status' => 500 ] );
@@ -169,6 +177,27 @@ final class IncidentRepairRecord extends AbilityKernel {
 	/** @return list<string> */
 	protected function audit_redacted_keys(): array {
 		return array_values( array_unique( array_merge( parent::audit_redacted_keys(), [ 'repair_recipe' ] ) ) );
+	}
+
+	private static function scalar_fingerprint( mixed $runtime, mixed $version_token ): string {
+		foreach ( [ $runtime, $version_token ] as $candidate ) {
+			if ( is_scalar( $candidate ) ) {
+				$value = trim( (string) $candidate );
+				if ( '' !== $value ) {
+					return mb_substr( $value, 0, 190 );
+				}
+			}
+			if ( is_array( $candidate ) ) {
+				$generation = trim( (string) ( $candidate['generation'] ?? '' ) );
+				$updated    = trim( (string) ( $candidate['updated_at'] ?? '' ) );
+				$joined     = trim( $generation . ':' . $updated, ':' );
+				if ( '' !== $joined ) {
+					return mb_substr( $joined, 0, 190 );
+				}
+			}
+		}
+
+		return defined( 'STONEWRIGHT_VERSION' ) ? (string) STONEWRIGHT_VERSION : '';
 	}
 
 	/** @param array<string, mixed> $row @return array<string, mixed> */

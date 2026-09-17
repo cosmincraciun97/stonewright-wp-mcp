@@ -42,8 +42,8 @@ From repository root unless noted:
 - [ ] `node scripts/check-docs-freshness.mjs`
 - [ ] `git diff --check`
 - [ ] `node scripts/check-public-hygiene.mjs --require-private-terms` (release packaging)
-- [ ] Plugin ZIP, companion TGZ, and Visual TGZ unpacked and scanned; published
-      checksums match downloaded assets.
+- [ ] Plugin ZIP, companion TGZ, and SHA256SUMS unpacked and scanned; published
+      checksums match downloaded assets. No Visual TGZ is published.
 - [ ] Focused OAuth matrix when OAuth changed:
   - `cd plugin && ./vendor/bin/phpunit --filter OAuth`
   - `cd companion && npx vitest run tests/oauth-matrix.test.ts tests/oauth-token-manager.test.ts tests/wordpress-mcp-oauth.test.ts`

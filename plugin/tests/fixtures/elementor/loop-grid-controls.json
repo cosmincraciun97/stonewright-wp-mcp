@@ -1,0 +1,77 @@
+{
+	"widget_type": "loop-grid",
+	"source": "synthetic-elementor-pro-4.2",
+	"note": "Synthetic Loop Grid controls for schema confirmation. No client templates or site content.",
+	"controls": {
+		"template_id": {
+			"type": "query",
+			"label": "Choose template"
+		},
+		"query_post_type": {
+			"type": "select",
+			"label": "Source",
+			"options": {
+				"by_id": "Manual Selection",
+				"current_query": "Current Query",
+				"post": "Posts",
+				"page": "Pages",
+				"product": "Products",
+				"project": "project"
+			}
+		},
+		"posts_per_page": {
+			"type": "number",
+			"label": "Posts Per Page",
+			"responsive": false,
+			"min": 1,
+			"max": 100
+		},
+		"columns": {
+			"type": "number",
+			"label": "Columns",
+			"responsive": true
+		},
+		"pagination_type": {
+			"type": "select",
+			"label": "Pagination",
+			"default": "",
+			"options": {
+				"": "None",
+				"numbers": "Numbers",
+				"load_more": "Load on Click",
+				"load_on_scroll": "Infinite"
+			}
+		},
+		"pagination_load_type": {
+			"type": "select",
+			"label": "Load type",
+			"options": {
+				"click": "Click",
+				"auto": "Auto"
+			},
+			"condition": {
+				"pagination_type": ["load_more", "load_on_scroll"]
+			}
+		},
+		"tax_query": {
+			"type": "repeater",
+			"label": "Taxonomy query"
+		},
+		"meta_query": {
+			"type": "repeater",
+			"label": "Meta query"
+		},
+		"hide_desktop": {
+			"type": "switcher",
+			"return_value": "hidden-desktop"
+		},
+		"hide_tablet": {
+			"type": "switcher",
+			"return_value": "hidden-tablet"
+		},
+		"hide_mobile": {
+			"type": "switcher",
+			"return_value": "hidden-mobile"
+		}
+	}
+}

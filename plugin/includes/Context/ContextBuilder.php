@@ -283,7 +283,7 @@ final class ContextBuilder {
 		$other_rows   = [];
 
 		foreach ( $entries as $entry ) {
-			if ( ! Memory::is_active( $entry ) ) {
+			if ( ! Memory::is_task_start_eligible( $entry ) ) {
 				continue;
 			}
 			$haystack = self::normalise(

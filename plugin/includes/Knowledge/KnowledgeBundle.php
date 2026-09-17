@@ -81,7 +81,14 @@ final class KnowledgeBundle {
 						$key,
 						(string) ( $entry['name'] ?? $key ),
 						$entry['value'] ?? null,
-						(float) ( $entry['confidence'] ?? 1.0 )
+						(float) ( $entry['confidence'] ?? 1.0 ),
+						[
+							'topic'                 => (string) ( $entry['topic'] ?? $entry['name'] ?? $key ),
+							'status'                => (string) ( $entry['status'] ?? 'active' ),
+							'precedence'            => (int) ( $entry['precedence'] ?? 0 ),
+							'version_fingerprint'   => (string) ( $entry['version_fingerprint'] ?? '' ),
+							'expires_at'            => $entry['expires_at'] ?? null,
+						]
 					);
 					if ( $id > 0 ) {
 						++$memory_imported;

@@ -75,10 +75,14 @@ emits a site-wide atomic-style clear for one post.
 
 - target kind and filename (never raw path or URL);
 - hashed path/URL and before/after direct-file manifest hashes;
-- HTTP 200/no-redirect probes for the target CSS and any existing
-  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets;
+- distinct `generation_status`, `delivery_status`, and
+  `frontend_verification_status` (`verified|blocked|failed|not_checked`);
+- HTTP probes for the target CSS and any existing
+  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets
+  (a login 302 is delivery blocked, not a generation failure);
 - collateral-change and rollback status;
-- backup snapshot id and `effect_verified`.
+- backup snapshot id and `effect_verified` only when the requested effect
+  actually closed.
 
 `stonewright-elementor-post-write-verify` reports:
 
@@ -98,6 +102,18 @@ is a maximal V3-only subtree that can be targeted surgically. If the intended
 target is a V4 atomic node or crosses a V3/V4 boundary, stop and use the
 matching V4 ability or redesign the patch. Never strip unknown settings or
 remap widget types to force validation.
+
+## Stale editor save
+
+An Elementor editor session captures the server `_elementor_data` hash and
+`post_status` at `elementor/editor/init`. Persist through
+`elementor/document/before_save` re-reads that server copy. If MCP or another
+writer changed the document after the editor loaded, save is blocked with
+`stonewright_elementor_stale_editor`, the local editor draft is not discarded,
+and `post_status` stays unchanged. Visual `save` and the native editor button
+share that PHP gate. `expected_tree_hash` on
+`stonewright-elementor-v3-batch-mutate` is a different path: it protects a stale
+MCP plan, not an open editor.
 
 ## Schema evidence, not guessed controls
 

@@ -23,6 +23,7 @@ import {
 } from './wp-cli.js';
 import { MCP_MISSING_BOOTSTRAP_STOP, buildToolInventory } from './setup-profile.js';
 import { OAuthReauthRequiredError } from './oauth-token-manager.js';
+import { PluginTransportError } from './connection/transport-diagnostic.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -32,6 +33,9 @@ import {
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
+	WordPressMcpHttpError,
+	isConfirmedPluginRouteAbsence,
+	isWordPressMcpAuthFailure,
 } from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
 import {
@@ -47,7 +51,8 @@ import {
 import { findSiteByAlias, loadRegistry } from './cli/connect/registry.js';
 import type { SiteRecordV2 } from './cli/connect/types.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
-import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
+import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, type ProbeResult } from './direct/mode.js';
+import { type EndpointEvidence } from './connection/status-contract.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import {
@@ -176,7 +181,24 @@ async function bootstrapConnection(
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
-	runtime.wpReachable = modeProbe.pluginEndpointStatus !== null ? true : null;
+	runtime.endpointEvidence = evidenceFromProbe(modeProbe, env);
+	runtime.wpReachable = modeProbe.pluginEndpointStatus !== null || modeProbe.pluginRouteState !== 'not_checked'
+		? modeProbe.pluginRouteState !== 'inconclusive'
+			? modeProbe.pluginRouteState === 'present'
+			: null
+		: null;
+
+	if (modeProbe.configured === 'plugin-only' && modeProbe.pluginRouteState === 'missing') {
+		wpMcpStatus.ok = false;
+		wpMcpStatus.connected = false;
+		wpMcpStatus.startup_ready = false;
+		wpMcpStatus.error = { message: modeProbe.reason };
+		wpMcpStatus.error_code = modeProbe.errorCode ?? 'plugin_route_missing';
+		wpMcpStatus.next_action = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.';
+		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
+		runtime.syncLegacyStatus();
+		return;
+	}
 
 	if (modeProbe.mode === 'direct') {
 		// plugin-only must never fall into Direct tools (resolveRuntimeMode already
@@ -185,8 +207,8 @@ async function bootstrapConnection(
 		return;
 	}
 
-	// Plugin path (plugin-only or auto preferring plugin).
-	runtime.stateMachine.transition('plugin-authenticated');
+	// Plugin path (plugin-only or auto preferring plugin). Stay probing until initialize succeeds.
+	runtime.stateMachine.transition('plugin-registering');
 	let wpMcpConfig = null;
 	try {
 		wpMcpConfig = await resolveWordPressMcpConfig(env);
@@ -298,6 +320,17 @@ async function bootstrapConnection(
 		wpMcpStatus.error = null;
 		wpMcpStatus.error_code = null;
 		wpMcpStatus.next_action = 'Call stonewright-task-start and follow fast_path.tool_profile.';
+		runtime.endpointEvidence = {
+			...runtime.endpointEvidence,
+			configured_mcp_url: wpMcpConfig.url,
+			active_url: wpMcpConfig.url,
+			plugin_route_state: 'present',
+			plugin_http_status: runtime.endpointEvidence.plugin_http_status,
+			initialized: true,
+			last_checked_at: new Date().toISOString(),
+		};
+		runtime.lastSuccessAt = runtime.endpointEvidence.last_checked_at;
+		runtime.lastHandshakeUrl = wpMcpConfig.url;
 		runtime.refreshSurfaceFromServer({ forceBump: true });
 		runtime.syncLegacyStatus();
 	} catch (err) {
@@ -313,26 +346,55 @@ async function bootstrapConnection(
 			runtime.syncLegacyStatus();
 			return;
 		}
+		if (err instanceof WordPressMcpHttpError) {
+			applyHttpErrorEvidence(runtime, err, wpMcpConfig.url);
+		} else if (err instanceof PluginTransportError) {
+			applyTransportFailureEvidence(runtime, err);
+		} else {
+			runtime.endpointEvidence = {
+				...runtime.endpointEvidence,
+				active_url: null,
+				initialized: false,
+				last_checked_at: new Date().toISOString(),
+			};
+		}
 		const message = err instanceof Error ? err.message : String(err);
 		runtime.registry.abort(message);
 		// plugin-only: fail closed, no Direct fallback.
 		if (modeProbe.configured === 'plugin-only') {
+			const routeMissing = isConfirmedPluginRouteAbsence(err);
 			wpMcpStatus.ok = false;
 			wpMcpStatus.connected = false;
 			wpMcpStatus.error = { message };
-			wpMcpStatus.error_code = 'plugin_unavailable';
+			wpMcpStatus.error_code = routeMissing
+				? 'plugin_route_missing'
+				: isWordPressMcpAuthFailure(err)
+					? 'auth_error'
+					: 'plugin_unavailable';
 			wpMcpStatus.next_action = 'Fix plugin connectivity, then call stonewright-reconnect. Direct tools are not available in plugin-only mode.';
-			runtime.stateMachine.transition('degraded', { error: message });
+			runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
 			runtime.syncLegacyStatus();
 			return;
 		}
-		// auto: fall back to Direct when plugin registration fails with 404-like absence.
-		if (modeProbe.configured === 'auto' && /404|not found|ECONNREFUSED/i.test(message)) {
+		if (modeProbe.configured === 'auto' && isConfirmedPluginRouteAbsence(err)) {
 			await registerDirectMode(server, env, options, runtime, {
 				...modeProbe,
 				mode: 'direct',
-				reason: `Plugin registration failed (${message}); auto fallback to Direct.`,
+				pluginRouteState: 'missing',
+				pluginEndpointStatus: err.status,
+				errorCode: 'plugin_route_missing',
+				reason: `Plugin registration confirmed rest_no_route (HTTP ${err.status}); auto fallback to Direct.`,
 			}, profile);
+			return;
+		}
+		if (isWordPressMcpAuthFailure(err)) {
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message };
+			wpMcpStatus.error_code = 'auth_error';
+			wpMcpStatus.next_action = 'Fix WordPress credentials, then call stonewright-reconnect.';
+			runtime.stateMachine.transition('degraded', { error: 'auth_error' });
+			runtime.syncLegacyStatus();
 			return;
 		}
 		wpMcpStatus.ok = false;
@@ -341,7 +403,6 @@ async function bootstrapConnection(
 		wpMcpStatus.error_code = 'connection_error';
 		wpMcpStatus.next_action = 'Call stonewright-connect-doctor, fix credentials/URL, then stonewright-reconnect.';
 		runtime.stateMachine.transition('degraded', { error: message });
-		// Permanent gateways remain; prior registry empty on first boot.
 		runtime.syncLegacyStatus();
 	}
 }
@@ -369,10 +430,9 @@ async function performReconnect(
 	const previousCallRemote = runtime.callRemoteTool;
 	const previousLive = runtime.status.live;
 	const previousConnected = runtime.status.connected;
-	const previousStartup = runtime.status.startup_ready;
 	const previousAuthConfigured = runtime.authConfigured;
 	const previousAuthMethod = runtime.authMethod;
-	const previousWpReachable = runtime.wpReachable;
+	runtime.reconnectAttempted = true;
 
 	try {
 		// Re-run bootstrap path. Failed reconnect must preserve prior healthy registry:
@@ -388,15 +448,19 @@ async function performReconnect(
 			resumeListNotifications();
 		}
 
-		if (!runtime.status.connected && priorReady) {
-			// Restore prior healthy signals when reconnect failed.
+		if (!runtime.status.connected && priorReady && previousConnected) {
+			// Preserve the prior catalog and last success. Do not overlay the
+			// latest attempt's evidence with the old healthy handshake.
 			runtime.callRemoteTool = previousCallRemote;
 			runtime.status.live = previousLive;
-			runtime.status.connected = previousConnected;
-			runtime.status.startup_ready = previousStartup;
 			runtime.authConfigured = previousAuthConfigured;
 			runtime.authMethod = previousAuthMethod;
-			runtime.wpReachable = previousWpReachable;
+			runtime.endpointEvidence = {
+				...runtime.endpointEvidence,
+				initialized: false,
+				active_url: null,
+			};
+			runtime.reconnectAttempted = true;
 			runtime.registry.abort(runtime.status.error?.message ?? 'reconnect failed');
 			runtime.stateMachine.transition('degraded', {
 				error: runtime.status.error?.message ?? 'reconnect failed',
@@ -438,12 +502,14 @@ async function performReconnect(
 		if (priorReady) {
 			runtime.callRemoteTool = previousCallRemote;
 			runtime.status.live = previousLive;
-			runtime.status.connected = previousConnected;
-			runtime.status.startup_ready = previousStartup;
 			runtime.authConfigured = previousAuthConfigured;
 			runtime.authMethod = previousAuthMethod;
-			runtime.wpReachable = previousWpReachable;
 		}
+		runtime.endpointEvidence = {
+			...runtime.endpointEvidence,
+			initialized: false,
+			active_url: null,
+		};
 		runtime.registry.abort(message);
 		runtime.surface.bump(priorNames);
 		runtime.syncLegacyStatus();
@@ -568,17 +634,42 @@ async function registerDirectMode(
 		runtime.registry.commitDirect(
 			registered.map((name) => ({ name, source: 'direct' as const })),
 		);
-		runtime.stateMachine.transition('direct-ready', { bumpGeneration: true });
 
-		wpMcpStatus.ok = true;
-		wpMcpStatus.connected = true;
+		const siteBase = siteBaseFromEnv(env);
+		let backendReady = false;
+		if (modeProbe.configured !== 'direct-only') {
+			if (modeProbe.pluginNamespaceDetected !== null) {
+				backendReady = true;
+			} else if (siteBase) {
+				backendReady = (await probePublicRestIndex(siteBase, runtime.fetchImpl)).reachable;
+			}
+		}
+		if (backendReady) {
+			runtime.stateMachine.transition('direct-ready', { bumpGeneration: true });
+			wpMcpStatus.ok = true;
+			wpMcpStatus.connected = true;
+			runtime.lastSuccessAt = new Date().toISOString();
+		} else {
+			runtime.stateMachine.transition('local-ready');
+			wpMcpStatus.ok = true;
+			wpMcpStatus.connected = false;
+		}
 		// Direct is a committed replacement surface, not a degraded Plugin
 		// session. Drop every Plugin-only live signal so status and recovery
 		// gateways cannot advertise tools from the previous remote catalog.
 		runtime.callRemoteTool = null;
 		wpMcpStatus.live = null;
 		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
-		wpMcpStatus.url = modeProbe.endpoint;
+		wpMcpStatus.url = siteBase && backendReady ? restIndexUrl(siteBase) : modeProbe.endpoint;
+		runtime.endpointEvidence = {
+			...runtime.endpointEvidence,
+			configured_mcp_url: modeProbe.endpoint,
+			active_url: backendReady && siteBase ? restIndexUrl(siteBase) : null,
+			plugin_route_state: modeProbe.pluginRouteState,
+			plugin_http_status: modeProbe.pluginEndpointStatus,
+			initialized: false,
+			last_checked_at: new Date().toISOString(),
+		};
 		wpMcpStatus.tool_profile = directProfile;
 		wpMcpStatus.direct_tool_count = registered.length;
 		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
@@ -994,4 +1085,57 @@ function toolResponse<T extends Record<string, unknown>>(result: T): {
 		],
 		structuredContent: result,
 	};
+}
+
+function evidenceFromProbe(probe: ProbeResult, env: NodeJS.ProcessEnv): EndpointEvidence {
+	void env;
+	return {
+		configured_mcp_url: probe.endpoint,
+		active_url: null,
+		plugin_route_state: probe.pluginRouteState,
+		plugin_http_status: probe.pluginEndpointStatus,
+		initialized: false,
+		last_checked_at: probe.pluginRouteState === 'not_checked' ? null : new Date().toISOString(),
+	};
+}
+
+function applyHttpErrorEvidence(
+	runtime: ConnectionRuntime,
+	error: WordPressMcpHttpError,
+	configuredUrl: string | null,
+): void {
+	const routeState = error.truncated
+		? 'inconclusive'
+		: (!error.truncated && error.bodyKind === 'wp_rest_error' && error.restCode === 'rest_no_route')
+			? 'missing'
+			: error.bodyKind === 'html'
+				? 'inconclusive'
+				: (error.status === 401 || error.status === 403 || error.status === 405 || error.bodyKind === 'json_rpc')
+					? 'present'
+					: error.bodyKind === 'wp_rest_error' && error.status === 404
+						? 'missing'
+						: 'inconclusive';
+	runtime.endpointEvidence = {
+		...runtime.endpointEvidence,
+		configured_mcp_url: configuredUrl ?? runtime.endpointEvidence.configured_mcp_url,
+		active_url: null,
+		plugin_route_state: routeState,
+		plugin_http_status: error.status,
+		initialized: false,
+		last_checked_at: error.checkedAt,
+	};
+	runtime.wpReachable = routeState === 'present' ? true : routeState === 'missing' ? false : null;
+}
+
+function applyTransportFailureEvidence(runtime: ConnectionRuntime, error: PluginTransportError): void {
+	runtime.endpointEvidence = {
+		...runtime.endpointEvidence,
+		active_url: null,
+		plugin_route_state: 'inconclusive',
+		plugin_http_status: error.diagnostic.http_status,
+		initialized: false,
+		last_checked_at: new Date().toISOString(),
+	};
+	runtime.wpReachable = null;
+	runtime.lastTransportDiagnostic = error.diagnostic;
 }

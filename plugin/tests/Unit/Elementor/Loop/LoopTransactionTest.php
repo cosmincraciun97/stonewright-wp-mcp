@@ -5,7 +5,10 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\Loop;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\Loop\LoopTransaction;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Support\ElementorData;
+
+require_once __DIR__ . '/SyntheticLoopWidgets.php';
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\Loop\LoopTransaction
@@ -15,9 +18,11 @@ final class LoopTransactionTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->original_elementor = \Elementor\Plugin::$instance;
+		unset( $GLOBALS['stonewright_test_loop_control_overrides'] );
 		\Elementor\Plugin::$instance = (object) [
 			'widgets_manager' => new TransactionWidgetManager( $this->original_elementor->widgets_manager ),
 		];
+		WidgetSchemaRepository::reset_request_cache();
 		$GLOBALS['stonewright_test_posts'] = [
 			9049 => self::post(
 				9049,
@@ -63,6 +68,8 @@ final class LoopTransactionTest extends TestCase {
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_deleted_posts']  = [];
 		$GLOBALS['stonewright_test_inserted_posts'] = [];
+		unset( $GLOBALS['stonewright_test_loop_control_overrides'] );
+		WidgetSchemaRepository::reset_request_cache();
 	}
 
 	public function test_dry_run_plans_without_page_or_template_writes(): void {
@@ -186,6 +193,123 @@ final class LoopTransactionTest extends TestCase {
 		];
 	}
 
+	public function test_schema_without_post_type_control_writes_nothing(): void {
+		$before = ElementorData::read( 9049 );
+		$GLOBALS['stonewright_test_loop_control_overrides']['loop-grid'] = [
+			'template_id' => [ 'type' => 'query' ],
+			'columns'     => [ 'type' => 'number', 'responsive' => true ],
+		];
+		WidgetSchemaRepository::reset_request_cache();
+
+		$result = LoopTransaction::run( self::args( [ 'template_id' => 77 ] ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
+		self::assertSame( $before, ElementorData::read( 9049 ) );
+		self::assertSame( [], self::elementor_data_writes( 9049 ) );
+	}
+
+	public function test_unsupported_post_type_does_not_become_static_cards(): void {
+		$GLOBALS['stonewright_test_post_types']['events'] = (object) [ 'name' => 'events', 'public' => true ];
+		$before = ElementorData::read( 9049 );
+
+		$result = LoopTransaction::run( self::args( [ 'template_id' => 77, 'post_type' => 'events' ] ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_post_type_unsupported', $result->get_error_code() );
+		self::assertSame( $before, ElementorData::read( 9049 ) );
+		self::assertSame( [], self::elementor_data_writes( 9049 ) );
+	}
+
+	public function test_readback_includes_template_query_post_type_and_pagination(): void {
+		$result = LoopTransaction::run(
+			self::args(
+				[
+					'template_id' => 77,
+					'pagination'  => true,
+				]
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['readback']['verified'] );
+		self::assertContains( 'template', $result['readback']['checks'] );
+		self::assertContains( 'settings', $result['readback']['checks'] );
+		$tree   = ElementorData::read( 9049 );
+		$widget = $tree[0]['elements'][0];
+		self::assertSame( 'loop-grid', $widget['widgetType'] );
+		self::assertSame( 77, $widget['settings']['template_id'] );
+		self::assertSame( 'project', $widget['settings']['query_post_type'] );
+		self::assertSame( 6, $widget['settings']['posts_per_page'] );
+		self::assertSame( 'numbers', $widget['settings']['pagination_type'] );
+		self::assertArrayNotHasKey( 'pagination_load_type', $widget['settings'] );
+	}
+
+	public function test_mobile_only_posts_per_page_rejects_before_write(): void {
+		$before = ElementorData::read( 9049 );
+
+		$result = LoopTransaction::run(
+			self::args(
+				[
+					'template_id'      => 77,
+					'query'            => [ 'posts_per_page' => 3 ],
+					'responsive_scope' => [ 'mobile' ],
+				]
+			)
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_non_responsive_control', $result->get_error_code() );
+		self::assertContains(
+			'explicit_two_loops',
+			array_column( (array) ( $result->get_error_data()['plan_alternatives'] ?? [] ), 'id' )
+		);
+		self::assertSame( $before, ElementorData::read( 9049 ) );
+	}
+
+	public function test_explicit_two_loops_keep_query_template_unique_ids_and_native_visibility(): void {
+		$result = LoopTransaction::run(
+			self::args(
+				[
+					'template_id' => 77,
+					'instances'   => [
+						[ 'visibility' => [ 'hide_mobile' => 'hidden-mobile' ] ],
+						[
+							'visibility' => [
+								'hide_desktop' => 'hidden-desktop',
+								'hide_tablet'  => 'hidden-tablet',
+							],
+							'query'      => [ 'posts_per_page' => 3 ],
+						],
+					],
+				]
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		$elements = ElementorData::read( 9049 )[0]['elements'];
+		self::assertCount( 2, $elements );
+		self::assertNotSame( $elements[0]['id'], $elements[1]['id'] );
+		self::assertSame( 77, $elements[0]['settings']['template_id'] );
+		self::assertSame( 77, $elements[1]['settings']['template_id'] );
+		self::assertSame( 'project', $elements[0]['settings']['query_post_type'] );
+		self::assertSame( 'project', $elements[1]['settings']['query_post_type'] );
+		self::assertSame( 'hidden-mobile', $elements[0]['settings']['hide_mobile'] );
+		self::assertSame( 'hidden-desktop', $elements[1]['settings']['hide_desktop'] );
+		self::assertSame( 'hidden-tablet', $elements[1]['settings']['hide_tablet'] );
+		self::assertArrayNotHasKey( 'hide_mobile', $elements[1]['settings'] );
+		self::assertSame( 3, $elements[1]['settings']['posts_per_page'] );
+		self::assertNotEmpty( $result['warnings'] );
+	}
+
+	public function test_single_loop_remains_the_default(): void {
+		$result = LoopTransaction::run( self::args( [ 'template_id' => 77 ] ) );
+
+		self::assertIsArray( $result );
+		self::assertCount( 1, ElementorData::read( 9049 )[0]['elements'] );
+	}
+
 	public function test_existing_template_is_never_deleted_on_page_failure(): void {
 		LoopTransaction::fail_at_for_test( 'page_readback' );
 
@@ -293,45 +417,8 @@ final class TransactionWidgetManager {
 	}
 }
 
-final class TransactionLoopCarouselWidget {
-	public function get_title(): string {
-		return 'Loop Carousel';
-	}
-
-	/** @return list<string> */
-	public function get_categories(): array {
-		return [ 'pro-elements' ];
-	}
-
-	/** @return array<string, array<string, mixed>> */
-	public function get_controls(): array {
-		return [
-			'template_id'    => [ 'type' => 'select' ],
-			'post_type'      => [ 'type' => 'text' ],
-			'posts_per_page' => [ 'type' => 'number' ],
-			'slides_to_show' => [ 'type' => 'number', 'responsive' => true ],
-			'arrows'         => [ 'type' => 'switcher', 'return_value' => 'yes' ],
-		];
-	}
+final class TransactionLoopCarouselWidget extends SyntheticLoopCarouselWidget {
 }
 
-final class TransactionLoopGridWidget {
-	public function get_title(): string {
-		return 'Loop Grid';
-	}
-
-	/** @return list<string> */
-	public function get_categories(): array {
-		return [ 'pro-elements' ];
-	}
-
-	/** @return array<string, array<string, mixed>> */
-	public function get_controls(): array {
-		return [
-			'template_id'    => [ 'type' => 'select' ],
-			'post_type'      => [ 'type' => 'text' ],
-			'posts_per_page' => [ 'type' => 'number' ],
-			'columns'        => [ 'type' => 'number', 'responsive' => true ],
-		];
-	}
+final class TransactionLoopGridWidget extends SyntheticLoopGridWidget {
 }

@@ -73,8 +73,9 @@ describe('connection state machine', () => {
 		sm.transition('plugin-authenticated');
 		sm.transition('plugin-registering');
 		expect(sm.isRegistryReady()).toBe(false);
-		expect(sm.isConnectedDerived()).toBe(true);
+		expect(sm.isConnectedDerived()).toBe(false);
 		sm.transition('plugin-ready', { bumpGeneration: true });
+		expect(sm.isConnectedDerived()).toBe(true);
 		expect(sm.getStage()).toBe('plugin-ready');
 		expect(sm.isRegistryReady()).toBe(true);
 		expect(sm.getGeneration()).toBe(1);

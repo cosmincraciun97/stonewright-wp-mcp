@@ -67,6 +67,56 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( '1.3.0-beta.10', $selected['version'] );
 	}
 
+	public function test_select_release_chooses_beta_13_3_over_13_2_and_injects_new_version(): void {
+		$older = $this->release_with_version( $this->releases_fixture()[6], '1.0.0-beta.13.2' );
+		$newer = $this->release_with_version( $this->releases_fixture()[6], '1.0.0-beta.13.3' );
+		$selected = GitHubUpdater::select_release( [ $older, $newer ], 'beta' );
+		self::assertIsArray( $selected );
+		self::assertSame( '1.0.0-beta.13.3', $selected['version'] );
+
+		$this->set_installed_version( '1.0.0-beta.13.2' );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION, 'channel' => 'beta', 'release' => $selected ],
+			GitHubUpdater::CACHE_TTL
+		);
+		$plugin    = GitHubUpdater::plugin_basename();
+		$transient = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		self::assertSame( '1.0.0-beta.13.3', $transient->response[ $plugin ]->new_version ?? null );
+	}
+
+	public function test_plugins_api_after_13_3_install_does_not_offer_13_2(): void {
+		$installed        = '1.0.0-beta.13.3';
+		$stale            = $this->parsed_beta_release();
+		$stale['version'] = '1.0.0-beta.13.2';
+		$stale['package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13.2/stonewright-1.0.0-beta.13.2.zip';
+		$stale['companion_package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13.2/stonewright-companion-1.0.0-beta.13.2.tgz';
+		$stale['checksums'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.13.2/SHA256SUMS.txt';
+		$stale['url']       = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.13.2';
+		$this->set_installed_version( $installed );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[
+				'schema_version' => GitHubUpdater::CACHE_SCHEMA_VERSION,
+				'channel'        => 'beta',
+				'release'        => $stale,
+			],
+			GitHubUpdater::CACHE_TTL
+		);
+
+		$fresh = $this->release_with_version( $this->releases_fixture()[6], $installed );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $fresh ] ),
+		];
+
+		$info = GitHubUpdater::plugins_api( false, 'plugin_information', (object) [ 'slug' => 'stonewright' ] );
+
+		self::assertIsObject( $info );
+		self::assertSame( $installed, $info->version );
+		self::assertNotSame( '1.0.0-beta.13.2', $info->version );
+	}
+
 	public function test_stable_release_with_hyphenated_build_metadata_is_not_treated_as_a_prerelease(): void {
 		$release = $this->release_with_version( $this->releases_fixture()[0], '1.2.3+build-1' );
 

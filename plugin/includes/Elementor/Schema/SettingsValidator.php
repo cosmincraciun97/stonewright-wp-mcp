@@ -85,6 +85,9 @@ final class SettingsValidator {
 			}
 
 			$control = (array) $controls[ $control_key ];
+			if ( 'boxed_width' === $control_key && [] === (array) ( $control['condition'] ?? [] ) ) {
+				$control['condition'] = [ 'content_width' => 'boxed' ];
+			}
 			$error   = self::validate_value( $value, $control, 'settings.' . $key );
 			if ( null !== $error ) {
 				$violations[] = $error;
@@ -283,7 +286,7 @@ final class SettingsValidator {
 				continue;
 			}
 			$base = substr( $key, 0, -strlen( $suffix ) );
-			if ( isset( $controls[ $base ] ) && ! empty( $controls[ $base ]['responsive'] ) ) {
+			if ( isset( $controls[ $base ] ) && ResponsiveScope::control_is_responsive( (array) $controls[ $base ], $base ) ) {
 				return $base;
 			}
 		}

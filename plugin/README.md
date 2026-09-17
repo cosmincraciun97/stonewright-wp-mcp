@@ -1,12 +1,12 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.13.2
+Version: 1.0.0-beta.13.3
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: [AGPL-3.0-or-later](../LICENSE)
 
 Stonewright registers WordPress Abilities as MCP tools through the official
-`wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
+`wordpress/mcp-adapter` ^0.6.1. It supports Gutenberg, Full Site Editing, Elementor V3,
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, direct PHP runtime execution, and
 companion-backed WP-CLI. WooCommerce catalog work uses native product objects
@@ -143,7 +143,8 @@ Toggle in **Stonewright → Setup**. Contracts for the public ability list live 
 ### Verify connection
 
 **Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
-(initialize → tools/list → task-start). Preflight alone does not prove a live
+(initialize → notifications/initialized → tools/list → task-start with
+`serverInfo.name` Stonewright). Preflight alone does not prove a live
 client session.
 
 **Stonewright → Troubleshoot** (also on Setup) runs a dependency-ordered

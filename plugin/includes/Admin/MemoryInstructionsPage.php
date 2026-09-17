@@ -411,7 +411,8 @@ final class MemoryInstructionsPage {
 								<?php $meta = self::entry_meta( $e ); ?>
 								<code><?php echo esc_html( $meta['backend'] ); ?></code><br>
 								<span><?php echo esc_html( $meta['origin'] . ' · ' . $meta['visibility'] ); ?></span><br>
-								<span><?php echo esc_html( $meta['state'] . ' · ' . $meta['verification'] ); ?></span><br>
+								<span><?php echo esc_html( sprintf( 'Activation: %s', $meta['activation'] ) ); ?></span><br>
+								<span><?php echo esc_html( sprintf( 'Lifecycle: %s · %s', $meta['state'], $meta['verification'] ) ); ?></span><br>
 								<span><?php echo esc_html( sprintf( 'Last retrieved: %s', $meta['last_retrieved'] ) ); ?></span>
 							</td>
 							<td class="stonewright-action-cell">
@@ -592,13 +593,17 @@ final class MemoryInstructionsPage {
 
 	/**
 	 * @param array<string, mixed> $entry
-	 * @return array{backend:string,origin:string,visibility:string,state:string,verification:string,last_retrieved:string}
+	 * @return array{backend:string,origin:string,visibility:string,activation:string,state:string,verification:string,last_retrieved:string}
 	 */
 	private static function entry_meta( array $entry ): array {
 		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
-		$state = (string) ( $value['state'] ?? $entry['status'] ?? 'active' );
+		$state = (string) ( $value['state'] ?? '' );
 		$source = (string) ( $value['source'] ?? ( 'feedback' === (string) ( $entry['type'] ?? '' ) ? 'audit-feedback' : 'operator-or-agent' ) );
 		$verification = (string) ( $value['verification'] ?? '' );
+		$activation = (string) ( $entry['status'] ?? '' );
+		if ( '' === $activation ) {
+			$activation = 'unknown';
+		}
 		if ( '' === $verification ) {
 			$verification = in_array( $state, [ 'verified_resolved', 'promoted_learning' ], true ) ? 'verified' : 'unverified';
 		}
@@ -606,7 +611,8 @@ final class MemoryInstructionsPage {
 			'backend'        => 'plugin-site',
 			'origin'         => $source,
 			'visibility'     => 'site-admin',
-			'state'          => $state,
+			'activation'     => $activation,
+			'state'          => '' !== $state ? $state : 'none',
 			'verification'   => $verification,
 			'last_retrieved' => '' !== (string) ( $entry['last_retrieved_at'] ?? '' )
 				? (string) $entry['last_retrieved_at']
@@ -858,7 +864,7 @@ final class MemoryInstructionsPage {
 			if ( ! str_starts_with( $key, 'learning-' ) ) {
 				continue;
 			}
-			if ( 'active' !== (string) ( $entry['status'] ?? 'active' ) ) {
+			if ( ! Memory::is_task_start_eligible( $entry ) ) {
 				continue;
 			}
 			$rules[] = $entry;

@@ -42,7 +42,68 @@ final class GlobalRulesTest extends TestCase {
 		'native-controls-rendered-proof',
 		'custom-code-human-handoff',
 		'elementor-native-responsive-visibility',
+		'preserve-post-status',
+		'stale-editor-conflict',
+		'valid-noop',
+		'non-responsive-control-in-mobile-scope',
+		'local-css-vs-http-proof',
+		'never-widen-scope-for-validation',
 	];
+
+	public function test_existing_inventory_still_ships_before_gap_rules(): void {
+		foreach (
+			[
+				'no-schema-guessing',
+				'elementor-responsive-suffix-only',
+				'elementor-native-responsive-visibility',
+				'elementor-frontend-write-closure',
+				'no-transport-workarounds',
+				'responsive-semantic-widget',
+				'dynamic-architecture-preservation',
+			] as $id
+		) {
+			self::assertIsArray( GlobalRules::get( $id ), $id . ' must remain in the registry.' );
+		}
+	}
+
+	public function test_confirmed_gap_rules_are_instruction_only(): void {
+		foreach (
+			[
+				'preserve-post-status',
+				'stale-editor-conflict',
+				'valid-noop',
+				'non-responsive-control-in-mobile-scope',
+				'local-css-vs-http-proof',
+				'never-widen-scope-for-validation',
+			] as $id
+		) {
+			$rule = GlobalRules::get( $id );
+			self::assertIsArray( $rule, $id . ' is a confirmed gap and must ship.' );
+			self::assertSame( 'instruction', $rule['enforcement']['kind'] );
+			self::assertSame( 'strong', $rule['severity'] );
+		}
+	}
+
+	public function test_semantic_widget_duplication_is_an_explicit_exception_not_the_default(): void {
+		$rule = GlobalRules::get( 'responsive-semantic-widget' );
+		self::assertIsArray( $rule );
+		$text = strtolower( $rule['rule'] . ' ' . $rule['why'] );
+		self::assertStringContainsString( 'explicit', $text );
+		self::assertStringContainsString( 'exception', $text );
+		self::assertStringContainsString( 'evidence', $text );
+		self::assertDoesNotMatchRegularExpression( '/auto-duplicate|always duplicate|duplicate by default/', $text );
+	}
+
+	public function test_rules_do_not_mandate_a_browser_or_other_mcp_server(): void {
+		foreach ( GlobalRules::all() as $rule ) {
+			$text = $rule['rule'] . ' ' . $rule['why'];
+			self::assertDoesNotMatchRegularExpression(
+				'/\b(?:playwright|browser-use|cursor-ide-browser|claudeus|mcp server)\b/i',
+				$text,
+				$rule['id'] . ' must not mandate a browser or other MCP server.'
+			);
+		}
+	}
 
 	public function test_generalized_operating_repairs_live_in_the_digest_registry(): void {
 		foreach ( array_slice( self::INSTRUCTION_ONLY_IDS, -8 ) as $id ) {

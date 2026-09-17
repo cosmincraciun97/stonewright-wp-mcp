@@ -227,6 +227,36 @@ final class IncidentLessonSeparationTest extends TestCase {
 		self::assertSame( '0', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION, '0' ) );
 	}
 
+	public function test_error_pattern_draft_stays_draft_and_is_excluded_from_task_start(): void {
+		Memory::maybe_install_table();
+		$args = [
+			'error_code' => 'stonewright_demo_failure',
+			'message'    => 'Demo failed',
+		];
+		for ( $i = 0; $i < ErrorPatterns::DRAFT_LESSON_COUNT; $i++ ) {
+			ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		}
+
+		$rows = Memory::list_by_type( 'reference', 50, 0 );
+		$drafts = array_values(
+			array_filter(
+				$rows,
+				static function ( array $row ): bool {
+					$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+					return 'error-pattern-draft' === (string) ( $value['source'] ?? '' );
+				}
+			)
+		);
+		self::assertNotEmpty( $drafts );
+		self::assertSame( 'draft', $drafts[0]['status'] ?? null );
+		self::assertNotSame( '', (string) ( $drafts[0]['version_fingerprint'] ?? '' ) );
+		self::assertFalse( Memory::is_task_start_eligible( $drafts[0] ) );
+		self::assertNotContains(
+			(int) $drafts[0]['id'],
+			array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' )
+		);
+	}
+
 	/** @return object */
 	private function make_memory_wpdb(): object {
 		return new class() {
@@ -255,6 +285,16 @@ final class IncidentLessonSeparationTest extends TestCase {
 			public function prepare( string $query, mixed ...$args ): string {
 				$this->last_prepare_args = $args;
 				return $query;
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				$id = (int) ( $this->last_prepare_args[0] ?? 0 );
+				foreach ( $this->rows as $row ) {
+					if ( (int) $row['id'] === $id ) {
+						return $row;
+					}
+				}
+				return null;
 			}
 
 			public function get_var( string $query ): mixed {
@@ -303,10 +343,18 @@ final class IncidentLessonSeparationTest extends TestCase {
 				$type = null;
 				$limit = PHP_INT_MAX;
 				$offset = 0;
+				$status = null;
 				if ( str_contains( $query, 'WHERE type' ) ) {
 					$type = (string) ( $this->last_prepare_args[0] ?? '' );
 					$limit = (int) ( $this->last_prepare_args[1] ?? PHP_INT_MAX );
 					$offset = (int) ( $this->last_prepare_args[2] ?? 0 );
+				} elseif ( str_contains( $query, 'status' ) ) {
+					foreach ( $this->last_prepare_args as $arg ) {
+						if ( is_string( $arg ) && in_array( $arg, [ 'active', 'draft', 'stale', 'rejected' ], true ) ) {
+							$status = $arg;
+							break;
+						}
+					}
 				} elseif ( str_contains( $query, 'LIMIT' ) ) {
 					$limit = (int) ( $this->last_prepare_args[0] ?? PHP_INT_MAX );
 					$offset = (int) ( $this->last_prepare_args[1] ?? 0 );
@@ -314,6 +362,9 @@ final class IncidentLessonSeparationTest extends TestCase {
 				$out = [];
 				foreach ( array_reverse( $this->rows ) as $row ) {
 					if ( null !== $type && (string) ( $row['type'] ?? '' ) !== $type ) {
+						continue;
+					}
+					if ( null !== $status && (string) ( $row['status'] ?? '' ) !== $status ) {
 						continue;
 					}
 					$out[] = $row;

@@ -294,4 +294,18 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertFalse( $run['available'] );
 		$this->assertSame( [ 'post', 'list' ], $run['command'] );
 	}
+
+	public function test_invalid_url_is_rejected_before_companion_spawn(): void {
+		$result = ( new Run() )->execute(
+			[
+				'command' => [ 'post', 'list' ],
+				'url'     => 'not a url',
+			]
+		);
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_wp_cli_url_invalid', $result->get_error_code() );
+		$this->assertSame( 'url', $result->get_error_data()['field'] ?? null );
+		$this->assertSame( [], $GLOBALS['stonewright_test_companion_requests'] );
+	}
 }

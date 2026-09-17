@@ -281,15 +281,19 @@ procedures are in [Updating Stonewright](../updates.md).
 
 The Setup page exposes two distinct checks:
 
-1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint,
-   Application Passwords, tool surface, Elementor detection. Passing means the
-   site *looks* ready. It does **not** prove live MCP auth or tool calls.
+1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint
+   URL (informational), MCP runtime selection, server registration, Application
+   Passwords, tool surface, Elementor detection. Passing configuration checks
+   means the site *looks* ready. It does **not** prove live MCP auth or tool
+   calls; the connection card says the connection has not been tested until
+   Verify connection runs.
 2. **Verify connection** — plugin-side MCP **loopback self-test**. Mints a
-   short-lived Application Password, then runs `initialize` → `tools/list`
-   (asserts `stonewright-task-start`) → a read-only `stonewright-task-start`
-   call → revokes the test password. Returns structured step results with
-   exact fixes on failure. Never turns green solely because Application
-   Passwords exist.
+   short-lived Application Password, then runs `initialize` (requires
+   `serverInfo.name` `Stonewright`) → `notifications/initialized` →
+   `tools/list` (asserts `stonewright-task-start`, bounded pagination) → a
+   read-only `stonewright-task-start` call → always revokes the test password.
+   HTTP 200 with JSON-RPC errors, `isError`, or `ok:false` fails the matching
+   step. Never turns green solely because Application Passwords exist.
 
 For the companion stdio path, also run:
 

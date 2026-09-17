@@ -345,6 +345,15 @@ describe("ElementorV3EditorAdapter", () => {
     expect(calls.map((call) => call.command)).toEqual(["document/elements/create", "document/elements/settings"]);
     expect(calls[0]?.args).toMatchObject({ model: { elType: "widget", widgetType: "heading", settings: { title: "Hello" } }, options: { edit: false, external: true } });
   });
+
+  it("save persists through the runtime without hashing a local dirty tree as baseline", async () => {
+    const runtime = new MemoryElementorRuntime();
+    runtime.modified = true;
+    const before = await hashValue(await runtime.getPageTree());
+    await new ElementorV3EditorAdapter(runtime).registry().call("save", {});
+    expect(await runtime.isModified()).toBe(false);
+    expect(await hashValue(await runtime.getPageTree())).toBe(before);
+  });
 });
 
 function evidence(schemaHash: string, scope = "desktop") {

@@ -75,10 +75,7 @@ export class ConnectionStateMachine {
 
 	/** Derived backward-compatible connected flag — not source of truth. */
 	isConnectedDerived(): boolean {
-		return this.stage === 'plugin-ready'
-			|| this.stage === 'direct-ready'
-			|| this.stage === 'plugin-registering'
-			|| this.stage === 'plugin-authenticated';
+		return this.stage === 'plugin-ready' || this.stage === 'direct-ready';
 	}
 
 	snapshot(): {

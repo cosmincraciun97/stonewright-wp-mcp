@@ -14,9 +14,10 @@ what to fix. It does **not** replace a live client restart.
 1. Pick **How do you connect?**
    - **Not sure** — safe discovery that recommends a method. It does not guess
      credentials.
-   - **OAuth** (`oauth-http`) — live MCP loopback (`initialize` → `tools/list`
-     → `task-start`), WAF-style 403/406 detection, User-Agent bot-filter
-     probes, and OAuth dynamic registration.
+   - **OAuth** (`oauth-http`) — live MCP loopback (`initialize` →
+     `notifications/initialized` → `tools/list` → `task-start` with
+     `serverInfo.name` `Stonewright`), WAF-style 403/406 detection,
+     User-Agent bot-filter probes, and OAuth dynamic registration.
    - **Application Password** (`application-password-stdio`) — local companion
      checks for Application Password stdio.
    - **Local companion** (`stdio`) — skips the HTTP loopback and reports
@@ -29,10 +30,16 @@ what to fix. It does **not** replace a live client restart.
    with `?stonewright_diagnostics=1`.
 
 Checks run as a dependency-ordered graph. Failed prerequisites mark dependents
-`skipped`; they do not invent secondary failures. Successful checks collapse
-into a summary. Problems and warnings show evidence, remedy, a safe action, and
-copyable support text. Support reports omit Authorization, cookies, token
-bodies, passwords, filesystem paths, user content, and database values.
+`skipped`; they do not invent secondary failures. `info` checks (configured URL,
+pending handshake) are listed separately and are not counted as successful
+checks. Canonical `/mcp/stonewright` and OAuth `/mcp/stonewright-oauth` are
+separate route and registration checks; an OAuth-only catalog does not pass
+the canonical route. “Configuration was verified; the connection has not been
+tested” stays `info`. Only the live handshake probe records a timestamped pass
+or fail; an OAuth HTTP 401 is not a successful initialize. Problems and
+warnings show evidence, remedy, a safe action, and copyable support text. An
+MCP runtime conflict is a Problem with `ready:false`; do not disable unrelated
+business plugins as the standard remediation.
 
 The OAuth registration diagnostic sends valid RFC 7591 metadata, requires HTTP
 `201` plus a valid response shape, creates an explicitly ephemeral client, and

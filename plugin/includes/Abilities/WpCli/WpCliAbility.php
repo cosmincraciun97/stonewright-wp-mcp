@@ -18,6 +18,43 @@ abstract class WpCliAbility extends AbilityKernel {
 	}
 
 	/**
+	 * Reject WP-CLI --url values before they reach spawn.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function validate_url_arg( array $args ): ?\WP_Error {
+		if ( ! array_key_exists( 'url', $args ) || null === $args['url'] || '' === $args['url'] ) {
+			return null;
+		}
+		if ( ! is_string( $args['url'] ) ) {
+			return $this->error(
+				'wp_cli_url_invalid',
+				__( 'WP-CLI --url must be an http or https URL.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'url' ]
+			);
+		}
+		$url = trim( $args['url'] );
+		if ( '' === $url || str_contains( $url, "\0" ) || str_contains( $url, ' ' ) ) {
+			return $this->error(
+				'wp_cli_url_invalid',
+				__( 'WP-CLI --url must be an http or https URL.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'url' ]
+			);
+		}
+		$parts = wp_parse_url( $url );
+		$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+		if ( ! is_array( $parts ) || ! in_array( $scheme, [ 'http', 'https' ], true ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || '' === (string) ( $parts['host'] ?? '' ) ) {
+			return $this->error(
+				'wp_cli_url_invalid',
+				__( 'WP-CLI --url must be an http or https URL without credentials.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'url' ]
+			);
+		}
+
+		return null;
+	}
+
+	/**
 	 * @param array<string, mixed> $body
 	 * @return array<string, mixed>|\WP_Error
 	 */

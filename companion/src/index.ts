@@ -48,6 +48,7 @@ import {
 	wpCliDiscover,
 	wpCliStatus,
 	wpCliEnsureReady,
+	WpCliUrlError,
 	type WpCliBatchRunInput,
 	type WpCliDiscoverInput,
 	type WpCliJobGetInput,
@@ -191,7 +192,13 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 									: await runWpCli(input as unknown as WpCliRunInput);
 				writeJson(res, 200, result);
 			} catch (err) {
-				writeJson(res, 400, { error: err instanceof Error ? err.message : String(err) });
+				const message = err instanceof Error ? err.message : String(err);
+				const payload: { error: string; error_code?: string; field?: string } = { error: message };
+				if (err instanceof WpCliUrlError) {
+					payload.error_code = err.code;
+					payload.field = err.field;
+				}
+				writeJson(res, 400, payload);
 			}
 			return;
 		}

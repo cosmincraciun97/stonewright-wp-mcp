@@ -73,6 +73,15 @@ export interface PluginStatus {
   registry_ready: boolean;
 }
 
+export interface EndpointEvidence {
+  configured_mcp_url: null | string;
+  active_url: null | string;
+  plugin_route_state: "not_checked" | "present" | "missing" | "inconclusive";
+  plugin_http_status: number | null;
+  initialized: boolean;
+  last_checked_at: null | string;
+}
+
 export interface SurfaceStatus {
   profile: string;
   local_tool_count: number;
@@ -119,6 +128,7 @@ export interface ConnectionStatusV3 {
   recovery: RecoveryStatus;
   wordpress_runtime: WordPressRuntimeStatus;
   plugin: PluginStatus;
+  endpoint_evidence: EndpointEvidence;
   surface: SurfaceStatus;
   client_visibility: ClientVisibility;
   process_start_id: null | string;

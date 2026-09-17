@@ -83,6 +83,11 @@ final class JobStart extends WpCliAbility {
 			return $this->error( 'wp_cli_invalid_job', __( 'A command or commands array is required.', 'stonewright' ), [ 'status' => 400 ] );
 		}
 
+		$url_error = $this->validate_url_arg( $args );
+		if ( $url_error instanceof \WP_Error ) {
+			return $url_error;
+		}
+
 		return $this->audit(
 			$args,
 			function ( array $a ): array|\WP_Error {

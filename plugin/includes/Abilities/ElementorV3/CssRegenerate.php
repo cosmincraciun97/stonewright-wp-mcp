@@ -63,15 +63,30 @@ final class CssRegenerate extends AbilityKernel {
 				'filename'                => [ 'type' => 'string' ],
 				'path_sha256'             => [ 'type' => 'string' ],
 				'url_sha256'              => [ 'type' => 'string' ],
-				'effect_verified'         => [ 'type' => 'boolean' ],
-				'before_manifest_sha256'  => [ 'type' => 'string' ],
+				'effect_verified'              => [ 'type' => 'boolean' ],
+				'generation_status'            => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'delivery_status'              => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'frontend_verification_status' => [
+					'type' => 'string',
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+				],
+				'root_error_code'              => [ 'type' => 'string' ],
+				'failed_check'                 => [ 'type' => 'string' ],
+				'retryable'                    => [ 'type' => 'boolean' ],
+				'before_manifest_sha256'       => [ 'type' => 'string' ],
 				'after_manifest_sha256'   => [ 'type' => 'string' ],
 				'probes'                  => [ 'type' => 'array' ],
 				'backup'                  => [ 'type' => 'object' ],
 				'rollback_status'         => [ 'type' => 'string' ],
 				'write_receipt'           => [ 'type' => 'object' ],
 			],
-			'required'             => [ 'ok', 'post_id', 'asset_kind', 'filename', 'effect_verified' ],
+			'required'             => [ 'ok', 'post_id', 'asset_kind', 'filename', 'effect_verified', 'generation_status', 'delivery_status', 'frontend_verification_status' ],
 		];
 	}
 
@@ -134,30 +149,59 @@ final class CssRegenerate extends AbilityKernel {
 					$operation = is_array( $transaction['operation_result'] ?? null ) ? $transaction['operation_result'] : [];
 					$evidence  = is_array( $transaction['css_evidence'] ?? null ) ? $transaction['css_evidence'] : [];
 					$probes    = is_array( $evidence['protected_probes_after'] ?? null ) ? $evidence['protected_probes_after'] : [];
-					$ok        = (bool) ( $operation['ok'] ?? false ) && [] !== $probes;
+					$generation = self::status_token( $evidence['generation_status'] ?? '' );
+					$delivery   = self::status_token( $evidence['delivery_status'] ?? '' );
+					if ( 'not_checked' === $generation ) {
+						$generation = (bool) ( $operation['ok'] ?? false ) ? 'verified' : 'failed';
+					}
+					$complete = 'verified' === $generation && 'verified' === $delivery;
+					$root     = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
+					$failed   = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
+					if ( ! $complete ) {
+						if ( '' === $root ) {
+							$root = 'blocked' === $delivery
+								? 'stonewright_elementor_css_delivery_protected'
+								: ( 'verified' !== $generation ? 'stonewright_elementor_css_empty_target' : 'stonewright_elementor_css_probe_failed' );
+						}
+						if ( '' === $failed ) {
+							$failed = 'verified' !== $generation ? 'generation' : 'delivery';
+						}
+					}
 					$receipt   = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] )
 						? self::sanitize_receipt( $args['write_receipt'] )
 						: [];
 					if ( [] !== $receipt ) {
-						$receipt['verification_status'] = $ok ? 'css_regenerated' : 'failed';
+						$receipt['verification_status'] = $complete ? 'css_regenerated' : 'failed';
+						if ( ! $complete ) {
+							$receipt['root_error_code'] = $root;
+						}
 					}
 
 					self::trace( 'audit' );
-					return [
-						'ok'                     => $ok,
-						'post_id'                => $post_id,
-						'asset_kind'             => $resolved->kind(),
-						'filename'               => $resolved->filename(),
-						'path_sha256'            => (string) ( $operation['path_sha256'] ?? hash( 'sha256', $resolved->path() ) ),
-						'url_sha256'             => (string) ( $operation['url_sha256'] ?? hash( 'sha256', $resolved->url() ) ),
-						'effect_verified'        => $ok,
-						'before_manifest_sha256' => (string) ( $evidence['before_manifest_sha256'] ?? '' ),
-						'after_manifest_sha256'  => (string) ( $evidence['after_manifest_sha256'] ?? '' ),
-						'probes'                 => $probes,
-						'backup'                 => [ 'snapshot_id' => $snapshot_id ],
-						'rollback_status'        => (string) ( $evidence['rollback_status'] ?? 'not_needed' ),
-						'write_receipt'          => $receipt,
+					$result = [
+						'ok'                           => $complete,
+						'post_id'                      => $post_id,
+						'asset_kind'                   => $resolved->kind(),
+						'filename'                     => $resolved->filename(),
+						'path_sha256'                  => (string) ( $operation['path_sha256'] ?? hash( 'sha256', $resolved->path() ) ),
+						'url_sha256'                   => (string) ( $operation['url_sha256'] ?? hash( 'sha256', $resolved->url() ) ),
+						'effect_verified'              => $complete,
+						'generation_status'            => $generation,
+						'delivery_status'              => $delivery,
+						'frontend_verification_status' => 'not_checked',
+						'before_manifest_sha256'       => (string) ( $evidence['before_manifest_sha256'] ?? '' ),
+						'after_manifest_sha256'        => (string) ( $evidence['after_manifest_sha256'] ?? '' ),
+						'probes'                       => $probes,
+						'backup'                       => [ 'snapshot_id' => $snapshot_id ],
+						'rollback_status'              => (string) ( $evidence['rollback_status'] ?? 'not_needed' ),
+						'write_receipt'                => $receipt,
+						'retryable'                    => false,
 					];
+					if ( ! $complete ) {
+						$result['root_error_code'] = $root;
+						$result['failed_check']    = $failed;
+					}
+					return $result;
 				} finally {
 					PostWriteLock::release( $post_id, $owner );
 				}
@@ -180,6 +224,7 @@ final class CssRegenerate extends AbilityKernel {
 			'after_hash',
 			'verification_status',
 			'rollback_status',
+			'root_error_code',
 		];
 		$out = [];
 		foreach ( $allowed as $key ) {
@@ -189,6 +234,11 @@ final class CssRegenerate extends AbilityKernel {
 			$out[ $key ] = mb_substr( sanitize_text_field( (string) $receipt[ $key ] ), 0, 255 );
 		}
 		return $out;
+	}
+
+	private static function status_token( string $status ): string {
+		$status = sanitize_key( $status );
+		return in_array( $status, [ 'verified', 'blocked', 'failed', 'not_checked' ], true ) ? $status : 'not_checked';
 	}
 
 	private static function trace( string $event ): void {

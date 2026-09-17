@@ -35,8 +35,21 @@ describe('direct startup auto-detect', () => {
 	it('auto-detects direct when plugin MCP endpoint returns 404', async () => {
 		const endpoint = pluginMcpEndpoint('https://example.com');
 		const fetchImpl = vi.fn((input: Parameters<typeof fetch>[0]) => {
-			expect(String(input)).toBe(endpoint);
-			return Promise.resolve(new Response('', { status: 404 }));
+			const url = String(input);
+			if (url.replace(/\/+$/, '').endsWith('/wp-json')) {
+				return Promise.resolve(new Response(JSON.stringify({ namespaces: [] }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}));
+			}
+			expect(url).toBe(endpoint);
+			return Promise.resolve(new Response(JSON.stringify({
+				code: 'rest_no_route',
+				message: 'No route was found matching the URL and request method.',
+			}), {
+				status: 404,
+				headers: { 'content-type': 'application/json' },
+			}));
 		});
 		const result = await resolveRuntimeMode({
 			env: {
@@ -47,6 +60,7 @@ describe('direct startup auto-detect', () => {
 		});
 		expect(result.mode).toBe('direct');
 		expect(result.pluginEndpointStatus).toBe(404);
+		expect(result.pluginRouteState).toBe('missing');
 	});
 
 	it('auto-detects plugin when endpoint responds 200', async () => {

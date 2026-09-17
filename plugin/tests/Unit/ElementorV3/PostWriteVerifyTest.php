@@ -58,6 +58,7 @@ final class PostWriteVerifyTest extends TestCase {
 		$properties = ( new PostWriteVerify() )->input_schema()['properties'];
 		self::assertArrayNotHasKey( 'confirmation_token', $properties );
 		self::assertArrayNotHasKey( 'regenerate_css', $properties );
+		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], ( new PostWriteVerify() )->output_schema()['properties']['frontend_verification_status']['enum'] ?? null );
 	}
 
 	public function test_successful_bounded_checks_do_not_mutate_css_or_cache(): void {
@@ -121,6 +122,9 @@ final class PostWriteVerifyTest extends TestCase {
 		self::assertTrue( $result['content_checks'][0]['present'] );
 		self::assertTrue( $result['browser_required'] );
 		self::assertTrue( $result['browser_recipe']['desktop_tablet_mobile'] );
+		self::assertSame( 'verified', $result['frontend_verification_status'] ?? null );
+		self::assertSame( 'not_checked', $result['generation_status'] ?? null );
+		self::assertSame( 'not_checked', $result['delivery_status'] ?? null );
 		self::assertArrayNotHasKey( 'html', $result );
 		self::assertStringNotContainsString( 'Fresh marker', (string) wp_json_encode( $result ) );
 		self::assertSame( $before_manifest, $this->manifest() );
@@ -169,6 +173,9 @@ final class PostWriteVerifyTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertFalse( $result['ok'] );
+		self::assertSame( 'failed', $result['frontend_verification_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_frontend_verification_failed', $result['root_error_code'] ?? null );
+		self::assertSame( 'frontend', $result['failed_check'] ?? null );
 		self::assertSame( $before_manifest, $this->manifest() );
 		self::assertSame( $before_meta, get_post_meta( 301, '_elementor_css', true ) );
 		self::assertSame( 0, $css_regenerator_calls );
@@ -236,6 +243,42 @@ final class PostWriteVerifyTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
+	}
+
+	public function test_rejects_leftover_mutating_args_without_touching_css(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$before_manifest = $this->manifest();
+		$css_regenerator_calls = 0;
+		Post::$factory = function () use ( &$css_regenerator_calls ): object {
+			return new class( $css_regenerator_calls ) {
+				public function __construct( private int &$calls ) {
+				}
+				public function update_file(): void {
+					++$this->calls;
+				}
+			};
+		};
+		\Elementor\Plugin::$instance = (object) [
+			'frontend' => new class() {
+				public function get_builder_content_for_display( int $post_id, bool $with_css ): string {
+					throw new \RuntimeException( 'Verifier must not render after a mutating arg.' );
+				}
+			},
+		];
+
+		foreach ( [ 'regenerate_css', 'clear_cache', 'invalidate_cache' ] as $arg ) {
+			$result = ( new PostWriteVerify() )->execute(
+				[
+					'post_id' => 301,
+					$arg      => true,
+				]
+			);
+			self::assertInstanceOf( \WP_Error::class, $result, $arg );
+			self::assertSame( 'stonewright_elementor_verify_mutating_arg', $result->get_error_code(), $arg );
+			self::assertSame( 'input', $result->get_error_data()['failed_check'] ?? null, $arg );
+			self::assertSame( $before_manifest, $this->manifest(), $arg );
+			self::assertSame( 0, $css_regenerator_calls, $arg );
+		}
 	}
 
 	/** @return array<string,string> */

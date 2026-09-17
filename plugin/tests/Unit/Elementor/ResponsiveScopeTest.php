@@ -267,4 +267,74 @@ final class ResponsiveScopeTest extends TestCase {
 			self::assertSame( 'padding', ResponsiveScope::base_key( $key ), $key );
 		}
 	}
+
+	public function test_mobile_only_rejects_fixed_overflow_and_posts_per_page_without_widening_scope(): void {
+		foreach ( [ 'overflow', 'posts_per_page' ] as $key ) {
+			$result = ResponsiveScope::assert_settings_in_scope(
+				[ $key => 'hidden' ],
+				[ 'mobile' ],
+				[
+					'overflow'       => [ 'type' => 'select', 'responsive' => false ],
+					'posts_per_page' => [ 'type' => 'number', 'responsive' => false ],
+					'padding'        => [ 'type' => 'dimensions', 'responsive' => [] ],
+				],
+				'container'
+			);
+
+			self::assertInstanceOf( \WP_Error::class, $result, $key );
+			self::assertSame( 'unsupported_responsive_control', $result->get_error_code(), $key );
+			self::assertSame( $key, $result->get_error_data()['control'] ?? '' );
+			self::assertSame( [ 'mobile' ], $result->get_error_data()['allowed_breakpoints'] ?? [] );
+		}
+
+		$suffixed = ResponsiveScope::assert_settings_in_scope(
+			[ 'overflow_mobile' => 'hidden' ],
+			[ 'mobile' ],
+			[ 'overflow' => [ 'type' => 'select', 'responsive' => false ] ],
+			'container'
+		);
+		self::assertInstanceOf( \WP_Error::class, $suffixed );
+		self::assertSame( 'unsupported_responsive_control', $suffixed->get_error_code() );
+	}
+
+	public function test_visibility_enum_hidden_is_still_rejected(): void {
+		$result = ResponsiveScope::assert_settings_in_scope(
+			[ 'hide_mobile' => 'hidden' ],
+			[ 'mobile' ],
+			[ 'hide_mobile' => [ 'type' => 'switcher' ] ],
+			'container'
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
+		self::assertSame( 'invalid_responsive_visibility_value', $result->get_error_data()['violations'][0]['code'] );
+	}
+
+	public function test_same_layer_alias_conflict_is_rejected_instead_of_widened(): void {
+		$result = ResponsiveScope::declared_scope(
+			[
+				'allowed_breakpoints' => [ 'mobile' ],
+				'responsive_scope'    => [ 'desktop', 'mobile' ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_responsive_scope_conflict', $result->get_error_code() );
+		self::assertSame( [ 'mobile' ], $result->get_error_data()['allowed_breakpoints'] ?? [] );
+		self::assertSame( [ 'desktop', 'mobile' ], $result->get_error_data()['responsive_scope'] ?? [] );
+	}
+
+	public function test_matching_aliases_resolve_to_one_canonical_scope(): void {
+		$result = ResponsiveScope::declared_scope(
+			[
+				'allowed_breakpoints' => [ 'mobile', 'tablet' ],
+				'responsive_scope'    => [ 'tablet', 'mobile' ],
+			]
+		);
+
+		self::assertSame( [ 'mobile', 'tablet' ], $result );
+		self::assertSame( [ 'mobile' ], ResponsiveScope::declared_scope( [ 'allowed_breakpoints' => [ 'mobile' ] ] ) );
+		self::assertSame( [ 'tablet' ], ResponsiveScope::declared_scope( [ 'responsive_scope' => 'tablet' ] ) );
+		self::assertSame( [], ResponsiveScope::declared_scope( [] ) );
+	}
 }

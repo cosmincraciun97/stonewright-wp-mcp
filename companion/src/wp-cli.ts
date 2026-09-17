@@ -257,11 +257,44 @@ function normalizeWpCliContext(input: WpCliRunInput): string | undefined {
 	return legacyContext;
 }
 
+export class WpCliUrlError extends Error {
+	readonly code = 'stonewright_wp_cli_url_invalid';
+	readonly field = 'url';
+
+	constructor(message = 'WP-CLI --url must be an http or https URL without credentials.') {
+		super(message);
+		this.name = 'WpCliUrlError';
+	}
+}
+
+export function validateWpCliUrl(url: string): string {
+	const trimmed = url.trim();
+	if (trimmed === '' || trimmed.includes('\0') || /\s/.test(trimmed)) {
+		throw new WpCliUrlError();
+	}
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		throw new WpCliUrlError();
+	}
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+		throw new WpCliUrlError();
+	}
+	if (parsed.username !== '' || parsed.password !== '') {
+		throw new WpCliUrlError();
+	}
+	if (parsed.hostname === '') {
+		throw new WpCliUrlError();
+	}
+	return trimmed;
+}
+
 export function buildWpCliArgs(input: WpCliRunInput): string[] {
 	const args: string[] = [];
 
 	if (input.path) args.push(`--path=${input.path}`);
-	if (input.url) args.push(`--url=${input.url}`);
+	if (input.url) args.push(`--url=${validateWpCliUrl(input.url)}`);
 	if (input.user) args.push(`--user=${input.user}`);
 	const context = normalizeWpCliContext(input);
 	if (context) args.push(`--context=${context}`);

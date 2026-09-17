@@ -353,6 +353,122 @@ final class AuditEventIncidentTest extends TestCase {
 		self::assertSame( '0', get_option( AuditReconciler::MIGRATION_OPTION, '0' ) );
 	}
 
+	public function test_dry_run_planned_normalizes_to_validation_success(): void {
+		$event = AuditEvent::normalize( 'stonewright/example-update', [
+			'dry_run' => true,
+			'_meta'   => [
+				'execution_status'    => 'planned',
+				'verification_status' => 'planned',
+			],
+		], 'ok' );
+		self::assertSame( 'VALIDATION', $event['category'] );
+		self::assertSame( 'SUCCESS', $event['outcome'] );
+	}
+
+	public function test_write_busy_is_retryable_with_interval_and_limit(): void {
+		$event = AuditEvent::normalize(
+			'stonewright/elementor-v3-batch-mutate',
+			[
+				'_meta' => [
+					'root_error_code' => 'stonewright_elementor_write_busy',
+					'error_code'      => 'stonewright_elementor_write_busy',
+					'retryable'       => true,
+				],
+			],
+			'error'
+		);
+
+		self::assertSame( AuditEvent::OUTCOME_RETRYABLE, $event['outcome'] );
+		self::assertSame( AuditEvent::CATEGORY_TRANSIENT, $event['category'] );
+		self::assertTrue( $event['retryable'] );
+		self::assertGreaterThan( 0, $event['retry_after_seconds'] );
+		self::assertSame( 3, (int) ( $event['redacted_details']['retry_limit'] ?? 0 ) );
+	}
+
+	public function test_schema_css_readonly_and_parse_errors_are_not_identical_auto_retry(): void {
+		$cases = [
+			'stonewright_elementor_settings_invalid',
+			'stonewright_css_classes_not_approved',
+			'stonewright_php_read_only_violation',
+			'stonewright_php_parse_error',
+		];
+		foreach ( $cases as $code ) {
+			$ability = str_contains( $code, 'php_' ) ? 'stonewright/php-execute' : 'stonewright/elementor-v3-batch-mutate';
+			$event   = AuditEvent::normalize(
+				$ability,
+				[
+					'_meta' => [
+						'root_error_code' => $code,
+						'error_code'      => $code,
+						'retryable'       => true,
+					],
+				],
+				'error'
+			);
+			self::assertNotSame( AuditEvent::OUTCOME_RETRYABLE, $event['outcome'], $code );
+			self::assertFalse( $event['retryable'], $code );
+		}
+	}
+
+	public function test_valid_noop_does_not_open_incident(): void {
+		$event = AuditEvent::normalize(
+			'stonewright/acf-value-update',
+			[
+				'_meta' => [
+					'execution_status' => 'unchanged',
+					'resource_type'    => 'post',
+				],
+			],
+			'ok'
+		);
+
+		self::assertSame( AuditEvent::OUTCOME_SUCCESS, $event['outcome'] );
+		self::assertNull( IncidentStore::observe( $event ) );
+		self::assertSame( [], IncidentStore::recent() );
+	}
+
+	public function test_rollback_failed_is_critical_and_generic_success_does_not_close_it(): void {
+		$failure = AuditEvent::normalize(
+			'stonewright/elementor-css-regenerate',
+			[
+				'post_id' => 42,
+				'_meta'   => [
+					'root_error_code'     => 'stonewright_rollback_failed',
+					'error_code'          => 'stonewright_rollback_failed',
+					'rollback_status'     => 'failed',
+					'resource_type'       => 'post',
+					'resource_ref'        => '42',
+					'change_set_id'       => 'change-rollback',
+					'normalized_path'     => 'css/post-42',
+				],
+			],
+			'error'
+		);
+		self::assertSame( AuditEvent::CATEGORY_ROLLBACK, $failure['category'] );
+		self::assertSame( 'critical', $failure['severity_level'] );
+
+		IncidentStore::observe( $this->attempt( $failure, 1 ) );
+		$open = IncidentStore::observe( $this->attempt( $failure, 2 ) );
+		self::assertSame( 'open', $open['state'] );
+
+		$generic = AuditEvent::normalize(
+			'stonewright/content-update',
+			[
+				'post_id' => 42,
+				'_meta'   => [
+					'resource_type'       => 'post',
+					'resource_ref'        => '42',
+					'change_set_id'       => 'change-rollback',
+					'normalized_path'     => 'css/post-42',
+					'verification_status' => 'passed',
+				],
+			],
+			'ok'
+		);
+		self::assertFalse( IncidentStore::resolve( $generic ) );
+		self::assertSame( 'open', IncidentStore::recent( 1 )[0]['state'] );
+	}
+
 	public function test_incident_retention_prunes_only_old_terminal_rows(): void {
 		$base = [
 			'incident_id' => str_repeat( 'a', 64 ),

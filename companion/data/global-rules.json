@@ -311,7 +311,7 @@
 		"id": "responsive-semantic-widget",
 		"severity": "strong",
 		"scope": "elementor",
-		"rule": "Keep one semantic widget for each image, title, button, or field and use native breakpoint controls on that widget. Visibility controls are not styling controls. Reconcile a stale schema instead of duplicating widgets.",
+		"rule": "Keep one semantic widget for each image, title, button, or field and use native breakpoint controls on that widget. Visibility controls are not styling controls. Duplicating semantic widgets is an explicit user exception for an intent native controls cannot express, with evidence and a user decision; it is not the default. Reconcile a stale schema instead of duplicating widgets.",
 		"why": "Breakpoint-only duplicates create contradictory content, accessibility noise, and fragile maintenance.",
 		"enforcement": {
 			"kind": "instruction",
@@ -379,6 +379,72 @@
 		"scope": "design",
 		"rule": "Use exact live-schema enum values and native carousel, form, icon, and responsive controls, then measure the rendered result. Account for runtime margins, opacity, and currentColor behavior instead of trusting control labels alone.",
 		"why": "A valid saved control can still render different pixels because runtime styles and inherited color alter the result.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "preserve-post-status",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Preserve the current post status unless the user explicitly asked to change it. A content or builder write is not permission to publish, unpublish, or trash.",
+		"why": "Silent status changes publish unfinished work or hide live content.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "stale-editor-conflict",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "If the editor or document changed after planning, treat it as a conflict: stop, re-read, and replan. Do not overwrite a newer editor state.",
+		"why": "A write against a stale plan destroys concurrent human or agent edits.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "valid-noop",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "A no-op that already matches current state is valid success. Do not force a mutation just to prove the tool ran.",
+		"why": "Needless writes create conflict, cache churn, and false repair history.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "non-responsive-control-in-mobile-scope",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "When the live schema marks a control as not responsive, do not write a mobile-only value for it. Return plan alternatives such as applying the query globally or, only with explicit user choice, two native widgets. Do not invent custom code or auto-duplicate widgets.",
+		"why": "A non-responsive control cannot represent a breakpoint-only change without lying to the schema.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "local-css-vs-http-proof",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "A local generated CSS file is not HTTP proof. Confirm the delivered stylesheet at the requested URL before claiming CSS closure.",
+		"why": "Disk contents can match while the served asset is stale, cached, or a different file.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "never-widen-scope-for-validation",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Never widen the mutation scope, post set, or breakpoint set just to make validation pass. Repair the rejected path.",
+		"why": "Scope widening hides the original defect and mutates records the user did not ask to change.",
 		"enforcement": {
 			"kind": "instruction",
 			"guard": ""

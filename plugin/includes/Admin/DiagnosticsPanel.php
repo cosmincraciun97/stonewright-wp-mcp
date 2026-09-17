@@ -86,8 +86,11 @@ final class DiagnosticsPanel {
 					<?php foreach ( $grouped['skipped'] as $check ) : ?>
 						<?php self::render_card( $check ); ?>
 					<?php endforeach; ?>
+					<?php foreach ( $grouped['info'] as $check ) : ?>
+						<?php self::render_card( $check ); ?>
+					<?php endforeach; ?>
 					<?php
-					$success = array_merge( $grouped['ok'], $grouped['info'] );
+					$success = $grouped['ok'];
 					if ( [] !== $success ) :
 						?>
 						<details class="sw-diag-success">

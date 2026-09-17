@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\Loop\LoopIntentCompiler;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
+require_once __DIR__ . '/SyntheticLoopWidgets.php';
+
 /**
  * @covers \Stonewright\WpMcp\Elementor\Loop\LoopIntentCompiler
  */
@@ -17,8 +19,9 @@ final class LoopIntentCompilerTest extends TestCase {
 		$this->original_elementor = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_options']    = [ 'active_plugins' => [] ];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_loop_control_overrides'] );
 		\Elementor\Plugin::$instance = (object) [
-			'widgets_manager' => new LoopWidgetManager(),
+			'widgets_manager' => new SyntheticLoopWidgetManager(),
 		];
 		WidgetSchemaRepository::reset_request_cache();
 	}
@@ -27,8 +30,8 @@ final class LoopIntentCompilerTest extends TestCase {
 		\Elementor\Plugin::$instance = $this->original_elementor;
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_loop_control_overrides'] );
 		WidgetSchemaRepository::reset_request_cache();
-		unset( $GLOBALS['stonewright_test_loop_schema_without_post_type'] );
 	}
 
 	public function test_carousel_uses_only_controls_exposed_by_live_schema(): void {
@@ -46,13 +49,15 @@ final class LoopIntentCompilerTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'loop-carousel', $result['widget_type'] );
 		self::assertSame( 77, $result['settings']['template_id'] );
-		self::assertSame( 'project', $result['settings']['post_type'] );
+		self::assertSame( 'project', $result['settings']['query_post_type'] );
+		self::assertSame( 'query_post_type', $result['resolved_controls']['post_type'] );
 		self::assertSame( 6, $result['settings']['posts_per_page'] );
 		self::assertSame( 3, $result['settings']['slides_to_show'] );
 		self::assertSame( 2, $result['settings']['slides_to_show_tablet'] );
 		self::assertSame( 1, $result['settings']['slides_to_show_mobile'] );
 		self::assertSame( 'yes', $result['settings']['arrows'] );
 		self::assertArrayNotHasKey( 'pagination', $result['settings'] );
+		self::assertArrayNotHasKey( 'pagination_load_type', $result['settings'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result['schema_hash'] );
 	}
 
@@ -71,11 +76,13 @@ final class LoopIntentCompilerTest extends TestCase {
 			'grid',
 			88,
 			'project',
-			[ 'pagination' => 'numbers' ]
+			[ 'query' => [ 'post__in' => [ 10, 11 ] ] ]
 		);
 		self::assertInstanceOf( \WP_Error::class, $invalid );
 		self::assertSame( 'stonewright_loop_schema_incompatible', $invalid->get_error_code() );
-		self::assertSame( 'pagination', $invalid->get_error_data()['missing_semantic_control'] );
+		self::assertSame( 'post__in', $invalid->get_error_data()['missing_semantic_control'] );
+		self::assertSame( 'settings.post__in', $invalid->get_error_data()['path'] );
+		self::assertNotSame( '', (string) ( $invalid->get_error_data()['expected'] ?? '' ) );
 	}
 
 	public function test_widget_without_template_control_fails_precisely(): void {
@@ -85,8 +92,76 @@ final class LoopIntentCompilerTest extends TestCase {
 		self::assertSame( 'stonewright_loop_display_invalid', $result->get_error_code() );
 	}
 
+	public function test_prefixed_query_post_type_is_used_when_schema_confirms_type_and_options(): void {
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'query_post_type', $result['resolved_controls']['post_type'] );
+		self::assertSame( 'project', $result['settings']['query_post_type'] );
+		self::assertArrayNotHasKey( 'post_type', $result['settings'] );
+	}
+
+	public function test_name_guess_without_type_and_options_is_not_enough(): void {
+		$GLOBALS['stonewright_test_loop_control_overrides']['loop-grid'] = [
+			'template_id' => [ 'type' => 'query' ],
+			'post_type'   => [ 'type' => 'text' ],
+			'columns'     => [ 'type' => 'number', 'responsive' => true ],
+		];
+		WidgetSchemaRepository::reset_request_cache();
+
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
+		self::assertSame( 'post_type', $result->get_error_data()['missing_semantic_control'] );
+		self::assertSame( 'settings.post_type', $result->get_error_data()['path'] );
+		self::assertNotSame( '', (string) ( $result->get_error_data()['expected'] ?? '' ) );
+	}
+
+	public function test_schema_without_compatible_post_type_control_returns_code_path_expected(): void {
+		$GLOBALS['stonewright_test_loop_control_overrides']['loop-grid'] = [
+			'template_id' => [ 'type' => 'query' ],
+			'columns'     => [ 'type' => 'number', 'responsive' => true ],
+		];
+		WidgetSchemaRepository::reset_request_cache();
+
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 'post_type', $data['missing_semantic_control'] );
+		self::assertSame( 'settings.post_type', $data['path'] );
+		self::assertNotSame( '', (string) ( $data['expected'] ?? '' ) );
+	}
+
+	public function test_post_type_missing_from_control_options_is_rejected(): void {
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'events', [] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_post_type_unsupported', $result->get_error_code() );
+		self::assertContains( 'project', (array) $result->get_error_data()['available_options'] );
+		self::assertSame( 'events', $result->get_error_data()['post_type'] );
+	}
+
+	public function test_pending_post_type_is_accepted_on_a_confirmed_source_control(): void {
+		$result = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'events',
+			[ 'pending_post_type' => true ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'events', $result['settings']['query_post_type'] );
+	}
+
 	public function test_requested_post_type_is_never_silently_dropped(): void {
-		$GLOBALS['stonewright_test_loop_schema_without_post_type'] = true;
+		$GLOBALS['stonewright_test_loop_control_overrides']['loop-grid'] = [
+			'template_id' => [ 'type' => 'query' ],
+			'columns'     => [ 'type' => 'number', 'responsive' => true ],
+		];
+		WidgetSchemaRepository::reset_request_cache();
 
 		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
 
@@ -131,61 +206,64 @@ final class LoopIntentCompilerTest extends TestCase {
 		self::assertSame( 'OR', $result['settings']['tax_query']['relation'] );
 		self::assertSame( 'AND', $result['settings']['meta_query']['relation'] );
 	}
-}
 
-final class LoopWidgetManager {
-	public function get_widget_types( ?string $name = null ): array|object|null {
-		$widgets = [
-			'loop-carousel' => new LoopCarouselWidget(),
-			'loop-grid'     => new LoopGridWidget(),
-		];
-		return null === $name ? $widgets : ( $widgets[ $name ] ?? null );
-	}
-}
+	public function test_inactive_pagination_load_type_is_not_written_and_names_condition(): void {
+		$mapped = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'project',
+			[ 'pagination' => true ]
+		);
+		self::assertIsArray( $mapped );
+		self::assertSame( 'numbers', $mapped['settings']['pagination_type'] );
+		self::assertArrayNotHasKey( 'pagination_load_type', $mapped['settings'] );
 
-final class LoopCarouselWidget {
-	public function get_title(): string {
-		return 'Loop Carousel';
-	}
-
-	/** @return list<string> */
-	public function get_categories(): array {
-		return [ 'pro-elements' ];
-	}
-
-	/** @return array<string, array<string, mixed>> */
-	public function get_controls(): array {
-		return [
-			'template_id'    => [ 'type' => 'select' ],
-			'post_type'      => [ 'type' => 'text' ],
-			'posts_per_page' => [ 'type' => 'number' ],
-			'slides_to_show' => [ 'type' => 'number', 'responsive' => true ],
-			'arrows'         => [ 'type' => 'switcher', 'return_value' => 'yes' ],
-		];
-	}
-}
-
-final class LoopGridWidget {
-	public function get_title(): string {
-		return 'Loop Grid';
+		$invalid = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'project',
+			[
+				'pagination'           => true,
+				'pagination_load_type' => 'click',
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $invalid );
+		self::assertSame( 'stonewright_loop_inactive_condition', $invalid->get_error_code() );
+		$condition = (array) ( $invalid->get_error_data()['condition'] ?? [] );
+		self::assertArrayHasKey( 'pagination_type', $condition );
+		self::assertStringContainsString( 'pagination_type', $invalid->get_error_message() );
 	}
 
-	/** @return list<string> */
-	public function get_categories(): array {
-		return [ 'pro-elements' ];
-	}
+	public function test_mobile_only_posts_per_page_is_rejected_with_plan_alternatives(): void {
+		$result = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'project',
+			[
+				'query'            => [ 'posts_per_page' => 3 ],
+				'responsive_scope' => [ 'mobile' ],
+			]
+		);
 
-	/** @return array<string, array<string, mixed>> */
-	public function get_controls(): array {
-		$controls = [
-			'template_id' => [ 'type' => 'select' ],
-			'columns'     => [ 'type' => 'number', 'responsive' => true ],
-			'tax_query'   => [ 'type' => 'repeater' ],
-			'meta_query'  => [ 'type' => 'repeater' ],
-		];
-		if ( empty( $GLOBALS['stonewright_test_loop_schema_without_post_type'] ) ) {
-			$controls['post_type'] = [ 'type' => 'text' ];
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_non_responsive_control', $result->get_error_code() );
+		$alternatives = (array) ( $result->get_error_data()['plan_alternatives'] ?? [] );
+		$ids          = array_column( $alternatives, 'id' );
+		self::assertContains( 'apply_query_globally', $ids );
+		self::assertContains( 'explicit_two_loops', $ids );
+		foreach ( $alternatives as $alternative ) {
+			self::assertStringNotContainsString( 'custom code', strtolower( (string) ( $alternative['summary'] ?? '' ) ) );
+			self::assertStringNotContainsString( 'auto-duplicate', strtolower( (string) ( $alternative['summary'] ?? '' ) ) );
 		}
-		return $controls;
+	}
+
+	public function test_default_compile_is_a_single_widget_not_a_duplicate_pair(): void {
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'instances', $result );
+		self::assertSame( 'query_post_type', $result['resolved_controls']['post_type'] );
+		self::assertArrayNotHasKey( 'hide_mobile', $result['settings'] );
+		self::assertArrayNotHasKey( 'hide_desktop', $result['settings'] );
 	}
 }

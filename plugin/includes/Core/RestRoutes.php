@@ -1131,10 +1131,11 @@ final class RestRoutes {
 
 		$meta = [
 			'error_code'      => $envelope['error_code'],
+			'root_error_code' => $envelope['root_error_code'] !== '' ? $envelope['root_error_code'] : $envelope['error_code'],
 			'public_message'  => $envelope['public_message'],
 			'error_message'   => $envelope['public_message'],
 			'http_status'     => $envelope['http_status'],
-			'operation_class' => 'rest_mutation',
+			'operation_class' => self::rest_operation_class( $route, $envelope['target_ability'] ),
 			'resource_type'   => $envelope['resource_type'] ?? ( '' !== $resource ? 'rest_resource' : '' ),
 			'resource_ref'    => $resource,
 			'retryable'       => $envelope['retryable'],
@@ -1197,6 +1198,7 @@ final class RestRoutes {
 	 *   audit_status:string,
 	 *   http_status:int,
 	 *   error_code:string,
+	 *   root_error_code:string,
 	 *   public_message:string,
 	 *   operation_index:int|null,
 	 *   resource_type:string|null,
@@ -1217,6 +1219,8 @@ final class RestRoutes {
 		$retryable        = false;
 		$audit_status     = 'ok';
 		$allowlisted_data = [];
+		$detected         = null;
+		$root_error_code  = '';
 
 		if ( $response instanceof \WP_Error ) {
 			// Prefer the original WP_Error fields; never collapse to unknown_error.
@@ -1239,6 +1243,9 @@ final class RestRoutes {
 			}
 			if ( isset( $data['resource_type'] ) && is_scalar( $data['resource_type'] ) ) {
 				$resource_type = sanitize_key( (string) $data['resource_type'] );
+			}
+			if ( isset( $data['root_error_code'] ) && is_scalar( $data['root_error_code'] ) ) {
+				$root_error_code = sanitize_key( (string) $data['root_error_code'] );
 			}
 			$audit_status = self::audit_status_from_error( $error_code, $http_status, $data );
 		} elseif ( is_object( $response ) && method_exists( $response, 'get_status' ) ) {
@@ -1269,8 +1276,26 @@ final class RestRoutes {
 				if ( isset( $nested['resource_type'] ) && is_scalar( $nested['resource_type'] ) ) {
 					$resource_type = sanitize_key( (string) $nested['resource_type'] );
 				}
+			} elseif ( is_array( $body ) ) {
+				$detected = self::detect_top_level_rest_failure( $body );
+				if ( null !== $detected ) {
+					$error_code      = $detected['error_code'];
+					$root_error_code = $detected['root_error_code'];
+					$public_message  = self::redact_public_message( $detected['public_message'] );
+					$retryable       = $detected['retryable'];
+					if ( null !== $detected['operation_index'] ) {
+						$operation_index = $detected['operation_index'];
+					}
+					$allowlisted_data = self::allowlisted_error_data(
+						[
+							'root_error_code'  => $detected['root_error_code'],
+							'execution_status' => 'failed',
+							'retryable'        => $detected['retryable'],
+						]
+					);
+				}
 			}
-			if ( $http_status >= 400 ) {
+			if ( $http_status >= 400 || null !== $detected ) {
 				$audit_status = self::audit_status_from_error( $error_code, $http_status, $allowlisted_data );
 			}
 		}
@@ -1285,8 +1310,8 @@ final class RestRoutes {
 		if ( 'ok' !== $audit_status && '' === $public_message ) {
 			$public_message = self::default_public_message( $error_code, $http_status );
 		}
-		if ( in_array( $http_status, [ 429, 502, 503, 504 ], true ) ) {
-			$retryable = true;
+		if ( 'ok' !== $audit_status && '' === $root_error_code ) {
+			$root_error_code = $error_code;
 		}
 
 		$public = [
@@ -1296,6 +1321,7 @@ final class RestRoutes {
 			'outcome'          => 'ok' === $audit_status ? 'success' : 'error',
 			'http_status'      => $http_status,
 			'error_code'       => '' !== $error_code ? $error_code : null,
+			'root_error_code'  => '' !== $root_error_code ? $root_error_code : null,
 			'public_message'   => '' !== $public_message ? $public_message : null,
 			'operation_index'  => $operation_index,
 			'resource_type'    => $resource_type,
@@ -1314,6 +1340,7 @@ final class RestRoutes {
 			'audit_status'    => $audit_status,
 			'http_status'     => $http_status,
 			'error_code'      => $error_code,
+			'root_error_code' => $root_error_code,
 			'public_message'  => $public_message,
 			'operation_index' => $operation_index,
 			'resource_type'   => $resource_type,
@@ -1339,6 +1366,127 @@ final class RestRoutes {
 			return '';
 		}
 		return mb_substr( $name, 0, 190 );
+	}
+
+	private static function rest_operation_class( string $route, string $target_ability ): string {
+		$hint = strtolower( $route . ' ' . $target_ability );
+		if ( str_contains( $hint, 'verify' ) || str_contains( $hint, 'readback' ) ) {
+			return 'verify';
+		}
+		return 'rest_mutation';
+	}
+
+	/**
+	 * Detect official Stonewright REST failure envelopes at the top level only.
+	 *
+	 * Nested business payloads may contain arbitrary `ok:false` fields and must
+	 * not be walked. Recognized shapes: ok===false, isError===true,
+	 * startup_ready===false, root_error_code, receipt.ok===false, and a failed
+	 * entry in top-level steps[].
+	 *
+	 * @param array<string, mixed> $body
+	 * @return array{error_code:string,root_error_code:string,public_message:string,operation_index:int|null,retryable:bool}|null
+	 */
+	private static function detect_top_level_rest_failure( array $body ): ?array {
+		$ok_true = array_key_exists( 'ok', $body ) && true === $body['ok'];
+		$failed  = false;
+		if ( array_key_exists( 'ok', $body ) && false === $body['ok'] ) {
+			$failed = true;
+		}
+		if ( true === ( $body['isError'] ?? null ) ) {
+			$failed = true;
+		}
+		if ( array_key_exists( 'startup_ready', $body ) && false === $body['startup_ready'] ) {
+			$failed = true;
+		}
+
+		$root = '';
+		if ( isset( $body['root_error_code'] ) && is_scalar( $body['root_error_code'] ) && '' !== trim( (string) $body['root_error_code'] ) ) {
+			$root = sanitize_key( (string) $body['root_error_code'] );
+			if ( ! $ok_true ) {
+				$failed = true;
+			}
+		}
+
+		$receipt = is_array( $body['receipt'] ?? null ) ? $body['receipt'] : null;
+		if ( is_array( $receipt ) && array_key_exists( 'ok', $receipt ) && false === $receipt['ok'] ) {
+			$failed = true;
+			foreach ( [ 'root_error_code', 'error_code', 'code' ] as $key ) {
+				if ( isset( $receipt[ $key ] ) && is_scalar( $receipt[ $key ] ) && '' !== trim( (string) $receipt[ $key ] ) ) {
+					$root = '' !== $root ? $root : sanitize_key( (string) $receipt[ $key ] );
+					break;
+				}
+			}
+		}
+
+		$operation_index = null;
+		if ( isset( $body['steps'] ) && is_array( $body['steps'] ) ) {
+			foreach ( $body['steps'] as $index => $step ) {
+				if ( ! is_array( $step ) ) {
+					continue;
+				}
+				$status = strtolower( (string) ( $step['status'] ?? '' ) );
+				if ( ! in_array( $status, [ 'failed', 'error' ], true ) ) {
+					continue;
+				}
+				$failed          = true;
+				$operation_index = is_numeric( $index ) ? (int) $index : null;
+				foreach ( [ 'root_error_code', 'error_code', 'code' ] as $key ) {
+					if ( isset( $step[ $key ] ) && is_scalar( $step[ $key ] ) && '' !== trim( (string) $step[ $key ] ) ) {
+						$root = '' !== $root ? $root : sanitize_key( (string) $step[ $key ] );
+						break;
+					}
+				}
+				if ( '' === $root && isset( $step['id'] ) && is_scalar( $step['id'] ) ) {
+					$root = 'stonewright_step_' . sanitize_key( (string) $step['id'] ) . '_failed';
+				}
+				break;
+			}
+		}
+
+		if ( ! $failed ) {
+			return null;
+		}
+
+		$wrapper = '';
+		foreach ( [ 'error_code', 'code' ] as $key ) {
+			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) && '' !== trim( (string) $body[ $key ] ) ) {
+				$wrapper = sanitize_key( (string) $body[ $key ] );
+				break;
+			}
+		}
+		if ( '' === $wrapper && isset( $body['error'] ) && is_array( $body['error'] ) && isset( $body['error']['code'] ) && is_scalar( $body['error']['code'] ) ) {
+			$wrapper = sanitize_key( (string) $body['error']['code'] );
+		}
+		if ( '' === $root ) {
+			$root = $wrapper;
+		}
+		if ( '' === $wrapper ) {
+			$wrapper = $root;
+		}
+		if ( '' === $wrapper ) {
+			$wrapper = 'stonewright_structured_failure';
+			$root    = '' !== $root ? $root : $wrapper;
+		}
+
+		$message = '';
+		foreach ( [ 'public_message', 'message', 'error_message', 'detail' ] as $key ) {
+			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) && '' !== trim( (string) $body[ $key ] ) ) {
+				$message = (string) $body[ $key ];
+				break;
+			}
+		}
+		if ( '' === $message && isset( $body['error'] ) && is_array( $body['error'] ) && isset( $body['error']['message'] ) && is_scalar( $body['error']['message'] ) ) {
+			$message = (string) $body['error']['message'];
+		}
+
+		return [
+			'error_code'       => $wrapper,
+			'root_error_code'  => $root,
+			'public_message'   => $message,
+			'operation_index'  => $operation_index,
+			'retryable'        => ! empty( $body['retryable'] ),
+		];
 	}
 
 	/**
@@ -1424,6 +1572,7 @@ final class RestRoutes {
 			'schema_version',
 			'remediation_code',
 			'rule_id',
+			'root_error_code',
 			'before_sha256',
 			'after_sha256',
 			'changed_bytes',

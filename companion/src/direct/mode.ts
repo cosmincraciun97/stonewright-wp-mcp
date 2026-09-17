@@ -1,7 +1,25 @@
+import {
+	classifyMcpHttpPayload,
+	isHtmlPayload,
+	parseJsonObject,
+	readBoundedBody,
+} from '../wordpress-mcp-http.js';
+
 export type StonewrightRuntimeMode = 'auto' | 'direct' | 'plugin';
 export type ResolvedRuntimeMode = 'direct' | 'plugin';
 /** Configured mode policy surface (env mapping). */
 export type ConfiguredRuntimeMode = 'direct-only' | 'plugin-only' | 'auto';
+
+export type PluginRouteState = 'not_checked' | 'present' | 'missing' | 'inconclusive';
+
+export interface EndpointProbe {
+	status: number | null;
+	present: boolean | null;
+	route_state: PluginRouteState;
+	body_kind: 'json_rpc' | 'wp_rest_error' | 'html' | 'empty' | 'unknown' | null;
+	rest_code: string | null;
+	plugin_namespace_detected: boolean | null;
+}
 
 export interface ProbeResult {
 	mode: ResolvedRuntimeMode;
@@ -9,7 +27,10 @@ export interface ProbeResult {
 	configured: ConfiguredRuntimeMode;
 	endpoint: string | null;
 	pluginEndpointStatus: number | null;
+	pluginRouteState: PluginRouteState;
+	pluginNamespaceDetected: boolean | null;
 	reason: string;
+	errorCode: string | null;
 }
 
 export function resolveRequestedMode(env: NodeJS.ProcessEnv = process.env): StonewrightRuntimeMode {
@@ -60,11 +81,145 @@ export function pluginMcpEndpoint(siteBase: string): string {
 	return `${siteBase.replace(/\/+$/, '')}/wp-json/mcp/stonewright`;
 }
 
+export function restIndexUrl(siteBase: string): string {
+	return `${siteBase.replace(/\/+$/, '')}/wp-json/`;
+}
+
+export function restIndexFromMcpEndpoint(endpoint: string): string | null {
+	try {
+		const url = new URL(endpoint);
+		if (!/\/wp-json\/mcp\/stonewright\/?$/i.test(url.pathname)) {
+			return null;
+		}
+		url.pathname = url.pathname.replace(/\/mcp\/stonewright\/?$/i, '/');
+		url.search = '';
+		url.hash = '';
+		return url.toString();
+	} catch {
+		return null;
+	}
+}
+
+const EMPTY_PROBE: EndpointProbe = {
+	status: null,
+	present: null,
+	route_state: 'not_checked',
+	body_kind: null,
+	rest_code: null,
+	plugin_namespace_detected: null,
+};
+
+function emptyProbeResult(
+	partial: Omit<ProbeResult, 'pluginRouteState' | 'pluginNamespaceDetected' | 'errorCode'> & Partial<Pick<ProbeResult, 'pluginRouteState' | 'pluginNamespaceDetected' | 'errorCode'>>,
+): ProbeResult {
+	return {
+		pluginRouteState: 'not_checked',
+		pluginNamespaceDetected: null,
+		errorCode: null,
+		...partial,
+	};
+}
+
+function classifyHttpResponse(
+	status: number,
+	contentType: string,
+	body: string,
+	truncated = false,
+): EndpointProbe {
+	const classified = classifyMcpHttpPayload(status, contentType, body, truncated);
+	return {
+		status: classified.status,
+		present: classified.present,
+		route_state: classified.route_state,
+		body_kind: classified.body_kind,
+		rest_code: classified.rest_code,
+		plugin_namespace_detected: null,
+	};
+}
+
+async function fetchOnce(
+	endpoint: string,
+	method: 'HEAD' | 'GET',
+	fetchImpl: typeof fetch,
+	timeoutMs: number,
+): Promise<{ failed: boolean; probe: EndpointProbe }> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const response = await fetchImpl(endpoint, {
+			method,
+			signal: controller.signal,
+			headers: { accept: 'application/json' },
+		});
+		const contentType = response.headers.get('content-type') ?? '';
+		const bounded = method === 'HEAD'
+			? { text: '', truncated: false }
+			: await readBoundedBody(response);
+		return {
+			failed: false,
+			probe: classifyHttpResponse(response.status, contentType, bounded.text, bounded.truncated),
+		};
+	} catch {
+		return { failed: true, probe: { ...EMPTY_PROBE, route_state: 'inconclusive' } };
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+function restIndexHasPluginSurface(json: Record<string, unknown> | null): boolean | null {
+	if (!json) {
+		return null;
+	}
+	const namespaces = Array.isArray(json.namespaces)
+		? json.namespaces.filter((value): value is string => typeof value === 'string')
+		: [];
+	if (namespaces.some((name) => name === 'mcp' || name.startsWith('mcp/') || name === 'stonewright/v1')) {
+		return true;
+	}
+	const routes = json.routes && typeof json.routes === 'object' && json.routes !== null
+		? Object.keys(json.routes as Record<string, unknown>)
+		: [];
+	if (routes.some((route) => route.startsWith('/mcp/') || route.startsWith('/stonewright/'))) {
+		return true;
+	}
+	return false;
+}
+
+async function probeRestIndex(
+	mcpEndpoint: string,
+	fetchImpl: typeof fetch,
+	timeoutMs: number,
+): Promise<boolean | null> {
+	const index = restIndexFromMcpEndpoint(mcpEndpoint);
+	if (!index) {
+		return null;
+	}
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const response = await fetchImpl(index, {
+			method: 'GET',
+			signal: controller.signal,
+			headers: { accept: 'application/json' },
+		});
+		const contentType = response.headers.get('content-type') ?? '';
+		const bounded = await readBoundedBody(response, 65_536);
+		if (bounded.truncated || isHtmlPayload(contentType, bounded.text)) {
+			return null;
+		}
+		return restIndexHasPluginSurface(parseJsonObject(bounded.text));
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 /**
  * Probe the Stonewright plugin MCP endpoint.
- * Route present (200/401/403/405) => plugin mode.
- * Explicit 404 => Direct mode.
- * Network errors => treat as unknown/plugin so existing proxy recovery stays intact.
+ * HEAD 404 is not proof the route is absent — follow with GET.
+ * WordPress rest_no_route JSON is missing; HTML/CDN 404 is inconclusive.
+ * 401/403 means the route exists and auth failed — never Direct fallback.
  *
  * Each HEAD/GET attempt uses its own AbortController so a timed-out HEAD cannot
  * abort a subsequent GET. Route reachability is never proof of authentication
@@ -74,47 +229,62 @@ export async function probePluginEndpoint(
 	endpoint: string,
 	fetchImpl: typeof fetch = fetch,
 	timeoutMs = 5_000,
-): Promise<{ status: number | null; present: boolean | null }> {
-	const routeReachable = (status: number) =>
-		status === 200 || status === 401 || status === 403 || status === 405;
-	const routeMissing = (status: number) => status === 404;
-
-	const attempt = async (method: 'HEAD' | 'GET'): Promise<{ status: number | null; present: boolean | null; failed: boolean }> => {
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), timeoutMs);
-		try {
-			const response = await fetchImpl(endpoint, {
-				method,
-				signal: controller.signal,
-				headers: { accept: 'application/json' },
-			});
-			if (routeReachable(response.status)) {
-				return { status: response.status, present: true, failed: false };
-			}
-			if (routeMissing(response.status)) {
-				return { status: 404, present: false, failed: false };
-			}
-			// Ambiguous non-404 response: prefer plugin path (unchanged recovery).
-			return { status: response.status, present: true, failed: false };
-		} catch {
-			return { status: null, present: null, failed: true };
-		} finally {
-			clearTimeout(timer);
+): Promise<EndpointProbe> {
+	const head = await fetchOnce(endpoint, 'HEAD', fetchImpl, timeoutMs);
+	if (!head.failed && head.probe.status !== null && head.probe.status !== 404) {
+		if (head.probe.status === 405 || head.probe.status === 200 || head.probe.status === 401 || head.probe.status === 403) {
+			return { ...head.probe, present: true, route_state: 'present' };
 		}
-	};
-
-	const head = await attempt('HEAD');
-	if (!head.failed) {
-		return { status: head.status, present: head.present };
+		if (head.probe.status < 500) {
+			return head.probe;
+		}
 	}
 
-	const get = await attempt('GET');
+	const get = await fetchOnce(endpoint, 'GET', fetchImpl, timeoutMs);
 	if (!get.failed) {
-		return { status: get.status, present: get.present };
+		let namespace: boolean | null = null;
+		if (get.probe.route_state === 'missing' || get.probe.route_state === 'inconclusive') {
+			namespace = await probeRestIndex(endpoint, fetchImpl, timeoutMs);
+		}
+		return { ...get.probe, plugin_namespace_detected: namespace };
 	}
 
-	// Unreachable: keep plugin proxy path so existing error/status behavior is preserved.
-	return { status: null, present: null };
+	if (!head.failed && head.probe.status === 404) {
+		return {
+			status: 404,
+			present: null,
+			route_state: 'inconclusive',
+			body_kind: 'empty',
+			rest_code: null,
+			plugin_namespace_detected: null,
+		};
+	}
+
+	return { ...EMPTY_PROBE, route_state: 'inconclusive' };
+}
+
+/**
+ * Read-only public REST index probe for Direct backend readiness.
+ * Does not send credentials. HTML, truncation, and socket failures are not reachability.
+ */
+export async function probePublicRestIndex(
+	siteBase: string,
+	fetchImpl: typeof fetch = fetch,
+	timeoutMs = 5_000,
+): Promise<{ reachable: boolean; status: number | null }> {
+	const index = restIndexUrl(siteBase);
+	const result = await fetchOnce(index, 'GET', fetchImpl, timeoutMs);
+	if (result.failed) {
+		return { reachable: false, status: result.probe.status };
+	}
+	if (result.probe.route_state === 'inconclusive' || result.probe.body_kind === 'html') {
+		return { reachable: false, status: result.probe.status };
+	}
+	const status = result.probe.status;
+	if (status === 200 || status === 401 || status === 403) {
+		return { reachable: true, status };
+	}
+	return { reachable: false, status };
 }
 
 export async function resolveRuntimeMode(args: {
@@ -129,43 +299,30 @@ export async function resolveRuntimeMode(args: {
 	const configured = resolveConfiguredMode(env);
 	const siteBase = siteBaseFromEnv(env);
 	const endpoint = siteBase ? pluginMcpEndpoint(siteBase) : null;
-	const forceProbe = args.forceProbe === true;
 
 	// direct-only: never probe/switch to plugin.
 	if (requested === 'direct') {
-		return {
+		return emptyProbeResult({
 			mode: 'direct',
 			requested,
 			configured,
 			endpoint,
 			pluginEndpointStatus: null,
 			reason: 'STONEWRIGHT_MODE=direct (direct-only); plugin path not probed.',
-		};
+		});
 	}
 
-	// plugin-only: prefer plugin path; caller fails closed (no Direct tools) if unavailable.
-	// force_probe:true still executes a real probe without changing configured mode.
-	if (requested === 'plugin' && !forceProbe) {
-		return {
-			mode: 'plugin',
-			requested,
-			configured,
-			endpoint,
-			pluginEndpointStatus: null,
-			reason: 'STONEWRIGHT_MODE=plugin (plugin-only); Direct tools will not be registered as fallback.',
-		};
-	}
-
-	// auto (or plugin-only + force_probe): prefer healthy plugin; fall back Direct when endpoint is explicitly absent (auto only).
+	// plugin-only and auto both probe when a site URL exists. Plugin-only never
+	// falls back to Direct; the caller fails closed when the route is missing.
 	if (!endpoint) {
-		return {
+		return emptyProbeResult({
 			mode: 'plugin',
 			requested,
 			configured,
 			endpoint: null,
 			pluginEndpointStatus: null,
 			reason: 'No site URL configured; plugin proxy path remains available for local recovery tools.',
-		};
+		});
 	}
 
 	const probe = await probePluginEndpoint(endpoint, args.fetchImpl ?? fetch, args.timeoutMs ?? 5_000);
@@ -173,63 +330,80 @@ export async function resolveRuntimeMode(args: {
 	if (requested === 'plugin') {
 		// Plugin-only never falls back to Direct, even when the route is missing.
 		if (probe.present === true) {
-			return {
+			return emptyProbeResult({
 				mode: 'plugin',
 				requested,
 				configured,
 				endpoint,
 				pluginEndpointStatus: probe.status,
+				pluginRouteState: 'present',
+				pluginNamespaceDetected: probe.plugin_namespace_detected,
 				reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
-			};
+			});
 		}
 		if (probe.present === false) {
-			return {
+			return emptyProbeResult({
 				mode: 'plugin',
 				requested,
 				configured,
 				endpoint,
 				pluginEndpointStatus: probe.status,
-				reason: 'Plugin MCP endpoint returned 404 under plugin-only force_probe; Direct fallback remains disabled.',
-			};
+				pluginRouteState: 'missing',
+				pluginNamespaceDetected: probe.plugin_namespace_detected,
+				errorCode: 'plugin_route_missing',
+				reason: 'Plugin MCP endpoint returned 404 under plugin-only mode; Direct fallback remains disabled.',
+			});
 		}
-		return {
+		return emptyProbeResult({
 			mode: 'plugin',
 			requested,
 			configured,
 			endpoint,
 			pluginEndpointStatus: probe.status,
-			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only force_probe; Direct fallback remains disabled.',
-		};
+			pluginRouteState: probe.route_state,
+			pluginNamespaceDetected: probe.plugin_namespace_detected,
+			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only mode; Direct fallback remains disabled.',
+		});
 	}
 
 	if (probe.present === false) {
-		return {
+		const namespaceNote = probe.plugin_namespace_detected === true
+			? ' WordPress REST lists an MCP or Stonewright namespace, but /mcp/stonewright is missing.'
+			: '';
+		return emptyProbeResult({
 			mode: 'direct',
 			requested,
 			configured,
 			endpoint,
 			pluginEndpointStatus: probe.status,
-			reason: 'Plugin MCP endpoint returned 404; registering Direct REST tools (auto fallback).',
-		};
+			pluginRouteState: 'missing',
+			pluginNamespaceDetected: probe.plugin_namespace_detected,
+			errorCode: 'plugin_route_missing',
+			reason: `Plugin MCP endpoint returned 404; registering Direct REST tools (auto fallback).${namespaceNote}`,
+		});
 	}
 
 	if (probe.present === true) {
-		return {
+		return emptyProbeResult({
 			mode: 'plugin',
 			requested,
 			configured,
 			endpoint,
 			pluginEndpointStatus: probe.status,
+			pluginRouteState: 'present',
+			pluginNamespaceDetected: probe.plugin_namespace_detected,
 			reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
-		};
+		});
 	}
 
-	return {
+	return emptyProbeResult({
 		mode: 'plugin',
 		requested,
 		configured,
 		endpoint,
 		pluginEndpointStatus: probe.status,
+		pluginRouteState: probe.route_state,
+		pluginNamespaceDetected: probe.plugin_namespace_detected,
 		reason: 'Plugin MCP endpoint probe inconclusive; using plugin proxy path.',
-	};
+	});
 }

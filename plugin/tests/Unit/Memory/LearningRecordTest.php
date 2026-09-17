@@ -157,6 +157,32 @@ final class LearningRecordTest extends TestCase {
 		self::assertStringContainsString( 'memory table is unavailable', $result->get_error_message() );
 	}
 
+	public function test_user_correction_is_active_and_not_an_error_pattern_draft(): void {
+		$result = ( new LearningRecord() )->execute(
+			[
+				'scope'      => 'elementor',
+				'topic'      => 'Native widgets',
+				'correction' => 'Use native Elementor widgets.',
+			]
+		);
+
+		self::assertIsArray( $result );
+		$memory_insert = $GLOBALS['wpdb']->inserts[0]['data'] ?? [];
+		self::assertSame( 'active', $memory_insert['status'] ?? null );
+		$value = json_decode( (string) ( $memory_insert['value_json'] ?? '' ), true );
+		self::assertIsArray( $value );
+		self::assertNotSame( 'error-pattern-draft', $value['source'] ?? null );
+		self::assertArrayNotHasKey( 'product_rule', $value );
+		self::assertTrue(
+			\Stonewright\WpMcp\Memory\Memory::is_task_start_eligible(
+				[
+					'status' => 'active',
+					'value'  => $value,
+				]
+			)
+		);
+	}
+
 	private function make_wpdb( bool $insert_ok = true ): object {
 		return new class( $insert_ok ) {
 			public $prefix     = 'wp_';

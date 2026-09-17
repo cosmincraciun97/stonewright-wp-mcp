@@ -126,6 +126,66 @@ final class ThemeFileAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'after_bytes', $result['change_summary'] );
 	}
 
+	public function test_missing_marker_is_zero_write(): void {
+		$ability = new ThemeFilePatch();
+		$before  = (string) file_get_contents( $this->theme_dir . '/style.css' );
+		$result  = $ability->execute(
+			[
+				'path'    => 'style.css',
+				'mode'    => 'insert_after_marker',
+				'marker'  => '/* not-present */',
+				'content' => 'body{color:#f00;}',
+				'dry_run' => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_theme_file_marker_missing', $result->get_error_code() );
+		self::assertSame( $before, (string) file_get_contents( $this->theme_dir . '/style.css' ) );
+	}
+
+	public function test_ambiguous_marker_is_zero_write(): void {
+		file_put_contents(
+			$this->theme_dir . '/style.css',
+			"/* theme */\nbody{color:#111;}\n/* theme */\n"
+		);
+		$ability = new ThemeFilePatch();
+		$before  = (string) file_get_contents( $this->theme_dir . '/style.css' );
+		$result  = $ability->execute(
+			[
+				'path'    => 'style.css',
+				'mode'    => 'insert_after_marker',
+				'marker'  => '/* theme */',
+				'content' => 'body{color:#f00;}',
+				'dry_run' => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_theme_file_marker_ambiguous', $result->get_error_code() );
+		self::assertSame( $before, (string) file_get_contents( $this->theme_dir . '/style.css' ) );
+	}
+
+	public function test_complete_candidate_is_validated_before_write(): void {
+		$ability = new ThemeFilePatch();
+		$before  = (string) file_get_contents( $this->theme_dir . '/style.css' );
+		$result  = $ability->execute(
+			[
+				'path'      => 'style.css',
+				'mode'      => 'replace_all',
+				'content'   => 'body { color: #111; /* unterminated',
+				'dry_run'   => true,
+				'native_gap'=> [
+					'reason'        => 'No typed WordPress API owns this stylesheet token.',
+					'methods_tried' => [ 'typed_api', 'admin_form' ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( $before, (string) file_get_contents( $this->theme_dir . '/style.css' ) );
+	}
+
 	private function rmTree( string $dir ): void {
 		if ( ! is_dir( $dir ) ) {
 			return;

@@ -60,16 +60,18 @@ final class McpAbilitiesCompatibilityPreflight {
 	private static function inspect_symbol( string $role, string $class, string $ability_class, array $autoloaders, array $package_roots, bool $explicit_roots ): array {
 		$canonical = [ 'adapter' => 'WP\\MCP\\Core\\McpAdapter', 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ];
 		$packages = ( $explicit_roots || ( $canonical[ $role ] ?? '' ) === $class ) ? self::manifest_candidates( $role, $package_roots ) : [];
-		$paths = array_map( static fn( array $package ): string => (string) $package['_path'], $packages );
 		$loaded = class_exists( $class, false );
-		if ( $loaded && ! $explicit_roots ) {
-			try {
-				$file = ( new \ReflectionClass( $class ) )->getFileName();
-				if ( is_string( $file ) && '' !== $file ) {
-					$paths[] = $file;
-				}
-			} catch ( \ReflectionException $error ) {
-				unset( $error );
+		if ( ! $loaded && ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' ) ) {
+			class_exists( $class, true );
+			$loaded = class_exists( $class, false );
+		}
+		$loaded_path = self::loaded_class_path( $class, $loaded );
+		$runtime_paths = [];
+		$canonical_loaded = ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' );
+		if ( is_string( $loaded_path ) && '' !== $loaded_path ) {
+			$is_core_file = 'wordpress-core' === self::owner( $loaded_path );
+			if ( ! $explicit_roots || $is_core_file || ( $canonical_loaded && 'adapter' === $role ) ) {
+				$runtime_paths[] = $loaded_path;
 			}
 		}
 		foreach ( $autoloaders as $autoloader ) {
@@ -80,22 +82,25 @@ final class McpAbilitiesCompatibilityPreflight {
 			try {
 				$file = $loader->findFile( $class );
 				if ( is_string( $file ) && '' !== $file ) {
-					$paths[] = $file;
+					$runtime_paths[] = self::normalize_path( $file );
 				}
 			} catch ( \Throwable $error ) {
 				unset( $error );
 			}
 		}
-		$filtered_paths = apply_filters( 'stonewright_compatibility_class_candidates', $paths, $class );
+		$filtered_paths = apply_filters( 'stonewright_compatibility_class_candidates', $runtime_paths, $class );
 		if ( is_array( $filtered_paths ) ) {
-			$paths = array_merge( $paths, array_filter( $filtered_paths, 'is_string' ) );
+			$runtime_paths = array_merge( $runtime_paths, array_filter( $filtered_paths, 'is_string' ) );
 		}
-		$paths = array_values( array_unique( array_map( [ self::class, 'normalize_path' ], $paths ) ) );
+		$runtime_paths = array_values( array_unique( array_map( [ self::class, 'normalize_path' ], $runtime_paths ) ) );
+		sort( $runtime_paths );
+
+		$inventory_paths = array_map( static fn( array $package ): string => self::normalize_path( (string) $package['_path'] ), $packages );
+		$paths = array_values( array_unique( array_merge( $inventory_paths, $runtime_paths ) ) );
 		sort( $paths );
 
 		$core_owned = 'adapter' !== $role && ( self::core_abilities_available() || self::contains_core_path( $paths ) );
 		$candidates = [];
-		$active_paths = [];
 		$owner_details = [];
 		foreach ( $paths as $path ) {
 			$package = self::package_for_path( $path, $packages );
@@ -104,7 +109,6 @@ final class McpAbilitiesCompatibilityPreflight {
 			$state = $guarded ? 'guarded_fallback' : ( 'wordpress-core' === $owner ? 'core_loaded' : 'autoloadable' );
 			$candidates[] = [ 'owner' => $owner, 'fingerprint' => hash( 'sha256', $path ), 'state' => $state ];
 			if ( ! $guarded ) {
-				$active_paths[] = $path;
 				$owner_details[] = [
 					'owner'   => $owner,
 					'version' => 'wordpress-core' === $owner ? self::core_version() : (string) ( $package['version'] ?? '' ),
@@ -118,19 +122,37 @@ final class McpAbilitiesCompatibilityPreflight {
 		$owner_details = self::unique_owner_details( $owner_details );
 		$owners = array_values( array_unique( array_column( $owner_details, 'owner' ) ) );
 		sort( $owners );
-		$active_paths = self::dedupe_equivalent_package_paths( array_values( array_unique( $active_paths ) ), $packages );
-		$status = count( $active_paths ) > 1 ? 'conflict' : ( $loaded ? 'loaded' : ( 1 === count( $active_paths ) || $core_owned ? 'available' : 'unavailable' ) );
-		$abi = 'conflict' === $status ? [ 'status' => 'not_checked', 'issues' => [ 'multiple_owners' ], 'version' => '' ] : self::inspect_abi( $role, $class, $ability_class, $packages, $core_owned );
-		$reason = 'conflict' === $status ? 'multiple_incompatible_class_owners' : ( 'unavailable' === $status || 'unavailable' === $abi['status'] ? 'required_symbol_unavailable' : ( 'incompatible' === $abi['status'] ? 'runtime_abi_incompatible' : null ) );
+
+		$selection = self::resolve_selection( $role, $class, $runtime_paths, $packages, $loaded, $loaded_path, $core_owned );
+		$abi_packages = self::abi_packages( $selection, $packages );
+		$selection_state = (string) $selection['state'];
+		$abi = [ 'status' => 'not_checked', 'issues' => [], 'version' => '' ];
+		$reason = null;
 		$remediation = null;
-		if ( 'conflict' === $status ) {
-			$remediation = 'Deactivate all but one active plugin that loads this symbol, then reload WordPress and rerun diagnostics.';
-		} elseif ( 'unavailable' === $status || 'unavailable' === $abi['status'] ) {
-			$remediation = 'Install or activate the package that provides this required symbol, reload WordPress, and rerun diagnostics.';
-		} elseif ( 'incompatible' === $abi['status'] ) {
-			$remediation = 'Update or deactivate the incompatible active owner; do not bypass the ABI check. Reload WordPress and rerun diagnostics.';
+		$status = 'unavailable';
+
+		if ( 'ambiguous' === $selection_state ) {
+			$status = 'conflict';
+			$abi = [ 'status' => 'not_checked', 'issues' => [ 'multiple_owners' ], 'version' => '' ];
+			$reason = 'multiple_incompatible_class_owners';
+			$remediation = 'The runtime could not choose a single owner for this symbol. Review the listed owners and install a tested compatible build.';
+		} else {
+			$status = $loaded ? 'loaded' : ( $core_owned || null !== ( $selection['path'] ?? null ) || [] !== $abi_packages ? 'available' : 'unavailable' );
+			$abi = self::inspect_abi( $role, $class, $ability_class, $abi_packages, $core_owned );
+			if ( 'adapter' === $role ) {
+				self::inspect_selected_family( $class, $abi );
+			}
+			if ( 'unavailable' === $status || 'unavailable' === ( $abi['status'] ?? '' ) ) {
+				$reason = 'required_symbol_unavailable';
+				$remediation = 'Install or activate the package that provides this required symbol, reload WordPress, and rerun diagnostics.';
+			} elseif ( 'incompatible' === ( $abi['status'] ?? '' ) ) {
+				$reason = 'runtime_abi_incompatible';
+				$remediation = 'Update or deactivate the incompatible active owner; do not bypass the ABI check. Reload WordPress and rerun diagnostics.';
+			}
 		}
-		return [
+
+		$selected_path = self::normalize_path( (string) ( $selection['package']['_path'] ?? $selection['path'] ?? '' ) );
+		$result = [
 			'class'         => $class,
 			'status'        => $status,
 			'loaded'        => class_exists( $class, false ),
@@ -138,19 +160,43 @@ final class McpAbilitiesCompatibilityPreflight {
 			'owner_details' => $owner_details,
 			'candidates'    => $candidates,
 			'packages'      => array_map(
-				static fn( array $package ): array => [
-					'owner'            => $package['owner'],
-					'name'             => $package['name'],
-					'version'          => $package['version'],
-					'jetpack_manifest' => $package['jetpack_manifest'],
-					'state'            => $core_owned && true === ( $package['guarded_fallback'] ?? false ) ? 'guarded_fallback' : 'active',
-				],
+				static function ( array $package ) use ( $core_owned, $selected_path ): array {
+					$package_path = self::normalize_path( (string) $package['_path'] );
+					$state = 'active';
+					if ( $core_owned && true === ( $package['guarded_fallback'] ?? false ) ) {
+						$state = 'guarded_fallback';
+					} elseif ( '' !== $selected_path && $package_path !== $selected_path ) {
+						$state = 'shadowed';
+					}
+					return [
+						'owner'            => $package['owner'],
+						'name'             => $package['name'],
+						'version'          => $package['version'],
+						'jetpack_manifest' => $package['jetpack_manifest'],
+						'state'            => $state,
+					];
+				},
 				$packages
 			),
 			'abi'         => $abi,
 			'reason'      => $reason,
 			'remediation' => $remediation,
 		];
+
+		if ( 'adapter' === $role ) {
+			$selected_package = is_array( $selection['package'] ?? null ) ? $selection['package'] : null;
+			$result['selected_owner'] = is_array( $selected_package )
+				? (string) $selected_package['owner']
+				: ( is_string( $selection['path'] ?? null ) && '' !== (string) $selection['path'] ? self::owner( (string) $selection['path'] ) : null );
+			$result['selected_version'] = is_array( $selected_package )
+				? (string) $selected_package['version']
+				: (string) ( $abi['version'] ?? '' );
+			$result['selection_state'] = $selection_state;
+			$result['shadowed_candidates'] = self::shadowed_candidates( $packages, $selected_package, is_string( $selection['path'] ?? null ) ? (string) $selection['path'] : null );
+			$result['runtime_contract_verified'] = 'compatible' === ( $abi['status'] ?? '' ) && 'selected' === $selection_state;
+		}
+
+		return $result;
 	}
 
 	/** @param list<array<string,mixed>> $packages @return array{status:string,issues:list<string>,version:string} */
@@ -221,7 +267,7 @@ final class McpAbilitiesCompatibilityPreflight {
 			$issues[] = 'invalid_package_version';
 		}
 		$minimum_version = [
-			'adapter'            => '0.3.0',
+			'adapter'            => '0.6.1',
 			'abilities_registry' => $core_owned ? '6.9.0' : '0.1.1',
 			'ability'            => $core_owned ? '6.9.0' : '0.1.1',
 		][ $role ] ?? '';
@@ -303,6 +349,19 @@ final class McpAbilitiesCompatibilityPreflight {
 		return $version;
 	}
 
+	private static function loaded_class_path( string $class, bool $loaded ): ?string {
+		if ( ! $loaded ) {
+			return null;
+		}
+		try {
+			$file = ( new \ReflectionClass( $class ) )->getFileName();
+		} catch ( \ReflectionException $error ) {
+			unset( $error );
+			return null;
+		}
+		return is_string( $file ) && '' !== $file ? self::normalize_path( $file ) : null;
+	}
+
 	/** @param list<array<string,mixed>> $packages @return array<string,mixed>|null */
 	private static function package_for_path( string $path, array $packages ): ?array {
 		foreach ( $packages as $package ) {
@@ -322,6 +381,172 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		ksort( $unique );
 		return array_values( $unique );
+	}
+
+	/**
+	 * Choose the runtime copy. Installed inventory is not a simultaneous runtime.
+	 *
+	 * @param list<string>              $runtime_paths
+	 * @param list<array<string,mixed>> $packages
+	 * @return array{state:string,path:?string,package:?array<string,mixed>}
+	 */
+	private static function resolve_selection( string $role, string $class, array $runtime_paths, array $packages, bool $loaded, ?string $loaded_path, bool $core_owned ): array {
+		$canonical = [ 'adapter' => 'WP\\MCP\\Core\\McpAdapter', 'abilities_registry' => 'WP_Abilities_Registry', 'ability' => 'WP_Ability' ];
+		if ( $core_owned && 'adapter' !== $role ) {
+			return [ 'state' => 'selected', 'path' => $loaded_path, 'package' => null ];
+		}
+
+		if ( $loaded && is_string( $loaded_path ) && '' !== $loaded_path ) {
+			$package = self::package_for_path( $loaded_path, $packages );
+			$canonical_hit = ( $canonical[ $role ] ?? '' ) === ltrim( $class, '\\' );
+			if ( $canonical_hit || null !== $package || in_array( $loaded_path, $runtime_paths, true ) ) {
+				return [
+					'state'   => 'selected',
+					'path'    => $loaded_path,
+					'package' => $package,
+				];
+			}
+		}
+
+		$deduped = self::dedupe_equivalent_package_paths( $runtime_paths, $packages );
+		if ( count( $deduped ) > 1 ) {
+			return [ 'state' => 'ambiguous', 'path' => null, 'package' => null ];
+		}
+		if ( 1 === count( $deduped ) ) {
+			$path = $deduped[0];
+			return [
+				'state'   => 'selected',
+				'path'    => $path,
+				'package' => self::package_for_path( $path, $packages ),
+			];
+		}
+
+		if ( [] === $packages ) {
+			return [ 'state' => 'unavailable', 'path' => null, 'package' => null ];
+		}
+
+		$unique_packages = [];
+		foreach ( $packages as $package ) {
+			$key = (string) ( $package['name'] ?? '' ) . '@' . (string) ( $package['version'] ?? '' );
+			if ( '@' === $key ) {
+				$key = self::normalize_path( (string) ( $package['_path'] ?? '' ) );
+			}
+			$unique_packages[ $key ] = $package;
+		}
+		if ( 1 === count( $unique_packages ) ) {
+			$package = array_values( $unique_packages )[0];
+			return [
+				'state'   => 'selected',
+				'path'    => self::normalize_path( (string) $package['_path'] ),
+				'package' => $package,
+			];
+		}
+		if ( 1 === count( $packages ) ) {
+			return [
+				'state'   => 'selected',
+				'path'    => self::normalize_path( (string) $packages[0]['_path'] ),
+				'package' => $packages[0],
+			];
+		}
+
+		return [ 'state' => 'ambiguous', 'path' => null, 'package' => null ];
+	}
+
+	/**
+	 * @param array{state:string,path:?string,package:?array<string,mixed>} $selection
+	 * @param list<array<string,mixed>>                                     $packages
+	 * @return list<array<string,mixed>>
+	 */
+	private static function abi_packages( array $selection, array $packages ): array {
+		if ( is_array( $selection['package'] ?? null ) ) {
+			return [ $selection['package'] ];
+		}
+		if ( 1 === count( $packages ) ) {
+			return $packages;
+		}
+		return [];
+	}
+
+	/**
+	 * @param list<array<string,mixed>>  $packages
+	 * @param array<string,mixed>|null   $selected_package
+	 * @return list<array{owner:string,name:string,version:string}>
+	 */
+	private static function shadowed_candidates( array $packages, ?array $selected_package, ?string $selected_path ): array {
+		$selected_path = is_string( $selected_path ) && '' !== $selected_path ? self::normalize_path( $selected_path ) : '';
+		$selected_pkg_path = is_array( $selected_package ) ? self::normalize_path( (string) ( $selected_package['_path'] ?? '' ) ) : '';
+		$shadowed = [];
+		$seen = [];
+		foreach ( $packages as $package ) {
+			$path = self::normalize_path( (string) ( $package['_path'] ?? '' ) );
+			if ( ( '' !== $selected_path && $path === $selected_path ) || ( '' !== $selected_pkg_path && $path === $selected_pkg_path ) ) {
+				continue;
+			}
+			$row = [
+				'owner'   => (string) ( $package['owner'] ?? '' ),
+				'name'    => (string) ( $package['name'] ?? '' ),
+				'version' => (string) ( $package['version'] ?? '' ),
+			];
+			$key = $row['owner'] . '|' . $row['name'] . '|' . $row['version'];
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$shadowed[] = $row;
+		}
+		return $shadowed;
+	}
+
+	/** @param array{status:string,issues:list<string>,version:string} $abi */
+	private static function inspect_selected_family( string $class, array &$abi ): void {
+		if ( 'WP\\MCP\\Core\\McpAdapter' !== ltrim( $class, '\\' ) ) {
+			return;
+		}
+		$version = (string) ( $abi['version'] ?? '' );
+		if ( '' === $version || ! self::is_semver( $version ) || version_compare( $version, '0.6.1', '<' ) ) {
+			return;
+		}
+		if ( ! class_exists( $class, false ) ) {
+			$abi['issues'][] = 'incoherent_adapter_family';
+			$abi['status'] = 'incompatible';
+			$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
+			return;
+		}
+		$adapter_file = self::loaded_class_path( $class, true );
+		if ( ! is_string( $adapter_file ) || '' === $adapter_file ) {
+			$abi['issues'][] = 'incoherent_adapter_family';
+			$abi['status'] = 'incompatible';
+			$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
+			return;
+		}
+		$mcp_root = self::normalize_path( dirname( $adapter_file, 3 ) );
+		$schema_root = self::normalize_path( dirname( $mcp_root ) . '/php-mcp-schema' );
+		$required = [
+			'WP\\MCP\\Core\\McpServer' => $mcp_root,
+			'WP\\MCP\\Transport\\HttpTransport' => $mcp_root,
+			'WP\\MCP\\Infrastructure\\ErrorHandling\\Contracts\\McpErrorHandlerInterface' => $mcp_root,
+			'WP\\MCP\\Infrastructure\\Observability\\Contracts\\McpObservabilityHandlerInterface' => $mcp_root,
+			'WP\\McpSchema\\Common\\McpConstants' => $schema_root,
+		];
+		foreach ( $required as $symbol => $root ) {
+			$exists = class_exists( $symbol ) || interface_exists( $symbol );
+			$file = null;
+			if ( $exists ) {
+				try {
+					$reflected = ( new \ReflectionClass( $symbol ) )->getFileName();
+					$file = is_string( $reflected ) && '' !== $reflected ? self::normalize_path( $reflected ) : null;
+				} catch ( \ReflectionException $error ) {
+					unset( $error );
+				}
+			}
+			$prefix = rtrim( $root, '/' ) . '/';
+			if ( ! $exists || ! is_string( $file ) || ! str_starts_with( $file, $prefix ) ) {
+				$abi['issues'][] = 'incoherent_adapter_family';
+				$abi['status'] = 'incompatible';
+				$abi['issues'] = array_values( array_unique( $abi['issues'] ) );
+				return;
+			}
+		}
 	}
 
 	/**

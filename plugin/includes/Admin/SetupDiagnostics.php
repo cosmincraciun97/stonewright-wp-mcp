@@ -7,6 +7,9 @@ use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticGraph;
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Core\McpRegistrationState;
+use Stonewright\WpMcp\Core\ServerRegistration;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
 use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
@@ -22,7 +25,7 @@ final class SetupDiagnostics {
 	public const METHODS = [ 'oauth-http', 'application-password-stdio', 'stdio', 'not-sure' ];
 
 	/**
-	 * @param array{probe?:bool,loopback?:callable,mode?:string,method?:string,http?:callable} $args
+	 * @param array{probe?:bool,loopback?:callable,mode?:string,method?:string,http?:callable,rest_routes?:array<string,mixed>,endpoint?:string} $args
 	 * @return array{
 	 *   ready: bool,
 	 *   method: string,
@@ -37,7 +40,9 @@ final class SetupDiagnostics {
 		$enabled       = (bool) get_option( 'stonewright_enabled', false );
 		$https         = is_ssl() || str_starts_with( (string) get_site_url(), 'https://' );
 		$app_passwords = self::application_passwords_available();
-		$endpoint      = ConnectClientConfig::mcp_endpoint_url();
+		$endpoint      = is_string( $args['endpoint'] ?? null ) && '' !== (string) $args['endpoint']
+			? (string) $args['endpoint']
+			: ConnectClientConfig::mcp_endpoint_url();
 		$tool_count    = count( AbilityRegistry::enabled_abilities() );
 		$surface       = AbilityRegistry::mcp_surface();
 		$oauth_allowed = OAuthTransport::allowed();
@@ -92,21 +97,46 @@ final class SetupDiagnostics {
 		$graph->add(
 			'endpoint',
 			[],
-			static fn() => self::pass_or_problem(
+			static fn() => DiagnosticCheck::info(
 				'endpoint',
-				'' !== $endpoint,
-				__( 'MCP endpoint', 'stonewright' ),
-				$endpoint,
+				__( 'MCP endpoint configured', 'stonewright' ),
+				'' !== $endpoint ? $endpoint : __( 'No MCP endpoint URL is configured.', 'stonewright' ),
+				[],
 				$scope
 			)
 		);
 		$graph->add(
+			'mcp_runtime',
+			[ 'plugin' ],
+			static fn() => self::mcp_runtime_check( $scope )
+		);
+		$graph->add(
+			'mcp_server_registration',
+			[ 'mcp_runtime' ],
+			static fn() => self::mcp_registration_check( ServerRegistration::SERVER_ID, $scope )
+		);
+		$graph->add(
+			'mcp_oauth_registration',
+			[ 'mcp_runtime' ],
+			static fn() => self::mcp_registration_check( ServerRegistration::OAUTH_SERVER_ID, $scope )
+		);
+		$graph->add(
+			'mcp_route',
+			[ 'endpoint', 'mcp_server_registration' ],
+			static fn() => self::mcp_route_check( '/mcp/stonewright', $endpoint, $scope, $args )
+		);
+		$graph->add(
+			'mcp_route_oauth',
+			[ 'endpoint', 'mcp_oauth_registration' ],
+			static fn() => self::mcp_route_check( '/mcp/stonewright-oauth', $endpoint, $scope, $args )
+		);
+		$graph->add(
 			'connection',
-			[ 'plugin', 'endpoint' ],
-			static fn() => DiagnosticCheck::ok(
+			[ 'plugin', 'mcp_runtime' ],
+			static fn() => DiagnosticCheck::info(
 				'connection',
 				__( 'Connection', 'stonewright' ),
-				__( 'Abilities are enabled and an MCP endpoint is configured.', 'stonewright' ),
+				__( 'Configuration was verified; the connection has not been tested.', 'stonewright' ),
 				[],
 				$scope
 			)
@@ -191,10 +221,30 @@ final class SetupDiagnostics {
 					$probe_result = is_array( $probe_result ) ? $probe_result : [];
 					$probe_holder['result'] = $probe_result;
 					$probe_ok = true === ( $probe_result['ok'] ?? false );
+					$checked_at = gmdate( 'c' );
 					$summary  = $probe_ok
 						? __( 'Live MCP loopback passed (initialize, tools/list, task-start).', 'stonewright' )
 						: self::probe_failure_detail( $probe_result );
-					return self::pass_or_problem( 'connection_probe', $probe_ok, __( 'MCP connection probe', 'stonewright' ), $summary, $scope );
+					if ( $probe_ok ) {
+						return DiagnosticCheck::ok(
+							'connection_probe',
+							__( 'MCP connection probe', 'stonewright' ),
+							$summary,
+							[
+								'checked_at' => $checked_at,
+								'handshake'  => 'passed',
+							],
+							$scope
+						);
+					}
+					return DiagnosticCheck::problem(
+						'connection_probe',
+						__( 'MCP connection probe', 'stonewright' ),
+						$summary,
+						$summary,
+						$scope,
+						[ 'checked_at' => $checked_at, 'handshake' => 'failed' ]
+					);
 				}
 			);
 			$graph->add(
@@ -794,6 +844,199 @@ final class SetupDiagnostics {
 		$lines[] = 'Please allow User-Agent values python-httpx, node, and Go-http-client (or allow the /wp-json/mcp/ path) so MCP clients can connect.';
 
 		return implode( "\n", $lines );
+	}
+
+	private static function mcp_runtime_check( string $scope ): DiagnosticCheck {
+		$report = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
+		$compatible = true === ( $report['compatible'] ?? false );
+		$adapter = is_array( $report['adapter'] ?? null ) ? $report['adapter'] : [];
+		$owner = sanitize_text_field( is_scalar( $adapter['selected_owner'] ?? null ) ? (string) $adapter['selected_owner'] : '' );
+		$version = sanitize_text_field( is_scalar( $adapter['selected_version'] ?? null ) ? (string) $adapter['selected_version'] : '' );
+		$state = sanitize_key( is_scalar( $adapter['selection_state'] ?? null ) ? (string) $adapter['selection_state'] : '' );
+		$reasons = array_values( array_filter( array_map( 'sanitize_key', (array) ( $report['blocking_reasons'] ?? [] ) ) ) );
+		$evidence = [
+			'compatible'       => $compatible ? 'yes' : 'no',
+			'selected_owner'   => $owner,
+			'selected_version' => $version,
+			'selection_state'  => $state,
+			'blocking_reasons' => [] === $reasons ? '' : implode( ',', $reasons ),
+		];
+		if ( $compatible ) {
+			$summary = '' !== $owner
+				? sprintf(
+					/* translators: 1: package owner, 2: version */
+					__( 'Selected MCP adapter %1$s %2$s is compatible.', 'stonewright' ),
+					$owner,
+					$version
+				)
+				: __( 'The selected MCP adapter runtime is compatible.', 'stonewright' );
+			return DiagnosticCheck::ok( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $evidence, $scope );
+		}
+		$summary = sprintf(
+			/* translators: %s: blocking reason codes */
+			__( 'MCP runtime is blocked (%s).', 'stonewright' ),
+			[] === $reasons ? 'runtime_incompatible' : implode( ', ', $reasons )
+		);
+		$remedy = sanitize_text_field( (string) ( $report['remediation'] ?? '' ) );
+		if ( '' === $remedy ) {
+			$remedy = __( 'Install a tested compatible MCP adapter build. Do not disable unrelated business plugins.', 'stonewright' );
+		}
+		return DiagnosticCheck::problem( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $remedy, $scope, $evidence );
+	}
+
+	private static function mcp_registration_check( string $server_id, string $scope ): DiagnosticCheck {
+		$report = McpRegistrationState::report();
+		$servers = is_array( $report['servers'] ?? null ) ? $report['servers'] : [];
+		$row = [];
+		foreach ( $servers as $server ) {
+			if ( is_array( $server ) && $server_id === (string) ( $server['server_id'] ?? '' ) ) {
+				$row = $server;
+				break;
+			}
+		}
+		$label = ServerRegistration::OAUTH_SERVER_ID === $server_id
+			? __( 'OAuth MCP server registration', 'stonewright' )
+			: __( 'MCP server registration', 'stonewright' );
+		$check_id = ServerRegistration::OAUTH_SERVER_ID === $server_id
+			? 'mcp_oauth_registration'
+			: 'mcp_server_registration';
+		$state = sanitize_key( (string) ( $row['state'] ?? 'not_checked' ) );
+		$evidence = [
+			'server_id'  => $server_id,
+			'state'      => $state,
+			'error_code' => sanitize_key( (string) ( $row['error_code'] ?? '' ) ),
+		];
+		if ( 'registered' === $state ) {
+			return DiagnosticCheck::ok(
+				$check_id,
+				$label,
+				sprintf(
+					/* translators: %s: MCP server id */
+					__( 'MCP server %s is registered.', 'stonewright' ),
+					$server_id
+				),
+				$evidence,
+				$scope
+			);
+		}
+		if ( 'not_checked' === $state ) {
+			return DiagnosticCheck::info(
+				$check_id,
+				$label,
+				__( 'REST routes have not been initialized in this request.', 'stonewright' ),
+				$evidence,
+				$scope
+			);
+		}
+		$message = sanitize_text_field( (string) ( $row['message'] ?? '' ) );
+		if ( '' === $message ) {
+			$message = sprintf(
+				/* translators: %s: MCP server id */
+				__( 'MCP server %s registration failed.', 'stonewright' ),
+				$server_id
+			);
+		}
+		return DiagnosticCheck::problem(
+			$check_id,
+			$label,
+			$message,
+			__( 'Reload WordPress after installing a compatible MCP adapter. Keep other plugins enabled unless their adapter copy is actually incompatible.', 'stonewright' ),
+			$scope,
+			$evidence
+		);
+	}
+
+	/**
+	 * @param array{rest_routes?:array<string,mixed>} $args
+	 */
+	private static function mcp_route_check( string $route, string $endpoint, string $scope, array $args ): DiagnosticCheck {
+		$canonical = '/mcp/stonewright' === $route;
+		$check_id = $canonical ? 'mcp_route' : 'mcp_route_oauth';
+		$label = $canonical
+			? __( 'Canonical MCP route', 'stonewright' )
+			: __( 'OAuth MCP route', 'stonewright' );
+		$routes = self::rest_route_catalog( $args );
+		$selected = self::selected_mcp_route( $endpoint );
+		$names_selected = $selected === $route;
+		if ( null === $routes ) {
+			return DiagnosticCheck::info(
+				$check_id,
+				$label,
+				__( 'REST routes have not been initialized in this request.', 'stonewright' ),
+				[
+					'route'    => $route,
+					'endpoint' => $endpoint,
+					'selected' => $names_selected ? 'yes' : 'no',
+				],
+				$scope
+			);
+		}
+		$present = isset( $routes[ $route ] );
+		$evidence = [
+			'route'    => $route,
+			'endpoint' => $endpoint,
+			'selected' => $names_selected ? 'yes' : 'no',
+			'present'  => $present ? 'yes' : 'no',
+		];
+		if ( $present ) {
+			$summary = $names_selected
+				? sprintf(
+					/* translators: %s: REST route */
+					__( 'Selected target %s is present in the REST catalog.', 'stonewright' ),
+					$route
+				)
+				: sprintf(
+					/* translators: %s: REST route */
+					__( 'REST catalog includes %s.', 'stonewright' ),
+					$route
+				);
+			return DiagnosticCheck::ok( $check_id, $label, $summary, $evidence, $scope );
+		}
+		$summary = $names_selected
+			? sprintf(
+				/* translators: %s: REST route */
+				__( 'Selected target %s is missing from the REST catalog.', 'stonewright' ),
+				$route
+			)
+			: sprintf(
+				/* translators: %s: REST route */
+				__( 'REST catalog does not include %s.', 'stonewright' ),
+				$route
+			);
+		return DiagnosticCheck::problem(
+			$check_id,
+			$label,
+			$summary,
+			__( 'Confirm Stonewright registered its MCP server, then reload permalinks and retry.', 'stonewright' ),
+			$scope,
+			$evidence
+		);
+	}
+
+	/**
+	 * @param array{rest_routes?:array<string,mixed>} $args
+	 * @return array<string,mixed>|null
+	 */
+	private static function rest_route_catalog( array $args ): ?array {
+		if ( array_key_exists( 'rest_routes', $args ) ) {
+			return is_array( $args['rest_routes'] ) ? $args['rest_routes'] : [];
+		}
+		if ( function_exists( 'rest_get_server' ) ) {
+			$server = rest_get_server();
+			if ( is_object( $server ) && method_exists( $server, 'get_routes' ) ) {
+				$routes = $server->get_routes();
+				return is_array( $routes ) ? $routes : [];
+			}
+		}
+		return null;
+	}
+
+	private static function selected_mcp_route( string $endpoint ): string {
+		$path = (string) ( wp_parse_url( $endpoint, PHP_URL_PATH ) ?? $endpoint );
+		if ( str_contains( $path, '/mcp/stonewright-oauth' ) ) {
+			return '/mcp/stonewright-oauth';
+		}
+		return '/mcp/stonewright';
 	}
 
 	/**

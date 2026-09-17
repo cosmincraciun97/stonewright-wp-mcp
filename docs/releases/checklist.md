@@ -18,8 +18,8 @@ Run from `plugin/` unless noted.
       then `composer package:verify-manifests`.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
 - [ ] `cd .. && node scripts/check-docs-freshness.mjs` - versions, release notes, install prompts, and Markdown links are current.
-- [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs` - prerelease
-      and stable versions receive exactly one correct GitHub release flag.
+- [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs`
+      - prerelease/stable flags and exact published assets.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
 - [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
@@ -32,9 +32,10 @@ Run from `plugin/` unless noted.
 - [ ] `cd ../visual && npm run typecheck && npm test && npm run build` - Visual is green.
 - [ ] The PR and post-merge `main` CI both pass `e2e-admin-ui` against the
       packaged plugin, including the Setup no-refresh flow and admin spacing.
-- [ ] Build the exact plugin ZIP, companion TGZ, and Visual TGZ through the
+- [ ] Build the exact plugin ZIP and companion TGZ through the
       release workflow recipe; unpack and scan each archive for secrets,
       private terms, runtime state, development junk, and missing dependencies.
+      Published assets are only those two archives plus `SHA256SUMS.txt`.
 - [ ] `git diff --check` - zero whitespace errors.
 
 ## Publish

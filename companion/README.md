@@ -70,11 +70,21 @@ against core WordPress REST.
 | `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry | unset |
 | Multi-site registry | `~/.stonewright/sites.json` | schema v2: metadata only; secrets in OS store / `env://` |
 
-**Auto-detect:** probes `GET/HEAD {site}/wp-json/mcp/stonewright`.
+**Auto-detect:** probes `{site}/wp-json/mcp/stonewright` with HEAD, then GET
+when HEAD is 404 or the HEAD probe fails. Status includes `endpoint_evidence`.
 
-- HTTP 200/401/403/405 → **plugin** mode (existing proxy, unchanged)
-- HTTP 404 → **Direct** mode (registers REST tools)
+- HTTP 200/401/403/405, or HEAD 404 followed by a recognized GET/POST route
+  response → **plugin** mode. 401/403 is authentication failure, not Direct
+  fallback.
+- WordPress JSON `rest_no_route` on GET → plugin route **missing**. In `auto`,
+  Direct tools may register; `plugin.reachable` is false and
+  `configured_mcp_url` stays the plugin MCP URL. In `plugin-only`, stay
+  degraded with no Direct tools.
+- HTML/CDN 404 → **inconclusive**; keep the plugin path.
 - Network errors → keep plugin proxy path (existing recovery)
+
+`transport.mcp_url` is the configured plugin MCP URL. In Direct mode the
+legacy `url` field is the WordPress REST index, not that plugin endpoint.
 
 Call `stonewright-site-discover` first in Direct mode. It reports available REST
 surface and plugin-only gaps such as typed Elementor engines, php-execute, and

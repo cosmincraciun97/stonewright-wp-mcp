@@ -2,9 +2,40 @@
 
 ## [Unreleased]
 
-### Added
+## [1.0.0-beta.13.3] - 2026-09-17
 
-- Nothing yet.
+### Fixed
+
+- Select one compatible MCP adapter runtime (`wordpress/mcp-adapter` ^0.6.1
+  with Jetpack Autoloader ^5.0) instead of treating every installed copy as an
+  active conflict, and delay adapter boot until `plugins_loaded` 99 so another
+  plugin can load first.
+- Report MCP server registration failures instead of swallowing `create_server`
+  `WP_Error` results, and keep the default upstream MCP server distinct from
+  Stonewright.
+- Keep Setup/Troubleshoot `info` checks out of the successful-check count, and
+  require a Stonewright `serverInfo` handshake (`initialize` →
+  `notifications/initialized` → `tools/list` → `stonewright-task-start`).
+- Check `/mcp/stonewright` and `/mcp/stonewright-oauth` separately, treat
+  “configuration verified, connection not tested” as info, and keep the live
+  handshake probe distinct from an OAuth HTTP 401 guard.
+- Treat HTTP 200 `ok:false` ability results as audit failures, keep ACF writes
+  idempotent when the stored raw value already matches, and separate Elementor
+  CSS generation from HTTP delivery evidence.
+- Treat only `text/css` HTTP probes as verified Elementor CSS delivery; JSON,
+  PDF, HTML, and empty bodies stay unverified or failed.
+- Reject invalid ACF values before a no-op, repair a missing or wrong field
+  key reference through `field_*`, and compute `changed` from before/after
+  raw value and reference rather than `update_field`'s return.
+- Preserve unknown Elementor settings on mobile-only deltas, reject stale
+  editor hashes, and keep Memory draft lessons from becoming global rules.
+- Surface a Loop Grid compile failure after CPT/ACF/content writes instead of
+  returning `ok:true`, keep partial effects visible, and refuse a full recreate.
+- Block a stale Elementor editor save after a later MCP write, keep the local
+  draft, and leave `post_status` unchanged.
+- Hydrate Application Password Basic credentials into `PHP_AUTH_*` when Apache
+  or php-fpm only expose `HTTP_AUTHORIZATION`.
+- Refuse theme-file patches when a marker is missing or matches more than once.
 
 ## [1.0.0-beta.13.2] - 2026-08-26
 
@@ -224,15 +255,10 @@
 - Coalesce identical permission and safety denials by site, ability, and error,
   retaining the first event plus bounded count summaries and severity under a
   stale-recoverable option mutex with compare-and-delete ownership.
-## [1.0.0-beta.11.1] - 2026-08-24
-
-### Fixed
-
-- Restore the native updater path for supported public betas published as
-  GitHub Latest, while rejecting incompatible release metadata.
 
 ## Older releases
 
+- [1.0.0-beta.11.1](../docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](../docs/releases/1.0.0-beta.11.md)
 - [1.0.0-beta.10](../docs/releases/1.0.0-beta.10.md)
 - [1.0.0-beta.9](../docs/releases/1.0.0-beta.9.md)

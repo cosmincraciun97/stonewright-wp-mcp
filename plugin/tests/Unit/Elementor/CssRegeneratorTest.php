@@ -278,6 +278,67 @@ final class CssRegeneratorTest extends TestCase {
 		self::assertSame( 'elementor_css_object_invalid', $result['detail'] );
 	}
 
+	public function test_fails_closed_on_a_zero_byte_generated_file(): void {
+		$expected_path = rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css';
+		wp_mkdir_p( dirname( $expected_path ) );
+		Post::$factory = static function () use ( $expected_path ): object {
+			return new class( $expected_path ) {
+				public function __construct( private string $path ) {
+				}
+
+				public function update_file(): void {
+					file_put_contents( $this->path, '' );
+				}
+
+				public function get_path(): string {
+					return $this->path;
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+				}
+			};
+		};
+
+		try {
+			$result = CssRegenerator::regenerate( $this->post_target() );
+			self::assertFalse( $result['ok'] );
+			self::assertSame( 'empty_css_file', $result['detail'] );
+		} finally {
+			if ( is_file( $expected_path ) ) {
+				unlink( $expected_path );
+			}
+		}
+	}
+
+	public function test_does_not_publish_or_update_the_post(): void {
+		$GLOBALS['stonewright_test_wp_update_post_calls'] = [];
+		$updated = 0;
+		Post::$factory = static function () use ( &$updated ): object {
+			return new class( $updated ) {
+				public function __construct( private int &$updated ) {
+				}
+
+				public function update_file(): void {
+					++$this->updated;
+				}
+
+				public function get_path(): string {
+					return rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css';
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+				}
+			};
+		};
+
+		CssRegenerator::regenerate( $this->post_target() );
+
+		self::assertSame( 1, $updated );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_update_post_calls'] );
+	}
+
 	public function test_fails_closed_when_the_official_api_throws(): void {
 		Post::$factory = static function (): object {
 			throw new \RuntimeException( 'synthetic failure' );

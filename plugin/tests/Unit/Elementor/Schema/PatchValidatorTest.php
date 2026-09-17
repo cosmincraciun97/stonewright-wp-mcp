@@ -144,6 +144,48 @@ final class PatchValidatorTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
 		self::assertSame( 'inactive_condition', $result->get_error_data()['violations'][0]['code'] );
 	}
+
+	public function test_container_mobile_delta_preserves_inactive_boxed_width_as_legacy_warning(): void {
+		$before = [
+			'container_type'     => 'flex',
+			'content_width'      => 'full',
+			'padding'            => [ 'top' => '24', 'right' => '24', 'bottom' => '24', 'left' => '24', 'unit' => 'px', 'isLinked' => true ],
+			'padding_tablet'     => [ 'top' => '16', 'right' => '16', 'bottom' => '16', 'left' => '16', 'unit' => 'px', 'isLinked' => true ],
+			'boxed_width'        => [ 'unit' => 'px', 'size' => '', 'sizes' => [] ],
+			'third_party_marker' => 'keep-me-exactly',
+		];
+		$patch = [
+			'padding_mobile' => [ 'top' => '8', 'right' => '8', 'bottom' => '8', 'left' => '8', 'unit' => 'px', 'isLinked' => true ],
+		];
+
+		$result = PatchValidator::container( $before, $patch );
+
+		self::assertIsArray( $result );
+		foreach ( $before as $key => $value ) {
+			self::assertSame( $value, $result['settings'][ $key ], $key );
+		}
+		self::assertSame( $patch['padding_mobile'], $result['settings']['padding_mobile'] );
+		self::assertContains( 'untouched_legacy_violation', array_column( $result['warnings'], 'code' ) );
+		self::assertContains( 'settings.boxed_width', array_column( $result['warnings'], 'path' ) );
+		self::assertNotContains( 'third_party_marker', $result['changed_paths'] );
+		self::assertContains( 'padding_mobile', $result['changed_paths'] );
+	}
+
+	public function test_empty_array_responsive_metadata_accepts_mobile_suffix(): void {
+		$result = PatchValidator::widget(
+			'patch-widget',
+			[ 'title' => 'Before' ],
+			[
+				'spacing_mobile' => [
+					'top' => '8', 'right' => '8', 'bottom' => '8', 'left' => '8', 'unit' => 'px', 'isLinked' => true,
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( '8', $result['settings']['spacing_mobile']['top'] );
+		self::assertSame( 'Before', $result['settings']['title'] );
+	}
 }
 
 final class PatchWidgetForTest {
@@ -170,6 +212,11 @@ final class PatchWidgetForTest {
 			'items' => [
 				'type'   => 'repeater',
 				'fields' => [ 'label' => [ 'type' => 'text', 'label' => 'Label' ] ],
+			],
+			'spacing' => [
+				'type'       => 'dimensions',
+				'label'      => 'Spacing',
+				'responsive' => [],
 			],
 		];
 	}

@@ -38,6 +38,55 @@ final class ResponsiveScope {
 	}
 
 	/**
+	 * Resolve one layer's `allowed_breakpoints` / `responsive_scope` aliases.
+	 *
+	 * Same-layer aliases must name the same set. A conflict is rejected rather
+	 * than silently unioned or widened. An empty result means this layer did
+	 * not declare a scope.
+	 *
+	 * @param array<string, mixed> $source
+	 * @return list<string>|\WP_Error
+	 */
+	public static function declared_scope( array $source ): array|\WP_Error {
+		$aliases    = self::requested_names( $source['allowed_breakpoints'] ?? null );
+		$canonical  = self::requested_names( $source['responsive_scope'] ?? null );
+		if ( [] !== $aliases && [] !== $canonical && ! self::same_names( $aliases, $canonical ) ) {
+			return new \WP_Error(
+				'stonewright_responsive_scope_conflict',
+				__( 'allowed_breakpoints and responsive_scope at the same layer must name the same breakpoints.', 'stonewright' ),
+				[
+					'status'              => 400,
+					'allowed_breakpoints' => $aliases,
+					'responsive_scope'    => $canonical,
+				]
+			);
+		}
+
+		return [] !== $aliases ? $aliases : $canonical;
+	}
+
+	/**
+	 * @param list<string> $left
+	 * @param list<string> $right
+	 */
+	public static function same_names( array $left, array $right ): bool {
+		$normalize = static function ( array $names ): array {
+			$names = array_values(
+				array_unique(
+					array_map(
+						static fn( string $name ): string => strtolower( trim( $name ) ),
+						$names
+					)
+				)
+			);
+			sort( $names );
+			return $names;
+		};
+
+		return $normalize( $left ) === $normalize( $right );
+	}
+
+	/**
 	 * Parse a batch or operation responsive_scope / allowed_breakpoints value.
 	 *
 	 * @param mixed $scope Array of names or a comma/pipe-separated string.
@@ -171,6 +220,29 @@ final class ResponsiveScope {
 	}
 
 	/**
+	 * True only when the live schema explicitly marks the control as fixed.
+	 *
+	 * @param array<string, mixed> $control
+	 */
+	public static function control_declares_non_responsive( array $control ): bool {
+		foreach ( [ 'responsive', 'is_responsive' ] as $flag ) {
+			if ( ! array_key_exists( $flag, $control ) ) {
+				continue;
+			}
+			$value = $control[ $flag ];
+			if ( is_array( $value ) ) {
+				return false;
+			}
+			if ( ! is_bool( $value ) && ! is_scalar( $value ) ) {
+				continue;
+			}
+			return ! $value;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Controls Elementor makes responsive without recording the metadata.
 	 *
 	 * Shared by the widget and container schema repositories so a control cannot
@@ -296,6 +368,32 @@ final class ResponsiveScope {
 				// no breakpoint scope can contain or exclude it.
 				continue;
 			}
+			$base            = self::base_key( $key );
+			$control         = [] !== $controls && isset( $controls[ $base ] ) ? (array) $controls[ $base ] : [];
+			$desktop_allowed = in_array( 'desktop', $allowed, true ) || in_array( 'base', $allowed, true );
+			if ( [] !== $control && self::control_declares_non_responsive( $control ) ) {
+				if ( $key !== $base || ! $desktop_allowed ) {
+					return new \WP_Error(
+						'unsupported_responsive_control',
+						sprintf(
+							/* translators: 1: widget, 2: control, 3: breakpoint */
+							__( 'Control %2$s on widget %1$s is not responsive; cannot isolate breakpoint %3$s. No write performed.', 'stonewright' ),
+							$widget_type,
+							$base,
+							$bp
+						),
+						[
+							'status'              => 400,
+							'widget_type'         => $widget_type,
+							'control'             => $base,
+							'breakpoint'          => $bp,
+							'allowed_breakpoints' => $allowed,
+							'code'                => 'unsupported_responsive_control',
+						]
+					);
+				}
+				continue;
+			}
 			if ( ! in_array( $bp, $allowed, true ) ) {
 				return new \WP_Error(
 					'stonewright_responsive_scope_violation',
@@ -317,48 +415,22 @@ final class ResponsiveScope {
 				);
 			}
 
-			// Non-responsive control written with a breakpoint suffix or as base when only mobile allowed.
-			$base = self::base_key( $key );
-			if ( [] !== $controls && isset( $controls[ $base ] ) ) {
-				$control = (array) $controls[ $base ];
-				$is_resp = self::control_is_responsive( $control, $base );
-				if ( ! $is_resp && $key !== $base ) {
-					return new \WP_Error(
-						'unsupported_responsive_control',
-						sprintf(
-							/* translators: 1: widget, 2: control, 3: breakpoint */
-							__( 'Control %2$s on widget %1$s is not responsive; cannot isolate breakpoint %3$s. No write performed.', 'stonewright' ),
-							$widget_type,
-							$base,
-							$bp
-						),
-						[
-							'status'      => 400,
-							'widget_type' => $widget_type,
-							'control'     => $base,
-							'breakpoint'  => $bp,
-							'code'        => 'unsupported_responsive_control',
-						]
-					);
-				}
-				// Mobile-only task must not write bare base keys unless desktop is allowed.
-				if ( $key === $base && ! in_array( 'desktop', $allowed, true ) && ! in_array( 'base', $allowed, true ) && $is_resp ) {
-					return new \WP_Error(
-						'stonewright_responsive_scope_violation',
-						sprintf(
-							/* translators: 1: setting key, 2: allowed list */
-							__( 'Base setting %1$s is outside allowed responsive scope (%2$s). Use the breakpoint-suffixed key.', 'stonewright' ),
-							$key,
-							implode( ', ', $allowed )
-						),
-						[
-							'status'              => 400,
-							'setting'             => $key,
-							'allowed_breakpoints' => $allowed,
-							'widget_type'         => $widget_type,
-						]
-					);
-				}
+			if ( [] !== $control && $key === $base && ! $desktop_allowed && self::control_is_responsive( $control, $base ) ) {
+				return new \WP_Error(
+					'stonewright_responsive_scope_violation',
+					sprintf(
+						/* translators: 1: setting key, 2: allowed list */
+						__( 'Base setting %1$s is outside allowed responsive scope (%2$s). Use the breakpoint-suffixed key.', 'stonewright' ),
+						$key,
+						implode( ', ', $allowed )
+					),
+					[
+						'status'              => 400,
+						'setting'             => $key,
+						'allowed_breakpoints' => $allowed,
+						'widget_type'         => $widget_type,
+					]
+				);
 			}
 		}
 

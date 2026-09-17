@@ -207,6 +207,9 @@ final class BatchMutate extends AbilityKernel {
 				$post_id    = (int) $args['post_id'];
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
 				$operations = self::apply_batch_responsive_scope( $operations, $args );
+				if ( $operations instanceof \WP_Error ) {
+					return $operations;
+				}
 				$dry_run    = ! empty( $args['dry_run'] );
 				$require_evidence = ! empty( $args['require_evidence'] );
 				$idempotency_key  = isset( $args['idempotency_key'] ) ? trim( (string) $args['idempotency_key'] ) : '';
@@ -292,9 +295,9 @@ final class BatchMutate extends AbilityKernel {
 				$expected_tree_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
 				if ( '' !== $expected_tree_hash && ! hash_equals( $expected_tree_hash, $before_hash ) ) {
 					return $this->error(
-						'tree_conflict',
+						'elementor_revision_conflict',
 						__( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ),
-							[ 'status' => 409, 'expected_tree_hash' => $expected_tree_hash, 'current_tree_hash' => $before_hash, 'write_receipt' => $receipt->fail( $this->error( 'tree_conflict', '', [] ) )->to_array() ]
+							[ 'status' => 409, 'expected_tree_hash' => $expected_tree_hash, 'current_tree_hash' => $before_hash, 'write_receipt' => $receipt->fail( $this->error( 'elementor_revision_conflict', '', [] ) )->to_array() ]
 					);
 				}
 				$items      = [];
@@ -332,7 +335,9 @@ final class BatchMutate extends AbilityKernel {
 						continue;
 					}
 
-					++$applied;
+					if ( empty( $result['unchanged'] ) ) {
+						++$applied;
+					}
 					if ( ! empty( $result['unknown_setting_removal_approved'] ) ) {
 						$allow_unknown_setting_removal = true;
 					}
@@ -380,8 +385,9 @@ final class BatchMutate extends AbilityKernel {
 				$snapshot_id = '';
 				$write_ms    = 0.0;
 				$after_hash  = TreeHasher::hash( $tree );
+				$had_effect  = ! hash_equals( $before_hash, $after_hash );
 				$readback_hash = $dry_run ? $after_hash : '';
-				if ( ! $dry_run ) {
+				if ( ! $dry_run && $had_effect ) {
 					$lock_owner = 'batch-' . substr( $request_hash, 0, 24 );
 					$lease      = PostWriteLock::acquire( $post_id, $lock_owner );
 					if ( $lease instanceof \WP_Error ) {
@@ -403,7 +409,7 @@ final class BatchMutate extends AbilityKernel {
 						$current_tree_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 						if ( ! hash_equals( $before_hash, $current_tree_hash ) ) {
 							$conflict = $this->error(
-								'tree_conflict',
+								'elementor_revision_conflict',
 								__( 'Elementor page changed before the batch acquired its write lock; refresh structure before retrying.', 'stonewright' ),
 								[
 									'status'            => 409,
@@ -468,6 +474,10 @@ final class BatchMutate extends AbilityKernel {
 					} finally {
 						PostWriteLock::release( $post_id, $lock_owner );
 					}
+				} elseif ( ! $dry_run ) {
+					$receipt->set( 'change_set_id', '' );
+					$receipt->set_hashes( $before_hash, $before_hash, $before_hash, $before_hash )->verified( 'unchanged' );
+					$readback_hash = $before_hash;
 				}
 
 				$element_count = count( ElementorData::flatten( $tree ) );
@@ -495,20 +505,22 @@ final class BatchMutate extends AbilityKernel {
 					'readback_hash' => $readback_hash,
 					'idempotent_replay' => false,
 					'learning'      => [],
-					'post_write'    => $dry_run ? [] : ElementorData::last_write_receipt(),
+					'post_write'    => ( $dry_run || ! $had_effect ) ? [] : ElementorData::last_write_receipt(),
 					'next_step'     => $dry_run
 						? [
 							'tool'               => 'stonewright/elementor-v3-batch-mutate',
 							'expected_tree_hash' => $before_hash,
 							'then'               => 'stonewright/elementor-css-regenerate',
 						]
-						: [
-							'tool'        => 'stonewright/elementor-css-regenerate',
-							'post_id'     => $post_id,
-							'then'        => 'stonewright/elementor-post-write-verify',
-							'element_ids' => $touched_ids,
-							'required_before_browser_acceptance' => true,
-						],
+						: ( $had_effect
+							? [
+								'tool'        => 'stonewright/elementor-css-regenerate',
+								'post_id'     => $post_id,
+								'then'        => 'stonewright/elementor-post-write-verify',
+								'element_ids' => $touched_ids,
+								'required_before_browser_acceptance' => true,
+							]
+							: [] ),
 					'write_receipt' => $receipt->to_array(),
 					'transaction_id' => $receipt->to_array()['transaction_id'],
 					'change_set_id'  => $receipt->to_array()['change_set_id'],
@@ -821,7 +833,6 @@ final class BatchMutate extends AbilityKernel {
 		$incoming = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
 		$existing = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 		$mode     = isset( $operation['mode'] ) ? (string) $operation['mode'] : 'merge';
-		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 		$element_type = (string) ( $element['elType'] ?? '' );
 		$effective_before = $existing;
 		$warnings = [];
@@ -848,17 +859,13 @@ final class BatchMutate extends AbilityKernel {
 		}
 		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 			$container_alias_warnings = self::container_alias_warnings( $incoming );
-			$incoming = 'container' === $element_type ? ContainerSettings::normalize( $incoming ) : $incoming;
-			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
-			$effective_before = $before;
-			$settings  = 'container' === $element_type ? ContainerSettings::normalize( $settings ) : $settings;
-			$validated = PatchValidator::container( $before, $incoming, $element_type, $mode );
+			$incoming = self::container_incoming( $incoming, $element_type );
+			$validated = PatchValidator::container( $existing, $incoming, $element_type, $mode );
 			if ( $validated instanceof \WP_Error ) {
 				return $validated;
 			}
 			$settings = $validated['settings'];
 			$warnings = array_merge( $container_alias_warnings, $validated['warnings'] );
-			$incoming = self::changed_settings( $before, $settings );
 			$evidence_widget_type = $element_type;
 		} elseif ( 'widget' === ( $element['elType'] ?? '' ) ) {
 			$widget_type = (string) ( $element['widgetType'] ?? '' );
@@ -911,34 +918,40 @@ final class BatchMutate extends AbilityKernel {
 			}
 			$settings = $validated['settings'];
 			$warnings = array_merge( $warnings, $validated['warnings'] );
-			$incoming = self::changed_settings( $effective_before, $settings );
 			$evidence_widget_type = $widget_type;
 		} else {
 			$evidence_widget_type = 'container';
+			$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 		}
-		$evidence = EvidenceValidator::validate( $evidence_widget_type, $incoming, self::operation_evidence( $operation ), $require_evidence );
+		$evidence_payload = self::changed_settings( $existing, $settings );
+		$evidence = EvidenceValidator::validate( $evidence_widget_type, $evidence_payload, self::operation_evidence( $operation ), $require_evidence );
 		if ( $evidence instanceof \WP_Error ) {
 			return $evidence;
 		}
 		$schema = in_array( $evidence_widget_type, [ 'container', 'section', 'column' ], true )
 			? ContainerSchemaRepository::get( $evidence_widget_type )
 			: WidgetSchemaRepository::get( $evidence_widget_type );
+		$controls = is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : [];
+		$required = is_array( $schema ) ? array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) ) : [];
 		if ( is_array( $schema ) ) {
 			$settings = SparseSettingsNormalizer::for_write(
 				$settings,
-				(array) ( $schema['controls'] ?? [] ),
+				$controls,
 				$incoming,
-				$effective_before,
-				array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) )
+				$existing,
+				$required
 			);
 		}
-		if ( $settings === $effective_before ) {
+		$dropped = self::dropped_supplied_keys( $incoming, $settings, $existing, $controls );
+		if ( [] !== $dropped ) {
 			return $this->error(
-				'no_effective_changes',
-				__( 'The requested Elementor update produced no effective setting changes.', 'stonewright' ),
+				'elementor_setting_dropped',
+				__( 'The requested Elementor setting was dropped during normalization instead of being applied.', 'stonewright' ),
 				[
-					'element_id' => $element_id,
-					'repair'     => 'Read the live container/widget schema and send settings that survive validation unchanged.',
+					'status'           => 400,
+					'element_id'       => $element_id,
+					'dropped_settings' => $dropped,
+					'repair'           => 'Send a live-schema value that survives sparse normalization, or omit keys you do not intend to persist.',
 				]
 			);
 		}
@@ -955,6 +968,17 @@ final class BatchMutate extends AbilityKernel {
 					'non_target_after_hash'  => $non_target_after,
 				]
 			);
+		}
+		if ( $settings === $existing ) {
+			return [
+				'action'                 => 'update_element',
+				'element_id'             => $element_id,
+				'unchanged'              => true,
+				'evidence'               => $evidence,
+				'allowed_breakpoints'    => $scope,
+				'non_target_before_hash' => $non_target_before,
+				'non_target_after_hash'  => $non_target_after,
+			];
 		}
 
 		$element['settings'] = $settings;
@@ -1288,9 +1312,9 @@ final class BatchMutate extends AbilityKernel {
 	 * @return list<string>|\WP_Error
 	 */
 	private static function allowed_breakpoints( array $operation ): array|\WP_Error {
-		$requested = ResponsiveScope::requested_names( $operation['allowed_breakpoints'] ?? null );
-		if ( [] === $requested ) {
-			$requested = ResponsiveScope::requested_names( $operation['responsive_scope'] ?? null );
+		$requested = ResponsiveScope::declared_scope( $operation );
+		if ( $requested instanceof \WP_Error ) {
+			return $requested;
 		}
 		if ( [] === $requested ) {
 			foreach ( self::operation_evidence( $operation ) as $row ) {
@@ -1356,14 +1380,17 @@ final class BatchMutate extends AbilityKernel {
 	/**
 	 * Copy batch-level scope onto operations that did not name their own.
 	 *
+	 * Per-operation scope replaces the batch scope; it is never unioned. Same-layer
+	 * alias conflicts are rejected instead of silently widened.
+	 *
 	 * @param list<array<string, mixed>> $operations
 	 * @param array<string, mixed>       $args
-	 * @return list<array<string, mixed>>
+	 * @return list<array<string, mixed>>|\WP_Error
 	 */
-	private static function apply_batch_responsive_scope( array $operations, array $args ): array {
-		$batch = ResponsiveScope::requested_names( $args['allowed_breakpoints'] ?? null );
-		if ( [] === $batch ) {
-			$batch = ResponsiveScope::requested_names( $args['responsive_scope'] ?? null );
+	private static function apply_batch_responsive_scope( array $operations, array $args ): array|\WP_Error {
+		$batch = ResponsiveScope::declared_scope( $args );
+		if ( $batch instanceof \WP_Error ) {
+			return $batch;
 		}
 		if ( [] === $batch ) {
 			return $operations;
@@ -1372,9 +1399,9 @@ final class BatchMutate extends AbilityKernel {
 			if ( ! is_array( $operation ) ) {
 				continue;
 			}
-			$own = ResponsiveScope::requested_names( $operation['allowed_breakpoints'] ?? null );
-			if ( [] === $own ) {
-				$own = ResponsiveScope::requested_names( $operation['responsive_scope'] ?? null );
+			$own = ResponsiveScope::declared_scope( $operation );
+			if ( $own instanceof \WP_Error ) {
+				return $own;
 			}
 			if ( [] !== $own ) {
 				continue;
@@ -1383,6 +1410,45 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		return $operations;
+	}
+
+	/**
+	 * @param array<string, mixed> $incoming
+	 * @return array<string, mixed>
+	 */
+	private static function container_incoming( array $incoming, string $element_type ): array {
+		if ( 'container' === $element_type && ( array_key_exists( 'layout', $incoming ) || array_key_exists( 'direction', $incoming ) ) ) {
+			return ContainerSettings::normalize( $incoming );
+		}
+
+		return \Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases::normalize( $incoming )['settings'];
+	}
+
+	/**
+	 * @param array<string, mixed>                $supplied
+	 * @param array<string, mixed>                $settings
+	 * @param array<string, mixed>                $existing
+	 * @param array<string, array<string, mixed>> $controls
+	 * @return list<string>
+	 */
+	private static function dropped_supplied_keys( array $supplied, array $settings, array $existing, array $controls ): array {
+		$patch = SparseSettingsNormalizer::normalize( $settings, $controls, $supplied );
+		$lost  = [];
+		foreach ( array_keys( $supplied ) as $key ) {
+			$key = (string) $key;
+			if ( in_array( $key, [ '__dynamic__', '__globals__', 'layout', 'direction' ], true ) ) {
+				continue;
+			}
+			if ( array_key_exists( $key, $patch ) ) {
+				continue;
+			}
+			if ( array_key_exists( $key, $existing ) && $existing[ $key ] === $supplied[ $key ] ) {
+				continue;
+			}
+			$lost[] = $key;
+		}
+
+		return $lost;
 	}
 
 	/**
@@ -1468,6 +1534,9 @@ final class BatchMutate extends AbilityKernel {
 			'stonewright_elementor_settings_invalid' => 'Execute every schema_request in the response once. Keep unknown existing settings, replace only rejected values, include settings_evidence, and rerun one consolidated dry-run.',
 			'stonewright_elementor_evidence_invalid' => 'Execute every schema_request in the response, then resend settings_evidence for each planned setting. Direction-brief provenance is accepted for token-derived color, typography, and spacing when a design direction is active.',
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
+			'stonewright_elementor_setting_dropped' => 'The requested setting was dropped during sparse normalization. Send a persistable live-schema value or omit the key.',
+			'stonewright_elementor_revision_conflict' => 'Re-read the live Elementor structure and retry with the current expected_tree_hash. No write was performed.',
+			'stonewright_responsive_scope_conflict' => 'Send one breakpoint list per layer. Do not mix conflicting allowed_breakpoints and responsive_scope aliases.',
 			'stonewright_atomic_widget_in_v3_batch' => 'Use the Elementor V4 editor pipeline; never mix e-* widgets into a V3 tree.',
 			default => 'Fix the reported operation and rerun dry_run=true. No page data was written.',
 		};

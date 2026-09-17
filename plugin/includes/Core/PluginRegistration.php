@@ -16,21 +16,23 @@ use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
+use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
-use Stonewright\WpMcp\Expertise\ExpertiseTable;
-use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
-use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
 use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\BasicAuthCredentials;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -96,6 +98,7 @@ final class PluginRegistration {
 		add_action( 'wp_abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
+		add_action( 'plugins_loaded', [ self::class, 'maybe_boot_mcp_adapter' ], 99 );
 
 		// Rescue themes that forgot to declare `add_theme_support( 'elementor-pro' )`
 		// so Stonewright-created header/footer templates actually inject under
@@ -103,16 +106,6 @@ final class PluginRegistration {
 		// or when neither Pro is present.
 		\Stonewright\WpMcp\Compat\ProElementsThemeSupport::register();
 
-		// Boot the MCP adapter if it is vendored into Stonewright (i.e. not active
-		// as a standalone plugin).  McpAdapter::instance() is idempotent — calling
-		// it again when the adapter plugin is already running is a no-op because the
-		// static $instance guard prevents re-initialisation.
-		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
-		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
-			\WP\MCP\Core\McpAdapter::instance();
-		} elseif ( ! $compatibility['compatible'] ) {
-			Logger::warning( 'mcp_adapter_ownership_conflict', [ 'preflight' => $compatibility ] );
-		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ], 25, 0 );
@@ -153,6 +146,8 @@ final class PluginRegistration {
 		WidgetLoader::register();
 		GitHubUpdater::register();
 		VendorGuard::register();
+		EditorSaveGuard::register();
+		BasicAuthCredentials::register();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
@@ -167,6 +162,18 @@ final class PluginRegistration {
 		AdminBootstrap::register();
 
 		StaticAnalysis::assert_environment();
+	}
+
+	/**
+	 * Instantiate the shared MCP adapter after other plugins have registered autoloaders.
+	 */
+	public static function maybe_boot_mcp_adapter(): void {
+		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
+		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
+			\WP\MCP\Core\McpAdapter::instance();
+		} elseif ( ! $compatibility['compatible'] ) {
+			Logger::warning( 'mcp_adapter_ownership_conflict', [ 'preflight' => $compatibility ] );
+		}
 	}
 
 	public function on_activate(): void {
