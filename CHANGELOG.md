@@ -11,6 +11,11 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh Companion runtime dependency floors and security overrides, and use
+  patched test-runner versions for Companion and Visual.
+
 ## [1.0.0-beta.13.3] - 2026-09-17
 
 ### Fixed
