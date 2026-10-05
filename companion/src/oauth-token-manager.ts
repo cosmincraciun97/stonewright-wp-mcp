@@ -1,7 +1,9 @@
-import { chmodSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync, closeSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { chmodSync, existsSync, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync, closeSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { classifyTransportFailure } from './connection/transport-diagnostic.js';
 import { OAuthRefreshLock } from './oauth-refresh-lock.js';
+import { OAuthStoragePrivacyError, prepareWindowsOAuthStorage, verifyWindowsOAuthStorage } from './oauth-windows-privacy.js';
 
 /** Legacy in-memory / on-disk V1 shape (migrated after successful refresh). */
 export interface OAuthTokenSet {
@@ -56,19 +58,20 @@ export class OAuthTokenStore {
 	load(): DurableOAuthTokenSet | null {
 		if (!existsSync(this.filePath)) return null;
 		try {
+			verifyWindowsOAuthStorage(this.filePath);
 			const link = lstatSync(this.filePath);
 			if (link.isSymbolicLink()) {
 				throw new Error('OAuth token store must not be a symlink.');
 			}
-			if (!link.isFile()) return null;
+			if (!link.isFile() || link.nlink !== 1) throw new Error('OAuth token store must be a regular file without hard links.');
 			const mode = link.mode & 0o777;
-			if ((mode & 0o077) !== 0) return null;
+			if (process.platform !== 'win32' && (mode & 0o077) !== 0) return null;
 			const raw: unknown = JSON.parse(readFileSync(this.filePath, 'utf8'));
 			if (isTokenSetV2(raw)) return raw;
 			if (isTokenSet(raw)) return raw;
 			return null;
 		} catch (error) {
-			if (error instanceof Error && /symlink/i.test(error.message)) throw error;
+			if (error instanceof OAuthStoragePrivacyError || (error instanceof Error && /symlink|hard links/i.test(error.message))) throw error;
 			return null;
 		}
 	}
@@ -78,27 +81,50 @@ export class OAuthTokenStore {
 			throw new Error('Refusing to persist an invalid OAuth token set.');
 		}
 		const directory = dirname(this.filePath);
-		mkdirSync(directory, { recursive: true, mode: 0o700 });
-		try {
+		prepareWindowsOAuthStorage(this.filePath);
+		if (process.platform !== 'win32') {
+			mkdirSync(directory, { recursive: true, mode: 0o700 });
 			chmodSync(directory, 0o700);
-		} catch {
-			// Best-effort directory mode on platforms that reject chmod.
 		}
-		const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-		writeFileSync(temporaryPath, `${JSON.stringify(tokenSet)}\n`, { encoding: 'utf8', mode: 0o600 });
-		chmodSync(temporaryPath, 0o600);
-		const fd = openSync(temporaryPath, 'r');
+		if (existsSync(this.filePath)) {
+			const existing = lstatSync(this.filePath);
+			if (existing.isSymbolicLink() || !existing.isFile() || existing.nlink !== 1) {
+				throw new Error('OAuth token store must be a regular file without symlinks or hard links.');
+			}
+		}
+		const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
+		let fd: number | null = null;
+		let owned: { dev: number; ino: number } | null = null;
 		try {
+			fd = openSync(temporaryPath, 'wx', 0o600);
+			owned = fstatSync(fd);
+			verifyWindowsOAuthStorage(temporaryPath); // Check inherited privacy before writing any token bytes.
+			writeFileSync(fd, `${JSON.stringify(tokenSet)}\n`, { encoding: 'utf8' });
 			fsyncSync(fd);
-		} finally {
 			closeSync(fd);
+			fd = null;
+			verifyWindowsOAuthStorage(temporaryPath);
+			renameSync(temporaryPath, this.filePath);
+			owned = null;
+			if (process.platform !== 'win32') chmodSync(this.filePath, 0o600);
+		} finally {
+			if (fd !== null) closeSync(fd);
+			if (owned && existsSync(temporaryPath)) {
+				const temporary = lstatSync(temporaryPath);
+				if (temporary.isFile() && !temporary.isSymbolicLink() && temporary.nlink === 1 && temporary.dev === owned.dev && temporary.ino === owned.ino) {
+					unlinkSync(temporaryPath);
+				}
+			}
 		}
-		renameSync(temporaryPath, this.filePath);
-		chmodSync(this.filePath, 0o600);
 	}
 
 	clear(): void {
 		try {
+			if (existsSync(this.filePath)) {
+				verifyWindowsOAuthStorage(this.filePath);
+				const file = lstatSync(this.filePath);
+				if (!file.isFile() || file.isSymbolicLink() || file.nlink !== 1) throw new Error('OAuth token store must be a regular file without symlinks or hard links.');
+			}
 			unlinkSync(this.filePath);
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { verifyWindowsOAuthStorage } from '../src/oauth-windows-privacy.js';
 import {
 	OAuthReauthRequiredError,
 	OAuthTokenManager,
@@ -15,7 +16,7 @@ function makeResponse(payload: Record<string, unknown>, status = 200, headers: R
 }
 
 function makeStore(): { directory: string; path: string; store: OAuthTokenStore } {
-	const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-'));
+	const directory = createOAuthTestDirectory();
 	const path = join(directory, 'nested', 'oauth.json');
 	return { directory, path, store: new OAuthTokenStore(path) };
 }
@@ -29,7 +30,7 @@ class FailingTokenStore extends OAuthTokenStore {
 	clearCalled = false;
 
 	constructor() {
-		super(join(tmpdir(), 'stonewright-failing-oauth.json'));
+		super(join(createOAuthTestDirectory(), 'failing-oauth.json'));
 	}
 
 	override load(): OAuthTokenSet | null {
@@ -48,7 +49,7 @@ class FailingTokenStore extends OAuthTokenStore {
 
 class UnclearableTokenStore extends OAuthTokenStore {
 	constructor(private readonly token: OAuthTokenSet) {
-		super(join(tmpdir(), 'stonewright-unclearable-oauth.json'));
+		super(join(createOAuthTestDirectory(), 'unclearable-oauth.json'));
 	}
 
 	override load(): OAuthTokenSet | null {
@@ -66,7 +67,8 @@ describe('OAuth token manager', () => {
 		try {
 			fixture.store.save(expiredTokens());
 			expect(fixture.store.load()).toEqual(expiredTokens());
-			expect(statSync(fixture.path).mode & 0o777).toBe(0o600);
+			if (process.platform === 'win32') verifyWindowsOAuthStorage(fixture.path);
+			else expect(statSync(fixture.path).mode & 0o777).toBe(0o600);
 			expect(readFileSync(fixture.path, 'utf8')).not.toContain('client_secret');
 		} finally {
 			rmSync(fixture.directory, { recursive: true, force: true });

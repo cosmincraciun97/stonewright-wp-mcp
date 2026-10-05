@@ -171,6 +171,34 @@ jobs:
             exit 1
           fi
 
+  companion-windows-oauth:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22"]
+    defaults:
+      run:
+        working-directory: companion
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: companion/package-lock.json
+      - run: npm ci
+      - name: Verify native OAuth persistence and privacy
+        run: npx --no-install vitest run tests/oauth-token-store.test.ts tests/oauth-token-manager.test.ts tests/oauth-matrix.test.ts tests/oauth-refresh-lock.test.ts tests/wordpress-mcp-oauth.test.ts tests/oauth-seven-day.integration.test.ts tests/oauth-windows-privacy.test.ts
+      - run: npm run build
+      - name: Verify native ACL source is included in the companion package
+        run: |
+          $manifest = npm pack --dry-run --ignore-scripts --json | ConvertFrom-Json
+          if (@($manifest.files.path) -notcontains 'data/oauth-windows-acl.cs') {
+            throw 'OAuth privacy source is missing from the companion package.'
+          }
+
   visual:
     runs-on: ubuntu-latest
     defaults:

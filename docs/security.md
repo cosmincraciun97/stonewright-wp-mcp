@@ -13,6 +13,14 @@ Stonewright runs direct WordPress automation with four operator-control layers:
 
 ## Threat model
 
+### Companion OAuth files
+
+OAuth token files use private POSIX permissions or verified native Windows ACLs.
+Windows support requires safe ancestors for both token storage and the process
+temporary directory; replaceable paths fail closed without changing existing
+ACLs or private state. See [Companion OAuth storage](companion-oauth-storage.md)
+for the exact trusted-principal policy, host prerequisites, and restart recovery.
+
 ### Agent with excessive permissions
 
 An MCP client that authenticates with an administrator account can call any ability, including destructive ones. Mitigations:

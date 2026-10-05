@@ -29,8 +29,16 @@ one-time-grant boundary.
 
 MIT License.
 
-The companion-side OAuth persistence, refresh, retry, and server contract is
-summarized in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
+The companion-side OAuth lifecycle is summarized in
+[`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
+Native Windows token storage requires Windows PowerShell 5.1, the .NET Framework
+C# compiler, a local fixed NTFS or ReFS drive, and private token and `TEMP`/`TMP`
+directories with ancestors protected against replacement by other principals.
+Unsafe permissions or unavailable native inspection fail closed and preserve
+existing state. After fixing host permissions or prerequisites, restart the
+companion; reauthorization alone cannot repair storage privacy. See
+[Companion OAuth storage](https://github.com/cosmincraciun97/stonewright-wp-mcp/blob/main/docs/companion-oauth-storage.md)
+for the exact ACL policy and recovery contract.
 The companion derives the dedicated OAuth resource from the configured MCP URL
 and sends that exact `resource` during refresh. Audience mismatch or refresh
 family replay fails closed and requires explicit reauthorization.

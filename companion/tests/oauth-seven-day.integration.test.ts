@@ -3,9 +3,9 @@
  * without a second browser authorization, and that explicit revoke forces reauth.
  */
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
 import {
 	OAuthReauthRequiredError,
 	OAuthTokenManager,
@@ -23,7 +23,7 @@ describe('OAuth seven-day continuity (fake clock)', () => {
 	it(
 		'survives 169 hourly task-start refresh windows with one initial auth and daily restarts',
 		async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-7d-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-7d-');
 		try {
 			const tokenStorePath = join(directory, 'tokens.json');
 			const store = new OAuthTokenStore(tokenStorePath);

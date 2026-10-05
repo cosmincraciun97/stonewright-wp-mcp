@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { prepareWindowsOAuthStorage, verifyWindowsOAuthStorage } from './oauth-windows-privacy.js';
 
 export interface OAuthRefreshLease {
 	release(): Promise<void>;
@@ -34,11 +35,12 @@ export class OAuthRefreshLock {
 	async acquire(timeoutMs: number): Promise<OAuthRefreshLease> {
 		const deadline = this.now() + Math.max(1, timeoutMs);
 		const path = this.lockPath();
-		mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+		prepareWindowsOAuthStorage(path);
+		if (process.platform !== 'win32') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
 
 		while (this.now() < deadline) {
 			try {
-				const fd = openSync(path, 'wx');
+				const fd = openSync(path, 'wx', 0o600);
 				const owner = randomUUID();
 				const payload: LockPayload = {
 					pid: process.pid,
@@ -70,6 +72,7 @@ export class OAuthRefreshLock {
 	}
 
 	private readPayload(path: string): LockPayload | null {
+		if (existsSync(path)) verifyWindowsOAuthStorage(path);
 		try {
 			const raw: unknown = JSON.parse(readFileSync(path, 'utf8'));
 			if (

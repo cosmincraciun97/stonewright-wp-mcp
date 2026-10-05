@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
 import { OAuthRefreshLock, oauthRefreshLockPathFor } from '../src/oauth-refresh-lock.js';
 import { OAuthTokenManager, OAuthTokenStore, type OAuthTokenSet } from '../src/oauth-token-manager.js';
 
@@ -15,7 +15,7 @@ function makeResponse(payload: Record<string, unknown>, status = 200, headers: R
 
 describe('OAuthRefreshLock', () => {
 	it('allows one refresh across two managers sharing a store', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-lock-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-lock-');
 		try {
 			const path = join(directory, 'tokens.json');
 			const storeA = new OAuthTokenStore(path);
@@ -46,7 +46,7 @@ describe('OAuthRefreshLock', () => {
 	});
 
 	it('refuses a symlink token store on load', () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-symlink-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-symlink-');
 		try {
 			const real = join(directory, 'real.json');
 			const link = join(directory, 'link.json');
@@ -67,7 +67,7 @@ describe('OAuthRefreshLock', () => {
 
 describe('consumption-aware refresh', () => {
 	it('retries HTTP 503 only when X-Stonewright-Refresh-Consumed is 0', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-consumed-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-consumed-');
 		try {
 			const path = join(directory, 'tokens.json');
 			const store = new OAuthTokenStore(path);
@@ -102,7 +102,7 @@ describe('consumption-aware refresh', () => {
 	});
 
 	it('does not retry ECONNRESET', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-reset-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-reset-');
 		try {
 			const path = join(directory, 'tokens.json');
 			const store = new OAuthTokenStore(path);
@@ -127,7 +127,7 @@ describe('consumption-aware refresh', () => {
 
 describe('OAuthRefreshLock unit', () => {
 	it('acquires and releases a lease', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-lock-unit-'));
+		const directory = createOAuthTestDirectory('stonewright-lock-unit-');
 		try {
 			const path = join(directory, 'tokens.json');
 			const lock = new OAuthRefreshLock(path);
@@ -143,7 +143,7 @@ describe('OAuthRefreshLock unit', () => {
 
 	it('renews the lease while held and never deletes a successor lock', async () => {
 		vi.useFakeTimers();
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-lock-renew-'));
+		const directory = createOAuthTestDirectory('stonewright-lock-renew-');
 		try {
 			const path = join(directory, 'tokens.json');
 			const lock = new OAuthRefreshLock(path);
