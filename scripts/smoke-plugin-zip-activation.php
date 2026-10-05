@@ -44,11 +44,13 @@ check_archive( $zip );
 
 $site = $workdir . '/site';
 remove_tree( $workdir );
-mkdir( $site, 0777, true );
+mkdir( $workdir, 0777, true );
 
 step( "Downloading WordPress {$version}" );
 extract_zip( local_or_download( $options['wp-zip'] ?? null, "https://wordpress.org/wordpress-{$version}.zip", $workdir . '/wordpress.zip' ), $workdir );
-rename( $workdir . '/wordpress', $site );
+if ( ! rename( $workdir . '/wordpress', $site ) ) {
+	fail( 'Cannot move the WordPress files into place.' );
+}
 
 step( 'Installing the SQLite database drop-in' );
 $plugins = $site . '/wp-content/plugins';
