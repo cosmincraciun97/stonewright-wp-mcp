@@ -13,6 +13,9 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Refresh Companion runtime dependency floors and security overrides, and use
+  patched test-runner versions for Companion and Visual.
+
 - Recover OAuth signing-key generation on PHP installations whose default
   OpenSSL configuration is unavailable by trying PHP's adjacent configuration
   and a bundled minimal configuration. Plugin activation can complete when key
