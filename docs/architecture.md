@@ -181,8 +181,9 @@ Native HTTP hosts receive a standards-compliant `401` Bearer challenge;
 Stonewright does not claim it can force every host to show model-visible prose.
 
 OAuth access tokens remain one hour. Continuity for at least seven days is an
-acceptance SLO from durable refresh, not a seven-day bearer token. Each grant
-family has a fixed fourteen-day maximum lifetime; rotation does not extend it.
+acceptance SLO from durable refresh, not a seven-day bearer token. Each rotated
+refresh token expires 30 days after issue (idle window), clamped to the grant
+family's fixed 90-day maximum lifetime; rotation never extends the family.
 Refresh rotation and grant-family replay revocation remain enabled.
 
 ### Authentication and custom-code boundaries
@@ -872,8 +873,8 @@ Profile and surface switching is transport-specific. Agents should treat
   S256; authorization and refresh requests carry the canonical resource;
   access tokens are rejected on audience mismatch. Resource metadata exposes
   only the `mcp` scope. Refresh tokens rotate, and replay revokes the complete
-  refresh family plus its access tokens. Access-token TTL is one hour; the
-  grant family lasts fourteen days; seven-day continuity is the acceptance SLO.
+  refresh family plus its access tokens. Access-token TTL is one hour; refresh
+  tokens expire after 30 idle days and the grant family after 90 days; seven-day continuity is the acceptance SLO.
 
 ### stdio companion transport
 

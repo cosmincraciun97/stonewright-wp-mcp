@@ -65,6 +65,8 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 	private static ?string $last_persisted_family_expires_at = null;
 
+	private static ?string $last_persisted_expires_at = null;
+
 	public function getNewRefreshToken(): ?RefreshTokenEntityInterface {
 		return new RefreshTokenEntity();
 	}
@@ -91,8 +93,12 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			throw OAuthServerException::invalidGrant( 'Refresh token family has expired' );
 		}
 
-		// Clamp entity expiry to the fixed family expiry (no sliding window).
-		$refreshTokenEntity->setExpiryDateTime( $family_expiry );
+		// Sliding idle window, clamped to the fixed family expiry.
+		$idle_expiry  = ( new DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) ) )
+			->add( new \DateInterval( ServerFactory::REFRESH_IDLE_TTL ) );
+		$token_expiry = $idle_expiry < $family_expiry ? $idle_expiry : $family_expiry;
+		$token_expires_at = $token_expiry->format( 'Y-m-d H:i:s' );
+		$refreshTokenEntity->setExpiryDateTime( $token_expiry );
 
 		$identifier_hash = hash( 'sha256', (string) $refreshTokenEntity->getIdentifier() );
 		$access_hash     = hash( 'sha256', (string) $refreshTokenEntity->getAccessToken()->getIdentifier() );
@@ -119,7 +125,7 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 				'user_id'                => $this->active_user_id,
 				'parent_identifier_hash' => $this->active_parent_identifier_hash,
 				'family_expires_at'      => $family_expires_at,
-				'expires_at'             => $family_expires_at,
+				'expires_at'             => $token_expires_at,
 				'revoked'                => 0,
 			]
 		);
@@ -129,6 +135,7 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		}
 
 		self::$last_persisted_family_expires_at = $family_expires_at;
+		self::$last_persisted_expires_at        = $token_expires_at;
 
 		// Recheck family state after insert — concurrent replay must revoke the child.
 		$still_active = (int) $wpdb->get_var(
@@ -383,7 +390,16 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		return self::$last_persisted_family_expires_at;
 	}
 
+	/**
+	 * Expiry of the refresh token persisted last in this request: the idle
+	 * deadline clamped to the family deadline.
+	 */
+	public static function last_persisted_expires_at(): ?string {
+		return self::$last_persisted_expires_at;
+	}
+
 	public static function reset_last_persisted_family_expires_at(): void {
 		self::$last_persisted_family_expires_at = null;
+		self::$last_persisted_expires_at        = null;
 	}
 }

@@ -51,8 +51,9 @@ same family instead of revoking it. Any later or second-generation reuse is
 still a replay. Sites can shorten or disable the window with the
 `stonewright_oauth_refresh_reuse_grace_seconds` filter (0 disables it, the
 maximum is 300). Access tokens last one hour. Seven-day continuity
-is a refresh SLO against a fourteen-day grant family, not a seven-day bearer
-token. Handshake and allowlisted read-only bootstrap calls may retry once;
+is a refresh SLO, not a seven-day bearer token. Each refresh token expires
+after 30 days without use, and a grant family ends 90 days after the first
+authorization even when it stays in use; then the client must authorize again. Handshake and allowlisted read-only bootstrap calls may retry once;
 mutations never retry. `stonewright-task-start` reconnects a degraded session
 once.
 

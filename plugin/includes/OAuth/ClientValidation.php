@@ -32,7 +32,7 @@ final class ClientValidation {
 
 	public const STALE_UNUSED_CLIENT_TTL = 86400;
 
-	public const ACTIVE_CLIENT_TTL = 14 * 86400;
+	public const ACTIVE_CLIENT_TTL = 30 * 86400;
 
 	public const MAX_REDIRECT_URI_LENGTH = 2048;
 

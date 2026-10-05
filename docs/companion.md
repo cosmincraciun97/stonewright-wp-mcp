@@ -98,7 +98,7 @@ Terminal grant/client failures clear the local state and return
 `reauthentication_required` with a model-visible `user_action`; transient HTTP
 or network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
 breaker. Access tokens last one hour. Seven-day continuity is a refresh SLO
-against a fourteen-day grant family. Handshake and allowlisted read-only
+against a grant family that ends after 30 idle days or 90 days in total. Handshake and allowlisted read-only
 bootstrap calls may retry once; mutations never retry. Degraded
 `stonewright-task-start` reconnects once. See
 [Permanent remediation contracts](permanent-remediation-contracts.md).

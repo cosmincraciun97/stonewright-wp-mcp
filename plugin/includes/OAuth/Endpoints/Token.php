@@ -97,14 +97,14 @@ final class Token {
 			if ( $wp_response->get_status() < 400 && $is_refresh ) {
 				$data = $wp_response->get_data();
 				if ( is_array( $data ) ) {
-					$interval = new \DateInterval( ServerFactory::REFRESH_FAMILY_TTL );
+					$interval = new \DateInterval( ServerFactory::REFRESH_IDLE_TTL );
 					$full_ttl = ( new \DateTimeImmutable( '@0' ) )->add( $interval )->getTimestamp();
 					$seconds  = $full_ttl;
-					// The family expiration is fixed at first issuance; advertise the
-					// remaining lifetime so clients never outlive the real deadline.
-					$family_expires_at = RefreshTokenRepository::last_persisted_family_expires_at();
-					if ( null !== $family_expires_at && '' !== $family_expires_at ) {
-						$remaining = ( new \DateTimeImmutable( $family_expires_at . ' UTC' ) )->getTimestamp() - time();
+					// Advertise the new token's real deadline: the idle window,
+					// clamped to the family cap fixed at first issuance.
+					$expires_at = RefreshTokenRepository::last_persisted_expires_at();
+					if ( null !== $expires_at && '' !== $expires_at ) {
+						$remaining = ( new \DateTimeImmutable( $expires_at . ' UTC' ) )->getTimestamp() - time();
 						$seconds   = max( 0, min( $full_ttl, $remaining ) );
 					}
 					$data['refresh_token_expires_in'] = $seconds;

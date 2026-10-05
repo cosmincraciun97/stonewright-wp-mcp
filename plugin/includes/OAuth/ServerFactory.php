@@ -32,7 +32,16 @@ final class ServerFactory {
 
 	public const ACCESS_TOKEN_TTL = 'PT1H';
 
-	public const REFRESH_FAMILY_TTL = 'P14D';
+	/**
+	 * Absolute lifetime of a grant family, fixed at first issuance.
+	 */
+	public const REFRESH_FAMILY_TTL = 'P90D';
+
+	/**
+	 * Idle lifetime: each rotated refresh token expires this long after it was
+	 * issued, so a grant unused for this long ends before the family cap.
+	 */
+	public const REFRESH_IDLE_TTL = 'P30D';
 
 	public const CONTINUITY_TARGET_SECONDS = 604800;
 
@@ -51,11 +60,11 @@ final class ServerFactory {
 			new RefreshTokenRepository(),
 			new DateInterval( 'PT1M' )
 		);
-		$auth_code->setRefreshTokenTTL( new DateInterval( self::REFRESH_FAMILY_TTL ) );
+		$auth_code->setRefreshTokenTTL( new DateInterval( self::REFRESH_IDLE_TTL ) );
 		$server->enableGrantType( $auth_code, new DateInterval( self::ACCESS_TOKEN_TTL ) );
 
 		$refresh = new RefreshTokenGrant( new RefreshTokenRepository() );
-		$refresh->setRefreshTokenTTL( new DateInterval( self::REFRESH_FAMILY_TTL ) );
+		$refresh->setRefreshTokenTTL( new DateInterval( self::REFRESH_IDLE_TTL ) );
 		$server->enableGrantType( $refresh, new DateInterval( self::ACCESS_TOKEN_TTL ) );
 
 		return $server;

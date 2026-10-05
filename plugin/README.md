@@ -298,8 +298,8 @@ Library labels Plugin/Direct support and includes requirements plus verification
 Companion status reports use schema version 3. Call `stonewright-task-start`
 first; a degraded session reconnects once. Terminal OAuth failures return
 `reauthentication_required` with a model-visible `user_action`. Access tokens
-stay one hour; seven-day continuity is a refresh SLO against a fourteen-day
-grant family, not a seven-day bearer token.
+stay one hour; seven-day continuity is a refresh SLO against a grant family
+that ends after 30 idle days or 90 days in total, not a seven-day bearer token.
 
 ### Design abilities (MCP)
 

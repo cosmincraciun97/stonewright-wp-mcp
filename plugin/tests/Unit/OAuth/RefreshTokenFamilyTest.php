@@ -149,14 +149,41 @@ final class RefreshTokenFamilyTest extends TestCase {
 	}
 
 	public function test_rotated_refresh_inherits_the_active_grant_family(): void {
+		$database = $this->rotate_in_family( '2099-01-01 00:00:00' );
+
+		self::assertSame( 'family-one', $database->inserted['grant_family_hash'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', $database->inserted['family_expires_at'] ?? null );
+		self::assertSame( '2099-01-01 00:00:00', RefreshTokenRepository::last_persisted_family_expires_at() );
+	}
+
+	public function test_rotated_refresh_expires_after_the_idle_window(): void {
+		$before   = time();
+		$database = $this->rotate_in_family( '2099-01-01 00:00:00' );
+		$expires  = ( new DateTimeImmutable( (string) $database->inserted['expires_at'] . ' UTC' ) )->getTimestamp();
+
+		self::assertGreaterThanOrEqual( $before + 30 * 86400, $expires );
+		self::assertLessThanOrEqual( time() + 30 * 86400, $expires );
+		self::assertSame( $database->inserted['expires_at'], RefreshTokenRepository::last_persisted_expires_at() );
+	}
+
+	public function test_rotated_refresh_never_outlives_the_family_cap(): void {
+		$family_end = ( new DateTimeImmutable( '+5 days', new \DateTimeZone( 'UTC' ) ) )->format( 'Y-m-d H:i:s' );
+		$database   = $this->rotate_in_family( $family_end );
+
+		self::assertSame( $family_end, $database->inserted['expires_at'] ?? null );
+		self::assertSame( $family_end, $database->inserted['family_expires_at'] ?? null );
+		self::assertSame( $family_end, RefreshTokenRepository::last_persisted_expires_at() );
+	}
+
+	private function rotate_in_family( string $family_expires_at ): object {
 		$current_hash = hash( 'sha256', 'current-refresh' );
-		$database     = new class( $current_hash ) {
+		$database     = new class( $current_hash, $family_expires_at ) {
 			public $prefix = 'wp_';
 
 			/** @var array<string, mixed> */
 			public array $inserted = [];
 
-			public function __construct( private readonly string $current_hash ) {
+			public function __construct( private readonly string $current_hash, private readonly string $family_expires_at ) {
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {
@@ -174,8 +201,8 @@ final class RefreshTokenFamilyTest extends TestCase {
 				}
 				return [
 					'revoked'           => 0,
-					'expires_at'        => '2099-01-01 00:00:00',
-					'family_expires_at' => '2099-01-01 00:00:00',
+					'expires_at'        => $this->family_expires_at,
+					'family_expires_at' => $this->family_expires_at,
 					'grant_family_hash' => 'family-one',
 					'consumed_at'       => null,
 					'revoked_reason'    => null,
@@ -208,8 +235,6 @@ final class RefreshTokenFamilyTest extends TestCase {
 		$refresh->setExpiryDateTime( new DateTimeImmutable( '2099-01-02 00:00:00 UTC' ) );
 		$repository->persistNewRefreshToken( $refresh );
 
-		self::assertSame( 'family-one', $database->inserted['grant_family_hash'] ?? null );
-		self::assertSame( '2099-01-01 00:00:00', $database->inserted['family_expires_at'] ?? null );
-		self::assertSame( '2099-01-01 00:00:00', RefreshTokenRepository::last_persisted_family_expires_at() );
+		return $database;
 	}
 }

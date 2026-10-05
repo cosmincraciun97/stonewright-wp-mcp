@@ -226,7 +226,7 @@ fields are prohibited by omission.
 `unknown`. Terminal OAuth failures set `error_code: reauthentication_required`
 with `authentication.agent_notice_required: true` and a client-specific
 `user_action`. Continuity target is 604800 seconds (seven days) against a
-fourteen-day grant family. Automatic retry is handshake and allowlisted
+grant family that ends after 30 idle days or 90 days in total. Automatic retry is handshake and allowlisted
 read-only bootstrap only; mutations are never retried.
 
 Degraded `stonewright-task-start` reconnects once. Recovery fields report

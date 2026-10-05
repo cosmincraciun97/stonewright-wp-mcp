@@ -11,6 +11,14 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- OAuth sessions now last while they are used. Each refresh token expires after
+  30 days without use instead of a fixed 14 days from the first authorization,
+  and a grant ends 90 days after authorization at most. Registered clients
+  unused for 30 days (previously 14) are pruned. Existing grants keep their
+  original 14-day end date.
+
 ### Fixed
 
 - Plugin activation no longer fails with a fatal error on Windows PHP stacks
