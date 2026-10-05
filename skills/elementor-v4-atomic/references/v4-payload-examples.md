@@ -1,8 +1,7 @@
 # V4 Atomic Payload Examples
 
-These are illustrative shapes based on the Elementor V4 atomic structure.
-The actual keys returned by `design-spec-to-elementor-v4` depend on the
-bundled renderer version.
+These shapes follow the Elementor V4 Atomic structure produced by Stonewright's
+`AtomicRenderer`. The live props schema on the target site is authoritative.
 
 ## Minimal dry-run call
 
@@ -36,28 +35,51 @@ bundled renderer version.
 
 ## Typical rendered output shape
 
+Abbreviated from `AtomicRenderer` output for a `row` section containing one
+heading. Every prop is a typed `{ "$$type", "value" }` envelope; layout props
+such as direction and gap become a local class style whose responsive and state
+overrides live in `variants`.
+
 ```json
 {
   "rendered": [
     {
-      "id": "e1000001",
-      "type": "container",
+      "id": "a1b2c3d",
+      "elType": "e-flexbox",
+      "version": "0.0",
+      "isInner": false,
       "settings": {
-        "flex_direction": "column",
-        "align_items": "center",
-        "background_color": "var(--e-global-color-primary)",
-        "padding": { "top": "80px", "bottom": "80px" }
+        "classes": { "$$type": "classes", "value": ["e-a1b2c3d-style"] }
       },
-      "classes": ["e-hero-section"],
+      "styles": {
+        "e-a1b2c3d-style": {
+          "id": "e-a1b2c3d-style",
+          "label": "Stonewright local style",
+          "type": "class",
+          "variants": [
+            {
+              "meta": { "breakpoint": "desktop", "state": null },
+              "props": {
+                "flex-direction": { "$$type": "string", "value": "row" },
+                "gap": { "$$type": "size", "value": { "unit": "px", "size": 24 } }
+              }
+            }
+          ]
+        }
+      },
+      "editor_settings": {},
+      "interactions": [],
       "elements": [
         {
-          "id": "e1000002",
-          "type": "widget",
-          "widgetType": "heading",
+          "id": "e4f5a6b",
+          "elType": "widget",
+          "widgetType": "e-heading",
           "settings": {
-            "title": "Test heading",
-            "typography_font_family": "var(--e-global-typography-h1-font-family)",
-            "typography_font_weight": "700"
+            "title": {
+              "$$type": "html-v3",
+              "value": { "content": { "$$type": "string", "value": "Test heading" }, "children": [] }
+            },
+            "tag": { "$$type": "string", "value": "h1" }
           },
           "elements": []
         }
@@ -70,13 +92,12 @@ bundled renderer version.
 
 ## Variable references
 
-V4 elements reference global variables with CSS custom property syntax:
-
-| Context | Example value |
-|---|---|
-| Color token | `var(--e-global-color-primary)` |
-| Typography | `var(--e-global-typography-h1-font-family)` |
-| Spacing | `var(--e-global-spacing-lg)` |
+Atomic props reference variables through typed envelopes defined by the live
+props schema, not through V3 kit globals such as
+`var(--e-global-color-primary)`. Read the accepted envelope for a prop with
+`stonewright/elementor-v4-describe-atomic-widget`, and read variable ids with
+`stonewright/elementor-v4-list-variables`. Never guess a variable id or
+envelope type.
 
 ## Checking feature flags before calling
 

@@ -37,6 +37,8 @@ development builds were never stable releases.
 - Audit Log redaction no longer swallows ordinary words after "token is" or
   "password was"; "The refresh token is no longer valid." stays readable while
   values in the same position are still masked.
+- Refresh Companion runtime dependency floors and security overrides, and use
+  patched test-runner versions for Companion and Visual.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 
