@@ -96,6 +96,37 @@ jobs:
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
           php plugin/bin/verify-jetpack-manifests.php package-scan/stonewright
+          cp LICENSE package-scan/stonewright/LICENSE
+          rsync -a skills/ package-scan/stonewright/skills/
+          (cd package-scan && zip -qr ../stonewright-ci.zip stonewright)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-zip
+          path: stonewright-ci.zip
+          retention-days: 3
+
+  plugin-zip-activation:
+    # Installs and activates the built ZIP on WordPress + SQLite with a missing
+    # openssl.cnf, the Windows (Laragon/XAMPP) condition behind issue #78.
+    needs: plugin-package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        php: ["8.1", "8.3"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: openssl, zip, pdo_sqlite, sqlite3, curl, mbstring
+          tools: none
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-zip
+      - name: Activate the plugin ZIP without an OpenSSL config
+        run: php scripts/smoke-plugin-zip-activation.php --zip=stonewright-ci.zip --wp=7.1.2
 
   companion:
     runs-on: ubuntu-latest

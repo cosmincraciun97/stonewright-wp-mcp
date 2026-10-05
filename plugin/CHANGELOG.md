@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin activation no longer fails with a fatal error on Windows PHP stacks
+  (Laragon, XAMPP, WAMP) that cannot find `openssl.cnf`. OAuth key generation
+  retries with PHP's bundled `extras/ssl/openssl.cnf` and then a minimal config
+  shipped with the plugin. If generation still fails, activation completes,
+  OAuth stays unavailable, and an admin notice shows the OpenSSL error with a
+  retry button (#78).
+- OAuth connections no longer drop when two client processes, or a retried
+  request, refresh with the same token at nearly the same time. A token reused
+  within 60 seconds of its rotation, before any token issued from it was used,
+  returns a sibling token pair instead of revoking the whole grant. Later or
+  second-generation reuse is still treated as a replay.
+- Store OAuth access-token and authorization-code expiry in UTC even when
+  another plugin changes PHP's default timezone.
+- Audit Log redaction no longer swallows ordinary words after "token is" or
+  "password was"; "The refresh token is no longer valid." stays readable while
+  values in the same position are still masked.
+
 ## [1.0.0-beta.13.3] - 2026-09-17
 
 ### Fixed

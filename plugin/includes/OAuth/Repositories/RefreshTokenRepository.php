@@ -32,6 +32,25 @@ final class RefreshTokenEntity implements RefreshTokenEntityInterface {
 
 final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
+	/**
+	 * Default window in which a just-rotated refresh token may be presented
+	 * again without being treated as a replay.
+	 *
+	 * MCP clients often run several processes on one stored credential, or
+	 * retry a refresh whose response was lost. Without a window the second
+	 * request revokes the whole grant family and every client must reconnect.
+	 */
+	public const REUSE_GRACE_SECONDS = 60;
+
+	public const REUSE_GRACE_MAX_SECONDS = 300;
+
+	/**
+	 * Identifier hash accepted under the reuse grace window in this request.
+	 *
+	 * @var string|null
+	 */
+	private ?string $grace_reuse_identifier_hash = null;
+
 	private string $active_grant_family_hash = '';
 
 	private ?string $active_family_expires_at = null;
@@ -155,6 +174,29 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			return;
 		}
 
+		if ( $identifier_hash === $this->grace_reuse_identifier_hash ) {
+			// Already rotated moments ago by a sibling request; issue a sibling
+			// token in the same family instead of revoking it.
+			return;
+		}
+
+		// A concurrent request may have rotated this token between our
+		// validation and claim; that is the same benign race.
+		$current = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT revoked, consumed_at, revoked_reason, grant_family_hash
+				FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				WHERE identifier_hash = %s",
+				$identifier_hash
+			),
+			ARRAY_A
+		);
+		if ( is_array( $current ) && $this->reuse_within_grace( $current, $identifier_hash, (string) ( $current['grant_family_hash'] ?? '' ) ) ) {
+			$this->grace_reuse_identifier_hash = $identifier_hash;
+			$this->last_revoked_reason          = 'reused_within_grace';
+			return;
+		}
+
 		// Second claim = replay.
 		$this->last_revoked_reason = 'replayed';
 		$row = $wpdb->get_row(
@@ -201,7 +243,8 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			$family_expires_at = (string) ( $row['expires_at'] ?? '' );
 		}
 
-		if ( 1 === (int) ( $row['revoked'] ?? 0 ) || null !== ( $row['consumed_at'] ?? null ) ) {
+		$within_grace = $this->reuse_within_grace( $row, $identifier_hash, $family_hash );
+		if ( ! $within_grace && ( 1 === (int) ( $row['revoked'] ?? 0 ) || null !== ( $row['consumed_at'] ?? null ) ) ) {
 			$this->last_revoked_reason = (string) ( $row['revoked_reason'] ?? 'revoked' );
 			$this->revoke_grant_family( $family_hash, 'replayed' );
 			return true;
@@ -219,6 +262,11 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 			return true;
 		}
 
+		if ( $within_grace ) {
+			$this->grace_reuse_identifier_hash = $identifier_hash;
+			$this->last_revoked_reason          = 'reused_within_grace';
+		}
+
 		$this->active_grant_family_hash     = $family_hash;
 		$this->active_family_expires_at     = $family_expires_at;
 		$this->active_parent_identifier_hash = $identifier_hash;
@@ -226,6 +274,57 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 		$this->active_user_id               = isset( $row['user_id'] ) ? (int) $row['user_id'] : null;
 
 		return false;
+	}
+
+	/**
+	 * Seconds a rotated refresh token stays reusable. Filterable; 0 disables.
+	 */
+	public static function reuse_grace_seconds(): int {
+		$seconds = self::REUSE_GRACE_SECONDS;
+		if ( function_exists( 'apply_filters' ) ) {
+			$seconds = (int) apply_filters( 'stonewright_oauth_refresh_reuse_grace_seconds', $seconds );
+		}
+		return max( 0, min( self::REUSE_GRACE_MAX_SECONDS, $seconds ) );
+	}
+
+	/**
+	 * A presented token counts as a benign concurrent reuse only when it was
+	 * rotated (not revoked, replayed, or expired) within the grace window, its
+	 * family is still intact, and no token issued from it has been used yet.
+	 * Anything else stays a replay and revokes the family.
+	 *
+	 * @param array<string, mixed> $row Refresh-token row.
+	 */
+	private function reuse_within_grace( array $row, string $identifier_hash, string $family_hash ): bool {
+		$grace = self::reuse_grace_seconds();
+		if ( 0 === $grace || '' === $family_hash ) {
+			return false;
+		}
+		if ( 'rotated' !== (string) ( $row['revoked_reason'] ?? '' ) ) {
+			return false;
+		}
+		$consumed_at = $row['consumed_at'] ?? null;
+		if ( ! is_string( $consumed_at ) || '' === $consumed_at ) {
+			return false;
+		}
+		$consumed = strtotime( $consumed_at . ' UTC' );
+		if ( false === $consumed || time() - $consumed > $grace || $consumed > time() + 5 ) {
+			return false;
+		}
+
+		global $wpdb;
+		$blocking = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				WHERE grant_family_hash = %s
+				AND ( ( revoked = 1 AND revoked_reason IN ('replayed','revoked','expired') )
+					OR ( parent_identifier_hash = %s AND consumed_at IS NOT NULL ) )",
+				$family_hash,
+				$identifier_hash
+			)
+		);
+
+		return 0 === $blocking;
 	}
 
 	public function last_revoked_reason(): ?string {

@@ -1,0 +1,12 @@
+# Minimal OpenSSL configuration shipped with Stonewright.
+#
+# PHP on Windows (Laragon, XAMPP, WAMP, plain php.exe) looks for
+# openssl.cnf in a fixed build-time directory that usually does not exist,
+# and openssl_pkey_new() then fails. Stonewright passes this file as an
+# explicit `config` only when key generation fails without one. It defines
+# nothing beyond what RSA key generation and PEM export need.
+
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]

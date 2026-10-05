@@ -41,7 +41,9 @@ final class BootstrapIntegrationTest extends TestCase {
 		$registration = file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
 		self::assertIsString( $registration );
 		self::assertStringContainsString( 'OAuthSchema::maybe_install()', $registration );
-		self::assertStringContainsString( 'OAuthKeys::get()', $registration );
+		self::assertStringContainsString( 'OAuthKeys::ensure()', $registration );
+		self::assertStringNotContainsString( 'OAuthKeys::get()', $registration, 'Activation must not throw when OpenSSL key generation fails.' );
+		self::assertStringContainsString( 'OAuthKeys::register_admin()', $registration );
 		self::assertStringContainsString( 'OAuthSchema::schedule_gc()', $registration );
 		self::assertStringContainsString( 'OAuthSchema::unschedule_gc()', $registration );
 	}

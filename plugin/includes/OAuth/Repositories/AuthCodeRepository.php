@@ -47,7 +47,7 @@ final class AuthCodeRepository implements AuthCodeRepositoryInterface {
 				'identifier_hash' => hash( 'sha256', (string) $authCodeEntity->getIdentifier() ),
 				'client_id'       => (string) $authCodeEntity->getClient()->getIdentifier(),
 				'user_id'         => (int) $authCodeEntity->getUserIdentifier(),
-				'expires_at'      => $authCodeEntity->getExpiryDateTime()->format( 'Y-m-d H:i:s' ),
+				'expires_at'      => $authCodeEntity->getExpiryDateTime()->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 				'scopes'          => wp_json_encode(
 					array_map(
 						static fn( ScopeEntityInterface $scope ): string => $scope->getIdentifier(),

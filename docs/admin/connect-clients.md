@@ -43,7 +43,14 @@ action and stop WordPress work until the operator reauthenticates. Transient
 `429`/`temporarily_unavailable` responses retain `Retry-After` and are retried
 with bounded backoff; do not start a second manual refresh in parallel.
 Replaying a rotated refresh token revokes the entire token family and all
-access tokens for that grant. Access tokens last one hour. Seven-day continuity
+access tokens for that grant. One exception covers clients that run several
+processes on one stored credential, or retry a refresh whose response was
+lost: presenting a token again within 60 seconds of its rotation, while no
+token issued from it has been used yet, returns a sibling token pair in the
+same family instead of revoking it. Any later or second-generation reuse is
+still a replay. Sites can shorten or disable the window with the
+`stonewright_oauth_refresh_reuse_grace_seconds` filter (0 disables it, the
+maximum is 300). Access tokens last one hour. Seven-day continuity
 is a refresh SLO against a fourteen-day grant family, not a seven-day bearer
 token. Handshake and allowlisted read-only bootstrap calls may retry once;
 mutations never retry. `stonewright-task-start` reconnects a degraded session

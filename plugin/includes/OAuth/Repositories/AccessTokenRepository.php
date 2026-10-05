@@ -96,7 +96,7 @@ final class AccessTokenRepository implements AccessTokenRepositoryInterface {
 				'identifier_hash' => hash( 'sha256', (string) $accessTokenEntity->getIdentifier() ),
 				'client_id'       => (string) $accessTokenEntity->getClient()->getIdentifier(),
 				'user_id'         => (int) $accessTokenEntity->getUserIdentifier(),
-				'expires_at'      => $accessTokenEntity->getExpiryDateTime()->format( 'Y-m-d H:i:s' ),
+				'expires_at'      => $accessTokenEntity->getExpiryDateTime()->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ),
 				'scopes'          => wp_json_encode(
 					array_map(
 						static fn( ScopeEntityInterface $scope ): string => $scope->getIdentifier(),
