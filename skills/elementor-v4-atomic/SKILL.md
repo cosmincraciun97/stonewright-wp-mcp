@@ -25,7 +25,8 @@ Check `feature_flags.elementor_v4_atomic`. If false or absent, stop. Do not
 attempt to enable the flag from this skill; ask the user to toggle it in
 wp-options (`stonewright_elementor_v4_atomic = 1`).
 
-Also check `integrations.elementor_v4` is true (requires Elementor >= 4.0.0).
+Also check `integrations.elementor_v4`. It reports Elementor >= 4.0.0; the
+Atomic Widgets module gate itself accepts Elementor 3.31+ builds that ship it.
 
 ## Dry-run first
 
@@ -60,11 +61,18 @@ readback, editor reopen, and frontend CSS parity are all proven.
 
 ## Atomic element concepts
 
-- Atomic elements have `type`, `id`, `settings`, and `elements` (children).
-- Variables: referenced as `var(--e-global-color-primary)` in settings values.
-- Classes: applied via the `classes` array on an element.
-- Breakpoints: responsive overrides live in `settings.__globals__` keyed by
-  breakpoint handle (e.g. `tablet`, `mobile`).
+- Layout elements use their native `elType` (for example `e-flexbox`); widgets
+  use `elType=widget` plus `widgetType=e-*`. Every element carries `id`,
+  `settings`, `styles`, and `elements` (children); every prop is a typed
+  `{ "$$type", "value" }` envelope.
+- Variables: read and written through Elementor's `Variables_Service`.
+- Classes: applied through the typed `settings.classes` prop
+  (`{ "$$type": "classes", "value": [ids] }`).
+- Breakpoints and states: responsive and state overrides live in the element's
+  `styles` map, as entries in each style's `variants` list keyed by
+  `meta.breakpoint` (e.g. `desktop`, `tablet`, `mobile`) and `meta.state`.
+  `settings.__globals__` is a V3 concept and is not used for Atomic
+  breakpoints.
 
 ## Ability summary
 
