@@ -148,6 +148,7 @@ final class PluginRegistration {
 		VendorGuard::register();
 		EditorSaveGuard::register();
 		BasicAuthCredentials::register();
+		OAuthKeys::register_admin();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
@@ -181,7 +182,7 @@ final class PluginRegistration {
 		AuditLog::maybe_install_table();
 		IncidentStore::maybe_install_table();
 		OAuthSchema::maybe_install();
-		OAuthKeys::get();
+		OAuthKeys::ensure();
 		OAuthSchema::schedule_gc();
 		SkillsTable::force_create_table();
 		SkillVersionsTable::force_create_table();

@@ -21,6 +21,16 @@ HTTPS and does not run or require a local companion.
 - WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - OAuth browser access (recommended) or a WordPress Application Password
+- The PHP `openssl` extension for OAuth. OAuth generates its RSA signing key on
+  activation. PHP on Windows stacks such as Laragon, XAMPP, or WAMP often
+  cannot find `openssl.cnf`; Stonewright then retries with the config shipped
+  next to `php.exe` (`extras/ssl/openssl.cnf`) and finally with a minimal
+  config bundled in the plugin, so activation succeeds. If every attempt
+  fails, the plugin still activates, Application Password connections keep
+  working, and an admin notice shows the OpenSSL error with a **Retry OAuth
+  key generation** button. If PHP cannot locate its configuration, set
+  `OPENSSL_CONF` to PHP's `openssl.cnf` and restart the web server before
+  retrying.
 
 ## Default Plugin setup
 

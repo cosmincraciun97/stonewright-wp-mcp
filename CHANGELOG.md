@@ -11,6 +11,16 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Recover OAuth signing-key generation on PHP installations whose default
+  OpenSSL configuration is unavailable by trying PHP's adjacent configuration
+  and a bundled minimal configuration. Plugin activation can complete when key
+  generation still fails, with an administrator notice and a protected retry
+  action; Application Password authentication remains available.
+- Verify packaged plugin activation on Linux and Windows, and reject an
+  existing activation-smoke working directory before writing or removing files.
+
 ## [1.0.0-beta.13.3] - 2026-09-17
 
 ### Fixed
