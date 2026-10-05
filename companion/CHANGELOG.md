@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh runtime dependency floors and security overrides, and use a patched
+  test-runner version.
+
 ## [1.0.0-beta.13.3] - 2026-09-17
 
 ### Fixed
