@@ -58,8 +58,11 @@ one redacted cleanup receipt.
 
 ## OAuth failure and rate-limit contract
 
-The companion persists OAuth tokens in an atomic temporary-file replacement
-with mode `0600`. Refresh calls are single-flight per process. Every successful
+The companion persists OAuth tokens through a flushed writable temporary file
+and atomic replacement. POSIX files use `0600`; Windows verifies a private native
+DACL and safe ancestors. See [Companion OAuth storage](companion-oauth-storage.md)
+for Windows prerequisites and fail-closed recovery. Refresh calls are
+single-flight per process. Every successful
 refresh must return a new, nonempty refresh token; omission or replay of the
 previous token clears local token state and requires reauthorization. The new
 rotated token replaces the old value. `invalid_grant`, `invalid_client`, and

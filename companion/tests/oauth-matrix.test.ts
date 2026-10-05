@@ -6,9 +6,9 @@
  * terminal classification. Prefer these over live browser OAuth for CI.
  */
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
 import {
 	OAuthReauthRequiredError,
 	OAuthTokenManager,
@@ -28,7 +28,7 @@ function expiredTokens(): OAuthTokenSet {
 }
 
 function withStore(run: (store: OAuthTokenStore, path: string) => Promise<void>): Promise<void> {
-	const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-matrix-'));
+	const directory = createOAuthTestDirectory('stonewright-oauth-matrix-');
 	const path = join(directory, 'tokens.json');
 	const store = new OAuthTokenStore(path);
 	return run(store, path).finally(() => {

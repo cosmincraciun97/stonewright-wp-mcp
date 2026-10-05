@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
 import { OAuthReauthRequiredError, OAuthTokenStore } from '../src/oauth-token-manager.js';
 import { WordPressMcpClient, type WordPressMcpConfig } from '../src/wordpress-mcp.js';
 
@@ -36,7 +36,7 @@ function successForPluginRequest(init?: RequestInit): Response {
 
 describe('WordPress MCP OAuth runtime', () => {
 	it('refreshes through the token manager before the first protected request', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-runtime-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-runtime-');
 		try {
 			const tokenStorePath = join(directory, 'tokens.json');
 			new OAuthTokenStore(tokenStorePath).save({ accessToken: 'expired-access', refreshToken: 'refresh-one', expiresAt: 0 });
@@ -68,7 +68,7 @@ describe('WordPress MCP OAuth runtime', () => {
 	});
 
 	it('refreshes and retries a rejected protected request exactly once', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-401-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-401-');
 		try {
 			const tokenStorePath = join(directory, 'tokens.json');
 			new OAuthTokenStore(tokenStorePath).save({
@@ -103,7 +103,7 @@ describe('WordPress MCP OAuth runtime', () => {
 	});
 
 	it('clears terminal invalid_grant and never retries it on later calls', async () => {
-		const directory = mkdtempSync(join(tmpdir(), 'stonewright-oauth-terminal-'));
+		const directory = createOAuthTestDirectory('stonewright-oauth-terminal-');
 		try {
 			const tokenStorePath = join(directory, 'tokens.json');
 			const store = new OAuthTokenStore(tokenStorePath);
