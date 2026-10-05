@@ -888,27 +888,11 @@ html.sw-has-shell {
 /* ------------------------------------------------------------------ */
 /* Block Editor Queue                                                   */
 /* ------------------------------------------------------------------ */
-.sw-finalizer-panel {
-	max-width: 40rem;
-	margin: var(--sw-space-5) 0 0;
-	padding: var(--sw-space-5) var(--sw-space-6);
-	background: var(--sw-surface);
-	border: 1px solid var(--sw-border);
-	border-radius: var(--sw-radius);
-	box-shadow: var(--sw-shadow-1);
-}
 
-.sw-finalizer-panel > p {
-	margin: 0 0 var(--sw-space-3);
-	font-size: var(--sw-text-sm);
-	line-height: 1.6;
-	color: var(--sw-text-secondary);
-}
 
-.sw-finalizer-panel > p strong {
-	color: var(--sw-text);
-	font-weight: 600;
-}
+
+
+
 
 .sw-finalizer-status {
 	display: flex;
