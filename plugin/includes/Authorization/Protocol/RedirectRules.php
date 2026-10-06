@@ -12,8 +12,15 @@ namespace Stonewright\WpMcp\Authorization\Protocol;
 
 use Stonewright\WpMcp\Authorization\Model\OAuthFault;
 
-/** Exact callback matching with the native loopback-IP port exception. */
+/**
+ * Exact callback matching with the native loopback port exception: a native client's
+ * HTTP callback at 127.0.0.1, [::1] or localhost may use another port than the one
+ * registered, while scheme, host, path and query must stay identical. The host is never
+ * substituted (localhost does not match 127.0.0.1), and HTTPS callbacks match exactly.
+ */
 final class RedirectRules {
+
+	private const LOOPBACK_HOSTS = [ '127.0.0.1', '[::1]', 'localhost' ];
 
 	/**
 	 * @param list<string> $registered Registered callback URIs.
@@ -26,7 +33,7 @@ final class RedirectRules {
 			if ( hash_equals( $candidate, $requested ) ) {
 				return $requested;
 			}
-			if ( $native_client && 'http' === $parts['scheme'] && in_array( $parts['host'], [ '127.0.0.1', '[::1]' ], true ) ) {
+			if ( $native_client && 'http' === $parts['scheme'] && in_array( $parts['host'], self::LOOPBACK_HOSTS, true ) ) {
 				unset( $parts['port'], $candidate_parts['port'] );
 				if ( $parts === $candidate_parts ) {
 					return $requested;
@@ -62,7 +69,7 @@ final class RedirectRules {
 		} elseif ( ! preg_match( '/^[A-Za-z0-9.-]+$/D', $host ) ) {
 			throw new OAuthFault( 'invalid_redirect_uri' );
 		}
-		if ( 'https' !== $parts['scheme'] && ! ( $native_client && 'http' === $parts['scheme'] && in_array( $host, [ '127.0.0.1', '[::1]', 'localhost' ], true ) ) ) {
+		if ( 'https' !== $parts['scheme'] && ! ( $native_client && 'http' === $parts['scheme'] && in_array( $host, self::LOOPBACK_HOSTS, true ) ) ) {
 			throw new OAuthFault( 'invalid_redirect_uri' );
 		}
 		return $parts;

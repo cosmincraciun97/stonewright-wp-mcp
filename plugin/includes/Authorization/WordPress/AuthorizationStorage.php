@@ -61,8 +61,25 @@ final class AuthorizationStorage {
 	}
 
 	public static function wordpress(): self {
-		$home = rtrim( (string) home_url( '/' ), '/' );
-		$resources = array_values(
+		$home = self::site_issuer();
+		$window = apply_filters( self::DUPLICATE_WINDOW_FILTER, RefreshPolicy::DEFAULT_DUPLICATE_WINDOW );
+		return new self( Database::wordpress(), new SystemClock(), new RandomIdentifiers(), $home, self::site_resources( $home ), is_numeric( $window ) ? (int) $window : RefreshPolicy::DEFAULT_DUPLICATE_WINDOW );
+	}
+
+	/** The issuer of the running site: its home URL without a trailing slash. */
+	public static function site_issuer(): string {
+		return rtrim( (string) home_url( '/' ), '/' );
+	}
+
+	/**
+	 * Resource identifiers the running site answers for: the REST URL of the current
+	 * permalink mode first, then the pretty and plain forms, so credentials issued under
+	 * either mode stay valid after a permalink change.
+	 *
+	 * @return list<string>
+	 */
+	public static function site_resources( string $home ): array {
+		return array_values(
 			array_unique(
 				[
 					rtrim( (string) rest_url( self::RESOURCE_PATH ), '/' ),
@@ -71,8 +88,6 @@ final class AuthorizationStorage {
 				]
 			)
 		);
-		$window = apply_filters( self::DUPLICATE_WINDOW_FILTER, RefreshPolicy::DEFAULT_DUPLICATE_WINDOW );
-		return new self( Database::wordpress(), new SystemClock(), new RandomIdentifiers(), $home, $resources, is_numeric( $window ) ? (int) $window : RefreshPolicy::DEFAULT_DUPLICATE_WINDOW );
 	}
 
 	public function database(): Database {

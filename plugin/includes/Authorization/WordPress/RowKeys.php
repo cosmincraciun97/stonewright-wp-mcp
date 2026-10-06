@@ -17,6 +17,7 @@ namespace Stonewright\WpMcp\Authorization\WordPress;
  *   already use; refresh rows keep sha256 of their paired jti in access_token_hash.
  * - Refresh rows, families, codes and pending consents written by this version:
  *   sha256 of a purpose prefix and the logical key.
+ * - Clients identified by a metadata document: sha256 of a purpose prefix and the URL.
  * - Refresh rows and families written by the earlier version are addressed by the
  *   64-character lowercase hex value stored in the row (identifier_hash or
  *   grant_family_hash); that value is the logical key and maps to itself. Keys issued
@@ -48,6 +49,15 @@ final class RowKeys {
 
 	public static function consent( string $pending_key ): string {
 		return hash( 'sha256', 'stonewright-oauth:consent:' . $pending_key );
+	}
+
+	/**
+	 * Client key of a client identified by a metadata document URL: 64 hex characters,
+	 * so the URL never has to fit the 64-character client_id column. Registered clients
+	 * keep their 32-hex identifiers, so the two forms never overlap.
+	 */
+	public static function client_document( string $url ): string {
+		return hash( 'sha256', 'stonewright-oauth:client-document:' . $url );
 	}
 
 	/** Registering address, stored only as its sha256. */

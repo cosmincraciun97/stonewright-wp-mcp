@@ -3,7 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
-use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
+use Stonewright\WpMcp\Authorization\WordPress\ClientNames;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -556,7 +556,7 @@ final class AuditLogPage {
 				$oauth_client_ids[] = $client_id;
 			}
 		}
-		$oauth_client_names = ( new ClientRepository() )->names_by_ids( $oauth_client_ids );
+		$oauth_client_names = ClientNames::lookup( $oauth_client_ids );
 		$repair_index       = self::repair_index();
 
 		foreach ( $rows as $row ) {

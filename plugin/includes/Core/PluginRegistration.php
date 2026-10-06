@@ -13,6 +13,8 @@ use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
+use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
@@ -27,9 +29,6 @@ use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
-use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
-use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\BasicAuthCredentials;
@@ -76,7 +75,8 @@ final class PluginRegistration {
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
 		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );
-		add_action( 'plugins_loaded', [ OAuthBootstrap::class, 'boot' ], 20 );
+		// OAuth: discovery, REST routes, authorization pages and bearer protection.
+		add_action( 'plugins_loaded', [ HttpSurface::class, 'register' ], 20, 0 );
 		// Two flavours of the Abilities API exist in the wild and we must
 		// support both:
 		//
@@ -147,7 +147,8 @@ final class PluginRegistration {
 		VendorGuard::register();
 		EditorSaveGuard::register();
 		BasicAuthCredentials::register();
-		OAuthKeys::register_admin();
+		// OAuth storage: clean-up handler, schema upgrade on init, key notice and retry.
+		AuthorizationLifecycle::register();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
@@ -180,9 +181,8 @@ final class PluginRegistration {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
 		IncidentStore::maybe_install_table();
-		OAuthSchema::maybe_install();
-		OAuthKeys::ensure();
-		OAuthSchema::schedule_gc();
+		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
+		AuthorizationLifecycle::activate();
 		SkillTables::install();
 		DesignDirectionsTable::install();
 		DesignDirectionVersionsTable::install();
@@ -287,7 +287,7 @@ final class PluginRegistration {
 	}
 
 	public function on_deactivate(): void {
-		OAuthSchema::unschedule_gc();
+		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}

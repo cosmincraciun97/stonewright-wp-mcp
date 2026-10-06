@@ -53,7 +53,9 @@ final class ClientMetadataRules {
 		if ( in_array( 'authorization_code', $accepted['grant_types'], true ) !== in_array( 'code', $accepted['response_types'], true ) ) {
 			throw new OAuthFault( 'invalid_client_metadata' );
 		}
-		$method = $requested['token_endpoint_auth_method'] ?? 'client_secret_basic';
+		// An omitted method is the RFC 7591 default unless the policy names an explicit
+		// substitute (RFC 7591 section 3.2.1); the response then reports the substitute.
+		$method = $requested['token_endpoint_auth_method'] ?? ( $supported_policy['omitted_authentication_method'] ?? 'client_secret_basic' );
 		if ( ! is_string( $method ) || ! in_array( $method, $supported_policy['authentication_methods'] ?? [], true ) ) {
 			throw new OAuthFault( 'invalid_client_metadata' );
 		}

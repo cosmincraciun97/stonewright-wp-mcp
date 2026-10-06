@@ -5,15 +5,13 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticGraph;
+use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
+use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
-use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
-use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
-use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
-use Stonewright\WpMcp\OAuth\Transport as OAuthTransport;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
@@ -45,9 +43,10 @@ final class SetupDiagnostics {
 			: ConnectClientConfig::mcp_endpoint_url();
 		$tool_count    = count( AbilityRegistry::enabled_abilities() );
 		$surface       = AbilityRegistry::mcp_surface();
-		$oauth_allowed = OAuthTransport::allowed();
-		$oauth_endpoint = OAuthBootstrap::resource_identifier();
-		$oauth_discovery = Discovery::protected_resource_metadata_url();
+		$oauth_site    = HttpSurface::site();
+		$oauth_allowed = $oauth_site->transport_allowed();
+		$oauth_endpoint = $oauth_site->resource();
+		$oauth_discovery = $oauth_site->protected_resource_metadata_url();
 		$stdio         = in_array( $method, [ 'application-password-stdio', 'stdio' ], true );
 		$probe         = (bool) ( $args['probe'] ?? false );
 		$oauth_probe   = $probe && 'oauth-http' === $method;
@@ -822,7 +821,7 @@ final class SetupDiagnostics {
 			return max( 0, (int) $args['ephemeral_count']() );
 		}
 
-		return ( new ClientRepository() )->count_ephemeral_clients();
+		return AuthorizationLifecycle::storage()->clients()->self_test_clients();
 	}
 
 	/**

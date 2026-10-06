@@ -25,6 +25,27 @@ final class ClientMetadataTest extends TestCase {
 		self::assertArrayNotHasKey( 'unknown_extension', $accepted );
 	}
 
+	public function test_an_explicit_policy_substitutes_the_omitted_authentication_method(): void {
+		$profile = $this->profile();
+		unset( $profile['token_endpoint_auth_method'] );
+		$accepted = ( new ClientMetadataRules() )->accept( $profile, [ 'omitted_authentication_method' => 'none' ] + $this->policy() );
+		self::assertSame( 'none', $accepted['token_endpoint_auth_method'] );
+
+		$profile['token_endpoint_auth_method'] = 'client_secret_basic';
+		try {
+			( new ClientMetadataRules() )->accept( $profile, [ 'omitted_authentication_method' => 'none' ] + $this->policy() );
+			self::fail( 'A requested unsupported method is not replaced.' );
+		} catch ( OAuthFault $fault ) {
+			self::assertSame( 'invalid_client_metadata', $fault->error() );
+		}
+	}
+
+	public function test_real_client_callbacks_register(): void {
+		$redirects = [ 'http://localhost:8787/callback', 'http://127.0.0.1:33418', 'http://[::1]:8123/callback', 'https://editor.example.test/redirect', 'http://localhost:54321/oauth/callback', 'https://assistant.example.test/api/mcp/auth_callback', 'https://chat.example.test/connector/oauth_redirect' ];
+		$accepted = ( new ClientMetadataRules() )->accept( [ 'redirect_uris' => $redirects ] + $this->profile(), [ 'maximum_redirects' => 10 ] + $this->policy() );
+		self::assertSame( $redirects, $accepted['redirect_uris'] );
+	}
+
 	public function test_omitted_authentication_does_not_silently_become_public(): void {
 		$profile = $this->profile();
 		unset( $profile['token_endpoint_auth_method'] );

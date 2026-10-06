@@ -45,17 +45,35 @@ final class RequestDecodingTest extends TestCase {
 		self::assertSame( 'refresh_token', $bag->one( 'grant_type' ) );
 	}
 
-	public function test_incomplete_duplicate_member_scan_rejects_the_registration(): void {
+	public function test_a_fifty_kilobyte_value_is_scanned_without_pattern_engine_limits(): void {
+		$value = str_repeat( 'a', 51200 );
 		$limit = ini_get( 'pcre.backtrack_limit' );
 		ini_set( 'pcre.backtrack_limit', '10' );
 		try {
-			( new RequestDecoder() )->registration( '{"client_name":"' . str_repeat( 'a', 20000 ) . '"}', 65536 );
-			self::fail( 'A scan that cannot finish must not accept the body.' );
-		} catch ( OAuthFault $fault ) {
-			self::assertSame( 'invalid_request', $fault->error() );
+			$decoded = ( new RequestDecoder() )->registration( '{"client_name":"' . $value . '","redirect_uris":["https://example.test/callback"]}', 65536 );
 		} finally {
 			ini_set( 'pcre.backtrack_limit', (string) $limit );
 		}
+		self::assertSame( $value, $decoded['client_name'] );
+		self::assertSame( [ 'https://example.test/callback' ], $decoded['redirect_uris'] );
+	}
+
+	public function test_duplicates_are_found_after_long_values_with_escapes(): void {
+		$value = str_repeat( 'b\\"\\\\', 12000 );
+		try {
+			( new RequestDecoder() )->registration( '{"client_name":"' . $value . '","note":{"client_name":1},"client_name":"x"}', 131072 );
+			self::fail( 'A repeated top-level member must be refused after a long value.' );
+		} catch ( OAuthFault $fault ) {
+			self::assertSame( 'invalid_request', $fault->error() );
+		}
+		$this->expectException( OAuthFault::class );
+		( new RequestDecoder() )->registration( '{"client_name":"a","client_name":"b"}', 512 );
+	}
+
+	public function test_nested_members_may_repeat_names_used_at_the_top_level(): void {
+		$decoded = ( new RequestDecoder() )->registration( '{"client_name":"a","jwks":{"client_name":"b","keys":[{"kid":"1"},{"kid":"2"}]},"scope":"mcp"}', 512 );
+		self::assertSame( 'a', $decoded['client_name'] );
+		self::assertSame( 'mcp', $decoded['scope'] );
 	}
 
 	public function test_registration_retains_metadata_types_for_validation(): void {

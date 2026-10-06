@@ -28,15 +28,41 @@ final class RedirectAndProofTest extends TestCase {
 		return [
 			[ 'http://127.0.0.1:42/other', 'http://127.0.0.1/callback', true ],
 			[ 'http://localhost:42/callback', 'http://127.0.0.1/callback', true ],
+			[ 'http://127.0.0.1:42/callback', 'http://localhost/callback', true ],
+			[ 'http://[::1]:42/callback', 'http://localhost/callback', true ],
+			[ 'http://localhost:42/other', 'http://localhost/callback', true ],
+			[ 'http://localhost:42/callback?a=2', 'http://localhost/callback?a=1', true ],
+			[ 'http://localhost:42/callback', 'http://localhost/callback', false ],
+			[ 'http://localhost.example.test:42/callback', 'http://localhost.example.test/callback', true ],
 			[ 'http://[::1]:42/callback', 'http://127.0.0.1/callback', true ],
 			[ 'http://127.0.0.1:42/callback?a=2', 'http://127.0.0.1/callback?a=1', true ],
 			[ 'http://127.0.0.1:42/callback', 'http://127.0.0.1/callback', false ],
 			[ 'https://example.test:42/callback', 'https://example.test/callback', true ],
+			[ 'https://editor.example.test:8443/redirect', 'https://editor.example.test/redirect', true ],
 			[ 'https://example.test/callback#fragment', 'https://example.test/callback#fragment', true ],
 			[ 'https://user@example.test/callback', 'https://user@example.test/callback', true ],
 			[ 'http://[::1/callback', 'http://[::1/callback', true ],
 			[ 'http://example.test/callback', 'http://example.test/callback', true ],
 			[ 'javascript:alert(1)', 'javascript:alert(1)', true ],
+		];
+	}
+
+	/** @dataProvider real_client_callbacks */
+	public function test_loopback_callbacks_of_real_clients_match_with_a_changed_port( string $requested, string $registered ): void {
+		self::assertSame( $requested, ( new RedirectRules() )->approve( $requested, [ $registered ], true ) );
+	}
+
+	public function real_client_callbacks(): array {
+		return [
+			'fixed localhost port'          => [ 'http://localhost:8787/callback', 'http://localhost:8787/callback' ],
+			'localhost port changes'        => [ 'http://localhost:53682/callback', 'http://localhost/callback' ],
+			'localhost registered port'     => [ 'http://localhost:40123/oauth/callback', 'http://localhost:7777/oauth/callback' ],
+			'ipv4 loopback without path'    => [ 'http://127.0.0.1:33418', 'http://127.0.0.1:33418' ],
+			'ipv4 loopback port changes'    => [ 'http://127.0.0.1:40000', 'http://127.0.0.1:33418' ],
+			'ipv4 loopback portless'        => [ 'http://127.0.0.1:61234/callback', 'http://127.0.0.1/callback' ],
+			'ipv6 loopback port changes'    => [ 'http://[::1]:8123/callback', 'http://[::1]:9000/callback' ],
+			'hosted https callback'         => [ 'https://editor.example.test/redirect', 'https://editor.example.test/redirect' ],
+			'hosted https callback, longer' => [ 'https://assistant.example.test/api/mcp/auth_callback', 'https://assistant.example.test/api/mcp/auth_callback' ],
 		];
 	}
 

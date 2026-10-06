@@ -49,31 +49,78 @@ final class RequestDecoder {
 		if ( ! $object instanceof \stdClass ) {
 			throw new OAuthFault( 'invalid_request' );
 		}
-		// JSON is already valid; tokens identify duplicate top-level member names.
-		// A scan that cannot finish (for example an exhausted pattern stack) rejects the body.
-		if ( false === preg_match_all( '/"(?:[^"\\\\]|\\\\.)*"|[{}\[\]:,]|[^\s{}\[\]:,]+/u', $json, $matches ) ) {
+		if ( self::repeats_top_level_member( $json ) ) {
 			throw new OAuthFault( 'invalid_request' );
 		}
+		return get_object_vars( $object );
+	}
+
+	/**
+	 * Whether the top-level object of already validated JSON repeats a member name.
+	 *
+	 * One linear pass that does not use the pattern engine, so a long value cannot
+	 * exhaust a backtracking or JIT stack: string contents are skipped with strcspn and
+	 * only top-level member names are decoded (escapes included) and compared.
+	 *
+	 * @throws OAuthFault When a string is not terminated.
+	 */
+	private static function repeats_top_level_member( string $json ): bool {
+		$length = strlen( $json );
 		$depth = 0;
-		$expect_key = true;
+		$expect_key = false;
 		$seen = [];
-		foreach ( $matches[0] as $token ) {
-			if ( '{' === $token || '[' === $token ) {
-				++$depth;
-			} elseif ( '}' === $token || ']' === $token ) {
-				--$depth;
-			} elseif ( 1 === $depth && ',' === $token ) {
-				$expect_key = true;
-			} elseif ( 1 === $depth && $expect_key && '"' === $token[0] ) {
-				$key = (string) json_decode( $token, true, 2, JSON_THROW_ON_ERROR );
-				if ( isset( $seen[ $key ] ) ) {
-					throw new OAuthFault( 'invalid_request' );
+		for ( $index = 0; $index < $length; ++$index ) {
+			$char = $json[ $index ];
+			if ( '"' === $char ) {
+				$end = self::string_end( $json, $index, $length );
+				if ( 1 === $depth && $expect_key ) {
+					try {
+						$key = (string) json_decode( substr( $json, $index, $end - $index + 1 ), true, 2, JSON_THROW_ON_ERROR );
+					} catch ( \JsonException $exception ) {
+						throw new OAuthFault( 'invalid_request' );
+					}
+					if ( isset( $seen[ $key ] ) ) {
+						return true;
+					}
+					$seen[ $key ] = true;
+					$expect_key = false;
 				}
-				$seen[ $key ] = true;
-				$expect_key = false;
+				$index = $end;
+				continue;
+			}
+			if ( '{' === $char || '[' === $char ) {
+				++$depth;
+				if ( 1 === $depth ) {
+					$expect_key = '{' === $char;
+				}
+			} elseif ( '}' === $char || ']' === $char ) {
+				--$depth;
+			} elseif ( ',' === $char && 1 === $depth ) {
+				$expect_key = true;
 			}
 		}
-		return get_object_vars( $object );
+		return false;
+	}
+
+	/**
+	 * Offset of the quote that closes the string opened at $start.
+	 *
+	 * @throws OAuthFault When the string is not terminated.
+	 */
+	private static function string_end( string $json, int $start, int $length ): int {
+		$index = $start + 1;
+		while ( $index < $length ) {
+			$index += strcspn( $json, '"\\', $index );
+			if ( $index >= $length ) {
+				break;
+			}
+			if ( '\\' === $json[ $index ] ) {
+				$index += 2;
+				continue;
+			}
+			return $index;
+		}
+		throw new OAuthFault( 'invalid_request' );
 	}
 
 	private function require_size( string $body, int $maximum_bytes ): void {
