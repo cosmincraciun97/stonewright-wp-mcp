@@ -61,7 +61,9 @@ class UnclearableTokenStore extends OAuthTokenStore {
 	}
 }
 
-describe('OAuth token manager', () => {
+// On Windows these tests create and check file ACLs through PowerShell, which can take
+// several seconds to start on a fresh runner.
+describe('OAuth token manager', { timeout: 30_000 }, () => {
 	it('persists rotated tokens atomically with least-privilege permissions', () => {
 		const fixture = makeStore();
 		try {
