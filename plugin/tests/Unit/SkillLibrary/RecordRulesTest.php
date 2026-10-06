@@ -37,6 +37,31 @@ final class RecordRulesTest extends TestCase {
 		$this->assertSame( 'stonewright_skill_sensitive_content', $record->get_error_code() );
 	}
 
+	/** @dataProvider credential_leaves */
+	public function test_credentials_are_found_in_every_raw_text_key_and_leaf( array $metadata ): void {
+		$record = RecordRules::normalize( $metadata + [ 'slug' => 'example', 'title' => 'Example', 'content' => '# Example' ] );
+		$this->assertInstanceOf( \WP_Error::class, $record );
+		$this->assertSame( 'stonewright_skill_sensitive_content', $record->get_error_code() );
+	}
+
+	public static function credential_leaves(): array {
+		$address = 'https://admin:' . 'pw12345@example.com';
+		return [
+			'address in body' => [ [ 'content' => 'Open ' . $address . ' first.' ] ],
+			'address in description' => [ [ 'description' => 'Use ' . $address . ' for examples.' ] ],
+			'address in nested metadata' => [ [ 'private_extension' => [ 'endpoint' => [ $address ] ] ] ],
+			'address as a metadata key' => [ [ 'private_extension' => [ $address => true ] ] ],
+			'bearer value with slashes' => [ [ 'content' => 'Send Bearer ab/' . 'cdefghijklmnop with the request.' ] ],
+			'labelled value in metadata' => [ [ 'private_extension' => [ 'api_key' => 'sk-example-' . '0123456789' ] ] ],
+			'labelled list in metadata' => [ [ 'private_extension' => [ 'password' => [ 'hunter2-' . 'example' ] ] ] ],
+		];
+	}
+
+	public function test_a_label_ending_one_line_is_not_joined_to_the_following_lines(): void {
+		$record = RecordRules::normalize( [ 'slug' => 'example', 'title' => 'Example', 'content' => "Ask for the confirmation token:\n\n```\n\"Confirm: replace the example section\"\n```\n" ] );
+		$this->assertIsArray( $record );
+	}
+
 	public function test_lint_reports_unclear_triggers_conflicts_and_missing_tools(): void {
 		$review = RecordRules::review( [ 'description' => '', 'content' => 'Use `stonewright/example-missing`.', 'conflicts' => [ 'synthetic conflict' ], 'status' => 'stale' ], [ 'stonewright/ping' ] );
 		$this->assertContains( 'missing_trigger', $review['errors'] );
@@ -111,6 +136,25 @@ final class RecordRulesTest extends TestCase {
 			'conflict text' => [ [ 'conflicts' => 'unresolved' ] ],
 			'conflict object' => [ [ 'conflicts' => [ [ 'unresolved' ] ] ] ],
 			'fingerprint invalid' => [ [ 'semantic_fingerprint' => 'invalid' ] ],
+			'fingerprint with trailing newline' => [ [ 'semantic_fingerprint' => str_repeat( 'a', 64 ) . "\n" ] ],
+			'constraint name with trailing newline' => [ [ 'version_constraints' => [ "elementor\n" => 'required' ] ] ],
+			'any_of with an empty alternative' => [ [ 'version_constraints' => [ 'any_of' => 'acf||pods' ] ] ],
+		];
+	}
+
+	/** @dataProvider stored_constraint_shapes */
+	public function test_stored_constraint_shapes_are_accepted( array $constraints ): void {
+		$record = RecordRules::normalize( [ 'slug' => 'example', 'title' => 'Example', 'content' => '# Example', 'version_constraints' => $constraints ] );
+		$this->assertIsArray( $record );
+		$this->assertSame( $constraints, $record['version_constraints'] );
+	}
+
+	public static function stored_constraint_shapes(): array {
+		return [
+			'no constraint' => [ [] ],
+			'required plugin or version expression' => [ [ 'elementor' => 'required', 'woocommerce' => '>=8.0' ] ],
+			'any one listed plugin' => [ [ 'any_of' => 'acf|acpt|pods' ] ],
+			'digit-leading plugin slugs' => [ [ '3d-viewer' => 'required', 'any_of' => '2fa-guard|redirection' ] ],
 		];
 	}
 }

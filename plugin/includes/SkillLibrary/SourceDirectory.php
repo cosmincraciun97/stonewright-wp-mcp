@@ -38,7 +38,7 @@ final class SourceDirectory {
 			$source = is_string( $entry['source_id'] ?? null ) ? $entry['source_id'] : '';
 			$record = is_array( $entry['record'] ?? null ) ? $entry['record'] : [];
 			$slug = is_string( $record['slug'] ?? null ) ? $record['slug'] : '';
-			if ( ! preg_match( '/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/', $source ) || '' === $slug ) {
+			if ( ! preg_match( '/^[a-z0-9]+(?:[._-][a-z0-9]+)*\z/', $source ) || '' === $slug ) {
 				$conflicts[] = [ 'source_id' => $source, 'slug' => $slug, 'reason' => 'invalid_source_record' ];
 				continue;
 			}

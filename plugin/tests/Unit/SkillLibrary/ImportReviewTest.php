@@ -36,13 +36,24 @@ final class ImportReviewTest extends TestCase {
 		$this->assertInstanceOf( \WP_Error::class, ImportReview::confirm( $review ) );
 	}
 
+	public function test_confirmation_binds_the_reviewed_file_name_identity(): void {
+		$review = ImportReview::examine( 'example.md', self::DOCUMENT );
+		$this->assertIsArray( $review );
+		$this->assertInstanceOf( \WP_Error::class, ImportReview::confirm( array_replace( $review, [ 'filename' => 'other.md' ] ) ) );
+		$this->assertInstanceOf( \WP_Error::class, ImportReview::confirm( array_replace( $review, [ 'filename' => 'other.md', 'slug' => 'other' ] ) ) );
+		$this->assertInstanceOf( \WP_Error::class, ImportReview::confirm( array_diff_key( $review, [ 'slug' => true ] ) ) );
+		$record = ImportReview::confirm( $review );
+		$this->assertIsArray( $record );
+		$this->assertSame( 'example', $record['slug'] );
+	}
+
 	/** @dataProvider invalid_file_names */
 	public function test_file_name_cannot_be_a_path_or_nonmarkdown_file( string $filename ): void {
 		$this->assertInstanceOf( \WP_Error::class, ImportReview::examine( $filename, self::DOCUMENT ) );
 	}
 
 	public static function invalid_file_names(): array {
-		return [ [ '../example.md' ], [ 'C:\\example.md' ], [ 'example.php' ], [ '' ] ];
+		return [ [ '../example.md' ], [ 'C:\\example.md' ], [ 'example.php' ], [ '' ], [ "example.md\n" ] ];
 	}
 
 	public function test_no_private_content_is_persisted_during_inspection(): void {

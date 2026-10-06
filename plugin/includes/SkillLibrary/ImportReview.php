@@ -16,7 +16,7 @@ final class ImportReview {
 
 	/** @param array<int, string> $tool_names @return array<string, mixed>|\WP_Error */
 	public static function examine( string $filename, string $markdown, array $tool_names = [] ): array|\WP_Error {
-		if ( ! preg_match( '/^[^\\\\\/:\x00]+\.md$/i', $filename ) ) {
+		if ( ! preg_match( '/^[^\\\\\/:\x00]+\.md\z/i', $filename ) ) {
 			return self::invalid( 'Choose one Markdown file, without a directory path.' );
 		}
 		$decoded = DocumentCodec::read( $markdown, sanitize_title( substr( $filename, 0, -3 ) ) );
@@ -44,11 +44,13 @@ final class ImportReview {
 			return $record;
 		}
 		$review = RecordRules::review( $record, $tool_names );
+		$content_hash = hash( 'sha256', $markdown );
 		return [
 			'filename' => $filename,
 			'content' => $markdown,
-			'content_hash' => hash( 'sha256', $markdown ),
+			'content_hash' => $content_hash,
 			'slug' => $record['slug'],
+			'review_hash' => self::binding( $record['slug'], $content_hash ),
 			'record' => $record,
 			'lint' => [ 'errors' => $review['errors'], 'warnings' => $review['warnings'] ],
 			'trust' => $review['trust'],
@@ -57,7 +59,7 @@ final class ImportReview {
 
 	/** @param array<string, mixed> $review @param array<int, string> $tool_names @return array<string, mixed>|\WP_Error */
 	public static function confirm( array $review, array $tool_names = [] ): array|\WP_Error {
-		foreach ( [ 'filename', 'content', 'content_hash' ] as $field ) {
+		foreach ( [ 'filename', 'content', 'content_hash', 'slug', 'review_hash' ] as $field ) {
 			if ( ! isset( $review[ $field ] ) || ! is_string( $review[ $field ] ) ) {
 				return self::invalid( 'Inspect the Markdown file before importing it.' );
 			}
@@ -69,7 +71,15 @@ final class ImportReview {
 		if ( ! hash_equals( $derived['content_hash'], $review['content_hash'] ) ) {
 			return self::invalid( 'The file changed after review. Inspect it again.' );
 		}
+		if ( $derived['slug'] !== $review['slug'] || ! hash_equals( $derived['review_hash'], $review['review_hash'] ) ) {
+			return self::invalid( 'The file name changed after review. Inspect it again.' );
+		}
 		return $derived['record'];
+	}
+
+	/** The reviewed identity is derived from the file name, so the review hash covers it with the bytes. */
+	private static function binding( string $slug, string $content_hash ): string {
+		return hash( 'sha256', $slug . "\n" . $content_hash );
 	}
 
 	private static function invalid( string $message ): \WP_Error {

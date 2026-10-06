@@ -27,4 +27,38 @@ final class VisibilityRulesTest extends TestCase {
 		$missing = VisibilityRules::missing( $record, static fn( array $constraints ): bool => ! isset( $constraints['woocommerce'] ) );
 		$this->assertSame( [ 'woocommerce' ], $missing );
 	}
+
+	/** @dataProvider stored_constraint_shapes */
+	public function test_stored_constraint_shapes_report_unavailable_requirements( array $constraints, array $present, array $missing ): void {
+		$compatible = static fn( array $constraint ): bool => in_array( (string) array_key_first( $constraint ), $present, true );
+		$this->assertSame( $missing, VisibilityRules::missing( [ 'version_constraints' => $constraints ], $compatible ) );
+		$record = [ 'enabled' => true, 'enable_agentic' => true, 'status' => 'active', 'version_constraints' => $constraints ];
+		$this->assertSame( [] === $missing, VisibilityRules::eligible( $record, 'agentic', $compatible ) );
+	}
+
+	public static function stored_constraint_shapes(): array {
+		return [
+			'no constraint' => [ [], [], [] ],
+			'required plugin present' => [ [ 'elementor' => 'required' ], [ 'elementor' ], [] ],
+			'required plugin absent' => [ [ 'elementor' => 'required' ], [], [ 'elementor' ] ],
+			'version expression unmet' => [ [ 'elementor' => '>=3.16' ], [], [ 'elementor' ] ],
+			'any one listed plugin present' => [ [ 'any_of' => 'acf|acpt|pods' ], [ 'pods' ], [] ],
+			'no listed plugin present' => [ [ 'any_of' => 'acf|acpt|pods' ], [ 'elementor' ], [ 'acf|acpt|pods' ] ],
+			'digit-leading plugin slugs present' => [ [ '3d-viewer' => 'required', 'any_of' => '2fa-guard|redirection' ], [ '3d-viewer', '2fa-guard' ], [] ],
+			'digit-leading plugin slugs absent' => [ [ '3d-viewer' => 'required', 'any_of' => '2fa-guard|redirection' ], [], [ '3d-viewer', '2fa-guard|redirection' ] ],
+		];
+	}
+
+	public function test_any_of_asks_for_each_alternative_until_one_is_present(): void {
+		$asked = [];
+		$missing = VisibilityRules::missing(
+			[ 'version_constraints' => [ 'any_of' => 'acf|acpt|pods' ] ],
+			static function ( array $constraint ) use ( &$asked ): bool {
+				$asked[] = $constraint;
+				return isset( $constraint['acpt'] );
+			}
+		);
+		$this->assertSame( [], $missing );
+		$this->assertSame( [ [ 'acf' => 'required' ], [ 'acpt' => 'required' ] ], $asked );
+	}
 }

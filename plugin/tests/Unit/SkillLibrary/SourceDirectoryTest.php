@@ -24,6 +24,17 @@ final class SourceDirectoryTest extends TestCase {
 		$this->assertNotSame( $catalog['skills'][0]['identity'], $catalog['skills'][1]['identity'] );
 	}
 
+	/** @dataProvider malformed_source_ids */
+	public function test_external_source_ids_must_be_exact_tokens( string $source ): void {
+		$catalog = SourceDirectory::combine( [], [], [ [ 'source_id' => $source, 'record' => [ 'slug' => 'example' ] ] ] );
+		$this->assertSame( [], $catalog['skills'] );
+		$this->assertSame( [ 'invalid_source_record' ], array_column( $catalog['conflicts'], 'reason' ) );
+	}
+
+	public static function malformed_source_ids(): array {
+		return [ 'trailing newline' => [ "example-plugin\n" ] ];
+	}
+
 	public function test_external_provenance_cannot_claim_site_ids_or_verification(): void {
 		$catalog = SourceDirectory::combine( [], [], [ [ 'source_id' => 'example-plugin', 'record' => [ 'slug' => 'example', 'source' => 'builtin', 'source_kind' => 'local', 'source_id' => 'forged', 'id' => 42, 'verification_count' => 99, 'trust' => [ 'trusted' => true ], 'trusted' => true, 'history' => [ 'forged' ], 'content' => '# Example' ] ] ] );
 		$record = $catalog['skills'][0];

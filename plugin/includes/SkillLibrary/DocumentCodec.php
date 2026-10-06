@@ -47,7 +47,7 @@ final class DocumentCodec {
 			if ( '' === trim( $line ) || str_starts_with( ltrim( $line ), '#' ) ) {
 				continue;
 			}
-			if ( ! preg_match( '/^([a-z][a-z0-9_-]*):[ \t]*(.*)$/', $line, $match ) ) {
+			if ( ! preg_match( '/^([a-z][a-z0-9_-]*):[ \t]*(.*)\z/', $line, $match ) ) {
 				return self::invalid( 'Front matter supports flat scalar fields only.' );
 			}
 			$key = $match[1];
@@ -106,7 +106,8 @@ final class DocumentCodec {
 
 	/** @param array<string, mixed> $record */
 	public static function write( array $record ): string {
-		$content = str_replace( [ "\r\n", "\r" ], "\n", (string) ( $record['content'] ?? '' ) );
+		// The hash covers exactly the canonical body that read() returns, which never starts with a newline.
+		$content = ltrim( str_replace( [ "\r\n", "\r" ], "\n", (string) ( $record['content'] ?? '' ) ), "\n" );
 		if ( '' !== $content && ! str_ends_with( $content, "\n" ) ) {
 			$content .= "\n";
 		}
@@ -165,13 +166,18 @@ final class DocumentCodec {
 	/** @return array<string, string>|\WP_Error */
 	private static function constraints( string $value ): array|\WP_Error {
 		$decoded = json_decode( $value, true );
-		if ( ! str_starts_with( $value, '{' ) || ! is_array( $decoded ) || JSON_ERROR_NONE !== json_last_error() ) {
-			return self::invalid( 'Version constraints must be a JSON object.' );
+		// An empty list is how stored rows record "no constraint"; any other list is not a component map.
+		if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $decoded )
+			|| ! ( str_starts_with( $value, '{' ) || ( str_starts_with( $value, '[' ) && [] === $decoded ) ) ) {
+			return self::invalid( 'Version constraints must be a JSON object, or [] for none.' );
 		}
-		foreach ( $decoded as $component => $expression ) {
-			if ( ! is_string( $component ) || ! preg_match( '/^[a-z][a-z0-9_-]*$/', $component ) || ! is_string( $expression ) || '' === trim( $expression ) ) {
-				return self::invalid( 'Version constraints require component names and nonempty version expressions.' );
-			}
+		if ( ! VisibilityRules::well_formed( $decoded ) ) {
+			return self::invalid( 'Version constraints map components to "required" or a version expression, or list any_of alternatives.' );
+		}
+		// Decoding keeps only the last of repeated names, so every written member must survive it.
+		// In a flat object of strings, only a member name is a JSON string followed by a colon.
+		if ( preg_match_all( '/"(?:[^"\\\\]|\\\\.)*"\s*:/', $value ) !== count( $decoded ) ) {
+			return self::invalid( 'A version constraint component is repeated.' );
 		}
 		return $decoded;
 	}

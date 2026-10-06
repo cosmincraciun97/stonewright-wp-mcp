@@ -4,12 +4,18 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\SkillLibrary;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\SkillLibrary\ImportReview;
 use Stonewright\WpMcp\SkillLibrary\MutationBoundary;
+use Stonewright\WpMcp\SkillLibrary\PackInventory;
+use Stonewright\WpMcp\SkillLibrary\PackRefresh;
 use Stonewright\WpMcp\SkillLibrary\Repository;
 use Stonewright\WpMcp\SkillLibrary\SkillCatalog;
+use Stonewright\WpMcp\SkillLibrary\VisibilityRules;
 
 /** @covers \Stonewright\WpMcp\SkillLibrary\SkillCatalog @covers \Stonewright\WpMcp\SkillLibrary\LifecycleDecisions */
 final class SkillCatalogTest extends TestCase {
+
+	private const IMPORT = "---\nname: Example\ndescription: Use when writing examples.\n---\n# Import\n";
 
 	private TestRepository $repository;
 	private TestBoundary $boundary;
@@ -116,14 +122,40 @@ final class SkillCatalogTest extends TestCase {
 		}
 	}
 
-	public function test_active_save_cannot_bypass_lint_or_runtime_visibility(): void {
+	public function test_active_save_cannot_bypass_lint_and_missing_components_only_hide_it(): void {
 		$result = $this->catalog->store( $this->example( [ 'description' => '' ] ) );
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( [], $this->repository->rows );
 		$unavailable = new SkillCatalog( $this->repository, $this->boundary, static fn( array $constraints ): bool => false );
-		$result = $unavailable->store( $this->example( [ 'version_constraints' => [ 'elementor' => 'required' ] ] ) );
-		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( [], $this->repository->rows );
+		$this->assertSame( 1, $unavailable->store( $this->example( [ 'version_constraints' => [ 'elementor' => 'required' ] ] ) ) );
+		$this->assertTrue( $this->repository->rows[1]['enabled'] );
+		$this->assertSame( [], $unavailable->browse( false, 'agentic' ) );
+		$this->assertCount( 1, $unavailable->browse() );
+	}
+
+	/** @dataProvider every_source */
+	public function test_missing_components_never_block_enabling( string $source ): void {
+		$absent = static fn( array $constraints ): bool => false;
+		$catalog = new SkillCatalog( $this->repository, $this->boundary, $absent );
+		$this->repository->rows[6] = $this->example( [ 'id' => 6, 'revision' => 1, 'source' => $source, 'status' => 'draft', 'enabled' => false, 'version_constraints' => [ 'any_of' => 'acf|pods' ] ] );
+		$this->assertTrue( $catalog->set_exposure( 6, true ) );
+		$this->assertTrue( $this->repository->rows[6]['enabled'] );
+		$this->assertSame( 'active', $this->repository->rows[6]['status'] );
+		$this->assertSame( [], $catalog->browse( false, 'agentic' ) );
+		$this->assertSame( [ 'acf|pods' ], VisibilityRules::missing( $this->repository->rows[6], $absent ) );
+	}
+
+	public static function every_source(): array {
+		return [ 'built-in' => [ 'builtin' ], 'playbook' => [ 'playbook' ], 'local' => [ 'user' ], 'imported' => [ 'uploaded' ], 'candidate' => [ 'candidate' ] ];
+	}
+
+	public function test_digit_leading_plugin_slugs_can_be_saved_and_enabled(): void {
+		$constraints = [ '3d-viewer' => 'required', 'any_of' => '2fa-guard|redirection' ];
+		$this->assertSame( 1, $this->catalog->store( $this->example( [ 'version_constraints' => $constraints ] ) ) );
+		$this->assertTrue( $this->catalog->set_exposure( 1, false ) );
+		$this->assertTrue( $this->catalog->set_exposure( 1, true ) );
+		$this->assertSame( $constraints, $this->repository->rows[1]['version_constraints'] );
+		$this->assertCount( 1, $this->catalog->browse( false, 'agentic' ) );
 	}
 
 	public function test_empty_import_receipt_cannot_reach_the_repository(): void {
@@ -134,8 +166,9 @@ final class SkillCatalogTest extends TestCase {
 	}
 
 	public function test_unknown_private_review_claims_are_not_copied_to_audits(): void {
-		$this->catalog->store( $this->example( [ 'reviewed_content_hash' => [ 'private' => 'synthetic metadata' ] ] ) );
+		$this->catalog->store( $this->example( [ 'reviewed_content_hash' => [ 'private' => 'synthetic metadata' ], 'review_hash' => [ 'private' => 'synthetic metadata' ] ] ) );
 		$this->assertArrayNotHasKey( 'reviewed_content_hash', $this->boundary->events[0]['summary'] );
+		$this->assertArrayNotHasKey( 'review_hash', $this->boundary->events[0]['summary'] );
 	}
 
 	/** @dataProvider untrusted_authority_claims */
@@ -152,7 +185,141 @@ final class SkillCatalogTest extends TestCase {
 			[ [ 'trust' => [ 'site_verified' => true ] ] ],
 			[ [ 'semantic_fingerprint' => str_repeat( 'a', 64 ) ] ],
 			[ [ 'revision' => 99 ] ],
+			'cleared conflicts' => [ [ 'conflicts' => [] ] ],
 		];
+	}
+
+	/** @dataProvider component_availability */
+	public function test_every_shipped_entry_can_be_disabled_and_enabled_again( bool $available ): void {
+		$compatible = static fn( array $constraints ): bool => $available;
+		$catalog = new SkillCatalog( $this->repository, $this->boundary, $compatible );
+		$inventory = PackInventory::scan( dirname( STONEWRIGHT_DIR ) . '/skills' );
+		$this->assertIsArray( $inventory );
+		$this->assertSame( [], $inventory['diagnostics'] );
+		$identities = [];
+		foreach ( $inventory['entries'] as $entry ) {
+			$identities[ $entry['pack_key'] ] = $entry['record']['slug'];
+		}
+		$plan = PackRefresh::plan( $inventory, [], $identities );
+		$this->assertIsArray( $plan, is_wp_error( $plan ) ? $plan->get_error_message() : '' );
+		$this->assertSame( [], $plan['conflicts'] );
+		$this->assertCount( count( $inventory['entries'] ), $plan['upserts'] );
+		foreach ( $plan['upserts'] as $record ) {
+			$id = $this->repository->insert_unique( $record + [ 'revision' => 1 ] );
+			$this->assertIsInt( $id );
+			foreach ( [ false, true ] as $enabled ) {
+				$result = $catalog->set_exposure( $id, $enabled );
+				$this->assertTrue( $result, $record['slug'] . ( is_wp_error( $result ) ? ': ' . wp_json_encode( $result->get_error_data() ) : '' ) );
+				$this->assertSame( $enabled, $this->repository->rows[ $id ]['enabled'] );
+			}
+			$this->assertSame( 'active', $this->repository->rows[ $id ]['status'] );
+			// Enabling records the choice; visibility still waits for every required component.
+			$this->assertSame( $available || empty( $record['version_constraints'] ), VisibilityRules::eligible( $this->repository->rows[ $id ], 'all', $compatible ), $record['slug'] );
+		}
+	}
+
+	public static function component_availability(): array {
+		return [ 'components present' => [ true ], 'components absent' => [ false ] ];
+	}
+
+	/** @dataProvider site_sources */
+	public function test_site_guidance_still_needs_authored_content_lint_to_enable( string $source ): void {
+		$this->repository->rows[5] = $this->example( [ 'id' => 5, 'revision' => 1, 'source' => $source, 'status' => 'draft', 'enabled' => false, 'description' => 'Use when editing Elementor layouts.', 'content' => 'Call `stonewright/example-missing`.' ] );
+		$before = $this->repository->rows;
+		$result = $this->catalog->set_exposure( 5, true );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_skill_lint_failed', $result->get_error_code() );
+		$this->assertSame( $before, $this->repository->rows );
+	}
+
+	public static function site_sources(): array {
+		return [ 'local' => [ 'user' ], 'imported' => [ 'uploaded' ], 'candidate' => [ 'candidate' ] ];
+	}
+
+	/** @dataProvider ended_lifecycles */
+	public function test_enabling_cannot_revive_a_stale_or_retired_entry( string $status ): void {
+		$this->repository->rows[9] = $this->example( [ 'id' => 9, 'revision' => 1, 'source' => 'playbook', 'status' => $status, 'enabled' => false ] );
+		$before = $this->repository->rows;
+		$this->assertInstanceOf( \WP_Error::class, $this->catalog->set_exposure( 9, true ) );
+		$this->assertSame( $before, $this->repository->rows );
+	}
+
+	public static function ended_lifecycles(): array {
+		return [ 'retired playbook' => [ 'retired' ], 'stale playbook' => [ 'stale' ] ];
+	}
+
+	public function test_enabling_promotes_a_draft_to_active(): void {
+		$this->repository->rows[9] = $this->example( [ 'id' => 9, 'revision' => 1, 'status' => 'draft', 'enabled' => false ] );
+		$this->assertTrue( $this->catalog->set_exposure( 9, true ) );
+		$this->assertSame( 'active', $this->repository->rows[9]['status'] );
+		$this->assertTrue( $this->repository->rows[9]['enabled'] );
+	}
+
+	/** @dataProvider rows_failing_current_validators */
+	public function test_disable_trash_and_erase_do_not_rerun_write_validators( array $row ): void {
+		$this->repository->rows[7] = $row + [ 'id' => 7, 'slug' => 'example', 'revision' => 1, 'enabled' => true, 'status' => 'active' ];
+		$this->assertTrue( $this->catalog->set_exposure( 7, false ) );
+		$this->assertInstanceOf( \WP_Error::class, $this->catalog->set_exposure( 7, true ) );
+		$this->assertFalse( $this->repository->rows[7]['enabled'] );
+		$this->assertTrue( $this->catalog->put_in_trash( 7 ) );
+		$this->assertTrue( $this->catalog->erase( 7, 'synthetic-confirmation' ) );
+		$this->assertSame( [], $this->repository->rows );
+	}
+
+	public static function rows_failing_current_validators(): array {
+		return [
+			'credential in body' => [ [ 'title' => 'Example', 'description' => 'Use when writing examples.', 'content' => '-----BEGIN ' . 'PRIVATE KEY-----', 'source' => 'user' ] ],
+			'incomplete stored row' => [ [ 'content' => '# Example' ] ],
+		];
+	}
+
+	public function test_rollback_validates_only_a_result_that_would_be_active(): void {
+		$this->repository->rows[7] = $this->example( [ 'id' => 7, 'revision' => 3 ] );
+		$this->repository->archive['example'][1] = $this->example( [ 'id' => 7, 'revision' => 1, 'status' => 'draft', 'enabled' => false, 'content' => '-----BEGIN ' . 'PRIVATE KEY-----' ] );
+		$this->repository->archive['example'][2] = $this->example( [ 'id' => 7, 'revision' => 2, 'description' => '' ] );
+		$this->assertInstanceOf( \WP_Error::class, $this->catalog->restore_revision( 'example', 2 ) );
+		$this->assertSame( 3, $this->repository->rows[7]['revision'] );
+		$this->assertTrue( $this->catalog->restore_revision( 'example', 1 ) );
+		$this->assertSame( 'draft', $this->repository->rows[7]['status'] );
+		$this->assertSame( 4, $this->repository->rows[7]['revision'] );
+	}
+
+	public function test_reviewed_import_creates_one_disabled_draft_bound_to_its_review(): void {
+		$review = ImportReview::examine( 'example.md', self::IMPORT );
+		$this->assertIsArray( $review );
+		$this->assertSame( 1, $this->catalog->import_review( $review, 'synthetic-receipt' ) );
+		$row = $this->repository->rows[1];
+		$this->assertSame( [ 'example', 'uploaded', 'draft', false ], [ $row['slug'], $row['source'], $row['status'], $row['enabled'] ] );
+		$this->assertSame( "# Import\n", $row['content'] );
+		$this->assertSame( 'import', $this->boundary->last_action );
+		$this->assertSame( 'synthetic-receipt', $this->boundary->last_token );
+		$this->assertSame( $review['review_hash'], $this->boundary->events[0]['summary']['review_hash'] );
+	}
+
+	public function test_reviewed_import_never_replaces_an_existing_skill(): void {
+		$this->catalog->store( $this->example() );
+		$before = $this->repository->rows;
+		$review = ImportReview::examine( 'example.md', self::IMPORT );
+		$this->assertIsArray( $review );
+		$result = $this->catalog->import_review( $review, 'synthetic-receipt' );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_skill_import_exists', $result->get_error_code() );
+		$this->assertSame( $before, $this->repository->rows );
+		$this->assertNotSame( 'import', $this->boundary->last_action );
+	}
+
+	/** @dataProvider reserved_identity_writes */
+	public function test_new_skills_cannot_take_an_unseeded_builtin_identity( string $write ): void {
+		$catalog = new SkillCatalog( $this->repository, $this->boundary, static fn( array $constraints ): bool => true, [], null, [ 'example' ] );
+		$review = ImportReview::examine( 'example.md', self::IMPORT );
+		$this->assertIsArray( $review );
+		$result = 'import' === $write ? $catalog->import_review( $review, 'synthetic-receipt' ) : $catalog->store( $this->example() );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( [], $this->repository->rows );
+	}
+
+	public static function reserved_identity_writes(): array {
+		return [ 'import' => [ 'import' ], 'local save' => [ 'save' ] ];
 	}
 
 	public function test_untrusted_edits_invalidate_prior_verification_without_erasing_history(): void {

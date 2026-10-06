@@ -45,9 +45,11 @@ final class PackInventory {
 				$candidates[ $key ] = $directory->getPathname() . '/SKILL.md';
 			}
 		}
-		ksort( $candidates );
+		// Digit-only directory names become integer array keys; pack keys are always compared as text.
+		ksort( $candidates, SORT_STRING );
 		$entries = [];
 		foreach ( $candidates as $key => $path ) {
+			$key = (string) $key;
 			$resolved_file = realpath( $path );
 			$prefix = rtrim( str_replace( '\\', '/', $resolved ), '/' ) . '/';
 			if ( false === $resolved_file || is_link( $path ) || ! is_file( $path ) || ! is_readable( $path )

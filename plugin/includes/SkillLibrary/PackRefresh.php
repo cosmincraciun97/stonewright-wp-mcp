@@ -19,9 +19,10 @@ final class PackRefresh {
 		if ( ! isset( $inventory['entries'], $inventory['diagnostics'] ) || ! is_array( $inventory['entries'] ) || [] !== $inventory['diagnostics'] ) {
 			return new \WP_Error( 'stonewright_skill_pack_invalid', 'Resolve packaged skill diagnostics before planning a refresh.' );
 		}
+		// Stored rows are compared in the same normalized form that every write applies.
 		$by_slug = [];
 		foreach ( $existing as $record ) {
-			$slug = (string) ( $record['slug'] ?? '' );
+			$slug = is_string( $record['slug'] ?? null ) ? RecordRules::identity( $record['slug'] ) : '';
 			if ( '' === $slug || isset( $by_slug[ $slug ] ) ) {
 				return new \WP_Error( 'stonewright_skill_identity_ambiguous', 'Existing skill identities are ambiguous. No refresh plan was created.' );
 			}
@@ -31,8 +32,8 @@ final class PackRefresh {
 		foreach ( $inventory['entries'] as $entry ) {
 			$key = (string) ( $entry['pack_key'] ?? '' );
 			$slug = $identities[ $key ] ?? '';
-			if ( '' === $slug ) {
-				return new \WP_Error( 'stonewright_skill_identity_unverified', 'Supply verified persistent identities for every packaged entry.' );
+			if ( ! is_string( $slug ) || '' === $slug || RecordRules::identity( $slug ) !== $slug ) {
+				return new \WP_Error( 'stonewright_skill_identity_unverified', 'Supply verified canonical persistent identities for every packaged entry.' );
 			}
 			if ( isset( $mapped[ $slug ] ) ) {
 				return new \WP_Error( 'stonewright_skill_identity_ambiguous', 'Two packaged entries share one persistent identity. No refresh plan was created.' );

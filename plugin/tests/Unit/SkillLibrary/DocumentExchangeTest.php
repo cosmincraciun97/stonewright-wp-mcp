@@ -47,9 +47,29 @@ final class DocumentExchangeTest extends TestCase {
 			'nested YAML' => [ "---\nname: Example\ndescription:\n  key: value\n---\nBody" ],
 			'bad JSON' => [ "---\nname: Example\ndescription: Use with examples.\nversion_constraints: {bad}\n---\nBody" ],
 			'constraints array' => [ "---\nname: Example\ndescription: Use with examples.\nversion_constraints: [\"example\"]\n---\nBody" ],
+			'duplicate constraint key' => [ "---\nname: Example\ndescription: Use with examples.\nversion_constraints: {\"elementor\": \">=3.16\", \"elementor\": \">=3.0\"}\n---\nBody" ],
+			'constraint name with trailing newline' => [ "---\nname: Example\ndescription: Use with examples.\nversion_constraints: {\"elementor\\n\": \">=3.16\"}\n---\nBody" ],
+			'empty any_of alternative' => [ "---\nname: Example\ndescription: Use with examples.\nversion_constraints: {\"any_of\": \"acf||pods\"}\n---\nBody" ],
 			'invalid flag' => [ "---\nname: Example\ndescription: Use with examples.\nenable_agentic: perhaps\n---\nBody" ],
 			'binary' => [ "---\nname: Example\ndescription: Use with examples.\n---\nBody\0" ],
 			'invalid UTF-8' => [ "---\nname: Example\ndescription: Use with examples.\n---\n\xff" ],
+		];
+	}
+
+	/** @dataProvider stored_constraint_shapes */
+	public function test_front_matter_accepts_each_stored_constraint_shape( string $json, array $expected ): void {
+		$record = DocumentCodec::read( "---\nname: Example\ndescription: Use with examples.\nversion_constraints: " . $json . "\n---\nBody\n" );
+		$this->assertIsArray( $record );
+		$this->assertSame( $expected, $record['metadata']['version_constraints'] );
+	}
+
+	public static function stored_constraint_shapes(): array {
+		return [
+			'no constraint' => [ '[]', [] ],
+			'required plugin' => [ '{"elementor":"required"}', [ 'elementor' => 'required' ] ],
+			'version expression' => [ '{"elementor": ">=3.16"}', [ 'elementor' => '>=3.16' ] ],
+			'any one listed plugin' => [ '{"any_of":"acf|acpt|pods"}', [ 'any_of' => 'acf|acpt|pods' ] ],
+			'digit-leading plugin slugs' => [ '{"3d-viewer":"required","any_of":"2fa-guard|redirection"}', [ '3d-viewer' => 'required', 'any_of' => '2fa-guard|redirection' ] ],
 		];
 	}
 
@@ -70,5 +90,19 @@ final class DocumentExchangeTest extends TestCase {
 		$this->assertSame( "# Example\n", $decoded['content'] );
 		$this->assertArrayNotHasKey( 'source', $decoded );
 		$this->assertArrayNotHasKey( 'id', $decoded );
+	}
+
+	/** @dataProvider exported_bodies */
+	public function test_export_hash_covers_exactly_the_body_read_back( string $content ): void {
+		$decoded = DocumentCodec::read( DocumentCodec::write( [ 'slug' => 'example-guide', 'title' => 'Example', 'description' => 'Use when writing examples.', 'content' => $content ] ) );
+		$this->assertIsArray( $decoded );
+		$this->assertSame( hash( 'sha256', $decoded['content'] ), $decoded['metadata']['content_sha256'] );
+	}
+
+	public static function exported_bodies(): array {
+		return [
+			'missing final newline' => [ '# Example' ],
+			'leading blank lines' => [ "\n\n# Example\n" ],
+		];
 	}
 }

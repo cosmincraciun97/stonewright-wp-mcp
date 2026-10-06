@@ -16,6 +16,14 @@ use Stonewright\WpMcp\Security\SensitiveContent;
 /** Validates proposed records without losing omitted private metadata. */
 final class RecordRules {
 
+	/** Findings that judge authored text rather than the record's lifecycle. */
+	private const AUTHORED_CONTENT_FINDINGS = [ 'missing_trigger', 'missing_version_constraints' ];
+
+	/** The single identity normalization shared by saves, imports, and pack refreshes. */
+	public static function identity( string $slug ): string {
+		return sanitize_title( $slug );
+	}
+
 	/** @param array<string, mixed> $input @param array<string, mixed>|null $previous @return array<string, mixed>|\WP_Error */
 	public static function normalize( array $input, ?array $previous = null ): array|\WP_Error {
 		$record = array_replace( $previous ?? [], $input );
@@ -29,7 +37,7 @@ final class RecordRules {
 				return self::invalid( 'The skill needs a slug, title, and Markdown content.' );
 			}
 		}
-		$record['slug'] = sanitize_title( $record['slug'] );
+		$record['slug'] = self::identity( $record['slug'] );
 		if ( '' === $record['slug'] ) {
 			return self::invalid( 'The skill identifier is empty after normalization.' );
 		}
@@ -63,10 +71,8 @@ final class RecordRules {
 			if ( ! is_array( $record['version_constraints'] ) ) {
 				return self::invalid( 'Version constraints must be a component map.' );
 			}
-			foreach ( $record['version_constraints'] as $component => $expression ) {
-				if ( ! is_string( $component ) || ! preg_match( '/^[a-z][a-z0-9_-]*$/', $component ) || ! is_string( $expression ) || '' === trim( $expression ) ) {
-					return self::invalid( 'Version constraints require component names and nonempty version expressions.' );
-				}
+			if ( ! VisibilityRules::well_formed( $record['version_constraints'] ) ) {
+				return self::invalid( 'Version constraints map components to "required" or a version expression, or list any_of alternatives.' );
 			}
 		}
 		if ( isset( $record['verification_count'] ) && ( ! is_int( $record['verification_count'] ) || $record['verification_count'] < 0 ) ) {
@@ -83,17 +89,29 @@ final class RecordRules {
 			}
 		}
 		if ( isset( $record['semantic_fingerprint'] ) && ( ! is_string( $record['semantic_fingerprint'] )
-			|| ( '' !== $record['semantic_fingerprint'] && ! preg_match( '/^[a-f0-9]{64}$/', $record['semantic_fingerprint'] ) ) ) ) {
+			|| ( '' !== $record['semantic_fingerprint'] && ! preg_match( '/^[a-f0-9]{64}\z/', $record['semantic_fingerprint'] ) ) ) ) {
 			return self::invalid( 'The semantic fingerprint must be empty or a lowercase SHA-256.' );
 		}
-		$encoded = wp_json_encode( $record );
-		if ( ! is_string( $encoded ) ) {
+		if ( ! self::plain( $record ) || ! is_string( wp_json_encode( $record ) ) ) {
 			return self::invalid( 'Skill metadata must be serializable plain data.' );
 		}
-		if ( SensitiveContent::contains( $encoded ) ) {
+		if ( self::carries_credentials( $record ) ) {
 			return new \WP_Error( 'stonewright_skill_sensitive_content', 'Remove credential material before storing a skill.', [ 'status' => 400 ] );
 		}
 		return $record;
+	}
+
+	/**
+	 * Shipped product guidance is trusted text: its authored-content findings stay advisory,
+	 * while lifecycle and conflict findings still block activation.
+	 *
+	 * @param array<string, mixed> $record @param array<int, string> $errors @return array<int, string>
+	 */
+	public static function blocking( array $record, array $errors ): array {
+		if ( ! in_array( $record['source'] ?? '', [ 'builtin', 'playbook' ], true ) || 'external' === ( $record['source_kind'] ?? '' ) ) {
+			return $errors;
+		}
+		return array_values( array_filter( $errors, static fn( string $error ): bool => ! in_array( $error, self::AUTHORED_CONTENT_FINDINGS, true ) && ! str_starts_with( $error, 'unavailable_tool:' ) ) );
 	}
 
 	/** @param array<string, mixed> $record @param array<int, string> $tool_names @param callable(string): bool|null $trigger_policy @return array{errors: array<int, string>, warnings: array<int, string>, trust: array<int, string>} */
@@ -133,6 +151,39 @@ final class RecordRules {
 			$trust[] = 'privileged_instruction_request';
 		}
 		return [ 'errors' => array_values( array_unique( $errors ) ), 'warnings' => $warnings, 'trust' => $trust ];
+	}
+
+	/** Arrays of scalars and null only; objects could hide text from the credential scan. */
+	private static function plain( mixed $value ): bool {
+		if ( ! is_array( $value ) ) {
+			return null === $value || is_scalar( $value );
+		}
+		foreach ( $value as $item ) {
+			if ( ! self::plain( $item ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Every text key and leaf is scanned as raw text, because encoded forms escape characters the
+	 * detector relies on. Each leaf is also read after its nearest key, as a labelled value would be written.
+	 */
+	private static function carries_credentials( mixed $value, string $label = '' ): bool {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $key => $item ) {
+				if ( ( is_string( $key ) && SensitiveContent::contains( $key ) ) || self::carries_credentials( $item, is_string( $key ) ? $key : $label ) ) {
+					return true;
+				}
+			}
+			return false;
+		}
+		if ( null === $value || ! is_scalar( $value ) ) {
+			return false;
+		}
+		$text = is_bool( $value ) ? ( $value ? 'true' : 'false' ) : (string) $value;
+		return ( is_string( $value ) && SensitiveContent::contains( $text ) ) || ( '' !== $label && SensitiveContent::contains( $label . ': ' . $text ) );
 	}
 
 	private static function invalid( string $message ): \WP_Error {

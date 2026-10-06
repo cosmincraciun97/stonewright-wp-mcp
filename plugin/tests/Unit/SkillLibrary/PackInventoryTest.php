@@ -22,12 +22,20 @@ final class PackInventoryTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		foreach ( [ '/example/SKILL.md', '/example/notes.md', '/playbooks/hero.md' ] as $file ) {
-			unlink( $this->root . $file );
+		$this->remove( $this->root );
+	}
+
+	private function remove( string $path ): void {
+		if ( ! is_dir( $path ) || is_link( $path ) ) {
+			unlink( $path );
+			return;
 		}
-		rmdir( $this->root . '/example' );
-		rmdir( $this->root . '/playbooks' );
-		rmdir( $this->root );
+		foreach ( scandir( $path ) ?: [] as $name ) {
+			if ( '.' !== $name && '..' !== $name ) {
+				$this->remove( $path . '/' . $name );
+			}
+		}
+		rmdir( $path );
 	}
 
 	public function test_inventory_reads_only_product_entry_documents(): void {
@@ -40,6 +48,20 @@ final class PackInventoryTest extends TestCase {
 
 	public function test_missing_pack_fails_closed(): void {
 		$this->assertInstanceOf( \WP_Error::class, PackInventory::scan( $this->root . '/absent' ) );
+	}
+
+	/** @dataProvider literal_directory_names */
+	public function test_directory_names_remain_text_pack_keys( string $name ): void {
+		mkdir( $this->root . '/' . $name, 0700 );
+		file_put_contents( $this->root . '/' . $name . '/SKILL.md', "---\nname: Numbered guide\ndescription: Use when writing numbered examples.\n---\n# Numbered\n" );
+		$inventory = PackInventory::scan( $this->root );
+		$this->assertIsArray( $inventory );
+		$this->assertSame( [ $name, 'example', 'playbooks/hero' ], array_column( $inventory['entries'], 'pack_key' ) );
+		$this->assertSame( 'builtin', $inventory['entries'][0]['kind'] );
+	}
+
+	public static function literal_directory_names(): array {
+		return [ 'digits only' => [ '2024' ] ];
 	}
 
 	public function test_refresh_preserves_preferences_and_unspecified_metadata(): void {
@@ -74,5 +96,25 @@ final class PackInventoryTest extends TestCase {
 		$duplicate = [ [ 'id' => 42, 'slug' => 'known-example-id', 'source' => 'builtin' ], [ 'id' => 43, 'slug' => 'known-example-id', 'source' => 'user' ] ];
 		$this->assertInstanceOf( \WP_Error::class, PackRefresh::plan( $inventory, $duplicate, $identities ) );
 		$this->assertInstanceOf( \WP_Error::class, PackRefresh::plan( $inventory, [], [ 'example' => 'same-id', 'playbooks/hero' => 'same-id' ] ) );
+	}
+
+	public function test_refresh_rejects_noncanonical_identities(): void {
+		$inventory = PackInventory::scan( $this->root );
+		$this->assertIsArray( $inventory );
+		$local = [ [ 'id' => 43, 'slug' => 'known-example-id', 'source' => 'user' ] ];
+		$this->assertInstanceOf( \WP_Error::class, PackRefresh::plan( $inventory, $local, [ 'example' => 'Known-Example-ID', 'playbooks/hero' => 'known-hero-id' ] ) );
+		$this->assertInstanceOf( \WP_Error::class, PackRefresh::plan( $inventory, [], [ 'example' => 'known-id', 'playbooks/hero' => 'Known-ID' ] ) );
+	}
+
+	public function test_refresh_compares_stored_identities_after_normalization(): void {
+		$inventory = PackInventory::scan( $this->root );
+		$this->assertIsArray( $inventory );
+		$identities = [ 'example' => 'known-example-id', 'playbooks/hero' => 'known-hero-id' ];
+		$plan = PackRefresh::plan( $inventory, [ [ 'id' => 43, 'slug' => 'Known-Example-ID', 'source' => 'user' ] ], $identities );
+		$this->assertIsArray( $plan );
+		$this->assertSame( [ 'known-example-id' ], array_column( $plan['conflicts'], 'slug' ) );
+		$this->assertSame( [ 'known-hero-id' ], array_column( $plan['upserts'], 'slug' ) );
+		$variants = [ [ 'id' => 42, 'slug' => 'known-example-id', 'source' => 'builtin' ], [ 'id' => 43, 'slug' => 'Known-Example-ID', 'source' => 'user' ] ];
+		$this->assertInstanceOf( \WP_Error::class, PackRefresh::plan( $inventory, $variants, $identities ) );
 	}
 }

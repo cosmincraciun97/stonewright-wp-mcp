@@ -21,14 +21,21 @@ final class SkillCatalog {
 	private $trigger_policy;
 	/** @var callable(array<string, mixed>): bool|null */
 	private $compatible;
+	/** @var array<int, string> */
+	private array $reserved;
 
-	/** @param callable(array<string, mixed>): bool|null $compatible @param array<int, string> $tool_names @param callable(string): bool|null $trigger_policy */
-	public function __construct( Repository $repository, MutationBoundary $boundary, ?callable $compatible = null, array $tool_names = [], ?callable $trigger_policy = null ) {
+	/**
+	 * Known built-in identities stay reserved even before their pack entries are seeded.
+	 *
+	 * @param callable(array<string, mixed>): bool|null $compatible @param array<int, string> $tool_names @param callable(string): bool|null $trigger_policy @param array<int, string> $reserved
+	 */
+	public function __construct( Repository $repository, MutationBoundary $boundary, ?callable $compatible = null, array $tool_names = [], ?callable $trigger_policy = null, array $reserved = [] ) {
 		$this->repository = $repository;
 		$this->boundary = $boundary;
 		$this->compatible = $compatible;
 		$this->tool_names = $tool_names;
 		$this->trigger_policy = $trigger_policy;
+		$this->reserved = array_values( array_map( static fn( string $slug ): string => RecordRules::identity( $slug ), $reserved ) );
 	}
 
 	/** @return array<int, array<string, mixed>> */
@@ -58,12 +65,12 @@ final class SkillCatalog {
 
 	/** @param array<string, mixed> $input */
 	public function store( array $input, string $token = '' ): int|\WP_Error {
-		foreach ( [ 'verification_count', 'semantic_fingerprint', 'trust', 'trusted', 'verified', 'history', 'revision', 'source_kind', 'source_id' ] as $claim ) {
+		foreach ( [ 'verification_count', 'semantic_fingerprint', 'trust', 'trusted', 'verified', 'history', 'revision', 'source_kind', 'source_id', 'conflicts' ] as $claim ) {
 			if ( array_key_exists( $claim, $input ) ) {
-				return new \WP_Error( 'stonewright_skill_authority_claim', 'A local save cannot manufacture provenance, verification, or trust. Use the separately authenticated evidence workflow.' );
+				return new \WP_Error( 'stonewright_skill_authority_claim', 'A local save cannot manufacture provenance, verification, trust, or review findings. Use the separately authenticated evidence workflow.' );
 			}
 		}
-		$slug = isset( $input['slug'] ) && is_string( $input['slug'] ) ? sanitize_title( $input['slug'] ) : '';
+		$slug = isset( $input['slug'] ) && is_string( $input['slug'] ) ? RecordRules::identity( $input['slug'] ) : '';
 		$previous = $this->repository->find_slug( $slug );
 		if ( array_key_exists( 'source', $input ) && ( ( null === $previous && 'user' !== $input['source'] ) || ( null !== $previous && ( $previous['source'] ?? 'user' ) !== $input['source'] ) ) ) {
 			return new \WP_Error( 'stonewright_skill_authority_claim', 'A local save cannot change the skill provenance.' );
@@ -88,6 +95,9 @@ final class SkillCatalog {
 			}
 		}
 		if ( null === $previous ) {
+			if ( $this->reserved_identity( $record['slug'] ) ) {
+				return $this->reserved_refusal();
+			}
 			$ready = $this->activation_check( $record );
 			if ( is_wp_error( $ready ) ) {
 				return $ready;
@@ -108,11 +118,11 @@ final class SkillCatalog {
 		}
 		$record = array_replace( $previous, [ 'enabled' => $enabled ] );
 		if ( $enabled ) {
-			$record['status'] = 'active';
-			$lint = RecordRules::review( $record, $this->tool_names, $this->trigger_policy );
-			if ( [] !== $lint['errors'] || [] !== VisibilityRules::missing( $record, $this->compatible ) ) {
-				return new \WP_Error( 'stonewright_skill_lint_failed', 'Resolve lint and runtime availability before enabling the skill.', [ 'lint' => $lint ] );
+			// Enabling promotes only a draft; stale and retired guidance stays out of service.
+			if ( ! in_array( $previous['status'] ?? 'draft', [ 'draft', 'active' ], true ) ) {
+				return new \WP_Error( 'stonewright_skill_toggle_invalid', 'A stale or retired skill cannot be enabled again.' );
 			}
+			$record['status'] = 'active';
 		}
 		return $this->exchange( 'toggle', $previous, $record, $token );
 	}
@@ -162,11 +172,15 @@ final class SkillCatalog {
 		if ( is_wp_error( $record ) ) {
 			return $record;
 		}
+		if ( $this->reserved_identity( $record['slug'] ) ) {
+			return $this->reserved_refusal();
+		}
 		if ( null !== $this->repository->find_slug( $record['slug'] ) ) {
 			return new \WP_Error( 'stonewright_skill_import_exists', 'An import never replaces an existing skill.' );
 		}
 		$record['revision'] = 1;
-		$result = $this->mutate( 'import', $record, $receipt, fn() => $this->repository->insert_unique( $record ), hash( 'sha256', $review['content'] ) );
+		// Confirmation verified this hash; it binds the reviewed identity and bytes for the receipt check.
+		$result = $this->mutate( 'import', $record, $receipt, fn() => $this->repository->insert_unique( $record ), (string) $review['review_hash'] );
 		return is_int( $result ) && $result > 0 ? $result : ( is_wp_error( $result ) ? $result : $this->failed() );
 	}
 
@@ -206,13 +220,17 @@ final class SkillCatalog {
 		$record['id'] = $previous['id'];
 		$record['slug'] = $previous['slug'];
 		$record['revision'] = $revision + 1;
-		$record = RecordRules::normalize( $record );
-		if ( is_wp_error( $record ) ) {
-			return $record;
-		}
-		$ready = $this->activation_check( $record );
-		if ( is_wp_error( $ready ) ) {
-			return $ready;
+		// Only a save carries new text. Disabling, trashing, restoring, and rollback keep stored
+		// text as it is, so they are validated only when the result would be live.
+		if ( 'save' === $action || self::live( $record ) ) {
+			$record = RecordRules::normalize( $record );
+			if ( is_wp_error( $record ) ) {
+				return $record;
+			}
+			$ready = $this->activation_check( $record );
+			if ( is_wp_error( $ready ) ) {
+				return $ready;
+			}
 		}
 		$result = $this->mutate( $action, $record, $token, fn() => $this->repository->exchange_record( (int) $previous['id'], $record, $revision ) );
 		return true === $result ? true : ( is_wp_error( $result ) ? $result : $this->failed() );
@@ -226,9 +244,10 @@ final class SkillCatalog {
 
 	/** @param array<string, mixed> $record @param callable(): int|bool|\WP_Error $write */
 	private function mutate( string $action, array $record, string $token, callable $write, ?string $review_hash = null ): int|bool|\WP_Error {
-		$summary = [ 'skill_id' => (int) ( $record['id'] ?? 0 ), 'slug' => (string) $record['slug'], 'revision' => (int) $record['revision'], 'source' => (string) $record['source'], 'status' => (string) $record['status'], 'verification_count' => (int) ( $record['verification_count'] ?? 0 ), 'content_hash' => hash( 'sha256', (string) $record['content'] ) ];
+		// Lifecycle moves can carry stored rows that were never normalized, so every field has a default.
+		$summary = [ 'skill_id' => (int) ( $record['id'] ?? 0 ), 'slug' => (string) $record['slug'], 'revision' => (int) $record['revision'], 'source' => (string) ( $record['source'] ?? '' ), 'status' => (string) ( $record['status'] ?? '' ), 'verification_count' => (int) ( $record['verification_count'] ?? 0 ), 'content_hash' => hash( 'sha256', (string) ( $record['content'] ?? '' ) ) ];
 		if ( null !== $review_hash ) {
-			$summary['reviewed_content_hash'] = $review_hash;
+			$summary['review_hash'] = $review_hash;
 		}
 		$permission = $this->boundary->authorize( $action, $summary, $token );
 		if ( true !== $permission ) {
@@ -248,13 +267,31 @@ final class SkillCatalog {
 		return new \WP_Error( 'stonewright_skill_write_failed', 'The repository could not complete the atomic skill mutation.' );
 	}
 
-	/** @param array<string, mixed> $record */
+	/**
+	 * Only lint findings block activation. Missing plugin components never do: enabled records the
+	 * site's choice, and visibility hides the skill from agents until its components are present.
+	 *
+	 * @param array<string, mixed> $record
+	 */
 	private function activation_check( array $record ): bool|\WP_Error {
-		if ( empty( $record['enabled'] ) || 'active' !== ( $record['status'] ?? '' ) ) {
+		if ( ! self::live( $record ) ) {
 			return true;
 		}
 		$lint = RecordRules::review( $record, $this->tool_names, $this->trigger_policy );
-		return [] === $lint['errors'] && [] === VisibilityRules::missing( $record, $this->compatible )
-			? true : new \WP_Error( 'stonewright_skill_lint_failed', 'Resolve lint and runtime availability before activating the skill.', [ 'lint' => $lint ] );
+		return [] === RecordRules::blocking( $record, $lint['errors'] )
+			? true : new \WP_Error( 'stonewright_skill_lint_failed', 'Resolve lint findings before activating the skill.', [ 'lint' => $lint ] );
+	}
+
+	/** Matches runtime visibility, where a record without a lifecycle state counts as active. @param array<string, mixed> $record */
+	private static function live( array $record ): bool {
+		return ! empty( $record['enabled'] ) && 'active' === ( $record['status'] ?? 'active' );
+	}
+
+	private function reserved_identity( string $slug ): bool {
+		return in_array( $slug, $this->reserved, true );
+	}
+
+	private function reserved_refusal(): \WP_Error {
+		return new \WP_Error( 'stonewright_skill_identity_reserved', 'This identity is reserved for a built-in skill.' );
 	}
 }
