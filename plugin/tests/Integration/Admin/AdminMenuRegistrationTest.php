@@ -18,7 +18,7 @@ use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Admin\SkillsPage;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 
 /**
  * Verifies that AdminBootstrap wires the expected hooks and that the new
@@ -201,7 +201,6 @@ final class AdminMenuRegistrationTest extends TestCase {
 		TroubleshootPage::register();
 		ContextPage::register();
 		DesignPage::register();
-		FinalizerPage::register();
 		do_action( 'admin_menu' );
 
 		$submenus = $GLOBALS['stonewright_test_submenu_pages'];
@@ -209,7 +208,6 @@ final class AdminMenuRegistrationTest extends TestCase {
 			TroubleshootPage::SLUG => 'Troubleshoot',
 			ContextPage::SLUG      => 'Context',
 			DesignPage::SLUG       => 'Design',
-			FinalizerPage::SLUG    => 'Block Editor Queue',
 		];
 		foreach ( $marked as $slug => $label ) {
 			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
@@ -217,20 +215,22 @@ final class AdminMenuRegistrationTest extends TestCase {
 			$this->assertSame( AdminShell::experimental_menu_title( $label ), $submenus[ $slug ]['menu_title'] );
 			$this->assertStringContainsString( 'class="sw-menu-exp"', $submenus[ $slug ]['menu_title'] );
 		}
+		$this->assertContains( QueueConsole::PAGE, AdminShell::experimental_slugs(), 'The queue console keeps its experimental marker in the shell navigation.' );
 	}
 
-	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {
+	public function test_block_change_queue_console_is_hidden_and_reached_from_workflows(): void {
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
-		FinalizerPage::register();
-		do_action( 'admin_menu' );
+		QueueConsole::attach_page();
 
-		$slug       = FinalizerPage::SLUG;
+		$slug       = QueueConsole::PAGE;
 		$registered = $GLOBALS['stonewright_test_submenu_pages'][ $slug ] ?? null;
+		$this->assertSame( 'stonewright-block-finalizer', $slug );
 		$this->assertIsArray( $registered );
-		$this->assertSame( 'stonewright', $registered['parent'] );
-		$this->assertSame( 'Block Editor Queue', $registered['page_title'] );
-		$this->assertSame( AdminShell::experimental_menu_title( 'Block Editor Queue' ), $registered['menu_title'] );
+		$this->assertSame( 'options.php', $registered['parent'], 'Reachable by URL, never listed in the sidebar.' );
+		$this->assertSame( 'Block serialization journal', $registered['page_title'] );
+		$this->assertSame( 'Block serialization journal', $registered['menu_title'] );
 		$this->assertSame( 'edit_posts', $registered['capability'] );
+		$this->assertSame( [ QueueConsole::class, 'render' ], $registered['callback'] );
 
 		$workflows = [];
 		$safety    = [];

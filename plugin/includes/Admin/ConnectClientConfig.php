@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Connect\ClientInstructions;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpUsePolicy;
 
@@ -186,7 +187,7 @@ final class ConnectClientConfig {
 			array_unique(
 				array_merge(
 					array_column( self::clients(), 'slug' ),
-					array_keys( OAuthClientConfig::client_labels() ),
+					array_keys( self::oauth_labels() ),
 					[ 'grok-build', 'grok-cli' ]
 				)
 			)
@@ -214,9 +215,9 @@ final class ConnectClientConfig {
 				$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
 				return [
 					'command' => sprintf(
-						'claude mcp add %s --transport http --url %s --header "Authorization: Basic %s"',
-						escapeshellarg( $server_name ),
-						escapeshellarg( self::mcp_endpoint_url() ),
+						'claude mcp add --transport http %s %s --header "Authorization: Basic %s"',
+						self::shell_arg( $server_name ),
+						self::shell_arg( self::mcp_endpoint_url() ),
 						$credentials
 					),
 				];
@@ -225,12 +226,12 @@ final class ConnectClientConfig {
 			return [
 				'command' => sprintf(
 					'claude mcp add %s --env STONEWRIGHT_MODE=plugin --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=%s -- npx -y --package %s stonewright-mcp',
-					escapeshellarg( $server_name ),
-					escapeshellarg( self::site_url() ),
-					escapeshellarg( $username ),
-					escapeshellarg( $app_password ?: '<your-application-password>' ),
+					self::shell_arg( $server_name ),
+					self::shell_arg( self::site_url() ),
+					self::shell_arg( $username ),
+					self::shell_arg( $app_password ?: '<your-application-password>' ),
 					$tool_profile,
-					escapeshellarg( self::companion_package_spec() )
+					self::shell_arg( self::companion_package_spec() )
 				),
 			];
 		}
@@ -261,7 +262,7 @@ final class ConnectClientConfig {
 				$name  = (string) array_key_first( $servers );
 				$inner = $servers[ $name ] ?? null;
 				if ( '' !== $name && is_array( $inner ) ) {
-					$snippet['deeplink'] = OAuthClientConfig::cursor_deeplink( $name, $inner );
+					$snippet['deeplink'] = ClientInstructions::cursor_install_link( $name, $inner );
 				}
 			}
 		}
@@ -403,56 +404,61 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * OAuth instruction payload for one catalog client.
+	 * Labels of the clients with published OAuth setup, keyed by catalog slug.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function oauth_labels(): array {
+		return ClientInstructions::labels();
+	}
+
+	/**
+	 * OAuth setup summary for one catalog client, built from its published setup.
+	 *
+	 * The kind is "code" when the client reads a configuration entry (code, format and
+	 * the location it belongs in), "steps" when it is set up inside its own app, and
+	 * "notice" (with message) when no browser sign-in steps are published. The hint says
+	 * how sign-in starts; the note lists the commands to run, one per line, then the
+	 * catalog's re-authentication action. No credential is ever part of the payload.
 	 *
 	 * @return array<string, mixed>
 	 */
 	public static function oauth_config_for( string $client_slug, string $mcp_url, string $server_name ): array {
-		$resolved = self::resolve_client_slug( sanitize_key( $client_slug ) );
-		if ( 'grok-build' === $resolved ) {
-			return self::grok_oauth_config( $mcp_url, $server_name );
+		$guide = ClientInstructions::for_client( $client_slug, $mcp_url, $server_name );
+		if ( ! $guide['documented'] ) {
+			return [
+				'kind'    => 'notice',
+				'label'   => $guide['label'],
+				'message' => implode( ' ', $guide['steps'] ),
+			];
 		}
 
-		$configs = OAuthClientConfig::configs( $mcp_url, $server_name );
-		if ( isset( $configs[ $client_slug ] ) && is_array( $configs[ $client_slug ] ) ) {
-			return $configs[ $client_slug ];
+		$entry    = null;
+		$commands = [];
+		foreach ( $guide['snippets'] as $snippet ) {
+			if ( 'shell' === $snippet['format'] ) {
+				$commands[] = $snippet['code'];
+			} elseif ( null === $entry ) {
+				$entry = $snippet;
+			}
 		}
-		if ( isset( $configs[ $resolved ] ) && is_array( $configs[ $resolved ] ) ) {
-			return $configs[ $resolved ];
-		}
+		$client   = ClientCatalog::get( $guide['slug'] );
+		$commands[] = is_array( $client ) ? (string) $client['oauth_reauth_action'] : ClientCatalog::DEFAULT_OAUTH_REAUTH_ACTION;
 
-		$label = (string) ( ClientCatalog::get( $resolved )['label'] ?? $resolved );
-		return [
-			'kind'    => 'notice',
-			'message' => sprintf(
-				/* translators: %s: client label. */
-				__( '%s cannot reach a site that is available only on this local machine.', 'stonewright' ),
-				$label
-			),
+		$payload = [
+			'kind'  => null === $entry ? 'steps' : 'code',
+			'label' => $guide['label'],
+			'steps' => $guide['steps'],
+			'hint'  => $guide['sign_in'],
+			'note'  => implode( "\n", $commands ),
+			'links' => $guide['links'],
 		];
-	}
-
-	/**
-	 * @return array<string, mixed>
-	 */
-	private static function grok_oauth_config( string $mcp_url, string $server_name ): array {
-		$client = ClientCatalog::get( 'grok-build' );
-		$reauth = is_array( $client )
-			? (string) ( $client['oauth_reauth_action'] ?? ClientCatalog::DEFAULT_OAUTH_REAUTH_ACTION )
-			: ClientCatalog::DEFAULT_OAUTH_REAUTH_ACTION;
-
-		return [
-			'kind'  => 'code',
-			'code'  => "[mcp_servers.{$server_name}]\nurl = " . self::toml_string( $mcp_url ) . "\nenabled = true",
-			'hint'  => __( 'Use native HTTP for OAuth. Open /mcps, select Stonewright, authenticate, then run grok mcp doctor stonewright.', 'stonewright' ),
-			'paths' => [
-				'macOS / Linux' => '~/.grok/config.toml',
-				'Windows'       => '%USERPROFILE%\\.grok\\config.toml',
-			],
-			'note'  => 'grok mcp add --transport http ' . $server_name . ' ' . $mcp_url . "\n"
-				. "grok mcp doctor stonewright\n"
-				. $reauth,
-		];
+		if ( null !== $entry ) {
+			$payload['code']     = $entry['code'];
+			$payload['format']   = $entry['format'];
+			$payload['location'] = $entry['location'];
+		}
+		return $payload;
 	}
 
 	/**
@@ -516,7 +522,19 @@ final class ConnectClientConfig {
 		return '' === $tool_profile ? 'essential' : $tool_profile;
 	}
 
-	private static function mcp_server_name(): string {
+	/**
+	 * One POSIX shell word in single quotes. The generated command is run in the
+	 * user's shell, so quoting must not depend on the platform serving this page.
+	 */
+	private static function shell_arg( string $value ): string {
+		return "'" . str_replace( "'", "'\\''", $value ) . "'";
+	}
+
+	/**
+	 * MCP server name suggested for this site in every client: stonewright- followed by
+	 * the host and path of the site URL, reduced to lowercase letters, digits and hyphens.
+	 */
+	public static function mcp_server_name(): string {
 		$url      = self::site_url();
 		$host     = (string) parse_url( $url, PHP_URL_HOST );
 		$path     = trim( (string) parse_url( $url, PHP_URL_PATH ), '/' );

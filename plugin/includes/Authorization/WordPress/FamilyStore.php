@@ -42,6 +42,9 @@ final class FamilyStore implements FamilyLedger {
 
 	public const MAX_ATTEMPTS = 5;
 
+	/** Default bound of live_grants(). */
+	public const LIVE_GRANT_LIMIT = 500;
+
 	private const ROTATED = 'rotated';
 	private const REPLAYED = 'replayed';
 
@@ -203,6 +206,102 @@ final class FamilyStore implements FamilyLedger {
 				}
 			);
 		}
+	}
+
+	/**
+	 * Grants a client can still use, for the administrator's list of connected clients.
+	 *
+	 * Families in the active phase whose deadline is still ahead come first, newest
+	 * first. Families the earlier version wrote that have no families row yet follow
+	 * when they still hold a live refresh row; their owner is the one recorded on that
+	 * row or, when it names none, on the access row it was paired with. Reading changes
+	 * nothing: no family is adopted. Every family_key is accepted by revoke(). With a
+	 * client key, only that client's grants are read, up to $limit of them.
+	 *
+	 * @return list<array{family_key: string, client_key: string, subject_key: string, granted_at: ?int, expires_at: ?int}>
+	 */
+	public function live_grants( int $now, int $limit = self::LIVE_GRANT_LIMIT, ?string $client_key = null ): array {
+		$limit = max( 1, $limit );
+		$moment = Database::datetime( $now );
+		$grants = [];
+		$listed = [];
+		$rows = $this->db->rows(
+			'SELECT family_hash, family_key, client_id, user_id, created_at, family_expires_at FROM ' . $this->db->table( 'families' ) . " WHERE phase = 'active' AND family_expires_at > %s" . ( null === $client_key ? '' : ' AND client_id = %s' ) . ' ORDER BY created_at DESC LIMIT ' . $limit,
+			null === $client_key ? [ $moment ] : [ $moment, $client_key ]
+		);
+		foreach ( $rows as $row ) {
+			$listed[ (string) $row['family_hash'] ] = true;
+			$grants[] = [
+				'family_key'  => (string) $row['family_key'],
+				'client_key'  => (string) $row['client_id'],
+				'subject_key' => (string) $row['user_id'],
+				'granted_at'  => Database::epoch( $row['created_at'] ?? null ),
+				'expires_at'  => Database::epoch( $row['family_expires_at'] ?? null ),
+			];
+		}
+		if ( count( $grants ) >= $limit ) {
+			return $grants;
+		}
+		return array_merge( $grants, $this->earlier_live_grants( $moment, $limit - count( $grants ), $listed, $client_key ) );
+	}
+
+	/**
+	 * Live families written by the earlier version that have no families row.
+	 *
+	 * @param array<string, true> $listed Family hashes already listed.
+	 * @return list<array{family_key: string, client_key: string, subject_key: string, granted_at: ?int, expires_at: ?int}>
+	 */
+	private function earlier_live_grants( string $moment, int $limit, array $listed, ?string $client_key ): array {
+		$heads = [];
+		$rows = $this->db->rows(
+			'SELECT grant_family_hash, access_token_hash, client_id, user_id, family_expires_at, expires_at FROM ' . $this->db->table( 'refresh_tokens' ) . ' WHERE revoked = 0 AND credential_key IS NULL AND expires_at > %s' . ( null === $client_key ? '' : ' AND (client_id = %s OR client_id IS NULL)' ) . ' LIMIT ' . $limit,
+			null === $client_key ? [ $moment ] : [ $moment, $client_key ]
+		);
+		foreach ( $rows as $row ) {
+			$hash = (string) $row['grant_family_hash'];
+			if ( RowKeys::is_earlier( $hash ) && ! isset( $listed[ $hash ] ) && ! isset( $heads[ $hash ] ) ) {
+				$heads[ $hash ] = $row;
+			}
+		}
+		if ( [] === $heads ) {
+			return [];
+		}
+		// A families row decides the family once it exists, whatever its phase.
+		foreach ( $this->db->column( 'SELECT family_hash FROM ' . $this->db->table( 'families' ) . ' WHERE family_hash IN (' . self::placeholders( count( $heads ) ) . ')', array_keys( $heads ) ) as $adopted ) {
+			unset( $heads[ $adopted ] );
+		}
+		$paired = [];
+		foreach ( $heads as $row ) {
+			if ( null === $row['client_id'] || null === $row['user_id'] ) {
+				$paired[] = (string) $row['access_token_hash'];
+			}
+		}
+		$owners = [];
+		if ( [] !== $paired ) {
+			$paired = array_values( array_unique( $paired ) );
+			foreach ( $this->db->rows( 'SELECT identifier_hash, client_id, user_id FROM ' . $this->db->table( 'access_tokens' ) . ' WHERE identifier_hash IN (' . self::placeholders( count( $paired ) ) . ')', $paired ) as $access ) {
+				$owners[ (string) $access['identifier_hash'] ] = $access;
+			}
+		}
+		$grants = [];
+		foreach ( $heads as $hash => $row ) {
+			$owner = null !== $row['client_id'] && null !== $row['user_id'] ? $row : ( $owners[ (string) $row['access_token_hash'] ] ?? null );
+			if ( null === $owner || '' === (string) $owner['client_id'] || ( null !== $client_key && (string) $owner['client_id'] !== $client_key ) ) {
+				continue;
+			}
+			$grants[] = [
+				'family_key'  => (string) $hash,
+				'client_key'  => (string) $owner['client_id'],
+				'subject_key' => (string) $owner['user_id'],
+				'granted_at'  => null,
+				'expires_at'  => Database::epoch( $row['family_expires_at'] ?? null ) ?? Database::epoch( $row['expires_at'] ?? null ),
+			];
+		}
+		return $grants;
+	}
+
+	private static function placeholders( int $count ): string {
+		return implode( ', ', array_fill( 0, $count, '%s' ) );
 	}
 
 	/**

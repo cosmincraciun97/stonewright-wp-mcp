@@ -103,6 +103,11 @@ final class SiteProfile {
 		return $this->enabled;
 	}
 
+	/** The WordPress environment type the transport policy was decided with. */
+	public function environment(): string {
+		return $this->environment;
+	}
+
 	/** Whether OAuth discovery, routes, pages and bearer challenges are served. */
 	public function available(): bool {
 		return $this->enabled && $this->transport_allowed();

@@ -3,8 +3,10 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
+use Stonewright\WpMcp\Admin\Connect\SignInPanel;
+use Stonewright\WpMcp\Admin\Connect\SignInStatus;
 use Stonewright\WpMcp\Companion\CompanionContract;
-use Stonewright\WpMcp\OAuth\Transport;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
@@ -32,6 +34,7 @@ final class ConfigurationPage {
 			[ self::class, 'handle_revoke_application_password' ]
 		);
 		add_action( 'admin_post_stonewright_run_diagnostics', [ self::class, 'handle_run_diagnostics' ] );
+		add_action( 'admin_post_' . ConnectedClients::ACTION, [ ConnectedClients::class, 'handle' ] );
 		add_action( 'wp_ajax_stonewright_set_setup_client', [ self::class, 'handle_set_setup_client' ] );
 		add_action( 'wp_ajax_stonewright_apply_mcp_surface', [ self::class, 'handle_apply_mcp_surface' ] );
 		add_action( 'wp_ajax_stonewright_run_diagnostics', [ self::class, 'handle_ajax_run_diagnostics' ] );
@@ -280,6 +283,9 @@ final class ConfigurationPage {
 			self::SLUG,
 			[ self::class, 'render' ]
 		);
+
+		// Links to the stand-alone connected clients page lead to the list on this screen.
+		ConnectedClients::register_page();
 	}
 
 	public static function register_settings(): void {
@@ -448,7 +454,9 @@ final class ConfigurationPage {
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
 		$has_app_password    = [] !== $app_passwords;
-		$oauth_available     = Transport::allowed();
+		$oauth_status        = SignInStatus::current();
+		// OAuth stays selectable while the plugin is off: the transport decides whether it can ever work here.
+		$oauth_available     = $oauth_status['transport_allowed'];
 		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
 		$selected_client     = self::selected_setup_client( $current_user_id );
 		$selected_method     = self::selected_setup_method( $current_user_id );
@@ -457,8 +465,7 @@ final class ConfigurationPage {
 			$auth_method = 'application-password';
 		}
 		$oauth_selected      = 'oauth' === $auth_method;
-		$oauth_url           = rest_url( 'mcp/stonewright-oauth' );
-		$oauth_server_name   = OAuthClientConfig::default_server_name();
+		$oauth_connections   = ConnectedClients::current();
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
 		<div class="stonewright-config-page sw-setup-page">
@@ -727,6 +734,7 @@ final class ConfigurationPage {
 					<div class="stonewright-step-index" aria-hidden="true">2</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Choose your authentication method', 'stonewright' ); ?></h2>
+						<?php SignInPanel::render_status( $oauth_status ); ?>
 						<div class="sw-auth-methods" role="radiogroup" aria-label="<?php esc_attr_e( 'Authentication method', 'stonewright' ); ?>">
 							<button
 								type="button"
@@ -755,9 +763,9 @@ final class ConfigurationPage {
 						</div>
 
 						<div data-stonewright-auth-panel="oauth" <?php echo $oauth_selected ? '' : 'hidden'; ?>>
-							<p><?php esc_html_e( 'OAuth is ready. In step 3, choose your client and sign in when its browser window opens.', 'stonewright' ); ?></p>
-							<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright-connected-apps' ) ); ?>">
-								<?php esc_html_e( 'Manage connected apps', 'stonewright' ); ?>
+							<p><?php esc_html_e( 'OAuth needs no password. In step 3, open your client, add the MCP server URL and approve the request when the client opens your browser.', 'stonewright' ); ?></p>
+							<p><a href="#<?php echo esc_attr( SignInPanel::CONNECTIONS_ID ); ?>">
+								<?php esc_html_e( 'Review connected OAuth clients', 'stonewright' ); ?>
 							</a></p>
 						</div>
 
@@ -849,21 +857,23 @@ final class ConfigurationPage {
 					<div class="stonewright-step-index" aria-hidden="true">3</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Connect Your AI Client', 'stonewright' ); ?></h2>
-						<p><?php esc_html_e( 'Pick your AI client. OAuth opens a browser sign-in and keeps credentials out of copied config.', 'stonewright' ); ?></p>
+
+						<div data-stonewright-auth-panel="oauth" <?php echo $oauth_selected ? '' : 'hidden'; ?>>
+							<?php SignInPanel::render_guides( $oauth_status, $selected_client ); ?>
+						</div>
+
+						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_selected ? 'hidden' : ''; ?>>
+						<p><?php esc_html_e( 'Pick your AI client. Its snippet can carry the Application Password, so keep it in private configuration.', 'stonewright' ); ?></p>
 
 						<?php
 						self::render_client_method_picker(
 							$username,
 							$prompt_password,
 							$selected_client,
-							$selected_method,
-							$auth_method,
-							$oauth_url,
-							$oauth_server_name
+							$selected_method
 						);
 						?>
 
-						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_selected ? 'hidden' : ''; ?>>
 						<div class="stonewright-share-warning">
 							<strong><?php esc_html_e( 'Credentials stay local.', 'stonewright' ); ?></strong>
 							<?php esc_html_e( 'Client snippets may contain the one-time Application Password so you can save it directly in private config. The paste-to-agent prompt always uses placeholders and must never carry a real credential.', 'stonewright' ); ?>
@@ -907,24 +917,12 @@ final class ConfigurationPage {
 					</div>
 				</div>
 
+				<?php SignInPanel::render_connections( $oauth_connections, ConnectedClients::notice() ); ?>
+
 				<script>
 				(function () {
 					var buttons = document.querySelectorAll('[data-stonewright-auth-method]');
 					var panels = document.querySelectorAll('[data-stonewright-auth-panel]');
-					function updateClientSupport(method) {
-						document.querySelectorAll('[data-stonewright-client-card]').forEach(function (tab) {
-							var oauth = tab.getAttribute('data-oauth-support') === '1';
-							var app = tab.getAttribute('data-app-password-support') === '1';
-							var supported = method === 'oauth' ? oauth : app;
-							tab.setAttribute('aria-disabled', supported ? 'false' : 'true');
-							var reason = tab.getAttribute(method === 'oauth' ? 'data-oauth-unsupported-reason' : 'data-app-unsupported-reason') || '';
-							if (supported) {
-								tab.removeAttribute('title');
-							} else if (reason) {
-								tab.setAttribute('title', reason);
-							}
-						});
-					}
 					buttons.forEach(function (button) {
 						button.addEventListener('click', function () {
 							if (button.disabled) return;
@@ -937,7 +935,6 @@ final class ConfigurationPage {
 							panels.forEach(function (panel) {
 								panel.hidden = panel.getAttribute('data-stonewright-auth-panel') !== method;
 							});
-							updateClientSupport(method);
 						});
 					});
 				}());
@@ -1138,16 +1135,14 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * Single client picker shared by OAuth and Application Password.
+	 * Client picker of the Application Password route: one card per catalog client and
+	 * a panel with that client's stdio and HTTP snippets.
 	 */
 	private static function render_client_method_picker(
 		string $username,
 		string $app_password,
 		string $selected_slug,
-		string $selected_method,
-		string $auth_method = 'oauth',
-		string $oauth_url = '',
-		string $oauth_server_name = ''
+		string $selected_method
 	): void {
 		$clients = ConnectClientConfig::chooser_clients();
 		$slugs   = array_map(
@@ -1161,54 +1156,23 @@ final class ConfigurationPage {
 		if ( ! in_array( $selected_method, [ 'stdio', 'http' ], true ) ) {
 			$selected_method = 'stdio';
 		}
-		if ( ! in_array( $auth_method, [ 'oauth', 'application-password' ], true ) ) {
-			$auth_method = 'oauth';
-		}
-		$oauth_selected = 'oauth' === $auth_method;
-		if ( '' === $oauth_url ) {
-			$oauth_url = rest_url( 'mcp/stonewright-oauth' );
-		}
-		if ( '' === $oauth_server_name ) {
-			$oauth_server_name = OAuthClientConfig::default_server_name();
-		}
 		?>
-		<div class="sw-client-picker" data-stonewright-client-picker data-stonewright-oauth-connect>
-			<div data-stonewright-auth-panel="oauth" <?php echo $oauth_selected ? '' : 'hidden'; ?>>
-				<?php OAuthConnectPanel::render_name_controls( $oauth_server_name ); ?>
-			</div>
+		<div class="sw-client-picker" data-stonewright-client-picker>
 			<div class="sw-client-cards" role="tablist" aria-label="<?php esc_attr_e( 'MCP clients', 'stonewright' ); ?>">
 				<?php foreach ( $clients as $client ) : ?>
 					<?php
-					$slug           = (string) $client['slug'];
-					$is_active      = $slug === $selected_slug;
-					$oauth_ok       = (bool) ( $client['oauth_support'] ?? false );
-					$app_ok         = (bool) ( $client['app_password_support'] ?? true );
-					$supported      = $oauth_selected ? $oauth_ok : $app_ok;
-					$oauth_reason   = sprintf(
-						/* translators: %s: client label. */
-						__( '%s does not support OAuth. Use Application Password.', 'stonewright' ),
-						(string) $client['label']
-					);
-					$app_reason     = sprintf(
-						/* translators: %s: client label. */
-						__( '%s does not support Application Password. Use OAuth.', 'stonewright' ),
-						(string) $client['label']
-					);
-					$active_reason  = $oauth_selected ? $oauth_reason : $app_reason;
+					$slug      = (string) $client['slug'];
+					$is_active = $slug === $selected_slug;
+					$app_ok    = (bool) ( $client['app_password_support'] ?? true );
 					?>
 					<button
 						type="button"
 						role="tab"
 						class="sw-client-card<?php echo $is_active ? ' is-active' : ''; ?>"
 						data-stonewright-client-card="<?php echo esc_attr( $slug ); ?>"
-						data-oauth-support="<?php echo $oauth_ok ? '1' : '0'; ?>"
-						data-app-password-support="<?php echo $app_ok ? '1' : '0'; ?>"
-						data-oauth-unsupported-reason="<?php echo esc_attr( $oauth_reason ); ?>"
-						data-app-unsupported-reason="<?php echo esc_attr( $app_reason ); ?>"
 						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
-						aria-disabled="<?php echo $supported ? 'false' : 'true'; ?>"
+						aria-disabled="<?php echo $app_ok ? 'false' : 'true'; ?>"
 						aria-controls="sw-client-panel-<?php echo esc_attr( $slug ); ?>"
-						<?php echo $supported ? '' : ' title="' . esc_attr( $active_reason ) . '"'; ?>
 					>
 						<span class="sw-client-card__label"><?php echo esc_html( (string) $client['label'] ); ?></span>
 						<span class="sw-client-card__blurb"><?php echo esc_html( self::client_card_blurb( $client ) ); ?></span>
@@ -1220,10 +1184,8 @@ final class ConfigurationPage {
 		<div
 			class="sw-method-picker"
 			data-stonewright-method-picker
-			data-stonewright-auth-panel="application-password"
 			role="radiogroup"
 			aria-label="<?php esc_attr_e( 'Connection method', 'stonewright' ); ?>"
-			<?php echo $oauth_selected ? 'hidden' : ''; ?>
 		>
 			<p class="description sw-method-picker__note">
 				<?php esc_html_e( 'Local stdio means your AI client starts the Stonewright companion on this computer and talks to that local process through standard input/output. It is required for Direct mode and local WP-CLI. Remote HTTP connects straight to the WordPress plugin over HTTPS and does not run a local companion.', 'stonewright' ); ?>
@@ -1263,7 +1225,6 @@ final class ConfigurationPage {
 				$panel_id  = 'sw-client-panel-' . $slug;
 				$path      = (string) ( $client['config_path'] ?? '' );
 				$notes     = (string) ( $client['notes'] ?? '' );
-				$oauth_ok  = (bool) ( $client['oauth_support'] ?? false );
 				$app_ok    = (bool) ( $client['app_password_support'] ?? true );
 				?>
 				<div
@@ -1273,26 +1234,8 @@ final class ConfigurationPage {
 					data-stonewright-client-panel="<?php echo esc_attr( $slug ); ?>"
 					<?php echo $is_active ? '' : 'hidden'; ?>
 				>
-					<div data-stonewright-auth-panel="oauth" <?php echo $oauth_selected ? '' : 'hidden'; ?>>
-						<?php if ( ! $oauth_ok ) : ?>
-							<div class="notice notice-info inline"><p>
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %s: client label. */
-										__( '%s does not support OAuth. Use Application Password.', 'stonewright' ),
-										(string) $client['label']
-									)
-								);
-								?>
-							</p></div>
-						<?php endif; ?>
-						<?php OAuthConnectPanel::render_client( $slug, $oauth_url, $oauth_server_name, true ); ?>
-					</div>
-
-					<div data-stonewright-auth-panel="application-password" <?php echo $oauth_selected ? 'hidden' : ''; ?>>
 					<?php if ( ! $app_ok ) : ?>
-						<div class="notice notice-info inline"><p>
+						<div class="notice notice-info inline sw-notice"><p>
 							<?php
 							echo esc_html(
 								sprintf(
@@ -1332,7 +1275,10 @@ final class ConfigurationPage {
 							<?php echo $method_show ? '' : 'hidden'; ?>
 						>
 							<?php if ( '' !== $deeplink ) : ?>
-								<?php OAuthConnectPanel::render_deeplink_button( $deeplink, (string) $client['label'] ); ?>
+								<p class="sw-connect-links">
+									<a class="button" href="<?php echo esc_url( $deeplink, [ 'cursor' ] ); ?>"><?php esc_html_e( 'Add to Cursor', 'stonewright' ); ?></a>
+									<span class="description"><?php esc_html_e( 'The link adds the entry below exactly as shown; replace the password placeholder in mcp.json if it is still there.', 'stonewright' ); ?></span>
+								</p>
 							<?php endif; ?>
 							<?php if ( 'http' === $method ) : ?>
 								<p class="description">
@@ -1350,12 +1296,10 @@ final class ConfigurationPage {
 							</div>
 						</div>
 					<?php endforeach; ?>
-					</div>
 				</div>
 			<?php endforeach; ?>
 		</div>
 		<?php
-		OAuthConnectPanel::render_script();
 	}
 
 	/**
