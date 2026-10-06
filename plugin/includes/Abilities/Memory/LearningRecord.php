@@ -252,29 +252,36 @@ final class LearningRecord extends AbilityKernel {
 						$topic,
 						(string) ( $a['skill_slug'] ?? ( $draft['slug'] ?? '' ) )
 					);
-					$saved = SkillLibraryService::open()->save_skill(
-						[
-							'slug'           => $skill_slug,
-							'title'          => '' !== (string) ( $a['skill_title'] ?? ( $draft['name'] ?? '' ) )
-								? (string) ( $a['skill_title'] ?? $draft['name'] )
-								: 'Learned: ' . $topic,
-							'description'    => '' !== (string) ( $draft['description'] ?? '' )
-								? (string) $draft['description']
-								: 'Use when working on ' . $topic . ' or related Stonewright tasks.',
-							'content'        => '' !== (string) ( $a['skill_content'] ?? ( $draft['body'] ?? '' ) )
-								? (string) ( $a['skill_content'] ?? $draft['body'] )
-								: $this->default_skill_content( $topic, $scope, $correction, $lesson ),
-							'enabled'        => false,
-							'enable_agentic' => false,
-							'enable_prompt'  => false,
-							'status'         => 'draft',
-							'topic'          => $topic,
-						]
-					);
-					if ( is_wp_error( $saved ) ) {
-						$skill_error = (string) $saved->get_error_code();
+					$library    = SkillLibraryService::open();
+					$existing   = $library->find_in_any_state( $skill_slug );
+					if ( null !== $existing && ! $this->owns_skill( $existing, $topic ) ) {
+						// Learning revises only its own draft; any other skill under this slug stays exactly as it is.
+						$skill_error = 'stonewright_skill_slug_taken';
 					} else {
-						$skill_id = $saved;
+						$saved = $library->save_skill(
+							[
+								'slug'           => $skill_slug,
+								'title'          => '' !== (string) ( $a['skill_title'] ?? ( $draft['name'] ?? '' ) )
+									? (string) ( $a['skill_title'] ?? $draft['name'] )
+									: 'Learned: ' . $topic,
+								'description'    => '' !== (string) ( $draft['description'] ?? '' )
+									? (string) $draft['description']
+									: 'Use when working on ' . $topic . ' or related Stonewright tasks.',
+								'content'        => '' !== (string) ( $a['skill_content'] ?? ( $draft['body'] ?? '' ) )
+									? (string) ( $a['skill_content'] ?? $draft['body'] )
+									: $this->default_skill_content( $topic, $scope, $correction, $lesson ),
+								'enabled'        => false,
+								'enable_agentic' => false,
+								'enable_prompt'  => false,
+								'status'         => 'draft',
+								'topic'          => $topic,
+							]
+						);
+						if ( is_wp_error( $saved ) ) {
+							$skill_error = (string) $saved->get_error_code();
+						} else {
+							$skill_id = $saved;
+						}
 					}
 				}
 
@@ -394,6 +401,19 @@ final class LearningRecord extends AbilityKernel {
 		$lines[] = '- Before acting, check current Stonewright memory and relevant skills for newer constraints.';
 
 		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Whether a stored skill is the local draft this ability created for the topic. Imported,
+	 * verified, shipped, active, stale, and trashed skills are not its own, and neither is a
+	 * draft that was written for another topic or for none.
+	 *
+	 * @param array<string, mixed> $skill
+	 */
+	private function owns_skill( array $skill, string $topic ): bool {
+		return 'user' === ( $skill['source'] ?? '' )
+			&& 'draft' === ( $skill['status'] ?? '' )
+			&& $topic === ( $skill['topic'] ?? '' );
 	}
 
 	private function skill_slug( string $topic, string $explicit ): string {

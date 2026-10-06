@@ -85,6 +85,15 @@ final class SkillLibraryServiceTest extends TestCase {
 		self::assertSame( 403, $claim->get_error_data()['status'] );
 	}
 
+	public function test_a_revision_for_a_skill_that_no_longer_exists_is_a_conflict(): void {
+		$result = SkillLibraryService::open()->save_skill( $this->input() + [ 'revision' => 2 ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'The skill the caller read is gone, so its edit is not a creation.' );
+		self::assertSame( 'stonewright_skill_write_conflict', $result->get_error_code() );
+		self::assertSame( 409, $result->get_error_data()['status'] );
+		self::assertSame( [], $this->tables->skills );
+	}
+
 	public function test_saves_cannot_touch_shipped_or_reserved_identities(): void {
 		$this->tables->seed_skill( [ 'slug' => 'stonewright-elementor-v3-builder', 'title' => 'Builder', 'content' => '# Shipped', 'source' => 'builtin' ] );
 		$service = SkillLibraryService::open();
@@ -353,6 +362,49 @@ final class SkillLibraryServiceTest extends TestCase {
 		self::assertTrue( $inspection['ready_to_import'] );
 		self::assertIsInt( $this->studio()->import_upload( $inspection ) );
 		self::assertSame( 'uploaded', $this->tables->skill_by_slug( 'observer-note' )['source'] ?? null );
+	}
+
+	public function test_a_bundle_entry_becomes_a_disabled_draft_and_never_replaces_a_skill(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Mine', 'content' => '# Mine', 'revision' => 2 ] );
+		$this->tables->seed_skill( [ 'slug' => 'binned-note', 'title' => 'Binned', 'content' => '# Binned', 'status' => 'trashed', 'enabled' => 0 ] );
+		$before  = $this->tables->skills;
+		$service = SkillLibraryService::open();
+
+		$id = $service->import_bundle_skill( [ 'slug' => 'bundle-note', 'title' => 'Bundle note', 'description' => 'Use when testing.', 'content' => '# Bundle', 'enabled' => true, 'enable_agentic' => true, 'enable_prompt' => true, 'status' => 'active' ] );
+
+		self::assertSame( 3, $id );
+		$row = $this->tables->skills[3];
+		self::assertSame( [ 'user', 'draft', '0', '0', '0', '1' ], [ $row['source'], $row['status'], $row['enabled'], $row['enable_agentic'], $row['enable_prompt'], $row['revision'] ] );
+
+		foreach ( [ 'site-note', 'Binned Note', 'playbook-mega-menu', 'bundle-note' ] as $taken ) {
+			$refused = $service->import_bundle_skill( [ 'slug' => $taken, 'title' => 'Bundle', 'content' => '# Bundle' ] );
+			self::assertInstanceOf( \WP_Error::class, $refused, $taken );
+			self::assertSame( 'stonewright_skill_import_collision', $refused->get_error_code(), $taken );
+			self::assertSame( 409, $refused->get_error_data()['status'], $taken );
+		}
+		self::assertSame( $before, array_slice( $this->tables->skills, 0, 2, true ), 'A local skill and a trashed one both keep every column.' );
+		self::assertNull( $this->tables->skill_by_slug( 'playbook-mega-menu' ) );
+		self::assertSame( '# Bundle', $this->tables->skills[3]['content'] );
+
+		$nameless = $service->import_bundle_skill( [ 'title' => 'Bundle', 'content' => '# Bundle' ] );
+		self::assertInstanceOf( \WP_Error::class, $nameless );
+		self::assertSame( 'stonewright_skill_record_invalid', $nameless->get_error_code() );
+	}
+
+	public function test_a_skill_can_be_found_in_any_lifecycle_state_including_the_trash(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Note', 'content' => '# Note', 'topic' => 'notes', 'status' => 'draft', 'enabled' => 0 ] );
+		$this->tables->seed_skill( [ 'slug' => 'binned-note', 'title' => 'Binned', 'content' => '# Binned', 'status' => 'trashed', 'enabled' => 0 ] );
+		$service = SkillLibraryService::open();
+
+		$draft = $service->find_in_any_state( 'Site Note' );
+		self::assertIsArray( $draft );
+		self::assertSame( [ 'site-note', 'draft', 'user', 'notes', '1' ], [ $draft['slug'], $draft['status'], $draft['source'], $draft['topic'], $draft['revision'] ] );
+		$binned = $service->find_in_any_state( 'binned-note' );
+		self::assertIsArray( $binned );
+		self::assertSame( 'trashed', $binned['status'] );
+		self::assertNull( $service->find( 'binned-note' ), 'Normal lookup still hides the trash.' );
+		self::assertNull( $service->find_in_any_state( 'missing' ) );
+		self::assertNull( $service->find_in_any_state( '' ) );
 	}
 
 	public function test_catalog_lists_every_source_and_reports_refused_identities(): void {

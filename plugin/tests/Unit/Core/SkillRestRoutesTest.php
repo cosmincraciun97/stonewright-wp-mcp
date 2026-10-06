@@ -44,7 +44,9 @@ final class SkillRestRoutesTest extends TestCase {
 		self::assertSame( [ 'GET', 'POST' ], array_column( $collection, 'methods' ) );
 		self::assertSame( [ 'enabled_only', 'mode' ], array_keys( $collection[0]['args'] ) );
 		self::assertSame( [ 'all', 'agentic', 'prompt' ], $collection[0]['args']['mode']['enum'] );
-		self::assertSame( [ 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' ], array_keys( $collection[1]['args'] ) );
+		self::assertSame( [ 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt', 'revision' ], array_keys( $collection[1]['args'] ) );
+		self::assertSame( 'integer', $collection[1]['args']['revision']['type'] );
+		self::assertArrayNotHasKey( 'required', $collection[1]['args']['revision'] );
 		self::assertSame( [ 'id', 'enabled' ], array_keys( $this->route( '/skills/(?P<id>\d+)/toggle' )['args'] ) );
 		self::assertSame( 'DELETE', $this->route( '/skills/(?P<id>\d+)' )['methods'] );
 	}
@@ -62,6 +64,24 @@ final class SkillRestRoutesTest extends TestCase {
 		self::assertSame( [ 'id' => 1 ], $second );
 		self::assertSame( [ '2', '# Two', '0' ], [ $this->tables->skills[1]['revision'], $this->tables->skills[1]['content'], $this->tables->skills[1]['enable_prompt'] ] );
 		self::assertCount( 1, $this->tables->versions );
+	}
+
+	public function test_create_refuses_a_save_based_on_an_older_revision(): void {
+		$create = $this->route( '/skills' )[1]['callback'];
+		$fields = [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.' ];
+		$this->data( $create( $this->request( $fields + [ 'content' => '# One' ] ) ) );
+
+		self::assertSame( [ 'id' => 1 ], $this->data( $create( $this->request( $fields + [ 'content' => '# Two', 'revision' => 1 ] ) ) ) );
+		self::assertSame( [ '# Two', '2' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+
+		$stale = $create( $this->request( $fields + [ 'content' => '# From the old read', 'revision' => 1 ] ) );
+		self::assertInstanceOf( \WP_Error::class, $stale );
+		self::assertSame( 'stonewright_skill_write_conflict', $stale->get_error_code() );
+		self::assertSame( 409, $stale->get_error_data()['status'] );
+		self::assertSame( [ '# Two', '2' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+
+		self::assertSame( [ 'id' => 1 ], $this->data( $create( $this->request( $fields + [ 'content' => '# Three' ] ) ) ), 'A request without a revision saves as before.' );
+		self::assertSame( '3', $this->tables->skills[1]['revision'] );
 	}
 
 	public function test_create_refuses_shipped_slugs_and_unauthorized_callers(): void {

@@ -157,6 +157,17 @@ final class SkillLibraryService {
 		return null === $record ? null : RowFormat::exposed( $record );
 	}
 
+	/**
+	 * The skill stored under an identity in any lifecycle state, the trash included.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public function find_in_any_state( string $slug ): ?array {
+		$slug   = RecordRules::identity( $slug );
+		$record = '' === $slug ? null : $this->repository->find_slug( $slug );
+		return null === $record ? null : RowFormat::exposed( $record );
+	}
+
 	/** @return array<string, mixed>|null */
 	public function record_for_id( int $id ): ?array {
 		$record = $id > 0 ? $this->reader()->identify( $id ) : null;
@@ -286,8 +297,8 @@ final class SkillLibraryService {
 		$slug     = is_string( $input['slug'] ?? null ) ? RecordRules::identity( $input['slug'] ) : '';
 		$previous = '' === $slug ? null : $this->repository->find_slug( $slug );
 		$changes  = array_intersect_key( $input, array_flip( self::EDITABLE ) );
-		if ( null !== $previous && is_numeric( $input['revision'] ?? null ) && (int) $input['revision'] !== $previous['revision'] ) {
-			// The caller read an earlier revision; saving it back would discard a newer change.
+		if ( is_numeric( $input['revision'] ?? null ) && ( null === $previous || (int) $input['revision'] !== $previous['revision'] ) ) {
+			// The caller read an earlier revision, or a skill that is gone; saving it back would discard a newer change.
 			return new \WP_Error( 'stonewright_skill_write_conflict', 'The skill changed after it was read. Reload it and try again.', [ 'status' => 409 ] );
 		}
 		foreach ( self::BOOKKEEPING as $field ) {
@@ -478,6 +489,36 @@ final class SkillLibraryService {
 			return self::collision();
 		}
 		return is_wp_error( $result ) ? self::with_status( $result ) : $result;
+	}
+
+	/**
+	 * Adds the skill of a knowledge bundle entry as a disabled draft, whatever
+	 * exposure, status, or provenance the entry claims. Like a file import it never
+	 * replaces a skill: an identity stored in any state, the trash included, or
+	 * reserved for a built-in skill is a collision.
+	 *
+	 * @param array<string, mixed> $entry The `slug`, `title`, `description`, and `content` of the entry.
+	 */
+	public function import_bundle_skill( array $entry ): int|\WP_Error {
+		$slug = is_string( $entry['slug'] ?? null ) ? RecordRules::identity( $entry['slug'] ) : '';
+		if ( '' === $slug ) {
+			return self::invalid( 'The skill needs an identifier.' );
+		}
+		if ( null !== $this->repository->find_slug( $slug ) || in_array( $slug, ( $this->reserved )(), true ) ) {
+			return self::collision();
+		}
+		return $this->save_skill(
+			array_replace(
+				array_intersect_key( $entry, array_flip( [ 'title', 'description', 'content' ] ) ),
+				[
+					'slug'           => $slug,
+					'enabled'        => false,
+					'enable_agentic' => false,
+					'enable_prompt'  => false,
+					'status'         => 'draft',
+				]
+			)
+		);
 	}
 
 	/** @return array{filename: string, markdown: string}|\WP_Error */

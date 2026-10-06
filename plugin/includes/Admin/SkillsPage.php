@@ -85,14 +85,19 @@ final class SkillsPage {
 		$enabled        = ! empty( $form['enabled'] );
 		$enable_agentic = ! empty( $form['enable_agentic'] );
 		$enable_prompt  = ! empty( $form['enable_prompt'] );
+		$revision       = absint( is_scalar( $form['revision'] ?? null ) ? $form['revision'] : 0 );
 
 		if ( '' === $slug || '' === $title || '' === $content ) {
 			return self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] );
 		}
 
-		$result = SkillLibraryService::open( WordPressBoundary::ADMIN )->save_skill(
-			compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' )
-		);
+		$input = compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' );
+		if ( $revision > 0 ) {
+			// The editor loaded this revision of the skill; a newer one means the form is stale.
+			$input['revision'] = $revision;
+		}
+
+		$result = SkillLibraryService::open( WordPressBoundary::ADMIN )->save_skill( $input );
 
 		if ( is_wp_error( $result ) ) {
 			return self::redirect_url(
@@ -361,6 +366,9 @@ final class SkillsPage {
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-skills-form">
 				<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
 				<input type="hidden" name="action" value="stonewright_skill_save">
+				<?php if ( null !== $skill ) : ?>
+					<input type="hidden" name="revision" value="<?php echo esc_attr( (string) ( $skill['revision'] ?? '' ) ); ?>">
+				<?php endif; ?>
 
 				<p class="sw-field">
 					<label for="sw-skill-title"><?php esc_html_e( 'Title', 'stonewright' ); ?></label>
@@ -489,6 +497,7 @@ final class SkillsPage {
 			'stonewright_skill_authority_claim'   => __( 'That slug belongs to a skill that ships with Stonewright or comes from another source. Choose a different slug.', 'stonewright' ),
 			'stonewright_skill_sensitive_content' => __( 'Remove credentials and other secrets from the skill before saving it.', 'stonewright' ),
 			'stonewright_skill_toggle_invalid'    => __( 'A stale or retired skill cannot be enabled again.', 'stonewright' ),
+			'stonewright_skill_write_conflict'    => __( 'The skill changed after you opened it, so nothing was saved. The editor shows the current version; apply your edits to it again.', 'stonewright' ),
 			default                               => __( 'The skill was not saved. Check the fields and try again.', 'stonewright' ),
 		};
 	}

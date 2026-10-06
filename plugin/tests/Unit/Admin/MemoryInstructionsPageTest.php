@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Security\IncidentStore;
+use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\MemoryInstructionsPage
@@ -127,6 +128,78 @@ final class MemoryInstructionsPageTest extends TestCase {
 			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm="Delete this memory\?")/i',
 			$html
 		);
+	}
+
+	public function test_import_submission_adds_new_skills_as_drafts_and_reports_the_skipped_ones(): void {
+		$tables          = new SkillTablesDouble();
+		$GLOBALS['wpdb'] = $tables;
+		$tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'content' => '# Mine' ] );
+		$bundle = wp_json_encode(
+			[
+				'format'  => 'stonewright-knowledge-bundle',
+				'version' => 1,
+				'skills'  => [
+					'entries' => [
+						[ 'slug' => 'site-note', 'title' => 'Bundle copy', 'content' => '# Bundle', 'enabled' => true ],
+						[ 'slug' => 'new-note', 'title' => 'New note', 'content' => '# New', 'enabled' => true ],
+					],
+				],
+			]
+		);
+
+		$url = MemoryInstructionsPage::import_submission( (string) $bundle );
+
+		self::assertSame( '# Mine', $tables->skills[1]['content'] );
+		self::assertSame( [ 'draft', '0' ], [ $tables->skills[2]['status'], $tables->skills[2]['enabled'] ] );
+		self::assertStringContainsString( 'page=stonewright-memory', $url );
+		self::assertStringContainsString( 'imported=1', $url );
+		self::assertStringContainsString( 'skills_imported=1', $url );
+		self::assertStringContainsString( 'skills_skipped=1', $url );
+	}
+
+	public function test_import_submission_reports_a_bundle_it_cannot_read(): void {
+		$GLOBALS['wpdb'] = new SkillTablesDouble();
+
+		foreach ( [ 'not json', '"a string"', '{"format":"another-format","version":1}' ] as $raw ) {
+			$url = MemoryInstructionsPage::import_submission( $raw );
+
+			self::assertStringContainsString( 'import_error=1', $url, $raw );
+			self::assertStringNotContainsString( 'imported=1', $url, $raw );
+		}
+	}
+
+	public function test_the_page_says_how_many_skills_arrived_as_drafts_and_how_many_were_not_added(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+		$_GET            = [
+			'imported'        => '1',
+			'skills_imported' => '2',
+			'skills_skipped'  => '3',
+		];
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Knowledge bundle imported.', $html );
+		self::assertStringContainsString( '2 skills were added as disabled drafts', $html );
+		self::assertStringContainsString( '3 skills from the bundle were not added', $html );
+
+		$_GET = [
+			'imported'       => '1',
+			'skills_skipped' => '50',
+		];
+		ob_start();
+		MemoryInstructionsPage::render();
+		$capped = (string) ob_get_clean();
+		self::assertStringContainsString( '50 or more skills from the bundle were not added', $capped );
+		self::assertStringNotContainsString( 'disabled drafts', $capped );
+
+		$_GET = [ 'import_error' => '1' ];
+		ob_start();
+		MemoryInstructionsPage::render();
+		$failed = (string) ob_get_clean();
+		self::assertStringContainsString( 'The bundle could not be imported.', $failed );
+		self::assertStringNotContainsString( 'Knowledge bundle imported.', $failed );
 	}
 
 	public function test_enable_checkboxes_post_hidden_zero_so_uncheck_persists(): void {

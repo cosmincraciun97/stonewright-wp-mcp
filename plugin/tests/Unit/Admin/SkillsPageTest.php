@@ -71,9 +71,25 @@ final class SkillsPageTest extends TestCase {
 		self::assertMatchesRegularExpression( '/name="enable_prompt" value="1"\s*>/', $html );
 	}
 
+	public function test_editor_carries_the_revision_it_loaded_and_a_new_skill_form_carries_none(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.', 'content' => '# Note', 'revision' => 4 ] );
+		$_GET = [
+			'view'  => 'editor',
+			'skill' => 'site-note',
+		];
+
+		self::assertStringContainsString( '<input type="hidden" name="revision" value="4">', $this->render() );
+
+		$_GET = [ 'view' => 'editor' ];
+		self::assertStringNotContainsString( 'name="revision"', $this->render() );
+	}
+
 	public function test_refused_saves_are_explained_without_reflecting_the_request(): void {
 		$_GET = [ 'error' => 'stonewright_skill_lint_failed' ];
 		self::assertStringContainsString( 'Save it disabled to keep a draft.', $this->render() );
+
+		$_GET = [ 'error' => 'stonewright_skill_write_conflict' ];
+		self::assertStringContainsString( 'changed after you opened it, so nothing was saved', $this->render() );
 
 		$_GET = [ 'error' => '<b>forged</b>' ];
 		$html = $this->render();
@@ -114,6 +130,32 @@ final class SkillsPageTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		self::assertStringContainsString( 'error=stonewright_skill_permission_denied', SkillsPage::save_submission( [ 'slug' => 'other', 'title' => 'Other', 'content' => '# Other' ] ) );
 		self::assertNull( $this->tables->skill_by_slug( 'other' ) );
+	}
+
+	public function test_save_submission_refuses_a_form_loaded_from_an_older_revision(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.', 'content' => '# Newer', 'revision' => 3 ] );
+		$form = [
+			'slug'           => 'site-note',
+			'title'          => 'Site note',
+			'description'    => 'Use when noting.',
+			'content'        => '# From the form',
+			'enabled'        => '1',
+			'enable_agentic' => '1',
+			'enable_prompt'  => '1',
+		];
+
+		$url = SkillsPage::save_submission( $form + [ 'revision' => '2' ] );
+
+		self::assertSame( [ '# Newer', '3' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+		self::assertStringContainsString( 'view=editor', $url );
+		self::assertStringContainsString( 'error=stonewright_skill_write_conflict', $url );
+		self::assertStringContainsString( 'skill=site-note', $url );
+
+		self::assertStringContainsString( 'saved=1', SkillsPage::save_submission( $form + [ 'revision' => '3' ] ) );
+		self::assertSame( [ '# From the form', '4' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+
+		self::assertStringContainsString( 'saved=1', SkillsPage::save_submission( array_replace( $form, [ 'content' => '# Without a revision' ] ) ), 'A form that carries no revision saves as it always did.' );
+		self::assertSame( [ '# Without a revision', '5' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
 	}
 
 	public function test_toggle_submission_changes_the_flag_only(): void {

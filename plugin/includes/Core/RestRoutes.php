@@ -1002,24 +1002,28 @@ final class RestRoutes {
 						'enabled'        => [ 'type' => 'boolean', 'default' => true ],
 						'enable_agentic' => [ 'type' => 'boolean' ],
 						'enable_prompt'  => [ 'type' => 'boolean' ],
+						'revision'       => [ 'type' => 'integer', 'minimum' => 1 ],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$enabled = null === $request->get_param( 'enabled' ) || (bool) $request->get_param( 'enabled' );
-						$id      = SkillLibraryService::open( WordPressBoundary::REST )->save_skill(
-							[
-								'slug'           => (string) $request->get_param( 'slug' ),
-								'title'          => (string) $request->get_param( 'title' ),
-								'description'    => (string) $request->get_param( 'description' ),
-								'content'        => (string) $request->get_param( 'content' ),
-								'enabled'        => $enabled,
-								'enable_agentic' => null !== $request->get_param( 'enable_agentic' )
-									? (bool) $request->get_param( 'enable_agentic' )
-									: $enabled,
-								'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
-									? (bool) $request->get_param( 'enable_prompt' )
-									: $enabled,
-							]
-						);
+						$input   = [
+							'slug'           => (string) $request->get_param( 'slug' ),
+							'title'          => (string) $request->get_param( 'title' ),
+							'description'    => (string) $request->get_param( 'description' ),
+							'content'        => (string) $request->get_param( 'content' ),
+							'enabled'        => $enabled,
+							'enable_agentic' => null !== $request->get_param( 'enable_agentic' )
+								? (bool) $request->get_param( 'enable_agentic' )
+								: $enabled,
+							'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
+								? (bool) $request->get_param( 'enable_prompt' )
+								: $enabled,
+						];
+						// A caller that read the skill first sends the revision it read, so a newer change is never overwritten.
+						if ( null !== $request->get_param( 'revision' ) ) {
+							$input['revision'] = (int) $request->get_param( 'revision' );
+						}
+						$id = SkillLibraryService::open( WordPressBoundary::REST )->save_skill( $input );
 						if ( is_wp_error( $id ) ) {
 							return $id;
 						}

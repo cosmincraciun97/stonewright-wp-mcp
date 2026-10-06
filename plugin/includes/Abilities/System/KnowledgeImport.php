@@ -50,9 +50,18 @@ final class KnowledgeImport extends AbilityKernel {
 				'ok'                    => [ 'type' => 'boolean' ],
 				'instructions_imported' => [ 'type' => 'integer' ],
 				'memory_imported'       => [ 'type' => 'integer' ],
-				'skills_imported'       => [ 'type' => 'integer' ],
+				'skills_imported'       => [
+					'type'        => 'integer',
+					'description' => 'Skills added as disabled drafts. A bundle never enables a skill or replaces one.',
+				],
+				'skills_skipped'        => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'maxItems'    => KnowledgeBundle::SKIPPED_LIMIT,
+					'description' => 'Slugs of bundle skills that were not added: the slug already belongs to a skill in any state, the trash and built-in skills included, or the entry was refused. At most ' . KnowledgeBundle::SKIPPED_LIMIT . ' are listed.',
+				],
 			],
-			'required'   => [ 'ok', 'instructions_imported', 'memory_imported', 'skills_imported' ],
+			'required'   => [ 'ok', 'instructions_imported', 'memory_imported', 'skills_imported', 'skills_skipped' ],
 		];
 	}
 

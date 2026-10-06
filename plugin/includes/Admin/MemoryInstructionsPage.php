@@ -145,6 +145,8 @@ final class MemoryInstructionsPage {
 				</div>
 			</div>
 
+			<?php self::render_import_notice(); ?>
+
 			<?php if ( ! Memory::table_schema_ok() ) : ?>
 				<div class="notice notice-error"><p>
 					<?php esc_html_e( 'Stonewright memory table is missing or outdated. Learning promotion and memory abilities cannot store entries. Deactivate and reactivate the plugin, or check database ALTER/CREATE permissions, then reload this page.', 'stonewright' ); ?>
@@ -944,23 +946,72 @@ final class MemoryInstructionsPage {
 		check_admin_referer( 'stonewright_knowledge_bundle', '_stonewright_nonce' );
 
 		$raw = wp_unslash( (string) ( $_POST['bundle_json'] ?? '' ) );
+
+		wp_safe_redirect( self::import_submission( $raw ) );
+		exit;
+	}
+
+	/**
+	 * Imports a pasted knowledge bundle and returns where the browser goes next. The
+	 * address carries how many skills arrived as disabled drafts and how many were not added.
+	 *
+	 * @param string $raw Unslashed bundle JSON; the caller has checked the capability and nonce.
+	 */
+	public static function import_submission( string $raw ): string {
+		$args = [ 'page' => self::SLUG, 'import_error' => '1' ];
 		try {
 			$bundle = json_decode( $raw, true, 512, JSON_THROW_ON_ERROR );
-			if ( ! is_array( $bundle ) ) {
-				throw new \JsonException( 'Bundle must decode to an object.' );
+			if ( is_array( $bundle ) ) {
+				$result = KnowledgeBundle::import( $bundle );
+				$args   = [
+					'page'            => self::SLUG,
+					'imported'        => '1',
+					'skills_imported' => (string) $result['skills_imported'],
+					'skills_skipped'  => (string) count( $result['skills_skipped'] ),
+				];
 			}
-			KnowledgeBundle::import( $bundle );
-			$args = [ 'page' => self::SLUG, 'imported' => '1' ];
 		} catch ( \Throwable ) {
-			$args = [ 'page' => self::SLUG, 'import_error' => '1' ];
+			// Not JSON, or not a bundle this plugin can read: the error flag stays.
 		}
 
-		wp_safe_redirect(
-			add_query_arg(
-				$args,
-				admin_url( 'admin.php' )
-			)
+		return add_query_arg(
+			$args,
+			admin_url( 'admin.php' )
 		);
-		exit;
+	}
+
+	/**
+	 * What the last bundle import did, from the flags its redirect carries.
+	 */
+	private static function render_import_notice(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only result flags from the import redirect.
+		$failed   = ! empty( $_GET['import_error'] );
+		$imported = ! empty( $_GET['imported'] );
+		$added    = isset( $_GET['skills_imported'] ) ? absint( wp_unslash( $_GET['skills_imported'] ) ) : 0;
+		$skipped  = isset( $_GET['skills_skipped'] ) ? absint( wp_unslash( $_GET['skills_skipped'] ) ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		if ( $failed ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'The bundle could not be imported. Paste a Stonewright knowledge bundle exported by this plugin.', 'stonewright' ) . '</p></div>';
+			return;
+		}
+		if ( ! $imported ) {
+			return;
+		}
+
+		$message = __( 'Knowledge bundle imported.', 'stonewright' );
+		if ( $added > 0 ) {
+			/* translators: %d: number of skills added as drafts */
+			$message .= ' ' . sprintf( _n( '%d skill was added as a disabled draft; review it on the Skills page before enabling it.', '%d skills were added as disabled drafts; review them on the Skills page before enabling them.', $added, 'stonewright' ), $added );
+		}
+		if ( $skipped >= KnowledgeBundle::SKIPPED_LIMIT ) {
+			/* translators: %d: number of skills from the bundle that were not added */
+			$message .= ' ' . sprintf( __( '%d or more skills from the bundle were not added: their slugs already belong to skills, or the entries were refused. Existing skills are never replaced.', 'stonewright' ), $skipped );
+		} elseif ( $skipped > 0 ) {
+			/* translators: %d: number of skills from the bundle that were not added */
+			$message .= ' ' . sprintf( _n( '%d skill from the bundle was not added: its slug already belongs to a skill, or the entry was refused. Existing skills are never replaced.', '%d skills from the bundle were not added: their slugs already belong to skills, or the entries were refused. Existing skills are never replaced.', $skipped, 'stonewright' ), $skipped );
+		}
+
+		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
 	}
 }

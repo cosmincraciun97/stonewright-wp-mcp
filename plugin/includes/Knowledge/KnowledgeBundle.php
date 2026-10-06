@@ -15,6 +15,9 @@ final class KnowledgeBundle {
 	public const FORMAT  = 'stonewright-knowledge-bundle';
 	public const VERSION = 1;
 
+	/** Most skipped skill identities an import reports. */
+	public const SKIPPED_LIMIT = 50;
+
 	/**
 	 * @return array<string, mixed>
 	 */
@@ -38,8 +41,12 @@ final class KnowledgeBundle {
 	}
 
 	/**
+	 * Skills arrive as disabled drafts and never replace a skill: an identity that
+	 * is stored in any state, the trash included, or reserved for a built-in skill
+	 * is skipped, and so is an entry the library refuses.
+	 *
 	 * @param array<string, mixed> $bundle
-	 * @return array<string, int>
+	 * @return array{instructions_imported: int, memory_imported: int, skills_imported: int, skills_skipped: array<int, string>}
 	 */
 	public static function import( array $bundle ): array {
 		self::assert_supported_bundle( $bundle );
@@ -47,6 +54,7 @@ final class KnowledgeBundle {
 		$instructions_imported = 0;
 		$memory_imported       = 0;
 		$skills_imported       = 0;
+		$skills_skipped        = [];
 
 		$instructions = $bundle['instructions'] ?? null;
 		if ( is_array( $instructions ) ) {
@@ -111,20 +119,19 @@ final class KnowledgeBundle {
 						continue;
 					}
 
-					// Entries become local skills: a bundle never sets provenance, and shipped skills are refused.
-					$id = $library->save_skill(
+					// A bundle never sets provenance, exposure, or status; its skills wait as local drafts for review.
+					$id = $library->import_bundle_skill(
 						[
-							'slug'           => $slug,
-							'title'          => (string) ( $entry['title'] ?? $slug ),
-							'description'    => (string) ( $entry['description'] ?? '' ),
-							'content'        => (string) $entry['content'],
-							'enabled'        => (bool) ( $entry['enabled'] ?? true ),
-							'enable_agentic' => (bool) ( $entry['enable_agentic'] ?? ( $entry['enabled'] ?? true ) ),
-							'enable_prompt'  => (bool) ( $entry['enable_prompt'] ?? ( $entry['enabled'] ?? true ) ),
+							'slug'        => $slug,
+							'title'       => (string) ( $entry['title'] ?? $slug ),
+							'description' => (string) ( $entry['description'] ?? '' ),
+							'content'     => (string) $entry['content'],
 						]
 					);
 					if ( is_int( $id ) && $id > 0 ) {
 						++$skills_imported;
+					} elseif ( count( $skills_skipped ) < self::SKIPPED_LIMIT ) {
+						$skills_skipped[] = $slug;
 					}
 				}
 			}
@@ -134,6 +141,7 @@ final class KnowledgeBundle {
 			'instructions_imported' => $instructions_imported,
 			'memory_imported'       => $memory_imported,
 			'skills_imported'       => $skills_imported,
+			'skills_skipped'        => $skills_skipped,
 		];
 	}
 

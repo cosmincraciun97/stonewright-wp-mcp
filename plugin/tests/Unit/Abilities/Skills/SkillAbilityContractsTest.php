@@ -48,6 +48,8 @@ final class SkillAbilityContractsTest extends TestCase {
 		self::assertSame( [ 'slug', 'title', 'content' ], ( new SkillsSave() )->input_schema()['required'] );
 		self::assertSame( [ 'id', 'slug', 'updated' ], ( new SkillsSave() )->output_schema()['required'] );
 		self::assertArrayHasKey( 'confirmation_token', ( new SkillsSave() )->input_schema()['properties'] );
+		self::assertSame( 'integer', ( new SkillsSave() )->input_schema()['properties']['revision']['type'] ?? null, 'The optional revision lets a caller refuse to overwrite a newer change.' );
+		self::assertNotContains( 'revision', ( new SkillsSave() )->input_schema()['required'] );
 	}
 
 	public function test_get_returns_the_full_row_or_reports_it_missing(): void {
@@ -140,6 +142,33 @@ final class SkillAbilityContractsTest extends TestCase {
 			$updated
 		);
 		self::assertSame( '2', $this->tables->skills[1]['revision'] );
+	}
+
+	public function test_save_with_a_revision_refuses_a_stale_base_and_without_one_saves_as_before(): void {
+		$args = [
+			'slug'        => 'site-note',
+			'title'       => 'Note',
+			'description' => 'Use when noting.',
+			'content'     => '# One',
+		];
+		( new SkillsSave() )->execute( $args );
+		$read = ( new SkillsGet() )->execute( [ 'slug' => 'site-note' ] );
+		self::assertIsArray( $read );
+		self::assertSame( '1', $read['skill']['revision'] );
+
+		$current = ( new SkillsSave() )->execute( array_replace( $args, [ 'content' => '# Two', 'revision' => 1 ] ) );
+		self::assertSame( [ 'id' => 1, 'slug' => 'site-note', 'updated' => true ], $current );
+		self::assertSame( [ '# Two', '2' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+
+		$stale = ( new SkillsSave() )->execute( array_replace( $args, [ 'content' => '# From the old read', 'revision' => 1 ] ) );
+		self::assertInstanceOf( \WP_Error::class, $stale );
+		self::assertSame( 'stonewright_skill_write_conflict', $stale->get_error_code() );
+		self::assertSame( 409, $stale->get_error_data()['status'] );
+		self::assertSame( [ '# Two', '2' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
+
+		$unconditional = ( new SkillsSave() )->execute( array_replace( $args, [ 'content' => '# Three' ] ) );
+		self::assertSame( [ 'id' => 1, 'slug' => 'site-note', 'updated' => true ], $unconditional );
+		self::assertSame( [ '# Three', '3' ], [ $this->tables->skills[1]['content'], $this->tables->skills[1]['revision'] ] );
 	}
 
 	public function test_save_refuses_shipped_skills_with_a_status(): void {

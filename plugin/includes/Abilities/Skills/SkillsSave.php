@@ -67,6 +67,11 @@ final class SkillsSave extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Whether the skill should be exposed as an explicit prompt/command entry. Defaults to enabled.',
 				],
+				'revision'       => [
+					'type'        => 'integer',
+					'minimum'     => 1,
+					'description' => 'Revision of the skill as last read (the revision field of skills-get). When given, the save is refused with a 409 conflict if the skill has changed since or no longer exists, so a newer change is never overwritten. Omit it to create a skill or to save without the check.',
+				],
 			],
 		];
 	}
@@ -100,17 +105,20 @@ final class SkillsSave extends AbilityKernel {
 				$library  = SkillLibraryService::open();
 				$existing = $library->find( $slug );
 
-				$id = $library->save_skill(
-					[
-						'slug'           => $slug,
-						'title'          => (string) ( $args['title'] ?? '' ),
-						'description'    => (string) ( $args['description'] ?? '' ),
-						'content'        => (string) ( $args['content'] ?? '' ),
-						'enabled'        => $args['enabled'] ?? true,
-						'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
-						'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
-					]
-				);
+				$input = [
+					'slug'           => $slug,
+					'title'          => (string) ( $args['title'] ?? '' ),
+					'description'    => (string) ( $args['description'] ?? '' ),
+					'content'        => (string) ( $args['content'] ?? '' ),
+					'enabled'        => $args['enabled'] ?? true,
+					'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
+					'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
+				];
+				if ( isset( $args['revision'] ) ) {
+					$input['revision'] = (int) $args['revision'];
+				}
+
+				$id = $library->save_skill( $input );
 
 				if ( is_wp_error( $id ) ) {
 					return $id;

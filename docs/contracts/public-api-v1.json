@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-09-17T12:05:14+00:00",
+    "generated_at": "2026-10-06T15:39:04+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -3718,7 +3718,7 @@
             "mcp_name": "stonewright-knowledge-import",
             "kind": "Read",
             "input_schema_hash": "c3a509a0df4d18547338cbcb59076e6236b2322db9c7c750bc845785f61da581",
-            "output_schema_hash": "c5bd8700d52657a3f3ba6e77a4c78ca5aa2123335adac04b4e08c6b4f5d57c22",
+            "output_schema_hash": "835d1e3435ce51bc76281fc5fe50ef8ba861909476abb8c14cd46f3bf549c429",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4655,7 +4655,7 @@
             "ability_name": "stonewright/skills-save",
             "mcp_name": "stonewright-skills-save",
             "kind": "Write",
-            "input_schema_hash": "197c58a40b955bfbc5bc423a515a4de27c7c14cbdf90e3170e4aef6043867edf",
+            "input_schema_hash": "2386a56ca7f1c7436649813dc806d926f41809dbf5f8bfa6d223dae071240946",
             "output_schema_hash": "55daf07e404d273e52a54a2f6a010e437f3d150e8e22e5ebe1e72a04b0e0bba6",
             "permission_class": "Permissions::manage_options()",
             "gates": {
