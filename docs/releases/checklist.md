@@ -64,7 +64,7 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Catalog `certification_tier` / `support_tier` / `evidence` still match
       [verified-client-versions.md](../verified-client-versions.md).
 - [ ] OAuth matrix unit tests green when OAuth or companion token manager changed:
-      `./vendor/bin/phpunit --filter OAuth` and
+      `./vendor/bin/phpunit tests/Unit/Authorization` and
       `npx vitest run tests/oauth-matrix.test.ts`.
 - [ ] Release roll-up: [acceptance-report-template.md](acceptance-report-template.md).
 
@@ -177,11 +177,26 @@ becomes the latest release. The native updater stays on the installed channel.
       site aliases, credential references, and Direct state.
 - [ ] Confirm all state remains and no fresh-install seed creates user memory,
       user skills, or audit events.
+- [ ] Delete and reinstall the plugin on the same fixture while
+      `STONEWRIGHT_REMOVE_ALL_DATA` is not defined, and confirm all of that
+      state, including the OAuth grants and keys, is still there.
 
 ## Rollback
 
-1. Deactivate the plugin from WordPress Admin > Plugins or via WP-CLI.
-2. Delete the plugin directory.
-3. Upload the previous release zip.
-4. Reactivate.
-5. Restore mutated Elementor content from Stonewright snapshots or WordPress revisions when needed.
+1. Confirm `STONEWRIGHT_REMOVE_ALL_DATA` is not defined as `true`. Deleting the
+   plugin keeps OAuth grants and keys, memory, skills, audit history, and
+   settings only while it is not.
+2. Deactivate the plugin from WordPress Admin > Plugins or via WP-CLI.
+3. Delete the plugin from Plugins. Removing its directory by hand skips the
+   uninstall handler and keeps all data.
+4. Upload the previous release zip.
+5. Reactivate.
+6. Restore mutated Elementor content from Stonewright snapshots or WordPress revisions when needed.
+
+With `STONEWRIGHT_REMOVE_ALL_DATA` defined as `true`, deleting the plugin
+removes every plugin table, every option whose name starts with `stonewright_`
+(the OAuth signing and encryption keys included), every `stonewright_` and
+`sw_cc_` transient, and the scheduled events `stonewright_oauth_gc` and
+`stonewright_audit_retention`, on every site of a network, and every connected
+OAuth client has to sign in again. Use it only to remove Stonewright for good.
+See [Updating Stonewright](../updates.md#roll-back-reinstall-or-remove-the-plugin).

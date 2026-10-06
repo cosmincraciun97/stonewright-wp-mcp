@@ -22,14 +22,18 @@ HTTPS and does not run or require a local companion.
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - OAuth browser access (recommended) or a WordPress Application Password
 - The PHP `openssl` extension for OAuth. OAuth generates its RSA signing key on
-  activation. PHP on Windows stacks such as Laragon, XAMPP, or WAMP often
-  cannot find `openssl.cnf`; Stonewright then retries with the config shipped
-  next to `php.exe` (`extras/ssl/openssl.cnf`) and finally with a minimal
-  config bundled in the plugin, so activation succeeds. If every attempt
-  fails, the plugin still activates, Application Password connections keep
-  working, and an admin notice shows the OpenSSL error with a **Retry OAuth
-  key generation** button. If PHP cannot locate its configuration, set
-  `OPENSSL_CONF` to PHP's `openssl.cnf` and restart the web server before
+  activation. A site that installs its OAuth tables on its first request, such
+  as a sub-site after a network activation, generates its keys then. PHP on
+  Windows stacks such as Laragon, XAMPP, or WAMP often cannot find
+  `openssl.cnf`; Stonewright then retries with the config shipped next to
+  `php.exe` (`extras/ssl/openssl.cnf`) and finally with a minimal config
+  bundled in the plugin, so activation succeeds. If every attempt fails, the
+  plugin still activates, Application Password connections keep working, and
+  an admin notice shows the OpenSSL error with a **Retry key creation**
+  button. Creating new keys signs every connected client out, so a site that
+  already has OAuth clients or grants does not get new keys on a request; the
+  notice says so before the button. If PHP cannot locate its configuration,
+  set `OPENSSL_CONF` to PHP's `openssl.cnf` and restart the web server before
   retrying.
 
 ## Default Plugin setup
@@ -62,6 +66,15 @@ wp plugin activate stonewright
 The `wp plugin activate stonewright` command is for a human source install on a
 machine with WP-CLI already configured. Runtime agents should use Stonewright
 MCP tools for WordPress work instead of shelling out to `wp ...`.
+
+## Remove the plugin
+
+Deleting the plugin from **Plugins** keeps its data: OAuth grants and keys,
+memory, skills, audit history, and settings stay in the database for a
+reinstall or a rollback. To remove all of it, define
+`STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin. What that
+removes, and how to roll back, is in
+[Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 
 ## Companion
 

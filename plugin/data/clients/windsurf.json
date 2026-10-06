@@ -19,7 +19,7 @@
   "config_format": "json-mcp",
   "official_cli_update": "",
   "official_cli_remove": "",
-  "oauth_support": false,
+  "oauth_support": true,
   "app_password_support": true,
   "relist_behavior": "reload-window",
   "new_task_required_after_catalog_change": true,

@@ -16,8 +16,9 @@ The connection picker defines both choices in plain language:
 
 Card 2 recommends OAuth on HTTPS and explicit local WordPress environments.
 OAuth uses browser sign-in, mandatory PKCE S256, dynamic client registration,
-resource-bound access tokens, rotating refresh tokens, and Connected Apps
-revocation. Public plain HTTP sites do not expose OAuth.
+resource-bound access tokens, rotating refresh tokens, and a **Connected OAuth
+clients** list with per-client disconnect. Public plain HTTP sites do not
+expose OAuth.
 
 Application Password remains an independent fallback on the existing
 `/wp-json/mcp/stonewright` route.
@@ -146,8 +147,16 @@ Elementor 3.18+.
 
 OAuth is the default on HTTPS and explicit local environments. Select OAuth,
 pick the AI client, and follow the generated instructions. WordPress opens a
-consent screen and records the grant under **Connected Apps**; no WordPress
-password is copied into the client.
+consent screen, and the client then appears in the **Connected OAuth clients**
+card below the connection steps; no WordPress password is copied into the
+client.
+
+That list shows each client's approvers, connection date, and last use.
+**Disconnect** closes every live grant of the client at once, after first
+deleting its pending consent requests and making its unused authorization codes
+unusable, so the client has to sign in again and nothing approved before the
+disconnect can create a new grant. It needs `manage_options` and a nonce, and
+is written to the Audit Log.
 
 Application Password remains the independent fallback. It is sent as HTTP
 Basic Auth with every request (`username:app-password`) to the existing

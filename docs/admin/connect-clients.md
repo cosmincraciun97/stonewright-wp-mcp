@@ -17,7 +17,13 @@ The OAuth MCP resource is:
 https://example.com/wp-json/mcp/stonewright-oauth
 ```
 
-Use **Manage connected apps** to inspect or revoke active grants.
+**Stonewright → Setup** lists every client that can still use the site under
+**Connected OAuth clients**, with the people who approved it, when it
+connected, and when it was last used. **Disconnect** (it needs `manage_options`)
+closes every live grant of that client at once: the client loses access
+immediately and has to sign in again. The client's pending approvals and unused
+authorization codes are closed first, so nothing approved before the disconnect
+can create a new grant.
 
 Clients send this exact canonical resource during authorization, token
 exchange, and refresh. Access tokens issued for another audience are rejected.
@@ -43,9 +49,12 @@ action and stop WordPress work until the operator reauthenticates. Transient
 `429`/`temporarily_unavailable` responses retain `Retry-After` and are retried
 with bounded backoff; do not start a second manual refresh in parallel.
 Replaying a rotated refresh token revokes the entire token family and all
-access tokens for that grant. Access tokens last one hour. Seven-day continuity
-is a refresh SLO against a fourteen-day grant family, not a seven-day bearer
-token. Handshake and allowlisted read-only bootstrap calls may retry once;
+access tokens for that grant; presenting it again within 60 seconds of its use
+returns the grant's current refresh token instead. Access tokens last one hour.
+A refresh token expires after 30 days without use, and a grant ends at most 90
+days after it was authorized, after which the client signs in again. Seven-day
+continuity is a refresh SLO within that grant, not a seven-day bearer token.
+Handshake and allowlisted read-only bootstrap calls may retry once;
 mutations never retry. `stonewright-task-start` reconnects a degraded session
 once.
 

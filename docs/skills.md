@@ -103,7 +103,10 @@ or to send credentials elsewhere is refused; other trust findings are warnings.
 An imported skill lands **disabled, as a draft**, and is re-checked on the
 server regardless of what the file claims about itself. An import never
 overwrites an existing skill: a slug that already exists, including a reserved
-built-in slug, answers HTTP 409.
+built-in slug, answers HTTP 409. The skills of an imported knowledge bundle are
+added the same way, as disabled drafts that never replace a skill; the import
+result lists the skipped ones, and the Memory page reports how many skills were
+added and skipped.
 
 **Trash and restore.** Trashing disables a skill everywhere an agent could read
 it and offers an undo. Trashed skills never match `stonewright-task-start`.

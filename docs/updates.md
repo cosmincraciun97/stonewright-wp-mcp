@@ -148,6 +148,48 @@ must not delete OAuth grants, memory, skills, audit history, or Direct state.
 OAuth schema changes in this line are additive; the previous beta tolerates
 extra columns.
 
+## Roll back, reinstall, or remove the plugin
+
+Deleting the plugin keeps its data. A reinstall, or a rollback to an earlier
+release, finds OAuth grants and keys, memory, user-created skills, audit
+history, and settings as they were. To roll back:
+
+1. Make sure `STONEWRIGHT_REMOVE_ALL_DATA` is not defined as `true` (see
+   below).
+2. Deactivate the plugin, then delete it from **Plugins**.
+3. Upload the earlier release ZIP and activate it.
+
+WordPress runs the uninstall handler when it deletes the plugin; removing the
+plugin folder by hand skips it and keeps all data.
+
+To remove everything the plugin owns, define the constant as `true`, for
+example in `wp-config.php`, before deleting the plugin:
+
+```php
+define( 'STONEWRIGHT_REMOVE_ALL_DATA', true );
+```
+
+Deleting the plugin then removes:
+
+- every Stonewright database table: the audit log, incidents, memory, skills
+  and their revisions, design directions and their versions, expertise packs
+  and scorecards, knowledge candidates, and the OAuth clients, consents,
+  authorization codes, access and refresh credentials, grant families, and
+  rate-limit counters;
+- every option whose name starts with `stonewright_`: settings, schema
+  versions, locks, snapshots, and the OAuth signing and encryption keys, so
+  every connected client has to sign in again after a reinstall;
+- every transient whose name starts with `stonewright_` or `sw_cc_`;
+- the scheduled events `stonewright_oauth_gc` and `stonewright_audit_retention`;
+- all of the above on every site of a multisite network, because deleting the
+  plugin removes it for all of them.
+
+Only the boolean `true` turns removal on. Any other value, or no constant at
+all, keeps the data. Pages, posts, media, and other content on the site, the
+files the plugin wrote (such as `wp-content/stonewright-sandbox/`), and the
+companion's private state under `~/.stonewright/` are not touched. Remove the
+constant again afterwards if the plugin may be installed on the site again.
+
 ## Fresh install versus update
 
 A genuinely new plugin installation creates the database schema with:

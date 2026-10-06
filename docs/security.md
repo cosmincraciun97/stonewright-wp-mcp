@@ -50,6 +50,10 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.
 - Use the `ConfirmationToken` mechanism for any custom destructive abilities you add.
+- If the client signed in with OAuth, disconnect it under **Stonewright →
+  Setup → Connected OAuth clients**. Every live grant of that client closes at
+  once, and its pending approvals and unused authorization codes are closed
+  first. If it uses an Application Password, revoke that password.
 
 ### Custom code and theme-file recovery
 
@@ -101,6 +105,17 @@ the same canonical identity rather than the alias. Audit-lock recovery checks
 boot/process-start ownership and quarantines a stale lock atomically before
 removing it, so PID reuse and replacement-lock races fail closed.
 
+### Plugin data when the plugin is deleted
+
+Deleting the plugin keeps its data: OAuth grants and keys, memory, skills, audit
+history, and settings stay in the database. Defining
+`STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
+table, every `stonewright_` option (the OAuth signing and encryption keys
+included), every `stonewright_` and `sw_cc_` transient, and the scheduled
+events, on every site of a network. See
+[Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
+Leave the constant undefined unless the data is meant to go.
+
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet
@@ -142,6 +157,7 @@ archives exclude Direct sites config, memory, and audit state.
 - [ ] `COMPANION_ALLOWED_ORIGINS` restricted to known request origins.
 - [ ] Companion running on a private network only.
 - [ ] Audit log monitored or exported to a centralized logging system.
+- [ ] `STONEWRIGHT_REMOVE_ALL_DATA` not defined, unless the plugin's data is meant to be removed when the plugin is deleted.
 - [ ] `WP_DEBUG` off in production (prevents diagnostic information leakage).
 
 ## Reporting

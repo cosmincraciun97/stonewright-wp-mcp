@@ -181,9 +181,17 @@ Native HTTP hosts receive a standards-compliant `401` Bearer challenge;
 Stonewright does not claim it can force every host to show model-visible prose.
 
 OAuth access tokens remain one hour. Continuity for at least seven days is an
-acceptance SLO from durable refresh, not a seven-day bearer token. Each grant
-family has a fixed fourteen-day maximum lifetime; rotation does not extend it.
-Refresh rotation and grant-family replay revocation remain enabled.
+acceptance SLO from durable refresh, not a seven-day bearer token. Each refresh
+credential expires after 30 days without use, and every refresh issues a new
+one, so a connection that keeps refreshing stays signed in. A grant family ends
+at most 90 days after it was authorized; the deadline is fixed when the family
+is created, rotation does not extend it, and the client then signs in again.
+A refresh credential presented again within 60 seconds of its use receives the
+grant's current refresh credential, so two processes sharing one stored
+credential, or a retry after a lost response, stay connected. A consumed
+credential presented outside that window, or any older one, is a replay and
+revokes the whole family. Refresh rotation and grant-family replay revocation
+remain enabled. See [Authorization foundation](authorization-foundation.md#credential-lifetimes).
 
 ### Authentication and custom-code boundaries
 
@@ -228,7 +236,14 @@ are available on first use without becoming site or customer data.
 Plugin upgrades run migrations in place. Companion upgrades and Direct restarts
 reuse the existing private state directory. Neither path resets memory,
 user-created skills, audit history, site configuration, backups, or settings.
-Only an explicit user action may remove that state.
+Only an explicit user action may remove that state. Deleting the plugin from
+WordPress keeps its data as well, so a reinstall or a rollback finds OAuth
+grants and keys, memory, skills, audit history, and settings as they were. Only
+defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
+every plugin table, every `stonewright_` option (the OAuth keys included),
+every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up
+and audit retention events, on every site of a network. See
+[Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 
 Memory, user-created skills, and audit payloads reject or redact credential
 material before persistence. Plugin mode stores site state in WordPress. Direct
@@ -296,7 +311,14 @@ ability name for rows recorded before the `auth` status existed. OAuth dispatch 
 recorded even when no ability ran.
 
 Audit rendering resolves OAuth client names in one batched lookup, so pre-login
-token events identify their registered client without an N+1 query. Terminal
+token events identify their registered client without an N+1 query. A token,
+revocation, or authorization request names a client in its audit row only once
+the site knows that client, so an identifier a caller made up never becomes a
+row of its own. An ability call is recorded as one row: code the ability
+delegates to adds bounded details to that row instead of recording a second row
+under the same name, and maintenance a call can trigger, such as sweeping the
+block-change queue, is recorded under its own event name
+(`gutenberg.queue_prune`). Terminal
 4xx client failures use a 24-hour aggregation window with sparse count
 checkpoints; retryable 429 and server-side 5xx outcomes keep the short window so
 operational incidents remain visible.
@@ -872,8 +894,11 @@ Profile and surface switching is transport-specific. Agents should treat
   S256; authorization and refresh requests carry the canonical resource;
   access tokens are rejected on audience mismatch. Resource metadata exposes
   only the `mcp` scope. Refresh tokens rotate, and replay revokes the complete
-  refresh family plus its access tokens. Access-token TTL is one hour; the
-  grant family lasts fourteen days; seven-day continuity is the acceptance SLO.
+  refresh family plus its access tokens; a refresh token presented again
+  within 60 seconds of its use receives the current refresh token instead.
+  Access-token TTL is one hour; a refresh token expires after 30 days without
+  use and a grant family ends at most 90 days after authorization; seven-day
+  continuity is the acceptance SLO.
 
 ### stdio companion transport
 

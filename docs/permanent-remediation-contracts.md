@@ -35,7 +35,9 @@ category. A resolver closes a write, verification, or rollback incident only
 after a correlated success with the same transaction resource/path or an exact
 change-set correlation. Any other incident also closes after seven days
 without a new occurrence, with the end of that quiet period as its resolution
-time; a daily run performs that sweep. A new matching failure reopens a
+time; a daily run performs that sweep and stays scheduled whatever the
+retention setting, while rows and incidents are deleted only when a retention
+window is configured. A new matching failure reopens a
 resolved incident and counts the reopening, also when it arrives after a quiet
 week but before the sweep ran. Legacy rows are classified and migrated
 idempotently into the same contract.
@@ -91,17 +93,19 @@ access token issued from it.
 Transient HTTP responses and network failures use bounded exponential backoff,
 `Retry-After` when present, jitter, and a circuit breaker. OAuth responses use
 `Cache-Control: no-store`, a bounded `Retry-After`, and a correlation ID.
-Server-side throttling is atomic when the rate-limit table is available and
-falls back only for test doubles or pre-schema startup. It keys endpoint and
-registration counters by client identity plus an IPv4 `/24` or IPv6 `/64`
-network bucket. Forwarded client IPs are trusted only when the immediate peer
-is in the explicit trusted-proxy allowlist.
+Server-side throttling is a fixed window per endpoint and requester, updated
+atomically in the rate-limit table with a compare-and-swap. When the table
+cannot be read or written, the request is admitted and a warning is logged. The
+requester is the connection address as the web server reports it, never a
+forwarding header; the authorization page counts the signed-in user instead.
+An IPv6 address counts as its `/64` prefix, an IPv4-mapped IPv6 address counts
+as the IPv4 address it carries, and an IPv4 address counts as itself.
 
 Deterministic matrix coverage (discovery paths, PKCE S256-only, resource
 binding, `WWW-Authenticate`, JSON `invalid_grant` reasons, companion terminal
 reauth, and refresh rotation/replay) lives in:
 
-- `plugin/tests/Unit/OAuth/OAuthMatrixContractTest.php`
+- `plugin/tests/Unit/Authorization/`
 - `companion/tests/oauth-matrix.test.ts`
 
 OAuth audit rows preserve retryable and server-side failures on the short
@@ -115,7 +119,9 @@ only allowlisted response fields, the client identifier, and the HTTP status,
 never a credential value.
 Admin rendering resolves registered OAuth client names in one batched lookup;
 pre-login events therefore show a client label instead of an unknown user and
-do not add one database query per row.
+do not add one database query per row. A token, revocation, or authorization
+request names a client in its row only once the site knows that client, so an
+identifier a caller made up never becomes a row of its own.
 
 ## Elementor and Gutenberg writes
 

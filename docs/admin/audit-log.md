@@ -26,6 +26,17 @@ it first even though Stonewright redacts known credential and code fields.
 - Successful rows carry no error code, repair hint, or incident link, and the
   page shows no error cause, repair hint, or incident link for successful rows
   stored earlier.
+- An ability call is recorded as one row. Defining, registering, and creating a
+  custom Elementor widget, and defining an Elementor atomic widget, add no
+  second row of their own, including when the source guard rejects the widget.
+  A skill saved through the `skills-save` ability adds the skill library's
+  details (action, slug, revision, content hash) to the call's row, while saves
+  from REST and the admin screen keep their own row. Queueing a block change
+  writes one row for the call; sweeping stale entries out of the queue is a
+  separate `gutenberg.queue_prune` event.
+- OAuth token, revocation, and authorization rows name a client only once the
+  site knows that client, so an identifier a caller made up does not create
+  rows of its own.
 - Read-only abilities are recorded as `READ` rows. Lock, busy, and conflict
   errors are recognized from the reported error code, never from a word in the
   ability name, so abilities whose names start with `blocks-` are not mistaken
@@ -78,9 +89,11 @@ on the same kind of resource, whatever the record, path, or change set. A
 resolved incident reopens when its cause recurs, and each reopening is counted.
 Incidents that do not involve writes, verification, or rollback close after
 seven days without a new occurrence, with the end of that quiet period as their
-resolution time. A daily run performs that sweep, and a recurrence after a
-quiet week reopens the incident even before the sweep ran. Write, verification,
-and rollback incidents close only through a verified repair.
+resolution time. A daily run performs that sweep and stays scheduled whatever
+the retention setting; rows and incidents are deleted only when a retention
+window is configured. A recurrence after a quiet week reopens the incident
+even before the sweep ran. Write, verification, and rollback incidents close
+only through a verified repair.
 
 See [Updating Stonewright](../updates.md) for persistence guarantees and
 [Security](../security.md) for the broader audit contract. The complete

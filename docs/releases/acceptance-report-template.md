@@ -45,7 +45,7 @@ From repository root unless noted:
 - [ ] Plugin ZIP, companion TGZ, and SHA256SUMS unpacked and scanned; published
       checksums match downloaded assets. No Visual TGZ is published.
 - [ ] Focused OAuth matrix when OAuth changed:
-  - `cd plugin && ./vendor/bin/phpunit --filter OAuth`
+  - `cd plugin && ./vendor/bin/phpunit tests/Unit/Authorization`
   - `cd companion && npx vitest run tests/oauth-matrix.test.ts tests/oauth-token-manager.test.ts tests/wordpress-mcp-oauth.test.ts`
 
 ## Documentation

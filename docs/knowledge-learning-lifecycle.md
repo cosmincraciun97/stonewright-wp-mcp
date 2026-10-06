@@ -18,7 +18,9 @@ of automatic task context until it passes a promotion gate.
 
 Candidate states are `candidate`, `verified`, `approved`, `stale`, and
 `rejected`. Creation may generate a site skill, but that skill is a disabled
-draft. Research never creates an active skill directly.
+draft. Research never creates an active skill directly. Promotion runs the
+candidate skill's lint first and withdraws the skills it replaces only after it
+passes, so a candidate that fails lint leaves them in service.
 
 ## Required evidence
 

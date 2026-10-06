@@ -13,7 +13,10 @@
 - Add a **Connected OAuth clients** list to Setup with each client's approvers,
   connection date, and last use. Disconnect closes every live grant of that
   client at once, needs `manage_options` and a nonce, and is written to the
-  Audit Log. The connected-apps admin address leads to this list.
+  Audit Log. It first deletes the client's pending consent requests and makes
+  its unused authorization codes unusable, so nothing approved before the
+  disconnect can create a new grant. The connected-apps admin address leads to
+  this list.
 - Accept Client ID Metadata Documents: a client may use an HTTPS URL as its
   `client_id`. The site fetches the document from a public address without
   following redirects, accepts only a public client, caches the result, and
@@ -48,8 +51,11 @@
   called. Built-in skills answer 403; permanent deletion stays a separate step
   in the Trash view.
 - Answer HTTP 409 when an imported skill's slug already exists, including a
-  reserved built-in slug, or when a skill is saved over a stale revision, and
-  refuse a save over a built-in skill's slug.
+  reserved built-in slug, and refuse a save over a built-in skill's slug. A
+  skill save that carries a stale revision, or the revision of a skill that no
+  longer exists, also answers 409 and changes nothing. The skill editor sends
+  the revision it read, and the `stonewright/skills-save` ability and
+  `POST /stonewright/v1/skills` accept it.
 - Let a skill be enabled while the plugin components it needs are missing; it
   stays hidden from agents until they are present.
 - Require the server-issued review receipt to import a skill. The receipt is
@@ -59,6 +65,20 @@
   written in. Stale, retired, and trashed skills are reported as `stale_record`,
   and references to abilities that are not registered as
   `unavailable_tool:<ability>`.
+- Import the skills of a knowledge bundle as disabled drafts that never replace
+  a skill: a slug that already exists in any state, the trash included, or that
+  a built-in skill reserves is skipped, and so is an entry the library refuses.
+  The `stonewright/knowledge-import` result lists the skipped slugs in
+  `skills_skipped` (at most 50), and the Memory page reports how many skills
+  were added and skipped.
+- Let `stonewright/learning-record` update only its own draft skill for a
+  topic. Any other skill under the requested slug is left unchanged, and the
+  result reports `stonewright_skill_slug_taken` in `skill_error`.
+- Keep plugin data when the plugin is deleted, so a reinstall or rollback finds
+  OAuth grants, memory, skills, audit history, and settings as they were.
+  Defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes
+  every plugin table, option (the OAuth keys included), transient, and
+  scheduled event, on every site of a network.
 
 ### Fixed
 
@@ -66,7 +86,8 @@
   OpenSSL configuration is unavailable by trying PHP's adjacent configuration
   and a bundled minimal configuration. Plugin activation can complete when key
   generation still fails, with an administrator notice and a protected retry
-  action; Application Password authentication remains available.
+  action; the notice says that creating new keys signs every connected client
+  out. Application Password authentication remains available.
 - Verify packaged plugin activation on Linux and Windows, and reject an
   existing activation-smoke working directory before writing or removing files.
 - Keep ordinary words readable in Audit Log free-text redaction. A value
@@ -85,8 +106,10 @@
   category.
 - Close incidents that do not involve writes, verification, or rollback after
   7 days without a new occurrence, reopen them when the cause recurs, and count
-  reopenings. A daily run performs the sweep; write incidents still close only
-  through a verified repair.
+  reopenings. A daily run performs the sweep and stays scheduled whatever the
+  retention setting; rows and incidents are still deleted only when a retention
+  window is configured. Write incidents still close only through a verified
+  repair.
 - Treat generated Elementor CSS served behind a redirect to another page of the
   same site as protected delivery instead of a failure in
   `stonewright/elementor-css-regenerate`. A redirect that is still refused
@@ -103,6 +126,32 @@
   offered to agents like any other active reference entry, and a one-time
   repair returns proposed lessons that were active without a recorded approval
   to draft.
+- Write one Audit Log row per call to the custom Elementor widget, Elementor
+  atomic widget, skill-save, and block-queue abilities, instead of a second
+  row. Defining, registering, and creating a custom Elementor widget, and
+  defining an Elementor atomic widget, record the call's row only, including
+  when the source guard rejects the widget. A skill saved through
+  `stonewright/skills-save` adds the skill library's details (action, slug,
+  revision, content hash) to the call's row; saves from REST and the admin
+  screen keep their own row. Queueing a block change writes one row for the
+  call, and sweeping stale entries out of the queue is recorded as a separate
+  `gutenberg.queue_prune` event.
+- Run a learned candidate's lint before withdrawing the skills it replaces when
+  it is promoted, so a candidate that fails lint leaves the existing skills in
+  service.
+- Screen imported skill text for override and credential instructions in time
+  that grows with its length only, so a long file no longer stalls the import
+  review.
+- Answer `invalid_target` instead of a server error when a resource is written
+  without a scheme, such as `host:port`.
+- Work through unused registered OAuth clients in the daily clean-up in batches
+  of 200, up to 25 batches per run, instead of stopping after the first 200.
+- Retry an OAuth table upgrade that the database refuses after an hour instead
+  of on every request, and read the schema version from the autoloaded options.
+- Give a site that installs the OAuth tables on its first request, such as a
+  sub-site after a network activation, its OAuth keys and the daily clean-up
+  event. A site that already holds OAuth state is never given new keys
+  automatically.
 
 ### Security
 
@@ -117,6 +166,16 @@
   explicit revocations, and duplicate refresh deliveries to the Audit Log as
   their own security events every time. The rows hold no credential values;
   ordinary refusals stay grouped.
+- Refuse a bearer credential on the protected MCP route unless it is shaped
+  like a signed access credential, before it is inspected, so sealed refresh
+  credentials, authorization codes, and look-alike values presented as bearers
+  are never decrypted and never change a stored grant.
+- Count an IPv6 address by its /64 prefix, and an IPv4-mapped address as its
+  IPv4 address, in the OAuth request limits.
+- Name a client in the Audit Log for token, revocation, and authorization
+  requests only once the site knows that client, so made-up identifiers no
+  longer create audit rows of their own.
+- Store the address a client registered from as a keyed hash.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

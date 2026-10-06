@@ -206,12 +206,14 @@ vendor/bin/phpunit tests/Unit/Security/AuditEventIncidentTest.php
 
 OAuth refresh rotation is single-flight. Terminal grant/client failures clear
 local token state and stop retrying; transient failures honor bounded retry and
-`Retry-After` behavior. Server throttles do not trust spoofed forwarded headers.
+`Retry-After` behavior. Server throttles never read forwarded headers: a
+request counts under the connection address the web server reports, and an
+IPv6 address counts as its /64 prefix.
 
 Enforced by:
 
 - `companion/src/oauth-token-manager.ts`
-- `plugin/includes/OAuth/OAuthRateLimiter.php`
+- `plugin/includes/Authorization/WordPress/RequestLimiter.php`
 
 Verify:
 
@@ -219,7 +221,7 @@ Verify:
 cd companion
 npx vitest run tests/oauth-token-manager.test.ts
 cd ../plugin
-vendor/bin/phpunit tests/Unit/OAuth/OAuthRateLimiterTest.php
+vendor/bin/phpunit tests/Unit/Authorization/WordPress/RequestLimiterTest.php
 ```
 
 ## Rule 12 - Transaction receipts and evidence-preserving patches

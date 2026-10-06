@@ -115,7 +115,10 @@ never include the trash.
   for `stonewright/skills-destroy` with `{"id": <skill id>}`. Imports need the
   receipt that the review issued: an HMAC over the review hash, the reviewing
   user, and an expiry. Audit events carry bounded metadata only, and the
-  bundled pack refresh writes none.
+  bundled pack refresh writes none. When the ability kernel is auditing a call
+  under the same name as the event, such as `stonewright/skills-save`, the
+  event's details go on that call's row instead of a second row with that name;
+  the other channels write their own row.
 - **Bundled pack.** `BundledPack` maps `skills/<name>/SKILL.md` to
   `stonewright-<name>` (source `builtin`) and `skills/playbooks/<name>.md` to
   `playbook-<name>` (source `playbook`). Activation and every version change
@@ -125,10 +128,26 @@ never include the trash.
 - **Local saves.** Saves never set provenance: new skills are local (`user`)
   and existing ones keep their source. A save without description text uses
   the title as trigger text. Echoing a stored evidence value back is not a
-  claim; changing it is refused. A save that names an earlier revision than the
-  stored one, or that finds the row changed while it was being stored, answers
-  HTTP 409 and changes nothing. A save over a built-in or playbook skill, or
-  over a reserved built-in slug, is refused with 403.
+  claim; changing it is refused. A save that carries a stale revision, that
+  carries the revision of a skill that no longer exists, or that finds the row
+  changed while it was being stored answers HTTP 409 and changes nothing. The
+  skill editor sends the revision it read; the `stonewright/skills-save`
+  ability and `POST /stonewright/v1/skills` accept one, and a save without it
+  is not checked. A save over a built-in or playbook skill, or over a reserved
+  built-in slug, is refused with 403.
+- **Knowledge bundles.** `import_bundle_skill()` adds the skills of a knowledge
+  bundle as disabled drafts, whatever exposure, status, or provenance an entry
+  claims, and never replaces a skill: an identity stored in any state, the
+  trash included, or reserved for a built-in skill is skipped, and so is an
+  entry the library refuses. The `stonewright/knowledge-import` result reports
+  the number added in `skills_imported` and the skipped slugs in
+  `skills_skipped` (at most 50), and the Memory page shows how many skills were
+  added and skipped.
+- **Learning drafts.** `stonewright/learning-record` saves its optional draft
+  skill through the same save, but revises only its own draft for the topic: a
+  local, draft skill with the same topic. Any other skill under the requested
+  slug, in any state, is left unchanged, and the result reports
+  `stonewright_skill_slug_taken` in `skill_error`.
 - **REST.** `DELETE /stonewright/v1/skills/{id}` moves a local skill to the
   trash. It answers 404 for an unknown id and 403 for a built-in or playbook
   skill. Permanent deletion uses the `skills-studio` routes.
