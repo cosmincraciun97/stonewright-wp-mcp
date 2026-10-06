@@ -21,9 +21,9 @@ use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
-use Stonewright\WpMcp\Skills\SkillsSeeder;
-use Stonewright\WpMcp\Skills\SkillsTable;
-use Stonewright\WpMcp\Skills\SkillVersionsTable;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Memory\Memory;
@@ -121,8 +121,7 @@ final class PluginRegistration {
 			20
 		);
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
-		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
-		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
+		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
 		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
 		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
@@ -184,13 +183,12 @@ final class PluginRegistration {
 		OAuthSchema::maybe_install();
 		OAuthKeys::ensure();
 		OAuthSchema::schedule_gc();
-		SkillsTable::force_create_table();
-		SkillVersionsTable::force_create_table();
+		SkillTables::install();
 		DesignDirectionsTable::install();
 		DesignDirectionVersionsTable::install();
 		CandidateTable::force_create_table();
 		ExpertiseTable::force_create_tables();
-		SkillsSeeder::seed();
+		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
 		// Record domain on first activation so subsequent boots can detect clones.
 		// Uses operator intent only — never writes enablement as a side effect.
 		if ( PluginEffectiveState::enabled_requested() ) {
@@ -228,7 +226,8 @@ final class PluginRegistration {
 			return;
 		}
 		IncidentStore::maybe_install_table();
-		SkillsSeeder::seed();
+		SkillTables::ensure();
+		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 

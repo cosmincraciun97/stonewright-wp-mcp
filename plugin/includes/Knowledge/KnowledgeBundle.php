@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Knowledge;
 
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Imports and exports the persistent guidance that agents see:
@@ -32,7 +32,7 @@ final class KnowledgeBundle {
 				'entries' => Memory::list_all( 10000, 0 ),
 			],
 			'skills'       => [
-				'entries' => Skills::list( false ),
+				'entries' => SkillLibraryService::open()->records( false ),
 			],
 		];
 	}
@@ -101,6 +101,7 @@ final class KnowledgeBundle {
 		if ( is_array( $skills ) ) {
 			$entries = $skills['entries'] ?? [];
 			if ( is_array( $entries ) ) {
+				$library = SkillLibraryService::open();
 				foreach ( $entries as $entry ) {
 					if ( ! is_array( $entry ) ) {
 						continue;
@@ -110,12 +111,8 @@ final class KnowledgeBundle {
 						continue;
 					}
 
-					$source = (string) ( $entry['source'] ?? 'uploaded' );
-					if ( 'builtin' === $source ) {
-						$source = 'uploaded';
-					}
-
-					$id = Skills::save(
+					// Entries become local skills: a bundle never sets provenance, and shipped skills are refused.
+					$id = $library->save_skill(
 						[
 							'slug'           => $slug,
 							'title'          => (string) ( $entry['title'] ?? $slug ),
@@ -124,10 +121,9 @@ final class KnowledgeBundle {
 							'enabled'        => (bool) ( $entry['enabled'] ?? true ),
 							'enable_agentic' => (bool) ( $entry['enable_agentic'] ?? ( $entry['enabled'] ?? true ) ),
 							'enable_prompt'  => (bool) ( $entry['enable_prompt'] ?? ( $entry['enabled'] ?? true ) ),
-							'source'         => in_array( $source, [ 'user', 'uploaded' ], true ) ? $source : 'uploaded',
 						]
 					);
-					if ( $id > 0 ) {
+					if ( is_int( $id ) && $id > 0 ) {
 						++$skills_imported;
 					}
 				}

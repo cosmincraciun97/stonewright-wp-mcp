@@ -7,7 +7,8 @@ use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 
 /**
  * Stonewright Dashboard (formerly Status): read-only system overview.
@@ -51,7 +52,7 @@ final class StatusPage {
 		$abilities      = AbilityRegistry::all_abilities();
 		$disabled       = (array) get_option( 'stonewright_disabled_abilities', [] );
 		$tool_count     = max( 0, count( $abilities ) - count( array_intersect( array_column( $abilities, 'name' ), $disabled ) ) );
-		$skills_count   = count( Skills::list() );
+		$skills_count   = count( SkillLibraryService::open( WordPressBoundary::ADMIN )->records() );
 		$memory_count   = count( Memory::list_all( 10000 ) );
 		$last_activity  = $recent_entries[0]['created_at'] ?? '';
 		$pulse_score    = null;

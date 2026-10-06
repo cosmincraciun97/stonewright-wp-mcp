@@ -205,6 +205,19 @@ if ( ! function_exists( 'current_user_can' ) ) {
 	}
 }
 
+$GLOBALS['stonewright_test_user_caps_by_id'] ??= [];
+
+if ( ! function_exists( 'user_can' ) ) {
+	/**
+	 * Per-user capability stub keyed by user ID:
+	 * $GLOBALS['stonewright_test_user_caps_by_id'][ $user_id ][ $capability ].
+	 */
+	function user_can( mixed $user, string $capability, mixed ...$args ): bool {
+		$user_id = is_object( $user ) ? (int) ( $user->ID ?? 0 ) : (int) $user;
+		return ! empty( $GLOBALS['stonewright_test_user_caps_by_id'][ $user_id ][ $capability ] );
+	}
+}
+
 $GLOBALS['stonewright_test_current_user_id'] ??= 0;
 
 if ( ! function_exists( 'get_current_user_id' ) ) {
@@ -1110,6 +1123,12 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 if ( ! function_exists( 'sanitize_textarea_field' ) ) {
 	function sanitize_textarea_field( string $text ): string {
 		return trim( strip_tags( $text ) );
+	}
+}
+
+if ( ! function_exists( 'absint' ) ) {
+	function absint( mixed $maybeint ): int {
+		return abs( (int) $maybeint );
 	}
 }
 

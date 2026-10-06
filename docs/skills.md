@@ -106,7 +106,8 @@ deliberately. Built-in skills can be disabled but not removed.
 **Permanent deletion** is a separate, irreversible action in the Trash view. It
 opens a review drawer listing exactly what is about to be destroyed, and in
 `production-safe` mode it also requires a confirmation token issued by
-`stonewright-security-issue-confirmation-token`.
+`stonewright-security-issue-confirmation-token` for ability
+`stonewright/skills-destroy` with args `{"id": <skill id>}`.
 
 No action on the page uses a native browser dialog. Titles, descriptions, and
 imported Markdown reach the DOM as text, never as markup.
@@ -114,8 +115,12 @@ imported Markdown reach the DOM as text, never as markup.
 ## External skill sources
 
 Another plugin can publish skills through the `stonewright_skill_sources`
-filter. Source enumeration is read-only: Stonewright does not execute source
-code and does not fetch URLs.
+filter. The filter receives an empty list and returns sources shaped as
+`['source_id' => 'plugin-slug', 'skills' => [ $skill, ... ]]`, where each skill
+has `slug`, `title`, `description`, and `content`, and may add `topic` and
+`version_constraints`. Published skills appear in the catalog only. Source
+enumeration is read-only: Stonewright does not execute source code and does not
+fetch URLs.
 
 Resolution order is built-in, then this site's database, then registered
 external sources. Built-in ids are reserved and external sources must use

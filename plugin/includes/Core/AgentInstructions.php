@@ -3,8 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
-use Stonewright\WpMcp\Skills\Skills;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Default MCP-facing instructions that travel with the Stonewright server.
@@ -151,7 +151,7 @@ final class AgentInstructions {
 			$parts[] = $custom_instructions;
 		}
 
-		$skills_block = Skills::instructions_block();
+		$skills_block = SkillLibraryService::open()->agent_index();
 		if ( '' !== $skills_block ) {
 			$parts[] = $skills_block;
 		}

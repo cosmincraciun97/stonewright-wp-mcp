@@ -16,7 +16,7 @@ use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentActions;
 use Stonewright\WpMcp\Security\IncidentStore;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Builds the mandatory context packet agents must read before Stonewright work.
@@ -221,7 +221,7 @@ final class ContextBuilder {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private static function matched_skills( string $task, string $surface ): array {
-		$skills = Skills::list_agentic();
+		$skills = SkillLibraryService::open()->exposed( 'agentic' );
 		if ( [] === $skills ) {
 			return [];
 		}

@@ -2,9 +2,8 @@
 
 The `Stonewright\WpMcp\SkillLibrary` namespace separates Markdown exchange,
 record validation, source resolution, lifecycle decisions, and repository
-coordination. These components are not registered as WordPress abilities or
-admin routes yet. They require authenticated persistence adapters before they
-can replace the current site service.
+coordination. The WordPress adapters live in `SkillLibrary\Site` and are
+described under [Site integration](#site-integration).
 
 ## Documents and records
 
@@ -83,11 +82,42 @@ restoring a local skill keeps it disabled until activation checks pass.
 `Repository` must provide unique insertion, revision comparison, and atomic
 replacement with an immutable prior snapshot. `MutationBoundary` must enforce
 the actual site's permissions, mode, confirmation-token binding, import
-receipt, and audit contract. Neither port has a default production adapter.
-Activation lint requires the registered tool catalog. Runtime compatibility
-checks decide visibility, not whether a skill can be enabled.
+receipt, and audit contract. Activation lint requires the registered tool
+catalog. Runtime compatibility checks decide visibility, not whether a skill
+can be enabled.
 
-Existing storage encodings, source identifiers, revision mappings, built-in
-identities, and update preservation must be verified before wiring these
-components into WordPress. New unit tests exercise the logical contracts with
-synthetic repositories; they do not establish site migration compatibility.
+## Site integration
+
+`SkillLibraryService::open()` is the one place where the site adapters are
+assembled; every caller reads and writes skills through it. Reads return the
+stored row as text plus decoded `version_constraints` and `conflicts`, and
+never include the trash.
+
+- **Storage.** `WordPressRepository` uses the existing
+  `{prefix}stonewright_skills` and `{prefix}stonewright_skill_versions` tables,
+  created and upgraded in place by `SkillTables` (schema versions `1.3` and
+  `1.0`). A write replaces a row only while it still holds the revision and
+  lifecycle state that was read. Changing text, provenance, evidence, or
+  exposure preferences records the previous row, every value as text, as one
+  revision row in the same transaction; enabling, disabling, trashing, and
+  restoring change only the lifecycle columns. Times are UTC.
+- **Boundary.** `WordPressBoundary` speaks for the channel a change arrives
+  through. The skills screen and the REST routes require `manage_options` at
+  the moment of the write, and studio routes also need a current REST nonce.
+  Abilities rely on their own permission callback. Only the system channel may
+  refresh the bundled pack or write verified knowledge evidence. In
+  production-safe mode, permanent deletion needs a confirmation token issued
+  for `stonewright/skills-destroy` with `{"id": <skill id>}`. Imports need the
+  receipt that the review issued: an HMAC over the review hash, the reviewing
+  user, and an expiry. Audit events carry bounded metadata only, and the
+  bundled pack refresh writes none.
+- **Bundled pack.** `BundledPack` maps `skills/<name>/SKILL.md` to
+  `stonewright-<name>` (source `builtin`) and `skills/playbooks/<name>.md` to
+  `playbook-<name>` (source `playbook`). Activation and every version change
+  insert missing entries, update changed text while keeping the site's enable
+  choices, take a bundled identity back from a row of another source after
+  keeping that row as a revision, and retire entries that no longer ship.
+- **Local saves.** Saves never set provenance: new skills are local (`user`)
+  and existing ones keep their source. A save without description text uses
+  the title as trigger text. Echoing a stored evidence value back is not a
+  claim; changing it is refused.

@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Memory;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Records user corrections and repeatable agent mistakes into persistent site
@@ -242,8 +242,9 @@ final class LearningRecord extends AbilityKernel {
 					);
 				}
 
-				$skill_id   = null;
-				$skill_slug = null;
+				$skill_id    = null;
+				$skill_slug  = null;
+				$skill_error = null;
 				$update_skill = (bool) ( $a['update_skill'] ?? false );
 				$draft      = is_array( $a['draft_skill'] ?? null ) ? $a['draft_skill'] : null;
 				if ( $update_skill || null !== $draft ) {
@@ -251,7 +252,7 @@ final class LearningRecord extends AbilityKernel {
 						$topic,
 						(string) ( $a['skill_slug'] ?? ( $draft['slug'] ?? '' ) )
 					);
-					$skill_id = Skills::save(
+					$saved = SkillLibraryService::open()->save_skill(
 						[
 							'slug'           => $skill_slug,
 							'title'          => '' !== (string) ( $a['skill_title'] ?? ( $draft['name'] ?? '' ) )
@@ -268,12 +269,16 @@ final class LearningRecord extends AbilityKernel {
 							'enable_prompt'  => false,
 							'status'         => 'draft',
 							'topic'          => $topic,
-							'source'         => 'user',
 						]
 					);
+					if ( is_wp_error( $saved ) ) {
+						$skill_error = (string) $saved->get_error_code();
+					} else {
+						$skill_id = $saved;
+					}
 				}
 
-				return [
+				$receipt = [
 					'stored'          => true,
 					'backend'         => 'plugin',
 					'memory_backend'  => 'plugin-site',
@@ -290,6 +295,10 @@ final class LearningRecord extends AbilityKernel {
 					'skill_slug'      => $skill_slug,
 					'skill_status'    => null !== $skill_id ? 'draft' : null,
 				];
+				if ( null !== $skill_error ) {
+					$receipt['skill_error'] = $skill_error;
+				}
+				return $receipt;
 			}
 		);
 	}

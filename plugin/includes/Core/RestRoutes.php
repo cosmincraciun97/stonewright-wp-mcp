@@ -11,7 +11,8 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Support\Utf8;
 
 /**
@@ -974,13 +975,12 @@ final class RestRoutes {
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$enabled_only = (bool) $request->get_param( 'enabled_only' );
 						$mode         = (string) $request->get_param( 'mode' );
+						$library      = SkillLibraryService::open( WordPressBoundary::REST );
 
-						if ( 'agentic' === $mode ) {
-							$skills = Skills::list_agentic();
-						} elseif ( 'prompt' === $mode ) {
-							$skills = Skills::list_prompt();
+						if ( in_array( $mode, [ 'agentic', 'prompt' ], true ) ) {
+							$skills = $library->exposed( $mode );
 						} else {
-							$skills = Skills::list( $enabled_only );
+							$skills = $library->records( $enabled_only );
 							$mode   = 'all';
 						}
 
@@ -1004,23 +1004,24 @@ final class RestRoutes {
 						'enable_prompt'  => [ 'type' => 'boolean' ],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
-						$enabled = (bool) $request->get_param( 'enabled' );
-						$id      = Skills::save( [
-							'slug'           => (string) $request->get_param( 'slug' ),
-							'title'          => (string) $request->get_param( 'title' ),
-							'description'    => (string) $request->get_param( 'description' ),
-							'content'        => (string) $request->get_param( 'content' ),
-							'enabled'        => $enabled,
-							'enable_agentic' => null !== $request->get_param( 'enable_agentic' )
-								? (bool) $request->get_param( 'enable_agentic' )
-								: $enabled,
-							'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
-								? (bool) $request->get_param( 'enable_prompt' )
-								: $enabled,
-							'source'         => 'user',
-						] );
-						if ( 0 === $id ) {
-							return new \WP_Error( 'stonewright_skills_save_failed', __( 'Failed to save skill.', 'stonewright' ), [ 'status' => 500 ] );
+						$enabled = null === $request->get_param( 'enabled' ) || (bool) $request->get_param( 'enabled' );
+						$id      = SkillLibraryService::open( WordPressBoundary::REST )->save_skill(
+							[
+								'slug'           => (string) $request->get_param( 'slug' ),
+								'title'          => (string) $request->get_param( 'title' ),
+								'description'    => (string) $request->get_param( 'description' ),
+								'content'        => (string) $request->get_param( 'content' ),
+								'enabled'        => $enabled,
+								'enable_agentic' => null !== $request->get_param( 'enable_agentic' )
+									? (bool) $request->get_param( 'enable_agentic' )
+									: $enabled,
+								'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
+									? (bool) $request->get_param( 'enable_prompt' )
+									: $enabled,
+							]
+						);
+						if ( is_wp_error( $id ) ) {
+							return $id;
 						}
 						return rest_ensure_response( [ 'id' => $id ] );
 					},
@@ -1041,7 +1042,10 @@ final class RestRoutes {
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$id      = absint( $request->get_param( 'id' ) );
 					$enabled = (bool) $request->get_param( 'enabled' );
-					Skills::toggle( $id, $enabled );
+					$result  = SkillLibraryService::open( WordPressBoundary::REST )->set_enabled( $id, $enabled );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
 					return rest_ensure_response( [ 'id' => $id, 'enabled' => $enabled ] );
 				},
 			]
@@ -1058,15 +1062,26 @@ final class RestRoutes {
 				],
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$id      = absint( $request->get_param( 'id' ) );
-					$skill   = Skills::get_by_id( $id );
+					$library = SkillLibraryService::open( WordPressBoundary::REST );
+					$skill   = $library->record_for_id( $id );
 					if ( null === $skill ) {
 						return new \WP_Error( 'stonewright_skill_not_found', __( 'Skill not found.', 'stonewright' ), [ 'status' => 404 ] );
 					}
-					if ( 'builtin' === $skill['source'] ) {
+					if ( in_array( $skill['source'], [ 'builtin', 'playbook' ], true ) ) {
 						return new \WP_Error( 'stonewright_skill_builtin', __( 'Built-in skills cannot be deleted. Disable them instead.', 'stonewright' ), [ 'status' => 403 ] );
 					}
-					Skills::delete( $id );
-					return rest_ensure_response( [ 'deleted' => true, 'id' => $id ] );
+					// Deleting moves the skill to the trash; the skills screen restores it or erases it for good.
+					$result = $library->move_to_trash( $id );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
+					return rest_ensure_response(
+						[
+							'deleted' => true,
+							'id'      => $id,
+							'status'  => 'trashed',
+						]
+					);
 				},
 			]
 		);

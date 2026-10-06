@@ -7,13 +7,13 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
-use Stonewright\WpMcp\Skills\Skills;
-use Stonewright\WpMcp\Skills\SkillsTable;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
 
 /**
  * @covers \Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository
  * @covers \Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable
- * @covers \Stonewright\WpMcp\Skills\Skills
+ * @covers \Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService
  */
 final class KnowledgeLifecycleTest extends TestCase {
 
@@ -43,8 +43,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertStringContainsString( 'verification_count int', $sql );
 		self::assertStringContainsString( 'expires_at datetime', $sql );
 		self::assertStringContainsString( 'topic_status (topic, status)', $sql );
-		self::assertStringContainsString( 'status varchar(20)', SkillsTable::schema_sql() );
-		self::assertStringContainsString( 'revision int', SkillsTable::schema_sql() );
+		self::assertStringContainsString( 'status varchar(20)', SkillTables::skills_definition() );
+		self::assertStringContainsString( 'revision int', SkillTables::skills_definition() );
 	}
 
 	public function test_research_creates_disabled_draft_and_two_successes_promote_it(): void {
@@ -53,7 +53,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertIsArray( $created );
 		self::assertSame( 'candidate', $created['status'] );
 		self::assertStringStartsWith( 'draft-button-url-control-', $created['skill_slug'] );
-		$draft = Skills::get( (string) $created['skill_slug'] );
+		$draft = SkillLibraryService::open()->find( (string) $created['skill_slug'] );
 		self::assertNotNull( $draft );
 		self::assertSame( 'draft', $draft['status'] );
 		self::assertSame( '0', (string) $draft['enabled'] );
@@ -69,7 +69,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertIsArray( $promoted );
 		self::assertSame( 'verified_successes', $promoted['promotion_gate'] );
 		self::assertSame( 'approved', $promoted['candidate']['status'] );
-		$active = Skills::get( (string) $promoted['skill_slug'] );
+		$active = SkillLibraryService::open()->find( (string) $promoted['skill_slug'] );
 		self::assertNotNull( $active );
 		self::assertSame( 'active', $active['status'] );
 		self::assertSame( '1', (string) $active['enabled'] );
@@ -122,14 +122,15 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertIsArray( $promoted );
 
 		$slug     = (string) $promoted['skill_slug'];
-		$original = Skills::get( $slug );
+		$skills   = SkillLibraryService::open();
+		$original = $skills->find( $slug );
 		self::assertNotNull( $original );
-		Skills::save( array_merge( $original, [ 'content' => (string) $original['content'] . "\nTemporary edit." ] ) );
-		self::assertGreaterThanOrEqual( 2, count( Skills::history( $slug ) ) );
-		self::assertTrue( Skills::rollback( $slug, 2 ) );
-		self::assertSame( $original['content'], Skills::get( $slug )['content'] );
+		$skills->save_skill( array_merge( $original, [ 'content' => (string) $original['content'] . "\nTemporary edit." ] ) );
+		self::assertGreaterThanOrEqual( 2, count( $skills->revisions_of( $slug ) ) );
+		self::assertTrue( $skills->roll_back_skill( $slug, 2 ) );
+		self::assertSame( $original['content'], $skills->find( $slug )['content'] );
 
-		$lint = Skills::lint(
+		$lint = $skills->review_record(
 			[
 				'description'         => 'Use when testing a stale Elementor recipe.',
 				'content'             => 'Call stonewright/not-a-real-tool only after validation.',
@@ -138,8 +139,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 				'status'              => 'stale',
 			]
 		);
-		self::assertContains( 'stale_reference', $lint['errors'] );
-		self::assertContains( 'missing_tool_reference:stonewright/not-a-real-tool', $lint['errors'] );
+		self::assertContains( 'stale_record', $lint['errors'] );
+		self::assertContains( 'unavailable_tool:stonewright/not-a-real-tool', $lint['errors'] );
 	}
 
 	public function test_runtime_drift_and_expiry_stale_only_incompatible_linked_skills(): void {
@@ -160,11 +161,11 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertSame( 1, CandidateRepository::invalidate_fingerprint( $runtime ) );
 		self::assertSame( 'approved', CandidateRepository::get( (int) $compatible['id'] )['status'] );
 		self::assertSame( 'stale', CandidateRepository::get( (int) $incompatible['id'] )['status'] );
-		self::assertSame( 'stale', Skills::get( (string) $incompatible_promotion['skill_slug'] )['status'] );
+		self::assertSame( 'stale', SkillLibraryService::open()->find( (string) $incompatible_promotion['skill_slug'] )['status'] );
 
 		$GLOBALS['wpdb']->candidates[ (int) $compatible['id'] ]['expires_at'] = '2020-01-01 00:00:00';
 		self::assertSame( 'stale', CandidateRepository::get( (int) $compatible['id'] )['status'] );
-		self::assertSame( 'stale', Skills::get( (string) $compatible_promotion['skill_slug'] )['status'] );
+		self::assertSame( 'stale', SkillLibraryService::open()->find( (string) $compatible_promotion['skill_slug'] )['status'] );
 	}
 
 	public function test_schema_failure_alone_never_creates_candidate(): void {

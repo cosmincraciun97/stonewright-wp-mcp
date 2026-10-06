@@ -3,10 +3,10 @@
  *
  * The page owns no lifecycle rules. Reading the catalog, inspecting an upload,
  * importing, exporting, trashing, restoring, and destroying all go through the
- * skills-studio REST routes, which delegate to `Skills`, `SkillImporter`, and
- * `SkillExporter` — so the browser hits exactly the same refusals as any other
- * caller: protected sources, re-derived import readiness, and the
- * production-safe confirmation token on a hard delete.
+ * skills-studio REST routes, which delegate to the skill library service — so
+ * the browser hits exactly the same refusals as any other caller: protected
+ * sources, re-derived import readiness and receipts, and the production-safe
+ * confirmation token on a hard delete.
  *
  * Skill titles, descriptions, and imported Markdown are untrusted content, so
  * this file builds DOM nodes and assigns textContent rather than composing

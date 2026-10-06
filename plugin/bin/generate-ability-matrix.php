@@ -176,10 +176,11 @@ const WRITE_PATTERNS = [
 	'Memory::put(', 'Memory::put_typed(', 'Memory::delete(',
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
-	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	'->save_skill(', '->erase_skill(', '->move_to_trash(', '->record_evidence(', '->withdraw_skill(',
+	'SpecToGutenberg()', 'SpecToElementorV3()',
 	'CandidateRepository::create(', 'CandidateRepository::verify(',
 	'CandidateRepository::promote(', 'CandidateRepository::set_status(',
-	'Skills::rollback(', 'ExpertiseStore::record_scorecard(',
+	'->roll_back_skill(', 'ExpertiseStore::record_scorecard(',
 	'ExpertiseEvaluator::evaluate(', 'ExpertisePromotion::promote(',
 	'ExpertisePromotion::set_terminal_status(',
 	'ElementorWriter::write',

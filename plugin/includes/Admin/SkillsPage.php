@@ -4,15 +4,16 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 
 /**
  * Admin page: Skills (slug: stonewright-skills).
  *
  * The page renders the shell, the view tabs, and the regions the skills script
  * boots into. Reading the catalog, importing, exporting, trashing, restoring,
- * and destroying all happen over `SkillsRestApi`, which delegates to `Skills`,
- * `SkillImporter`, and `SkillExporter` — so no lifecycle rule lives here.
+ * and destroying all happen over `SkillsRestApi`, which delegates to the skill
+ * library service — so no lifecycle rule lives here.
  *
  * The editor view stays a plain nonce-checked form post. It is the write path
  * that still works with JavaScript switched off, and it is the only form on
@@ -55,25 +56,8 @@ final class SkillsPage {
 		}
 		check_admin_referer( 'stonewright_skill_save' );
 
-		$slug           = sanitize_title( wp_unslash( $_POST['slug'] ?? '' ) );
-		$title          = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
-		$description    = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
-		$content        = wp_unslash( $_POST['content'] ?? '' );
-		$enabled        = ! empty( $_POST['enabled'] );
-		$enable_agentic = ! empty( $_POST['enable_agentic'] );
-		$enable_prompt  = ! empty( $_POST['enable_prompt'] );
-
-		if ( '' === $slug || '' === $title || '' === $content ) {
-			wp_safe_redirect( self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] ) );
-			exit;
-		}
-
-		Skills::save(
-			compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' )
-			+ [ 'source' => 'user' ]
-		);
-
-		wp_safe_redirect( self::redirect_url( 'catalog', [ 'saved' => '1' ] ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- save_submission() sanitizes each field it reads.
+		wp_safe_redirect( self::save_submission( (array) wp_unslash( $_POST ) ) );
 		exit;
 	}
 
@@ -83,15 +67,61 @@ final class SkillsPage {
 		}
 		check_admin_referer( 'stonewright_skill_toggle' );
 
-		$id      = absint( $_POST['id'] ?? 0 );
-		$enabled = ! empty( $_POST['enabled'] );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- toggle_submission() sanitizes each field it reads.
+		wp_safe_redirect( self::toggle_submission( (array) wp_unslash( $_POST ) ) );
+		exit;
+	}
 
-		if ( $id > 0 ) {
-			Skills::toggle( $id, $enabled );
+	/**
+	 * Saves the editor form and returns where the browser goes next.
+	 *
+	 * @param array<string, mixed> $form Unslashed form fields; the caller has checked the capability and nonce.
+	 */
+	public static function save_submission( array $form ): string {
+		$slug           = sanitize_title( is_string( $form['slug'] ?? null ) ? $form['slug'] : '' );
+		$title          = sanitize_text_field( is_string( $form['title'] ?? null ) ? $form['title'] : '' );
+		$description    = sanitize_textarea_field( is_string( $form['description'] ?? null ) ? $form['description'] : '' );
+		$content        = is_string( $form['content'] ?? null ) ? $form['content'] : '';
+		$enabled        = ! empty( $form['enabled'] );
+		$enable_agentic = ! empty( $form['enable_agentic'] );
+		$enable_prompt  = ! empty( $form['enable_prompt'] );
+
+		if ( '' === $slug || '' === $title || '' === $content ) {
+			return self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] );
 		}
 
-		wp_safe_redirect( self::redirect_url( 'catalog', [ 'toggled' => '1' ] ) );
-		exit;
+		$result = SkillLibraryService::open( WordPressBoundary::ADMIN )->save_skill(
+			compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' )
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return self::redirect_url(
+				'editor',
+				[
+					'error' => sanitize_key( (string) $result->get_error_code() ),
+					'skill' => $slug,
+				]
+			);
+		}
+
+		return self::redirect_url( 'catalog', [ 'saved' => '1' ] );
+	}
+
+	/**
+	 * Enables or disables a skill from a form post and returns where the browser goes next.
+	 *
+	 * @param array<string, mixed> $form Unslashed form fields; the caller has checked the capability and nonce.
+	 */
+	public static function toggle_submission( array $form ): string {
+		$id      = absint( is_scalar( $form['id'] ?? null ) ? $form['id'] : 0 );
+		$enabled = ! empty( $form['enabled'] );
+		$result  = $id > 0 ? SkillLibraryService::open( WordPressBoundary::ADMIN )->set_enabled( $id, $enabled ) : true;
+
+		if ( is_wp_error( $result ) ) {
+			return self::redirect_url( 'catalog', [ 'error' => sanitize_key( (string) $result->get_error_code() ) ] );
+		}
+
+		return self::redirect_url( 'catalog', [ 'toggled' => '1' ] );
 	}
 
 	/**
@@ -209,10 +239,11 @@ final class SkillsPage {
 	}
 
 	private static function render_catalog_panel(): void {
-		$catalog = Skills::catalog();
-		$skills  = is_array( $catalog['skills'] ?? null ) ? $catalog['skills'] : [];
-		$sources = Skills::sources();
-		$trashed = Skills::list_trashed();
+		$library = SkillLibraryService::open( WordPressBoundary::ADMIN );
+		$catalog = $library->catalog_view();
+		$skills  = $catalog['skills'];
+		$sources = $catalog['sources'];
+		$trashed = $library->trashed();
 		?>
 		<div data-sw-skills-ssr="catalog">
 			<div class="sw-skills-toolbar">
@@ -401,7 +432,7 @@ final class SkillsPage {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only editor selector.
 		$slug = isset( $_GET['skill'] ) ? sanitize_title( (string) wp_unslash( $_GET['skill'] ) ) : '';
 
-		return '' === $slug ? null : Skills::get( $slug );
+		return '' === $slug ? null : SkillLibraryService::open( WordPressBoundary::ADMIN )->find( $slug );
 	}
 
 	/**
@@ -441,9 +472,24 @@ final class SkillsPage {
 		if ( ! empty( $_GET['toggled'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill updated.', 'stonewright' ) . '</p></div>';
 		}
-		if ( ! empty( $_GET['error'] ) && 'missing_fields' === $_GET['error'] ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Please fill in all required fields (title, slug, content).', 'stonewright' ) . '</p></div>';
-		}
+		$error = isset( $_GET['error'] ) ? sanitize_key( (string) wp_unslash( $_GET['error'] ) ) : '';
 		// phpcs:enable
+		if ( '' !== $error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( self::error_message( $error ) ) . '</p></div>';
+		}
+	}
+
+	/** A notice for a refused save or toggle; the code never reaches the page as markup. */
+	private static function error_message( string $code ): string {
+		return match ( $code ) {
+			'missing_fields'                      => __( 'Please fill in all required fields (title, slug, content).', 'stonewright' ),
+			'stonewright_skill_lint_failed'       => __( 'The skill was not saved as active. Its description must say when to use it, Elementor guidance needs version constraints, and every ability it names must exist. Save it disabled to keep a draft.', 'stonewright' ),
+			'stonewright_skill_protected',
+			'stonewright_skill_identity_reserved',
+			'stonewright_skill_authority_claim'   => __( 'That slug belongs to a skill that ships with Stonewright or comes from another source. Choose a different slug.', 'stonewright' ),
+			'stonewright_skill_sensitive_content' => __( 'Remove credentials and other secrets from the skill before saving it.', 'stonewright' ),
+			'stonewright_skill_toggle_invalid'    => __( 'A stale or retired skill cannot be enabled again.', 'stonewright' ),
+			default                               => __( 'The skill was not saved. Check the fields and try again.', 'stonewright' ),
+		};
 	}
 }

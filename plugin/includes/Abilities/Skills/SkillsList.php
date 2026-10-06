@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Skills;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Lists all registered skills with their enabled state.
@@ -79,19 +79,11 @@ final class SkillsList extends AbilityKernel {
 		$mode            = (string) ( $args['mode'] ?? 'all' );
 		$include_content = (bool) ( $args['include_content'] ?? false );
 
-		if ( 'agentic' === $mode ) {
-			$skills = Skills::list_agentic();
-		} elseif ( 'prompt' === $mode ) {
-			$skills = Skills::list_prompt();
-		} elseif ( 'discover' === $mode ) {
-			$skills = array_values(
-				array_filter(
-					Skills::list( true ),
-					static fn( array $skill ): bool => Skills::runtime_visible( $skill )
-				)
-			);
+		$library = SkillLibraryService::open();
+		if ( in_array( $mode, [ 'agentic', 'prompt', 'discover' ], true ) ) {
+			$skills = $library->exposed( $mode );
 		} else {
-			$skills = Skills::list( $enabled_only );
+			$skills = $library->records( $enabled_only );
 			$mode   = 'all';
 		}
 

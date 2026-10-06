@@ -9,8 +9,8 @@ use Stonewright\WpMcp\Core\PluginRegistration;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\IncidentStore;
-use Stonewright\WpMcp\Skills\SkillsSeeder;
-use Stonewright\WpMcp\Skills\SkillsTable;
+use Stonewright\WpMcp\SkillLibrary\Site\BundledPack;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
 
 /**
  * Locks the non-destructive install/upgrade contract for persistent site state.
@@ -22,7 +22,7 @@ final class PersistentStateLifecycleTest extends TestCase {
 
 		self::assertStringContainsString( 'Memory::maybe_install_table()', $source );
 		self::assertStringContainsString( 'AuditLog::maybe_install_table()', $source );
-		self::assertStringContainsString( 'SkillsSeeder::seed()', $source );
+		self::assertStringContainsString( '->refresh_bundled_pack()', $source );
 		self::assertStringNotContainsString( 'Memory::put', $source );
 		self::assertStringNotContainsString( 'AuditLog::record', $source );
 		self::assertDoesNotMatchRegularExpression( '/\b(?:DROP|TRUNCATE|DELETE\s+FROM)\b/i', $source );
@@ -32,7 +32,7 @@ final class PersistentStateLifecycleTest extends TestCase {
 		$upgrade = self::method_source( PluginRegistration::class, 'maybe_upgrade' );
 		$hooks   = self::method_source( PluginRegistration::class, 'register_hooks' );
 
-		self::assertStringContainsString( 'SkillsSeeder::seed()', $upgrade );
+		self::assertStringContainsString( '->refresh_bundled_pack()', $upgrade );
 		self::assertStringContainsString( 'IncidentStore::maybe_install_table()', $upgrade );
 		self::assertStringContainsString( "get_option( 'stonewright_version'", $upgrade );
 		self::assertStringContainsString( 'STONEWRIGHT_VERSION', $upgrade );
@@ -45,8 +45,8 @@ final class PersistentStateLifecycleTest extends TestCase {
 			self::method_source( Memory::class, 'maybe_install_table' ),
 				self::method_source( AuditLog::class, 'maybe_install_table' ),
 				self::method_source( IncidentStore::class, 'maybe_install_table' ),
-			self::method_source( SkillsTable::class, 'run_delta' ),
-			self::method_source( SkillsSeeder::class, 'seed' ),
+			self::method_source( SkillTables::class, 'install' ),
+			self::method_source( BundledPack::class, 'refresh' ),
 		];
 
 		foreach ( $methods as $source ) {

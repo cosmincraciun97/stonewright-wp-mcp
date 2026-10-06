@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Skills;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Creates or updates a site skill (upsert by slug).
@@ -97,21 +97,23 @@ final class SkillsSave extends AbilityKernel {
 					return $this->error( 'stonewright_skills_invalid_slug', __( 'slug is required and must be non-empty.', 'stonewright' ) );
 				}
 
-				$existing = Skills::get( $slug );
+				$library  = SkillLibraryService::open();
+				$existing = $library->find( $slug );
 
-				$id = Skills::save( [
-					'slug'           => $slug,
-					'title'          => (string) ( $args['title'] ?? '' ),
-					'description'    => (string) ( $args['description'] ?? '' ),
-					'content'        => (string) ( $args['content'] ?? '' ),
-					'enabled'        => $args['enabled'] ?? true,
-					'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
-					'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
-					'source'         => 'user',
-				] );
+				$id = $library->save_skill(
+					[
+						'slug'           => $slug,
+						'title'          => (string) ( $args['title'] ?? '' ),
+						'description'    => (string) ( $args['description'] ?? '' ),
+						'content'        => (string) ( $args['content'] ?? '' ),
+						'enabled'        => $args['enabled'] ?? true,
+						'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
+						'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
+					]
+				);
 
-				if ( 0 === $id ) {
-					return $this->error( 'stonewright_skills_save_failed', __( 'Failed to save skill. The table may not exist yet.', 'stonewright' ) );
+				if ( is_wp_error( $id ) ) {
+					return $id;
 				}
 
 				return [
