@@ -117,6 +117,7 @@ final class PluginRegistration {
 			'init',
 			static function (): void {
 				ErrorPatterns::migrate_legacy_audit_lessons();
+				ErrorPatterns::return_unapproved_draft_lessons();
 			},
 			20
 		);

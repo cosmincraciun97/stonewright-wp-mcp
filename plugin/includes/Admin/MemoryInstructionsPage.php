@@ -753,8 +753,16 @@ final class MemoryInstructionsPage {
 		if ( null === $entry || 'draft' !== (string) ( $entry['status'] ?? '' ) ) {
 			return false;
 		}
-		$status = 'approve' === $decision ? 'active' : 'rejected';
-		return Memory::update_by_id( $id, [ 'status' => $status ] );
+		if ( 'approve' === $decision ) {
+			// Record who approved the lesson and when (UTC).
+			$value             = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+			$value['approval'] = [
+				'approved_at' => current_time( 'mysql', true ),
+				'approved_by' => get_current_user_id(),
+			];
+			return Memory::update_by_id( $id, [ 'status' => 'active', 'value' => $value ] );
+		}
+		return Memory::update_by_id( $id, [ 'status' => 'rejected' ] );
 	}
 
 	private static function handle_draft_review( string $decision ): void {

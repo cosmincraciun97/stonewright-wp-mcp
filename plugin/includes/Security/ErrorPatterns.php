@@ -22,6 +22,8 @@ final class ErrorPatterns {
 	public const MAX_PATTERNS = 200;
 	/** Days without a new occurrence after which a pattern leaves the recurring list. */
 	public const STALE_DAYS = 30;
+	/** Set once the one-time return of unapproved active draft lessons has completed. */
+	public const DRAFT_LESSON_RETURN_OPTION = 'stonewright_draft_lessons_returned_v1';
 	public const LEGACY_LESSON_MIGRATION_OPTION = 'stonewright_legacy_audit_lessons_migrated_v1';
 	public const LEARNING_NUDGE_COUNT = 5;
 	public const DRAFT_LESSON_COUNT   = 10;
@@ -613,6 +615,49 @@ final class ErrorPatterns {
 	 *
 	 * @return array{migrated:int,skipped:int,already_done:bool,write_failed?:int}
 	 */
+	/**
+	 * One-time repair: proposed lessons that are active without a recorded
+	 * administrator approval go back to draft, so they stop influencing agents
+	 * until someone approves them.
+	 *
+	 * @return array{returned:int,failed:int,already_done:bool}
+	 */
+	public static function return_unapproved_draft_lessons(): array {
+		if ( '1' === (string) get_option( self::DRAFT_LESSON_RETURN_OPTION, '' ) ) {
+			return [ 'returned' => 0, 'failed' => 0, 'already_done' => true ];
+		}
+		$returned = 0;
+		$failed   = 0;
+		$offset   = 0;
+		while ( true ) {
+			$rows = Memory::list_by_type( 'reference', 500, $offset );
+			if ( [] === $rows ) {
+				break;
+			}
+			$offset += count( $rows );
+			foreach ( $rows as $row ) {
+				if ( 'audit' !== (string) ( $row['scope'] ?? '' )
+					|| ! str_starts_with( (string) ( $row['memory_key'] ?? '' ), 'draft-lesson-' )
+					|| 'active' !== (string) ( $row['status'] ?? '' ) ) {
+					continue;
+				}
+				$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+				if ( isset( $value['approval'] ) ) {
+					continue;
+				}
+				if ( Memory::update_by_id( (int) ( $row['id'] ?? 0 ), [ 'status' => 'draft' ] ) ) {
+					++$returned;
+				} else {
+					++$failed;
+				}
+			}
+		}
+		if ( 0 === $failed ) {
+			update_option( self::DRAFT_LESSON_RETURN_OPTION, '1', false );
+		}
+		return [ 'returned' => $returned, 'failed' => $failed, 'already_done' => false ];
+	}
+
 	public static function migrate_legacy_audit_lessons(): array {
 		if ( '1' === (string) get_option( self::LEGACY_LESSON_MIGRATION_OPTION, '' ) ) {
 			return [ 'migrated' => 0, 'skipped' => 0, 'already_done' => true ];
