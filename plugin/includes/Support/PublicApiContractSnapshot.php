@@ -443,6 +443,8 @@ final class PublicApiContractSnapshot {
 		return str_contains( $clean, 'AuditLog::record' )
 			|| str_contains( $clean, '$this->audit_write(' )
 			|| str_contains( $clean, '->audit_write(' )
+			|| str_contains( $clean, '$this->audit_read(' )
+			|| str_contains( $clean, '->audit_read(' )
 			|| str_contains( $clean, '$this->audit(' )
 			|| str_contains( $clean, '->audit(' );
 	}

@@ -21,7 +21,7 @@ final class UserGet extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::list_users(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$u=get_user_by('id', (int) $args['id']);
 			if ( !$u ) {
 return new \WP_Error('stonewright_user_not_found', 'User not found.');

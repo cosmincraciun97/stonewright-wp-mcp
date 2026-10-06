@@ -583,7 +583,7 @@ final class AuditLogPage {
 			$details_raw = (string) ( $row['redacted_details'] ?? '' );
 			$details     = self::expanded_row_details( $row, $details_raw, $repair_index );
 			$pairs       = self::detail_pairs( $row, $details_raw, $repair_index );
-			$root_error = (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' );
+			$root_error = self::row_is_problem( $row ) ? (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' ) : '';
 			$retry_after = max( 0, (int) ( $row['retry_after_seconds'] ?? 0 ) );
 			$incident_id = strtolower( (string) ( $row['incident_id'] ?? '' ) );
 			$incident_state = isset( $incident_states[ $incident_id ] ) ? $incident_states[ $incident_id ] : '';
@@ -937,6 +937,11 @@ final class AuditLogPage {
 	private static function detail_pairs( array $row, string $details_raw, array $repair_index ): array {
 		$decoded = json_decode( $details_raw, true );
 		$details = is_array( $decoded ) ? AuditLog::redact_sensitive( $decoded ) : [];
+		if ( ! self::row_is_problem( $row ) ) {
+			// A successful row has no cause and nothing to repair.
+			$details = array_diff_key( $details, array_flip( [ 'error_code', 'root_error_code', 'error_message', 'remediation_code' ] ) );
+			$row     = array_diff_key( $row, array_flip( [ 'error_code', 'root_error_code', 'remediation_code' ] ) );
+		}
 		$code    = self::first_detail_text( [ $details['error_code'] ?? null, $row['error_code'] ?? null, $row['root_error_code'] ?? null ], 190 );
 		$cause   = self::first_detail_text( [ $details['root_error_code'] ?? null, $row['root_error_code'] ?? null, $code ], 190 );
 		$message = self::first_detail_text( [ $details['error_message'] ?? null ], 500 );
@@ -973,6 +978,21 @@ final class AuditLogPage {
 			$pairs[] = [ 'label' => __( 'Repair', 'stonewright' ), 'value' => $repair ];
 		}
 		return $pairs;
+	}
+
+	/**
+	 * Whether the row records a failure, refusal, or block. Successful rows,
+	 * including rows stored before successes dropped their codes, show no error
+	 * cause and no repair hint.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function row_is_problem( array $row ): bool {
+		$outcome = strtoupper( (string) ( $row['outcome'] ?? '' ) );
+		if ( '' !== $outcome ) {
+			return AuditEvent::OUTCOME_SUCCESS !== $outcome;
+		}
+		return in_array( strtolower( (string) ( $row['result_status'] ?? '' ) ), [ 'error', 'blocked', 'auth' ], true );
 	}
 
 	/** @return array<string, string> */

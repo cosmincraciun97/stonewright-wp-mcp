@@ -23,7 +23,7 @@ final class PostRevisionList extends AbilityKernel {
 return $id>0 ? Permissions::edit_post($id) : false;
 	}
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$revs=wp_get_post_revisions( (int) $args['post_id']);
 $items=[];
 			foreach ( (array) $revs as $rev ) {

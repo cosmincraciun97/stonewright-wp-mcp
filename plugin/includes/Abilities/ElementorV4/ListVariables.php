@@ -26,7 +26,7 @@ final class ListVariables extends AbilityKernel {
  $gate = V4FeatureGate::check();
 return is_wp_error( $gate ) ? $gate : Permissions::edit_posts(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit( $args, function (): array|\WP_Error {
+		return $this->audit_read( $args, function (): array|\WP_Error {
 			$adapter = AtomicVariableRepositoryAdapter::runtime();
 			if ( is_wp_error( $adapter ) ) {
 return $adapter; }

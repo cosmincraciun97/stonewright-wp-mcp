@@ -21,7 +21,7 @@ final class WidgetGet extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::edit_theme_options(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$sidebars=wp_get_sidebars_widgets();
 $id= (string) $args['sidebar_id'];
 			if ( !isset($sidebars[ $id ]) ) {

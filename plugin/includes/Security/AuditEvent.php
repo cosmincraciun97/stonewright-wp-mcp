@@ -94,12 +94,18 @@ final class AuditEvent {
 			$category = self::CATEGORY_ROLLBACK;
 		}
 
+		// A successful row is not an error: it keeps no error code and no repair hint.
+		$succeeded = self::OUTCOME_SUCCESS === $outcome;
+		if ( $succeeded ) {
+			$code = '';
+		}
+
 		$transaction_id = self::safe_text( self::first_scalar( $meta, $args, [ 'transaction_id', 'write_transaction_id' ] ), 96 );
 		$change_set_id  = self::safe_text( self::first_scalar( $meta, $args, [ 'change_set_id' ] ), 96 );
 		$verification_status = self::safe_text( self::first_scalar( $meta, $args, [ 'verification_status' ] ), 32 );
 		$rollback_status     = self::safe_text( self::first_scalar( $meta, $args, [ 'rollback_status' ] ), 32 );
 		$expected_verifier   = self::safe_text( self::first_scalar( $meta, $args, [ 'expected_verifier' ] ), 190 );
-		$remediation_code    = self::safe_text( self::first_scalar( $meta, $args, [ 'remediation_code' ] ), 190 );
+		$remediation_code    = $succeeded ? '' : self::safe_text( self::first_scalar( $meta, $args, [ 'remediation_code' ] ), 190 );
 		$target_id           = self::target_id( $meta, $args );
 		$before_sha256       = self::fingerprint( self::first_scalar( $meta, $args, [ 'before_sha256' ] ) );
 		$after_sha256        = self::fingerprint( self::first_scalar( $meta, $args, [ 'after_sha256' ] ) );
@@ -193,15 +199,16 @@ final class AuditEvent {
 			'redacted_details'        => self::redacted_details(
 				$meta,
 				[
-					'error_code'       => self::first_scalar( $meta, $args, [ 'error_code' ] ),
-					'error_message'    => self::public_message( $args, $meta ),
+					'error_code'       => $succeeded ? '' : self::first_scalar( $meta, $args, [ 'error_code' ] ),
+					'error_message'    => $succeeded ? '' : self::public_message( $args, $meta ),
 					'root_error_code'  => $code,
 					'incident_id'      => $incident_id,
 					'target_id'        => $target_id,
 					'remediation_code' => $remediation_code,
 					'retry_limit'      => $retry_limit,
 					'execution_status' => $execution_status,
-				]
+				],
+				$succeeded ? [ 'error_code', 'error_message', 'root_error_code', 'remediation_code' ] : []
 			),
 		];
 	}
@@ -240,7 +247,7 @@ final class AuditEvent {
 	}
 
 	private static function root_error_code( string $ability, string $status, array $args, array $meta ): string {
-		$raw = self::first_scalar( $meta, $args, [ 'root_error_code', 'error_code', 'code', 'wp_error_code' ] );
+		$raw = self::recorded_error_code( $meta, $args );
 		$raw = sanitize_key( strtolower( trim( $raw ) ) );
 		if ( '' === $raw ) {
 			return '';
@@ -254,47 +261,100 @@ final class AuditEvent {
 		return 'stonewright_' . $raw;
 	}
 
+	/**
+	 * First non-empty error code a recorder attached to the row.
+	 *
+	 * A top-level `code` argument is an ability input (for example a PHP snippet
+	 * digest), never an error code, so only `_meta.code` counts. Redaction markers
+	 * are not codes either.
+	 *
+	 * @param array<string, mixed> $meta
+	 * @param array<string, mixed> $args
+	 */
+	private static function recorded_error_code( array $meta, array $args ): string {
+		foreach ( [ 'root_error_code', 'error_code', 'code', 'wp_error_code' ] as $key ) {
+			$sources = 'code' === $key ? [ $meta ] : [ $meta, $args ];
+			foreach ( $sources as $source ) {
+				$value = isset( $source[ $key ] ) && is_scalar( $source[ $key ] ) ? trim( (string) $source[ $key ] ) : '';
+				if ( '' !== $value && ! str_starts_with( $value, '[redacted' ) ) {
+					return $value;
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Error classes come from what the recorder reported: the error code, an
+	 * explicit category, and the operation class. The ability name only selects
+	 * a surface (OAuth, site health, PHP runtime); a word inside it never
+	 * becomes an error class, so `blocks-insert` is not a lock error and
+	 * `post-revision-restore` is not a rollback. Without an error class, the
+	 * ability's declared read/write nature decides between READ and WRITE.
+	 *
+	 * @param array<string, mixed> $meta
+	 */
 	private static function category( string $ability, string $status, string $code, array $meta ): string {
-		$hint = strtolower( implode( '|', [ $ability, $code, (string) ( $meta['category'] ?? '' ), (string) ( $meta['operation_class'] ?? '' ) ] ) );
-		if ( 'blocked' === strtolower( $status ) ) {
-			return self::contains_any( $hint, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] )
+		$status  = strtolower( $status );
+		$ability = strtolower( $ability );
+		$signal  = strtolower( implode( '|', [ $code, (string) ( $meta['category'] ?? '' ), (string) ( $meta['operation_class'] ?? '' ) ] ) );
+		if ( 'blocked' === $status ) {
+			return self::contains_any( $signal, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] )
 				? self::CATEGORY_PERMISSION
 				: self::CATEGORY_SAFETY;
 		}
-		if ( 'auth' === strtolower( $status ) || str_starts_with( strtolower( $ability ), 'oauth/' ) || str_contains( $hint, 'oauth' ) ) {
+		if ( 'auth' === $status || str_starts_with( $ability, 'oauth/' ) || str_contains( $ability, 'oauth' ) || str_contains( $signal, 'oauth' ) ) {
 			return self::CATEGORY_AUTH;
 		}
-		if ( self::contains_any( $hint, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] ) ) {
+		if ( self::contains_any( $signal, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] ) ) {
 			return self::CATEGORY_PERMISSION;
 		}
-		if ( self::contains_any( $hint, [ 'safety', 'blocked', 'confirmation', 'grant_required', 'read_only', 'rule_violation', 'css_classes_not_approved', 'not_approved' ] ) ) {
+		if ( self::contains_any( $signal, [ 'safety', 'blocked', 'confirmation', 'grant_required', 'read_only', 'rule_violation', 'css_classes_not_approved', 'not_approved' ] ) ) {
 			return self::CATEGORY_SAFETY;
 		}
-		if ( 'failed' === strtolower( (string) ( $meta['rollback_status'] ?? '' ) ) || self::contains_any( $hint, [ 'rollback', 'restore' ] ) ) {
+		if ( 'failed' === strtolower( (string) ( $meta['rollback_status'] ?? '' ) ) || self::contains_any( $signal, [ 'rollback', 'restore' ] ) ) {
 			return self::CATEGORY_ROLLBACK;
 		}
-		if ( self::is_write_busy( $code, $meta ) || ( self::contains_any( $hint, [ 'busy', 'conflict', 'temporarily', 'lock' ] ) && ! self::refuses_identical_retry( $code, $meta ) ) ) {
+		if ( self::is_write_busy( $code, $meta ) || ( self::has_transient_token( $signal ) && ! self::refuses_identical_retry( $code, $meta ) ) ) {
 			return self::CATEGORY_TRANSIENT;
 		}
-		if ( self::contains_any( $hint, [ 'validation', 'schema', 'invalid', 'unsupported' ] ) ) {
+		if ( self::contains_any( $signal, [ 'validation', 'schema', 'invalid', 'unsupported' ] ) ) {
 			return self::CATEGORY_VALIDATION;
 		}
-		if ( self::contains_any( $hint, [ 'verify', 'readback', 'effect_verified' ] ) || 'failed' === strtolower( (string) ( $meta['verification_status'] ?? '' ) ) ) {
+		if ( self::contains_any( $signal, [ 'verify', 'readback', 'effect_verified' ] ) || 'failed' === strtolower( (string) ( $meta['verification_status'] ?? '' ) ) ) {
 			return self::CATEGORY_VERIFY;
 		}
-		if ( self::contains_any( $hint, [ 'smtp', 'mail', 'external', 'newsman' ] ) ) {
+		if ( self::contains_any( $signal, [ 'smtp', 'mail', 'external', 'newsman' ] ) ) {
 			return self::CATEGORY_EXTERNAL;
 		}
-		if ( self::contains_any( $hint, [ 'site-health', 'health-check', 'health-test', '/health', ' health' ] ) ) {
+		if ( self::contains_any( $ability . '|' . $signal, [ 'site-health', 'health-check', 'health-test', '/health', ' health' ] ) ) {
 			return self::CATEGORY_HEALTH;
 		}
-		if ( self::contains_any( $hint, [ 'php-execute', 'runtime-execute', 'runtime_execution' ] ) ) {
+		if ( self::contains_any( $ability . '|' . $signal, [ 'php-execute', 'runtime-execute', 'runtime_execution' ] ) ) {
 			return self::CATEGORY_RUNTIME;
 		}
-		if ( self::contains_any( $hint, [ '-get', '-list', '-status', '-search', '-inspect', '-describe', '-preview', '/read' ] ) ) {
+		$declared = strtolower( (string) ( $meta['operation_kind'] ?? '' ) );
+		if ( 'read' === $declared ) {
+			return self::CATEGORY_READ;
+		}
+		if ( 'write' === $declared ) {
+			return self::CATEGORY_WRITE;
+		}
+		// Rows from recorders that declare nothing keep the read-name convention.
+		if ( self::contains_any( $ability, [ '-get', '-list', '-status', '-search', '-inspect', '-describe', '-preview', '/read' ] ) ) {
 			return self::CATEGORY_READ;
 		}
 		return self::CATEGORY_WRITE;
+	}
+
+	/**
+	 * Lock, busy, and conflict errors are matched as whole words of the code,
+	 * so a code that mentions "blocks" is not a lock error.
+	 */
+	private static function has_transient_token( string $signal ): bool {
+		$tokens = preg_split( '/[^a-z0-9]+/', strtolower( $signal ) );
+		$tokens = is_array( $tokens ) ? $tokens : [];
+		return [] !== array_intersect( $tokens, [ 'busy', 'conflict', 'temporarily', 'lock', 'locked', 'deadlock' ] );
 	}
 
 	/** @param array<string, mixed> $args */
@@ -504,11 +564,12 @@ final class AuditEvent {
 	}
 
 	/**
-	 * @param array<string, mixed> $meta
+	 * @param array<string, mixed>  $meta
 	 * @param array<string, scalar> $computed
+	 * @param list<string>          $omit Keys this row must not carry (error fields on a success).
 	 * @return array<string, scalar>
 	 */
-	private static function redacted_details( array $meta, array $computed = [] ): array {
+	private static function redacted_details( array $meta, array $computed = [], array $omit = [] ): array {
 		$allowed = [
 			'rule_id',
 			'failed_action_index',
@@ -539,7 +600,7 @@ final class AuditEvent {
 		}
 		$out     = [];
 		foreach ( $allowed as $key ) {
-			if ( ! isset( $source[ $key ] ) || ! is_scalar( $source[ $key ] ) ) {
+			if ( in_array( $key, $omit, true ) || ! isset( $source[ $key ] ) || ! is_scalar( $source[ $key ] ) ) {
 				continue;
 			}
 			if ( ! is_string( $source[ $key ] ) ) {

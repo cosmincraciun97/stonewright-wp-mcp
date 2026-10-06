@@ -30,7 +30,7 @@ final class UserList extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::list_users(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$q=[ 'number'=>min( (int) ( $args['number']??20 ), 100) ];
 			if ( isset($args['search']) ) {
 $q['search']= (string) $args['search'];

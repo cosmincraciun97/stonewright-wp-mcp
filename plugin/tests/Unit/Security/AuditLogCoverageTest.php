@@ -182,6 +182,25 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertStringContainsString( '[redacted]', $encoded );
 	}
 
+	public function test_prose_redaction_keeps_ordinary_words_and_still_masks_values(): void {
+		AuditLog::record(
+			'stonewright/test',
+			[
+				'message' => 'The refresh token is no longer valid.',
+				'other'   => 'The password is not set.',
+				'leak'    => 'the password is sentinel-prose-password',
+				'leak2'   => 'token was sentinel-prose-token',
+			],
+			'error'
+		);
+
+		$encoded = (string) $GLOBALS['wpdb']->inserts[0]['data']['sanitized_args'];
+		self::assertStringContainsString( 'The refresh token is no longer valid.', $encoded );
+		self::assertStringContainsString( 'The password is not set.', $encoded );
+		self::assertStringNotContainsString( 'sentinel-prose-password', $encoded );
+		self::assertStringNotContainsString( 'sentinel-prose-token', $encoded );
+	}
+
 	public function test_redacts_nested_key_material_certificates_and_credential_blobs_without_consuming_safe_text(): void {
 		$payload = [
 			'visible' => 'safe-before',

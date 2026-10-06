@@ -29,7 +29,7 @@ final class SiteHealthTest extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::manage_options(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$test= (string) $args['test'];
 			// Prefer REST controller if present; otherwise return structured unsupported.
 			if ( !class_exists('\\WP_Site_Health') ) {

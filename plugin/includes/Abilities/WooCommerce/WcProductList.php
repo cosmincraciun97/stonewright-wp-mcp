@@ -58,7 +58,7 @@ final class WcProductList extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			static function ( array $args ): array|\WP_Error {
 				if ( ! WooRuntime::available() ) {

@@ -425,7 +425,7 @@ final class AuditLog {
 				'changed_bytes'     => max( 0, (int) ( $meta['changed_bytes'] ?? 0 ) ),
 				'validator_summary' => self::encoded_meta( $meta['validator_summary'] ?? null ),
 				'smoke_summary'     => self::encoded_meta( $meta['smoke_summary'] ?? null ),
-				'error_code'        => sanitize_key( self::meta_string( $meta, 'error_code' ) ),
+				'error_code'        => AuditEvent::OUTCOME_SUCCESS === $event['outcome'] ? '' : sanitize_key( self::meta_string( $meta, 'error_code' ) ),
 				'cause_key'         => mb_substr( sanitize_text_field( self::meta_string( $meta, 'cause_key' ) ), 0, 255 ),
 				'duration_ms'       => max( 0, (int) ( $meta['duration_ms'] ?? 0 ) ),
 				'backend'           => 'plugin',
@@ -1278,6 +1278,10 @@ final class AuditLog {
 		return $out;
 	}
 
+	private const FREE_TEXT_SECRET_KEYS = 'password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie';
+
+	private const FREE_TEXT_PROSE_WORDS = 'no|not|now|none|null|empty|missing|invalid|valid|expired|revoked|required|incorrect|wrong|unset|set|already|still|being|too|a|an|the|only|either|neither|unavailable|available|malformed|unknown|ok';
+
 	private static function redact_free_text( string $value ): string {
 		$value = (string) preg_replace(
 			'/\b(Basic|Bearer)\s+[A-Za-z0-9._~+\/=\-]+/i',
@@ -1285,7 +1289,14 @@ final class AuditLog {
 			$value
 		);
 		$value = (string) preg_replace(
-			'/\b(password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie)\b(\s*(?::|=|\bis\b|\bwas\b)\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'/\b(' . self::FREE_TEXT_SECRET_KEYS . ')\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'$1$2[redacted]',
+			$value
+		);
+		// Prose form ("the token is abc123"). Skip ordinary words so messages
+		// such as "The refresh token is no longer valid." stay readable.
+		$value = (string) preg_replace(
+			'/\b(' . self::FREE_TEXT_SECRET_KEYS . ')\b(\s+(?:is|was)\s+)(?!(?:' . self::FREE_TEXT_PROSE_WORDS . ')\b)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
 			'$1$2[redacted]',
 			$value
 		);

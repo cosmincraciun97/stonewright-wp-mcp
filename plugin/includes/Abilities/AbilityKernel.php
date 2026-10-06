@@ -65,11 +65,37 @@ abstract class AbilityKernel implements Ability {
 	 * ErrorPatterns can form actionable recurring-error signatures. Ability
 	 * authors must never embed secret input values in WP_Error messages.
 	 *
+	 * Rows recorded through this wrapper declare no read/write nature and are
+	 * categorized as writes. Read-only abilities use audit_read().
+	 *
 	 * @param array<string, mixed> $args
 	 * @param callable             $callback
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, '' );
+	}
+
+	/**
+	 * Audit wrapper for abilities that never change site state. The row declares
+	 * the call a read, so the audit log categorizes it as READ whatever the
+	 * ability is named.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_read( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, 'read' );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @param string               $operation_kind Declared nature: 'read', 'write', or '' when undeclared.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function audit_declared( array $args, callable $callback, string $operation_kind ) {
 		$started_ns = hrtime( true );
 		// A typed Elementor writer may use a narrow legacy response shape. Reset
 		// the request-local receipt here and attach the common transaction contract
@@ -182,6 +208,9 @@ abstract class AbilityKernel implements Ability {
 				$metadata['verification_status'] = 'planned';
 			}
 		}
+		if ( '' !== $operation_kind ) {
+			$metadata['operation_kind'] = $operation_kind;
+		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;
 		}
@@ -226,14 +255,15 @@ abstract class AbilityKernel implements Ability {
 
 	/**
 	 * Audit wrapper that requires a production-safe confirmation token before
-	 * the write callback runs. Read abilities must keep using audit().
+	 * the write callback runs, and declares the call a write. Read-only
+	 * abilities use audit_read() instead.
 	 *
 	 * @param array<string, mixed> $args
 	 * @param callable             $callback
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit_write( array $args, callable $callback ) {
-		return $this->audit(
+		return $this->audit_declared(
 			$args,
 			function ( array $args ) use ( $callback ) {
 				$token_error = $this->require_production_safe_token( $args );
@@ -241,7 +271,8 @@ abstract class AbilityKernel implements Ability {
 					return $token_error;
 				}
 				return $callback( $args );
-			}
+			},
+			'write'
 		);
 	}
 

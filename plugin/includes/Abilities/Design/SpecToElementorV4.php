@@ -70,7 +70,7 @@ final class SpecToElementorV4 extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			function ( array $args ) {
 				if ( ! class_exists( '\\Stonewright\\WpMcp\\Renderers\\ElementorV4SpecRenderer' ) ) {

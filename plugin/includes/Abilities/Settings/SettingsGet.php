@@ -76,7 +76,7 @@ final class SettingsGet extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
 				$keys = isset( $args['keys'] ) && is_array( $args['keys'] )

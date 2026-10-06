@@ -31,7 +31,7 @@ final class SearchQuery extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::read(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
 				// Subscribers (read only) must not enumerate drafts/private posts.
