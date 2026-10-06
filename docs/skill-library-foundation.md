@@ -22,7 +22,8 @@ bytes, the identity, or the review hash no longer match. Imported records
 remain disabled drafts. A hash proves that the reviewed file is unchanged; an
 authenticated write boundary must separately verify a server-bound review
 receipt, and it receives the review hash for that check. Import never
-overwrites an existing skill and never takes a reserved built-in identity.
+overwrites an existing skill and never takes a reserved built-in identity;
+either collision answers HTTP 409.
 
 ## Version constraints
 
@@ -47,7 +48,11 @@ alternative is checked as a required plugin.
 stale and retired skills cannot be enabled again. Only lint findings can block
 activation. Local, imported, and external guidance must pass the trigger,
 version-constraint, and tool-reference checks. Shipped built-in and playbook
-text is trusted, so only conflict and lifecycle findings block it.
+text is trusted, so only conflict and lifecycle findings block it. Lint reports
+`missing_trigger`, `missing_version_constraints`, `unresolved_conflicts`,
+`stale_record` (a stale, retired, or trashed record), and
+`unavailable_tool:<ability>` (a referenced `stonewright/` ability that is not
+registered).
 
 Missing plugin components never block enabling, for any source. Visibility is
 decided at read time: an enabled, active skill is hidden from agents while a
@@ -120,4 +125,10 @@ never include the trash.
 - **Local saves.** Saves never set provenance: new skills are local (`user`)
   and existing ones keep their source. A save without description text uses
   the title as trigger text. Echoing a stored evidence value back is not a
-  claim; changing it is refused.
+  claim; changing it is refused. A save that names an earlier revision than the
+  stored one, or that finds the row changed while it was being stored, answers
+  HTTP 409 and changes nothing. A save over a built-in or playbook skill, or
+  over a reserved built-in slug, is refused with 403.
+- **REST.** `DELETE /stonewright/v1/skills/{id}` moves a local skill to the
+  trash. It answers 404 for an unknown id and 403 for a built-in or playbook
+  skill. Permanent deletion uses the `skills-studio` routes.

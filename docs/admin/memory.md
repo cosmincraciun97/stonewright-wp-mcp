@@ -67,11 +67,15 @@ columns:
 | `memory_key` | `VARCHAR(190)` | Unique within a scope |
 | `value_json` | `LONGTEXT` | JSON-encoded value |
 | `confidence` | `DECIMAL(5,4)` | AI-provided confidence score, 0–1 |
-| `created_at` | `DATETIME` | Auto-set on insert |
-| `updated_at` | `DATETIME` | Auto-updated on change |
+| `created_at` | `DATETIME` | Set in UTC when the entry is created |
+| `updated_at` | `DATETIME` | Set in UTC on each write; reading never changes it |
 
 There is a `UNIQUE KEY` on `(scope, memory_key)`, so updating an existing
 key in the same scope replaces the record rather than creating a duplicate.
+
+The page labels its **Updated** column UTC. Recording that task start retrieved
+an entry sets only `last_retrieved_at`, shown as **Last retrieved** and also in
+UTC; it does not change `updated_at`.
 
 ### Types
 
@@ -96,6 +100,10 @@ The AI explicitly calls `stonewright-memory-save` when it decides information
 is worth retaining. Nothing is auto-saved based on conversation content.
 Admins can also create entries manually via the Add new form on this page, or
 via the REST API (`POST /stonewright/v1/memory`).
+
+Repeated errors can add a proposed lesson: when the same error repeats ten
+times, Stonewright writes a Reference entry in scope `audit` with status
+`draft`. See [Proposed lessons](#proposed-lessons).
 
 ---
 
@@ -130,6 +138,15 @@ nonce, and updates the existing row by ID. The REST endpoint
 
 Click **Delete** in the Actions column. A `confirm()` dialog prevents
 accidental removal. The handler calls `Memory::delete_by_id()`.
+
+### Proposed lessons
+
+A draft lesson shows **Approve** and **Discard** in its Actions cell.
+**Approve** makes the entry active and records who approved it and when (UTC) in
+the entry's value; **Discard** rejects it. Only draft entries can be approved or
+discarded, and both actions need `manage_options` and a nonce. A one-time repair
+returned proposed lessons that were active without a recorded approval to
+draft.
 
 ### Master memory toggle
 

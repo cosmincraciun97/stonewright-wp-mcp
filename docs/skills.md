@@ -56,6 +56,7 @@ Each skill has a master active toggle and two exposure flags:
 | `wp-plugin-dev` | `skills/wp-plugin-dev/` | Build WordPress plugins, blocks, widgets, and abilities |
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
 | `visual-direction` | `skills/visual-direction/` | Decide and prove visual direction: capture, reviewed kit sync, first-section checkpoint, rendered evidence |
+| `how-to-write-skills` | `skills/how-to-write-skills/` | Write, review, import, and test site skills: trigger descriptions, version constraints, exposure flags, and the import review |
 
 `visual-direction` is loaded for new or changed visual direction — a rebrand, a
 new palette or type scale, a different spacing rhythm. It does not replace a
@@ -93,15 +94,23 @@ go through the REST routes.
 **Import.** Import is two steps. The file is inspected first — UTF-8 Markdown,
 1 MiB ceiling, front matter with `name` and `description` required — and the
 review lists lint errors and trust findings before anything is stored. The
-confirmation binds the content hash, so a file cannot change between review and
-persistence. An imported skill lands **disabled, as a draft**, and is re-checked
-on the server regardless of what the file claims about itself. An import never
-overwrites an existing skill.
+review also carries a receipt that the server issues for the reviewing user and
+that stays valid for 30 minutes; an import without it is refused. The
+confirmation binds the file name and the content hash, so neither the file nor
+its slug can change between review and persistence. A file that tells an agent
+to override the plugin's rules or safety gates, to disable confirmation tokens,
+or to send credentials elsewhere is refused; other trust findings are warnings.
+An imported skill lands **disabled, as a draft**, and is re-checked on the
+server regardless of what the file claims about itself. An import never
+overwrites an existing skill: a slug that already exists, including a reserved
+built-in slug, answers HTTP 409.
 
 **Trash and restore.** Trashing disables a skill everywhere an agent could read
 it and offers an undo. Trashed skills never match `stonewright-task-start`.
 Restore returns the skill as a disabled draft, so somebody has to enable it
 deliberately. Built-in skills can be disabled but not removed.
+`DELETE /stonewright/v1/skills/{id}` moves a skill to the trash in the same way,
+and a built-in skill answers 403.
 
 **Permanent deletion** is a separate, irreversible action in the Trash view. It
 opens a review drawer listing exactly what is about to be destroyed, and in

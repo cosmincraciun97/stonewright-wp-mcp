@@ -22,6 +22,12 @@ same cause recurs -> reopened incident -> stale lesson
 
 The incident remains the lifecycle authority. The memory row is a derived, reusable result. Reopening never deletes history: it marks the promoted lesson stale so task start stops presenting it as active guidance.
 
+An incident covers one cause: the same error code from the same ability family on the same kind of resource. Incidents that do not involve writes, verification, or rollback close after seven days without a new occurrence, and a recurrence reopens the incident and counts the reopening. Write, verification, and rollback incidents close only through a verified repair.
+
+## Proposed lessons
+
+When the same error repeats ten times, Stonewright adds a proposed lesson to Memory as a draft. A draft is not active. An administrator approves or discards it on the Memory page; approval makes the lesson active and records who approved it and when (UTC). A one-time repair returns any proposed lesson that is active without a recorded approval to draft.
+
 ## Task-start response
 
 `stonewright-task-start` returns at most three ranked `incident_actions`. When any are actionable, `required_actions` contains `repair_open_incidents_first`.

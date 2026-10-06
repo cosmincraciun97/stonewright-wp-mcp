@@ -11,6 +11,73 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
+  the transport, the MCP server URL, and a suggested server name; every reason
+  sign-in is unavailable, each with its fix; and per-client setup: commands,
+  configuration entries with their file locations, install links where a
+  client documents them, how sign-in starts, and the limits of hosted clients
+  and local sites. The Application Password route stays available.
+- Add a **Connected OAuth clients** list to Setup with each client's approvers,
+  connection date, and last use. Disconnect closes every live grant of that
+  client at once, needs `manage_options` and a nonce, and is written to the
+  Audit Log. The connected-apps admin address leads to this list.
+- Accept Client ID Metadata Documents: a client may use an HTTPS URL as its
+  `client_id`. The site fetches the document from a public address without
+  following redirects, accepts only a public client, caches the result, and
+  names the publishing host on the consent screen. The authorization server
+  metadata declares `client_id_metadata_document_supported`.
+- Add the `iss` parameter (RFC 9207) to authorization responses, including
+  error redirects, and declare it in the authorization server metadata.
+- Accept `localhost`, as well as `127.0.0.1` and `[::1]`, for HTTP loopback
+  redirect URIs. The callback may use any port; its host must match the
+  registered host.
+- Add `refresh_token_expires_in`, the seconds until the refresh credential
+  expires, to token responses.
+- Add the built-in `how-to-write-skills` skill, covering trigger descriptions,
+  body size, version constraints, exposure flags, import review, and testing a
+  skill before it is enabled.
+
+### Changed
+
+- Return the grant's current refresh credential, with a new access credential,
+  when a refresh credential is presented again within 60 seconds of its use,
+  instead of failing. The window is filterable with
+  `stonewright_oauth_refresh_reuse_window` (0 to 300 seconds; 0 restores strict
+  single-use rotation).
+- Prepare queued Gutenberg block changes in the block editor through the block
+  change queue console, a hidden admin page that replaces the previous
+  finalizer page. The page (`stonewright-block-finalizer`) has no menu entry
+  and needs `edit_posts`; its REST routes under
+  `/stonewright/v1/block-finalizer/` are unchanged. Queue requests need a REST
+  nonce and a scoped queue token in the JSON body, and a request from another
+  origin is refused.
+- Move a skill to the trash when `DELETE /stonewright/v1/skills/{id}` is
+  called. Built-in skills answer 403; permanent deletion stays a separate step
+  in the Trash view.
+- Answer HTTP 409 when an imported skill's slug already exists, including a
+  reserved built-in slug, or when a skill is saved over a stale revision, and
+  refuse a save over a built-in skill's slug.
+- Let a skill be enabled while the plugin components it needs are missing; it
+  stays hidden from agents until they are present.
+- Require the server-issued review receipt to import a skill. The receipt is
+  bound to the reviewing user and the reviewed file name and bytes, and the
+  review stays valid for 30 minutes.
+- Judge skill lint findings without reference to the language a skill is
+  written in. Stale, retired, and trashed skills are reported as `stale_record`,
+  and references to abilities that are not registered as
+  `unavailable_tool:<ability>`.
+- Rebuild the Visual editor workspace on a session router with an action
+  ledger and one-use applying permits. A backend policy blocks execution unless
+  the host allowlist and tool discovery agree. Editor tools are declared in a
+  strict catalog: every tool has a closed schema, arguments are validated
+  before any editor or backend call, and mutating tools must read back their
+  result. Native block tools work through the block editor's own store. The
+  Elementor V3 and V4 adapters declare closed schemas for every tool, including
+  history, save, evidence, and page-structure reads, and V3 undo and redo
+  re-read the live editor tree.
+
 ### Fixed
 
 - Refresh Companion runtime dependency floors and security overrides, and use
@@ -23,6 +90,59 @@ development builds were never stable releases.
   action; Application Password authentication remains available.
 - Verify packaged plugin activation on Linux and Windows, and reject an
   existing activation-smoke working directory before writing or removing files.
+- Keep ordinary words readable in Audit Log free-text redaction. A value
+  written as prose after a credential word ("the token is ...") is still
+  masked, and messages such as "The refresh token is no longer valid." stay
+  readable.
+- Store successful audit rows without an error code, repair hint, or incident
+  link, and show no error cause or repair hint for successful rows stored
+  earlier.
+- Record read-only abilities as reads, and stop treating abilities whose names
+  start with `blocks-` as lock errors.
+- Give every failed, blocked, and retryable audit row a readable message; when
+  the caller supplied none, it names the outcome and the error code.
+- Open one incident per cause, identified by the error code, the ability
+  family, and the kind of resource, instead of one per record, path, or
+  category.
+- Close incidents that do not involve writes, verification, or rollback after
+  7 days without a new occurrence, reopen them when the cause recurs, and count
+  reopenings. The sweep belongs to the daily audit retention run, which runs
+  only when an operator configures scheduled retention; write incidents still
+  close only through a verified repair.
+- Treat generated Elementor CSS served behind a redirect to another page of the
+  same site as protected delivery instead of a failure in
+  `stonewright-elementor-css-regenerate`. A redirect that is still refused
+  (another origin, an HTTP downgrade, a loop, or a disallowed target) reports
+  the HTTP status and the target's origin only, never its path or query.
+- List only refusals and failures in the Audit Log Auth view, count every
+  incident in the incident totals, and drop recurring-error patterns that have
+  not occurred for 30 days from the Recurring errors panel.
+- Store Memory creation and update times in UTC and label them UTC on the
+  Memory page. Recording that an entry was retrieved no longer changes its
+  Updated time.
+- Keep proposed Memory lessons as drafts until an administrator approves them.
+  Approval records who approved the lesson and when (UTC), and a one-time
+  repair returns proposed lessons that were active without a recorded approval
+  to draft.
+- Make the Visual workspace follow its confirmation state: Apply is enabled
+  only after confirmation is requested and Cancel discards a pending preview.
+  The evidence marker follows the verified state, warnings count as checked
+  evidence, and a superseded editor connection leaves the shared workspace
+  root alone.
+
+### Security
+
+- Revoke the grant created from an authorization code when that code is
+  replayed.
+- Expire refresh credentials after 30 days without use and end a grant at most
+  90 days after it was authorized; grants that already exist keep their end
+  date.
+- Report a refresh credential as active in token introspection only while it
+  is the current, unexpired credential of a live grant.
+- Write refresh replays that revoke a grant, authorization-code replays,
+  explicit revocations, and duplicate refresh deliveries to the Audit Log as
+  their own security events every time. The rows hold no credential values;
+  ordinary refusals stay grouped.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

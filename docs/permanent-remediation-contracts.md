@@ -8,24 +8,38 @@ paths.
 ## Audit events and incidents
 
 Every audited outcome is normalized to schema `2.0` before persistence. The
-taxonomy separates `AUTH`, `PERMISSION`, `SAFETY`, `VALIDATION`, `TRANSIENT`,
-`WRITE`, `VERIFY`, `ROLLBACK`, `EXTERNAL`, and `INCIDENT` categories from the
-outcomes `SUCCESS`, `BLOCKED`, `RETRYABLE`, and `FAILED`.
+taxonomy separates `AUTH`, `READ`, `HEALTH`, `RUNTIME`, `PERMISSION`, `SAFETY`,
+`VALIDATION`, `TRANSIENT`, `WRITE`, `VERIFY`, `ROLLBACK`, `EXTERNAL`, and
+`INCIDENT` categories from the outcomes `SUCCESS`, `BLOCKED`, `RETRYABLE`, and
+`FAILED`. An ability that declares itself read-only is recorded as `READ`. Lock,
+busy, and conflict errors are recognized from the reported error code, never
+from a word in the ability name, so abilities whose names start with `blocks-`
+are not mistaken for lock errors.
 
 An event carries one root error code, a public message, a bounded resource
 identity, a normalized path, cause and strategy fingerprints, transaction and
 change-set identifiers, retry information, and an allowlisted redacted detail
 map. Context-token identity is hashed. Authorization values, request bodies,
-recipient addresses, page HTML, and filesystem paths are not audit payloads.
+recipient addresses, page HTML, and filesystem paths are not audit payloads. A
+`SUCCESS` event carries no root error code, remediation code, or incident. Every
+`BLOCKED`, `RETRYABLE`, and `FAILED` event carries a public message; when the
+caller supplied none, it names the outcome and the root error code.
 
 Recurring incidents have an explicit lifecycle: `observing`, `open`,
 `resolved`, or `suppressed`. Ordinary failures open after two matching
 occurrences; retryable failures use three; critical rollback failures open
 immediately. Permission and safety blocks do not become agent-repair
-incidents. A resolver closes an incident only after a correlated success with
-the same transaction resource/path or an exact change-set correlation. A new
-matching failure reopens a resolved incident. Legacy rows are classified and
-migrated idempotently into the same contract.
+incidents. An incident is identified by its root error code, ability family,
+and resource type, so one cause is one incident whatever the record, path, or
+category. A resolver closes a write, verification, or rollback incident only
+after a correlated success with the same transaction resource/path or an exact
+change-set correlation. Any other incident also closes after seven days
+without a new occurrence, with the end of that quiet period as its resolution
+time; the daily audit retention run performs that sweep when scheduled
+retention is configured. A new matching failure reopens a resolved incident and
+counts the reopening, also when it arrives after a quiet week but before the
+sweep ran. Legacy rows are classified and migrated idempotently into the same
+contract.
 
 `stonewright/incident-repair-record` is the only typed Plugin closure path. It
 reads the incident, failure event, and proposed verifier event from persisted
@@ -95,6 +109,11 @@ OAuth audit rows preserve retryable and server-side failures on the short
 diagnostic cadence. Terminal client-side failures such as an expired or
 revoked grant are coalesced for 24 hours by endpoint, client, status, error,
 and reason, with sparse aggregate receipts at counts 1, 25, 100, and 500.
+Security events are never coalesced: a refresh replay that revokes a grant, an
+authorization-code replay, an explicit revocation, and a duplicate refresh
+delivery each write their own row, marked as a security event. The row holds
+only allowlisted response fields, the client identifier, and the HTTP status,
+never a credential value.
 Admin rendering resolves registered OAuth client names in one batched lookup;
 pre-login events therefore show a client label instead of an unknown user and
 do not add one database query per row.

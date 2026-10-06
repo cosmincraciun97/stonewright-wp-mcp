@@ -45,9 +45,9 @@ untouched.
 
 Every site skill update snapshots the previous revision. Use the
 `skill_rollback` action of `stonewright/knowledge-candidate-record` to restore a
-known revision. Lint blocks unclear triggers, missing Elementor version ranges,
-stale references, unresolved conflicts, and references to unavailable
-Stonewright tools.
+known revision. Lint blocks a missing trigger, missing Elementor version
+constraints, stale or retired records, unresolved conflicts, and references to
+unavailable Stonewright tools. The trigger check accepts text in any language.
 
 ## Memory retrieval
 
