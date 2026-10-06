@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
 use Stonewright\WpMcp\Support\BlockTree;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Transactional, optimistic-hash batch mutation for Gutenberg post content.
@@ -376,7 +377,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 					);
 				}
 
-				$written = wp_update_post( [ 'ID' => $post_id, 'post_content' => $after_html ], true );
+				// wp_update_post() expects slashed input and unslashes it before the write.
+				$written = wp_update_post( wp_slash( [ 'ID' => $post_id, 'post_content' => $after_html ] ), true );
 				if ( is_wp_error( $written ) ) {
 					$rollback = $this->restore_and_verify( $post_id, $snapshot_id, $before_hash );
 					$receipt  = $this->failed_receipt( $receipt, $written, $rollback, 'write.persist' );
@@ -923,6 +925,31 @@ final class BlocksBatchMutate extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * The caller gets the exception class; the message stays in the server log, where it cannot
+	 * leak paths, queries, or credentials into a tool response.
+	 */
+	private function registry_failure( \Throwable $throwable, string $context ): \WP_Error {
+		Logger::error(
+			'block_registry_unavailable',
+			[
+				'path'        => $context,
+				'error_class' => get_class( $throwable ),
+				'message'     => $throwable->getMessage(),
+			]
+		);
+		return $this->error(
+			'block_registry_unavailable',
+			__( 'The registered block schema could not be loaded safely.', 'stonewright' ),
+			[
+				'status'      => 500,
+				'path'        => $context,
+				'detail'      => __( 'The block registry lookup failed; see the server log for the cause.', 'stonewright' ),
+				'error_class' => get_class( $throwable ),
+			]
+		);
+	}
+
 	/** @param array<string,mixed> $block */
 	private function validate_block_schema( array $block, string $context ): ?\WP_Error {
 		if ( ! class_exists( '\WP_Block_Type_Registry' ) ) {
@@ -935,11 +962,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 		try {
 			$registry = \WP_Block_Type_Registry::get_instance();
 		} catch ( \Throwable $throwable ) {
-			return $this->error(
-				'block_registry_unavailable',
-				__( 'The registered block schema could not be loaded safely.', 'stonewright' ),
-				[ 'status' => 500, 'path' => $context, 'detail' => $throwable->getMessage() ]
-			);
+			return $this->registry_failure( $throwable, $context );
 		}
 		if ( ! is_object( $registry ) || ! method_exists( $registry, 'get_registered' ) ) {
 			return $this->error( 'block_registry_unavailable', __( 'The registered block schema could not be loaded safely.', 'stonewright' ), [ 'status' => 500, 'path' => $context ] );
@@ -948,7 +971,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 		try {
 			$registered = $registry->get_registered( $name );
 		} catch ( \Throwable $throwable ) {
-			return $this->error( 'block_registry_unavailable', __( 'The registered block schema could not be loaded safely.', 'stonewright' ), [ 'status' => 500, 'path' => $context, 'detail' => $throwable->getMessage() ] );
+			return $this->registry_failure( $throwable, $context );
 		}
 
 		if ( ! is_object( $registered ) ) {

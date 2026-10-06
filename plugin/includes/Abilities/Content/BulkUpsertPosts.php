@@ -190,10 +190,10 @@ final class BulkUpsertPosts extends AbilityKernel {
 					$action = 'created';
 					if ( $id > 0 ) {
 						$payload['ID'] = $id;
-						$result        = wp_update_post( $payload, true );
+						$result        = wp_update_post( wp_slash( $payload ), true );
 						$action        = 'updated';
 					} else {
-						$result = wp_insert_post( $payload, true );
+						$result = wp_insert_post( wp_slash( $payload ), true );
 					}
 
 					if ( is_wp_error( $result ) ) {

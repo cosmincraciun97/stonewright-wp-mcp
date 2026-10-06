@@ -5,10 +5,14 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Gutenberg;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Gutenberg\FinalizeBatch;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueEndpoint;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueRequestGuard;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
+use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\CustomCodeGrant;
 
 final class BrowserQueueContractTest extends TestCase {
 
@@ -72,6 +76,54 @@ final class BrowserQueueContractTest extends TestCase {
 		$GLOBALS['stonewright_test_nonce_invalid'] = false;
 		$GLOBALS['stonewright_test_current_user_id'] = 8;
 		self::assertInstanceOf( \WP_Error::class, QueueRequestGuard::authorize( $request ) );
+	}
+
+	/** @dataProvider unauthorizedRequestProvider */
+	public function test_unauthorized_request_is_refused_with_403_before_its_body_is_read( bool $nonce, bool $capable ): void {
+		$GLOBALS['stonewright_test_user_caps'] = $capable ? [ 'edit_posts' => true, 'edit_post' => true ] : [];
+		$GLOBALS['stonewright_test_current_user_id'] = $capable ? 7 : 0;
+		$GLOBALS['stonewright_test_user_logged_in'] = $capable;
+		$request = new class( 'POST', '/stonewright/v1/block-finalizer/claim', [] ) extends \WP_REST_Request {
+			public int $body_reads = 0;
+
+			public function get_json_params(): array {
+				++$this->body_reads;
+				// Not an object body, so reading it would be a 400.
+				return [ 'not', 'an', 'object' ];
+			}
+		};
+		if ( $nonce ) {
+			$request->set_header( 'X-WP-Nonce', 'synthetic-nonce' );
+		}
+
+		$error = QueueRequestGuard::authorize( $request );
+		$permission = QueueRequestGuard::permission( $request );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 403, $error->get_error_data()['status'] );
+		self::assertInstanceOf( \WP_Error::class, $permission );
+		self::assertSame( 403, $permission->get_error_data()['status'] );
+		self::assertSame( 0, $request->body_reads, 'The body must not be parsed before the nonce and capability checks.' );
+	}
+
+	/** @return array<string, array{0:bool,1:bool}> */
+	public static function unauthorizedRequestProvider(): array {
+		return [
+			'anonymous visitor with a nonce' => [ true, false ],
+			'editor without a nonce'         => [ false, true ],
+			'anonymous without a nonce'      => [ false, false ],
+		];
+	}
+
+	public function test_authorized_request_with_a_malformed_body_is_still_a_400(): void {
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/claim', [] );
+		$request->set_json_params( [ 'not', 'an', 'object' ] );
+		$request->set_header( 'X-WP-Nonce', 'synthetic-nonce' );
+
+		$error = QueueRequestGuard::authorize( $request );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 400, $error->get_error_data()['status'] );
 	}
 
 	public function test_claim_serialization_preserves_post_and_compact_status(): void {
@@ -162,5 +214,195 @@ final class BrowserQueueContractTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $foreign_error );
 		self::assertSame( $missing_error->get_error_code(), $foreign_error->get_error_code() );
 		self::assertSame( $missing_error->get_error_data(), $foreign_error->get_error_data() );
+	}
+
+	/**
+	 * @param array<string,mixed> $spec
+	 * @param array<string,mixed> $extra Extra enqueue arguments, such as the raw HTML flag and its grant.
+	 * @return array{0:array<string,mixed>,1:string}
+	 */
+	private function leased_change( array $spec, array $extra = [] ): array {
+		$record = BlockQueue::enqueue( array_merge( [ 'post_id' => 42, 'action' => 'insert', 'block_spec' => $spec ], $extra ) );
+		self::assertIsArray( $record, is_wp_error( $record ) ? $record->get_error_code() : '' );
+		$token = BlockQueue::issue_token( (string) $record['session_id'] );
+		self::assertIsArray( $token );
+		self::assertIsArray( QueueEndpoint::claim( $this->request( [ 'token' => $token['token'], 'lease_id' => 'synthetic-lease' ] ) ) );
+		return [ $record, (string) $token['token'] ];
+	}
+
+	/** @return array<string,mixed> */
+	private function serialized_input( array $record, string $token, string $html, string $result_id = 'synthetic-result' ): array {
+		return [
+			'token'     => $token,
+			'lease_id'  => 'synthetic-lease',
+			'result_id' => $result_id,
+			'change_id' => $record['id'],
+			'status'    => 'serialized',
+			'html'      => $html,
+			'html_hash' => hash( 'sha256', $html ),
+		];
+	}
+
+	/** @return array<string,mixed> */
+	private function paragraph_spec(): array {
+		return [ 'name' => 'core/paragraph', 'attributes' => [ 'content' => 'Example' ], 'innerBlocks' => [] ];
+	}
+
+	/** @dataProvider unfaithfulOutputProvider */
+	public function test_unfaithful_browser_output_is_stored_as_a_failed_result_and_never_persisted( string $html, string $code ): void {
+		[ $record, $token ] = $this->leased_change( $this->paragraph_spec() );
+
+		$receipt = QueueEndpoint::result( $this->request( $this->serialized_input( $record, $token, $html ) ) );
+
+		self::assertIsArray( $receipt, is_wp_error( $receipt ) ? $receipt->get_error_code() : '' );
+		self::assertSame( 'failed', $receipt['status'] );
+		self::assertFalse( $receipt['ok'] );
+		self::assertFalse( $receipt['retryable'] );
+		$stored = BlockQueue::get( (string) $record['id'] );
+		self::assertSame( 'failed', $stored['status'] );
+		self::assertSame( $code, $stored['error_code'] );
+		self::assertSame( '', $stored['serialized_html'] );
+		self::assertSame( '', $stored['serialized_html_hash'] );
+		self::assertSame( '', get_post( 42 )->post_content );
+		self::assertStringNotContainsString( 'onerror', (string) wp_json_encode( $stored ) );
+		self::assertStringNotContainsString( '<script', (string) wp_json_encode( $stored ) );
+
+		$finalized = ( new FinalizeBatch() )->execute( [ 'post_id' => 42, 'change_ids' => [ $record['id'] ] ] );
+		self::assertInstanceOf( \WP_Error::class, $finalized );
+		self::assertSame( 'stonewright_finalizer_not_serialized', $finalized->get_error_code() );
+		self::assertSame( '', get_post( 42 )->post_content );
+	}
+
+	/** @return array<string, array{0:string,1:string}> */
+	public static function unfaithfulOutputProvider(): array {
+		$paragraph = "<!-- wp:paragraph -->\n<p>Example</p>\n<!-- /wp:paragraph -->";
+		return [
+			'a mismatched block name'       => [ "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Example</h2>\n<!-- /wp:heading -->", 'serialized_structure_mismatch' ],
+			'extra blocks'                  => [ $paragraph . "\n" . $paragraph, 'serialized_structure_mismatch' ],
+			'plain html instead of a block' => [ '<p>Example</p>', 'serialized_structure_mismatch' ],
+			'a script tag'                  => [ "<!-- wp:paragraph -->\n<p>Example</p><script>alert(1)</script>\n<!-- /wp:paragraph -->", 'serialized_markup_refused' ],
+			'a script tag outside the block' => [ $paragraph . '<script>alert(1)</script>', 'serialized_markup_refused' ],
+			'an onerror attribute'          => [ "<!-- wp:paragraph -->\n<p>Example<img src=x onerror=alert(1)></p>\n<!-- /wp:paragraph -->", 'serialized_markup_refused' ],
+			'a javascript url'              => [ "<!-- wp:paragraph -->\n<p><a href=\"javascript:alert(1)\">Example</a></p>\n<!-- /wp:paragraph -->", 'serialized_markup_refused' ],
+		];
+	}
+
+	/**
+	 * @dataProvider legitimateOutputProvider
+	 * @param array<string,mixed> $spec
+	 */
+	public function test_legitimate_editor_output_is_accepted( array $spec, string $html ): void {
+		[ $record, $token ] = $this->leased_change( $spec );
+
+		$receipt = QueueEndpoint::result( $this->request( $this->serialized_input( $record, $token, $html ) ) );
+
+		self::assertIsArray( $receipt, is_wp_error( $receipt ) ? $receipt->get_error_code() : '' );
+		self::assertSame( 'serialized', $receipt['status'] );
+		self::assertTrue( $receipt['ok'] );
+		$stored = BlockQueue::get( (string) $record['id'] );
+		self::assertSame( 'serialized', $stored['status'] );
+		self::assertSame( $html, $stored['serialized_html'] );
+		self::assertSame( hash( 'sha256', $html ), $stored['serialized_html_hash'] );
+		self::assertSame( '', get_post( 42 )->post_content );
+	}
+
+	/** @return array<string, array{0:array<string,mixed>,1:string}> */
+	public static function legitimateOutputProvider(): array {
+		return [
+			'a queued paragraph' => [
+				[ 'name' => 'core/paragraph', 'attributes' => [ 'content' => 'Example' ], 'innerBlocks' => [] ],
+				"<!-- wp:paragraph -->\n<p>Example</p>\n<!-- /wp:paragraph -->",
+			],
+			'a queued heading'   => [
+				[ 'name' => 'core/heading', 'attributes' => [ 'level' => 3, 'content' => 'Title' ], 'innerBlocks' => [] ],
+				"<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Title</h3>\n<!-- /wp:heading -->",
+			],
+			'a queued heading at the default level' => [
+				[ 'name' => 'core/heading', 'attributes' => [ 'level' => 2, 'content' => 'Title' ], 'innerBlocks' => [] ],
+				"<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Title</h2>\n<!-- /wp:heading -->",
+			],
+		];
+	}
+
+	public function test_custom_code_is_accepted_from_the_browser_only_for_the_kinds_its_grant_covered(): void {
+		$GLOBALS['stonewright_test_user_caps']  = [ 'edit_posts' => true, 'edit_post' => true, 'manage_options' => true ];
+		$GLOBALS['stonewright_test_transients'] = [];
+		$css    = '<style>.example{display:block}</style>';
+		$issued = CustomCodeGrant::issue(
+			[
+				'path'         => RawHtmlGate::grant_path( 42 ),
+				'after_sha256' => hash( 'sha256', $css ),
+				'language'     => 'html',
+			]
+		);
+		self::assertIsArray( $issued );
+		[ $record, $token ] = $this->leased_change(
+			[ 'name' => 'core/html', 'attributes' => [ 'content' => $css ], 'innerBlocks' => [] ],
+			[ 'allow_raw_html' => true, 'custom_code_grant' => (string) $issued['token'] ]
+		);
+
+		$smuggled = QueueEndpoint::result( $this->request( $this->serialized_input( $record, $token, "<!-- wp:html -->\n" . $css . "<script>alert(1)</script>\n<!-- /wp:html -->" ) ) );
+		self::assertIsArray( $smuggled );
+		self::assertSame( 'failed', $smuggled['status'] );
+		self::assertSame( 'serialized_markup_refused', BlockQueue::get( (string) $record['id'] )['error_code'] );
+
+		// The refusal made that change terminal; a corrected change with its own grant is accepted.
+		self::assertIsArray( BlockQueue::cancel( [ (string) $record['id'] ], false, 7 ) );
+		$again = CustomCodeGrant::issue(
+			[
+				'path'         => RawHtmlGate::grant_path( 42 ),
+				'after_sha256' => hash( 'sha256', $css ),
+				'language'     => 'html',
+			]
+		);
+		self::assertIsArray( $again );
+		[ $record, $token ] = $this->leased_change(
+			[ 'name' => 'core/html', 'attributes' => [ 'content' => $css ], 'innerBlocks' => [] ],
+			[ 'allow_raw_html' => true, 'custom_code_grant' => (string) $again['token'] ]
+		);
+		$html     = "<!-- wp:html -->\n" . $css . "\n<!-- /wp:html -->";
+		$accepted = QueueEndpoint::result( $this->request( $this->serialized_input( $record, $token, $html ) ) );
+		self::assertIsArray( $accepted, is_wp_error( $accepted ) ? $accepted->get_error_code() : '' );
+		self::assertSame( 'serialized', $accepted['status'] );
+		self::assertSame( $html, BlockQueue::get( (string) $record['id'] )['serialized_html'] );
+	}
+
+	public function test_a_refused_result_replays_as_the_same_failed_receipt_and_conflicts_with_other_bytes(): void {
+		[ $record, $token ] = $this->leased_change( $this->paragraph_spec() );
+		$bad = $this->serialized_input( $record, $token, "<!-- wp:paragraph -->\n<p>Example<script>alert(1)</script></p>\n<!-- /wp:paragraph -->" );
+
+		$first  = QueueEndpoint::result( $this->request( $bad ) );
+		$replay = QueueEndpoint::result( $this->request( $bad ) );
+
+		self::assertIsArray( $first );
+		self::assertFalse( $first['duplicate'] );
+		self::assertIsArray( $replay, is_wp_error( $replay ) ? $replay->get_error_code() : '' );
+		self::assertSame( 'failed', $replay['status'] );
+		self::assertTrue( $replay['duplicate'] );
+		self::assertSame( $first['event_id'], $replay['event_id'] );
+
+		$other = $this->serialized_input( $record, $token, "<!-- wp:paragraph -->\n<p>Example</p>\n<!-- /wp:paragraph -->" );
+		$conflict = QueueEndpoint::result( $this->request( $other ) );
+		self::assertInstanceOf( \WP_Error::class, $conflict );
+		self::assertSame( 'stonewright_queue_result_conflict', $conflict->get_error_code() );
+		self::assertSame( 'failed', BlockQueue::get( (string) $record['id'] )['status'] );
+	}
+
+	public function test_a_refused_result_is_audited_as_a_blocked_event_without_the_markup(): void {
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$GLOBALS['stonewright_test_transients']   = [];
+		AuditLog::reset_request_state();
+		[ $record, $token ] = $this->leased_change( $this->paragraph_spec() );
+		$html = "<!-- wp:paragraph -->\n<p>Example<script>alert(1)</script></p>\n<!-- /wp:paragraph -->";
+
+		AuditLog::begin_request();
+		QueueEndpoint::result( $this->request( $this->serialized_input( $record, $token, $html ) ) );
+
+		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
+		$row = $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'];
+		self::assertSame( 'blocked', $row['result_status'] );
+		self::assertSame( 'serialized_markup_refused', $row['error_code'] );
+		self::assertStringNotContainsString( '<script', (string) $row['sanitized_args'] );
+		self::assertStringContainsString( hash( 'sha256', $html ), (string) $row['sanitized_args'] );
 	}
 }

@@ -82,13 +82,15 @@ final class CreatePattern extends AbilityKernel {
 				}
 
 				$id = wp_insert_post(
-					[
-						'post_title'   => sanitize_text_field( (string) $args['title'] ),
-						'post_name'    => isset( $args['slug'] ) ? sanitize_title( (string) $args['slug'] ) : '',
-						'post_content' => $content,
-						'post_status'  => (string) ( $args['status'] ?? 'publish' ),
-						'post_type'    => 'wp_block',
-					],
+					wp_slash(
+						[
+							'post_title'   => sanitize_text_field( (string) $args['title'] ),
+							'post_name'    => isset( $args['slug'] ) ? sanitize_title( (string) $args['slug'] ) : '',
+							'post_content' => $content,
+							'post_status'  => (string) ( $args['status'] ?? 'publish' ),
+							'post_type'    => 'wp_block',
+						]
+					),
 					true
 				);
 

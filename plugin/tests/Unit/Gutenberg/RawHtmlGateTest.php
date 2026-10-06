@@ -275,6 +275,162 @@ final class RawHtmlGateTest extends TestCase {
 		);
 	}
 
+	/**
+	 * @dataProvider customCodeProvider
+	 * @param list<string> $expected
+	 */
+	public function test_custom_code_kinds_detect_code_hidden_in_markup( string $markup, array $expected ): void {
+		self::assertSame( $expected, RawHtmlGate::custom_code_kinds( $markup ) );
+	}
+
+	/** @return array<string, array{0:string,1:list<string>}> */
+	public static function customCodeProvider(): array {
+		return [
+			'style tag'                    => [ '<style>.a{color:red}</style>', [ 'style' ] ],
+			'script tag'                   => [ '<p>x</p><script>alert(1)</script>', [ 'script' ] ],
+			'uppercase script with a line break' => [ "<SCRIPT\n>alert(1)</SCRIPT>", [ 'script' ] ],
+			'script closed by a slash'     => [ '<script/src=//evil.example></script>', [ 'script' ] ],
+			'iframe'                       => [ '<iframe src="https://example.test/"></iframe>', [ 'iframe' ] ],
+			'inline handler without quotes' => [ '<img src=x onerror=alert(1)>', [ 'event_handler' ] ],
+			'inline handler with quotes'   => [ '<a href="#" onclick="go()">x</a>', [ 'event_handler' ] ],
+			'uppercase handler'            => [ '<IMG SRC=x ONERROR=alert(1)>', [ 'event_handler' ] ],
+			'handler after a slash'        => [ '<img src=x/ onerror=alert(1)>', [ 'event_handler' ] ],
+			'handler glued to a quote'     => [ '<a title="x"onclick=y>x</a>', [ 'event_handler' ] ],
+			'handler split over lines'     => [ "<img\nsrc=x\nonerror\n=\nalert(1)>", [ 'event_handler' ] ],
+			'handler in a tag left open'   => [ 'Hello <img src=x onerror=alert(1)', [ 'event_handler' ] ],
+			'handler after a quoted greater-than' => [ '<a title="a>b" onclick=x>x</a>', [ 'event_handler' ] ],
+			'handler inside a quoted value that a raw-text element can close' => [ '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>', [ 'event_handler' ] ],
+			'script url inside a quoted value' => [ '<p title="<a href=javascript:alert(1)>">x</p>', [ 'javascript_url' ] ],
+			'javascript url'               => [ '<a href="javascript:alert(1)">x</a>', [ 'javascript_url' ] ],
+			'javascript url with spaces and case' => [ '<a href="  JaVaScRiPt:alert(1)">x</a>', [ 'javascript_url' ] ],
+			'javascript url with an entity' => [ '<a href="java&#115;cript:alert(1)">x</a>', [ 'javascript_url' ] ],
+			'javascript url with an entity missing its semicolon' => [ '<a href="&#106avascript:alert(1)">x</a>', [ 'javascript_url' ] ],
+			'javascript url with a named whitespace entity' => [ '<a href="jav&Tab;ascript:alert(1)">x</a>', [ 'javascript_url' ] ],
+			'javascript url in a form action' => [ '<form action=javascript:alert(1)><input></form>', [ 'javascript_url' ] ],
+			'several kinds in a stable order' => [ '<a href="javascript:x" onclick=y></a><script></script><style></style>', [ 'style', 'script', 'event_handler', 'javascript_url' ] ],
+		];
+	}
+
+	/** @dataProvider ordinaryMarkupProvider */
+	public function test_ordinary_markup_and_prose_are_not_custom_code( string $markup ): void {
+		self::assertSame( [], RawHtmlGate::custom_code_kinds( $markup ) );
+	}
+
+	/** @return array<string, array{0:string}> */
+	public static function ordinaryMarkupProvider(): array {
+		return [
+			'paragraph with a link'        => [ "<!-- wp:paragraph {\"align\":\"center\"} -->\n<p class=\"has-text-align-center\">Hello <a href=\"https://example.test/page\">there</a></p>\n<!-- /wp:paragraph -->" ],
+			'heading'                      => [ '<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">T</h3><!-- /wp:heading -->' ],
+			'prose that looks like a handler' => [ '<p>Set online=1 and once=2 in the config.</p>' ],
+			'escaped script text'          => [ '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>' ],
+			'prose that starts with the word' => [ '<p>JavaScript: The Good Parts</p>' ],
+			'url that merely mentions it'  => [ '<a href="https://example.test/javascript:x">x</a>' ],
+			'data attributes'              => [ '<p data-online="1" data-on-click="x">x</p>' ],
+			'quoted handler-like text'     => [ '<a href="mailto:a@example.test" title="press onclick= to start">x</a>' ],
+			'inline image'                 => [ '<img src="data:image/png;base64,AAAA" alt="x">' ],
+			'figure'                       => [ '<figure class="wp-block-image"><img src="https://example.test/a.png" alt=""/></figure>' ],
+		];
+	}
+
+	public function test_markup_the_scanner_cannot_process_is_treated_as_code(): void {
+		$jit       = ini_get( 'pcre.jit' );
+		$backtrack = ini_get( 'pcre.backtrack_limit' );
+		ini_set( 'pcre.jit', '0' );
+		ini_set( 'pcre.backtrack_limit', '1' );
+		try {
+			$kinds = RawHtmlGate::custom_code_kinds( '<p class="x">' . str_repeat( 'a ', 200 ) . '</p>' );
+		} finally {
+			ini_set( 'pcre.jit', (string) $jit );
+			ini_set( 'pcre.backtrack_limit', (string) $backtrack );
+		}
+
+		self::assertContains( 'unscannable', $kinds );
+	}
+
+	/** @dataProvider codeInPayloadProvider */
+	public function test_script_frame_handler_and_script_url_payloads_need_the_same_grant_as_css( string $content ): void {
+		$error = RawHtmlGate::assert_spec(
+			[
+				'name'        => 'core/html',
+				'attributes'  => [ 'content' => $content ],
+				'innerBlocks' => [],
+			],
+			true,
+			'',
+			12
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_custom_code_approval_required', $error->get_error_code() );
+	}
+
+	/** @return array<string, array{0:string}> */
+	public static function codeInPayloadProvider(): array {
+		return [
+			'script'         => [ '<script>alert(1)</script>' ],
+			'iframe'         => [ '<iframe src="https://example.test/"></iframe>' ],
+			'event handler'  => [ '<img src=x onerror=alert(1)>' ],
+			'script url'     => [ '<a href="javascript:alert(1)">x</a>' ],
+		];
+	}
+
+	public function test_code_in_any_attribute_string_of_a_nested_block_is_gated(): void {
+		$spec = [
+			'name'        => 'core/group',
+			'attributes'  => [],
+			'innerBlocks' => [
+				[
+					'name'        => 'core/button',
+					'attributes'  => [ 'text' => 'Go <img src=x onerror=alert(1)>', 'url' => 'https://example.test/' ],
+					'innerBlocks' => [],
+				],
+			],
+		];
+
+		$error = RawHtmlGate::assert_spec( $spec, true, '', 12 );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_custom_code_approval_required', $error->get_error_code() );
+		self::assertSame( '0.innerBlocks.0.attributes.text', (string) ( $error->get_error_data()['offending_path'] ?? '' ) );
+		self::assertSame( [ 'event_handler' ], RawHtmlGate::spec_custom_code_kinds( $spec ) );
+		self::assertSame( [], RawHtmlGate::spec_custom_code_kinds( [ 'name' => 'core/paragraph', 'attributes' => [ 'content' => 'Plain', 'className' => 'a b' ] ] ) );
+	}
+
+	public function test_a_queued_change_records_the_custom_code_its_grant_covered(): void {
+		$script = '<script>window.example=1</script>';
+		$issued = CustomCodeGrant::issue(
+			[
+				'path'         => RawHtmlGate::grant_path( 42 ),
+				'after_sha256' => hash( 'sha256', $script ),
+				'language'     => 'html',
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$approved = BlockQueue::enqueue(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'allow_raw_html'        => true,
+				'custom_code_grant'     => (string) $issued['token'],
+				'block_spec'            => [ 'name' => 'core/html', 'attributes' => [ 'content' => $script ], 'innerBlocks' => [] ],
+			]
+		);
+		self::assertIsArray( $approved, is_wp_error( $approved ) ? $approved->get_error_code() : '' );
+		self::assertSame( [ 'script' ], BlockQueue::get( (string) $approved['id'] )['custom_code'] );
+		self::assertTrue( BlockQueue::cancel( [ (string) $approved['id'] ], false, 7 )['ok'] );
+
+		$plain = BlockQueue::enqueue(
+			[
+				'post_id'               => 42,
+				'expected_content_hash' => $this->current_hash(),
+				'block_spec'            => [ 'name' => 'core/paragraph', 'attributes' => [ 'content' => 'Hello' ], 'innerBlocks' => [] ],
+			]
+		);
+		self::assertIsArray( $plain );
+		self::assertSame( [], BlockQueue::get( (string) $plain['id'] )['custom_code'] );
+	}
+
 	private function current_hash(): string {
 		return hash( 'sha256', (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
 	}

@@ -18,21 +18,25 @@ final class QueueRequestGuard {
 
 	/** @return array<string,mixed>|\WP_Error */
 	public static function authorize( \WP_REST_Request $request ): array|\WP_Error {
-		$body = self::envelope( $request );
-		if ( $body instanceof \WP_Error ) {
-			return $body;
-		}
+		// Nonce and capability come first: an unauthorized caller is refused (403) before its body is parsed.
 		$nonce = (string) $request->get_header( 'X-WP-Nonce' );
-		$origin = (string) $request->get_header( 'Origin' );
 		if ( '' === $nonce || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
 			return new \WP_Error( 'stonewright_queue_nonce', 'The queue browser session must be refreshed.', [ 'status' => 403, 'retryable' => false ] );
 		}
+		if ( ! Permissions::edit_posts() ) {
+			return new \WP_Error( 'stonewright_queue_forbidden', 'Queue access is unavailable.', [ 'status' => 403, 'retryable' => false ] );
+		}
+		$origin = (string) $request->get_header( 'Origin' );
 		$site_origin = self::origin( home_url() );
 		if ( '' === $site_origin || ( '' !== $origin && ( '' === self::origin( $origin ) || self::origin( $origin ) !== $site_origin ) ) ) {
 			return new \WP_Error( 'stonewright_queue_origin', 'Queue requests must use the same site origin.', [ 'status' => 403, 'retryable' => false ] );
 		}
+		$body = self::envelope( $request );
+		if ( $body instanceof \WP_Error ) {
+			return $body;
+		}
 		$token = $body['token'] ?? null;
-		if ( ! is_string( $token ) || strlen( $token ) > 2048 || ! Permissions::edit_posts() ) {
+		if ( ! is_string( $token ) || strlen( $token ) > 2048 ) {
 			return new \WP_Error( 'stonewright_queue_forbidden', 'Queue access is unavailable.', [ 'status' => 403, 'retryable' => false ] );
 		}
 		$scope = BlockQueue::verify_token( $token );

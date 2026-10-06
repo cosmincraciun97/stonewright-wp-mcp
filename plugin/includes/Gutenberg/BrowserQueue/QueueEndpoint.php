@@ -156,10 +156,13 @@ final class QueueEndpoint {
 		if ( ! is_array( $record ) || ! self::matches_scope( $record, $scope ) ) {
 			return self::forbidden();
 		}
-		if ( (string) ( $record['result_id'] ?? '' ) === $args['result_id'] && (string) $record['status'] !== $status ) {
+		// The queue stores markup that does not hold up against the queued change as a failed result,
+		// so the same bytes sent again under the same result id are a replay, not a conflict.
+		$refused_replay = 'serialized' === $status && 'failed' === (string) $record['status'] && '' !== (string) ( $record['refused_html_hash'] ?? '' ) && hash_equals( (string) $record['refused_html_hash'], hash( 'sha256', $html ) );
+		if ( ! $refused_replay && (string) ( $record['result_id'] ?? '' ) === $args['result_id'] && (string) $record['status'] !== $status ) {
 			return self::conflict();
 		}
-		if ( is_array( $record ) && (string) ( $record['result_id'] ?? '' ) === $args['result_id'] && 'serialized' === $status && (string) ( $record['serialized_html_hash'] ?? '' ) !== hash( 'sha256', $html ) ) {
+		if ( ! $refused_replay && is_array( $record ) && (string) ( $record['result_id'] ?? '' ) === $args['result_id'] && 'serialized' === $status && (string) ( $record['serialized_html_hash'] ?? '' ) !== hash( 'sha256', $html ) ) {
 			return self::conflict();
 		}
 		if ( 'serialized' === $status ) {
@@ -180,7 +183,15 @@ final class QueueEndpoint {
 			$receipt = BlockQueue::accept_failed_result( $args['change_id'], $message, '', $code, $scope, $args['lease_id'], $args['result_id'] );
 		}
 		$error_data = $receipt instanceof \WP_Error ? $receipt->get_error_data() : null;
-		AuditLog::record_rest_mutation( '/stonewright/v1/block-finalizer/result', 'POST', [ 'change_id' => $args['change_id'], 'queue_status' => $status, 'html_hash' => hash( 'sha256', $html ), 'effect_verified' => is_array( $receipt ), 'retryable' => is_array( $error_data ) && ! empty( $error_data['retryable'] ) ], $receipt instanceof \WP_Error ? 'error' : 'ok' );
+		$refusal_code = is_array( $receipt ) ? (string) ( $receipt['refusal_code'] ?? '' ) : '';
+		$audit = [ 'change_id' => $args['change_id'], 'queue_status' => is_array( $receipt ) ? (string) $receipt['status'] : $status, 'html_hash' => hash( 'sha256', $html ), 'effect_verified' => is_array( $receipt ), 'retryable' => is_array( $error_data ) && ! empty( $error_data['retryable'] ) ];
+		if ( '' !== $refusal_code ) {
+			// A browser handing back markup the queued change does not allow is a safety event, not a routine failure.
+			$stored = BlockQueue::get( $args['change_id'] );
+			$audit['refusal_code'] = $refusal_code;
+			$audit['_meta'] = [ 'error_code' => $refusal_code, 'public_message' => (string) ( $stored['error'] ?? '' ), 'resource_type' => 'finalizer_change', 'resource_ref' => $args['change_id'] ];
+		}
+		AuditLog::record_rest_mutation( '/stonewright/v1/block-finalizer/result', 'POST', $audit, $receipt instanceof \WP_Error ? 'error' : ( '' !== $refusal_code ? 'blocked' : 'ok' ) );
 		return $receipt;
 	}
 

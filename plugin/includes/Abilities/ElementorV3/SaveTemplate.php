@@ -72,11 +72,13 @@ final class SaveTemplate extends AbilityKernel {
 				$template_type = (string) ( $args['template_type'] ?? 'section' );
 
 				$id = wp_insert_post(
-					[
-						'post_title'  => sanitize_text_field( (string) $args['title'] ),
-						'post_status' => 'publish',
-						'post_type'   => 'elementor_library',
-					],
+					wp_slash(
+						[
+							'post_title'  => sanitize_text_field( (string) $args['title'] ),
+							'post_status' => 'publish',
+							'post_type'   => 'elementor_library',
+						]
+					),
 					true
 				);
 				if ( is_wp_error( $id ) ) {

@@ -94,10 +94,12 @@ final class RemoveBlock extends AbilityKernel {
 
 				$html   = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(
-					[
-						'ID'           => $post_id,
-						'post_content' => $html,
-					],
+					wp_slash(
+						[
+							'ID'           => $post_id,
+							'post_content' => $html,
+						]
+					),
 					true
 				);
 				if ( is_wp_error( $result ) ) {

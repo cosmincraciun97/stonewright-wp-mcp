@@ -106,13 +106,15 @@ final class CreatePost extends AbilityKernel {
 				}
 
 				$id = wp_insert_post(
-					[
-						'post_title'   => sanitize_text_field( (string) $args['title'] ),
-						'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
-						'post_excerpt' => sanitize_text_field( (string) ( $args['excerpt'] ?? '' ) ),
-						'post_status'  => (string) ( $args['status'] ?? 'draft' ),
-						'post_type'    => $post_type,
-					],
+					wp_slash(
+						[
+							'post_title'   => sanitize_text_field( (string) $args['title'] ),
+							'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
+							'post_excerpt' => sanitize_text_field( (string) ( $args['excerpt'] ?? '' ) ),
+							'post_status'  => (string) ( $args['status'] ?? 'draft' ),
+							'post_type'    => $post_type,
+						]
+					),
 					true
 				);
 

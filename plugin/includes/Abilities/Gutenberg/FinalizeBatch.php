@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockSource;
+use Stonewright\WpMcp\Gutenberg\Finalizer\SerializedResultGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -160,6 +161,24 @@ final class FinalizeBatch extends AbilityKernel {
 							[ 'status' => 400, 'change_id' => (string) $id ]
 						);
 					}
+					// The queue checked this markup when it took it from the browser; it is checked again
+					// here because it is about to become post content (and a record from before that check,
+					// or one edited in storage, never went through it).
+					$refusal = SerializedResultGuard::refusal( $record, $html );
+					if ( null !== $refusal ) {
+						$failed = BlockQueue::reject_serialized( (string) $id, $refusal['code'], $refusal['message'] );
+						return $this->error(
+							$refusal['code'],
+							$refusal['message'],
+							[
+								'status'           => 422,
+								'change_id'        => (string) $id,
+								'queue_status'     => true === $failed ? 'failed' : 'serialized',
+								'retryable'        => false,
+								'execution_status' => SerializedResultGuard::MARKUP_REFUSED === $refusal['code'] ? 'blocked' : 'failed',
+							]
+						);
+					}
 					$records[] = $record;
 				}
 
@@ -216,11 +235,14 @@ final class FinalizeBatch extends AbilityKernel {
 					}
 				}
 
+				// wp_update_post() expects slashed input and unslashes it before the write.
 				$written = wp_update_post(
-					[
-						'ID'           => $post_id,
-						'post_content' => $content,
-					],
+					wp_slash(
+						[
+							'ID'           => $post_id,
+							'post_content' => $content,
+						]
+					),
 					true
 				);
 				if ( is_wp_error( $written ) ) {

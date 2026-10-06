@@ -110,14 +110,14 @@ final class UpdateTemplate extends AbilityKernel {
 				if ( $post_id ) {
 					Backup::snapshot_post( (int) $post_id );
 					$payload['ID'] = (int) $post_id;
-					$result        = wp_update_post( $payload, true );
+					$result        = wp_update_post( wp_slash( $payload ), true );
 				} else {
 					$slug                   = $template->slug ?? '';
 					$payload['post_type']   = $cpt;
 					$payload['post_status'] = 'publish';
 					$payload['post_name']   = (string) $slug;
 					$payload['post_title']  = $payload['post_title'] ?? ( is_object( $template->title ) ? ( $template->title->rendered ?? '' ) : (string) $template->title );
-					$result                 = wp_insert_post( $payload, true );
+					$result                 = wp_insert_post( wp_slash( $payload ), true );
 				}
 
 				if ( is_wp_error( $result ) ) {

@@ -24,6 +24,23 @@ use Stonewright\WpMcp\Support\Utf8;
  */
 final class RestRoutes {
 
+	/**
+	 * Block finalizer routes the browser polls continuously, with the operation class their
+	 * refusals are audited under.
+	 *
+	 * @var array<string, string>
+	 */
+	private const FINALIZER_POLL_ROUTES = [
+		'/stonewright/v1/block-finalizer/heartbeat' => 'finalizer_heartbeat_security',
+		'/stonewright/v1/block-finalizer/claim'     => 'finalizer_claim_security',
+	];
+
+	/** Longest string, in bytes, an audit row keeps verbatim from a REST parameter. */
+	private const AUDIT_STRING_LIMIT = 512;
+
+	/** Longest parameter name, in bytes, an audit row keeps verbatim. */
+	private const AUDIT_NAME_LIMIT = 96;
+
 	public static function register(): void {
 		// Central mutation audit for Stonewright-owned REST routes only.
 		add_filter( 'rest_pre_dispatch', [ self::class, 'audit_pre_dispatch' ], 5, 3 );
@@ -1100,7 +1117,7 @@ final class RestRoutes {
 	 * @return mixed
 	 */
 	public static function audit_pre_dispatch( $result, $server, $request ) {
-		if ( self::is_finalizer_heartbeat( $request ) ) {
+		if ( self::is_finalizer_poll( $request ) ) {
 			AuditLog::begin_request();
 			return $result;
 		}
@@ -1127,8 +1144,8 @@ final class RestRoutes {
 		if ( self::is_oauth_endpoint( $request ) ) {
 			return self::audit_oauth_dispatch( $response, $request );
 		}
-		if ( self::is_finalizer_heartbeat( $request ) ) {
-			return self::audit_finalizer_heartbeat_denial( $response, $request );
+		if ( self::is_finalizer_poll( $request ) ) {
+			return self::audit_finalizer_poll_denial( $response, $request );
 		}
 		if ( ! self::is_stonewright_mutation( $request ) ) {
 			return $response;
@@ -1694,25 +1711,28 @@ final class RestRoutes {
 		if ( '/stonewright/v1/direct/task-start' === $route ) {
 			return false;
 		}
-		if ( '/stonewright/v1/block-finalizer/heartbeat' === $route ) {
+		// The block finalizer browser polls these every second. A poll only takes or renews a
+		// short lease on queue records; the outcomes that matter are audited by the result route
+		// and by the finalize ability.
+		if ( isset( self::FINALIZER_POLL_ROUTES[ $route ] ) ) {
 			return false;
 		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
 	}
 
-	private static function is_finalizer_heartbeat( \WP_REST_Request $request ): bool {
-		return '/stonewright/v1/block-finalizer/heartbeat' === (string) $request->get_route()
+	private static function is_finalizer_poll( \WP_REST_Request $request ): bool {
+		return isset( self::FINALIZER_POLL_ROUTES[ (string) $request->get_route() ] )
 			&& 'POST' === strtoupper( (string) $request->get_method() );
 	}
 
 	/**
-	 * Persist terminal heartbeat token/capability denials without logging routine
-	 * successful liveness traffic.
+	 * Persist terminal token/capability denials of a finalizer poll without logging routine
+	 * successful polling traffic. The row carries no request parameters.
 	 *
 	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
 	 * @return mixed
 	 */
-	private static function audit_finalizer_heartbeat_denial( $response, \WP_REST_Request $request ) {
+	private static function audit_finalizer_poll_denial( $response, \WP_REST_Request $request ) {
 		if ( AuditLog::was_audited() ) {
 			return $response;
 		}
@@ -1733,9 +1753,9 @@ final class RestRoutes {
 					'public_message'  => $envelope['public_message'],
 					'error_message'   => $envelope['public_message'],
 					'http_status'     => $envelope['http_status'],
-					'operation_class' => 'finalizer_heartbeat_security',
+					'operation_class' => self::FINALIZER_POLL_ROUTES[ $envelope['route'] ] ?? 'finalizer_poll_security',
 					'resource_type'   => 'finalizer_session',
-					'resource_ref'    => 'block-finalizer/heartbeat',
+					'resource_ref'    => substr( $envelope['route'], strlen( '/stonewright/v1/' ) ),
 					'retryable'       => false,
 					'correlation_id'  => AuditLog::request_id(),
 				],
@@ -1748,7 +1768,9 @@ final class RestRoutes {
 	/**
 	 * Replace free-form mutation bodies with compact, irreversible summaries.
 	 * This prevents credentials embedded in PHP, skills, instructions, or
-	 * memory text from being copied into the audit table.
+	 * memory text from being copied into the audit table. Whatever a request
+	 * names its parameters, a string longer than AUDIT_STRING_LIMIT bytes is
+	 * summarized at any depth, so a caller cannot grow an audit row at will.
 	 *
 	 * @param array<string, mixed> $params
 	 * @return array<string, mixed>
@@ -1761,6 +1783,7 @@ final class RestRoutes {
 			'contents',
 			'correction',
 			'evidence',
+			'html',
 			'instructions',
 			'new_string',
 			'old_string',
@@ -1770,18 +1793,34 @@ final class RestRoutes {
 		];
 		$summary   = [];
 		foreach ( $params as $key => $value ) {
-			$key = (string) $key;
+			$key   = (string) $key;
+			$shown = self::audit_name( $key );
 			if ( in_array( strtolower( $key ), $body_keys, true ) ) {
-				$summary[ $key ] = self::audit_body_summary( $value );
+				$summary[ $shown ] = self::audit_body_summary( $value );
 				continue;
 			}
 			if ( is_array( $value ) ) {
-				$summary[ $key ] = self::compact_audit_params( $value );
+				$summary[ $shown ] = self::compact_audit_params( $value );
 				continue;
 			}
-			$summary[ $key ] = $value;
+			if ( is_string( $value ) && strlen( $value ) > self::AUDIT_STRING_LIMIT ) {
+				$summary[ $shown ] = self::audit_body_summary( $value );
+				continue;
+			}
+			$summary[ $shown ] = $value;
 		}
 		return $summary;
+	}
+
+	/**
+	 * A parameter name past AUDIT_NAME_LIMIT bytes is cut and given a short digest of the whole
+	 * name, so a caller cannot hide a payload in names and different long names stay different.
+	 */
+	private static function audit_name( string $name ): string {
+		if ( strlen( $name ) <= self::AUDIT_NAME_LIMIT ) {
+			return $name;
+		}
+		return mb_strcut( $name, 0, 64, 'UTF-8' ) . '~' . substr( hash( 'sha256', $name ), 0, 16 );
 	}
 
 	/**
@@ -1807,7 +1846,8 @@ final class RestRoutes {
 	private static function resource_from_params( array $params ): string {
 		foreach ( [ 'id', 'post_id', 'name', 'slug', 'ability' ] as $key ) {
 			if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) ) {
-				return $key . '=' . (string) $params[ $key ];
+				// Bounded like the resource column that is derived from it.
+				return mb_substr( $key . '=' . (string) $params[ $key ], 0, 255 );
 			}
 		}
 		return '';

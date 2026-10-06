@@ -122,14 +122,16 @@ final class DuplicatePage extends AbilityKernel {
 				$suffix = (string) ( $args['title_suffix'] ?? ' (copy)' );
 
 				$new_id = wp_insert_post(
-					[
-						'post_title'   => $post->post_title . $suffix,
-						'post_content' => $post->post_content,
-						'post_excerpt' => $post->post_excerpt,
-						'post_status'  => 'draft',
-						'post_type'    => $post->post_type,
-						'post_parent'  => $post->post_parent,
-					],
+					wp_slash(
+						[
+							'post_title'   => $post->post_title . $suffix,
+							'post_content' => $post->post_content,
+							'post_excerpt' => $post->post_excerpt,
+							'post_status'  => 'draft',
+							'post_type'    => $post->post_type,
+							'post_parent'  => $post->post_parent,
+						]
+					),
 					true
 				);
 

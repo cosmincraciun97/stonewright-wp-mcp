@@ -2394,7 +2394,25 @@ if ( ! class_exists( 'WP_Site_Health' ) ) {
 
 if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
 	class WP_Block_Type_Registry {
+		/**
+		 * Opt-in failure injection. $GLOBALS['stonewright_test_block_registry_throwables'] is a list
+		 * consumed one entry per get_instance() / get_registered() call: null answers normally, a
+		 * Throwable is thrown.
+		 */
+		private static function inject_failure(): void {
+			$queue = $GLOBALS['stonewright_test_block_registry_throwables'] ?? null;
+			if ( ! is_array( $queue ) || [] === $queue ) {
+				return;
+			}
+			$next = array_shift( $queue );
+			$GLOBALS['stonewright_test_block_registry_throwables'] = $queue;
+			if ( $next instanceof \Throwable ) {
+				throw $next;
+			}
+		}
+
 		public static function get_instance(): self {
+			self::inject_failure();
 			return new self();
 		}
 
@@ -2440,6 +2458,7 @@ if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
 		}
 
 		public function get_registered( string $name ): ?object {
+			self::inject_failure();
 			return $this->get_all_registered()[ $name ] ?? null;
 		}
 

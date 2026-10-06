@@ -174,7 +174,7 @@ final class StockImageImport extends AbilityKernel {
 				if ( '' !== $title ) {
 					$update['post_title'] = $title;
 				}
-				wp_update_post( $update );
+				wp_update_post( wp_slash( $update ) );
 
 				if ( '' !== $alt ) {
 					update_post_meta( $attachment_id, '_wp_attachment_image_alt', $alt );

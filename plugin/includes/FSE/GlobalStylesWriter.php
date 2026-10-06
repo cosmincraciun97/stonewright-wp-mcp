@@ -52,10 +52,12 @@ final class GlobalStylesWriter {
 
 		$snapshot_id = Backup::snapshot_post( (int) $post_id );
 		$result      = wp_update_post(
-			[
-				'ID'           => (int) $post_id,
-				'post_content' => (string) wp_json_encode( $canonical ),
-			],
+			wp_slash(
+				[
+					'ID'           => (int) $post_id,
+					'post_content' => (string) wp_json_encode( $canonical ),
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $result ) ) {

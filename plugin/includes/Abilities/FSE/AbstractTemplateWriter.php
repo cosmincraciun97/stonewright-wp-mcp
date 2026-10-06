@@ -93,11 +93,13 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 			$snapshot_id = Backup::snapshot_post( (int) $existing->ID );
 
 			$result = wp_update_post(
-				[
-					'ID'           => (int) $existing->ID,
-					'post_content' => $content,
-					'post_excerpt' => $desc,
-				],
+				wp_slash(
+					[
+						'ID'           => (int) $existing->ID,
+						'post_content' => $content,
+						'post_excerpt' => $desc,
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $result ) ) {
@@ -112,14 +114,16 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 
 		// ── Insert new post ──────────────────────────────────────────────────
 		$post_id = wp_insert_post(
-			[
-				'post_type'    => $post_type,
-				'post_name'    => $theme . '//' . $slug,
-				'post_title'   => $slug,
-				'post_content' => $content,
-				'post_excerpt' => $desc,
-				'post_status'  => 'publish',
-			],
+			wp_slash(
+				[
+					'post_type'    => $post_type,
+					'post_name'    => $theme . '//' . $slug,
+					'post_title'   => $slug,
+					'post_content' => $content,
+					'post_excerpt' => $desc,
+					'post_status'  => 'publish',
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $post_id ) ) {

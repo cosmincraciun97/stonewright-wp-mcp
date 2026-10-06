@@ -142,7 +142,7 @@ final class UpdatePost extends AbilityKernel {
 					}
 				}
 
-				$result = wp_update_post( $payload, true );
+				$result = wp_update_post( wp_slash( $payload ), true );
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}

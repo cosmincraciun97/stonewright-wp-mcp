@@ -114,11 +114,13 @@ final class TemplateStore {
 		}
 
 		$id = wp_insert_post(
-			[
-				'post_title'  => $title,
-				'post_type'   => 'elementor_library',
-				'post_status' => $status,
-			],
+			wp_slash(
+				[
+					'post_title'  => $title,
+					'post_type'   => 'elementor_library',
+					'post_status' => $status,
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $id ) ) {

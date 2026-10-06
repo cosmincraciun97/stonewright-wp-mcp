@@ -108,7 +108,7 @@ final class CreatePage extends AbilityKernel {
 					$payload['post_name'] = sanitize_title( (string) $args['slug'] );
 				}
 
-				$id = wp_insert_post( $payload, true );
+				$id = wp_insert_post( wp_slash( $payload ), true );
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}

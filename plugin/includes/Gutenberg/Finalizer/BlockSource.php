@@ -120,6 +120,88 @@ final class BlockSource {
 	}
 
 	/**
+	 * Strict outline of a document that has to be block markup and nothing else.
+	 *
+	 * Unlike parse(), which tolerates stray delimiters the way the editor does, this returns null
+	 * unless every opener has a closer of the same name, no closer stands alone or carries
+	 * attributes, block attributes are JSON objects, and only whitespace sits between top-level
+	 * blocks. Browser output is compared with a queued spec through it, so anything ambiguous is
+	 * refused instead of interpreted. Names carry their namespace; `wp:paragraph` is core/paragraph.
+	 *
+	 * @param int $max_delimiters Refuse a document with more delimiters than this; 0 means no limit.
+	 * @return list<array{name:string,attrs:array<string,mixed>,children:list<mixed>}>|null
+	 */
+	public static function outline( string $document, int $max_delimiters = 0 ): ?array {
+		$found = preg_match_all( self::TOKEN, $document, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE );
+		if ( false === $found || ( $max_delimiters > 0 && $found > $max_delimiters ) ) {
+			return null;
+		}
+
+		$root   = [];
+		$stack  = [];
+		$cursor = 0;
+		foreach ( $matches as $match ) {
+			$start = (int) $match[0][1];
+			if ( [] === $stack && 1 === preg_match( '/\S/', substr( $document, $cursor, $start - $cursor ) ) ) {
+				return null;
+			}
+			$cursor    = $start + strlen( (string) $match[0][0] );
+			$is_closer = self::captured( $match, 'closer' );
+			$is_void   = self::captured( $match, 'void' );
+			$has_attrs = self::captured( $match, 'attrs' );
+			$namespace = self::captured( $match, 'namespace' ) ? (string) $match['namespace'][0] : 'core/';
+			$name      = $namespace . (string) $match['name'][0];
+
+			if ( $is_closer ) {
+				if ( $is_void || $has_attrs || [] === $stack ) {
+					return null;
+				}
+				$node = array_pop( $stack );
+				if ( $node['name'] !== $name ) {
+					return null;
+				}
+			} else {
+				$attrs = [];
+				if ( $has_attrs ) {
+					$decoded = json_decode( (string) $match['attrs'][0], true );
+					if ( ! is_array( $decoded ) ) {
+						return null;
+					}
+					$attrs = $decoded;
+				}
+				$node = [
+					'name'     => $name,
+					'attrs'    => $attrs,
+					'children' => [],
+				];
+				if ( ! $is_void ) {
+					$stack[] = $node;
+					continue;
+				}
+			}
+
+			if ( [] === $stack ) {
+				$root[] = $node;
+			} else {
+				$stack[ count( $stack ) - 1 ]['children'][] = $node;
+			}
+		}
+
+		if ( [] !== $stack || 1 === preg_match( '/\S/', substr( $document, $cursor ) ) ) {
+			return null;
+		}
+
+		return $root;
+	}
+
+	/**
+	 * @param array<int|string, mixed> $match One preg_match_all() set with offsets captured.
+	 */
+	private static function captured( array $match, string $group ): bool {
+		return isset( $match[ $group ][0], $match[ $group ][1] ) && -1 !== (int) $match[ $group ][1] && '' !== (string) $match[ $group ][0];
+	}
+
+	/**
 	 * @param list<array<string, mixed>> $tree
 	 * @param list<int>                  $path
 	 * @return string|\WP_Error

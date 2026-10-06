@@ -158,22 +158,26 @@ final class BlueprintApplier {
 				}
 			}
 			wp_update_post(
-				[
-					'ID'          => $post_id,
-					'post_title'  => $page_title,
-					'post_status' => $mode,
-				],
+				wp_slash(
+					[
+						'ID'          => $post_id,
+						'post_title'  => $page_title,
+						'post_status' => $mode,
+					]
+				),
 				true
 			);
 		} else {
 			$post_type = 'fse' === $engine ? 'page' : 'page';
 			$insert    = wp_insert_post(
-				[
-					'post_type'    => $post_type,
-					'post_title'   => $page_title,
-					'post_status'  => $mode,
-					'post_content' => '',
-				],
+				wp_slash(
+					[
+						'post_type'    => $post_type,
+						'post_title'   => $page_title,
+						'post_status'  => $mode,
+						'post_content' => '',
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $insert ) ) {
@@ -213,12 +217,14 @@ final class BlueprintApplier {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 			}
 			$result = wp_update_post(
-				[
-					'ID'           => $post_id,
-					'post_content' => $content,
-					'post_title'   => $page_title,
-					'post_status'  => $mode,
-				],
+				wp_slash(
+					[
+						'ID'           => $post_id,
+						'post_content' => $content,
+						'post_title'   => $page_title,
+						'post_status'  => $mode,
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $result ) ) {
@@ -349,11 +355,13 @@ final class BlueprintApplier {
 
 		// Keep page title/status in sync after content write.
 		wp_update_post(
-			[
-				'ID'          => $post_id,
-				'post_title'  => $page_title,
-				'post_status' => $mode,
-			],
+			wp_slash(
+				[
+					'ID'          => $post_id,
+					'post_title'  => $page_title,
+					'post_status' => $mode,
+				]
+			),
 			true
 		);
 
@@ -419,14 +427,16 @@ final class BlueprintApplier {
 		}
 
 		$insert = wp_insert_post(
-			[
-				'post_type'    => 'wp_template',
-				'post_name'    => $theme . '//' . $slug,
-				'post_title'   => $title,
-				'post_content' => $content,
-				'post_status'  => 'publish',
-				'post_excerpt' => 'Stonewright blueprint FSE template',
-			],
+			wp_slash(
+				[
+					'post_type'    => 'wp_template',
+					'post_name'    => $theme . '//' . $slug,
+					'post_title'   => $title,
+					'post_content' => $content,
+					'post_status'  => 'publish',
+					'post_excerpt' => 'Stonewright blueprint FSE template',
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $insert ) ) {
