@@ -2,18 +2,17 @@
 
 Stonewright ships:
 
-- WordPress plugin: `AGPL-3.0-or-later`
+- WordPress plugin: `GPL-2.0-or-later`
 - Node companion (`@stonewright/companion`): `MIT`
-- Stonewright Visual package: `AGPL-3.0-or-later`
+- Stonewright Visual package: `GPL-2.0-or-later`
 
-## Third-party AGPL components
+## Third-party code
 
-Before the first third-party AGPL import, the WordPress plugin was relicensed to
-`AGPL-3.0-or-later`. Attribution, source hashes, and reuse details live in
-`docs/upstream-code-reuse.md` and SPDX headers on copied or derived files.
+Third-party packages and files keep their own copyright, SPDX, and license
+notices. Source imported into a Stonewright component keeps its original
+notices, must carry a license compatible with that component, and records its
+source and modifications in the file header.
 
-Those attribution surfaces must never be removed. Public documentation and UI
-may name upstream projects when useful for provenance, compatibility, or
-migration guidance.
-
-The MIT companion must not receive AGPL-derived code.
+The MIT companion must not receive copyleft-licensed code.
+`composer provenance:lint` checks this boundary together with the component
+license metadata.

@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Product name is **Stonewright**; PHP namespace is `Stonewright\WpMcp`; ability names use `stonewright/`.
-- Plugin license remains `AGPL-3.0-or-later`; companion license remains `MIT`.
+- Plugin license is `GPL-2.0-or-later`; companion license is `MIT`.
 - Validate every `template_spec` with `DesignSpec\Validator::validate()` before rendering.
 - Call `Backup::snapshot_post()` before every Elementor page or template mutation.
 - Every write uses a real `Permissions` callback and the existing context-token gate.

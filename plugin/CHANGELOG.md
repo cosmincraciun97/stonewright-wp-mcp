@@ -35,6 +35,7 @@
 
 ### Changed
 
+- Licensing: the plugin and Visual are GPL-2.0-or-later.
 - Return the grant's current refresh credential, with a new access credential,
   when a refresh credential is presented again within 60 seconds of its use,
   instead of failing. The window is filterable with
@@ -79,6 +80,8 @@
   Defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes
   every plugin table, option (the OAuth keys included), transient, and
   scheduled event, on every site of a network.
+- Report the error class instead of the exception message when the block
+  registry fails during a batch mutation; the message stays in the server log.
 
 ### Fixed
 
@@ -152,6 +155,9 @@
   sub-site after a network activation, its OAuth keys and the daily clean-up
   event. A site that already holds OAuth state is never given new keys
   automatically.
+- Keep the backslashes in block attributes, such as `\u0026`, when posts,
+  pages, templates, patterns, navigation, global styles, media, and blueprints
+  are written, so they survive the write and its readback.
 
 ### Security
 
@@ -176,6 +182,17 @@
   requests only once the site knows that client, so made-up identifiers no
   longer create audit rows of their own.
 - Store the address a client registered from as a keyed hash.
+- Hold the markup the block editor queue sends back to the queued change. It
+  must be one root block whose name, inner blocks, and attributes match the
+  queued spec, checked when the browser answers and again before the finalize
+  ability writes it. Script, style, and iframe elements, inline event handlers,
+  and `javascript:` URLs are refused unless the queued change was approved for
+  that kind of custom code, and the raw HTML gate now checks every attribute
+  string of a spec for all of them.
+- Check the REST nonce and the capability of block queue requests before
+  reading the request body, and stop auditing the browser's claim polling as a
+  write. REST audit rows summarize `html` and any string longer than 512 bytes,
+  and cut parameter names longer than 96 bytes.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

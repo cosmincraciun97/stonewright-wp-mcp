@@ -3,7 +3,7 @@
 Version: 1.0.0-beta.13.3
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
-License: [AGPL-3.0-or-later](../LICENSE)
+License: [GPL-2.0-or-later](../LICENSE)
 
 Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter` ^0.6.1. It supports Gutenberg, Full Site Editing, Elementor V3,
@@ -298,8 +298,10 @@ Library labels Plugin/Direct support and includes requirements plus verification
 Companion status reports use schema version 3. Call `stonewright-task-start`
 first; a degraded session reconnects once. Terminal OAuth failures return
 `reauthentication_required` with a model-visible `user_action`. Access tokens
-stay one hour; seven-day continuity is a refresh SLO against a fourteen-day
-grant family, not a seven-day bearer token.
+stay one hour; seven-day continuity is a refresh SLO within a grant that ends
+at most 90 days after authorization, not a seven-day bearer token. A refresh
+token expires after 30 days without use, and one presented again within 60
+seconds of its use receives the grant's current refresh token.
 
 ### Design abilities (MCP)
 

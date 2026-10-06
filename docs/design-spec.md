@@ -161,7 +161,7 @@ An array of section objects. Sections map to Elementor V3 sections/containers or
 | `name` | string | — | Human-readable label for debugging. |
 | `width` | string | `"boxed"` | `full`, `boxed`, or `narrow`. |
 | `layout` | string or object | `"stack"` | `stack`, `row`, `grid`, legacy `horizontal`/`vertical`, or a non-empty `desktop`/`tablet`/`mobile` map of those values. |
-| `direction` | string or object | derived from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
+| `direction` | string or object | taken from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
 | `gap` | string or number | — | Gap between blocks (CSS value or px integer). |
 | `padding` | dimensions | — | Per-side padding. See dimensions definition below. |
 | `background` | background | — | Background color, image, overlay. |

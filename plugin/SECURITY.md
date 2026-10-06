@@ -80,9 +80,11 @@ metadata may advertise `offline_access` for refresh grants.
 
 Refresh tokens rotate after every successful use. Reuse of a revoked token
 revokes its complete refresh-token family and all access tokens associated with
-that grant. Authorization and token endpoints have atomic, trusted-proxy-aware
-rate limits. OAuth secrets and bearer values are never returned by diagnostics
-or written to the audit log.
+that grant. Authorization and token endpoints have atomic rate limits per
+connection address (the authorization page per signed-in user); forwarding
+headers are never read, and an IPv6 address counts as its /64 prefix. OAuth
+secrets and bearer values are never returned by diagnostics or written to the
+audit log.
 
 ### Runtime execution and environment assertion
 

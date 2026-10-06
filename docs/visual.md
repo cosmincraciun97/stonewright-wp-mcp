@@ -1,6 +1,6 @@
 # Stonewright Visual
 
-`visual/` is an AGPL-licensed, headless workspace foundation for WordPress
+`visual/` is a GPL-2.0-or-later headless workspace foundation for WordPress
 editors. It exports one top-level MCP contract:
 `stonewright-workspace-request`.
 

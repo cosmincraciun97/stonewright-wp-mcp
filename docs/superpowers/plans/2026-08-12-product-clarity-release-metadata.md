@@ -117,7 +117,6 @@ git diff --check
 - Create: `LICENSING.md`
 - Modify: `README.md`
 - Modify: `plugin/README.md`
-- Modify: `docs/upstream-code-reuse.md`
 - Create: `scripts/check-license-metadata.mjs`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `.github/workflows/release.yml`

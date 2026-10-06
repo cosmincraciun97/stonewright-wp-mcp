@@ -17,10 +17,9 @@ On every release:
 6. Run tier-1 client smoke using
    [client-acceptance-template.md](client-acceptance-template.md).
 
-Historical licensing decisions live in `docs/licensing.md` and
-`docs/upstream-code-reuse.md`. Public history may be rewritten only for a
-maintainer-approved privacy or credential incident, with fresh release
-artifacts and verification afterward.
+Component licensing is described in `docs/licensing.md`. Public history may be
+rewritten only for a maintainer-approved privacy or credential incident, with
+fresh release artifacts and verification afterward.
 
 ## Templates
 

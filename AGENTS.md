@@ -11,7 +11,7 @@ override default behavior.
 - MCP server id: `stonewright`.
 - Composer package: `stonewright/wp-mcp`.
 - NPM package: `@stonewright/companion`.
-- Plugin license: `AGPL-3.0-or-later`.
+- Plugin license: `GPL-2.0-or-later`.
 - Companion license: `MIT`.
 
 ## Hard rules
@@ -89,11 +89,12 @@ override default behavior.
   license permits it and the resulting Stonewright component uses compatible
   licensing.
 - Preserve upstream copyright and SPDX notices in copied or derived files.
-- Record source repository, source path, source version or hash, destination,
-  modifications, and applicable license in `docs/upstream-code-reuse.md`.
-- Do not mix AGPL-covered code into the GPL plugin or MIT companion without
-  first making and documenting the required license change for the resulting
-  combined work.
+- Record source repository, source path, source version or hash, modifications,
+  and applicable license in the header of each copied or derived file.
+- The plugin and Visual are GPL-2.0-or-later and the companion is MIT. Do not
+  import code under a license that conflicts with the receiving component, and
+  never place copyleft-licensed code in the MIT companion;
+  `composer provenance:lint` checks the component licenses and that boundary.
 - Rename upstream identifiers and UI copy only where product integration needs
   it; never remove attribution or misrepresent copied work as original.
 - Every imported component needs Stonewright-specific security review, tests,
@@ -159,7 +160,7 @@ npm run build
   state are present.
 - Public docs and UI may name upstream projects when that helps users understand
   compatibility, provenance, or migration. Copied and derived code must keep
-  attribution in `docs/upstream-code-reuse.md` and SPDX file headers.
+  its attribution in SPDX file headers.
 
 ## Release decision gate
 

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?label=release" /></a>
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" /></a>
-  <a href="LICENSE"><img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" /></a>
+  <a href="LICENSE"><img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" /></a>
   <a href="companion/LICENSE"><img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" /></a>
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
@@ -88,7 +88,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 ## Capabilities
 
-Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
+Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
 ### Plugin mode — **389** abilities
 
@@ -534,7 +534,6 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Beta.13 runtime evidence template](docs/testing/beta13-runtime-evidence-template.md)
 - [Motion and UI excellence](docs/motion-and-ui-excellence.md)
 - [Licensing](docs/licensing.md)
-- [Upstream code reuse ledger](docs/upstream-code-reuse.md)
 - [Release notes](docs/releases/)
 
 ## Development and testing
@@ -557,8 +556,8 @@ npm run build
 
 | Component | Path | License |
 |---|---|---|
-| Plugin | `plugin/` | [AGPL-3.0-or-later](LICENSE) |
-| Visual workspace | `visual/` | [AGPL-3.0-or-later](LICENSE) |
+| Plugin | `plugin/` | [GPL-2.0-or-later](LICENSE) |
+| Visual workspace | `visual/` | [GPL-2.0-or-later](LICENSE) |
 | Companion | `companion/` | [MIT](companion/LICENSE) |
 | Skill packs | `skills/` | MIT |
 | Documentation | `docs/` | CC BY 4.0 |

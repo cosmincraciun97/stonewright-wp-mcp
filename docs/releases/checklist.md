@@ -11,7 +11,7 @@ Run from `plugin/` unless noted.
 - [ ] `composer phpcs` - zero style violations.
 - [ ] `composer security:audit` - exits 0.
 - [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
-- [ ] `composer provenance:lint` - imported/derived source provenance is complete.
+- [ ] `composer provenance:lint` - component licenses are consistent and the companion has no copyleft code.
 - [ ] `composer contracts:compat` - the public ability contract remains compatible.
 - [ ] `composer tokens:measure` - every plugin profile stays within its budget.
 - [ ] Clean `vendor/`, run `composer install --no-dev --classmap-authoritative`,

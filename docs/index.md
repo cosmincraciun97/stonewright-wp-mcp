@@ -35,7 +35,6 @@ workflows with operator controls.
 - [Permanent remediation contracts](permanent-remediation-contracts.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)
-- [Upstream code reuse and attribution](upstream-code-reuse.md)
 
 ## Sections
 
@@ -52,7 +51,6 @@ workflows with operator controls.
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
-| `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

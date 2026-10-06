@@ -1,13 +1,12 @@
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 
 # @stonewright/visual
 
 Headless workspace foundation for WordPress editors, plus the browser bundle
 that the Stonewright plugin hosts under **Stonewright → Visual Workspace**.
 
-This package is AGPL-3.0-or-later. See
-[the upstream code reuse ledger](../docs/upstream-code-reuse.md) and file-level
-SPDX headers for exact source paths, licenses, and fingerprints.
+This package is GPL-2.0-or-later. See [LICENSING.md](../LICENSING.md) for the
+license of each Stonewright component.
 
 ## What it is
 

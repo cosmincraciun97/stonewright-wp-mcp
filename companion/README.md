@@ -48,7 +48,10 @@ status schema version 3**. `connected` is a derived compatibility field.
 Authentication state includes `reauth_required`; terminal results use
 `reauthentication_required` plus a model-visible `user_action` that the agent
 must relay before more WordPress work. Access tokens stay one hour. Seven-day
-continuity is a refresh SLO against a fixed fourteen-day grant family.
+continuity is a refresh SLO within a grant that ends at most 90 days after
+authorization. A refresh token expires after 30 days without use, and one
+presented again within 60 seconds of its use receives the grant's current
+refresh token.
 
 Automatic retry is restricted to handshake and explicitly allowlisted read-only
 bootstrap operations. Mutations are never retried. When the session is
