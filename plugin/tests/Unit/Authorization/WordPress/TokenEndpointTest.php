@@ -207,7 +207,8 @@ final class TokenEndpointTest extends TestCase {
 		self::assertSame( '1', $again->headers['X-Stonewright-Refresh-Consumed'] );
 		self::assertSame( $this->http->storage->codec()->inspect( $rotated->body['refresh_token'] )->credential_key, $this->http->storage->codec()->inspect( $again->body['refresh_token'] )->credential_key );
 		self::assertNotSame( $rotated->body['access_token'], $again->body['access_token'] );
-		self::assertSame( 'refresh_redelivered', $again->audit['body']['reason'] );
+		self::assertSame( 'refresh_redelivered', $again->audit['event'] );
+		self::assertArrayNotHasKey( 'event', $rotated->audit );
 		self::assertSame( 200, $this->refresh( $again->body['refresh_token'] )->status );
 	}
 

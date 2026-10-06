@@ -111,8 +111,11 @@ final class TokenEndpoint {
 		$outcome = $coordinator->exchange( new CodeDemand( $facts->credential_key, $client_key, $redirect, $verifier, [] === $resources ? $facts->resources : $resources ) );
 		if ( null !== $outcome->fault || null === $outcome->issuance ) {
 			$fault = $outcome->fault ?? new OAuthFault( 'server_error' );
-			$hint = null === $outcome->revoke_family_key ? [] : [ 'hint' => 'Authorization code replay: the grant family the code created was revoked.' ];
-			return $this->failure( $fault, $audit, null, $hint );
+			if ( null !== $outcome->revoke_family_key ) {
+				$audit['event'] = HttpSurface::EVENT_CODE_REPLAY;
+				return $this->failure( $fault, $audit, null, [ 'hint' => 'Authorization code replay: the grant family the code created was revoked.' ] );
+			}
+			return $this->failure( $fault, $audit );
 		}
 		return $this->success( $this->storage->codec()->encode( $outcome->issuance ), $outcome->issuance, false, $audit );
 	}
@@ -148,11 +151,11 @@ final class TokenEndpoint {
 		$outcome = $coordinator->rotate( new RotationDemand( $family_key, $facts->credential_key, $client_key, array_values( $resources ), $scopes ) );
 		if ( null === $outcome->fault && null !== $outcome->issuance ) {
 			$pair = $this->storage->codec()->encode( $outcome->issuance );
-			$redelivered = $outcome->issuance->redelivery ? [
-				'reason' => 'refresh_redelivered',
-				'hint'   => 'A duplicate refresh inside the duplicate window received the current refresh credential again.',
-			] : [];
-			return $this->success( $pair, $outcome->issuance, true, $audit, $redelivered );
+			if ( ! $outcome->issuance->redelivery ) {
+				return $this->success( $pair, $outcome->issuance, true, $audit );
+			}
+			$audit['event'] = HttpSurface::EVENT_REDELIVERY;
+			return $this->success( $pair, $outcome->issuance, true, $audit, [ 'hint' => 'A duplicate refresh inside the duplicate window received the current refresh credential again.' ] );
 		}
 		return $this->refresh_failure( $outcome, $before, $facts, $audit );
 	}
@@ -165,8 +168,12 @@ final class TokenEndpoint {
 		}
 		$phase = $outcome->state->to_array()['phase'];
 		if ( 'revoked' === $phase ) {
-			$replayed = null !== $before && 'active' === $before->to_array()['phase'];
-			return $this->failure( $fault, $audit, 'refresh_token_revoked', $replayed ? [ 'hint' => 'Refresh token replay: the grant family was revoked.' ] : [], 'The refresh token is no longer valid.' );
+			// The family was active before this request, so this presentation revoked it.
+			if ( null !== $before && 'active' === $before->to_array()['phase'] ) {
+				$audit['event'] = HttpSurface::EVENT_REFRESH_REPLAY;
+				return $this->failure( $fault, $audit, 'refresh_token_revoked', [ 'hint' => 'Refresh token replay: the grant family was revoked.' ], 'The refresh token is no longer valid.' );
+			}
+			return $this->failure( $fault, $audit, 'refresh_token_revoked', [], 'The refresh token is no longer valid.' );
 		}
 		if ( 'expired' === $phase || $this->storage->clock()->now() >= $facts->expires_at ) {
 			return $this->failure( $fault, $audit, 'refresh_token_expired', [], 'The refresh token has expired.' );

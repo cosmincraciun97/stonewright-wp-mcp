@@ -26,8 +26,29 @@ use Stonewright\WpMcp\Support\Logger;
  * Each hook checks SiteProfile::available() when it runs, so enabling or disabling
  * OAuth takes effect on the next request. The use_*() seams let tests or another
  * composition supply the site profile, document resolver and request limiter.
+ *
+ * Audit: ordinary endpoint answers go through the audit log's OAuth recorder, which
+ * coalesces repeated identical events. Security events (a replay that revokes a
+ * family, a code replay, an explicit revocation and a duplicate delivery) are written
+ * as their own rows every time, with the same allowlisted fields and no credential.
  */
 final class HttpSurface {
+
+	public const EVENT_REFRESH_REPLAY = 'refresh_replay_revoked';
+	public const EVENT_CODE_REPLAY = 'code_replay_revoked';
+	public const EVENT_REVOCATION = 'revocation';
+	public const EVENT_REDELIVERY = 'refresh_redelivered';
+
+	private const EVENTS = [ self::EVENT_REFRESH_REPLAY, self::EVENT_CODE_REPLAY, self::EVENT_REVOCATION, self::EVENT_REDELIVERY ];
+
+	/** Response fields an audit row may hold, mapped to their audit key. */
+	private const AUDIT_FIELDS = [
+		'error'             => 'oauth_error',
+		'error_description' => 'oauth_error_description',
+		'hint'              => 'oauth_hint',
+	];
+
+	private const AUDIT_TEXT_LIMIT = 200;
 
 	private static ?SiteProfile $site = null;
 	private static ?ClientDocuments $documents = null;
@@ -92,10 +113,65 @@ final class HttpSurface {
 		if ( is_array( $facts['sensitive_values'] ?? null ) ) {
 			$context['sensitive_values'] = array_values( array_filter( $facts['sensitive_values'], 'is_string' ) );
 		}
+		$event = $facts['event'] ?? null;
 		try {
+			if ( is_string( $event ) && in_array( $event, self::EVENTS, true ) ) {
+				self::record_event( $ability, $event, $response, $context );
+				return;
+			}
 			AuditLog::record_auth_event( $ability, $response, $context );
 		} catch ( \Throwable $failure ) {
 			Logger::warning( 'oauth_audit_failed', [ 'ability' => $ability, 'error_class' => get_class( $failure ) ] );
 		}
+	}
+
+	/**
+	 * Write one security event as its own row, outside the coalescing of ordinary
+	 * answers. The row holds only the allowlisted response fields, the client identifier
+	 * and the HTTP status; request values that are credentials are masked.
+	 *
+	 * @param array<string, mixed> $context client_id and sensitive_values.
+	 */
+	private static function record_event( string $ability, string $event, \WP_REST_Response $response, array $context ): void {
+		$http = (int) $response->get_status();
+		$body = $response->get_data();
+		$body = is_array( $body ) ? $body : [];
+		$secrets = array_values( array_filter( (array) ( $context['sensitive_values'] ?? [] ), static fn ( $value ): bool => is_string( $value ) && strlen( $value ) >= 8 ) );
+		$args = [];
+		foreach ( self::AUDIT_FIELDS as $source => $target ) {
+			if ( isset( $body[ $source ] ) && is_scalar( $body[ $source ] ) ) {
+				$value = self::audit_text( (string) $body[ $source ], $secrets );
+				if ( '' !== $value ) {
+					$args[ $target ] = $value;
+				}
+			}
+		}
+		$client_id = self::audit_text( (string) ( $context['client_id'] ?? '' ), $secrets );
+		if ( '' !== $client_id ) {
+			$args['client_id'] = $client_id;
+		}
+		$args['http_status'] = $http;
+		$args['_meta'] = [
+			'error_code'      => (string) ( $args['oauth_error'] ?? '' ),
+			'operation_class' => 'oauth',
+			'resource_type'   => 'oauth_endpoint',
+			'resource_ref'    => $ability,
+			'http_status'     => $http,
+			'security_event'  => $event,
+		];
+		if ( isset( $args['oauth_error_description'] ) ) {
+			$args['_meta']['public_message'] = $args['oauth_error_description'];
+		}
+		$status = $http >= 500 ? 'error' : ( $http >= 400 ? 'auth' : 'ok' );
+		AuditLog::record( $ability, $args, $status );
+	}
+
+	/** @param list<string> $secrets Request values that must never be written. */
+	private static function audit_text( string $value, array $secrets ): string {
+		$value = sanitize_text_field( $value );
+		if ( [] !== $secrets ) {
+			$value = str_replace( $secrets, '[redacted]', $value );
+		}
+		return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, self::AUDIT_TEXT_LIMIT ) : substr( $value, 0, self::AUDIT_TEXT_LIMIT );
 	}
 }

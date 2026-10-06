@@ -40,8 +40,9 @@ final class RevocationEndpoint {
 			$client_id = $parameters->values( 'client_id' )[0] ?? null;
 			$audit['client_id'] = (string) $client_id;
 			$audit['sensitive_values'] = $parameters->values( 'token' );
-			if ( '' !== $token ) {
-				$this->revocation->revoke( $token, null === $client_id ? null : ClientDocuments::client_key( $client_id ) );
+			if ( '' !== $token && $this->revocation->revoke( $token, null === $client_id ? null : ClientDocuments::client_key( $client_id ) ) ) {
+				// A recognized credential whose family is now closed: an explicit revocation.
+				$audit['event'] = HttpSurface::EVENT_REVOCATION;
 			}
 		} catch ( OAuthFault $unreadable ) {
 			// RFC 7009 section 2.2: an unusable request still receives the success answer.
