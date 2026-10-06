@@ -8,7 +8,6 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -181,11 +180,7 @@ final class WidgetDefine extends AbilityKernel {
 				// 4. StaticGuard scan (defense-in-depth, layer 2).
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'widget_slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						'StaticGuard rejected the compiled widget source. This is a compiler bug — please report it.',
@@ -248,7 +243,6 @@ final class WidgetDefine extends AbilityKernel {
 			);
 		}
 
-		AuditLog::record( self::ABILITY, [ 'widget_slug' => $filename, 'action' => 'write_pending' ] );
 		return $path;
 	}
 }

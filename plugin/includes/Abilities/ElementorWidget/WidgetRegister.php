@@ -7,7 +7,6 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -132,11 +131,7 @@ final class WidgetRegister extends AbilityKernel {
 				// 5. Re-run StaticGuard (defense-in-depth).
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'widget_slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						'StaticGuard rejected the widget source during registration. File may have been tampered with.',
@@ -161,11 +156,6 @@ final class WidgetRegister extends AbilityKernel {
 					$registered[] = $slug;
 					update_option( self::OPTION_KEY, array_values( $registered ), false );
 				}
-
-				AuditLog::record(
-					self::ABILITY,
-					[ 'widget_slug' => $slug, 'action' => 'registered' ]
-				);
 
 				return $this->ok( [
 					'widget_slug'     => $slug,

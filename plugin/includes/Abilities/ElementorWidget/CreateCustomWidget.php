@@ -8,7 +8,6 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -259,11 +258,7 @@ final class CreateCustomWidget extends AbilityKernel {
 				// 5. StaticGuard — reject obvious payloads.
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						__( 'StaticGuard rejected the compiled widget source.', 'stonewright' ),
