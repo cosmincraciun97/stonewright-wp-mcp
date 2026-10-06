@@ -390,7 +390,7 @@ final class MemoryInstructionsPage {
 							<th>Type</th>
 							<th>Scope</th>
 							<th>Key</th>
-							<th>Updated</th>
+							<th>Updated (UTC)</th>
 							<th>Backend / lifecycle</th>
 							<th>Actions</th>
 						</tr>
@@ -615,7 +615,7 @@ final class MemoryInstructionsPage {
 			'state'          => '' !== $state ? $state : 'none',
 			'verification'   => $verification,
 			'last_retrieved' => '' !== (string) ( $entry['last_retrieved_at'] ?? '' )
-				? (string) $entry['last_retrieved_at']
+				? (string) $entry['last_retrieved_at'] . ' UTC'
 				: 'never',
 		];
 	}
