@@ -20,6 +20,8 @@ final class ErrorPatterns {
 
 	public const OPTION_KEY   = 'stonewright_error_patterns';
 	public const MAX_PATTERNS = 200;
+	/** Days without a new occurrence after which a pattern leaves the recurring list. */
+	public const STALE_DAYS = 30;
 	public const LEGACY_LESSON_MIGRATION_OPTION = 'stonewright_legacy_audit_lessons_migrated_v1';
 	public const LEARNING_NUDGE_COUNT = 5;
 	public const DRAFT_LESSON_COUNT   = 10;
@@ -283,6 +285,11 @@ final class ErrorPatterns {
 				continue;
 			}
 			if ( ! empty( $row['dismissed'] ) ) {
+				continue;
+			}
+			// A pattern that has not occurred for STALE_DAYS is no longer recurring.
+			$last_seen = strtotime( (string) ( $row['last_seen'] ?? '' ) );
+			if ( false !== $last_seen && $last_seen < time() - self::STALE_DAYS * DAY_IN_SECONDS ) {
 				continue;
 			}
 			if ( ! empty( $row['expected'] ) || in_array( (string) ( $row['outcome'] ?? '' ), [ AuditEvent::OUTCOME_BLOCKED, AuditEvent::OUTCOME_RETRYABLE ], true ) ) {

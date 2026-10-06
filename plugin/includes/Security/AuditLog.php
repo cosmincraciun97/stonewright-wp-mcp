@@ -1109,8 +1109,10 @@ final class AuditLog {
 				$params[]  = AuditEvent::CATEGORY_AUTH;
 				break;
 			case 'auth':
-				$clauses[] = 'category = %s';
+				// Like the other problem views, Auth lists refusals and failures, not successful sign-ins.
+				$clauses[] = '(category = %s AND outcome <> %s)';
 				$params[]  = AuditEvent::CATEGORY_AUTH;
+				$params[]  = AuditEvent::OUTCOME_SUCCESS;
 				break;
 			case 'resolved':
 				$incident_table = IncidentStore::table_name();

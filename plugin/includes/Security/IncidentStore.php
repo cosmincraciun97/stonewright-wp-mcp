@@ -483,11 +483,31 @@ final class IncidentStore {
 		return false !== $last_seen && $last_seen <= $now - self::QUIET_DAYS * DAY_IN_SECONDS;
 	}
 
-	/** @return array<string, int> */
+	/**
+	 * Totals per state over every incident, not only the most recent page.
+	 *
+	 * @return array<string, int>
+	 */
 	public static function counts(): array {
 		$counts = [ 'open' => 0, 'observing' => 0, 'resolved' => 0, 'suppressed' => 0 ];
-		foreach ( self::recent( 500 ) as $row ) {
-			$state = (string) ( $row['state'] ?? '' );
+		global $wpdb;
+		if ( self::db_available() ) {
+			$rows = $wpdb->get_results( 'SELECT state, COUNT(*) AS total FROM ' . self::table_name() . ' GROUP BY state', ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- internal table, no input.
+			foreach ( is_array( $rows ) ? $rows : [] as $row ) {
+				$state = (string) ( $row['state'] ?? '' );
+				if ( isset( $counts[ $state ] ) ) {
+					$counts[ $state ] += isset( $row['total'] ) ? (int) $row['total'] : 1;
+				}
+			}
+			return $counts;
+		}
+		$stored = self::$fallback;
+		if ( [] === $stored && function_exists( 'get_option' ) ) {
+			$option = get_option( self::OPTION_KEY, [] );
+			$stored = is_array( $option ) ? $option : [];
+		}
+		foreach ( $stored as $row ) {
+			$state = is_array( $row ) ? (string) ( $row['state'] ?? '' ) : '';
 			if ( isset( $counts[ $state ] ) ) {
 				++$counts[ $state ];
 			}
