@@ -71,6 +71,18 @@ final class KeyRecoveryNoticeTest extends TestCase {
 		self::assertStringContainsString( KeyRecoveryNotice::ACTION, $this->render( $this->notice() ) );
 	}
 
+	public function test_the_notice_says_what_new_keys_do_before_the_retry_button(): void {
+		update_option( CredentialKeys::ERROR_OPTION, 'Failure', false );
+
+		$html = $this->render( $this->notice() );
+
+		$sentence = 'Creating new keys signs every connected client out, and each client must sign in again.';
+		self::assertStringContainsString( '<p>' . $sentence . '</p>', $html );
+		self::assertNotFalse( strpos( $html, '<button' ) );
+		self::assertLessThan( (int) strpos( $html, '<button' ), (int) strpos( $html, $sentence ), 'the administrator reads it before the button' );
+		self::assertSame( 1, substr_count( $html, 'signs every connected client out' ), 'one sentence, said once' );
+	}
+
 	public function test_nothing_is_shown_without_manage_options_or_when_keys_are_ready(): void {
 		update_option( CredentialKeys::ERROR_OPTION, 'Failure', false );
 		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true ];

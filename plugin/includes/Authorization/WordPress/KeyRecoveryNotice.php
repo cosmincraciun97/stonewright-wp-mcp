@@ -15,7 +15,9 @@ use Stonewright\WpMcp\Security\Permissions;
 /**
  * Tells administrators when the OAuth keys are missing or unusable and offers a
  * nonce-protected retry (manage_options). Application Passwords keep working
- * meanwhile, which the notice says.
+ * meanwhile, which the notice says. It also says, before the button, that new keys
+ * sign every connected client out: a site that already issued credentials gets its
+ * keys only through this retry, never automatically.
  */
 final class KeyRecoveryNotice {
 
@@ -49,6 +51,7 @@ final class KeyRecoveryNotice {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION ) . '" />';
 		wp_nonce_field( self::ACTION );
+		echo '<p>' . esc_html__( 'Creating new keys signs every connected client out, and each client must sign in again.', 'stonewright' ) . '</p>';
 		echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Retry key creation', 'stonewright' ) . '</button></p>';
 		echo '</form></div>';
 	}

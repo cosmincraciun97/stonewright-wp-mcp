@@ -28,13 +28,29 @@ use Stonewright\WpMcp\Support\Logger;
  *   delivery counter that orders duplicate deliveries against other changes, phase,
  *   deadline, client, subject and consent (created lazily for earlier families);
  * - consents: one-use pending consent requests.
+ *
+ * An install that cannot finish (for example a database user without CREATE or ALTER
+ * rights) starts a one-hour back-off: maybe_upgrade(), which runs on every request, then
+ * waits instead of repeating the statements, the column checks and the error log entry.
+ * install(), which activation calls, always tries; a success ends the back-off.
+ *
+ * maybe_upgrade() also reads the version option on every request, so the option is stored
+ * autoloaded and arrives with the other start-up options; see autoload_version().
  */
 final class StorageTables {
 
 	public const SCHEMA_VERSION = 5;
+
+	/** Autoloaded: maybe_upgrade() reads it on every request. */
 	public const VERSION_OPTION = 'stonewright_oauth_schema_version';
 	public const RATE_LIMIT_SCHEMA = 1;
+
+	/** Not autoloaded: only install() reads it. */
 	public const RATE_LIMIT_SCHEMA_OPTION = 'stonewright_oauth_rate_limit_schema';
+
+	/** Transient that holds back the next upgrade attempt after a failed one. */
+	public const BACKOFF_TRANSIENT = 'stonewright_oauth_schema_backoff';
+	public const BACKOFF_SECONDS = HOUR_IN_SECONDS;
 
 	/** @var array<string, list<string>> Table suffix => columns every healthy install has. */
 	public const REQUIRED_COLUMNS = [
@@ -48,6 +64,16 @@ final class StorageTables {
 		'consents'       => [ 'consent_hash', 'user_id', 'client_id', 'request_json', 'created_at', 'expires_at' ],
 	];
 
+	/** @var array<string, string> Table suffix => one column to read; OAuth was used when any of these tables has a row. */
+	private const STATE_TABLES = [
+		'clients'        => 'client_id',
+		'auth_codes'     => 'identifier_hash',
+		'access_tokens'  => 'identifier_hash',
+		'refresh_tokens' => 'identifier_hash',
+		'families'       => 'family_key',
+		'consents'       => 'consent_hash',
+	];
+
 	/** @var \Closure(list<string>): mixed */
 	private \Closure $delta;
 
@@ -59,18 +85,45 @@ final class StorageTables {
 		};
 	}
 
-	/** Upgrade when the stored schema is older than this version; newer schemas are left alone. */
+	/** Whether the stored schema is at least this version. */
+	public function current(): bool {
+		return (int) get_option( self::VERSION_OPTION, 0 ) >= self::SCHEMA_VERSION;
+	}
+
+	/**
+	 * Upgrade when the stored schema is older than this version; newer schemas are left alone.
+	 * After a failed attempt (the database user cannot create or alter the tables) the next
+	 * attempt waits BACKOFF_SECONDS, so a blocked upgrade is not repeated on every request.
+	 * A current schema never reads the wait; install() ignores it. A current schema also
+	 * gets its version option into the autoloaded set once, if an earlier build stored it
+	 * outside (see autoload_version()).
+	 */
 	public function maybe_upgrade(): bool {
-		if ( (int) get_option( self::VERSION_OPTION, 0 ) >= self::SCHEMA_VERSION ) {
+		if ( $this->current() ) {
+			$this->autoload_version();
 			return true;
+		}
+		if ( false !== get_transient( self::BACKOFF_TRANSIENT ) ) {
+			return false;
 		}
 		return $this->install();
 	}
 
-	/** Create or extend every table, then record the version only when all columns exist. */
+	/**
+	 * Create or extend every table, then record the version only when all columns exist.
+	 * A failure starts the back-off that maybe_upgrade() honours; a success ends it.
+	 *
+	 * @throws \Throwable Whatever the table statements or the column check raised, after the back-off started.
+	 */
 	public function install(): bool {
-		( $this->delta )( $this->statements() );
-		if ( ! $this->healthy() ) {
+		try {
+			( $this->delta )( $this->statements() );
+			$installed = $this->healthy();
+		} catch ( \Throwable $failure ) {
+			$this->back_off();
+			throw $failure;
+		}
+		if ( ! $installed ) {
 			Logger::error(
 				'oauth_schema_install_failed',
 				[
@@ -78,13 +131,32 @@ final class StorageTables {
 					'stored_version' => (int) get_option( self::VERSION_OPTION, 0 ),
 				]
 			);
+			$this->back_off();
 			return false;
 		}
-		update_option( self::VERSION_OPTION, (string) self::SCHEMA_VERSION, false );
+		update_option( self::VERSION_OPTION, (string) self::SCHEMA_VERSION, true );
 		if ( (int) get_option( self::RATE_LIMIT_SCHEMA_OPTION, 0 ) < self::RATE_LIMIT_SCHEMA ) {
 			update_option( self::RATE_LIMIT_SCHEMA_OPTION, (string) self::RATE_LIMIT_SCHEMA, false );
 		}
+		delete_transient( self::BACKOFF_TRANSIENT );
 		return true;
+	}
+
+	/**
+	 * Whether OAuth was ever used here: a registered client, an authorization code, an
+	 * issued credential, a grant family or a pending consent. Rate-limit counters do not
+	 * count.
+	 *
+	 * @throws StorageFailure When a table cannot be read; that is not the same as empty.
+	 */
+	public function holds_state(): bool {
+		foreach ( self::STATE_TABLES as $suffix => $column ) {
+			// A SELECT through execute() answers with its row count and throws when the database refuses it.
+			if ( $this->db->execute( 'SELECT ' . $column . ' FROM ' . $this->db->table( $suffix ) . ' LIMIT 1' ) > 0 ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Whether every table exists with every required column. */
@@ -228,5 +300,22 @@ final class StorageTables {
 			$statements[] = rtrim( 'CREATE TABLE ' . $this->db->table( $suffix ) . " (\n" . implode( ",\n", $lines ) . "\n) " . $charset );
 		}
 		return $statements;
+	}
+
+	private function back_off(): void {
+		set_transient( self::BACKOFF_TRANSIENT, time(), self::BACKOFF_SECONDS );
+	}
+
+	/**
+	 * The version option is read on every request, so it belongs in the autoloaded set that
+	 * WordPress loads in one query at start-up; install() writes it that way. An option an
+	 * earlier build stored without autoload is switched here, once: it is already in the set
+	 * afterwards. Needs WordPress 6.4; older versions leave it as it is.
+	 */
+	private function autoload_version(): void {
+		if ( ! function_exists( 'wp_set_option_autoload' ) || array_key_exists( self::VERSION_OPTION, wp_load_alloptions() ) ) {
+			return;
+		}
+		wp_set_option_autoload( self::VERSION_OPTION, true );
 	}
 }
