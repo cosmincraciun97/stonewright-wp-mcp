@@ -17,6 +17,8 @@ export interface EvidenceEntry {
   viewport?: string;
   measured?: string;
   source?: string;
+  checked?: boolean;
+  evidenceType?: string;
 }
 
 export interface EvidenceSummary {
@@ -51,7 +53,7 @@ export function summarizeEvidence(entries: readonly EvidenceEntry[]): EvidenceSu
     verified: false,
   };
 
-  summary.verified = summary.total > 0 && summary.fail === 0 && summary.notChecked === 0;
+  summary.verified = summary.total > 0 && summary.fail === 0 && summary.notChecked === 0 && entries.every((entry) => entry.checked === true && !!entry.rule && !!entry.source && !!entry.evidenceType);
   return summary;
 }
 

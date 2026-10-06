@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { PageToolRegistry } from "../page-tool-registry.js";
+import { DeclaredToolSet } from "../editor-tools/declared-tool-set.js";
 import type { BatchTransaction, NestedEditorTool, NestedToolResult } from "../types.js";
 import { hashValue } from "../elementor-v3/hash.js";
 import { validateAtomicEnvelope, validateAtomicSettings } from "./schema-validator.js";
@@ -12,7 +12,7 @@ export class ElementorV4EditorAdapter {
 
   constructor(private readonly runtime: ElementorV4Runtime) {}
 
-  registry(): PageToolRegistry { return new PageToolRegistry(this.tools(), { begin: async () => this.beginTransaction() }); }
+  registry(): DeclaredToolSet { return new DeclaredToolSet(this.tools(), { begin: async () => this.beginTransaction() }, { create_element: { primaryResultField: "element_id", publicResultFields: { element_id: { type: "string" } } } }, () => this.runtime.getPageTree()); }
 
   tools(): NestedEditorTool[] {
     return [this.listTypes(), this.getSchema(), this.getStructure(), this.getElement(), this.createElement(), this.updateElement(), this.moveElement(), this.deleteElement(), this.undo(), this.redo(), this.save()];
@@ -44,7 +44,7 @@ export class ElementorV4EditorAdapter {
   }
 
   private getStructure(): NestedEditorTool {
-    return { name: "get_page_structure", label: "Get native Elementor V4 tree", description: "Reads the native Atomic tree without V3 conversion.", execute: async () => {
+    return { name: "get_page_structure", label: "Get native Elementor V4 tree", description: "Reads the native Atomic tree without V3 conversion.", parameters: objectSchema({}), execute: async () => {
       const tree = await this.runtime.getPageTree();
       return result(`${flatten(tree).length} Atomic elements.`, { document_id: this.runtime.documentId, tree, tree_hash: await hashValue(tree), architecture: "v4", implicit_conversion: false });
     } };
@@ -59,7 +59,7 @@ export class ElementorV4EditorAdapter {
 
   private createElement(): NestedEditorTool {
     return { name: "create_element", label: "Create native Elementor V4 element", description: "Creates an exact Atomic payload after live-schema validation and explicit approval.", mutates: true,
-      parameters: mutationSchema({ atomic_type: { type: "string" }, parent_id: { type: "string" }, position: { type: "integer" }, settings: { type: "object" }, styles: { type: "object" }, editor_settings: { type: "object" }, interactions: {}, confirm_write: { const: true } }, ["atomic_type", "confirm_write", "idempotency_key"]),
+      parameters: mutationSchema({ atomic_type: { type: "string" }, parent_id: { type: "string" }, position: { type: "integer" }, settings: { type: "object" }, styles: { type: "object" }, editor_settings: { type: "object" }, interactions: { type: ["array", "object"], items: { type: "object" } }, confirm_write: { const: true } }, ["atomic_type", "confirm_write", "idempotency_key"]),
       execute: async (args) => this.idempotent("create_element", args, async () => {
         approved(args); const atomicType = required(args, "atomic_type"); const schema = await this.requireSchema(atomicType);
         const payload = envelope(schema, args); validateAtomicEnvelope(payload, schema);
@@ -71,7 +71,7 @@ export class ElementorV4EditorAdapter {
 
   private updateElement(): NestedEditorTool {
     return { name: "update_settings", label: "Update native Elementor V4 payload", description: "Updates separated Atomic settings/styles/editor metadata/interactions with live-schema validation.", mutates: true,
-      parameters: mutationSchema({ element_id: { type: "string" }, settings: { type: "object" }, styles: { type: "object" }, editor_settings: { type: "object" }, interactions: {}, confirm_write: { const: true } }, ["element_id", "confirm_write", "idempotency_key"]),
+      parameters: mutationSchema({ element_id: { type: "string" }, settings: { type: "object" }, styles: { type: "object" }, editor_settings: { type: "object" }, interactions: { type: ["array", "object"], items: { type: "object" } }, confirm_write: { const: true } }, ["element_id", "confirm_write", "idempotency_key"]),
       execute: async (args) => this.idempotent("update_settings", args, async () => {
         approved(args); const element = await this.requireElement(required(args, "element_id")); const schema = await this.requireSchema(typeOf(element));
         const settings = record(args.settings) as AtomicSettings; validateAtomicSettings(settings, schema);

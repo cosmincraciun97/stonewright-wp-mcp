@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { WorkspaceState } from "./state.js";
+import type { ApplyingPermit } from "../session/applying-permit.js";
 
 /**
  * Editor detection, and the header chip that reports it.
@@ -17,6 +18,8 @@ export type AdapterKind = "elementor-v3" | "elementor-v4" | "gutenberg";
 export interface EditorRegistryLike {
   definitions: () => Array<Record<string, unknown>>;
   call: (tool: string, args?: Record<string, unknown>) => Promise<unknown>;
+  validate?: (tool: string, args: Record<string, unknown>) => void;
+  apply?: (tool: string, args: Record<string, unknown>, permit: ApplyingPermit) => Promise<unknown>;
 }
 
 export interface EditorAdapterLike {
