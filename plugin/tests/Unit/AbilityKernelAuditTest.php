@@ -493,4 +493,200 @@ final class AbilityKernelAuditTest extends TestCase {
 		self::assertSame( 'unchanged', $row['execution_status'] ?? null );
 		self::assertSame( [], IncidentStore::recent() );
 	}
+
+	// -------------------------------------------------------------------------
+	// add_audit_details(): code an ability delegates to adds details to the call's one row.
+	// -------------------------------------------------------------------------
+
+	public function test_details_added_inside_a_call_land_on_that_calls_one_row(): void {
+		$accepted = null;
+		$kernel   = $this->detail_kernel(
+			'stonewright/test-detailed',
+			static function () use ( &$accepted ): array {
+				$accepted = AbilityKernel::add_audit_details(
+					'stonewright/test-detailed',
+					[
+						'detail_text'  => 'kept',
+						'detail_count' => 3,
+						'detail_flag'  => true,
+						'detail_none'  => null,
+					]
+				);
+				return [ 'ok' => true ];
+			}
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [ 'post_id' => 5 ] );
+
+		self::assertTrue( $accepted );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
+		$meta = $this->recorded_meta( 0 );
+		self::assertSame( 'kept', $meta['detail_text'] ?? null );
+		self::assertSame( 3, $meta['detail_count'] ?? null );
+		self::assertTrue( $meta['detail_flag'] ?? null );
+		self::assertArrayHasKey( 'detail_none', $meta );
+		self::assertNull( $meta['detail_none'] );
+	}
+
+	public function test_details_are_refused_outside_a_call_and_for_another_ability_name(): void {
+		self::assertFalse( AbilityKernel::add_audit_details( 'stonewright/test-detailed', [ 'detail_text' => 'x' ] ), 'No call is in progress.' );
+
+		$accepted = null;
+		$kernel   = $this->detail_kernel(
+			'stonewright/test-detailed',
+			static function () use ( &$accepted ): array {
+				$accepted = AbilityKernel::add_audit_details( 'stonewright/test-someone-else', [ 'detail_text' => 'x' ] );
+				return [ 'ok' => true ];
+			}
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [] );
+
+		self::assertFalse( $accepted, 'A call only takes details meant for its own name.' );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
+		self::assertArrayNotHasKey( 'detail_text', $this->recorded_meta( 0 ) );
+	}
+
+	public function test_added_details_keep_only_bounded_scalars(): void {
+		$kernel = $this->detail_kernel(
+			'stonewright/test-detailed',
+			static function (): array {
+				AbilityKernel::add_audit_details(
+					'stonewright/test-detailed',
+					[
+						'detail_long'   => str_repeat( 'l', 400 ),
+						'detail_array'  => [ 'secret body' ],
+						'detail_object' => new \stdClass(),
+						7               => 'numeric key',
+						'detail_kept'   => 1.5,
+					]
+				);
+				return [ 'ok' => true ];
+			}
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [] );
+
+		$meta = $this->recorded_meta( 0 );
+		self::assertSame( 255, mb_strlen( (string) ( $meta['detail_long'] ?? '' ) ) );
+		self::assertSame( 1.5, $meta['detail_kept'] ?? null );
+		self::assertArrayNotHasKey( 'detail_array', $meta );
+		self::assertArrayNotHasKey( 'detail_object', $meta );
+		self::assertArrayNotHasKey( '7', $meta );
+		self::assertStringNotContainsString( 'secret body', (string) $GLOBALS['stonewright_test_wpdb_inserts'][0]['data']['sanitized_args'] );
+	}
+
+	public function test_the_abilitys_own_audit_metadata_wins_over_added_details(): void {
+		$kernel = $this->detail_kernel(
+			'stonewright/test-detailed',
+			static function (): array {
+				AbilityKernel::add_audit_details( 'stonewright/test-detailed', [ 'detail_text' => 'from the delegate', 'detail_extra' => 'kept' ] );
+				return [ 'ok' => true ];
+			},
+			[ 'detail_text' => 'from the ability' ]
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [] );
+
+		$meta = $this->recorded_meta( 0 );
+		self::assertSame( 'from the ability', $meta['detail_text'] ?? null );
+		self::assertSame( 'kept', $meta['detail_extra'] ?? null );
+	}
+
+	public function test_the_kernel_keeps_its_own_failure_fields_over_added_details(): void {
+		$kernel = $this->detail_kernel(
+			'stonewright/test-detailed',
+			static function (): \WP_Error {
+				AbilityKernel::add_audit_details( 'stonewright/test-detailed', [ 'error_code' => 'forged', 'operation_kind' => 'read' ] );
+				return new \WP_Error( 'sw_real_failure', 'The call really failed.' );
+			}
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$kernel->execute( [] );
+
+		$meta = $this->recorded_meta( 0 );
+		self::assertSame( 'sw_real_failure', $meta['error_code'] ?? null );
+		self::assertSame( 'write', $meta['operation_kind'] ?? null );
+	}
+
+	public function test_a_finished_call_leaves_no_call_open_for_later_details(): void {
+		$returning = $this->detail_kernel( 'stonewright/test-detailed', static fn(): array => [ 'ok' => true ] );
+		$throwing  = $this->detail_kernel(
+			'stonewright/test-throwing',
+			static function (): never {
+				throw new \RuntimeException( 'Synthetic callback failure.' );
+			}
+		);
+
+		$returning->execute( [] );
+		self::assertFalse( AbilityKernel::add_audit_details( 'stonewright/test-detailed', [ 'detail_text' => 'late' ] ) );
+
+		$throwing->execute( [] );
+		self::assertFalse( AbilityKernel::add_audit_details( 'stonewright/test-throwing', [ 'detail_text' => 'late' ] ) );
+	}
+
+	public function test_nested_calls_each_take_the_details_meant_for_their_own_name(): void {
+		$inner = $this->detail_kernel(
+			'stonewright/test-inner',
+			static function (): array {
+				AbilityKernel::add_audit_details( 'stonewright/test-outer', [ 'detail_text' => 'for the outer call' ] );
+				AbilityKernel::add_audit_details( 'stonewright/test-inner', [ 'detail_text' => 'for the inner call' ] );
+				return [ 'ok' => true ];
+			}
+		);
+		$outer = $this->detail_kernel(
+			'stonewright/test-outer',
+			static function () use ( $inner ): array {
+				$inner->execute( [] );
+				return [ 'ok' => true ];
+			}
+		);
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$outer->execute( [] );
+
+		self::assertSame(
+			[ 'stonewright/test-inner', 'stonewright/test-outer' ],
+			array_column( array_column( $GLOBALS['stonewright_test_wpdb_inserts'], 'data' ), 'ability_name' )
+		);
+		self::assertSame( 'for the inner call', $this->recorded_meta( 0 )['detail_text'] ?? null );
+		self::assertSame( 'for the outer call', $this->recorded_meta( 1 )['detail_text'] ?? null );
+	}
+
+	/**
+	 * An ability whose audited callback the test supplies.
+	 *
+	 * @param array<string, scalar|null> $metadata What the ability's own audit_metadata() returns.
+	 */
+	private function detail_kernel( string $name, \Closure $work, array $metadata = [] ): AbilityKernel {
+		return new class( $name, $work, $metadata ) extends AbilityKernel {
+			/** @param array<string, scalar|null> $metadata */
+			public function __construct( private string $ability, private \Closure $work, private array $metadata ) {}
+			public function name(): string { return $this->ability; }
+			public function label(): string { return 'Detail fixture'; }
+			public function description(): string { return 'Adds audit details from inside its call.'; }
+			public function category(): string { return 'test'; }
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit_write( $args, $this->work );
+			}
+			protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
+				return $this->metadata;
+			}
+		};
+	}
+
+	/**
+	 * The `_meta` block of one captured audit row.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function recorded_meta( int $index ): array {
+		$decoded = json_decode( (string) ( $GLOBALS['stonewright_test_wpdb_inserts'][ $index ]['data']['sanitized_args'] ?? '' ), true );
+		return is_array( $decoded ) && is_array( $decoded['_meta'] ?? null ) ? $decoded['_meta'] : [];
+	}
 }

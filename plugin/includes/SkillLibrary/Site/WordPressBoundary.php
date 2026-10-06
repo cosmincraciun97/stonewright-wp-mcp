@@ -11,6 +11,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\SkillLibrary\Site;
 
+use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
@@ -23,7 +24,9 @@ use Stonewright\WpMcp\SkillLibrary\MutationBoundary;
  *   require `manage_options` at the moment of the write; studio writes also
  *   need a current REST nonce.
  * - Abilities have already passed their own permission callback, which the
- *   ability registry enforces before execution.
+ *   ability registry enforces before execution. When the ability kernel is
+ *   auditing a call under the same name as the event, the event's details go
+ *   on the kernel's one row instead of a second row with that name.
  * - The system channel is the plugin acting for itself: refreshing the bundled
  *   pack and recording verified knowledge evidence. Only it may do either.
  *
@@ -111,14 +114,36 @@ final class WordPressBoundary implements MutationBoundary {
 		}
 		$event = array_intersect_key( $summary, array_flip( self::AUDITED ) );
 		$slug  = is_string( $summary['slug'] ?? null ) ? $summary['slug'] : '';
-
-		$event['_meta'] = [
+		$name  = 'stonewright/skills-' . sanitize_key( $action );
+		$meta  = [
 			'operation_class' => 'skill_library',
 			'resource_type'   => 'skill',
 			'resource_ref'    => $slug,
 			'channel'         => $this->channel,
 		];
-		AuditLog::record( 'stonewright/skills-' . sanitize_key( $action ), $event, $outcome );
+
+		if ( self::ABILITY === $this->channel && AbilityKernel::add_audit_details( $name, self::call_details( $action, $meta, $event ) ) ) {
+			// The ability's call row carries the details; a second row with its name would double-count the call.
+			return;
+		}
+		$event['_meta'] = $meta;
+		AuditLog::record( $name, $event, $outcome );
+	}
+
+	/**
+	 * The event's details as they appear on an ability call's row, where they sit next
+	 * to the call's own input and so carry a `skill_` prefix.
+	 *
+	 * @param array<string, mixed> $meta
+	 * @param array<string, mixed> $event
+	 * @return array<string, mixed>
+	 */
+	private static function call_details( string $action, array $meta, array $event ): array {
+		$details = $meta + [ 'skill_action' => sanitize_key( $action ) ];
+		foreach ( $event as $key => $value ) {
+			$details[ str_starts_with( $key, 'skill_' ) ? $key : 'skill_' . $key ] = $value;
+		}
+		return $details;
 	}
 
 	private static function confirmed_destroy( int $skill_id, string $token ): bool|\WP_Error {

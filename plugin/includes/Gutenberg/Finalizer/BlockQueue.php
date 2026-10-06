@@ -19,6 +19,9 @@ final class BlockQueue {
 	public const OPTION      = 'stonewright_block_finalizer_queue';
 	public const LOCK_OPTION = 'stonewright_block_finalizer_queue_lock';
 
+	/** Audit event recorded when an enqueue sweeps stale entries out of the queue. */
+	public const PRUNE_EVENT = 'gutenberg.queue_prune';
+
 	public const MAX_BATCH_ITEMS      = 20;
 	public const MAX_OPEN_PER_USER    = 20;
 	public const MAX_TOTAL_RECORDS    = 200;
@@ -1790,9 +1793,14 @@ final class BlockQueue {
 		);
 	}
 
+	/**
+	 * Sweeping stale entries out of the queue is maintenance that any enqueue can trigger,
+	 * so it keeps its own event name rather than borrowing the name of an ability whose
+	 * call row the kernel writes.
+	 */
 	private static function audit_prune( int $post_id, int $pruned_count ): void {
 		AuditLog::record(
-			'stonewright/blocks-queue-change',
+			self::PRUNE_EVENT,
 			[
 				'pruned_count' => $pruned_count,
 				'post_id'      => $post_id,

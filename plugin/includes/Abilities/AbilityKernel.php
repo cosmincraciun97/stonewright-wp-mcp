@@ -15,6 +15,14 @@ use Stonewright\WpMcp\Security\RemediationHints;
  */
 abstract class AbilityKernel implements Ability {
 
+	/**
+	 * Audited ability calls in progress on this request, outermost first. Abilities
+	 * can call each other, so every call keeps its own entry until its row is written.
+	 *
+	 * @var list<array{ability: string, details: array<string, scalar|null>}>
+	 */
+	private static array $audited_calls = [];
+
 	abstract public function name(): string;
 
 	abstract public function label(): string;
@@ -101,6 +109,10 @@ abstract class AbilityKernel implements Ability {
 		// the request-local receipt here and attach the common transaction contract
 		// below so every write surface returns the same machine-readable evidence.
 		\Stonewright\WpMcp\Support\ElementorData::clear_write_context();
+		self::$audited_calls[] = [
+			'ability' => $this->name(),
+			'details' => [],
+		];
 		try {
 			$result = $callback( $args );
 		} catch ( \Throwable $_throwable ) {
@@ -114,6 +126,7 @@ abstract class AbilityKernel implements Ability {
 				]
 			);
 		}
+		$finished = array_pop( self::$audited_calls );
 		$elementor_receipt = \Stonewright\WpMcp\Support\ElementorData::last_elementor_write_receipt();
 		if ( $result instanceof \WP_Error && [] !== $elementor_receipt ) {
 			$data = $result->get_error_data();
@@ -149,10 +162,13 @@ abstract class AbilityKernel implements Ability {
 				}
 		$target_id  = self::audit_target_id( $args );
 		$sanitized  = $this->sanitize_for_audit( $args );
-		$metadata   = $this->audit_metadata(
-			$args,
-			$result,
-			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
+		$metadata   = array_merge(
+			null === $finished ? [] : $finished['details'],
+			$this->audit_metadata(
+				$args,
+				$result,
+				(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
+			)
 		);
 		if ( '' !== $target_id && ( ! isset( $metadata['target_id'] ) || ! is_scalar( $metadata['target_id'] ) || '' === trim( (string) $metadata['target_id'] ) ) ) {
 			$metadata['target_id'] = $target_id;
@@ -425,6 +441,34 @@ abstract class AbilityKernel implements Ability {
 	 */
 	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
 		return [];
+	}
+
+	/**
+	 * Adds bounded details to the audit row of the call to `$ability` that is in progress.
+	 *
+	 * Code an ability delegates to uses this when it would otherwise record an event
+	 * under the ability's own name: the one row the kernel writes for the call then
+	 * carries the details, and no second row with the same name appears. Only scalar
+	 * values are kept, strings are cut to 255 characters, and the ability's own
+	 * audit_metadata() wins when both set a key.
+	 *
+	 * @param string                     $ability Name of the audited call the details belong to.
+	 * @param array<string, scalar|null> $details
+	 * @return bool True when such a call is in progress and took the details; false when the caller must record its own event.
+	 */
+	public static function add_audit_details( string $ability, array $details ): bool {
+		for ( $index = count( self::$audited_calls ) - 1; $index >= 0; --$index ) {
+			if ( $ability !== self::$audited_calls[ $index ]['ability'] ) {
+				continue;
+			}
+			foreach ( $details as $key => $value ) {
+				if ( is_string( $key ) && ( null === $value || is_scalar( $value ) ) ) {
+					self::$audited_calls[ $index ]['details'][ $key ] = is_string( $value ) ? mb_substr( $value, 0, 255 ) : $value;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 
 	/**
