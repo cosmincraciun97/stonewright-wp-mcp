@@ -423,7 +423,21 @@ final class CssAssetTransaction {
 			}
 			$probe = self::probe_url( $url );
 			if ( 'unsafe_redirect' === $probe['classification'] ) {
-				return self::error( 'stonewright_elementor_css_probe_unsafe_redirect', 'A protected Elementor CSS URL redirected to an unsafe location.' );
+				// Name the HTTP status and only the scheme and host of the target, never its path or query.
+				$origin = (string) ( $probe['redirect_origin'] ?? '' );
+				return self::error(
+					'stonewright_elementor_css_probe_unsafe_redirect',
+					sprintf(
+						'A protected Elementor CSS URL answered HTTP %1$d with a redirect to %2$s, which is not allowed.',
+						(int) $probe['status'],
+						'' !== $origin ? $origin : 'an invalid location'
+					),
+					[
+						'http_status'     => (int) $probe['status'],
+						'redirect_origin' => $origin,
+						'redirect_kind'   => (string) ( $probe['redirect_kind'] ?? '' ),
+					]
+				);
 			}
 			$probes[] = [
 				'asset'          => $asset,
@@ -436,7 +450,7 @@ final class CssAssetTransaction {
 	}
 
 	/**
-	 * @return array{status:int,classification:string,content_type_kind:string}
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string}
 	 */
 	private static function probe_url( string $url ): array {
 		$head = wp_safe_remote_request( $url, self::probe_request_args( 'HEAD', 1 ) );
@@ -477,7 +491,7 @@ final class CssAssetTransaction {
 
 	/**
 	 * @param array<string,mixed>|\WP_Error $response
-	 * @return array{status:int,classification:string,content_type_kind:string}
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string}
 	 */
 	private static function classify_response( string $request_url, array|\WP_Error $response, bool $inspect_body ): array {
 		if ( $response instanceof \WP_Error ) {
@@ -493,7 +507,9 @@ final class CssAssetTransaction {
 		$mime        = self::mime_kind( $content_type );
 		if ( '' !== $redirect ) {
 			$redirect_kind = self::classify_redirect( $request_url, $redirect );
-			if ( 'login' === $redirect_kind ) {
+			// A login page or another page on the same site in front of the file
+			// means the CSS is delivered behind access control, not a failure.
+			if ( in_array( $redirect_kind, [ 'login', 'unexpected' ], true ) ) {
 				return [
 					'status'            => $status,
 					'classification'    => 'protected',
@@ -504,6 +520,8 @@ final class CssAssetTransaction {
 				'status'            => $status,
 				'classification'    => 'unsafe_redirect',
 				'content_type_kind' => $mime,
+				'redirect_kind'     => $redirect_kind,
+				'redirect_origin'   => self::redirect_origin( $request_url, $redirect ),
 			];
 		}
 		if ( in_array( $status, [ 401, 403 ], true ) ) {
@@ -658,6 +676,23 @@ final class CssAssetTransaction {
 			return 'login';
 		}
 		return 'unexpected';
+	}
+
+	/**
+	 * Scheme, host and port of a redirect target, without path, query or fragment.
+	 */
+	private static function redirect_origin( string $request_url, string $location ): string {
+		$parts = wp_parse_url( self::resolve_redirect_url( $request_url, trim( $location ) ) );
+		if ( ! is_array( $parts ) ) {
+			return '';
+		}
+		$scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+		if ( '' === $scheme || 1 !== preg_match( '/^[a-z][a-z0-9+.-]*$/', $scheme ) ) {
+			return '';
+		}
+		$host = strtolower( (string) ( $parts['host'] ?? '' ) );
+		$port = isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '';
+		return $scheme . '://' . $host . $port;
 	}
 
 	private static function resolve_redirect_url( string $request_url, string $location ): string {

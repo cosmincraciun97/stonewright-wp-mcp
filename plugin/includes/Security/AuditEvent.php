@@ -99,6 +99,11 @@ final class AuditEvent {
 		if ( $succeeded ) {
 			$code = '';
 		}
+		// Every failed, blocked or retryable row says what happened, even when the caller gave no message.
+		$message = self::public_message( $args, $meta );
+		if ( ! $succeeded && '' === $message ) {
+			$message = self::fallback_message( $code, $outcome );
+		}
 
 		$transaction_id = self::safe_text( self::first_scalar( $meta, $args, [ 'transaction_id', 'write_transaction_id' ] ), 96 );
 		$change_set_id  = self::safe_text( self::first_scalar( $meta, $args, [ 'change_set_id' ] ), 96 );
@@ -180,7 +185,7 @@ final class AuditEvent {
 			'ability'                 => self::safe_text( $ability, 190 ),
 			'ability_family'          => $ability_family,
 			'root_error_code'         => $code,
-			'public_message'          => self::public_message( $args, $meta ),
+			'public_message'          => $message,
 			'resource_type'           => $resource_type,
 			'resource_key_hash'       => $resource_key,
 			'normalized_path'         => $path,
@@ -203,7 +208,7 @@ final class AuditEvent {
 				$meta,
 				[
 					'error_code'       => $succeeded ? '' : self::first_scalar( $meta, $args, [ 'error_code' ] ),
-					'error_message'    => $succeeded ? '' : self::public_message( $args, $meta ),
+					'error_message'    => $succeeded ? '' : $message,
 					'root_error_code'  => $code,
 					'incident_id'      => $incident_id,
 					'target_id'        => $target_id,
@@ -531,6 +536,16 @@ final class AuditEvent {
 	}
 
 	/** @param array<string, mixed> $args @param array<string, mixed> $meta */
+	/** Readable message for a row whose caller supplied none. */
+	private static function fallback_message( string $code, string $outcome ): string {
+		$what = match ( $outcome ) {
+			self::OUTCOME_BLOCKED   => 'The call was blocked',
+			self::OUTCOME_RETRYABLE => 'The call failed temporarily',
+			default                 => 'The call failed',
+		};
+		return '' !== $code ? sprintf( '%s (%s).', $what, $code ) : $what . ' without an error code.';
+	}
+
 	private static function public_message( array $args, array $meta ): string {
 		foreach ( [ $meta['public_message'] ?? null, $meta['error_message'] ?? null, $args['message'] ?? null ] as $value ) {
 			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {

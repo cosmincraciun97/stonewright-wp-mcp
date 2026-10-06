@@ -1013,6 +1013,61 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 	}
 
+	public function test_same_origin_redirect_is_protected_delivery_not_a_failure(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): array {
+			return [
+				'response' => [ 'code' => 302 ],
+				'headers'  => [ 'location' => 'https://example.test/members-only/' ],
+				'body'     => '',
+			];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['css_evidence']['root_error_code'] ?? null );
+	}
+
+	public function test_unsafe_redirect_error_names_the_status_and_target_origin_only(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static function (): array {
+			return [
+				'response' => [ 'code' => 307 ],
+				'headers'  => [ 'location' => 'https://elsewhere.test:8443/collect?ref=private-value' ],
+				'body'     => '',
+			];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			static fn (): array => [ 'ok' => true ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code() );
+		$data = (array) $result->get_error_data();
+		self::assertSame( 307, $data['http_status'] ?? null );
+		self::assertSame( 'https://elsewhere.test:8443', $data['redirect_origin'] ?? null );
+		self::assertSame( 'cross_origin', $data['redirect_kind'] ?? null );
+		self::assertStringContainsString( 'HTTP 307', $result->get_error_message() );
+		self::assertStringContainsString( 'https://elsewhere.test:8443', $result->get_error_message() );
+		$encoded = (string) wp_json_encode( [ $result->get_error_message(), $data ] );
+		self::assertStringNotContainsString( 'collect', $encoded );
+		self::assertStringNotContainsString( 'private-value', $encoded );
+	}
+
 	public function test_rejects_http_downgrade_loop_and_disallowed_redirects_without_following(): void {
 		$this->write( 'post-701.css', 'old-post' );
 		$cases = [
