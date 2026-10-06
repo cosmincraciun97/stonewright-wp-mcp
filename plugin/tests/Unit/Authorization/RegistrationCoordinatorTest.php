@@ -16,7 +16,7 @@ final class RegistrationCoordinatorTest extends TestCase {
 	}
 
 	public static function request( array $changes = [] ): string {
-		return json_encode( array_replace( [ 'redirect_uris' => [ 'http://127.0.0.1/callback' ], 'token_endpoint_auth_method' => 'none', 'scope' => 'mcp read', 'client_id' => 'attacker-chosen-id', 'client_secret' => 'synthetic-secret-marker', 'unknown' => 'ignored' ], $changes ), JSON_THROW_ON_ERROR );
+		return json_encode( array_replace( [ 'redirect_uris' => [ 'http://127.0.0.1/callback' ], 'token_endpoint_auth_method' => 'none', 'scope' => 'mcp read', 'client_id' => 'attacker-chosen-id', 'client_secret' => 'sentinel-secret-marker', 'unknown' => 'ignored' ], $changes ), JSON_THROW_ON_ERROR );
 	}
 
 	public function test_registration_persists_only_accepted_metadata_and_returns_an_assigned_identifier(): void {
