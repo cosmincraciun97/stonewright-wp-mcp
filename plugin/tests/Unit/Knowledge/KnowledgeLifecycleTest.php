@@ -101,6 +101,55 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertSame( 'stonewright_knowledge_conflict', $conflict->get_error_code() );
 	}
 
+	public function test_replace_promotion_withdraws_the_conflicting_skill_once_the_candidate_passes_lint(): void {
+		$first  = CandidateRepository::create( self::candidate( 'Responsive button recipe', 'Use the native responsive controls.' ) );
+		$second = CandidateRepository::create( self::candidate( 'Responsive button recipe', 'Use a different, verified control.' ) );
+		self::assertIsArray( $first );
+		self::assertIsArray( $second );
+		$current = CandidateRepository::promote( (int) $first['id'], true, 'Approved first candidate.' );
+		self::assertIsArray( $current );
+
+		$replacement = CandidateRepository::promote( (int) $second['id'], true, 'Approved replacement.', 'replace' );
+
+		self::assertIsArray( $replacement );
+		self::assertSame( [ $current['skill_slug'] ], $replacement['replaced'] );
+		$withdrawn = SkillLibraryService::open()->find( (string) $current['skill_slug'] );
+		self::assertNotNull( $withdrawn );
+		self::assertSame( 'stale', $withdrawn['status'] );
+		self::assertSame( '0', $withdrawn['enabled'] );
+		self::assertSame( [ $second['semantic_fingerprint'] ], $withdrawn['conflicts'] );
+		$active = SkillLibraryService::open()->find( (string) $replacement['skill_slug'] );
+		self::assertNotNull( $active );
+		self::assertSame( 'active', $active['status'] );
+		self::assertSame( '1', (string) $active['enabled'] );
+	}
+
+	public function test_replace_promotion_that_fails_lint_leaves_the_conflicting_skill_as_it_was(): void {
+		$flawed           = self::candidate( 'Responsive button recipe', 'Use a different control.' );
+		$flawed['recipe'] = 'Call stonewright/not-a-real-tool after validation.';
+		$first            = CandidateRepository::create( self::candidate( 'Responsive button recipe', 'Use the native responsive controls.' ) );
+		$second           = CandidateRepository::create( $flawed );
+		self::assertIsArray( $first );
+		self::assertIsArray( $second );
+		$current = CandidateRepository::promote( (int) $first['id'], true, 'Approved first candidate.' );
+		self::assertIsArray( $current );
+		$before = SkillLibraryService::open()->find( (string) $current['skill_slug'] );
+		self::assertNotNull( $before );
+		self::assertSame( 'active', $before['status'] );
+
+		$refused = CandidateRepository::promote( (int) $second['id'], true, 'Approved replacement.', 'replace' );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_skill_lint_failed', $refused->get_error_code() );
+		$after = SkillLibraryService::open()->find( (string) $current['skill_slug'] );
+		self::assertNotNull( $after );
+		self::assertSame( 'active', $after['status'] );
+		self::assertSame( '1', $after['enabled'] );
+		self::assertSame( $before['revision'], $after['revision'] );
+		self::assertSame( $before, $after );
+		self::assertSame( 'candidate', CandidateRepository::get( (int) $second['id'] )['status'] );
+	}
+
 	public function test_official_docs_and_elementor_version_constraints_are_hard_gates(): void {
 		$untrusted = self::candidate( 'Elementor tabs', 'Use the nested tabs widget.' );
 		$untrusted['source_url'] = 'https://example.com/elementor-tabs';

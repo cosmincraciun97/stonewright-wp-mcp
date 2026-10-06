@@ -221,15 +221,16 @@ final class CandidateRepository {
 				[ 'conflicts' => array_column( $conflicts, 'slug' ) ]
 			);
 		}
-		foreach ( $conflicts as $conflict ) {
-			$skills->withdraw_skill( (string) $conflict['slug'], (string) $candidate['semantic_fingerprint'] );
-		}
 
 		$slug    = '' !== (string) $candidate['skill_slug'] ? (string) $candidate['skill_slug'] : 'learned-' . self::slugify( (string) $candidate['topic'] );
 		$payload = self::skill_payload( $candidate, $slug, 'active', (int) $candidate['verification_count'] );
 		$lint    = $skills->review_record( $payload );
 		if ( [] !== $lint['errors'] ) {
 			return new \WP_Error( 'stonewright_skill_lint_failed', 'The candidate skill failed promotion lint.', [ 'lint' => $lint ] );
+		}
+		// Skills this candidate replaces are withdrawn only after it has passed lint; a candidate that fails lint leaves them in service.
+		foreach ( $conflicts as $conflict ) {
+			$skills->withdraw_skill( (string) $conflict['slug'], (string) $candidate['semantic_fingerprint'] );
 		}
 		$skill_id = $skills->record_evidence( $payload );
 		if ( is_wp_error( $skill_id ) ) {

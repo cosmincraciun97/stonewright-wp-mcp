@@ -40,6 +40,12 @@ final class InstructionScreen {
 	/** A prohibition or a reported request right before the instruction verb. */
 	private const DISARMED = '/(?:\b(?:never|not|no|don\'?t|doesn\'?t|mustn\'?t|shouldn\'?t|cannot|can\'?t|won\'?t|avoid|refuse to)\s+(?:\w+\s+){0,2}|\b(?:asks?|asked|tells?|told|wants?|requests?|instructs?|tries|tried|attempts?)\s+(?:\w+\s+){0,3}?to\s+)$/i';
 
+	/**
+	 * Bytes read before an instruction verb to find a disarming phrase. A phrase spans at most
+	 * five words, so one that starts further back is not read and the verb counts as an instruction.
+	 */
+	private const DISARM_REACH = 256;
+
 	private const MESSAGES = [
 		'safety_override'         => [
 			'error'   => 'The text tells an agent to ignore or override the plugin rules, safety gates, or earlier instructions.',
@@ -126,7 +132,7 @@ final class InstructionScreen {
 			$offset = 0;
 			while ( $offset < $length && 1 === preg_match( $pattern, $sentence, $match, PREG_OFFSET_CAPTURE, $offset ) ) {
 				$start = (int) $match[0][1];
-				if ( 1 !== preg_match( self::DISARMED, substr( $sentence, 0, $start ) ) ) {
+				if ( ! self::disarmed( $sentence, $start ) ) {
 					return 'error';
 				}
 				$severity = 'warning';
@@ -134,5 +140,17 @@ final class InstructionScreen {
 			}
 		}
 		return $severity;
+	}
+
+	/**
+	 * Whether the words right before the instruction verb at $start disarm it. Only
+	 * the last DISARM_REACH bytes are read, so a long sentence takes time in
+	 * proportion to its length.
+	 */
+	private static function disarmed( string $sentence, int $start ): bool {
+		$from   = max( 0, $start - self::DISARM_REACH );
+		$before = substr( $sentence, $from, $start - $from );
+		// A word cut in half by the start of the stretch must not read as a whole disarming word.
+		return 1 === preg_match( self::DISARMED, $from > 0 ? 'x' . $before : $before );
 	}
 }
