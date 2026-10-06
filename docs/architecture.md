@@ -306,15 +306,16 @@ apart:
   never be read as a protocol error.
 
 Origin is decided by the row's `status` when present, and falls back to the
-ability name for rows recorded before the `auth` status existed. OAuth dispatch on
-`/stonewright/v1/oauth/*` is audited at the REST layer, so a protocol failure is
-recorded even when no ability ran.
+ability name for rows recorded before the `auth` status existed. Calls to
+`/stonewright/v1/oauth/*` are audited by the OAuth recorder inside each route,
+and the generic REST audit hook leaves those routes alone, so a protocol
+failure is recorded even when no ability ran.
 
 Audit rendering resolves OAuth client names in one batched lookup, so pre-login
 token events identify their registered client without an N+1 query. A token,
-revocation, or authorization request names a client in its audit row only once
-the site knows that client, so an identifier a caller made up never becomes a
-row of its own. An ability call is recorded as one row: code the ability
+revocation, introspection, or authorization request names a client in its audit
+row only once the site knows that client, so an identifier a caller made up
+never becomes a row of its own. An ability call is recorded as one row: code the ability
 delegates to adds bounded details to that row instead of recording a second row
 under the same name, and maintenance a call can trigger, such as sweeping the
 block-change queue, is recorded under its own event name

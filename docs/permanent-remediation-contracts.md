@@ -119,9 +119,9 @@ only allowlisted response fields, the client identifier, and the HTTP status,
 never a credential value.
 Admin rendering resolves registered OAuth client names in one batched lookup;
 pre-login events therefore show a client label instead of an unknown user and
-do not add one database query per row. A token, revocation, or authorization
-request names a client in its row only once the site knows that client, so an
-identifier a caller made up never becomes a row of its own.
+do not add one database query per row. A token, revocation, introspection, or
+authorization request names a client in its row only once the site knows that
+client, so an identifier a caller made up never becomes a row of its own.
 
 ## Elementor and Gutenberg writes
 

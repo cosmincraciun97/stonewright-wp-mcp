@@ -184,6 +184,13 @@ development builds were never stable releases.
 - Keep the backslashes in block attributes, such as `\u0026`, when posts,
   pages, templates, patterns, navigation, global styles, media, and blueprints
   are written, so they survive the write and its readback.
+- Register the categories of the expertise, diagnostics, and custom-code
+  abilities, which WordPress did not register for lack of a category, and stop
+  registering categories that WordPress already has, such as `site`, which
+  raised a notice when debugging is on.
+- Show success, error, warning, and info notices on Stonewright pages in their
+  status colour, and widen the Audit Log user column so a login name stays on
+  one line on a wide screen.
 
 ### Security
 
@@ -204,9 +211,10 @@ development builds were never stable releases.
   are never decrypted and never change a stored grant.
 - Count an IPv6 address by its /64 prefix, and an IPv4-mapped address as its
   IPv4 address, in the OAuth request limits.
-- Name a client in the Audit Log for token, revocation, and authorization
-  requests only once the site knows that client, so made-up identifiers no
-  longer create audit rows of their own.
+- Name a client in the Audit Log for token, revocation, introspection, and
+  authorization requests only once the site knows that client, so made-up
+  identifiers no longer create audit rows of their own. The OAuth recorder is
+  the only audit path of the OAuth routes, so a refusal is counted once.
 - Store the address a client registered from as a keyed hash.
 - Hold the markup the block editor queue sends back to the queued change. It
   must be one root block whose name, inner blocks, and attributes match the

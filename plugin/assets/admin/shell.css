@@ -585,6 +585,27 @@ html.sw-has-shell {
 	color: var(--sw-text);
 }
 
+/* The generic notice rule above flattens the WordPress status classes; these give them back. */
+.sw-shell .sw-notice.notice-success {
+	background: var(--sw-ok-soft);
+	border-color: var(--sw-ok-text);
+}
+
+.sw-shell .sw-notice.notice-error {
+	background: var(--sw-danger-soft);
+	border-color: var(--sw-danger-text);
+}
+
+.sw-shell .sw-notice.notice-warning {
+	background: var(--sw-warn-soft);
+	border-color: var(--sw-warn-text);
+}
+
+.sw-shell .sw-notice.notice-info {
+	background: var(--sw-info-soft);
+	border-color: var(--sw-info-text);
+}
+
 /* ------------------------------------------------------------------ */
 /* Buttons — single system                                              */
 /* ------------------------------------------------------------------ */

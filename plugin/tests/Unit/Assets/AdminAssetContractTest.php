@@ -106,6 +106,81 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( 'flex-wrap: wrap', $body );
 	}
 
+	/**
+	 * The declarations of one rule inside the @media block that has the given query,
+	 * selected by its exact selector text. A selector that also has a rule outside the
+	 * block is read from inside the block only.
+	 */
+	private static function media_rule_body( string $file, string $query, string $selector ): string {
+		$css   = self::asset( $file );
+		$start = strpos( $css, '@media ' . $query . ' {' );
+		self::assertIsInt( $start, $file . ' must declare a media block for ' . $query );
+
+		$open  = (int) strpos( $css, '{', $start );
+		$depth = 1;
+		$end   = $open + 1;
+		for ( $length = strlen( $css ); $end < $length && $depth > 0; ++$end ) {
+			if ( '{' === $css[ $end ] ) {
+				++$depth;
+			} elseif ( '}' === $css[ $end ] ) {
+				--$depth;
+			}
+		}
+		$block = substr( $css, $open + 1, $end - $open - 2 );
+
+		$rule = strpos( $block, $selector . ' {' );
+		self::assertIsInt( $rule, $query . ' must declare a rule for ' . $selector );
+		$rule_open  = (int) strpos( $block, '{', $rule );
+		$rule_close = strpos( $block, '}', $rule_open );
+		self::assertIsInt( $rule_close, $selector . ' must be a closed rule block' );
+
+		return substr( $block, $rule_open + 1, $rule_close - $rule_open - 1 );
+	}
+
+	public function test_connected_clients_table_keeps_its_columns_readable_on_a_phone(): void {
+		$query = '(max-width: 600px)';
+
+		// Equal fixed columns crush every word and push the action out of view, so a phone
+		// sizes each column by its content and lets the wrapper scroll sideways.
+		self::assertStringContainsString( 'table-layout: auto', self::media_rule_body( 'setup.css', $query, '.sw-setup-page .sw-connect-table' ) );
+
+		$cells = self::media_rule_body( 'setup.css', $query, '.sw-setup-page .sw-connect-table td' );
+		self::assertStringContainsString( 'word-break: normal', $cells );
+		self::assertStringContainsString( 'overflow-wrap: normal', $cells );
+		self::assertStringContainsString( 'overflow-wrap: break-word', self::media_rule_body( 'setup.css', $query, '.sw-connect-table__name' ) );
+		self::assertStringContainsString( 'white-space: nowrap', self::media_rule_body( 'setup.css', $query, '.sw-connect-table time' ) );
+
+		// Disconnect stays reachable while the other columns scroll.
+		$action = self::media_rule_body( 'setup.css', $query, '.sw-connect-table td:last-child' );
+		self::assertStringContainsString( 'position: sticky', $action );
+		self::assertStringContainsString( 'right: 0', $action );
+	}
+
+	/** @dataProvider noticeStatusProvider */
+	public function test_stonewright_notices_carry_their_status_colour( string $class, string $text, string $soft ): void {
+		$body = self::rule_body( 'shell.css', '.sw-shell .sw-notice.' . $class );
+
+		self::assertStringContainsString( 'background: var(--' . $soft . ')', $body );
+		self::assertStringContainsString( 'border-color: var(--' . $text . ')', $body );
+	}
+
+	/** @return array<string, array{0:string,1:string,2:string}> */
+	public static function noticeStatusProvider(): array {
+		return [
+			'success' => [ 'notice-success', 'sw-ok-text', 'sw-ok-soft' ],
+			'error'   => [ 'notice-error', 'sw-danger-text', 'sw-danger-soft' ],
+			'warning' => [ 'notice-warning', 'sw-warn-text', 'sw-warn-soft' ],
+			'info'    => [ 'notice-info', 'sw-info-text', 'sw-info-soft' ],
+		];
+	}
+
+	public function test_audit_user_column_is_wide_enough_for_a_login_name(): void {
+		$body = self::rule_body( 'audit.css', '.sw-audit-table td:nth-child(3)' );
+
+		self::assertSame( 1, preg_match( '/width:\s*(\d+)%/', $body, $match ), 'The user column needs a percentage width.' );
+		self::assertGreaterThanOrEqual( 12, (int) $match[1] );
+	}
+
 	public function test_audit_payload_becomes_full_width_in_responsive_rows(): void {
 		$css = self::asset( 'audit.css' );
 

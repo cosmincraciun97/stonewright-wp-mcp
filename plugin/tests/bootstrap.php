@@ -2572,6 +2572,29 @@ if ( ! function_exists( 'register_rest_route' ) ) {
 
 $GLOBALS['stonewright_test_rest_routes'] ??= [];
 
+// Ability categories: slug => arguments. Registering a slug twice is refused and noted in
+// stonewright_test_doing_it_wrong, as WordPress does.
+$GLOBALS['stonewright_test_ability_categories'] ??= [];
+$GLOBALS['stonewright_test_doing_it_wrong']     ??= [];
+
+if ( ! function_exists( 'wp_has_ability_category' ) ) {
+	function wp_has_ability_category( string $slug ): bool {
+		return isset( $GLOBALS['stonewright_test_ability_categories'][ $slug ] );
+	}
+}
+
+if ( ! function_exists( 'wp_register_ability_category' ) ) {
+	/** @param array<string, mixed> $args */
+	function wp_register_ability_category( string $slug, array $args ): ?object {
+		if ( wp_has_ability_category( $slug ) ) {
+			$GLOBALS['stonewright_test_doing_it_wrong'][] = sprintf( 'Ability category "%s" is already registered.', $slug );
+			return null;
+		}
+		$GLOBALS['stonewright_test_ability_categories'][ $slug ] = $args;
+		return (object) $args;
+	}
+}
+
 if ( ! function_exists( 'rest_ensure_response' ) ) {
 	function rest_ensure_response( mixed $data ): \WP_REST_Response|\WP_Error {
 		if ( $data instanceof \WP_Error ) {

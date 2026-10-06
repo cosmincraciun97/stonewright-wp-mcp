@@ -27,6 +27,14 @@
       pending: () => unresolved.size,
     });
   }
+  function fitsType(kind, value) {
+    if (kind === "rich-text") { const data = root.wp && root.wp.richText && root.wp.richText.RichTextData; return typeof value === "string" || (typeof data === "function" && value instanceof data); }
+    if (kind === "array") return Array.isArray(value);
+    if (kind === "object") return !!value && typeof value === "object" && !Array.isArray(value);
+    if (kind === "integer") return Number.isInteger(value);
+    if (kind === "null") return value === null;
+    return typeof value === kind;
+  }
   function serializeSpec(input, blocks) {
     let count = 0;
     function create(spec, depth) {
@@ -36,8 +44,8 @@
       if (!attributes || typeof attributes !== "object" || Array.isArray(attributes) || !Array.isArray(inner)) throw new Error("Invalid block attributes or children.");
       for (const key of Object.keys(attributes)) {
         if (["__proto__", "constructor", "prototype"].includes(key) || !Object.prototype.hasOwnProperty.call(type.attributes || {}, key)) throw new Error("Unknown native block attribute.");
-        const definition = type.attributes[key], value = attributes[key], kind = definition.type;
-        if (kind && !(kind === "array" ? Array.isArray(value) : kind === "object" ? value && typeof value === "object" && !Array.isArray(value) : kind === "integer" ? Number.isInteger(value) : kind === "null" ? value === null : typeof value === kind)) throw new Error("Invalid native attribute type.");
+        const definition = type.attributes[key], value = attributes[key], kinds = [].concat(definition.type || []);
+        if (kinds.length && !kinds.some((kind) => fitsType(kind, value))) throw new Error("Invalid native attribute type.");
         if (Array.isArray(definition.enum) && !definition.enum.some((candidate) => JSON.stringify(candidate) === JSON.stringify(value))) throw new Error("Invalid native attribute option.");
       }
       return blocks.createBlock(spec.name, attributes, inner.map((child) => create(child, depth + 1)));

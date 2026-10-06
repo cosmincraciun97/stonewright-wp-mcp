@@ -1230,6 +1230,43 @@
 	}
 }
 
+/* Phones: five equal fixed columns break every word and push the action out of view. Each
+   column is sized by its content instead, the wrapper scrolls sideways, and the action
+   column stays pinned so Disconnect is always reachable. */
+@media (max-width: 600px) {
+	.sw-setup-page .sw-connect-table {
+		table-layout: auto;
+	}
+
+	.sw-setup-page .sw-connect-table th,
+	.sw-setup-page .sw-connect-table td {
+		word-break: normal;
+		overflow-wrap: normal;
+	}
+
+	.sw-connect-table__name {
+		overflow-wrap: break-word;
+	}
+
+	.sw-connect-table thead th {
+		white-space: nowrap;
+	}
+
+	.sw-connect-table time {
+		white-space: nowrap;
+	}
+
+	.sw-connect-table th:last-child,
+	.sw-connect-table td:last-child {
+		position: sticky;
+		right: 0;
+	}
+
+	.sw-connect-table td:last-child {
+		border-left: 1px solid var(--sw-border);
+	}
+}
+
 @media (max-width: 400px) {
 	.sw-client-cards {
 		grid-template-columns: 1fr;

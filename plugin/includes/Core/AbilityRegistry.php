@@ -1818,6 +1818,9 @@ final class AbilityRegistry {
 			'woocommerce'       => __( 'WooCommerce', 'stonewright' ),
 			'acf'               => __( 'ACF', 'stonewright' ),
 			'seo'               => __( 'SEO', 'stonewright' ),
+			'expertise'         => __( 'Expertise', 'stonewright' ),
+			'diagnostics'       => __( 'Diagnostics', 'stonewright' ),
+			'custom-code'       => __( 'Custom Code', 'stonewright' ),
 		];
 	}
 
@@ -1826,6 +1829,11 @@ final class AbilityRegistry {
 			return;
 		}
 		foreach ( self::categories() as $slug => $label ) {
+			// WordPress registers some categories itself, such as site and user. Registering
+			// one again is a notice, and the registered definition already serves its abilities.
+			if ( function_exists( 'wp_has_ability_category' ) && wp_has_ability_category( $slug ) ) {
+				continue;
+			}
 			wp_register_ability_category(
 				$slug,
 				[

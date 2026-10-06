@@ -29,7 +29,9 @@ use Stonewright\WpMcp\Support\Logger;
  * - anything else, including authorization codes, is {"active": false}.
  *
  * client_id is the identifier the client uses: its registration id, or the URL of its
- * metadata document.
+ * metadata document. The audit facts name the client a request presented, by that
+ * identifier, only when the site knows the client, so an identifier a caller made up
+ * never reaches the audit log.
  */
 final class IntrospectionEndpoint {
 
@@ -51,7 +53,7 @@ final class IntrospectionEndpoint {
 		}
 		try {
 			$parameters = ( new RequestDecoder() )->form( $request->body, self::MAXIMUM_BYTES );
-			$audit['client_id'] = $parameters->values( 'client_id' )[0] ?? '';
+			$audit['client_id'] = $this->known_client_id( $parameters->values( 'client_id' )[0] ?? '' );
 			$audit['sensitive_values'] = $parameters->values( 'token' );
 			$token = $parameters->one( 'token' );
 		} catch ( OAuthFault $malformed ) {
@@ -67,6 +69,23 @@ final class IntrospectionEndpoint {
 			$body = [ 'active' => false ];
 		}
 		return new OAuthReply( 200, $body, $headers, $audit );
+	}
+
+	/**
+	 * The identifier a request presented when the site knows that client, else an empty
+	 * string. A metadata document client presents its URL; its stored key is not an
+	 * identifier.
+	 */
+	private function known_client_id( string $client_id ): string {
+		if ( '' === $client_id ) {
+			return '';
+		}
+		$key = ClientDocuments::client_key( $client_id );
+		$client = $this->storage->clients()->find( $key );
+		if ( null === $client || ( $key === $client_id && ClientStore::DOCUMENT_PURPOSE === $client['registration_purpose'] ) ) {
+			return '';
+		}
+		return $client_id;
 	}
 
 	/** @return array<string, mixed> */

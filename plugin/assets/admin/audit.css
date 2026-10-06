@@ -215,12 +215,12 @@
 
 .sw-audit-table th:nth-child(2),
 .sw-audit-table td:nth-child(2) {
-	width: 26%;
+	width: 23%;
 }
 
 .sw-audit-table th:nth-child(3),
 .sw-audit-table td:nth-child(3) {
-	width: 9%;
+	width: 12%;
 }
 
 .sw-audit-table th:nth-child(4),
