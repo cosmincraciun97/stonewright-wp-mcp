@@ -1,7 +1,7 @@
 <?php
 /**
  * Wire formats of access credentials, refresh credentials and authorization codes.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */
@@ -36,7 +36,7 @@ use Stonewright\WpMcp\Authorization\Protocol\ResourceRules;
  *
  * Re-delivery: a refresh credential is a self-contained encryption of its logical
  * key, so the current credential can be encoded again at any time. The binding field
- * is HMAC-SHA256 over the family and credential keys with a key derived from the
+ * is HMAC-SHA256 over the family and credential keys with a key computed from the
  * WordPress auth salt, which lives outside the database: database contents alone
  * (rows plus the encryption key option) cannot produce a refresh credential for a
  * stored row. Rotating the auth salts therefore ends refresh credentials issued by

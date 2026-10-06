@@ -1846,7 +1846,7 @@ final class RestRoutes {
 	private static function resource_from_params( array $params ): string {
 		foreach ( [ 'id', 'post_id', 'name', 'slug', 'ability' ] as $key ) {
 			if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) ) {
-				// Bounded like the resource column that is derived from it.
+				// Bounded like the resource column that is computed from it.
 				return mb_substr( $key . '=' . (string) $params[ $key ], 0, 255 );
 			}
 		}

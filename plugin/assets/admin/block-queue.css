@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 .sw-queue-console { max-width: 72rem; padding: 1.75rem; color: var(--sw-text); }
 .sw-queue-console h1 { font-weight: 650; letter-spacing: -.02em; }
 .sw-queue-console > p { max-width: 48rem; line-height: 1.6; }

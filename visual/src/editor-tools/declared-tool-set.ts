@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import type { NestedEditorTool, NestedToolResult, BatchTransactionFactory } from "../types.js";
 import { canonical, deepFreeze, digest, object, WorkspaceFailure } from "../session/protocol.js";
 import { consumeApplyingPermit, type ApplyingPermit } from "../session/applying-permit.js";

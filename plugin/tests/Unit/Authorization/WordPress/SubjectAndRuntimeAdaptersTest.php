@@ -97,6 +97,6 @@ final class SubjectAndRuntimeAdaptersTest extends TestCase {
 		self::assertNotSame( $address, RowKeys::address( '192.0.2.11' ) );
 		self::assertNotSame( $address, RowKeys::address( '' ), 'An unknown address is not the value of a known one.' );
 		$key = hash_hmac( 'sha256', 'stonewright-oauth/registration-address/v1', wp_salt( 'auth' ), true );
-		self::assertSame( hash_hmac( 'sha256', '192.0.2.10', $key ), $address, 'HMAC-SHA256 under a key derived from the authentication salt.' );
+		self::assertSame( hash_hmac( 'sha256', '192.0.2.10', $key ), $address, 'HMAC-SHA256 under a key computed from the authentication salt.' );
 	}
 }

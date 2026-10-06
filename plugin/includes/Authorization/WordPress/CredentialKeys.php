@@ -1,7 +1,7 @@
 <?php
 /**
  * Signing and encryption key lifecycle.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */
@@ -110,7 +110,7 @@ final class CredentialKeys {
 		return is_string( $value ) && self::usable_private_key( $value ) ? $value : null;
 	}
 
-	/** Public key derived from the stored private key. */
+	/** Public key computed from the stored private key. */
 	public function public_key(): ?string {
 		$private = $this->private_key();
 		if ( null === $private ) {

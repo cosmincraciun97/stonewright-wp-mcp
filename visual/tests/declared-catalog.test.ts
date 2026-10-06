@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from "vitest";
 import { checkSchema, validateArgs, summarizeSchema } from "../src/editor-tools/schema-guard.js";
 import { DeclaredToolSet } from "../src/editor-tools/declared-tool-set.js";

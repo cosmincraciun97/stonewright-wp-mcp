@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /**
  * A minimal in-memory document for rendering tests that run without a browser.

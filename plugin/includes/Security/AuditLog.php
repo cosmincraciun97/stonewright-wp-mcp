@@ -51,7 +51,7 @@ final class AuditLog {
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
 	 *
 	 * Everything else on an OAuth request or response is either a credential or
-	 * derived from one, so the recorder builds the row from this map alone rather
+	 * built from one, so the recorder builds the row from this map alone rather
 	 * than redacting a copy of the payload.
 	 *
 	 * @var array<string, string>

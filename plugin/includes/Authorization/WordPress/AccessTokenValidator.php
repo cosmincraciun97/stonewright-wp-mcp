@@ -1,7 +1,7 @@
 <?php
 /**
  * Bearer credential checks at the protected resource.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */
@@ -16,7 +16,7 @@ use Stonewright\WpMcp\Authorization\Ports\SubjectAuthority;
 
 /**
  * Accepts a bearer access credential only when its RS256 signature verifies with the
- * public key derived from the stored private key, its time claims hold, its audience is
+ * public key computed from the stored private key, its time claims hold, its audience is
  * this resource, its row exists and is not revoked, and the subject still exists and
  * still holds the MCP capability. Every refusal is invalid_token (HTTP 401). A bearer
  * that is not shaped like a compact JWT is refused before the codec is called, so it

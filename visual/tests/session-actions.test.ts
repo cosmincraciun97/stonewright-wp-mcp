@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { expect, it } from "vitest";
 import { ActionLedger } from "../src/session/action-ledger.js";
 import { WorkspaceRouter } from "../src/session/router.js";

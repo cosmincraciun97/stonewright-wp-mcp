@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { canonical, WorkspaceFailure } from "../session/protocol.js";
 import type { NativeBlockPort, BlockNode, BlockSpec } from "./native-port.js";
 type Store = Record<string, (...args: any[]) => any>;

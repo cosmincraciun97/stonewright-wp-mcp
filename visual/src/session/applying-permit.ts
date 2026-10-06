@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { WorkspaceFailure } from "./protocol.js";
 const live = new WeakSet<object>();
 export interface ApplyingPermit { readonly actionId: string; }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { canonical, object, WorkspaceFailure } from "../session/protocol.js";
 export interface PlannedCall { tool: string; args: Record<string, unknown>; alias?: string; }
 export interface ResultContract { primaryResultField?: string; publicResultFields: Record<string, Record<string, unknown>>; }

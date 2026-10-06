@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { expect, it } from "vitest";
 import { DeclaredToolSet } from "../src/editor-tools/declared-tool-set.js";
 import { createWorkspaceController } from "../src/workspace-ui/workspace.js";

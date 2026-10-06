@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it } from "vitest";

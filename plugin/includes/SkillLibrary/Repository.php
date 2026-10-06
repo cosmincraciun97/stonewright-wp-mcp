@@ -3,8 +3,8 @@
  * Atomic logical repository port. A physical adapter requires verified site evidence.
  *
  * @package Stonewright
- * @license AGPL-3.0-or-later
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * @license GPL-2.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 declare( strict_types=1 );

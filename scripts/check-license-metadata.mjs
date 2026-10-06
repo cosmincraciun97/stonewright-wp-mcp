@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const errors = [];
-const canonicalAgplSha256 = '0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0';
+const canonicalGplSha256 = 'edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6';
 
 function read(relative) {
 	const path = resolve(root, relative);
@@ -29,9 +29,10 @@ function json(relative) {
 }
 
 const rootLicense = read('LICENSE');
-const rootHash = createHash('sha256').update(rootLicense).digest('hex');
-if (rootHash !== canonicalAgplSha256) {
-	errors.push(`LICENSE must be the unmodified GNU AGPL v3 text (sha256 ${canonicalAgplSha256})`);
+// A Windows checkout may convert line endings; the canonical text uses LF.
+const rootHash = createHash('sha256').update(rootLicense.replace(/\r\n/g, '\n')).digest('hex');
+if (rootHash !== canonicalGplSha256) {
+	errors.push(`LICENSE must be the unmodified GNU GPL v2 text (sha256 ${canonicalGplSha256})`);
 }
 
 const companionLicense = read('companion/LICENSE');
@@ -40,15 +41,15 @@ for (const marker of ['MIT License', 'Permission is hereby granted, free of char
 }
 
 const licensing = read('LICENSING.md');
-for (const marker of ['Plugin', 'Visual', 'AGPL-3.0-or-later', 'Companion', 'MIT', 'third-party']) {
+for (const marker of ['Plugin', 'Visual', 'GPL-2.0-or-later', 'Companion', 'MIT', 'third-party']) {
 	if (!licensing.includes(marker)) errors.push(`LICENSING.md is missing component marker: ${marker}`);
 }
 
 const plugin = json('plugin/composer.json');
 const companion = json('companion/package.json');
 const visual = json('visual/package.json');
-if (plugin.license !== 'AGPL-3.0-or-later') errors.push('plugin/composer.json license must be AGPL-3.0-or-later');
-if (visual.license !== 'AGPL-3.0-or-later') errors.push('visual/package.json license must be AGPL-3.0-or-later');
+if (plugin.license !== 'GPL-2.0-or-later') errors.push('plugin/composer.json license must be GPL-2.0-or-later');
+if (visual.license !== 'GPL-2.0-or-later') errors.push('visual/package.json license must be GPL-2.0-or-later');
 if (companion.license !== 'MIT') errors.push('companion/package.json license must be MIT');
 
 if (errors.length > 0) {
@@ -56,4 +57,4 @@ if (errors.length > 0) {
 	process.exit(1);
 }
 
-process.stdout.write('License metadata verified: Plugin/Visual AGPL-3.0-or-later; companion MIT.\n');
+process.stdout.write('License metadata verified: Plugin/Visual GPL-2.0-or-later; companion MIT.\n');

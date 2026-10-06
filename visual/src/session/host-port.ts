@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import type { WorkspacePageDescriptor, NestedToolResult } from "../types.js";
 import type { DeclaredToolSet } from "../editor-tools/declared-tool-set.js";
 export interface QualityFinding { rule: string; evidenceType: string; checked: boolean; status: "pass" | "fail" | "not_checked"; }

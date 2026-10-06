@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 export interface BlockDefinition { name: string; attributes: Record<string, Record<string, unknown>>; }
 export interface BlockSpec { name: string; attributes: Record<string, unknown>; innerBlocks: BlockSpec[]; }
 export interface BlockNode { clientId: string; name: string; attributes: Record<string, unknown>; innerBlocks: BlockNode[]; }

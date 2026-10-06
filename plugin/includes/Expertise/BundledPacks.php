@@ -77,7 +77,7 @@ final class BundledPacks {
 			'dependencies'                  => 'wordpress-core' === $id ? [] : [ 'wordpress-core' ],
 			'conflicts'                     => [],
 			'references'                    => [ 'workflow', 'recipes', 'eval_cases' ],
-			'provenance'                    => [ 'type' => 'stonewright_release', 'source' => 'bundled curriculum', 'license' => 'AGPL-3.0-or-later' ],
+			'provenance'                    => [ 'type' => 'stonewright_release', 'source' => 'bundled curriculum', 'license' => 'GPL-2.0-or-later' ],
 			'verified_runtime_fingerprints' => $verified_fingerprints,
 			'last_verified_at'              => [] !== $verified_fingerprints ? '2026-07-14T00:00:00Z' : '',
 		];

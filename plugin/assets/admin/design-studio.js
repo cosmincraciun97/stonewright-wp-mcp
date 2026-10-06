@@ -1322,7 +1322,7 @@
 			lede: 'The contract is validated server-side before anything is stored. A new revision is recorded, and the previous one stays restorable.',
 			rows: [
 				{ key: 'Name', value: contract.identity.name },
-				{ key: 'Slug', value: label( draft.slug, 'derived from the name' ) },
+				{ key: 'Slug', value: label( draft.slug, 'generated from the name' ) },
 				{ key: 'Direction', value: draft.id ? 'id ' + draft.id : 'new record' },
 				{ key: 'Current revision', value: String( ( state.direction && state.direction.revision ) || 0 ) },
 				{ key: 'Token groups', value: Object.keys( contract.tokens ).join( ', ' ) || 'none' },

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 import { baseResponsiveKey } from "./evidence-ledger.js";
 import type { ElementorV3ControlSchema, ElementorV3Settings, ElementorV3WidgetSchema } from "./types.js";

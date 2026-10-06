@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import type { BackendTransport } from "../types.js";
 import { ActionLedger, type DecisionAuthority } from "./action-ledger.js";
 import { BackendPolicy, type BackendCapability } from "./backend-policy.js";

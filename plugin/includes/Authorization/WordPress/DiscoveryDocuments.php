@@ -1,7 +1,7 @@
 <?php
 /**
  * Well-known discovery documents (RFC 8414, RFC 9728).
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */

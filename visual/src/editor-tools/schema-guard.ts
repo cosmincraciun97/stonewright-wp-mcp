@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { canonical, object, WorkspaceFailure } from "../session/protocol.js";
 export interface CheckedSchema { schema: Record<string, unknown>; canonical: string; }
 const supported = new Set(["type", "properties", "required", "additionalProperties", "items", "enum", "const", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength", "minItems", "maxItems", "minProperties", "maxProperties", "anyOf", "oneOf", "allOf", "description", "title", "default", "examples", "$schema"]);

@@ -2,7 +2,7 @@
     "name": "stonewright/wp-mcp",
     "description": "Stonewright exposes WordPress building primitives to MCP clients.",
     "type": "wordpress-plugin",
-    "license": "AGPL-3.0-or-later",
+    "license": "GPL-2.0-or-later",
     "require": {
         "php": ">=8.1",
         "automattic/jetpack-autoloader": "^5.0",

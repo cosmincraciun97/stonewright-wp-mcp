@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import type { NestedEditorTool } from "../types.js";
 import { WorkspaceFailure } from "./protocol.js";
 export interface SkillReference { id: string; name: string; description: string; source: string; revision: number; active: boolean; exposed: boolean; }

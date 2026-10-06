@@ -1107,7 +1107,7 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * Short card blurb derived from catalog snippet kind.
+	 * Short card blurb for a catalog snippet kind.
 	 *
 	 * @param array<string, mixed> $client Catalog client row.
 	 */

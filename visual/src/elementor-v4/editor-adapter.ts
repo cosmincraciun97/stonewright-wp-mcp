@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 import { DeclaredToolSet } from "../editor-tools/declared-tool-set.js";
 import type { BatchTransaction, NestedEditorTool, NestedToolResult } from "../types.js";

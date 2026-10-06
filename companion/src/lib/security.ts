@@ -243,7 +243,7 @@ function getIp(req: IncomingMessage, trustProxy: boolean): string {
 
 const BUCKET_MAP_MAX = 10_000;
 // Eviction kicks in at 90% capacity so we have headroom for fresh inserts
-// while the stale-prune sweep runs. Derived from BUCKET_MAP_MAX to keep the
+// while the stale-prune sweep runs. Computed from BUCKET_MAP_MAX to keep the
 // two constants in lockstep if the cap is ever changed.
 const BUCKET_EVICT_THRESHOLD = Math.floor(BUCKET_MAP_MAX * 0.9);
 const BUCKET_STALE_MS = 5 * 60 * 1000; // 5 minutes

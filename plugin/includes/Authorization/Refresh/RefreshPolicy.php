@@ -1,7 +1,7 @@
 <?php
 /**
  * Refresh credential lifetimes and duplicate-delivery window.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */
@@ -32,7 +32,7 @@ final class RefreshPolicy {
 		return $this->duplicate_window;
 	}
 
-	/** Whether every deadline derived from this time stays representable. */
+	/** Whether every deadline computed from this time stays representable. */
 	public function accepts_time( int $now ): bool {
 		return $now >= 1 && $now <= PHP_INT_MAX - self::FAMILY_LIFETIME;
 	}

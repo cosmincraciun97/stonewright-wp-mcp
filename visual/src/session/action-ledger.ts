@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 import type { ConfirmationAction, WorkspaceActionView } from "../types.js";
 import { canonical, deepFreeze, WorkspaceFailure } from "./protocol.js";
 import { issueApplyingPermit, type ApplyingPermit } from "./applying-permit.js";

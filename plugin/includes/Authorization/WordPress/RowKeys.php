@@ -1,7 +1,7 @@
 <?php
 /**
- * Storage keys derived from logical credential keys.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Storage keys computed from logical credential keys.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * @package Stonewright
  */

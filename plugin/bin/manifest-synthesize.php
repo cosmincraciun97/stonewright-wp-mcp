@@ -439,7 +439,7 @@ ksort( $manifest['widgets'] );
 
 $index = $manifest;
 $index['widgets'] = [];
-$generated_header = "<?php\n/**\n * Generated Elementor widget schema artifact.\n * SPDX-License-Identifier: AGPL-3.0-or-later\n */\n// phpcs:ignoreFile -- generated catalog artifact.\ndeclare( strict_types=1 );\nreturn ";
+$generated_header = "<?php\n/**\n * Generated Elementor widget schema artifact.\n * SPDX-License-Identifier: GPL-2.0-or-later\n */\n// phpcs:ignoreFile -- generated catalog artifact.\ndeclare( strict_types=1 );\nreturn ";
 
 /**
  * Export generated PHP without var_export()'s whitespace-only line suffixes.

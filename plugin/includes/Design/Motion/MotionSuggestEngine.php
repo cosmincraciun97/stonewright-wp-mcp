@@ -7,7 +7,7 @@ namespace Stonewright\WpMcp\Design\Motion;
  * Deterministic motion suggestion engine.
  *
  * Produces at most three proposals for a page intent — two motion proposals
- * derived from section roles and block repetition, plus the always-valid
+ * based on section roles and block repetition, plus the always-valid
  * "no motion" option. Exactly one proposal is recommended. Output is pure:
  * identical input produces an identical suggestion payload.
  *

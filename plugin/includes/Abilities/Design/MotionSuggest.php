@@ -25,7 +25,7 @@ final class MotionSuggest extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Read-only deterministic motion proposals (max three, one recommended, no-motion always valid) derived from page intent, section roles, and design direction.', 'stonewright' );
+		return __( 'Read-only deterministic motion proposals (max three, one recommended, no-motion always valid) based on page intent, section roles, and design direction.', 'stonewright' );
 	}
 
 	public function category(): string {

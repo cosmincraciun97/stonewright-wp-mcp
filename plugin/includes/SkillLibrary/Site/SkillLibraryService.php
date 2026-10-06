@@ -3,8 +3,8 @@
  * The site's skill service: the one object callers use to read and change skills.
  *
  * @package Stonewright
- * @license AGPL-3.0-or-later
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * @license GPL-2.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 declare( strict_types=1 );
@@ -454,7 +454,7 @@ final class SkillLibraryService {
 	}
 
 	/**
-	 * Imports a reviewed file as a disabled draft. The review is re-derived from
+	 * Imports a reviewed file as a disabled draft. The review is recomputed from
 	 * the file, its receipt is verified at the boundary, and an existing skill
 	 * is never replaced.
 	 *

@@ -3,8 +3,8 @@
  * A read-only import review and deterministic confirmation plan.
  *
  * @package Stonewright
- * @license AGPL-3.0-or-later
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * @license GPL-2.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 declare( strict_types=1 );
@@ -77,7 +77,7 @@ final class ImportReview {
 		return $derived['record'];
 	}
 
-	/** The reviewed identity is derived from the file name, so the review hash covers it with the bytes. */
+	/** The reviewed identity is taken from the file name, so the review hash covers it with the bytes. */
 	private static function binding( string $slug, string $content_hash ): string {
 		return hash( 'sha256', $slug . "\n" . $content_hash );
 	}

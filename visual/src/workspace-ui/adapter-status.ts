@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 import type { WorkspaceState } from "./state.js";
 import type { ApplyingPermit } from "../session/applying-permit.js";

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -397,8 +398,26 @@ const privateProductTierPatterns = [
 	/\b(?:paid|commercial)[ -]tier\b/i,
 ];
 
-const upstreamBrandPattern = /\bnova(?:mira|[\s_-]+mira)\b/i;
-const legalProvenanceMarkdown = new Set(['docs/upstream-code-reuse.md']);
+// A product name that must not appear in public docs, kept only as a SHA-256 digest of its
+// lowercase letters. A word, or two adjacent words, whose letters hash to it is refused.
+const refusedNameDigest = '8e49285de34ec22a11c0a9c8f99dc06cee9b869bbd30c3ffe6c0f4eeb2e8b8b4';
+const refusedNameLength = 8;
+
+function namesRefusedProduct(content) {
+	const digest = (text) => createHash('sha256').update(text).digest('hex');
+	const words = content.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+	for (let index = 0; index < words.length; index += 1) {
+		const word = words[index];
+		if (word.length === refusedNameLength && digest(word) === refusedNameDigest) {
+			return true;
+		}
+		const next = words[index + 1];
+		if (next !== undefined && word.length + next.length === refusedNameLength && digest(word + next) === refusedNameDigest) {
+			return true;
+		}
+	}
+	return false;
+}
 
 for (const absolute of markdownFiles) {
 	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
@@ -410,8 +429,8 @@ for (const absolute of markdownFiles) {
 	if (privateProductTierPatterns.some((pattern) => pattern.test(content))) {
 		fail(`${relative} exposes private Stonewright product-tier planning.`);
 	}
-	if (!legalProvenanceMarkdown.has(relative) && upstreamBrandPattern.test(content)) {
-		fail(`${relative} exposes an upstream product name outside the legal provenance ledger.`);
+	if (namesRefusedProduct(content)) {
+		fail(`${relative} names a product that public docs must not name.`);
 	}
 }
 
