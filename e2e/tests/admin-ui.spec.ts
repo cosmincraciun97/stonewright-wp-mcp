@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const artifactDir = path.join(process.cwd(), 'artifacts');
@@ -117,6 +118,80 @@ function isIgnorableConsoleNoise(text: string): boolean {
 	return false;
 }
 
+/**
+ * Client slugs of the shipped catalog (plugin/data/clients/*.json). Every client list on
+ * the Setup screen is built from that catalog, so it is the oracle for "every client".
+ */
+function catalogClientSlugs(): string[] {
+	const dir = path.join(__dirname, '..', '..', 'plugin', 'data', 'clients');
+	return fs
+		.readdirSync(dir)
+		.filter((file) => file.endsWith('.json'))
+		.map(
+			(file) =>
+				JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')) as {
+					slug?: unknown;
+					label?: unknown;
+				},
+		)
+		.filter(
+			(client) =>
+				typeof client.slug === 'string' &&
+				typeof client.label === 'string' &&
+				client.label !== '',
+		)
+		.map((client) => String(client.slug).toLowerCase().replace(/[^a-z0-9_-]/g, ''))
+		.filter((slug) => slug !== '')
+		.sort();
+}
+
+/** One attribute of every node a locator matches, in document order. */
+async function attributeValues(locator: Locator, attribute: string): Promise<string[]> {
+	return locator.evaluateAll(
+		(nodes, name) => nodes.map((node) => node.getAttribute(name) ?? ''),
+		attribute,
+	);
+}
+
+/** How many of the matched nodes currently take up space on the page. */
+async function renderedCount(locator: Locator): Promise<number> {
+	return locator.evaluateAll(
+		(nodes) => nodes.filter((node) => node.getClientRects().length > 0).length,
+	);
+}
+
+/**
+ * Setup shows the panels of the chosen authentication method and hides the other
+ * method's: every panel of the chosen method is visible, every other panel is hidden.
+ */
+async function expectAuthPanels(
+	page: Page,
+	chosen: 'oauth' | 'application-password',
+): Promise<void> {
+	const other = chosen === 'oauth' ? 'application-password' : 'oauth';
+	const shown = page.locator(`[data-stonewright-auth-panel="${chosen}"]`);
+	const hidden = page.locator(`[data-stonewright-auth-panel="${other}"]`);
+	expect(await shown.count(), `Setup must render ${chosen} panels`).toBeGreaterThan(0);
+	expect(await hidden.count(), `Setup must render ${other} panels`).toBeGreaterThan(0);
+	for (const panel of await shown.all()) {
+		await expect(panel, `${chosen} panels must be visible`).toBeVisible();
+	}
+	for (const panel of await hidden.all()) {
+		await expect(panel, `${other} panels must be hidden`).toBeHidden();
+	}
+}
+
+/** Opens one client's OAuth guide the way a user does, unless it already starts open. */
+async function openOAuthGuide(page: Page, slug: string): Promise<Locator> {
+	const guide = page.locator(`[data-stonewright-connect-client="${slug}"]`);
+	await expect(guide, `${slug} must have an OAuth guide`).toBeVisible();
+	if (!(await guide.evaluate((node) => (node as HTMLDetailsElement).open))) {
+		await guide.locator('summary').click();
+	}
+	await expect(guide).toHaveJSProperty('open', true);
+	return guide;
+}
+
 test.describe('Stonewright admin UI', () => {
 	test.beforeEach(async ({ page }) => {
 		await login(page);
@@ -180,65 +255,155 @@ test.describe('Stonewright admin UI', () => {
 			waitUntil: 'domcontentloaded',
 		});
 
+		const catalog = catalogClientSlugs();
+		expect(catalog.length, 'the shipped client catalog must list clients').toBeGreaterThan(0);
+
 		const oauthButton = page.locator('[data-stonewright-auth-method="oauth"]');
 		const passwordButton = page.locator(
 			'[data-stonewright-auth-method="application-password"]',
 		);
+		const oauthGuides = page.locator('[data-stonewright-connect-client]');
+		const clientCards = page.locator('[data-stonewright-client-card]');
+		const clientPanels = page.locator('[data-stonewright-client-panel]');
+		// The selected client is a saved per-user choice; it is put back at the end.
+		const initialClient = await page.evaluate(() =>
+			document
+				.querySelector('[data-stonewright-client-card].is-active')
+				?.getAttribute('data-stonewright-client-card') ?? null,
+		);
+
 		// Auth choice persists per user across tests — select OAuth explicitly.
+		await expect(oauthButton, 'OAuth sign-in must be selectable on the test site').toBeEnabled();
 		await oauthButton.click();
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'false');
 
-		const clientCards = page.locator('[data-stonewright-client-card]');
-		const oauthPanels = page.locator('[data-sw-oauth-panel]');
-		const cardSlugs = await clientCards.evaluateAll((cards) =>
-			cards.map((card) => card.getAttribute('data-stonewright-client-card') ?? ''),
-		);
-		const panelSlugs = await oauthPanels.evaluateAll((panels) =>
-			panels.map((panel) => panel.getAttribute('data-sw-oauth-panel') ?? ''),
-		);
+		// Every catalog client owns exactly one OAuth guide, one Application Password
+		// card and one Application Password panel; none is missing or duplicated.
+		const cardSlugs = await attributeValues(clientCards, 'data-stonewright-client-card');
+		const guideSlugs = await attributeValues(oauthGuides, 'data-stonewright-connect-client');
+		const panelSlugs = await attributeValues(clientPanels, 'data-stonewright-client-panel');
 		expect(new Set(cardSlugs).size, 'client cards must be unique').toBe(cardSlugs.length);
-		expect(panelSlugs, 'every client card must own one OAuth panel').toEqual(cardSlugs);
-		expect(cardSlugs).toEqual(expect.arrayContaining([
-			'chatgpt',
-			'claude-ai',
-			'claude-desktop',
-			'claude-code',
-			'windsurf',
-			'codex',
-			'codex-cli',
-			'cursor',
-			'vscode-copilot',
-			'generic-mcp',
-			'grok-build',
-		]));
-		expect(cardSlugs).not.toContain('chatgpt-desktop');
-		expect(cardSlugs).not.toContain('vscode');
+		expect([...cardSlugs].sort(), 'every catalog client must have one card').toEqual(catalog);
+		expect(
+			[...guideSlugs].sort(),
+			'every client card must own one OAuth guide',
+		).toEqual(catalog);
+		expect(
+			[...panelSlugs].sort(),
+			'every client card must own one Application Password panel',
+		).toEqual(catalog);
+		for (const slugs of [cardSlugs, guideSlugs]) {
+			expect(slugs).toEqual(expect.arrayContaining([
+				'chatgpt',
+				'claude-ai',
+				'claude-desktop',
+				'claude-code',
+				'windsurf',
+				'codex',
+				'codex-cli',
+				'cursor',
+				'vscode-copilot',
+				'generic-mcp',
+				'grok-build',
+			]));
+			expect(slugs).not.toContain('chatgpt-desktop');
+			expect(slugs).not.toContain('vscode');
+		}
 
-		const codexCard = page.locator('[data-stonewright-client-card="codex-cli"]');
-		await codexCard.click();
-		await expect(page.locator('[data-stonewright-client-panel="codex-cli"]')).toBeVisible();
-		await expect(page.locator('#stonewright-oauth-code-codex-cli')).toContainText(
-			'[mcp_servers.',
-		);
-
-		// Regression: templates render outside the oauth-connect root, and a
-		// server rename must still rewrite every displayed config.
-		await page.locator('[data-sw-oauth-name-toggle]').click();
-		const nameInput = page.locator('[data-sw-oauth-server-name]');
-		await nameInput.fill('stonewright-renamed');
-		await expect(page.locator('#stonewright-oauth-code-codex-cli')).toContainText(
-			'stonewright-renamed',
-		);
-
-		await passwordButton.click();
-		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
+		// OAuth chosen: the OAuth guides are shown and the password client cards are not.
+		await expectAuthPanels(page, 'oauth');
+		await expect
+			.poll(() => renderedCount(oauthGuides), { message: 'every client guide must be shown' })
+			.toBe(catalog.length);
+		await expect
+			.poll(() => renderedCount(clientCards), { message: 'password client cards must be hidden' })
+			.toBe(0);
 		await expect(
-			page.locator('[data-stonewright-auth-panel="application-password"]').first(),
+			page.getByRole('link', { name: /Choose Application Password/ }),
+			'the OAuth view must point to the Application Password route',
 		).toBeVisible();
 
+		// Every guide opens to its own instructions.
+		for (const slug of catalog) {
+			const guide = await openOAuthGuide(page, slug);
+			await expect(
+				guide.locator('.sw-connect-steps li').first(),
+				`${slug} must list setup steps`,
+			).toBeVisible();
+		}
+
+		// Every displayed config carries the one suggested server name, and the
+		// codex-cli entry carries this site's MCP URL.
+		const serverName = ((await page.locator('#sw-connect-server-name').textContent()) ?? '').trim();
+		const mcpUrl = ((await page.locator('#sw-connect-mcp-url').textContent()) ?? '').trim();
+		expect(serverName, 'Setup must suggest a server name').not.toBe('');
+		expect(mcpUrl, 'Setup must show the OAuth MCP server URL').toContain('/mcp/stonewright-oauth');
+		const snippets = await page.locator('.sw-connect-snippet__code').evaluateAll((nodes) =>
+			nodes.map((node) => ({ id: node.id, text: node.textContent ?? '' })),
+		);
+		expect(snippets.length, 'OAuth guides must carry configuration snippets').toBeGreaterThan(0);
+		for (const snippet of snippets) {
+			expect(snippet.text, `${snippet.id} must use the suggested server name`).toContain(serverName);
+		}
+		const codexConfig = page.locator('#sw-connect-codex-cli-config');
+		await expect(codexConfig).toContainText('[mcp_servers.');
+		await expect(codexConfig).toContainText(`[mcp_servers.${serverName}]`);
+		await expect(codexConfig).toContainText(mcpUrl);
+
+		// Application Password chosen: the fallback route replaces the OAuth guides.
+		await passwordButton.click();
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
+		await expect(oauthButton).toHaveAttribute('aria-checked', 'false');
+		await expectAuthPanels(page, 'application-password');
+		await expect
+			.poll(() => renderedCount(oauthGuides), { message: 'OAuth guides must be hidden' })
+			.toBe(0);
+		await expect
+			.poll(() => renderedCount(clientCards), { message: 'every client card must be shown' })
+			.toBe(catalog.length);
+		await expect(
+			page.locator('[data-stonewright-app-password-form]'),
+			'the Application Password form must stay available',
+		).toBeVisible();
+
+		// Each client card switches the panel to that client's own snippets.
+		for (const slug of catalog) {
+			const card = page.locator(`[data-stonewright-client-card="${slug}"]`);
+			const panel = page.locator(`[data-stonewright-client-panel="${slug}"]`);
+			await card.click();
+			await expect(card).toHaveAttribute('aria-selected', 'true');
+			await expect(panel, `${slug} must show its panel`).toBeVisible();
+			await expect(
+				panel.locator('[data-stonewright-method-snippet]:not([hidden]) pre'),
+				`${slug} must show a snippet`,
+			).not.toBeEmpty();
+			await expect
+				.poll(() => renderedCount(clientPanels), { message: 'only the chosen client panel is shown' })
+				.toBe(1);
+			if (slug === 'codex-cli') {
+				await expect(panel).toContainText('[mcp_servers.');
+			}
+		}
+		if (initialClient !== null) {
+			await page.locator(`[data-stonewright-client-card="${initialClient}"]`).click();
+		}
+
+		// Back to OAuth: guides return and the connected clients stay reachable.
 		await oauthButton.click();
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
-		await expect(page.getByRole('link', { name: 'Manage connected apps' }).first()).toBeVisible();
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'false');
+		await expectAuthPanels(page, 'oauth');
+		await expect
+			.poll(() => renderedCount(oauthGuides), { message: 'every client guide must be shown again' })
+			.toBe(catalog.length);
+		const connectedLink = page.getByRole('link', { name: 'Review connected OAuth clients' }).first();
+		await expect(connectedLink).toBeVisible();
+		await expect(connectedLink).toHaveAttribute('href', '#stonewright-oauth-connections');
+		await expect(page.locator('#stonewright-oauth-connections')).toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: 'Connected OAuth clients', exact: true }),
+		).toBeVisible();
 	});
 
 	test('Setup Save Settings returns to Stonewright instead of exposing options.php', async ({
