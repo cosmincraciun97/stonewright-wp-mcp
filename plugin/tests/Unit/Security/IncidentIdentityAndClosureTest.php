@@ -11,13 +11,30 @@ use Stonewright\WpMcp\Security\IncidentStore;
 /**
  * Incident identity and closure: one cause is one incident, successful rows
  * never join one, non-write incidents close after a quiet week, and write
- * incidents still need a verified repair.
+ * incidents still need a verified repair. The daily retention run performs the
+ * quiet closure whether or not a retention window is configured.
  *
  * @covers \Stonewright\WpMcp\Security\AuditEvent
  * @covers \Stonewright\WpMcp\Security\IncidentStore
  * @covers \Stonewright\WpMcp\Security\AuditLog
  */
 final class IncidentIdentityAndClosureTest extends TestCase {
+
+	/** A read incident: it involves no writes, verification, or rollback. */
+	private const QUIET_META = [
+		'operation_kind' => 'read',
+		'error_code'     => 'stonewright_example_report_unavailable',
+		'resource_type'  => 'report',
+	];
+
+	/** A write incident: it closes only through a verified repair. */
+	private const WRITE_META = [
+		'error_code'      => 'stonewright_example_write_failed',
+		'resource_type'   => 'post',
+		'resource_ref'    => '41',
+		'normalized_path' => 'content/title',
+		'change_set_id'   => 'change-b',
+	];
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
@@ -138,6 +155,129 @@ final class IncidentIdentityAndClosureTest extends TestCase {
 		);
 		self::assertIsArray( $resolved );
 		self::assertSame( 'resolved', $resolved['state'] );
+	}
+
+	public function test_scheduled_run_closes_quiet_incidents_when_no_retention_is_configured(): void {
+		$quiet = $this->open_incident( 'stonewright/example-report-get', self::QUIET_META );
+		$write = $this->open_incident( 'stonewright/example-content-update', self::WRITE_META );
+		$this->age( $quiet, 8 );
+		$this->age( $write, 30 );
+
+		$statements = $this->run_scheduled_retention();
+
+		self::assertSame( 'resolved', IncidentStore::get( $quiet )['state'] );
+		self::assertSame( 'open', IncidentStore::get( $write )['state'] );
+		self::assertSame( [], $statements, 'Without a retention window no row is deleted.' );
+		self::assertFalse( get_option( AuditLog::RETENTION_RECEIPT_OPTION, false ) );
+	}
+
+	public function test_scheduled_run_closes_quiet_incidents_and_applies_retention_when_it_is_configured(): void {
+		$GLOBALS['stonewright_test_options'][ AuditLog::RETENTION_OPTION ] = 30;
+		$quiet = $this->open_incident( 'stonewright/example-report-get', self::QUIET_META );
+		$write = $this->open_incident( 'stonewright/example-content-update', self::WRITE_META );
+		$this->age( $quiet, 8 );
+		$this->age( $write, 30 );
+
+		$statements = $this->run_scheduled_retention();
+
+		self::assertSame( 'resolved', IncidentStore::get( $quiet )['state'] );
+		self::assertSame( 'open', IncidentStore::get( $write )['state'] );
+		self::assertCount( 2, $statements );
+		self::assertStringStartsWith( 'DELETE FROM wptests_stonewright_audit_log WHERE created_at <', $statements[0] );
+		self::assertStringStartsWith( 'DELETE FROM wptests_stonewright_incidents', $statements[1] );
+		self::assertSame( 'completed', get_option( AuditLog::RETENTION_RECEIPT_OPTION )['status'] );
+	}
+
+	public function test_quiet_incidents_close_even_when_the_audit_row_deletion_fails(): void {
+		$GLOBALS['stonewright_test_options'][ AuditLog::RETENTION_OPTION ] = 30;
+		$quiet = $this->open_incident( 'stonewright/example-report-get', self::QUIET_META );
+		$this->age( $quiet, 8 );
+
+		$this->run_scheduled_retention( false );
+
+		self::assertSame( 'failed', get_option( AuditLog::RETENTION_RECEIPT_OPTION )['status'] );
+		self::assertSame( 'resolved', IncidentStore::get( $quiet )['state'] );
+	}
+
+	public function test_a_throttled_run_leaves_quiet_incidents_for_the_scheduled_run(): void {
+		$quiet = $this->open_incident( 'stonewright/example-report-get', self::QUIET_META );
+		$this->age( $quiet, 8 );
+		set_transient( 'stonewright_audit_retention_ran', 1, DAY_IN_SECONDS );
+
+		AuditLog::enforce_retention();
+		self::assertSame( 'open', IncidentStore::get( $quiet )['state'] );
+
+		AuditLog::enforce_retention( true );
+		self::assertSame( 'resolved', IncidentStore::get( $quiet )['state'] );
+	}
+
+	public function test_an_unforced_run_without_retention_sweeps_once_a_day(): void {
+		$first = $this->open_incident( 'stonewright/example-report-get', self::QUIET_META );
+		$this->age( $first, 8 );
+		AuditLog::enforce_retention();
+		self::assertSame( 'resolved', IncidentStore::get( $first )['state'] );
+
+		$second = $this->open_incident( 'stonewright/example-report-list', [ 'error_code' => 'stonewright_example_list_unavailable' ] + self::QUIET_META );
+		$this->age( $second, 8 );
+		AuditLog::enforce_retention();
+		self::assertSame( 'open', IncidentStore::get( $second )['state'] );
+	}
+
+	/** @param array<string, mixed> $meta */
+	private function open_incident( string $ability, array $meta ): string {
+		$this->record( $ability, $meta );
+		$this->record( $ability, $meta );
+		return (string) $this->last_row()['incident_id'];
+	}
+
+	/**
+	 * Run the scheduled retention job against a wpdb that serves the shared test
+	 * incident rows and records every statement sent through query().
+	 *
+	 * @return list<string>
+	 */
+	private function run_scheduled_retention( int|false $query_result = 0 ): array {
+		$inner    = $GLOBALS['wpdb'];
+		$recorder = new class( $inner, $query_result ) extends \wpdb {
+			/** @var list<string> */
+			public array $statements = [];
+
+			public function __construct( private object $inner, private int|false $query_result ) {
+				$this->prefix = (string) $inner->prefix;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $this->inner->prepare( $query, ...$args );
+			}
+
+			public function query( string $query ): int|false {
+				$this->statements[] = $query;
+				return $this->query_result;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				return $this->inner->get_results( $query, $output );
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): array|object|null {
+				return $this->inner->get_row( $query, $output );
+			}
+
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+				return $this->inner->update( $table, $data, $where, $format, $where_format );
+			}
+		};
+
+		$GLOBALS['wpdb'] = $recorder;
+		try {
+			AuditLog::run_scheduled_retention();
+		} finally {
+			$GLOBALS['wpdb'] = $inner;
+		}
+
+		return $recorder->statements;
 	}
 
 	/** @param array<string, mixed> $meta */

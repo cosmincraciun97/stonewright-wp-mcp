@@ -26,7 +26,7 @@ An incident covers one cause: the same error code from the same ability family o
 
 ## Proposed lessons
 
-When the same error repeats ten times, Stonewright adds a proposed lesson to Memory as a draft. A draft is not active. An administrator approves or discards it on the Memory page; approval makes the lesson active and records who approved it and when (UTC). A one-time repair returns any proposed lesson that is active without a recorded approval to draft.
+When the same error repeats ten times, Stonewright adds a proposed lesson to Memory as a draft. A draft is not active. An administrator approves or discards it on the Memory page; approval makes the lesson active and records who approved it and when (UTC). An approved lesson is offered to agents like any other active reference entry; a draft, or a lesson that is active without a recorded approval, is not. A one-time repair returns any proposed lesson that is active without a recorded approval to draft.
 
 ## Task-start response
 

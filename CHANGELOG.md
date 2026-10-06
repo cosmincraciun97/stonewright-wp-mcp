@@ -95,8 +95,8 @@ development builds were never stable releases.
   masked, and messages such as "The refresh token is no longer valid." stay
   readable.
 - Store successful audit rows without an error code, repair hint, or incident
-  link, and show no error cause or repair hint for successful rows stored
-  earlier.
+  link, and show no error cause, repair hint, or incident link for successful
+  rows stored earlier.
 - Record read-only abilities as reads, and stop treating abilities whose names
   start with `blocks-` as lock errors.
 - Give every failed, blocked, and retryable audit row a readable message; when
@@ -106,9 +106,8 @@ development builds were never stable releases.
   category.
 - Close incidents that do not involve writes, verification, or rollback after
   7 days without a new occurrence, reopen them when the cause recurs, and count
-  reopenings. The sweep belongs to the daily audit retention run, which runs
-  only when an operator configures scheduled retention; write incidents still
-  close only through a verified repair.
+  reopenings. A daily run performs the sweep; write incidents still close only
+  through a verified repair.
 - Treat generated Elementor CSS served behind a redirect to another page of the
   same site as protected delivery instead of a failure in
   `stonewright-elementor-css-regenerate`. A redirect that is still refused
@@ -121,7 +120,8 @@ development builds were never stable releases.
   Memory page. Recording that an entry was retrieved no longer changes its
   Updated time.
 - Keep proposed Memory lessons as drafts until an administrator approves them.
-  Approval records who approved the lesson and when (UTC), and a one-time
+  Approval records who approved the lesson and when (UTC), approved lessons are
+  offered to agents like any other active reference entry, and a one-time
   repair returns proposed lessons that were active without a recorded approval
   to draft.
 - Make the Visual workspace follow its confirmation state: Apply is enabled

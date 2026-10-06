@@ -40,6 +40,13 @@ final class PersistentStateLifecycleTest extends TestCase {
 		self::assertDoesNotMatchRegularExpression( '/\b(?:DROP|TRUNCATE|DELETE\s+FROM)\b/i', $upgrade );
 	}
 
+	public function test_the_daily_audit_retention_job_is_scheduled_on_every_boot(): void {
+		$hooks = self::method_source( PluginRegistration::class, 'register_hooks' );
+
+		self::assertStringContainsString( "add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ]", $hooks );
+		self::assertStringContainsString( "add_action( AuditLog::RETENTION_HOOK, [ AuditLog::class, 'run_scheduled_retention' ] )", $hooks );
+	}
+
 	public function test_schema_upgrades_do_not_reset_memory_skills_or_audit(): void {
 		$methods = [
 			self::method_source( Memory::class, 'maybe_install_table' ),

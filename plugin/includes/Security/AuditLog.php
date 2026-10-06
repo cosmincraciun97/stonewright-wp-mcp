@@ -536,8 +536,11 @@ final class AuditLog {
 	}
 
 	/**
-	 * Delete a bounded batch of expired audit rows and persist a redacted receipt.
-	 * A zero-day policy explicitly disables automatic retention.
+	 * Daily sweep. Every run that is not throttled closes quiet incidents, with
+	 * or without a retention window. Only when a retention window is configured
+	 * does it also delete a bounded batch of expired audit rows, prune aged
+	 * incidents, and persist a redacted receipt. A zero-day policy disables
+	 * automatic deletion.
 	 *
 	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
 	 */
@@ -551,7 +554,13 @@ final class AuditLog {
 			'deleted_rows'   => 0,
 			'run_at'         => gmdate( 'c', $now ),
 		];
-		if ( 0 === $days || ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) ) {
+		if ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) {
+			return $base;
+		}
+
+		IncidentStore::close_quiet( $now );
+		if ( 0 === $days ) {
+			set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
 			return $base;
 		}
 
@@ -569,7 +578,6 @@ final class AuditLog {
 		if ( false === $deleted ) {
 			return $base;
 		}
-		IncidentStore::close_quiet( $now );
 		$incident_receipt = IncidentStore::enforce_retention( $days, $now );
 		if ( 'completed' !== (string) ( $incident_receipt['status'] ?? '' ) ) {
 			$base['status'] = 'failed';
@@ -580,14 +588,11 @@ final class AuditLog {
 		return $base;
 	}
 
+	/**
+	 * Keep the daily retention job scheduled whatever the retention setting; the
+	 * job closes quiet incidents even when no retention window is configured.
+	 */
 	public static function sync_retention_schedule( mixed $now = null ): void {
-		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
-		if ( 0 === $days ) {
-			if ( wp_next_scheduled( self::RETENTION_HOOK ) ) {
-				wp_clear_scheduled_hook( self::RETENTION_HOOK );
-			}
-			return;
-		}
 		if ( ! wp_next_scheduled( self::RETENTION_HOOK ) ) {
 			$timestamp = is_int( $now ) ? $now : time();
 			wp_schedule_event( $timestamp + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );

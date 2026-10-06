@@ -24,7 +24,8 @@ it first even though Stonewright redacts known credential and code fields.
 - Failed, blocked, and retryable rows always carry a readable message. When the
   caller supplied none, it names the outcome and the error code.
 - Successful rows carry no error code, repair hint, or incident link, and the
-  page shows no error cause or repair hint for successful rows stored earlier.
+  page shows no error cause, repair hint, or incident link for successful rows
+  stored earlier.
 - Read-only abilities are recorded as `READ` rows. Lock, busy, and conflict
   errors are recognized from the reported error code, never from a word in the
   ability name, so abilities whose names start with `blocks-` are not mistaken
@@ -77,10 +78,9 @@ on the same kind of resource, whatever the record, path, or change set. A
 resolved incident reopens when its cause recurs, and each reopening is counted.
 Incidents that do not involve writes, verification, or rollback close after
 seven days without a new occurrence, with the end of that quiet period as their
-resolution time. The daily retention run performs that sweep when an operator
-has configured scheduled retention, and a recurrence after a quiet week reopens
-the incident even before the sweep ran. Write, verification, and rollback
-incidents close only through a verified repair.
+resolution time. A daily run performs that sweep, and a recurrence after a
+quiet week reopens the incident even before the sweep ran. Write, verification,
+and rollback incidents close only through a verified repair.
 
 See [Updating Stonewright](../updates.md) for persistence guarantees and
 [Security](../security.md) for the broader audit contract. The complete

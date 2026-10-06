@@ -35,11 +35,10 @@ category. A resolver closes a write, verification, or rollback incident only
 after a correlated success with the same transaction resource/path or an exact
 change-set correlation. Any other incident also closes after seven days
 without a new occurrence, with the end of that quiet period as its resolution
-time; the daily audit retention run performs that sweep when scheduled
-retention is configured. A new matching failure reopens a resolved incident and
-counts the reopening, also when it arrives after a quiet week but before the
-sweep ran. Legacy rows are classified and migrated idempotently into the same
-contract.
+time; a daily run performs that sweep. A new matching failure reopens a
+resolved incident and counts the reopening, also when it arrives after a quiet
+week but before the sweep ran. Legacy rows are classified and migrated
+idempotently into the same contract.
 
 `stonewright/incident-repair-record` is the only typed Plugin closure path. It
 reads the incident, failure event, and proposed verifier event from persisted

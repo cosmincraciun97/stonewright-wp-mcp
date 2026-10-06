@@ -122,6 +122,40 @@ final class SuccessfulAuditRowTest extends TestCase {
 		self::assertStringNotContainsString( '>Repair<', $html );
 	}
 
+	public function test_legacy_successful_row_with_a_stored_incident_id_shows_no_incident_link(): void {
+		$incident_id = hash( 'sha256', 'synthetic-incident' );
+
+		$html = $this->render_rows( [ $this->stored_row( 'ok', 'SUCCESS', $incident_id ) ] );
+
+		self::assertStringContainsString( 'stonewright/example-content-update', $html );
+		self::assertStringNotContainsString( 'Incident:', $html );
+		self::assertStringNotContainsString( substr( $incident_id, 0, 12 ), $html );
+	}
+
+	public function test_failed_row_keeps_its_incident_link(): void {
+		$incident_id = hash( 'sha256', 'synthetic-incident' );
+
+		$html = $this->render_rows( [ $this->stored_row( 'error', 'FAILED', $incident_id ) ] );
+
+		self::assertStringContainsString( 'Incident:', $html );
+		self::assertStringContainsString( 'incident_id=' . $incident_id, $html );
+	}
+
+	/** @return array<string, mixed> */
+	private function stored_row( string $status, string $outcome, string $incident_id ): array {
+		return [
+			'id'             => '42',
+			'ability_name'   => 'stonewright/example-content-update',
+			'user_id'        => '17',
+			'result_status'  => $status,
+			'category'       => 'WRITE',
+			'outcome'        => $outcome,
+			'incident_id'    => $incident_id,
+			'sanitized_args' => '{}',
+			'created_at'     => '2026-09-01 10:00:00',
+		];
+	}
+
 	/** @return array<string, mixed> */
 	private function audit_row( string $ability ): array {
 		foreach ( array_reverse( $GLOBALS['stonewright_test_wpdb_inserts'] ) as $insert ) {

@@ -144,7 +144,9 @@ accidental removal. The handler calls `Memory::delete_by_id()`.
 A draft lesson shows **Approve** and **Discard** in its Actions cell.
 **Approve** makes the entry active and records who approved it and when (UTC) in
 the entry's value; **Discard** rejects it. Only draft entries can be approved or
-discarded, and both actions need `manage_options` and a nonce. A one-time repair
+discarded, and both actions need `manage_options` and a nonce. An approved
+lesson is offered to agents like any other active Reference entry; a proposed
+lesson that is not active and approved is not offered. A one-time repair
 returned proposed lessons that were active without a recorded approval to
 draft.
 

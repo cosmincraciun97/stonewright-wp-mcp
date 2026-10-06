@@ -583,9 +583,10 @@ final class AuditLogPage {
 			$details_raw = (string) ( $row['redacted_details'] ?? '' );
 			$details     = self::expanded_row_details( $row, $details_raw, $repair_index );
 			$pairs       = self::detail_pairs( $row, $details_raw, $repair_index );
-			$root_error = self::row_is_problem( $row ) ? (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' ) : '';
+			$is_problem = self::row_is_problem( $row );
+			$root_error = $is_problem ? (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' ) : '';
 			$retry_after = max( 0, (int) ( $row['retry_after_seconds'] ?? 0 ) );
-			$incident_id = strtolower( (string) ( $row['incident_id'] ?? '' ) );
+			$incident_id = $is_problem ? strtolower( (string) ( $row['incident_id'] ?? '' ) ) : '';
 			$incident_state = isset( $incident_states[ $incident_id ] ) ? $incident_states[ $incident_id ] : '';
 
 			echo '<tr class="sw-audit-row">';
@@ -982,8 +983,8 @@ final class AuditLogPage {
 
 	/**
 	 * Whether the row records a failure, refusal, or block. Successful rows,
-	 * including rows stored before successes dropped their codes, show no error
-	 * cause and no repair hint.
+	 * including rows stored before successes dropped their codes and incident
+	 * ids, show no error cause, no repair hint, and no incident link.
 	 *
 	 * @param array<string, mixed> $row
 	 */

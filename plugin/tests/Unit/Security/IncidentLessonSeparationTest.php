@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 
@@ -255,6 +256,41 @@ final class IncidentLessonSeparationTest extends TestCase {
 			(int) $drafts[0]['id'],
 			array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' )
 		);
+	}
+
+	public function test_approved_error_pattern_draft_is_offered_at_task_start_and_stays_offered(): void {
+		Memory::maybe_install_table();
+		$args = [
+			'error_code' => 'stonewright_demo_failure',
+			'message'    => 'Demo failed',
+		];
+		for ( $i = 0; $i < ErrorPatterns::DRAFT_LESSON_COUNT; $i++ ) {
+			ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		}
+		$drafts = array_values(
+			array_filter(
+				Memory::list_by_type( 'reference', 50, 0 ),
+				static function ( array $row ): bool {
+					$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+					return 'error-pattern-draft' === (string) ( $value['source'] ?? '' );
+				}
+			)
+		);
+		self::assertNotEmpty( $drafts );
+		$id = (int) $drafts[0]['id'];
+		self::assertNotContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+
+		self::assertTrue( MemoryInstructionsPage::apply_draft_review( $id, 'approve' ) );
+
+		$approved = Memory::get_by_id( $id );
+		self::assertIsArray( $approved );
+		self::assertSame( 'active', $approved['status'] );
+		self::assertTrue( Memory::is_task_start_eligible( $approved ) );
+		self::assertContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
+
+		// Further occurrences of the same failure leave the approved lesson alone.
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		self::assertContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
 	}
 
 	/** @return object */

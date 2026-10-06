@@ -687,8 +687,9 @@ final class Memory {
 	}
 
 	/**
-	 * Task-start may load only explicit active rows that are not draft lessons,
-	 * dangerous unverified workarounds, or payloads claiming to be product rules.
+	 * Task-start may load only explicit active rows that are not unapproved draft
+	 * lessons, dangerous unverified workarounds, or payloads claiming to be
+	 * product rules. An approved lesson is offered like any other active row.
 	 *
 	 * @param array<string, mixed> $entry
 	 */
@@ -705,13 +706,27 @@ final class Memory {
 		return ! self::is_dangerous_unverified( $entry );
 	}
 
-	/** @param array<string, mixed> $entry */
+	/**
+	 * A proposed lesson is a draft until an administrator approves it: it must be
+	 * active and carry the approval record written on approval.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
 	private static function is_error_pattern_draft( array $entry ): bool {
 		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
-		if ( 'error-pattern-draft' === (string) ( $value['source'] ?? '' ) ) {
-			return true;
+		if ( 'error-pattern-draft' !== (string) ( $value['source'] ?? '' )
+			&& ! str_starts_with( (string) ( $entry['memory_key'] ?? '' ), 'draft-lesson-' ) ) {
+			return false;
 		}
-		return str_starts_with( (string) ( $entry['memory_key'] ?? '' ), 'draft-lesson-' );
+		return 'active' !== (string) ( $entry['status'] ?? '' ) || ! self::has_approval_record( $value );
+	}
+
+	/** @param array<string, mixed> $value */
+	private static function has_approval_record( array $value ): bool {
+		$approval = $value['approval'] ?? null;
+		return is_array( $approval )
+			&& is_string( $approval['approved_at'] ?? null )
+			&& '' !== trim( $approval['approved_at'] );
 	}
 
 	/** @param array<string, mixed> $entry */
