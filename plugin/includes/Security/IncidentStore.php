@@ -35,6 +35,8 @@ final class IncidentStore {
 	public const OPTION_KEY = 'stonewright_incident_fallback';
 	public const OBSERVING_THRESHOLD = 2;
 	public const RETRYABLE_THRESHOLD = 3;
+	/** Days without a new occurrence after which a non-write incident closes. */
+	public const QUIET_DAYS = 7;
 	private const CAS_ATTEMPTS = 8;
 	private const SCHEMA_VERSION = 2;
 	private const SCHEMA_OPTION = 'stonewright_incident_schema_version';
@@ -227,6 +229,12 @@ final class IncidentStore {
 			$count   = $delta + (int) ( $existing['occurrence_count'] ?? 0 );
 			$state   = self::state_for( $event, $count, (string) ( $existing['state'] ?? '' ) );
 			$row     = self::row_from_event( $event, $incident_id, $existing, $count, $state, $now );
+
+			// A recurrence after a quiet period reopens a non-write incident even
+			// when the daily sweep has not closed it yet.
+			if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'open', 'observing' ], true ) && self::quiet_closable( $existing, time() ) ) {
+				$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
+			}
 
 			if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'resolved', 'suppressed' ], true ) ) {
 				$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
@@ -424,6 +432,55 @@ final class IncidentStore {
 			}
 			return true;
 		} ) ), 0, $limit );
+	}
+
+	/**
+	 * Close non-write incidents that have had no new occurrence for QUIET_DAYS.
+	 * Write, verification and rollback incidents still need a verified repair.
+	 * The resolution time is the end of the quiet period, not the sweep time.
+	 *
+	 * @return int Number of incidents closed.
+	 */
+	public static function close_quiet( ?int $now = null ): int {
+		$now    = $now ?? time();
+		$closed = 0;
+		foreach ( self::recent( 500 ) as $listed ) {
+			$incident_id = (string) ( $listed['incident_id'] ?? '' );
+			$existing    = '' === $incident_id ? null : self::find( $incident_id );
+			if ( null === $existing
+				|| ! in_array( (string) ( $existing['state'] ?? '' ), [ 'open', 'observing' ], true )
+				|| ! self::quiet_closable( $existing, $now ) ) {
+				continue;
+			}
+			$last_seen = strtotime( (string) $existing['last_seen'] . ' UTC' );
+			$row       = $existing;
+			unset( $row['id'] );
+			$row['state']           = 'resolved';
+			$row['resolved_at']     = gmdate( 'Y-m-d H:i:s', (int) $last_seen + self::QUIET_DAYS * DAY_IN_SECONDS );
+			$row['resolution_json'] = Json::encode( [ 'reason' => 'quiet', 'quiet_days' => self::QUIET_DAYS ] );
+			$row['generation']      = (int) ( $existing['generation'] ?? 1 ) + 1;
+			$row['updated_at']      = gmdate( 'Y-m-d H:i:s', $now );
+			$row['id']              = (int) ( $existing['id'] ?? 0 );
+			if ( self::persist_cas( $row, self::version_token_from_row( $existing ) ) ) {
+				++$closed;
+			}
+		}
+		return $closed;
+	}
+
+	/**
+	 * Whether an incident is a non-write incident whose last occurrence is older
+	 * than the quiet period.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function quiet_closable( array $row, int $now ): bool {
+		$category = strtoupper( (string) ( $row['category'] ?? '' ) );
+		if ( in_array( $category, [ AuditEvent::CATEGORY_WRITE, AuditEvent::CATEGORY_VERIFY, AuditEvent::CATEGORY_ROLLBACK ], true ) ) {
+			return false;
+		}
+		$last_seen = strtotime( (string) ( $row['last_seen'] ?? '' ) . ' UTC' );
+		return false !== $last_seen && $last_seen <= $now - self::QUIET_DAYS * DAY_IN_SECONDS;
 	}
 
 	/** @return array<string, int> */

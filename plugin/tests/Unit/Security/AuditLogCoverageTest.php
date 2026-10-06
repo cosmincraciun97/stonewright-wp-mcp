@@ -655,6 +655,11 @@ final class AuditLogCoverageTest extends TestCase {
 				$this->last_query = $query;
 				return array_shift( $this->query_results ) ?? 0;
 			}
+
+			/** The quiet-incident sweep reads incidents before retention; none are open here. */
+			public function get_results( string $query, string $output = OBJECT ): array {
+				return [];
+			}
 		};
 	}
 

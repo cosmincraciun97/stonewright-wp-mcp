@@ -133,7 +133,10 @@ final class AuditEvent {
 			'sha256',
 			implode( '|', [ $idempotency_source, $ability, $resource_type, $resource_ref, $payload_hash, $status, $operation_id ] )
 		);
-		$incident_id    = hash( 'sha256', implode( '|', [ $category, $ability_family, $code, $resource_key, $path, $cause, $strategy ] ) );
+		// One cause is one incident: the same error from the same ability family on
+		// the same kind of resource, whatever the record, path or category. A
+		// successful row belongs to no incident.
+		$incident_id    = $succeeded ? '' : hash( 'sha256', implode( '|', [ $ability_family, $code, $resource_type ] ) );
 		$retry_after    = self::retry_after( $meta );
 		$retry_limit    = 0;
 		if ( self::is_write_busy( $code, $meta ) ) {
@@ -208,7 +211,7 @@ final class AuditEvent {
 					'retry_limit'      => $retry_limit,
 					'execution_status' => $execution_status,
 				],
-				$succeeded ? [ 'error_code', 'error_message', 'root_error_code', 'remediation_code' ] : []
+				$succeeded ? [ 'error_code', 'error_message', 'root_error_code', 'remediation_code', 'incident_id' ] : []
 			),
 		];
 	}

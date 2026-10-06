@@ -569,6 +569,7 @@ final class AuditLog {
 		if ( false === $deleted ) {
 			return $base;
 		}
+		IncidentStore::close_quiet( $now );
 		$incident_receipt = IncidentStore::enforce_retention( $days, $now );
 		if ( 'completed' !== (string) ( $incident_receipt['status'] ?? '' ) ) {
 			$base['status'] = 'failed';
