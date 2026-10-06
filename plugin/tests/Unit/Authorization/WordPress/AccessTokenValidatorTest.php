@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Authorization\Model\OAuthFault;
 use Stonewright\WpMcp\Authorization\WordPress\AccessTokenValidator;
 use Stonewright\WpMcp\Authorization\WordPress\CredentialKeys;
 use Stonewright\WpMcp\Authorization\WordPress\PermissionSubjectAuthority;
+use Stonewright\WpMcp\Authorization\WordPress\TokenCodec;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\LegacyRows;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -28,13 +29,13 @@ final class AccessTokenValidatorTest extends TestCase {
 		StorageRig::reset_globals();
 	}
 
-	private function validator(): AccessTokenValidator {
-		return new AccessTokenValidator( $this->rig->codec, $this->rig->access, new PermissionSubjectAuthority(), $this->rig->clock );
+	private function validator( ?TokenCodec $codec = null ): AccessTokenValidator {
+		return new AccessTokenValidator( $codec ?? $this->rig->codec, $this->rig->access, new PermissionSubjectAuthority(), $this->rig->clock );
 	}
 
-	private function invalid( string $bearer ): void {
+	private function invalid( string $bearer, ?TokenCodec $codec = null ): void {
 		try {
-			$this->validator()->validate( $bearer );
+			$this->validator( $codec )->validate( $bearer );
 			self::fail( 'The bearer credential must be refused.' );
 		} catch ( OAuthFault $fault ) {
 			self::assertSame( 'invalid_token', $fault->error() );
@@ -107,5 +108,83 @@ final class AccessTokenValidatorTest extends TestCase {
 		[ , $pair ] = $this->rig->connect();
 
 		$this->invalid( $pair->refresh_token );
+	}
+
+	public function test_sealed_credentials_are_refused_as_bearers_without_being_decrypted(): void {
+		[ $client, $pair ] = $this->rig->connect();
+		$code = $this->rig->authorize( $client );
+		$opened = 0;
+		$probe = new TokenCodec(
+			$this->rig->keys,
+			$this->rig->families,
+			$this->rig->access,
+			$this->rig->clock,
+			StorageRig::ISSUER,
+			[ StorageRig::RESOURCE, StorageRig::PLAIN_RESOURCE ],
+			function () use ( &$opened ): string {
+				++$opened;
+				return $this->rig->binding_secret;
+			}
+		);
+
+		// The binding secret is read only after a sealed refresh payload has been decrypted.
+		$probe->inspect( $pair->refresh_token );
+		self::assertSame( 1, $opened );
+		$opened = 0;
+
+		foreach ( [ $pair->refresh_token, $code ] as $sealed ) {
+			$this->invalid( $sealed, $probe );
+		}
+
+		self::assertSame( 0, $opened, 'A sealed payload must not be decrypted at the protected resource.' );
+	}
+
+	public function test_an_earlier_refresh_payload_presented_as_a_bearer_adopts_no_family(): void {
+		$legacy = new LegacyRows( $this->rig->space, StorageRig::T );
+		$legacy->client();
+		$family = $legacy->family( 'f', 0, null, StorageRig::T - 100 );
+		$sealed = LegacyRows::refresh_payload( $family, 0, (string) get_option( CredentialKeys::ENCRYPTION_KEY_OPTION ) );
+		$statements = count( $this->rig->wpdb->statements );
+
+		$this->invalid( $sealed );
+
+		self::assertNull( $this->rig->row( 'families', 'family_hash', $family['family_hash'] ), 'A refused bearer must not adopt a family.' );
+		self::assertCount( $statements, $this->rig->wpdb->statements, 'A refused bearer must not reach storage.' );
+
+		// The same payload does adopt its family when the codec is asked to open it.
+		$this->rig->codec->inspect( $sealed );
+		self::assertNotNull( $this->rig->row( 'families', 'family_hash', $family['family_hash'] ) );
+	}
+
+	public function test_bearers_that_are_not_shaped_like_a_jwt_are_refused(): void {
+		$bearers = [
+			'',
+			'not-a-token',
+			'def50200',
+			'def50200' . str_repeat( 'ab', 100 ),
+			'a.b',
+			'a.b.c.d',
+			str_repeat( 'a', 9000 ),
+		];
+
+		foreach ( $bearers as $bearer ) {
+			$this->invalid( $bearer );
+		}
+	}
+
+	public function test_a_jwt_shaped_bearer_that_does_not_verify_is_still_refused(): void {
+		[ , $pair ] = $this->rig->connect();
+		[ $header, $claims, $signature ] = explode( '.', $pair->access_token );
+
+		$bearers = [
+			'a.b.c',
+			'not.a.token',
+			str_repeat( 'A', 40 ) . '.' . str_repeat( 'B', 40 ) . '.' . str_repeat( 'C', 40 ),
+			$header . '.' . $claims . '.' . strrev( $signature ),
+		];
+
+		foreach ( $bearers as $bearer ) {
+			$this->invalid( $bearer );
+		}
 	}
 }

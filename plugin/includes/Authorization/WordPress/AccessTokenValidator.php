@@ -18,7 +18,9 @@ use Stonewright\WpMcp\Authorization\Ports\SubjectAuthority;
  * Accepts a bearer access credential only when its RS256 signature verifies with the
  * public key derived from the stored private key, its time claims hold, its audience is
  * this resource, its row exists and is not revoked, and the subject still exists and
- * still holds the MCP capability. Every refusal is invalid_token (HTTP 401).
+ * still holds the MCP capability. Every refusal is invalid_token (HTTP 401). A bearer
+ * that is not shaped like a compact JWT is refused before the codec is called, so it
+ * is never decrypted.
  */
 final class AccessTokenValidator {
 
@@ -29,6 +31,9 @@ final class AccessTokenValidator {
 	 * @throws OAuthFault For a refused credential (invalid_token, HTTP 401), or server_error when the keys are missing.
 	 */
 	public function validate( string $bearer ): array {
+		if ( ! JsonWebSignature::looks_like( $bearer ) ) {
+			throw new OAuthFault( 'invalid_token', 401 );
+		}
 		try {
 			$facts = $this->codec->inspect( $bearer );
 		} catch ( OAuthFault $fault ) {
