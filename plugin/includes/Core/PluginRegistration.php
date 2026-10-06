@@ -20,7 +20,7 @@ use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
@@ -152,7 +152,7 @@ final class PluginRegistration {
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
-		FinalizerPage::register();
+		QueueConsole::attach_hooks();
 		AbilitiesPage::register();
 		SandboxPage::register();
 		SkillsPage::register();

@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -142,7 +142,7 @@ final class InsertBlock extends AbilityKernel {
 						'queued'        => true,
 						'change_id'     => (string) $queued['id'],
 						'status'        => (string) $queued['status'],
-						'finalizer_url' => FinalizerPage::url( '', (string) ( $queued['session_id'] ?? '' ) ),
+						'finalizer_url' => QueueConsole::session_link( '', (string) ( $queued['session_id'] ?? '' ) ),
 					];
 				}
 

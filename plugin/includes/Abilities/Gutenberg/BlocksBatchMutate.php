@@ -7,7 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -215,7 +215,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 								'block_names'      => self::block_names( $working, 25 ),
 							],
 							'full_mode_hint'      => 'Static or third-party blocks must go through stonewright/blocks-queue-change and the browser finalizer.',
-							'finalizer_url'       => FinalizerPage::url(),
+							'finalizer_url'       => QueueConsole::session_link(),
 						];
 					}
 					$queued = BlockQueue::enqueue_many( $items );
@@ -251,7 +251,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'block_names'      => self::block_names( $working, 25 ),
 						],
 						'full_mode_hint'      => '',
-						'finalizer_url'       => FinalizerPage::url( '', (string) ( $queued[0]['session_id'] ?? '' ) ),
+						'finalizer_url'       => QueueConsole::session_link( '', (string) ( $queued[0]['session_id'] ?? '' ) ),
 					];
 				}
 
