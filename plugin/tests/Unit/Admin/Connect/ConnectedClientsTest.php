@@ -7,11 +7,17 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
 use Stonewright\WpMcp\Admin\Connect\SignInPanel;
+use Stonewright\WpMcp\Authorization\Decisions\ConsentDecision;
+use Stonewright\WpMcp\Authorization\Exchange\ConsentCoordinator;
+use Stonewright\WpMcp\Authorization\Model\OAuthFault;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
+use Stonewright\WpMcp\Authorization\WordPress\OAuthReply;
 use Stonewright\WpMcp\Authorization\WordPress\RowKeys;
 use Stonewright\WpMcp\Authorization\WordPress\StorageTables;
+use Stonewright\WpMcp\Authorization\WordPress\TokenEndpoint;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Tests\Unit\Authorization\Fixtures\SyntheticSubjectAuthority;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -70,6 +76,39 @@ final class ConnectedClientsTest extends TestCase {
 	/** @return array<string, array<string, mixed>> */
 	private static function by_key( array $rows ): array {
 		return array_column( $rows, null, 'client_key' );
+	}
+
+	/** A consent request of user 7 that is still waiting for an answer; returns its pending key. */
+	private function open_consent( string $client ): string {
+		return $this->http->rig->consents->open(
+			[
+				'subject_key'           => '7',
+				'client_key'            => $client,
+				'redirect_uri'          => StorageRig::REDIRECT,
+				'code_challenge'        => HttpRig::challenge(),
+				'code_challenge_method' => 'S256',
+				'scopes'                => [ 'mcp' ],
+				'resources'             => [ StorageRig::RESOURCE ],
+				'native_client'         => true,
+				'registered_redirects'  => [ StorageRig::REDIRECT ],
+			]
+		);
+	}
+
+	/** The answer of the token endpoint to an authorization code. */
+	private function exchange_code( string $code, string $client ): OAuthReply {
+		return ( new TokenEndpoint( $this->http->storage, $this->http->site ) )->handle(
+			$this->http->form(
+				[
+					'grant_type'    => 'authorization_code',
+					'code'          => $code,
+					'redirect_uri'  => StorageRig::REDIRECT,
+					'client_id'     => $client,
+					'code_verifier' => StorageRig::VERIFIER,
+					'resource'      => StorageRig::RESOURCE,
+				]
+			)
+		);
 	}
 
 	/** @return list<array<string, mixed>> Audit rows written through the shared recorder. */
@@ -161,6 +200,37 @@ final class ConnectedClientsTest extends TestCase {
 		self::assertSame( 'Synthetic client', $details['client_name'] );
 		self::assertSame( 2, $details['revoked_grants'] );
 		self::assertSame( 'oauth_client', $details['_meta']['resource_type'] );
+	}
+
+	public function test_disconnect_also_closes_the_codes_and_consents_that_could_still_create_a_grant(): void {
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		[ $first, $second ] = $this->two_clients();
+		$rig = $this->http->rig;
+		$code = $rig->authorize( $first );
+		$pending = $this->open_consent( $first );
+		$kept_code = $rig->authorize( $second );
+		$kept_pending = $this->open_consent( $second );
+		self::assertNotNull( $rig->consents->peek( $pending ), 'The consent is live before the disconnect.' );
+		self::assertSame( 200, $this->exchange_code( $rig->authorize( $first ), $first )->status, 'A code of this client is exchangeable before the disconnect.' );
+
+		$result = ConnectedClients::disconnect( self::request( $first ) );
+
+		self::assertSame( 'disconnected', $result['status'] );
+		$reply = $this->exchange_code( $code, $first );
+		self::assertSame( 400, $reply->status );
+		self::assertSame( 'invalid_grant', $reply->body['error'] ?? null, 'A code issued before the disconnect no longer creates a grant.' );
+		self::assertNull( $rig->consents->peek( $pending ) );
+		try {
+			( new ConsentCoordinator( $rig->consents, $rig->clock, $rig->ids, new SyntheticSubjectAuthority(), new ConsentDecision( 60 ) ) )->decide( $pending, '7', true, true );
+			self::fail( 'A consent that was pending at the disconnect must not be approved.' );
+		} catch ( OAuthFault $refused ) {
+			self::assertSame( 'invalid_request', $refused->error() );
+		}
+		self::assertSame( [ $second ], array_column( $rig->rows( 'consents' ), 'client_id' ), 'Only the other client keeps its pending request.' );
+		self::assertSame( [ $second ], array_keys( self::by_key( ConnectedClients::current() ) ), 'The disconnected client holds no grant.' );
+
+		self::assertSame( 200, $this->exchange_code( $kept_code, $second )->status, 'Another client keeps its code.' );
+		self::assertNotNull( $rig->consents->peek( $kept_pending ) );
 	}
 
 	public function test_disconnect_keeps_reading_batches_until_the_client_has_no_live_grant(): void {

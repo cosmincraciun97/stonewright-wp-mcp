@@ -83,6 +83,26 @@ final class RevocationEndpointTest extends TestCase {
 		self::assertNull( $this->http->rig->refresh( $pair->refresh_token, $client )->fault );
 	}
 
+	public function test_the_client_is_named_in_the_audit_facts_only_for_a_recognized_credential(): void {
+		[ $client, $pair ] = $this->http->rig->connect();
+
+		$unknown = $this->revoke( [ 'token' => 'not-a-token', 'client_id' => 'made-up-client' ] );
+		$mismatched = $this->revoke( [ 'token' => $pair->refresh_token, 'client_id' => 'ffffffffffffffffffffffffffffffff' ] );
+		$anonymous = $this->revoke( [ 'token' => 'not-a-token' ] );
+		foreach ( [ $unknown, $mismatched, $anonymous ] as $reply ) {
+			self::assert_ok( $reply );
+			self::assertSame( '', $reply->audit['client_id'] );
+			self::assertArrayNotHasKey( 'event', $reply->audit );
+		}
+		self::assertSame( 'active', $this->http->rig->rows( 'families' )[0]['phase'], 'A mismatched client changes nothing.' );
+
+		$recognized = $this->revoke( [ 'token' => $pair->refresh_token, 'client_id' => $client ] );
+
+		self::assert_ok( $recognized );
+		self::assertSame( $client, $recognized->audit['client_id'] );
+		self::assertSame( 'revocation', $recognized->audit['event'] );
+	}
+
 	public function test_unknown_missing_and_malformed_requests_answer_200(): void {
 		self::assert_ok( $this->revoke( [ 'token' => 'not-a-token' ] ) );
 		self::assert_ok( $this->revoke( [ 'token_type_hint' => 'refresh_token' ] ) );

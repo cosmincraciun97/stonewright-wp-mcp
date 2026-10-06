@@ -156,6 +156,58 @@ final class TokenEndpointTest extends TestCase {
 		self::assert_error( $reply, 401, 'invalid_client' );
 	}
 
+	public function test_a_client_the_site_does_not_know_is_never_named_in_the_audit_facts(): void {
+		$unpublished = 'https://client.example.test/oauth/unpublished.json';
+		foreach ( [ 'made-up-client-one', 'made-up-client-two', str_repeat( 'f', 32 ), $unpublished ] as $client_id ) {
+			$exchange = $this->post( $this->code_fields( 'unused-code', [ 'client_id' => $client_id ] ) );
+			self::assert_error( $exchange, 401, 'invalid_client' );
+			self::assertSame( '', $exchange->audit['client_id'], 'code grant naming ' . $client_id );
+
+			$refresh = $this->refresh( 'unused-token', [ 'client_id' => $client_id ] );
+			self::assert_error( $refresh, 401, 'invalid_client' );
+			self::assertSame( '', $refresh->audit['client_id'], 'refresh grant naming ' . $client_id );
+		}
+
+		$unsupported = $this->post( [ 'grant_type' => 'client_credentials', 'client_id' => 'made-up-client-one' ] );
+		self::assert_error( $unsupported, 400, 'unsupported_grant_type' );
+		self::assertSame( '', $unsupported->audit['client_id'] );
+	}
+
+	public function test_a_client_that_no_longer_exists_is_not_named_by_its_own_credential(): void {
+		$tokens = $this->connect();
+		$this->http->rig->clients->forget( $this->client );
+
+		$reply = $this->post( [ 'grant_type' => 'refresh_token', 'refresh_token' => $tokens['refresh_token'] ] );
+
+		self::assert_error( $reply, 401, 'invalid_client' );
+		self::assertSame( '', $reply->audit['client_id'] );
+	}
+
+	public function test_a_known_client_is_named_in_the_audit_facts_when_its_request_fails(): void {
+		$code = $this->post( $this->code_fields( 'invalid-code-1' ) );
+		self::assert_error( $code, 400, 'invalid_grant' );
+		self::assertSame( $this->client, $code->audit['client_id'] );
+
+		$refresh = $this->refresh( 'invalid-refresh-token' );
+		self::assert_error( $refresh, 400, 'invalid_grant' );
+		self::assertSame( $this->client, $refresh->audit['client_id'] );
+
+		$unsupported = $this->post( [ 'grant_type' => 'client_credentials', 'client_id' => $this->client ] );
+		self::assert_error( $unsupported, 400, 'unsupported_grant_type' );
+		self::assertSame( $this->client, $unsupported->audit['client_id'] );
+
+		$incomplete = $this->post( [ 'grant_type' => 'authorization_code', 'client_id' => $this->client ] );
+		self::assert_error( $incomplete, 400, 'invalid_request' );
+		self::assertSame( $this->client, $incomplete->audit['client_id'] );
+
+		$url = 'https://client.example.test/oauth/client.json';
+		$this->http->publish_document( $url, [ 'client_id' => $url, 'client_name' => 'Document client', 'redirect_uris' => [ 'http://127.0.0.1/callback' ], 'token_endpoint_auth_method' => 'none' ] );
+		$this->http->documents->resolve( $url );
+		$document = $this->post( $this->code_fields( 'invalid-code-1', [ 'client_id' => $url ] ) );
+		self::assert_error( $document, 400, 'invalid_grant' );
+		self::assertSame( $url, $document->audit['client_id'], 'A document client is named by the URL it presented.' );
+	}
+
 	public function test_a_wrong_verifier_or_callback_is_refused_and_the_code_stays_usable(): void {
 		$code = $this->http->rig->authorize( $this->client );
 
@@ -163,6 +215,30 @@ final class TokenEndpointTest extends TestCase {
 		self::assert_error( $this->post( $this->code_fields( $code, [ 'redirect_uri' => 'http://127.0.0.1:7998/callback' ] ) ), 400, 'invalid_grant' );
 		self::assert_error( $this->post( $this->code_fields( $code, [ 'resource' => 'https://other.example.test/mcp' ] ) ), 400, 'invalid_target' );
 		self::assertSame( 200, $this->post( $this->code_fields( $code ) )->status );
+	}
+
+	/** @dataProvider resources_without_a_scheme */
+	public function test_a_resource_without_a_scheme_is_an_invalid_target_for_the_code_grant( string $resource ): void {
+		$code = $this->http->rig->authorize( $this->client );
+
+		self::assert_error( $this->post( $this->code_fields( $code, [ 'resource' => $resource ] ) ), 400, 'invalid_target' );
+		self::assertSame( 200, $this->post( $this->code_fields( $code ) )->status, 'The refused request leaves the code usable.' );
+	}
+
+	public function test_a_resource_without_a_scheme_is_an_invalid_target_for_a_refresh(): void {
+		$tokens = $this->connect();
+
+		self::assert_error( $this->refresh( $tokens['refresh_token'], [ 'resource' => 'localhost:8080' ] ), 400, 'invalid_target' );
+		self::assert_error( $this->refresh( $tokens['refresh_token'], [ 'resource' => 'example.com:443' ] ), 400, 'invalid_target' );
+		self::assertSame( 200, $this->refresh( $tokens['refresh_token'] )->status, 'The refused requests leave the credential usable.' );
+	}
+
+	public function resources_without_a_scheme(): array {
+		return [
+			'host and port'   => [ 'localhost:8080' ],
+			'domain and port' => [ 'example.com:443' ],
+			'port and path'   => [ 'localhost:80/mcp' ],
+		];
 	}
 
 	public function test_a_replayed_code_revokes_the_family_it_created(): void {

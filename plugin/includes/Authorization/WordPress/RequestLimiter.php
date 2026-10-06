@@ -19,11 +19,15 @@ use Stonewright\WpMcp\Support\Logger;
  *
  * The bucket key is sha256 of the endpoint and a server-derived requester (the
  * connection address, or the signed-in user for the authorization page), so a client
- * cannot choose its bucket. AbuseBudget decides; the new window is written with a
- * compare-and-swap on the observed window and hit count, so competing processes never
- * admit more than the limit. Discovery documents are not limited. When the table
- * cannot be read or written the request is admitted and a warning is logged: the
- * limits protect the endpoints but must not take OAuth down with them.
+ * cannot choose its bucket. An IPv6 address counts as its /64 prefix, the block a
+ * network normally gives one subscriber, and an IPv4-mapped IPv6 address counts as the
+ * IPv4 address it carries; changing address inside one block opens no new budget. IPv4
+ * addresses and other requesters count as they are. AbuseBudget decides; the new
+ * window is written with a compare-and-swap on the observed window and hit count, so
+ * competing processes never admit more than the limit. Discovery documents are not
+ * limited. When the table cannot be read or written the request is admitted and a
+ * warning is logged: the limits protect the endpoints but must not take OAuth down
+ * with them.
  */
 final class RequestLimiter {
 
@@ -45,7 +49,7 @@ final class RequestLimiter {
 	public function __construct( private Database $db, private Clock $clock, private array $limits = self::LIMITS ) {}
 
 	public static function bucket( string $endpoint, string $requester ): string {
-		return hash( 'sha256', 'stonewright-oauth:rate:' . $endpoint . "\n" . $requester );
+		return hash( 'sha256', 'stonewright-oauth:rate:' . $endpoint . "\n" . self::counted( $requester ) );
 	}
 
 	/** @return array{allowed: bool, retry_after: int} */
@@ -92,6 +96,21 @@ final class RequestLimiter {
 		}
 		Logger::warning( 'oauth_rate_limit_unavailable', [ 'endpoint' => $endpoint ] );
 		return [ 'allowed' => true, 'retry_after' => 0 ];
+	}
+
+	/** What a requester is counted as: its /64 prefix, the IPv4 address inside a mapped one, or itself. */
+	private static function counted( string $requester ): string {
+		if ( false === filter_var( $requester, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+			return $requester;
+		}
+		$packed = inet_pton( $requester );
+		if ( false === $packed || 16 !== strlen( $packed ) ) {
+			return $requester;
+		}
+		if ( str_starts_with( $packed, str_repeat( "\0", 10 ) . "\xff\xff" ) ) {
+			return (string) inet_ntop( substr( $packed, 12 ) );
+		}
+		return (string) inet_ntop( substr( $packed, 0, 8 ) . str_repeat( "\0", 8 ) ) . '/64';
 	}
 
 	/** @return array{0: int, 1: int}|null */

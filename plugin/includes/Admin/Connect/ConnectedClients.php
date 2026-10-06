@@ -25,8 +25,11 @@ use Stonewright\WpMcp\Support\Logger;
  *
  * Disconnecting closes every live grant of the client through the grant store's
  * revocation, which also revokes each access credential of those grants, so the client
- * loses access at once and must sign in again. The request needs manage_options and a
- * nonce bound to the client, and every attempt is written to the audit log.
+ * loses access at once and must sign in again. It first deletes the client's pending
+ * consent requests and makes its unused authorization codes unusable, so nothing
+ * approved before the disconnect can still create a grant afterwards. The request needs
+ * manage_options and a nonce bound to the client, and every attempt is written to the
+ * audit log.
  *
  * @phpstan-type Connection array{client_key: string, name: string, identity: string, people: list<string>, grants: int, connected_since: ?int, last_used: ?int}
  */
@@ -159,8 +162,10 @@ final class ConnectedClients {
 
 	/**
 	 * Close every live grant of one client after checking the capability and the nonce.
-	 * The status is "disconnected", "none" when the client held no live grant, or
-	 * "failed". Grants are read and revoked in batches until none of the client's are left.
+	 * Its pending consents and unused authorization codes are closed first, so neither
+	 * can create a grant afterwards. The status is "disconnected", "none" when the client
+	 * held no live grant, or "failed". Grants are read and revoked in batches until none
+	 * of the client's are left.
 	 *
 	 * @param array<string, mixed> $request Form fields: client and _wpnonce.
 	 * @param int                  $batch   Grants read per pass.
@@ -180,7 +185,11 @@ final class ConnectedClients {
 		$closed  = [];
 		$name    = $client;
 		try {
-			$name     = self::name( $storage->clients()->find( $client ) );
+			$name = self::name( $storage->clients()->find( $client ) );
+			// Closed before the grants: a pending consent or an unused code would otherwise
+			// still create a grant after the sweep below has finished.
+			$storage->consents()->discard_for_client( $client );
+			$storage->codes()->revoke_unused_for_client( $client );
 			$families = $storage->families();
 			for ( $pass = 0; $pass < self::DISCONNECT_PASSES; ++$pass ) {
 				$progress = false;

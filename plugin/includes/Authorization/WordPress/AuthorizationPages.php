@@ -25,7 +25,9 @@ use Stonewright\WpMcp\Support\Logger;
  * WordPress sends signed-out users through its login screen and back. For a signed-in
  * user (capability read) the request is checked in this order:
  *
- * 1. client: a registered client_id, or a metadata document URL (ClientDocuments);
+ * 1. client: a registered client_id, or a metadata document URL (ClientDocuments); the
+ *    audit facts name the application, by the identifier presented, only after this
+ *    check passes, so made-up identifiers never reach the audit log;
  * 2. redirect_uri: one of the client's callbacks (exact, or another port for a
  *    loopback callback); it may be omitted when exactly one is registered.
  * A failure in 1 or 2 shows an error page and never redirects. Later failures return to
@@ -95,11 +97,12 @@ final class AuthorizationPages {
 		if ( null === $client_id ) {
 			return PageOutcome::error( 400, __( 'The authorization request does not name an application.', 'stonewright' ), $audit );
 		}
-		$audit['client_id'] = $client_id;
 		$client = $this->client( $client_id );
 		if ( null === $client ) {
 			return PageOutcome::error( 400, __( 'This application is not registered with this site, or its client information could not be verified.', 'stonewright' ), $audit );
 		}
+		// Named in the audit only now that the site knows the client; the identifier is the one presented.
+		$audit['client_id'] = $client_id;
 		$registered = array_values( array_filter( (array) $client['redirect_uris'], 'is_string' ) );
 		$redirect = self::approved_redirect( $requested_redirect ?? ( 1 === count( $registered ) ? $registered[0] : null ), $registered );
 		if ( null === $redirect ) {

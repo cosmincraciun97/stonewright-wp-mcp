@@ -36,7 +36,8 @@ final class ResourceRules {
 			throw new OAuthFault( 'invalid_target' );
 		}
 		$parts = parse_url( $uri );
-		if ( false === $parts || isset( $parts['user'] ) || isset( $parts['pass'] ) || preg_match( '/[\[\]]/', ( $parts['path'] ?? '' ) . ( $parts['query'] ?? '' ) ) || ( isset( $parts['host'] ) && ! $this->valid_host( $parts['host'] ) ) || ( isset( $parts['port'] ) && $parts['port'] < 1 ) ) {
+		// A value such as "localhost:8080" reads as a host and a port, so it has no scheme.
+		if ( false === $parts || ! isset( $parts['scheme'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || preg_match( '/[\[\]]/', ( $parts['path'] ?? '' ) . ( $parts['query'] ?? '' ) ) || ( isset( $parts['host'] ) && ! $this->valid_host( $parts['host'] ) ) || ( isset( $parts['port'] ) && $parts['port'] < 1 ) ) {
 			throw new OAuthFault( 'invalid_target' );
 		}
 		$scheme = strtolower( $parts['scheme'] );

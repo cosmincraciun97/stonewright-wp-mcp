@@ -141,6 +141,32 @@ final class AuthorizationPagesTest extends TestCase {
 		];
 	}
 
+	public function test_an_application_the_site_does_not_know_is_never_named_in_the_audit_facts(): void {
+		foreach ( [ 'ffffffffffffffffffffffffffffffff', 'made-up-application', 'https://client.example.test/oauth/unpublished.json' ] as $client_id ) {
+			$outcome = $this->pages()->authorize( $this->query( [ 'client_id' => $client_id ] ), 7 );
+
+			self::assert_error_page( $outcome, 400 );
+			self::assertSame( '', $outcome->audit['client_id'], $client_id );
+		}
+		self::assertSame( [], $this->http->rig->rows( 'consents' ) );
+	}
+
+	public function test_a_known_application_is_named_in_the_audit_facts(): void {
+		$redirected = $this->pages()->authorize( $this->query(), 7 );
+		self::assertSame( PageOutcome::REDIRECT, $redirected->kind );
+		self::assertSame( $this->client, $redirected->audit['client_id'] );
+
+		$refused = $this->pages()->authorize( $this->query( [ 'redirect_uri' => 'https://attacker.example.test/callback' ] ), 7 );
+		self::assert_error_page( $refused, 400 );
+		self::assertSame( $this->client, $refused->audit['client_id'], 'The client is known even when its callback is not.' );
+
+		$url = 'https://client.example.test/oauth/client.json';
+		$this->http->publish_document( $url, [ 'client_id' => $url, 'client_name' => 'Document client', 'redirect_uris' => [ 'http://localhost/callback' ] ] );
+		$document = $this->pages()->authorize( $this->query( [ 'client_id' => $url, 'redirect_uri' => 'http://localhost:51234/callback' ] ), 7 );
+		self::assertSame( PageOutcome::REDIRECT, $document->kind );
+		self::assertSame( $url, $document->audit['client_id'], 'A document client is named by the URL it presented.' );
+	}
+
 	public function test_a_malformed_query_gets_an_error_page(): void {
 		self::assert_error_page( $this->pages()->authorize( $this->query() . '&client_id=' . $this->client, 7 ), 400 );
 		self::assert_error_page( $this->pages()->authorize( 'page=x&client_id=%zz', 7 ), 400 );
@@ -166,6 +192,7 @@ final class AuthorizationPagesTest extends TestCase {
 			'plain challenge'     => [ [ 'code_challenge_method' => 'plain' ], 'invalid_request' ],
 			'unknown scope'       => [ [ 'scope' => 'mcp admin' ], 'invalid_scope' ],
 			'foreign resource'    => [ [ 'resource' => 'https://other.example.test/mcp' ], 'invalid_target' ],
+			'resource no scheme'  => [ [ 'resource' => 'localhost:8080' ], 'invalid_target' ],
 		];
 	}
 

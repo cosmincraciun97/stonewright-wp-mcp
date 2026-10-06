@@ -84,8 +84,19 @@ final class SubjectAndRuntimeAdaptersTest extends TestCase {
 		self::assertSame( hash( 'sha256', 'stonewright-oauth:family:' . $jti ), RowKeys::grant_family( $jti ) );
 		self::assertSame( hash( 'sha256', 'stonewright-oauth:code:' . $jti ), RowKeys::code( $jti ) );
 		self::assertSame( hash( 'sha256', 'stonewright-oauth:consent:' . $jti ), RowKeys::consent( $jti ) );
-		self::assertSame( hash( 'sha256', '192.0.2.10' ), RowKeys::address( '192.0.2.10' ) );
 		self::assertTrue( RowKeys::is_earlier( $earlier ) );
 		self::assertFalse( RowKeys::is_earlier( strtoupper( $earlier ) ) );
+	}
+
+	public function test_the_registering_address_is_stored_as_a_keyed_hash(): void {
+		$address = RowKeys::address( '192.0.2.10' );
+
+		self::assertMatchesRegularExpression( '/^[0-9a-f]{64}$/D', $address );
+		self::assertNotSame( hash( 'sha256', '192.0.2.10' ), $address, 'A plain digest of an IPv4 address is undone by trying every address.' );
+		self::assertSame( $address, RowKeys::address( '192.0.2.10' ), 'The same address always gives the same value.' );
+		self::assertNotSame( $address, RowKeys::address( '192.0.2.11' ) );
+		self::assertNotSame( $address, RowKeys::address( '' ), 'An unknown address is not the value of a known one.' );
+		$key = hash_hmac( 'sha256', 'stonewright-oauth/registration-address/v1', wp_salt( 'auth' ), true );
+		self::assertSame( hash_hmac( 'sha256', '192.0.2.10', $key ), $address, 'HMAC-SHA256 under a key derived from the authentication salt.' );
 	}
 }

@@ -26,6 +26,8 @@ namespace Stonewright\WpMcp\Authorization\WordPress;
  */
 final class RowKeys {
 
+	private const ADDRESS_CONTEXT = 'stonewright-oauth/registration-address/v1';
+
 	/** Whether a logical key is a stored identifier written by the earlier version. */
 	public static function is_earlier( string $key ): bool {
 		return 1 === preg_match( '/^[0-9a-f]{64}$/D', $key );
@@ -60,8 +62,14 @@ final class RowKeys {
 		return hash( 'sha256', 'stonewright-oauth:client-document:' . $url );
 	}
 
-	/** Registering address, stored only as its sha256. */
+	/**
+	 * Registering address, stored only as a keyed hash: HMAC-SHA256 under a key derived
+	 * from the WordPress auth salt, which lives outside the database, so the stored
+	 * value cannot be undone by trying every IPv4 address. It tells registrations from
+	 * one address apart and reveals nothing else about the address.
+	 */
 	public static function address( string $address ): string {
-		return hash( 'sha256', $address );
+		$key = hash_hmac( 'sha256', self::ADDRESS_CONTEXT, (string) wp_salt( 'auth' ), true );
+		return hash_hmac( 'sha256', $address, $key );
 	}
 }

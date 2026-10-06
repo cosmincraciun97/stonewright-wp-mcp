@@ -160,6 +160,22 @@ final class PendingConsentStoreTest extends TestCase {
 		}
 	}
 
+	public function test_the_pending_requests_of_one_client_can_be_discarded(): void {
+		$other = $this->rig->register_client( 'Other client' );
+		$first = $this->open();
+		$this->open( [ 'subject_key' => '8' ] );
+		$kept = $this->open( [ 'client_key' => $other ] );
+
+		self::assertSame( 2, $this->rig->consents->discard_for_client( $this->client ) );
+
+		self::assertSame( [ RowKeys::consent( $kept ) ], array_column( $this->rig->rows( 'consents' ), 'consent_hash' ) );
+		self::assertNull( $this->rig->consents->peek( $first ) );
+		$this->refused( fn () => $this->decide( $first ) );
+		self::assertSame( [], $this->rig->rows( 'auth_codes' ), 'A discarded request creates no code.' );
+		self::assertNotNull( $this->rig->consents->peek( $kept ), 'Another client keeps its pending requests.' );
+		self::assertSame( 0, $this->rig->consents->discard_for_client( $this->client ), 'Nothing is left to discard.' );
+	}
+
 	public function test_open_rejects_incomplete_requests(): void {
 		$this->expectException( \InvalidArgumentException::class );
 		$this->open( [ 'subject_key' => '' ] );

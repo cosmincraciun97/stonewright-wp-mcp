@@ -20,7 +20,8 @@ use Stonewright\WpMcp\Authorization\Ports\ConsentLedger;
  * the consent screen URL; only sha256 of that key is stored. A decision is taken for
  * the user who opened the request, then the row is deleted (affected rows must be 1)
  * in the same transaction that stores the approved code, so two submissions can never
- * both produce a code and a denial is consumed as well.
+ * both produce a code and a denial is consumed as well. discard_for_client() deletes
+ * every pending request of one client.
  */
 final class PendingConsentStore implements ConsentLedger {
 
@@ -112,6 +113,17 @@ final class PendingConsentStore implements ConsentLedger {
 			throw $error;
 		}
 		return $outcome;
+	}
+
+	/**
+	 * Delete every pending request of one client, for example when an administrator
+	 * disconnects it, so none of them can still be answered with a code. Returns how
+	 * many were deleted.
+	 *
+	 * @throws StorageFailure When the database refuses the statement.
+	 */
+	public function discard_for_client( string $client_key ): int {
+		return $this->db->execute( 'DELETE FROM ' . $this->table() . ' WHERE client_id = %s', [ $client_key ] );
 	}
 
 	/** @return array<string, mixed>|null */

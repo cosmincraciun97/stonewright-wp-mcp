@@ -23,7 +23,9 @@ use Stonewright\WpMcp\Authorization\Ports\CodeLedger;
  * first refresh row and access row; a lost claim decides again, which turns the
  * second use into a replay. A replay revokes the family the code created before the
  * outcome is returned. Used codes stay until expiry plus
- * CodeGrantState::USED_CODE_RETENTION (Housekeeping removes them).
+ * CodeGrantState::USED_CODE_RETENTION (Housekeeping removes them). The unused codes of a
+ * disconnected client are revoked without a family (revoke_unused_for_client()), which
+ * state() refuses like any code it cannot read.
  */
 final class CodeStore implements CodeLedger {
 
@@ -83,6 +85,18 @@ final class CodeStore implements CodeLedger {
 				'family_key'      => null,
 			]
 		);
+	}
+
+	/**
+	 * Make every unused code of one client unusable, for example when an administrator
+	 * disconnects it. A row marked revoked without a family reads as an unreadable code,
+	 * which state() refuses (invalid_grant); a used code keeps the family it created, so
+	 * a replay still revokes that family. Returns how many codes were revoked.
+	 *
+	 * @throws StorageFailure When the database refuses the statement.
+	 */
+	public function revoke_unused_for_client( string $client_key ): int {
+		return $this->db->execute( 'UPDATE ' . $this->db->table( 'auth_codes' ) . ' SET revoked = 1 WHERE client_id = %s AND revoked = 0', [ $client_key ] );
 	}
 
 	/** @throws OAuthFault For an unknown, unreadable or earlier-version code (invalid_grant). */

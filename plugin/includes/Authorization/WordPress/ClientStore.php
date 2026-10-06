@@ -16,7 +16,8 @@ use Stonewright\WpMcp\Authorization\Ports\Clock;
 /**
  * Public clients in the clients table. A registration stores the observed columns
  * (32-hex client_id, client_name, redirect_uris as a JSON array, UTC created_at,
- * sha256 of the registering address) plus the whole accepted profile as JSON.
+ * the keyed hash RowKeys::address() makes of the registering address) plus the whole
+ * accepted profile as JSON.
  * Rows registered by the earlier version have no profile and read back with the
  * public-client defaults.
  *
@@ -37,6 +38,7 @@ final class ClientStore implements ClientDirectory {
 	private const ID_ATTEMPTS = 5;
 	private const NAME_LENGTH = 191;
 	private const PRUNE_BATCH = 200;
+	private const PRUNE_BATCHES = 25;
 
 	/** @var \Closure(): string */
 	private \Closure $address;
@@ -179,7 +181,9 @@ final class ClientStore implements ClientDirectory {
 	/**
 	 * Remove dynamically registered clients unused for UNUSED_LIFETIME that have no
 	 * active family before its deadline, and self-test registrations past their end.
-	 * Administrator-created clients stay.
+	 * Administrator-created clients stay. Unused clients are worked through in batches
+	 * of PRUNE_BATCH until none are left, or PRUNE_BATCHES batches have run, so one run
+	 * keeps up with a day of registrations without growing without bound.
 	 */
 	public function prune( int $now ): int {
 		$expired_self_tests = $this->db->execute( 'DELETE FROM ' . $this->table() . ' WHERE registration_purpose = %s AND registration_expires_at < %s AND admin_created = 0', [ self::SELF_TEST_PURPOSE, Database::datetime( $now ) ] );
@@ -189,14 +193,23 @@ final class ClientStore implements ClientDirectory {
 	private function prune_unused( int $now ): int {
 		$cutoff = Database::datetime( $now - self::UNUSED_LIFETIME );
 		$unused = '(last_used_at IS NULL AND created_at < %s) OR last_used_at < %s';
-		$candidates = $this->db->column( 'SELECT client_id FROM ' . $this->table() . " WHERE admin_created = 0 AND ({$unused}) LIMIT " . self::PRUNE_BATCH, [ $cutoff, $cutoff ] );
 		$removed = 0;
-		foreach ( $candidates as $client_id ) {
-			$live = $this->db->value( 'SELECT COUNT(*) FROM ' . $this->db->table( 'families' ) . " WHERE client_id = %s AND phase = 'active' AND family_expires_at > %s", [ $client_id, Database::datetime( $now ) ] );
-			if ( (int) $live > 0 ) {
-				continue;
+		$after = 0;
+		for ( $batch = 0; $batch < self::PRUNE_BATCHES; ++$batch ) {
+			// Each batch starts after the last row of the one before, so a client that stays does not hold up the ones behind it.
+			$candidates = $this->db->rows( 'SELECT id, client_id FROM ' . $this->table() . " WHERE admin_created = 0 AND id > %d AND ({$unused}) ORDER BY id LIMIT " . self::PRUNE_BATCH, [ $after, $cutoff, $cutoff ] );
+			foreach ( $candidates as $candidate ) {
+				$after = max( $after, (int) $candidate['id'] );
+				$client_id = (string) $candidate['client_id'];
+				$live = $this->db->value( 'SELECT COUNT(*) FROM ' . $this->db->table( 'families' ) . " WHERE client_id = %s AND phase = 'active' AND family_expires_at > %s", [ $client_id, Database::datetime( $now ) ] );
+				if ( (int) $live > 0 ) {
+					continue;
+				}
+				$removed += $this->db->execute( 'DELETE FROM ' . $this->table() . " WHERE client_id = %s AND admin_created = 0 AND ({$unused})", [ $client_id, $cutoff, $cutoff ] );
 			}
-			$removed += $this->db->execute( 'DELETE FROM ' . $this->table() . " WHERE client_id = %s AND admin_created = 0 AND ({$unused})", [ $client_id, $cutoff, $cutoff ] );
+			if ( count( $candidates ) < self::PRUNE_BATCH ) {
+				break;
+			}
 		}
 		return $removed;
 	}

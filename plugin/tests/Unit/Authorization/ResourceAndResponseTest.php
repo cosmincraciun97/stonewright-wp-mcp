@@ -25,7 +25,7 @@ final class ResourceAndResponseTest extends TestCase {
 	}
 
 	public function invalid_resources(): array {
-		return [ [ [] ], [ [ 'example.test/mcp' ] ], [ [ 'https://example.test/mcp#fragment' ] ], [ [ 'https://user@example.test/mcp' ] ], [ [ "https://example.test/mcp\r\n" ] ] ];
+		return [ [ [] ], [ [ 'example.test/mcp' ] ], [ [ 'https://example.test/mcp#fragment' ] ], [ [ 'https://user@example.test/mcp' ] ], [ [ "https://example.test/mcp\r\n" ] ], [ [ 'localhost:8080' ] ], [ [ 'example.com:443' ] ] ];
 	}
 
 	/** @dataProvider malformed_resources */
@@ -35,7 +35,7 @@ final class ResourceAndResponseTest extends TestCase {
 	}
 
 	public function malformed_resources(): array {
-		return [ [ 'https://[no-ip]/mcp' ], [ 'https://[::1::2]/mcp' ], [ 'https://example[.test/mcp' ], [ 'https://example.test:0/mcp' ], [ 'https://example.test/{bad}' ], [ 'urn:example:<bad>' ] ];
+		return [ [ 'https://[no-ip]/mcp' ], [ 'https://[::1::2]/mcp' ], [ 'https://example[.test/mcp' ], [ 'https://example.test:0/mcp' ], [ 'https://example.test/{bad}' ], [ 'urn:example:<bad>' ], [ 'localhost:8080' ], [ 'example.com:443' ], [ 'localhost:80/mcp' ] ];
 	}
 
 	public function test_valid_ip_literals_and_urn_resources_are_preserved(): void {

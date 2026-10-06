@@ -141,6 +141,26 @@ final class OAuthRestRoutesTest extends TestCase {
 		self::assertSame( RequestLimiter::bucket( 'token', '192.0.2.10' ), $this->http->rig->rows( 'rate_limits' )[0]['bucket_key'] );
 	}
 
+	public function test_changing_address_inside_one_network_does_not_open_a_new_budget(): void {
+		$fields = [ 'grant_type' => 'authorization_code', 'code' => 'invalid-code', 'redirect_uri' => StorageRig::REDIRECT, 'client_id' => $this->http->rig->register_client(), 'code_verifier' => StorageRig::VERIFIER ];
+		foreach ( [ '2001:db8:5:6::1', '2001:db8:5:6::2', '2001:db8:5:6:aaaa:bbbb:cccc:dddd' ] as $address ) {
+			$_SERVER['REMOTE_ADDR'] = $address;
+			self::assertSame( 400, OAuthRestRoutes::token( self::form( 'token', $fields ) )->get_status() );
+		}
+
+		$_SERVER['REMOTE_ADDR'] = '2001:db8:5:6:1:2:3:4';
+		self::assertSame( 429, OAuthRestRoutes::token( self::form( 'token', $fields ) )->get_status() );
+		$_SERVER['REMOTE_ADDR'] = '2001:db8:5:7::1';
+		self::assertSame( 400, OAuthRestRoutes::token( self::form( 'token', $fields ) )->get_status(), 'Another /64 has a budget of its own.' );
+
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+		for ( $request = 0; $request < 3; $request++ ) {
+			self::assertSame( 400, OAuthRestRoutes::token( self::form( 'token', $fields ) )->get_status() );
+		}
+		$_SERVER['REMOTE_ADDR'] = '::ffff:203.0.113.9';
+		self::assertSame( 429, OAuthRestRoutes::token( self::form( 'token', $fields ) )->get_status(), 'The mapped spelling of an IPv4 address shares its budget.' );
+	}
+
 	public function test_registration_and_revocation_answer_through_the_rest_shape(): void {
 		$registered = OAuthRestRoutes::registration( new BodyRequest( '/stonewright/v1/oauth/register', (string) json_encode( [ 'client_name' => 'Synthetic', 'redirect_uris' => [ StorageRig::REDIRECT ], 'token_endpoint_auth_method' => 'none' ] ), [ 'content_type' => 'application/json' ] ) );
 		self::assertSame( 201, $registered->get_status() );

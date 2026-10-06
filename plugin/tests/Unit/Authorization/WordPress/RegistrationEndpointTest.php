@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Authorization\WordPress\OAuthReply;
 use Stonewright\WpMcp\Authorization\WordPress\OAuthRequest;
 use Stonewright\WpMcp\Authorization\WordPress\RegistrationEndpoint;
+use Stonewright\WpMcp\Authorization\WordPress\RowKeys;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -60,7 +61,8 @@ final class RegistrationEndpointTest extends TestCase {
 		self::assertSame( $reply->body['client_id'], $reply->audit['client_id'] );
 		$row = $this->http->rig->row( 'clients', 'client_id', $reply->body['client_id'] );
 		self::assertSame( '["http://127.0.0.1:7999/callback"]', $row['redirect_uris'] );
-		self::assertSame( hash( 'sha256', '192.0.2.10' ), $row['registered_by_ip_hash'] );
+		self::assertSame( RowKeys::address( '192.0.2.10' ), $row['registered_by_ip_hash'] );
+		self::assertNotSame( hash( 'sha256', '192.0.2.10' ), $row['registered_by_ip_hash'] );
 		self::assertSame( gmdate( 'Y-m-d H:i:s', StorageRig::T ), $row['created_at'] );
 		self::assertNull( $row['last_used_at'] );
 	}

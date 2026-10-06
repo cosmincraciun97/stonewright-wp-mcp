@@ -61,6 +61,44 @@ final class RequestLimiterTest extends TestCase {
 		self::assertNotSame( RequestLimiter::bucket( 'token', '192.0.2.10' ), RequestLimiter::bucket( 'revocation', '192.0.2.10' ) );
 	}
 
+	public function test_ipv6_requesters_share_one_bucket_per_64_prefix(): void {
+		$limiter = $this->limiter( [ 'token' => [ 1, 60 ] ] );
+
+		self::assertTrue( $limiter->admit( 'token', '2001:db8:1:2::1' )['allowed'] );
+		self::assertFalse( $limiter->admit( 'token', '2001:db8:1:2:ffff:ffff:ffff:ffff' )['allowed'], 'Another address of the same /64 shares the budget.' );
+		self::assertFalse( $limiter->admit( 'token', '2001:0DB8:0001:0002:0000:0000:0000:0abc' )['allowed'], 'The spelling of the address does not matter.' );
+		self::assertTrue( $limiter->admit( 'token', '2001:db8:1:3::1' )['allowed'], 'The next /64 has a budget of its own.' );
+		self::assertTrue( $limiter->admit( 'token', '2001:db8:2:2::1' )['allowed'], 'A different prefix with the same host part has a budget of its own.' );
+		self::assertCount( 3, $this->rig->rows( 'rate_limits' ) );
+		self::assertSame( RequestLimiter::bucket( 'token', '2001:db8:1:2::1' ), RequestLimiter::bucket( 'token', '2001:db8:1:2:0:0:0:abcd' ) );
+		self::assertNotSame( RequestLimiter::bucket( 'token', '2001:db8:1:2::1' ), RequestLimiter::bucket( 'token', '2001:db8:1:3::1' ) );
+		self::assertNotSame( RequestLimiter::bucket( 'token', '2001:db8:1:2::1' ), RequestLimiter::bucket( 'revocation', '2001:db8:1:2::1' ) );
+	}
+
+	public function test_an_ipv4_mapped_address_counts_as_its_ipv4_address(): void {
+		$limiter = $this->limiter( [ 'token' => [ 1, 60 ] ] );
+
+		self::assertSame( RequestLimiter::bucket( 'token', '203.0.113.9' ), RequestLimiter::bucket( 'token', '::ffff:203.0.113.9' ) );
+		self::assertSame( RequestLimiter::bucket( 'token', '203.0.113.9' ), RequestLimiter::bucket( 'token', '::FFFF:cb00:7109' ) );
+		self::assertNotSame( RequestLimiter::bucket( 'token', '203.0.113.9' ), RequestLimiter::bucket( 'token', '::ffff:203.0.113.10' ) );
+		self::assertTrue( $limiter->admit( 'token', '203.0.113.9' )['allowed'] );
+		self::assertFalse( $limiter->admit( 'token', '::ffff:203.0.113.9' )['allowed'], 'The two spellings of one connection share the budget.' );
+		self::assertTrue( $limiter->admit( 'token', '::ffff:203.0.113.10' )['allowed'] );
+		self::assertCount( 2, $this->rig->rows( 'rate_limits' ) );
+	}
+
+	public function test_ipv4_addresses_and_other_requesters_keep_their_own_bucket(): void {
+		self::assertSame( hash( 'sha256', "stonewright-oauth:rate:token\n192.0.2.10" ), RequestLimiter::bucket( 'token', '192.0.2.10' ) );
+		self::assertSame( hash( 'sha256', "stonewright-oauth:rate:authorization\nuser:7" ), RequestLimiter::bucket( 'authorization', 'user:7' ) );
+		self::assertNotSame( RequestLimiter::bucket( 'authorization', 'user:7' ), RequestLimiter::bucket( 'authorization', 'user:8' ) );
+		self::assertNotSame( RequestLimiter::bucket( 'token', '192.0.2.10' ), RequestLimiter::bucket( 'token', '192.0.2.11' ) );
+
+		$limiter = $this->limiter( [ 'authorization' => [ 1, 60 ] ] );
+		self::assertTrue( $limiter->admit( 'authorization', 'user:7' )['allowed'] );
+		self::assertFalse( $limiter->admit( 'authorization', 'user:7' )['allowed'] );
+		self::assertTrue( $limiter->admit( 'authorization', 'user:8' )['allowed'] );
+	}
+
 	public function test_an_endpoint_without_a_limit_is_not_counted(): void {
 		self::assertSame( [ 'allowed' => true, 'retry_after' => 0 ], $this->limiter()->admit( 'discovery', '192.0.2.10' ) );
 		self::assertSame( [], $this->rig->rows( 'rate_limits' ) );

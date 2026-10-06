@@ -32,9 +32,11 @@ use Stonewright\WpMcp\Support\Logger;
  * The body is form-encoded (repeated single-value parameters are refused). client_id
  * is required for the code grant and optional for refresh (the credential names its
  * client); a metadata document URL maps to its stored client key. An unknown client is
- * invalid_client (HTTP 401). resource defaults to what the grant was approved for;
- * scope on refresh may narrow to the granted "mcp" and may name the other advertised
- * scopes, which no grant carries.
+ * invalid_client (HTTP 401). The client_id of the audit facts is the identifier the
+ * client presented and is set only once the site knows the client, so an unknown
+ * identifier never reaches the audit log. resource defaults to what the grant was
+ * approved for; scope on refresh may narrow to the granted "mcp" and may name the other
+ * advertised scopes, which no grant carries.
  *
  * Success: token_type, expires_in, access_token, refresh_token,
  * refresh_token_expires_in (seconds until this refresh credential expires) and scope.
@@ -72,7 +74,7 @@ final class TokenEndpoint {
 			}
 			$parameters = ( new RequestDecoder() )->form( $request->body, self::MAXIMUM_BYTES );
 			$audit['sensitive_values'] = array_merge( $parameters->values( 'code' ), $parameters->values( 'code_verifier' ), $parameters->values( 'refresh_token' ) );
-			$audit['client_id'] = $parameters->values( 'client_id' )[0] ?? '';
+			$audit['client_id'] = $this->known_client_id( $parameters->values( 'client_id' )[0] ?? '' );
 			$grant = $parameters->one( 'grant_type' );
 			if ( null === $grant ) {
 				throw new OAuthFault( 'invalid_request' );
@@ -135,11 +137,11 @@ final class TokenEndpoint {
 		$facts = $this->inspect( $token, TokenCodec::KIND_REFRESH );
 		if ( null === $client_key ) {
 			// Without client_id the credential names its client, which must still be known.
-			$audit['client_id'] = $facts->client_key;
 			$client_key = $facts->client_key;
 			if ( null === $this->storage->clients()->find( $client_key ) ) {
 				throw new OAuthFault( 'invalid_client', 401 );
 			}
+			$audit['client_id'] = $client_key;
 		}
 		$resources = $parameters->values( 'resource' );
 		if ( [] === $resources ) {
@@ -223,6 +225,19 @@ final class TokenEndpoint {
 			throw new OAuthFault( 'invalid_client', 401 );
 		}
 		return $key;
+	}
+
+	/** The identifier a request presented when the site knows that client, else an empty string. */
+	private function known_client_id( string $client_id ): string {
+		if ( '' === $client_id ) {
+			return '';
+		}
+		try {
+			$this->registered_client( $client_id );
+		} catch ( OAuthFault $unknown ) {
+			return '';
+		}
+		return $client_id;
 	}
 
 	/**

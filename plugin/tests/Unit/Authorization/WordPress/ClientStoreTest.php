@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Authorization\WordPress;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Authorization\WordPress\ClientStore;
 use Stonewright\WpMcp\Authorization\WordPress\Database;
+use Stonewright\WpMcp\Authorization\WordPress\RowKeys;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\LegacyRows;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -51,7 +52,8 @@ final class ClientStoreTest extends TestCase {
 		self::assertNull( $row['client_secret_hash'] );
 		self::assertSame( gmdate( 'Y-m-d H:i:s', StorageRig::T ), $row['created_at'] );
 		self::assertNull( $row['last_used_at'] );
-		self::assertSame( hash( 'sha256', '192.0.2.10' ), $row['registered_by_ip_hash'] );
+		self::assertSame( RowKeys::address( '192.0.2.10' ), $row['registered_by_ip_hash'] );
+		self::assertNotSame( hash( 'sha256', '192.0.2.10' ), $row['registered_by_ip_hash'], 'The registering address is stored as a keyed hash, never as a plain digest.' );
 		self::assertSame( '0', $row['admin_created'] );
 		self::assertNull( $row['registration_purpose'] );
 		self::assertNull( $row['registration_expires_at'] );
@@ -134,6 +136,63 @@ final class ClientStoreTest extends TestCase {
 		self::assertNotNull( $this->rig->clients->find( $recent ) );
 		self::assertNull( $this->rig->clients->find( $never_used ) );
 		self::assertNotNull( $this->rig->clients->find( $admin ) );
+	}
+
+	public function test_prune_works_through_every_eligible_client_in_successive_batches(): void {
+		$this->rig->at( StorageRig::T - ClientStore::UNUSED_LIFETIME - 10 );
+		for ( $index = 0; $index < 450; $index++ ) {
+			$this->rig->clients->create( self::profile() );
+		}
+		$this->rig->at( StorageRig::T );
+		$recent = $this->rig->clients->create( self::profile() )['client_id'];
+
+		self::assertSame( 450, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertSame( [ $recent ], array_column( $this->rig->rows( 'clients' ), 'client_id' ) );
+	}
+
+	public function test_clients_with_a_live_family_do_not_hold_up_the_rest_of_a_prune(): void {
+		$this->rig->at( StorageRig::T - ClientStore::UNUSED_LIFETIME - 10 );
+		for ( $index = 0; $index < 205; $index++ ) {
+			$this->live_family( $this->rig->clients->create( self::profile() )['client_id'] );
+		}
+		$unused = [];
+		for ( $index = 0; $index < 3; $index++ ) {
+			$unused[] = $this->rig->clients->create( self::profile() )['client_id'];
+		}
+		$this->rig->at( StorageRig::T );
+
+		self::assertSame( 3, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertCount( 205, $this->rig->rows( 'clients' ) );
+		foreach ( $unused as $client_id ) {
+			self::assertNull( $this->rig->clients->find( $client_id ) );
+		}
+	}
+
+	/** An unexpired active family of the client, as a grant would leave it. */
+	private function live_family( string $client_id ): void {
+		$created = gmdate( 'Y-m-d H:i:s', StorageRig::T );
+		self::assertTrue(
+			$this->rig->db->insert(
+				$this->rig->db->table( 'families' ),
+				[
+					'family_hash'       => hash( 'sha256', 'family-of-' . $client_id ),
+					'family_key'        => 'family-of-' . $client_id,
+					'client_id'         => $client_id,
+					'user_id'           => 7,
+					'scopes'            => '["mcp"]',
+					'resources'         => '["' . StorageRig::RESOURCE . '"]',
+					'phase'             => 'active',
+					'revision'          => 0,
+					'delivery_count'    => 0,
+					'compacted_entries' => 0,
+					'family_expires_at' => gmdate( 'Y-m-d H:i:s', StorageRig::T + 86400 ),
+					'created_at'        => $created,
+					'updated_at'        => $created,
+				]
+			)
+		);
 	}
 
 	public function test_store_uses_the_wordpress_prefix(): void {

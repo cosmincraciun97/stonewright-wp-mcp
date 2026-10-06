@@ -110,6 +110,32 @@ final class CodeStoreTest extends TestCase {
 		self::assertSame( 'revoked', $this->rig->rows( 'families' )[0]['phase'] );
 	}
 
+	public function test_the_unused_codes_of_one_client_can_be_made_unusable(): void {
+		$other = $this->rig->register_client( 'Other client' );
+		$first = $this->rig->authorize( $this->client );
+		$second = $this->rig->authorize( $this->client );
+		$exchanged = $this->rig->authorize( $this->client );
+		$family = $this->rig->exchange( $exchanged, $this->client )->issuance->family_key;
+		$kept = $this->rig->authorize( $other );
+
+		self::assertSame( 2, $this->rig->codes->revoke_unused_for_client( $this->client ) );
+
+		foreach ( [ $first, $second ] as $code ) {
+			self::assertSame( '1', $this->code_row( $code )['revoked'] );
+			self::assertNull( $this->code_row( $code )['family_key'] );
+			try {
+				$this->rig->exchange( $code, $this->client );
+				self::fail( 'A revoked code must not be exchanged.' );
+			} catch ( OAuthFault $fault ) {
+				self::assertSame( 'invalid_grant', $fault->error() );
+			}
+		}
+		self::assertCount( 1, $this->rig->rows( 'families' ), 'A revoked code creates no family.' );
+		self::assertSame( $family, $this->code_row( $exchanged )['family_key'], 'A used code keeps the family it created.' );
+		self::assertNull( $this->rig->exchange( $kept, $other )->fault, 'Another client keeps its codes.' );
+		self::assertSame( 0, $this->rig->codes->revoke_unused_for_client( $this->client ), 'Nothing is left to revoke.' );
+	}
+
 	public function test_unknown_codes_are_invalid_grant(): void {
 		try {
 			$this->rig->codes->change( str_repeat( 'f', 80 ), static fn ( CodeGrantState $state ): CodeExchangeOutcome => throw new \LogicException( 'never decided' ) );

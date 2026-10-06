@@ -178,6 +178,26 @@ final class SecurityAuditTest extends TestCase {
 		$this->assert_no_credentials();
 	}
 
+	public function test_requests_naming_made_up_clients_fold_into_one_audit_row_per_endpoint(): void {
+		foreach ( [ 'made-up-client-one', 'made-up-client-two', 'made-up-client-three' ] as $made_up ) {
+			$this->post( 'token', [ 'grant_type' => 'authorization_code', 'code' => 'sentinel-garbage-code', 'redirect_uri' => StorageRig::REDIRECT, 'client_id' => $made_up, 'code_verifier' => StorageRig::VERIFIER ] );
+			$this->post( 'token', [ 'grant_type' => 'refresh_token', 'refresh_token' => 'sentinel-garbage-refresh', 'client_id' => $made_up ] );
+			$this->post( 'revoke', [ 'token' => 'sentinel-garbage-token', 'client_id' => $made_up ] );
+		}
+
+		$tokens = self::rows( 'oauth/token' );
+		self::assertCount( 1, $tokens, 'Made-up client identifiers must not open a row each.' );
+		self::assertArrayNotHasKey( 'client_id', json_decode( (string) $tokens[0]['sanitized_args'], true ) );
+		self::assertCount( 1, self::rows( 'oauth/revoke' ) );
+		self::assertArrayNotHasKey( 'client_id', json_decode( (string) self::rows( 'oauth/revoke' )[0]['sanitized_args'], true ) );
+
+		$this->post( 'token', [ 'grant_type' => 'refresh_token', 'refresh_token' => 'sentinel-garbage-refresh', 'client_id' => $this->client ] );
+
+		$tokens = self::rows( 'oauth/token' );
+		self::assertCount( 2, $tokens, 'A registered client still has a row of its own.' );
+		self::assertSame( $this->client, json_decode( (string) $tokens[1]['sanitized_args'], true )['client_id'] );
+	}
+
 	public function test_ordinary_refusals_stay_coalesced(): void {
 		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
 			$this->post( 'token', [ 'grant_type' => 'refresh_token', 'refresh_token' => 'sentinel-garbage-refresh', 'client_id' => $this->client ] );
