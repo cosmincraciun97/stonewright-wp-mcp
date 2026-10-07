@@ -9,7 +9,7 @@ namespace Stonewright\WpMcp\Elementor;
 final class CssRegenerator {
 
 	/**
-	 * @return array{ok:bool,post_id:int,kind:string,method:string,detail:string,path_sha256?:string,url_sha256?:string,error_class?:string}
+	 * @return array{ok:bool,post_id:int,kind:string,method:string,detail:string,path_sha256?:string,url_sha256?:string,error_class?:string,css_content?:string,print_method?:string}
 	 */
 	public static function regenerate( CssTarget $target ): array {
 		$post_id = $target->post_id();
@@ -58,7 +58,7 @@ final class CssRegenerator {
 				return self::failure( $target, 'empty_css_file' );
 			}
 
-			return [
+			$result = [
 				'ok'          => true,
 				'post_id'     => $post_id,
 				'kind'        => $target->kind(),
@@ -67,6 +67,12 @@ final class CssRegenerator {
 				'path_sha256' => hash( 'sha256', $path ),
 				'url_sha256'  => hash( 'sha256', $url ),
 			];
+			$content = self::css_content_state( $css );
+			if ( '' !== $content ) {
+				$result['css_content']  = $content;
+				$result['print_method'] = 'internal' === get_option( 'elementor_css_print_method' ) ? 'internal' : 'external';
+			}
+			return $result;
 		} catch ( \Throwable $error ) {
 			return [
 				'ok'          => false,
@@ -77,6 +83,25 @@ final class CssRegenerator {
 				'error_class' => get_class( $error ),
 			];
 		}
+	}
+
+	/**
+	 * Whether Elementor's own CSS object holds any stylesheet content after the update.
+	 * Returns an empty string when the object cannot say.
+	 */
+	private static function css_content_state( object $css ): string {
+		if ( ! method_exists( $css, 'get_content' ) ) {
+			return '';
+		}
+		try {
+			$content = $css->get_content();
+		} catch ( \Throwable $error ) {
+			return '';
+		}
+		if ( ! is_string( $content ) ) {
+			return '';
+		}
+		return '' === trim( $content ) ? 'empty' : 'present';
 	}
 
 	private static function has_public_update_file( object $css ): bool {

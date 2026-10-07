@@ -144,7 +144,7 @@ final class RenderFromSpecTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_v4_unknown_node', $result->get_error_code() );
 		$data = $result->get_error_data();
-		self::assertSame( [ 'sections', 0, 'children', 1 ], $data['path'] );
+		self::assertSame( [ 'sections', 0, 'blocks', 1 ], $data['path'] );
 		self::assertSame( 'list', $data['received'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}

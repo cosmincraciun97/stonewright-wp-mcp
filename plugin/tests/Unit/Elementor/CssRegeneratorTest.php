@@ -62,6 +62,74 @@ final class CssRegeneratorTest extends TestCase {
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result['url_sha256'] );
 	}
 
+	public function test_reports_when_elementor_produced_empty_css(): void {
+		$css_dir = rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css';
+		Post::$factory = static fn( int $post_id ): object => new class( $css_dir ) {
+			public function __construct( private string $css_dir ) {
+			}
+
+			public function update_file(): void {
+			}
+
+			public function get_content(): string {
+				return '';
+			}
+
+			public function get_path(): string {
+				return $this->css_dir . '/post-701.css';
+			}
+
+			public function get_url(): string {
+				return 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+			}
+		};
+
+		$result = CssRegenerator::regenerate( $this->post_target() );
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'empty', $result['css_content'] ?? null );
+	}
+
+	public function test_reports_present_css_content_and_print_method(): void {
+		$css_dir = rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css';
+		$GLOBALS['stonewright_test_options']['elementor_css_print_method'] = 'internal';
+		Post::$factory = static fn( int $post_id ): object => new class( $css_dir ) {
+			public function __construct( private string $css_dir ) {
+			}
+
+			public function update_file(): void {
+			}
+
+			public function get_content(): string {
+				return '.elementor-701 .x{color:red}';
+			}
+
+			public function get_path(): string {
+				return $this->css_dir . '/post-701.css';
+			}
+
+			public function get_url(): string {
+				return 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+			}
+		};
+
+		try {
+			$result = CssRegenerator::regenerate( $this->post_target() );
+		} finally {
+			unset( $GLOBALS['stonewright_test_options']['elementor_css_print_method'] );
+		}
+
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'present', $result['css_content'] ?? null );
+		self::assertSame( 'internal', $result['print_method'] ?? null );
+	}
+
+	public function test_leaves_css_content_unreported_when_the_object_cannot_say(): void {
+		$result = CssRegenerator::regenerate( $this->post_target() );
+
+		self::assertArrayNotHasKey( 'css_content', $result );
+	}
+
 	public function test_uses_the_loop_runtime_class_and_filename(): void {
 		$updated = 0;
 		Post::$factory = static function ( int $post_id ) use ( &$updated ): object {

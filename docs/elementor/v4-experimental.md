@@ -80,9 +80,23 @@ V4 write abilities follow the same AGENTS.md security rules as V3:
 
 - `RenderFromSpec` and `design-spec-to-elementor-v4` render sections and the
   DesignSpec block types `heading`, `paragraph`, `image`, `button`,
-  `separator`, `icon`, `row`, and `column` through `AtomicRenderer`. A block
-  type without a trusted, certified Atomic schema is a structured error; a
+  `separator`, `icon`, `row`, `column`, and `card` through `AtomicRenderer`.
+  A block type without a trusted, certified Atomic schema (`spacer`, `list`,
+  `video`, `embed`, `slider` and the other documented block types) is a
+  `stonewright_v4_unknown_node` error whose message names the block type and its
+  spec path (for example `sections.0.blocks.1`) and lists the supported types; a
   partial tree is never returned as success.
+- Section, row, column, and card styling is written as a local Atomic style
+  class with typed envelopes: `layout` and `direction` (including
+  `desktop`/`tablet`/`mobile` maps, one style variant per breakpoint; a
+  container without either stacks its children), `gap`, `padding`,
+  `background.color`, `width: full` (or `fullWidth`), `justify_content`,
+  `align_items`, and `z_index`. Any other property (a `boxed` or `narrow`
+  `width`, a `grid` layout, `margin`, `css_classes`, `hide_on`, the
+  `sticky*` fields, background images, overlays, position, size and repeat) is
+  refused with `stonewright_v4_unsupported_property`, whose message and
+  `data.path` name the property and its spec path. Styling keys on leaf blocks
+  such as `heading` or `button` are refused the same way.
 - Atomic types discovered at runtime from third-party plugins are inventory
   only. They stay read-only until Stonewright certifies their provider,
   version, provenance, and contract.
@@ -120,3 +134,6 @@ Primary test files:
   errors for unknown or uncertified types.
 - `plugin/tests/Unit/RendererValidationTest.php`: invalid specs are rejected
   by both `GutenbergSpecRenderer` and `ElementorV4SpecRenderer`.
+- `plugin/tests/Unit/Renderers/ElementorV4SpecRendererTest.php`: section
+  styling through typed envelopes, refusal of unsupported properties and block
+  types with their spec paths.

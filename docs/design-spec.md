@@ -224,6 +224,12 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 | `row` | `blocks` | Horizontal flex container with nested blocks. |
 | `column` | `blocks` | Vertical column for nesting inside a `row`. |
 
+The Elementor V4 renderer supports the `heading`, `paragraph`, `image`,
+`button`, `separator`, `icon`, `row`, `column`, and `card` block types. A block
+type outside that list, or a styling property it cannot write, returns a
+structured error that names the node and its path instead of being skipped. See
+[Elementor V4 (experimental)](elementor/v4-experimental.md).
+
 Responsive two-column layouts use one map instead of separate rewrites:
 
 ```json

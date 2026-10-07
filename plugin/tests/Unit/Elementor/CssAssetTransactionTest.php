@@ -204,6 +204,88 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 	}
 
+	public function test_page_with_empty_css_regenerates_without_a_target_file(): void {
+		$this->write( 'post-999.css', 'sibling' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			static fn(): array => [ 'ok' => true, 'css_content' => 'empty' ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertFalse( is_file( $this->css_dir . '/post-701.css' ) );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'not_produced', $result['css_evidence']['css_file_status'] ?? null );
+		self::assertSame( 'empty_css', $result['css_evidence']['css_file_reason'] ?? null );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'not_applicable', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
+		$probed = array_column( $result['css_evidence']['protected_probes_after'], 'asset' );
+		self::assertSame( [ 'custom-frontend.min.css' ], $probed );
+	}
+
+	public function test_empty_css_page_whose_old_target_file_is_removed_is_not_collateral(): void {
+		$this->write( 'post-701.css', 'old-post' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				unlink( $this->css_dir . '/post-701.css' );
+				return [ 'ok' => true, 'css_content' => 'empty' ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'not_produced', $result['css_evidence']['css_file_status'] ?? null );
+	}
+
+	public function test_empty_css_does_not_excuse_collateral_changes(): void {
+		$this->write( 'post-999.css', 'sibling' );
+		$this->write( 'custom-frontend.min.css', 'frontend' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				unlink( $this->css_dir . '/post-999.css' );
+				$this->write( 'custom-frontend.min.css', 'changed' );
+				return [ 'ok' => true, 'css_content' => 'empty' ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_collateral_change', $result->get_error_code() );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'frontend', $this->read( 'custom-frontend.min.css' ) );
+		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+	}
+
+	public function test_missing_target_without_empty_css_evidence_still_fails(): void {
+		foreach ( [ [ 'ok' => true ], [ 'ok' => true, 'css_content' => 'present' ] ] as $operation_result ) {
+			$result = CssAssetTransaction::run( $this->target( 701 ), static fn(): array => $operation_result );
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_elementor_css_collateral_change', $result->get_error_code() );
+			self::assertFalse( $result->get_error_data()['target_present'] ?? true );
+		}
+	}
+
+	public function test_inline_print_method_without_a_file_is_reported_as_such(): void {
+		$this->write( 'post-999.css', 'sibling' );
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			static fn(): array => [ 'ok' => true, 'css_content' => 'present', 'print_method' => 'internal' ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_inline_print_method', $result->get_error_code() );
+		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
+		self::assertSame( 'failed', $result->get_error_data()['generation_status'] ?? null );
+		self::assertSame( 'generation', $result->get_error_data()['failed_check'] ?? null );
+	}
+
 	public function test_restores_the_target_when_the_operation_throws(): void {
 		$this->write( 'post-701.css', 'old-post' );
 

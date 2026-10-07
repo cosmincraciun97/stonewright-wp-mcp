@@ -278,6 +278,35 @@
   diagnostic.
 - Register the Recipe Hero and Recipe Slider block editor scripts after the
   WordPress editor packages they use, so they no longer fail on editor load.
+- Regenerate Elementor CSS for a page that produces no post CSS file, such as a
+  page built only from Atomic elements, without reporting a collateral change
+  or opening an incident. `stonewright-elementor-css-regenerate` now succeeds
+  with `css_file_status: not_produced`, `css_file_reason: empty_css` and
+  `delivery_status: not_applicable` when Elementor itself reports an empty
+  stylesheet and no other CSS asset changed. A missing file without that
+  evidence is still refused and rolled back, and the internal CSS print method
+  now reports `stonewright_elementor_css_inline_print_method` instead of a
+  collateral change.
+- Render section and container styling in the Elementor V4 renderer instead of
+  dropping it. Layout and direction (including viewport maps), gap, padding,
+  background color, full width, alignment and z-index are written as typed
+  Atomic style variants, a container without a layout stacks its children, and
+  any property without a certified Atomic mapping is refused with
+  `stonewright_v4_unsupported_property`, naming the property and its spec path.
+- Name the block type and spec path when the Elementor V4 renderer cannot render
+  a block (`stonewright_v4_unknown_node`), list the block types that render,
+  and render `card` blocks as containers. `spacer`, `list`, `video`, `embed` and
+  `slider` stay unsupported in V4 and the V4 documentation now says so.
+- Store the template type, edit mode, version and type term that Elementor
+  itself writes when `stonewright-elementor-v3-save-template` creates a library
+  template, so the template opens as a library document and appears in the
+  template library. A template type Elementor does not register on the site is
+  refused before any post is created.
+- Bound the Elementor schema cache. Cached widget schemas are compressed, at
+  most 300 entries and 6 MB are kept, the oldest are evicted first, records of
+  an earlier runtime fingerprint are removed when the fingerprint changes, and
+  a record is served only for the Elementor version and runtime fingerprint it
+  was built for.
 
 ### Security
 

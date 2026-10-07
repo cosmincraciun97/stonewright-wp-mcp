@@ -118,9 +118,29 @@ final class CssAssetTransaction {
 				);
 			}
 
-			$target_name = $filename;
-			$collateral  = self::collateral_changes( $before, $after, $target_name );
-			if ( [] !== $collateral || ! isset( $after['files'][ $target_name ] ) ) {
+			$target_name    = $filename;
+			$collateral     = self::collateral_changes( $before, $after, $target_name );
+			$target_present = isset( $after['files'][ $target_name ] );
+			$no_file_reason = $target_present ? '' : self::no_file_reason( $operation_result );
+			if ( [] === $collateral && ! $target_present && 'inline_print_method' === $no_file_reason ) {
+				return self::rollback_error(
+					$location,
+					$post_id,
+					$before,
+					$metadata_before,
+					'stonewright_elementor_css_inline_print_method',
+					'Elementor prints this post CSS inline because the CSS print method is internal, so no post CSS file exists to regenerate.',
+					$lease,
+					[
+						'generation_status'            => 'failed',
+						'delivery_status'              => 'not_checked',
+						'frontend_verification_status' => 'not_checked',
+						'failed_check'                 => 'generation',
+						'root_error_code'              => 'stonewright_elementor_css_inline_print_method',
+					]
+				);
+			}
+			if ( [] !== $collateral || ( ! $target_present && 'empty_css' !== $no_file_reason ) ) {
 				return self::rollback_error(
 					$location,
 					$post_id,
@@ -140,7 +160,7 @@ final class CssAssetTransaction {
 					]
 				);
 			}
-			if ( (int) ( $after['files'][ $target_name ]['size'] ?? 0 ) < 1 ) {
+			if ( $target_present && (int) ( $after['files'][ $target_name ]['size'] ?? 0 ) < 1 ) {
 				return self::rollback_error(
 					$location,
 					$post_id,
@@ -185,7 +205,9 @@ final class CssAssetTransaction {
 				);
 			}
 
-			$delivery = self::delivery_outcome( $probes_before, $probes_after, $filename );
+			$delivery = $target_present
+				? self::delivery_outcome( $probes_before, $probes_after, $filename )
+				: self::delivery_outcome_without_target_file( $probes_before, $probes_after, $filename );
 			if ( $delivery instanceof \WP_Error ) {
 				$code = sanitize_key( (string) $delivery->get_error_code() );
 				return self::rollback_error(
@@ -225,7 +247,11 @@ final class CssAssetTransaction {
 				'generation_status'            => 'verified',
 				'delivery_status'              => $delivery_status,
 				'frontend_verification_status' => 'not_checked',
+				'css_file_status'              => $target_present ? 'present' : 'not_produced',
 			];
+			if ( ! $target_present ) {
+				$evidence['css_file_reason'] = $no_file_reason;
+			}
 			if ( isset( $delivery['code'] ) && is_string( $delivery['code'] ) && '' !== $delivery['code'] ) {
 				$evidence['root_error_code'] = $delivery['code'];
 				$evidence['failed_check']    = 'delivery';
@@ -736,6 +762,39 @@ final class CssAssetTransaction {
 	private static function ip_is_non_public( string $ip ): bool {
 		$flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
 		return false === filter_var( $ip, FILTER_VALIDATE_IP, $flags );
+	}
+
+	/**
+	 * Why no target file exists after a regeneration that reported success.
+	 * Only Elementor's own evidence counts: an empty stylesheet, or the internal print method.
+	 *
+	 * @param array<string,mixed> $operation_result
+	 */
+	private static function no_file_reason( array $operation_result ): string {
+		$content = (string) ( $operation_result['css_content'] ?? '' );
+		if ( 'empty' === $content ) {
+			return 'empty_css';
+		}
+		if ( 'present' === $content && 'internal' === (string) ( $operation_result['print_method'] ?? '' ) ) {
+			return 'inline_print_method';
+		}
+		return '';
+	}
+
+	/**
+	 * Delivery check when the target legitimately has no file: protected assets must stay available,
+	 * and there is nothing to deliver for the target itself.
+	 *
+	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $before
+	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $after
+	 * @return array{status:string,code?:string}|\WP_Error
+	 */
+	private static function delivery_outcome_without_target_file( array $before, array $after, string $target ): array|\WP_Error {
+		$outcome = self::delivery_outcome( $before, $after, $target );
+		if ( $outcome instanceof \WP_Error ) {
+			return $outcome;
+		}
+		return [ 'status' => 'not_applicable' ];
 	}
 
 	/**
