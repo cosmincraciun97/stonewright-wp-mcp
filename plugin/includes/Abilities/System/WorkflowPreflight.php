@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
@@ -357,7 +358,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'elementor'     => $elementor,
 			'site'          => [
 				'ability_count'        => count( AbilityRegistry::list() ),
-				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
+				'public_ability_count' => LiveAbilities::count_registered( array_column( AbilityRegistry::enabled_abilities(), 'name' ) ),
 				'write_target_url'     => $write_target,
 				'site_url'             => $site_url,
 				'configured_mcp_surface' => $configured_surface,

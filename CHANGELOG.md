@@ -335,6 +335,9 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Count `site.public_ability_count` in `stonewright-task-start` from the abilities
+  WordPress registered, the same count the admin screens show, instead of the
+  classes the plugin ships.
 - Compare Elementor ability schemas by content when a live schema holds an empty
   object where a recording holds an empty array, so a certified ability is not
   rejected for that difference alone.
