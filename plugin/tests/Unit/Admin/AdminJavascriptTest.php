@@ -28,6 +28,21 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringNotContainsString( 'Copy failed', $body );
 	}
 
+	public function test_the_setup_checks_show_a_busy_button_while_they_run_and_clear_it_when_they_end(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		foreach ( [ 'initConnectionTest', 'initConnectionVerify', 'initCompanionUpdateStatus' ] as $name ) {
+			$start = strpos( $script, 'function ' . $name . '()' );
+			self::assertNotFalse( $start, $name );
+			$next = strpos( $script, "
+	function ", (int) $start + 10 );
+			$body = substr( $script, (int) $start, false === $next ? null : $next - (int) $start );
+
+			self::assertStringContainsString( "button.setAttribute( 'aria-busy', 'true' )", $body, $name . ' marks the button busy while the request runs.' );
+			self::assertStringContainsString( "button.removeAttribute( 'aria-busy' )", $body, $name . ' clears it when the request ends, however it ends.' );
+		}
+	}
+
 	public function test_notices_are_never_removed_on_a_timer(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

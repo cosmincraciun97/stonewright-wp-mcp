@@ -10,7 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Connect;
 
-use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\ClientStore;
 use Stonewright\WpMcp\Authorization\WordPress\FamilyStore;
@@ -141,22 +141,14 @@ final class ConnectedClients {
 
 	/** URL of the connected clients list on the Setup screen. */
 	public static function list_url(): string {
-		return admin_url( 'admin.php?page=' . ConfigurationPage::SLUG ) . '#' . SignInPanel::CONNECTIONS_ID;
+		return SetupTabs::url( 'connections', [], SignInPanel::CONNECTIONS_ID );
 	}
 
 	/** Handles the admin-post request: disconnect, then return to the connections list. */
 	public static function handle(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- disconnect() verifies the nonce bound to the client.
 		$result = self::disconnect( $_POST );
-		wp_safe_redirect(
-			add_query_arg(
-				[
-					'page'           => ConfigurationPage::SLUG,
-					self::NOTICE_ARG => $result['status'],
-				],
-				admin_url( 'admin.php' )
-			) . '#' . SignInPanel::CONNECTIONS_ID
-		);
+		wp_safe_redirect( SetupTabs::url( 'connections', [ self::NOTICE_ARG => $result['status'] ], SignInPanel::CONNECTIONS_ID ) );
 		exit;
 	}
 

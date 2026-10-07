@@ -1530,6 +1530,11 @@
 .sw-ui .sw-ui-disclosure__body {
 	padding: var(--sw-space-3);
 	border-top: 1px solid var(--sw-border);
+}
+
+/* The fade belongs to the moment of opening: on a closed disclosure the content is not drawn, so an animation
+   there would sit unfinished until it is opened. */
+:where(.sw-ui .sw-ui-disclosure[open]) > .sw-ui-disclosure__body {
 	animation: sw-ui-reveal var(--sw-dur-reveal) var(--sw-ease);
 }
 
@@ -1999,6 +2004,118 @@
 
 	.sw-ui .sw-ui-skeleton {
 		border: 1px dashed GrayText;
+	}
+}
+
+/* ====================================================================== */
+/* 19. Choices and tab links (added with the Setup page)                    */
+/* ====================================================================== */
+
+/*
+ * A choice is a button that selects one option of a group: the sign-in method, the AI client, the connection
+ * method. The state is read from aria-checked (role="radio") or aria-selected (role="tab"), which is what the
+ * scripts of those pages already set, so the look follows the state a screen reader announces.
+ */
+.sw-ui .sw-ui-choices {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-choices--compact {
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+}
+
+.sw-ui .sw-ui-choice {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--sw-space-1);
+	min-height: var(--sw-control-h);
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-choice:hover {
+	border-color: var(--sw-accent-fill);
+}
+
+:where(.sw-ui) .sw-ui-choice[aria-checked="true"],
+:where(.sw-ui) .sw-ui-choice[aria-selected="true"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	box-shadow: inset 0 0 0 1px var(--sw-accent-fill);
+}
+
+:where(.sw-ui) .sw-ui-choice:disabled {
+	border-color: var(--sw-border);
+	background: var(--sw-surface-sunken);
+	color: var(--sw-text-muted);
+	cursor: not-allowed;
+}
+
+.sw-ui .sw-ui-choice__title {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-choice__text {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+}
+
+/* A tab that is a link (Ui\Tabs with a destination) looks like the button tab. */
+:where(.sw-ui) .sw-ui-tabs__tab:where(a) {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: var(--sw-space-1);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+/* A stack is one column as wide as its container: a long line inside it (a command, a prompt) scrolls in its own
+   block instead of making the column, and the page, wider. */
+.sw-ui .sw-ui-stack {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+/* Code block (Ui\CodeBlock): where the code goes, and the copy status on the dark head. */
+.sw-ui .sw-ui-code__where {
+	margin-inline-start: var(--sw-space-1);
+	color: var(--sw-inverse-muted);
+	font-family: var(--sw-font-mono);
+	overflow-wrap: anywhere;
+}
+
+/* A long path in the head wraps the copy button to the next line instead of widening the block. */
+:where(.sw-ui) .sw-ui-code__head {
+	flex-wrap: wrap;
+}
+
+:where(.sw-ui) .sw-ui-code .sw-ui-copy__status {
+	margin-inline-start: auto;
+	color: var(--sw-inverse-fg);
+}
+
+@media (forced-colors: active) {
+	:where(.sw-ui) .sw-ui-choice[aria-checked="true"],
+	:where(.sw-ui) .sw-ui-choice[aria-selected="true"] {
+		forced-color-adjust: none;
+		border-color: Highlight;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: inset 0 0 0 2px Highlight;
 	}
 }
 

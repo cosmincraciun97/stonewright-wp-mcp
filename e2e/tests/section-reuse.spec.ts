@@ -309,12 +309,12 @@ test('a V3, a V4 and a Gutenberg section are reused into new pages in one batch 
 		}
 
 		// ------------------------------------------------------------ the setting
-		await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+		await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', { waitUntil: 'domcontentloaded' });
 		const toggle = page.locator('#stonewright_section_reuse');
 		await expect(toggle).toBeChecked();
 		await expect(page.locator('label[for="stonewright_section_reuse"]')).toHaveText('Reuse saved sections');
 		await toggle.uncheck({ force: true });
-		await page.locator('form input[type="submit"], form button[type="submit"]').first().click();
+		await page.locator('form.stonewright-settings-form button[type="submit"]').first().click();
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.locator('#stonewright_section_reuse')).not.toBeChecked();
 
@@ -325,9 +325,9 @@ test('a V3, a V4 and a Gutenberg section are reused into new pages in one batch 
 		const refused = await ability(ctx, 'stonewright/blocks-batch-mutate', { post_id: blockTarget, dry_run: true, operations: [blockOps[0]] });
 		expect(JSON.stringify(refused)).toContain('stonewright_section_reuse_off');
 
-		await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+		await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', { waitUntil: 'domcontentloaded' });
 		await page.locator('#stonewright_section_reuse').check({ force: true });
-		await page.locator('form input[type="submit"], form button[type="submit"]').first().click();
+		await page.locator('form.stonewright-settings-form button[type="submit"]').first().click();
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.locator('#stonewright_section_reuse')).toBeChecked();
 	} finally {

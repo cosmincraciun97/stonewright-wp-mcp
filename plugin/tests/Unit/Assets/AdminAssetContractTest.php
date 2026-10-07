@@ -100,17 +100,33 @@ final class AdminAssetContractTest extends TestCase {
 		}
 	}
 
+	public function test_setup_stylesheet_only_places_things_and_uses_tokens(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/setup.css' );
+
+		self::assertLessThan( 3 * 1024, strlen( $css ), 'A page stylesheet stays under 3 KB.' );
+		self::assertStringNotContainsString( '!important', $css );
+		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}|rgba?\(/', $css, 'Colours come from tokens.' );
+		self::assertDoesNotMatchRegularExpression( '/font-size:\s*[0-9.]+(px|rem|em)/', $css, 'Sizes come from tokens.' );
+		foreach ( [ '.sw-ui-card', '.sw-ui-badge', '.sw-ui-btn', '.sw-ui-table', '.sw-ui-tabs', '.sw-ui-choice' ] as $component ) {
+			self::assertStringNotContainsString( $component . ' {', $css, $component );
+			self::assertStringNotContainsString( $component . ',', $css, $component );
+		}
+	}
+
 	public function test_the_retired_dashboard_stylesheet_is_gone(): void {
 		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/dashboard.css' );
 		self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
 	}
 
-	public function test_a_setup_step_that_is_still_to_do_keeps_readable_text(): void {
-		$body = self::rule_body( 'setup.css', '.sw-stepper__step--todo' );
+	public function test_the_older_setup_stylesheet_only_styles_the_diagnostics_that_still_use_it(): void {
+		$css = self::asset( 'setup.css' );
 
-		// opacity .85 on the muted label made it 4.3:1 on the step's fill; the colour is set instead.
-		self::assertStringNotContainsString( 'opacity', $body );
-		self::assertStringContainsString( 'color: var(--sw-text-secondary)', $body );
+		// Setup itself is built from the shared layer (pages/setup.css); nothing of its older stepper, cards,
+		// pickers or connect panel is left to carry.
+		foreach ( [ '.sw-setup-page', '.sw-setup-header', '.sw-stepper', '.sw-setup-card', '.sw-client-card', '.sw-method-option', '.sw-connect-', '.sw-update-' ] as $retired ) {
+			self::assertStringNotContainsString( $retired, $css, $retired );
+		}
+		self::assertStringContainsString( '.sw-diag-card', $css );
 	}
 
 	public function test_domain_lock_status_centers_its_complete_control_group(): void {
@@ -119,56 +135,6 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( 'display: flex', $body );
 		self::assertStringContainsString( 'justify-content: center', $body );
 		self::assertStringContainsString( 'flex-wrap: wrap', $body );
-	}
-
-	/**
-	 * The declarations of one rule inside the @media block that has the given query,
-	 * selected by its exact selector text. A selector that also has a rule outside the
-	 * block is read from inside the block only.
-	 */
-	private static function media_rule_body( string $file, string $query, string $selector ): string {
-		$css   = self::asset( $file );
-		$start = strpos( $css, '@media ' . $query . ' {' );
-		self::assertIsInt( $start, $file . ' must declare a media block for ' . $query );
-
-		$open  = (int) strpos( $css, '{', $start );
-		$depth = 1;
-		$end   = $open + 1;
-		for ( $length = strlen( $css ); $end < $length && $depth > 0; ++$end ) {
-			if ( '{' === $css[ $end ] ) {
-				++$depth;
-			} elseif ( '}' === $css[ $end ] ) {
-				--$depth;
-			}
-		}
-		$block = substr( $css, $open + 1, $end - $open - 2 );
-
-		$rule = strpos( $block, $selector . ' {' );
-		self::assertIsInt( $rule, $query . ' must declare a rule for ' . $selector );
-		$rule_open  = (int) strpos( $block, '{', $rule );
-		$rule_close = strpos( $block, '}', $rule_open );
-		self::assertIsInt( $rule_close, $selector . ' must be a closed rule block' );
-
-		return substr( $block, $rule_open + 1, $rule_close - $rule_open - 1 );
-	}
-
-	public function test_connected_clients_table_keeps_its_columns_readable_on_a_phone(): void {
-		$query = '(max-width: 600px)';
-
-		// Equal fixed columns crush every word and push the action out of view, so a phone
-		// sizes each column by its content and lets the wrapper scroll sideways.
-		self::assertStringContainsString( 'table-layout: auto', self::media_rule_body( 'setup.css', $query, '.sw-setup-page .sw-connect-table' ) );
-
-		$cells = self::media_rule_body( 'setup.css', $query, '.sw-setup-page .sw-connect-table td' );
-		self::assertStringContainsString( 'word-break: normal', $cells );
-		self::assertStringContainsString( 'overflow-wrap: normal', $cells );
-		self::assertStringContainsString( 'overflow-wrap: break-word', self::media_rule_body( 'setup.css', $query, '.sw-connect-table__name' ) );
-		self::assertStringContainsString( 'white-space: nowrap', self::media_rule_body( 'setup.css', $query, '.sw-connect-table time' ) );
-
-		// Disconnect stays reachable while the other columns scroll.
-		$action = self::media_rule_body( 'setup.css', $query, '.sw-connect-table td:last-child' );
-		self::assertStringContainsString( 'position: sticky', $action );
-		self::assertStringContainsString( 'right: 0', $action );
 	}
 
 	/** @dataProvider noticeStatusProvider */

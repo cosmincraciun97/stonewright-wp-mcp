@@ -11,11 +11,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\SectionReuse;
 
 use PHPUnit\Framework\TestCase;
-use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\Setup\SectionReuseRow;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 
 /**
- * @covers \Stonewright\WpMcp\Admin\ConfigurationPage
+ * @covers \Stonewright\WpMcp\Admin\Setup\SectionReuseRow
  * @covers \Stonewright\WpMcp\SectionReuse\SectionReuseSetting
  */
 final class SectionReuseSettingRowTest extends TestCase {
@@ -33,29 +33,20 @@ final class SectionReuseSettingRowTest extends TestCase {
 	}
 
 	private static function row(): string {
-		$method = new \ReflectionMethod( ConfigurationPage::class, 'render_section_reuse_row' );
-		$method->setAccessible( true );
-		ob_start();
-		try {
-			$method->invoke( null );
-		} finally {
-			$html = (string) ob_get_clean();
-		}
-
-		return $html;
+		return SectionReuseRow::html();
 	}
 
 	public function test_the_row_is_one_form_table_row_with_a_labelled_switch_and_one_sentence_of_help(): void {
 		$html = self::row();
 
-		self::assertStringContainsString( '<table class="form-table"', $html );
-		self::assertSame( 1, substr_count( $html, '<tr>' ) );
+		self::assertStringStartsWith( '<tr class="stonewright-section-reuse-row">', $html, 'One row of the settings table.' );
+		self::assertSame( 1, substr_count( $html, '<tr' ) );
 		self::assertStringContainsString( '<th scope="row"><label for="stonewright_section_reuse">Reuse saved sections</label></th>', $html );
 		self::assertStringContainsString( 'id="stonewright_section_reuse"', $html );
 		self::assertStringContainsString( 'role="switch"', $html );
-		self::assertStringContainsString( 'aria-describedby="stonewright_section_reuse_help stonewright_section_reuse_state"', $html );
+		self::assertStringContainsString( 'aria-describedby="stonewright_section_reuse_help"', $html );
 		self::assertStringContainsString( 'id="stonewright_section_reuse_help"', $html );
-		self::assertStringContainsString( 'class="sw-ui stonewright-section-reuse-row"', $html, 'The row sits inside the UI layer scope.' );
+		self::assertStringContainsString( '<span class="sw-ui-switch"><input type="checkbox" role="switch"', $html, 'The control is the layer\'s switch.' );
 		self::assertStringNotContainsString( 'style=', $html, 'No inline styles.' );
 		self::assertStringNotContainsString( 'class="notice', $html, 'No core notice inside the form.' );
 	}
@@ -63,12 +54,12 @@ final class SectionReuseSettingRowTest extends TestCase {
 	public function test_it_posts_ask_when_the_switch_is_on_and_off_when_it_is_not(): void {
 		$on = self::row();
 		self::assertStringContainsString( 'name="stonewright_section_reuse" value="off"', $on, 'The hidden field is what an unchecked switch posts.' );
-		self::assertStringContainsString( 'value="ask" checked="checked"', $on );
+		self::assertStringContainsString( 'value="ask" checked aria-describedby', $on );
 
 		$GLOBALS['stonewright_test_options'][ SectionReuseSetting::OPTION ] = 'off';
 		$off = self::row();
 		self::assertStringContainsString( 'value="ask" aria-describedby', $off );
-		self::assertStringNotContainsString( 'checked="checked"', $off );
+		self::assertStringNotContainsString( ' checked', $off );
 	}
 
 	public function test_the_info_callout_shows_only_while_the_setting_is_on_and_is_announced_politely(): void {
@@ -95,7 +86,7 @@ final class SectionReuseSettingRowTest extends TestCase {
 		$registered = $GLOBALS['stonewright_test_registered_settings'];
 		self::assertCount( 1, $registered );
 		self::assertSame( 'stonewright_settings', $registered[0]['group'], 'The group of the Setup form.' );
-		self::assertStringContainsString( "settings_fields( self::OPTION_GROUP )", (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' ) );
+		self::assertStringContainsString( 'settings_fields( ConfigurationPage::OPTION_GROUP )', (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/Setup/SettingsForm.php' ) );
 		self::assertSame( 'stonewright_section_reuse', $registered[0]['option'] );
 		self::assertSame( [ SectionReuseSetting::class, 'sanitize' ], $registered[0]['args']['sanitize_callback'] );
 		self::assertSame( 'ask', $registered[0]['args']['default'] );
@@ -103,14 +94,17 @@ final class SectionReuseSettingRowTest extends TestCase {
 	}
 
 	public function test_the_row_renders_inside_the_setup_form_after_the_elementor_v4_field(): void {
-		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
-		$v4     = strpos( $source, 'name="stonewright_elementor_v4_atomic"' );
-		$call   = strpos( $source, 'self::render_section_reuse_row();' );
-		$form   = strpos( $source, '</form>' );
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/Setup/SettingsForm.php' );
+		$form   = strpos( $source, "'stonewright-settings-form sw-ui-stack'" );
+		$v4     = strpos( $source, "'stonewright_elementor_v4_atomic'" );
+		$call   = strpos( $source, 'SectionReuseRow::html()' );
+		$next   = strpos( $source, "'Stock images'" );
 
+		self::assertNotFalse( $form );
 		self::assertNotFalse( $v4 );
 		self::assertNotFalse( $call );
-		self::assertGreaterThan( $v4, $call );
-		self::assertLessThan( $form, $call, 'The row is inside the Step 1 form, so it saves with the nonce of the Settings API form.' );
+		self::assertGreaterThan( $v4, $call, 'The row follows the Elementor V4 row.' );
+		self::assertLessThan( $next, $call, 'The row is in the settings table, before the next card.' );
+		self::assertSame( 1, substr_count( $source, '<form' ) + substr_count( $source, "'form'" ), 'There is one form, so the row saves with the nonce of the Settings API form.' );
 	}
 }

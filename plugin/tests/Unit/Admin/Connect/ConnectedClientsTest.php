@@ -340,7 +340,7 @@ final class ConnectedClientsTest extends TestCase {
 		);
 
 		self::assertTrue( ConnectedClients::send_to_list() );
-		self::assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright#' . SignInPanel::CONNECTIONS_ID, $GLOBALS['stonewright_test_last_redirect'] );
+		self::assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright&tab=connections#' . SignInPanel::CONNECTIONS_ID, $GLOBALS['stonewright_test_last_redirect'] );
 		$GLOBALS['stonewright_test_actions'] = [];
 	}
 
@@ -364,7 +364,7 @@ final class ConnectedClientsTest extends TestCase {
 			$html = (string) ob_get_clean();
 		}
 
-		self::assertStringContainsString( 'href="https://example.test/wp-admin/admin.php?page=stonewright#' . SignInPanel::CONNECTIONS_ID . '"', $html );
+		self::assertStringContainsString( 'href="https://example.test/wp-admin/admin.php?page=stonewright&tab=connections#' . SignInPanel::CONNECTIONS_ID . '"', $html );
 		self::assertStringContainsString( 'Connected OAuth clients', $html );
 	}
 

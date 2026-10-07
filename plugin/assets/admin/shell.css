@@ -197,11 +197,6 @@
 	outline: none;
 }
 
-/* A heading block the page prints for itself (Setup does) repeats the page header, so the page keeps one h1. */
-.sw-shell__main .sw-setup-page > .sw-setup-header {
-	display: none;
-}
-
 .sw-shell h1,
 .sw-shell h2,
 .sw-shell h3,

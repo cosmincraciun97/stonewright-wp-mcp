@@ -1,8 +1,26 @@
 # Configuration
 
 The Configuration page is the first sub-page under the **Stonewright** menu
-(`dashicons-hammer`, position 76). It owns guided cards for master enable,
-authentication, MCP client connection, updates, and live verification.
+(`dashicons-hammer`, position 76). It is titled **Setup** and has four views,
+shown as tabs under the page header:
+
+| View | What it holds | Address |
+| --- | --- | --- |
+| **Get started** | The numbered steps: 1 turn on AI abilities (a status, with a link to Settings), 2 choose OAuth or an Application Password, 3 connect an AI client, 4 verify the connection | `page=stonewright` |
+| **Settings** | The settings form (master enable, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
+| **Connections** | The OAuth sign-in status with its copyable addresses, and the connected OAuth clients with a disconnect each | `page=stonewright&tab=connections` |
+| **Updates** | How to keep the plugin and the companion current | `page=stonewright&tab=updates` |
+
+The server renders the view the `tab` argument names, so a link, a redirect
+after a save, a reload and a no-JavaScript visit all land on the right view. With
+script a tab switches in place and the address follows. A link to something
+inside another view (for example **Review connected OAuth clients**) opens that
+view. The cards below keep their old names (Card 1, Card 2, and so on) because
+the behaviour they describe did not change.
+
+The page is built from the shared admin UI layer (see `DESIGN.md`): the page
+header comes from the shell, the controls are the layer's, and nothing on the
+page is hidden behind a hover.
 
 The connection picker defines both choices in plain language:
 
@@ -23,7 +41,8 @@ expose OAuth.
 Application Password remains an independent fallback on the existing
 `/wp-json/mcp/stonewright` route.
 
-Source: `plugin/includes/Admin/ConfigurationPage.php`
+Source: `plugin/includes/Admin/ConfigurationPage.php` (menu, settings registration and
+form handlers) and `plugin/includes/Admin/Setup/` (the page, its views and its steps).
 
 ---
 
@@ -39,13 +58,26 @@ connectivity.
 In the supported JavaScript flow, flipping the toggle saves immediately and
 updates the visible effective state without a page reload. **Apply now** retries
 and verifies the same Step 1 transaction. The no-JavaScript form still uses
-**Save Settings**. A connected client sees the new state through the surface
+**Save settings**. A connected client sees the new state through the surface
 revision/re-list contract described below.
 
-The Settings API form contains only Step 1 settings. Domain-lock rebind,
-rollback, and clear actions are rendered in a separate action panel outside
-that form. After a no-JavaScript save, WordPress redirects back to
-**Stonewright → Setup**; `/wp-admin/options.php` is never the final page.
+The Settings API form contains only the settings of the **Settings** view.
+Domain-lock rebind, rollback, and clear actions are rendered in the **Domain
+lock** card outside that form. After a no-JavaScript save, WordPress redirects
+back to **Stonewright → Setup → Settings**; `/wp-admin/options.php` is never the
+final page. The page confirms a save with a notice.
+
+### Domain lock
+
+Stonewright records the address of the site the first time AI abilities are
+turned on and blocks them when the address later changes (a cloned copy).
+Because the address is recorded again on every request while abilities are on, a
+lock that is cleared while they are on is set again before the page reloads. So
+**Clear domain lock** is disabled while abilities are on, with the reason shown
+next to it; turn abilities off first to leave the lock unset. After **Clear**,
+**Rebind** or **Restore** the card says what happened (cleared, set again, rebound,
+restored). During a mismatch the card shows both addresses and offers rebind and
+restore, never clear.
 
 ### Mode selector
 
@@ -73,7 +105,7 @@ essential map to enabled; full maps to disabled. Existing installs without
 `stonewright_mcp_surface` keep their current essential/full behaviour via that
 legacy flag until an admin saves the Configuration page.
 
-On **Setup → Connect**, every runtime control in Step 1 (ability enablement,
+On **Setup → Settings**, every runtime control (ability enablement,
 mode, MCP surface, and Elementor V4 Atomic) saves immediately without a page
 reload. **Apply now** remains as an explicit retry/verification control. Every
 real change bumps one monotonic surface revision. Transport truth:
@@ -147,7 +179,7 @@ Elementor 3.18+.
 
 ### Reuse saved sections
 
-One row of the Step 1 form, after **Enable Elementor V4 atomic abilities**. The switch saves the option `stonewright_section_reuse` as `ask` (on, the default) or `off` through the same Settings API form as the other settings, so it needs `manage_options` and the form's nonce, and a change is written to the Audit Log (`stonewright/section-reuse-setting`).
+One row of the settings form, after **Elementor V4 atomic abilities**. The switch saves the option `stonewright_section_reuse` as `ask` (on, the default) or `off` through the same Settings API form as the other settings, so it needs `manage_options` and the form's nonce, and a change is written to the Audit Log (`stonewright/section-reuse-setting`).
 
 While it is on, an info callout says what it does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that a copy needs no confirmation token because it removes nothing and that copying an Elementor V4 section stays blocked.
 

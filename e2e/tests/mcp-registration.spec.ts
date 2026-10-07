@@ -15,13 +15,13 @@ function routeNames(body: unknown): string[] {
 }
 
 async function enableStonewright(page: Page): Promise<void> {
-	await page.goto('/wp-admin/admin.php?page=stonewright', {
+	await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
 		waitUntil: 'domcontentloaded',
 	});
 	const enabled = page.locator('#stonewright_enabled');
 	if ((await enabled.count()) && !(await enabled.isChecked())) {
 		await enabled.check();
-		await page.locator('form input[type="submit"], form button[type="submit"]').first().click();
+		await page.locator('form.stonewright-settings-form button[type="submit"]').first().click();
 		await page.waitForLoadState('domcontentloaded');
 	}
 }

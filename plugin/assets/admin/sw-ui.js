@@ -642,6 +642,93 @@
 		document.addEventListener( 'keydown', onDialogTab );
 	}
 
+	// -----------------------------------------------------------------------------------------------
+	// Tab links and deep links
+	//
+	// A tab can be a link to the same page with the view in its query (`?tab=settings`), so it works without
+	// script. With script a click switches the view in place and the address keeps the choice
+	// (data-sw-ui-tabs-param names the argument), and a link to something inside a hidden view opens that view.
+	// -----------------------------------------------------------------------------------------------
+
+	function rememberTab( list, tab ) {
+		var param = list.getAttribute( 'data-sw-ui-tabs-param' );
+		if ( ! param || ! tab || tab.tagName !== 'A' || ! window.URL ) {
+			return;
+		}
+		try {
+			var target = new window.URL( tab.href, window.location.href );
+			var current = new window.URL( window.location.href );
+			var value = target.searchParams.get( param );
+			if ( value ) {
+				current.searchParams.set( param, value );
+			} else {
+				current.searchParams.delete( param );
+			}
+			window.history.replaceState( window.history.state, '', current.toString() );
+			// A form that returns to the page it was sent from (the WordPress settings form) returns to this view.
+			Array.prototype.forEach.call( document.querySelectorAll( 'input[name="_wp_http_referer"]' ), function ( field ) {
+				field.value = current.pathname + current.search;
+			} );
+		} catch ( error ) {
+			/* A blocked history API leaves the address as it is; the view still switched. */
+		}
+	}
+
+	/** Open the view that holds `element`, when it is in a hidden one. Returns true when it opened one. */
+	function revealPanelFor( element ) {
+		var panel = element && element.closest ? element.closest( '[role="tabpanel"]' ) : null;
+		if ( ! panel || ! panel.hidden || ! panel.id ) {
+			return false;
+		}
+		var tab = document.querySelector( '[role="tab"][aria-controls="' + panel.id + '"]' );
+		if ( ! tab ) {
+			return false;
+		}
+		tab.click();
+		return true;
+	}
+
+	function revealHash() {
+		var hash = window.location.hash;
+		if ( ! hash || hash.length < 2 ) {
+			return;
+		}
+		var target = targetOf( '#' + hash.slice( 1 ).replace( /[^A-Za-z0-9_-]/g, '' ) );
+		if ( target && revealPanelFor( target ) ) {
+			scrollToElement( target );
+		}
+	}
+
+	function initTabLinks() {
+		// The tab lists must be wired before a hash can open a view by clicking its tab (initTabs is idempotent).
+		initTabs( document );
+		Array.prototype.forEach.call( document.querySelectorAll( '[data-sw-ui-tabs]' ), function ( list ) {
+			if ( list.getAttribute( 'data-sw-ui-tab-links-ready' ) === '1' ) {
+				return;
+			}
+			list.setAttribute( 'data-sw-ui-tab-links-ready', '1' );
+			list.addEventListener( 'click', function ( event ) {
+				var tab = event.target && event.target.closest ? event.target.closest( '[role="tab"]' ) : null;
+				if ( tab && tab.tagName === 'A' ) {
+					event.preventDefault();
+					rememberTab( list, tab );
+				}
+			} );
+			// The arrow, Home and End keys move focus (and the selection) in the tab list's own handler; the address
+			// follows the tab that took focus, whichever handler runs first.
+			list.addEventListener( 'focusin', function ( event ) {
+				var tab = event.target && event.target.closest ? event.target.closest( '[role="tab"]' ) : null;
+				if ( tab && tab.getAttribute( 'aria-selected' ) === 'true' ) {
+					rememberTab( list, tab );
+				}
+			} );
+		} );
+		revealHash();
+	}
+
+	window.addEventListener( 'hashchange', revealHash );
+	ready( initTabLinks );
+
 	root.ui = {
 		version: '1',
 		motionOK: motionOK,
