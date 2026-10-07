@@ -60,7 +60,7 @@ final class Html {
 	];
 
 	/** Attributes whose value is a URL. */
-	private const URL_ATTRIBUTES = [ 'href' ];
+	private const URL_ATTRIBUTES = [ 'action', 'href' ];
 
 	private static int $counter = 0;
 

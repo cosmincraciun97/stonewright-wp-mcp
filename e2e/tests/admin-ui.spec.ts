@@ -4,6 +4,7 @@ import path from 'node:path';
 import { PAGE_GATE_PROJECTS, STONEWRIGHT_PAGES } from './helpers/admin-pages';
 import { expectNoNewAxeViolations } from './helpers/axe-gate';
 import { openConsentScreen } from './helpers/consent';
+import { gotoAdmin } from './helpers/goto-admin';
 
 const artifactDir = path.join(process.cwd(), 'artifacts');
 
@@ -12,7 +13,7 @@ const WP_PASS = process.env.WP_PASSWORD ?? 'password';
 
 test('Setup shows the exact four-call post-update verification flow', async ({ page }) => {
 	await login(page);
-	await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+	await gotoAdmin(page, '/wp-admin/admin.php?page=stonewright&tab=updates');
 	const steps = page.locator('[data-stonewright-runtime-verification-flow] > li');
 	await expect(steps).toHaveCount(4);
 	await expect(steps).toHaveText([
@@ -429,6 +430,9 @@ test.describe('Stonewright admin UI', () => {
 		const connectedLink = page.getByRole('link', { name: 'Review connected OAuth clients' }).first();
 		await expect(connectedLink).toBeVisible();
 		await expect(connectedLink).toHaveAttribute('href', '#stonewright-oauth-connections');
+		// The connected clients live in the Connections view; the link opens it.
+		await connectedLink.click();
+		await expect(page.getByRole('tab', { name: /^Connections/ })).toHaveAttribute('aria-selected', 'true');
 		await expect(page.locator('#stonewright-oauth-connections')).toBeVisible();
 		await expect(
 			page.getByRole('heading', { name: 'Connected OAuth clients', exact: true }),
@@ -438,20 +442,20 @@ test.describe('Stonewright admin UI', () => {
 	test('Setup Save Settings returns to Stonewright instead of exposing options.php', async ({
 		page,
 	}) => {
-		await page.goto('/wp-admin/admin.php?page=stonewright', {
+		await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
 			waitUntil: 'domcontentloaded',
 		});
 
 		const settingsForm = page.locator('form.stonewright-settings-form');
 		await expect(settingsForm).toHaveCount(1);
 		await expect(settingsForm).toHaveAttribute('action', 'options.php');
-		const save = settingsForm.getByRole('button', { name: 'Save Settings' });
+		const save = settingsForm.getByRole('button', { name: 'Save settings' });
 		await expect(save).toBeVisible();
 		expect(await save.evaluate((button) => (button as HTMLButtonElement).form?.classList.contains('stonewright-settings-form'))).toBe(true);
 		expect(await settingsForm.locator('form').count()).toBe(0);
 
 		await Promise.all([
-			page.waitForURL(/\/wp-admin\/admin\.php\?page=stonewright(?:&|$)/, {
+			page.waitForURL(/\/wp-admin\/admin\.php\?page=stonewright&tab=settings(?:&|$)/, {
 				timeout: 30_000,
 				waitUntil: 'domcontentloaded',
 			}),

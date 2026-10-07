@@ -356,7 +356,7 @@ stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
 only when an HTTP bridge bind failure should fail startup.
 
 Most users can ignore the optional HTTP bridge. Use **Stonewright >
-Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run
+Setup > Settings > Local WP-CLI bridge (advanced)** only when you deliberately run
 a local bridge for WordPress-side `stonewright/wp-cli-*` abilities. The page
 can generate a bridge token and copy matching launch env values.
 

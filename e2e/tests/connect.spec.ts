@@ -161,6 +161,8 @@ test.describe('Connect wizard interactions', () => {
 			'never bypasses custom-code dry-run, approval, backup, permission, or confirmation gates',
 		);
 
+		// The update guidance is the Updates view of Setup, one click away.
+		await page.getByRole('tab', { name: 'Updates' }).click();
 		const guide = page.locator('.sw-update-guide');
 		await expect(guide).toBeVisible();
 		await expect(guide).toContainText('Keep Stonewright current');

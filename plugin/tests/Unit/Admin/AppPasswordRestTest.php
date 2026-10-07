@@ -115,7 +115,7 @@ final class AppPasswordRestTest extends TestCase {
 
 	public function test_generate_path_form_supports_rest_intercept_attributes(): void {
 		// Configuration markup contract: form is interceptable without full redirect.
-		$html = file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
+		$html = file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/Setup/AuthenticationStep.php' );
 		self::assertIsString( $html );
 		self::assertStringContainsString( 'data-stonewright-app-password-form', $html );
 		self::assertStringContainsString( 'stonewright/v1/app-password', $html );

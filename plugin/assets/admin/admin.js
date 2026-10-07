@@ -393,22 +393,30 @@
 		( checks || [] ).forEach( function ( check ) {
 			var status = normalizeChecklistStatus( check.status || 'error' );
 			var cssStatus = diagnosticCssStatus( status );
-			var icon = status === 'ok' ? '✓' : ( status === 'warning' ? '!' : ( status === 'info' || status === 'skipped' ? 'ⓘ' : '✗' ) );
+			var badgeFor = { ok: [ 'sw-ui-badge--ok', 'OK' ], warn: [ 'sw-ui-badge--warn', 'Warning' ], info: [ 'sw-ui-badge--info', 'Info' ], error: [ 'sw-ui-badge--danger', 'Problem' ] };
+			var badgeSpec = badgeFor[ cssStatus ] || badgeFor.error;
 			var li = document.createElement( 'li' );
-			li.className = 'sw-checklist__item sw-checklist__item--' + cssStatus;
 			li.setAttribute( 'data-status', status );
-			li.innerHTML =
-				'<span class="sw-checklist__icon" aria-hidden="true">' + icon + '</span>' +
-				'<span class="sw-checklist__body">' +
-				'<strong class="sw-checklist__label"></strong>' +
-				'<span class="sw-checklist__detail"></span>' +
-				'</span>';
-			li.querySelector( '.sw-checklist__label' ).textContent = check.label || humanizeStepId( check.id ) || '';
-			var detail = check.detail || '';
+			var node = document.createElement( 'div' );
+			node.className = 'sw-ui-lineage__node';
+			var badge = document.createElement( 'span' );
+			badge.className = 'sw-ui-badge ' + badgeSpec[ 0 ];
+			badge.textContent = status === 'skipped' ? 'Skipped' : badgeSpec[ 1 ];
+			var label = document.createElement( 'strong' );
+			label.textContent = check.label || humanizeStepId( check.id ) || '';
+			var detailText = check.detail || '';
 			if ( check.fix ) {
-				detail = detail ? ( detail + ' — ' + check.fix ) : check.fix;
+				detailText = detailText ? ( detailText + ' — ' + check.fix ) : check.fix;
 			}
-			li.querySelector( '.sw-checklist__detail' ).textContent = detail;
+			var detail = document.createElement( 'span' );
+			detail.className = 'sw-ui-field__help';
+			detail.textContent = detailText;
+			node.appendChild( badge );
+			node.appendChild( document.createTextNode( ' ' ) );
+			node.appendChild( label );
+			node.appendChild( document.createTextNode( ' ' ) );
+			node.appendChild( detail );
+			li.appendChild( node );
 			list.appendChild( li );
 		} );
 	}
@@ -424,6 +432,7 @@
 					return;
 				}
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Running preflight…' );
 				window.fetch( url, {
 					method: 'GET',
@@ -465,6 +474,7 @@
 					setButtonFeedback( button, 'Failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -481,6 +491,7 @@
 					return;
 				}
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Verifying MCP…' );
 				window.fetch( url, {
 					method: 'POST',
@@ -523,6 +534,7 @@
 					setButtonFeedback( button, 'Failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -540,6 +552,7 @@
 				}
 
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Checking release…' );
 				var refreshUrl = new window.URL( url, window.location.href );
 				refreshUrl.searchParams.set( 'force', '1' );
@@ -590,7 +603,7 @@
 									: ( data.companion_status === 'mismatch'
 										? 'The configured HTTP bridge does not match the target release.'
 										: data.boundary || 'Local stdio version must be verified in the AI client.' ) ) ) );
-						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--' + (
+						summary.className = 'sw-ui-callout sw-ui-callout--' + (
 							latestRelease.status === 'unavailable' || data.plugin_update_available || [ 'outdated', 'mismatch' ].indexOf( data.companion_status ) !== -1 ? 'warn' : 'info'
 						);
 					}
@@ -630,11 +643,12 @@
 					var summary = panel.querySelector( '[data-stonewright-companion-summary]' );
 					if ( summary ) {
 						summary.textContent = 'Could not read the official release. Check network access and try again.';
-						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--warn';
+						summary.className = 'sw-ui-callout sw-ui-callout--danger';
 					}
 					setButtonFeedback( button, 'Check failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -1028,31 +1042,39 @@
 		}
 	}
 
+	/**
+	 * Show a message in the live region of the Application Password form as a notice of the shared layer. An error
+	 * is never removed by script; the next result replaces it.
+	 */
+	function setAppPasswordLive( live, variant, title, text ) {
+		live.hidden = false;
+		live.textContent = '';
+		if ( window.Stonewright && window.Stonewright.ui && window.Stonewright.ui.notify ) {
+			return window.Stonewright.ui.notify( live, { variant: variant, title: title, text: text } );
+		}
+		live.textContent = title + ( text ? ' ' + text : '' );
+		return live;
+	}
+
 	function showAppPasswordLive( payload ) {
 		var live = document.querySelector( '[data-stonewright-app-password-live]' );
 		if ( ! live ) {
 			return;
 		}
-		live.hidden = false;
-		live.innerHTML = '';
-		var strong = document.createElement( 'strong' );
-		strong.textContent = 'Application password generated.';
-		live.appendChild( strong );
-		var note = document.createElement( 'span' );
-		note.textContent = ' Shown once in this browser session. The paste-to-agent prompt stays credential-free.';
-		live.appendChild( note );
+		var notice = setAppPasswordLive( live, 'ok', 'Application password generated.', 'Shown once in this browser session. The paste-to-agent prompt stays credential-free.' );
 		var row = document.createElement( 'div' );
-		row.className = 'stonewright-inline-controls sw-actions';
+		row.className = 'sw-ui-actions';
 		var field = document.createElement( 'input' );
 		field.type = 'text';
 		field.readOnly = true;
-		field.className = 'regular-text';
+		field.className = 'sw-ui-input sw-setup__select';
 		field.id = 'stonewright-generated-app-password';
 		field.value = payload.password || '';
 		field.setAttribute( 'autocomplete', 'off' );
+		field.setAttribute( 'aria-label', 'Generated Application Password' );
 		var copyBtn = document.createElement( 'button' );
 		copyBtn.type = 'button';
-		copyBtn.className = 'button button-small';
+		copyBtn.className = 'sw-ui-btn';
 		copyBtn.textContent = 'Copy password only';
 		copyBtn.addEventListener( 'click', function ( event ) {
 			event.preventDefault();
@@ -1075,7 +1097,7 @@
 		} );
 		row.appendChild( field );
 		row.appendChild( copyBtn );
-		live.appendChild( row );
+		( notice.lastElementChild || notice ).appendChild( row );
 	}
 
 	function ensurePasswordInventoryTable() {
@@ -1092,12 +1114,21 @@
 			empty.remove();
 		}
 		var table = document.createElement( 'table' );
-		table.className = 'widefat striped stonewright-app-password-table';
+		table.className = 'sw-ui-table sw-ui-table--stack stonewright-app-password-table';
 		var thead = document.createElement( 'thead' );
 		var headRow = document.createElement( 'tr' );
-		[ 'Name', 'UUID', 'Actions' ].forEach( function ( label ) {
+		[ 'Name', 'Created', 'Action' ].forEach( function ( label ) {
 			var th = document.createElement( 'th' );
-			th.textContent = label;
+			th.scope = 'col';
+			if ( label === 'Action' ) {
+				th.className = 'sw-ui-table__actions';
+				var hidden = document.createElement( 'span' );
+				hidden.className = 'sw-ui-visually-hidden';
+				hidden.textContent = label;
+				th.appendChild( hidden );
+			} else {
+				th.textContent = label;
+			}
 			headRow.appendChild( th );
 		} );
 		thead.appendChild( headRow );
@@ -1109,7 +1140,7 @@
 	}
 
 	function updatePasswordInventorySummary( count ) {
-		var summary = document.querySelector( '.stonewright-app-passwords-list summary' );
+		var summary = document.querySelector( '.stonewright-app-passwords-list [data-stonewright-app-password-count]' );
 		if ( ! summary ) {
 			return;
 		}
@@ -1133,17 +1164,34 @@
 		passwords.forEach( function ( item ) {
 			var tr = document.createElement( 'tr' );
 			var nameTd = document.createElement( 'td' );
-			nameTd.textContent = item.name || '';
+			nameTd.className = 'sw-ui-table__primary-cell';
+			var nameText = document.createElement( 'span' );
+			nameText.className = 'sw-ui-table__primary';
+			nameText.textContent = item.name || '';
+			nameTd.appendChild( nameText );
 			var uuidTd = document.createElement( 'td' );
-			uuidTd.textContent = item.uuid || '';
+			uuidTd.setAttribute( 'data-label', 'Created' );
+			if ( item.created ) {
+				var stamp = document.createElement( 'time' );
+				stamp.setAttribute( 'datetime', new Date( item.created * 1000 ).toISOString() );
+				stamp.textContent = new Date( item.created * 1000 ).toLocaleString();
+				uuidTd.appendChild( stamp );
+			} else {
+				uuidTd.textContent = 'Unknown';
+			}
 			var actionTd = document.createElement( 'td' );
+			actionTd.className = 'sw-ui-table__actions';
 			var form = document.createElement( 'form' );
 			form.method = 'post';
 			form.setAttribute( 'data-stonewright-app-password-revoke', item.uuid || '' );
 			var btn = document.createElement( 'button' );
 			btn.type = 'button';
-			btn.className = 'button button-small';
+			btn.className = 'sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm';
 			btn.textContent = 'Revoke';
+			var revokeContext = document.createElement( 'span' );
+			revokeContext.className = 'sw-ui-visually-hidden';
+			revokeContext.textContent = ' ' + ( item.name || '' );
+			btn.appendChild( revokeContext );
 			btn.setAttribute( 'data-confirm', 'Revoke this Application Password? The connected client will lose access immediately.' );
 			btn.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
@@ -1174,7 +1222,7 @@
 		if ( button ) {
 			button.disabled = true;
 		}
-		window.fetch( url + '?uuid=' + encodeURIComponent( uuid ), {
+		window.fetch( url + ( url.indexOf( '?' ) === -1 ? '?' : '&' ) + 'uuid=' + encodeURIComponent( uuid ), {
 			method: 'DELETE',
 			credentials: 'same-origin',
 			cache: 'no-store',
@@ -1271,8 +1319,7 @@
 			var live = form.querySelector( '[data-stonewright-app-password-live]' );
 			if ( ! name ) {
 				if ( live ) {
-					live.hidden = false;
-					live.textContent = 'Enter a name before generating an Application Password.';
+					setAppPasswordLive( live, 'danger', 'Enter a name before generating an Application Password.', '' );
 				}
 				return;
 			}
@@ -1303,8 +1350,7 @@
 				if ( ! result.ok || ! result.data || ! result.data.password ) {
 					var message = ( result.data && result.data.message ) ? result.data.message : 'Could not generate Application Password.';
 					if ( live ) {
-						live.hidden = false;
-						live.textContent = message;
+						setAppPasswordLive( live, 'danger', message, '' );
 					}
 					setButtonFeedback( submit, 'Failed' );
 					return;
@@ -1342,8 +1388,7 @@
 				} );
 			} ).catch( function () {
 				if ( live ) {
-					live.hidden = false;
-					live.textContent = 'Network error generating Application Password.';
+					setAppPasswordLive( live, 'danger', 'Network error generating Application Password.', '' );
 				}
 				if ( submit ) {
 					setButtonFeedback( submit, 'Failed' );

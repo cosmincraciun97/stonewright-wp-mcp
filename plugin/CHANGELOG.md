@@ -255,6 +255,12 @@
   (not after a bulk activation, in the network admin, or on a site that has
   already chosen whether Stonewright is on).
 
+- Add `Admin\Ui\Tabs` (tabs that are links work without script; with script they
+  switch in place, keep the choice in the address and open a view that holds a
+  link target), `Admin\Ui\CodeBlock` (a command or config with a titled head, a
+  named copy button and a focusable body) and the choice component
+  (`sw-ui-choice`) to the admin UI layer.
+
 ### Changed
 
 - `elementor-v4-update-node` accepts `operations` as an alternative to
@@ -412,6 +418,20 @@
   needs the typed phrase `DELETE`.
 - The Audit log lede says that changes made on admin screens, such as Setup
   settings and Memory edits, are not recorded in the log.
+
+- Rebuild Stonewright > Setup from the admin UI layer as four views shown as
+  tabs: Get started (turn on, choose a sign-in method, connect a client, verify),
+  Settings (the settings form and the domain lock), Connections (sign-in
+  addresses and connected OAuth clients) and Updates. The address `tab` argument
+  chooses the view, so links, redirects after a save and reloads land on the right
+  one; the page header comes from the shell. Every option, field name, nonce,
+  capability and form action is unchanged. Stored API keys and the bridge token
+  are still never written into the page; connected clients and Application
+  Passwords stack as cards on narrow screens; each repeated action names its
+  client or password; the page prints no duplicate id.
+- Split the Setup screen's code (`Admin\ConfigurationPage`) into small classes
+  under `Admin\Setup`; `ConfigurationPage` keeps the menu, the settings
+  registration and the form handlers.
 
 ### Fixed
 
@@ -643,6 +663,13 @@
   by a row that reads as a successful write.
 - The Troubleshoot summary uses real plurals ("1 problem") and does not say that
   everything passed while checks have not run.
+
+- Fix **Clear domain lock** giving no feedback and the lock reappearing at once:
+  the site address is recorded again on every request while AI abilities are on,
+  so the action is disabled with that reason while they are on, and Setup says
+  what a clear, rebind or restore did.
+- Fix revoking an Application Password from Setup on sites without pretty
+  permalinks (the request lost its password id).
 
 ### Security
 

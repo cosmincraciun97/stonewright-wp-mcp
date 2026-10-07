@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { gotoAdmin } from './helpers/goto-admin';
 import {
 	runAbility,
 	runAbilityWithProfileConfirmation,
@@ -166,7 +167,8 @@ test('companion update handoff is explicit and never claims browser-side install
 	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Connect handoff runs once.');
 	await login(page);
 	let statusRequestUrl = '';
-	await page.route('**/stonewright/v1/admin/companion-update-status*', async (route) => {
+	// Matches the route on pretty permalinks (/wp-json/...) and on plain ones (?rest_route=%2Fstonewright%2F...).
+	await page.route((url) => decodeURIComponent(url.href).includes('/stonewright/v1/admin/companion-update-status'), async (route) => {
 		statusRequestUrl = route.request().url();
 		await route.fulfill({
 			status: 200,
@@ -189,9 +191,7 @@ test('companion update handoff is explicit and never claims browser-side install
 			}),
 		});
 	});
-	await page.goto('/wp-admin/admin.php?page=stonewright', {
-		waitUntil: 'domcontentloaded',
-	});
+	await gotoAdmin(page, '/wp-admin/admin.php?page=stonewright&tab=updates');
 
 	const check = page.getByRole('button', { name: 'Check latest companion' });
 	await expect(check).toBeVisible();

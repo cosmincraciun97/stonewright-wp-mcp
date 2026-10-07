@@ -38,6 +38,16 @@ final class HtmlTest extends TestCase {
 		);
 	}
 
+	public function test_a_form_can_carry_its_destination_and_method(): void {
+		self::assertSame(
+			' action="https://example.test/wp-admin/admin-post.php" method="post"',
+			Html::attrs( [ 'action' => 'https://example.test/wp-admin/admin-post.php', 'method' => 'post' ] )
+		);
+		self::assertSame( ' action="options.php"', Html::attrs( [ 'action' => 'options.php' ] ), 'A relative destination stays relative.' );
+		self::assertSame( '', Html::attrs( [ 'action' => 'javascript:alert(1)' ] ), 'A script destination drops the attribute.' );
+		self::assertSame( '', Html::attrs( [ 'formaction' => 'https://example.test/' ] ), 'A button cannot redirect its form.' );
+	}
+
 	public function test_a_time_element_can_carry_its_machine_readable_value(): void {
 		self::assertSame( ' datetime="2026-10-07 06:00:00"', Html::attrs( [ 'datetime' => '2026-10-07 06:00:00' ] ) );
 		self::assertSame( ' datetime="&quot;&gt;x"', Html::attrs( [ 'datetime' => '">x' ] ) );

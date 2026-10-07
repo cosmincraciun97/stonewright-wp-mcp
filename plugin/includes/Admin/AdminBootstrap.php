@@ -205,7 +205,7 @@ final class AdminBootstrap {
 		// Page-scoped premium styles (only on Stonewright admin pages).
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
-			'stonewright'               => 'setup.css',
+			'stonewright'               => 'pages/setup.css',
 			'stonewright-troubleshoot' => 'pages/troubleshoot.css',
 			'stonewright-abilities'     => 'abilities.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
@@ -247,11 +247,11 @@ final class AdminBootstrap {
 
 		// Top-level Setup also matches via hook suffix when page query is missing.
 		if ( ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) )
-			&& ! wp_style_is( 'stonewright-admin-setup', 'enqueued' )
+			&& ! wp_style_is( 'stonewright-admin-pages/setup', 'enqueued' )
 		) {
 			wp_enqueue_style(
-				'stonewright-admin-setup',
-				$url_base . 'assets/admin/setup.css',
+				'stonewright-admin-pages/setup',
+				$url_base . 'assets/admin/pages/setup.css',
 				[ 'stonewright-admin-shell', 'stonewright-admin' ],
 				$version
 			);

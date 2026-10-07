@@ -23,7 +23,7 @@ final class AdminShellCssTest extends TestCase {
 		'admin/blueprints.css'    => 0,
 		'admin/design-studio.css' => 0,
 		'admin/sandbox.css'       => 21,
-		'admin/setup.css'         => 1,
+		'admin/setup.css'         => 0,
 		'admin/pages/overview.css' => 0,
 		'admin/shell.css'         => 45,
 		'admin/skills-memory.css' => 10,
@@ -105,8 +105,8 @@ final class AdminShellCssTest extends TestCase {
 		self::assertSame( 'var(--sw-border)', self::value( $css, '.sw-shell__main .notice, .sw-shell__main .updated, .sw-shell__main .error', 'border-color' ) );
 	}
 
-	public function test_a_heading_block_the_page_prints_for_itself_is_hidden_so_there_is_one_h1(): void {
-		self::assertSame( 'none', self::value( self::shell(), '.sw-shell__main .sw-setup-page > .sw-setup-header', 'display' ) );
+	public function test_no_page_prints_a_heading_block_of_its_own_so_the_shell_needs_no_rule_to_hide_one(): void {
+		self::assertStringNotContainsString( 'sw-setup-header', self::shell(), 'Setup prints its title through the shell.' );
 	}
 
 	public function test_only_the_admin_bar_is_counted_as_fixed_chrome(): void {

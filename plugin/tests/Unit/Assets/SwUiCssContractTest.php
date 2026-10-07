@@ -63,6 +63,27 @@ final class SwUiCssContractTest extends TestCase {
 		'includes/Admin/DiagnosticsPanel.php',
 		'assets/admin/pages/troubleshoot.js',
 		'assets/admin/pages/troubleshoot.css',
+		// Setup is built from the layer: its partials print the layer's markup, and its stylesheet only places things.
+		'assets/admin/pages/setup.css',
+		'includes/Admin/Connect/SignInPanel.php',
+		// The Setup-only parts of the page script build the layer's notices, badges, buttons and table.
+		'assets/admin/admin.js',
+		'includes/Admin/Setup/ApplicationPasswords.php',
+		'includes/Admin/Setup/AuthMethodScript.php',
+		'includes/Admin/Setup/AuthenticationStep.php',
+		'includes/Admin/Setup/ClientPicker.php',
+		'includes/Admin/Setup/ConnectStep.php',
+		'includes/Admin/Setup/DomainLockCard.php',
+		'includes/Admin/Setup/Nonce.php',
+		'includes/Admin/Setup/SecretField.php',
+		'includes/Admin/Setup/SectionReuseRow.php',
+		'includes/Admin/Setup/SettingsForm.php',
+		'includes/Admin/Setup/SetupContext.php',
+		'includes/Admin/Setup/SetupPage.php',
+		'includes/Admin/Setup/SetupTabs.php',
+		'includes/Admin/Setup/Step.php',
+		'includes/Admin/Setup/UpdateGuide.php',
+		'includes/Admin/Setup/VerifyStep.php',
 	];
 
 	private static function css(): string {

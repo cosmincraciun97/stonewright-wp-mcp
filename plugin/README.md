@@ -78,7 +78,7 @@ never skip KSES to preserve PHP. WPCode active PHP uses the provider's public
 save and cache APIs.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
-Use the admin **Local WP-CLI bridge (advanced)** controls only when you
+Use the **Local WP-CLI bridge (advanced)** section of Setup → Settings only when you
 deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 The source-install `wp plugin activate stonewright` command is for humans with
 WP-CLI already configured. Runtime agents should not recover by shelling out to
@@ -171,7 +171,8 @@ For a site where this plugin is installed, register `--mode plugin-only`. Use
 credential and repair the named entry without creating another alias.
 
 Setup keeps the Settings API form structurally separate from domain-lock
-recovery actions. **Save Settings** therefore returns to Stonewright Setup;
+recovery actions. **Save settings** therefore returns to Stonewright Setup,
+on the **Settings** view;
 `/wp-admin/options.php` is only the internal WordPress handler and is never the
 final admin page.
 

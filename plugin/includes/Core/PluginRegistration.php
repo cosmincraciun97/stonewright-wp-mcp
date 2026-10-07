@@ -13,6 +13,8 @@ use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
+use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
+use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
@@ -287,7 +289,7 @@ final class PluginRegistration {
 		$mismatch = DomainLock::mismatch();
 		$locked   = is_array( $mismatch ) ? (string) ( $mismatch['locked_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::locked_domain() );
 		$current  = is_array( $mismatch ) ? (string) ( $mismatch['current_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::current_origin() );
-		$review   = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+		$review   = SetupTabs::url( 'settings', [], DomainLockCard::ID );
 
 		echo '<div class="notice notice-error stonewright-notice"><p><strong>Stonewright:</strong> ';
 		echo esc_html__(

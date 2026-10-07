@@ -287,7 +287,7 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 
 ### Copy field and code block
 
-`Ui\CopyField::render( $value, [ secret, id, label, copy_label ] )` prints the value in a `code` element (or, for a secret, a read-only password field with a Show value / Hide value toggle), a copy button named "Copy <label>", and a `role="status"` line that says "Copied" for 1.6 seconds, or "Press Ctrl+C" when the clipboard is blocked. Without script the value is still selectable text. A multi-line command is a `sw-ui-code` block: a head with a title and a copy button, and a focusable `pre` with an accessible name.
+`Ui\CopyField::render( $value, [ secret, id, label, copy_label ] )` prints the value in a `code` element (or, for a secret, a read-only password field with a Show value / Hide value toggle), a copy button named "Copy <label>", and a `role="status"` line that says "Copied" for 1.6 seconds, or "Press Ctrl+C" when the clipboard is blocked. Without script the value is still selectable text. A multi-line command is a `sw-ui-code` block (`Ui\CodeBlock::render( $code, [ id, title, where, copy_label ] )`): a head with a title, where the code goes, a polite status and a copy button named "Copy <what>", and a focusable `pre` with an accessible name.
 
 ### Badges, tags, counts and status
 
@@ -307,7 +307,7 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 ### Navigation and tabs
 
 - **Hub navigation** (`sw-ui-hubnav`): links to sibling pages, the current one marked `aria-current="page"`; it scrolls inside its own box when it cannot fit and never wraps to a second row.
-- **ARIA tabs** (`sw-ui-tabs` with `data-sw-ui-tabs`): views inside one page. Roving `tabindex`, Arrow, Home and End keys, automatic activation, one visible panel.
+- **ARIA tabs** (`sw-ui-tabs` with `data-sw-ui-tabs`; `Ui\Tabs::list()` and `Ui\Tabs::panel()`): views inside one page. Roving `tabindex`, Arrow, Home and End keys, automatic activation, one visible panel. A tab that is a link (`href`) works without script: the server renders the view the address names, and with script a click switches in place, `data-sw-ui-tabs-param` keeps the choice in the address (and in the page's WordPress referer fields), and a link to something inside a hidden view opens that view.
 - **In-page navigation** (`sw-ui-toc`): anchors inside the page, the current one marked `aria-current="location"`.
 - **Filter chips** (`sw-ui-chip-filter`): `aria-pressed` buttons.
 - **Page header** (`Ui\PageHeader::render`): one row at least 56px tall with the title, an optional one-line lede (70 characters wide at most), and a right-hand place for badges and the primary action. The shell prints it; a page passes `title`, `lede` and `actions` to `AdminShell::open`.
@@ -333,7 +333,7 @@ The WordPress sidebar is the only global navigation: there is no second navigati
 
 **Help.** Every page has two native Help tabs: "What is this page?" (the lede, where the page sits and its neighbours) and "Glossary".
 
-The pages that have not moved to the layer keep their own content inside this frame and look as they did; a heading block that such a page prints for itself is hidden so the page keeps one `h1`. The same sticky budget holds: the header is static and the Abilities filter bar sticks under the admin bar from 783px up.
+The pages that have not moved to the layer keep their own content inside this frame and look as they did; such a page prints no heading block of its own, so the page keeps one `h1`. The same sticky budget holds: the header is static and the Abilities filter bar sticks under the admin bar from 783px up.
 
 ### Forms
 
@@ -341,6 +341,7 @@ The pages that have not moved to the layer keep their own content inside this fr
 - **Controls** (`sw-ui-input`, `sw-ui-select`, `sw-ui-textarea`): native elements, 40px (44px at 782px and below), 2px radius, `--sw-border-control` edge. They set only the border colour, the focus ring and the metrics.
 - **Error:** `aria-invalid="true"` draws a danger border and an inner ring of the same colour, and the field carries error text with an icon that says the cause and the next step. Colour is never the only cue.
 - **Settings rows** (`sw-ui-form-table`): the native `form-table` pattern (label cell, control cell), stacked at 782px and below.
+- **Choices** (`sw-ui-choices` with `sw-ui-choice`): buttons that select one option of a group (the sign-in method, the AI client, the connection method). The state is read from `aria-checked` (`role="radio"`) or `aria-selected` (`role="tab"`), so the look follows what a screen reader announces; `--compact` is for a long list. A choice that cannot be used is a disabled button with its reason beside it.
 - **Switch** (`sw-ui-switch`): a native checkbox with `role="switch"` laid invisibly over a drawn 40 by 24 track, so it keeps form semantics, keyboard and the no-script fallback. The thumb position is the second cue. Name each switch after what it controls.
 - **Checkbox and radio:** a label around them supplies a 24px target; the control keeps core's 16px. A group of two or three exclusive options is `sw-ui-segmented`.
 - **Inline help:** `sw-ui-help` is a button that opens a native `popover`, so it works by click, tap and keyboard, not only hover.
@@ -450,7 +451,7 @@ This is the release checklist for every Stonewright-owned wp-admin surface that 
 | Hub | Surface | Primary job | Visual contract | Risk to re-check | Own states to verify |
 | --- | --- | --- | --- | --- | --- |
 | Overview | Overview | Answer is it working, what needs me, what happened | A status band (connection, mode, tool surface, last activity, bridge), a table of items that need attention with a state word and one action each, recent activity, and the next setup step as the only primary action | The bridge tile shows a state, never the stored URL; a source that cannot be read reads as nothing to report, never as an error | nothing needs attention; setup unfinished; no activity yet; abilities off or blocked; long values |
-| Setup | Setup | Connect and update safely | Numbered steps, grouped choices, readable code, explicit verification receipts | Release checks bypass stale caches; secrets never enter examples | signed-out client; failed check; copied; long command |
+| Setup | Setup | Connect and update safely | Four views as tabs (Get started, Settings, Connections, Updates). Get started is four numbered steps, each a card with its state (done, next, to do), grouped choices, copyable code and a verification result list; Settings is one form of form-table rows and the domain lock; Connections holds the sign-in addresses and a stacking table of connected clients; Updates the procedures | Release checks bypass stale caches; secrets never enter examples; a stored secret is never printed (empty field, placeholder, explicit remove checkbox); the domain lock reports what a lock action did and cannot be cleared while abilities are on | signed-out client; failed check; copied; long command; no connected client; abilities off; domain mismatch; secret stored; no script |
 | Setup | Troubleshoot (beta) | Diagnose a failed AI client connection | One card with the run button above the results, a spoken summary ("1 problem and 1 warning to look at"), the checks that need attention in one table, the others folded; results are placeholders while a run is busy | The script path does not reload the page and a failed run says so in a notice that stays; the no-script form remains | first load (checks not run); running; all pass; a blocked route; a failed request; long report |
 | AI Abilities | AI Abilities | Search and gate tools | Filters that stick under the admin bar from 783px up, compact grouped rows, a named switch per row | Category actions do not depend on inline click handlers; every switch and select has a name | no match; read-only user; master switch off; 400+ rows |
 | Knowledge | Skills | Manage reusable instructions | Catalog and editor split, clear provenance and lifecycle | Fresh installs include only product defaults; user data survives updates | empty catalog; invalid skill; long body |
