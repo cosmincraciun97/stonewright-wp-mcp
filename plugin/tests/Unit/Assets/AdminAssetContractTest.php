@@ -74,18 +74,13 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringNotContainsString( '.sw-button:hover {', $css );
 	}
 
-	public function test_sandbox_primary_actions_keep_white_text_on_brand_background(): void {
-		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .button.button-primary' );
+	public function test_the_sandbox_stylesheet_restyles_no_core_button_badge_or_tab(): void {
+		$css = self::asset( 'sandbox.css' );
 
-		self::assertStringContainsString( 'color: var(--sw-on-brand)', $body );
-	}
-
-	public function test_sandbox_category_badge_has_explicit_readable_colors(): void {
-		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .sw-badge--category' );
-
-		self::assertStringContainsString( 'background: var(--sw-info-soft)', $body );
-		self::assertStringContainsString( 'color: var(--sw-info-text)', $body );
-		self::assertStringContainsString( 'min-height: 22px', $body );
+		// Primary buttons, badges and the filter control come from the shared layer, so this file never paints them.
+		foreach ( [ '.button', '.nav-tab', '.sw-badge', '.sw-btn', '.stonewright-sandbox-page', '.tablenav', 'widefat' ] as $legacy ) {
+			self::assertStringNotContainsString( $legacy, $css, $legacy );
+		}
 	}
 
 	public function test_overview_stylesheet_only_places_things_and_uses_tokens(): void {

@@ -40,7 +40,6 @@ export const SHELL_ONLY: PageBudget = onTopOfShell({});
 
 export const PAGE_BUDGETS: Readonly<Record<string, PageBudget>> = {
 	stonewright: onTopOfShell({ smallText: [1, 0], smallTargets: [5, 4], duplicateIds: ['_wpnonce', 'submit'], axe: ['scrollable-region-focusable'] }),
-	'stonewright-abilities': onTopOfShell({ smallTargets: [4, 2], duplicateIds: ['_wpnonce'], axe: ['aria-required-children', 'nested-interactive'] }),
 	'stonewright-prompts': onTopOfShell({ smallTargets: [1, 1] }),
 	'stonewright-custom-code-approval': SHELL_ONLY,
 	'stonewright-sandbox': SHELL_ONLY,

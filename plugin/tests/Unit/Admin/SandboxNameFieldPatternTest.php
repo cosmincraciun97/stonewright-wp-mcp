@@ -35,6 +35,8 @@ final class SandboxNameFieldPatternTest extends TestCase {
 	}
 
 	private static function rendered_pattern(): string {
+		// The new file form is its own view of the Drafts tab.
+		$_GET = [ 'new' => '1' ];
 		ob_start();
 		SandboxPage::render();
 		$html = (string) ob_get_clean();

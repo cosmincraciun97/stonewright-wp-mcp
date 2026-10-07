@@ -775,10 +775,11 @@ test.describe('The shell on Stonewright pages', () => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-custom-code-approval', { waitUntil: 'domcontentloaded' });
 		await page.locator('.sw-shell').waitFor({ state: 'visible' });
 
-		const warning = page.locator('#sw-main .notice', { hasText: 'Human approval only.' });
+		// The warning and the guidance are callouts of the layer, not WordPress notices the shell could relocate.
+		const warning = page.locator('#sw-main .sw-ui-callout--warn', { hasText: 'Human approval only.' });
 		await expect(warning).toBeVisible();
 		await expect(page.locator('.sw-notice-drawer')).toBeHidden();
-		await expect(page.locator('#sw-main .notice')).toHaveCount(2);
+		await expect(page.locator('#sw-main .notice')).toHaveCount(0);
 	});
 
 	test('headings inside the layer carry no margin from WordPress core', async ({ page }) => {

@@ -17,13 +17,13 @@ final class AdminShellCssTest extends TestCase {
 	 * number is always fine.
 	 */
 	private const IMPORTANT_CEILING = [
-		'admin/abilities.css'     => 1,
+		'admin/abilities.css'     => 0,
 		'admin/admin.css'         => 2,
 		'admin/audit.css'         => 18,
 		'admin/block-queue.css'   => 0,
 		'admin/blueprints.css'    => 0,
 		'admin/design-studio.css' => 0,
-		'admin/sandbox.css'       => 21,
+		'admin/sandbox.css'       => 0,
 		'admin/setup.css'         => 1,
 		'admin/pages/overview.css' => 0,
 		'admin/shell.css'         => 45,
@@ -115,22 +115,6 @@ final class AdminShellCssTest extends TestCase {
 
 		self::assertSame( 'var(--wp-admin--admin-bar--height, 32px)', CssSource::custom_properties( $css, static fn ( string $s ): bool => ':root' === $s )['--sw-shell-offset'] );
 		self::assertSame( 'var(--sw-shell-offset, 32px)', self::value( $css, 'html.sw-has-shell', 'scroll-padding-top' ) );
-	}
-
-	public function test_the_abilities_filter_bar_sticks_under_the_admin_bar_and_not_on_a_phone(): void {
-		$css = CssSource::read( 'admin/abilities.css' );
-
-		self::assertSame( 'var(--wp-admin--admin-bar--height, 32px)', self::value( $css, '.sw-abilities-filters', 'top' ) );
-		self::assertSame( 'sticky', self::value( $css, '.sw-abilities-filters', 'position' ) );
-		self::assertSame( 'static', self::value( $css, '.sw-abilities-filters', 'position', '@media screen and (max-width: 782px)' ), 'A stacked filter bar must not be sticky on a phone.' );
-		self::assertStringNotContainsString( '--sw-shell-offset', $css );
-	}
-
-	public function test_the_abilities_search_field_keeps_its_height_when_the_toolbar_stacks(): void {
-		$css = CssSource::read( 'admin/abilities.css' );
-
-		// In a column flex container a flex-basis is a height: 1 1 160px made the field 160px tall.
-		self::assertSame( '0 0 auto', self::value( $css, '.sw-abilities-search', 'flex', '@media screen and (max-width: 960px)' ) );
 	}
 
 	// ---------------------------------------------------------------------------------------------

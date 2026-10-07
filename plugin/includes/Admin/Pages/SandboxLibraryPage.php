@@ -3,7 +3,17 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Pages;
 
+use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\SandboxPage;
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Nonce;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\SandboxManifest;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
@@ -102,8 +112,8 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Renders the full Sandbox Library page with outer wrap/h1.
-	 * Also called by SandboxPage when the 'library' tab is selected.
+	 * Renders the Library. Inside the Custom code hub (the Library tab) the hub prints the frame and this prints
+	 * the content; at the old direct address it prints its own frame around the same content.
 	 */
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -132,16 +142,12 @@ final class SandboxLibraryPage {
 		if ( ! in_array( $filter_status, self::VALID_STATUSES, true ) ) {
 			$filter_status = '';
 		}
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		// Determine if ?action=edit or ?action=diff or ?action=rollback is requested.
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended
 		$sub_action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( (string) $_GET['action'] ) ) : '';
 		$sub_file   = isset( $_GET['file'] ) ? sanitize_file_name( wp_unslash( (string) $_GET['file'] ) ) : '';
 		$sub_to     = isset( $_GET['to'] ) ? (int) $_GET['to'] : 0;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-
-		$page_url = self::library_url( [], $embedded );
 
 		// Transient notices.
 		$user_id     = get_current_user_id();
@@ -151,76 +157,129 @@ final class SandboxLibraryPage {
 			delete_transient( $notice_key );
 		}
 
-		?>
-		<div class="wrap">
-			<?php if ( ! $embedded ) : // Embedded in Custom code, the shell prints the page heading. ?>
-				<h1><?php esc_html_e( 'Sandbox Library', 'stonewright' ); ?></h1>
-			<?php endif; ?>
+		$content = '';
+		if ( is_array( $notice_data ) ) {
+			$content .= 'error' === ( $notice_data['type'] ?? '' )
+				? Notice::render( 'danger', __( 'The change was not made', 'stonewright' ), (string) ( $notice_data['message'] ?? '' ) )
+				: Notice::render( 'ok', (string) ( $notice_data['message'] ?? '' ) );
+		}
 
-			<?php if ( is_array( $notice_data ) ) : ?>
-				<div class="notice notice-<?php echo esc_attr( (string) ( $notice_data['type'] ?? 'info' ) ); ?> is-dismissible">
-					<p><?php echo esc_html( (string) ( $notice_data['message'] ?? '' ) ); ?></p>
-				</div>
-			<?php endif; ?>
-
-			<?php
+		if ( in_array( $sub_action, [ 'edit', 'diff', 'rollback' ], true ) && '' !== $sub_file ) {
 			// Sub-action pages: editor, diff, rollback.
-			if ( in_array( $sub_action, [ 'edit', 'diff', 'rollback' ], true ) && '' !== $sub_file ) {
-				self::render_sub_action( $sub_action, $sub_file, $sub_to );
-				echo '</div>';
-				return;
+			$content .= self::capture( static fn() => self::render_sub_action( $sub_action, $sub_file, $sub_to ) );
+		} else {
+			$content .= self::toolbar_html( $active_tab, $filter_category, $filter_status, $embedded );
+			$content .= self::capture(
+				static function () use ( $active_tab, $filter_category, $filter_status, $embedded ): void {
+					switch ( $active_tab ) {
+						case 'widgets':
+							self::render_widgets_tab( $filter_category, $filter_status, $active_tab, $embedded );
+							break;
+						case 'plugins':
+							self::render_plugins_tab( $filter_category, $filter_status, $active_tab, $embedded );
+							break;
+						default:
+							self::render_snippets_tab( $filter_category, $filter_status, $active_tab, $embedded );
+					}
+				}
+			);
+		}
+
+		if ( $embedded ) {
+			echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+			return;
+		}
+
+		AdminShell::open(
+			self::SLUG,
+			[
+				'title' => __( 'Custom code', 'stonewright' ),
+				'lede'  => __( 'Draft, inspect, and activate reviewable PHP files without loading unreviewed code automatically.', 'stonewright' ),
+				'hub'   => 'custom-code',
+			]
+		);
+		echo Scope::wrap( Html::element( 'div', [ 'class' => 'sw-code' ], $content ), [ 'page' => true ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+		AdminShell::close();
+	}
+
+	/** Print markup that the Ui helpers built, which escape every value they were given. */
+	private static function out( string $html ): void {
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+	}
+
+	/** Run a renderer that prints, and return what it printed. */
+	private static function capture( callable $render ): string {
+		ob_start();
+		$render();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The one toolbar of the Library: which kind of file, a category, a status. The kind used to be a second row
+	 * of tabs; it is one of the filters now, and the address it builds is the same.
+	 */
+	private static function toolbar_html( string $active_tab, string $filter_category, string $filter_status, bool $embedded ): string {
+		$hidden = $embedded
+			? Html::void( 'input', [ 'type' => 'hidden', 'name' => 'page', 'value' => SandboxPage::SLUG ] ) . Html::void( 'input', [ 'type' => 'hidden', 'name' => 'tab', 'value' => 'library' ] )
+			: Html::void( 'input', [ 'type' => 'hidden', 'name' => 'page', 'value' => self::SLUG ] );
+
+		$kinds = '';
+		foreach ( self::VALID_TABS as $tab ) {
+			$kinds .= Html::element(
+				'label',
+				[],
+				Html::void( 'input', [ 'type' => 'radio', 'name' => $embedded ? 'library_tab' : 'tab', 'value' => $tab, 'checked' => $tab === $active_tab ] )
+					. Html::text( self::tab_label( $tab ) )
+			);
+		}
+
+		$options = static function ( array $choices, string $selected ): string {
+			$html = '';
+			foreach ( $choices as $value => $label ) {
+				$html .= Html::element( 'option', [ 'value' => (string) $value, 'selected' => (string) $value === $selected ], Html::text( $label ) );
 			}
-			?>
 
-			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sandbox Library tabs', 'stonewright' ); ?>">
-				<?php foreach ( self::VALID_TABS as $tab ) : ?>
-					<a
-						href="<?php echo esc_url( self::library_url( [ 'library_tab' => $tab ], $embedded ) ); ?>"
-						class="nav-tab<?php echo $active_tab === $tab ? ' nav-tab-active' : ''; ?>"
-					><?php echo esc_html( self::tab_label( $tab ) ); ?></a>
-				<?php endforeach; ?>
-			</nav>
+			return $html;
+		};
 
-				<div class="stonewright-library-filters">
-					<form method="get" action="" class="sw-actions">
-						<?php if ( $embedded ) : ?>
-							<input type="hidden" name="page" value="<?php echo esc_attr( SandboxPage::SLUG ); ?>"/>
-							<input type="hidden" name="tab" value="library"/>
-							<input type="hidden" name="library_tab" value="<?php echo esc_attr( $active_tab ); ?>"/>
-						<?php else : ?>
-							<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
-							<input type="hidden" name="tab" value="<?php echo esc_attr( $active_tab ); ?>"/>
-						<?php endif; ?>
-						<select name="category">
-							<option value=""><?php esc_html_e( 'All Categories', 'stonewright' ); ?></option>
-							<option value="snippet"<?php selected( $filter_category, 'snippet' ); ?>><?php esc_html_e( 'Snippet', 'stonewright' ); ?></option>
-							<option value="widget"<?php selected( $filter_category, 'widget' ); ?>><?php esc_html_e( 'Widget', 'stonewright' ); ?></option>
-							<option value="plugin"<?php selected( $filter_category, 'plugin' ); ?>><?php esc_html_e( 'Plugin', 'stonewright' ); ?></option>
-						</select>
-						<select name="status">
-							<option value=""><?php esc_html_e( 'All Statuses', 'stonewright' ); ?></option>
-							<option value="pending"<?php selected( $filter_status, 'pending' ); ?>><?php esc_html_e( 'Pending', 'stonewright' ); ?></option>
-							<option value="active"<?php selected( $filter_status, 'active' ); ?>><?php esc_html_e( 'Active', 'stonewright' ); ?></option>
-						</select>
-						<?php submit_button( __( 'Filter', 'stonewright' ), 'secondary', 'filter-submit', false ); ?>
-					</form>
-				</div>
+		$category_id = Html::unique_id( 'library-category' );
+		$status_id   = Html::unique_id( 'library-status' );
 
-			<?php
-			switch ( $active_tab ) {
-				case 'snippets':
-					self::render_snippets_tab( $filter_category, $filter_status, $active_tab, $embedded );
-					break;
-				case 'widgets':
-					self::render_widgets_tab( $filter_category, $filter_status, $active_tab, $embedded );
-					break;
-				case 'plugins':
-					self::render_plugins_tab( $filter_category, $filter_status, $active_tab, $embedded );
-					break;
-			}
-			?>
-		</div>
-		<?php
+		return Html::element(
+			'form',
+			[ 'method' => 'get', 'class' => 'sw-ui-toolbar sw-code__toolbar' ],
+			$hidden
+				. Html::element( 'div', [ 'class' => 'sw-ui-segmented', 'role' => 'radiogroup', 'aria-label' => __( 'Kind of file', 'stonewright' ) ], $kinds )
+				. Html::element( 'label', [ 'class' => 'sw-ui-visually-hidden', 'for' => $category_id ], Html::text( __( 'Category', 'stonewright' ) ) )
+				. Html::element(
+					'select',
+					[ 'id' => $category_id, 'name' => 'category', 'class' => 'sw-ui-select sw-code__select' ],
+					$options(
+						[
+							''        => __( 'All categories', 'stonewright' ),
+							'snippet' => __( 'Snippet', 'stonewright' ),
+							'widget'  => __( 'Widget', 'stonewright' ),
+							'plugin'  => __( 'Plugin', 'stonewright' ),
+						],
+						$filter_category
+					)
+				)
+				. Html::element( 'label', [ 'class' => 'sw-ui-visually-hidden', 'for' => $status_id ], Html::text( __( 'Status', 'stonewright' ) ) )
+				. Html::element(
+					'select',
+					[ 'id' => $status_id, 'name' => 'status', 'class' => 'sw-ui-select sw-code__select' ],
+					$options(
+						[
+							''        => __( 'All statuses', 'stonewright' ),
+							'pending' => __( 'Pending', 'stonewright' ),
+							'active'  => __( 'Active', 'stonewright' ),
+						],
+						$filter_status
+					)
+				)
+				. Button::render( __( 'Filter', 'stonewright' ), [ 'type' => 'submit' ] )
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -230,8 +289,8 @@ final class SandboxLibraryPage {
 	private static function tab_label( string $tab ): string {
 		return match ( $tab ) {
 			'snippets'     => __( 'Snippets', 'stonewright' ),
-			'widgets'      => __( 'Elementor Widgets', 'stonewright' ),
-			'plugins'      => __( 'Generated Plugins', 'stonewright' ),
+			'widgets'      => __( 'Elementor widgets', 'stonewright' ),
+			'plugins'      => __( 'Generated plugins', 'stonewright' ),
 			default        => $tab,
 		};
 	}
@@ -299,7 +358,6 @@ final class SandboxLibraryPage {
 		self::render_file_table( $rows, $registered_widgets, $active_tab, $embedded );
 
 		// ---- Installed Elementor Widgets (read-only) ----
-		echo '<h2>' . esc_html__( 'Installed Elementor Widgets', 'stonewright' ) . '</h2>';
 
 		// Check Elementor availability — guarded to never call undefined methods.
 		$elementor_widgets = [];
@@ -324,48 +382,55 @@ final class SandboxLibraryPage {
 			}
 		}
 
+		$title = __( 'Installed Elementor widgets', 'stonewright' );
 		if ( empty( $elementor_widgets ) ) {
-			echo '<p>' . esc_html__( 'No Elementor widgets detected. Make sure Elementor is active.', 'stonewright' ) . '</p>';
-		} else {
-			echo '<table class="wp-list-table widefat fixed striped">';
-			echo '<thead><tr>';
-			echo '<th>' . esc_html__( 'Widget Name', 'stonewright' ) . '</th>';
-			echo '<th>' . esc_html__( 'Title', 'stonewright' ) . '</th>';
-			echo '<th>' . esc_html__( 'Categories', 'stonewright' ) . '</th>';
-			echo '<th>' . esc_html__( 'Actions', 'stonewright' ) . '</th>';
-			echo '</tr></thead><tbody>';
-
-			foreach ( $elementor_widgets as $ew ) {
-				$widget_name = esc_html( $ew['name'] );
-				$cats        = esc_html( implode( ', ', $ew['categories'] ) );
-				$create_url  = esc_url(
-					admin_url( 'admin-post.php' )
-				);
-
-				// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- $widget_name and $cats are pre-escaped via esc_html above.
-				echo '<tr>';
-				echo '<td><code>' . $widget_name . '</code></td>';
-				echo '<td>' . esc_html( $ew['title'] ) . '</td>';
-				echo '<td>' . $cats . '</td>';
-				echo '<td>';
-				// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
-				if ( Permissions::can_manage_sandbox() ) {
-					echo '<form method="post" action="' . $create_url . '" style="display:inline;">';  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via esc_url()
-					echo '<input type="hidden" name="action" value="stonewright_sandbox_widget_project"/>';
-					echo '<input type="hidden" name="base" value="' . esc_attr( $ew['name'] ) . '"/>';
-					self::render_return_fields( $active_tab, $embedded );
-					wp_nonce_field( 'stonewright_widget_project', '_stonewright_widget_nonce' );
-					echo '<button type="submit" class="button button-small">' . esc_html__( 'Create Widget Project', 'stonewright' ) . '</button>';
-					echo '</form>';
-				} else {
-					echo '&mdash;';
-				}
-				echo '</td>';
-				echo '</tr>';
-			}
-
-			echo '</tbody></table>';
+			self::out( Card::render(
+				$title,
+				EmptyState::render(
+					__( 'No Elementor widgets detected', 'stonewright' ),
+					__( 'Widget projects start from an installed Elementor widget, and Elementor is not active. Activate Elementor, then reload this page.', 'stonewright' )
+				)
+			) );
+			return;
 		}
+
+		$rows = [];
+		foreach ( $elementor_widgets as $ew ) {
+			if ( Permissions::can_manage_sandbox() ) {
+				$action = Html::element(
+					'form',
+					[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ) ],
+					Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_sandbox_widget_project' ] )
+						. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'base', 'value' => $ew['name'] ] )
+						. self::return_fields_html( $active_tab, $embedded )
+						. Nonce::field( 'stonewright_widget_project', '_stonewright_widget_nonce' )
+						. Button::render( __( 'Create widget project', 'stonewright' ), [ 'type' => 'submit', 'size' => 'sm', 'context' => $ew['name'] ] )
+				);
+			} else {
+				$action = Html::text( '—' );
+			}
+			$rows[] = [
+				'name'       => [ 'html' => Html::element( 'code', [], Html::text( $ew['name'] ) ) ],
+				'title'      => $ew['title'],
+				'categories' => implode( ', ', array_map( 'strval', $ew['categories'] ) ),
+				'action'     => [ 'html' => $action ],
+			];
+		}
+
+		self::out( Card::render(
+			$title,
+			Table::render(
+				[
+					[ 'key' => 'name', 'label' => __( 'Widget name', 'stonewright' ), 'primary' => true ],
+					[ 'key' => 'title', 'label' => __( 'Title', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'categories', 'label' => __( 'Categories', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'action', 'label' => __( 'Actions', 'stonewright' ), 'actions' => true ],
+				],
+				$rows,
+				[ 'caption' => $title ]
+			),
+			[ 'flush' => true, 'actions_html' => Badge::count( count( $elementor_widgets ) ) ]
+		) );
 	}
 
 	/**
@@ -404,13 +469,13 @@ final class SandboxLibraryPage {
 	 */
 	private static function render_sub_action( string $sub_action, string $sub_file, int $sub_to ): void {
 		if ( ! Permissions::can_manage_sandbox() ) {
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'Insufficient permissions.', 'stonewright' ) . '</p></div>';
+			self::out( Notice::render( 'danger', __( 'Insufficient permissions.', 'stonewright' ), '', [ 'actions_html' => self::back_button() ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 			return;
 		}
 
 		$validated = self::resolve_sandbox_basename( $sub_file );
 		if ( is_wp_error( $validated ) ) {
-			echo '<div class="notice notice-error"><p>' . esc_html( $validated->get_error_message() ) . '</p></div>';
+			self::out( Notice::render( 'danger', __( 'That file cannot be opened', 'stonewright' ), $validated->get_error_message(), [ 'actions_html' => self::back_button() ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 			return;
 		}
 
@@ -420,6 +485,29 @@ final class SandboxLibraryPage {
 			'rollback' => self::render_rollback( $sub_file, $sub_to ),
 			default    => null,
 		};
+	}
+
+	/** The way back to the file list of the tab the view was opened from. */
+	private static function back_button(): string {
+		return Button::render( __( 'Back to library', 'stonewright' ), [ 'href' => self::library_url( [], self::is_embedded_request() ), 'variant' => 'tertiary', 'size' => 'sm' ] );
+	}
+
+	/** The production-safe note: the form carries a token that expires. */
+	private static function production_safe_callout(): string {
+		return Notice::callout(
+			'warn',
+			__( 'Production-safe mode is active', 'stonewright' ),
+			__( 'A confirmation token is embedded in this form. It expires in 5 minutes.', 'stonewright' )
+		);
+	}
+
+	/** The facts about one backup or version, as a time element in site time with UTC in its title. */
+	private static function time_html( int $timestamp, string $format = 'Y-m-d H:i:s' ): string {
+		return Html::element(
+			'time',
+			[ 'datetime' => gmdate( 'c', $timestamp ), 'title' => gmdate( 'Y-m-d H:i', $timestamp ) . ' UTC' ],
+			Html::text( (string) wp_date( $format, $timestamp ) )
+		);
 	}
 
 	/**
@@ -436,17 +524,17 @@ final class SandboxLibraryPage {
 		if ( file_exists( $path ) ) {
 			$fsize = filesize( $path );
 			if ( false !== $fsize && $fsize > self::MAX_EDIT_BYTES ) {
-				echo '<div class="notice notice-error"><p>';
-				echo esc_html(
+				self::out( Notice::render(
+					'danger',
+					__( 'The file is too large to edit here', 'stonewright' ),
 					sprintf(
 						/* translators: 1: filename 2: max size in KB */
 						__( 'File %1$s is too large to edit inline (max %2$d KB). Download it to edit locally.', 'stonewright' ),
 						$file,
 						self::MAX_EDIT_BYTES / 1024
-					)
-				);
-				echo '</p></div>';
-				echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+					),
+					[ 'actions_html' => self::back_button() ]
+				) );
 				return;
 			}
 		}
@@ -477,49 +565,68 @@ final class SandboxLibraryPage {
 
 		$page_url = self::library_url( [], self::is_embedded_request() );
 
-		echo '<h2>' . esc_html( sprintf( __( 'Edit: %s', 'stonewright' ), $file ) ) . '</h2>';
+		$form = Html::element(
+			'form',
+			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-code__form' ],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_sandbox_lib_action' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_lib_action', 'value' => 'edit' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_filename', 'value' => $file ] )
+				. self::return_fields_html( self::request_library_tab(), self::is_embedded_request() )
+				// content_hash_at_render is used to detect concurrent edits (optimistic lock).
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'content_hash_at_render', 'value' => $content_hash ] )
+				. ( $prod && '' !== $token ? Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_confirmation_token', 'value' => $token ] ) : '' )
+				. Nonce::field( self::NONCE_ACTION, '_stonewright_lib_nonce' )
+				. Html::element(
+					'div',
+					[ 'class' => 'sw-ui-field' ],
+					Html::element( 'label', [ 'class' => 'sw-ui-field__label', 'for' => 'sw-code-lib-contents' ], Html::text( __( 'Contents', 'stonewright' ) ) )
+					. Html::element( 'textarea', [ 'id' => 'sw-code-lib-contents', 'name' => 'stonewright_content', 'class' => 'sw-ui-textarea sw-ui-textarea--code', 'rows' => '30', 'spellcheck' => 'false' ], esc_textarea( $contents ) )
+				)
+				. Html::element(
+					'div',
+					[ 'class' => 'sw-ui-actions' ],
+					Button::render( __( 'Save changes', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'primary' ] )
+					. Button::render( __( 'Cancel', 'stonewright' ), [ 'href' => $page_url ] )
+				)
+		);
 
-		if ( $prod ) {
-			echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Production-safe mode is active.', 'stonewright' ) . '</strong> ' . esc_html__( 'A confirmation token has been embedded. It will expire in 5 minutes.', 'stonewright' ) . '</p></div>';
-		}
-
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
-		echo '<input type="hidden" name="stonewright_lib_action" value="edit"/>';
-		echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $file ) . '"/>';
-		self::render_return_fields( self::request_library_tab(), self::is_embedded_request() );
-		// content_hash_at_render is used to detect concurrent edits (optimistic lock).
-		echo '<input type="hidden" name="content_hash_at_render" value="' . esc_attr( $content_hash ) . '"/>';
-		if ( $prod && '' !== $token ) {
-			echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $token ) . '"/>';
-		}
-		wp_nonce_field( self::NONCE_ACTION, '_stonewright_lib_nonce' );
-
-		echo '<p>';
-		echo '<textarea name="stonewright_content" rows="30" cols="120" style="font-family:monospace;width:100%;">';
-		echo esc_textarea( $contents );
-		echo '</textarea>';
-		echo '</p>';
-		echo '<p>';
-		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Save', 'stonewright' ) . '</button> ';
-		echo '<a href="' . esc_url( $page_url ) . '" class="button">' . esc_html__( 'Cancel', 'stonewright' ) . '</a>';
-		echo '</p>';
-		echo '</form>';
+		self::out( ( $prod ? self::production_safe_callout() : '' )
+			. Card::render(
+				sprintf( /* translators: %s: file name */ __( 'Edit %s', 'stonewright' ), $file ),
+				$form,
+				[ 'actions_html' => self::back_button() ]
+			) );
 
 		// Rollback list.
 		if ( ! empty( $versions ) ) {
-			echo '<h3>' . esc_html__( 'Backup Versions', 'stonewright' ) . '</h3>';
-			echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
-			echo '<th>' . esc_html__( 'Timestamp', 'stonewright' ) . '</th>';
-			echo '<th>' . esc_html__( 'Action', 'stonewright' ) . '</th>';
-			echo '</tr></thead><tbody>';
+			$rows = [];
 			foreach ( $versions as $v ) {
-				$ts_str = esc_html( (string) wp_date( 'Y-m-d H:i:s', $v['timestamp'] ) );
-				$rb_url = esc_url( $page_url . '&action=rollback&file=' . rawurlencode( $file ) . '&to=' . $v['timestamp'] );
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $ts_str pre-escaped via esc_html, $rb_url pre-escaped via esc_url.
-				echo '<tr><td>' . $ts_str . '</td><td><a href="' . $rb_url . '" class="button button-small">' . esc_html__( 'Rollback', 'stonewright' ) . '</a></td></tr>';
+				$rows[] = [
+					'time'   => [ 'html' => self::time_html( (int) $v['timestamp'] ) ],
+					'action' => [
+						'html' => Button::render(
+							__( 'Roll back', 'stonewright' ),
+							[
+								'href'    => $page_url . ( str_contains( $page_url, '?' ) ? '&' : '?' ) . 'action=rollback&file=' . rawurlencode( $file ) . '&to=' . $v['timestamp'],
+								'size'    => 'sm',
+								'context' => sprintf( /* translators: %s: time of the backup */ __( 'to %s', 'stonewright' ), (string) wp_date( 'Y-m-d H:i:s', $v['timestamp'] ) ),
+							]
+						),
+					],
+				];
 			}
-			echo '</tbody></table>';
+			self::out( Card::render(
+				__( 'Backup versions', 'stonewright' ),
+				Table::render(
+					[
+						[ 'key' => 'time', 'label' => __( 'Saved', 'stonewright' ), 'primary' => true ],
+						[ 'key' => 'action', 'label' => __( 'Action', 'stonewright' ), 'actions' => true ],
+					],
+					$rows,
+					[ 'caption' => sprintf( /* translators: %s: file name */ __( 'Backup versions of %s', 'stonewright' ), $file ) ]
+				),
+				[ 'flush' => true, 'actions_html' => Badge::count( count( $versions ) ) ]
+			) );
 		}
 	}
 
@@ -534,25 +641,22 @@ final class SandboxLibraryPage {
 		$pending_ext  = preg_replace( '/\.php$/', '.pending.php', $file );
 		$pending_path = SandboxFiles::stored_path( (string) $pending_ext );
 
-		$left_label  = __( 'Current Draft', 'stonewright' );
-		$right_label = __( 'Pending Version', 'stonewright' );
-
 		// Size guard: refuse to diff oversized files.
 		foreach ( [ $active_path, $pending_path ] as $check_path ) {
 			if ( file_exists( $check_path ) ) {
 				$fsize = filesize( $check_path );
 				if ( false !== $fsize && $fsize > self::MAX_EDIT_BYTES ) {
-					echo '<div class="notice notice-error"><p>';
-					echo esc_html(
+					self::out( Notice::render(
+						'danger',
+						__( 'The file is too large to compare here', 'stonewright' ),
 						sprintf(
 							/* translators: 1: filename 2: max size in KB */
 							__( 'File %1$s is too large to diff inline (max %2$d KB).', 'stonewright' ),
 							basename( $check_path ),
 							self::MAX_EDIT_BYTES / 1024
-						)
-					);
-					echo '</p></div>';
-					echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+						),
+						[ 'actions_html' => self::back_button() ]
+					) );
 					return;
 				}
 			}
@@ -561,38 +665,49 @@ final class SandboxLibraryPage {
 		$left  = file_exists( $active_path )  ? (string) file_get_contents( $active_path )  : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		$right = file_exists( $pending_path ) ? (string) file_get_contents( $pending_path ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 
-		echo '<h2>' . esc_html( sprintf( __( 'Diff: %s', 'stonewright' ), $file ) ) . '</h2>';
+		$notice = '' === $right
+			? Notice::render( 'info', __( 'No pending version found. Only the current draft is shown.', 'stonewright' ) )
+			: '';
 
-		if ( '' === $right ) {
-			echo '<div class="notice notice-info"><p>' . esc_html__( 'No pending version found. Only current draft is shown.', 'stonewright' ) . '</p></div>';
-		}
-
-		// Minimal line-based diff: show both panes side-by-side.
+		// Minimal line-based diff: a line that differs is printed twice, with a minus for the current draft and
+		// a plus for the pending version, so the difference does not depend on colour.
 		$left_lines  = explode( "\n", $left );
 		$right_lines = explode( "\n", $right );
 		$max         = max( count( $left_lines ), count( $right_lines ) );
-
-		echo '<table class="widefat" style="font-family:monospace;font-size:12px;table-layout:fixed;">';
-		echo '<colgroup><col style="width:5%;"/><col style="width:47%;"/><col style="width:48%;"/></colgroup>';
-		echo '<thead><tr>';
-		echo '<th>#</th>';
-		echo '<th>' . esc_html( $left_label ) . '</th>';
-		echo '<th>' . esc_html( $right_label ) . '</th>';
-		echo '</tr></thead><tbody>';
-
+		$text        = [];
 		for ( $i = 0; $i < $max; $i++ ) {
-			$l   = $left_lines[ $i ] ?? '';
-			$r   = $right_lines[ $i ] ?? '';
-			$row_style = $l !== $r ? 'background:#fffbcc;' : '';
-			echo '<tr style="' . esc_attr( $row_style ) . '">';
-			echo '<td style="color:#999;">' . esc_html( (string) ( $i + 1 ) ) . '</td>';
-			echo '<td><pre style="margin:0;white-space:pre-wrap;">' . esc_html( $l ) . '</pre></td>';
-			echo '<td><pre style="margin:0;white-space:pre-wrap;">' . esc_html( $r ) . '</pre></td>';
-			echo '</tr>';
+			$l = $left_lines[ $i ] ?? null;
+			$r = $right_lines[ $i ] ?? null;
+			if ( '' === $right || $l === $r ) {
+				$text[] = '  ' . (string) $l;
+				continue;
+			}
+			if ( null !== $l ) {
+				$text[] = '- ' . $l;
+			}
+			if ( null !== $r ) {
+				$text[] = '+ ' . $r;
+			}
 		}
 
-		echo '</tbody></table>';
-		echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+		$code = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-code' ],
+			Html::element( 'div', [ 'class' => 'sw-ui-code__head' ], Html::element( 'span', [], Html::text( __( 'Current draft and pending version', 'stonewright' ) ) ) )
+				. Html::element(
+					'pre',
+					[ 'class' => 'sw-ui-code__body', 'tabindex' => '0', 'aria-label' => sprintf( /* translators: %s: file name */ __( 'Differences in %s', 'stonewright' ), $file ) ],
+					Html::element( 'code', [], Html::text( implode( "\n", $text ) ) )
+				)
+		);
+
+		self::out( Card::render(
+			sprintf( /* translators: %s: file name */ __( 'Diff %s', 'stonewright' ), $file ),
+			$notice
+				. Html::element( 'p', [ 'class' => 'sw-ui-hint' ], Html::text( __( 'Current draft: lines marked with a minus. Pending version: lines marked with a plus. Lines that match have neither.', 'stonewright' ) ) )
+				. $code,
+			[ 'actions_html' => self::back_button() ]
+		) );
 	}
 
 	/**
@@ -615,34 +730,42 @@ final class SandboxLibraryPage {
 		}
 
 		$page_url = self::library_url( [], self::is_embedded_request() );
-
-		echo '<h2>' . esc_html( sprintf( __( 'Rollback: %s', 'stonewright' ), $file ) ) . '</h2>';
+		$title    = sprintf( /* translators: %s: file name */ __( 'Roll back %s', 'stonewright' ), $file );
 
 		if ( 0 === $timestamp ) {
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid backup timestamp.', 'stonewright' ) . '</p></div>';
+			self::out( Card::render(
+				$title,
+				Notice::render( 'danger', __( 'Invalid backup timestamp.', 'stonewright' ), __( 'Open the file again and choose one of its backups.', 'stonewright' ) ),
+				[ 'actions_html' => self::back_button() ]
+			) );
 			return;
 		}
 
-		$ts_str = esc_html( (string) wp_date( 'Y-m-d H:i:s', $timestamp ) );
-		echo '<p>' . esc_html( sprintf( __( 'This will replace the current draft with the backup from %s.', 'stonewright' ), (string) wp_date( 'Y-m-d H:i:s', $timestamp ) ) ) . '</p>';
+		$form = Html::element(
+			'form',
+			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-code__form' ],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_sandbox_lib_action' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_lib_action', 'value' => 'rollback' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_filename', 'value' => $file ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_rollback_ts', 'value' => (string) $timestamp ] )
+				. self::return_fields_html( self::request_library_tab(), self::is_embedded_request() )
+				. ( $prod && '' !== $token ? Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_confirmation_token', 'value' => $token ] ) : '' )
+				. Nonce::field( self::NONCE_ACTION, '_stonewright_lib_nonce' )
+				. Html::element(
+					'p',
+					[],
+					Html::text( sprintf( /* translators: %s: time of the backup */ __( 'This will replace the current draft with the backup from %s.', 'stonewright' ), (string) wp_date( 'Y-m-d H:i:s', $timestamp ) ) )
+				)
+				. Html::element(
+					'div',
+					[ 'class' => 'sw-ui-actions' ],
+					Button::render( __( 'Confirm rollback', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'primary' ] )
+					. Button::render( __( 'Cancel', 'stonewright' ), [ 'href' => $page_url ] )
+				)
+		);
 
-		if ( $prod ) {
-			echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Production-safe mode is active.', 'stonewright' ) . '</strong> ' . esc_html__( 'A confirmation token has been embedded. It will expire in 5 minutes.', 'stonewright' ) . '</p></div>';
-		}
-
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
-		echo '<input type="hidden" name="stonewright_lib_action" value="rollback"/>';
-		echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $file ) . '"/>';
-		echo '<input type="hidden" name="stonewright_rollback_ts" value="' . esc_attr( (string) $timestamp ) . '"/>';
-		self::render_return_fields( self::request_library_tab(), self::is_embedded_request() );
-		if ( $prod && '' !== $token ) {
-			echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $token ) . '"/>';
-		}
-		wp_nonce_field( self::NONCE_ACTION, '_stonewright_lib_nonce' );
-		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Confirm Rollback', 'stonewright' ) . '</button> ';
-		echo '<a href="' . esc_url( $page_url ) . '" class="button">' . esc_html__( 'Cancel', 'stonewright' ) . '</a>';
-		echo '</form>';
+		self::out( ( $prod ? self::production_safe_callout() : '' )
+			. Card::render( $title, $form ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -650,50 +773,49 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Renders the WP-style list table for a set of sandbox file rows.
+	 * Renders the table for a set of sandbox file rows.
 	 *
 	 * @param array<int, array{name: string, status: string, size: int, modified: int, path: string}> $rows
 	 * @param array<mixed, mixed> $registered_widgets
 	 */
 	private static function render_file_table( array $rows, array $registered_widgets, string $active_tab, bool $embedded ): void {
-		$page_url = self::library_url( [ 'library_tab' => $active_tab ], $embedded );
-		$mode     = get_option( 'stonewright_mode', 'development' );
-		$prod     = 'production-safe' === $mode;
+		$mode = get_option( 'stonewright_mode', 'development' );
+		$prod = 'production-safe' === $mode;
 
 		if ( empty( $rows ) ) {
-			echo '<p>' . esc_html__( 'No files found for the selected filters.', 'stonewright' ) . '</p>';
+			// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only filter flags.
+			$filtered = ( isset( $_GET['category'] ) && '' !== (string) $_GET['category'] ) || ( isset( $_GET['status'] ) && '' !== (string) $_GET['status'] );
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
+			self::out( Card::render(
+				self::tab_label( $active_tab ),
+				$filtered
+					? EmptyState::render(
+						__( 'No files match', 'stonewright' ),
+						__( 'No file of this kind has the category and status you chose. Clear the filters to see them all.', 'stonewright' ),
+						[
+							'variant'      => 'no-results',
+							'actions_html' => Button::render( __( 'Clear filters', 'stonewright' ), [ 'href' => self::library_url( [ 'library_tab' => $active_tab ], $embedded ), 'size' => 'sm' ] ),
+						]
+					)
+					: EmptyState::render(
+						__( 'No library files yet', 'stonewright' ),
+						__( 'Sandbox files that agents write appear here, grouped by kind, with the title and version from their manifest. Nothing in this list runs until you activate it.', 'stonewright' ),
+						[ 'variant' => 'first-run' ]
+					)
+			) );
 			return;
 		}
 
-		echo '<table class="wp-list-table widefat fixed striped stonewright-sandbox-library-table">';
-		echo '<thead><tr>';
-		echo '<th scope="col">' . esc_html__( 'Filename', 'stonewright' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Title', 'stonewright' ) . '</th>';
-		echo '<th scope="col" style="width:70px;">' . esc_html__( 'Category', 'stonewright' ) . '</th>';
-		echo '<th scope="col" style="width:60px;">' . esc_html__( 'Version', 'stonewright' ) . '</th>';
-		echo '<th scope="col" style="width:80px;">' . esc_html__( 'Size', 'stonewright' ) . '</th>';
-		echo '<th scope="col" style="width:160px;">' . esc_html__( 'Modified', 'stonewright' ) . '</th>';
-		echo '<th scope="col" style="width:90px;">' . esc_html__( 'Status', 'stonewright' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Actions', 'stonewright' ) . '</th>';
-		echo '</tr></thead><tbody>';
-
+		$table_rows = [];
+		$dialogs    = '';
 		foreach ( $rows as $file ) {
 			$fname    = $file['name'];
 			$status   = $file['status'];
-			$size     = size_format( $file['size'] );
-			$mtime    = (string) wp_date( 'Y-m-d H:i', $file['modified'] );
 			$type     = self::detect_type( $fname, $registered_widgets );
 			$manifest = SandboxManifest::read( $fname );
-			$title    = $manifest['title'] ?? '';
-			$category = $manifest['category'] ?? $type;
-			$version  = $manifest['version'] ?? '';
-
-			$badge_class = match ( $status ) {
-				'active'   => 'sw-badge sw-badge--active',
-				'disabled' => 'sw-badge sw-badge--prompt',
-				'crashed'  => 'sw-badge sw-badge--error',
-				default    => 'sw-badge sw-badge--neutral',
-			};
+			$title    = (string) ( $manifest['title'] ?? '' );
+			$category = (string) ( $manifest['category'] ?? $type );
+			$version  = (string) ( $manifest['version'] ?? '' );
 
 			// Per-file confirmation tokens for production-safe.
 			$activate_token = '';
@@ -703,67 +825,127 @@ final class SandboxLibraryPage {
 				$delete_token   = ConfirmationToken::issue( 'stonewright/sandbox-delete',   [ 'name' => $fname ] );
 			}
 
-			echo '<tr>';
-			echo '<td>' . esc_html( $fname ) . '</td>';
-			echo '<td>' . esc_html( $title ) . '</td>';
-			echo '<td>' . esc_html( $category ) . '</td>';
-			echo '<td>' . esc_html( $version ) . '</td>';
-			echo '<td>' . esc_html( $size ) . '</td>';
-			echo '<td>' . esc_html( $mtime ) . '</td>';
-			echo '<td><span class="' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
-			echo '<td class="stonewright-action-cell">';
-
-			// View.
+			// View: the raw file in a page of its own, so it opens in a new tab.
 			$view_nonce = wp_create_nonce( 'stonewright_sandbox_view_' . $fname );
-			$view_url   = esc_url( admin_url( 'admin-post.php?action=stonewright_sandbox_view&file=' . rawurlencode( $fname ) . '&_wpnonce=' . $view_nonce ) );
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $view_url pre-escaped via esc_url.
-			echo '<a href="' . $view_url . '" class="button button-small">' . esc_html__( 'View', 'stonewright' ) . '</a> ';
+			$buttons    = [
+				Button::render(
+					__( 'View', 'stonewright' ),
+					[
+						'href'    => admin_url( 'admin-post.php?action=stonewright_sandbox_view&file=' . rawurlencode( $fname ) . '&_wpnonce=' . $view_nonce ),
+						'size'    => 'sm',
+						'context' => $fname,
+						'new_tab' => true,
+					]
+				),
+			];
 
 			if ( Permissions::can_manage_sandbox() ) {
-				// Edit.
-				$edit_url = esc_url( self::library_url( [ 'library_tab' => $active_tab, 'action' => 'edit', 'file' => rawurlencode( $fname ) ], $embedded ) );
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $edit_url pre-escaped via esc_url.
-				echo '<a href="' . $edit_url . '" class="button button-small">' . esc_html__( 'Edit', 'stonewright' ) . '</a> ';
-
+				$buttons[] = Button::render( __( 'Edit', 'stonewright' ), [ 'href' => self::library_url( [ 'library_tab' => $active_tab, 'action' => 'edit', 'file' => rawurlencode( $fname ) ], $embedded ), 'size' => 'sm', 'context' => $fname ] );
 				// Diff (for .pending twins).
-				$diff_url = esc_url( self::library_url( [ 'library_tab' => $active_tab, 'action' => 'diff', 'file' => rawurlencode( $fname ) ], $embedded ) );
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $diff_url pre-escaped via esc_url.
-				echo '<a href="' . $diff_url . '" class="button button-small">' . esc_html__( 'Diff', 'stonewright' ) . '</a> ';
+				$buttons[] = Button::render( __( 'Diff', 'stonewright' ), [ 'href' => self::library_url( [ 'library_tab' => $active_tab, 'action' => 'diff', 'file' => rawurlencode( $fname ) ], $embedded ), 'size' => 'sm', 'context' => $fname ] );
 
-				// Activate.
 				if ( 'draft' === $status ) {
-					echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="display:inline;">';
-					echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
-					echo '<input type="hidden" name="stonewright_lib_action" value="activate"/>';
-					echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $fname ) . '"/>';
-					self::render_return_fields( $active_tab, $embedded );
-					if ( $prod && '' !== $activate_token ) {
-						echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $activate_token ) . '"/>';
-					}
-					wp_nonce_field( self::NONCE_ACTION, '_stonewright_lib_nonce' );
-					echo '<button type="submit" class="button button-small">' . esc_html__( 'Activate', 'stonewright' ) . '</button>';
-					echo '</form> ';
+					$buttons[] = self::row_form( 'activate', $fname, $active_tab, $embedded, $activate_token, __( 'Activate', 'stonewright' ) );
 				}
 
-				// Delete.
-				echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="display:inline;" class="stonewright-delete-form">';
-				echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
-				echo '<input type="hidden" name="stonewright_lib_action" value="delete"/>';
-				echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $fname ) . '"/>';
-				self::render_return_fields( $active_tab, $embedded );
-				if ( $prod && '' !== $delete_token ) {
-					echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $delete_token ) . '"/>';
-				}
-				wp_nonce_field( self::NONCE_ACTION, '_stonewright_lib_nonce' );
-				echo '<button type="submit" class="button button-small button-link-delete" data-confirm="' . esc_attr( sprintf( __( 'Delete %s? This cannot be undone.', 'stonewright' ), $fname ) ) . '">' . esc_html__( 'Delete', 'stonewright' ) . '</button>';
-				echo '</form>';
+				$buttons[] = self::row_form( 'delete', $fname, $active_tab, $embedded, $delete_token, __( 'Delete', 'stonewright' ), true );
+				$dialogs  .= self::delete_dialog( $fname );
 			}
 
-			echo '</td>';
-			echo '</tr>';
+			$table_rows[] = [
+				'file'     => [
+					'html' => Html::element( 'span', [ 'class' => 'sw-ui-table__primary' ], Html::text( $fname ) )
+						. ( '' !== $title ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $title ) ) : '' ),
+				],
+				'category' => [ 'html' => Badge::tag( ucfirst( $category ) ) ],
+				'version'  => '' !== $version ? $version : [ 'html' => Html::element( 'span', [ 'aria-hidden' => 'true' ], '—' ) . Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden' ], Html::text( __( 'None', 'stonewright' ) ) ) ],
+				'size'     => size_format( $file['size'] ),
+				'modified' => [ 'html' => self::time_html( $file['modified'], 'Y-m-d H:i' ) ],
+				'status'   => [ 'html' => SandboxPage::status_badge( $status ) ],
+				'actions'  => [ 'html' => Html::element( 'div', [ 'class' => 'sw-ui-actions sw-ui-actions--end sw-code__actions' ], implode( '', $buttons ) ) ],
+			];
 		}
 
-		echo '</tbody></table>';
+		self::out( Card::render(
+			self::tab_label( $active_tab ),
+			Table::render(
+				[
+					[ 'key' => 'file', 'label' => __( 'File', 'stonewright' ), 'primary' => true ],
+					[ 'key' => 'category', 'label' => __( 'Category', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'version', 'label' => __( 'Version', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'size', 'label' => __( 'Size', 'stonewright' ), 'secondary' => true, 'numeric' => true ],
+					[ 'key' => 'modified', 'label' => __( 'Modified', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'status', 'label' => __( 'Status', 'stonewright' ) ],
+					[ 'key' => 'actions', 'label' => __( 'Actions', 'stonewright' ), 'actions' => true ],
+				],
+				$table_rows,
+				[ 'caption' => sprintf( /* translators: %s: kind of file, for example Snippets */ __( 'Sandbox library: %s', 'stonewright' ), self::tab_label( $active_tab ) ), 'class' => 'sw-code__table' ]
+			) . $dialogs,
+			[ 'flush' => true, 'actions_html' => Badge::count( count( $rows ) ) ]
+		) );
+	}
+
+	/**
+	 * One action form of a table row. A delete form opens a confirmation dialog when script runs and submits as it
+	 * always did when it does not.
+	 */
+	private static function row_form( string $action, string $fname, string $active_tab, bool $embedded, string $token, string $label, bool $confirm = false ): string {
+		$prod = '' !== $token;
+
+		return Html::element(
+			'form',
+			array_filter( [ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-code__inline-form', 'id' => $confirm ? self::delete_form_id( $fname ) : null ] ),
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_sandbox_lib_action' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_lib_action', 'value' => $action ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_filename', 'value' => $fname ] )
+				. self::return_fields_html( $active_tab, $embedded )
+				. ( $prod ? Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_confirmation_token', 'value' => $token ] ) : '' )
+				. Nonce::field( self::NONCE_ACTION, '_stonewright_lib_nonce' )
+				. Button::render(
+					$label,
+					[
+						'type'    => 'submit',
+						'size'    => 'sm',
+						'variant' => $confirm ? 'danger' : 'secondary',
+						'context' => $fname,
+						'attrs'   => $confirm ? [ 'data-sw-ui-dialog-open' => '#' . self::delete_dialog_id( $fname ) ] : [],
+					]
+				)
+		);
+	}
+
+	private static function delete_form_id( string $fname ): string {
+		return 'sw-code-lib-delete-form-' . sanitize_html_class( $fname );
+	}
+
+	private static function delete_dialog_id( string $fname ): string {
+		return 'sw-code-lib-delete-' . sanitize_html_class( $fname );
+	}
+
+	/** The question asked before a file is deleted. Cancel takes focus; the confirming button is not primary. */
+	private static function delete_dialog( string $fname ): string {
+		$id = self::delete_dialog_id( $fname );
+
+		return Html::element(
+			'dialog',
+			[ 'class' => 'sw-ui-dialog', 'id' => $id, 'aria-labelledby' => $id . '-title' ],
+			Html::element(
+				'div',
+				[ 'class' => 'sw-ui-dialog__header' ],
+				Html::element( 'h2', [ 'class' => 'sw-ui-dialog__title', 'id' => $id . '-title' ], Html::text( sprintf( /* translators: %s: file name */ __( 'Delete %s?', 'stonewright' ), $fname ) ) )
+			)
+			. Html::element(
+				'div',
+				[ 'class' => 'sw-ui-dialog__body' ],
+				Html::text( __( 'This removes the draft, its backups and its active copy, if it has one. It cannot be undone.', 'stonewright' ) )
+			)
+			. Html::element(
+				'div',
+				[ 'class' => 'sw-ui-dialog__footer' ],
+				Button::render( __( 'Cancel', 'stonewright' ), [ 'attrs' => [ 'data-sw-ui-dialog-close' => true, 'autofocus' => true ] ] )
+				. Button::render( __( 'Delete file', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'danger-solid', 'form' => self::delete_form_id( $fname ) ] )
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -1194,11 +1376,10 @@ final class SandboxLibraryPage {
 		return self::library_url( [ 'library_tab' => $tab ], $embedded );
 	}
 
-	private static function render_return_fields( string $active_tab, bool $embedded ): void {
-		if ( $embedded ) {
-			echo '<input type="hidden" name="stonewright_return_tab" value="library"/>';
-		}
-		echo '<input type="hidden" name="stonewright_library_tab" value="' . esc_attr( $active_tab ) . '"/>';
+	/** The hidden fields that bring the person back to the same tab after a post. */
+	private static function return_fields_html( string $active_tab, bool $embedded ): string {
+		return ( $embedded ? Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_return_tab', 'value' => 'library' ] ) : '' )
+			. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_library_tab', 'value' => $active_tab ] );
 	}
 
 	/**

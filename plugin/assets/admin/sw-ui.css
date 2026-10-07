@@ -1931,6 +1931,62 @@
 }
 
 /* ====================================================================== */
+/* 17a. Inline disclosure, touch-sized switches and code fields             */
+/* ====================================================================== */
+/*
+ * A disclosure that lives inside a table cell or a line of text: no border, no background, a link-like summary
+ * that is still a 24px target. It follows the base disclosure at equal specificity, so it wins by order.
+ */
+.sw-ui .sw-ui-disclosure--inline {
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.sw-ui .sw-ui-disclosure--inline > :where(summary) {
+	width: fit-content;
+	min-height: var(--sw-control-h-xs);
+	padding: 0;
+	color: var(--sw-accent-text);
+	font-weight: var(--sw-weight-medium);
+}
+
+.sw-ui .sw-ui-disclosure--inline > :where(.sw-ui-disclosure__body) {
+	padding: var(--sw-space-2) 0 0;
+	border-top: 0;
+}
+
+/*
+ * A textarea that holds code: monospace, lines kept as typed, a long line scrolls inside the field. It sits after
+ * the base textarea at equal specificity.
+ */
+.sw-ui .sw-ui-textarea--code {
+	min-height: 320px;
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-fs-sm);
+	line-height: var(--sw-lh-body);
+	overflow: auto;
+	resize: vertical;
+	tab-size: 4;
+	white-space: pre;
+}
+
+/* On a phone a switch and a checkbox are 40px targets; the drawn track keeps its size. */
+@media (max-width: 782px) {
+	.sw-ui .sw-ui-switch {
+		min-height: 40px;
+	}
+
+	.sw-ui .sw-ui-switch :where(input) {
+		height: 40px;
+	}
+
+	.sw-ui .sw-ui-checkbox {
+		min-height: 40px;
+	}
+}
+
+/* ====================================================================== */
 /* 18. Reduced motion and forced colours                                    */
 /* ====================================================================== */
 /*

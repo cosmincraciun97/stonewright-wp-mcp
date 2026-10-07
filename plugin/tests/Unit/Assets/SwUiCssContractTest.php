@@ -46,6 +46,15 @@ final class SwUiCssContractTest extends TestCase {
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
 		'includes/Admin/Pages/StatusPage.php',
 		'assets/admin/pages/overview.css',
+		// AI Abilities: markup from the helpers, its script, and a stylesheet that only places things.
+		'includes/Admin/AbilitiesPage.php',
+		'assets/admin/abilities.css',
+		'assets/admin/pages/abilities.js',
+		// Custom code hub: Drafts, Library, Active, Crash recovery and Approvals, with one placement stylesheet.
+		'includes/Admin/SandboxPage.php',
+		'includes/Admin/Pages/SandboxLibraryPage.php',
+		'includes/Admin/CustomCodeApprovalPage.php',
+		'assets/admin/sandbox.css',
 	];
 
 	private static function css(): string {

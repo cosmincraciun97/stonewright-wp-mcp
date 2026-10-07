@@ -129,7 +129,7 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Custom code</h1>', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
 		self::assertStringNotContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'stonewright-sandbox-page', $html );
+		self::assertStringContainsString( 'class="sw-code"', $html );
 		// One tab bar: the hub's. The page no longer prints a second row of tabs.
 		self::assertStringContainsString( '<nav aria-label="Custom code sections">', $html );
 		self::assertStringNotContainsString( 'sw-tabs', $html );
@@ -137,8 +137,8 @@ final class AdminPagesPolishTest extends TestCase {
 		foreach ( [ 'tab=library', 'tab=mu-plugins', 'tab=crash-recovery', 'page=stonewright-custom-code-approval' ] as $link ) {
 			self::assertStringContainsString( $link, $html, $link );
 		}
-		self::assertStringContainsString( 'stonewright-empty-state', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-file-form"', $html );
+		self::assertStringContainsString( 'sw-ui-empty--first-run', $html );
+		self::assertStringContainsString( 'new=1', $html );
 		self::assertStringNotContainsString( 'tab=audit', $html );
 	}
 

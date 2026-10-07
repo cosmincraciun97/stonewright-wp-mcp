@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 
 /**
@@ -85,5 +86,33 @@ final class AdminBootstrapAssetsTest extends TestCase {
 		$details = $GLOBALS['stonewright_test_enqueue_details']['style'];
 		self::assertSame( [ 'stonewright-admin-shell', 'stonewright-admin' ], $details['stonewright-admin-abilities']['deps'] );
 		self::assertSame( 'stonewright-ui', $GLOBALS['stonewright_test_enqueued_styles'][0] );
+	}
+
+	public function test_every_page_of_the_custom_code_hub_gets_the_one_page_stylesheet(): void {
+		foreach ( [ 'stonewright-sandbox', 'stonewright-custom-code-approval', 'stonewright-sandbox-library' ] as $page ) {
+			$GLOBALS['stonewright_test_enqueued_styles'] = [];
+			$GLOBALS['stonewright_test_enqueue_details'] = [];
+			$_GET['page']                                = $page;
+
+			AdminBootstrap::enqueue_assets( 'stonewright_page_' . $page );
+
+			self::assertContains( 'stonewright-admin-sandbox', $GLOBALS['stonewright_test_enqueued_styles'], $page );
+			self::assertSame( [ 'stonewright-admin-shell', 'stonewright-admin' ], $GLOBALS['stonewright_test_enqueue_details']['style']['stonewright-admin-sandbox']['deps'], $page );
+			self::assertStringEndsWith( 'assets/admin/sandbox.css', $GLOBALS['stonewright_test_enqueue_details']['style']['stonewright-admin-sandbox']['src'], $page );
+		}
+	}
+
+	public function test_the_abilities_page_loads_its_script_after_the_layer_and_no_other_page_does(): void {
+		$_GET['page'] = 'stonewright-abilities';
+
+		AbilitiesPage::enqueue( 'stonewright_page_stonewright-abilities' );
+
+		self::assertContains( 'stonewright-admin-abilities', $GLOBALS['stonewright_test_enqueued_scripts'] );
+		self::assertSame( [ 'stonewright-ui' ], $GLOBALS['stonewright_test_enqueue_details']['script']['stonewright-admin-abilities']['deps'] );
+
+		$GLOBALS['stonewright_test_enqueued_scripts'] = [];
+		$_GET['page']                                 = 'stonewright-memory';
+		AbilitiesPage::enqueue( 'stonewright_page_stonewright-memory' );
+		self::assertSame( [], $GLOBALS['stonewright_test_enqueued_scripts'], 'Only its own page loads it.' );
 	}
 }
