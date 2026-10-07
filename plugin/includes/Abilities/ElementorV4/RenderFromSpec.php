@@ -18,8 +18,17 @@ use Stonewright\WpMcp\Support\ElementorData;
  * When replace is false (default) the rendered tree is appended; when true it
  * replaces the entire existing tree.
  *
- * Rendering is delegated to ElementorV4SpecRenderer, which is currently a stub
- * that emits e-flexbox placeholder containers. See that class for the roadmap.
+ * The spec goes through Validator::validate() first; an invalid spec returns the
+ * structured `stonewright_spec_invalid` WP_Error and nothing is rendered.
+ * ElementorV4SpecRenderer then maps each section and each heading, paragraph,
+ * image, button, separator, icon, row, and column block onto a node tree, and
+ * AtomicRenderer compiles every node against the certified Atomic schema:
+ * layout nodes become `e-flexbox` containers, widget nodes use `elType` widget
+ * with an `e-` widgetType such as `e-heading`, and every prop is wrapped in the
+ * typed `{ $$type, value }` envelope. A block type or prop without a certified
+ * Atomic schema, and a value that schema rejects, is returned as a structured
+ * WP_Error (for example `stonewright_v4_unknown_node`) that carries the failing
+ * path; a partial tree is never returned as success and nothing is written.
  * Contract decision: keep output_schema aligned to the handler response shape.
  *
  * @stonewright-status experimental
