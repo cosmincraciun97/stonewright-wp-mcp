@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 
 /**
  * @covers \Stonewright\WpMcp\Core\ServerRegistration
@@ -63,6 +64,49 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertStringNotContainsString( 'visual_build_gate', $description );
 		// Compact bootstrap summary (task-start + Elementor integrity rules); keep under 3k.
 		self::assertLessThan( 3000, strlen( $description ) );
+	}
+
+	public function test_register_server_description_names_the_active_design_direction_before_visual_work(): void {
+		$wpdb = $GLOBALS['wpdb'] ?? null;
+		if ( ! is_object( $wpdb ) || ! property_exists( $wpdb, 'direction_rows' ) ) {
+			self::markTestSkipped( 'The test wpdb double does not expose direction_rows.' );
+		}
+		$contract             = [
+			'identity'  => [ 'name' => 'Quarry' ],
+			'readiness' => [ 'ready' => true, 'sync_ready' => false, 'issues' => [] ],
+		];
+		$hash                 = DesignDirectionService::hash( $contract );
+		$wpdb->direction_rows = [
+			73 => [
+				'id'               => 73,
+				'slug'             => 'quarry',
+				'status'           => 'ready',
+				'contract_json'    => (string) wp_json_encode( $contract ),
+				'contract_hash'    => $hash,
+				'source_type'      => 'manual',
+				'source_refs_json' => '[]',
+				'revision'         => 3,
+				'created_at'       => '2026-07-01 00:00:00',
+				'updated_at'       => '2026-07-02 00:00:00',
+			],
+		];
+		$GLOBALS['stonewright_test_options'][ DesignDirectionService::ACTIVE_OPTION ] = 73;
+
+		try {
+			$adapter = new CapturingMcpAdapter();
+			ServerRegistration::register_server( $adapter );
+			$description = $this->created_server_argument( $adapter, 4 );
+		} finally {
+			$wpdb->direction_rows = [];
+		}
+
+		self::assertIsString( $description );
+		self::assertStringContainsString( 'Active Design Direction: Quarry', $description );
+		self::assertStringContainsString( substr( $hash, 0, 12 ), $description );
+		self::assertStringContainsString( 'stonewright-design-direction-brief', $description );
+		self::assertLessThan( 3000, strlen( $description ) );
+		// The OAuth server registers the same instructions.
+		self::assertSame( $adapter->calls[0][4], $adapter->calls[1][4] );
 	}
 
 	public function test_register_server_exposes_only_current_public_tools(): void {

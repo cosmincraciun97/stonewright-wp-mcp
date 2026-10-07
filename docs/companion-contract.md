@@ -212,7 +212,9 @@ Local, parameterized WP-CLI recipes stored under
 MCP surface: exactly three tools — `stonewright-command-list`,
 `stonewright-command-get`, `stonewright-command-run` — exposed only on the
 `wp-cli`, `site-admin`, `full`, and `discover-execute` profiles. No HTTP
-routes are added for commands.
+routes are added for commands. The read-only `inspect` profile exposes none of
+them and registers, besides the permanent gateways, only the local
+`stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools.
 
 ## Connection status v3
 

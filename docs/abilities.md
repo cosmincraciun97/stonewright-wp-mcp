@@ -79,7 +79,8 @@ sentinel: if it is missing, the Stonewright MCP server did not load.
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
 the task needs to switch or verify a low-token execution profile. It returns
 compact profiles such as `low-tools`, `elementor-design`, `content-model`,
-`gutenberg`, `wp-cli`, and opt-in `discover-execute` with the hyphenated MCP
+`gutenberg`, `wp-cli`, and the opt-in `discover-execute` and read-only
+`inspect` with the hyphenated MCP
 tool names agents should keep using before broad discovery. It also returns `tool_groups`,
 `next_best_tools`, and `discovery_policy` so agents can pick the next Elementor,
 content/media, Gutenberg/FSE, WP-CLI, or site-admin tool without reading the
@@ -144,6 +145,26 @@ The three protocol tools are:
 `execute-ability` cannot invoke itself. Disabled abilities stay disabled.
 `stonewright/php-execute` is not on this profile; it remains on `full`.
 
+## Inspect
+
+`inspect` is an opt-in, read-only MCP profile. Auto routing never selects it.
+Activate it with `stonewright-tool-profile` when the task is to look, not to
+change: the startup set plus discovery, read, and verify tools.
+
+| Group | Tools |
+|---|---|
+| Discovery | `site-info`, `site-capabilities`, `site-plugins-list`, `site-theme`, `content-inventory`, `elementor-v3-capabilities-summary`, `elementor-v4-status`, `design-direction-brief` |
+| Read | `content-get-page`, `elementor-v3-get-page-structure`, `elementor-v4-read-atomic-tree`, `elementor-v3-get-kit-globals`, `elementor-schema`, `blocks-get-schema`, `fse-get-theme-json`, `theme-file-read`, `media-list`, `menu-list`, `settings-get` |
+| Verify | `elementor-post-write-verify` (observation only), `elementor-document-health`, `design-visual-compare`, `site-health`, `capability-preflight` |
+
+The profile has no write tool, no snapshot or confirmation-token tool, no
+blueprint or Design Direction write, and neither `php-execute` nor
+`execute-ability`. Activating it adds these tools to the session. It does not
+change the surface the operator saved: a `bootstrap` surface stays `bootstrap`,
+and a surface that already lists write tools keeps listing them. When a change
+is needed, call `stonewright-tool-profile` with the profile that owns the write
+(`elementor-design`, `gutenberg`, `content-model`, or `site-admin`).
+
 ## Runtime
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
@@ -153,6 +174,22 @@ loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected
 meta writes are blocked; see [Security](security.md#php-execute-runtime-guards).
+
+When a snippet that ran uses a common pattern, the response adds a short
+`routing_hint` that names the typed tool for it. `prefer` maps the pattern to
+MCP tool names, and `note` says the call was not blocked.
+
+| Pattern | Snippet signal | Typed tools named |
+|---|---|---|
+| `post_meta` | `update_post_meta` or `add_post_meta` (or the metadata API with the `post` type) with a literal public key | `stonewright-content-update-post`, `stonewright-content-bulk-upsert-posts` |
+| `options` | `get_option`, `update_option`, or `add_option` with a literal name in the settings allowlist | `stonewright-settings-get`, `stonewright-settings-update` |
+| `elementor_data` | `_elementor_data` | `stonewright-elementor-v3-get-page-structure`, `stonewright-elementor-v3-batch-mutate` |
+| `menus` | `wp_get_nav_menus`, `wp_create_nav_menu`, `wp_update_nav_menu_item`, `wp_delete_nav_menu`, or `set_theme_mod( 'nav_menu_locations' )` | the matching `stonewright-menu-*` tool |
+
+The hint never blocks `php-execute`, never repeats the snippet, omits a tool the
+operator disabled, and names at most four patterns with three tools each.
+`stonewright-task-start` returns the same kind of hint as
+`fast_path.routing_hint` for the patterns the task mentions.
 
 ## WP-CLI
 

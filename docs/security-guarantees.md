@@ -21,7 +21,13 @@ Enforced by:
 - `plugin/bin/security-audit.php`
 
 `php-execute` is registered on the **full** MCP profile only. Bootstrap and
-essential do not expose it. The `discover-execute` profile also omits it.
+essential do not expose it. The `discover-execute` and read-only `inspect`
+profiles also omit it.
+
+A successful `php-execute` response may carry a `routing_hint` that names the
+typed tool for a common pattern (post meta, options, Elementor data, menus). The
+hint is advice built from fixed text. It never blocks or changes the call, and
+it never repeats the snippet.
 
 Verify:
 

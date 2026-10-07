@@ -1043,7 +1043,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				: runtime.profile;
 			const tools = proxyToolNamesForProfile(
 				// coerce via names lookup; unknown falls to current
-				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, 'discover-execute': 1 }
+				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, inspect: 1, 'discover-execute': 1 }
 					? (requested as ProxyToolProfile)
 					: runtime.profile,
 			);
@@ -1438,6 +1438,8 @@ function reauthUserActionForClient(clientName: string): string {
 function toDirectProfile(profile: ProxyToolProfile): DirectToolProfile {
 	if (profile === 'full') return 'full';
 	if (profile === 'bootstrap') return 'bootstrap';
+	// Direct has no inspect surface; its bootstrap surface has no tool that writes site content.
+	if (profile === 'inspect') return 'bootstrap';
 	if (profile === 'essential-static') return 'essential-static';
 	if (profile === 'essential') return 'essential';
 	if (profile === 'elementor-design' || profile === 'content-model' || profile === 'gutenberg' || profile === 'site-admin') {

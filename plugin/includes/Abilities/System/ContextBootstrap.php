@@ -108,6 +108,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'design_implementation_contract' => [ 'type' => 'object' ],
 				'required_followups'             => [ 'type' => 'array' ],
 				'design_direction_ref'           => [ 'type' => 'object' ],
+				'agent_preferences'              => [ 'type' => 'object' ],
 				'response_mode'                  => [ 'type' => 'string' ],
 				'payload_hashes'                 => [ 'type' => 'object' ],
 				'changed_keys'                   => [ 'type' => 'array' ],

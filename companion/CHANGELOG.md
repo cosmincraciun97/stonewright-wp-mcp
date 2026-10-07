@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Accept `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`, the read-only profile of
+  discovery, read, and verify tools. It registers the permanent gateways and the
+  local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools, and
+  no `stonewright-php-execute`, WP-CLI run, batch, job, or install tool, and no
+  command tool, even when the site's saved surface is `full`. Setup output
+  names no runtime or WP-CLI run tool for it and does not ask a client to
+  refresh for `php-execute`. In Direct (pluginless) mode the profile maps to the
+  Direct bootstrap surface. Auto and unknown profile values never select it.
+
 ### Fixed
 
 - Refresh runtime dependency floors and security overrides, and use a patched

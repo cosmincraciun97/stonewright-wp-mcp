@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { PERMANENT_GATEWAY_TOOL_NAMES } from '../src/connection/permanent-gateways.js';
 import {
+	INSPECT_LOCAL_TOOL_NAMES,
 	coerceProxyToolProfile,
 	effectiveInitialProxyProfile,
 	maxToolsFromEnv,
@@ -158,6 +160,75 @@ describe('tool profile resolve + client cap', () => {
 		);
 		expect(names).not.toContain('stonewright-php-execute');
 		expect(names.length).toBeLessThanOrEqual(16);
+	});
+
+	it('inspect fallback is a read-only surface without php-execute or any write tool', () => {
+		expect(coerceProxyToolProfile('inspect')).toBe('inspect');
+		const names = proxyToolNamesForProfile('inspect');
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'stonewright-context-bootstrap',
+				'stonewright-task-start',
+				'stonewright-tool-profile',
+				'stonewright-skills-get',
+				'stonewright-site-info',
+				'stonewright-content-get-page',
+				'stonewright-elementor-v3-get-page-structure',
+				'stonewright-elementor-post-write-verify',
+				'stonewright-elementor-document-health',
+				'stonewright-site-health',
+			]),
+		);
+		for (const forbidden of [
+			'stonewright-php-execute',
+			'stonewright-execute-ability',
+			'stonewright-security-issue-confirmation-token',
+			'stonewright-blueprint-apply',
+			'stonewright-brand-kit-apply',
+			'stonewright-design-direction-save',
+			'stonewright-elementor-v3-batch-mutate',
+			'stonewright-elementor-css-regenerate',
+			'stonewright-settings-update',
+			'stonewright-theme-file-patch',
+			'stonewright-wp-cli-run',
+		]) {
+			expect(names, forbidden).not.toContain(forbidden);
+		}
+		expect(new Set(names).size).toBe(names.length);
+		expect(names.length).toBeLessThanOrEqual(30);
+	});
+
+	it('inspect keeps only the local tools that read', () => {
+		expect(INSPECT_LOCAL_TOOL_NAMES).toEqual(
+			expect.arrayContaining([
+				...PERMANENT_GATEWAY_TOOL_NAMES,
+				'stonewright-wp-cli-status',
+				'stonewright-wp-cli-discover',
+			]),
+		);
+		for (const forbidden of [
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+			'stonewright-wp-cli-install',
+		]) {
+			expect(INSPECT_LOCAL_TOOL_NAMES as readonly string[], forbidden).not.toContain(forbidden);
+		}
+	});
+
+	it('never selects inspect implicitly', () => {
+		for (const raw of ['', 'auto', 'default', 'fast', 'general', 'compact', 'unknown', 'read', 'readonly']) {
+			expect(coerceProxyToolProfile(raw), raw).not.toBe('inspect');
+		}
+		expect(proxyToolProfileFromEnv({})).not.toBe('inspect');
+		expect(proxyToolProfileFromEnv({ STONEWRIGHT_MCP_TOOL_PROFILE: 'inspect' })).toBe('inspect');
+	});
+
+	it('does not widen an inspect session when the plugin reports the profile back', () => {
+		expect(coerceProxyToolProfile('Inspect')).toBe('inspect');
+		expect(effectiveInitialProxyProfile('inspect', 'full', {})).toBe('inspect');
+		expect(effectiveInitialProxyProfile('inspect', 'bootstrap', {})).toBe('inspect');
 	});
 
 	it('fallback content-model includes wc reads', () => {

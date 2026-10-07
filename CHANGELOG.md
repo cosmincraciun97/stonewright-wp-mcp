@@ -41,6 +41,26 @@ development builds were never stable releases.
 - Add the built-in `how-to-write-skills` skill, covering trigger descriptions,
   body size, version constraints, exposure flags, import review, and testing a
   skill before it is enabled.
+- Name the active Design Direction on one line in the MCP server instructions
+  that clients read on connect: its name, slug, id, a 12-character prefix of the
+  contract hash, and the `stonewright-design-direction-brief` tool.
+- Add the `stonewright_agent_preferences` filter. Preferences it returns appear
+  as `context.agent_preferences`, next to `context.design_direction_ref`, in
+  `stonewright-task-start` and `stonewright-context-bootstrap`, and as one line
+  in the connect-time instructions. Keys are lower snake case, values are
+  booleans, integers, or text of at most 48 characters, and at most eight
+  entries are kept. The plugin registers no preference.
+- Add typed-tool routing hints. A `stonewright-php-execute` response carries a
+  short `routing_hint` when the snippet uses post meta, option, Elementor data,
+  or menu patterns, naming the typed tool; the call is never blocked and the
+  hint never repeats the snippet. `stonewright-task-start` returns
+  `fast_path.routing_hint` for the patterns the task mentions, only while the
+  compact payload stays inside its size cap.
+- Add the opt-in read-only `inspect` tool profile: the startup set plus
+  discovery, read, and verify tools, with no `php-execute`, `execute-ability`,
+  blueprint, or other write tool. Auto routing never selects it, and activating
+  it does not widen the saved MCP surface. The companion accepts
+  `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`; see the companion changelog.
 
 ### Changed
 

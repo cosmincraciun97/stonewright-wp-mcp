@@ -138,7 +138,11 @@ the plugin wraps the live `$wpdb` handle with a real `wpdb` subclass
   PHP. Route those writes through the approval-gated custom-code provider.
 
 These guards do not make php-execute a sandbox. Prefer typed abilities for
-Elementor, FSE, options, and post writes.
+Elementor, FSE, options, and post writes. A successful call whose snippet uses
+post meta, option, Elementor data, or menu patterns returns a `routing_hint`
+that names the typed tool. The hint is advice built from fixed text after the
+guards and the snippet have run; it does not block, change, or repeat the
+snippet.
 
 Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct

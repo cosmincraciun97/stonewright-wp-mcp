@@ -374,6 +374,15 @@ For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
 the canonical `stonewright-wp-cli-*` recovery tools remain local.
+For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
+It registers discovery, read, and verify tools plus the permanent gateways and
+the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It
+registers no `stonewright-php-execute`, no `stonewright-wp-cli-run`,
+`-batch-run`, `-job-start`, `-job-status`, or `-install` tool, no command tool,
+and no tool that writes site content, even when the site's saved surface is
+`full`. Call `stonewright-tool-profile` to switch to the profile that owns a
+write. In Direct (pluginless) mode the profile maps to the Direct bootstrap
+surface.
 
 From a GitHub release:
 
@@ -406,7 +415,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs normally use `essential`; `bootstrap`, `full`, `low-tools`, and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs normally use `essential`; `bootstrap`, `full`, `low-tools`, the read-only `inspect`, and specialist profiles remain explicit overrides. `full` and `inspect` are never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_MAX_TOOLS` | optional | Maximum proxied tools registered for the client. Use `50` for capped clients so Stonewright trims deterministically after write-critical ordering. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
