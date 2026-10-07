@@ -29,9 +29,12 @@ The instructions are also included in the output of the
 `stonewright-system-abilities-list` MCP tool so agents can read them
 programmatically.
 
-The textarea is labelled "Custom instructions" for screen readers, and the
-guidance printed above it and the 4000-character limit printed below it are
-linked to it as descriptions.
+The textarea has a visible "Custom instructions" label, and the guidance and the
+4000-character limit printed under it are linked to it as its description.
+The two switches (**Enable memory abilities**, **Enable custom instructions**)
+and the textarea share one **Settings** form: WordPress saves every option of a
+settings group on each post and clears the ones the post did not carry, so one
+form that posts all three keeps saving one from clearing another.
 
 Enabled Context page text (`Stonewright → Context`) is prepended to this
 block before it reaches agents. Compact `stonewright-task-start` includes up
@@ -74,12 +77,16 @@ columns:
 | `created_at` | `DATETIME` | Set in UTC when the entry is created |
 | `updated_at` | `DATETIME` | Set in UTC on each write; reading never changes it |
 
-There is a `UNIQUE KEY` on `(scope, memory_key)`, so updating an existing
-key in the same scope replaces the record rather than creating a duplicate.
+There is a `UNIQUE KEY` on `(scope, memory_key)`. An ability that saves an
+existing key replaces the record rather than creating a duplicate. The **Add
+entry** form never replaces: it refuses a scope and key that are already in use
+and says which entry holds them.
 
-The page labels its **Updated** column UTC. Recording that task start retrieved
-an entry sets only `last_retrieved_at`, shown as **Last retrieved** and also in
-UTC; it does not change `updated_at`.
+Times are stored in UTC. The page shows **Updated** in the site's time zone
+in a `time` element whose `datetime` and `title` carry the UTC instant.
+Recording that task start retrieved an entry sets only `last_retrieved_at`,
+shown as **Last retrieved** (UTC) in the entry's facts; it does not change
+`updated_at`.
 
 ### Types
 
@@ -113,50 +120,80 @@ times, Stonewright writes a Reference entry in scope `audit` with status
 
 ## Page UI
 
-### Tabs
+The page is built from the shared admin UI layer. From top to bottom: the
+messages for the last action, the store note and guidance, the **Memory
+entries** card (add form, lifecycle filters, table), **Learned rules** when
+there are any, **Settings**, **Import and export**, and **Receipt lookup and
+feedback migration**. The one primary action in the page header is **Add entry**.
 
-The page shows five tabs: **All**, **User**, **Feedback**, **Project**,
-**Reference**. Clicking a tab appends `?type={type}` to the URL; the page
-re-renders with `Memory::list_by_type()` filtered results. The **All** tab
-calls `Memory::list_all()`.
+### Messages
 
-Each tab label shows a count in parentheses, e.g. **Project (3)**, drawn
-from a full-table scan on page load.
+Every action ends in a message on this page, printed where the page begins and
+never removed by a timer: entry created, saved, deleted, lesson approved,
+draft discarded, learned rule disabled, settings saved, legacy feedback
+classified, and the refusals (see below). Confirmations are status messages;
+refusals and failures are alerts. The redirect carries a short `memory_notice`
+code and the id of the entry it concerns; the page looks the code up and never
+prints request text.
+
+### Lifecycle filters
+
+**All**, **User**, **Project**, **Verified repairs**, **Unresolved incidents**,
+**Incident lifecycle**, **Audit feedback** and **Reference** are links that add
+`?type={view}`; each carries its count. **Incident lifecycle** and **Unresolved
+incidents** list the incident store, with its own state filters (**Open**,
+**Observing**, **Resolved**, **Suppressed**).
+
+### The table
+
+One row per entry: name and key, type (a tag), scope, status (**Active**,
+**Draft**, **Stale** or **Rejected**, with the lifecycle state when there is
+one), updated time, and the row's actions, each named after its entry. The
+table stacks into one card per row at 782px and below. It lists the newest 200
+entries of a view and says so when there are more. An empty store and an empty
+view each have their own message.
 
 ### Adding an entry
 
-Click **Add new** to reveal the hidden form. Fill in Name, Scope (defaults
-to `"default"`), Key, Type (select), and Value. The Value field accepts any
-text or JSON. Submitting posts to
-`admin-post.php?action=stonewright_memory_create` which calls
-`Memory::put_typed()`.
+**Add entry** opens the **Add a memory entry** section (it is also opened by
+`?add=1`). Name and Scope, Key, Type and Value (JSON or text). The form posts to
+`admin-post.php?action=stonewright_memory_create`, which calls
+`Memory::put_typed()` only when the scope and key are free. If the pair is in
+use, nothing is written: the page says "No entry was created: that scope and
+key are already in use", names the entry that holds the pair and links to its
+edit view. Text that looks like a password, key or token is refused with its
+own message.
 
 ### Editing an entry
 
-Click **Edit** in the Actions column to reveal the entry form in place. Saving
-posts to `admin-post.php?action=stonewright_memory_update`, validates the
-nonce, and updates the existing row by ID. The REST endpoint
+**Edit** opens the entry (`?edit={id}`): its facts (backend, origin, activation,
+lifecycle, last retrieved, updated) and the form. Saving posts to
+`admin-post.php?action=stonewright_memory_update`, validates the nonce and
+updates the row by id. Moving an entry onto a scope and key that another entry
+holds is refused in the same way as adding. The REST endpoint
 `POST /stonewright/v1/memory` can also update by scope/key or by passing `id`.
 
 ### Deleting an entry
 
-Click **Delete** in the Actions column. A `confirm()` dialog prevents
-accidental removal. The handler calls `Memory::delete_by_id()`.
+**Delete this entry**, at the foot of the edit view, opens a short explanation
+and a **Delete entry** button (a destructive action is never primary, and
+needs that second step with or without JavaScript). The handler calls
+`Memory::delete_by_id()`.
 
 ### Proposed lessons
 
 A draft lesson shows **Approve** and **Discard** in its Actions cell.
 **Approve** makes the entry active and records who approved it and when (UTC) in
 the entry's value; **Discard** rejects it. Only draft entries can be approved or
-discarded, and both actions need `manage_options` and a nonce. An approved
-lesson is offered to agents like any other active Reference entry; a proposed
-lesson that is not active and approved is not offered. A one-time repair
-returned proposed lessons that were active without a recorded approval to
-draft.
+discarded (anything else answers "not a draft" and changes nothing), and both
+actions need `manage_options` and a nonce. An approved lesson is offered to
+agents like any other active Reference entry; a proposed lesson that is not
+active and approved is not offered. A one-time repair returned proposed lessons
+that were active without a recorded approval to draft.
 
 ### Master memory toggle
 
-The **Enable memory abilities** checkbox saves to `stonewright_memory_enabled`.
+The **Enable memory abilities** switch saves to `stonewright_memory_enabled`.
 When `false`, the memory MCP tools (`stonewright-memory-list`,
 `stonewright-memory-get`, `stonewright-memory-save`,
 `stonewright-learning-record`, `stonewright-memory-delete`) are excluded from

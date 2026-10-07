@@ -141,7 +141,7 @@ test.describe('Skills catalog', () => {
 		await expect(rows).toHaveCount(3);
 
 		const builtIn = rows.filter({ hasText: 'Elementor V3 Builder' });
-		await expect(builtIn.locator('.sw-skill-row__badges')).toContainText('built-in');
+		await expect(builtIn.locator('.sw-skill-row__badges')).toContainText('Built-in');
 		await expect(builtIn.getByRole('button', { name: 'Trash' })).toBeDisabled();
 
 		const local = rows.filter({ hasText: 'Quarry tone of voice' });
@@ -229,7 +229,7 @@ test.describe('Skills catalog', () => {
 		await openCatalog(page);
 
 		const duration = await page
-			.locator('.sw-skills-tab')
+			.locator('.sw-ui-tabs__tab')
 			.first()
 			.evaluate((node) => window.getComputedStyle(node).transitionDuration);
 

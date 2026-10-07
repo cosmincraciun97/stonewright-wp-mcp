@@ -85,4 +85,11 @@ final class TableTest extends TestCase {
 
 		self::assertStringStartsWith( '<table class="sw-ui-table sw-ui-table--stack extra" id="clients">', $html );
 	}
+
+	public function test_a_row_can_carry_an_id_so_a_link_can_point_at_it(): void {
+		$html = Table::render( self::COLUMNS, [ [ '_id' => 'row-7', 'name' => 'A' ], [ 'name' => 'B' ] ], [ 'caption' => 'c' ] );
+
+		self::assertStringContainsString( '<tr id="row-7"><td class="sw-ui-table__primary-cell">', $html );
+		self::assertStringContainsString( '<tr><td class="sw-ui-table__primary-cell"><span class="sw-ui-table__primary">B</span>', $html );
+	}
 }

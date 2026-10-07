@@ -23,7 +23,7 @@ final class Table {
 	 * @param list<array{key: string, label: string, primary?: bool, secondary?: bool, numeric?: bool, actions?: bool, hide_label?: bool}> $columns
 	 *        "primary" is the name cell (one per table). "secondary" columns are hidden at 1024px and below.
 	 *        "actions" columns are right aligned and their header is visually hidden.
-	 * @param list<array<string, string|array{text?: string, meta?: string, html?: string}>> $rows Cells by column key.
+	 * @param list<array<string, string|array{text?: string, meta?: string, html?: string}>> $rows Cells by column key. A row may carry an "_id", printed as the id of its tr.
 	 * @param array{caption: string, stack?: bool, comfortable?: bool, empty?: string, id?: string, class?: string|list<string>} $args
 	 *        "caption" names the table; it is visually hidden but always present.
 	 */
@@ -45,7 +45,7 @@ final class Table {
 			foreach ( $columns as $column ) {
 				$cells .= self::cell( $column, $row[ $column['key'] ] ?? '' );
 			}
-			$body .= Html::element( 'tr', [], $cells );
+			$body .= Html::element( 'tr', [ 'id' => isset( $row['_id'] ) && is_string( $row['_id'] ) ? $row['_id'] : null ], $cells );
 		}
 		if ( [] === $rows && '' !== (string) ( $args['empty'] ?? '' ) ) {
 			$body = Html::element( 'tr', [], Html::element( 'td', [ 'colspan' => (string) count( $columns ) ], Html::text( (string) $args['empty'] ) ) );

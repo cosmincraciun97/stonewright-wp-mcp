@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Design page: placement only. Every component (cards, tables, badges, forms, notices) comes from sw-ui.css.
+ */
+
+.sw-design .sw-design__name {
+	margin-bottom: var(--sw-space-3);
+}
+
+.sw-design .sw-design__cols {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--sw-space-5);
+	margin-top: var(--sw-space-4);
+}
+
+.sw-design .sw-design__label {
+	margin-bottom: var(--sw-space-2);
+	font-size: var(--sw-fs-sm);
+}
+
+.sw-design .sw-design__list {
+	margin: 0;
+	padding-inline-start: var(--sw-space-5);
+	list-style: disc;
+}
+
+/* The activation form sits in a table cell or a card header: no margin of its own. */
+.sw-design .sw-design__form {
+	margin: 0;
+}

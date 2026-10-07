@@ -344,7 +344,7 @@ final class DesignDirectionService {
 		$restored = [
 			'id'            => $id,
 			'slug'          => (string) $record['slug'],
-			'status'        => (string) $record['status'],
+			'status'        => $this->restored_status( $version, $contract ),
 			'contract'      => $contract,
 			'contract_hash' => $hash_after,
 			'source_type'   => (string) $version['source_type'],
@@ -382,9 +382,19 @@ final class DesignDirectionService {
 
 		$this->repository->commit_transaction();
 
-		$result                            = $this->result( 'restore', $id, $restored, $hash_before, $hash_after, $versioned, $actor_id );
-		$result['restored_revision']       = $revision;
+		// An active direction must be ready. When the restored revision is not, the pointer is cleared so the
+		// state the page and the brief report is the state the record is in.
+		$active_cleared = false;
+		if ( $id === (int) get_option( self::ACTIVE_OPTION, 0 ) && true !== ( $contract['readiness']['ready'] ?? false ) ) {
+			update_option( self::ACTIVE_OPTION, 0 );
+			$active_cleared = true;
+		}
+
+		$result                               = $this->result( 'restore', $id, $restored, $hash_before, $hash_after, $versioned, $actor_id );
+		$result['restored_revision']          = $revision;
+		$result['active_cleared']             = $active_cleared;
 		$result['audit']['restored_revision'] = $revision;
+		$result['audit']['active_cleared']    = $active_cleared;
 
 		return $result;
 	}
@@ -465,6 +475,25 @@ final class DesignDirectionService {
 		$encoded = wp_json_encode( $contract );
 
 		return hash( 'sha256', is_string( $encoded ) ? $encoded : '' );
+	}
+
+	/**
+	 * The status a restored revision is stored with: the one it had when it was saved, and never ready unless its
+	 * own contract reports ready.
+	 *
+	 * @param array<string,mixed> $version  Stored revision.
+	 * @param array<string,mixed> $contract Validated contract of that revision.
+	 */
+	private function restored_status( array $version, array $contract ): string {
+		$status = (string) ( $version['status'] ?? 'draft' );
+		if ( ! in_array( $status, self::WRITABLE_STATUSES, true ) ) {
+			return 'draft';
+		}
+		if ( 'ready' === $status && true !== ( $contract['readiness']['ready'] ?? false ) ) {
+			return 'draft';
+		}
+
+		return $status;
 	}
 
 	/**

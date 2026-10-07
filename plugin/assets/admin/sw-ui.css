@@ -2189,6 +2189,34 @@
 	}
 }
 
+/* ====================================================================== */
+/* Knowledge hub additions: code-face text areas, the drop zone             */
+/* ====================================================================== */
+
+/* A multi-line field for text a person reads as code (JSON, Markdown, instructions). */
+.sw-ui .sw-ui-textarea--code {
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-fs-sm);
+	line-height: 1.5;
+}
+
+/* The drop zone: where a file can be dropped, with the native file field inside it. */
+.sw-ui .sw-ui-dropzone {
+	display: grid;
+	justify-items: start;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-5);
+	border: 1px dashed var(--sw-border-control);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text-secondary);
+}
+
+:where(.sw-ui) .sw-ui-dropzone--over {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+}
+
 /* The hidden attribute must beat the display a component sets; this stays the last rule. */
 .sw-ui [hidden] {
 	display: none;
