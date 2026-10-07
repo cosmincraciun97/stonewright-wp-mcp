@@ -41,7 +41,8 @@ enable_prompt: true
 ```
 
 On import, the file name decides the identifier: `product-page-refresh.md`
-becomes the skill `product-page-refresh`.
+becomes the skill `product-page-refresh`. An optional `requires_provider` field
+names a provider the guidance depends on; see Provider requirements below.
 
 ## The description is the trigger
 
@@ -76,6 +77,28 @@ Repeated plugin names and empty alternatives are refused. Guidance that names
 Elementor must declare constraints before it can be enabled. A missing plugin
 never blocks enabling: the skill stays hidden from agents until its plugins are
 present, and `stonewright-skills-get` reports which requirement is missing.
+
+## Provider requirements
+
+`requires_provider` names a provider the guidance depends on instead of a
+plugin. Write one id on one line:
+
+```markdown
+requires_provider: elementor-native
+```
+
+- The only accepted value is `elementor-native`, lowercase. It is present when
+  Elementor's own MCP abilities are registered on the site. An unknown id, a
+  list, an empty value, or a repeated key makes the file invalid.
+- The key compiles into the constraint `{"provider:elementor-native": "required"}`,
+  merged with any `version_constraints` you wrote. Exports and the saved record
+  show the constraint, not the key.
+- While the provider is absent the skill is hidden from agents and prompts, and
+  `stonewright-skills-get` reports `provider:elementor-native` as the missing
+  requirement. It never blocks saving or enabling the skill.
+- Only the expression `required` is accepted for a provider. Lint reports
+  `invalid_provider_requirement:<component>` for anything else, and that blocks
+  activation.
 
 ## Exposure flags
 

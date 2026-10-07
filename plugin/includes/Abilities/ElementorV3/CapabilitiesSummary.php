@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
+use Stonewright\WpMcp\Elementor\Provider\NativeElementorReport;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -14,6 +15,12 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class CapabilitiesSummary extends AbilityKernel {
+
+	private Status $status;
+
+	public function __construct( ?Status $status = null ) {
+		$this->status = $status ?? new Status();
+	}
 
 	public function name(): string {
 		return 'stonewright/elementor-v3-capabilities-summary';
@@ -63,7 +70,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		$status = ( new Status() )->execute( [] );
+		$status = $this->status->execute( [] );
 		if ( is_wp_error( $status ) ) {
 			return $status;
 		}
@@ -88,6 +95,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'has_pro'                  => (bool) ( $status['has_pro'] ?? false ),
 				'pro_elements_active'      => (bool) ( $status['pro_elements_active'] ?? false ),
 				'v4_atomic_support_status' => (string) ( $status['v4_atomic_support_status'] ?? 'unknown' ),
+				'native_elementor'         => NativeElementorReport::compact( (array) ( $status['native_elementor'] ?? [] ) ),
 			],
 			'native_widgets'      => self::native_widgets(),
 			'responsive_controls' => [

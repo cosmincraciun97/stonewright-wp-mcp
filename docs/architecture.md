@@ -412,14 +412,48 @@ action enums retain at most 20 normalized values of 100 bytes each and report
 the source total plus truncation state, including when the source schema itself
 exceeds the schema cap.
 Status, MCP, and Troubleshoot therefore share the same bounded response. The
-official `elementor/manage-default-styles` ability
-is native-preferred only when its live contract proves the exact object
-schemas, required fields, update/delete and tag semantics, raw CSS responsive
-and pseudo-state behavior, patch/replace/null behavior, `idempotent=false`,
-`CLASS_TYPE=class`, and the exact upstream `MAX_BATCH_SIZE=20`. Discovery
-never routes a write: permission, mode, confirmation token, backup, validation,
-write lock, readback, frontend verification, rollback, and audit gates must all
-exist first.
+official `elementor/manage-default-styles`, `elementor/manage-classes`, and
+`elementor/manage-global-variable` abilities are native-preferred, and
+`elementor/get-page-structure` is native-readback, only when the live ability
+matches its contract file under `plugin/data/elementor-native-contracts/`: the
+exact input, output, and description fingerprints for the observed Elementor
+version, the registered runtime class, an official owner, the annotations, and
+the runtime operation limit. For `manage-default-styles` the contract also
+names probes for the update/delete and tag semantics, raw CSS responsive and
+pseudo-state behavior, and patch/replace/null behavior. `elementor/manage-elements`
+and `elementor/build-composition` are `unsupported` with machine-readable reasons
+(`upstream_global_clear_cache`, `staged_in_autosave`). Any mismatch rejects the
+ability and lists each exact reason; an Elementor version outside the verified
+range is a mismatch. Discovery never routes a write: permission, mode,
+confirmation token, backup, validation, write lock, readback, frontend
+verification, rollback, and audit gates must all exist first.
+
+The router also reports `native_elementor`: the Elementor version, the
+requirements of Elementor's MCP module (WordPress Abilities API, WordPress MCP
+Adapter, Elementor's MCP Composer, the site switch, and the Atomic Editor), the
+registered `elementor/*` abilities, their ownership and schema fingerprints, and
+the certification result per contract. `stonewright/site-capabilities` and
+`stonewright/elementor-v3-status` return the full block, and
+`stonewright-task-start` returns only its `state`. Reading it calls no Elementor
+ability. Elementor's own MCP server can stay connected next to Stonewright;
+Stonewright does not disable or replace it. See
+[Elementor V4 engine](elementor-v4-engine.md#native-elementor-abilities).
+
+`NativeElementorProvider` executes a certified ability in-process, but only for
+a contract that allows a native write and only through
+`stonewright/elementor-native-execute`. `NativeRoute` decides the route: the
+ability must be certified for the live Elementor version, and the document is
+routed per subtree (V3 subtrees to the Stonewright V3 writers, Atomic subtrees
+native, never a conversion). The closure is permission, mode and token gates,
+Atomic type exposure, `Backup::snapshot_post()` of the page or kit, the per-post
+write lock, the Elementor ability, an independent readback compared recursively
+by `AtomicReadbackVerifier`, rollback on any mismatch, post-scoped CSS only
+through `stonewright/elementor-css-regenerate`, a `ChangeSetV1` through the kernel,
+and the audit row. A write that clears generated CSS site-wide never runs, and a
+change that lands in an autosave is reported as `staged_in_autosave`. The
+Stonewright V4 writers apply the same nested readback (`AtomicWriteReadback`) to
+their own writes. See
+[Native execution](elementor-v4-engine.md#native-execution).
 
 Before the MCP adapter is instantiated, the compatibility preflight inspects
 Stonewright plus active-plugin Composer and Jetpack manifests. Inactive

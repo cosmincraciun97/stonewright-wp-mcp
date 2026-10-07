@@ -47,7 +47,14 @@ final class AtomicClassRepositoryAdapter {
 			$order[] = $id;
 			$this->repository->apply_changes( [ $id => $item ], [ 'added' => [ $id ], 'deleted' => [], 'modified' => [], 'order' => true ], $order );
 			$readback = $this->repository->get( $id );
-			return is_array( $readback ) ? $readback : new \WP_Error( 'stonewright_v4_class_readback_failed', 'The class was not returned after creation.' );
+			if ( ! is_array( $readback ) ) {
+				return new \WP_Error( 'stonewright_v4_class_readback_failed', 'The class was not returned after creation.' );
+			}
+			if ( ! AtomicReadbackVerifier::contains( $item, $readback ) ) {
+				$this->repository->apply_changes( [], [ 'added' => [], 'deleted' => [ $id ], 'modified' => [], 'order' => true ], array_values( array_diff( $order, [ $id ] ) ) );
+				return self::mismatch( $id, null === $this->repository->get( $id ) );
+			}
+			return $readback;
 		} catch ( \Throwable $error ) {
 			return new \WP_Error( 'stonewright_v4_class_write_failed', $error->getMessage() );
 		}
@@ -63,12 +70,36 @@ final class AtomicClassRepositoryAdapter {
 			if ( null === $this->repository->get( $id ) ) {
 				return new \WP_Error( 'class_not_found', 'Class not found.' );
 			}
-			$order = $this->repository->get_order();
+			$order    = $this->repository->get_order();
+			$previous = $this->repository->get( $id );
 			$this->repository->apply_changes( [ $id => $item ], [ 'added' => [], 'deleted' => [], 'modified' => [ $id ], 'order' => false ], $order );
 			$readback = $this->repository->get( $id );
-			return is_array( $readback ) ? $readback : new \WP_Error( 'stonewright_v4_class_readback_failed', 'The class was not returned after update.' );
+			if ( ! is_array( $readback ) ) {
+				return new \WP_Error( 'stonewright_v4_class_readback_failed', 'The class was not returned after update.' );
+			}
+			if ( ! AtomicReadbackVerifier::contains( $item, $readback ) ) {
+				$this->repository->apply_changes( [ $id => $previous ], [ 'added' => [], 'deleted' => [], 'modified' => [ $id ], 'order' => false ], $order );
+				$restored = $this->repository->get( $id );
+				return self::mismatch( $id, is_array( $restored ) && AtomicReadbackVerifier::contains( $previous, $restored ) );
+			}
+			return $readback;
 		} catch ( \Throwable $error ) {
 			return new \WP_Error( 'stonewright_v4_class_write_failed', $error->getMessage() );
 		}
+	}
+
+	private static function mismatch( string $id, bool $rolled_back ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_atomic_readback_mismatch',
+			'The stored class does not contain everything that was written (a nested variant or prop is missing or changed); the write was rolled back.',
+			[
+				'status'              => 409,
+				'execution_status'    => 'failed',
+				'verification_status' => 'failed',
+				'readback_context'    => 'global_class',
+				'rollback_status'     => $rolled_back ? 'succeeded' : 'failed',
+				'problems'            => [ [ 'code' => 'class_mismatch', 'id' => $id, 'path' => '/' . $id ] ],
+			]
+		);
 	}
 }

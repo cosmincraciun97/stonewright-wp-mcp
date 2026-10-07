@@ -20,19 +20,19 @@ final class ProviderRouter {
 	private const MAX_SCHEMA_KEYS             = 256;
 	private const MAX_SCHEMA_BYTES            = 32768;
 	private const MAX_DYNAMIC_STRING_BYTES    = 1000;
-	private const MAX_DEFAULT_STYLE_ACTIONS   = 20;
-	private const MAX_DEFAULT_STYLE_ACTION_BYTES = 100;
 
 	private \Closure $architecture;
 	private \Closure $v3;
 	private \Closure $atomic;
 	private \Closure $abilities;
+	private \Closure $environment;
 
-	public function __construct( ?callable $architecture = null, ?callable $v3 = null, ?callable $atomic = null, ?callable $abilities = null ) {
+	public function __construct( ?callable $architecture = null, ?callable $v3 = null, ?callable $atomic = null, ?callable $abilities = null, ?callable $environment = null ) {
 		$this->architecture = \Closure::fromCallable( $architecture ?? static fn( int $post_id, string $requested ): array => ArchitectureRouter::describe( $post_id, $requested ) );
 		$this->v3          = \Closure::fromCallable( $v3 ?? [ self::class, 'live_v3' ] );
 		$this->atomic      = \Closure::fromCallable( $atomic ?? [ AtomicSchemaRepository::class, 'runtime_discovery' ] );
 		$this->abilities   = \Closure::fromCallable( $abilities ?? [ UpstreamAbilityDiscovery::class, 'all' ] );
+		$this->environment = \Closure::fromCallable( $environment ?? [ UpstreamAbilityDiscovery::class, 'native_environment' ] );
 	}
 
 	/** @return array<string,mixed> */
@@ -42,7 +42,9 @@ final class ProviderRouter {
 		$issue_counts = [ 'blocker' => 0, 'warning' => 0 ];
 		$v3           = self::discover_provider( 'v3', $this->v3, [], $issues, $issue_counts );
 		$atomic       = self::discover_provider( 'atomic', $this->atomic, [ 'items' => [], 'issues' => [] ], $issues, $issue_counts );
-		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_counts );
+		$failed       = [];
+		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_counts, $failed );
+		$environment  = self::discover_provider( 'environment', $this->environment, [], $issues, $issue_counts, $failed );
 
 		foreach ( is_array( $atomic['issues'] ?? null ) ? $atomic['issues'] : [] as $issue ) {
 			if ( ! is_array( $issue ) ) {
@@ -65,23 +67,8 @@ final class ProviderRouter {
 			}
 		}
 
-		$upstream = [];
-		foreach ( $abilities as $ability ) {
-			if ( ! is_array( $ability ) || ! str_starts_with( (string) ( $ability['name'] ?? '' ), 'elementor/' ) ) {
-				continue;
-			}
-			if ( 'elementor/manage-default-styles' === ( $ability['name'] ?? null ) ) {
-				$ability['default_style_actions_summary'] = self::default_style_actions_summary( $ability );
-			}
-			$input_summary  = self::schema_summary( (array) ( $ability['input_schema'] ?? [] ) );
-			$output_summary = self::schema_summary( (array) ( $ability['output_schema'] ?? [] ) );
-			$ability['input_schema'] = $input_summary['truncated'] ? [] : (array) ( $ability['input_schema'] ?? [] );
-			$ability['output_schema'] = $output_summary['truncated'] ? [] : (array) ( $ability['output_schema'] ?? [] );
-			$ability['input_schema_summary']  = $input_summary;
-			$ability['output_schema_summary'] = $output_summary;
-			$schema_fingerprint = self::fingerprint( [ $ability['input_schema'], $ability['output_schema'] ] );
-			$ability['schema_fingerprint'] = $schema_fingerprint;
-			$upstream[ (string) $ability['name'] ] = $ability;
+		[ $upstream, $certifications ] = self::upstream_index( $abilities );
+		foreach ( $upstream as $name => $ability ) {
 			$meta = (array) ( $ability['meta'] ?? [] );
 			$declared_architectures = array_values(
 				array_intersect( [ 'v3', 'v4' ], array_map( 'strval', (array) ( $meta['architectures'] ?? [] ) ) )
@@ -89,7 +76,7 @@ final class ProviderRouter {
 			$ability_architectures = [] !== $declared_architectures ? $declared_architectures : [ 'global' ];
 			$annotations       = (array) ( $meta['annotations'] ?? [] );
 			$is_declared_write = false === ( $annotations['readonly'] ?? null ) || true === ( $annotations['destructive'] ?? false );
-			self::add_capability( $providers, $issues, $issue_counts, 'upstream-ability', $ability_architectures, (string) $ability['name'], $ability, $schema_fingerprint, $is_declared_write );
+			self::add_capability( $providers, $issues, $issue_counts, 'upstream-ability', $ability_architectures, (string) $name, $ability, (string) $ability['schema_fingerprint'], $is_declared_write, $certifications[ $name ] ?? null );
 		}
 
 		ksort( $providers );
@@ -108,58 +95,9 @@ final class ProviderRouter {
 		$supported = 'mixed' !== $target && in_array( $target, [ 'v3', 'v4' ], true ) && self::has_architecture( $provider_rows, $target );
 		$reason    = 'mixed' === $target ? 'mixed_architecture' : ( $supported ? 'provider_evidence_available' : 'provider_evidence_unavailable' );
 
-		$manage = $upstream['elementor/manage-default-styles'] ?? null;
-		$manage_elements = $upstream['elementor/manage-elements'] ?? null;
-		$certification = is_array( $manage ) ? self::certify_manage_default_styles( $manage ) : [ 'state' => 'unsupported', 'reason' => 'upstream_ability_not_registered', 'contract' => [] ];
-		$schema_output = is_array( $manage ) && 'certified' === $certification['state'];
-		$native_preferred = [
-			'elementor/manage-default-styles' => is_array( $manage )
-				? [
-					'available'               => true,
-					'selection'               => 'certified' === $certification['state'] ? 'native-preferred' : 'unsupported',
-					'certification'           => $certification['state'],
-					'reason'                  => $certification['reason'],
-					'contract'                => $certification['contract'],
-					'provider_id'             => RuntimeOwnership::provider_id( (string) ( $manage['source_plugin'] ?? ( $manage['meta']['source_plugin'] ?? '' ) ) ),
-					'description'             => self::bounded_string( (string) ( $manage['description'] ?? '' ) ),
-					'input_schema_summary'    => (array) $manage['input_schema_summary'],
-					'output_schema_summary'   => (array) $manage['output_schema_summary'],
-					'schema_output'           => $schema_output ? 'full_bounded' : 'summary_only_untrusted_or_rejected',
-					'schema_fingerprint'      => (string) $manage['schema_fingerprint'],
-					'routable_write'          => false,
-					'safety_closure_required' => true,
-					'provenance'              => self::bounded_provenance( (array) ( $manage['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
-				]
-				: [
-					'available'  => false,
-					'selection'  => 'unsupported',
-					'certification' => 'unsupported',
-					'reason'     => 'upstream_ability_not_registered',
-				],
-			'elementor/manage-elements' => is_array( $manage_elements )
-				? [
-					'available'               => true,
-					'selection'               => 'unsupported',
-					'reason'                  => 'upstream_global_clear_cache',
-					'provider_id'             => RuntimeOwnership::provider_id( (string) ( $manage_elements['source_plugin'] ?? ( $manage_elements['meta']['source_plugin'] ?? '' ) ) ),
-					'description'             => self::bounded_string( (string) ( $manage_elements['description'] ?? '' ) ),
-					'input_schema_summary'    => (array) $manage_elements['input_schema_summary'],
-					'output_schema_summary'   => (array) $manage_elements['output_schema_summary'],
-					'schema_fingerprint'      => (string) $manage_elements['schema_fingerprint'],
-					'routable_write'          => false,
-					'safety_closure_required' => true,
-					'provenance'              => self::bounded_provenance( (array) ( $manage_elements['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
-				]
-				: [
-					'available'  => false,
-					'selection'  => 'unsupported',
-					'reason'     => 'upstream_ability_not_registered',
-				],
-		];
-		if ( $schema_output && is_array( $manage ) ) {
-			$native_preferred['elementor/manage-default-styles']['input_schema']  = (array) $manage['input_schema'];
-			$native_preferred['elementor/manage-default-styles']['output_schema'] = (array) $manage['output_schema'];
-		}
+		$certifications   = self::complete_certifications( $certifications );
+		$native_preferred = self::native_preferred( $upstream, $certifications );
+		$native_elementor = NativeElementorReport::build( self::normalized_environment( $environment ), $upstream, $certifications, $failed );
 
 		$provider_rows = self::bounded_provider_rows( $provider_rows );
 		$output_capabilities = array_sum( array_map( static fn( array $provider ): int => count( (array) ( $provider['capabilities'] ?? [] ) ), $provider_rows ) );
@@ -181,18 +119,152 @@ final class ProviderRouter {
 			'warning_count'    => $issue_counts['warning'],
 			'truncated_by_severity' => $issue_summary['truncated_by_severity'],
 			'native_preferred' => $native_preferred,
+			'native_elementor' => $native_elementor,
 			'schema_limits'    => [ 'max_depth' => self::MAX_SCHEMA_DEPTH, 'max_keys' => self::MAX_SCHEMA_KEYS, 'max_bytes' => self::MAX_SCHEMA_BYTES ],
 			'writes_enabled'   => false,
 			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
 	}
 
-	/** @param array<string,mixed>|list<mixed> $fallback @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @return array<string,mixed>|list<mixed> */
-	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, array &$issue_counts ): array {
+	/**
+	 * Evidence-only report of Elementor's own MCP abilities, without the widget and Atomic schema discovery.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function native_elementor(): array {
+		$issues       = [ 'blocker' => [], 'warning' => [] ];
+		$issue_counts = [ 'blocker' => 0, 'warning' => 0 ];
+		$failed       = [];
+		$abilities    = self::discover_provider( 'abilities', $this->abilities, [], $issues, $issue_counts, $failed );
+		$environment  = self::discover_provider( 'environment', $this->environment, [], $issues, $issue_counts, $failed );
+		[ $upstream, $certifications ] = self::upstream_index( $abilities );
+
+		return NativeElementorReport::build( self::normalized_environment( $environment ), $upstream, self::complete_certifications( $certifications ), $failed );
+	}
+
+	/**
+	 * Registered elementor/* abilities with bounded schemas and fingerprints, plus certification where a contract ships.
+	 *
+	 * @param array<mixed> $abilities
+	 * @return array{0:array<string,array<string,mixed>>,1:array<string,array<string,mixed>>}
+	 */
+	private static function upstream_index( array $abilities ): array {
+		$upstream       = [];
+		$certifications = [];
+		foreach ( $abilities as $ability ) {
+			if ( ! is_array( $ability ) || ! str_starts_with( (string) ( $ability['name'] ?? '' ), 'elementor/' ) ) {
+				continue;
+			}
+			$name     = (string) $ability['name'];
+			$contract = NativeContracts::for_ability( $name );
+			if ( is_array( $contract ) && 'certifiable' === $contract['status'] ) {
+				$ability['contract_summary'] = NativeCertifier::summarize( $contract, $ability );
+			}
+			$input_summary  = self::schema_summary( (array) ( $ability['input_schema'] ?? [] ) );
+			$output_summary = self::schema_summary( (array) ( $ability['output_schema'] ?? [] ) );
+			$ability['input_schema'] = $input_summary['truncated'] ? [] : (array) ( $ability['input_schema'] ?? [] );
+			$ability['output_schema'] = $output_summary['truncated'] ? [] : (array) ( $ability['output_schema'] ?? [] );
+			$ability['input_schema_summary']  = $input_summary;
+			$ability['output_schema_summary'] = $output_summary;
+			$ability['schema_fingerprint']    = self::fingerprint( [ $ability['input_schema'], $ability['output_schema'] ] );
+			$upstream[ $name ] = $ability;
+			if ( is_array( $contract ) ) {
+				$certifications[ $name ] = NativeCertifier::certify( $ability, $contract );
+			}
+		}
+		return [ $upstream, $certifications ];
+	}
+
+	/**
+	 * Adds the explicit unsupported result for every shipped contract whose ability is not registered.
+	 *
+	 * @param array<string,array<string,mixed>> $certifications
+	 * @return array<string,array<string,mixed>>
+	 */
+	private static function complete_certifications( array $certifications ): array {
+		foreach ( NativeContracts::names() as $name ) {
+			$certifications[ $name ] ??= [ 'state' => 'unsupported', 'reason' => 'upstream_ability_not_registered', 'issues' => [], 'contract' => [] ];
+		}
+		ksort( $certifications );
+		return $certifications;
+	}
+
+	/**
+	 * @param array<string,array<string,mixed>> $upstream
+	 * @param array<string,array<string,mixed>> $certifications
+	 * @return array<string,array<string,mixed>>
+	 */
+	private static function native_preferred( array $upstream, array $certifications ): array {
+		$out = [];
+		foreach ( $certifications as $name => $certification ) {
+			$ability = $upstream[ $name ] ?? null;
+			if ( ! is_array( $ability ) ) {
+				$out[ $name ] = [
+					'available'     => false,
+					'selection'     => 'unsupported',
+					'certification' => 'unsupported',
+					'reason'        => 'upstream_ability_not_registered',
+				];
+				continue;
+			}
+			$state    = (string) $certification['state'];
+			$contract = NativeContracts::for_ability( $name );
+			$entry    = [
+				'available'               => true,
+				'selection'               => NativeElementorReport::selection( $state, (string) ( $contract['access'] ?? 'write' ), (string) ( $contract['routing']['native_write'] ?? 'allowed' ) ),
+				'native_write'            => (string) ( $contract['routing']['native_write'] ?? 'unsupported' ),
+				'certification'           => $state,
+				'reason'                  => (string) $certification['reason'],
+				'issues'                  => array_values( (array) $certification['issues'] ),
+				'contract'                => (array) $certification['contract'],
+				'provider_id'             => RuntimeOwnership::provider_id( (string) ( $ability['source_plugin'] ?? ( $ability['meta']['source_plugin'] ?? '' ) ) ),
+				'description'             => self::bounded_string( (string) ( $ability['description'] ?? '' ) ),
+				'input_schema_summary'    => (array) $ability['input_schema_summary'],
+				'output_schema_summary'   => (array) $ability['output_schema_summary'],
+				'schema_output'           => 'certified' === $state ? 'full_bounded' : 'summary_only_untrusted_or_rejected',
+				'schema_fingerprint'      => (string) $ability['schema_fingerprint'],
+				'routable_write'          => false,
+				'safety_closure_required' => true,
+				'provenance'              => self::bounded_provenance( (array) ( $ability['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
+			];
+			if ( isset( $certification['reasons'] ) ) {
+				$entry['reasons'] = array_values( (array) $certification['reasons'] );
+			}
+			if ( 'refused' === $entry['native_write'] ) {
+				$entry['native_write_reason'] = (string) ( $contract['routing']['refusal_reason'] ?? 'native_write_refused' );
+			}
+			if ( 'certified' === $state && 'allowed' === $entry['native_write'] ) {
+				$entry['execute_with'] = 'stonewright/elementor-native-execute';
+			}
+			if ( 'certified' === $state ) {
+				$entry['input_schema']  = (array) $ability['input_schema'];
+				$entry['output_schema'] = (array) $ability['output_schema'];
+			}
+			$out[ $name ] = $entry;
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<mixed> $environment
+	 * @return array<string,mixed>
+	 */
+	private static function normalized_environment( array $environment ): array {
+		if ( is_array( $environment['elementor'] ?? null ) && is_array( $environment['mcp_module'] ?? null ) ) {
+			return $environment;
+		}
+		return UpstreamAbilityDiscovery::summarize_environment( [] );
+	}
+
+	/** @param array<string,mixed>|list<mixed> $fallback @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param list<string>|null $failed Collects the names of providers that threw. @return array<string,mixed>|list<mixed> */
+	private static function discover_provider( string $provider, \Closure $callback, array $fallback, array &$issues, array &$issue_counts, ?array &$failed = null ): array {
 		try {
 			$result = $callback();
 			return is_array( $result ) ? $result : $fallback;
 		} catch ( \Throwable $error ) {
+			if ( null !== $failed ) {
+				$failed[] = $provider;
+			}
 			self::record_issue( $issues, $issue_counts, [
 				'code'        => 'provider_discovery_failed',
 				'provider'    => $provider,
@@ -291,8 +363,8 @@ final class ProviderRouter {
 		return $out;
 	}
 
-	/** @param array<string,array<string,mixed>> $providers @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param string|list<string> $architecture @param array<string,mixed> $evidence */
-	private static function add_capability( array &$providers, array &$issues, array &$issue_counts, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false ): void {
+	/** @param array<string,array<string,mixed>> $providers @param array{blocker:array<string,array<string,mixed>>,warning:array<string,array<string,mixed>>} $issues @param array{blocker:int,warning:int} $issue_counts @param string|list<string> $architecture @param array<string,mixed> $evidence @param array<string,mixed>|null $certification Contract result for this ability, when one ships. */
+	private static function add_capability( array &$providers, array &$issues, array &$issue_counts, string $kind, string|array $architecture, string $name, array $evidence, string $fingerprint, bool $write_primitive = false, ?array $certification = null ): void {
 		$plugin = self::bounded_string( (string) ( $evidence['source_plugin'] ?? ( $evidence['meta']['source_plugin'] ?? '' ) ) );
 		$class  = self::bounded_string( (string) ( $evidence['runtime_class'] ?? '' ) );
 		$name   = self::bounded_string( $name );
@@ -344,8 +416,12 @@ final class ProviderRouter {
 			'write_eligible'     => $write_eligible,
 		];
 		if ( $write_primitive ) {
-			$certification = 'elementor/manage-default-styles' === $name ? self::certify_manage_default_styles( $evidence ) : [ 'state' => 'discovered' ];
-			$providers[ $id ]['certification'] = (string) ( $certification['state'] ?? 'discovered' );
+			$certification ??= [ 'state' => 'discovered' ];
+			$state = 'unsupported' === ( $certification['state'] ?? '' ) ? 'discovered' : (string) ( $certification['state'] ?? 'discovered' );
+			$rank  = [ 'discovered' => 0, 'rejected' => 1, 'certified' => 2 ];
+			if ( ( $rank[ $state ] ?? 0 ) >= ( $rank[ $providers[ $id ]['certification'] ] ?? 0 ) ) {
+				$providers[ $id ]['certification'] = $state;
+			}
 			if ( 'certified' === ( $certification['state'] ?? '' ) ) {
 				$providers[ $id ]['schema_certification'] = 'certified';
 				$providers[ $id ]['read_only'] = false;
@@ -360,199 +436,8 @@ final class ProviderRouter {
 		}
 	}
 
-	/** @param array<string,mixed> $ability @return array{state:string,reason:string,contract:array<string,mixed>} */
-	private static function certify_manage_default_styles( array $ability ): array {
-		$meta        = (array) ( $ability['meta'] ?? [] );
-		$annotations = (array) ( $meta['annotations'] ?? [] );
-		$input       = (array) ( $ability['input_schema'] ?? [] );
-		$output      = (array) ( $ability['output_schema'] ?? [] );
-		$operations  = (array) ( $input['properties']['operations'] ?? [] );
-		$item        = (array) ( $operations['items'] ?? [] );
-		$properties  = (array) ( $item['properties'] ?? [] );
-		$action_summary = is_array( $ability['default_style_actions_summary'] ?? null )
-			? $ability['default_style_actions_summary']
-			: self::default_style_actions_summary( $ability );
-		$actions     = (array) ( $action_summary['actions'] ?? [] );
-		$runtime     = (array) ( $ability['runtime_contract'] ?? ( $meta['contract'] ?? [] ) );
-		$ownership_verified = self::verified_callback_ownership( (string) ( $ability['provenance']['ownership'] ?? '' ) );
-		$limit       = (int) ( $runtime['runtime_operation_limit'] ?? 0 );
-		$issues = [];
-		if ( 'elementor/manage-default-styles' !== ( $ability['name'] ?? null ) || 'Elementor\\Modules\\Mcp\\Abilities\\Manage_Default_Styles_Ability' !== ( $ability['runtime_class'] ?? null ) ) {
-			$issues[] = 'runtime_identity_mismatch';
-		}
-		if ( 'elementor-core' !== RuntimeOwnership::provider_id( (string) ( $ability['source_plugin'] ?? ( $meta['source_plugin'] ?? '' ) ) ) ) {
-			$issues[] = 'official_owner_mismatch';
-		}
-		if ( self::fingerprint( $annotations ) !== self::fingerprint( [ 'readonly' => false, 'destructive' => true, 'idempotent' => false ] ) ) {
-			$issues[] = 'annotations_mismatch';
-		}
-		if ( self::fingerprint( $output ) !== self::fingerprint( self::manage_default_styles_output_schema() ) ) {
-			$issues[] = 'output_schema_mismatch';
-		}
-		if ( self::fingerprint( $input ) !== self::fingerprint( self::manage_default_styles_input_schema() ) ) {
-			$issues[] = 'input_schema_mismatch';
-		}
-		if ( 'array' !== ( $operations['type'] ?? null ) || 'object' !== ( $item['type'] ?? null ) || ! self::same_set( (array) ( $item['required'] ?? [] ), [ 'action', 'tag' ] ) || ! self::same_set( array_keys( $properties ), [ 'action', 'tag', 'css', 'mode' ] ) ) {
-			$issues[] = 'operations_schema_mismatch';
-		}
-		if ( 'string' !== ( $properties['action']['type'] ?? null ) || true !== ( $action_summary['exact_contract'] ?? false ) ) {
-			$issues[] = 'action_contract_mismatch';
-		}
-		if ( 'string' !== ( $properties['tag']['type'] ?? null ) || ! self::contains_all( (string) ( $properties['tag']['description'] ?? '' ), [ 'html wrapper tag', 'allowed wrapper tags' ] ) ) {
-			$issues[] = 'tag_contract_mismatch';
-		}
-		if ( 'string' !== ( $properties['css']['type'] ?? null ) || ! self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ 'plain css string', '&:hover', '&:focus', '&:active', '@media(--breakpoint)', 'prop: null', 'all: null', 'wipes the variant' ] ) ) {
-			$issues[] = 'css_contract_mismatch';
-		}
-		$mode = (array) ( $properties['mode'] ?? [] );
-		if ( 'string' !== ( $mode['type'] ?? null ) || ! self::same_set( (array) ( $mode['enum'] ?? [] ), [ 'patch', 'replace' ] ) || 'patch' !== ( $mode['default'] ?? null ) || ! self::contains_all( (string) ( $mode['description'] ?? '' ), [ 'upsert variants', 'preserving untouched', 'discard all variants', 'affected breakpoints', 'null values have no effect' ] ) ) {
-			$issues[] = 'mode_contract_mismatch';
-		}
-		if ( ! self::contains_all( (string) ( $operations['description'] ?? '' ), [ '1–20', 'action and tag', 'raw css string', 'site-wide', 'patch = upsert variants', 'replace = overwrite variants', 'delete removes' ] ) ) {
-			$issues[] = 'operation_semantics_mismatch';
-		}
-		if ( self::manage_default_styles_description() !== ( $ability['description'] ?? null ) ) {
-			$issues[] = 'ability_semantics_mismatch';
-		}
-		if ( 20 !== $limit || self::fingerprint( $runtime ) !== self::fingerprint( [ 'runtime_operation_limit' => 20, 'class_type' => 'class' ] ) ) {
-			$issues[] = 'runtime_constants_mismatch';
-		}
-		if ( ! $ownership_verified ) {
-			$issues[] = 'ownership_unverified';
-		}
-		$contract    = [
-			'actions'                 => $actions,
-			'actions_count'           => (int) ( $action_summary['actions_count'] ?? 0 ),
-			'actions_truncated'       => (bool) ( $action_summary['actions_truncated'] ?? false ),
-			'responsive_css'          => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '@media(--breakpoint)' ] ),
-			'pseudo_states'           => self::contains_all( (string) ( $properties['css']['description'] ?? '' ), [ '&:hover', '&:focus', '&:active' ] ),
-			'runtime_operation_limit' => $limit,
-			'class_type'              => (string) ( $runtime['class_type'] ?? '' ),
-			'issues'                  => array_values( array_unique( $issues ) ),
-		];
-		$certified = [] === $issues;
-		return [
-			'state'    => $certified ? 'certified' : 'rejected',
-			'reason'   => $certified ? 'official_contract_certified' : 'upstream_contract_not_certified',
-			'contract' => $contract,
-		];
-	}
-
-	private static function manage_default_styles_description(): string {
-		return 'Bulk manage the active kit\'s site-wide default styles, keyed by HTML wrapper tag (h1..h6, p, a, section, div, ...). These styles apply to every V4 atomic element that renders that tag on the whole site, sitting on top of each widget\'s built-in base_styles and beneath any inline or global class overrides. Use action=update to upsert (patch or replace) a tag\'s variants via a raw CSS string (supports @media(--breakpoint) + &:hover/&:focus/&:active), and action=delete to remove a tag\'s default style entirely.';
-	}
-
-	/** @param array<string,mixed> $ability @return array{actions:list<string>,actions_count:int,actions_truncated:bool,exact_contract:bool} */
-	private static function default_style_actions_summary( array $ability ): array {
-		$input      = (array) ( $ability['input_schema'] ?? [] );
-		$properties = (array) ( $input['properties']['operations']['items']['properties'] ?? [] );
-		$raw        = (array) ( $properties['action']['enum'] ?? [] );
-		$total      = count( $raw );
-		$actions    = [];
-		foreach ( array_slice( $raw, 0, self::MAX_DEFAULT_STYLE_ACTIONS ) as $action ) {
-			$normalized = is_scalar( $action ) || null === $action
-				? strtolower( trim( (string) $action ) )
-				: 'invalid_action_type';
-			$actions[] = self::bounded_string( $normalized, self::MAX_DEFAULT_STYLE_ACTION_BYTES );
-		}
-		$exact_contract = 2 === $total
-			&& is_string( $raw[0] ?? null )
-			&& is_string( $raw[1] ?? null )
-			&& self::same_set( $raw, [ 'update', 'delete' ] );
-		return [
-			'actions'           => $actions,
-			'actions_count'     => $total,
-			'actions_truncated' => $total > count( $actions ),
-			'exact_contract'    => $exact_contract,
-		];
-	}
-
-	/** @return array<string,mixed> */
-	private static function manage_default_styles_input_schema(): array {
-		return [
-			'type' => 'object',
-			'required' => [ 'operations' ],
-			'properties' => [
-				'operations' => [
-					'type' => 'array',
-					'description' => 'Bulk operations (1–20). Each item requires action and tag. update needs css (raw CSS string, same format as manage-classes) and applies site-wide to that HTML tag. Use mode to control merge behaviour on update (patch = upsert variants, replace = overwrite variants for the affected breakpoints). delete removes the tag\'s default style entirely.',
-					'items' => [
-						'type' => 'object',
-						'required' => [ 'action', 'tag' ],
-						'properties' => [
-							'action' => [ 'type' => 'string', 'enum' => [ 'update', 'delete' ] ],
-							'tag' => [
-								'type' => 'string',
-								'description' => 'HTML wrapper tag to target (e.g. h1, h2, p, a). Must be one of Elementor\'s allowed wrapper tags.',
-							],
-							'css' => [
-								'type' => 'string',
-								'description' => 'Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: "prop: null" removes that prop; "all: null" wipes the variant.',
-							],
-							'mode' => [
-								'type' => 'string',
-								'enum' => [ 'patch', 'replace' ],
-								'default' => 'patch',
-								'description' => 'patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect.',
-							],
-						],
-					],
-				],
-			],
-		];
-	}
-
-	/** @return array<string,mixed> */
-	private static function manage_default_styles_output_schema(): array {
-		return [
-			'type' => 'object',
-			'required' => [ 'status', 'results' ],
-			'properties' => [
-				'status' => [ 'type' => 'string' ],
-				'results' => [ 'type' => 'array' ],
-			],
-		];
-	}
-
 	private static function verified_callback_ownership( string $provenance ): bool {
-		return in_array(
-			$provenance,
-			[ 'active_plugin_header', 'active_plugin_boundary' ],
-			true
-		);
-	}
-
-	/** @param array<string,mixed> $schema @param list<string> $required @param array<string,string> $properties */
-	private static function exact_object_schema( array $schema, array $required, array $properties ): bool {
-		$actual = (array) ( $schema['properties'] ?? [] );
-		if ( 'object' !== ( $schema['type'] ?? null ) || ! self::same_set( (array) ( $schema['required'] ?? [] ), $required ) || ! self::same_set( array_keys( $actual ), array_keys( $properties ) ) ) {
-			return false;
-		}
-		foreach ( $properties as $name => $type ) {
-			if ( $type !== ( $actual[ $name ]['type'] ?? null ) ) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	/** @param list<mixed> $actual @param list<string> $expected */
-	private static function same_set( array $actual, array $expected ): bool {
-		$actual = array_values( array_map( 'strval', $actual ) );
-		sort( $actual );
-		sort( $expected );
-		return $actual === $expected;
-	}
-
-	/** @param list<string> $needles */
-	private static function contains_all( string $text, array $needles ): bool {
-		$text = strtolower( $text );
-		foreach ( $needles as $needle ) {
-			if ( ! str_contains( $text, strtolower( $needle ) ) ) {
-				return false;
-			}
-		}
-		return true;
+		return NativeCertifier::ownership_verified( $provenance );
 	}
 
 	/** @param array<string,mixed> $architecture @return array<string,mixed> */
@@ -601,6 +486,11 @@ final class ProviderRouter {
 		}
 		unset( $provider );
 		return $providers;
+	}
+
+	/** Whether a schema fits the depth, key and byte limits the router applies to every schema it reports. */
+	public static function schema_within_limits( array $schema ): bool {
+		return ! self::schema_summary( $schema )['truncated'];
 	}
 
 	/** @return array{keys_count:int,max_depth:int,bytes:int,truncated:bool} */
@@ -690,18 +580,6 @@ final class ProviderRouter {
 	}
 
 	private static function fingerprint( mixed $value ): string {
-		$canonicalize = static function ( mixed $item ) use ( &$canonicalize ): mixed {
-			if ( ! is_array( $item ) ) {
-				return $item;
-			}
-			if ( ! array_is_list( $item ) ) {
-				ksort( $item );
-			}
-			foreach ( $item as $key => $child ) {
-				$item[ $key ] = $canonicalize( $child );
-			}
-			return $item;
-		};
-		return hash( 'sha256', (string) wp_json_encode( $canonicalize( $value ) ) );
+		return NativeCertifier::fingerprint( $value );
 	}
 }

@@ -1,0 +1,46 @@
+{
+    "contract_version": 1,
+    "ability": "elementor/manage-elements",
+    "status": "unsupported",
+    "provider": "elementor-core",
+    "source_plugin": "elementor/elementor.php",
+    "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Elements_Ability",
+    "reason": "upstream_global_clear_cache",
+    "reasons": [
+        "upstream_global_clear_cache",
+        "staged_in_autosave"
+    ],
+    "observed_fingerprints": {
+        "elementor_version": "4.3.4",
+        "input": "970534962cd3db7128cd130b286889a06f7ecd68091490d3192bf94681624ab8",
+        "output": "c45fc5b9853e43588848cfe415c76b0fdc6a16af73d6df82f3d2ae1572ffa6fb"
+    },
+    "side_effects": [
+        {
+            "id": "global_css_cache_clear",
+            "scope": "site",
+            "description": "Calls the Elementor files manager clear_cache after a saved change, which invalidates generated CSS for the whole site."
+        },
+        {
+            "id": "staged_in_autosave",
+            "scope": "document",
+            "description": "On a published document the change is saved into the current user's autosave and does not go live until the document is published; the ability still returns status ok."
+        }
+    ],
+    "unblock_requires": [
+        "css_containment",
+        "autosave_truth"
+    ],
+    "evidence": {
+        "plugin": "elementor",
+        "verified_versions": [
+            "4.3.0",
+            "4.3.1",
+            "4.3.2",
+            "4.3.3",
+            "4.3.4"
+        ],
+        "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
+        "source_file": "modules/mcp/abilities/manage-elements-ability.php"
+    }
+}

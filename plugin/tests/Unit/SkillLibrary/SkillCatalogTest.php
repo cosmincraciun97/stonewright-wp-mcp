@@ -145,6 +145,32 @@ final class SkillCatalogTest extends TestCase {
 		$this->assertSame( [ 'acf|pods' ], VisibilityRules::missing( $this->repository->rows[6], $absent ) );
 	}
 
+	/** @dataProvider every_source */
+	public function test_an_absent_provider_hides_a_skill_but_never_blocks_enabling_it( string $source ): void {
+		$present = false;
+		$compatible = static function ( array $constraints ) use ( &$present ): bool {
+			foreach ( array_keys( $constraints ) as $component ) {
+				if ( str_starts_with( (string) $component, 'provider:' ) ) {
+					return $present;
+				}
+			}
+			return true;
+		};
+		$catalog = new SkillCatalog( $this->repository, $this->boundary, $compatible );
+		$this->repository->rows[7] = $this->example( [ 'id' => 7, 'revision' => 1, 'source' => $source, 'status' => 'draft', 'enabled' => false, 'version_constraints' => [ 'provider:elementor-native' => 'required' ] ] );
+
+		$this->assertTrue( $catalog->set_exposure( 7, true ) );
+		$this->assertTrue( $this->repository->rows[7]['enabled'] );
+		$this->assertSame( 'active', $this->repository->rows[7]['status'] );
+		$this->assertSame( [], $catalog->browse( false, 'agentic' ) );
+		$this->assertCount( 1, $catalog->browse() );
+		$this->assertSame( [ 'provider:elementor-native' ], VisibilityRules::missing( $this->repository->rows[7], $compatible ) );
+
+		$present = true;
+		$this->assertCount( 1, $catalog->browse( false, 'agentic' ) );
+		$this->assertSame( [], VisibilityRules::missing( $this->repository->rows[7], $compatible ) );
+	}
+
 	public static function every_source(): array {
 		return [ 'built-in' => [ 'builtin' ], 'playbook' => [ 'playbook' ], 'local' => [ 'user' ], 'imported' => [ 'uploaded' ], 'candidate' => [ 'candidate' ] ];
 	}

@@ -158,6 +158,15 @@ final class RenderFromSpecTest extends TestCase {
 		self::assertStringContainsString( 'AtomicRenderer', $docblock );
 		self::assertStringContainsString( '$$type', $docblock );
 		self::assertStringContainsString( 'WP_Error', $docblock );
+		self::assertStringContainsString( 'card', $docblock, 'The docblock names card as a container block.' );
+		self::assertStringContainsString( 'e-flexbox', $docblock );
+		self::assertStringContainsString( 'tablet', $docblock, 'The docblock names the tablet and mobile direction variants.' );
+		self::assertStringContainsString( 'mobile', $docblock );
+		self::assertStringContainsString( 'z-index', $docblock );
+		self::assertStringContainsString( 'background color', $docblock );
+		self::assertStringContainsString( 'full width', $docblock );
+		self::assertStringContainsString( 'unsupported', $docblock, 'The docblock says unsupported properties and block types are refused.' );
+		self::assertStringContainsString( 'read back recursively', $docblock, 'The docblock says the saved tree is read back.' );
 		self::assertStringNotContainsStringIgnoringCase( 'stub', $docblock );
 		self::assertStringNotContainsStringIgnoringCase( 'placeholder', $docblock );
 		self::assertStringNotContainsStringIgnoringCase( 'roadmap', $docblock );

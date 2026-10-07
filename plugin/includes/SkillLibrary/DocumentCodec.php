@@ -85,6 +85,13 @@ final class DocumentCodec {
 			}
 			$metadata[ $key ] = $value;
 		}
+		if ( array_key_exists( 'requires_provider', $metadata ) ) {
+			$compiled = self::compile_provider_requirement( $metadata );
+			if ( is_wp_error( $compiled ) ) {
+				return $compiled;
+			}
+			$metadata = $compiled;
+		}
 		foreach ( [ 'name', 'description' ] as $required ) {
 			if ( ! isset( $metadata[ $required ] ) || ! is_string( $metadata[ $required ] ) || '' === trim( $metadata[ $required ] ) ) {
 				return self::invalid( 'The skill needs nonempty name and description fields.' );
@@ -137,6 +144,27 @@ final class DocumentCodec {
 		}
 		$lines[] = '---';
 		return implode( "\n", $lines ) . "\n\n" . $content;
+	}
+
+	/**
+	 * Adds the visibility constraint a `requires_provider` field stands for.
+	 *
+	 * @param array<string, mixed> $metadata
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function compile_provider_requirement( array $metadata ): array|\WP_Error {
+		$provider = $metadata['requires_provider'];
+		if ( ! is_string( $provider ) || ! ProviderRequirement::is_known( $provider ) ) {
+			return self::invalid( 'requires_provider must be one provider id: ' . implode( ', ', ProviderRequirement::IDS ) . '.' );
+		}
+		$component   = ProviderRequirement::component( $provider );
+		$constraints = is_array( $metadata['version_constraints'] ?? null ) ? $metadata['version_constraints'] : [];
+		if ( isset( $constraints[ $component ] ) && 'required' !== strtolower( trim( (string) $constraints[ $component ] ) ) ) {
+			return self::invalid( 'requires_provider conflicts with an existing version constraint on the same provider.' );
+		}
+		$constraints[ $component ]    = 'required';
+		$metadata['version_constraints'] = $constraints;
+		return $metadata;
 	}
 
 	private static function scalar( string $value ): string|\WP_Error {

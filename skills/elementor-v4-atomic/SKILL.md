@@ -28,6 +28,68 @@ wp-options (`stonewright_elementor_v4_atomic = 1`).
 Also check `integrations.elementor_v4`. It reports Elementor >= 4.0.0; the
 Atomic Widgets module gate itself accepts Elementor 3.31+ builds that ship it.
 
+## Native Elementor status
+
+Elementor can register its own `elementor/*` abilities through its MCP module.
+Stonewright reports that state and never calls those abilities from this skill.
+Read it from `native_elementor` in `stonewright/site-capabilities`, or from the
+one-word `elementor.status.native_elementor` state in `stonewright-task-start`.
+
+| `state` | Meaning |
+|---|---|
+| `not_installed` | Elementor is not active. |
+| `module_unavailable` | This Elementor build has no MCP module. |
+| `requirements_missing` | The module needs the WordPress Abilities API, the WordPress MCP Adapter, or Elementor's MCP Composer; `mcp_module.missing` names the absent one. |
+| `exposure_disabled` | The requirements are met but the MCP switch in Elementor's settings is off, so no abilities are registered. |
+| `no_abilities_registered` | The switch is on and no `elementor/*` ability is registered. |
+| `available_uncertified` | Abilities are registered and none matches a Stonewright contract. |
+| `available` | At least one registered ability matches its contract. |
+
+`native_elementor.certification` gives each contracted ability one of three
+results. `certified` means the live schemas, class, owner, annotations, and
+Elementor version all match the shipped contract. `rejected` lists the exact
+mismatches in `issues`. `unsupported` carries a machine-readable reason.
+
+| Ability | Result | Native write |
+|---|---|---|
+| `elementor/manage-default-styles` | certifiable | allowed: site-wide default styles per HTML tag. |
+| `elementor/build-composition` | certifiable | allowed: composes an element tree; on a published page it lands in an autosave. |
+| `elementor/get-page-structure` | certifiable, read-only | read only; it shows the published document, not a pending autosave. |
+| `elementor/manage-classes` | certifiable | refused, `upstream_global_clear_cache`: clears generated CSS site-wide. |
+| `elementor/manage-global-variable` | certifiable | refused, `upstream_global_clear_cache`. |
+| `elementor/manage-elements` | unsupported | `upstream_global_clear_cache`, `staged_in_autosave`. |
+
+An edit to a published page through `build-composition` is saved into an
+autosave and is not live until the page is published. Report `staged_in_autosave`,
+never "applied", and never publish unless the user explicitly asks.
+
+## Native first, fallback second
+
+When `native_elementor.certified` lists the ability, write through
+`stonewright/elementor-native-execute`: pass `ability` and its certified `input`,
+look at the plan (`dry_run` is true by default), then repeat with `dry_run: false`.
+It snapshots, locks, executes, reads back the whole nested result, rolls back on a
+mismatch, regenerates post-scoped CSS only through
+`stonewright/elementor-css-regenerate`, and returns a change set. A dropped child
+or an unexpected change is an error, not a success.
+
+- Default styles and element composition route native when certified.
+- Global classes and variables never route native: use
+  `stonewright/elementor-v4-create-class`, `update-class`, `create-variable`, and
+  `update-variable`, which are the Fallback writers for those.
+- A V3 document or a V3 subtree of a mixed document stays on the Stonewright V3
+  writers; the route names them. A mixed document is routed per subtree and is
+  never converted. Do not insert at the root of a mixed document.
+- If a route is refused or an Atomic type is missing
+  (`stonewright_atomic_type_unavailable`), read the reason and the missing
+  feature; use the Fallback writers (`elementor-v4-render-from-spec`,
+  `elementor-v4-update-node`, `design-spec-to-elementor-v4`) only when the route
+  names them and the V4 flag is on. They stay experimental and blocked in
+  `production-safe`.
+
+If the user also has Elementor's own MCP server connected, do not repeat one
+change through both. Use Stonewright when you want snapshots, readback, audit,
+and rollback; Elementor's MCP alone is fine for a quick draft.
 ## Dry-run first
 
 `design-spec-to-elementor-v4` defaults to `dry_run: true`. Always call it in
@@ -47,9 +109,10 @@ Returns `{ "rendered": [...atomic_elements...], "dry_run": true }`.
 
 ## Write boundary
 
-V4 does not yet have a complete typed page or interactions writer. Stop after
-dry-run. Never pass rendered Atomic data through WP-CLI, raw REST, PHP meta
-writes, V3 abilities, or `update-node` as a substitute. Motion apply is
+The Stonewright V4 renderer does not yet have a complete typed page or
+interactions writer. Stop after dry-run, or use the native composition path above
+where it is certified. Never pass rendered Atomic data through WP-CLI, raw REST,
+PHP meta writes, V3 abilities, or `update-node` as a substitute. Motion apply is
 unsupported unless `stonewright-design-motion-capabilities` proves the official
 Document Mutator, Interactions Applier, plain-value resolver, and matching live
 schema and a dedicated interactions patch tool is visible.

@@ -74,6 +74,7 @@ use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\Diagnostics\CapabilityPreflight;
 use Stonewright\WpMcp\Abilities\Diagnostics\FormDeliveryDiagnostic;
 use Stonewright\WpMcp\Abilities\Diagnostics\OAuthHeaderDiagnostic;
+use Stonewright\WpMcp\Abilities\Elementor\NativeExecute;
 use Stonewright\WpMcp\Abilities\Elementor\ProviderDiscovery;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
@@ -428,6 +429,7 @@ final class AbilityRegistry {
 
 			// Elementor V3.
 			ProviderDiscovery::class,
+			NativeExecute::class,
 			ElementorStatus::class,
 			ElementorV3CapabilitiesSummary::class,
 			GetKitGlobals::class,

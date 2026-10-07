@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\V4\AtomicWriteReadback;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
@@ -85,6 +86,7 @@ final class UpdateNode extends AbilityKernel {
 				'settings'    => [ 'type' => 'object' ],
 				'architecture' => [ 'type' => 'string', 'enum' => [ 'empty', 'v3', 'v4', 'mixed' ] ],
 				'warnings'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'readback'     => [ 'type' => 'object' ],
 				'change_set'   => ChangeSet::output_property(),
 			],
 		];
@@ -213,6 +215,10 @@ final class UpdateNode extends AbilityKernel {
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return ElementorData::write_error_for_ability();
 				}
+				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'update_node' );
+				if ( $readback instanceof \WP_Error ) {
+					return $readback;
+				}
 
 				return [
 					'post_id'      => $post_id,
@@ -222,6 +228,7 @@ final class UpdateNode extends AbilityKernel {
 					'settings'     => $next,
 					'architecture' => $architecture,
 					'warnings'     => $warnings,
+					'readback'     => $readback,
 				];
 			}
 		);

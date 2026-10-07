@@ -42,6 +42,15 @@ component names, empty `any_of` alternatives, and other lists. The runtime
 compatibility contract interprets version expressions; each `any_of`
 alternative is checked as a required plugin.
 
+A fourth form names a provider instead of a plugin:
+`{"provider:elementor-native":"required"}`. The `provider:` prefix cannot occur
+in a plugin slug. Only known provider ids are accepted, and the only expression
+is `required`; `elementor-native` is present when Elementor's own MCP abilities
+are registered. Front matter can write the same requirement as
+`requires_provider: elementor-native`, which the codec merges into
+`version_constraints`. A missing provider hides the skill like a missing plugin
+and never blocks enabling it.
+
 ## Enabling and visibility
 
 `enabled` records the site's choice. Enabling promotes a draft to active;

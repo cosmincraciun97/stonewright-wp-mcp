@@ -68,6 +68,99 @@ final class UpstreamAbilityDiscovery {
 		return $out;
 	}
 
+	/**
+	 * Read-only snapshot of what Elementor's own MCP module needs and whether this runtime meets it.
+	 *
+	 * @return array{elementor:array{installed:bool,version:string},mcp_module:array<string,mixed>}
+	 */
+	public static function native_environment(): array {
+		return self::summarize_environment( self::environment_facts() );
+	}
+
+	/**
+	 * Normalizes raw runtime facts into the bounded environment report.
+	 *
+	 * @param array<string,mixed> $facts
+	 * @return array{elementor:array{installed:bool,version:string},mcp_module:array<string,mixed>}
+	 */
+	public static function summarize_environment( array $facts ): array {
+		$version      = self::bounded_text( $facts['elementor_version'] ?? '' );
+		$requirements = [
+			'abilities_api' => [ 'met' => (bool) ( $facts['abilities_api'] ?? false ) ],
+			'mcp_adapter'   => [
+				'met'         => (bool) ( $facts['mcp_adapter'] ?? false ),
+				'version'     => self::bounded_text( $facts['mcp_adapter_version'] ?? '' ),
+				'provider_id' => self::bounded_text( $facts['mcp_adapter_provider'] ?? '' ),
+			],
+			'mcp_composer'  => [
+				'met'     => (bool) ( $facts['mcp_composer'] ?? false ),
+				'version' => self::bounded_text( $facts['mcp_composer_version'] ?? '' ),
+			],
+		];
+		$missing = [];
+		foreach ( $requirements as $name => $requirement ) {
+			if ( ! $requirement['met'] ) {
+				$missing[] = $name;
+			}
+		}
+		$present = (bool) ( $facts['module_present'] ?? false );
+		return [
+			'elementor'  => [
+				'installed' => '' !== $version || (bool) ( $facts['elementor_installed'] ?? false ),
+				'version'   => $version,
+			],
+			'mcp_module' => [
+				'present'               => $present,
+				'active'                => $present && (bool) ( $facts['module_active'] ?? false ) && [] === $missing,
+				'site_exposure_enabled' => (bool) ( $facts['site_exposure_enabled'] ?? false ),
+				'atomic_editor_active'  => (bool) ( $facts['atomic_editor_active'] ?? false ),
+				'requirements'          => $requirements,
+				'missing'               => $missing,
+			],
+		];
+	}
+
+	/** @return array<string,mixed> */
+	private static function environment_facts(): array {
+		$module   = 'Elementor\\Modules\\Mcp\\Module';
+		$adapter  = 'WP\\MCP\\Core\\McpAdapter';
+		$composer = 'Elementor\\MCP\\Composer\\Mcp\\Registry';
+		$settings = 'Elementor\\MCP\\Composer\\Admin\\McpSettingsController';
+		$facts    = [
+			'elementor_version'    => defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '',
+			'elementor_installed'  => class_exists( 'Elementor\\Plugin', false ),
+			'module_present'       => class_exists( $module ),
+			'abilities_api'        => function_exists( 'wp_register_ability' ),
+			'mcp_adapter'          => class_exists( $adapter ),
+			'mcp_composer'         => class_exists( $composer ),
+			'mcp_composer_version' => defined( 'ELEMENTOR_MCP_COMPOSER_VERSION' ) ? (string) constant( 'ELEMENTOR_MCP_COMPOSER_VERSION' ) : '',
+		];
+		try {
+			$facts['module_active'] = $facts['module_present'] && is_callable( [ $module, 'is_active' ] ) && (bool) call_user_func( [ $module, 'is_active' ] );
+			if ( $facts['mcp_adapter'] ) {
+				$facts['mcp_adapter_version']  = defined( $adapter . '::VERSION' ) ? (string) constant( $adapter . '::VERSION' ) : '';
+				$facts['mcp_adapter_provider'] = RuntimeOwnership::describe_callable( [ $adapter, 'instance' ] )['provider_id'];
+			}
+			$facts['site_exposure_enabled'] = class_exists( $settings ) && is_callable( [ $settings, 'is_enabled' ] ) && (bool) call_user_func( [ $settings, 'is_enabled' ] );
+			$facts['atomic_editor_active']  = self::atomic_editor_active();
+		} catch ( \Throwable $error ) {
+			unset( $error );
+		}
+		return $facts;
+	}
+
+	private static function atomic_editor_active(): bool {
+		if ( ! class_exists( \Elementor\Plugin::class, false ) || ! is_object( \Elementor\Plugin::$instance ) || ! is_object( \Elementor\Plugin::$instance->experiments ?? null ) ) {
+			return false;
+		}
+		$experiments = \Elementor\Plugin::$instance->experiments;
+		return method_exists( $experiments, 'is_feature_active' ) && (bool) $experiments->is_feature_active( 'e_atomic_elements' );
+	}
+
+	private static function bounded_text( mixed $value ): string {
+		return is_scalar( $value ) ? substr( (string) $value, 0, 100 ) : '';
+	}
+
 	private static function execution_callback( object $ability ): mixed {
 		$reader = \Closure::bind(
 			static function ( object $target ): mixed {

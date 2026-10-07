@@ -1,0 +1,15 @@
+{
+    "args": {
+        "ability": "elementor/manage-default-styles",
+        "input": {
+            "operations": [
+                {
+                    "action": "update",
+                    "tag": "h2",
+                    "css": "color: red"
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Elementor\V4\AtomicWriteReadback;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Renderers\ElementorV4SpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
@@ -21,14 +22,20 @@ use Stonewright\WpMcp\Support\ElementorData;
  * The spec goes through Validator::validate() first; an invalid spec returns the
  * structured `stonewright_spec_invalid` WP_Error and nothing is rendered.
  * ElementorV4SpecRenderer then maps each section and each heading, paragraph,
- * image, button, separator, icon, row, and column block onto a node tree, and
- * AtomicRenderer compiles every node against the certified Atomic schema:
- * layout nodes become `e-flexbox` containers, widget nodes use `elType` widget
- * with an `e-` widgetType such as `e-heading`, and every prop is wrapped in the
- * typed `{ $$type, value }` envelope. A block type or prop without a certified
- * Atomic schema, and a value that schema rejects, is returned as a structured
- * WP_Error (for example `stonewright_v4_unknown_node`) that carries the failing
+ * image, button, separator, icon, row, column, and card block onto a node tree,
+ * and AtomicRenderer compiles every node against the certified Atomic schema:
+ * layout nodes (sections, rows, columns, and cards) become `e-flexbox`
+ * containers, widget nodes use `elType` widget with an `e-` widgetType such as
+ * `e-heading`, and every prop is wrapped in the typed `{ $$type, value }`
+ * envelope. Section and container styling (layout, direction with tablet and
+ * mobile variants, gap, padding, background color, full width, alignment, and
+ * z-index) is written as typed Atomic styles. An unsupported property, an
+ * unsupported block type, a block type or prop without a certified Atomic
+ * schema, and a value that schema rejects, is returned as a structured
+ * WP_Error (for example `stonewright_v4_unknown_node`) that names the failing
  * path; a partial tree is never returned as success and nothing is written.
+ * After a write the saved tree is read back recursively, and a dropped child is
+ * returned as an error.
  * Contract decision: keep output_schema aligned to the handler response shape.
  *
  * @stonewright-status experimental
@@ -45,7 +52,7 @@ final class RenderFromSpec extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. dry_run=true (default) returns the tree without writing. Section styling is written as typed Atomic styles; an unsupported property or block type returns an error naming its path.', 'stonewright' );
+		return __( 'Fallback writer for when no certified native ability covers the page: validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. When native Elementor composition is certified, prefer stonewright-elementor-native-execute. dry_run=true (default) returns the tree without writing. Section styling is written as typed Atomic styles; an unsupported property or block type returns an error naming its path. Every write is followed by a recursive readback of the written tree.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -81,6 +88,7 @@ final class RenderFromSpec extends AbilityKernel {
 				'snapshot_id' => [ 'type' => 'string' ],
 				'errors'      => [ 'type' => 'array' ],
 				'diagnostics' => [ 'type' => 'array' ],
+				'readback'    => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -154,6 +162,10 @@ return $gate; }
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}
+				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec' );
+				if ( $readback instanceof \WP_Error ) {
+					return $readback;
+				}
 
 				return [
 					'ok'          => true,
@@ -162,6 +174,7 @@ return $gate; }
 					'snapshot_id' => $snapshot_id,
 					'errors'      => [],
 					'diagnostics' => $diagnostics,
+					'readback'    => $readback,
 				];
 			}
 		);

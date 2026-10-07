@@ -1,0 +1,10 @@
+{
+    "args": {
+        "ability": "elementor/manage-classes",
+        "dry_run": false,
+        "input": {
+            "operations": []
+        }
+    },
+    "expect": "wp_error"
+}

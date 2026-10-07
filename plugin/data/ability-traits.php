@@ -200,6 +200,7 @@ return [
 	'stonewright/elementor-explain-editor' => [ 'write' => false, 'external' => false ],
 	'stonewright/elementor-knowledge-refresh' => [ 'write' => true, 'external' => true ],
 	'stonewright/elementor-knowledge-search' => [ 'write' => false, 'external' => false ],
+	'stonewright/elementor-native-execute' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-page-digest' => [ 'write' => false, 'external' => false ],
 	'stonewright/elementor-performance-audit' => [ 'write' => false, 'external' => false ],
 	'stonewright/elementor-post-write-verify' => [ 'write' => false, 'external' => false ],
