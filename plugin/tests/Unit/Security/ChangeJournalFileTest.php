@@ -285,11 +285,15 @@ final class ChangeJournalFileTest extends TestCase {
 		$file = $this->file();
 		$proc = $this->spawn_writer( $file->path(), 9, 40, 1 );
 
-		$invalid = 0;
-		$reads   = 0;
-		$deadline = microtime( true ) + 8.0;
+		$invalid   = 0;
+		$reads     = 0;
+		$exit_code = null;
+		$deadline  = microtime( true ) + 8.0;
 		do {
 			$status = proc_get_status( $proc['process'] );
+			if ( ! $status['running'] && null === $exit_code ) {
+				$exit_code = (int) $status['exitcode'];
+			}
 			$raw    = @file_get_contents( $file->path() );
 			if ( false === $raw ) {
 				usleep( 500 );
@@ -302,7 +306,7 @@ final class ChangeJournalFileTest extends TestCase {
 			}
 		} while ( $status['running'] && microtime( true ) < $deadline );
 
-		self::assertSame( 0, $this->finish( $proc ) );
+		self::assertSame( 0, $this->finish( $proc, $exit_code ) );
 		self::assertGreaterThan( 5, $reads );
 		self::assertSame( 0, $invalid, 'The target must always hold a complete document.' );
 		self::assertCount( 40, $file->read()['entries'] );
@@ -343,12 +347,21 @@ final class ChangeJournalFileTest extends TestCase {
 		return [ 'process' => $process, 'pipes' => $pipes ];
 	}
 
-	/** @param array{process:resource,pipes:array<int,resource>} $proc */
-	private function finish( array $proc ): int {
+	/**
+	 * Waits for a writer process and returns its exit code.
+	 *
+	 * Before PHP 8.3 only the first proc_get_status() call after the process ended reports its
+	 * exit code, and proc_close() then returns -1, so the first code seen is kept.
+	 *
+	 * @param array{process:resource,pipes:array<int,resource>} $proc
+	 * @param int|null                                           $exit_code Code a caller already read from proc_get_status().
+	 */
+	private function finish( array $proc, ?int $exit_code = null ): int {
 		$deadline = microtime( true ) + 60.0;
-		while ( microtime( true ) < $deadline ) {
+		while ( null === $exit_code && microtime( true ) < $deadline ) {
 			$status = proc_get_status( $proc['process'] );
 			if ( ! $status['running'] ) {
+				$exit_code = (int) $status['exitcode'];
 				break;
 			}
 			usleep( 20000 );
@@ -357,7 +370,8 @@ final class ChangeJournalFileTest extends TestCase {
 			stream_get_contents( $pipe );
 			fclose( $pipe );
 		}
-		return proc_close( $proc['process'] );
+		$closed = proc_close( $proc['process'] );
+		return null !== $exit_code && -1 !== $exit_code ? $exit_code : $closed;
 	}
 
 	private static function remove_tree( string $dir ): void {
