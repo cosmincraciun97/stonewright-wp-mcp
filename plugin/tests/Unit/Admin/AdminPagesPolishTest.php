@@ -95,7 +95,9 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Skills</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ), 'The shell prints the one h1.' );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
 		self::assertStringContainsString( 'sw-skills-tabs', $html );
 		self::assertStringContainsString( 'sw-skills-panel', $html );
 		self::assertStringContainsString( 'sw-actions', $html );
@@ -118,17 +120,23 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringNotContainsString( 'ð', $html );
 	}
 
-	public function test_sandbox_page_uses_shared_shell_and_sw_tabs(): void {
+	public function test_sandbox_page_uses_shared_shell_and_the_custom_code_tab_bar(): void {
 		ob_start();
 		SandboxPage::render();
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Custom code</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
 		self::assertStringContainsString( 'stonewright-sandbox-page', $html );
-		self::assertStringContainsString( 'sw-tabs', $html );
-		self::assertStringContainsString( 'sw-tabs__link', $html );
-		self::assertStringContainsString( 'sw-tabs__link is-active', $html );
+		// One tab bar: the hub's. The page no longer prints a second row of tabs.
+		self::assertStringContainsString( '<nav aria-label="Custom code sections">', $html );
+		self::assertStringNotContainsString( 'sw-tabs', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-sandbox&tab=drafts" aria-current="page">Drafts<\/a>/', $html );
+		foreach ( [ 'tab=library', 'tab=mu-plugins', 'tab=crash-recovery', 'page=stonewright-custom-code-approval' ] as $link ) {
+			self::assertStringContainsString( $link, $html, $link );
+		}
 		self::assertStringContainsString( 'stonewright-empty-state', $html );
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-file-form"', $html );
 		self::assertStringNotContainsString( 'tab=audit', $html );
@@ -165,7 +173,9 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Memory &amp; instructions</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
 		self::assertStringContainsString( 'sw-memory-page', $html );
 		self::assertStringContainsString( 'sw-callout', $html );
 		self::assertStringContainsString( 'sw-card', $html );
@@ -219,15 +229,15 @@ final class AdminPagesPolishTest extends TestCase {
 		};
 	}
 
-	/** The Dashboard tile that follows the "Companion" label, as plain text. */
-	private static function companion_tile( string $html ): string {
-		self::assertSame( 1, preg_match( '#<article class="sw-stat-card">(?:(?!</article>).)*?<div class="sw-stat-card__label">\s*Companion\s*</div>.*?</article>#s', $html, $tile ), 'The Dashboard has a Companion tile.' );
+	/** The Overview stat that carries this label, as plain text. */
+	private static function stat( string $html, string $label ): string {
+		self::assertSame( 1, preg_match( '#<div class="sw-ui-stat"><span class="sw-ui-stat__label">' . preg_quote( $label, '#' ) . '</span>.*?</div>#s', $html, $stat ), 'The Overview has a ' . $label . ' stat.' );
 
-		return (string) preg_replace( '/\s+/', ' ', trim( strip_tags( $tile[0] ) ) );
+		return (string) preg_replace( '/\s+/', ' ', trim( strip_tags( $stat[0] ) ) );
 	}
 
 	/** @dataProvider companion_option_states */
-	public function test_the_companion_tile_shows_a_state_not_the_raw_option( mixed $option, string $expected_state, string $expected_detail ): void {
+	public function test_the_companion_stat_shows_a_state_not_the_raw_option( mixed $option, string $expected_state, string $expected_detail ): void {
 		$GLOBALS['wpdb'] = self::dashboard_wpdb();
 		if ( null === $option ) {
 			unset( $GLOBALS['stonewright_test_options']['stonewright_companion_url'] );
@@ -239,7 +249,7 @@ final class AdminPagesPolishTest extends TestCase {
 		StatusPage::render();
 		$html = (string) ob_get_clean();
 
-		$tile = self::companion_tile( $html );
+		$tile = self::stat( $html, 'Companion' );
 		self::assertStringContainsString( $expected_state, $tile );
 		self::assertStringContainsString( $expected_detail, $tile );
 		self::assertStringNotContainsString( '<code></code>', $html, 'An empty option must not leave an empty value chip.' );
@@ -257,7 +267,7 @@ final class AdminPagesPolishTest extends TestCase {
 		];
 	}
 
-	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
+	public function test_status_page_is_the_overview_inside_the_shell(): void {
 		$GLOBALS['wpdb'] = self::dashboard_wpdb();
 
 		ob_start();
@@ -265,12 +275,15 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'sw-dashboard-page', $html );
-		self::assertStringContainsString( 'sw-stat-grid', $html );
-		self::assertStringContainsString( 'sw-stat-card', $html );
-		self::assertStringContainsString( 'dashicons-chart-area', $html );
-		self::assertStringContainsString( 'sw-audit-feed', $html );
-		self::assertStringContainsString( 'sw-sparkline', $html );
-		self::assertStringContainsString( 'Dashboard', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Overview</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringContainsString( 'class="sw-ui-stats"', $html );
+		self::assertStringContainsString( 'Needs attention', $html );
+		self::assertStringContainsString( 'Recent activity', $html );
+		self::assertStringContainsString( 'stonewright/ping', $html );
+		self::assertStringContainsString( 'role="img" aria-label="Changes over the last 14 days:', $html );
+		self::assertStringNotContainsString( 'sw-dashboard-page', $html );
+		self::assertStringNotContainsString( 'sw-stat-card', $html );
+		self::assertStringNotContainsString( 'Dashboard', $html );
 	}
 }

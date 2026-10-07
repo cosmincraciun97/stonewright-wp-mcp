@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\RescuePage;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
@@ -172,15 +173,16 @@ final class RescuePageTest extends TestCase {
 		}
 	}
 
-	public function test_the_shell_navigation_lists_rescue_with_the_other_safety_pages(): void {
+	public function test_rescue_registers_itself_in_the_activity_hub_through_the_menu_registry(): void {
+		MenuRegistry::reset_for_tests();
+		RescuePage::register();
+
 		self::assertSame( 'Rescue', AdminShell::pages()['stonewright-rescue'] );
-		$safety = [];
-		foreach ( AdminShell::menu_groups() as $group ) {
-			if ( 'safety-diagnostics' === $group['id'] ) {
-				$safety = $group['pages'];
-			}
-		}
-		self::assertSame( [ 'stonewright-audit-log' => 'Audit Log', 'stonewright-rescue' => 'Rescue' ], $safety );
+		self::assertSame( 'activity', MenuRegistry::hub_for( 'stonewright-rescue' ) );
+		self::assertSame( [ 'stonewright-audit-log', 'stonewright-rescue' ], array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ) );
+		$entry = MenuRegistry::entry( 'stonewright-rescue' );
+		self::assertSame( 'manage_options', $entry['capability'] ?? '' );
+		self::assertStringContainsString( 'Roll back a change that stopped the site from loading', $entry['lede'] ?? '' );
 	}
 
 	public function test_the_stylesheet_comes_from_the_shared_page_style_map_and_the_script_from_the_page(): void {
@@ -213,8 +215,9 @@ final class RescuePageTest extends TestCase {
 	public function test_it_uses_the_shared_page_header_with_one_h1(): void {
 		$html = $this->html();
 
-		self::assertSame( 1, preg_match( '/<header class="stonewright-page-header[^"]*"><div><h1>Rescue<\/h1><p>[^<]+<\/p><\/div>/', $html ) );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Rescue</h1><p class="sw-ui-page-lede">Roll back a change that stopped the site from loading', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringContainsString( '<nav aria-label="Activity sections">', $html, 'Rescue sits in the Activity hub.' );
 	}
 
 	public function test_a_warning_callout_says_what_rescue_does_and_what_it_never_does(): void {

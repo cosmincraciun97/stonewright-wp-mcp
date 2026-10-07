@@ -153,7 +153,9 @@ final class SandboxLibraryPage {
 
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Sandbox Library', 'stonewright' ); ?></h1>
+			<?php if ( ! $embedded ) : // Embedded in Custom code, the shell prints the page heading. ?>
+				<h1><?php esc_html_e( 'Sandbox Library', 'stonewright' ); ?></h1>
+			<?php endif; ?>
 
 			<?php if ( is_array( $notice_data ) ) : ?>
 				<div class="notice notice-<?php echo esc_attr( (string) ( $notice_data['type'] ?? 'info' ) ); ?> is-dismissible">

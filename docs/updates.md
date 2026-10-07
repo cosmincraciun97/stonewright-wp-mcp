@@ -53,7 +53,7 @@ or Stonewright settings.
 
 ## Update the local companion
 
-In **Stonewright → Connect → Keep Stonewright current**, click **Check latest
+In **Stonewright → Setup → Keep Stonewright current**, click **Check latest
 companion**. The result compares:
 
 - the installed WordPress plugin;

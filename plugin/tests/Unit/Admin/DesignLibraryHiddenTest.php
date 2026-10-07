@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Support\PromptCatalog;
 
 /**
@@ -13,15 +14,14 @@ use Stonewright\WpMcp\Support\PromptCatalog;
 final class DesignLibraryHiddenTest extends TestCase {
 
 	public function test_design_library_group_and_pages_absent(): void {
-		$groups = AdminShell::menu_groups();
-		$ids    = array_column( $groups, 'id' );
+		$ids = array_column( MenuRegistry::hubs(), 'id' );
 		self::assertNotContains( 'design-library', $ids );
 
 		$pages = AdminShell::pages();
 		self::assertArrayNotHasKey( 'stonewright-design-studio', $pages );
 		self::assertArrayNotHasKey( 'stonewright-visual-workspace', $pages );
 		self::assertArrayNotHasKey( 'stonewright-blueprints', $pages );
-		// Prompt library remains under workflows.
+		// Prompt library remains in the Knowledge hub.
 		self::assertArrayHasKey( 'stonewright-prompts', $pages );
 	}
 

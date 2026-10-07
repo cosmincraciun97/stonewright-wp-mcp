@@ -53,13 +53,6 @@ final class AbilitiesPage {
 		?>
 		<?php AdminShell::open( 'stonewright-abilities' ); ?>
 		<div class="sw-abilities-page stonewright-abilities-page">
-			<header class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'AI Abilities', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Search, inspect, and toggle the MCP tool surface exposed by Stonewright.', 'stonewright' ); ?></p>
-				</div>
-			</header>
-
 			<?php if ( ! $master_enabled ) : ?>
 				<div class="notice notice-warning sw-notice">
 					<p>

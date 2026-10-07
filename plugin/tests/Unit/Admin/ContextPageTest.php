@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\Pages\ContextPage;
 use Stonewright\WpMcp\Context\ContextSnapshot;
 use Stonewright\WpMcp\Context\UserContext;
@@ -51,17 +52,11 @@ final class ContextPageTest extends TestCase {
 		$_POST = [];
 	}
 
-	public function test_slug_lives_in_workflows_group(): void {
+	public function test_slug_lives_in_the_knowledge_hub(): void {
 		self::assertSame( 'stonewright-context', ContextPage::SLUG );
 		self::assertSame( 'manage_options', ContextPage::CAPABILITY );
 		self::assertContains( ContextPage::SLUG, array_keys( AdminShell::pages() ) );
-		$workflows = [];
-		foreach ( AdminShell::menu_groups() as $group ) {
-			if ( 'workflows' === $group['id'] ) {
-				$workflows = array_keys( $group['pages'] );
-			}
-		}
-		self::assertContains( ContextPage::SLUG, $workflows );
+		self::assertContains( ContextPage::SLUG, array_column( MenuRegistry::hub_entries( 'knowledge' ), 'slug' ) );
 	}
 
 	public function test_render_refuses_users_without_manage_options(): void {

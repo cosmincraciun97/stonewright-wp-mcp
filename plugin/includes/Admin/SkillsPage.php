@@ -176,13 +176,6 @@ final class SkillsPage {
 			data-sw-skills
 			data-sw-current-view="<?php echo esc_attr( $current ); ?>"
 		>
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Skills', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Site-owned Markdown playbooks for repeatable WordPress work. Agents skim descriptions first, then load full bodies only when a task matches.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
 			<?php self::render_notices(); ?>
 
 			<details class="sw-callout">

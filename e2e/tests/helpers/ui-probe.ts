@@ -17,7 +17,7 @@ export interface UiProbe {
 	smallText: string[];
 	/** Controls smaller than 24 x 24 CSS pixels that are not links inside a sentence, as "tag.class 20x20". */
 	smallTargets: string[];
-	/** Ids used more than once in the document. */
+	/** Ids used more than once inside the measured content. */
 	duplicateIds: string[];
 	/** Links, buttons and summaries with no accessible name. */
 	unnamedControls: string[];
@@ -99,9 +99,10 @@ export function probeUi(options: { scope: string }): UiProbe {
 		}
 	});
 
-	// 3. Duplicate ids.
+	// 3. Duplicate ids inside the measured content. The rest of the page (the admin footer, other plugins' markup)
+	// belongs to WordPress and to them, and differs from one site to the next.
 	const seen: Record<string, number> = {};
-	document.querySelectorAll('[id]').forEach((el) => {
+	root.querySelectorAll('[id]').forEach((el) => {
 		seen[el.id] = (seen[el.id] ?? 0) + 1;
 	});
 	const duplicateIds = Object.keys(seen).filter((id) => seen[id] > 1);

@@ -34,7 +34,7 @@ final class DesignPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Design', 'stonewright' ),
-			AdminShell::experimental_menu_title( __( 'Design', 'stonewright' ) ),
+			__( 'Design', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -184,13 +184,6 @@ final class DesignPage {
 		AdminShell::open( self::SLUG );
 		?>
 		<div class="sw-design-page stonewright-design-page">
-			<header class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Design', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Import a DESIGN.md direction, review the active contract, and keep the quality floor on generated pages.', 'stonewright' ); ?></p>
-				</div>
-			</header>
-
 			<?php if ( in_array( $notice, [ 'imported', 'activated', 'deactivated' ], true ) ) : ?>
 				<div class="notice notice-success is-dismissible sw-notice"><p><?php esc_html_e( 'Design direction updated.', 'stonewright' ); ?></p></div>
 			<?php elseif ( 'import-error' === $notice ) : ?>

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { PAGE_GATE_PROJECTS, STONEWRIGHT_PAGES, viewportKind } from './helpers/admin-pages';
+import { PAGE_GATE_PROJECTS, STONEWRIGHT_HUBS, STONEWRIGHT_PAGES, STONEWRIGHT_SIDEBAR, viewportKind } from './helpers/admin-pages';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
 import { login } from './helpers/login';
 import { H1_TOP_MAX, STICKY_CHROME_MAX_SHARE, budgetFor } from './helpers/ui-budget';
@@ -16,6 +16,9 @@ import { measureUi } from './helpers/ui-probe';
  *
  * Part two holds each existing Stonewright page to the same measurements, with the allowance in
  * helpers/ui-budget.ts for what a page has not migrated yet.
+ *
+ * Part three holds the shell every page is printed in: one page header and h1, one tab bar per hub, a skip link,
+ * the notice policy, the sidebar order, and the plugin list and Help entry points.
  */
 
 const repository = path.resolve(__dirname, '..', '..');
@@ -64,6 +67,27 @@ test.describe('UI layer on the component sheet', () => {
 			});
 			expect(tokens.accent).not.toBe('');
 			expect(tokens.motion).toBe('1');
+		});
+
+		test('counts duplicate ids inside the measured content only: WordPress and other plugins own the rest of the page', async ({ page }) => {
+			await openSheet(page);
+			await page.evaluate(() => {
+				// A repeated id in the admin footer (not the plugin's markup) and one repeated inside the content.
+				for (const host of [document.body, document.body]) {
+					const outside = document.createElement('span');
+					outside.id = 'footer-thankyou';
+					host.append(outside);
+				}
+				const page = document.querySelector('.sw-ui-page') as HTMLElement;
+				for (let copy = 0; copy < 2; copy += 1) {
+					const inside = document.createElement('span');
+					inside.id = 'repeated-inside';
+					page.append(inside);
+				}
+			});
+
+			const measured = await measureUi(page, '.sw-ui-page');
+			expect(measured.duplicateIds).toEqual(['repeated-inside']);
 		});
 
 		test('measures clean: no overflow, no text under 12px, no target under 24px, every control named', async ({ page }) => {
@@ -593,4 +617,204 @@ test.describe('UI contract on Stonewright pages', () => {
 			}
 		});
 	}
+});
+
+test.describe('The shell on Stonewright pages', () => {
+	test.beforeEach(async ({ page }) => {
+		await login(page);
+	});
+
+	for (const { slug, label, title, hub, tab } of STONEWRIGHT_PAGES) {
+		test(`${label} (${slug}) prints one header, one tab bar and one content region`, async ({ page }) => {
+			await page.goto(`/wp-admin/admin.php?page=${slug}`, { waitUntil: 'domcontentloaded' });
+			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+
+			// One h1, in the page header, and it names the page.
+			await expect(page.locator('.sw-shell h1:visible')).toHaveCount(1);
+			await expect(page.locator('.sw-shell__chrome h1.sw-ui-page-title')).toHaveText(title);
+
+			// The two-row header band and its second navigation are gone.
+			await expect(page.locator('.sw-shell__header, .sw-shell__nav, .sw-shell [role="banner"]')).toHaveCount(0);
+
+			// The tab bar lists the pages of the hub, marks the current one, and a hub with one page has none.
+			const definition = STONEWRIGHT_HUBS.find((entry) => entry.id === hub);
+			expect(definition, `hub ${hub} is defined`).toBeDefined();
+			const bar = page.locator('.sw-shell__chrome nav');
+			if ((definition?.tabs.length ?? 0) > 1) {
+				await expect(bar).toHaveCount(1);
+				await expect(bar).toHaveAttribute('aria-label', `${definition?.label} sections`);
+				const names = await bar.locator('a.sw-ui-hubnav__link').evaluateAll((links) => links.map((link) => (link.childNodes[0]?.textContent ?? '').trim()));
+				expect(names).toEqual([...(definition?.tabs ?? [])]);
+				await expect(bar.locator('a[aria-current="page"]')).toHaveCount(1);
+				await expect(bar.locator('a[aria-current="page"]')).toHaveText(new RegExp(`^${tab}`));
+			} else {
+				await expect(bar).toHaveCount(0);
+			}
+
+			// The content region follows the header, the notice marker sits between them, and the title comes first.
+			const order = await page.evaluate(() => {
+				const chrome = document.querySelector('.sw-shell__chrome');
+				const marker = document.querySelector('.sw-shell hr.wp-header-end');
+				const main = document.getElementById('sw-main');
+				return {
+					markerDirectlyAfterHeader: chrome?.nextElementSibling === marker,
+					mainAfterMarker: Boolean(marker && main && marker.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING),
+					mainFocusable: main?.getAttribute('tabindex') === '-1',
+					markers: document.querySelectorAll('hr.wp-header-end').length,
+				};
+			});
+			expect(order).toEqual({ markerDirectlyAfterHeader: true, mainAfterMarker: true, mainFocusable: true, markers: 1 });
+		});
+	}
+
+	test('the skip link is the first stop in the shell, shows on focus and lands in the content', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-skills', { waitUntil: 'domcontentloaded' });
+		const skip = page.locator('.sw-shell a.screen-reader-shortcut');
+		await expect(skip).toHaveAttribute('href', '#sw-main');
+		expect(await page.evaluate(() => document.querySelector('.sw-shell')?.querySelector('a[href], button, input, select, textarea, summary')?.getAttribute('href'))).toBe('#sw-main');
+
+		await skip.focus();
+		await expect(skip).toBeVisible();
+		await page.keyboard.press('Enter');
+		expect(await page.evaluate(() => document.activeElement?.id)).toBe('sw-main');
+	});
+
+	test('the hub tab bar is reached with Tab and shows a focus ring on every link', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-skills', { waitUntil: 'domcontentloaded' });
+		const links = page.locator('.sw-ui-hubnav__link');
+		const count = await links.count();
+		expect(count).toBe(5);
+		for (let index = 0; index < count; index += 1) {
+			await links.nth(index).focus();
+			const ring = await links.nth(index).evaluate((link) => {
+				const style = getComputedStyle(link);
+				return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
+			});
+			expect(ring.style).not.toBe('none');
+			expect(ring.width).toBeGreaterThanOrEqual(2);
+		}
+	});
+
+	test('the Custom code tabs are the old sandbox tabs plus Approvals, with the current one marked', async ({ page }) => {
+		for (const [query, tab] of [
+			['', 'Drafts'],
+			['&tab=library', 'Library'],
+			['&tab=mu-plugins', 'Active'],
+			['&tab=crash-recovery', 'Crash recovery'],
+		]) {
+			await page.goto(`/wp-admin/admin.php?page=stonewright-sandbox${query}`, { waitUntil: 'domcontentloaded' });
+			await expect(page.locator('.sw-ui-hubnav a[aria-current="page"]')).toHaveText(new RegExp(`^${tab}`));
+			await expect(page.locator('.sw-shell__main .sw-tabs')).toHaveCount(0);
+		}
+	});
+
+	test('the sidebar lists the pages in hub order and the top-level link opens the Overview', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-status', { waitUntil: 'domcontentloaded' });
+		const entries = await page.evaluate(() =>
+			Array.from(document.querySelectorAll('#toplevel_page_stonewright .wp-submenu li:not(.wp-submenu-head) a')).map((link) => (link.textContent ?? '').replace(/\s+/g, ' ').trim()),
+		);
+		expect(entries).toEqual([...STONEWRIGHT_SIDEBAR]);
+
+		const top = await page.evaluate(() => document.querySelector('#toplevel_page_stonewright > a')?.getAttribute('href') ?? '');
+		expect(top).toMatch(/page=stonewright-status$/);
+	});
+
+	test('a page that is still changing says Beta in words, in the sidebar and the header', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-troubleshoot', { waitUntil: 'domcontentloaded' });
+
+		await expect(page.locator('.sw-shell__chrome .sw-ui-badge', { hasText: 'Beta' })).toBeVisible();
+		await expect(page.locator('.sw-shell__chrome .sw-ui-hint')).toBeVisible();
+		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(3);
+		expect(await page.locator('body').innerText()).not.toMatch(/\bEXP\b/);
+	});
+
+	test('notices stay where WordPress puts them; more than three fold into one disclosure that opens for an error', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-skills', { waitUntil: 'domcontentloaded' });
+		await page.locator('.sw-shell').waitFor({ state: 'visible' });
+
+		const add = (items: Array<{ kind: string; text: string }>) =>
+			page.evaluate((entries) => {
+				const marker = document.querySelector('hr.wp-header-end') as HTMLElement;
+				for (const entry of entries) {
+					const notice = document.createElement('div');
+					notice.className = `notice notice-${entry.kind}`;
+					const paragraph = document.createElement('p');
+					paragraph.textContent = entry.text;
+					notice.append(paragraph);
+					marker.after(notice);
+				}
+			}, items);
+
+		await add([
+			{ kind: 'info', text: 'Foreign one' },
+			{ kind: 'success', text: 'Foreign two' },
+			{ kind: 'info', text: 'Foreign three' },
+		]);
+		await page.waitForTimeout(400);
+		await expect(page.locator('.sw-notice-drawer')).toBeHidden();
+		await expect(page.locator('.sw-shell .notice:visible', { hasText: 'Foreign' })).toHaveCount(3);
+		expect(await page.locator('.sw-notice-drawer__body .notice').count()).toBe(0);
+
+		await add([
+			{ kind: 'error', text: 'Foreign broke' },
+			{ kind: 'warning', text: 'Foreign careful' },
+		]);
+		await expect(page.locator('.sw-notice-drawer')).toBeVisible();
+		await expect(page.locator('.sw-notice-drawer')).toHaveJSProperty('open', true);
+		await expect(page.locator('.sw-notice-drawer__summary')).toHaveText('Other WordPress notices: 1 error, 1 warning, 3 notices');
+		await expect(page.locator('.sw-notice-drawer__body .notice')).toHaveCount(5);
+		await expect(page.getByText('Foreign broke')).toBeVisible();
+
+		// The drawer never takes a notice the plugin printed, and nothing is removed on a timer.
+		await page.waitForTimeout(6000);
+		await expect(page.locator('.sw-notice-drawer__body .notice')).toHaveCount(5);
+		expect(await page.locator('.sw-notice-drawer__body :is(.sw-notice, [class*="stonewright-"])').count()).toBe(0);
+	});
+
+	test('the safety warning on the code approval page is content, not a notice that gets moved', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-custom-code-approval', { waitUntil: 'domcontentloaded' });
+		await page.locator('.sw-shell').waitFor({ state: 'visible' });
+
+		const warning = page.locator('#sw-main .notice', { hasText: 'Human approval only.' });
+		await expect(warning).toBeVisible();
+		await expect(page.locator('.sw-notice-drawer')).toBeHidden();
+		await expect(page.locator('#sw-main .notice')).toHaveCount(2);
+	});
+
+	test('headings inside the layer carry no margin from WordPress core', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-status', { waitUntil: 'domcontentloaded' });
+		const margins = await page.evaluate(() =>
+			Array.from(document.querySelectorAll('.sw-ui h1, .sw-ui h2, .sw-ui h3, .sw-ui p, .sw-ui dd'))
+				.map((element) => ({ name: `${element.tagName.toLowerCase()}.${(element.getAttribute('class') ?? '').split(' ')[0]}`, top: getComputedStyle(element).marginTop, bottom: getComputedStyle(element).marginBottom }))
+				.filter((entry) => entry.top !== '0px' || entry.bottom !== '0px')
+				.map((entry) => `${entry.name} ${entry.top} ${entry.bottom}`),
+		);
+
+		// The lede keeps a 4px gap above it by design; every other margin is zero.
+		expect(margins.filter((entry) => !entry.startsWith('p.sw-ui-page-lede'))).toEqual([]);
+	});
+
+	test('the plugin row offers Overview and Setup before Deactivate, and a link to the documentation', async ({ page }) => {
+		await page.goto('/wp-admin/plugins.php', { waitUntil: 'domcontentloaded' });
+		const row = page.locator('tr[data-slug="stonewright"]');
+		const actions = await row.locator('.row-actions a').allInnerTexts();
+		expect(actions.slice(0, 3)).toEqual(['Overview', 'Setup', 'Deactivate']);
+		const docs = row.locator('.plugin-version-author-uri a', { hasText: 'Docs' });
+		await expect(docs).toHaveAttribute('rel', 'noopener noreferrer');
+		await expect(docs).toHaveAttribute('aria-label', 'Stonewright documentation (opens in a new tab)');
+	});
+
+	test('every page has a keyboard-reachable Help tab with what the page is and a glossary', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-memory', { waitUntil: 'domcontentloaded' });
+		const help = page.locator('#contextual-help-link');
+		await expect(help).toBeVisible();
+		await help.focus();
+		await page.keyboard.press('Enter');
+
+		await expect(page.locator('#tab-link-stonewright-help-page')).toBeVisible();
+		await expect(page.locator('#tab-panel-stonewright-help-page')).toContainText('Durable site knowledge');
+		await expect(page.locator('#tab-panel-stonewright-help-page a', { hasText: 'Skills' })).toBeVisible();
+		await page.locator('#tab-link-stonewright-help-glossary a').click();
+		await expect(page.locator('#tab-panel-stonewright-help-glossary dt', { hasText: 'Design direction' })).toBeVisible();
+	});
 });

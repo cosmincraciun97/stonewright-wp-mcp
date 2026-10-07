@@ -22,11 +22,11 @@ final class AdminShellCssTest extends TestCase {
 		'admin/audit.css'         => 18,
 		'admin/block-queue.css'   => 0,
 		'admin/blueprints.css'    => 0,
-		'admin/dashboard.css'     => 3,
 		'admin/design-studio.css' => 0,
 		'admin/sandbox.css'       => 21,
 		'admin/setup.css'         => 1,
-		'admin/shell.css'         => 51,
+		'admin/pages/overview.css' => 0,
+		'admin/shell.css'         => 45,
 		'admin/skills-memory.css' => 10,
 		'admin/visual-workspace.css' => 0,
 		'css/stonewright-admin.css'  => 5,
@@ -72,18 +72,42 @@ final class AdminShellCssTest extends TestCase {
 		self::assertSame( 'flow-root', CssSource::value_of( $declarations, 'display' ) );
 	}
 
-	public function test_the_shell_header_scrolls_with_the_page_until_the_compact_header_ships(): void {
-		$declarations = self::rule( self::shell(), '.sw-shell__header' );
+	public function test_the_shell_has_no_header_band_so_the_page_header_starts_near_the_top(): void {
+		$css = self::shell();
 
-		self::assertSame( 'static', CssSource::value_of( $declarations, 'position' ) );
+		// The two-row dark band (140 to 304px tall) is gone; the page prints its own header and the WordPress sidebar is the navigation.
+		foreach ( [ '.sw-shell__header', '.sw-shell__nav', '.sw-shell__brand', '.sw-shell__exp', '.sw-shell__logo' ] as $removed ) {
+			self::assertStringNotContainsString( $removed, $css, $removed );
+		}
+		self::assertSame( 'var(--sw-space-3) var(--sw-space-5) var(--sw-space-7)', self::value( $css, '.sw-shell__content', 'padding' ), 'Only 12px above the header, not the 24px that used to sit under the band.' );
 	}
 
-	public function test_the_notice_drawer_sits_directly_under_the_header(): void {
+	public function test_the_notice_drawer_is_a_calm_disclosure_that_uses_tokens_and_no_important(): void {
 		$css          = self::shell();
 		$declarations = self::rule( $css, '.sw-notice-drawer' );
 
-		self::assertSame( 'var(--sw-space-3) auto 0', CssSource::value_of( $declarations, 'margin' ) );
-		self::assertStringNotContainsString( 'max(', (string) CssSource::value_of( $declarations, 'margin' ), 'The margin no longer follows the header height.' );
+		self::assertSame( 'var(--sw-space-3) 0 0', CssSource::value_of( $declarations, 'margin' ) );
+		self::assertStringNotContainsString( 'max(', (string) CssSource::value_of( $declarations, 'margin' ), 'The margin no longer follows a header height.' );
+
+		$start = (int) strpos( $css, '/* Notice drawer' );
+		$end   = (int) strpos( $css, '/* Stonewright-owned notices stay inline and restyled */' );
+		$block = substr( $css, $start, $end - $start );
+		self::assertStringNotContainsString( '!important', $block );
+		self::assertStringNotContainsString( '[class*="notice"]', $block );
+		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}|rgba?\(/', $block, 'Colours come from tokens.' );
+	}
+
+	public function test_notices_from_wordpress_keep_the_look_core_gives_them(): void {
+		$css = self::shell();
+
+		// The flat grey look is only for notices inside the page content; a foreign notice (outside #sw-main) is not repainted.
+		self::assertStringNotContainsString( ".sw-shell .notice,
+.sw-shell .updated", $css );
+		self::assertSame( 'var(--sw-border)', self::value( $css, '.sw-shell__main .notice, .sw-shell__main .updated, .sw-shell__main .error', 'border-color' ) );
+	}
+
+	public function test_a_heading_block_the_page_prints_for_itself_is_hidden_so_there_is_one_h1(): void {
+		self::assertSame( 'none', self::value( self::shell(), '.sw-shell__main .sw-setup-page > .sw-setup-header', 'display' ) );
 	}
 
 	public function test_only_the_admin_bar_is_counted_as_fixed_chrome(): void {
@@ -321,23 +345,6 @@ final class AdminShellCssTest extends TestCase {
 				'--sw-text-muted on ' . $background . ' was 4.34:1 to 4.48:1 on four of these.'
 			);
 		}
-	}
-
-	public function test_the_shell_header_labels_and_focus_ring_read_on_the_dark_header(): void {
-		$tokens = self::legacy_tokens();
-		$header = CssSource::hex_to_rgb( $tokens['--sw-shell-header-bg'] );
-		$alpha  = static function ( string $value ): array {
-			self::assertSame( 1, preg_match( '/^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)$/', $value, $m ), $value );
-
-			return [ [ (float) $m[1], (float) $m[2], (float) $m[3] ], (float) $m[4] ];
-		};
-
-		[ $label, $label_alpha ] = $alpha( $tokens['--sw-shell-header-muted'] );
-		self::assertGreaterThanOrEqual( 4.5, CssSource::contrast( CssSource::over( $label, $label_alpha, $header ), $header ), 'Group labels were 4.32:1.' );
-
-		// The focus ring on the header is the header text colour, set where the header is declared.
-		self::assertSame( 'var(--sw-shell-header-fg)', self::value( self::shell(), '.sw-shell__header', '--sw-focus-ring' ) );
-		self::assertGreaterThanOrEqual( 3.0, CssSource::contrast( CssSource::hex_to_rgb( $tokens['--sw-shell-header-fg'] ), $header ), 'The indigo ring was 2.82:1 on the header.' );
 	}
 
 	public function test_form_control_borders_meet_non_text_contrast(): void {

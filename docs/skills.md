@@ -92,7 +92,7 @@ blocks activation.
 
 ## Skill lifecycle in wp-admin
 
-**Stonewright → Skills** has four views: Catalog, Editor, Import, and Trash.
+**Stonewright → Knowledge → Skills** has four views: Catalog, Editor, Import, and Trash.
 
 **Catalog.** Every skill states where it came from — `built-in` (ships with
 Stonewright), `local` (created on this site), or the id of the plugin that

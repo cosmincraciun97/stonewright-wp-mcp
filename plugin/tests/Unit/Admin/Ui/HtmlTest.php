@@ -38,6 +38,11 @@ final class HtmlTest extends TestCase {
 		);
 	}
 
+	public function test_a_time_element_can_carry_its_machine_readable_value(): void {
+		self::assertSame( ' datetime="2026-10-07 06:00:00"', Html::attrs( [ 'datetime' => '2026-10-07 06:00:00' ] ) );
+		self::assertSame( ' datetime="&quot;&gt;x"', Html::attrs( [ 'datetime' => '">x' ] ) );
+	}
+
 	public function test_malformed_attribute_names_are_dropped(): void {
 		self::assertSame( '', Html::attrs( [ 'a b' => 'x', '"><script>' => 'x', '' => 'x', '1abc' => 'x' ] ) );
 	}

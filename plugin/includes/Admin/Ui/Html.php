@@ -26,6 +26,7 @@ final class Html {
 		'checked',
 		'class',
 		'colspan',
+		'datetime',
 		'dir',
 		'disabled',
 		'for',

@@ -6,13 +6,27 @@ import { budgetFor } from './ui-budget';
 export const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /**
- * Wait until every finite animation has finished. An element halfway through a fade has a colour that is not the
- * one the user ends up reading, so a contrast check made earlier reports a failure that is not there.
+ * Wait until the page has stopped changing: the network is quiet and no finite animation has run for three checks
+ * in a row. An element halfway through a fade has a colour that is not the one the user ends up reading, so a
+ * contrast check made earlier reports a failure that is not there. Rows that a script renders after the page
+ * loads (the Skills catalog) start their fade after `domcontentloaded`, so one look at the running animations
+ * is not enough.
  */
 export async function settle(page: Page): Promise<void> {
+	await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
 	await page.evaluate(async () => {
-		const finite = document.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
-		await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+		const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+		let quiet = 0;
+		for (let check = 0; check < 40 && quiet < 3; check += 1) {
+			const running = document.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity && animation.playState === 'running');
+			if (running.length > 0) {
+				quiet = 0;
+				await Promise.all(running.map((animation) => animation.finished.catch(() => undefined)));
+			} else {
+				quiet += 1;
+			}
+			await pause(100);
+		}
 	});
 }
 

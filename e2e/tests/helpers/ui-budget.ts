@@ -20,8 +20,8 @@ export interface PageBudget {
 	readonly axe: readonly string[];
 }
 
-/** The navigation chrome every shell page prints: an 8px "Experimental" marker and two header links under 24px tall. */
-const SHELL: Pick<PageBudget, 'smallText' | 'smallTargets'> = { smallText: [1, 1], smallTargets: [2, 1] };
+/** The chrome every shell page prints: the page header and a hub tab bar. It measures clean, so it carries no allowance. */
+const SHELL: Pick<PageBudget, 'smallText' | 'smallTargets'> = { smallText: [0, 0], smallTargets: [0, 0] };
 
 function onTopOfShell(extra: { smallText?: readonly [number, number]; smallTargets?: readonly [number, number]; duplicateIds?: readonly string[]; axe?: readonly string[] }): PageBudget {
 	const text = extra.smallText ?? [0, 0];
@@ -39,8 +39,7 @@ function onTopOfShell(extra: { smallText?: readonly [number, number]; smallTarge
 export const SHELL_ONLY: PageBudget = onTopOfShell({});
 
 export const PAGE_BUDGETS: Readonly<Record<string, PageBudget>> = {
-	'stonewright-status': onTopOfShell({ smallTargets: [6, 6] }),
-	stonewright: onTopOfShell({ smallText: [2, 0], smallTargets: [5, 4], duplicateIds: ['_wpnonce', 'submit'], axe: ['scrollable-region-focusable'] }),
+	stonewright: onTopOfShell({ smallText: [1, 0], smallTargets: [5, 4], duplicateIds: ['_wpnonce', 'submit'], axe: ['scrollable-region-focusable'] }),
 	'stonewright-abilities': onTopOfShell({ smallTargets: [4, 2], duplicateIds: ['_wpnonce'], axe: ['aria-required-children', 'nested-interactive'] }),
 	'stonewright-prompts': onTopOfShell({ smallTargets: [1, 1] }),
 	'stonewright-custom-code-approval': SHELL_ONLY,
@@ -59,10 +58,10 @@ export function budgetFor(slug: string): PageBudget {
 }
 
 /**
- * Highest allowed top edge of the first h1, in page pixels. The header band above it is tall until the shell is
- * rebuilt; the numbers tighten to 120 (desktop) and 200 (mobile) when it is.
+ * Highest allowed top edge of the first h1, in page pixels (the WordPress admin bar included). The page header
+ * is a single row, so the title starts within 120px at 1440 and 200px at 390.
  */
-export const H1_TOP_MAX = { desktop: 260, mobile: 400 } as const;
+export const H1_TOP_MAX = { desktop: 120, mobile: 200 } as const;
 
 /** Sticky and fixed chrome (admin bar, sticky headers and filter bars) may cover at most this share of the viewport height. */
 export const STICKY_CHROME_MAX_SHARE = 0.25;

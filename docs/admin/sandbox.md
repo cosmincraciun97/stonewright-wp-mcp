@@ -1,6 +1,6 @@
 # Sandbox
 
-The Sandbox page is a file manager for PHP drafts stored in
+**Stonewright → Custom code** is a file manager for PHP drafts stored in
 `wp-content/stonewright-sandbox/`. Drafts are never auto-loaded — they only
 run after an explicit admin activation step that writes the file into
 `mu-plugins/` under a prefixed name.
@@ -10,13 +10,18 @@ can run them: a draft `slug.php` is the file `slug.draft`, and its backups are
 `slug.<unix time>.bak`. Activation is the only step that produces executable
 code.
 
+The page is a hub: its tab bar holds Drafts, Library, Active (MU plugins) and Crash
+recovery, plus Approvals (the custom-code approval page). The address is
+`admin.php?page=stonewright-sandbox`, with `tab=drafts`, `library`, `mu-plugins` or
+`crash-recovery`; the page was named Sandbox before, and the address did not change.
+
 Sources:
 - `plugin/includes/Admin/SandboxPage.php`
 - `plugin/includes/Sandbox/SandboxFiles.php`
 - `plugin/includes/Sandbox/StaticGuard.php`
 
 Audit events are not duplicated inside Sandbox. Use the dedicated
-**Stonewright → Safety: Audit** page; old `?tab=audit` links show a short move
+**Stonewright → Activity → Audit log** page; old `?tab=audit` links show a short move
 notice and a direct link there.
 
 ---

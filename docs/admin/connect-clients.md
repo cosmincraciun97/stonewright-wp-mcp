@@ -76,7 +76,7 @@ routing authority and replaces stale inherited WordPress environment values.
 ## Application Password fallback
 
 This guide covers wiring supported AI clients to Stonewright. The shortest path
-is the **Stonewright > Configuration** page:
+is the **Stonewright → Setup** page:
 
 1. Enable Stonewright abilities.
 2. Choose **Application Password** and generate one in the page.
@@ -96,7 +96,7 @@ stores plaintext in WordPress transients or settings.
 ### WordPress Application Password
 
 WordPress Application Passwords are one-time-display credentials tied to the
-current WordPress user. Generate one from **Stonewright > Configuration >
+current WordPress user. Generate one from **Stonewright → Setup →
 Application Password**. Copy it immediately; WordPress will not show it again.
 
 ### Endpoint

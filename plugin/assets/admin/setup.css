@@ -457,7 +457,7 @@
 }
 
 .sw-stepper__step--todo {
-	opacity: 0.85;
+	color: var(--sw-text-secondary);
 }
 
 /* Setup cards / steps */

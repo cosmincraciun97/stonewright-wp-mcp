@@ -41,6 +41,11 @@ final class SwUiCssContractTest extends TestCase {
 	 */
 	private const ALLOWED_TO_NAME_THE_LAYER = [
 		'includes/Admin/AdminBootstrap.php',
+		// The frame prints the page header and the hub tab bar with the layer's helpers.
+		'includes/Admin/AdminShell.php',
+		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
+		'includes/Admin/Pages/StatusPage.php',
+		'assets/admin/pages/overview.css',
 	];
 
 	private static function css(): string {
@@ -97,6 +102,26 @@ final class SwUiCssContractTest extends TestCase {
 		}
 
 		self::assertSame( [], $violations, "Selectors above (0,2,0):\n" . implode( "\n", $violations ) );
+	}
+
+	public function test_the_heading_and_paragraph_reset_beats_the_element_rules_of_wordpress_core(): void {
+		// Core sets `h2, h3 { margin: 1em 0 }` and `p { margin: 1em 0 }` at element specificity. A reset wrapped in
+		// :where() has no specificity, so it lost and every card title carried 16px above and below it.
+		foreach ( [ '.sw-ui :where(h1, h2, h3, h4)', '.sw-ui :where(p, dl, dd, figure)' ] as $selector ) {
+			$declarations = CssSource::rule_declarations( self::css(), $selector );
+			self::assertSame( '0', CssSource::value_of( $declarations, 'margin' ), $selector );
+			self::assertGreaterThanOrEqual( [ 0, 1, 0 ], CssSource::specificity( $selector ), $selector . ' must outrank an element selector.' );
+		}
+		self::assertStringNotContainsString( ':where(.sw-ui) :where(h1', self::css() );
+		self::assertStringNotContainsString( ':where(.sw-ui) :where(p,', self::css() );
+	}
+
+	public function test_a_standalone_link_is_a_24px_target_in_both_directions(): void {
+		// A one-digit link (a count in a list of facts) was 7px wide; WCAG 2.5.8 wants 24 x 24.
+		$declarations = CssSource::rule_declarations( self::css(), '.sw-ui .sw-ui-link' );
+
+		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-height' ) );
+		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-width' ) );
 	}
 
 	public function test_raw_colours_exist_only_in_the_token_sections(): void {

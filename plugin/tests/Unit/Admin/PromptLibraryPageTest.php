@@ -26,7 +26,7 @@ final class PromptLibraryPageTest extends TestCase {
 		PromptLibraryPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'Prompt Library', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Prompt library</h1>', $html );
 		self::assertStringContainsString( 'sw-copy-prompt', $html );
 		self::assertStringContainsString( 'data-prompt=', $html );
 		self::assertStringContainsString( 'data-sw-prompt-card', $html );

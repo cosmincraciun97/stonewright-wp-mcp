@@ -33,6 +33,10 @@ final class AdminBootstrap {
 		}
 		self::$registered = true;
 
+		MenuOrder::register();
+		PluginActionLinks::register();
+		ActivationRedirect::register();
+		HelpTabs::register();
 		StatusPage::register();
 		// Design Library admin UI (Design Studio / Visual Workspace / Blueprints)
 		// is intentionally not registered. Typed design abilities remain available
@@ -94,7 +98,7 @@ final class AdminBootstrap {
 	}
 
 	/**
-	 * Sidebar Experimental marker. shell.css only loads on Stonewright pages;
+	 * Sidebar Beta marker. shell.css only loads on Stonewright pages;
 	 * the left menu is visible everywhere in wp-admin.
 	 */
 	public static function output_menu_styles(): void {
@@ -106,11 +110,7 @@ final class AdminBootstrap {
 		}
 
 		echo '<style id="stonewright-admin-menu">'
-			. '#adminmenu .wp-submenu li:has(.sw-menu-exp),#adminmenu .wp-submenu a:has(.sw-menu-exp){overflow:visible;}'
-			. '#adminmenu .wp-submenu a:has(.sw-menu-exp){display:grid;grid-template-columns:minmax(0,max-content) auto;justify-content:start;justify-items:start;column-gap:10px;align-items:start;white-space:normal;}'
-			. '#adminmenu .wp-submenu a .sw-menu-label{min-width:0;white-space:normal;overflow-wrap:break-word;}'
-			. '#adminmenu .wp-submenu a .sw-menu-exp,#adminmenu .wp-submenu li.current a .sw-menu-exp,#adminmenu .wp-submenu a:hover .sw-menu-exp,#adminmenu .wp-submenu a:focus .sw-menu-exp{grid-column:2;grid-row:1;float:none;margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;display:inline-flex;align-items:center;height:18px;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:1;text-transform:uppercase;color:#fff;white-space:nowrap;cursor:help;position:relative;}'
-			. '#adminmenu .sw-menu-exp:hover::after,#adminmenu .sw-menu-exp:focus-visible::after{content:attr(data-tip);position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px;padding:5px 8px;background:#1d2327;color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:1.3;text-transform:none;white-space:nowrap;border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.28);z-index:100000;pointer-events:none;}'
+			. '#adminmenu .wp-submenu a .sw-menu-beta{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid currentColor;border-radius:3px;font-size:12px;font-weight:500;line-height:16px;white-space:nowrap;}'
 			. '</style>' . "\n";
 	}
 
@@ -210,7 +210,7 @@ final class AdminBootstrap {
 			'stonewright-abilities'     => 'abilities.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
-			'stonewright-status'        => 'dashboard.css',
+			'stonewright-status'        => 'pages/overview.css',
 			'stonewright-audit-log'     => 'audit.css',
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
@@ -230,8 +230,6 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-abilities';
 			} elseif ( 'blueprints.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-blueprints';
-			} elseif ( 'dashboard.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-dashboard';
 			} elseif ( 'audit.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {

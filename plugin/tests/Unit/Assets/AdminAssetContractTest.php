@@ -88,14 +88,29 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( 'min-height: 22px', $body );
 	}
 
-	public function test_dashboard_metrics_are_grouped_in_one_summary_band(): void {
-		$grid = self::rule_body( 'dashboard.css', '.sw-stat-grid' );
-		$cell = self::rule_body( 'dashboard.css', '.sw-stat-card' );
+	public function test_overview_stylesheet_only_places_things_and_uses_tokens(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
 
-		self::assertStringContainsString( 'gap: 1px', $grid );
-		self::assertStringContainsString( 'border-radius: var(--sw-radius-lg)', $grid );
-		self::assertStringNotContainsString( 'box-shadow', $cell );
-		self::assertStringNotContainsString( 'border:', $cell );
+		self::assertStringNotContainsString( '!important', $css );
+		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}|rgba?\(/', $css, 'Colours come from tokens.' );
+		self::assertStringContainsString( 'var(--sw-card-pad)', $css );
+		// Components come from the shared layer, so this file defines none of them.
+		foreach ( [ '.sw-ui-card', '.sw-ui-stat', '.sw-ui-badge', '.sw-ui-btn', '.sw-ui-table' ] as $component ) {
+			self::assertStringNotContainsString( $component, $css, $component );
+		}
+	}
+
+	public function test_the_retired_dashboard_stylesheet_is_gone(): void {
+		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/dashboard.css' );
+		self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
+	}
+
+	public function test_a_setup_step_that_is_still_to_do_keeps_readable_text(): void {
+		$body = self::rule_body( 'setup.css', '.sw-stepper__step--todo' );
+
+		// opacity .85 on the muted label made it 4.3:1 on the step's fill; the colour is set instead.
+		self::assertStringNotContainsString( 'opacity', $body );
+		self::assertStringContainsString( 'color: var(--sw-text-secondary)', $body );
 	}
 
 	public function test_domain_lock_status_centers_its_complete_control_group(): void {

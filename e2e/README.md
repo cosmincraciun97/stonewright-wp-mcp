@@ -5,9 +5,9 @@ and the `e2e:admin-ui` CI job.
 
 ## What it checks
 
-For each Stonewright admin page in `tests/helpers/admin-pages.ts` (Dashboard,
-Setup, AI Abilities, Prompts, Code Approval, Sandbox, Skills, Memory, Audit Log,
-Troubleshoot, Context, Design):
+For each Stonewright admin page in `tests/helpers/admin-pages.ts` (Overview, Setup,
+Troubleshoot, AI Abilities, Skills, Memory, Context, Design, Prompt library, Custom
+code, Custom code approval, Audit log, Block queue, Rescue):
 
 - HTTP status &lt; 400
 - No horizontal overflow (`scrollWidth - clientWidth <= 0`)
@@ -51,6 +51,17 @@ viewport, no plugin-owned notice sits in the "other WordPress notices" drawer, e
 primary button is painted with the accent fill, no unnamed control, no unlabelled
 field, and counts of text under 12px, targets under 24px and repeated ids that stay
 within the page's allowance.
+
+**The shell** (the last part of `ui-contract.spec.ts`, run at every viewport) holds the frame
+every page is printed in: one visible `h1` that names the page and sits within 120px of the
+top at 1440 (200px at 390), no header band or second navigation, one tab bar per hub with
+the current tab marked and the tabs in `STONEWRIGHT_HUBS` order, the skip link first and
+landing in the content region, `hr.wp-header-end` between the header and the content, the
+sidebar in hub order, the Beta marker in words, notices that stay in place up to three and
+fold into one disclosure above that (open for an error or a warning, never holding a
+notice the plugin printed, never removed on a timer), headings without core's margins, the
+plugin row links and the two Help tabs. A page added to `STONEWRIGHT_PAGES` names its hub
+and tab, so it is covered by all of this at once.
 
 `tests/helpers/ui-budget.ts` holds those allowances. They only go down: when a page
 adopts the shared UI layer, delete its entry. A page with no entry has no allowance

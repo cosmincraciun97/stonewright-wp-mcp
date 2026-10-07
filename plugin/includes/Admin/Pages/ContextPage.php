@@ -27,7 +27,7 @@ final class ContextPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Context', 'stonewright' ),
-			AdminShell::experimental_menu_title( __( 'Context', 'stonewright' ) ),
+			__( 'Context', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -95,13 +95,6 @@ final class ContextPage {
 		AdminShell::open( self::SLUG );
 		?>
 		<div class="sw-context-page stonewright-context-page">
-			<header class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Context', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Review the generated system instructions first, then add site-specific context. Task-start injects enabled user context into bootstrap.', 'stonewright' ); ?></p>
-				</div>
-			</header>
-
 			<?php if ( 'saved' === $notice ) : ?>
 				<div class="notice notice-success is-dismissible sw-notice"><p><?php esc_html_e( 'User context saved.', 'stonewright' ); ?></p></div>
 			<?php endif; ?>
