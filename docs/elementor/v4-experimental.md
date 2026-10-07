@@ -55,20 +55,23 @@ The authoritative gate columns live in the generated
 | `stonewright/elementor-v4-list-atomic-node-types` | Read | stable | DesignSpec node types the certified Atomic schema repository can render. |
 | `stonewright/elementor-v4-describe-atomic-widget` | Read | stable | Live props schema for one Atomic widget. |
 | `stonewright/elementor-v4-read-atomic-tree` | Read | experimental | Compact outline (or full tree) of the Atomic elements in a post. |
-| `stonewright/elementor-v4-update-node` | Write | experimental | Settings-only patch of one Atomic node by id, validated against its certified schema. |
+| `stonewright/elementor-v4-update-node` | Write | experimental | Fallback. Settings-only patch of one Atomic node by id, validated against its certified schema. |
 | `stonewright/elementor-v4-list-variables` | Read | experimental | Variables through `Variables_Service`. |
-| `stonewright/elementor-v4-create-variable` | Write | experimental | Creates a variable through `Variables_Service` and verifies readback. |
-| `stonewright/elementor-v4-update-variable` | Write | experimental | Updates a variable through `Variables_Service`. |
+| `stonewright/elementor-v4-create-variable` | Write | experimental | Fallback. Creates a variable through `Variables_Service` and verifies readback. |
+| `stonewright/elementor-v4-update-variable` | Write | experimental | Fallback. Updates a variable through `Variables_Service`. |
 | `stonewright/elementor-v4-list-classes` | Read | experimental | Global classes through `Global_Classes_Repository`. |
-| `stonewright/elementor-v4-create-class` | Write | experimental | Creates a global class. |
-| `stonewright/elementor-v4-update-class` | Write | experimental | Updates a global class. |
+| `stonewright/elementor-v4-create-class` | Write | experimental | Fallback. Creates a global class. |
+| `stonewright/elementor-v4-update-class` | Write | experimental | Fallback. Updates a global class. |
 | `stonewright/elementor-v4-migrate` | Write | experimental | Explicit V3-to-V4 migration with a per-element loss report; never implicit. |
-| `stonewright/elementor-v4-render-from-spec` | Write | experimental | Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
+| `stonewright/elementor-v4-render-from-spec` | Write | experimental | Fallback. Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
 | `stonewright/elementor-v4-atomic-widget-define` | Read | sandboxed | Sandboxed Atomic widget definition. |
+| `stonewright/elementor-native-execute` | Write | experimental | Runs a certified Elementor ability (default styles, element composition, structure read) inside the snapshot, lock, readback, rollback, and audit closure; `dry_run` defaults to true. |
 
 ## Write envelope for V4 abilities
 
-V4 write abilities follow the same AGENTS.md security rules as V3:
+V4 write abilities follow the same AGENTS.md security rules as V3, and every V4
+write reads the stored result back and compares nested content: a dropped child is
+an error and the snapshot is restored.
 
 1. `permission_callback` checks the feature flag, then `Permissions::edit_theme_options()`
    for class and variable writes or `Permissions::edit_post()` for post writes.
@@ -89,11 +92,14 @@ V4 write abilities follow the same AGENTS.md security rules as V3:
 - Licensed Elementor Pro editor and frontend parity is not yet proven by
   controlled-site E2E runs.
 - Elementor's own registered abilities (`elementor/*`) are discovered,
-  fingerprinted, and certified against shipped contracts by the provider router
-  for evidence only. Stonewright does not execute them or route writes through
-  them; the abilities above stay the Atomic writers. See
-  [Native Elementor abilities](../elementor-v4-engine.md#native-elementor-abilities)
-  for the report, the contracts, and each ability's side effects.
+  fingerprinted, and certified against shipped contracts by the provider router.
+  Only certified abilities whose contract allows a native write run, through
+  `stonewright/elementor-native-execute`: default styles and element composition.
+  Writes that clear generated CSS site-wide (global classes, global variables)
+  are refused with `upstream_global_clear_cache`; the Fallback abilities above stay
+  the supported path for them. See
+  [Native execution](../elementor-v4-engine.md#native-execution) for the closure,
+  the routing, and `staged_in_autosave`.
 - V4 abilities are **blocked in `production-safe` mode** for all write
   operations.
 
@@ -103,7 +109,9 @@ Stonewright does not disable, replace, or compete with Elementor's MCP server,
 and both can be connected to the same client. Use Stonewright when you want
 snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
 quick draft that you will review in the editor. Do not send one change through
-both servers: Stonewright's backup and readback only cover what it writes.
+both servers: Stonewright's backup and readback only cover what it writes. When
+Stonewright runs an Elementor ability itself, through
+`stonewright/elementor-native-execute`, the closure covers it.
 
 ## Enabling for development
 

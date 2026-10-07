@@ -16,11 +16,11 @@ final class NativeContractsTest extends TestCase {
 		'elementor/manage-classes',
 		'elementor/manage-global-variable',
 		'elementor/get-page-structure',
+		'elementor/build-composition',
 	];
 
 	private const UNSUPPORTED = [
 		'elementor/manage-elements'    => [ 'upstream_global_clear_cache', [ 'upstream_global_clear_cache', 'staged_in_autosave' ] ],
-		'elementor/build-composition'  => [ 'staged_in_autosave', [ 'staged_in_autosave' ] ],
 	];
 
 	/** @var list<string> */
@@ -57,15 +57,17 @@ final class NativeContractsTest extends TestCase {
 			self::assertSame( 'elementor/elementor.php', $contract['source_plugin'], $name );
 			self::assertMatchesRegularExpression( '/^Elementor\\\\Modules\\\\Mcp\\\\Abilities\\\\[A-Za-z_]+$/', $contract['runtime_class'], $name );
 			self::assertContains( $contract['access'], [ 'read', 'write' ], $name );
-			self::assertContains( $contract['version_policy'], [ 'required', 'when_observed' ], $name );
+			self::assertSame( 'required', $contract['version_policy'], $name . ' every native contract pins the Elementor version' );
 			self::assertNotSame( [], $contract['side_effects'], $name );
 			self::assertNotSame( [], $contract['schemas'], $name );
 			foreach ( $contract['schemas'] as $schema ) {
 				self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['input_fingerprint'], $name );
 				self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['output_fingerprint'], $name );
-				self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['description_fingerprint'], $name );
+				if ( 'ignored' !== ( $contract['description_policy'] ?? '' ) ) {
+					self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['description_fingerprint'], $name );
+				}
 				self::assertMatchesRegularExpression( '/^\d+\.\d+\.\d+$/', $schema['elementor_versions']['min'], $name );
-				self::assertMatchesRegularExpression( '/^\d+\.\d+\.\d+$/', $schema['elementor_versions']['max'], $name );
+				self::assertMatchesRegularExpression( '/^\d+\.\d+\.(\d+|\*)$/', $schema['elementor_versions']['max'], $name );
 			}
 			self::assertNotSame( '', $contract['evidence']['source_file'], $name );
 		}
@@ -85,7 +87,7 @@ final class NativeContractsTest extends TestCase {
 		self::assertContains( 'autosave_truth', NativeContracts::for_ability( 'elementor/get-page-structure' )['closure_requirements'] );
 	}
 
-	public function test_manage_elements_and_build_composition_are_explicitly_unsupported_with_machine_readable_reasons(): void {
+	public function test_manage_elements_stays_explicitly_unsupported_with_machine_readable_reasons(): void {
 		foreach ( self::UNSUPPORTED as $name => [ $reason, $reasons ] ) {
 			$contract = NativeContracts::for_ability( $name );
 
@@ -106,14 +108,90 @@ final class NativeContractsTest extends TestCase {
 		];
 		foreach ( self::CERTIFIABLE as $name ) {
 			foreach ( NativeContracts::for_ability( $name )['schemas'] as $schema ) {
-				$version = $schema['elementor_versions']['max'];
+				$version = str_ends_with( $schema['elementor_versions']['max'], '.*' ) ? '4.3.4' : $schema['elementor_versions']['max'];
 				$ability = $recorded[ $version ][ $name ] ?? null;
 				self::assertIsArray( $ability, $name . ' ' . $version );
 				self::assertSame( $schema['input_fingerprint'], self::fingerprint( $ability['input_schema'] ), $name . ' input ' . $version );
 				self::assertSame( $schema['output_fingerprint'], self::fingerprint( $ability['output_schema'] ), $name . ' output ' . $version );
-				self::assertSame( $schema['description_fingerprint'], self::fingerprint( $ability['description'] ), $name . ' description ' . $version );
+				if ( 'ignored' !== ( NativeContracts::for_ability( $name )['description_policy'] ?? '' ) ) {
+					self::assertSame( $schema['description_fingerprint'], self::fingerprint( $ability['description'] ), $name . ' description ' . $version );
+				}
 			}
 		}
+	}
+
+	public function test_every_contract_declares_its_native_routing(): void {
+		$expected = [
+			'elementor/manage-default-styles'  => [ 'kit_defaults', 'allowed', null ],
+			'elementor/build-composition'      => [ 'tree_composition', 'allowed', null ],
+			'elementor/get-page-structure'     => [ 'structure_read', 'read_only', null ],
+			'elementor/manage-classes'         => [ 'global_kit', 'refused', 'upstream_global_clear_cache' ],
+			'elementor/manage-global-variable' => [ 'global_kit', 'refused', 'upstream_global_clear_cache' ],
+		];
+		foreach ( $expected as $name => [ $family, $write, $reason ] ) {
+			$routing = NativeContracts::for_ability( $name )['routing'];
+
+			self::assertSame( $family, $routing['family'], $name );
+			self::assertSame( $write, $routing['native_write'], $name );
+			self::assertSame( $reason, $routing['refusal_reason'] ?? null, $name );
+		}
+	}
+
+	public function test_a_native_contract_never_allows_a_write_that_clears_generated_css_site_wide(): void {
+		foreach ( NativeContracts::names() as $name ) {
+			$contract = NativeContracts::for_ability( $name );
+			$effects  = array_column( $contract['side_effects'], 'id' );
+			if ( in_array( 'global_css_cache_clear', $effects, true ) ) {
+				self::assertNotSame( 'allowed', $contract['routing']['native_write'] ?? 'refused', $name );
+			}
+		}
+	}
+
+	public function test_embedded_certified_input_schemas_hash_to_their_fingerprints(): void {
+		foreach ( [ 'elementor/manage-default-styles', 'elementor/build-composition', 'elementor/get-page-structure' ] as $name ) {
+			foreach ( NativeContracts::for_ability( $name )['schemas'] as $schema ) {
+				self::assertIsArray( $schema['input_schema'], $name );
+				self::assertSame( $schema['input_fingerprint'], self::fingerprint( $schema['input_schema'] ), $name );
+			}
+		}
+	}
+
+	public function test_a_contract_whose_embedded_schema_does_not_match_its_fingerprint_is_ignored(): void {
+		$directory = $this->directory();
+		$contract  = NativeContracts::for_ability( 'elementor/build-composition' );
+		$contract['schemas'][0]['input_schema']['properties']['injected'] = [ 'type' => 'string' ];
+		file_put_contents( $directory . '/build-composition.json', wp_json_encode( $contract ) );
+
+		$loaded = NativeContracts::load_from( $directory );
+
+		self::assertSame( [], $loaded['contracts'] );
+		self::assertSame( 'contract_invalid', $loaded['errors'][0]['code'] );
+	}
+
+	public function test_a_certifiable_contract_without_routing_or_with_an_allowed_global_clear_is_ignored(): void {
+		$directory = $this->directory();
+		$base      = NativeContracts::for_ability( 'elementor/manage-classes' );
+		$missing   = $base;
+		unset( $missing['routing'] );
+		file_put_contents( $directory . '/manage-classes.json', wp_json_encode( $missing ) );
+		$allowed = NativeContracts::for_ability( 'elementor/manage-global-variable' );
+		$allowed['routing']['native_write'] = 'allowed';
+		unset( $allowed['routing']['refusal_reason'] );
+		file_put_contents( $directory . '/manage-global-variable.json', wp_json_encode( $allowed ) );
+
+		$loaded = NativeContracts::load_from( $directory );
+
+		self::assertSame( [], $loaded['contracts'] );
+		self::assertSame( [ 'contract_invalid', 'contract_invalid' ], array_column( $loaded['errors'], 'code' ) );
+	}
+
+	public function test_a_certifiable_contract_with_a_loose_version_policy_is_ignored(): void {
+		$directory = $this->directory();
+		$contract  = NativeContracts::for_ability( 'elementor/manage-default-styles' );
+		$contract['version_policy'] = 'when_observed';
+		file_put_contents( $directory . '/manage-default-styles.json', wp_json_encode( $contract ) );
+
+		self::assertSame( [], NativeContracts::load_from( $directory )['contracts'] );
 	}
 
 	public function test_unknown_ability_has_no_contract(): void {

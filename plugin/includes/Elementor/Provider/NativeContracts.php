@@ -19,6 +19,9 @@ final class NativeContracts {
 	private const MAX_FILES      = 64;
 	private const NAME_PATTERN   = '/^elementor\/[a-z0-9][a-z0-9-]*$/';
 	private const VERSION        = '/^\d+\.\d+\.\d+$/';
+	private const VERSION_MAX    = '/^\d+\.\d+\.(?:\d+|\*)$/';
+	private const FAMILIES       = [ 'kit_defaults', 'tree_composition', 'structure_read', 'global_kit' ];
+	private const MAX_SCHEMA_BYTES = 32768;
 	private const OPERATORS      = [ 'equals', 'same_set', 'keys_same_set', 'exact_strings', 'contains_all' ];
 
 	/** @var array{contracts:array<string,array<string,mixed>>,errors:list<array{file:string,code:string}>}|null */
@@ -108,7 +111,14 @@ final class NativeContracts {
 		if ( 'certifiable' !== ( $contract['status'] ?? null ) ) {
 			return false;
 		}
-		if ( ! in_array( $contract['access'] ?? null, [ 'read', 'write' ], true ) || ! in_array( $contract['version_policy'] ?? null, [ 'required', 'when_observed' ], true ) ) {
+		// Every native contract pins the Elementor version; a loose policy is not accepted.
+		if ( ! in_array( $contract['access'] ?? null, [ 'read', 'write' ], true ) || 'required' !== ( $contract['version_policy'] ?? null ) ) {
+			return false;
+		}
+		if ( isset( $contract['description_policy'] ) && 'ignored' !== $contract['description_policy'] ) {
+			return false;
+		}
+		if ( ! self::valid_routing( $contract ) ) {
 			return false;
 		}
 		if ( ! is_array( $contract['annotations'] ?? null ) || ! is_array( $contract['runtime_contract'] ?? null ) || ! is_array( $contract['requires'] ?? null ) ) {
@@ -117,10 +127,27 @@ final class NativeContracts {
 		if ( ! self::string_list( $contract['closure_requirements'] ?? null, false ) || ! self::valid_summary( $contract['summary'] ?? null ) || ! self::valid_probes( $contract['probes'] ?? null ) ) {
 			return false;
 		}
-		return self::valid_schemas( $contract['schemas'] ?? null );
+		return self::valid_schemas( $contract['schemas'] ?? null, 'ignored' === ( $contract['description_policy'] ?? '' ) );
 	}
 
-	private static function valid_schemas( mixed $schemas ): bool {
+	/** @param array<string,mixed> $contract */
+	private static function valid_routing( array $contract ): bool {
+		$routing = $contract['routing'] ?? null;
+		if ( ! is_array( $routing ) || ! in_array( $routing['family'] ?? null, self::FAMILIES, true ) ) {
+			return false;
+		}
+		$write = $routing['native_write'] ?? null;
+		if ( 'read' === $contract['access'] ) {
+			return 'read_only' === $write;
+		}
+		if ( 'refused' === $write ) {
+			return is_string( $routing['refusal_reason'] ?? null ) && '' !== $routing['refusal_reason'];
+		}
+		// A native write that clears generated CSS for the whole site is never routable.
+		return 'allowed' === $write && ! in_array( 'global_css_cache_clear', array_column( (array) $contract['side_effects'], 'id' ), true );
+	}
+
+	private static function valid_schemas( mixed $schemas, bool $description_ignored = false ): bool {
 		if ( ! is_array( $schemas ) || ! array_is_list( $schemas ) || [] === $schemas ) {
 			return false;
 		}
@@ -129,16 +156,28 @@ final class NativeContracts {
 				return false;
 			}
 			$range = $schema['elementor_versions'] ?? null;
-			if ( ! is_array( $range ) || 1 !== preg_match( self::VERSION, (string) ( $range['min'] ?? '' ) ) || 1 !== preg_match( self::VERSION, (string) ( $range['max'] ?? '' ) ) || version_compare( (string) $range['min'], (string) $range['max'], '>' ) ) {
+			if ( ! is_array( $range ) || 1 !== preg_match( self::VERSION, (string) ( $range['min'] ?? '' ) ) || 1 !== preg_match( self::VERSION_MAX, (string) ( $range['max'] ?? '' ) ) || ( ! str_ends_with( (string) $range['max'], '.*' ) && version_compare( (string) $range['min'], (string) $range['max'], '>' ) ) ) {
 				return false;
 			}
-			foreach ( [ 'input_fingerprint', 'output_fingerprint', 'description_fingerprint' ] as $key ) {
+			foreach ( $description_ignored ? [ 'input_fingerprint', 'output_fingerprint' ] : [ 'input_fingerprint', 'output_fingerprint', 'description_fingerprint' ] as $key ) {
 				if ( ! is_string( $schema[ $key ] ?? null ) || 1 !== preg_match( '/^[a-f0-9]{64}$/', $schema[ $key ] ) ) {
 					return false;
 				}
 			}
+			if ( array_key_exists( 'input_schema', $schema ) && ! self::embedded_schema_matches( $schema ) ) {
+				return false;
+			}
 		}
 		return true;
+	}
+
+	/** The certified input schema a contract embeds must be the one its fingerprint names, and stay within the schema size cap. */
+	private static function embedded_schema_matches( array $schema ): bool {
+		$embedded = $schema['input_schema'];
+		if ( ! is_array( $embedded ) || strlen( (string) wp_json_encode( $embedded ) ) > self::MAX_SCHEMA_BYTES ) {
+			return false;
+		}
+		return NativeCertifier::fingerprint( $embedded ) === $schema['input_fingerprint'];
 	}
 
 	private static function valid_side_effects( mixed $effects ): bool {

@@ -41,7 +41,8 @@ final class NativeElementorReport {
 			$contract = NativeContracts::for_ability( (string) $name );
 			$certification[ $name ] = [
 				'state'     => $state,
-				'selection' => self::selection( $state, (string) ( $contract['access'] ?? 'write' ) ),
+				'selection' => self::selection( $state, (string) ( $contract['access'] ?? 'write' ), (string) ( $contract['routing']['native_write'] ?? '' ) ),
+				'native_write' => (string) ( $contract['routing']['native_write'] ?? 'unsupported' ),
 				'reason'    => (string) ( $result['reason'] ?? '' ),
 				'issues'    => array_slice( array_values( array_map( 'strval', (array) ( $result['issues'] ?? [] ) ) ), 0, self::MAX_ISSUES ),
 			];
@@ -84,11 +85,15 @@ final class NativeElementorReport {
 		return 1 === preg_match( '/^[a-z_]{1,32}$/', $state ) ? $state : 'not_installed';
 	}
 
-	public static function selection( string $state, string $access ): string {
+	/** A certified ability whose contract refuses native writes is reported as such, never as preferred. */
+	public static function selection( string $state, string $access, string $native_write = 'allowed' ): string {
 		if ( 'certified' !== $state ) {
 			return 'unsupported';
 		}
-		return 'read' === $access ? 'native-readback' : 'native-preferred';
+		if ( 'read' === $access ) {
+			return 'native-readback';
+		}
+		return 'refused' === $native_write ? 'native-write-refused' : 'native-preferred';
 	}
 
 	/** @param array<string,mixed> $environment @param list<string> $certified */

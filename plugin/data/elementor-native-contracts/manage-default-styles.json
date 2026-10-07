@@ -15,16 +15,61 @@
         "runtime_operation_limit": 20,
         "class_type": "class"
     },
-    "version_policy": "when_observed",
+    "version_policy": "required",
     "schemas": [
         {
             "elementor_versions": {
                 "min": "4.3.0",
-                "max": "4.3.4"
+                "max": "4.3.*"
             },
             "input_fingerprint": "0176cb0aa66074d61bde2c981f3efddcf29305decaa16ecd7c9b5f8f48340468",
             "output_fingerprint": "88459b1c4b5cd53df3ee996968d06c5f5f917080db110efa6439a516af8d91fc",
-            "description_fingerprint": "37350cc209ba59c46e655cce381ddfdf6313cf8e610fda7ffe8c7002f5810c7f"
+            "description_fingerprint": "37350cc209ba59c46e655cce381ddfdf6313cf8e610fda7ffe8c7002f5810c7f",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "operations"
+                ],
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "description": "Bulk operations (1–20). Each item requires action and tag. update needs css (raw CSS string, same format as manage-classes) and applies site-wide to that HTML tag. Use mode to control merge behaviour on update (patch = upsert variants, replace = overwrite variants for the affected breakpoints). delete removes the tag's default style entirely.",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action",
+                                "tag"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "update",
+                                        "delete"
+                                    ]
+                                },
+                                "tag": {
+                                    "type": "string",
+                                    "description": "HTML wrapper tag to target (e.g. h1, h2, p, a). Must be one of Elementor's allowed wrapper tags."
+                                },
+                                "css": {
+                                    "type": "string",
+                                    "description": "Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: \"prop: null\" removes that prop; \"all: null\" wipes the variant."
+                                },
+                                "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "patch",
+                                        "replace"
+                                    ],
+                                    "default": "patch",
+                                    "description": "patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     ],
     "requires": {
@@ -331,5 +376,9 @@
         ],
         "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
         "source_file": "modules/mcp/abilities/manage-default-styles-ability.php"
+    },
+    "routing": {
+        "family": "kit_defaults",
+        "native_write": "allowed"
     }
 }

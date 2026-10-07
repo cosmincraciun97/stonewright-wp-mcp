@@ -189,12 +189,12 @@
 | `stonewright/elementor-v4-read-atomic-tree` | `stonewright-elementor-v4-read-atomic-tree` | `ElementorV4\ReadAtomicTree` | Returns a compact outline of atomic Elementor elements by default, or the full atomic_tree when responseMode=full. | Read | `Permissions::edit_post( $post_id )` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-update-node` | `stonewright-elementor-v4-update-node` | `ElementorV4\UpdateNode` | Patches settings of one atomic Elementor node by id. | Write | `Permissions::edit_post( (int)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-list-variables` | `stonewright-elementor-v4-list-variables` | `ElementorV4\ListVariables` | Lists variables through Elementor Variables_Service. | Read | `Permissions::edit_posts() (compound)` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v4-create-variable` | `stonewright-elementor-v4-create-variable` | `ElementorV4\CreateVariable` | Creates a variable through Elementor Variables_Service and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v4-update-variable` | `stonewright-elementor-v4-update-variable` | `ElementorV4\UpdateVariable` | Updates a variable through Elementor Variables_Service and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-create-variable` | `stonewright-elementor-v4-create-variable` | `ElementorV4\CreateVariable` | Fallback writer for Atomic variables: creates a variable through Elementor Variables_Service and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-update-variable` | `stonewright-elementor-v4-update-variable` | `ElementorV4\UpdateVariable` | Fallback writer for Atomic variables: updates a variable through Elementor Variables_Service and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-list-classes` | `stonewright-elementor-v4-list-classes` | `ElementorV4\ListClasses` | Lists Atomic global classes through Elementor Global_Classes_Repository. | Read | `Permissions::edit_posts() (compound)` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v4-create-class` | `stonewright-elementor-v4-create-class` | `ElementorV4\CreateClass` | Creates a validated Atomic global class using Elementor runtime storage and readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v4-update-class` | `stonewright-elementor-v4-update-class` | `ElementorV4\UpdateClass` | Replaces a validated Atomic global class through Elementor runtime storage and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v4-render-from-spec` | `stonewright-elementor-v4-render-from-spec` | `ElementorV4\RenderFromSpec` | Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (DesignSpec) | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-create-class` | `stonewright-elementor-v4-create-class` | `ElementorV4\CreateClass` | Fallback writer for Atomic global classes: creates a validated class using Elementor runtime storage and readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-update-class` | `stonewright-elementor-v4-update-class` | `ElementorV4\UpdateClass` | Fallback writer for Atomic global classes: replaces a validated class through Elementor runtime storage and verifies readback. | Write | `Permissions::edit_theme_options() (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-render-from-spec` | `stonewright-elementor-v4-render-from-spec` | `ElementorV4\RenderFromSpec` | Fallback writer for when no certified native ability covers the page: validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (DesignSpec) | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-migrate` | `stonewright-elementor-v4-migrate` | `ElementorV4\Migrate` | Inventories a page, returns an explicit loss report, and applies only a zero-loss V4 migration after approval. | Write | `Permissions::edit_post( (int) (compound)` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-atomic-widget-define` | `stonewright-elementor-v4-atomic-widget-define` | `ElementorV4\AtomicWidgetDefine` | Compiles a Stonewright atomic widget spec into a sandboxed Elementor V4 Atomic_Widget_Base subclass and writes the source to the sandbox draft directory. | Read | `Permissions::can_manage_sandbox()` | Yes | No | No | sandboxed | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-list-atomic-node-types` | `stonewright-elementor-v4-list-atomic-node-types` | `ElementorV4\ListAtomicNodeTypes` | Returns every DesignSpec node type the V4 atomic renderer can build, paired with its target atomic widget identifier. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -230,7 +230,7 @@
 | `stonewright/design-choose-renderer` | `stonewright-design-choose-renderer` | `Design\ChooseRenderer` | Picks the best target renderer (gutenberg, elementor_v3, elementor_v4) based on site state and spec hints. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-spec-to-gutenberg` | `stonewright-design-spec-to-gutenberg` | `Design\SpecToGutenberg` | Renders a Stonewright Design Spec into Gutenberg block content and writes it to a post. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-spec-to-elementor-v3` | `stonewright-design-spec-to-elementor-v3` | `Design\SpecToElementorV3` | Renders a Stonewright Design Spec into Elementor V3 element JSON and writes it to a post. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
-| `stonewright/design-spec-to-elementor-v4` | `stonewright-design-spec-to-elementor-v4` | `Design\SpecToElementorV4` | Renders a Stonewright Design Spec into Elementor V4 atomic structure. | Read | `Permissions::edit_post( (int)` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
+| `stonewright/design-spec-to-elementor-v4` | `stonewright-design-spec-to-elementor-v4` | `Design\SpecToElementorV4` | Fallback writer for when no certified native ability covers the page: renders a Stonewright Design Spec into Elementor V4 atomic structure. | Read | `Permissions::edit_post( (int)` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-preview-render` | `stonewright-design-preview-render` | `Design\PreviewRender` | Validates a Stonewright Design Spec and renders it to an Elementor element array without writing to any post. | Read | `Permissions::can_view_design()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-apply-to-post` | `stonewright-design-apply-to-post` | `Design\ApplyToPost` | Sideloads image assets, then applies a Stonewright Design Spec to an Elementor page. | Write | `Permissions::can_edit_post( $post_id )` | Yes | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/widget-intent-resolve` | `stonewright-widget-intent-resolve` | `Design\WidgetIntentResolve` | Maps a high-level design intent to the right Elementor widget choice + a settings template + the prerequisite steps to run first. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
@@ -349,6 +349,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/elementor-provider-discovery` | `stonewright-elementor-provider-discovery` | `Elementor\ProviderDiscovery` | Reports live Elementor provider ownership, schema provenance, trust, native-preferred certification, and the native Elementor MCP status without changing site data. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/elementor-native-execute` | `stonewright-elementor-native-execute` | `Elementor\NativeExecute` | Runs a certified Elementor ability (default styles, element composition, or the structure read) in-process inside Stonewright's snapshot, write lock, readback, rollback, and audit closure. | Write | `Permissions::edit_theme_options() (compound)` | Yes | Yes | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -687,12 +688,12 @@
 
 ## Native-preferred upstream capabilities
 
-- `elementor/manage-default-styles`: **native-preferred**, certified only; Stonewright write routing stays disabled until the complete safety closure is available.
-- `elementor/manage-classes`: **native-preferred**, certified only; known side effect: a site-wide generated-CSS cache clear that the safety closure must contain.
-- `elementor/manage-global-variable`: **native-preferred**, certified only; known side effect: a site-wide generated-CSS cache clear that the safety closure must contain.
+- `elementor/manage-default-styles`: **native-preferred**, certified only; runs only through `stonewright/elementor-native-execute` inside the snapshot, lock, readback, rollback, and audit closure.
+- `elementor/build-composition`: **native-preferred**, certified only; same closure. On a published or private document the change is saved into an autosave and is reported as `staged_in_autosave`, never as applied.
 - `elementor/get-page-structure`: **native-readback**, certified only; read-only, and it reads the published document rather than a pending autosave.
+- `elementor/manage-classes`: certified, **native write refused** (`upstream_global_clear_cache`: it clears generated CSS site-wide); Stonewright's own class writers remain the supported path.
+- `elementor/manage-global-variable`: certified, **native write refused** (`upstream_global_clear_cache`); Stonewright's own variable writers remain the supported path.
 - `elementor/manage-elements`: **unsupported** (`upstream_global_clear_cache`, `staged_in_autosave`).
-- `elementor/build-composition`: **unsupported** (`staged_in_autosave`).
 
 For `elementor/manage-default-styles`, certification requires active Elementor ownership; exact input/output object schemas and required fields; update/delete, tag, raw CSS, responsive, pseudo-state, patch/replace, and null semantics; `readonly=false`, `destructive=true`, `idempotent=false`; `CLASS_TYPE=class`; and a runtime operation limit exactly 20.
 
@@ -702,7 +703,7 @@ Certification is data-driven: one contract per ability under `plugin/data/elemen
 
 ## Summary
 
-Total abilities registered: **389**
+Total abilities registered: **390**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

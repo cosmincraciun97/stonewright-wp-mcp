@@ -19,6 +19,7 @@ final class NativeCertifierTest extends TestCase {
 			'manage-classes'         => [ 'elementor/manage-classes' ],
 			'manage-global-variable' => [ 'elementor/manage-global-variable' ],
 			'get-page-structure'     => [ 'elementor/get-page-structure' ],
+			'build-composition'      => [ 'elementor/build-composition' ],
 		];
 	}
 
@@ -35,14 +36,14 @@ final class NativeCertifierTest extends TestCase {
 	}
 
 	/** @dataProvider certifiable_abilities */
-	public function test_every_version_in_the_verified_range_is_certified_and_the_next_release_is_not( string $name ): void {
-		foreach ( [ '4.3.0', '4.3.1', '4.3.2', '4.3.3' ] as $version ) {
-			$source = 'elementor/get-page-structure' === $name && '4.3.4' !== $version ? '4.3.3' : '4.3.4';
+	public function test_every_version_in_the_verified_minor_line_is_certified_and_the_next_minor_is_not( string $name ): void {
+		foreach ( [ '4.3.0', '4.3.1', '4.3.2', '4.3.3', '4.3.4', '4.3.5', '4.3.12', '4.3.5-beta1' ] as $version ) {
+			$source = 'elementor/get-page-structure' === $name && version_compare( $version, '4.3.4', '<' ) ? '4.3.3' : '4.3.4';
 			$ability = self::ability( $name, $source );
 			$ability['source_version'] = $version;
 			self::assertSame( 'certified', NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) )['state'], $name . ' ' . $version );
 		}
-		foreach ( [ '4.3.5', '4.4.0', '4.2.9', '5.0.0', '4.3.5-beta1' ] as $version ) {
+		foreach ( [ '4.4.0', '4.2.9', '5.0.0', '4.30.0', '4.4.0-beta1' ] as $version ) {
 			$ability = self::ability( $name, '4.3.4' );
 			$ability['source_version'] = $version;
 			$result = NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) );
@@ -82,16 +83,36 @@ final class NativeCertifierTest extends TestCase {
 		}
 	}
 
-	public function test_when_observed_policy_accepts_an_unobserved_version_but_never_an_out_of_range_one(): void {
+	public function test_a_patch_release_certifies_only_when_every_fingerprint_matches_exactly(): void {
+		foreach ( [ 'elementor/manage-default-styles', 'elementor/build-composition' ] as $name ) {
+			$ability = self::ability( $name, '4.3.4' );
+			$ability['source_version'] = '4.3.9';
+			self::assertSame( 'certified', NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) )['state'], $name );
+
+			$ability['output_schema']['properties']['extra'] = [ 'type' => 'string' ];
+			$result = NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) );
+			self::assertSame( 'rejected', $result['state'], $name );
+			self::assertContains( 'output_schema_mismatch', $result['issues'], $name );
+		}
+	}
+
+	public function test_default_styles_no_longer_certifies_without_a_readable_version(): void {
 		$name = 'elementor/manage-default-styles';
 		$ability = self::ability( $name, '4.3.4' );
 		$ability['source_version'] = '';
-		self::assertSame( 'certified', NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) )['state'] );
 
-		$ability['source_version'] = '5.0.0';
 		$result = NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) );
+
 		self::assertSame( 'rejected', $result['state'] );
-		self::assertContains( 'elementor_version_out_of_range', $result['issues'] );
+		self::assertContains( 'elementor_version_unverified', $result['issues'] );
+	}
+
+	public function test_a_contract_that_ignores_the_description_certifies_a_changed_description(): void {
+		$name = 'elementor/build-composition';
+		$ability = self::ability( $name, '4.3.4' );
+		$ability['description'] = 'Entirely different wording.';
+
+		self::assertSame( 'certified', NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) )['state'] );
 	}
 
 	/** @dataProvider certifiable_abilities */
@@ -141,6 +162,9 @@ final class NativeCertifierTest extends TestCase {
 			if ( 'runtime_constants_mismatch' === $expected && [] === ( $contract['runtime_contract'] ?? [] ) ) {
 				continue;
 			}
+			if ( 'ability_semantics_mismatch' === $expected && 'ignored' === ( $contract['description_policy'] ?? '' ) ) {
+				continue;
+			}
 			$result = NativeCertifier::certify( $candidate, $contract );
 
 			self::assertSame( 'rejected', $result['state'], $name . ' ' . $label );
@@ -148,6 +172,23 @@ final class NativeCertifierTest extends TestCase {
 			self::assertContains( $expected, $result['issues'], $name . ' ' . $label );
 			self::assertSame( $result['issues'], $result['contract']['issues'], $name . ' ' . $label );
 		}
+	}
+
+	public function test_a_live_schema_that_holds_empty_objects_certifies_like_its_decoded_json_recording(): void {
+		$name    = 'elementor/build-composition';
+		$ability = self::ability( $name, '4.3.4' );
+		// The live runtime registers `default => (object) []`; a JSON recording decodes it to [].
+		foreach ( [ 'element_config', 'style', 'classes', 'interactions' ] as $property ) {
+			self::assertSame( [], $ability['input_schema']['properties'][ $property ]['default'] );
+			$ability['input_schema']['properties'][ $property ]['default'] = new \stdClass();
+		}
+
+		$result = NativeCertifier::certify( $ability, NativeContracts::for_ability( $name ) );
+
+		self::assertSame( 'certified', $result['state'], wp_json_encode( $result['issues'] ) );
+		self::assertSame( NativeCertifier::fingerprint( self::ability( $name, '4.3.4' )['input_schema'] ), NativeCertifier::fingerprint( $ability['input_schema'] ) );
+		self::assertNotSame( NativeCertifier::fingerprint( [ 'default' => [ 'a' => 1 ] ] ), NativeCertifier::fingerprint( [ 'default' => new \stdClass() ] ) );
+		self::assertSame( NativeCertifier::fingerprint( [ 'default' => [ 'a' => 1 ] ] ), NativeCertifier::fingerprint( [ 'default' => (object) [ 'a' => 1 ] ] ) );
 	}
 
 	public function test_named_probes_report_the_exact_part_of_the_contract_that_changed(): void {
@@ -189,7 +230,6 @@ final class NativeCertifierTest extends TestCase {
 	public function test_unsupported_contracts_report_their_machine_readable_reasons_even_when_the_ability_is_registered(): void {
 		$cases = [
 			'elementor/manage-elements'   => [ 'upstream_global_clear_cache', [ 'upstream_global_clear_cache', 'staged_in_autosave' ] ],
-			'elementor/build-composition' => [ 'staged_in_autosave', [ 'staged_in_autosave' ] ],
 		];
 		foreach ( $cases as $name => [ $reason, $reasons ] ) {
 			$ability = self::ability( 'elementor/manage-classes', '4.3.4' );

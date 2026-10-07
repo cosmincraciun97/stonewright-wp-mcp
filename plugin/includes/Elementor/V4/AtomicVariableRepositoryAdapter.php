@@ -68,9 +68,42 @@ final class AtomicVariableRepositoryAdapter {
 			if ( '' === $target_id || ! isset( $all[ $target_id ] ) ) {
 				return new \WP_Error( 'stonewright_v4_variable_readback_failed', 'The variable was not found after mutation.' );
 			}
-			return array_merge( [ 'id' => $target_id ], $all[ $target_id ] );
+			$stored = array_merge( [ 'id' => $target_id ], $all[ $target_id ] );
+			foreach ( [ 'label', 'type', 'value' ] as $field ) {
+				if ( array_key_exists( $field, $data ) && self::lost( $field, $data[ $field ], $stored ) ) {
+					return new \WP_Error(
+						'stonewright_atomic_readback_mismatch',
+						'The stored variable does not contain everything that was written: ' . $field . '.',
+						[
+							'status'              => 409,
+							'execution_status'    => 'failed',
+							'verification_status' => 'failed',
+							'readback_context'    => 'global_variable',
+							'rollback_status'     => 'not_attempted',
+							'problems'            => [ [ 'code' => 'variable_mismatch', 'id' => $target_id, 'path' => '/' . $target_id . '/' . $field ] ],
+						]
+					);
+				}
+			}
+			return $stored;
 		} catch ( \Throwable $error ) {
 			return new \WP_Error( 'stonewright_v4_variable_write_failed', $error->getMessage() );
 		}
+	}
+
+	/**
+	 * Label and type must come back as written; a value may be normalized by Elementor but must not come back empty.
+	 *
+	 * @param array<string, mixed> $stored
+	 */
+	private static function lost( string $field, mixed $written, array $stored ): bool {
+		if ( ! array_key_exists( $field, $stored ) ) {
+			return true;
+		}
+		if ( 'value' !== $field ) {
+			return $written !== $stored[ $field ];
+		}
+		$empty = static fn( mixed $value ): bool => null === $value || '' === $value || [] === $value;
+		return $empty( $stored['value'] ) && ! $empty( $written );
 	}
 }

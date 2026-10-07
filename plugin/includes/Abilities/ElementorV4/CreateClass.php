@@ -16,7 +16,7 @@ final class CreateClass extends AbilityKernel {
 	public function label(): string {
  return __( 'Create Elementor V4 class', 'stonewright' ); }
 	public function description(): string {
- return __( 'Creates a validated Atomic global class using Elementor runtime storage and readback.', 'stonewright' ); }
+ return __( 'Fallback writer for Atomic global classes: creates a validated class using Elementor runtime storage and readback. A certified native elementor/manage-classes exists, but Stonewright does not route writes to it because it clears generated CSS site-wide; use this ability.', 'stonewright' ); }
 	public function category(): string {
  return 'elementor'; }
 	public function meta(): array {

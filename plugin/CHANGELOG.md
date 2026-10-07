@@ -55,6 +55,26 @@
   abilities are absent, and never blocks enabling the skill. The codec and skill
   lint validate it.
 - Document how Stonewright coexists with Elementor's own MCP server.
+- Add `stonewright-elementor-native-execute`, which runs a certified Elementor
+  ability (default styles, element composition, or the structure read) in-process
+  inside Stonewright's closure: route, gates, Atomic type exposure, snapshot,
+  write lock, execute, independent readback compared recursively, rollback on any
+  mismatch, post-scoped CSS regeneration only through
+  `stonewright-elementor-css-regenerate`, a ChangeSetV1, and the audit row. It
+  plans first by default and offers only the certified abilities, with their
+  certified input schemas. A V3 document or subtree stays on the V3 writers and a
+  mixed document is routed per subtree, never converted. An edit to a published
+  page lands in an autosave and is reported as `staged_in_autosave`, never as
+  applied, and nothing is published. Writes that clear generated CSS site-wide
+  (global classes, global variables, `manage-elements`) are refused with
+  `upstream_global_clear_cache`.
+- Add a nested readback to the Atomic writers: `elementor-v4-update-node` and
+  `elementor-v4-render-from-spec` compare the stored document with the tree they
+  wrote and restore the snapshot on a mismatch, and the class and variable
+  adapters compare the stored class or variable with what was written. A dropped
+  child is an error, never a success.
+- List every native Elementor ability, with its result, selection, and reasons, on
+  the Troubleshoot page.
 - Return one `change_set` (`ChangeSetV1`) from every write that returns a
   receipt: `elementor-v3-batch-mutate`, `elementor-v4-update-node`,
   `blocks-batch-mutate`, `theme-file-patch`, `theme-backup-restore`,
@@ -89,6 +109,16 @@
 
 ### Changed
 
+- Pin every native Elementor contract to the Elementor version. A range ending in
+  `.*` covers a verified minor line, so a patch release certifies when every
+  fingerprint matches exactly and a new minor line does not. `build-composition`
+  is now certifiable (its description text is not part of the contract), and the
+  provider report adds `native_write`, `native_write_reason`, and `execute_with`
+  per ability, so a certified ability whose native write is refused is no longer
+  shown as preferred.
+- Mark `elementor-v4-render-from-spec`, `design-spec-to-elementor-v4`, and the V4
+  class and variable create and update abilities as the fallback writers in their
+  descriptions.
 - Licensing: the plugin and Visual are GPL-2.0-or-later.
 - Return the grant's current refresh credential, with a new access credential,
   when a refresh credential is presented again within 60 seconds of its use,
@@ -142,6 +172,9 @@
 
 ### Fixed
 
+- Compare Elementor ability schemas by content when a live schema holds an empty
+  object where a recording holds an empty array, so a certified ability is not
+  rejected for that difference alone.
 - Recover OAuth signing-key generation on PHP installations whose default
   OpenSSL configuration is unavailable by trying PHP's adjacent configuration
   and a bundled minimal configuration. Plugin activation can complete when key

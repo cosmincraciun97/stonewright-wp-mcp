@@ -41,7 +41,7 @@ final class NativeElementorSurfaceTest extends TestCase {
 		self::assertSame( 'available', $result['native_elementor']['state'] );
 		self::assertSame( '4.3.4', $result['native_elementor']['elementor']['version'] );
 		self::assertSame(
-			[ 'elementor/get-page-structure', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ],
+			[ 'elementor/build-composition', 'elementor/get-page-structure', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ],
 			$result['native_elementor']['certified']
 		);
 		self::assertFalse( $result['native_elementor']['routable_write'] );
@@ -91,11 +91,11 @@ final class NativeElementorSurfaceTest extends TestCase {
 		self::assertSame(
 			[
 				'elementor/manage-default-styles'  => 'native-preferred-when-certified',
-				'elementor/manage-classes'         => 'native-preferred-when-certified',
-				'elementor/manage-global-variable' => 'native-preferred-when-certified',
+				'elementor/manage-classes'         => 'certified-native-write-refused',
+				'elementor/manage-global-variable' => 'certified-native-write-refused',
 				'elementor/get-page-structure'     => 'native-readback-when-certified',
 				'elementor/manage-elements'        => 'unsupported',
-				'elementor/build-composition'      => 'unsupported',
+				'elementor/build-composition'      => 'native-preferred-when-certified',
 			],
 			$ability->meta()['provider_policy']
 		);

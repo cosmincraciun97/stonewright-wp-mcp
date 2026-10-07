@@ -1,28 +1,198 @@
 {
     "contract_version": 1,
     "ability": "elementor/build-composition",
-    "status": "unsupported",
+    "status": "certifiable",
+    "access": "write",
     "provider": "elementor-core",
     "source_plugin": "elementor/elementor.php",
     "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Build_Composition_Ability",
-    "reason": "staged_in_autosave",
-    "reasons": [
-        "staged_in_autosave"
+    "annotations": {
+        "readonly": false,
+        "destructive": true,
+        "idempotent": false
+    },
+    "runtime_contract": [],
+    "version_policy": "required",
+    "routing": {
+        "family": "tree_composition",
+        "native_write": "allowed"
+    },
+    "schemas": [
+        {
+            "elementor_versions": {
+                "min": "4.3.0",
+                "max": "4.3.*"
+            },
+            "input_fingerprint": "f09ce4148bd8524b3366e4b957c750dc6bd4829884c79eb598ed960a4ac16d3d",
+            "output_fingerprint": "d4997630526259d978264abfff1f8198bdcd30a6fcd2ca8ae2bd3d9c142905a5",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "post_id",
+                    "xml_structure"
+                ],
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "description": "WordPress post ID of the document to mutate."
+                    },
+                    "xml_structure": {
+                        "type": "string",
+                        "description": "Valid XML structure with custom Elementor widget tags. Every element MUST have a unique configuration-id attribute (e.g. <e-heading configuration-id=\"hero-title\"></e-heading>). No attributes, classes, IDs, or text nodes in XML."
+                    },
+                    "element_config": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → plain widget settings matching elementor://widgets/schema/{type}. Keys MUST match configuration-id attributes in xml_structure. For <e-component> configuration-ids, the value is { component_id: int, overrides?: {<override_key>: <plain value>} } — see elementor/list-components."
+                    },
+                    "style": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. Keys MUST match configuration-id attributes in xml_structure.",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "classes": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → list of existing global class labels to attach to that element. Create classes first via elementor/manage-classes.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "interactions": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → array of interaction items in the native shape. Read elementor://interactions/schema for the full shape and allowed enum values. Send [] for a configuration-id to clear its interactions.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "default": "document",
+                        "description": "ID of the parent container. Omit to insert at document root."
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "If true, validate and return resolved tree without persisting."
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "append",
+                            "replace_children"
+                        ],
+                        "default": "append",
+                        "description": "append (default) inserts under parent_id; replace_children removes existing direct children of parent_id first, then inserts."
+                    }
+                }
+            }
+        }
     ],
-    "observed_fingerprints": {
-        "elementor_version": "4.3.4",
-        "input": "f09ce4148bd8524b3366e4b957c750dc6bd4829884c79eb598ed960a4ac16d3d",
-        "output": "d4997630526259d978264abfff1f8198bdcd30a6fcd2ca8ae2bd3d9c142905a5"
+    "description_policy": "ignored",
+    "requires": {
+        "capability": "edit_posts",
+        "atomic_editor": true
     },
     "side_effects": [
         {
+            "id": "document_elements_saved",
+            "scope": "document",
+            "description": "Inserts the composition under the parent element and saves the document tree; mode replace_children first removes the parent's existing children."
+        },
+        {
             "id": "staged_in_autosave",
             "scope": "document",
-            "description": "On a published document the composition is saved into the current user's autosave and does not go live until the document is published; the ability still returns success."
+            "description": "On a published or private document the composition is saved into the current user's autosave and does not go live until the document is published; the ability still returns success."
+        },
+        {
+            "id": "autosave_is_edit_base",
+            "scope": "document",
+            "description": "A later composition on the same document starts from the pending autosave, not from the live document."
         }
     ],
-    "unblock_requires": [
-        "autosave_truth"
+    "closure_requirements": [
+        "document_snapshot",
+        "readback",
+        "autosave_truth",
+        "css_regenerate_post_scoped"
+    ],
+    "summary": {
+        "enum_lists": [],
+        "flags": []
+    },
+    "probes": [
+        {
+            "id": "input_required_mismatch",
+            "schema": "input",
+            "path": [
+                "required"
+            ],
+            "same_set": [
+                "post_id",
+                "xml_structure"
+            ]
+        },
+        {
+            "id": "input_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties"
+            ],
+            "keys_same_set": [
+                "post_id",
+                "xml_structure",
+                "element_config",
+                "style",
+                "classes",
+                "interactions",
+                "parent_id",
+                "dry_run",
+                "mode"
+            ]
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "mode",
+                "enum"
+            ],
+            "same_set": [
+                "append",
+                "replace_children"
+            ]
+        },
+        {
+            "id": "output_contract_mismatch",
+            "schema": "output",
+            "path": [
+                "properties",
+                "resolved_xml",
+                "type"
+            ],
+            "equals": "string"
+        },
+        {
+            "id": "output_contract_mismatch",
+            "schema": "output",
+            "path": [
+                "properties",
+                "root_element_ids",
+                "type"
+            ],
+            "equals": "array"
+        }
     ],
     "evidence": {
         "plugin": "elementor",

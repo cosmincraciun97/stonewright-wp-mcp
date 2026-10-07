@@ -719,6 +719,7 @@ final class ProviderRouterTest extends TestCase {
 				'contract' => [ 'runtime_operation_limit' => 20, 'class_type' => 'class' ],
 			],
 			'runtime_contract' => [ 'runtime_operation_limit' => 20, 'class_type' => 'class' ],
+			'source_version' => '4.3.4',
 			'runtime_class' => 'Elementor\\Modules\\Mcp\\Abilities\\Manage_Default_Styles_Ability',
 			'provenance' => [
 				'schema' => 'upstream_registered_ability',

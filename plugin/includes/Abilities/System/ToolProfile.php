@@ -725,6 +725,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/content-create-page',
 				'stonewright/content-update-page',
 				'stonewright/content-get-page',
+				'stonewright/elementor-native-execute',
 				// Theme-file edits stay inside the max_tools=50 write-critical window.
 				'stonewright/theme-file-read',
 				'stonewright/theme-file-patch',

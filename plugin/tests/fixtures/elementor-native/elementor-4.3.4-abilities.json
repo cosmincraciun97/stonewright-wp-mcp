@@ -2,6 +2,149 @@
     "elementor_version": "4.3.4",
     "source": "WordPress.org plugin directory release, registered abilities read from the live runtime",
     "abilities": {
+        "elementor/build-composition": {
+            "name": "elementor/build-composition",
+            "label": "Build Composition",
+            "description": "Composes an element tree from an XML structure (description text is not part of this contract).",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "post_id",
+                    "xml_structure"
+                ],
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "description": "WordPress post ID of the document to mutate."
+                    },
+                    "xml_structure": {
+                        "type": "string",
+                        "description": "Valid XML structure with custom Elementor widget tags. Every element MUST have a unique configuration-id attribute (e.g. <e-heading configuration-id=\"hero-title\"></e-heading>). No attributes, classes, IDs, or text nodes in XML."
+                    },
+                    "element_config": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → plain widget settings matching elementor://widgets/schema/{type}. Keys MUST match configuration-id attributes in xml_structure. For <e-component> configuration-ids, the value is { component_id: int, overrides?: {<override_key>: <plain value>} } — see elementor/list-components."
+                    },
+                    "style": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. Keys MUST match configuration-id attributes in xml_structure.",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "classes": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → list of existing global class labels to attach to that element. Create classes first via elementor/manage-classes.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "interactions": {
+                        "type": "object",
+                        "default": [],
+                        "description": "Record mapping configuration-id → array of interaction items in the native shape. Read elementor://interactions/schema for the full shape and allowed enum values. Send [] for a configuration-id to clear its interactions.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "default": "document",
+                        "description": "ID of the parent container. Omit to insert at document root."
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "If true, validate and return resolved tree without persisting."
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "append",
+                            "replace_children"
+                        ],
+                        "default": "append",
+                        "description": "append (default) inserts under parent_id; replace_children removes existing direct children of parent_id first, then inserts."
+                    }
+                }
+            },
+            "output_schema": {
+                "type": "object",
+                "required": [
+                    "success",
+                    "post_id",
+                    "root_element_ids",
+                    "edit_url",
+                    "version"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "post_id": {
+                        "type": "integer"
+                    },
+                    "root_element_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "IDs of the created root-level elements."
+                    },
+                    "edit_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Elementor editor URL for the document. Share with the user when they need a link (they must be logged into WordPress as an editor)."
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "resolved_xml": {
+                        "type": "string",
+                        "description": "The XML with element IDs embedded."
+                    },
+                    "warnings": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Non-fatal notices, e.g. props skipped because the target widget does not support them, or CSS that fell back to custom_css. The composition was still built."
+                    },
+                    "removed_element_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Element IDs removed when mode is replace_children (empty when none existed)."
+                    }
+                }
+            },
+            "meta": {
+                "annotations": {
+                    "readonly": false,
+                    "destructive": true,
+                    "idempotent": false
+                }
+            },
+            "source_plugin": "elementor/elementor.php",
+            "source_version": "4.3.4",
+            "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Build_Composition_Ability",
+            "runtime_contract": [],
+            "provenance": {
+                "metadata": "upstream_registered_ability",
+                "schema": "upstream_registered_ability",
+                "ownership": "active_plugin_header"
+            }
+        },
         "elementor/get-page-structure": {
             "name": "elementor/get-page-structure",
             "label": "Get Elementor Page Structure",

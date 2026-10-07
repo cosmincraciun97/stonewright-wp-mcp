@@ -20,7 +20,7 @@
         {
             "elementor_versions": {
                 "min": "4.3.0",
-                "max": "4.3.4"
+                "max": "4.3.*"
             },
             "input_fingerprint": "223524cbaf2ad1bd7c2eb93bdbb644ebc88014b4129904ec5b957ea166ef565e",
             "output_fingerprint": "f00d5f11a9f9964bb291a49f8e2e9c2892356204a152024257bd0132d1d994e9",
@@ -194,5 +194,10 @@
         ],
         "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
         "source_file": "modules/mcp/abilities/manage-classes-ability.php"
+    },
+    "routing": {
+        "family": "global_kit",
+        "native_write": "refused",
+        "refusal_reason": "upstream_global_clear_cache"
     }
 }

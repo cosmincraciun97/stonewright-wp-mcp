@@ -396,6 +396,8 @@ function detect_backup( string $source ): string {
 		|| strpos( $source, 'SpecToElementorV3()' ) !== false
 		|| strpos( $source, 'ApplyToPost()' ) !== false
 		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
+		// The native Elementor bridge snapshots the page or kit before it runs an Elementor ability.
+		|| strpos( $source, 'NativeElementorProvider' ) !== false
 		// Typed writers that snapshot on their caller's behalf.
 		|| strpos( $source, 'ElementorKitWriter::apply' ) !== false
 	) ? 'Yes' : 'No';
@@ -666,12 +668,12 @@ $lines[] = '---';
 $lines[] = '';
 $lines[] = '## Native-preferred upstream capabilities';
 $lines[] = '';
-$lines[] = '- `elementor/manage-default-styles`: **native-preferred**, certified only; Stonewright write routing stays disabled until the complete safety closure is available.';
-$lines[] = '- `elementor/manage-classes`: **native-preferred**, certified only; known side effect: a site-wide generated-CSS cache clear that the safety closure must contain.';
-$lines[] = '- `elementor/manage-global-variable`: **native-preferred**, certified only; known side effect: a site-wide generated-CSS cache clear that the safety closure must contain.';
+$lines[] = '- `elementor/manage-default-styles`: **native-preferred**, certified only; runs only through `stonewright/elementor-native-execute` inside the snapshot, lock, readback, rollback, and audit closure.';
+$lines[] = '- `elementor/build-composition`: **native-preferred**, certified only; same closure. On a published or private document the change is saved into an autosave and is reported as `staged_in_autosave`, never as applied.';
 $lines[] = '- `elementor/get-page-structure`: **native-readback**, certified only; read-only, and it reads the published document rather than a pending autosave.';
+$lines[] = '- `elementor/manage-classes`: certified, **native write refused** (`upstream_global_clear_cache`: it clears generated CSS site-wide); Stonewright\'s own class writers remain the supported path.';
+$lines[] = '- `elementor/manage-global-variable`: certified, **native write refused** (`upstream_global_clear_cache`); Stonewright\'s own variable writers remain the supported path.';
 $lines[] = '- `elementor/manage-elements`: **unsupported** (`upstream_global_clear_cache`, `staged_in_autosave`).';
-$lines[] = '- `elementor/build-composition`: **unsupported** (`staged_in_autosave`).';
 $lines[] = '';
 $lines[] = 'For `elementor/manage-default-styles`, certification requires active Elementor ownership; exact input/output object schemas and required fields; update/delete, tag, raw CSS, responsive, pseudo-state, patch/replace, and null semantics; `readonly=false`, `destructive=true`, `idempotent=false`; `CLASS_TYPE=class`; and a runtime operation limit exactly 20.';
 $lines[] = '';

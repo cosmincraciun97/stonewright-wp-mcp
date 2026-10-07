@@ -61,11 +61,11 @@ final class ProviderDiscovery extends AbilityKernel {
 			'annotations' => [ 'readonly' => true, 'destructive' => false, 'idempotent' => true ],
 			'provider_policy' => [
 				'elementor/manage-default-styles' => 'native-preferred-when-certified',
-				'elementor/manage-classes'        => 'native-preferred-when-certified',
-				'elementor/manage-global-variable' => 'native-preferred-when-certified',
+				'elementor/manage-classes'        => 'certified-native-write-refused',
+				'elementor/manage-global-variable' => 'certified-native-write-refused',
 				'elementor/get-page-structure'    => 'native-readback-when-certified',
 				'elementor/manage-elements'       => 'unsupported',
-				'elementor/build-composition'     => 'unsupported',
+				'elementor/build-composition'     => 'native-preferred-when-certified',
 			],
 		];
 	}

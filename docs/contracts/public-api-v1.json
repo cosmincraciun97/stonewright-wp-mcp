@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T01:09:12+00:00",
+    "generated_at": "2026-10-07T01:58:29+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2654,6 +2654,20 @@
             }
         },
         {
+            "ability_name": "stonewright/elementor-native-execute",
+            "mcp_name": "stonewright-elementor-native-execute",
+            "kind": "Write",
+            "input_schema_hash": "a01b5652646185f4482cb912927e6e81a2a7ca90b35a8461f6bced1c2de3380f",
+            "output_schema_hash": "77cb7b7efa5af52372fe030d41dfb6a5aeb957cf07281d196cc67429e7988c0a",
+            "permission_class": "Permissions::edit_theme_options() (compound)",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/elementor-page-digest",
             "mcp_name": "stonewright-elementor-page-digest",
             "kind": "Read",
@@ -3218,7 +3232,7 @@
             "mcp_name": "stonewright-elementor-v4-render-from-spec",
             "kind": "Write",
             "input_schema_hash": "dbf775f4f7574c7dc7a4dd963b2ff162accb1d525fcadb2bcd2f51a548e8456e",
-            "output_schema_hash": "2095ba927b387aa8fd251b74bce06d2d12a517004e845e305a473463c635f657",
+            "output_schema_hash": "c2950a18261844367c2348c7dba5f45a5d1093ddd2358f619018f2cab840b603",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -3260,7 +3274,7 @@
             "mcp_name": "stonewright-elementor-v4-update-node",
             "kind": "Write",
             "input_schema_hash": "6cb03fc2d66d8a49d680c276f4978ac7c49dfc96b3e5214ca0c6c5f4205c0cc5",
-            "output_schema_hash": "124abac7df8881c4784424ba790531623b13e46ae560a0368cdff3fba3ca74ac",
+            "output_schema_hash": "82fb16af0f201808ee67a846023e615c8eb08828db2050dc9fbb70a4f5270144",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,

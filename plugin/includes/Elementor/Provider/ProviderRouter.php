@@ -211,7 +211,8 @@ final class ProviderRouter {
 			$contract = NativeContracts::for_ability( $name );
 			$entry    = [
 				'available'               => true,
-				'selection'               => NativeElementorReport::selection( $state, (string) ( $contract['access'] ?? 'write' ) ),
+				'selection'               => NativeElementorReport::selection( $state, (string) ( $contract['access'] ?? 'write' ), (string) ( $contract['routing']['native_write'] ?? 'allowed' ) ),
+				'native_write'            => (string) ( $contract['routing']['native_write'] ?? 'unsupported' ),
 				'certification'           => $state,
 				'reason'                  => (string) $certification['reason'],
 				'issues'                  => array_values( (array) $certification['issues'] ),
@@ -228,6 +229,12 @@ final class ProviderRouter {
 			];
 			if ( isset( $certification['reasons'] ) ) {
 				$entry['reasons'] = array_values( (array) $certification['reasons'] );
+			}
+			if ( 'refused' === $entry['native_write'] ) {
+				$entry['native_write_reason'] = (string) ( $contract['routing']['refusal_reason'] ?? 'native_write_refused' );
+			}
+			if ( 'certified' === $state && 'allowed' === $entry['native_write'] ) {
+				$entry['execute_with'] = 'stonewright/elementor-native-execute';
 			}
 			if ( 'certified' === $state ) {
 				$entry['input_schema']  = (array) $ability['input_schema'];
@@ -479,6 +486,11 @@ final class ProviderRouter {
 		}
 		unset( $provider );
 		return $providers;
+	}
+
+	/** Whether a schema fits the depth, key and byte limits the router applies to every schema it reports. */
+	public static function schema_within_limits( array $schema ): bool {
+		return ! self::schema_summary( $schema )['truncated'];
 	}
 
 	/** @return array{keys_count:int,max_depth:int,bytes:int,truncated:bool} */

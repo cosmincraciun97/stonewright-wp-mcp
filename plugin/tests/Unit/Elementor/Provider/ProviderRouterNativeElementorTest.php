@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Elementor\Provider\UpstreamAbilityDiscovery;
 final class ProviderRouterNativeElementorTest extends TestCase {
 
 	private const CERTIFIED = [
+		'elementor/build-composition',
 		'elementor/get-page-structure',
 		'elementor/manage-classes',
 		'elementor/manage-default-styles',
@@ -39,10 +40,23 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		}
 		self::assertSame( 'native-readback', $result['native_preferred']['elementor/get-page-structure']['selection'] );
 		self::assertSame( 'read', $result['native_preferred']['elementor/get-page-structure']['contract']['access'] );
-		foreach ( [ 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ] as $name ) {
+		foreach ( [ 'elementor/build-composition', 'elementor/manage-default-styles' ] as $name ) {
 			self::assertSame( 'native-preferred', $result['native_preferred'][ $name ]['selection'], $name );
 			self::assertSame( 'write', $result['native_preferred'][ $name ]['contract']['access'], $name );
+			self::assertSame( 'allowed', $result['native_preferred'][ $name ]['native_write'], $name );
+			self::assertSame( 'stonewright/elementor-native-execute', $result['native_preferred'][ $name ]['execute_with'], $name );
 		}
+		foreach ( [ 'elementor/manage-classes', 'elementor/manage-global-variable' ] as $name ) {
+			$preference = $result['native_preferred'][ $name ];
+			self::assertSame( 'certified', $preference['certification'], $name );
+			self::assertSame( 'native-write-refused', $preference['selection'], $name );
+			self::assertSame( 'refused', $preference['native_write'], $name );
+			self::assertSame( 'upstream_global_clear_cache', $preference['native_write_reason'], $name );
+			self::assertArrayNotHasKey( 'execute_with', $preference, $name );
+		}
+		self::assertSame( 'read_only', $result['native_preferred']['elementor/get-page-structure']['native_write'] );
+		self::assertSame( 'native-write-refused', $result['native_elementor']['certification']['elementor/manage-classes']['selection'] );
+		self::assertSame( 'native-preferred', $result['native_elementor']['certification']['elementor/build-composition']['selection'] );
 		self::assertFalse( $result['writes_enabled'] );
 	}
 
@@ -53,7 +67,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( 'certified', $provider['certification'] );
 		self::assertFalse( $provider['read_only'] );
 		self::assertSame(
-			[ 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ],
+			[ 'elementor/build-composition', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ],
 			array_column( $provider['write_primitives'], 'name' )
 		);
 		foreach ( $provider['write_primitives'] as $primitive ) {
@@ -67,7 +81,6 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		$orders    = [ $abilities, array_reverse( $abilities ) ];
 		foreach ( $orders as $order ) {
 			$order[] = self::unsupported_candidate( 'elementor/manage-elements', 'Manage_Elements_Ability' );
-			$order[] = self::unsupported_candidate( 'elementor/build-composition', 'Build_Composition_Ability' );
 			$provider = self::index_by( $this->router( $order )->inspect()['providers'], 'id' )['elementor-core'];
 
 			self::assertSame( 'certified', $provider['certification'] );
@@ -109,10 +122,9 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		}
 	}
 
-	public function test_manage_elements_and_build_composition_stay_unsupported_with_their_reasons(): void {
+	public function test_manage_elements_stays_unsupported_with_its_reasons(): void {
 		$abilities = self::recorded_abilities();
 		$abilities[] = self::unsupported_candidate( 'elementor/manage-elements', 'Manage_Elements_Ability' );
-		$abilities[] = self::unsupported_candidate( 'elementor/build-composition', 'Build_Composition_Ability' );
 
 		$result = $this->router( $abilities )->inspect();
 
@@ -123,13 +135,12 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( [ 'upstream_global_clear_cache', 'staged_in_autosave' ], $elements['reasons'] );
 		self::assertFalse( $elements['routable_write'] );
 		$composition = $result['native_preferred']['elementor/build-composition'];
-		self::assertSame( 'unsupported', $composition['selection'] );
-		self::assertSame( 'staged_in_autosave', $composition['reason'] );
-		self::assertSame( [ 'staged_in_autosave' ], $composition['reasons'] );
+		self::assertSame( 'native-preferred', $composition['selection'] );
+		self::assertContains( 'staged_in_autosave', array_column( $composition['contract']['side_effects'], 'id' ) );
+		self::assertContains( 'autosave_truth', $composition['contract']['closure_requirements'] );
 		self::assertFalse( $composition['routable_write'] );
 		$names = array_column( self::index_by( $result['providers'], 'id' )['elementor-core']['write_primitives'], 'name' );
 		self::assertNotContains( 'elementor/manage-elements', $names );
-		self::assertNotContains( 'elementor/build-composition', $names );
 	}
 
 	public function test_unregistered_abilities_are_unsupported_and_never_synthesized(): void {
@@ -155,9 +166,9 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( [ 'installed' => true, 'version' => '4.3.4' ], $block['elementor'] );
 		self::assertTrue( $block['mcp_module']['active'] );
 		self::assertSame( [], $block['mcp_module']['missing'] );
-		self::assertSame( 5, $block['abilities_count'] );
+		self::assertSame( 6, $block['abilities_count'] );
 		self::assertSame(
-			[ 'elementor/get-page-structure', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-elements', 'elementor/manage-global-variable' ],
+			[ 'elementor/build-composition', 'elementor/get-page-structure', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-elements', 'elementor/manage-global-variable' ],
 			$block['abilities']
 		);
 		self::assertFalse( $block['abilities_truncated'] );
@@ -171,7 +182,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( $result['native_preferred']['elementor/manage-classes']['schema_fingerprint'], $block['schema_fingerprints']['elementor/manage-classes'] );
 		self::assertSame( self::CERTIFIED, $block['certified'] );
 		self::assertSame( 'certified', $block['certification']['elementor/manage-classes']['state'] );
-		self::assertSame( [ 'elementor/build-composition' => 'upstream_ability_not_registered', 'elementor/manage-elements' => 'upstream_global_clear_cache' ], $block['unsupported'] );
+		self::assertSame( [ 'elementor/manage-elements' => 'upstream_global_clear_cache' ], $block['unsupported'] );
 		self::assertFalse( $block['writes_enabled'] );
 		self::assertFalse( $block['routable_write'] );
 		self::assertSame( [], $block['contract_errors'] );
@@ -252,7 +263,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 
 		$block = $this->router( $abilities )->inspect()['native_elementor'];
 
-		self::assertSame( 1004, $block['abilities_count'] );
+		self::assertSame( 1005, $block['abilities_count'] );
 		self::assertCount( 100, $block['abilities'] );
 		self::assertTrue( $block['abilities_truncated'] );
 		self::assertLessThanOrEqual( 100, count( $block['schema_fingerprints'] ) );

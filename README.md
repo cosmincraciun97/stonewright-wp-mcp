@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **389 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **390 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **389** abilities
+### Plugin mode — **390** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -449,7 +449,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **389** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **390** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -499,7 +499,9 @@ for the same tools. Both servers can be connected to one client.
 | A quick draft that you will review in the editor | Elementor's MCP alone is fine |
 
 Do not send one change through both servers: Stonewright's backup and readback
-only cover what Stonewright writes.
+only cover what Stonewright writes. When Stonewright runs an Elementor ability
+itself, through `stonewright-elementor-native-execute`, its closure covers that
+write.
 
 Stonewright reports Elementor's side as evidence in `stonewright-site-capabilities`
 and `stonewright-elementor-v3-status` (`native_elementor`), and as a one-word
@@ -510,8 +512,16 @@ the MCP switch in Elementor's settings), the registered `elementor/*` abilities,
 their ownership and schema fingerprints, and a certification result per ability.
 Reading it calls no Elementor ability and changes nothing on the site.
 
-Stonewright does not execute Elementor's abilities; its own Elementor writers
-keep every safety gate. Details and per-ability results are in
+Only certified abilities run, and only inside Stonewright's closure: a snapshot,
+a write lock, an independent readback compared recursively with what Elementor
+reported, rollback on any mismatch, post-scoped CSS regeneration, a change set,
+and an audit row. Default styles and element composition can run natively; a
+composition on a published page is saved into an autosave and is reported as
+`staged_in_autosave`, never as applied. Global classes and variables are not run
+natively because Elementor clears all generated CSS site-wide after them;
+Stonewright's own writers handle those. V3 pages stay on Stonewright's V3
+writers, and mixed pages are routed per subtree, never converted. Details and
+per-ability results are in
 [docs/elementor-v4-engine.md](docs/elementor-v4-engine.md#native-elementor-abilities).
 
 ## Admin interface

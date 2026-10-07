@@ -16,7 +16,7 @@ final class CreateVariable extends AbilityKernel {
 	public function label(): string {
  return __( 'Create Elementor V4 variable', 'stonewright' ); }
 	public function description(): string {
- return __( 'Creates a variable through Elementor Variables_Service and verifies readback.', 'stonewright' ); }
+ return __( 'Fallback writer for Atomic variables: creates a variable through Elementor Variables_Service and verifies readback. A certified native elementor/manage-global-variable exists, but Stonewright does not route writes to it because it clears generated CSS site-wide; use this ability.', 'stonewright' ); }
 	public function category(): string {
  return 'elementor'; }
 	public function meta(): array {

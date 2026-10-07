@@ -129,27 +129,24 @@ final class TroubleshootPage {
 		$provider_count = max( count( $providers ), (int) ( $report['providers_count'] ?? 0 ) );
 		$provider_suffix = true === ( $report['providers_truncated'] ?? false ) ? __( ' (showing a bounded summary)', 'stonewright' ) : '';
 		$issues = is_array( $report['issues'] ?? null ) ? $report['issues'] : [];
-		$preference = is_array( $report['native_preferred']['elementor/manage-default-styles'] ?? null ) ? $report['native_preferred']['elementor/manage-default-styles'] : [];
-		$state = sanitize_key( (string) ( $preference['certification'] ?? 'unsupported' ) );
-		$writes_enabled = true === ( $report['writes_enabled'] ?? false );
-		$any_write_eligible = self::report_has_write_eligible( $providers );
-		if ( $writes_enabled ) {
-			$writes_copy = __( 'Upstream writes are enabled for write-eligible contracts.', 'stonewright' );
-		} elseif ( $any_write_eligible ) {
-			$writes_copy = __( 'Write-eligible contracts are inventoried. Upstream writes stay disabled until Stonewright safety closure can route them.', 'stonewright' );
-		} else {
-			$writes_copy = __( 'Upstream writes remain disabled until a write-eligible contract is certified and the full Stonewright safety closure is available.', 'stonewright' );
-		}
+		$native_rows = self::native_ability_rows( $report );
+		$native_block = is_array( $report['native_elementor'] ?? null ) ? $report['native_elementor'] : [];
+		$native_state = self::bounded_public_token( (string) ( $native_block['state'] ?? 'not_installed' ) );
+		$certified_count = is_array( $native_block['certified'] ?? null ) ? count( $native_block['certified'] ) : count( array_filter( $native_rows, static fn( array $row ): bool => 'certified' === $row['certification'] ) );
+		$writes_copy = __( 'Discovery performs no write. A certified write runs only through the stonewright-elementor-native-execute tool inside Stonewright\'s snapshot, lock, readback, rollback, and audit closure; an ability whose contract refuses native writes never runs.', 'stonewright' );
 		?>
 		<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'Elementor provider discovery', 'stonewright' ); ?>">
 			<h2><?php esc_html_e( 'Elementor provider discovery', 'stonewright' ); ?></h2>
 			<div class="sw-diag-card sw-diag-card--info">
 				<span class="sw-diag-card__icon" aria-hidden="true">ⓘ</span>
 				<span class="sw-diag-card__body">
-					<strong class="sw-diag-card__label"><?php esc_html_e( 'elementor/manage-default-styles', 'stonewright' ); ?></strong>
+					<strong class="sw-diag-card__label"><?php esc_html_e( 'Native Elementor abilities', 'stonewright' ); ?></strong>
 					<span class="sw-diag-card__detail">
-						<?php echo esc_html( sprintf( __( 'Native preference: %1$s. Providers discovered: %2$d%3$s.', 'stonewright' ), $state, $provider_count, $provider_suffix ) ); ?>
+						<?php echo esc_html( sprintf( __( 'Native Elementor state: %1$s. %2$d certified. Providers discovered: %3$d%4$s.', 'stonewright' ), $native_state, $certified_count, $provider_count, $provider_suffix ) ); ?>
 					</span>
+					<?php foreach ( $native_rows as $row ) : ?>
+						<span class="sw-diag-card__detail"><?php echo esc_html( self::native_ability_line( $row ) ); ?></span>
+					<?php endforeach; ?>
 					<?php foreach ( $providers as $provider ) : ?>
 						<?php
 						if ( ! is_array( $provider ) ) {
@@ -207,15 +204,61 @@ final class TroubleshootPage {
 	}
 
 	/**
-	 * @param list<mixed> $providers
+	 * One bounded row per native Elementor ability in the report, sorted by name.
+	 *
+	 * @param array<string,mixed> $report
+	 * @return list<array<string,mixed>>
 	 */
-	private static function report_has_write_eligible( array $providers ): bool {
-		foreach ( $providers as $provider ) {
-			if ( is_array( $provider ) && self::provider_is_write_eligible( $provider ) ) {
-				return true;
+	private static function native_ability_rows( array $report ): array {
+		$preferred = is_array( $report['native_preferred'] ?? null ) ? $report['native_preferred'] : [];
+		ksort( $preferred );
+		$rows = [];
+		foreach ( array_slice( $preferred, 0, 20, true ) as $name => $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
 			}
+			$rows[] = [
+				'name'          => self::bounded_public_token( (string) $name ),
+				'available'     => false !== ( $entry['available'] ?? true ),
+				'certification' => sanitize_key( (string) ( $entry['certification'] ?? 'unsupported' ) ),
+				'selection'     => self::bounded_public_token( (string) ( $entry['selection'] ?? 'unsupported' ) ),
+				'reason'        => self::short_token( (string) ( $entry['reason'] ?? '' ) ),
+				'write_reason'  => self::short_token( (string) ( $entry['native_write_reason'] ?? '' ) ),
+				'issues'        => array_slice( array_map( static fn( mixed $issue ): string => self::short_token( (string) $issue ), is_array( $entry['issues'] ?? null ) ? array_values( $entry['issues'] ) : [] ), 0, 5 ),
+				'reasons'       => array_slice( array_map( static fn( mixed $reason ): string => self::short_token( (string) $reason ), is_array( $entry['reasons'] ?? null ) ? array_values( $entry['reasons'] ) : [] ), 0, 5 ),
+			];
 		}
-		return false;
+		return $rows;
+	}
+
+	/** @param array<string,mixed> $row */
+	private static function native_ability_line( array $row ): string {
+		if ( ! $row['available'] ) {
+			return sprintf( /* translators: %s: Elementor ability name */ __( '%s — not registered on this site.', 'stonewright' ), $row['name'] );
+		}
+		$line = sprintf(
+			/* translators: 1: ability, 2: certification, 3: selection */
+			__( '%1$s — Certification: %2$s. Selection: %3$s.', 'stonewright' ),
+			$row['name'],
+			$row['certification'],
+			$row['selection']
+		);
+		if ( '' !== $row['write_reason'] ) {
+			$line .= ' ' . sprintf( /* translators: %s: reason code */ __( 'Native write refused: %s.', 'stonewright' ), $row['write_reason'] );
+		}
+		if ( [] !== $row['reasons'] ) {
+			$line .= ' ' . sprintf( /* translators: %s: reason codes */ __( 'Reasons: %s.', 'stonewright' ), implode( ', ', $row['reasons'] ) );
+		} elseif ( [] !== $row['issues'] ) {
+			$line .= ' ' . sprintf( /* translators: %s: issue codes */ __( 'Issues: %s.', 'stonewright' ), implode( ', ', $row['issues'] ) );
+		} elseif ( '' !== $row['reason'] && 'official_contract_certified' !== $row['reason'] ) {
+			$line .= ' ' . sprintf( /* translators: %s: reason code */ __( 'Reason: %s.', 'stonewright' ), $row['reason'] );
+		}
+		return $line;
+	}
+
+	private static function short_token( string $value ): string {
+		$value = str_replace( '\\', '', sanitize_text_field( $value ) );
+		return strlen( $value ) <= 80 ? $value : substr( $value, 0, 77 ) . '...';
 	}
 
 	/** @param array<string,mixed> $provider */

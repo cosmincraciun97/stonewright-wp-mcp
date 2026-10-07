@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Elementor\V4\AtomicWriteReadback;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Renderers\ElementorV4SpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
@@ -36,7 +37,7 @@ final class RenderFromSpec extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. dry_run=true (default) returns the tree without writing.', 'stonewright' );
+		return __( 'Fallback writer for when no certified native ability covers the page: validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. When native Elementor composition is certified, prefer stonewright-elementor-native-execute. dry_run=true (default) returns the tree without writing.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -72,6 +73,7 @@ final class RenderFromSpec extends AbilityKernel {
 				'snapshot_id' => [ 'type' => 'string' ],
 				'errors'      => [ 'type' => 'array' ],
 				'diagnostics' => [ 'type' => 'array' ],
+				'readback'    => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -145,6 +147,10 @@ return $gate; }
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}
+				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec' );
+				if ( $readback instanceof \WP_Error ) {
+					return $readback;
+				}
 
 				return [
 					'ok'          => true,
@@ -153,6 +159,7 @@ return $gate; }
 					'snapshot_id' => $snapshot_id,
 					'errors'      => [],
 					'diagnostics' => $diagnostics,
+					'readback'    => $readback,
 				];
 			}
 		);

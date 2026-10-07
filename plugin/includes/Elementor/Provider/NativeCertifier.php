@@ -128,7 +128,12 @@ final class NativeCertifier {
 	}
 
 	public static function fingerprint( mixed $value ): string {
+		// An object and an array of the same members hash alike, so a live schema that holds an empty
+		// object (`default => (object) []`) matches the same schema recorded as decoded JSON.
 		$canonicalize = static function ( mixed $item ) use ( &$canonicalize ): mixed {
+			if ( is_object( $item ) ) {
+				$item = get_object_vars( $item );
+			}
 			if ( ! is_array( $item ) ) {
 				return $item;
 			}
@@ -160,8 +165,7 @@ final class NativeCertifier {
 			$covering = array_values(
 				array_filter(
 					$candidates,
-					static fn( array $schema ): bool => version_compare( $version, (string) $schema['elementor_versions']['min'], '>=' )
-						&& version_compare( $version, (string) $schema['elementor_versions']['max'], '<=' )
+					static fn( array $schema ): bool => self::in_range( $version, $schema['elementor_versions'] )
 				)
 			);
 			if ( [] === $covering ) {
@@ -183,6 +187,9 @@ final class NativeCertifier {
 			'output_schema_mismatch'     => 'output_fingerprint',
 			'ability_semantics_mismatch' => 'description_fingerprint',
 		];
+		if ( 'ignored' === ( $contract['description_policy'] ?? '' ) ) {
+			unset( $actual['ability_semantics_mismatch'], $keys['ability_semantics_mismatch'] );
+		}
 		$best = null;
 		foreach ( $candidates as $schema ) {
 			$mismatches = [];
@@ -196,6 +203,23 @@ final class NativeCertifier {
 			}
 		}
 		return array_merge( $found, $best ?? array_keys( $keys ) );
+	}
+
+	/**
+	 * A maximum of `X.Y.*` covers every release of that minor line, so a patch release inside
+	 * the verified line certifies only when its fingerprints match exactly; a new minor is outside it.
+	 *
+	 * @param array<string,mixed> $range
+	 */
+	private static function in_range( string $version, array $range ): bool {
+		if ( version_compare( $version, (string) $range['min'], '<' ) ) {
+			return false;
+		}
+		$max = (string) $range['max'];
+		if ( str_ends_with( $max, '.*' ) ) {
+			return str_starts_with( $version . '.', substr( $max, 0, -1 ) );
+		}
+		return version_compare( $version, $max, '<=' );
 	}
 
 	/** @param array<string,mixed> $ability */

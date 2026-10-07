@@ -21,16 +21,58 @@
             },
             "input_fingerprint": "594a672ec9a132fa2479938e9054451e438a684f8dc07c8fd3cbc3a8944d5b11",
             "output_fingerprint": "27f2c27ca3afd5a21d4155ae4755b1f63d0f9475956d70a4ea703fff44c9aac0",
-            "description_fingerprint": "a8fcec9ad9b552e45ed45e7adec740f79581ade7b5680f43fb420676934666b6"
+            "description_fingerprint": "a8fcec9ad9b552e45ed45e7adec740f79581ade7b5680f43fb420676934666b6",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "post_id"
+                ],
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "description": "WordPress post ID of the Elementor document."
+                    },
+                    "element_id": {
+                        "type": "string",
+                        "description": "Optional. If provided, returns only the subtree rooted at that element id."
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "If true, includes each V4 node's settings, styles (as { __style_id, css } — raw CSS string), interactions, rendered tag, and default_styles (raw CSS string: base layer + kit default for that tag). The styles.css value is round-trippable to build-composition.style / manage-elements.update.style in replace mode. Requires element_id."
+                    }
+                }
+            }
         },
         {
             "elementor_versions": {
                 "min": "4.3.4",
-                "max": "4.3.4"
+                "max": "4.3.*"
             },
             "input_fingerprint": "d527743edb5198875df94dc5923f5c9f192e073a8a7b8829ee552cb488414600",
             "output_fingerprint": "48ae54511c634361b0132ac403fceec7a2028349049bd331ea4a33f337f6bd05",
-            "description_fingerprint": "d8ca2df092bcff799f14a8d6cf55ff57bea99c10599754d79e78db8c1bdd92d2"
+            "description_fingerprint": "d8ca2df092bcff799f14a8d6cf55ff57bea99c10599754d79e78db8c1bdd92d2",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "post_id"
+                ],
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "description": "WordPress post ID of the Elementor document."
+                    },
+                    "element_id": {
+                        "type": "string",
+                        "description": "Optional. If provided, returns only the subtree rooted at that element id."
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "If true, includes each V4 node's settings (plain shape, writable as-is), styles (as { __style_id, css } — raw CSS string), interactions, rendered tag, and default_styles (raw CSS string: base layer + kit default for that tag). The styles.css value is round-trippable to build-composition.style / manage-elements.update.style in replace mode. Requires element_id."
+                    }
+                }
+            }
         }
     ],
     "requires": {
@@ -96,5 +138,9 @@
         ],
         "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
         "source_file": "modules/mcp/abilities/get-structure-ability.php"
+    },
+    "routing": {
+        "family": "structure_read",
+        "native_write": "read_only"
     }
 }

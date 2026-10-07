@@ -422,6 +422,22 @@ ability. Elementor's own MCP server can stay connected next to Stonewright;
 Stonewright does not disable or replace it. See
 [Elementor V4 engine](elementor-v4-engine.md#native-elementor-abilities).
 
+`NativeElementorProvider` executes a certified ability in-process, but only for
+a contract that allows a native write and only through
+`stonewright/elementor-native-execute`. `NativeRoute` decides the route: the
+ability must be certified for the live Elementor version, and the document is
+routed per subtree (V3 subtrees to the Stonewright V3 writers, Atomic subtrees
+native, never a conversion). The closure is permission, mode and token gates,
+Atomic type exposure, `Backup::snapshot_post()` of the page or kit, the per-post
+write lock, the Elementor ability, an independent readback compared recursively
+by `AtomicReadbackVerifier`, rollback on any mismatch, post-scoped CSS only
+through `stonewright/elementor-css-regenerate`, a `ChangeSetV1` through the kernel,
+and the audit row. A write that clears generated CSS site-wide never runs, and a
+change that lands in an autosave is reported as `staged_in_autosave`. The
+Stonewright V4 writers apply the same nested readback (`AtomicWriteReadback`) to
+their own writes. See
+[Native execution](elementor-v4-engine.md#native-execution).
+
 Before the MCP adapter is instantiated, the compatibility preflight inspects
 Stonewright plus active-plugin Composer and Jetpack manifests. Inactive
 manifests are ignored. Installed copies that Jetpack did not select are

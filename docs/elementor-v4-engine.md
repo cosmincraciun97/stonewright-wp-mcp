@@ -45,13 +45,15 @@ The runtime source was verified at Elementor commit
 When Elementor's MCP module is active it registers abilities named
 `elementor/*`. Stonewright reads them, fingerprints their schemas, and checks
 each one against a contract file under
-`plugin/data/elementor-native-contracts/`. This is evidence only: Stonewright
-does not execute an Elementor ability, and `routable_write` stays `false`.
+`plugin/data/elementor-native-contracts/`. Discovery and certification are read
+only and never run an Elementor ability. A certified ability whose contract
+allows a native write is executed only by `stonewright/elementor-native-execute`
+(see Native execution below); the Stonewright V4 writers above stay as the
+fallback.
 
-Stonewright's own V4 writers above remain the Atomic writers. Elementor's MCP
-server and Stonewright do not compete: both can be connected to one client. Use
-Stonewright when you want snapshots, readback, audit, and rollback; Elementor's
-MCP alone is fine for a quick draft.
+Elementor's MCP server and Stonewright do not compete: both can be connected to
+one client. Use Stonewright when you want snapshots, readback, audit, and
+rollback; Elementor's MCP alone is fine for a quick draft.
 
 ### What the module needs
 
@@ -90,14 +92,14 @@ the closure steps a caller must provide. A certifiable contract also lists exact
 input, output, and description fingerprints for each verified range of Elementor
 versions, and a few named probes that explain which part of a schema changed.
 
-| Ability | Result | Verified Elementor versions |
-|---|---|---|
-| `elementor/manage-default-styles` | certifiable, write | 4.3.0 to 4.3.4 |
-| `elementor/manage-classes` | certifiable, write | 4.3.0 to 4.3.4 |
-| `elementor/manage-global-variable` | certifiable, write | 4.3.0 to 4.3.4 |
-| `elementor/get-page-structure` | certifiable, read-only | 4.3.0 to 4.3.3 and 4.3.4 (two schema variants) |
-| `elementor/manage-elements` | unsupported | `upstream_global_clear_cache`, `staged_in_autosave` |
-| `elementor/build-composition` | unsupported | `staged_in_autosave` |
+| Ability | Result | Native write | Verified Elementor versions |
+|---|---|---|---|
+| `elementor/manage-default-styles` | certifiable | allowed | 4.3.x (verified 4.3.0 to 4.3.4) |
+| `elementor/build-composition` | certifiable | allowed | 4.3.x (verified 4.3.0 to 4.3.4) |
+| `elementor/get-page-structure` | certifiable, read-only | read only | 4.3.x (two schema variants) |
+| `elementor/manage-classes` | certifiable | refused: `upstream_global_clear_cache` | 4.3.x |
+| `elementor/manage-global-variable` | certifiable | refused: `upstream_global_clear_cache` | 4.3.x |
+| `elementor/manage-elements` | unsupported | `upstream_global_clear_cache`, `staged_in_autosave` | none |
 
 Certification fails closed. An ability is `rejected` when any of these differ
 from its contract, and the exact reasons are listed in `issues`:
@@ -110,29 +112,102 @@ probe such as `action_contract_mismatch`. An ability with no contract file is
 registered is `unsupported` with `upstream_ability_not_registered`. A contract
 file that fails validation is ignored and listed in `contract_errors`.
 
-A contract's version policy is `required` (the Elementor version must be known
-and inside a verified range) or `when_observed` (a version that cannot be read is
-accepted, one that can be read must be inside the range). A release outside the
-verified range stays unsupported until its schemas are verified and the contract
-is extended.
+Every contract pins the Elementor version (`version_policy: required`): the
+version must be readable and inside the contract's range. A range ending in
+`.*` covers a whole minor line, so a patch release inside it certifies when every
+fingerprint matches exactly; a new minor line is unsupported until its schemas are
+verified and the contract is extended. A contract may mark the description text
+as ignored when only the schemas matter. A contract that embeds a certified input
+schema is ignored unless the schema hashes to the contract's fingerprint.
+
+A contract also records `routing`: its family (`kit_defaults`,
+`tree_composition`, `structure_read`, or `global_kit`) and whether a native write
+is `allowed`, `refused` (with a reason), or `read_only`. A contract that lists the
+`global_css_cache_clear` side effect can never allow a native write.
 
 ### Known side effects
 
 - `manage-classes` and `manage-global-variable` clear the generated CSS cache for
-  the whole site after a change. Stonewright's CSS rules allow only post-scoped
-  regeneration, so these abilities carry the `css_containment` closure
-  requirement.
-- `manage-elements` also clears that cache, and `manage-elements` and
-  `build-composition` save an edit to a published document into the current
-  user's autosave. The ability still reports success, but the change is not live
-  until the document is published. Such a result must be reported as
-  `staged_in_autosave`, never as applied, and publishing needs explicit user
-  intent.
+  the whole site after a change, and `manage-elements` does too. Stonewright's CSS
+  rules allow only post-scoped regeneration through
+  `stonewright/elementor-css-regenerate`, and Elementor offers no way to run these
+  abilities without the site-wide clear, so their native writes are refused with
+  `upstream_global_clear_cache`. Stonewright's own class and variable writers
+  remain the supported path.
+- `manage-elements` and `build-composition` save an edit to a published or
+  private document into the current user's autosave. The ability still reports
+  success, but the change is not live until the document is published. Such a
+  result is reported as `staged_in_autosave`, never as applied, and publishing
+  needs explicit user intent. A later composition builds on the pending autosave,
+  not on the live document.
 - `get-page-structure` reads the published document, so it does not show a
   change that is staged in an autosave.
 - `manage-classes` requires the `elementor_global_classes_update_class`
   capability, and `manage-default-styles` and `manage-global-variable` require
   `manage_options`.
+
+## Native execution
+
+`stonewright/elementor-native-execute` runs a certified Elementor ability
+in-process through `wp_get_ability()->execute()`. The ability enum offers only
+`elementor/manage-default-styles`, `elementor/build-composition`, and
+`elementor/get-page-structure`, and `input` carries each ability's certified input
+schema (one `anyOf` branch each, within the router's schema limits) so an agent
+does not guess fields. Writes plan first: `dry_run` defaults to `true`.
+
+A write runs in this order and stops at the first failure:
+
+1. **Route.** The ability must be certified for the live Elementor version and its
+   contract must allow a native write; otherwise the call fails with
+   `stonewright_native_route_refused`, the exact reason or issues, the missing
+   feature (for example `elementor_mcp_site_exposure`), and the Stonewright
+   writers to use instead. Documents route per subtree and are never converted:
+   a V3 document or a V3 subtree of a mixed document routes to the V3 writers, an
+   insert at the root of a mixed document and a missing parent are refused, and an
+   Atomic subtree or an empty or V4 document routes native.
+2. **Gates.** The experimental V4 flag, the Atomic Editor requirement, the
+   production-safe block, the permission for the family (kit options, or the post),
+   and the production-safe confirmation token. Native writes stay blocked in
+   `production-safe` mode like the other V4 writers.
+3. **Exposure.** Every Atomic type in the composition must be registered on the
+   site; a missing one fails with `stonewright_atomic_type_unavailable`,
+   `missing_feature: atomic_type:<type>`, and the types the site has.
+4. **Snapshot and lock.** `Backup::snapshot_post()` of the page (or the active kit)
+   and the per-post write lock, released afterwards.
+5. **Execute** the Elementor ability.
+6. **Independent readback.** Default styles are read back from Elementor's
+   repository; a composition is read back from `_elementor_data` (or from the
+   autosave for a staged edit) and compared recursively with the structure the
+   ability reports: every node, its type, its position under its parent, and its
+   order. A dropped child, a retyped or moved node, an unplanned change to another
+   element, or a live document that changed during a staged write is an error, never
+   a success.
+7. **Rollback** on any failure or mismatch: the snapshot restores the page, the
+   previous autosave is put back (or removed), and the previous default styles are
+   rewritten. The result reports `rollback_status`.
+8. **CSS.** For an applied page edit, post-scoped CSS goes only through
+   `stonewright/elementor-css-regenerate`; a failure is reported with the next step
+   and does not undo the write. Default styles use Elementor's scoped style cache and
+   need no page CSS. A staged edit changes no live CSS.
+9. **ChangeSetV1 and audit.** The result carries `change_set`: planned and applied
+   changes, before and after hashes, the verification outcome, and `repair_of` and
+   `supersedes` lineage. A staged edit is `queued` with nothing applied. A
+   default-styles write reports no rollback recipe, because a kit snapshot does not
+   cover the default style posts; its automatic rollback happens inside the call.
+
+Statuses are `planned`, `applied`, `unchanged`, `staged_in_autosave`, and `read`.
+The structure read returns Elementor's structure and flags a pending autosave,
+because that read shows the published document.
+
+### Readback for the Stonewright V4 writers
+
+`stonewright/elementor-v4-update-node` and `stonewright/elementor-v4-render-from-spec`
+compare the stored document with the tree they wrote, nested content included,
+and restore the snapshot on a mismatch. The class adapters compare the stored
+class, variants and props included, with what was written and put the previous
+class back (or delete the new one) on a mismatch; the variable adapter checks the
+label, type, and value. Each result carries `readback` or fails with
+`stonewright_atomic_readback_mismatch` and its `problems`.
 
 ## Surgical node update
 
