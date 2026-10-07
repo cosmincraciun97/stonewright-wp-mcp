@@ -310,6 +310,8 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 - **ARIA tabs** (`sw-ui-tabs` with `data-sw-ui-tabs`): views inside one page. Roving `tabindex`, Arrow, Home and End keys, automatic activation, one visible panel.
 - **In-page navigation** (`sw-ui-toc`): anchors inside the page, the current one marked `aria-current="location"`.
 - **Filter chips** (`sw-ui-chip-filter`): `aria-pressed` buttons.
+- **Link tabs:** a `sw-ui-tabs__tab` may be a link when the view has its own address (Skills catalog, editor, import); it is drawn as a tab, not as a link.
+- **List filter** (`input[data-sw-ui-filter="#list"]`): hides the `[data-sw-ui-filter-item]`s that do not match as you type, hides a `[data-sw-ui-filter-group]` with no match, shows `[data-sw-ui-filter-empty]` and writes "Showing X of Y" into a `[data-sw-ui-filter-count]` status line. Items leave the accessibility tree with the `hidden` property.
 - **Page header** (`Ui\PageHeader::render`): one row at least 56px tall with the title, an optional one-line lede (70 characters wide at most), and a right-hand place for badges and the primary action. The shell prints it; a page passes `title`, `lede` and `actions` to `AdminShell::open`.
 - **Sticky budget:** sticky and fixed chrome together (admin bar included) covers at most 25% of the viewport height, and nothing sticks below 783px except what the admin bar does. `sw-ui-toolbar--sticky` sticks under the admin bar from 783px up only.
 
@@ -345,6 +347,9 @@ The pages that have not moved to the layer keep their own content inside this fr
 - **Checkbox and radio:** a label around them supplies a 24px target; the control keeps core's 16px. A group of two or three exclusive options is `sw-ui-segmented`.
 - **Inline help:** `sw-ui-help` is a button that opens a native `popover`, so it works by click, tap and keyboard, not only hover.
 - **Why disabled:** `sw-ui-hint`, linked with `aria-describedby`.
+- **Printing a field:** `Ui\FormField` (`input`, `textarea`, `select`, `switch`, `checkbox`, `hidden`, `nonce`, `post_form`) prints the field, its label, help and error text, linked with `aria-describedby`. A switch posts a hidden 0 first when the form saves an unchecked box. A text area that holds text a person reads as code (JSON, Markdown) adds `sw-ui-textarea--code`.
+- **Drop zone** (`sw-ui-dropzone`): a dashed region around a native file field; `--over` marks a file held above it.
+- **Times:** `Ui\UtcTime::render( $mysql_utc )` prints a `time` element in the site's time zone; its `datetime` and `title` carry the UTC instant.
 
 ### Empty states and skeletons
 
@@ -371,7 +376,7 @@ A modal is a native `<dialog class="sw-ui-dialog">` opened with `showModal()`: `
 
 ### Scripting
 
-`window.Stonewright.ui` offers `motionOK`, `scrollTo`, `announce`, `toast`, `copy`, `flash`, `notify`, `openDialog`, `closeDialog`, `initTabs`, `initDisclosures`. The script reacts only to `data-sw-ui-*` hooks (`copy`, `reveal`, `tabs`, `remember`, `dialog-open`, `dialog-close`, `confirm-phrase`, `confirm-submit`, `search`, `light-dismiss`), so a page that has not adopted the layer is never touched. `/` focuses the field marked `data-sw-ui-search` unless the user is typing. It builds markup only with `textContent`.
+`window.Stonewright.ui` offers `motionOK`, `scrollTo`, `announce`, `toast`, `copy`, `flash`, `notify`, `openDialog`, `closeDialog`, `initTabs`, `initDisclosures`. The script reacts only to `data-sw-ui-*` hooks (`copy`, `reveal`, `tabs`, `remember`, `dialog-open`, `dialog-close`, `confirm-phrase`, `confirm-submit`, `search`, `light-dismiss`, `filter`), so a page that has not adopted the layer is never touched. `/` focuses the field marked `data-sw-ui-search` unless the user is typing. It builds markup only with `textContent`.
 
 ## 6. Motion
 
@@ -453,11 +458,11 @@ This is the release checklist for every Stonewright-owned wp-admin surface that 
 | Setup | Setup | Connect and update safely | Numbered steps, grouped choices, readable code, explicit verification receipts | Release checks bypass stale caches; secrets never enter examples | signed-out client; failed check; copied; long command |
 | Setup | Troubleshoot (beta) | Diagnose a failed AI client connection | Diagnostic cards, status badges, in-place Run diagnostics with a loading spinner | The script path does not reload the page; the no-script form remains | running; all pass; a blocked route; long report |
 | AI Abilities | AI Abilities | Search and gate tools | Filters that stick under the admin bar from 783px up, compact grouped rows, a named switch per row | Category actions do not depend on inline click handlers; every switch and select has a name | no match; read-only user; master switch off; 400+ rows |
-| Knowledge | Skills | Manage reusable instructions | Catalog and editor split, clear provenance and lifecycle | Fresh installs include only product defaults; user data survives updates | empty catalog; invalid skill; long body |
-| Knowledge | Memory | Manage durable site knowledge | Compact table, explicit lifecycle and status, edit and delete actions, a labelled instructions field | Fresh installs start empty; updates preserve user data | no entries; at the character limit |
-| Knowledge | Context (beta) | Persist operator context for every MCP agent | Two-column system and user layout, collapsible generated snapshot | Compact task-start carries truncated user context text | empty; saved; long text |
-| Knowledge | Design (beta) | Persist the active design direction | Shared tokens and a compact direction list and editor | Compact task-start points at the design-direction brief; it does not inline the full contract | no direction; import rejected |
-| Knowledge | Prompt library | Find a safe task starter | Search-first catalog, grouped outcomes, copy action | Long prompt and tool text wraps inside its surface | no match; copied; long prompt |
+| Knowledge | Skills | Manage reusable instructions | Layer tabs for catalog, editor, import and trash; each skill one status badge and at most two tags; a review drawer that is a native dialog with the safe action focused; undo as a toast | Fresh installs include only product defaults; user data survives updates; an imported file lands disabled and is re-checked on the server | loading; empty catalog; no match; load error; invalid import; long body |
+| Knowledge | Memory | Manage durable site knowledge | Entries first (filters, stacking table, add and edit forms), then settings in one form, import and export, receipt lookup; a message after every action; a key already in use is refused, never replaced | Fresh installs start empty; updates preserve user data; times stored in UTC and shown in site time | no entries; empty view; at the character limit; refused key; long key |
+| Knowledge | Context (beta) | Persist operator context for every MCP agent | Facts and a copyable generated snapshot beside the user context form, a switch and one primary action | Compact task-start carries truncated user context text; the page says how many characters agents receive | empty; saved on; saved off; long text |
+| Knowledge | Design (beta) | Persist the active design direction | The active direction, a table of every stored direction with its state in words and the reason a draft is not ready, import, the quality floor | Compact task-start points at the design-direction brief; it does not inline the full contract; an active direction is always ready | no direction; draft only; deactivated; import rejected; imported as a draft |
+| Knowledge | Prompt library | Find a safe task starter | Search-first catalog with a live count, outcome groups side by side, one card per prompt, a copy action that confirms next to itself | Long prompt and tool text wraps inside its surface; prompts carry no site data | no match; copied; long prompt |
 | Custom code | Drafts, Library, Active, Crash recovery | Review code before activation | The hub's tab bar carries the four views; readable file badges; explicit primary and destructive actions | Status text and payloads stay legible at narrow widths; no second row of tabs inside the page | no files; crashed file; long path |
 | Custom code | Approvals | Issue a scoped grant | The human-approval warning and the guidance stay in place; a labelled token with a copy action; a binding receipt | The token is never obscured, logged, or persisted by accident | no proposal selected; expired; long binding |
 | Activity | Audit log | Diagnose and understand outcomes | Filter panel, responsive rows, a full-width readable payload; a count of open incidents on the tab | Payload, cause, and repair copy never escape or collapse the table | empty log; filtered to nothing; long payload |

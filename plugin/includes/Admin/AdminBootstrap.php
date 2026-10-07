@@ -208,15 +208,14 @@ final class AdminBootstrap {
 			'stonewright'               => 'setup.css',
 			'stonewright-troubleshoot' => 'setup.css',
 			'stonewright-abilities'     => 'abilities.css',
-			// Prompt library reuses the catalog card/grid system from blueprints.css.
-			'stonewright-prompts'       => 'blueprints.css',
+			'stonewright-prompts'       => 'pages/prompts.css',
 			'stonewright-status'        => 'pages/overview.css',
 			'stonewright-audit-log'     => 'audit.css',
-			'stonewright-skills'        => 'skills-memory.css',
-			'stonewright-memory'        => 'skills-memory.css',
+			'stonewright-skills'        => 'pages/skills.css',
+			'stonewright-memory'        => 'pages/memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
-			'stonewright-design'        => 'skills-memory.css',
-			'stonewright-context'       => 'skills-memory.css',
+			'stonewright-design'        => 'pages/design.css',
+			'stonewright-context'       => 'pages/context.css',
 			'stonewright-rescue'        => 'pages/rescue.css',
 		];
 
@@ -224,12 +223,8 @@ final class AdminBootstrap {
 			$handle = 'stonewright-admin-' . str_replace( [ 'stonewright-', '.css' ], [ '', '' ], $page_styles[ $page ] );
 			if ( 'setup.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-setup';
-			} elseif ( 'skills-memory.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-skills-memory';
 			} elseif ( 'abilities.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-abilities';
-			} elseif ( 'blueprints.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-blueprints';
 			} elseif ( 'audit.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {

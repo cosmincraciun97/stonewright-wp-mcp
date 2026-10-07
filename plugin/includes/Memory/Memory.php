@@ -414,6 +414,24 @@ final class Memory {
 	}
 
 	/**
+	 * The id of the entry that holds a scope and key pair, or 0 when the pair is free.
+	 *
+	 * A pair is unique: put_typed() replaces the entry that holds it, so a caller that must not replace asks first.
+	 */
+	public static function find_id( string $scope, string $key ): int {
+		global $wpdb;
+		$table = self::table_name();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE scope = %s AND memory_key = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$scope,
+				$key
+			)
+		);
+	}
+
+	/**
 	 * List memory entries filtered by type.
 	 *
 	 * @param string $type   One of valid_types(). Invalid values coerced to 'generic'.

@@ -289,7 +289,7 @@ final class AdminJavascriptTest extends TestCase {
 		$page = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/SkillsPage.php' );
 		$js   = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/skills.js' );
 
-		self::assertStringContainsString( 'render_catalog_panel', $page );
+		self::assertStringContainsString( 'catalog_panel_html', $page );
 		self::assertStringContainsString( 'data-sw-skills-ssr', $page );
 		self::assertStringContainsString( 'data-sw-skills-list', $page );
 

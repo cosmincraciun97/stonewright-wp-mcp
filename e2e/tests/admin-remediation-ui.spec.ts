@@ -129,8 +129,8 @@ test('audit, memory, and skill controls keep deliberate spacing and aligned heig
 	await page.goto('/wp-admin/admin.php?page=stonewright-memory', {
 		waitUntil: 'domcontentloaded',
 	});
-	const receiptInput = page.locator('.sw-memory-receipt-form input[type="number"]');
-	const receiptButton = page.locator('.sw-memory-receipt-form button');
+	const receiptInput = page.locator('.sw-memory__inline input[type="number"]');
+	const receiptButton = page.locator('.sw-memory__inline').first().getByRole('button', { name: 'Look up receipt' });
 	const inputBox = await receiptInput.boundingBox();
 	const buttonBox = await receiptButton.boundingBox();
 	expect(inputBox).not.toBeNull();
@@ -138,26 +138,26 @@ test('audit, memory, and skill controls keep deliberate spacing and aligned heig
 	expect(Math.abs(inputBox!.height - buttonBox!.height)).toBeLessThanOrEqual(2);
 	expect(Math.abs(inputBox!.y + inputBox!.height / 2 - (buttonBox!.y + buttonBox!.height / 2))).toBeLessThanOrEqual(2);
 
-	const memoryHeader = page.locator('.sw-memory-section-header');
-	await expect(memoryHeader.getByText('Enable memory abilities')).toBeVisible();
-	const headerHeights = await memoryHeader.locator('button, input[type="submit"]').evaluateAll((nodes) =>
+	const saveSettings = page.getByRole('button', { name: 'Save settings' });
+	await expect(page.getByText('Enable memory abilities')).toBeVisible();
+	const settingsHeights = await page.locator('.sw-memory form[action="options.php"] .sw-ui-btn').evaluateAll((nodes) =>
 		nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
 	);
-	expect(headerHeights.length).toBeGreaterThanOrEqual(2);
-	expect(Math.max(...headerHeights) - Math.min(...headerHeights)).toBeLessThanOrEqual(2);
+	expect(settingsHeights.length).toBeGreaterThanOrEqual(1);
+	for (const height of settingsHeights) {
+		expect(Math.abs(height - inputBox!.height)).toBeLessThanOrEqual(2);
+	}
+	await expect(saveSettings).toBeVisible();
 
 	await page.goto('/wp-admin/admin.php?page=stonewright-skills&view=editor', {
 		waitUntil: 'domcontentloaded',
 	});
-	const availability = page.locator('.sw-fieldset');
+	const availability = page.locator('.sw-ui-fieldset');
 	await expect(availability.getByText('Skill is active')).toBeVisible();
 	const rowGap = await availability.evaluate((node) => getComputedStyle(node).rowGap);
 	expect(Number.parseFloat(rowGap)).toBeGreaterThanOrEqual(10);
-	const checkboxMargins = await availability.locator('input[type="checkbox"]').first().evaluate((node) => {
-		const style = getComputedStyle(node);
-		return [style.marginTop, style.marginRight, style.marginBottom, style.marginLeft];
-	});
-	expect(checkboxMargins).toEqual(['0px', '0px', '0px', '0px']);
+	const checkboxTarget = await availability.locator('label.sw-ui-checkbox').first().evaluate((node) => node.getBoundingClientRect().height);
+	expect(checkboxTarget).toBeGreaterThanOrEqual(24);
 });
 
 test('companion update handoff is explicit and never claims browser-side installation', async ({

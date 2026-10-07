@@ -98,9 +98,9 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Skills</h1>', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ), 'The shell prints the one h1.' );
 		self::assertStringNotContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'sw-skills-tabs', $html );
-		self::assertStringContainsString( 'sw-skills-panel', $html );
-		self::assertStringContainsString( 'sw-actions', $html );
+		self::assertStringContainsString( 'sw-ui-tabs', $html );
+		self::assertStringContainsString( 'sw-ui-tabs__panel', $html );
+		self::assertStringContainsString( 'sw-ui-actions', $html );
 
 		// The catalog, import review, and trash are the script's job now, so the
 		// page ships a shell it can fill instead of a card and a form per skill.
@@ -176,16 +176,16 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Memory &amp; instructions</h1>', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
 		self::assertStringNotContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'sw-memory-page', $html );
-		self::assertStringContainsString( 'sw-callout', $html );
-		self::assertStringContainsString( 'sw-card', $html );
-		self::assertStringContainsString( 'sw-actions', $html );
+		self::assertStringContainsString( 'sw-ui sw-ui-page sw-memory', $html );
+		self::assertStringContainsString( 'sw-ui-callout', $html );
+		self::assertStringContainsString( 'sw-ui-card', $html );
+		self::assertStringContainsString( 'sw-ui-actions', $html );
 		self::assertStringContainsString( 'stonewright_custom_instructions', $html );
 		self::assertStringContainsString( 'stonewright_custom_instructions_enabled', $html );
 		self::assertStringContainsString( 'stonewright_memory_enabled', $html );
-		self::assertStringContainsString( 'stonewright-empty-state', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-memory"', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-knowledge-import"', $html );
+		self::assertStringContainsString( 'sw-ui-empty', $html );
+		self::assertStringContainsString( 'id="sw-memory-add"', $html );
+		self::assertStringContainsString( 'Import JSON', $html );
 	}
 
 	/** A database double that serves the Dashboard one audit row, a two day sparkline and no skills or memory. */

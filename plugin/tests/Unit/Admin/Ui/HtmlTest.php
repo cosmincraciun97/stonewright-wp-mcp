@@ -38,6 +38,13 @@ final class HtmlTest extends TestCase {
 		);
 	}
 
+	public function test_form_controls_may_carry_their_native_constraints(): void {
+		self::assertSame(
+			' rows="8" min="1" pattern="[a-z]+" selected spellcheck="false"',
+			Html::attrs( [ 'rows' => 8, 'min' => 1, 'pattern' => '[a-z]+', 'selected' => true, 'spellcheck' => 'false' ] )
+		);
+	}
+
 	public function test_a_time_element_can_carry_its_machine_readable_value(): void {
 		self::assertSame( ' datetime="2026-10-07 06:00:00"', Html::attrs( [ 'datetime' => '2026-10-07 06:00:00' ] ) );
 		self::assertSame( ' datetime="&quot;&gt;x"', Html::attrs( [ 'datetime' => '">x' ] ) );

@@ -60,7 +60,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 
 		self::assertStringContainsString( 'stonewright-incident-' . str_repeat( 'a', 64 ), $html );
 		self::assertStringContainsString( 'View audit events', $html );
-		self::assertStringContainsString( 'Open (1)', $html );
+		self::assertMatchesRegularExpression( '/Open <span class="sw-ui-count sw-ui-num">1<\/span>/', $html );
 		self::assertStringNotContainsString( 'No memory entries.', $html );
 	}
 
@@ -90,44 +90,39 @@ final class MemoryInstructionsPageTest extends TestCase {
 	}
 
 	public function test_render_includes_memory_edit_controls_and_bundle_import_export(): void {
-		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows(
+		$_GET['edit'] = '9';
+		$table = new MemoryTableDouble();
+		$table->seed(
 			[
-				[
-					'id'          => '9',
-					'type'        => 'feedback',
-					'scope'       => 'site-a-frontend',
-					'memory_key'  => 'no-html-widgets',
-					'name'        => 'No Elementor HTML widgets by default',
-					'value_json'  => wp_json_encode( 'Use native Elementor widgets first.' ),
-					'confidence'  => '1.0000',
-					'created_at'  => '2026-05-24 00:00:00',
-					'updated_at'  => '2026-05-24 00:00:00',
-				],
-			],
-			true
+				'id'         => 9,
+				'type'       => 'feedback',
+				'scope'      => 'site-a-frontend',
+				'memory_key' => 'no-html-widgets',
+				'name'       => 'No Elementor HTML widgets by default',
+				'value_json' => wp_json_encode( 'Use native Elementor widgets first.' ),
+			]
 		);
+		$GLOBALS['wpdb'] = $table;
 
 		ob_start();
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'stonewright-memory-edit-9', $html );
+		self::assertStringContainsString( 'id="sw-memory-edit"', $html );
 		self::assertStringContainsString( 'stonewright_memory_update', $html );
 		self::assertStringContainsString( 'Export JSON', $html );
 		self::assertStringContainsString( 'Import JSON', $html );
 		self::assertStringContainsString( 'Use native Elementor widgets first.', $html );
-		self::assertStringContainsString( 'Verified Repairs', $html );
-		self::assertStringContainsString( 'Unresolved Incidents', $html );
-		self::assertStringContainsString( 'Audit Feedback', $html );
+		self::assertStringContainsString( 'Verified repairs', $html );
+		self::assertStringContainsString( 'Unresolved incidents', $html );
+		self::assertStringContainsString( 'Audit feedback', $html );
 		self::assertStringContainsString( 'plugin-site', $html );
-		self::assertStringContainsString( 'Last retrieved:', $html );
+		self::assertStringContainsString( 'Last retrieved', $html );
 		self::assertStringContainsString( 'Direct-local receipts', $html );
 		self::assertStringContainsString( 'stonewright_memory_migrate_feedback', $html );
 		self::assertStringNotContainsString( 'memory table is missing or outdated', $html );
-		self::assertMatchesRegularExpression(
-			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm="Delete this memory\?")/i',
-			$html
-		);
+		self::assertStringContainsString( 'value="stonewright_memory_delete"', $html );
+		self::assertStringNotContainsString( 'data-confirm', $html );
 	}
 
 	public function test_the_custom_instructions_textarea_has_a_label_and_its_help_is_linked(): void {
@@ -408,14 +403,12 @@ final class MemoryInstructionsPageTest extends TestCase {
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertSame( 1, substr_count( $html, 'sw-learned-rules__item' ) );
+		self::assertSame( 1, substr_count( $html, 'value="stonewright_learning_disable"' ) );
 		self::assertStringContainsString( 'KEEP-ACTIVE-LESSON', $html );
 		self::assertDoesNotMatchRegularExpression(
 			'/sw-learned-rules__text[^>]*>\s*(DRAFT-HIDDEN-LESSON|MISSING-STATUS-LESSON|PATTERN-DRAFT-LESSON)/',
 			$html
 		);
-		self::assertStringContainsString( 'Activation:', $html );
-		self::assertStringContainsString( 'Lifecycle:', $html );
 	}
 
 	public function test_render_surfaces_schema_health_notice_when_table_broken(): void {
@@ -425,7 +418,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'notice notice-error', $html );
+		self::assertStringContainsString( 'sw-ui-notice--danger', $html );
 		self::assertStringContainsString( 'memory table is missing or outdated', $html );
 	}
 

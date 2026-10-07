@@ -95,6 +95,21 @@ final class SwUiJavascriptContractTest extends TestCase {
 		self::assertMatchesRegularExpression( '/dialog\.removeAttribute\( \'open\' \);\s*resetConfirmation\( dialog \);/', $script, 'The no-showModal path clears it too.' );
 	}
 
+	public function test_a_button_that_carries_only_literal_text_to_copy_still_copies(): void {
+		self::assertStringContainsString( "target.closest( '[data-sw-ui-copy], [data-sw-ui-copy-text]' )", self::script() );
+	}
+
+	public function test_a_text_filter_hides_items_groups_and_announces_the_count_through_data_hooks(): void {
+		$script = self::script();
+
+		self::assertStringContainsString( '// List filter (Knowledge pages)', $script, 'The block is named, so a merge keeps it apart.' );
+		foreach ( [ 'data-sw-ui-filter', 'data-sw-ui-filter-item', 'data-sw-ui-filter-group', 'data-sw-ui-filter-count', 'data-sw-ui-filter-empty', 'data-sw-ui-filter-label' ] as $hook ) {
+			self::assertStringContainsString( $hook, $script, $hook );
+		}
+		self::assertMatchesRegularExpression( '/initFilters:\s*initFilters\b/', $script, 'Stonewright.ui.initFilters is public.' );
+		self::assertStringContainsString( '.hidden = ', $script, 'Filtering uses the hidden property, so a filtered item leaves the accessibility tree.' );
+	}
+
 	public function test_the_search_shortcut_leaves_typing_and_modified_keys_alone(): void {
 		$script = self::script();
 

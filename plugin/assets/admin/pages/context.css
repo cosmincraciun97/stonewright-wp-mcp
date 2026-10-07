@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Context page: placement only. Every component (cards, facts, code block, switch, form, notice) comes from sw-ui.css.
+ */
+
+/* System context beside user context from 1024px; one column below. */
+.sw-context .sw-context__cols {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+	align-items: start;
+	gap: var(--sw-space-4);
+}
+
+/* The generated instructions are prose: they wrap and scroll inside the block, never sideways. */
+.sw-context .sw-ui-code__body {
+	max-height: 28rem;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}

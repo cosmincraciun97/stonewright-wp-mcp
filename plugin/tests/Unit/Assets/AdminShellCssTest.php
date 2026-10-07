@@ -27,7 +27,6 @@ final class AdminShellCssTest extends TestCase {
 		'admin/setup.css'         => 1,
 		'admin/pages/overview.css' => 0,
 		'admin/shell.css'         => 45,
-		'admin/skills-memory.css' => 10,
 		'admin/visual-workspace.css' => 0,
 		'css/stonewright-admin.css'  => 5,
 	];

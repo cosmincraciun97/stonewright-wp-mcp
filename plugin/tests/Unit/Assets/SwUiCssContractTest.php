@@ -46,6 +46,19 @@ final class SwUiCssContractTest extends TestCase {
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
 		'includes/Admin/Pages/StatusPage.php',
 		'assets/admin/pages/overview.css',
+		// The Knowledge hub (Skills, Memory, Context, Design, Prompt library) is built from the layer; the page
+		// stylesheets only place things.
+		'includes/Admin/SkillsPage.php',
+		'includes/Admin/MemoryInstructionsPage.php',
+		'includes/Admin/Pages/ContextPage.php',
+		'includes/Admin/Pages/DesignPage.php',
+		'includes/Admin/Pages/PromptLibraryPage.php',
+		'assets/admin/skills.js',
+		'assets/admin/pages/skills.css',
+		'assets/admin/pages/memory.css',
+		'assets/admin/pages/context.css',
+		'assets/admin/pages/design.css',
+		'assets/admin/pages/prompts.css',
 	];
 
 	private static function css(): string {

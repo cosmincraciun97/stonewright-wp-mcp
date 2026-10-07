@@ -257,6 +257,23 @@
 
 ### Changed
 
+- Build the Knowledge pages (Skills, Memory, Context, Design, Prompt library)
+  from the shared admin UI layer. Memory lists the entries first, in a table
+  that stacks at 782px, with the add form and the entry editor as native
+  sections, one **Settings** form for memory abilities, custom instructions and
+  their text, and times in site time with the UTC instant in the `title`.
+  Context shows the system facts and a copyable snapshot beside the user
+  context form. Design lists every stored direction with its state and the
+  reason a draft is not ready. Prompt library filters its cards as you type
+  and says how many are left; copy confirms next to its button. Skills uses
+  the layer's tabs, buttons, badges, tags, notices, empty states and
+  skeletons, opens its review drawer as a native dialog with the safe action
+  focused, and offers undo as a toast. Capabilities, nonces, form actions and
+  REST routes are unchanged.
+- Add `FormField` and `UtcTime` helpers to the admin UI layer, a list filter
+  (`data-sw-ui-filter`, `Stonewright.ui.initFilters`), a drop zone and a
+  code-face text area to `sw-ui.css` and `sw-ui.js`, and an optional row id to
+  `Ui\Table`. A copy button that carries only `data-sw-ui-copy-text` now copies.
 - `elementor-v4-update-node` accepts `operations` as an alternative to
   `element_id` and `settings`; its input schema now requires only `post_id`, and
   a call with neither form fails with `missing_element_id`.
@@ -395,6 +412,22 @@
 
 ### Fixed
 
+- Memory: every action now ends in a message (entry created, saved, deleted,
+  lesson approved, draft discarded, learned rule disabled, settings saved,
+  legacy feedback classified). Adding an entry whose scope and key are already
+  in use is refused with the name of the entry that holds them, and nothing is
+  replaced; moving an entry onto a pair in use is refused the same way.
+- Memory: saving **Enable memory abilities** no longer clears the custom
+  instructions, and saving the instructions no longer clears the memory switch;
+  the three settings share one form.
+- Design: importing, activating and deactivating answer with their own message
+  ("imported and activated", "imported, stored as a draft", "activated",
+  "deactivated"). Every stored direction is listed with its state, a draft
+  shows why it is not ready, and a deactivated or ready direction can be
+  activated again from the list.
+- Design directions: restoring a revision stores the status that revision had,
+  and clears the active-direction pointer when the restored contract is not
+  ready, so an active direction is always ready.
 - Draw the label of a Setup step that is still to do at full strength instead of
   at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities

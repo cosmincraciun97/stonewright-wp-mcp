@@ -13,6 +13,7 @@
  *   [data-sw-ui-dialog-open="#id"]     open a <dialog class="sw-ui-dialog">; [data-sw-ui-dialog-close] closes it
  *   [data-sw-ui-confirm-phrase]        an input that enables [data-sw-ui-confirm-submit] when it holds the phrase
  *   [data-sw-ui-search]                the field the "/" key focuses
+ *   input[data-sw-ui-filter="#id"]     filter the [data-sw-ui-filter-item]s inside #id as you type (see the List filter block)
  */
 ( function () {
 	'use strict';
@@ -555,6 +556,60 @@
 	}
 
 	// -----------------------------------------------------------------------------------------------
+	// List filter (Knowledge pages)
+	//   input[data-sw-ui-filter="#container"]   the field; it filters the items inside #container as you type
+	//   [data-sw-ui-filter-item]                one item; its text to match is data-sw-ui-filter-text (lower case)
+	//   [data-sw-ui-filter-group]               a group of items: hidden while none of its items matches
+	//   [data-sw-ui-filter-count]               a status line: data-sw-ui-filter-label "Showing %1$s of %2$s"
+	//   [data-sw-ui-filter-empty]               shown when nothing matches
+	// Items and groups are hidden with the `hidden` property, so a filtered item leaves the accessibility tree.
+	// -----------------------------------------------------------------------------------------------
+
+	function applyFilter( input ) {
+		var container = targetOf( input.getAttribute( 'data-sw-ui-filter' ) );
+		if ( ! container ) {
+			return;
+		}
+		var query = String( input.value || '' ).toLowerCase().trim();
+		var items = Array.prototype.slice.call( container.querySelectorAll( '[data-sw-ui-filter-item]' ) );
+		var shown = 0;
+
+		items.forEach( function ( item ) {
+			var text = String( item.getAttribute( 'data-sw-ui-filter-text' ) || item.textContent || '' ).toLowerCase();
+			var match = query === '' || text.indexOf( query ) !== -1;
+			item.hidden = ! match;
+			if ( match ) {
+				shown += 1;
+			}
+		} );
+		Array.prototype.forEach.call( container.querySelectorAll( '[data-sw-ui-filter-group]' ), function ( group ) {
+			group.hidden = group.querySelectorAll( '[data-sw-ui-filter-item]:not([hidden])' ).length === 0;
+		} );
+
+		var empty = container.querySelector( '[data-sw-ui-filter-empty]' );
+		if ( empty ) {
+			empty.hidden = shown !== 0;
+		}
+		var count = container.querySelector( '[data-sw-ui-filter-count]' ) || document.querySelector( '[data-sw-ui-filter-count]' );
+		if ( count ) {
+			var label = count.getAttribute( 'data-sw-ui-filter-label' ) || '%1$s / %2$s';
+			count.textContent = label.replace( '%1$s', String( shown ) ).replace( '%2$s', String( items.length ) );
+		}
+	}
+
+	function initFilters( scope ) {
+		Array.prototype.forEach.call( ( scope || document ).querySelectorAll( 'input[data-sw-ui-filter]' ), function ( input ) {
+			if ( input.getAttribute( 'data-sw-ui-filter-ready' ) === '1' ) {
+				return;
+			}
+			input.setAttribute( 'data-sw-ui-filter-ready', '1' );
+			input.addEventListener( 'input', function () {
+				applyFilter( input );
+			} );
+			applyFilter( input );
+		} );
+	}
+	// -----------------------------------------------------------------------------------------------
 	// Search shortcut
 	// -----------------------------------------------------------------------------------------------
 
@@ -588,13 +643,14 @@
 	function init() {
 		initTabs( document );
 		initDisclosures( document );
+		initFilters( document );
 
 		document.addEventListener( 'click', function ( event ) {
 			var target = event.target && event.target.closest ? event.target : null;
 			if ( ! target ) {
 				return;
 			}
-			var copyButton = target.closest( '[data-sw-ui-copy]' );
+			var copyButton = target.closest( '[data-sw-ui-copy], [data-sw-ui-copy-text]' );
 			if ( copyButton ) {
 				event.preventDefault();
 				onCopyClick( copyButton );
@@ -655,6 +711,7 @@
 		closeDialog: closeDialog,
 		initTabs: initTabs,
 		initDisclosures: initDisclosures,
+		initFilters: initFilters,
 	};
 
 	ready( init );
