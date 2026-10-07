@@ -5,21 +5,32 @@ on:
     tags:
       - "v*"
 
+# The token is read-only by default; only the publish job can write to the repository.
 permissions:
-  contents: write
+  contents: read
+
+# One release run per tag at a time. A run that is already building or publishing is never cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   package:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      # Full history: the repository hygiene scan below reads every commit.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.1"
           tools: composer
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: npm
@@ -101,10 +112,6 @@ jobs:
             --exclude phpunit.xml.dist
           rsync -a skills/ dist/stonewright/skills/
           cp LICENSE dist/stonewright/LICENSE
-          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
-            node scripts/check-public-hygiene.mjs \
-              --root dist/stonewright \
-              --require-private-terms
           php plugin/bin/verify-jetpack-manifests.php dist/stonewright
           (cd dist && zip -qr "stonewright-${version}.zip" stonewright)
           (cd companion && npm pack --pack-destination ../dist)
@@ -114,14 +121,6 @@ jobs:
           mkdir -p dist/package-scan/companion dist/package-scan/visual
           tar -xzf "$companion_archive" -C dist/package-scan/companion
           tar -xzf "$visual_archive" -C dist/package-scan/visual
-          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
-            node scripts/check-public-hygiene.mjs \
-              --root dist/package-scan/companion \
-              --require-private-terms
-          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
-            node scripts/check-public-hygiene.mjs \
-              --root dist/package-scan/visual \
-              --require-private-terms
           if tar -tzf "$companion_archive" | grep -E '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/' >/dev/null; then
             echo "Companion archive contains private persistent runtime state" >&2
             exit 1
@@ -150,8 +149,63 @@ jobs:
           (cd dist && sha256sum "stonewright-${version}.zip" "stonewright-companion-${version}.tgz" > SHA256SUMS.txt)
           node scripts/check-release-artifacts.mjs --version "$version" --dir dist --inspect --require-production-vendor
 
+      # The private terms reach the scan steps through env only: they are never expanded
+      # into a script and are not in the environment of the build and packaging tools.
+      - name: Scan release packages for private terms
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-public-hygiene.mjs --root dist/stonewright --require-private-terms
+          node scripts/check-public-hygiene.mjs --root dist/package-scan/companion --require-private-terms
+          node scripts/check-public-hygiene.mjs --root dist/package-scan/visual --require-private-terms
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-assets
+          path: |
+            dist/stonewright-*.zip
+            dist/stonewright-companion-*.tgz
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+
+      - name: Download release assets
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-assets
+          path: dist
+
+      - name: Verify downloaded release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          node scripts/check-release-artifacts.mjs --version "$version" --dir dist
+
       - name: Publish GitHub release
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |

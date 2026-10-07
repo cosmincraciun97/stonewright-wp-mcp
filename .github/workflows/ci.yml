@@ -6,12 +6,25 @@ on:
     branches:
       - main
 
+# The token is read-only for every job; a job that needs more declares its own permissions block.
+permissions:
+  contents: read
+
+# A pull request has one run at a time: a newer push cancels the older run.
+# Each push to main has its own group and always runs to completion.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
       - run: node scripts/check-docs-freshness.mjs
@@ -24,6 +37,7 @@ jobs:
 
   php-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -32,8 +46,10 @@ jobs:
       run:
         working-directory: plugin
     steps:
-      - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php }}
           tools: composer
@@ -43,12 +59,15 @@ jobs:
 
   php-quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: plugin
     steps:
-      - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.1"
           tools: composer
@@ -62,13 +81,16 @@ jobs:
 
   plugin-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.1"
           tools: composer
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
       - name: Build clean production dependencies
@@ -99,7 +121,7 @@ jobs:
           cp LICENSE package-scan/stonewright/LICENSE
           rsync -a skills/ package-scan/stonewright/skills/
           (cd package-scan && zip -qr ../stonewright-ci.zip stonewright)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: plugin-zip
           path: stonewright-ci.zip
@@ -124,14 +146,17 @@ jobs:
           - os: windows-latest
             php: "8.2"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php }}
           extensions: openssl, zip, pdo_sqlite, sqlite3, curl, mbstring
           tools: none
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: plugin-zip
       - name: Activate the plugin ZIP without an OpenSSL config
@@ -139,12 +164,15 @@ jobs:
 
   companion:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: companion
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: npm
@@ -173,7 +201,7 @@ jobs:
 
   companion-windows-oauth:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -182,8 +210,10 @@ jobs:
       run:
         working-directory: companion
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -201,12 +231,15 @@ jobs:
 
   visual:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: visual
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: npm
@@ -224,13 +257,15 @@ jobs:
 
   e2e-admin-ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: e2e
     steps:
-      - uses: actions/checkout@v5
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.2"
           tools: composer
@@ -240,7 +275,7 @@ jobs:
       - name: Install synthetic MCP provider dependencies
         working-directory: e2e/fixtures/synthetic-mcp-provider
         run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "22"
           cache: npm
@@ -297,7 +332,7 @@ jobs:
       - name: Stop wp-env
         if: always()
         run: npx wp-env stop --config .wp-env.package.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: e2e-admin-ui-artifacts
