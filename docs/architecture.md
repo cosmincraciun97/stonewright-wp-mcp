@@ -40,7 +40,7 @@ flowchart TD
         Registry["Schema-v2 site registry<br/>alias, environment, mode, Step 1 expectations"]
         Credentials["OS credential store or explicit env reference"]
         Companion["Stonewright companion"]
-        CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, discover-execute, full"]
+        CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, inspect, discover-execute, full"]
         Direct["Pluginless Direct adapters"]
         DirectState["Private per-site ~/.stonewright state<br/>memory, user skills, redacted audit, incidents"]
         DirectIncidents["Direct incident lifecycle"]
@@ -152,8 +152,10 @@ not honor live list changes must follow the explicit re-list/restart receipt.
 The plugin gate has three saved values: `bootstrap`, `essential`, and `full`.
 The companion additionally understands `essential-static` as the bounded
 fallback for an unknown or stale-list client, `low-tools` for a strict
-external cap, and opt-in `discover-execute` (compact catalog + bounded schema
-+ gated execute; never auto-selected). The normal known-client working profile
+external cap, opt-in `discover-execute` (compact catalog + bounded schema
++ gated execute; never auto-selected), and opt-in read-only `inspect`
+(discovery, read, and verify tools only; never auto-selected). The normal
+known-client working profile
 is `essential`, `bootstrap` is only a startup diagnostic, and `full` is an
 explicit specialist choice. `stonewright/php-execute` is on `full` only.
 The operator's saved site surface remains the source of truth; a client
@@ -481,10 +483,15 @@ compact, task-aware response that includes:
   instructions text** (up to 400 characters) when those are enabled
 - a **Design Direction pointer** (`context.design_direction_ref`) when a
   direction is active, plus `required_actions: read_design_direction_brief`
+- **agent preferences** (`context.agent_preferences`), a compact object of
+  scalar settings that providers add; it sits next to the Design Direction
+  pointer and is omitted while no provider adds an entry
 - matched skill playbooks
 - relevant memory
 - required followups
 - MCP tool naming hints
+- a **typed-tool hint** (`fast_path.routing_hint`) naming the typed ability for
+  the post meta, option, Elementor data, or menu work the task mentions
 - recommended external MCPs such as Playwright for browser work
 - a short-lived context token for write abilities
 - the native rule registry **digest** plus the tool that resolves it
@@ -493,6 +500,29 @@ Compact mode does not inline the full Design Direction contract. Call
 `stonewright-design-direction-brief` (on the essential MCP surface) to load
 tokens and guidance. `responseMode=full` returns the complete combined
 instruction text.
+
+The compact typed-tool hint is omitted when the task mentions none of those
+patterns, and when adding it would push the compact payload past its size cap;
+it never costs another field its place. The hint is advice: `php-execute` is
+never blocked. After a snippet runs, the `php-execute` response carries a short
+`routing_hint` when the snippet used one of those patterns. A pattern matches
+only when the typed tool can do the job: an option call needs a literal option
+name that `stonewright-settings-update` accepts, a post meta call needs a
+literal public meta key, and a tool the operator disabled is never named. The
+hint holds fixed tool names and never repeats the snippet.
+
+### Connect-time instructions
+
+The MCP server instructions that every client reads on connect carry the same
+Design Direction pointer on one line (name, slug, id, a 12-character prefix of
+the contract hash, and the brief tool) while a direction is active, so agents
+read it before visual work. When providers add agent preferences, one more line
+lists them. The instructions are built on each request, so they follow the
+active direction. Providers add preferences through the
+`stonewright_agent_preferences` filter, which receives and returns
+`key => scalar` pairs; keys are lower snake case, values are booleans, integers,
+or text of at most 48 characters, and at most eight entries are kept. The
+plugin registers no preference itself.
 
 Manual edits to skills, memory, Context, Design Direction, or custom
 instructions persist in WordPress and are included in future task-start
@@ -953,6 +983,15 @@ Profile and surface switching is transport-specific. Agents should treat
   `get-ability-info`, and `execute-ability`. Auto routing never selects it.
   `execute-ability` uses the same permission, confirmation, backup, and audit
   gates as a direct MCP call and does not bypass php-execute read-only guards.
+- **`inspect`**: opt-in read-only profile: the startup set plus discovery,
+  read, and verify tools, within the 30-tool essential cap. It carries no `php-execute`,
+  `execute-ability`, blueprint, direction-write, or other write tool, and auto
+  routing never selects it. Activating it adds its tools to the session; it
+  never changes the operator's saved surface (a `bootstrap` surface stays
+  `bootstrap`) and cannot narrow a surface that already lists write tools.
+  Switch to the profile that owns a write with `stonewright-tool-profile`. In
+  the companion it also limits the local tools to status and WP-CLI discovery,
+  and in Direct (pluginless) mode it maps to the Direct bootstrap surface.
 - **Diagnosis**: companion local tool `stonewright-client-surface-check` and
   `stonewright doctor --client-surface` explain profile vs client mismatches
   without REST workarounds.

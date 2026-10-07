@@ -1,0 +1,201 @@
+{
+    "description": "Synthetic PHP snippets and task phrases with the typed tools the routing hint must name. An empty expect object means no hint. Patterns come back in the order post_meta, options, elementor_data, menus; tools come back in each pattern's canonical order.",
+    "snippets": [
+        {
+            "name": "post meta: update a public key",
+            "code": "update_post_meta( 123, 'example_key', 'example value' );",
+            "expect": { "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ] }
+        },
+        {
+            "name": "post meta: add with a variable post id",
+            "code": "add_post_meta( $post_id, 'example_key', 1, true );",
+            "expect": { "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ] }
+        },
+        {
+            "name": "post meta: update inside a loop with a call as the post id",
+            "code": "foreach ( $ids as $id ) { update_post_meta( absint( $id ), \"example_key\", 'v' ); }",
+            "expect": { "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ] }
+        },
+        {
+            "name": "post meta: metadata API with the post type",
+            "code": "update_metadata( 'post', 123, 'example_key', 'v' );",
+            "expect": { "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ] }
+        },
+        {
+            "name": "post meta: a protected key is skipped by the typed abilities",
+            "code": "update_post_meta( 123, '_example_protected_key', 55 );",
+            "expect": {}
+        },
+        {
+            "name": "post meta: a computed key cannot be matched",
+            "code": "update_post_meta( $id, $key, $value );",
+            "expect": {}
+        },
+        {
+            "name": "post meta: delete has no typed equivalent",
+            "code": "delete_post_meta( 123, 'example_key' );",
+            "expect": {}
+        },
+        {
+            "name": "post meta: read only has no typed generic reader",
+            "code": "return get_post_meta( 123, 'example_key', true );",
+            "expect": {}
+        },
+        {
+            "name": "term meta is not post meta",
+            "code": "update_term_meta( 5, 'example_key', 'v' );",
+            "expect": {}
+        },
+        {
+            "name": "options: write of an allowlisted setting",
+            "code": "update_option( 'blogname', 'Example Site' );",
+            "expect": { "options": [ "stonewright-settings-update" ] }
+        },
+        {
+            "name": "options: read of an allowlisted setting",
+            "code": "return get_option( 'timezone_string' );",
+            "expect": { "options": [ "stonewright-settings-get" ] }
+        },
+        {
+            "name": "options: read and write of one allowlisted setting",
+            "code": "update_option( 'posts_per_page', 12 );\nreturn get_option( 'posts_per_page' );",
+            "expect": { "options": [ "stonewright-settings-get", "stonewright-settings-update" ] }
+        },
+        {
+            "name": "options: call split over lines and written in mixed case",
+            "code": "Update_Option(\n\t\"blogdescription\",\n\t'Example tagline'\n);",
+            "expect": { "options": [ "stonewright-settings-update" ] }
+        },
+        {
+            "name": "options: a plugin option is not covered by the typed ability",
+            "code": "update_option( 'example_plugin_settings', [ 'a' => 1 ] );",
+            "expect": {}
+        },
+        {
+            "name": "options: siteurl is blocked by the typed ability",
+            "code": "update_option( 'siteurl', 'https://example.test' );",
+            "expect": {}
+        },
+        {
+            "name": "options: a computed option name cannot be matched",
+            "code": "update_option( $name, $value );",
+            "expect": {}
+        },
+        {
+            "name": "options: network options are a different API",
+            "code": "return get_site_option( 'blogname' );",
+            "expect": {}
+        },
+        {
+            "name": "elementor data: read of the document meta",
+            "code": "$data = json_decode( get_post_meta( 123, '_elementor_data', true ), true );\nreturn count( $data );",
+            "expect": { "elementor_data": [ "stonewright-elementor-v3-get-page-structure", "stonewright-elementor-v3-batch-mutate" ] }
+        },
+        {
+            "name": "menus: list menus",
+            "code": "return wp_get_nav_menus();",
+            "expect": { "menus": [ "stonewright-menu-list" ] }
+        },
+        {
+            "name": "menus: reading items has no typed reader",
+            "code": "return wp_get_nav_menu_items( 7 );",
+            "expect": {}
+        },
+        {
+            "name": "menus: create",
+            "code": "return wp_create_nav_menu( 'Example Menu' );",
+            "expect": { "menus": [ "stonewright-menu-create" ] }
+        },
+        {
+            "name": "menus: add an item",
+            "code": "wp_update_nav_menu_item( 7, 0, [ 'menu-item-title' => 'Contact', 'menu-item-url' => 'https://example.test/contact', 'menu-item-status' => 'publish' ] );",
+            "expect": { "menus": [ "stonewright-menu-add-item" ] }
+        },
+        {
+            "name": "menus: assign a theme location",
+            "code": "$locations = get_theme_mod( 'nav_menu_locations' );\n$locations['primary'] = 7;\nset_theme_mod( 'nav_menu_locations', $locations );",
+            "expect": { "menus": [ "stonewright-menu-assign-location" ] }
+        },
+        {
+            "name": "menus: delete",
+            "code": "wp_delete_nav_menu( 7 );",
+            "expect": { "menus": [ "stonewright-menu-delete" ] }
+        },
+        {
+            "name": "menus: four operations keep the first three tools",
+            "code": "$id = wp_create_nav_menu( 'Example Menu' );\nwp_update_nav_menu_item( $id, 0, [] );\nset_theme_mod( 'nav_menu_locations', [ 'primary' => $id ] );\nwp_get_nav_menus();",
+            "expect": { "menus": [ "stonewright-menu-list", "stonewright-menu-create", "stonewright-menu-add-item" ] }
+        },
+        {
+            "name": "all four patterns come back in canonical order",
+            "code": "wp_create_nav_menu( 'Example Menu' );\nupdate_option( 'blogname', 'Example Site' );\n$raw = get_post_meta( 123, '_elementor_data', true );\nupdate_post_meta( 123, 'example_key', 'v' );",
+            "expect": {
+                "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ],
+                "options": [ "stonewright-settings-update" ],
+                "elementor_data": [ "stonewright-elementor-v3-get-page-structure", "stonewright-elementor-v3-batch-mutate" ],
+                "menus": [ "stonewright-menu-create" ]
+            }
+        },
+        {
+            "name": "unrelated: count posts",
+            "code": "return wp_count_posts()->publish;",
+            "expect": {}
+        },
+        {
+            "name": "unrelated: blog info is not an option call",
+            "code": "return get_bloginfo( 'name' );",
+            "expect": {}
+        }
+    ],
+    "tasks": [
+        {
+            "name": "settings words",
+            "task": "Change the site tagline and the timezone",
+            "expect": { "options": [ "stonewright-settings-get", "stonewright-settings-update" ] }
+        },
+        {
+            "name": "menu words",
+            "task": "Add a Contact link to the main menu",
+            "expect": { "menus": [ "stonewright-menu-list", "stonewright-menu-add-item", "stonewright-menu-assign-location" ] }
+        },
+        {
+            "name": "post meta words",
+            "task": "Rename the custom fields on every product",
+            "expect": { "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ] }
+        },
+        {
+            "name": "elementor data words",
+            "task": "Inspect the Elementor data of the pricing page",
+            "expect": { "elementor_data": [ "stonewright-elementor-v3-get-page-structure", "stonewright-elementor-v3-batch-mutate" ] }
+        },
+        {
+            "name": "several patterns in one task",
+            "task": "Update the tagline, the primary menu, and the post meta",
+            "expect": {
+                "post_meta": [ "stonewright-content-update-post", "stonewright-content-bulk-upsert-posts" ],
+                "options": [ "stonewright-settings-get", "stonewright-settings-update" ],
+                "menus": [ "stonewright-menu-list", "stonewright-menu-add-item", "stonewright-menu-assign-location" ]
+            }
+        },
+        {
+            "name": "ordinary content edit",
+            "task": "Update an existing post title and excerpt.",
+            "expect": {}
+        },
+        {
+            "name": "visual build",
+            "task": "Build a landing page from a screenshot",
+            "expect": {}
+        },
+        {
+            "name": "the word menu alone is not a navigation menu",
+            "task": "Show the restaurant menu page layout",
+            "expect": {}
+        },
+        {
+            "name": "the word settings alone is not an allowlisted setting",
+            "task": "Review the plugin settings screen copy",
+            "expect": {}
+        }
+    ]
+}

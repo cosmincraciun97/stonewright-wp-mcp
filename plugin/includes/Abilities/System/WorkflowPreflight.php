@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Context\SpecializationCatalog;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\ToolRouting;
 
 /**
  * One-call task preflight for faster, lower-token Stonewright workflows.
@@ -249,6 +250,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				$fast_path['design_implementation_contract'] = ImplementationContract::contract();
 			}
 		}
+		// Names the typed tool for the patterns the task mentions. Empty, and so
+		// omitted, for most tasks.
+		$routing_hint = ToolRouting::hint( ToolRouting::for_task( $task ), false );
+		if ( [] !== $routing_hint ) {
+			$fast_path['routing_hint'] = $routing_hint;
+		}
 
 		$configured_surface = AbilityRegistry::mcp_surface();
 		$suggested_profile  = (string) ( $tool_profile['suggested_profile'] ?? $tool_profile['profile'] ?? 'essential' );
@@ -371,6 +378,9 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( is_array( $context['design_direction_ref'] ?? null ) ) {
 			$response['context']['design_direction_ref'] = $context['design_direction_ref'];
 		}
+		if ( is_array( $context['agent_preferences'] ?? null ) && [] !== $context['agent_preferences'] ) {
+			$response['context']['agent_preferences'] = $context['agent_preferences'];
+		}
 
 		$visual_contract = is_array( $context['visual_quality_contract'] ?? null )
 			? $context['visual_quality_contract']
@@ -482,8 +492,9 @@ final class WorkflowPreflight extends AbilityKernel {
 		$custom = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
 		$incident_actions = array_values( array_slice( (array) ( $context['incident_actions'] ?? [] ), 0, 3 ) );
-		$direction_ref    = is_array( $context['design_direction_ref'] ?? null ) ? $context['design_direction_ref'] : [];
-		$direction_active = ! empty( $direction_ref['active'] );
+		$direction_ref     = is_array( $context['design_direction_ref'] ?? null ) ? $context['design_direction_ref'] : [];
+		$direction_active  = ! empty( $direction_ref['active'] );
+		$agent_preferences = is_array( $context['agent_preferences'] ?? null ) ? $context['agent_preferences'] : [];
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
 			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
@@ -522,6 +533,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'contract_hash' => (string) ( $direction_ref['contract_hash'] ?? '' ),
 				'tool'          => 'stonewright-design-direction-brief',
 			];
+		}
+		if ( [] !== $agent_preferences ) {
+			$compact_context['agent_preferences'] = $agent_preferences;
 		}
 		$quality_contract = is_array( $context['visual_quality_contract'] ?? null )
 			? $context['visual_quality_contract']
@@ -624,7 +638,21 @@ final class WorkflowPreflight extends AbilityKernel {
 			unset( $compact_response['changed_keys'] );
 		}
 
-		return self::fit_compact_payload_to_budget( $compact_response );
+		$fitted = self::fit_compact_payload_to_budget( $compact_response );
+
+		// The routing hint is optional guidance: it joins the compact payload only
+		// when the payload still fits, and never costs another field its place.
+		$routing_hint = is_array( $fast_path['routing_hint'] ?? null ) ? $fast_path['routing_hint'] : [];
+		if ( [] !== $routing_hint ) {
+			$with_hint = $fitted;
+			$with_hint['fast_path']['routing_hint'] = $routing_hint;
+			$encoded = wp_json_encode( $with_hint );
+			if ( is_string( $encoded ) && strlen( $encoded ) < self::COMPACT_PAYLOAD_MAX_BYTES ) {
+				return $with_hint;
+			}
+		}
+
+		return $fitted;
 	}
 
 	/**

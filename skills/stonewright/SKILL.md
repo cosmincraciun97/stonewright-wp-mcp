@@ -52,14 +52,22 @@ Honor site policy from compact `stonewright-task-start`:
   instructions (truncated to 400 characters). Treat it as binding. Use
   `responseMode=full` when you need the rest.
 - `context.design_direction_ref` means a Design Direction is active. Call
-  `stonewright-design-direction-brief` before visual writes. Pluginless Direct
-  cannot see wp-admin Context or Design.
+  `stonewright-design-direction-brief` before visual writes. The MCP server
+  instructions you read on connect name the same direction on one line.
+  Pluginless Direct cannot see wp-admin Context or Design.
+- `context.agent_preferences`, when present, lists site preferences as
+  `key: value` pairs. Follow them.
+- `fast_path.routing_hint`, when present, names the typed tool for post meta,
+  option, Elementor data, or menu work the task mentions. A `routing_hint` in a
+  `stonewright-php-execute` response does the same for the snippet that ran.
+  Prefer the named tool; `php-execute` is never blocked.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
 ability surface. Use preflight's inlined tool profile first; use
 `stonewright-tool-profile` only to switch or verify a compact low-tools,
-Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
+Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile, or the
+read-only `inspect` profile when the task is to look and not to change. Use
 `low-tools` for Antigravity, Gemini API, or other strict tool-cap clients; it
 keeps the client-visible startup surface under 30 tools before the agent
 switches to a specialist profile.

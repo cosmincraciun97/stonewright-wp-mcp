@@ -11,7 +11,7 @@ describe('command tools profile truth', () => {
 			expect(names, profile).toContain('stonewright-command-get');
 			expect(names, profile).toContain('stonewright-command-run');
 		}
-		for (const profile of ['low-tools', 'bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg']) {
+		for (const profile of ['low-tools', 'bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'inspect']) {
 			const names = toolVisibilityChecks({ STONEWRIGHT_MCP_TOOL_PROFILE: profile });
 			expect(names, profile).not.toContain('stonewright-command-list');
 			expect(names, profile).not.toContain('stonewright-command-get');
@@ -205,6 +205,61 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-job-status',
 		]);
 		expect(profile.tool_visibility_checks).not.toContain('companion_wp_cli_run');
+	});
+
+	it('describes an inspect companion profile as read-only', () => {
+		const profile = buildSetupProfile(
+			{
+				STONEWRIGHT_WP_URL: 'http://mcp-test.local',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'inspect',
+			},
+			'win32',
+		);
+
+		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('inspect');
+		expect(profile.tool_inventory.profile).toBe('inspect');
+		expect(profile.tool_visibility_checks).toEqual(expect.arrayContaining([
+			'stonewright-task-start',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-elementor-v3-get-page-structure',
+		]));
+		for (const forbidden of [
+			'stonewright-php-execute',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+			'stonewright-wp-cli-install',
+			'stonewright-command-run',
+		]) {
+			expect(profile.tool_visibility_checks, forbidden).not.toContain(forbidden);
+			expect(profile.agent_use_instead, forbidden).not.toContain(forbidden);
+		}
+		expect(profile.tool_inventory.direct_wp_cli_tool_names).toEqual([
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+		]);
+		// The profile has no php-execute, so a client is never told to refresh for it.
+		expect(profile.tool_inventory.refresh_required_tool_names).not.toContain('stonewright-php-execute');
+		expect(profile.tool_inventory.token_notes.join('\n')).not.toContain('Use stonewright-php-execute');
+		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=inspect is read-only');
+	});
+
+	it('keeps inspect read-only in Direct mode too', () => {
+		const profile = buildSetupProfile(
+			{
+				STONEWRIGHT_WP_URL: 'http://mcp-test.local',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'inspect',
+			},
+			'win32',
+			{ mode: 'direct' },
+		);
+
+		for (const forbidden of ['stonewright-wp-cli-run', 'stonewright-wp-cli-batch-run', 'stonewright-wp-cli-job-start']) {
+			expect(profile.agent_use_instead, forbidden).not.toContain(forbidden);
+			expect(profile.tool_visibility_checks, forbidden).not.toContain(forbidden);
+		}
 	});
 
 	it('normalizes legacy proxy profile input into the emitted tool profile', () => {

@@ -462,6 +462,81 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-sandbox-write');
 	});
 
+	it('registers no write, runtime, or WP-CLI run tool for the read-only inspect profile', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'inspect',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				...proxyToolNamesForProfile('inspect').map((name) => ({ name })),
+				{ name: 'stonewright-php-execute' },
+				{ name: 'stonewright-execute-ability' },
+				{ name: 'stonewright-elementor-v3-batch-mutate' },
+				{ name: 'stonewright-settings-update' },
+				{ name: 'stonewright-content-bulk-upsert-posts' },
+			]),
+		});
+
+		const names = registeredToolNames(server);
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				tool_profile?: string;
+				local_tool_names?: string[];
+				tool_inventory?: { profile?: string; refresh_required_tool_names?: string[] };
+			};
+		};
+
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-task-start',
+			'stonewright-tool-profile',
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-elementor-v3-get-page-structure',
+			'stonewright-elementor-post-write-verify',
+		]));
+		for (const forbidden of [
+			'stonewright-php-execute',
+			'stonewright-execute-ability',
+			'stonewright-elementor-v3-batch-mutate',
+			'stonewright-settings-update',
+			'stonewright-content-bulk-upsert-posts',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+			'stonewright-wp-cli-install',
+			'stonewright-command-list',
+			'stonewright-command-run',
+			'companion_wp_cli_run',
+			'companion_wp_cli_batch_run',
+			'companion_wp_cli_install',
+		]) {
+			expect(names, forbidden).not.toContain(forbidden);
+		}
+		expect(response.structuredContent?.tool_profile).toBe('inspect');
+		expect(response.structuredContent?.tool_inventory?.profile).toBe('inspect');
+		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining(['stonewright-wp-cli-run']));
+		// A read-only surface never asks the client to refresh for php-execute.
+		expect(response.structuredContent?.tool_inventory?.refresh_required_tool_names).not.toContain('stonewright-php-execute');
+	});
+
+	it('tells an inspect session that it is read-only and how to leave', async () => {
+		const server = await createMcpServer({ env: { STONEWRIGHT_MCP_TOOL_PROFILE: 'inspect' } });
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
+		const instructions = (server as any).server._instructions as string | undefined;
+
+		expect(instructions).toContain('inspect');
+		expect(instructions).toContain('read-only');
+		expect(instructions).toContain('stonewright-tool-profile');
+		expect(instructions).not.toContain('Use stonewright-php-execute for direct full WordPress runtime access');
+	});
+
 	it('defaults proxied WordPress MCP tools to the essential-static profile', async () => {
 		const server = await createMcpServer({
 			env: {

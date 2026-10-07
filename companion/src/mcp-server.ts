@@ -25,6 +25,7 @@ import { MCP_MISSING_BOOTSTRAP_STOP, buildToolInventory } from './setup-profile.
 import { OAuthReauthRequiredError } from './oauth-token-manager.js';
 import { PluginTransportError } from './connection/transport-diagnostic.js';
 import {
+	INSPECT_LOCAL_TOOL_NAMES,
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
 	emitToolListChanged,
@@ -733,6 +734,10 @@ function directToolProfileFromEnv(env: NodeJS.ProcessEnv, profile: ProxyToolProf
 	if (['bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(explicit)) {
 		return explicit as DirectToolProfile;
 	}
+	// Direct has no inspect surface. Its bootstrap surface has no tool that writes site content.
+	if (profile === 'inspect') {
+		return 'bootstrap';
+	}
 	if (['bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(profile)) {
 		return profile as DirectToolProfile;
 	}
@@ -786,6 +791,15 @@ function companionInstructions(
 		lines.push('- This session is strict-cap mode: keep STONEWRIGHT_MCP_TOOL_PROFILE=low-tools, use the visible fast-path tools, and switch to a specialist profile only when required.');
 	}
 
+	if (profile === 'inspect') {
+		// A read-only session names no runtime, WP-CLI run, or batch tool.
+		return [
+			...lines.filter((line) => !/php-execute|wp-cli-(?:run|batch-run|job-start|job-status|install)/.test(line)),
+			'- This session uses the read-only inspect profile: discovery, read, and verify tools only. To change something, call stonewright-tool-profile for the profile that owns the write (for example elementor-design, gutenberg, content-model, or site-admin).',
+			'- Do not run wp commands in a normal shell. Use stonewright-wp-cli-status and stonewright-wp-cli-discover for read-only WP-CLI diagnostics.',
+		].join('\n');
+	}
+
 	return lines.join('\n');
 }
 
@@ -804,10 +818,12 @@ function missingProfileTools(profileToolNames: string[], registeredToolNames: st
 }
 
 function localRecoveryToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
+	if (profile === 'inspect') return INSPECT_LOCAL_TOOL_NAMES;
 	return profile === 'low-tools' ? LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES : LOCAL_RECOVERY_TOOL_NAMES;
 }
 
 function localToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
+	if (profile === 'inspect') return INSPECT_LOCAL_TOOL_NAMES;
 	if (profile === 'low-tools') return LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES;
 	return profile === 'full' ? LOCAL_TOOL_NAMES : LOCAL_RECOVERY_TOOL_NAMES;
 }
@@ -897,6 +913,11 @@ function registerWpCliTools(
 			},
 			async (input) => toolResponse(await runWpCliBatch(toWpCliInput(input) as WpCliBatchRunInput, undefined, env)),
 		);
+	}
+
+	// The read-only inspect profile registers no job tool: a job runs any tokenized WP-CLI command.
+	if (profile === 'inspect') {
+		return;
 	}
 
 	server.registerTool(

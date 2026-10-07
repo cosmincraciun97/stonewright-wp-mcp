@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
@@ -33,6 +34,12 @@ final class AgentInstructions {
 			'- Never run wp commands in a normal shell; use Stonewright wp-cli status, discover, run, or batch-run tools.',
 			'- Do not use another MCP adapter execute-php to replace Stonewright php-execute.',
 		];
+
+		// Active Design Direction pointer and agent preferences, from the same
+		// source as the task-start context.
+		foreach ( AgentHints::connect_lines() as $line ) {
+			$parts[] = $line;
+		}
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
 		$custom_instructions  = trim( (string) get_option( 'stonewright_custom_instructions', '' ) );

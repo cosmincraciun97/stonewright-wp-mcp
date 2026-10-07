@@ -135,7 +135,7 @@ Public tool surface for MCP clients: `bootstrap` | `essential` | `full`.
 
 - **bootstrap** — minimal first-call set (task-start / profile / recovery). `php-execute` is not on bootstrap.
 - **essential** — compact day-to-day Elementor/content fast path (default for new installs when set on activation).
-- **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface.
+- **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface. Opt-in `inspect` is a read-only profile (discovery, read, and verify tools; no `php-execute`); activating it adds its tools to the session and never changes the saved surface.
 
 Toggle in **Stonewright → Setup**. Contracts for the public ability list live in
 `docs/contracts/public-api-v1.json` (regenerate with `composer contracts:generate`).

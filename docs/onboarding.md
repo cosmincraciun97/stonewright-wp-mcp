@@ -80,7 +80,9 @@ skills, persistent memory (site-hosted in plugin mode; `~/.stonewright/` in
 Direct mode), workflow followups, and the short-lived write token /
 confirmation guidance needed by write tools. Call
 `stonewright-design-direction-brief` when `context.design_direction_ref` is
-present. Pluginless Direct cannot see wp-admin Context or Design.
+present. The MCP server instructions a client reads on connect name the active
+Design Direction too, so it is known before the first call. Pluginless Direct
+cannot see wp-admin Context or Design.
 
 If neither `stonewright-task-start` nor compatibility
 `stonewright-context-bootstrap` is visible in the tool list, the MCP server
