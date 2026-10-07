@@ -341,44 +341,34 @@ final class CssAssetTransactionTest extends TestCase {
 		}
 	}
 
+	/**
+	 * The restore temp exists only between its write and its rename, so the test inspects it
+	 * from inside that rename (Fixtures/RestoreRenameSpy.php). The spy is a function in the
+	 * production namespace that a process cannot unload, hence the separate process.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_atomic_restore_uses_same_directory_temps_with_ignored_prefix(): void {
-		if ( ! function_exists( 'pcntl_fork' ) ) {
-			self::markTestSkipped( 'pcntl_fork is required to observe CSS restore temps.' );
-		}
+		require_once __DIR__ . '/Fixtures/RestoreRenameSpy.php';
+
 		$payload = str_repeat( "old-post-\n", 65536 );
 		$this->write( 'post-701.css', $payload );
 		$this->write( 'post-999.css', 'sibling' );
-		$log = tempnam( sys_get_temp_dir(), 'stonewright-css-watch-' );
-		self::assertIsString( $log );
-		$css_dir = $this->css_dir;
-		$pid     = pcntl_fork();
-		self::assertNotSame( -1, $pid );
-		if ( 0 === $pid ) {
-			$end = microtime( true ) + 3;
-			while ( microtime( true ) < $end ) {
-				$names = @scandir( $css_dir );
-				if ( ! is_array( $names ) ) {
-					continue;
-				}
-				foreach ( $names as $name ) {
-					if ( '.' === $name || '..' === $name ) {
-						continue;
-					}
-					if ( 1 === preg_match( '/\A\.stonewright-css-restore-[A-Za-z0-9]+\z/D', $name )
-						|| 1 === preg_match( '/\Astonewright-css-restore-[A-Za-z0-9]+\.tmp\z/D', $name ) ) {
-						file_put_contents( $log, 'restore-temp:' . $name . "\n", FILE_APPEND );
-						continue;
-					}
-					if ( 1 !== preg_match( '/\.css$/i', $name ) ) {
-						file_put_contents( $log, 'unexpected:' . $name . "\n", FILE_APPEND );
-					}
-				}
+		$css_dir = wp_normalize_path( $this->css_dir );
+		$renames = [];
+		$GLOBALS['stonewright_test_rename_spy'] = static function ( string $from, string $to ) use ( $css_dir, &$renames ): void {
+			if ( dirname( $from ) !== $css_dir ) {
+				return;
 			}
-			posix_kill( getmypid(), SIGKILL );
-			exit( 0 );
-		}
+			$renames[] = [
+				'from'    => basename( $from ),
+				'to'      => $to,
+				'bytes'   => (string) file_get_contents( $from ),
+				'listing' => array_values( array_diff( (array) scandir( $css_dir ), [ '.', '..' ] ) ),
+			];
+		};
 
-		usleep( 5000 );
 		try {
 			$result = CssAssetTransaction::run(
 				$this->target( 701 ),
@@ -389,17 +379,28 @@ final class CssAssetTransactionTest extends TestCase {
 				}
 			);
 		} finally {
-			posix_kill( $pid, SIGTERM );
-			pcntl_waitpid( $pid, $status );
-			$seen = trim( (string) file_get_contents( $log ) );
-			@unlink( $log );
+			unset( $GLOBALS['stonewright_test_rename_spy'] );
 		}
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
-		self::assertStringContainsString( 'restore-temp:.stonewright-css-restore-', $seen );
-		self::assertStringNotContainsString( 'unexpected:', $seen );
+		self::assertSame( $payload, $this->read( 'post-701.css' ) );
+
+		$restored = [];
+		foreach ( $renames as $rename ) {
+			self::assertMatchesRegularExpression( '/\A\.stonewright-css-restore-[A-Za-z0-9]+\z/D', $rename['from'], 'the temp is created in the CSS directory under the ignored prefix' );
+			$restored[ basename( $rename['to'] ) ] = $rename['bytes'];
+			self::assertSame( $css_dir, dirname( $rename['to'] ), 'the temp is renamed within the same directory' );
+			foreach ( $rename['listing'] as $name ) {
+				if ( $name === $rename['from'] ) {
+					continue;
+				}
+				self::assertMatchesRegularExpression( '/\.css$/i', $name, 'no file other than the temp and the CSS assets exists during the restore' );
+			}
+		}
+		ksort( $restored );
+		self::assertSame( [ 'post-701.css' => $payload, 'post-999.css' => 'sibling' ], $restored, 'every restored asset is written through a temp holding its complete bytes' );
 		foreach ( scandir( $this->css_dir ) ?: [] as $name ) {
 			if ( '.' === $name || '..' === $name ) {
 				continue;
