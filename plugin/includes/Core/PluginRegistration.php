@@ -98,6 +98,7 @@ final class PluginRegistration {
 		add_action( 'wp_abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
+		McpSchemaWire::register();
 		add_action( 'plugins_loaded', [ self::class, 'maybe_boot_mcp_adapter' ], 99 );
 
 		// Rescue themes that forgot to declare `add_theme_support( 'elementor-pro' )`

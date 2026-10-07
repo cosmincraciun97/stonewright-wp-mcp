@@ -101,7 +101,7 @@ final class WidgetImplementationGuide {
 			'widget'                => $slug,
 			'title'                 => (string) ( $entry['title'] ?? $slug ),
 			'ability'               => 'stonewright/elementor-v3-batch-mutate',
-			'legacy_ability'        => 'stonewright/elementor-add-' . $slug,
+			'legacy_ability'        => 'stonewright/elementor-add-' . str_replace( '_', '-', $slug ),
 			'legacy_deprecated'     => true,
 			'needs_online_research' => ! $known || count( $control_map['Content'] ) < 2 || count( $control_map['Style'] ) < 2,
 			'required_controls'     => $control_map,

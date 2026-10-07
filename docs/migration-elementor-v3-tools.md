@@ -39,7 +39,7 @@ removed.
 | `stonewright/elementor-add-flip-box` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-gallery` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-global` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
-| `stonewright/elementor-add-google_maps` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
+| `stonewright/elementor-add-google-maps` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-heading` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-hotspot` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-html` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |

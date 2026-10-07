@@ -241,16 +241,22 @@ final class ToolProfile extends AbilityKernel {
 					],
 				],
 				'tools'                 => [
-					'type'  => 'array',
-					'items' => [
-						'type'       => 'object',
-						'properties' => [
-							'ability'  => [ 'type' => 'string' ],
-							'mcp_tool' => [ 'type' => 'string' ],
-							'priority' => [ 'type' => 'integer' ],
-							'why'      => [ 'type' => 'string' ],
+					'type'        => 'array',
+					'description' => 'activate: one object per tool. resolve: the ordered MCP tool names.',
+					'items'       => [
+						'oneOf' => [
+							[ 'type' => 'string' ],
+							[
+								'type'       => 'object',
+								'properties' => [
+									'ability'  => [ 'type' => 'string' ],
+									'mcp_tool' => [ 'type' => 'string' ],
+									'priority' => [ 'type' => 'integer' ],
+									'why'      => [ 'type' => 'string' ],
+								],
+								'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
+							],
 						],
-						'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
 					],
 				],
 				'recovery_hints'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -384,6 +390,9 @@ final class ToolProfile extends AbilityKernel {
 				'next_best_tools'       => self::next_best_tools( $profile, $tool_groups, $task, $surface, $intent ),
 				'recovery_hints'        => self::recovery_hints( $missing_names ),
 				'discovery_policy'      => self::discovery_policy(),
+				'profiles_available'    => self::profile_names(),
+				'workflow_rules'        => self::workflow_rules( $profile ),
+				'token_rules'           => self::token_rules(),
 				'ordered'              => true,
 				'source'               => 'plugin',
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),

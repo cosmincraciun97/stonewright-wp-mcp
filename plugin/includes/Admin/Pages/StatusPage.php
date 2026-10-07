@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin\Pages;
 
 use Stonewright\WpMcp\Abilities\Site\SitePulse;
-use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
@@ -49,9 +49,7 @@ final class StatusPage {
 		$elementor_pro  = class_exists( 'ElementorPro\Plugin' );
 		$recent_entries = AuditLog::recent( 8, 1 );
 		$daily_counts   = AuditLog::daily_counts( 14 );
-		$abilities      = AbilityRegistry::all_abilities();
-		$disabled       = (array) get_option( 'stonewright_disabled_abilities', [] );
-		$tool_count     = max( 0, count( $abilities ) - count( array_intersect( array_column( $abilities, 'name' ), $disabled ) ) );
+		$tool_count     = LiveAbilities::exposed_count();
 		$skills_count   = count( SkillLibraryService::open( WordPressBoundary::ADMIN )->records() );
 		$memory_count   = count( Memory::list_all( 10000 ) );
 		$last_activity  = $recent_entries[0]['created_at'] ?? '';

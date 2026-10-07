@@ -64,7 +64,8 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 	}
 
 	public function name(): string {
-		return 'stonewright/elementor-add-' . $this->slug();
+		// Ability names allow lowercase letters, digits and dashes only; catalog slugs may use underscores.
+		return 'stonewright/elementor-add-' . str_replace( '_', '-', $this->slug() );
 	}
 
 	public function label(): string {

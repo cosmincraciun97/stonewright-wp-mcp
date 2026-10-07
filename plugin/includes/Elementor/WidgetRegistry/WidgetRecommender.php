@@ -43,7 +43,7 @@ final class WidgetRecommender {
 				'title'               => (string) ( $entry['title'] ?? $slug ),
 				'source'              => (string) ( $entry['source'] ?? 'free' ),
 				'ability'             => 'stonewright/elementor-v3-batch-mutate',
-				'legacy_ability'      => 'stonewright/elementor-add-' . $slug,
+				'legacy_ability'      => 'stonewright/elementor-add-' . str_replace( '_', '-', $slug ),
 				'score'               => $score,
 				'reasons'             => array_values( array_unique( $reasons ) ),
 				'required_for_render' => array_values( array_filter( (array) ( $entry['required_for_render'] ?? [] ), 'is_string' ) ),

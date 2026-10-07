@@ -181,7 +181,7 @@ PHP;
 		'expect'  => 'wp_error',
 	];
 
-	$fixture_slug = 'elementor-add-' . $slug;
+	$fixture_slug = 'elementor-add-' . str_replace( '_', '-', $slug );
 	file_put_contents(
 		$fixtures_dir . '/' . $fixture_slug . '.json',
 		json_encode( $positive_fixture, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n"

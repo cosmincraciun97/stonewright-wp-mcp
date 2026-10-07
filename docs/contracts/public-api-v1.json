@@ -1,9 +1,11 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T02:37:27+00:00",
+    "generated_at": "2026-10-07T02:43:02+00:00",
     "allowlist": {
         "removed": [],
-        "renamed": {},
+        "renamed": {
+            "stonewright/elementor-add-google_maps": "stonewright/elementor-add-google-maps"
+        },
         "schema_changes": [
             "stonewright/context-bootstrap",
             "stonewright/blocks-batch-mutate",
@@ -28,6 +30,7 @@
             "stonewright/elementor-css-regenerate",
             "stonewright/elementor-post-write-verify",
             "stonewright/elementor-wire-loop",
+            "stonewright/site-environment",
             "stonewright/custom-code-provider",
             "stonewright/elementor-v4-update-node",
             "stonewright/theme-backup-restore",
@@ -2116,8 +2119,8 @@
             }
         },
         {
-            "ability_name": "stonewright/elementor-add-google_maps",
-            "mcp_name": "stonewright-elementor-add-google_maps",
+            "ability_name": "stonewright/elementor-add-google-maps",
+            "mcp_name": "stonewright-elementor-add-google-maps",
             "kind": "Write",
             "input_schema_hash": "be6b4cbb479d3803ee5c32f64e2eff19998f1e2803035f2876b469f07a6d9805",
             "output_schema_hash": "3ddc71c78ba788216f54aa35bac426eb4188d83052d3ec9ef4b33a2fb4c0853a",
@@ -6400,7 +6403,7 @@
             "mcp_name": "stonewright-site-environment",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "2f11d1e4f723b191ae802c32f2902554838530b33097bfacbe084693763d6e54",
+            "output_schema_hash": "ec3b2e39aaeb37f59b825a27a6f581ef598f4ffb7940601682f8ae6b12900612",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
@@ -7100,7 +7103,7 @@
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
             "input_schema_hash": "0665e256823aa45492da915efd0d4dd84c687bffbf654ef91d3029422f2ab7cc",
-            "output_schema_hash": "97992287d4738c74c674c0a512adfcf03fce9a35bb12f17f117b167f7ada7f7f",
+            "output_schema_hash": "bc1c02e14a635233e37c132a04f4acd0b900015d7d112daee68dfac60d3cb09a",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

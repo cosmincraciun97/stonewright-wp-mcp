@@ -377,4 +377,22 @@ final class PublicApiContractTest extends TestCase {
 			$this->assertSame( $registered, $row['annotations'], $class );
 		}
 	}
+
+	public function test_encoded_contract_keeps_recorded_renames_and_writes_an_empty_map_as_an_object(): void {
+		$document = [
+			'version'   => 1,
+			'allowlist' => [
+				'removed'        => [],
+				'renamed'        => (object) [ 'stonewright/old-name' => 'stonewright/new-name' ],
+				'schema_changes' => [],
+			],
+			'abilities' => [],
+		];
+
+		$decoded = json_decode( PublicApiContractSnapshot::encode_document( $document ), true, 512, JSON_THROW_ON_ERROR );
+		$this->assertSame( [ 'stonewright/old-name' => 'stonewright/new-name' ], $decoded['allowlist']['renamed'] );
+
+		$document['allowlist']['renamed'] = [];
+		$this->assertStringContainsString( '"renamed": {}', PublicApiContractSnapshot::encode_document( $document ) );
+	}
 }

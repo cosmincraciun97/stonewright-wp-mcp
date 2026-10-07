@@ -116,6 +116,38 @@ final class RestParityAbilitiesSmokeTest extends TestCase {
 		}
 	}
 
+	public function test_search_query_total_is_the_number_of_matches_not_the_page_size(): void {
+		$GLOBALS['stonewright_test_search_posts']       = [
+			(object) [ 'ID' => 11, 'post_title' => 'One', 'post_type' => 'post', 'post_status' => 'publish', 'post_modified' => '2026-01-01' ],
+			(object) [ 'ID' => 12, 'post_title' => 'Two', 'post_type' => 'post', 'post_status' => 'publish', 'post_modified' => '2026-01-01' ],
+			(object) [ 'ID' => 13, 'post_title' => 'Three', 'post_type' => 'post', 'post_status' => 'publish', 'post_modified' => '2026-01-01' ],
+		];
+		$GLOBALS['stonewright_test_search_found_posts'] = 13;
+
+		$result = ( new SearchQuery() )->execute( [ 'search' => 'x', 'per_page' => 3 ] );
+		unset( $GLOBALS['stonewright_test_search_found_posts'] );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 3, $result['items'] );
+		$this->assertSame( 13, $result['total'] );
+	}
+
+	public function test_search_query_total_does_not_count_matches_the_caller_may_not_read(): void {
+		$GLOBALS['stonewright_test_user_caps']          = [ 'read' => true ];
+		$GLOBALS['stonewright_test_search_posts']       = [
+			(object) [ 'ID' => 11, 'post_title' => 'Public', 'post_type' => 'post', 'post_status' => 'publish', 'post_modified' => '2026-01-01' ],
+			(object) [ 'ID' => 12, 'post_title' => 'Draft secret', 'post_type' => 'post', 'post_status' => 'draft', 'post_modified' => '2026-01-01' ],
+		];
+		$GLOBALS['stonewright_test_search_found_posts'] = 9;
+
+		$result = ( new SearchQuery() )->execute( [ 'search' => 'x', 'per_page' => 2 ] );
+		unset( $GLOBALS['stonewright_test_search_found_posts'] );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 1, $result['items'] );
+		$this->assertSame( 8, $result['total'] );
+	}
+
 	public function test_widget_save_requires_token_in_production_safe(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 		$result = ( new \Stonewright\WpMcp\Abilities\Widgets\WidgetSave() )->execute(

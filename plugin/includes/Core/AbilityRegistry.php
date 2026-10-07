@@ -1560,7 +1560,7 @@ final class AbilityRegistry {
 	 * @param array{profile:string, ability_names:list<string>}|null $session
 	 */
 	private static function count_enabled_for_surface( string $surface, ?array $session ): int {
-		return count( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ) );
+		return LiveAbilities::count_registered( array_column( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ), 'name' ) );
 	}
 
 	private static function session_profile_transient_key(): ?string {

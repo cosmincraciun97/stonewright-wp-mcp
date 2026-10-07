@@ -117,7 +117,7 @@ return [
 	'stonewright/elementor-add-flip-box' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-add-gallery' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-add-global' => [ 'write' => true, 'external' => false ],
-	'stonewright/elementor-add-google_maps' => [ 'write' => true, 'external' => false ],
+	'stonewright/elementor-add-google-maps' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-add-heading' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-add-hotspot' => [ 'write' => true, 'external' => false ],
 	'stonewright/elementor-add-html' => [ 'write' => true, 'external' => false ],
