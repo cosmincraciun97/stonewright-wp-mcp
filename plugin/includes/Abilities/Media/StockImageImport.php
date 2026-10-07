@@ -30,6 +30,19 @@ final class StockImageImport extends AbilityKernel {
 		return 'media';
 	}
 
+	/**
+	 * Adds an attachment to the media library; nothing that exists is overwritten.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

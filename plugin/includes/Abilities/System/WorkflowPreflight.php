@@ -61,6 +61,21 @@ final class WorkflowPreflight extends AbilityKernel {
 		return 'system';
 	}
 
+	/**
+	 * Issues the short-lived context token and marks the session as started, so a client must not treat the call as read-only.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

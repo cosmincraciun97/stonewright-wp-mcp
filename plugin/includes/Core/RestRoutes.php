@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
+use Stonewright\WpMcp\Support\ClientSchema;
 use Stonewright\WpMcp\Support\Utf8;
 
 /**
@@ -100,7 +101,13 @@ final class RestRoutes {
 				'methods'             => 'GET',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
-					return rest_ensure_response( AbilityRegistry::all_abilities() );
+					$rows = [];
+					foreach ( AbilityRegistry::all_abilities() as $row ) {
+						// The schema leaves WordPress here, so it takes the form clients receive from core.
+						$row['input_schema'] = ClientSchema::prepare( $row['input_schema'] );
+						$rows[]              = $row;
+					}
+					return rest_ensure_response( $rows );
 				},
 			]
 		);

@@ -63,6 +63,19 @@ final class CreateCustomWidget extends AbilityKernel {
 		return 'elementor-widget';
 	}
 
+	/**
+	 * Writes the widget file under its slug without looking for an earlier one, so a repeat replaces the earlier widget.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

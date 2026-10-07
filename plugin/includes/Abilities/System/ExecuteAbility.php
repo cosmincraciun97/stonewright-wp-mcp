@@ -32,6 +32,22 @@ final class ExecuteAbility extends AbilityKernel {
 		return 'system';
 	}
 
+	/**
+	 * Runs any other ability, so it can do what that ability does: change or delete content and reach hosts outside the site.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'      => false,
+				'destructive'   => true,
+				'idempotent'    => false,
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

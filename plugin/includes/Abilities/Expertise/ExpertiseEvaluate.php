@@ -18,6 +18,19 @@ final class ExpertiseEvaluate extends AbilityKernel {
  return __( 'Runs the reproducible expertise eval corpus and returns score, critical failures, token/tool metrics, editability, semantics, and rollback.', 'stonewright' ); }
 	public function category(): string {
  return 'expertise'; }
+	/**
+	 * Records a scorecard; nothing that exists is overwritten.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

@@ -25,6 +25,19 @@ final class BatchRun extends WpCliAbility {
 		return __( 'Runs multiple tokenized WP-CLI commands through the companion in one request. Use responseMode=summary for token-efficient CPT UI, ACF, post, meta, term, option, and plugin command workflows.', 'stonewright' );
 	}
 
+	/**
+	 * WP-CLI commands can download from and call hosts outside the site.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

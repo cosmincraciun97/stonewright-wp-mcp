@@ -51,7 +51,10 @@ review, or normal WordPress security practice.
 When exposing the MCP server over HTTP:
 
 - bearer token required (short-lived JWT or WordPress Application Password)
-- `Origin` header validated against an allowlist
+- `Origin` header validated on the MCP routes `mcp/stonewright` and `mcp/stonewright-oauth`: a request
+  without an `Origin` passes, the site's own origin (home URL and site URL: scheme, host, and port) and
+  origins listed through the `stonewright_mcp_allowed_origins` filter pass, and any other origin is
+  refused with 403 and a JSON-RPC error body
 - requests rate-limited per token
 - DNS rebinding mitigation (host check)
 - session identifiers generated via `random_bytes(32)`

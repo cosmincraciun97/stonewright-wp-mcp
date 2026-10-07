@@ -109,6 +109,12 @@ The Application Password MCP endpoint (`/wp-json/mcp/stonewright`) and the
 dedicated OAuth resource (`/wp-json/mcp/stonewright-oauth`) use WordPress REST
 routing. Use HTTPS in all non-local environments.
 
+Both routes validate the `Origin` header before anything else runs: a request
+without one passes, the site's own origin (home URL and site URL: scheme, host,
+and port) and the origins listed through the `stonewright_mcp_allowed_origins`
+filter pass, and any other origin is refused with 403 and a JSON-RPC error body.
+See [Security](../docs/security.md#web-pages-calling-the-mcp-routes).
+
 The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress through tokenized WP-CLI execution. It uses `execFile` with argv tokens. Use `stonewright/php-execute` for PHP runtime snippets; WP-CLI PHP and shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require` remain blocked.
 
 ## Threat model
