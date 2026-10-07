@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Gutenberg\BrowserQueue;
 
+use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -25,14 +27,33 @@ final class QueueConsole {
 			return;
 		}
 		self::$attached = true;
+		self::add_to_menu_registry();
 		add_action( 'admin_menu', [ self::class, 'attach_page' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
 		add_action( 'rest_api_init', [ QueueEndpoint::class, 'attach_routes' ] );
 	}
 
+	/** The tab of the Activity hub. Idempotent: attach_hooks() and render() both make sure it exists. */
+	private static function add_to_menu_registry(): void {
+		MenuRegistry::add(
+			self::PAGE,
+			__( 'Block queue', 'stonewright' ),
+			'activity',
+			[
+				'order'       => 20,
+				'beta'        => true,
+				'in_menu'     => false,
+				'capability'  => 'edit_posts',
+				'lede'        => self::lede(),
+				'count'       => static fn (): int => BlockQueue::pending_count() + BlockQueue::failed_count(),
+				'count_label' => __( 'queued or failed changes', 'stonewright' ),
+			]
+		);
+	}
+
 	/** Registers the journal under options.php: reachable by URL for post editors, never listed in a menu. */
 	public static function attach_page(): void {
-		add_submenu_page( 'options.php', 'Block serialization journal', 'Block serialization journal', 'edit_posts', self::PAGE, [ self::class, 'render' ] );
+		add_submenu_page( 'options.php', __( 'Block queue', 'stonewright' ), __( 'Block queue', 'stonewright' ), 'edit_posts', self::PAGE, [ self::class, 'render' ] );
 	}
 
 	public static function session_link( string $token = '', string $session = '' ): string {
@@ -91,10 +112,17 @@ final class QueueConsole {
 		wp_add_inline_script( 'stonewright-block-queue', 'window.stonewrightBlockQueue=' . wp_json_encode( [ 'base' => rest_url( 'stonewright/v1/block-finalizer/' ), 'nonce' => wp_create_nonce( 'wp_rest' ), 'token' => is_array( $scope ) ? $token : '', 'mode' => get_option( 'stonewright_mode', 'development' ), 'native' => $native, 'targets' => $native ? [] : self::target_summaries(), 'maxBytes' => BlockQueue::MAX_SERIALIZED_BYTES ] ) . ';', 'before' );
 	}
 
+	private static function lede(): string {
+		return __( 'Keep this tab open while native editors prepare queued blocks. Content is saved only after the finalize ability verifies it.', 'stonewright' );
+	}
+
 	public static function render(): void {
 		if ( ! Permissions::edit_posts() ) {
 			wp_die( esc_html__( 'Queue access is unavailable.', 'stonewright' ) );
 		}
-		echo '<main class="wrap sw-queue-console"><h1>' . esc_html__( 'Block serialization journal', 'stonewright' ) . '</h1><p>' . esc_html__( 'Keep this tab open while native editors prepare queued blocks. Content is saved only after the finalize ability verifies it.', 'stonewright' ) . '</p><p data-queue-status role="status" aria-live="polite"></p><dl data-queue-counts></dl><button type="button" data-queue-resume>' . esc_html__( 'Resume processing', 'stonewright' ) . '</button><ol data-queue-journal></ol><div data-queue-frames hidden></div></main>';
+		self::add_to_menu_registry();
+		AdminShell::open( self::PAGE, [ 'title' => __( 'Block queue', 'stonewright' ), 'lede' => self::lede(), 'hub' => 'activity', 'beta' => true ] );
+		echo '<div class="sw-queue-console"><p data-queue-status role="status" aria-live="polite"></p><dl data-queue-counts></dl><button type="button" data-queue-resume>' . esc_html__( 'Resume processing', 'stonewright' ) . '</button><ol data-queue-journal></ol><div data-queue-frames hidden></div></div>';
+		AdminShell::close();
 	}
 }

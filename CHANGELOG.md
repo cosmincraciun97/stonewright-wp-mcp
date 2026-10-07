@@ -211,6 +211,32 @@ development builds were never stable releases.
   text and target size, accessible names, duplicate ids, notices in the drawer,
   primary button colour, motion, forced colours, and the nine WordPress admin
   colour schemes, on the pages and on a component sheet.
+- Add **Overview** as the page the Stonewright menu opens. It shows whether
+  abilities are on, the mode, the tool surface counted from the abilities
+  WordPress registered, the last activity and the state of the optional
+  bridge; a **Needs attention** table of open incidents, changes that need a
+  rollback or were not confirmed, failed or waiting block changes and an
+  unverified connection, each with a state word and one action; **Finish
+  setup** with the next step as the one primary button; recent activity with a
+  14-day sparkline; and the Site Pulse, Elementor, skill and memory facts the
+  Dashboard had. The address `page=stonewright-status` is unchanged.
+- Add a menu registry (`MenuRegistry`) and a sidebar order pass (`MenuOrder`).
+  Pages register their hub, tab, title and order once; the sidebar, the tab
+  bars, the page headers and the Help tabs read the same list. Rescue and the
+  block queue console register through it. The sidebar is ordered by hub:
+  Overview, Setup, AI Abilities, Knowledge, Custom code, Activity.
+- Add a tab bar under the page header for every hub with more than one page.
+  Knowledge holds Skills, Memory, Context, Design and Prompt library; Custom
+  code holds Drafts, Library, Active, Crash recovery and Approvals; Activity
+  holds Audit log, Block queue and Rescue; Setup holds Setup and Troubleshoot.
+  A tab shows a number for open incidents, queued or failed block changes and
+  changes needing a rollback, and a user sees only the tabs they can open.
+- Add a skip link to the shell, and two Help tabs on every Stonewright page:
+  "What is this page?" and "Glossary".
+- Add **Overview** and **Setup** links and a **Docs** link to the Stonewright row
+  on the Plugins screen, and open the Overview once after the first activation
+  (not after a bulk activation, in the network admin, or on a site that has
+  already chosen whether Stonewright is on).
 
 ### Changed
 
@@ -313,16 +339,14 @@ development builds were never stable releases.
   `skipped`) and `incident_id`; `theme_write_smoke_failed` keeps its code and
   carries the probe evidence. A theme-file write reports `verified` and
   `effect_verified` only when that check passed, and `unverified` otherwise.
-- Keep Stonewright's own notices where its pages print them. Only notices from
-  WordPress core and other plugins move into the collapsed "Other WordPress
-  notices" drawer, so the Code approval warning and guidance, the Setup mode
-  and bridge callouts, and the Memory explainer stay visible. A notice no
-  longer removes itself after five seconds.
-- Start the first heading nearer the top of every Stonewright page: at 256 px
-  instead of 400 px on a 1440 px screen (298 px instead of 496 px at 782 px,
-  390 px instead of 680 px at 400 px). The header scrolls with the page and the
-  notice drawer sits 12 px below it.
-- Show the Companion bridge on the Dashboard as a state ("Not used",
+- Keep Stonewright's own notices where its pages print them, so the Code
+  approval warning and guidance, the Setup mode and bridge callouts, and the
+  Memory explainer stay visible. A notice no longer removes itself after five
+  seconds.
+- Start the first heading nearer the top of every Stonewright page: within
+  120 px of the top of the screen at 1440 px and within 200 px at 390 px. The
+  page header scrolls with the page.
+- Show the Companion bridge on the Overview as a state ("Not used",
   "Configured", or "Needs attention") with its host and port, not the stored
   URL.
 - Draw the admin bar ON indicator in green with a dot. Name each switch on AI
@@ -332,9 +356,34 @@ development builds were never stable releases.
 - Set badge text at 12 px in sentence case instead of 10 px in capitals, and
   darken the muted text colour and the border of form controls so they meet
   4.5:1 and 3:1.
+- Replace the two-row dark header with one page header (title, a line of
+  explanation, status and the page's main action) and the hub's tab bar. The
+  WordPress sidebar is the only navigation. The sidebar now says Overview,
+  Custom code (was Workflows), Knowledge (the Skills landing page), Prompt
+  library (was Prompts), Block queue (was Block Editor Queue) and Activity
+  (the Audit log landing page); the page addresses did not change.
+- Say **Beta** in words, in the sidebar and in the page header with a visible
+  sentence, in place of the 8 to 9 px "EXP" marker and its hover-only tooltip.
+- Show the Sandbox tabs (Drafts, Library, Active, Crash recovery) in the Custom
+  code tab bar instead of a second row of tabs inside the page, and show the
+  block queue console inside the shell with the same header and tabs as the
+  other pages. The Rescue page and the console no longer print their own
+  heading.
+- Fold WordPress and other plugins' notices into the "Other WordPress notices"
+  disclosure only when more than three arrive; fewer stay where WordPress puts
+  them, under the page header, drawn the way WordPress draws them. The
+  disclosure is titled with its contents ("1 error, 3 notices") and starts open
+  when it holds an error or a warning.
+- Remove the Dashboard stylesheet `assets/admin/dashboard.css`; the Overview
+  uses the shared admin UI layer and `assets/admin/pages/overview.css`.
+- Make the shared layer's heading and paragraph reset outrank WordPress's
+  element margins, so a card title no longer carries 16 px above and below it,
+  and make a standalone link at least 24 px wide.
 
 ### Fixed
 
+- Draw the label of a Setup step that is still to do at full strength instead of
+  at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities
   WordPress registered, the same count the admin screens show, instead of the
   classes the plugin ships.

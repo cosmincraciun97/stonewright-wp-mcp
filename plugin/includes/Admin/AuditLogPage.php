@@ -133,11 +133,11 @@ final class AuditLogPage {
 	}
 
 	public static function add_submenu(): void {
-		// IA group: Safety & Diagnostics (nested with Memory/Skills) — slug unchanged.
+		// Hub: Activity. The slug stays stonewright-audit-log; MenuOrder names the sidebar entry.
 		add_submenu_page(
 			ConfigurationPage::SLUG,
-			__( 'Audit Log', 'stonewright' ),
-			__( 'Audit Log', 'stonewright' ),
+			__( 'Audit log', 'stonewright' ),
+			__( 'Audit log', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -163,13 +163,7 @@ final class AuditLogPage {
 
 		AdminShell::open( self::SLUG );
 		echo '<div class="sw-audit-page stonewright-audit-log-page" data-sw-audit-purge>';
-		echo '<header class="stonewright-page-header">';
-		echo '<div>';
-		echo '<h1>' . esc_html__( 'Audit Log', 'stonewright' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Every Stonewright mutation (abilities and stonewright/v1 write routes) records one redacted row here. The log is append-only; admins can purge the entire log from this page. Unrelated WordPress REST traffic is not logged.', 'stonewright' ) . '</p>';
-		echo '</div>';
 		self::render_header_actions( $filters, $all_count );
-		echo '</header>';
 		self::render_purge_confirm_card( $all_count );
 		$purged = isset( $_GET['purged'] ) ? max( 0, (int) $_GET['purged'] ) : null; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( null !== $purged ) {

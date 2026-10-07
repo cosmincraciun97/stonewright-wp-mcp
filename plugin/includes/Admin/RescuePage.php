@@ -46,6 +46,7 @@ final class RescuePage {
 	private static $safe_mode_resolver = null;
 
 	public static function register(): void {
+		self::add_to_menu_registry();
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_rescue_rollback', [ self::class, 'handle_rollback' ] );
 		add_action( 'admin_post_stonewright_rescue_recheck', [ self::class, 'handle_recheck' ] );
@@ -61,6 +62,21 @@ final class RescuePage {
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
+		);
+	}
+
+	/** The tab of the Activity hub. Idempotent: register() and render() both make sure it exists. */
+	private static function add_to_menu_registry(): void {
+		MenuRegistry::add(
+			self::SLUG,
+			__( 'Rescue', 'stonewright' ),
+			'activity',
+			[
+				'order'       => 30,
+				'lede'        => self::lede(),
+				'count'       => static fn (): int => count( ChangeJournal::open_incidents() ) + count( ChangeJournal::unconfirmed() ),
+				'count_label' => __( 'needing attention', 'stonewright' ),
+			]
 		);
 	}
 
@@ -94,6 +110,7 @@ final class RescuePage {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to view Stonewright Rescue.', 'stonewright' ) );
 		}
+		self::add_to_menu_registry();
 		// Bring in anything a fatal recorded while the database was unavailable.
 		ChangeJournal::sync_from_file();
 
@@ -115,9 +132,18 @@ final class RescuePage {
 		// so it gets no confirmation tokens.
 		$guarded     = Permissions::is_production_safe() && ! ProbeToken::is_probe_request();
 
-		AdminShell::open( self::SLUG );
+		ob_start();
+		self::render_safe_mode_action();
+		AdminShell::open(
+			self::SLUG,
+			[
+				'title'   => __( 'Rescue', 'stonewright' ),
+				'lede'    => self::lede(),
+				'hub'     => 'activity',
+				'actions' => (string) ob_get_clean(),
+			]
+		);
 		echo '<div class="sw-rescue-page stonewright-rescue-page" data-sw-rescue data-sw-rescue-probe="ok">';
-		self::render_header();
 		self::render_result();
 		if ( 'unavailable' === ChangeJournal::storage_status()['mirror'] ) {
 			echo '<div class="sw-rescue-notice sw-rescue-notice--warn" role="status"><p>' . esc_html__( 'The journal file could not be written, so a fatal cannot be matched to a change while the database is down. Rollbacks from this page still work. Check that the uploads folder is writable.', 'stonewright' ) . '</p></div>';
@@ -131,13 +157,8 @@ final class RescuePage {
 		AdminShell::close();
 	}
 
-	private static function render_header(): void {
-		echo '<header class="stonewright-page-header sw-rescue-header"><div>';
-		echo '<h1>' . esc_html__( 'Rescue', 'stonewright' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Roll back a change that stopped the site from loading, or check that it loads again.', 'stonewright' ) . '</p>';
-		echo '</div>';
-		self::render_safe_mode_action();
-		echo '</header>';
+	private static function lede(): string {
+		return __( 'Roll back a change that stopped the site from loading, or check that it loads again.', 'stonewright' );
 	}
 
 	private static function render_safe_mode_action(): void {

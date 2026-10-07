@@ -21,8 +21,8 @@ final class PromptLibraryPage {
 	public static function add_submenu(): void {
 		add_submenu_page(
 			'stonewright',
-			__( 'Prompt Library', 'stonewright' ),
-			__( 'Prompts', 'stonewright' ),
+			__( 'Prompt library', 'stonewright' ),
+			__( 'Prompt library', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -52,13 +52,6 @@ final class PromptLibraryPage {
 		AdminShell::open( self::SLUG );
 		?>
 		<div class="sw-prompts-page stonewright-prompt-library">
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Prompt Library', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Outcome-grouped starters for Plugin and Direct mode. Connect Stonewright first, copy only the prompt you need, and keep credentials out of chat.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
 			<div class="sw-prompt-safety" role="note">
 				<strong><?php esc_html_e( 'Every prompt starts with stonewright-task-start.', 'stonewright' ); ?></strong>
 				<?php esc_html_e( 'Mode badges show where it works. Prompts contain no site URL, username, Application Password, token, memory entry, or audit payload.', 'stonewright' ); ?>

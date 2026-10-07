@@ -32,11 +32,11 @@ final class SandboxPage {
 	}
 
 	public static function add_submenu(): void {
-		// IA group: Workflows — slug stonewright-sandbox unchanged.
+		// Hub: Custom code. The slug stays stonewright-sandbox; MenuOrder names the sidebar entry.
 		add_submenu_page(
 			'stonewright',
-			__( 'Sandbox', 'stonewright' ),
-			__( 'Workflows', 'stonewright' ),
+			__( 'Custom code', 'stonewright' ),
+			__( 'Custom code', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -54,32 +54,9 @@ final class SandboxPage {
 
 		// Tab routing — ?tab= query param selects the active tab.
 		$current_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'drafts'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$tabs = [
-			'drafts'         => __( 'Drafts', 'stonewright' ),
-			'library'        => __( 'Library', 'stonewright' ),
-			'mu-plugins'     => __( 'Active MU Plugins', 'stonewright' ),
-			'crash-recovery' => __( 'Crash Recovery', 'stonewright' ),
-		];
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
 		<div class="stonewright-sandbox-page">
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Draft, inspect, and activate reviewable PHP files without loading unreviewed code automatically.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
-			<nav class="sw-tabs" aria-label="<?php esc_attr_e( 'Sandbox sections', 'stonewright' ); ?>">
-				<?php foreach ( $tabs as $slug => $label ) : ?>
-					<a
-						href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'tab' => $slug ], admin_url( 'admin.php' ) ) ); ?>"
-						class="sw-tabs__link<?php echo $current_tab === $slug ? ' is-active' : ''; ?>"
-						<?php echo $current_tab === $slug ? ' aria-current="page"' : ''; ?>
-					><?php echo esc_html( $label ); ?></a>
-				<?php endforeach; ?>
-			</nav>
-
 			<div class="stonewright-tab-content">
 				<?php
 				match ( $current_tab ) {

@@ -56,7 +56,8 @@ final class TroubleshootPageRenderTest extends TestCase {
 		$html = self::render();
 
 		self::assertStringContainsString( 'data-sw-shell', $html );
-		self::assertStringContainsString( '<h1>Troubleshoot</h1>', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Troubleshoot</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
 		self::assertStringContainsString( 'Connection checks', $html );
 		self::assertStringContainsString( 'id="stonewright-diagnostics-form"', $html );
 		self::assertStringContainsString( 'name="action" value="stonewright_run_diagnostics"', $html );

@@ -1,6 +1,6 @@
 # Troubleshoot
 
-**Stonewright → Connect → Troubleshoot** diagnoses why an AI client cannot
+**Stonewright → Setup → Troubleshoot** (a tab next to Setup) diagnoses why an AI client cannot
 reach this WordPress site. The same panel also sits at the bottom of
 **Setup**. Source: `plugin/includes/Admin/Pages/TroubleshootPage.php` and
 `plugin/includes/Admin/DiagnosticsPanel.php`.

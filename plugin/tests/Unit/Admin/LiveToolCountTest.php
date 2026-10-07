@@ -140,7 +140,7 @@ final class LiveToolCountTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertMatchesRegularExpression(
-			'#<div class="sw-stat-card__value">' . ( $declared - 2 ) . '</div>\s*<div class="sw-stat-card__label">Tool surface</div>#',
+			'#<span class="sw-ui-stat__label">Tool surface</span><span class="sw-ui-stat__value">' . ( $declared - 2 ) . '</span>#',
 			$html
 		);
 	}

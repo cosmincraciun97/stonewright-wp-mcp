@@ -14,6 +14,8 @@ workflows with operator controls.
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
 - [Admin Troubleshoot](admin/troubleshoot.md)
+- [Admin navigation and page layout](admin/navigation.md)
+- [Admin Overview](admin/overview.md)
 - [Verified client versions and support tiers](verified-client-versions.md)
 - [Client acceptance template](releases/client-acceptance-template.md)
 - [Release acceptance report template](releases/acceptance-report-template.md)
@@ -42,7 +44,7 @@ workflows with operator controls.
 | Section | What is in it |
 |---|---|
 | `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, and Antigravity |
-| `admin/` | Configuration, Troubleshoot, client connection, abilities, and admin surface guides |
+| `admin/` | Navigation, Overview, Configuration, Troubleshoot, client connection, abilities, and admin surface guides |
 | `elementor/` | Elementor widget registry data and related references |
 | `releases/` | Release notes, tagging checklist, client certification and acceptance templates |
 | `onboarding.md` | First run, prompt template, visual workflow, skills, and memory |

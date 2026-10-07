@@ -496,9 +496,12 @@ repository follow the common MCP server JSON shape used by several clients.
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Troubleshoot, Dashboard (Site Pulse),
-Abilities, Prompts, Design, Skills, Memory, Context, Sandbox, Audit Log, and Rescue. The Audit Log is the single
-responsive incident view; Sandbox does not duplicate it. The admin ships one
+Plugin mode admin pages are grouped into six hubs under **Stonewright**: Overview,
+Setup (Setup and Troubleshoot), AI Abilities, Knowledge (Skills, Memory, Context,
+Design and Prompt library), Custom code (Drafts, Library, Active, Crash recovery and
+Approvals) and Activity (Audit log, Block queue and Rescue); see
+[docs/admin/navigation.md](docs/admin/navigation.md). The Audit log is the single
+responsive incident view; Custom code does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,
 component contracts, responsive rules, and page-by-page release checklist live
 in [DESIGN.md](DESIGN.md).
@@ -508,7 +511,7 @@ Workspace—is disabled. Its routes and prompt starters are not registered.
 Persistent user data and the typed MCP design/blueprint engines remain intact;
 `figma-to-native-pixel` remains the supported evidence-led design workflow.
 
-<!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
+<!-- Maintainer: add the Overview or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Audit Log or restore screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add an Elementor or Gutenberg agent workflow screenshot here. Do not remove this comment until the asset is available. -->
 

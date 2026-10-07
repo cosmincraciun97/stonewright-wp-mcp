@@ -305,7 +305,7 @@ seconds of its use receives the grant's current refresh token.
 
 ### Design abilities (MCP)
 
-The **Design** tab (`stonewright-design`) is registered under Workflows and
+The **Design** tab (`stonewright-design`) is part of the Knowledge hub and
 edits Design Directions. The `design-library` admin group is not: Design Studio,
 Visual Workspace, and Blueprints pages stay unregistered. Typed design,
 blueprint, and brand-kit abilities remain available over MCP; storage tables

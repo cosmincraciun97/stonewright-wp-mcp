@@ -38,7 +38,7 @@ final class MemoryInstructionsPage {
 		// IA group: Safety & Diagnostics — slug stonewright-memory unchanged.
 		add_submenu_page(
 			'stonewright',
-			__( 'Memory', 'stonewright' ),
+			__( 'Memory & instructions', 'stonewright' ),
 			__( 'Memory', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
@@ -138,13 +138,6 @@ final class MemoryInstructionsPage {
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
 		<div class="sw-memory-page stonewright-memory-page">
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Memory & Instructions', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Durable site knowledge for connected Stonewright sessions. Memory is saved only when an operator or ability writes it, and every entry stays auditable here.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
 			<?php self::render_import_notice(); ?>
 
 			<?php if ( ! Memory::table_schema_ok() ) : ?>

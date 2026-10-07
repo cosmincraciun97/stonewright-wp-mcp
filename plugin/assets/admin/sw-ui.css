@@ -294,14 +294,14 @@
 	box-sizing: border-box;
 }
 
-:where(.sw-ui) :where(h1, h2, h3, h4) {
+.sw-ui :where(h1, h2, h3, h4) {
 	margin: 0;
 	color: var(--sw-text);
 	font-weight: var(--sw-weight-semibold);
 	line-height: var(--sw-lh-tight);
 }
 
-:where(.sw-ui) :where(p, dl, dd, figure) {
+.sw-ui :where(p, dl, dd, figure) {
 	margin: 0;
 }
 
@@ -376,6 +376,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sw-space-1);
+	min-width: var(--sw-control-h-xs);
 	min-height: var(--sw-control-h-xs);
 	color: var(--sw-accent-text);
 }

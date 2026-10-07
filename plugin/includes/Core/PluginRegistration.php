@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBarIndicator;
+use Stonewright\WpMcp\Admin\ActivationRedirect;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
@@ -222,6 +223,8 @@ final class PluginRegistration {
 			update_option( 'stonewright_mcp_surface', 'essential', false );
 			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
+		// A first activation lands on the Overview; a site that already chose on or off is left where it is.
+		ActivationRedirect::arm();
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

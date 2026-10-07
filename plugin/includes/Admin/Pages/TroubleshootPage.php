@@ -25,7 +25,7 @@ final class TroubleshootPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Troubleshoot', 'stonewright' ),
-			AdminShell::experimental_menu_title( __( 'Troubleshoot', 'stonewright' ) ),
+			__( 'Troubleshoot', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -44,12 +44,6 @@ final class TroubleshootPage {
 		AdminShell::open( self::SLUG );
 		?>
 		<div class="sw-troubleshoot-page stonewright-troubleshoot-page">
-			<header class="sw-setup-header">
-				<div>
-					<h1><?php esc_html_e( 'Troubleshoot', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Diagnose why an AI client cannot connect to this WordPress site.', 'stonewright' ); ?></p>
-				</div>
-			</header>
 			<?php DiagnosticsPanel::render( self::SLUG, __( 'Connection checks', 'stonewright' ) ); ?>
 			<?php self::render_compatibility_preflight(); ?>
 			<?php self::render_elementor_provider_discovery(); ?>

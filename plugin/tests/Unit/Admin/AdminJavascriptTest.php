@@ -48,25 +48,62 @@ final class AdminJavascriptTest extends TestCase {
 		return substr( $script, (int) $start, false === $next ? null : $next - (int) $start );
 	}
 
-	public function test_the_shell_only_relocates_notices_wordpress_printed(): void {
+	public function test_the_shell_only_folds_notices_wordpress_printed(): void {
 		$body = self::shell_function( 'isForeignNotice' );
 
 		// Everything the plugin renders, and every class the plugin owns, is excluded.
-		self::assertStringContainsString( '.sw-shell__content', $body );
+		self::assertStringContainsString( '#sw-main', $body );
 		self::assertStringContainsString( '.sw-notice-drawer', $body );
 		self::assertMatchesRegularExpression( '/\(sw\|stonewright\)-/', $body, 'sw-* and stonewright-* classes mark plugin content wherever they sit in the class list.' );
 		// Only WordPress notice classes count; matching on any class that merely contains "notice" caught plugin markup.
 		self::assertStringNotContainsString( '/notice/i', $body );
 		self::assertStringContainsString( '.notice, .updated, .error, .update-nag', $body );
 
-		$collect = self::shell_function( 'collectForeignNotices' );
-		self::assertStringNotContainsString( '[class*="notice"]', $collect );
+		$fold = self::shell_function( 'foldNotices' );
+		self::assertStringNotContainsString( '[class*="notice"]', $fold );
+	}
+
+	public function test_notices_are_left_where_wordpress_prints_them_until_more_than_three_arrive(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$fold   = self::shell_function( 'foldNotices' );
+
+		self::assertStringContainsString( 'var MAX_VISIBLE = 3;', $script );
+		self::assertStringContainsString( '> MAX_VISIBLE', $fold, 'Folding starts above three notices.' );
+		// The drawer opens by itself when it holds an error or a warning, so those are never hidden behind a click.
+		self::assertMatchesRegularExpression( '/counts\.error > 0 \|\| counts\.warning > 0/', $fold );
+		self::assertStringContainsString( 'drawer.open = true', $fold );
+		// The title counts what is inside by kind, from words the server supplies.
+		self::assertStringContainsString( 'data-sw-notice-labels', $fold );
+		self::assertStringContainsString( 'severityOf', $fold );
+	}
+
+	public function test_the_plugins_own_notices_are_pinned_before_wordpress_moves_notices(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$pin    = self::shell_function( 'pinOwnNotices' );
+
+		self::assertStringContainsString( '#sw-main', $pin );
+		self::assertStringContainsString( "classList.add('inline')", $pin );
+		// WordPress moves every notice that is not `inline` when the page is ready, so the pin runs while the script loads.
+		$call  = strpos( $script, 'pinOwnNotices(printedShell)' );
+		$ready = strpos( $script, "
+	ready(function () {" );
+		self::assertNotFalse( $call );
+		self::assertNotFalse( $ready );
+		self::assertLessThan( (int) $ready, (int) $call, 'The pin is not inside the ready callback.' );
+	}
+
+	public function test_the_shell_script_builds_text_with_text_content_only(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+
+		self::assertStringNotContainsString( 'innerHTML', $script );
+		self::assertStringNotContainsString( 'insertAdjacentHTML', $script );
+		self::assertStringNotContainsString( 'sw-notice-drawer__count', $script, 'The count lives in the title now.' );
 	}
 
 	public function test_the_shell_offset_counts_only_chrome_that_stays_fixed(): void {
 		$body = self::shell_function( 'updateShellOffset' );
 
-		// The header scrolls with the page, so only the admin bar is fixed above the content.
+		// The page header scrolls with the page, so only the admin bar is fixed above the content.
 		self::assertStringContainsString( 'wpadminbar', $body );
 		self::assertStringNotContainsString( 'sw-shell__header', $body );
 	}

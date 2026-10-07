@@ -310,10 +310,30 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 - **ARIA tabs** (`sw-ui-tabs` with `data-sw-ui-tabs`): views inside one page. Roving `tabindex`, Arrow, Home and End keys, automatic activation, one visible panel.
 - **In-page navigation** (`sw-ui-toc`): anchors inside the page, the current one marked `aria-current="location"`.
 - **Filter chips** (`sw-ui-chip-filter`): `aria-pressed` buttons.
-- **Page header** (`Ui\PageHeader::render`): one row at least 56px tall with the title, an optional one-line lede (70 characters wide at most), and a right-hand place for badges and the primary action.
+- **Page header** (`Ui\PageHeader::render`): one row at least 56px tall with the title, an optional one-line lede (70 characters wide at most), and a right-hand place for badges and the primary action. The shell prints it; a page passes `title`, `lede` and `actions` to `AdminShell::open`.
 - **Sticky budget:** sticky and fixed chrome together (admin bar included) covers at most 25% of the viewport height, and nothing sticks below 783px except what the admin bar does. `sw-ui-toolbar--sticky` sticks under the admin bar from 783px up only.
 
-The pages that have not moved to the layer still print the dark product header and their own tab bars from `shell.css`; they follow the same sticky budget (the header is static, and the Abilities filter bar sticks under the admin bar from 783px up).
+### Page frame, navigation and notices
+
+Every Stonewright page is printed by `AdminShell::open( $slug, [ title, lede, actions, hub ] )` and closed by `AdminShell::close()`. The frame has four parts, in this order:
+
+1. **Skip link** (`a.screen-reader-shortcut` to `#sw-main`): the first stop inside the shell; it shows on focus and moves focus to the content region, so a keyboard user skips the header and the tab bar.
+2. **Page header** (`Ui\PageHeader`): the product eyebrow, the one `h1`, a one-line lede, and on the right the page's status and its primary action (`actions`). A page that is still changing carries a **Beta** badge with a visible one-line explanation; the sidebar entry says "Beta" in words too. There is no `EXP` marker and no hover-only explanation.
+3. **Hub tab bar** (`Ui\HubNav`): links to the pages of the hub the page belongs to, drawn from the menu registry. A hub with one page has none. Counts beside a tab (open incidents, queued or failed block changes, changes needing a rollback) are numbers with words for assistive technology. A user sees only the tabs they can open.
+4. **Content region** (`div#sw-main`, `tabindex="-1"`): the page itself. `hr.wp-header-end` sits between the header and the content, which is where WordPress puts the notices it prints.
+
+The WordPress sidebar is the only global navigation: there is no second navigation bar. It is ordered by hub (`MenuOrder`, one pass at the end of `admin_menu`): Overview, Setup, AI Abilities, Knowledge, Custom code, Activity. The first page of a hub carries the hub's name, the others their own; the top-level entry opens the Overview. Pages register their hub, tab and order once, in `MenuRegistry`; the sidebar, the tab bars, the headers and the Help tabs all read it.
+
+**Notice policy.**
+
+- A notice the plugin prints in its page content stays where the page printed it, and is never moved, folded or removed on a timer.
+- Notices WordPress and other plugins print stay where WordPress places them, drawn as core draws them.
+- When more than three of those arrive they fold into one disclosure under the header, titled with what it holds ("Other WordPress notices: 1 error, 3 notices"). It starts open whenever it holds an error or a warning.
+- An error never disappears by itself.
+
+**Help.** Every page has two native Help tabs: "What is this page?" (the lede, where the page sits and its neighbours) and "Glossary".
+
+The pages that have not moved to the layer keep their own content inside this frame and look as they did; a heading block that such a page prints for itself is hidden so the page keeps one `h1`. The same sticky budget holds: the header is static and the Abilities filter bar sticks under the admin bar from 783px up.
 
 ### Forms
 
@@ -425,35 +445,37 @@ Motion confirms what the user just did and shows where something came from. It n
 
 ## 9. Admin Surface Audit
 
-This is the release checklist for every Stonewright-owned wp-admin surface that is registered today. Design Studio, Visual Workspace and Blueprints are not registered pages and are not audited.
+This is the release checklist for every Stonewright-owned wp-admin surface that is registered today, grouped by the hub it belongs to. Design Studio, Visual Workspace and Blueprints are not registered pages and are not audited. Every page starts with the frame of section 5 (skip link, one page header, the hub's tab bar, notices under the header).
 
-| Surface | Primary job | Visual contract | Risk to re-check | Own states to verify |
-| --- | --- | --- | --- | --- |
-| Dashboard | Scan current operating state | One compact summary band, two evidence panels, metrics at 20px or below | Long mode, URL, and activity values wrap without changing cell width | no activity yet; companion not used; long values |
-| Setup | Connect and update safely | Numbered steps, grouped choices, readable code, explicit verification receipts | Release checks bypass stale caches; secrets never enter examples | signed-out client; failed check; copied; long command |
-| Troubleshoot | Diagnose a failed AI client connection | Diagnostic cards, status badges, in-place Run diagnostics with a loading spinner | The script path does not reload the page; the no-script form remains | running; all pass; a blocked route; long report |
-| AI Abilities | Search and gate tools | Filters that stick under the admin bar from 783px up, compact grouped rows, a named switch per row | Category actions do not depend on inline click handlers; every switch and select has a name | no match; read-only user; master switch off; 400+ rows |
-| Sandbox | Review code before activation | Clear tabs, readable file badges, explicit primary and destructive actions | Status text and payloads stay legible at narrow widths | no files; crashed file; long path |
-| Prompts | Find a safe task starter | Search-first catalog, grouped outcomes, copy action | Long prompt and tool text wraps inside its surface | no match; copied; long prompt |
-| Code Approval | Issue a scoped grant | The human-approval warning and the guidance stay in place; a labelled token with a copy action; a binding receipt | The token is never obscured, logged, or persisted by accident | no proposal selected; expired; long binding |
-| Audit Log | Diagnose and understand outcomes | Filter panel, responsive rows, a full-width readable payload | Payload, cause, and repair copy never escape or collapse the table | empty log; filtered to nothing; long payload |
-| Memory | Manage durable site knowledge | Compact table, explicit lifecycle and status, edit and delete actions, a labelled instructions field | Fresh installs start empty; updates preserve user data | no entries; at the character limit |
-| Context | Persist operator context for every MCP agent | Two-column system and user layout, collapsible generated snapshot | Compact task-start carries truncated user context text | empty; saved; long text |
-| Design | Persist the active design direction | Shared tokens and a compact direction list and editor | Compact task-start points at the design-direction brief; it does not inline the full contract | no direction; import rejected |
-| Skills | Manage reusable instructions | Catalog and editor split, clear provenance and lifecycle | Fresh installs include only product defaults; user data survives updates | empty catalog; invalid skill; long body |
-| Block queue console (hidden) | Watch queued block changes | Keep-open guidance, a status line that is announced, a journal | Opening it never saves content by itself | nothing queued; a failed change |
-| Authorization pages (hidden) | Approve or deny an application | The application, how it is identified, and the scheme, host and port it returns to, as facts; Approve and Deny | Every client-supplied value is escaped; the destination keeps its port | expired request; unnamed application |
-| Connected OAuth clients (hidden) | Review and disconnect clients | Redirects to the connected clients list | Every disconnect action names its client | no clients |
+| Hub | Surface | Primary job | Visual contract | Risk to re-check | Own states to verify |
+| --- | --- | --- | --- | --- | --- |
+| Overview | Overview | Answer is it working, what needs me, what happened | A status band (connection, mode, tool surface, last activity, bridge), a table of items that need attention with a state word and one action each, recent activity, and the next setup step as the only primary action | The bridge tile shows a state, never the stored URL; a source that cannot be read reads as nothing to report, never as an error | nothing needs attention; setup unfinished; no activity yet; abilities off or blocked; long values |
+| Setup | Setup | Connect and update safely | Numbered steps, grouped choices, readable code, explicit verification receipts | Release checks bypass stale caches; secrets never enter examples | signed-out client; failed check; copied; long command |
+| Setup | Troubleshoot (beta) | Diagnose a failed AI client connection | Diagnostic cards, status badges, in-place Run diagnostics with a loading spinner | The script path does not reload the page; the no-script form remains | running; all pass; a blocked route; long report |
+| AI Abilities | AI Abilities | Search and gate tools | Filters that stick under the admin bar from 783px up, compact grouped rows, a named switch per row | Category actions do not depend on inline click handlers; every switch and select has a name | no match; read-only user; master switch off; 400+ rows |
+| Knowledge | Skills | Manage reusable instructions | Catalog and editor split, clear provenance and lifecycle | Fresh installs include only product defaults; user data survives updates | empty catalog; invalid skill; long body |
+| Knowledge | Memory | Manage durable site knowledge | Compact table, explicit lifecycle and status, edit and delete actions, a labelled instructions field | Fresh installs start empty; updates preserve user data | no entries; at the character limit |
+| Knowledge | Context (beta) | Persist operator context for every MCP agent | Two-column system and user layout, collapsible generated snapshot | Compact task-start carries truncated user context text | empty; saved; long text |
+| Knowledge | Design (beta) | Persist the active design direction | Shared tokens and a compact direction list and editor | Compact task-start points at the design-direction brief; it does not inline the full contract | no direction; import rejected |
+| Knowledge | Prompt library | Find a safe task starter | Search-first catalog, grouped outcomes, copy action | Long prompt and tool text wraps inside its surface | no match; copied; long prompt |
+| Custom code | Drafts, Library, Active, Crash recovery | Review code before activation | The hub's tab bar carries the four views; readable file badges; explicit primary and destructive actions | Status text and payloads stay legible at narrow widths; no second row of tabs inside the page | no files; crashed file; long path |
+| Custom code | Approvals | Issue a scoped grant | The human-approval warning and the guidance stay in place; a labelled token with a copy action; a binding receipt | The token is never obscured, logged, or persisted by accident | no proposal selected; expired; long binding |
+| Activity | Audit log | Diagnose and understand outcomes | Filter panel, responsive rows, a full-width readable payload; a count of open incidents on the tab | Payload, cause, and repair copy never escape or collapse the table | empty log; filtered to nothing; long payload |
+| Activity | Block queue console (beta) | Watch queued block changes | Inside the shell, keep-open guidance, a status line that is announced, a journal; a count of queued and failed changes on the tab | Opening it never saves content by itself; editors see only the tabs they can open | nothing queued; a failed change; opened without a session token |
+| Activity | Rescue | Roll back a change or check the site loads | The safe-mode action in the page header; a table of changes that need attention with one rollback each; a count of changes needing attention on the tab | Every action needs a nonce and, in production-safe mode, a confirmation token for exactly one change | nothing to rescue; unconfirmed change; production-safe |
+| Hidden | Authorization pages | Approve or deny an application | The application, how it is identified, and the scheme, host and port it returns to, as facts; Approve and Deny | Every client-supplied value is escaped; the destination keeps its port | expired request; unnamed application |
+| Hidden | Connected OAuth clients | Review and disconnect clients | Redirects to the connected clients list | Every disconnect action names its client | no clients |
 
 ### Cross-page release checks
 
 The measurable gates run in `e2e/` (see `e2e/README.md`):
 
 - **Page loop** (`admin-ui.spec.ts`): every page loads with the shared shell, no console error and no horizontal overflow at 1440, 1024, 782, 390 and 320px, and axe (WCAG 2.0, 2.1 and 2.2 A and AA) reports no serious or critical finding at 1440 and 390px beyond the page's allowance.
-- **UI contract** (`ui-contract.spec.ts`): no visible text under 12px; no target under 24px except links inside a sentence; no plugin-owned notice in the "other WordPress notices" drawer; the first `h1` starts within its budget; every primary button is painted with the accent fill; no duplicate id and no unnamed control or field; sticky chrome covers at most 25% of the viewport.
+- **UI contract** (`ui-contract.spec.ts`): no visible text under 12px; no target under 24px except links inside a sentence; no plugin-owned notice in the "other WordPress notices" drawer; the first `h1` starts within 120px at 1440 and 200px at 390; every primary button is painted with the accent fill; no duplicate id and no unnamed control or field; sticky chrome covers at most 25% of the viewport.
 - **Colour schemes:** the accent contrast table in section 2, for all nine schemes and for the brighter earlier palette.
 - **Reduced motion and forced colours:** no animation runs under reduced motion; under forced colours badges keep their borders and icons, a selection is drawn in the system highlight pair, the focus ring uses the system highlight and the switch keeps its border.
 - **Reflow:** 320px with no two-dimensional scroll except a `sw-ui-table-wrap`.
+- **Shell** (`ui-contract.spec.ts`, every viewport): one visible `h1` that names the page, no header band or second navigation, one tab bar per hub with the current tab marked, the skip link first and landing in the content region, the sidebar in hub order, notices folding at more than three and opening for an error, the Beta marker in words, the plugin row and Help tab entry points.
 
 Page allowances live in `e2e/tests/helpers/ui-budget.ts`. They only go down: when a page moves to the layer, its entry is deleted.
 
@@ -478,7 +500,7 @@ The layer is opt-in. Nothing outside an element with the class `sw-ui` is touche
 | `--sw-active-*`, `--sw-disabled-*`, `--sw-crashed-*`, `--sw-draft-*`, `--sw-builtin-*`, `--sw-user-*`, `--sw-uploaded-*` | the status tokens (see the mapping in section 2) |
 | `--sw-shadow`, `--sw-shadow-hover`, `--sw-transition` | `--sw-shadow-1`, `--sw-shadow-2`, `--sw-dur` with `--sw-ease` |
 
-The shell header's own tokens (`--sw-shell-header-*`) keep their values. Aliases are kept for at least one release after the last page that uses an old name has moved, and their removal is listed in the changelog.
+The shell header band is gone, but its tokens (`--sw-shell-header-*`) keep their values until the unregistered Design Studio stylesheet that still names one goes. Aliases are kept for at least one release after the last page that uses an old name has moved, and their removal is listed in the changelog.
 
 **Classes.** The component classes are new names (`sw-ui-*`), not renames, so an older stylesheet and the layer can never collide. A page moves component by component: replace the older markup with the helper, and delete the older rule when nothing uses it.
 
@@ -486,7 +508,7 @@ The shell header's own tokens (`--sw-shell-header-*`) keep their values. Aliases
 
 **Adding or migrating a page**
 
-1. Print the page inside the shell and wrap its content: `Ui\Scope::wrap( $html, [ 'page' => true ] )`.
+1. Print the page inside the shell with `AdminShell::open( $slug, [ title, lede, actions ] )` (drop the page's own heading block), register it once with `MenuRegistry::add( $slug, $label, $hub, [ tab, order, beta ] )`, and wrap its content: `Ui\Scope::wrap( $html, [ 'page' => true ] )`.
 2. Build it from the helpers; where one is missing, ask for it rather than writing a look-alike.
 3. Keep the page CSS to layout, with tokens only (no colours, radii or font sizes of its own), and no inline `style`.
 4. Register page assets after the shell's (`[ 'stonewright-admin-shell' ]`), so the layer, which the shell depends on, loads first.

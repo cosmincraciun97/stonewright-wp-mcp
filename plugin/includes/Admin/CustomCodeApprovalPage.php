@@ -41,8 +41,6 @@ final class CustomCodeApprovalPage {
 
 		AdminShell::open( self::SLUG );
 		echo '<div class="stonewright-custom-code-approval-page">';
-		echo '<header class="stonewright-page-header"><div><h1>' . esc_html__( 'Custom Code Approval', 'stonewright' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Approve only the exact dry-run candidate shown here. Grants expire quickly, work once, and cannot be broadened to another path or hash.', 'stonewright' ) . '</p></div></header>';
 		echo '<div class="notice notice-warning inline"><p><strong>' . esc_html__( 'Human approval only.', 'stonewright' ) . '</strong> ' . esc_html__( 'Agents must show you the proposal and stop. They may open or submit this page only when you explicitly ask them to perform the approval step.', 'stonewright' ) . '</p></div>';
 
 		if ( '' !== $result_id ) {

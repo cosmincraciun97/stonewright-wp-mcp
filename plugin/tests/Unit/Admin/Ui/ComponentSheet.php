@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\HubNav;
 use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Admin\Ui\KvList;
 use Stonewright\WpMcp\Admin\Ui\Notice;
@@ -164,12 +165,15 @@ final class ComponentSheet {
 
 	private static function hub(): string {
 		return self::label( 'Hub tab bar and in-page navigation' )
-			. '<nav aria-label="Setup sections"><ul class="sw-ui-hubnav">'
-			. '<li><a class="sw-ui-hubnav__link" href="#start" aria-current="page">Get started</a></li>'
-			. '<li><a class="sw-ui-hubnav__link" href="#settings">Settings</a></li>'
-			. '<li><a class="sw-ui-hubnav__link" href="#connections">Connections ' . Badge::count( 2 ) . '</a></li>'
-			. '<li><a class="sw-ui-hubnav__link" href="#updates">Updates</a></li>'
-			. '</ul></nav>'
+			. HubNav::render(
+				[
+					[ 'label' => 'Get started', 'url' => '#start', 'current' => true, 'count' => null, 'count_label' => '' ],
+					[ 'label' => 'Settings', 'url' => '#settings', 'current' => false, 'count' => null, 'count_label' => '' ],
+					[ 'label' => 'Connections', 'url' => '#connections', 'current' => false, 'count' => 2, 'count_label' => 'connected clients' ],
+					[ 'label' => 'Updates', 'url' => '#updates', 'current' => false, 'count' => null, 'count_label' => '' ],
+				],
+				'Setup sections'
+			)
 			. '<nav aria-label="On this page"><ul class="sw-ui-toc"><li><a href="#a" aria-current="location">Incidents</a></li><li><a href="#b">Filters</a></li><li><a href="#c">Entries</a></li></ul></nav>'
 			. '<div class="sw-ui-actions" role="group" aria-label="Filters">'
 			. '<button type="button" class="sw-ui-chip-filter" aria-pressed="true">Errors</button>'
