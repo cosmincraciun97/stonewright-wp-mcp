@@ -27,6 +27,7 @@ final class GlobalStylesWriter {
 		if ( is_wp_error( $canonical ) ) {
 			return $canonical;
 		}
+		$canonical = self::as_user_record( $canonical );
 
 		$css_gate = CssGrantGate::assert( $canonical, $custom_code_grant );
 		if ( $css_gate instanceof \WP_Error ) {
@@ -68,6 +69,27 @@ final class GlobalStylesWriter {
 			'post_id'     => (int) $post_id,
 			'snapshot_id' => $snapshot_id,
 		];
+	}
+
+	/**
+	 * Shape a validated payload as the user global styles record.
+	 *
+	 * WordPress applies a wp_global_styles record only when its JSON carries
+	 * `isGlobalStylesUserThemeJSON: true`, so the marker is always stored as
+	 * true. Empty settings / styles are left out: an empty PHP array would
+	 * encode as a JSON list where WordPress expects an object.
+	 *
+	 * @param array<string, mixed> $canonical
+	 * @return array<string, mixed>
+	 */
+	private static function as_user_record( array $canonical ): array {
+		foreach ( [ 'settings', 'styles' ] as $key ) {
+			if ( array_key_exists( $key, $canonical ) && [] === $canonical[ $key ] ) {
+				unset( $canonical[ $key ] );
+			}
+		}
+		$canonical['isGlobalStylesUserThemeJSON'] = true;
+		return $canonical;
 	}
 
 	/**

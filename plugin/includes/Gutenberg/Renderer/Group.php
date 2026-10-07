@@ -9,7 +9,8 @@ use Stonewright\WpMcp\Gutenberg\Renderer as GutenbergRenderer;
 use Stonewright\WpMcp\Gutenberg\TokenMapper;
 
 /**
- * Renders a DesignSpec group/section/row node as a core/group block.
+ * Renders a DesignSpec group/section/row/card/column node as a core/group
+ * block holding its nested blocks.
  */
 final class Group {
 

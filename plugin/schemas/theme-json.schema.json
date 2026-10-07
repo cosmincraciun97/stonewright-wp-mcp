@@ -21,6 +21,10 @@
     "description": {
       "type": "string"
     },
+    "isGlobalStylesUserThemeJSON": {
+      "type": "boolean",
+      "description": "Marks a wp_global_styles record as the user global styles WordPress applies."
+    },
     "settings": {
       "type": "object",
       "additionalProperties": false,

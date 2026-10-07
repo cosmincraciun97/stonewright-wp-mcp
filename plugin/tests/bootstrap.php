@@ -1932,16 +1932,104 @@ if ( ! function_exists( 'wp_update_attachment_metadata' ) ) {
 }
 
 if ( ! function_exists( 'parse_blocks' ) ) {
+	/**
+	 * Block grammar parser with the semantics of the WordPress block parser:
+	 * text between root-level blocks (including blank separators) becomes a
+	 * freeform block with a null name, text inside a block stays in
+	 * innerHTML / innerContent, and child blocks sit in innerBlocks.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
 	function parse_blocks( string $content ): array {
-		return [
-			[
-				'blockName'    => 'core/paragraph',
-				'attrs'        => [],
-				'innerHTML'    => $content,
-				'innerContent' => [ $content ],
-				'innerBlocks'  => [],
-			],
+		$pattern = '/<!--\s+(?P<closer>\/)?wp:(?P<ns>[a-z][a-z0-9_-]*\/)?(?P<name>[a-z][a-z0-9_-]*)\s+(?P<attrs>{(?:(?:[^}]+)|(?:}+(?=})))*+}\s+)?(?P<void>\/)?-->/s';
+		preg_match_all( $pattern, $content, $tokens, PREG_SET_ORDER | PREG_OFFSET_CAPTURE );
+
+		$freeform = static fn( string $text ): array => [
+			'blockName'    => null,
+			'attrs'        => [],
+			'innerBlocks'  => [],
+			'innerHTML'    => $text,
+			'innerContent' => [ $text ],
 		];
+		$make     = static function ( array $token ): array {
+			$raw_attrs = trim( (string) ( $token['attrs'][0] ?? '' ) );
+			$attrs     = '' !== $raw_attrs ? json_decode( $raw_attrs, true ) : [];
+			return [
+				'blockName'    => ( '' !== $token['ns'][0] ? $token['ns'][0] : 'core/' ) . $token['name'][0],
+				'attrs'        => is_array( $attrs ) ? $attrs : [],
+				'innerBlocks'  => [],
+				'innerHTML'    => '',
+				'innerContent' => [],
+			];
+		};
+		$attach   = static function ( array &$output, array &$stack, array $block ): void {
+			if ( [] === $stack ) {
+				$output[] = $block;
+				return;
+			}
+			$top                             = count( $stack ) - 1;
+			$stack[ $top ]['innerBlocks'][]  = $block;
+			$stack[ $top ]['innerContent'][] = null;
+		};
+
+		$output = [];
+		$stack  = [];
+		$offset = 0;
+		foreach ( $tokens as $token ) {
+			$start  = (int) $token[0][1];
+			$length = strlen( $token[0][0] );
+			$text   = substr( $content, $offset, $start - $offset );
+			$closer = '' !== ( $token['closer'][0] ?? '' );
+			$void   = '' !== ( $token['void'][0] ?? '' );
+
+			if ( $closer ) {
+				if ( [] === $stack ) {
+					continue;
+				}
+				$frame = array_pop( $stack );
+				if ( '' !== $text ) {
+					$frame['innerHTML']     .= $text;
+					$frame['innerContent'][] = $text;
+				}
+				$attach( $output, $stack, $frame );
+				$offset = $start + $length;
+				continue;
+			}
+
+			if ( [] === $stack ) {
+				if ( '' !== $text ) {
+					$output[] = $freeform( $text );
+				}
+			} elseif ( '' !== $text ) {
+				$top                             = count( $stack ) - 1;
+				$stack[ $top ]['innerHTML']     .= $text;
+				$stack[ $top ]['innerContent'][] = $text;
+			}
+
+			$block  = $make( $token );
+			$offset = $start + $length;
+			if ( $void ) {
+				$attach( $output, $stack, $block );
+				continue;
+			}
+			$stack[] = $block;
+		}
+
+		$tail = substr( $content, $offset );
+		while ( [] !== $stack ) {
+			$frame = array_pop( $stack );
+			if ( '' !== $tail ) {
+				$frame['innerHTML']     .= $tail;
+				$frame['innerContent'][] = $tail;
+				$tail                    = '';
+			}
+			$attach( $output, $stack, $frame );
+		}
+		if ( '' !== $tail ) {
+			$output[] = $freeform( $tail );
+		}
+
+		return $output;
 	}
 }
 
@@ -1966,7 +2054,6 @@ if ( ! function_exists( 'serialize_block' ) ) {
 		if ( '' === $name ) {
 			return $inner_html;
 		}
-
 		$attrs_json = ! empty( $attrs ) ? ' ' . (string) json_encode( $attrs ) : '';
 
 		if ( empty( $inner_blocks ) ) {
@@ -2016,6 +2103,16 @@ if ( ! function_exists( 'get_posts' ) ) {
 			);
 		}
 
+		if ( isset( $args['name'] ) && '' !== (string) $args['name'] ) {
+			$names = [ (string) $args['name'] ];
+			$posts = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => in_array( (string) ( $post->post_name ?? '' ), $names, true )
+				)
+			);
+		}
+
 		if ( isset( $args['post_mime_type'] ) && null !== $args['post_mime_type'] && '' !== $args['post_mime_type'] ) {
 			$mime_filter = (string) $args['post_mime_type'];
 			$posts       = array_values(
@@ -2054,6 +2151,10 @@ if ( ! function_exists( 'get_posts' ) ) {
 
 if ( ! function_exists( 'get_block_template' ) ) {
 	function get_block_template( string $id, string $template_type = 'wp_template' ): object|null {
+		// A test can install a lookup that resolves ids the way core does.
+		if ( isset( $GLOBALS['stonewright_test_block_template_lookup'] ) && is_callable( $GLOBALS['stonewright_test_block_template_lookup'] ) ) {
+			return ( $GLOBALS['stonewright_test_block_template_lookup'] )( $id, $template_type );
+		}
 		return (object) [
 			'id'      => $id,
 			'wp_id'   => 1,

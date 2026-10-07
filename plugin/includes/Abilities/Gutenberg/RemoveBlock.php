@@ -41,7 +41,7 @@ final class RemoveBlock extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
-				'path'               => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
+				'path'               => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ], 'description' => 'Index path of the block in the blocks-parse tree: its position among the root blocks, then among the innerBlocks of each parent.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
 			'required'             => [ 'post_id', 'path' ],
@@ -83,14 +83,18 @@ final class RemoveBlock extends AbilityKernel {
 					return $token_error;
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				$blocks      = parse_blocks( $post->post_content );
-				$path        = array_map( 'intval', (array) $args['path'] );
+				$blocks = BlockTree::parse( (string) $post->post_content );
+				$path   = array_map( 'intval', (array) $args['path'] );
 
 				$mutated = BlockTree::remove( $blocks, $path );
 				if ( null === $mutated ) {
 					return $this->error( 'invalid_path', __( 'Block path not found.', 'stonewright' ) );
 				}
+				if ( $mutated instanceof \WP_Error ) {
+					return $this->error( $mutated->get_error_code(), $mutated->get_error_message(), [ 'path' => $path ] );
+				}
+
+				$snapshot_id = Backup::snapshot_post( $post_id );
 
 				$html   = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(
