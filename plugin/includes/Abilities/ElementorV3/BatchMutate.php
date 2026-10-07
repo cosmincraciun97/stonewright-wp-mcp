@@ -24,6 +24,8 @@ use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
@@ -65,6 +67,8 @@ final class BatchMutate extends AbilityKernel {
 				'idempotency_key'     => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
 				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'change_set_id'       => [ 'type' => 'string', 'maxLength' => 96 ],
+				'repair_of'           => ChangeSet::input_properties()['repair_of'],
+				'supersedes'          => ChangeSet::input_properties()['supersedes'],
 				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
 				'responsive_scope'    => [
 					'type'        => 'array',
@@ -188,6 +192,7 @@ final class BatchMutate extends AbilityKernel {
 				'write_receipt' => [ 'type' => 'object' ],
 				'transaction_id' => [ 'type' => 'string' ],
 				'change_set_id' => [ 'type' => 'string' ],
+				'change_set'    => ChangeSet::output_property(),
 				'verification_status' => [ 'type' => 'string' ],
 				'rollback_status' => [ 'type' => 'string' ],
 			],
@@ -557,6 +562,60 @@ final class BatchMutate extends AbilityKernel {
 
 				return $response;
 			}
+		);
+	}
+
+	/**
+	 * ChangeSetV1 of the batch: one planned change per operation, read from the
+	 * request, the per-operation results and the write receipt. After a verified
+	 * write the live document is compared with the snapshot taken before it, so a
+	 * change the operations did not ask for is reported as unexpected.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data       = ChangeSetSources::data( $result );
+		$operations = self::normalize_operations( array_values( (array) ( $args['operations'] ?? [] ) ) );
+		$items      = array_values( (array) ( $data['items'] ?? [] ) );
+		$planned    = [];
+		$effective  = [];
+		$touched    = [];
+		$removed    = [];
+		foreach ( $operations as $index => $operation ) {
+			$item   = is_array( $items[ $index ] ?? null ) ? $items[ $index ] : [];
+			$action = (string) ( $operation['action'] ?? '' );
+			$ref    = (string) ( $item['element_id'] ?? $operation['element_id'] ?? '' );
+			if ( '' === $ref ) {
+				$ref = isset( $operation['element_ref'] ) ? '@' . $operation['element_ref'] : ( isset( $operation['op_id'] ) ? '@' . $operation['op_id'] : 'op-' . $index );
+			}
+			$entry     = ChangeSet::entry( 'element', $ref, $action, $index );
+			$planned[] = $entry;
+			if ( ! empty( $item['unchanged'] ) ) {
+				continue;
+			}
+			$effective[] = $entry;
+			if ( 'remove_element' === $action ) {
+				$removed[] = $ref;
+			} else {
+				$touched[] = $ref;
+			}
+		}
+
+		$post_id  = (int) ( $args['post_id'] ?? 0 );
+		$receipt  = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+		$snapshot = (string) ( $receipt['snapshot_id'] ?? $data['snapshot_id'] ?? '' );
+		return ChangeSetSources::receipt(
+			$args,
+			$result,
+			$status,
+			$planned,
+			$effective,
+			[
+				'unchanged'  => 'ok' === $status && [] !== $planned && [] === $effective,
+				'unexpected' => static fn (): array => ChangeSetSources::elements_outside_plan( $post_id, $snapshot, $touched, $removed ),
+			]
 		);
 	}
 

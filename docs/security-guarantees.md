@@ -193,7 +193,10 @@ vendor/bin/phpunit tests/Unit/Context
 
 Audit outcomes are normalized to a versioned category/outcome contract. Recurring
 incidents use category-specific thresholds and exact verified correlation for
-resolution; permission and safety blocks are not promoted into repair debt.
+resolution; permission and safety blocks are not promoted into repair debt. A
+verified write that names the failed change in `repair_of`, on the same
+resource, is such a correlation: it resolves the incident that change opened,
+and the row that resolves it carries no `incident_id`.
 
 Enforced by:
 
@@ -206,6 +209,7 @@ Verify:
 ```bash
 cd plugin
 vendor/bin/phpunit tests/Unit/Security/AuditEventIncidentTest.php
+vendor/bin/phpunit tests/Unit/Security/ChangeSetRepairTest.php
 ```
 
 ## Rule 11 - OAuth terminal failure and bounded retry

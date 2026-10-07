@@ -30,6 +30,7 @@ final class AuditLogPage {
 		add_action( 'admin_post_stonewright_audit_export', [ self::class, 'handle_export' ] );
 		add_action( 'admin_post_stonewright_audit_purge', [ self::class, 'handle_purge' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
+		AuditLineageDrawer::register();
 	}
 
 	public static function enqueue( string $hook_suffix = '' ): void {
@@ -194,6 +195,8 @@ final class AuditLogPage {
 		self::render_recurring_errors();
 		self::render_views( $filters, $counts );
 		self::render_filters( $filters );
+		// Mount point for the change set chip and the lineage drawer; also runs when no row matches.
+		do_action( 'stonewright_audit_log_toolbar', $filters, $rows, $incident_states );
 		self::render_log_table( $rows, $page, $per_page, $filters, $total, $incident_states );
 
 		echo '</div>';
@@ -629,9 +632,8 @@ final class AuditLogPage {
 			if ( '' !== $normalized_path ) {
 				echo '<div><strong>' . esc_html__( 'Path:', 'stonewright' ) . '</strong> <code>' . esc_html( $normalized_path ) . '</code></div>';
 			}
-			$change_set_id = (string) ( $row['change_set_id'] ?? '' );
-			if ( '' !== $change_set_id ) {
-				echo '<div><strong>' . esc_html__( 'Change set:', 'stonewright' ) . '</strong> <code>' . esc_html( $change_set_id ) . '</code></div>';
+			if ( '' !== (string) ( $row['change_set_id'] ?? '' ) ) {
+				do_action( 'stonewright_audit_log_change_set_cell', $row );
 			}
 			if ( $retry_after > 0 ) {
 				echo '<div><strong>' . esc_html__( 'Retry after:', 'stonewright' ) . '</strong> ' . esc_html( sprintf( /* translators: %d: seconds */ _n( '%d second', '%d seconds', $retry_after, 'stonewright' ), $retry_after ) ) . '</div>';
@@ -1054,6 +1056,7 @@ final class AuditLogPage {
 				'resource_key_hash'   => self::safe_export_hash( $row['resource_key_hash'] ?? '' ),
 				'normalized_path'     => self::safe_export_text( $row['normalized_path'] ?? '', 255 ),
 				'change_set_id'       => self::safe_export_text( $row['change_set_id'] ?? '', 96 ),
+				'repair_of'           => self::safe_export_text( $row['repair_of'] ?? '', 96 ),
 				'transaction_id'      => self::safe_export_text( $row['transaction_id'] ?? '', 96 ),
 				'retryable'           => ! empty( $row['retryable'] ),
 				'retry_after_seconds' => max( 0, min( 86400, (int) ( $row['retry_after_seconds'] ?? 0 ) ) ),
@@ -1129,6 +1132,7 @@ final class AuditLogPage {
 			'resource_key_hash'   => '',
 			'normalized_path'     => '',
 			'change_set_id'       => '',
+			'repair_of'           => '',
 			'transaction_id'      => '',
 			'retryable'           => false,
 			'retry_after_seconds' => 0,

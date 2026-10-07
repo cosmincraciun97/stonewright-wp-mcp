@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\Themes;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 
@@ -42,6 +44,8 @@ final class ThemeBackupRestore extends AbilityKernel {
 				'theme'      => [ 'type' => 'string', 'enum' => [ 'stylesheet', 'template' ], 'default' => 'stylesheet' ],
 				'smoke_url'  => [ 'type' => 'string' ],
 				'confirmation_token' => [ 'type' => 'string' ],
+				'repair_of'  => ChangeSet::input_properties()['repair_of'],
+				'supersedes' => ChangeSet::input_properties()['supersedes'],
 			],
 		];
 	}
@@ -50,6 +54,9 @@ final class ThemeBackupRestore extends AbilityKernel {
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => true,
+			'properties'           => [
+				'change_set' => ChangeSet::output_property(),
+			],
 		];
 	}
 
@@ -105,5 +112,23 @@ final class ThemeBackupRestore extends AbilityKernel {
 	/** @return array<int, string> */
 	protected function audit_redacted_keys(): array {
 		return array_merge( parent::audit_redacted_keys(), [ 'backup_ref' ] );
+	}
+
+	/**
+	 * ChangeSetV1 of the restore: one planned file change, hashed before and after.
+	 * A restore offers no recipe to undo it.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data = ChangeSetSources::data( $result );
+		$path = (string) ( $data['resource_ref'] ?? $data['path'] ?? '' );
+		if ( '' === $path ) {
+			$metadata = ThemeWriteTransaction::backup_metadata( (string) ( $args['backup_ref'] ?? '' ) );
+			$path     = $metadata instanceof \WP_Error ? 'backup:' . substr( (string) ( $args['backup_ref'] ?? '' ), 0, 60 ) : (string) $metadata['relative'];
+		}
+		return ChangeSetSources::file( $args, $result, $status, ChangeSet::entry( 'file', $path, 'restore', 0 ) );
 	}
 }
