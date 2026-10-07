@@ -488,6 +488,49 @@ final class ConfigurationPage {
 		<?php
 	}
 
+	/**
+	 * The "Reuse saved sections" row of the Settings step: one native form-table row with a switch, one sentence
+	 * of help, and, while the setting is on, an info callout that says what it does.
+	 *
+	 * The option is saved with the rest of the form through the Settings API (nonce and manage_options are
+	 * checked by options.php); the sanitize callback and the audit row live in SectionReuseSetting.
+	 */
+	private static function render_section_reuse_row(): void {
+		$option  = \Stonewright\WpMcp\SectionReuse\SectionReuseSetting::OPTION;
+		$enabled = \Stonewright\WpMcp\SectionReuse\SectionReuseSetting::is_enabled();
+		$help_id  = $option . '_help';
+		$state_id = $option . '_state';
+
+		$callout = '';
+		if ( $enabled ) {
+			$callout = \Stonewright\WpMcp\Admin\Ui\Notice::callout(
+				'info',
+				__( 'Agents may offer to reuse sections', 'stonewright' ),
+				__( 'When you ask an agent to build a page, it may offer to copy a section that already exists on another page and adapt it. It only offers content you can read and edit, it never changes the page it copies from, and the copy is written with the same snapshot, readback and audit trail as any other change.', 'stonewright' ),
+				[ 'id' => $option . '_callout' ]
+			);
+		}
+
+		$row  = '<table class="form-table" role="presentation"><tbody><tr>';
+		$row .= '<th scope="row"><label for="' . esc_attr( $option ) . '">' . esc_html__( 'Reuse saved sections', 'stonewright' ) . '</label></th>';
+		$row .= '<td>';
+		$row .= '<span class="stonewright-section-reuse-switch">';
+		$row .= '<input type="hidden" name="' . esc_attr( $option ) . '" value="off" />';
+		$row .= '<input type="checkbox" role="switch" id="' . esc_attr( $option ) . '" name="' . esc_attr( $option ) . '" value="ask"' . ( $enabled ? ' checked="checked"' : '' ) . ' aria-describedby="' . esc_attr( $help_id . ' ' . $state_id ) . '" />';
+		$row .= '<span id="' . esc_attr( $state_id ) . '">' . esc_html( $enabled ? __( 'On', 'stonewright' ) : __( 'Off', 'stonewright' ) ) . '</span>';
+		$row .= '</span>';
+		$help = __( 'Let agents offer to copy a section from another page of this site into the page they are building. Turn it off and every section is built from scratch.', 'stonewright' );
+		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
+			$help .= ' ' . __( 'In production-safe mode a copy needs no confirmation token because it removes nothing, and copying an Elementor V4 section stays blocked.', 'stonewright' );
+		}
+		$row .= '<p class="description" id="' . esc_attr( $help_id ) . '">' . esc_html( $help ) . '</p>';
+		$row .= '<div aria-live="polite">' . $callout . '</div>';
+		$row .= '</td></tr></tbody></table>';
+
+		// The row is the layer's own markup inside an older page, so it gets the layer's scope.
+		echo \Stonewright\WpMcp\Admin\Ui\Scope::wrap( $row, [ 'class' => 'stonewright-section-reuse-row' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts above.
+	}
+
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			return;
@@ -710,6 +753,7 @@ final class ConfigurationPage {
 								<?php esc_html_e( 'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.', 'stonewright' ); ?>
 							</p>
 						</div>
+						<?php self::render_section_reuse_row(); ?>
 						<div class="sw-field">
 							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>
 							<?php self::render_secret_input( 'stonewright_unsplash_access_key', $has_unsplash_key ); ?>

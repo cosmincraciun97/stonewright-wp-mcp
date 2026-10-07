@@ -13,6 +13,38 @@ development builds were never stable releases.
 
 ### Added
 
+- Add section reuse. `stonewright/section-reuse-find` lists sections the
+  current user can read and edit (published and draft pages and posts,
+  Elementor saved section and container templates, Gutenberg patterns) for the
+  roles a new page needs, with source, locator, role guess, layout summary,
+  layout-only similarity, outline, and reuse warnings; it scans the 200 most
+  recent sources and reports truncation. `stonewright/section-reuse-extract`
+  returns one section as a portable payload in its own builder format, with
+  Elementor element ids and V4 local style ids replaced by placeholders,
+  Gutenberg anchors listed, and every reference reported with whether it
+  exists. Both are read-only and never change the source page.
+- Add the `insert_section` operation to `elementor-v3-batch-mutate`,
+  `blocks-batch-mutate`, and, through a new `operations` input,
+  `elementor-v4-update-node`. The copy and the adaptations share one dry run
+  and one apply with the usual snapshot, write lock, readback, post-scoped CSS
+  through `elementor-css-regenerate`, change set, and audit. After a verified `elementor-v4-update-node`
+  write, single node or batch, Elementor is asked to drop the cached local styles of the page. Elements get fresh
+  ids, V4 local style ids are remapped, existing global references are kept and
+  a missing one fails with the exact reference, dynamic tags are kept and
+  flagged, widget types and unknown settings are never changed, duplicate
+  Gutenberg anchors are renamed, and a synced pattern stays a reference unless
+  `detach_patterns` asks for a local copy.
+- Add the option `stonewright_section_reuse` (`ask` by default, or `off`) as
+  the **Reuse saved sections** row in Stonewright > Setup > Settings. A change
+  is audited. Agents read the value as `agent_preferences.section_reuse` in
+  `stonewright-task-start` and in the connect-time instructions; while it is
+  `off` the two read abilities leave the tool lists and profiles, every reuse
+  call fails with `stonewright_section_reuse_off`, and for fifteen minutes
+  after a change each response carries one `notices` line.
+- Add the `reuse_source` field to ChangeSetV1 (the first declared extension)
+  and the `stonewright-section-reuse` skill, with a one-line pointer in the
+  Elementor V3, Elementor V4, and Gutenberg skills.
+
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
   sign-in is unavailable, each with its fix; and per-client setup: commands,
@@ -214,6 +246,11 @@ development builds were never stable releases.
 
 ### Changed
 
+- `elementor-v4-update-node` accepts `operations` as an alternative to
+  `element_id` and `settings`; its input schema now requires only `post_id`, and
+  a call with neither form fails with `missing_element_id`.
+- `ProviderRouter::element_limits()` reports the element and depth caps the
+  Elementor routes share.
 - Deleting the plugin always removes the rescue helper, also when the plugin
   data is kept. A full data removal also deletes the journal files in
   `uploads/stonewright-state/`.

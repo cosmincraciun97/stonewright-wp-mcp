@@ -30,6 +30,7 @@ use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\BasicAuthCredentials;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -167,6 +168,7 @@ final class PluginRegistration {
 		McpbBundle::register();
 		AdminBootstrap::register();
 		RescueHooks::register();
+		SectionReuseSetting::register();
 		if ( class_exists( RescueBootstrap::class ) ) {
 			RescueBootstrap::register();
 		}

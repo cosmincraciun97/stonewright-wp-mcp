@@ -322,6 +322,8 @@ return [
 	'stonewright/sandbox-toggle' => [ 'write' => true, 'external' => false ],
 	'stonewright/sandbox-write' => [ 'write' => true, 'external' => false ],
 	'stonewright/search-query' => [ 'write' => false, 'external' => false ],
+	'stonewright/section-reuse-extract' => [ 'write' => false, 'external' => false ],
+	'stonewright/section-reuse-find' => [ 'write' => false, 'external' => false ],
 	'stonewright/security-audit-reconcile' => [ 'write' => false, 'external' => false ],
 	'stonewright/security-create-one-time-link' => [ 'write' => true, 'external' => false ],
 	'stonewright/security-issue-confirmation-token' => [ 'write' => false, 'external' => false ],

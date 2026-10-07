@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+use Stonewright\WpMcp\Elementor\HtmlWidgetPolicy;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\RepeaterPatcher;
@@ -31,6 +32,11 @@ use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Design\Diagnostics\ThirdPartyControlRiskMap;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
+use Stonewright\WpMcp\SectionReuse\Builder;
+use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
+use Stonewright\WpMcp\SectionReuse\PortableSection;
+use Stonewright\WpMcp\SectionReuse\ReuseSource;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -50,7 +56,7 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs.', 'stonewright' );
+		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -97,7 +103,7 @@ final class BatchMutate extends AbilityKernel {
 						'properties'           => [
 							'action'                 => [
 								'type' => 'string',
-								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element' ],
+								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
 							],
 							'type'                   => [
 								'type'        => 'string',
@@ -132,6 +138,10 @@ final class BatchMutate extends AbilityKernel {
 							'widget_type'            => [ 'type' => 'string' ],
 							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
+							'section'                => [
+								'type'        => 'object',
+								'description' => 'insert_section only: the SectionPortableV1 payload returned by stonewright-section-reuse-extract for an elementor-v3 section. The write gives every element a fresh id; later operations reach the new elements as @op_id.placeholder.',
+							],
 							'repeater_key'            => [ 'type' => 'string', 'maxLength' => 96 ],
 							'selector'                => [
 								'type'                 => 'object',
@@ -384,6 +394,9 @@ final class BatchMutate extends AbilityKernel {
 					if ( isset( $item['element_id'] ) && is_scalar( $item['element_id'] ) ) {
 						$touched_ids[] = (string) $item['element_id'];
 					}
+					foreach ( is_array( $item['element_ids'] ?? null ) ? $item['element_ids'] : [] as $copied_id ) {
+						$touched_ids[] = (string) $copied_id;
+					}
 				}
 				$touched_ids = array_values( array_unique( array_filter( $touched_ids ) ) );
 
@@ -583,6 +596,7 @@ final class BatchMutate extends AbilityKernel {
 		$effective  = [];
 		$touched    = [];
 		$removed    = [];
+		$sources    = [];
 		foreach ( $operations as $index => $operation ) {
 			$item   = is_array( $items[ $index ] ?? null ) ? $items[ $index ] : [];
 			$action = (string) ( $operation['action'] ?? '' );
@@ -601,12 +615,18 @@ final class BatchMutate extends AbilityKernel {
 			} else {
 				$touched[] = $ref;
 			}
+			foreach ( is_array( $item['element_ids'] ?? null ) ? $item['element_ids'] : [] as $copied_id ) {
+				$touched[] = (string) $copied_id;
+			}
+			if ( is_array( $item['reuse_source'] ?? null ) ) {
+				$sources[] = $item['reuse_source'];
+			}
 		}
 
 		$post_id  = (int) ( $args['post_id'] ?? 0 );
 		$receipt  = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
 		$snapshot = (string) ( $receipt['snapshot_id'] ?? $data['snapshot_id'] ?? '' );
-		return ChangeSetSources::receipt(
+		$inputs   = ChangeSetSources::receipt(
 			$args,
 			$result,
 			$status,
@@ -617,6 +637,11 @@ final class BatchMutate extends AbilityKernel {
 				'unexpected' => static fn (): array => ChangeSetSources::elements_outside_plan( $post_id, $snapshot, $touched, $removed ),
 			]
 		);
+		if ( [] !== $sources ) {
+			$inputs['extensions'] = [ 'reuse_source' => ReuseSource::for_change_set( $sources ) ];
+		}
+
+		return $inputs;
 	}
 
 	/**
@@ -748,6 +773,7 @@ final class BatchMutate extends AbilityKernel {
 			'patch_repeater_row' => $this->patch_repeater_row( $tree, $operation, $refs, $require_evidence ),
 			'move_element'   => $this->move_element( $tree, $operation, $refs ),
 			'remove_element' => $this->remove_element( $tree, $operation, $refs ),
+			'insert_section' => $this->insert_section( $tree, $operation, $refs ),
 			default          => $this->error( 'invalid_action', __( 'Unsupported Elementor batch action.', 'stonewright' ), [ 'action' => $action ] ),
 		};
 	}
@@ -1194,6 +1220,100 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	/**
+	 * Copies a portable section into the document under fresh ids.
+	 *
+	 * The same closure as every other operation of the batch: the copy is built in memory with the rest of the
+	 * batch, and the single snapshot, write lock, write and readback of the batch cover it. Nothing here reads
+	 * or writes the source post; the payload is the whole of the section.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>            $operation
+	 * @param array<string, string>           $refs
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function insert_section( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+		// The live option, not the tool list: a client may keep a stale list.
+		if ( ! SectionReuseSetting::is_enabled() ) {
+			return SectionReuseSetting::off_error();
+		}
+		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::ELEMENTOR_V3 );
+		if ( $payload instanceof \WP_Error ) {
+			return $payload;
+		}
+		if ( self::contains_html_widget( $payload['element'] ) ) {
+			$policy = HtmlWidgetPolicy::allowed( $operation );
+			if ( $policy instanceof \WP_Error ) {
+				return $policy;
+			}
+		}
+		$source = ReuseSource::of_payload( $payload );
+		if ( null !== $source ) {
+			$access = ReuseSource::check( $source );
+			if ( $access instanceof \WP_Error ) {
+				return $access;
+			}
+		}
+		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
+		if ( $parent_path instanceof \WP_Error ) {
+			return $parent_path;
+		}
+		$parent = [] === $parent_path ? null : self::resolve( $tree, $parent_path );
+		if ( null !== $parent && 'container' !== (string) ( $parent['elType'] ?? '' ) ) {
+			return $this->error( 'parent_not_container', __( 'A section can only be inserted into a container.', 'stonewright' ), [ 'status' => 400, 'parent_id' => (string) ( $parent['id'] ?? '' ) ] );
+		}
+		$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
+		$parent_arch  = null === $parent ? $architecture : AtomicTreeInspector::subtree_architecture( $tree, (string) ( $parent['id'] ?? '' ) );
+		if ( 'v4' === $architecture || ( 'mixed' === $architecture && 'v3' !== $parent_arch ) ) {
+			return $this->error(
+				'v3_architecture_mismatch',
+				__( 'This place in the document is Elementor V4 Atomic. A V3 section is never converted; insert it under a V3 container, or use the V4 operations of elementor-v4-update-node with a V4 section.', 'stonewright' ),
+				[ 'status' => 409, 'architecture' => $architecture ]
+			);
+		}
+		$built = ElementorSectionInserter::instantiate( $payload, Builder::ELEMENTOR_V3, $tree, $parent_path );
+		if ( $built instanceof \WP_Error ) {
+			return $built;
+		}
+
+		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
+		$tree     = ElementorData::insert( $tree, $parent_path, $position, $built['element'] );
+		$root_id  = (string) $built['element']['id'];
+		if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
+			$refs[ $operation['op_id'] ] = $root_id;
+			foreach ( $built['id_map'] as $placeholder => $new_id ) {
+				$refs[ $operation['op_id'] . '.' . $placeholder ] = $new_id;
+			}
+		}
+
+		return array_merge(
+			[
+				'action'       => 'insert_section',
+				'element_id'   => $root_id,
+				'element_ids'  => array_values( $built['id_map'] ),
+				'placeholders' => count( $built['id_map'] ),
+			],
+			null === $source ? [] : [ 'reuse_source' => $source ],
+			[] === $built['warnings'] ? [] : [ 'warnings' => $built['warnings'] ]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $element
+	 */
+	private static function contains_html_widget( array $element ): bool {
+		if ( 'widget' === ( $element['elType'] ?? '' ) && HtmlWidgetPolicy::is_html_type( (string) ( $element['widgetType'] ?? '' ) ) ) {
+			return true;
+		}
+		foreach ( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] as $child ) {
+			if ( is_array( $child ) && self::contains_html_widget( $child ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<string, mixed>            $operation
 	 * @param array<string, string>           $refs
@@ -1280,7 +1400,7 @@ final class BatchMutate extends AbilityKernel {
 	private static function contains_unparented_add( array $operations ): bool {
 		foreach ( $operations as $operation ) {
 			$action = (string) ( $operation['action'] ?? '' );
-			if ( ! in_array( $action, [ 'add_container', 'add_widget' ], true ) ) {
+			if ( ! in_array( $action, [ 'add_container', 'add_widget', 'insert_section' ], true ) ) {
 				continue;
 			}
 			$parent_id  = trim( (string) ( $operation['parent_id'] ?? '' ) );

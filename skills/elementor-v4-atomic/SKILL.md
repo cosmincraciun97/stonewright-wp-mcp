@@ -13,6 +13,11 @@ This renderer is experimental and ships disabled. Enable it only on staging or
 development environments after confirming the V4 renderer class is present in
 the build.
 
+When building a page, load `stonewright-section-reuse` first: the site may
+already have a matching V4 section to copy with an `insert_section` operation
+of `stonewright-elementor-v4-update-node` (skip it when
+`agent_preferences.section_reuse` is `off`).
+
 ## Gate check
 
 Before doing anything, verify the feature is enabled:
