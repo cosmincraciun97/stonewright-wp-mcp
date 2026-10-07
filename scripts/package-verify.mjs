@@ -45,6 +45,7 @@ for (const rel of [
 	'includes/Core/PluginRegistration.php',
 	'uninstall.php',
 	'data/global-rules.json',
+	'data/elementor-native-contracts/manage-default-styles.json',
 ]) {
 	if (!exists(rel)) fail(`Missing required plugin path: plugin/${rel}`);
 }

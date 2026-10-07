@@ -1,0 +1,150 @@
+{
+    "contract_version": 1,
+    "ability": "elementor/manage-global-variable",
+    "status": "certifiable",
+    "access": "write",
+    "provider": "elementor-core",
+    "source_plugin": "elementor/elementor.php",
+    "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Variable_Ability",
+    "annotations": {
+        "readonly": false,
+        "destructive": false,
+        "idempotent": false
+    },
+    "runtime_contract": {
+        "runtime_operation_limit": 50
+    },
+    "version_policy": "required",
+    "schemas": [
+        {
+            "elementor_versions": {
+                "min": "4.3.0",
+                "max": "4.3.4"
+            },
+            "input_fingerprint": "2fc61f48f915f3703cac84ca368607149041e793e225e575eb9d3f1ca3fca5fa",
+            "output_fingerprint": "c228ddcc326bd9b75a1cefccedf230fc0d70a6942fe9d409cc7b7d50df1cfc80",
+            "description_fingerprint": "612f5144e24133a78fac6cdedcced7e76f58839bda2e876a3871bdee0358c060"
+        }
+    ],
+    "requires": {
+        "capability": "manage_options",
+        "atomic_editor": true
+    },
+    "side_effects": [
+        {
+            "id": "kit_variables_meta",
+            "scope": "kit",
+            "description": "Writes the global variables record in the active kit meta."
+        },
+        {
+            "id": "global_css_cache_clear",
+            "scope": "site",
+            "description": "Calls the Elementor files manager clear_cache and flushes the runtime object cache after any non-empty batch, which invalidates generated CSS for the whole site."
+        }
+    ],
+    "closure_requirements": [
+        "kit_snapshot",
+        "css_containment",
+        "readback",
+        "css_regenerate_post_scoped"
+    ],
+    "summary": {
+        "enum_lists": {
+            "actions": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "action",
+                    "enum"
+                ]
+            }
+        },
+        "flags": []
+    },
+    "probes": [
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "type"
+            ],
+            "equals": "array"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "type"
+            ],
+            "equals": "object"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "required"
+            ],
+            "same_set": [
+                "action"
+            ]
+        },
+        {
+            "id": "action_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "action",
+                "enum"
+            ],
+            "exact_strings": [
+                "create",
+                "update",
+                "delete"
+            ]
+        },
+        {
+            "id": "variable_type_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "type",
+                "enum"
+            ],
+            "same_set": [
+                "global-color-variable",
+                "global-font-variable",
+                "global-size-variable",
+                "global-custom-size-variable"
+            ]
+        }
+    ],
+    "evidence": {
+        "plugin": "elementor",
+        "verified_versions": [
+            "4.3.0",
+            "4.3.1",
+            "4.3.2",
+            "4.3.3",
+            "4.3.4"
+        ],
+        "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
+        "source_file": "modules/mcp/abilities/manage-variable-ability.php"
+    }
+}

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Schema;
 
+use Stonewright\WpMcp\SkillLibrary\ProviderRequirement;
+
 /**
  * Builds a stable cache fingerprint for the live Elementor runtime.
  */
@@ -18,6 +20,12 @@ final class RuntimeFingerprint {
 		foreach ( $constraints as $component => $expression ) {
 			if ( 'any_of' === (string) $component ) {
 				if ( ! self::matches_any_of( $expression ) ) {
+					return false;
+				}
+				continue;
+			}
+			if ( ProviderRequirement::is_component( (string) $component ) ) {
+				if ( ! ProviderRequirement::satisfied( (string) $component, $expression ) ) {
 					return false;
 				}
 				continue;

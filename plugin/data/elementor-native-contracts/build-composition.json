@@ -1,0 +1,39 @@
+{
+    "contract_version": 1,
+    "ability": "elementor/build-composition",
+    "status": "unsupported",
+    "provider": "elementor-core",
+    "source_plugin": "elementor/elementor.php",
+    "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Build_Composition_Ability",
+    "reason": "staged_in_autosave",
+    "reasons": [
+        "staged_in_autosave"
+    ],
+    "observed_fingerprints": {
+        "elementor_version": "4.3.4",
+        "input": "f09ce4148bd8524b3366e4b957c750dc6bd4829884c79eb598ed960a4ac16d3d",
+        "output": "d4997630526259d978264abfff1f8198bdcd30a6fcd2ca8ae2bd3d9c142905a5"
+    },
+    "side_effects": [
+        {
+            "id": "staged_in_autosave",
+            "scope": "document",
+            "description": "On a published document the composition is saved into the current user's autosave and does not go live until the document is published; the ability still returns success."
+        }
+    ],
+    "unblock_requires": [
+        "autosave_truth"
+    ],
+    "evidence": {
+        "plugin": "elementor",
+        "verified_versions": [
+            "4.3.0",
+            "4.3.1",
+            "4.3.2",
+            "4.3.3",
+            "4.3.4"
+        ],
+        "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
+        "source_file": "modules/mcp/abilities/build-composition-ability.php"
+    }
+}

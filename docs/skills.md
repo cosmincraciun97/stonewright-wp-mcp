@@ -71,6 +71,23 @@ version expression, for example `{"elementor": ">=3.16"}`; the seeder forwards
 both to the skill record, and a pack that declares neither leaves whatever the
 site already recorded for that slug untouched.
 
+A skill may also declare `requires_provider`, a single provider id. The only
+accepted value is `elementor-native`: Elementor's own MCP abilities are
+registered on the site (the `native_elementor` state is `available` or
+`available_uncertified`). The value is lowercase, one id only; an unknown id,
+a list, an empty value, or a repeated key makes the document invalid.
+`requires_provider` compiles into the visibility constraint
+`"provider:elementor-native": "required"` that is merged into
+`version_constraints`, so the stored record, the export, and the runtime check
+use that constraint. While the provider is absent the skill is hidden from
+agents and prompts exactly like a skill whose required plugin is missing, and
+`stonewright-skills-get` names `provider:elementor-native` as the missing
+requirement. It is shown again as soon as the provider is present. A provider
+requirement never blocks saving, enabling, or exporting a skill. The constraint
+accepts only the expression `required`; skill lint reports an unknown provider
+id or any other expression as `invalid_provider_requirement:<component>`, which
+blocks activation.
+
 ## Skill lifecycle in wp-admin
 
 **Stonewright → Skills** has four views: Catalog, Editor, Import, and Trash.

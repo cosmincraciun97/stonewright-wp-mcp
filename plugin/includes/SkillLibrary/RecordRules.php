@@ -72,7 +72,7 @@ final class RecordRules {
 				return self::invalid( 'Version constraints must be a component map.' );
 			}
 			if ( ! VisibilityRules::well_formed( $record['version_constraints'] ) ) {
-				return self::invalid( 'Version constraints map components to "required" or a version expression, or list any_of alternatives.' );
+				return self::invalid( 'Version constraints map components to "required" or a version expression, list any_of alternatives, or require a known provider with "provider:<id>".' );
 			}
 		}
 		if ( isset( $record['verification_count'] ) && ( ! is_int( $record['verification_count'] ) || $record['verification_count'] < 0 ) ) {
@@ -128,6 +128,11 @@ final class RecordRules {
 		}
 		if ( preg_match( '/\belementor\b/i', $description . ' ' . $content ) && empty( $record['version_constraints'] ) ) {
 			$errors[] = 'missing_version_constraints';
+		}
+		foreach ( is_array( $record['version_constraints'] ?? null ) ? $record['version_constraints'] : [] as $component => $expression ) {
+			if ( is_string( $component ) && ProviderRequirement::is_component( $component ) && ! ProviderRequirement::valid_constraint( $component, $expression ) ) {
+				$errors[] = 'invalid_provider_requirement:' . $component;
+			}
 		}
 		if ( ! empty( $record['conflicts'] ) ) {
 			$errors[] = 'unresolved_conflicts';

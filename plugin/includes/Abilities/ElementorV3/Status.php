@@ -53,6 +53,7 @@ final class Status extends AbilityKernel {
 				'recommended_renderer'    => [ 'type' => 'string' ],
 				'agent_action'            => [ 'type' => 'string' ],
 				'provider_discovery'      => [ 'type' => 'object' ],
+				'native_elementor'        => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -70,6 +71,10 @@ final class Status extends AbilityKernel {
 		$v4_enabled   = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 		$v4_ready     = $v4_supported && $v4_enabled;
 
+		$discovery       = $this->provider_router->inspect( 0, 'auto' );
+		$native_elementor = is_array( $discovery['native_elementor'] ?? null ) ? $discovery['native_elementor'] : [];
+		unset( $discovery['native_elementor'] );
+
 		return [
 			'installed' => $installed,
 			'active'    => (bool) $active,
@@ -84,7 +89,8 @@ final class Status extends AbilityKernel {
 			'v4_write_ready'           => $v4_ready,
 			'recommended_renderer'     => $v4_ready ? 'elementor-v4-atomic' : 'elementor-v3-native',
 			'agent_action'             => self::agent_action( $v4_ready ),
-			'provider_discovery'       => $this->provider_router->inspect( 0, 'auto' ),
+			'provider_discovery'       => $discovery,
+			'native_elementor'         => $native_elementor,
 		];
 	}
 

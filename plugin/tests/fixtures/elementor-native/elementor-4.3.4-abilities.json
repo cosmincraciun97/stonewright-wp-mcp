@@ -1,0 +1,321 @@
+{
+    "elementor_version": "4.3.4",
+    "source": "WordPress.org plugin directory release, registered abilities read from the live runtime",
+    "abilities": {
+        "elementor/get-page-structure": {
+            "name": "elementor/get-page-structure",
+            "label": "Get Elementor Page Structure",
+            "description": "Returns a lean Elementor element tree skeleton (id, elType, widgetType, version, title, nested elements) for a single post or page ID. Each node is tagged with version=3 (legacy) or version=4 (atomic). Only version=4 nodes can be modified via elementor/manage-elements or referenced by elementor/build-composition element_config; version=3 nodes are returned for context only and must be edited directly in the Elementor editor. Optionally scope to a subtree via element_id. Set include_content=true (requires element_id) to also return each V4 node's settings in the plain shape that manage-elements.update.settings / build-composition.element_config accept, so a value can be sent back as-is, styles (as { __style_id, css } where css is a raw CSS string round-trippable to manage-elements.update.style / build-composition.style in replace mode), interactions, its rendered HTML tag when known, and default_styles (a raw CSS string of the widget base layer followed by the kit's site-wide default layer for that tag, in browser cascade order — includes selectors, @media(--breakpoint) blocks, and pseudo-states as the frontend renders them). V3 nodes are returned with empty settings and styles. Only works for posts that were saved with Elementor.",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "post_id"
+                ],
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "description": "WordPress post ID of the Elementor document."
+                    },
+                    "element_id": {
+                        "type": "string",
+                        "description": "Optional. If provided, returns only the subtree rooted at that element id."
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "If true, includes each V4 node's settings (plain shape, writable as-is), styles (as { __style_id, css } — raw CSS string), interactions, rendered tag, and default_styles (raw CSS string: base layer + kit default for that tag). The styles.css value is round-trippable to build-composition.style / manage-elements.update.style in replace mode. Requires element_id."
+                    }
+                }
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "elements": {
+                        "type": "array",
+                        "description": "Skeleton of Elementor elements (id, elType, widgetType, version, title, nested elements). When include_content is true, V4 nodes also include settings, styles (as { __style_id, css } — raw CSS string with @media(--breakpoint) + &:hover/&:focus/&:active), interactions, tag (rendered HTML wrapper tag when known), and default_styles (raw CSS string, in cascade order: `.e-con` shell styles of atomic elements, including document-root rules for top-level elements + widget base layer + kit site-wide default for that tag). V3 nodes always have empty settings and styles."
+                    }
+                }
+            },
+            "meta": {
+                "annotations": {
+                    "readonly": true,
+                    "destructive": false,
+                    "idempotent": true
+                }
+            },
+            "source_plugin": "elementor/elementor.php",
+            "source_version": "4.3.4",
+            "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Get_Structure_Ability",
+            "runtime_contract": [],
+            "provenance": {
+                "metadata": "upstream_registered_ability",
+                "schema": "upstream_registered_ability",
+                "ownership": "active_plugin_header"
+            }
+        },
+        "elementor/manage-classes": {
+            "name": "elementor/manage-classes",
+            "label": "Manage Global Classes",
+            "description": "Manage V4 global CSS classes on the active kit. Bulk create, update, or delete using raw CSS declarations (up to 50 operations). Duplicate labels are auto-renamed with a DUP_ prefix.",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "operations"
+                ],
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "description": "Bulk operations (1–50). Each item requires action. create needs label and css. update/delete need id or label (both unique identifiers; label is also updated if provided on update). Use mode to control merge behaviour on update (patch = upsert, replace = overwrite breakpoint).",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "create",
+                                        "update",
+                                        "delete"
+                                    ]
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "css": {
+                                    "type": "string",
+                                    "description": "Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: \"prop: null\" removes that prop; \"all: null\" wipes the variant."
+                                },
+                                "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "patch",
+                                        "replace"
+                                    ],
+                                    "default": "patch",
+                                    "description": "patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "output_schema": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "results",
+                    "order"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "results": {
+                        "type": "array"
+                    },
+                    "order": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "meta": {
+                "annotations": {
+                    "readonly": false,
+                    "destructive": false,
+                    "idempotent": false
+                }
+            },
+            "source_plugin": "elementor/elementor.php",
+            "source_version": "4.3.4",
+            "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Classes_Ability",
+            "runtime_contract": {
+                "runtime_operation_limit": 50,
+                "class_type": "class"
+            },
+            "provenance": {
+                "metadata": "upstream_registered_ability",
+                "schema": "upstream_registered_ability",
+                "ownership": "active_plugin_header"
+            }
+        },
+        "elementor/manage-default-styles": {
+            "name": "elementor/manage-default-styles",
+            "label": "Manage Default Styles (Site-Wide)",
+            "description": "Bulk manage the active kit's site-wide default styles, keyed by HTML wrapper tag (h1..h6, p, a, section, div, ...). These styles apply to every V4 atomic element that renders that tag on the whole site, sitting on top of each widget's built-in base_styles and beneath any inline or global class overrides. Use action=update to upsert (patch or replace) a tag's variants via a raw CSS string (supports @media(--breakpoint) + &:hover/&:focus/&:active), and action=delete to remove a tag's default style entirely.",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "operations"
+                ],
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "description": "Bulk operations (1–20). Each item requires action and tag. update needs css (raw CSS string, same format as manage-classes) and applies site-wide to that HTML tag. Use mode to control merge behaviour on update (patch = upsert variants, replace = overwrite variants for the affected breakpoints). delete removes the tag's default style entirely.",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action",
+                                "tag"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "update",
+                                        "delete"
+                                    ]
+                                },
+                                "tag": {
+                                    "type": "string",
+                                    "description": "HTML wrapper tag to target (e.g. h1, h2, p, a). Must be one of Elementor's allowed wrapper tags."
+                                },
+                                "css": {
+                                    "type": "string",
+                                    "description": "Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: \"prop: null\" removes that prop; \"all: null\" wipes the variant."
+                                },
+                                "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "patch",
+                                        "replace"
+                                    ],
+                                    "default": "patch",
+                                    "description": "patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "output_schema": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "results"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "results": {
+                        "type": "array"
+                    }
+                }
+            },
+            "meta": {
+                "annotations": {
+                    "readonly": false,
+                    "destructive": true,
+                    "idempotent": false
+                }
+            },
+            "source_plugin": "elementor/elementor.php",
+            "source_version": "4.3.4",
+            "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Default_Styles_Ability",
+            "runtime_contract": {
+                "runtime_operation_limit": 20,
+                "class_type": "class"
+            },
+            "provenance": {
+                "metadata": "upstream_registered_ability",
+                "schema": "upstream_registered_ability",
+                "ownership": "active_plugin_header"
+            }
+        },
+        "elementor/manage-global-variable": {
+            "name": "elementor/manage-global-variable",
+            "label": "Manage Global Variable",
+            "description": "Manage V4 global variables (color, font, size, custom-size). Bulk create, update, or delete on the active kit (up to 50 operations).",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "operations"
+                ],
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "description": "Bulk operations (1–50). Each item requires action; create needs type/label/value, update needs id/label/value, delete needs id.",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "create",
+                                        "update",
+                                        "delete"
+                                    ]
+                                },
+                                "id": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "global-color-variable",
+                                        "global-font-variable",
+                                        "global-size-variable",
+                                        "global-custom-size-variable"
+                                    ]
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "output_schema": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "results"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "results": {
+                        "type": "array"
+                    },
+                    "watermark": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "meta": {
+                "annotations": {
+                    "readonly": false,
+                    "destructive": false,
+                    "idempotent": false
+                }
+            },
+            "source_plugin": "elementor/elementor.php",
+            "source_version": "4.3.4",
+            "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Variable_Ability",
+            "runtime_contract": {
+                "runtime_operation_limit": 50
+            },
+            "provenance": {
+                "metadata": "upstream_registered_ability",
+                "schema": "upstream_registered_ability",
+                "ownership": "active_plugin_header"
+            }
+        }
+    }
+}

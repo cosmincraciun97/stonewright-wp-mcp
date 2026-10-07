@@ -1,0 +1,198 @@
+{
+    "contract_version": 1,
+    "ability": "elementor/manage-classes",
+    "status": "certifiable",
+    "access": "write",
+    "provider": "elementor-core",
+    "source_plugin": "elementor/elementor.php",
+    "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Classes_Ability",
+    "annotations": {
+        "readonly": false,
+        "destructive": false,
+        "idempotent": false
+    },
+    "runtime_contract": {
+        "runtime_operation_limit": 50,
+        "class_type": "class"
+    },
+    "version_policy": "required",
+    "schemas": [
+        {
+            "elementor_versions": {
+                "min": "4.3.0",
+                "max": "4.3.4"
+            },
+            "input_fingerprint": "223524cbaf2ad1bd7c2eb93bdbb644ebc88014b4129904ec5b957ea166ef565e",
+            "output_fingerprint": "f00d5f11a9f9964bb291a49f8e2e9c2892356204a152024257bd0132d1d994e9",
+            "description_fingerprint": "53eae253f4232d3b2573b4fe33cdb1450f00d8f4b79b63c7f81c49ea3e47ef75"
+        }
+    ],
+    "requires": {
+        "capability": "elementor_global_classes_update_class",
+        "atomic_editor": true
+    },
+    "side_effects": [
+        {
+            "id": "global_class_posts",
+            "scope": "kit",
+            "description": "Creates, updates or deletes e_global_class posts and the stored class order; duplicate labels are renamed with a DUP_ prefix."
+        },
+        {
+            "id": "global_css_cache_clear",
+            "scope": "site",
+            "description": "Calls the Elementor files manager clear_cache after any applied change, which invalidates generated CSS for the whole site."
+        },
+        {
+            "id": "global_classes_update_action",
+            "scope": "hook",
+            "description": "Fires elementor/global_classes/update after a change."
+        }
+    ],
+    "closure_requirements": [
+        "kit_snapshot",
+        "css_containment",
+        "readback",
+        "css_regenerate_post_scoped"
+    ],
+    "summary": {
+        "enum_lists": {
+            "actions": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "action",
+                    "enum"
+                ]
+            }
+        },
+        "flags": {
+            "responsive_css": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "css",
+                    "description"
+                ],
+                "contains_all": [
+                    "@media(--breakpoint)"
+                ]
+            },
+            "pseudo_states": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "css",
+                    "description"
+                ],
+                "contains_all": [
+                    "&:hover",
+                    "&:focus",
+                    "&:active"
+                ]
+            }
+        }
+    },
+    "probes": [
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "type"
+            ],
+            "equals": "array"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "type"
+            ],
+            "equals": "object"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "required"
+            ],
+            "same_set": [
+                "action"
+            ]
+        },
+        {
+            "id": "action_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "action",
+                "enum"
+            ],
+            "exact_strings": [
+                "create",
+                "update",
+                "delete"
+            ]
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "enum"
+            ],
+            "same_set": [
+                "patch",
+                "replace"
+            ]
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "default"
+            ],
+            "equals": "patch"
+        }
+    ],
+    "evidence": {
+        "plugin": "elementor",
+        "verified_versions": [
+            "4.3.0",
+            "4.3.1",
+            "4.3.2",
+            "4.3.3",
+            "4.3.4"
+        ],
+        "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
+        "source_file": "modules/mcp/abilities/manage-classes-ability.php"
+    }
+}

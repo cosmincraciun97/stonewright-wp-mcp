@@ -88,11 +88,22 @@ V4 write abilities follow the same AGENTS.md security rules as V3:
   version, provenance, and contract.
 - Licensed Elementor Pro editor and frontend parity is not yet proven by
   controlled-site E2E runs.
-- Elementor's own registered abilities (`elementor/*`) are discovered and
-  fingerprinted by the provider router for evidence only. Stonewright does not
-  route writes through them yet.
+- Elementor's own registered abilities (`elementor/*`) are discovered,
+  fingerprinted, and certified against shipped contracts by the provider router
+  for evidence only. Stonewright does not execute them or route writes through
+  them; the abilities above stay the Atomic writers. See
+  [Native Elementor abilities](../elementor-v4-engine.md#native-elementor-abilities)
+  for the report, the contracts, and each ability's side effects.
 - V4 abilities are **blocked in `production-safe` mode** for all write
   operations.
+
+## Using Elementor's own MCP server alongside
+
+Stonewright does not disable, replace, or compete with Elementor's MCP server,
+and both can be connected to the same client. Use Stonewright when you want
+snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
+quick draft that you will review in the editor. Do not send one change through
+both servers: Stonewright's backup and readback only cover what it writes.
 
 ## Enabling for development
 

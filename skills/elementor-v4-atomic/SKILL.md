@@ -28,6 +28,53 @@ wp-options (`stonewright_elementor_v4_atomic = 1`).
 Also check `integrations.elementor_v4`. It reports Elementor >= 4.0.0; the
 Atomic Widgets module gate itself accepts Elementor 3.31+ builds that ship it.
 
+## Native Elementor status
+
+Elementor can register its own `elementor/*` abilities through its MCP module.
+Stonewright reports that state and never calls those abilities from this skill.
+Read it from `native_elementor` in `stonewright/site-capabilities`, or from the
+one-word `elementor.status.native_elementor` state in `stonewright-task-start`.
+
+| `state` | Meaning |
+|---|---|
+| `not_installed` | Elementor is not active. |
+| `module_unavailable` | This Elementor build has no MCP module. |
+| `requirements_missing` | The module needs the WordPress Abilities API, the WordPress MCP Adapter, or Elementor's MCP Composer; `mcp_module.missing` names the absent one. |
+| `exposure_disabled` | The requirements are met but the MCP switch in Elementor's settings is off, so no abilities are registered. |
+| `no_abilities_registered` | The switch is on and no `elementor/*` ability is registered. |
+| `available_uncertified` | Abilities are registered and none matches a Stonewright contract. |
+| `available` | At least one registered ability matches its contract. |
+
+`native_elementor.certification` gives each contracted ability one of three
+results. `certified` means the live schemas, class, owner, annotations, and
+Elementor version all match the shipped contract. `rejected` lists the exact
+mismatches in `issues`. `unsupported` carries a machine-readable reason.
+
+| Ability | Result | Note |
+|---|---|---|
+| `elementor/manage-default-styles` | certifiable | Site-wide default styles per HTML tag. |
+| `elementor/manage-classes` | certifiable | Global classes; clears generated CSS for the whole site. |
+| `elementor/manage-global-variable` | certifiable | Global variables; clears generated CSS for the whole site. |
+| `elementor/get-page-structure` | certifiable, read-only | Reads the published document, not a pending autosave. |
+| `elementor/manage-elements` | unsupported | `upstream_global_clear_cache`, `staged_in_autosave`. |
+| `elementor/build-composition` | unsupported | `staged_in_autosave`. |
+
+An edit to a published page through `manage-elements` or `build-composition` is
+saved into an autosave and is not live until the page is published. Never
+describe such an edit as applied.
+
+## Fallback status
+
+The renderer, class, and variable abilities in this skill are the Stonewright V4
+writers, and in this release they are the only Atomic writers: Stonewright does
+not execute a native `elementor/*` write, whatever its certification state. A
+certified state records that the live ability matches its contract; it does not
+route a write.
+
+If the user also has Elementor's own MCP server connected, do not repeat one
+change through both. Use Stonewright when you want snapshots, readback, audit,
+and rollback; Elementor's MCP alone is fine for a quick draft.
+
 ## Dry-run first
 
 `design-spec-to-elementor-v4` defaults to `dry_run: true`. Always call it in

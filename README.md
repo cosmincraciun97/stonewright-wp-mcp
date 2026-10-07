@@ -487,6 +487,33 @@ repository follow the common MCP server JSON shape used by several clients.
 | Direct mode core REST | Documented + smoke script | [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) |
 | Specific desktop/CLI AI clients | Catalog + smoke template | Setup shares one client tablist for OAuth and Application Password. Grok Build / CLI stays `compatible` until a dated runtime smoke report exists. |
 
+## Using Stonewright with Elementor's own MCP server
+
+Elementor 4.3 and later can run its own MCP server, with abilities named
+`elementor/*`. Stonewright does not disable it, replace it, or compete with it
+for the same tools. Both servers can be connected to one client.
+
+| You want | Use |
+|---|---|
+| Snapshots before a change, readback after it, an audit trail, and rollback | Stonewright |
+| A quick draft that you will review in the editor | Elementor's MCP alone is fine |
+
+Do not send one change through both servers: Stonewright's backup and readback
+only cover what Stonewright writes.
+
+Stonewright reports Elementor's side as evidence in `stonewright-site-capabilities`
+and `stonewright-elementor-v3-status` (`native_elementor`), and as a one-word
+state in `stonewright-task-start`. The report covers the Elementor version,
+whether the MCP module is active and which of its requirements are met (the
+WordPress Abilities API, the WordPress MCP Adapter, Elementor's MCP Composer, and
+the MCP switch in Elementor's settings), the registered `elementor/*` abilities,
+their ownership and schema fingerprints, and a certification result per ability.
+Reading it calls no Elementor ability and changes nothing on the site.
+
+Stonewright does not execute Elementor's abilities; its own Elementor writers
+keep every safety gate. Details and per-ability results are in
+[docs/elementor-v4-engine.md](docs/elementor-v4-engine.md#native-elementor-abilities).
+
 ## Admin interface
 
 Plugin mode admin pages include Setup, Troubleshoot, Dashboard (Site Pulse),

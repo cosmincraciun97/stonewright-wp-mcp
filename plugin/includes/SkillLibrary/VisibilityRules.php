@@ -24,12 +24,19 @@ final class VisibilityRules {
 
 	/**
 	 * Accepted shapes: an empty map for no constraint, a component mapped to "required" or a
-	 * version expression, and any_of mapped to alternatives such as "slug-a|slug-b".
+	 * version expression, any_of mapped to alternatives such as "slug-a|slug-b", and a
+	 * "provider:<id>" component for a known provider mapped to "required".
 	 *
 	 * @param array<mixed> $constraints
 	 */
 	public static function well_formed( array $constraints ): bool {
 		foreach ( $constraints as $component => $expression ) {
+			if ( is_string( $component ) && ProviderRequirement::is_component( $component ) ) {
+				if ( ! ProviderRequirement::valid_constraint( $component, $expression ) ) {
+					return false;
+				}
+				continue;
+			}
 			if ( ! is_string( $component ) || ! preg_match( '/^' . self::COMPONENT . '\z/', $component ) || ! is_string( $expression ) || '' === trim( $expression ) ) {
 				return false;
 			}

@@ -32,6 +32,29 @@
 - Add the built-in `how-to-write-skills` skill, covering trigger descriptions,
   body size, version constraints, exposure flags, import review, and testing a
   skill before it is enabled.
+- Report Elementor's own MCP module as `native_elementor` in
+  `stonewright-site-capabilities`, `stonewright-elementor-v3-status`, and
+  `stonewright-elementor-provider-discovery`, and as a one-word state in
+  `stonewright-task-start`. The report gives the Elementor version, which
+  module requirements are met (the WordPress Abilities API, the WordPress MCP
+  Adapter, Elementor's MCP Composer, the site switch, and the Atomic Editor),
+  the registered `elementor/*` abilities, their ownership, schema
+  fingerprints, and the certification result per ability. Reading it calls no
+  Elementor ability.
+- Check Elementor's `manage-default-styles`, `manage-classes`,
+  `manage-global-variable`, and `get-page-structure` abilities against one
+  contract file each under `plugin/data/elementor-native-contracts/`: exact
+  input, output, and description fingerprints per verified Elementor version
+  range, provider, runtime class, annotations, runtime constants, and known
+  side effects. A mismatch rejects the ability and lists each exact reason.
+  `manage-elements` and `build-composition` are reported as unsupported with
+  the reasons `upstream_global_clear_cache` and `staged_in_autosave`.
+- Add an optional `requires_provider` skill front-matter key. The accepted
+  value is `elementor-native`; it compiles into a `provider:elementor-native`
+  visibility constraint, hides the skill from agents and prompts while Elementor's
+  abilities are absent, and never blocks enabling the skill. The codec and skill
+  lint validate it.
+- Document how Stonewright coexists with Elementor's own MCP server.
 
 ### Changed
 
