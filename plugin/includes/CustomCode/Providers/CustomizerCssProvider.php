@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\CustomCode\Providers;
 
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
+use Stonewright\WpMcp\Security\ChangeSet;
 
 /**
  * Adapter that delegates Customizer CSS work to the existing typed ability.
@@ -90,7 +91,7 @@ final class CustomizerCssProvider implements ProviderInterface {
 				'methods_tried' => [ 'typed_api' ],
 			],
 			'max_changed_bytes' => (int) ( $args['max_changed_bytes'] ?? 65536 ),
-		];
+		] + ChangeSet::lineage_input( $args );
 		$result = $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
@@ -110,7 +111,7 @@ final class CustomizerCssProvider implements ProviderInterface {
 			'custom_code_grant' => (string) ( $args['custom_code_grant'] ?? '' ),
 			'max_changed_bytes' => (int) ( $args['max_changed_bytes'] ?? 65536 ),
 			'confirmation_token'=> (string) ( $args['confirmation_token'] ?? '' ),
-		];
+		] + ChangeSet::lineage_input( $args );
 		$result = $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;

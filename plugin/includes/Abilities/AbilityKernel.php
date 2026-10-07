@@ -4,9 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities;
 
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Base class abilities extend so they only have to implement
@@ -160,6 +162,7 @@ abstract class AbilityKernel implements Ability {
 				$status = 'error';
 					}
 				}
+		$change_set = $this->attach_change_set( $args, $result, $status );
 		$target_id  = self::audit_target_id( $args );
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = array_merge(
@@ -215,6 +218,9 @@ abstract class AbilityKernel implements Ability {
 				}
 			}
 			$metadata = self::merge_receipt_metadata( $metadata, is_array( $result['write_receipt'] ?? null ) ? $result['write_receipt'] : [] );
+		}
+		if ( null !== $change_set ) {
+			$metadata = self::merge_change_set_metadata( $metadata, $change_set );
 		}
 		if ( ! empty( $args['dry_run'] ) && 'ok' === $status ) {
 			if ( ! isset( $metadata['execution_status'] ) || ! is_scalar( $metadata['execution_status'] ) || '' === trim( (string) $metadata['execution_status'] ) ) {
@@ -398,6 +404,81 @@ abstract class AbilityKernel implements Ability {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Declares the ChangeSetV1 a write ability returns under `change_set`.
+	 *
+	 * A write ability that reports a change set overrides this and returns the
+	 * inputs of {@see ChangeSet::build()}, read from its input and from its result
+	 * (the receipt, the hashes, the items it applied). The kernel attaches the
+	 * built change set to the result, or to the error data of a failed write, and
+	 * copies its identity and lineage into the audit row. The default reports none.
+	 *
+	 * @param array<string, mixed>          $args   Ability input.
+	 * @param array<string, mixed>|\WP_Error $result What the ability callback returned, with any Elementor receipt attached.
+	 * @param string                        $status Audit status of the call: ok, error or blocked.
+	 * @return array<string, mixed>|null Builder inputs, or null when the ability reports no change set.
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		return null;
+	}
+
+	/**
+	 * Attach the ability's change set to the result and return it.
+	 *
+	 * A change set a nested ability call already attached is kept. A failure to
+	 * build one never changes the outcome of the write.
+	 *
+	 * @param array<string, mixed>          $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	private function attach_change_set( array $args, array|\WP_Error &$result, string $status ): ?array {
+		try {
+			$inputs = $this->change_set_inputs( $args, $result, $status );
+			if ( null === $inputs ) {
+				$nested = is_array( $result ) && is_array( $result['change_set'] ?? null ) ? $result['change_set'] : null;
+				return null !== $nested && ChangeSet::SCHEMA === ( $nested['schema'] ?? null ) ? $nested : null;
+			}
+			$change_set = ChangeSet::build( $inputs );
+		} catch ( \Throwable $throwable ) {
+			Logger::warning( 'change_set_build_failed', [ 'ability' => $this->name(), 'error' => $throwable->getMessage() ] );
+			return null;
+		}
+		if ( $result instanceof \WP_Error ) {
+			$data                = $result->get_error_data();
+			$data                = is_array( $data ) ? $data : [];
+			$data['change_set']  = $change_set;
+			$result->add_data( $data, $result->get_error_code() );
+		} else {
+			$result['change_set'] = $change_set;
+		}
+		return $change_set;
+	}
+
+	/**
+	 * Copy a change set's identity and lineage into audit metadata. A value the
+	 * ability already set wins, so a write that deliberately leaves its audit
+	 * rows without a change set id keeps doing so.
+	 *
+	 * @param array<string, mixed> $metadata
+	 * @param array<string, mixed> $change_set
+	 * @return array<string, mixed>
+	 */
+	private static function merge_change_set_metadata( array $metadata, array $change_set ): array {
+		foreach ( ChangeSet::audit_metadata( $change_set ) as $key => $value ) {
+			if ( ! array_key_exists( $key, $metadata ) ) {
+				$metadata[ $key ] = $value;
+			}
+		}
+		if ( is_string( $change_set['repair_of'] ?? null ) && ! isset( $metadata['parent_event_id'] ) ) {
+			$parent = AuditLog::latest_event_id( (string) $change_set['repair_of'] );
+			if ( '' !== $parent ) {
+				$metadata['parent_event_id'] = $parent;
+			}
+		}
+		return $metadata;
 	}
 
 	/**

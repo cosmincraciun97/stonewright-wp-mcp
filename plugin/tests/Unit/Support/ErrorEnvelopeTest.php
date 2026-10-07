@@ -103,4 +103,45 @@ final class ErrorEnvelopeTest extends TestCase {
 		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
 		self::assertStringContainsString( 'elementor-v3-container-schema', $visible->get_error_message() );
 	}
+
+	public function test_a_failed_writes_change_set_id_reaches_the_agent_message_and_the_rest_envelope(): void {
+		$error = new \WP_Error(
+			'stonewright_readback_mismatch',
+			'Elementor write readback did not match the compiled tree.',
+			[
+				'status'        => 500,
+				'write_receipt' => [ 'change_set_id' => 'cs-failed-write', 'snapshot_id' => 'snap_x' ],
+				'change_set'    => [
+					'schema'        => 'ChangeSetV1',
+					'change_set_id' => 'cs-failed-write',
+					'planned'       => [ [ 'kind' => 'element', 'ref' => 'hero', 'action' => 'update_element' ] ],
+				],
+				'token'         => 'must-not-leak',
+			]
+		);
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		self::assertStringContainsString( '"change_set_id":"cs-failed-write"', $visible->get_error_message() );
+		self::assertStringNotContainsString( 'hero', $visible->get_error_message(), 'Only the identifier is copied into the message.' );
+		self::assertStringNotContainsString( 'must-not-leak', $visible->get_error_message() );
+		self::assertSame( 'cs-failed-write', $visible->get_error_data()['change_set']['change_set_id'], 'The PHP error data keeps the whole change set.' );
+
+		$data = ErrorEnvelope::from_wp_error( $error )['error']['data'];
+		self::assertSame( 'cs-failed-write', $data['change_set_id'] );
+		self::assertArrayNotHasKey( 'change_set', $data );
+		self::assertArrayNotHasKey( 'write_receipt', $data );
+		self::assertArrayNotHasKey( 'token', $data );
+	}
+
+	public function test_a_change_set_id_is_bounded_and_only_a_string_is_copied(): void {
+		$long = new \WP_Error( 'x', 'Failed.', [ 'change_set' => [ 'change_set_id' => str_repeat( 'a', 200 ) ] ] );
+		self::assertSame( str_repeat( 'a', 96 ), ErrorEnvelope::from_wp_error( $long )['error']['data']['change_set_id'] );
+		self::assertStringContainsString( '"change_set_id":"' . str_repeat( 'a', 96 ) . '"', ErrorEnvelope::with_agent_visible_payload( $long )->get_error_message() );
+
+		foreach ( [ [ 'change_set' => [ 'change_set_id' => 42 ] ], [ 'change_set' => 'not an array' ], [ 'change_set' => [ 'change_set_id' => '' ] ] ] as $data ) {
+			$error = new \WP_Error( 'x', 'Failed.', $data );
+			self::assertArrayNotHasKey( 'data', ErrorEnvelope::from_wp_error( $error )['error'] );
+			self::assertSame( 'Failed.', ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message() );
+		}
+	}
 }

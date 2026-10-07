@@ -10,6 +10,8 @@ use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
 use Stonewright\WpMcp\Support\BlockTree;
@@ -66,6 +68,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 					'description' => 'Safety limit for include_full dry-run previews. Full preview fails closed when the compiled tree exceeds it.',
 				],
 				'change_set_id'        => [ 'type' => 'string', 'maxLength' => 96 ],
+				'repair_of'            => ChangeSet::input_properties()['repair_of'],
+				'supersedes'           => ChangeSet::input_properties()['supersedes'],
 				'confirmation_token'   => [ 'type' => 'string' ],
 				'allow_raw_html'       => [ 'type' => 'boolean', 'default' => false ],
 				'custom_code_grant'    => [
@@ -110,6 +114,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 				'applied'             => [ 'type' => 'integer' ],
 				'items'               => [ 'type' => 'array' ],
 				'write_receipt'       => [ 'type' => 'object' ],
+				'change_set'          => ChangeSet::output_property(),
 				'verification_status' => [ 'type' => 'string' ],
 				'rollback_status'     => [ 'type' => 'string' ],
 				'preview_omitted'     => [ 'type' => 'boolean' ],
@@ -425,6 +430,40 @@ final class BlocksBatchMutate extends AbilityKernel {
 				$response['write_receipt'] = $receipt;
 				return $response;
 			}
+		);
+	}
+
+	/**
+	 * ChangeSetV1 of the batch: one planned block change per operation, read from
+	 * the request, the per-operation results and the write receipt. The post
+	 * content is verified as one document, so a readback that differs misses every
+	 * planned change and no block-level change is reported as unexpected.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data    = ChangeSetSources::data( $result );
+		$items   = array_values( (array) ( $data['items'] ?? [] ) );
+		$planned = [];
+		foreach ( array_values( (array) ( $args['operations'] ?? [] ) ) as $index => $operation ) {
+			$operation = is_array( $operation ) ? $operation : [];
+			$item      = is_array( $items[ $index ] ?? null ) ? $items[ $index ] : [];
+			$path      = is_array( $item['path'] ?? null ) ? $item['path'] : ( is_array( $operation['path'] ?? null ) ? $operation['path'] : [] );
+			$planned[] = ChangeSet::entry( 'block', [] === $path ? 'root' : implode( '.', array_map( 'intval', $path ) ), (string) ( $operation['action'] ?? '' ), $index );
+		}
+		$receipt = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+		$before  = (string) ( $receipt['before_hash'] ?? '' );
+		$after   = (string) ( $receipt['after_hash'] ?? '' );
+
+		return ChangeSetSources::receipt(
+			$args,
+			$result,
+			$status,
+			$planned,
+			$planned,
+			[ 'unchanged' => 'ok' === $status && empty( $args['dry_run'] ) && empty( $data['queued'] ) && '' !== $before && $before === $after ]
 		);
 	}
 

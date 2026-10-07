@@ -107,6 +107,8 @@ final class AuditEvent {
 
 		$transaction_id = self::safe_text( self::first_scalar( $meta, $args, [ 'transaction_id', 'write_transaction_id' ] ), 96 );
 		$change_set_id  = self::safe_text( self::first_scalar( $meta, $args, [ 'change_set_id' ] ), 96 );
+		$repair_of      = self::safe_text( self::first_scalar( $meta, $args, [ 'repair_of' ] ), 96 );
+		$supersedes     = self::safe_text( self::first_scalar( $meta, $args, [ 'supersedes' ] ), 96 );
 		$verification_status = self::safe_text( self::first_scalar( $meta, $args, [ 'verification_status' ] ), 32 );
 		$rollback_status     = self::safe_text( self::first_scalar( $meta, $args, [ 'rollback_status' ] ), 32 );
 		$expected_verifier   = self::safe_text( self::first_scalar( $meta, $args, [ 'expected_verifier' ] ), 190 );
@@ -192,6 +194,7 @@ final class AuditEvent {
 			'cause_fingerprint'       => $cause,
 			'strategy_fingerprint'    => $strategy,
 			'change_set_id'           => $change_set_id,
+			'repair_of'               => $repair_of,
 			'transaction_id'          => $transaction_id,
 			'context_token_id_hash'   => $context_hash,
 			'verification_status'     => $verification_status,
@@ -212,6 +215,8 @@ final class AuditEvent {
 					'root_error_code'  => $code,
 					'incident_id'      => $incident_id,
 					'target_id'        => $target_id,
+					'repair_of'        => $repair_of,
+					'supersedes'       => $supersedes,
 					'remediation_code' => $remediation_code,
 					'retry_limit'      => $retry_limit,
 					'execution_status' => $execution_status,
@@ -607,6 +612,8 @@ final class AuditEvent {
 			'root_error_code',
 			'incident_id',
 			'target_id',
+			'repair_of',
+			'supersedes',
 			'retry_limit',
 			'execution_status',
 		];

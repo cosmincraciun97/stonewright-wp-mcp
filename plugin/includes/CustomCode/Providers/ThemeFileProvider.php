@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\CustomCode\Providers;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
+use Stonewright\WpMcp\Security\ChangeSet;
 
 /**
  * Adapter that delegates theme file work to existing typed abilities.
@@ -103,7 +104,7 @@ final class ThemeFileProvider implements ProviderInterface {
 			'end_marker'        => (string) ( $args['end_marker'] ?? '' ),
 			'create_if_missing' => (bool) ( $args['create_if_missing'] ?? false ),
 			'theme'             => (string) ( $args['theme'] ?? 'stylesheet' ),
-		];
+		] + ChangeSet::lineage_input( $args );
 		$result = $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
@@ -134,7 +135,7 @@ final class ThemeFileProvider implements ProviderInterface {
 			'create_if_missing'  => (bool) ( $args['create_if_missing'] ?? false ),
 			'theme'              => (string) ( $args['theme'] ?? 'stylesheet' ),
 			'smoke_url'          => (string) ( $args['smoke_url'] ?? '' ),
-		];
+		] + ChangeSet::lineage_input( $args );
 		$result = $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;

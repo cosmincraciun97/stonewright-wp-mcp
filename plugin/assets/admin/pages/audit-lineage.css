@@ -1,0 +1,272 @@
+/**
+ * Audit Log change-set lineage: the Change set cell, the filter chip and the drawer.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Page-scoped classes. Design tokens only, and no declaration that overrides the
+ * shell styles by force.
+ */
+
+/* Change set cell and filter chip */
+.sw-audit-lineage-cell {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1) var(--sw-space-2);
+	min-width: 0;
+	margin: 0 0 var(--sw-space-2);
+}
+
+.sw-audit-lineage-cell [hidden],
+.sw-audit-lineage-panel[hidden],
+.sw-audit-lineage-tree[hidden],
+.sw-audit-lineage-more[hidden],
+.sw-audit-lineage-node__current[hidden] {
+	display: none;
+}
+
+.sw-audit-lineage-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+}
+
+.sw-audit-lineage-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	max-width: 100%;
+	min-height: 28px;
+	padding: 0 var(--sw-space-2) 0 var(--sw-space-3);
+	background: var(--sw-brand-soft);
+	color: var(--sw-brand-strong);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-pill);
+	font-size: var(--sw-text-sm);
+}
+
+.sw-audit-lineage-chip__label {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-lineage-chip__remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+	border-radius: var(--sw-radius-pill);
+	color: inherit;
+	font-size: var(--sw-text-lg);
+	line-height: 1;
+	text-decoration: none;
+}
+
+.sw-audit-lineage-chip__remove:hover {
+	background: var(--sw-surface-raised);
+}
+
+/* Drawer: a modal dialog on the inline end; a full-screen sheet below 782 px */
+.sw-audit-lineage-drawer {
+	position: fixed;
+	inset-block: 0;
+	inset-inline: auto 0;
+	width: min(520px, 100%);
+	max-width: 100%;
+	height: 100%;
+	max-height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	border: 0;
+	border-inline-start: 1px solid var(--sw-border-strong);
+	box-shadow: var(--sw-shadow-3);
+}
+
+.sw-audit-lineage-drawer::backdrop {
+	background: color-mix(in srgb, var(--sw-text) 45%, transparent);
+}
+
+.sw-audit-lineage-sheet {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+}
+
+.sw-audit-lineage-sheet__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-4);
+	border-bottom: 1px solid var(--sw-border);
+}
+
+.sw-audit-lineage-sheet__head h2 {
+	margin: 0;
+	min-width: 0;
+	font-size: var(--sw-text-lg);
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-lineage-sheet__body {
+	flex: 1 1 auto;
+	min-height: 0;
+	padding: var(--sw-space-4);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.sw-audit-lineage-summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1) var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-text-xs);
+}
+
+.sw-audit-lineage-summary__text,
+.sw-audit-lineage-note {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-lineage-note {
+	margin: 0 0 var(--sw-space-3);
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-xs);
+}
+
+/* Lineage tree: a nested ordered list; it indents three levels, then stops */
+.sw-audit-lineage-tree,
+.sw-audit-lineage-tree ol {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.sw-audit-lineage-tree ol {
+	margin-top: var(--sw-space-2);
+	padding-inline-start: var(--sw-space-4);
+	border-inline-start: 2px solid var(--sw-border);
+}
+
+.sw-audit-lineage-tree ol ol ol ol {
+	padding-inline-start: 0;
+	border-inline-start: 0;
+}
+
+.sw-audit-lineage-node {
+	min-width: 0;
+	margin: 0 0 var(--sw-space-3);
+}
+
+.sw-audit-lineage-node__card {
+	padding: var(--sw-space-2) var(--sw-space-3);
+	background: var(--sw-bg);
+	border-inline-start: 3px solid var(--sw-border-strong);
+	border-radius: 0 var(--sw-radius-sm) var(--sw-radius-sm) 0;
+}
+
+.sw-audit-lineage-node--failed > .sw-audit-lineage-node__card {
+	border-inline-start-color: var(--sw-danger-text);
+}
+
+.sw-audit-lineage-node--verified > .sw-audit-lineage-node__card {
+	border-inline-start-color: var(--sw-ok-text);
+}
+
+.sw-audit-lineage-node[aria-current] > .sw-audit-lineage-node__card {
+	background: var(--sw-brand-soft);
+	border-inline-start-width: 6px;
+}
+
+.sw-audit-lineage-node__line,
+.sw-audit-lineage-node__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1) var(--sw-space-2);
+	min-width: 0;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-lineage-node__meta {
+	margin-top: var(--sw-space-1);
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-xs);
+	line-height: 1.45;
+}
+
+.sw-audit-lineage-node__op {
+	font-weight: 600;
+}
+
+.sw-audit-lineage-node__line time,
+.sw-audit-lineage-node__duration {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-xs);
+	font-variant-numeric: tabular-nums;
+}
+
+.sw-audit-lineage-node__meta code {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-lineage-node__meta a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	color: var(--sw-brand);
+}
+
+.sw-audit-lineage-node__current {
+	color: var(--sw-brand-strong);
+	font-weight: 600;
+}
+
+.sw-audit-lineage-branch > summary {
+	min-height: 24px;
+	color: var(--sw-brand);
+	font-size: var(--sw-text-xs);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.sw-audit-lineage-more {
+	margin: var(--sw-space-3) 0;
+}
+
+@media screen and (max-width: 782px) {
+	.sw-audit-lineage-drawer {
+		inset: 0;
+		width: 100%;
+		border-inline-start: 0;
+	}
+
+	.sw-audit-lineage-cell .sw-btn,
+	.sw-audit-lineage-sheet__head .sw-btn,
+	.sw-audit-lineage-more .sw-btn {
+		height: auto;
+		min-height: 40px;
+	}
+
+	.sw-audit-lineage-node__meta a,
+	.sw-audit-lineage-chip__remove,
+	.sw-audit-lineage-branch > summary {
+		min-height: 40px;
+	}
+
+	.sw-audit-lineage-chip__remove {
+		min-width: 40px;
+	}
+}

@@ -41,6 +41,37 @@ development builds were never stable releases.
 - Add the built-in `how-to-write-skills` skill, covering trigger descriptions,
   body size, version constraints, exposure flags, import review, and testing a
   skill before it is enabled.
+- Return one `change_set` (`ChangeSetV1`) from every write that returns a
+  receipt: `elementor-v3-batch-mutate`, `elementor-v4-update-node`,
+  `blocks-batch-mutate`, `theme-file-patch`, `theme-backup-restore`,
+  `theme-custom-css`, `custom-code-provider` (dry-run, apply, rollback), and
+  `theme-chrome-update`. It lists the planned, applied, missing, and
+  unexpected changes, the hashes before and after, the verification status
+  with bounded evidence, the rollback recipe, `repair_of`, `supersedes`, and
+  the approval the write ran under. A failed write returns it in its error
+  data. It is built from the receipt the write already returns; the schema is
+  `docs/contracts/change-set-v1.schema.json`, and optional extension fields
+  are declared in one place in the builder and in the schema.
+- Accept `repair_of` and `supersedes` on those write abilities. A write that
+  repairs a failed change passes that change's `change_set_id`; when the repair
+  verifies, the incident the repaired change opened moves to `resolved` and the
+  repair's audit row becomes its resolution event. Successful rows still carry
+  no `incident_id`.
+- Accept the `change_set` a write returned in `elementor-post-write-verify`.
+  The verification is recorded under the same `change_set_id`, lists the
+  checked elements and markers the render shows or lacks, and keeps the lineage.
+- Show the change set on each Audit Log row as a short identifier with a copy
+  button and a link to its rows. While the log is filtered to a change set, a
+  chip names it and **Remove change set filter** takes off only that filter. A
+  change set with relatives opens a lineage drawer: the failed change, its
+  failed verification, the repair, and the repair verified, as a nested list
+  in which every node reads as text (state, operation, time, duration, ability,
+  the change it repairs, and the state of its incident). A branch with more
+  than five repairs folds, the drawer draws at most 50 nodes before **Show N
+  more**, Escape closes it and returns focus to the button that opened it, and
+  it fills the screen at 782 px and below. The page mounts it through the
+  `stonewright_audit_log_toolbar` and `stonewright_audit_log_change_set_cell`
+  hooks.
 
 ### Changed
 
@@ -100,6 +131,9 @@ development builds were never stable releases.
   re-read the live editor tree.
 - Report the error class instead of the exception message when the block
   registry fails during a batch mutation; the message stays in the server log.
+- Add the indexed `repair_of` column to the audit table (schema version 3); the
+  update adds it in place. The audit rows of a repair carry `repair_of` and a
+  `parent_event_id` that points at the newest event of the repaired change.
 
 ### Fixed
 

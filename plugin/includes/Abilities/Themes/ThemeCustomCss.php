@@ -8,6 +8,8 @@ use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Core\MethodRouter;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
@@ -82,6 +84,8 @@ final class ThemeCustomCss extends AbilityKernel {
 					'default'     => false,
 					'description' => 'Opt in to conservative decoding of escaped layout outside CSS strings and comments.',
 				],
+				'repair_of'          => ChangeSet::input_properties()['repair_of'],
+				'supersedes'         => ChangeSet::input_properties()['supersedes'],
 			],
 			'required'             => [ 'action' ],
 		];
@@ -91,6 +95,9 @@ final class ThemeCustomCss extends AbilityKernel {
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => true,
+			'properties'           => [
+				'change_set' => ChangeSet::output_property(),
+			],
 		];
 	}
 
@@ -307,6 +314,35 @@ final class ThemeCustomCss extends AbilityKernel {
 	/** @return array<int, string> */
 	protected function audit_redacted_keys(): array {
 		return array_merge( parent::audit_redacted_keys(), [ 'css', 'custom_code_grant' ] );
+	}
+
+	/**
+	 * ChangeSetV1 of a Customizer CSS update: one planned change with the candidate
+	 * and readback hashes, the post snapshot as its rollback recipe, and the grant
+	 * the apply ran under. A read reports none.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		if ( 'update' !== (string) ( $args['action'] ?? '' ) ) {
+			return null;
+		}
+		$data = ChangeSetSources::data( $result );
+		$path = (string) ( $data['path'] ?? $data['resource_ref'] ?? '' );
+		if ( '' === $path ) {
+			$stylesheet = sanitize_key( (string) get_stylesheet() );
+			$path       = 'customizer/custom-css/' . ( '' !== $stylesheet ? $stylesheet : 'active-theme' ) . '.css';
+		}
+		$post = function_exists( 'wp_get_custom_css_post' ) ? wp_get_custom_css_post() : null;
+		return ChangeSetSources::file(
+			$args,
+			$result,
+			$status,
+			ChangeSet::entry( 'custom_code', $path, 'update', 0 ),
+			[ 'recipe_kind' => 'post_snapshot', 'recipe_target' => $post instanceof \WP_Post ? (string) $post->ID : '' ]
+		);
 	}
 
 	/** @return array{changed_lines:int,preview:string} */
