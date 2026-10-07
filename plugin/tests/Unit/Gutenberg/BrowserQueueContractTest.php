@@ -48,12 +48,61 @@ final class BrowserQueueContractTest extends TestCase {
 		self::assertSame( 'options.php', $page['parent'] );
 		self::assertSame( 'edit_posts', $page['capability'] );
 		self::assertSame( [ QueueConsole::class, 'render' ], $page['callback'] );
-		ob_start();
-		QueueConsole::render();
-		self::assertStringContainsString( 'data-queue-journal', (string) ob_get_clean() );
 		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_post' => true ];
 		$this->expectException( \RuntimeException::class );
 		QueueConsole::render();
+	}
+
+	private static function render_console(): string {
+		ob_start();
+		QueueConsole::render();
+		return (string) ob_get_clean();
+	}
+
+	public function test_opened_without_a_session_the_console_says_how_to_open_one_and_offers_no_dead_controls(): void {
+		unset( $_GET['stonewright_queue_token'] );
+
+		$html = self::render_console();
+
+		self::assertStringContainsString( 'data-sw-shell', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Block queue</h1>', $html );
+		self::assertStringContainsString( 'sw-ui-empty', $html );
+		self::assertStringContainsString( 'No queue session is open', $html );
+		self::assertStringContainsString( 'Open the link your agent returns', $html );
+		self::assertStringNotContainsString( 'data-queue-resume', $html, 'Resume does nothing without a session, so it is not offered.' );
+		self::assertStringNotContainsString( 'data-queue-journal', $html );
+		self::assertStringContainsString( 'sw-ui-stats', $html, 'The queued and failed counts are still facts of the site.' );
+		self::assertStringNotContainsString( '<main', $html, 'The console prints no second main landmark.' );
+	}
+
+	public function test_with_a_session_the_console_is_built_from_the_layer(): void {
+		[ , $token ] = $this->queue();
+		$_GET['stonewright_queue_token'] = $token;
+
+		$html = self::render_console();
+		unset( $_GET['stonewright_queue_token'] );
+
+		self::assertStringContainsString( 'sw-queue-console', $html );
+		self::assertMatchesRegularExpression( '/role="status".*data-queue-status/s', $html, 'The status line sits in an announced notice.' );
+		self::assertMatchesRegularExpression( '/<tbody[^>]*data-queue-journal/', $html, 'The journal is a table body of the layer table.' );
+		self::assertStringContainsString( 'class="sw-ui-table sw-ui-table--stack', $html );
+		self::assertStringContainsString( '<caption class="sw-ui-visually-hidden">Block changes in this session</caption>', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*class="sw-ui-btn"[^>]*data-queue-resume[^>]*>Resume processing</', $html );
+		self::assertStringContainsString( 'data-queue-counts', $html );
+		self::assertStringContainsString( 'data-queue-frames', $html );
+		self::assertStringNotContainsString( '<dl data-queue-counts>', $html );
+		self::assertStringNotContainsString( 'sw-ui-btn--primary', $html, 'Resume is not the primary action of a page that saves nothing.' );
+	}
+
+	public function test_the_console_script_builds_layer_rows_with_text_only_and_names_each_cancel(): void {
+		$js = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/block-queue.js' );
+
+		self::assertStringContainsString( 'sw-ui-badge', $js );
+		self::assertStringContainsString( 'sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm', $js, 'Cancelling is a danger button, never primary.' );
+		self::assertStringContainsString( 'sw-ui-stat__value', $js );
+		self::assertStringNotContainsString( 'createElement("li")', $js );
+		self::assertStringNotContainsString( 'innerHTML', $js );
+		self::assertMatchesRegularExpression( '/setAttribute\("aria-label", "Preview cancellation of change " \+/', $js );
 	}
 
 	public function test_console_styles_use_only_defined_admin_tokens(): void {

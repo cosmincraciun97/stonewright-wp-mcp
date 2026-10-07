@@ -1,13 +1,27 @@
 # Troubleshoot
 
 **Stonewright → Setup → Troubleshoot** (a tab next to Setup) diagnoses why an AI client cannot
-reach this WordPress site. The same panel also sits at the bottom of
-**Setup**. Source: `plugin/includes/Admin/Pages/TroubleshootPage.php` and
+reach this WordPress site. Source: `plugin/includes/Admin/Pages/TroubleshootPage.php` and
 `plugin/includes/Admin/DiagnosticsPanel.php`.
 
 Use it when a client never shows Stonewright tools, fails authorization, or
 cannot reach the site. It probes the site the way a client does and points at
 what to fix. It does **not** replace a live client restart.
+
+## The page
+
+One **Connection checks** card holds the form, the run button (**Run diagnostics**, the
+page's one primary action, in the card header above the results), and **Copy report
+for support**. Under the form a one-line summary says what the report adds up to in
+words ("1 problem and 1 warning to look at", or "No problems or warnings"; checks that
+have not run are said not to have run). The checks that need attention (problems, then
+warnings) are one table with the result as a word and an icon, the cause, the remedy
+and one action; the checks that did not run (`info`, `skipped`) and the checks that
+passed are folded into two disclosures that state their counts. Below the card sit
+**MCP runtime compatibility** and **Elementor provider discovery**. While a run is
+busy the results region is `aria-busy` and shows placeholders; a request that fails
+shows a notice that stays until the next run. The page script is
+`assets/admin/pages/troubleshoot.js` and the stylesheet `pages/troubleshoot.css`.
 
 ## How it runs
 
@@ -24,8 +38,8 @@ what to fix. It does **not** replace a live client restart.
      whether a companion URL is configured.
 2. Click **Run diagnostics**.
 3. With JavaScript, the request posts to `admin-ajax.php`
-   (`action=stonewright_run_diagnostics`) and paints result cards in place. The
-   button shows a loading spinner (`aria-busy`) and the page does not reload.
+   (`action=stonewright_run_diagnostics`) and paints the result tables in place. The
+   button shows a busy state (`aria-busy`) and the page does not reload.
 4. Without JavaScript, the form posts to `admin-post.php` and redirects back
    with `?stonewright_diagnostics=1`.
 
@@ -46,16 +60,17 @@ The OAuth registration diagnostic sends valid RFC 7591 metadata, requires HTTP
 deletes it before responding. Invalid JSON, `400`, `401`, `403`, `429`, `5xx`,
 timeout, and cleanup failure are never success.
 
-Before the first run, live-probe cards say **Not run yet — click Run
-diagnostics**. After a run, the **N Problems** pill scrolls to the first
-non-pass card.
+Before the first run, live-probe checks say **Not run yet — click Run
+diagnostics** and sit in the folded **other checks** group; the summary does not
+claim that everything passed. After a run, the page scrolls to the first check
+that needs attention (smoothly only when the visitor has not asked for reduced
+motion) and announces that the checks finished.
 
-Results are stored in `stonewright_diagnostics_last` (autoload off). Cards use
-`ok` / `info` / `warning` / `problem` / `skipped` statuses. Problem and warning
-pills appear when those counts are greater than zero. **Copy report for support** copies a
-plaintext report (no secrets). On non-HTTPS pages, if the clipboard API fails,
-the panel falls back to `document.execCommand('copy')`, then a readonly
-textarea modal with **Press Ctrl/Cmd+C**. Optional **What do you see in your
+Results are stored in `stonewright_diagnostics_last` (autoload off). Checks use
+`ok` / `info` / `warning` / `problem` / `skipped` statuses, shown as the words
+Passed, Info, Warning, Problem and Skipped with an icon. **Copy report for support**
+copies a plaintext report (no secrets) with the layer's copy button, which says
+**Copied**, or **Press Ctrl+C** when the clipboard is blocked. Optional **What do you see in your
 AI client?** only changes the help copy; it does not change the probe.
 
 The footer reports plugin SemVer and the companion HTTP contract version. It

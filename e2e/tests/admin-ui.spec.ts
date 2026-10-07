@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PAGE_GATE_PROJECTS, STONEWRIGHT_PAGES } from './helpers/admin-pages';
 import { expectNoNewAxeViolations } from './helpers/axe-gate';
+import { openConsentScreen } from './helpers/consent';
 
 const artifactDir = path.join(process.cwd(), 'artifacts');
 
@@ -241,6 +242,40 @@ test.describe('Stonewright admin UI', () => {
 			});
 		});
 	}
+
+	// The consent screen has no slug of its own: it exists for a pending authorization request. It is held to the same
+	// gates as the pages above (loads, no overflow, no console error, axe) and sits outside the shell on purpose.
+	test('Consent screen loads without overflow or console errors', async ({ page }, testInfo) => {
+		const consoleErrors: string[] = [];
+		page.on('console', (msg) => {
+			if (msg.type() === 'error') {
+				consoleErrors.push(msg.text());
+			}
+		});
+		page.on('pageerror', (err) => {
+			consoleErrors.push(err.message);
+		});
+
+		const opened = await openConsentScreen(page);
+		test.skip(!opened, 'This site does not serve OAuth, so there is no consent screen to open.');
+
+		await expect(page.locator('.sw-oauth-consent h1')).toHaveCount(1);
+		const overflow = await page.evaluate(() => {
+			const root = document.documentElement;
+			return root.scrollWidth - root.clientWidth;
+		});
+		expect(overflow, 'Consent screen: horizontal overflow must be <= 0').toBeLessThanOrEqual(0);
+
+		const productErrors = consoleErrors.filter((text) => !isIgnorableConsoleNoise(text));
+		expect(productErrors, `Consent screen: console errors\n${productErrors.join('\n')}`).toEqual([]);
+
+		if ((PAGE_GATE_PROJECTS as readonly string[]).includes(testInfo.project.name)) {
+			await expectNoNewAxeViolations(page, 'stonewright-oauth-consent', testInfo, '.sw-oauth-consent');
+		}
+
+		const safeName = `${testInfo.project.name}-stonewright-oauth-consent`.replace(/[^a-z0-9-_]+/gi, '-');
+		await page.screenshot({ path: path.join(artifactDir, `${safeName}.png`), fullPage: true });
+	});
 
 	test('Setup OAuth chooser switches all client instructions and preserves fallback auth', async ({
 		page,

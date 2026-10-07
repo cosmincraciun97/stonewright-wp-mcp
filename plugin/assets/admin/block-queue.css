@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-.sw-queue-console { max-width: 72rem; color: var(--sw-text); }
-.sw-queue-console [data-queue-status] { min-height: 1.6em; border-inline-start: .25rem solid var(--sw-brand); padding-inline-start: .75rem; }
-.sw-queue-console [data-queue-journal] { list-style: decimal; padding-inline-start: 2rem; }
-.sw-queue-console [data-queue-journal] li { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .85rem .5rem; border-block-end: 1px solid var(--sw-border); overflow-wrap: anywhere; }
-.sw-queue-console button, .sw-queue-native-status button { background: var(--sw-brand-fill); border: 1px solid var(--sw-brand-fill); border-radius: .2rem; padding: .65rem 1rem; color: var(--sw-on-brand); cursor: pointer; }
-.sw-queue-console button:focus-visible, .sw-queue-native-status button:focus-visible { outline: .2rem solid var(--sw-focus-ring); outline-offset: .2rem; }
-.sw-queue-console button:disabled { opacity: .6; cursor: default; }
-.sw-queue-console [data-queue-counts] { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; }
-.sw-queue-console [data-queue-counts] dd { margin: 0; }
+/* The status panel shown inside a native editor. The console page itself is built from the shared admin UI layer. */
+.sw-queue-native-status button { background: var(--sw-brand-fill); border: 1px solid var(--sw-brand-fill); border-radius: .2rem; padding: .65rem 1rem; color: var(--sw-on-brand); cursor: pointer; }
+.sw-queue-native-status button:focus-visible { outline: .2rem solid var(--sw-focus-ring); outline-offset: .2rem; }
 .sw-queue-native-status { position: fixed; z-index: 100001; inset-block-end: 1rem; inset-inline-end: 1rem; max-width: 24rem; padding: .75rem; border: 1px solid var(--sw-border); border-radius: .3rem; background: var(--sw-surface); color: var(--sw-text); box-shadow: var(--sw-shadow-1); }
-@media (prefers-reduced-motion: reduce) { .sw-queue-console * { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { .sw-queue-native-status * { transition: none; animation: none; } }

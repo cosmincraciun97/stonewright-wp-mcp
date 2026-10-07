@@ -188,20 +188,4 @@ final class AdminAssetContractTest extends TestCase {
 			'info'    => [ 'notice-info', 'sw-info-text', 'sw-info-soft' ],
 		];
 	}
-
-	public function test_audit_user_column_is_wide_enough_for_a_login_name(): void {
-		$body = self::rule_body( 'audit.css', '.sw-audit-table td:nth-child(3)' );
-
-		self::assertSame( 1, preg_match( '/width:\s*(\d+)%/', $body, $match ), 'The user column needs a percentage width.' );
-		self::assertGreaterThanOrEqual( 12, (int) $match[1] );
-	}
-
-	public function test_audit_payload_becomes_full_width_in_responsive_rows(): void {
-		$css = self::asset( 'audit.css' );
-
-		self::assertStringContainsString( '.sw-audit-table-scroll {', $css );
-		self::assertStringContainsString( 'grid-column: 1 / -1', $css );
-		self::assertStringContainsString( 'content: attr(data-label)', $css );
-		self::assertStringContainsString( 'overflow-wrap: anywhere', $css );
-	}
 }

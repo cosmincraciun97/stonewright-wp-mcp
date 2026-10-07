@@ -12,6 +12,12 @@ namespace Stonewright\WpMcp\Gutenberg\BrowserQueue;
 
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\MenuRegistry;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -121,8 +127,79 @@ final class QueueConsole {
 			wp_die( esc_html__( 'Queue access is unavailable.', 'stonewright' ) );
 		}
 		self::add_to_menu_registry();
-		AdminShell::open( self::PAGE, [ 'title' => __( 'Block queue', 'stonewright' ), 'lede' => self::lede(), 'hub' => 'activity', 'beta' => true ] );
-		echo '<div class="sw-queue-console"><p data-queue-status role="status" aria-live="polite"></p><dl data-queue-counts></dl><button type="button" data-queue-resume>' . esc_html__( 'Resume processing', 'stonewright' ) . '</button><ol data-queue-journal></ol><div data-queue-frames hidden></div></div>';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only: the token is verified before it shows anything.
+		$token     = isset( $_GET['stonewright_queue_token'] ) && is_string( $_GET['stonewright_queue_token'] ) ? wp_unslash( $_GET['stonewright_queue_token'] ) : '';
+		$connected = '' !== $token && is_array( BlockQueue::verify_token( $token ) );
+
+		AdminShell::open(
+			self::PAGE,
+			[
+				'title'   => __( 'Block queue', 'stonewright' ),
+				'lede'    => self::lede(),
+				'hub'     => 'activity',
+				'beta'    => true,
+				'actions' => $connected ? Button::render( __( 'Resume processing', 'stonewright' ), [ 'attrs' => [ 'data-queue-resume' => true ] ] ) : '',
+			]
+		);
+		echo Scope::wrap( self::console_html( $connected ), [ 'page' => true, 'class' => 'sw-queue-console' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
+	}
+
+	/** The queued and failed counts as one band; the script replaces them with the session's own counts. */
+	private static function counts_html(): string {
+		$stat = static fn ( string $label, int $value ): string => Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stat' ],
+			Html::element( 'span', [ 'class' => 'sw-ui-stat__label' ], Html::text( $label ) ) . Html::element( 'span', [ 'class' => 'sw-ui-stat__value' ], Html::text( (string) $value ) )
+		);
+
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stats', 'role' => 'group', 'aria-label' => __( 'Block changes by state', 'stonewright' ), 'data-queue-counts' => true ],
+			$stat( __( 'Queued', 'stonewright' ), BlockQueue::pending_count() ) . $stat( __( 'Failed', 'stonewright' ), BlockQueue::failed_count() )
+		);
+	}
+
+	private static function console_html( bool $connected ): string {
+		if ( ! $connected ) {
+			return self::counts_html() . Card::render(
+				__( 'Queue session', 'stonewright' ),
+				EmptyState::render(
+					__( 'No queue session is open', 'stonewright' ),
+					__( 'The block queue works with a session your agent starts. Open the link your agent returns after it queues a block change. Nothing is saved from this page.', 'stonewright' ),
+					[ 'variant' => 'first-run', 'icon' => 'plug' ]
+				)
+			);
+		}
+
+		$status  = Notice::render(
+			'info',
+			__( 'Queue session', 'stonewright' ),
+			'',
+			[ 'text_html' => Html::element( 'span', [ 'data-queue-status' => true ], Html::text( __( 'Connecting to the queue.', 'stonewright' ) ) ) ]
+		);
+		$head    = Html::element(
+			'tr',
+			[],
+			Html::element( 'th', [ 'scope' => 'col' ], Html::text( __( 'Change', 'stonewright' ) ) )
+				. Html::element( 'th', [ 'scope' => 'col' ], Html::text( __( 'State', 'stonewright' ) ) )
+				. Html::element( 'th', [ 'scope' => 'col' ], Html::text( __( 'Details', 'stonewright' ) ) )
+				. Html::element( 'th', [ 'scope' => 'col', 'class' => 'sw-ui-table__actions' ], Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden' ], Html::text( __( 'Actions', 'stonewright' ) ) ) )
+		);
+		$table   = Html::element(
+			'table',
+			[ 'class' => 'sw-ui-table sw-ui-table--stack' ],
+			Html::element( 'caption', [ 'class' => 'sw-ui-visually-hidden' ], Html::text( __( 'Block changes in this session', 'stonewright' ) ) )
+				. Html::element( 'thead', [], $head )
+				. Html::element( 'tbody', [ 'data-queue-journal' => true ], '' )
+		);
+		$empty   = Html::element(
+			'div',
+			[ 'data-queue-empty' => true ],
+			EmptyState::render( __( 'No block changes in this session yet.', 'stonewright' ), __( 'Changes appear here as the editor prepares them.', 'stonewright' ), [ 'variant' => 'inline' ] )
+		);
+		$journal = Card::render( __( 'Changes in this session', 'stonewright' ), $table . $empty, [ 'flush' => true ] );
+
+		return $status . self::counts_html() . $journal . Html::element( 'div', [ 'data-queue-frames' => true, 'hidden' => true ], '' );
 	}
 }

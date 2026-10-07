@@ -24,7 +24,10 @@ third-party blocks are queued as `{name, attributes, innerBlocks}` for the hidde
 block change queue console (`stonewright-block-finalizer`; no menu entry,
 `edit_posts` required). The console opens each target post in its own block
 editor, which builds the queued blocks, runs the live editor `save()`, and posts
-hashed HTML back. Persist stays in `stonewright/blocks-finalize-batch`
+hashed HTML back. Opened without a session the console says how to get one (open the
+link the agent returns) and shows the site's queued and failed counts; with a session
+it shows an announced status line, a counts band and a journal table with a state
+badge and a named **Preview cancellation** button per change. Persist stays in `stonewright/blocks-finalize-batch`
 (snapshot, confirmation in production-safe, audit, readback). List/status tools
 never return the full spec. See [Permanent remediation contracts](permanent-remediation-contracts.md).
 The browser client treats any result payload with `retryable:true` as pending,

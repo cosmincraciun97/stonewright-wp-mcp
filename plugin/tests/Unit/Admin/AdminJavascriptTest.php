@@ -215,32 +215,27 @@ final class AdminJavascriptTest extends TestCase {
 	}
 
 	public function test_run_diagnostics_posts_ajax_without_page_refresh(): void {
-		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		$admin = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		self::assertStringNotContainsString( 'initRunDiagnostics', $admin, 'The checks belong to the Troubleshoot page script, not the shared one.' );
 
-		self::assertStringContainsString( 'initRunDiagnostics', $script );
-		self::assertStringContainsString( 'initRunDiagnostics();', $script );
-		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $script );
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/troubleshoot.js' );
+
 		self::assertStringContainsString( "body.set( 'action', 'stonewright_run_diagnostics' )", $script );
-		self::assertStringContainsString( "body.set( 'nonce', window.stonewrightSetup.nonce || '' )", $script );
-		self::assertStringContainsString( "body.set( 'mode', mode )", $script );
-		self::assertStringContainsString( 'sw-diag-card', $script );
-		self::assertStringContainsString( 'is-loading', $script );
+		self::assertStringContainsString( "body.set( 'nonce', config.nonce || '' )", $script );
+		self::assertStringContainsString( "body.set( 'mode', mode && mode.value ? mode.value : 'not-sure' )", $script );
 		self::assertStringContainsString( "setAttribute( 'aria-busy', 'true' )", $script );
-		self::assertStringContainsString( 'Copy hosting request', $script );
-		self::assertStringContainsString( 'scrollIntoView', $script );
+		self::assertStringContainsString( "'aria-busy', on ? 'true' : 'false'", $script );
+		self::assertStringContainsString( 'copyHosting', $script );
 
-		$start = strpos( $script, 'function initRunDiagnostics()' );
+		$start = strpos( $script, 'function run( event )' );
 		self::assertNotFalse( $start );
-		$end = strpos( $script, "document.addEventListener( 'DOMContentLoaded'", $start );
+		$end = strpos( $script, "form.addEventListener( 'submit', run )", $start );
 		self::assertNotFalse( $end );
 		$body = substr( $script, (int) $start, (int) $end - (int) $start );
 
 		self::assertStringContainsString( 'event.preventDefault()', $body );
-		self::assertStringContainsString( 'button.disabled = true', $body );
-		self::assertStringContainsString( 'button.disabled = false', $body );
-		self::assertStringContainsString( "setAttribute( 'aria-busy', 'false' )", $body );
-		self::assertStringContainsString( 'classList.add( \'is-loading\' )', $body );
-		self::assertStringContainsString( 'classList.remove( \'is-loading\' )', $body );
+		self::assertStringContainsString( 'busy( true )', $body );
+		self::assertStringContainsString( 'busy( false )', $body );
 		self::assertStringNotContainsString( 'admin-post.php', $body );
 		self::assertStringNotContainsString( 'location.reload', $body );
 		self::assertStringNotContainsString( 'form.submit()', $body );

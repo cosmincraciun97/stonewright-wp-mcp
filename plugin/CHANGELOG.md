@@ -392,6 +392,26 @@
 - Make the shared layer's heading and paragraph reset outrank WordPress's
   element margins, so a card title no longer carries 16 px above and below it,
   and make a standalone link at least 24 px wide.
+- The Activity pages use the shared admin UI layer. The Audit log shows an
+  incident band, recurring patterns in one table, a toolbar whose fields each
+  state how they match, the views as links, five stacked columns, and one
+  Details drawer per row that holds the facts and the redacted payload; times
+  are `time` elements in site time with the UTC time in the title. The change
+  set lineage and the Change set line use the same drawer, dialogs and buttons,
+  and `pages/audit-lineage.css` and `audit.css` are removed. Troubleshoot puts
+  Run diagnostics above the results, summarises them in words, lists the checks
+  that need attention in one table with the others folded, and shows
+  placeholders while a run is busy. The Block queue console opened without a
+  session explains how to get one instead of showing dead controls; with a
+  session it shows a counts band and a journal table. The consent screen is a
+  page header and one card of facts with Approve as its one primary action, a
+  warning for a client that registered itself with this site, and a note when
+  the destination is on this computer.
+- The Audit log delete dialog and the dismiss dialog of a recurring pattern are
+  layer dialogs; the browser `confirm()` prompt is gone. Delete all logs still
+  needs the typed phrase `DELETE`.
+- The Audit log lede says that changes made on admin screens, such as Setup
+  settings and Memory edits, are not recorded in the log.
 
 ### Fixed
 
@@ -596,6 +616,19 @@
   reads `http://127.0.0.1:7999` and not `http://127.0.0.1`.
 - Show code inside a `pre` block as the block's own text, not as a chip inside
   the block.
+- Delete all logs also deletes every incident, and the dialog, the receipt and
+  the confirmation message say how many events and incidents went. Incidents
+  used to stay behind and pointed at events that no longer existed.
+- Audit log filters that take free text (ability, operation class, root error
+  code and path) match part of the stored value in any case and keep dots, so
+  `design_direction.save` and `skill_write` find their rows; status, category,
+  outcome, verification, rollback, user ID and change set ID match exactly. The
+  page states each rule under its field.
+- Confirmation token checks (`security.confirmation_token`) are recorded in the
+  `SAFETY` category instead of `WRITE`, so a refused call is no longer followed
+  by a row that reads as a successful write.
+- The Troubleshoot summary uses real plurals ("1 problem") and does not say that
+  everything passed while checks have not run.
 
 ### Security
 

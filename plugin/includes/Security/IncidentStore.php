@@ -507,6 +507,27 @@ final class IncidentStore {
 	}
 
 	/**
+	 * Delete every incident, in every state. Used when the whole audit log is deleted: an incident points at audit
+	 * events, so once they are gone the incident has nothing left to show.
+	 *
+	 * @return int Number of incidents that existed before.
+	 */
+	public static function purge_all(): int {
+		global $wpdb;
+		$removed = array_sum( self::counts() );
+		if ( self::db_available() ) {
+			$table = self::table_name();
+			$wpdb->query( "DELETE FROM {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table, no input.
+			return $removed;
+		}
+		self::$fallback = [];
+		if ( function_exists( 'delete_option' ) ) {
+			delete_option( self::OPTION_KEY );
+		}
+		return $removed;
+	}
+
+	/**
 	 * Close non-write incidents that have had no new occurrence for QUIET_DAYS.
 	 * Write, verification and rollback incidents still need a verified repair.
 	 * The resolution time is the end of the quiet period, not the sweep time.

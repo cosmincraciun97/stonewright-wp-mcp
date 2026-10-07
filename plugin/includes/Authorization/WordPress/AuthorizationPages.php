@@ -10,6 +10,14 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Authorization\WordPress;
 
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\KvList;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\PageHeader;
+use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Authorization\Decisions\ConsentDecision;
 use Stonewright\WpMcp\Authorization\Exchange\ConsentCoordinator;
 use Stonewright\WpMcp\Authorization\Model\OAuthFault;
@@ -257,39 +265,73 @@ final class AuthorizationPages {
 	}
 
 	/**
-	 * Consent form HTML; every value is escaped.
+	 * Consent form HTML, built from the admin UI layer; every value is escaped.
+	 *
+	 * The application, how it is identified and where it returns are facts. A client that registered itself with this
+	 * site (no published client information) is flagged, because anyone can register under any name.
 	 *
 	 * @param array<string, string> $view
 	 */
 	public static function render( array $view ): string {
-		$client = (string) ( $view['client_name'] ?? '' );
-		$site = (string) ( $view['site'] ?? '' );
-		$user = (string) ( $view['user'] ?? '' );
-		$host = (string) ( $view['document_host'] ?? '' );
-		$identity = '' === $host
+		$client      = (string) ( $view['client_name'] ?? '' );
+		$site        = (string) ( $view['site'] ?? '' );
+		$user        = (string) ( $view['user'] ?? '' );
+		$host        = (string) ( $view['document_host'] ?? '' );
+		$destination = (string) ( $view['destination'] ?? '' );
+		$identity    = '' === $host
 			? __( 'Registered with this site', 'stonewright' )
 			/* translators: %s: host name serving the application's client information */
 			: sprintf( __( 'Client information published by %s', 'stonewright' ), $host );
-		$html = '<div class="wrap sw-oauth-consent">';
+
+		$destination_html = Html::element( 'code', [], Html::text( $destination ) );
+		if ( self::is_loopback( $destination ) ) {
+			$destination_html .= ' ' . Badge::render( __( 'This computer', 'stonewright' ), [ 'variant' => 'info' ] );
+		}
+
 		/* translators: 1: application name, 2: site name */
-		$html .= '<h1>' . esc_html( sprintf( __( 'Connect %1$s to %2$s?', 'stonewright' ), $client, $site ) ) . '</h1>';
-		$html .= '<div class="card">';
+		$header = PageHeader::render( sprintf( __( 'Connect %1$s to %2$s?', 'stonewright' ), $client, $site ), [ 'eyebrow' => __( 'Stonewright', 'stonewright' ) ] );
+
 		/* translators: 1: application name, 2: user name */
-		$html .= '<p>' . esc_html( sprintf( __( '%1$s is asking to use the Stonewright MCP tools on this site as %2$s. It can do only what your account is allowed to do through those tools.', 'stonewright' ), $client, $user ) ) . '</p>';
-		$html .= '<table class="form-table" role="presentation"><tbody>';
-		$html .= '<tr><th scope="row">' . esc_html__( 'Application', 'stonewright' ) . '</th><td>' . esc_html( $client ) . '</td></tr>';
-		$html .= '<tr><th scope="row">' . esc_html__( 'Identified by', 'stonewright' ) . '</th><td>' . esc_html( $identity ) . '</td></tr>';
-		$html .= '<tr><th scope="row">' . esc_html__( 'Returns you to', 'stonewright' ) . '</th><td><code>' . esc_html( (string) ( $view['destination'] ?? '' ) ) . '</code></td></tr>';
-		$html .= '<tr><th scope="row">' . esc_html__( 'Access', 'stonewright' ) . '</th><td>' . esc_html__( 'Stonewright MCP tools (scope: mcp)', 'stonewright' ) . '</td></tr>';
-		$html .= '</tbody></table>';
-		$html .= '<p>' . esc_html__( 'Approve only if you started this connection yourself. You can revoke the access later.', 'stonewright' ) . '</p>';
-		$html .= '<form method="post" action="">';
-		$html .= wp_nonce_field( self::nonce_action( (string) ( $view['token'] ?? '' ) ), '_wpnonce', true, false );
-		$html .= '<p class="submit">';
-		$html .= '<button type="submit" name="approve" value="1" class="button button-primary">' . esc_html__( 'Approve', 'stonewright' ) . '</button> ';
-		$html .= '<button type="submit" name="deny" value="1" class="button">' . esc_html__( 'Deny', 'stonewright' ) . '</button>';
-		$html .= '</p></form></div></div>';
-		return $html;
+		$intro = sprintf( __( '%1$s is asking to use the Stonewright MCP tools on this site as %2$s. It can do only what your account is allowed to do through those tools.', 'stonewright' ), $client, $user );
+		$facts = KvList::render(
+			[
+				[ 'label' => __( 'Application', 'stonewright' ), 'value' => $client ],
+				[ 'label' => __( 'Identified by', 'stonewright' ), 'value' => $identity ],
+				[ 'label' => __( 'Returns you to', 'stonewright' ), 'value_html' => $destination_html ],
+				[ 'label' => __( 'Access', 'stonewright' ), 'value' => __( 'Use the Stonewright MCP tools as you, with the permissions your account already has', 'stonewright' ) ],
+			],
+			[ 'label' => __( 'Connection request', 'stonewright' ) ]
+		);
+		$flag  = '' === $host
+			? Notice::callout(
+				'warn',
+				__( 'This application registered itself with this site', 'stonewright' ),
+				__( 'Anyone can register an application under any name, so the name above proves nothing. Approve only if you started this connection yourself.', 'stonewright' )
+			)
+			: '';
+
+		$buttons = Button::group(
+			[
+				Button::render( __( 'Approve', 'stonewright' ), [ 'variant' => 'primary', 'type' => 'submit', 'name' => 'approve', 'value' => '1' ] ),
+				Button::render( __( 'Deny', 'stonewright' ), [ 'type' => 'submit', 'name' => 'deny', 'value' => '1' ] ),
+			]
+		);
+		$form    = '<form method="post" action="">'
+			. wp_nonce_field( self::nonce_action( (string) ( $view['token'] ?? '' ) ), '_wpnonce', true, false )
+			. Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Approve only if you started this connection yourself. You can revoke the access later.', 'stonewright' ) ) )
+			. $buttons
+			. '</form>';
+
+		$body = Html::element( 'p', [], Html::text( $intro ) ) . $flag . $facts . $form;
+
+		return '<div class="wrap">' . Scope::wrap( $header . Card::render( __( 'Review this request', 'stonewright' ), $body ), [ 'page' => true, 'class' => 'sw-oauth-consent' ] ) . '</div>';
+	}
+
+	/** Whether a destination origin is on the computer the user is sitting at. */
+	private static function is_loopback( string $origin ): bool {
+		$host = strtolower( trim( (string) parse_url( $origin, PHP_URL_HOST ), '[]' ) );
+
+		return in_array( $host, [ 'localhost', '127.0.0.1', '::1' ], true ) || str_ends_with( $host, '.localhost' );
 	}
 
 	/** Register both hidden pages while OAuth is available (admin_menu). */

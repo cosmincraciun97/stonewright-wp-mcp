@@ -16,6 +16,9 @@ final class AuditLog {
 	/** @var list<string> */
 	public const STATUSES = [ 'ok', 'error', 'blocked', 'auth' ];
 
+	/** Text filters that match part of a stored value, in any case; every other filter matches the whole value. */
+	public const CONTAINS_FILTERS = [ 'ability', 'operation_class', 'root_error_code', 'normalized_path' ];
+
 	/** @var list<string> */
 	public const ADMIN_VIEWS = [ 'all', 'errors', 'retryable', 'blocked', 'auth', 'resolved' ];
 
@@ -1209,15 +1212,15 @@ final class AuditLog {
 			$params[]  = $to . ' 23:59:59';
 		}
 
+		// Matching rules: a filter in CONTAINS_FILTERS matches part of the stored value, any case, with dots and
+		// other punctuation kept; the filters below match the whole value.
 		foreach (
 			[
 				'backend'             => 'backend',
-				'operation_class'     => 'operation_class',
 				'verification_status' => 'verification_status',
 				'rollback_status'     => 'rollback_status',
 				'severity'            => 'severity',
 				'event_type'          => 'event_type',
-				'root_error_code'     => 'root_error_code',
 				'error_code'          => 'error_code',
 			] as $filter_key => $column
 		) {
@@ -1225,6 +1228,13 @@ final class AuditLog {
 			if ( '' !== $value ) {
 				$clauses[] = $column . ' = %s';
 				$params[]  = $value;
+			}
+		}
+		foreach ( [ 'operation_class', 'root_error_code' ] as $filter_key ) {
+			$value = isset( $filters[ $filter_key ] ) ? mb_substr( sanitize_text_field( (string) $filters[ $filter_key ] ), 0, 190 ) : '';
+			if ( '' !== $value ) {
+				$clauses[] = $filter_key . ' LIKE %s';
+				$params[]  = '%' . self::esc_like( $value ) . '%';
 			}
 		}
 
@@ -1254,8 +1264,8 @@ final class AuditLog {
 
 		$normalized_path = isset( $filters['normalized_path'] ) ? self::normalized_filter_path( (string) $filters['normalized_path'] ) : '';
 		if ( '' !== $normalized_path ) {
-			$clauses[] = 'normalized_path = %s';
-			$params[]  = $normalized_path;
+			$clauses[] = 'normalized_path LIKE %s';
+			$params[]  = '%' . self::esc_like( $normalized_path ) . '%';
 		}
 
 		$incident_id = isset( $filters['incident_id'] ) ? strtolower( sanitize_text_field( (string) $filters['incident_id'] ) ) : '';

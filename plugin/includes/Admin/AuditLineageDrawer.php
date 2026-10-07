@@ -10,6 +10,10 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ChangeSetLineage;
 
@@ -67,16 +71,10 @@ final class AuditLineageDrawer {
 		}
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) STONEWRIGHT_VERSION : '0.1.0';
 		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) STONEWRIGHT_URL : '';
-		wp_enqueue_style(
-			'stonewright-admin-audit-lineage',
-			$base . 'assets/admin/pages/audit-lineage.css',
-			[ 'stonewright-admin-audit' ],
-			$version
-		);
 		wp_enqueue_script(
 			'stonewright-admin-audit-lineage',
 			$base . 'assets/admin/pages/audit-lineage.js',
-			[ 'stonewright-admin' ],
+			[ 'stonewright-ui' ],
 			$version,
 			true
 		);
@@ -103,18 +101,34 @@ final class AuditLineageDrawer {
 		if ( '' === $id ) {
 			return;
 		}
-		echo '<div class="sw-audit-lineage-cell" data-sw-lineage-cell>';
-		echo '<strong>' . esc_html__( 'Change set:', 'stonewright' ) . '</strong>';
-		echo '<code title="' . esc_attr( $id ) . '">' . esc_html( self::short_id( $id ) ) . '</code>';
-		echo '<button type="button" class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt" data-prompt="' . esc_attr( $id ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: change set id */ __( 'Copy change set ID %s', 'stonewright' ), $id ) ) . '">' . esc_html__( 'Copy', 'stonewright' ) . '</button>';
+		$named = sprintf( /* translators: %s: change set id */ __( 'change set ID %s', 'stonewright' ), $id );
+		$of    = sprintf( /* translators: %s: change set id */ __( 'of change set %s', 'stonewright' ), $id );
+		$html  = '<strong>' . esc_html__( 'Change set:', 'stonewright' ) . '</strong>'
+			. '<code title="' . esc_attr( $id ) . '">' . esc_html( self::short_id( $id ) ) . '</code>'
+			. Button::render( __( 'Copy', 'stonewright' ), [ 'size' => 'xs', 'variant' => 'tertiary', 'context' => $named, 'attrs' => [ 'data-sw-ui-copy-text' => $id ] ] );
 		if ( (string) ( self::$context['filters']['change_set_id'] ?? '' ) !== $id ) {
-			echo '<a class="sw-btn sw-btn--ghost sw-btn--sm" href="' . esc_url( self::rows_url( $id ) ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: change set id */ __( 'Show rows of change set %s', 'stonewright' ), $id ) ) . '">' . esc_html__( 'Show rows', 'stonewright' ) . '</a>';
+			$html .= Button::render( __( 'Show rows', 'stonewright' ), [ 'size' => 'xs', 'variant' => 'tertiary', 'href' => self::rows_url( $id ), 'context' => $of ] );
 		}
 		$panel = self::$context['panels'][ $id ] ?? '';
 		if ( '' !== $panel ) {
-			echo '<button type="button" class="sw-btn sw-btn--secondary sw-btn--sm" data-sw-lineage-open="' . esc_attr( self::panel_id( $panel ) ) . '" data-sw-lineage-for="' . esc_attr( $id ) . '" data-sw-lineage-title="' . esc_attr( sprintf( /* translators: %s: short change set id */ __( 'Change set %s', 'stonewright' ), self::short_id( $id ) ) ) . '" aria-haspopup="dialog" aria-controls="' . esc_attr( self::DRAWER_ID ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: change set id */ __( 'Lineage of change set %s', 'stonewright' ), $id ) ) . '" hidden>' . esc_html__( 'Lineage', 'stonewright' ) . '</button>';
+			$html .= Button::render(
+				__( 'Lineage', 'stonewright' ),
+				[
+					'size'    => 'xs',
+					'context' => $of,
+					'attrs'   => [
+						'hidden'                 => true,
+						'data-sw-lineage-open'   => self::panel_id( $panel ),
+						'data-sw-lineage-for'    => $id,
+						'data-sw-lineage-title'  => sprintf( /* translators: %s: short change set id */ __( 'Change set %s', 'stonewright' ), self::short_id( $id ) ),
+						'data-sw-ui-dialog-open' => '#' . self::DRAWER_ID,
+						'aria-haspopup'          => 'dialog',
+						'aria-controls'          => self::DRAWER_ID,
+					],
+				]
+			);
 		}
-		echo '</div>';
+		echo '<div class="sw-audit-lineage-cell" data-sw-lineage-cell>' . $html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers and escaped above.
 	}
 
 	/**
@@ -221,25 +235,22 @@ final class AuditLineageDrawer {
 		$remove    = add_query_arg( array_merge( [ 'page' => AuditLogPage::SLUG ], $remaining ), admin_url( 'admin.php' ) );
 
 		echo '<div class="sw-audit-lineage-chips" role="group" aria-label="' . esc_attr( __( 'Active change set filter', 'stonewright' ) ) . '">';
-		echo '<span class="sw-audit-lineage-chip">';
-		echo '<span class="sw-audit-lineage-chip__label">' . esc_html__( 'Change set', 'stonewright' ) . ' <code title="' . esc_attr( $id ) . '">' . esc_html( self::short_id( $id ) ) . '</code></span>';
-		echo '<a class="sw-audit-lineage-chip__remove" href="' . esc_url( $remove ) . '" aria-label="' . esc_attr( __( 'Remove change set filter', 'stonewright' ) ) . '"><span aria-hidden="true">&times;</span></a>';
-		echo '</span>';
+		echo Badge::render( __( 'Change set', 'stonewright' ), [ 'variant' => 'accent', 'class' => 'sw-audit-lineage-chip' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
+		echo ' <code title="' . esc_attr( $id ) . '">' . esc_html( self::short_id( $id ) ) . '</code>';
+		echo Button::render( __( 'Remove change set filter', 'stonewright' ), [ 'size' => 'xs', 'icon' => 'x', 'icon_only' => true, 'href' => $remove ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
 		echo '</div>';
 	}
 
 	private static function render_drawer(): void {
-		echo '<dialog id="' . esc_attr( self::DRAWER_ID ) . '" class="sw-audit-lineage-drawer" aria-labelledby="sw-audit-lineage-title" data-sw-lineage-drawer>';
-		echo '<div class="sw-audit-lineage-sheet">';
-		echo '<div class="sw-audit-lineage-sheet__head">';
-		echo '<h2 id="sw-audit-lineage-title" tabindex="-1">' . esc_html__( 'Change set lineage', 'stonewright' ) . '</h2>';
-		echo '<button type="button" class="sw-btn sw-btn--secondary sw-btn--sm" data-sw-lineage-close>' . esc_html__( 'Close', 'stonewright' ) . '</button>';
+		echo '<dialog id="' . esc_attr( self::DRAWER_ID ) . '" class="sw-ui-dialog sw-ui-drawer" aria-labelledby="sw-audit-lineage-title" data-sw-ui-light-dismiss data-sw-lineage-drawer>';
+		echo '<div class="sw-ui-dialog__header sw-ui-dialog__header--bar">';
+		echo '<h2 class="sw-ui-dialog__title" id="sw-audit-lineage-title">' . esc_html__( 'Change set lineage', 'stonewright' ) . '</h2>';
+		echo Button::render( __( 'Close', 'stonewright' ), [ 'size' => 'sm', 'icon' => 'x', 'icon_only' => true, 'context' => __( 'change set lineage', 'stonewright' ), 'attrs' => [ 'data-sw-ui-dialog-close' => true, 'autofocus' => true ] ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
 		echo '</div>';
-		echo '<div class="sw-audit-lineage-sheet__body">';
+		echo '<div class="sw-ui-dialog__body">';
 		foreach ( self::$context['trees'] as $key => $tree ) {
 			self::render_panel( (string) $key, $tree );
 		}
-		echo '</div>';
 		echo '</div>';
 		echo '</dialog>';
 	}
@@ -253,11 +264,11 @@ final class AuditLineageDrawer {
 		echo '<section id="' . esc_attr( self::panel_id( $key ) ) . '" class="sw-audit-lineage-panel" data-sw-lineage-panel hidden>';
 		self::render_summary( $tree );
 		if ( $tree['truncated'] ) {
-			echo '<p class="sw-audit-lineage-note">' . esc_html__( 'This chain is longer than the view, so its oldest or newest change sets are not listed. Show the rows of a change set to read them.', 'stonewright' ) . '</p>';
+			echo '<p class="sw-ui-field__help">' . esc_html__( 'This chain is longer than the view, so its oldest or newest change sets are not listed. Show the rows of a change set to read them.', 'stonewright' ) . '</p>';
 		}
 
 		$state = [ 'budget' => self::MAX_NODES, 'shown' => [] ];
-		echo '<ol class="sw-audit-lineage-tree" aria-label="' . esc_attr( __( 'Change set lineage', 'stonewright' ) ) . '">';
+		echo '<ol class="sw-ui-lineage" aria-label="' . esc_attr( __( 'Change set lineage', 'stonewright' ) ) . '">';
 		foreach ( $tree['roots'] as $root ) {
 			if ( $state['budget'] < 1 ) {
 				break;
@@ -270,8 +281,8 @@ final class AuditLineageDrawer {
 		if ( [] !== $waiting ) {
 			$list_id = 'sw-audit-lineage-more-' . $key;
 			$count   = count( $waiting );
-			echo '<p class="sw-audit-lineage-more"><button type="button" class="sw-btn sw-btn--secondary sw-btn--sm" data-sw-lineage-more="' . esc_attr( $list_id ) . '" aria-expanded="false" aria-controls="' . esc_attr( $list_id ) . '">' . esc_html( sprintf( /* translators: %d: number of change sets not drawn yet */ _n( 'Show %d more', 'Show %d more', $count, 'stonewright' ), $count ) ) . '</button></p>';
-			echo '<ol id="' . esc_attr( $list_id ) . '" class="sw-audit-lineage-tree sw-audit-lineage-tree--more" aria-label="' . esc_attr( __( 'More change sets', 'stonewright' ) ) . '" hidden>';
+			echo '<p class="sw-audit-lineage-more">' . Button::render( sprintf( /* translators: %d: number of change sets not drawn yet */ _n( 'Show %d more', 'Show %d more', $count, 'stonewright' ), $count ), [ 'size' => 'sm', 'attrs' => [ 'data-sw-lineage-more' => $list_id, 'aria-expanded' => 'false', 'aria-controls' => $list_id ] ] ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
+			echo '<ol id="' . esc_attr( $list_id ) . '" class="sw-ui-lineage" aria-label="' . esc_attr( __( 'More change sets', 'stonewright' ) ) . '" hidden>';
 			$rest = [ 'budget' => $count, 'shown' => [] ];
 			foreach ( $waiting as $id ) {
 				self::render_node( $id, $tree, $day, $rest, false );
@@ -296,7 +307,7 @@ final class AuditLineageDrawer {
 				'verified' => sprintf( /* translators: %d: number of change sets */ __( '%d verified', 'stonewright' ), $count ),
 				default    => sprintf( /* translators: %d: number of change sets */ __( '%d not verified', 'stonewright' ), $count ),
 			};
-			echo '<span class="sw-badge ' . esc_attr( self::badge_class( $kind ) ) . '">' . esc_html( $label ) . '</span>';
+			echo self::badge( $kind, $label ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
 		}
 
 		$total = (int) $tree['total'];
@@ -327,23 +338,22 @@ final class AuditLineageDrawer {
 		$when                  = '' !== (string) $node['state_at'] ? (string) $node['state_at'] : (string) $node['created_at'];
 		$duration              = self::duration_text( (int) $node['duration_ms'] );
 
-		echo '<li class="sw-audit-lineage-node sw-audit-lineage-node--' . esc_attr( $kind ) . '" data-sw-lineage-node="' . esc_attr( $id ) . '">';
-		echo '<div class="sw-audit-lineage-node__card">';
-		echo '<p class="sw-audit-lineage-node__line">';
-		echo '<span class="sw-badge ' . esc_attr( self::badge_class( $kind ) ) . '">' . esc_html( self::state_label( $node ) ) . '</span>';
-		echo '<span class="screen-reader-text">, </span>';
-		echo '<span class="sw-audit-lineage-node__op">' . esc_html( self::operation_label( (string) $node['ability'] ) ) . '</span>';
+		echo '<li class="sw-ui-lineage__item" data-sw-lineage-node="' . esc_attr( $id ) . '">';
+		echo '<div class="sw-ui-lineage__node">';
+		echo self::badge( $kind, self::state_label( $node ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers.
+		echo '<span class="sw-ui-visually-hidden">, </span>';
+		echo '<strong class="sw-audit-lineage-node__op">' . esc_html( self::operation_label( (string) $node['ability'] ) ) . '</strong>';
 		if ( '' !== $when ) {
-			echo '<span class="screen-reader-text">, </span>';
+			echo '<span class="sw-ui-visually-hidden">, </span>';
 			self::render_time( $when, $day );
 		}
 		if ( '' !== $duration ) {
-			echo '<span class="screen-reader-text">, </span>';
-			echo '<span class="sw-audit-lineage-node__duration">' . esc_html( $duration ) . '</span>';
+			echo '<span class="sw-ui-visually-hidden">, </span>';
+			echo '<span class="sw-ui-field__help">' . esc_html( $duration ) . '</span>';
 		}
-		echo '</p>';
+		echo '</div>';
 
-		echo '<p class="sw-audit-lineage-node__meta">';
+		echo '<p class="sw-ui-lineage__meta">';
 		echo '<span class="sw-audit-lineage-node__current" data-sw-lineage-current hidden>' . esc_html__( 'This change set', 'stonewright' ) . '</span> ';
 		echo '<code class="sw-audit-lineage-node__ability">' . esc_html( (string) $node['ability'] ) . '</code> ';
 		echo '<code title="' . esc_attr( $id ) . '">' . esc_html( self::short_id( $id ) ) . '</code> ';
@@ -361,15 +371,14 @@ final class AuditLineageDrawer {
 		if ( (int) $node['depth'] > self::INDENT_LEVELS ) {
 			echo '<span class="sw-audit-lineage-node__depth"><span aria-hidden="true">&hellip;</span> ' . esc_html( sprintf( /* translators: %d: nesting level of the change set */ __( 'Level %d', 'stonewright' ), (int) $node['depth'] + 1 ) ) . '</span> ';
 		}
-		echo '<a href="' . esc_url( self::rows_url( $id ) ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: change set id */ __( 'Show rows of change set %s', 'stonewright' ), $id ) ) . '">' . esc_html__( 'Show rows', 'stonewright' ) . '</a>';
+		echo '<a class="sw-ui-link" href="' . esc_url( self::rows_url( $id ) ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: change set id */ __( 'Show rows of change set %s', 'stonewright' ), $id ) ) . '">' . esc_html__( 'Show rows', 'stonewright' ) . '</a>';
 		echo '</p>';
-		echo '</div>';
 
 		if ( $nest && [] !== $node['children'] && $state['budget'] > 0 ) {
 			$count = count( $node['children'] );
 			$fold  = $count > self::BRANCH_LIMIT;
 			if ( $fold ) {
-				echo '<details class="sw-audit-lineage-branch"><summary>' . esc_html( sprintf( /* translators: 1: number of repairs, 2: change set id */ _n( '%1$d repair of %2$s', '%1$d repairs of %2$s', $count, 'stonewright' ), $count, self::short_id( $id ) ) ) . '</summary>';
+				echo '<details class="sw-ui-disclosure sw-ui-lineage__branch"><summary>' . Icon::render( 'chev-r' ) . esc_html( sprintf( /* translators: 1: number of repairs, 2: change set id */ _n( '%1$d repair of %2$s', '%1$d repairs of %2$s', $count, 'stonewright' ), $count, self::short_id( $id ) ) ) . '</summary>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Icon::render() returns escaped markup.
 			}
 			echo '<ol>';
 			foreach ( $node['children'] as $child ) {
@@ -430,11 +439,11 @@ final class AuditLineageDrawer {
 		};
 	}
 
-	private static function badge_class( string $kind ): string {
+	private static function badge( string $kind, string $label ): string {
 		return match ( $kind ) {
-			'failed'   => 'sw-badge--error',
-			'verified' => 'sw-badge--ok',
-			default    => 'sw-badge--muted',
+			'failed'   => Badge::render( $label, [ 'variant' => 'danger', 'icon' => 'x' ] ),
+			'verified' => Badge::render( $label, [ 'variant' => 'ok', 'icon' => 'check' ] ),
+			default    => Badge::render( $label ),
 		};
 	}
 

@@ -1816,6 +1816,76 @@
 }
 
 /* ====================================================================== */
+/* 16a. Drawer layout, filter links and lineage detail (Activity pages)     */
+/* ====================================================================== */
+/* A drawer keeps its header and footer in view and scrolls its body. */
+:where(.sw-ui) .sw-ui-drawer[open] {
+	display: flex;
+	flex-direction: column;
+}
+
+:where(.sw-ui .sw-ui-drawer) .sw-ui-dialog__body {
+	flex: 1 1 auto;
+	align-content: start;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.sw-ui .sw-ui-dialog__header--bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-border);
+}
+
+:where(.sw-ui .sw-ui-dialog__header--bar) .sw-ui-dialog__title {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+/* A filter chip that is a link (a server-rendered view): the current one reads as pressed. */
+.sw-ui .sw-ui-chip-filter {
+	text-decoration: none;
+}
+
+:where(.sw-ui) .sw-ui-chip-filter[aria-current="true"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+/* Lineage items: a node row, an optional line of facts under it, and nested repairs. */
+.sw-ui .sw-ui-lineage__item {
+	margin: 0 0 var(--sw-space-2);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-lineage__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 var(--sw-space-2);
+	margin: 0;
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+:where(.sw-ui .sw-ui-lineage__item[aria-current="true"]) > .sw-ui-lineage__node {
+	padding-inline: var(--sw-space-2);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-accent-soft);
+}
+
+/* The list indents three levels and then stops, so a deep chain never scrolls sideways. */
+.sw-ui .sw-ui-lineage :where(ol ol ol ol) {
+	margin-inline-start: 0;
+	padding-inline-start: 0;
+	border-inline-start: 0;
+}
+
+/* ====================================================================== */
 /* 17. Narrow screens                                                       */
 /* ====================================================================== */
 @media (max-width: 1024px) {

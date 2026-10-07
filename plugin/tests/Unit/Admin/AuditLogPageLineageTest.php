@@ -189,6 +189,15 @@ final class AuditLogPageLineageTest extends TestCase {
 		return trim( (string) preg_replace( '/\s+/', ' ', $node->textContent ) );
 	}
 
+	/** What a node of the lineage list says: its row and the line of facts under it, without its children. */
+	private static function node_text( \DOMXPath $xpath, \DOMElement $item ): string {
+		$parts = [];
+		foreach ( self::find( $xpath, './div | ./p', $item ) as $part ) {
+			$parts[] = self::text( $part );
+		}
+		return implode( ' ', $parts );
+	}
+
 	// -- Page hooks --------------------------------------------------------------
 
 	public function test_the_page_mounts_the_drawer_through_two_hooks(): void {
@@ -227,8 +236,8 @@ final class AuditLogPageLineageTest extends TestCase {
 
 		$html = self::render_page();
 
-		self::assertStringContainsString( 'sw-audit-row', $html );
-		self::assertStringNotContainsString( '<dialog', $html );
+		self::assertStringContainsString( 'sw-audit-table', $html );
+		self::assertStringNotContainsString( 'sw-audit-lineage-drawer', $html );
 		self::assertStringNotContainsString( 'data-sw-lineage', $html );
 	}
 
@@ -249,20 +258,18 @@ final class AuditLogPageLineageTest extends TestCase {
 		self::assertCount( 1, $code );
 		self::assertSame( 'cs-3f2a91c2b…', self::text( $code[0] ), 'The cell shows a short id; the full id is the tooltip.' );
 
-		$copy = self::find( $xpath, './/button[' . self::has_class( 'sw-copy-prompt' ) . ']', $cells[0] );
+		$copy = self::find( $xpath, './/button[@data-sw-ui-copy-text]', $cells[0] );
 		self::assertCount( 1, $copy );
 		self::assertSame( 'button', $copy[0]->getAttribute( 'type' ) );
-		self::assertSame( $id, $copy[0]->getAttribute( 'data-prompt' ), 'The copy control carries the full id.' );
-		self::assertSame( 'Copy change set ID ' . $id, $copy[0]->getAttribute( 'aria-label' ) );
-		self::assertSame( 'Copy', self::text( $copy[0] ) );
+		self::assertSame( $id, $copy[0]->getAttribute( 'data-sw-ui-copy-text' ), 'The copy control carries the full id.' );
+		self::assertSame( 'Copy change set ID ' . $id, self::text( $copy[0] ), 'Its name says what it copies.' );
 
 		$rows_link = self::find( $xpath, './/a[contains(@href, "change_set_id=' . $id . '")]', $cells[0] );
 		self::assertCount( 1, $rows_link );
-		self::assertSame( 'Show rows', self::text( $rows_link[0] ) );
-		self::assertSame( 'Show rows of change set ' . $id, $rows_link[0]->getAttribute( 'aria-label' ) );
+		self::assertSame( 'Show rows of change set ' . $id, self::text( $rows_link[0] ) );
 
 		self::assertSame( [], self::find( $xpath, '//*[@data-sw-lineage-open]' ), 'A change set with no relatives has no lineage to open.' );
-		self::assertSame( [], self::find( $xpath, '//dialog' ), 'And the page carries no drawer.' );
+		self::assertSame( [], self::find( $xpath, '//dialog[@data-sw-lineage-drawer]' ), 'And the page carries no lineage drawer.' );
 	}
 
 	public function test_short_ids_are_left_alone_and_long_ones_are_cut_with_an_ellipsis(): void {
@@ -301,7 +308,7 @@ final class AuditLogPageLineageTest extends TestCase {
 
 		$xpath = self::xpath( self::render_page() );
 
-		$chips = self::find( $xpath, '//*[' . self::has_class( 'sw-audit-lineage-chip' ) . ']' );
+		$chips = self::find( $xpath, '//div[' . self::has_class( 'sw-audit-lineage-chips' ) . ']' );
 		self::assertCount( 1, $chips );
 		self::assertStringStartsWith( 'Change set cs-3f2a91c2b…', self::text( $chips[0] ) );
 		self::assertCount( 1, self::find( $xpath, './/code[@title="cs-3f2a91c2b5d84e7f6a0912ab"]', $chips[0] ) );
@@ -319,7 +326,7 @@ final class AuditLogPageLineageTest extends TestCase {
 		$rows = self::repaired_rows();
 		$this->use_wpdb( $rows, array_reverse( $rows ) );
 
-		self::assertStringNotContainsString( 'sw-audit-lineage-chip', self::render_page() );
+		self::assertStringNotContainsString( 'sw-audit-lineage-chips', self::render_page() );
 	}
 
 	public function test_the_chip_stays_when_the_filter_matches_no_rows(): void {
@@ -345,7 +352,9 @@ final class AuditLogPageLineageTest extends TestCase {
 		self::assertSame( 'sw-audit-lineage-title', $drawers[0]->getAttribute( 'aria-labelledby' ) );
 		self::assertTrue( $drawers[0]->hasAttribute( 'data-sw-lineage-drawer' ) );
 		self::assertSame( 'Change set lineage', self::text( self::find( $xpath, './/h2[@id="sw-audit-lineage-title"]', $drawers[0] )[0] ) );
-		self::assertCount( 1, self::find( $xpath, './/button[@data-sw-lineage-close]', $drawers[0] ) );
+		self::assertCount( 1, self::find( $xpath, './/button[@data-sw-ui-dialog-close]', $drawers[0] ), 'The layer closes the dialog.' );
+		self::assertStringContainsString( 'sw-ui-dialog sw-ui-drawer', $drawers[0]->getAttribute( 'class' ), 'The drawer is the layer drawer, not a second style.' );
+		self::assertTrue( $drawers[0]->hasAttribute( 'data-sw-ui-light-dismiss' ) );
 
 		$panels = self::find( $xpath, './/section[@data-sw-lineage-panel]', $drawers[0] );
 		self::assertCount( 1, $panels, 'One panel per chain, however many rows the chain has on the page.' );
@@ -359,8 +368,8 @@ final class AuditLogPageLineageTest extends TestCase {
 			self::assertSame( 'sw-audit-lineage-drawer', $button->getAttribute( 'aria-controls' ) );
 			self::assertTrue( $button->hasAttribute( 'hidden' ), 'The button appears when the script that opens the drawer has loaded.' );
 			self::assertSame( 'button', $button->getAttribute( 'type' ) );
-			self::assertSame( 'Lineage', self::text( $button ) );
-			self::assertStringStartsWith( 'Lineage of change set cs-', $button->getAttribute( 'aria-label' ) );
+			self::assertSame( '#sw-audit-lineage-drawer', $button->getAttribute( 'data-sw-ui-dialog-open' ), 'The layer opens the drawer.' );
+			self::assertStringStartsWith( 'Lineage of change set cs-', self::text( $button ) );
 			self::assertMatchesRegularExpression( '/^Change set cs-[A-Za-z-]+$/', $button->getAttribute( 'data-sw-lineage-title' ) );
 		}
 		self::assertSame( [ 'cs-B-repair', 'cs-A-failed', 'cs-A-failed' ], array_map( static fn ( \DOMElement $b ): string => $b->getAttribute( 'data-sw-lineage-for' ), $buttons ) );
@@ -372,7 +381,7 @@ final class AuditLogPageLineageTest extends TestCase {
 
 		$xpath = self::xpath( self::render_page() );
 
-		$tree = self::find( $xpath, '//section[@data-sw-lineage-panel]/ol[@aria-label="Change set lineage"]' );
+		$tree = self::find( $xpath, '//section[@data-sw-lineage-panel]/ol[@aria-label="Change set lineage"][' . self::has_class( 'sw-ui-lineage' ) . ']' );
 		self::assertCount( 1, $tree, 'The list is named.' );
 
 		$roots = self::find( $xpath, './li', $tree[0] );
@@ -382,11 +391,11 @@ final class AuditLogPageLineageTest extends TestCase {
 		self::assertCount( 1, $children, 'The repair nests under the change it repairs.' );
 		self::assertSame( 'cs-B-repair', $children[0]->getAttribute( 'data-sw-lineage-node' ) );
 
-		$failed = self::text( self::find( $xpath, './div[' . self::has_class( 'sw-audit-lineage-node__card' ) . ']', $roots[0] )[0] );
+		$failed = self::node_text( $xpath, $roots[0] );
 		self::assertStringContainsString( 'Verification failed, Elementor v3 batch mutate, 10:00:11', $failed, 'A node reads as a sentence: state, operation, time.' );
 		self::assertStringContainsString( 'stonewright/elementor-v3-batch-mutate', $failed, 'The ability code is the one that made the change.' );
 
-		$repair = self::text( self::find( $xpath, './div[' . self::has_class( 'sw-audit-lineage-node__card' ) . ']', $children[0] )[0] );
+		$repair = self::node_text( $xpath, $children[0] );
 		self::assertStringContainsString( 'Verified, Elementor v3 batch mutate, 10:00:12', $repair );
 		self::assertStringContainsString( '2.4 s', $repair );
 		self::assertStringContainsString( 'Repair of cs-A-failed', $repair );
@@ -405,7 +414,7 @@ final class AuditLogPageLineageTest extends TestCase {
 		$xpath = self::xpath( self::render_page() );
 
 		foreach ( [ 'cs-A-failed', 'cs-B-repair' ] as $id ) {
-			$links = self::find( $xpath, '//li[@data-sw-lineage-node="' . $id . '"]/div//a[contains(@href, "change_set_id=' . $id . '")]' );
+			$links = self::find( $xpath, '//li[@data-sw-lineage-node="' . $id . '"]/p//a[contains(@href, "change_set_id=' . $id . '")]' );
 			self::assertCount( 1, $links, 'Tab walks from node to node through these links.' );
 			self::assertSame( 'Show rows of change set ' . $id, $links[0]->getAttribute( 'aria-label' ) );
 		}
@@ -425,8 +434,8 @@ final class AuditLogPageLineageTest extends TestCase {
 		self::assertStringContainsString( '2 change sets', $text );
 		self::assertStringContainsString( '2026-10-01 10:00:10 to 10:00:12 UTC', $text );
 		self::assertStringContainsString( 'development', $text );
-		self::assertCount( 1, self::find( $xpath, './/span[' . self::has_class( 'sw-badge--error' ) . ']', $summary[0] ) );
-		self::assertCount( 1, self::find( $xpath, './/span[' . self::has_class( 'sw-badge--ok' ) . ']', $summary[0] ) );
+		self::assertCount( 1, self::find( $xpath, './/span[' . self::has_class( 'sw-ui-badge--danger' ) . ']', $summary[0] ) );
+		self::assertCount( 1, self::find( $xpath, './/span[' . self::has_class( 'sw-ui-badge--ok' ) . ']', $summary[0] ) );
 	}
 
 	public function test_the_failed_node_shows_what_became_of_its_incident(): void {
@@ -440,9 +449,9 @@ final class AuditLogPageLineageTest extends TestCase {
 		$this->use_wpdb( $rows, array_reverse( $rows ) );
 
 		$xpath = self::xpath( self::render_page() );
-		$card  = self::find( $xpath, '//li[@data-sw-lineage-node="cs-A-failed"]/div[' . self::has_class( 'sw-audit-lineage-node__card' ) . ']' );
+		$node  = self::find( $xpath, '//li[@data-sw-lineage-node="cs-A-failed"]' );
 
-		self::assertStringContainsString( 'Incident resolved', self::text( $card[0] ) );
+		self::assertStringContainsString( 'Incident resolved', self::node_text( $xpath, $node[0] ) );
 	}
 
 	public function test_the_node_state_never_relies_on_colour_alone(): void {
@@ -452,7 +461,7 @@ final class AuditLogPageLineageTest extends TestCase {
 		$xpath = self::xpath( self::render_page() );
 
 		foreach ( self::find( $xpath, '//li[@data-sw-lineage-node]' ) as $node ) {
-			$badge = self::find( $xpath, './div/p/span[' . self::has_class( 'sw-badge' ) . ']', $node );
+			$badge = self::find( $xpath, './div/span[' . self::has_class( 'sw-ui-badge' ) . ']', $node );
 			self::assertCount( 1, $badge );
 			self::assertContains( self::text( $badge[0] ), [ 'Verification failed', 'Failed', 'Verified', 'Not verified' ] );
 		}
@@ -483,7 +492,7 @@ final class AuditLogPageLineageTest extends TestCase {
 		$this->use_wpdb( $rows, $rows );
 
 		$xpath    = self::xpath( self::render_page() );
-		$branches = self::find( $xpath, '//li[@data-sw-lineage-node="cs-A"]/details[' . self::has_class( 'sw-audit-lineage-branch' ) . ']' );
+		$branches = self::find( $xpath, '//li[@data-sw-lineage-node="cs-A"]/details[' . self::has_class( 'sw-ui-lineage__branch' ) . ']' );
 
 		self::assertCount( 1, $branches );
 		self::assertSame( '6 repairs of cs-A', self::text( self::find( $xpath, './summary', $branches[0] )[0] ) );
@@ -497,7 +506,7 @@ final class AuditLogPageLineageTest extends TestCase {
 
 		$xpath = self::xpath( self::render_page() );
 
-		self::assertSame( [], self::find( $xpath, '//details[' . self::has_class( 'sw-audit-lineage-branch' ) . ']' ) );
+		self::assertSame( [], self::find( $xpath, '//details[' . self::has_class( 'sw-ui-lineage__branch' ) . ']' ) );
 		self::assertCount( 5, self::find( $xpath, '//li[@data-sw-lineage-node="cs-A"]/ol/li[@data-sw-lineage-node]' ) );
 	}
 
@@ -544,7 +553,7 @@ final class AuditLogPageLineageTest extends TestCase {
 		$xpath = self::xpath( self::render_page() );
 
 		for ( $level = 0; $level <= 5; ++$level ) {
-			$marker = self::find( $xpath, '//li[@data-sw-lineage-node="cs-L' . $level . '"]/div//span[' . self::has_class( 'sw-audit-lineage-node__depth' ) . ']' );
+			$marker = self::find( $xpath, '//li[@data-sw-lineage-node="cs-L' . $level . '"]/p//span[' . self::has_class( 'sw-audit-lineage-node__depth' ) . ']' );
 			if ( $level < 4 ) {
 				self::assertSame( [], $marker, 'Levels one to four indent and need no marker.' );
 				continue;
@@ -589,7 +598,7 @@ final class AuditLogPageLineageTest extends TestCase {
 
 		$html = self::render_page();
 
-		self::assertStringNotContainsString( '<dialog', $html );
+		self::assertStringNotContainsString( 'data-sw-lineage-drawer', $html );
 		$lineage_queries = array_filter( $wpdb->queries, static fn ( string $query ): bool => str_contains( $query, 'repair_of IN' ) );
 		self::assertCount( 1, $lineage_queries, 'One bounded lookup for the change sets on the page.' );
 	}
@@ -648,7 +657,7 @@ final class AuditLogPageLineageTest extends TestCase {
 	public function test_the_assets_load_on_the_audit_log_page_only(): void {
 		AuditLineageDrawer::enqueue( 'stonewright_page_stonewright-audit-log' );
 
-		self::assertContains( 'stonewright-admin-audit-lineage', $GLOBALS['stonewright_test_enqueued_styles'] );
+		self::assertNotContains( 'stonewright-admin-audit-lineage', $GLOBALS['stonewright_test_enqueued_styles'], 'The layer styles the drawer; there is no second stylesheet.' );
 		self::assertContains( 'stonewright-admin-audit-lineage', $GLOBALS['stonewright_test_enqueued_scripts'] );
 
 		$GLOBALS['stonewright_test_enqueued_styles']  = [];
