@@ -97,6 +97,15 @@ final class SwUiCssContractTest extends TestCase {
 		'assets/admin/pages/context.css',
 		'assets/admin/pages/design.css',
 		'assets/admin/pages/prompts.css',
+		// AI Abilities: markup from the helpers, its script, and a stylesheet that only places things.
+		'includes/Admin/AbilitiesPage.php',
+		'assets/admin/abilities.css',
+		'assets/admin/pages/abilities.js',
+		// Custom code hub: Drafts, Library, Active, Crash recovery and Approvals, with one placement stylesheet.
+		'includes/Admin/SandboxPage.php',
+		'includes/Admin/Pages/SandboxLibraryPage.php',
+		'includes/Admin/CustomCodeApprovalPage.php',
+		'assets/admin/sandbox.css',
 	];
 
 	private static function css(): string {

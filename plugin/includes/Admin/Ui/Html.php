@@ -21,7 +21,7 @@ final class Html {
 
 	/** Attribute names a helper may set, besides data-* and aria-*. */
 	private const ALLOWED = [
-		'action',
+		'action', // A form posts to a URL the page chose; it is escaped as a URL below. formaction is not allowed.
 		'autocomplete',
 		'autofocus',
 		'checked',

@@ -79,8 +79,10 @@ final class SandboxLibraryRoutingTest extends TestCase {
 		SandboxPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'page=stonewright-sandbox&tab=library&library_tab=widgets', $html );
-		self::assertStringContainsString( 'page=stonewright-sandbox&tab=library&library_tab=plugins', $html );
+		// The kind of file is one control of the filter form; the form keeps the hub's page and tab and sends library_tab.
+		self::assertStringContainsString( '<input type="hidden" name="page" value="stonewright-sandbox"><input type="hidden" name="tab" value="library">', $html );
+		self::assertStringContainsString( 'name="library_tab" value="widgets"', $html );
+		self::assertStringContainsString( 'name="library_tab" value="plugins"', $html );
 		self::assertStringContainsString( 'page=stonewright-sandbox&tab=library&library_tab=snippets&action=edit&file=route-test.php', $html );
 		self::assertStringContainsString( 'name="stonewright_return_tab" value="library"', $html );
 		self::assertStringNotContainsString( 'page=stonewright-sandbox-library&tab=widgets', $html );
@@ -107,7 +109,7 @@ final class SandboxLibraryRoutingTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'active-visible.php', $html );
-		self::assertStringNotContainsString( 'No sandbox files are currently active as MU plugins.', $html );
+		self::assertStringNotContainsString( 'No active files', $html );
 	}
 
 	private function empty_test_dirs(): void {

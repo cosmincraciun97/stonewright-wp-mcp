@@ -155,6 +155,6 @@ final class LiveToolCountTest extends TestCase {
 		self::assertStringContainsString( sprintf( 'Enabled %d ', $total - 2 ), $html );
 		self::assertStringNotContainsString( sprintf( 'Enabled %d ', $total ), $html );
 		self::assertSame( 2, substr_count( $html, 'Not registered with WordPress' ) );
-		self::assertMatchesRegularExpression( '#data-provider="stonewright".{0,400}?' . ( $total - 2 ) . ' / ' . $total . '#s', $html );
+		self::assertMatchesRegularExpression( '#data-provider="stonewright".{0,400}?' . ( $total - 2 ) . ' of ' . $total . ' on#s', $html );
 	}
 }

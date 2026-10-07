@@ -280,6 +280,19 @@
   (`data-sw-ui-filter`, `Stonewright.ui.initFilters`), a drop zone and a
   code-face text area to `sw-ui.css` and `sw-ui.js`, and an optional row id to
   `Ui\Table`. A copy button that carries only `data-sw-ui-copy-text` now copies.
+- Move AI Abilities and the Custom code pages (Drafts, Library, Active, Crash
+  recovery, Approvals) to the shared admin UI. AI Abilities switches an ability
+  or runs a bulk action without reloading the page, with a toast and Undo, through
+  two REST routes that keep the capability, nonces and option of the form
+  handlers (a third route lists a row's parameters); the bulk form stays as the
+  way in without script, and Apply with nothing chosen now says what is missing.
+  Categories start closed and a row's parameters load when it opens, so the page
+  prints less than half the elements it did. Custom code gets empty states, one
+  toolbar in the Library in place of a second row of tabs, a status badge per
+  file, a confirmation dialog before a file is deleted, facts and a risk badge on
+  the approval page, and a token that is still shown unmasked. Nothing about the
+  sandbox storage, the file name rule, the nonces, the production-safe tokens or
+  the approval stop changed.
 - `elementor-v4-update-node` accepts `operations` as an alternative to
   `element_id` and `settings`; its input schema now requires only `post_id`, and
   a call with neither form fails with `missing_element_id`.

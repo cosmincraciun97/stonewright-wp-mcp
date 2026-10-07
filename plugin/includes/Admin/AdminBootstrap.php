@@ -214,6 +214,9 @@ final class AdminBootstrap {
 			'stonewright-skills'        => 'pages/skills.css',
 			'stonewright-memory'        => 'pages/memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
+			// The other pages of the Custom code hub share the Drafts page's stylesheet.
+			'stonewright-custom-code-approval' => 'sandbox.css',
+			'stonewright-sandbox-library'      => 'sandbox.css',
 			'stonewright-design'        => 'pages/design.css',
 			'stonewright-context'       => 'pages/context.css',
 			'stonewright-rescue'        => 'pages/rescue.css',

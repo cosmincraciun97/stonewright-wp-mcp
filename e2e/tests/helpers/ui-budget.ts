@@ -39,7 +39,6 @@ function onTopOfShell(extra: { smallText?: readonly [number, number]; smallTarge
 export const SHELL_ONLY: PageBudget = onTopOfShell({});
 
 export const PAGE_BUDGETS: Readonly<Record<string, PageBudget>> = {
-	'stonewright-abilities': onTopOfShell({ smallTargets: [4, 2], duplicateIds: ['_wpnonce'], axe: ['aria-required-children', 'nested-interactive'] }),
 	'stonewright-custom-code-approval': SHELL_ONLY,
 	'stonewright-sandbox': SHELL_ONLY,
 };
