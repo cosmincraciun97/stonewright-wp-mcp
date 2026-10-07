@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 
@@ -106,36 +107,42 @@ final class AuditLogPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'sw-audit-page', $html );
-		self::assertStringContainsString( 'Stonewright mutation', $html );
-		self::assertStringContainsString( 'sw-audit-filters', $html );
-		self::assertStringContainsString( 'value="blocked"', $html );
+		self::assertStringContainsString( 'data-sw-shell', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Audit log</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ), 'One h1, printed by the shell.' );
 		self::assertStringContainsString( 'name="ability"', $html );
 		self::assertStringContainsString( 'name="status"', $html );
+		self::assertStringContainsString( 'value="blocked"', $html );
 		self::assertStringContainsString( 'name="verification_status"', $html );
 		self::assertStringContainsString( 'name="rollback_status"', $html );
 		self::assertStringContainsString( 'name="operation_class"', $html );
-		self::assertStringContainsString( 'Incident lifecycle', $html );
 		self::assertStringContainsString( 'name="user"', $html );
 		self::assertStringContainsString( 'name="from"', $html );
 		self::assertStringContainsString( 'name="to"', $html );
-		self::assertStringContainsString( 'sw-badge', $html );
-		self::assertStringContainsString( 'sw-badge--ok', $html );
-		self::assertStringContainsString( 'sw-badge--error', $html );
-		self::assertStringContainsString( 'sw-audit-row', $html );
-		self::assertStringContainsString( 'sw-audit-table-scroll', $html );
-		self::assertStringContainsString( 'data-label="Details"', $html );
-		self::assertStringContainsString( 'View JSON', $html );
-		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-details-12"', $html );
-		self::assertStringContainsString( '<details', $html );
-		self::assertStringContainsString( 'post_id', $html );
+		self::assertMatchesRegularExpression( '/<section class="sw-ui-card sw-incident-summary"[^>]*>.*?<h2[^>]*>Incident lifecycle<\/h2>/s', $html, 'The incident band is a card with a heading.' );
 		self::assertStringContainsString( 'More filters', $html );
-		self::assertStringContainsString( 'sw-audit-filters__primary', $html );
+		self::assertStringContainsString( 'sw-ui-toolbar', $html );
+		self::assertStringContainsString( 'sw-ui-table', $html );
+		self::assertStringContainsString( 'sw-ui-badge--ok', $html );
+		self::assertStringContainsString( 'sw-ui-badge--danger', $html );
+		self::assertStringNotContainsString( 'sw-badge', $html, 'No older badge classes.' );
+		self::assertStringNotContainsString( 'sw-btn', $html, 'No older button classes.' );
 		self::assertStringContainsString( 'Delete all logs', $html );
-		self::assertStringContainsString( 'sw-badge--observing', $html );
-		self::assertStringContainsString( 'sw-badge--resolved', $html );
 		self::assertStringContainsString( 'OAuth: Desktop client', $html );
 		self::assertStringContainsString( 'Deleted user', $html );
 		self::assertStringNotContainsString( '(unknown)', $html );
+		self::assertStringContainsString( 'method="get"', $html );
+		self::assertStringContainsString( '<caption class="sw-ui-visually-hidden">Audit log entries</caption>', $html );
+		self::assertMatchesRegularExpression( '/<time datetime="2026-07-15T10:00:00Z" title="2026-07-15 10:00:00 UTC">/', $html, 'Times are <time> elements with UTC in the title.' );
+
+		// Row details open in one drawer; each row has a named button and a panel.
+		self::assertSame( 4, substr_count( $html, 'data-sw-audit-open=' ) );
+		self::assertMatchesRegularExpression( '/<button[^>]*data-sw-audit-open="sw-audit-row-12"[^>]*>Details<span class="sw-ui-visually-hidden"> of event 12, stonewright\/content-update<\/span>/', $html );
+		self::assertStringContainsString( 'id="sw-audit-row-12"', $html );
+		self::assertStringContainsString( '<dialog id="sw-audit-drawer" class="sw-ui-dialog sw-ui-drawer"', $html );
+		self::assertStringContainsString( 'data-sw-ui-light-dismiss', $html );
+		self::assertStringContainsString( 'post_id', $html );
+		self::assertStringContainsString( 'data-sw-ui-copy="#sw-audit-payload-12"', $html );
 		self::assertStringContainsString( 'method="get"', $html );
 	}
 
@@ -197,10 +204,11 @@ final class AuditLogPageTest extends TestCase {
 		AuditLogPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'sw-empty-state', $html );
-		self::assertStringContainsString( 'sw-empty-state__icon', $html );
-		self::assertStringContainsString( 'No audit entries', $html );
+		self::assertStringContainsString( 'sw-ui-empty', $html );
+		self::assertStringContainsString( 'sw-ui-empty__title', $html );
+		self::assertStringContainsString( 'No audit entries have been recorded', $html );
 		self::assertStringContainsString( 'Run a Stonewright mutation', $html );
+		self::assertStringNotContainsString( 'sw-empty-state', $html );
 	}
 
 	public function test_error_row_expand_shows_code_message_target_mode_and_repair(): void {
@@ -261,9 +269,10 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'development', $html );
 		self::assertStringContainsString( '&quot;remediation&quot;', $html );
 		self::assertStringContainsString( 'Validate the design spec', $html );
-		self::assertStringContainsString( 'sw-audit-kv', $html );
-		self::assertStringContainsString( 'View JSON', $html );
+		self::assertStringContainsString( 'sw-ui-kv', $html, 'The drawer reads as facts.' );
+		self::assertStringContainsString( 'Redacted details', $html );
 		self::assertStringContainsString( 'Repair', $html );
+		self::assertStringContainsString( 'Spec failed at tokens.color', $html );
 		self::assertStringNotContainsString( 'sentinel-private', $html );
 	}
 
@@ -295,26 +304,26 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'error_code = %s', $audit_sql );
 		self::assertStringContainsString( 'Events for this pattern were pruned by retention — the pattern summary above is the surviving record', $filtered );
 		self::assertStringNotContainsString( 'No audit entries match this view.', $filtered );
-		self::assertStringNotContainsString( 'Errors (0)', $filtered );
-		self::assertStringContainsString( 'All (0)', $filtered );
+		self::assertDoesNotMatchRegularExpression( '/Errors <span class="sw-ui-count sw-ui-num">0</', $filtered, 'A pattern view hides the views that count nothing.' );
+		self::assertMatchesRegularExpression( '/All <span class="sw-ui-count sw-ui-num">0</', $filtered );
 	}
 
-	public function test_dismiss_recurring_pattern_requires_js_confirm(): void {
-		$this->seed_recurring_pattern();
+	public function test_dismissing_a_recurring_pattern_asks_in_a_dialog_and_still_posts_without_script(): void {
+		$pattern         = $this->seed_recurring_pattern();
 		$GLOBALS['wpdb'] = $this->make_audit_wpdb( [], 0 );
 
 		ob_start();
 		AuditLogPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertMatchesRegularExpression(
-			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm=")/i',
-			$html
-		);
-		self::assertMatchesRegularExpression(
-			'/<button[^>]*data-confirm="[^"]+"[^>]*>\s*Dismiss/i',
-			$html
-		);
+		self::assertStringNotContainsString( 'data-confirm=', $html, 'No browser confirm().' );
+		self::assertMatchesRegularExpression( '/<dialog[^>]*class="sw-ui-dialog"[^>]*aria-labelledby="(sw-audit-dismiss-[a-f0-9]+)-title"/', $html );
+		self::assertStringContainsString( 'Dismiss this recurring error pattern?', $html );
+		self::assertStringContainsString( 'name="action" value="stonewright_dismiss_error_pattern"', $html );
+		self::assertStringContainsString( 'name="signature" value="' . $pattern['signature'] . '"', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*type="submit"[^>]*form="sw-audit-dismiss-form-[a-f0-9]+"[^>]*data-sw-ui-dialog-open="#sw-audit-dismiss-[a-f0-9]+"/', $html, 'Without script the row button posts the form that sits in the dialog.' );
+		self::assertMatchesRegularExpression( '/>Dismiss<span class="sw-ui-visually-hidden"> pattern for stonewright\/design-validate-spec<\/span>/', $html, 'Each button names its pattern.' );
+		self::assertMatchesRegularExpression( '/>View occurrences<span class="sw-ui-visually-hidden"> of stonewright\/design-validate-spec<\/span>/', $html );
 	}
 
 	public function test_purge_requires_manage_options(): void {
@@ -353,6 +362,26 @@ final class AuditLogPageTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessageMatches( '/wp_die/' );
 		AuditLogPage::process_purge_request();
+	}
+
+	public function test_purge_deletes_the_incidents_that_pointed_into_the_log_and_says_how_many(): void {
+		$wpdb            = $this->make_purge_wpdb( 4 );
+		$GLOBALS['wpdb'] = $wpdb;
+		foreach ( [ 'stonewright_skill_write_conflict', 'stonewright_spec_invalid' ] as $code ) {
+			IncidentStore::observe( AuditEvent::normalize( 'stonewright/skills-save', [ '_meta' => [ 'error_code' => $code, 'resource_type' => 'skill' ] ], 'error' ) );
+		}
+		self::assertSame( 2, array_sum( IncidentStore::counts() ) );
+		$_POST = [
+			'_stonewright_nonce' => 'test-nonce-stonewright_audit_purge',
+			'confirm_phrase'     => 'DELETE',
+		];
+
+		AuditLogPage::process_purge_request();
+
+		self::assertSame( [ 'open' => 0, 'observing' => 0, 'resolved' => 0, 'suppressed' => 0 ], IncidentStore::counts() );
+		$args = json_decode( (string) ( $wpdb->inserts[0]['sanitized_args'] ?? '' ), true );
+		self::assertSame( 2, (int) ( $args['incidents'] ?? -1 ), 'The receipt records how many incidents went with the log.' );
+		self::assertSame( 2, AuditLogPage::last_purged_incidents() );
 	}
 
 	public function test_purge_wipes_events_and_patterns_then_records_one_receipt(): void {
@@ -395,13 +424,20 @@ final class AuditLogPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'Delete all logs', $html );
-		self::assertStringContainsString( 'sw-btn--danger', $html );
-		self::assertStringContainsString( 'data-sw-audit-purge', $html );
+		self::assertStringContainsString( 'sw-ui-btn--danger', $html );
+		self::assertSame( 1, substr_count( $html, 'sw-ui-btn--primary' ), 'One primary action on the page: Filter.' );
+		self::assertMatchesRegularExpression( '/sw-ui-btn--danger"[^>]*data-sw-ui-dialog-open="#sw-audit-purge-dialog"|sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm"[^>]*data-sw-ui-dialog-open/', $html, 'Delete is a danger button, never primary.' );
+		self::assertMatchesRegularExpression( '/<button[^>]*data-sw-ui-dialog-open="#sw-audit-purge-dialog"[^>]*>Delete all logs/', $html );
+		self::assertMatchesRegularExpression( '/<dialog id="sw-audit-purge-dialog" class="sw-ui-dialog"[^>]*aria-labelledby="sw-audit-purge-title"/', $html );
 		self::assertStringContainsString( 'Type DELETE to confirm', $html );
-		self::assertStringContainsString( 'append-only; admins can purge the entire log from this page', $html );
-		self::assertStringNotContainsString( 'The log is append-only.', $html );
-		self::assertStringNotContainsString( 'window.confirm', (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/audit.js' ) );
-		self::assertDoesNotMatchRegularExpression( '/Delete all logs[^<]*data-confirm=/', $html );
+		self::assertStringContainsString( 'data-sw-ui-confirm-phrase="DELETE"', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*disabled[^>]*data-sw-ui-confirm-submit|<button[^>]*data-sw-ui-confirm-submit[^>]*disabled/', $html, 'The delete button starts disabled.' );
+		self::assertMatchesRegularExpression( '/<button[^>]*autofocus[^>]*>Cancel/', $html, 'The safe action takes focus.' );
+		self::assertStringContainsString( 'incidents', strtolower( strip_tags( substr( $html, (int) strpos( $html, 'sw-audit-purge-dialog' ), 1800 ) ) ), 'The confirmation says incidents go too.' );
+		self::assertStringContainsString( 'Records of what agents and Stonewright did', $html );
+		self::assertStringNotContainsString( 'window.confirm', (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/audit.js' ) );
+		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/audit.js' );
+		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/audit.css' );
 	}
 
 	public function test_render_after_purge_shows_inline_flash_not_wp_notice(): void {
@@ -418,15 +454,17 @@ final class AuditLogPageTest extends TestCase {
 			],
 			1
 		);
-		$_GET['purged'] = '4';
+		$_GET['purged']    = '4';
+		$_GET['incidents'] = '3';
 
 		ob_start();
 		AuditLogPage::render();
 		$html = (string) ob_get_clean();
-		unset( $_GET['purged'] );
+		unset( $_GET['purged'], $_GET['incidents'] );
 
-		self::assertStringContainsString( 'sw-audit-flash', $html );
-		self::assertStringContainsString( 'Deleted 4 audit events and all pattern summaries. One audit_log_purged receipt remains.', $html );
+		self::assertStringContainsString( 'sw-ui-notice--ok', $html );
+		self::assertStringContainsString( 'role="status"', $html );
+		self::assertStringContainsString( 'Deleted 4 audit events, 3 incidents and all pattern summaries. One audit_log_purged receipt remains.', $html );
 		self::assertStringNotContainsString( 'notice notice-success is-dismissible', $html );
 		self::assertStringContainsString( 'audit_log_purged', $html );
 	}

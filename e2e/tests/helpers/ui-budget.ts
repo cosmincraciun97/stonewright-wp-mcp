@@ -46,8 +46,6 @@ export const PAGE_BUDGETS: Readonly<Record<string, PageBudget>> = {
 	'stonewright-sandbox': SHELL_ONLY,
 	'stonewright-skills': SHELL_ONLY,
 	'stonewright-memory': onTopOfShell({ smallTargets: [3, 0], duplicateIds: ['_wpnonce', 'submit', '_stonewright_nonce'] }),
-	'stonewright-audit-log': onTopOfShell({ smallTargets: [2, 2], duplicateIds: ['_stonewright_nonce'] }),
-	'stonewright-troubleshoot': onTopOfShell({ smallTargets: [1, 1] }),
 	'stonewright-context': onTopOfShell({ smallTargets: [1, 1] }),
 	'stonewright-design': SHELL_ONLY,
 };

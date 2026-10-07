@@ -5,16 +5,45 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\SupportReport;
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Admin\Ui\Table;
 
 /**
- * Shared diagnostics markup for Setup and Troubleshoot.
+ * The connection checks of the Troubleshoot page: a form that runs them, a summary, the checks that need
+ * attention first, and the rest folded away. Built from the admin UI layer; assets/admin/pages/troubleshoot.js
+ * paints the same structure from the JSON the run returns.
  */
 final class DiagnosticsPanel {
+
+	/** Status of a check to its badge: variant, icon and the word shown. */
+	private static function badge_for( string $status ): string {
+		return match ( $status ) {
+			'ok'      => Badge::render( __( 'Passed', 'stonewright' ), [ 'variant' => 'ok', 'icon' => 'check' ] ),
+			'warning' => Badge::render( __( 'Warning', 'stonewright' ), [ 'variant' => 'warn', 'icon' => 'alert' ] ),
+			'info'    => Badge::render( __( 'Info', 'stonewright' ), [ 'variant' => 'info', 'icon' => 'info' ] ),
+			'skipped' => Badge::render( __( 'Skipped', 'stonewright' ) ),
+			default   => Badge::render( __( 'Problem', 'stonewright' ), [ 'variant' => 'danger', 'icon' => 'x' ] ),
+		};
+	}
+
+	/**
+	 * Print the panel inside its own layer scope. Pages that build their content as one string call html() instead.
+	 *
+	 * @param array<string, mixed> $report Optional preloaded report.
+	 */
+	public static function render( string $return_page, string $heading, array $report = [] ): void {
+		echo Scope::wrap( self::html( $return_page, $heading, $report ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+	}
 
 	/**
 	 * @param array<string, mixed> $report Optional preloaded report.
 	 */
-	public static function render( string $return_page, string $heading, array $report = [] ): void {
+	public static function html( string $return_page, string $heading, array $report = [] ): string {
 		if ( ! in_array( $return_page, [ 'stonewright', 'stonewright-troubleshoot' ], true ) ) {
 			$return_page = 'stonewright';
 		}
@@ -27,115 +56,213 @@ final class DiagnosticsPanel {
 		$method   = SetupDiagnostics::resolve_method( $report );
 		$grouped  = self::group_checks( $checks );
 		$counts   = self::counts_from_report( $report, $grouped );
-		$copy     = self::plaintext_report( $report );
-		?>
-		<section class="sw-setup-diagnostics" data-stonewright-diagnostics aria-label="<?php echo esc_attr( $heading ); ?>">
-			<h2><?php echo esc_html( $heading ); ?></h2>
-			<p class="description">
-				<?php esc_html_e( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', 'stonewright' ); ?>
-			</p>
 
-			<div class="sw-diag-field">
-				<label for="stonewright-diag-symptom"><?php esc_html_e( 'What do you see in your AI client?', 'stonewright' ); ?></label>
-				<select id="stonewright-diag-symptom" data-stonewright-diag-symptom>
-					<option value=""><?php esc_html_e( 'Optional — pick a symptom', 'stonewright' ); ?></option>
-					<option value="tools"><?php esc_html_e( 'Stonewright tools never appear', 'stonewright' ); ?></option>
-					<option value="auth"><?php esc_html_e( 'Authorization or login fails', 'stonewright' ); ?></option>
-					<option value="unreachable"><?php esc_html_e( 'The client cannot reach this site', 'stonewright' ); ?></option>
-					<option value="other"><?php esc_html_e( 'Something else', 'stonewright' ); ?></option>
-				</select>
-				<div class="sw-diag-help" data-stonewright-diag-help hidden></div>
-			</div>
+		$field = static function ( string $id, string $label, string $control, string $help = '' ): string {
+			return Html::element(
+				'div',
+				[ 'class' => 'sw-ui-field sw-ui-field--md' ],
+				Html::element( 'label', [ 'class' => 'sw-ui-field__label', 'for' => $id ], Html::text( $label ) ) . $control . $help
+			);
+		};
+		$option = static fn ( string $value, string $text, bool $selected = false ): string => Html::element( 'option', [ 'value' => $value, 'selected' => $selected ], Html::text( $text ) );
 
-			<form
-				id="stonewright-diagnostics-form"
-				method="post"
-				action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-				class="sw-diagnostics-run"
-			>
-				<input type="hidden" name="action" value="stonewright_run_diagnostics"/>
-				<?php wp_nonce_field( 'stonewright_run_diagnostics' ); ?>
-				<input type="hidden" name="stonewright_diagnostics_return" value="<?php echo esc_attr( $return_page ); ?>"/>
+		$mode_select    = Html::element(
+			'select',
+			[ 'class' => 'sw-ui-select', 'id' => 'stonewright-diag-mode', 'name' => 'mode', 'data-sw-diag-mode' => true ],
+			$option( 'oauth-http', __( 'OAuth', 'stonewright' ), 'oauth-http' === $method )
+				. $option( 'application-password-stdio', __( 'Application Password', 'stonewright' ), 'application-password-stdio' === $method )
+				. $option( 'stdio', __( 'Local companion', 'stonewright' ), 'stdio' === $method )
+				. $option( 'not-sure', __( 'Not sure', 'stonewright' ), 'not-sure' === $method )
+		);
+		$symptom_select = Html::element(
+			'select',
+			[ 'class' => 'sw-ui-select', 'id' => 'stonewright-diag-symptom', 'data-sw-diag-symptom' => true, 'aria-describedby' => 'stonewright-diag-help' ],
+			$option( '', __( 'Optional — pick a symptom', 'stonewright' ) )
+				. $option( 'tools', __( 'Stonewright tools never appear', 'stonewright' ) )
+				. $option( 'auth', __( 'Authorization or login fails', 'stonewright' ) )
+				. $option( 'unreachable', __( 'The client cannot reach this site', 'stonewright' ) )
+				. $option( 'other', __( 'Something else', 'stonewright' ) )
+		);
+		$help           = Html::element( 'span', [ 'class' => 'sw-ui-field__help', 'id' => 'stonewright-diag-help', 'data-sw-diag-help' => true, 'hidden' => true ], '' );
 
-				<div class="sw-diag-field">
-					<label for="stonewright-diag-mode"><?php esc_html_e( 'How do you connect?', 'stonewright' ); ?></label>
-					<select id="stonewright-diag-mode" name="mode" data-stonewright-diag-mode>
-						<option value="oauth-http"<?php selected( $method, 'oauth-http' ); ?>><?php esc_html_e( 'OAuth', 'stonewright' ); ?></option>
-						<option value="application-password-stdio"<?php selected( $method, 'application-password-stdio' ); ?>><?php esc_html_e( 'Application Password', 'stonewright' ); ?></option>
-						<option value="stdio"<?php selected( $method, 'stdio' ); ?>><?php esc_html_e( 'Local companion', 'stonewright' ); ?></option>
-						<option value="not-sure"<?php selected( $method, 'not-sure' ); ?>><?php esc_html_e( 'Not sure', 'stonewright' ); ?></option>
-					</select>
-				</div>
+		$form = Html::element(
+			'form',
+			[ 'id' => 'stonewright-diagnostics-form', 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-troubleshoot-form' ],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_run_diagnostics' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => '_wpnonce', 'value' => wp_create_nonce( 'stonewright_run_diagnostics' ) ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'stonewright_diagnostics_return', 'value' => $return_page ] )
+				. $field( 'stonewright-diag-mode', __( 'How do you connect?', 'stonewright' ), $mode_select )
+				. $field( 'stonewright-diag-symptom', __( 'What do you see in your AI client?', 'stonewright' ), $symptom_select, $help )
+		);
 
-				<div class="sw-diag-pills" data-stonewright-diag-pills>
-					<button type="button" class="sw-diag-pill sw-diag-pill--error" data-stonewright-diag-problems<?php echo 0 === $counts['problem'] ? ' hidden' : ''; ?>>
-						<?php echo esc_html( sprintf( '%d Problems', $counts['problem'] ) ); ?>
-					</button>
-					<button type="button" class="sw-diag-pill sw-diag-pill--warn" data-stonewright-diag-warnings<?php echo 0 === $counts['warning'] ? ' hidden' : ''; ?>>
-						<?php echo esc_html( sprintf( '%d Warnings', $counts['warning'] ) ); ?>
-					</button>
-				</div>
+		$summary = Html::element( 'div', [ 'class' => 'sw-troubleshoot-summary', 'role' => 'status', 'data-sw-diag-summary' => true ], self::summary_html( $counts ) );
+		$results = Html::element( 'div', [ 'data-sw-diag-results' => true, 'aria-busy' => 'false' ], self::results_html( $grouped ) );
 
-				<div class="sw-diag-cards" data-stonewright-diag-cards aria-live="polite">
-					<?php foreach ( $grouped['problem'] as $check ) : ?>
-						<?php self::render_card( $check ); ?>
-					<?php endforeach; ?>
-					<?php foreach ( $grouped['warning'] as $check ) : ?>
-						<?php self::render_card( $check ); ?>
-					<?php endforeach; ?>
-					<?php foreach ( $grouped['skipped'] as $check ) : ?>
-						<?php self::render_card( $check ); ?>
-					<?php endforeach; ?>
-					<?php foreach ( $grouped['info'] as $check ) : ?>
-						<?php self::render_card( $check ); ?>
-					<?php endforeach; ?>
-					<?php
-					$success = $grouped['ok'];
-					if ( [] !== $success ) :
-						?>
-						<details class="sw-diag-success">
-							<summary>
-								<?php echo esc_html( sprintf( '%d successful checks', count( $success ) ) ); ?>
-							</summary>
-							<?php foreach ( $success as $check ) : ?>
-								<?php self::render_card( $check ); ?>
-							<?php endforeach; ?>
-						</details>
-					<?php endif; ?>
-				</div>
+		$actions = Button::render( __( 'Run diagnostics', 'stonewright' ), [ 'variant' => 'primary', 'type' => 'submit', 'form' => 'stonewright-diagnostics-form', 'attrs' => [ 'data-sw-diag-run' => true ] ] )
+			. Button::render(
+				__( 'Copy report for support', 'stonewright' ),
+				[
+					'attrs' => [
+						'data-sw-ui-copy'              => '#stonewright-diagnostics-copy',
+						'data-sw-ui-copy-status'       => '#stonewright-diagnostics-copy-status',
+						'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+						'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+					],
+				]
+			)
+			. Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'role' => 'status', 'id' => 'stonewright-diagnostics-copy-status' ], '' );
 
-				<div class="sw-diag-actions">
-					<button type="submit" class="button button-primary" data-stonewright-run-diagnostics>
-						<?php esc_html_e( 'Run diagnostics', 'stonewright' ); ?>
-					</button>
-					<button type="button" class="button" data-stonewright-copy="stonewright-diagnostics-copy">
-						<?php esc_html_e( 'Copy report for support', 'stonewright' ); ?>
-					</button>
-				</div>
-			</form>
+		$body = Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', 'stonewright' ) ) )
+			. $form
+			. $summary
+			. $results
+			. Html::element( 'pre', [ 'id' => 'stonewright-diagnostics-copy', 'hidden' => true, 'data-sw-diag-copy' => true ], Html::text( self::plaintext_report( $report ) ) );
 
-			<textarea id="stonewright-diagnostics-copy" class="sw-diag-copy-source" readonly hidden><?php echo esc_textarea( $copy ); ?></textarea>
-			<div class="sw-copy-modal" data-stonewright-copy-modal hidden>
-				<div class="sw-copy-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="stonewright-copy-modal-title">
-					<p id="stonewright-copy-modal-title"><?php esc_html_e( 'Press Ctrl/Cmd+C', 'stonewright' ); ?></p>
-					<textarea readonly></textarea>
-					<button type="button" class="button" data-stonewright-copy-modal-dismiss>
-						<?php esc_html_e( 'Close', 'stonewright' ); ?>
-					</button>
-				</div>
-			</div>
-			<p class="description">
-				<?php
-				echo esc_html(
-					ConfigurationPage::diagnostics_version_copy(
-						(string) ( $versions['plugin'] ?? '' ),
-						(string) ( $versions['companion_contract'] ?? '' )
-					)
-				);
-				?>
-			</p>
-		</section>
-		<?php
+		$footer = Html::text(
+			ConfigurationPage::diagnostics_version_copy(
+				(string) ( $versions['plugin'] ?? '' ),
+				(string) ( $versions['companion_contract'] ?? '' )
+			)
+		);
+
+		return Html::element(
+			'div',
+			[ 'data-sw-diagnostics' => true ],
+			Card::render( $heading, $body, [ 'actions_html' => $actions, 'footer_html' => $footer, 'id' => 'sw-troubleshoot-checks' ] )
+		);
+	}
+
+	/**
+	 * What the report adds up to, in words: problems and warnings first, or that there are none.
+	 *
+	 * @param array{problem: int, warning: int, info: int, ok: int, skipped: int} $counts
+	 */
+	public static function summary_text( array $counts ): string {
+		$problems = sprintf( /* translators: %d: number of problems */ _n( '%d problem', '%d problems', $counts['problem'], 'stonewright' ), $counts['problem'] );
+		$warnings = sprintf( /* translators: %d: number of warnings */ _n( '%d warning', '%d warnings', $counts['warning'], 'stonewright' ), $counts['warning'] );
+		if ( $counts['problem'] > 0 && $counts['warning'] > 0 ) {
+			/* translators: 1: number of problems with the word, 2: number of warnings with the word */
+			return sprintf( __( '%1$s and %2$s to look at.', 'stonewright' ), $problems, $warnings );
+		}
+		if ( $counts['problem'] > 0 ) {
+			/* translators: %s: number of problems with the word */
+			return sprintf( __( '%s to look at.', 'stonewright' ), $problems );
+		}
+		if ( $counts['warning'] > 0 ) {
+			/* translators: %s: number of warnings with the word */
+			return sprintf( __( '%s to look at.', 'stonewright' ), $warnings );
+		}
+
+		if ( $counts['info'] + $counts['skipped'] > 0 ) {
+			return __( 'No problems or warnings so far. Run the diagnostics to complete the checks that have not run.', 'stonewright' );
+		}
+
+		return __( 'No problems or warnings.', 'stonewright' );
+	}
+
+	/** @param array{problem: int, warning: int, info: int, ok: int, skipped: int} $counts */
+	private static function summary_html( array $counts ): string {
+		$text = Html::text( self::summary_text( $counts ) );
+
+		return $counts['problem'] + $counts['warning'] > 0 ? Html::element( 'strong', [], $text ) : $text;
+	}
+
+	/**
+	 * The checks that need attention in one table, then two folded groups: the ones that did not run and the ones
+	 * that passed.
+	 *
+	 * @param array{problem: list<array<string, mixed>>, warning: list<array<string, mixed>>, skipped: list<array<string, mixed>>, ok: list<array<string, mixed>>, info: list<array<string, mixed>>} $grouped
+	 */
+	private static function results_html( array $grouped ): string {
+		$html      = '';
+		$attention = array_merge( $grouped['problem'], $grouped['warning'] );
+		if ( [] !== $attention ) {
+			$html .= self::table_html( $attention, __( 'Checks that need attention', 'stonewright' ) );
+		}
+		$other = array_merge( $grouped['skipped'], $grouped['info'] );
+		if ( [] !== $other ) {
+			$html .= self::folded_html(
+				sprintf( /* translators: %d: number of checks */ _n( '%d other check', '%d other checks', count( $other ), 'stonewright' ), count( $other ) ),
+				self::table_html( $other, __( 'Other checks', 'stonewright' ) )
+			);
+		}
+		if ( [] !== $grouped['ok'] ) {
+			$html .= self::folded_html(
+				sprintf( /* translators: %d: number of checks */ _n( '%d check passed', '%d checks passed', count( $grouped['ok'] ), 'stonewright' ), count( $grouped['ok'] ) ),
+				self::table_html( $grouped['ok'], __( 'Checks that passed', 'stonewright' ) )
+			);
+		}
+
+		return $html;
+	}
+
+	private static function folded_html( string $summary, string $body ): string {
+		return Html::element(
+			'details',
+			[ 'class' => 'sw-ui-disclosure' ],
+			Html::element( 'summary', [], Icon::render( 'chev-r' ) . Html::text( $summary ) ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body' ], $body )
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $checks
+	 */
+	private static function table_html( array $checks, string $caption ): string {
+		$rows = [];
+		foreach ( $checks as $check ) {
+			$status   = self::normalize_status( (string) ( $check['status'] ?? 'problem' ) );
+			$summary  = (string) ( $check['summary'] ?? $check['detail'] ?? '' );
+			$remedy   = (string) ( $check['remedy'] ?? '' );
+			$copy     = (string) ( $check['copy'] ?? $check['ticket'] ?? '' );
+			$check_id = sanitize_key( (string) ( $check['id'] ?? '' ) );
+			$copy_id  = '' !== $check_id ? 'stonewright-diag-ticket-' . $check_id : '';
+			$action   = self::safe_action( $check['action'] ?? null, $copy_id, $copy );
+			if ( is_array( $action ) && 'copy' === $action['type'] && '' !== $action['target'] ) {
+				$copy_id = $action['target'];
+			}
+			$primary = Html::element( 'span', [ 'class' => 'sw-ui-table__primary' ], Html::text( (string) ( $check['label'] ?? '' ) ) )
+				. ( '' !== $summary ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $summary ) ) : '' )
+				. ( '' !== $remedy && in_array( $status, [ 'problem', 'warning' ], true ) ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $remedy ) ) : '' );
+
+			$button = '';
+			if ( null !== $action ) {
+				if ( 'link' === $action['type'] ) {
+					$button = Button::render( $action['label'], [ 'size' => 'sm', 'href' => $action['target'] ] );
+				} elseif ( 'retry' === $action['type'] ) {
+					$button = Button::render( $action['label'], [ 'size' => 'sm', 'attrs' => [ 'data-sw-diag-run' => true ] ] );
+				} else {
+					$button = Button::render(
+						$action['label'],
+						[
+							'size'  => 'sm',
+							'attrs' => [
+								'data-sw-ui-copy'              => '#' . $action['target'],
+								'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+								'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+							],
+						]
+					);
+				}
+			}
+			if ( '' !== $copy && '' !== $check_id ) {
+				$button .= Html::element( 'pre', [ 'id' => $copy_id, 'hidden' => true ], Html::text( $copy ) );
+			}
+			$rows[] = [
+				'check'  => [ 'html' => $primary ],
+				'status' => [ 'html' => self::badge_for( $status ) ],
+				'action' => [ 'html' => $button ],
+			];
+		}
+
+		return Table::render(
+			[
+				[ 'key' => 'check', 'label' => __( 'Check', 'stonewright' ), 'primary' => true ],
+				[ 'key' => 'status', 'label' => __( 'Result', 'stonewright' ) ],
+				[ 'key' => 'action', 'label' => __( 'Action', 'stonewright' ), 'actions' => true ],
+			],
+			$rows,
+			[ 'caption' => $caption ]
+		);
 	}
 
 	/**
@@ -162,58 +289,6 @@ final class DiagnosticsPanel {
 		return SetupDiagnostics::report();
 	}
 
-	/**
-	 * @param array<string, mixed> $check
-	 */
-	private static function render_card( array $check ): void {
-		$status     = self::normalize_status( (string) ( $check['status'] ?? 'problem' ) );
-		$css_status = self::css_status( $status );
-		$icon       = match ( $status ) {
-			'ok'      => '✓',
-			'warning' => '!',
-			'info', 'skipped' => 'ⓘ',
-			default   => '✗',
-		};
-		$summary = (string) ( $check['summary'] ?? $check['detail'] ?? '' );
-		$remedy  = (string) ( $check['remedy'] ?? '' );
-		$copy    = (string) ( $check['copy'] ?? $check['ticket'] ?? '' );
-		$check_id = sanitize_key( (string) ( $check['id'] ?? '' ) );
-		$copy_id  = '' !== $check_id ? 'stonewright-diag-ticket-' . $check_id : '';
-		$action   = self::safe_action( $check['action'] ?? null, $copy_id, $copy );
-		if ( is_array( $action ) && 'copy' === $action['type'] && '' !== $action['target'] ) {
-			$copy_id = $action['target'];
-		}
-		?>
-		<div class="sw-diag-card sw-diag-card--<?php echo esc_attr( $css_status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
-			<span class="sw-diag-card__icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></span>
-			<span class="sw-diag-card__body">
-				<strong class="sw-diag-card__label"><?php echo esc_html( (string) ( $check['label'] ?? '' ) ); ?></strong>
-				<span class="sw-diag-card__detail"><?php echo esc_html( $summary ); ?></span>
-				<?php if ( '' !== $remedy && in_array( $status, [ 'problem', 'warning' ], true ) ) : ?>
-					<span class="sw-diag-card__detail"><?php echo esc_html( $remedy ); ?></span>
-				<?php endif; ?>
-				<?php if ( null !== $action ) : ?>
-					<?php if ( 'link' === $action['type'] ) : ?>
-						<a class="button" href="<?php echo esc_url( $action['target'] ); ?>">
-							<?php echo esc_html( $action['label'] ); ?>
-						</a>
-					<?php elseif ( 'retry' === $action['type'] ) : ?>
-						<button type="button" class="button" data-stonewright-run-diagnostics>
-							<?php echo esc_html( $action['label'] ); ?>
-						</button>
-					<?php else : ?>
-						<button type="button" class="button" data-stonewright-copy="<?php echo esc_attr( $action['target'] ); ?>">
-							<?php echo esc_html( $action['label'] ); ?>
-						</button>
-					<?php endif; ?>
-				<?php endif; ?>
-				<?php if ( '' !== $copy && '' !== $check_id ) : ?>
-					<textarea id="<?php echo esc_attr( $copy_id ); ?>" class="sw-diag-copy-source" readonly hidden><?php echo esc_textarea( $copy ); ?></textarea>
-				<?php endif; ?>
-			</span>
-		</div>
-		<?php
-	}
 
 	/**
 	 * @param list<mixed> $checks
@@ -272,14 +347,6 @@ final class DiagnosticsPanel {
 		};
 	}
 
-	private static function css_status( string $status ): string {
-		return match ( $status ) {
-			'ok'      => 'ok',
-			'warning' => 'warn',
-			'info', 'skipped' => 'info',
-			default   => 'error',
-		};
-	}
 
 	/**
 	 * @param mixed $action Raw action.

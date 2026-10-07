@@ -46,6 +46,23 @@ final class SwUiCssContractTest extends TestCase {
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
 		'includes/Admin/Pages/StatusPage.php',
 		'assets/admin/pages/overview.css',
+		// The Audit log is built from the layer: its drawers and dialogs, and the lineage list inside the drawer.
+		'includes/Admin/AuditLogPage.php',
+		'includes/Admin/AuditLineageDrawer.php',
+		'assets/admin/pages/audit.css',
+		'assets/admin/pages/audit.js',
+		'assets/admin/pages/audit-lineage.js',
+		// The consent screen is built from the layer; its stylesheet only sets the width.
+		'includes/Authorization/WordPress/AuthorizationPages.php',
+		'assets/admin/pages/consent.css',
+		// The block queue console is built from the layer; its script builds the journal rows with the layer classes.
+		'includes/Gutenberg/BrowserQueue/QueueConsole.php',
+		'assets/admin/block-queue.js',
+		// Troubleshoot is built from the layer; its script paints the check results with the layer classes.
+		'includes/Admin/Pages/TroubleshootPage.php',
+		'includes/Admin/DiagnosticsPanel.php',
+		'assets/admin/pages/troubleshoot.js',
+		'assets/admin/pages/troubleshoot.css',
 	];
 
 	private static function css(): string {

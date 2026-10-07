@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Consent screen: placement only. The header, card, facts, callout, badge and buttons come from sw-ui.css.
+ */
+
+/* A trust screen reads at the width of one decision, not the width of the admin. */
+.sw-ui.sw-oauth-consent {
+	max-width: 44rem;
+	margin-inline: 0;
+}
+
+.sw-oauth-consent .sw-ui-card__body {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+.sw-oauth-consent form {
+	display: grid;
+	gap: var(--sw-space-3);
+}

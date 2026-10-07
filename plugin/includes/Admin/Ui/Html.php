@@ -21,6 +21,7 @@ final class Html {
 
 	/** Attribute names a helper may set, besides data-* and aria-*. */
 	private const ALLOWED = [
+		'action',
 		'autocomplete',
 		'autofocus',
 		'checked',
@@ -36,6 +37,8 @@ final class Html {
 		'id',
 		'lang',
 		'maxlength',
+		'method',
+		'min',
 		'multiple',
 		'name',
 		'open',
@@ -48,6 +51,7 @@ final class Html {
 		'role',
 		'rowspan',
 		'scope',
+		'selected',
 		'tabindex',
 		'target',
 		'title',

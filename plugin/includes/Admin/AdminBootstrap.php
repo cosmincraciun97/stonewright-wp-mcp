@@ -206,18 +206,19 @@ final class AdminBootstrap {
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
 			'stonewright'               => 'setup.css',
-			'stonewright-troubleshoot' => 'setup.css',
+			'stonewright-troubleshoot' => 'pages/troubleshoot.css',
 			'stonewright-abilities'     => 'abilities.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
 			'stonewright-status'        => 'pages/overview.css',
-			'stonewright-audit-log'     => 'audit.css',
+			'stonewright-audit-log'     => 'pages/audit.css',
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
 			'stonewright-design'        => 'skills-memory.css',
 			'stonewright-context'       => 'skills-memory.css',
 			'stonewright-rescue'        => 'pages/rescue.css',
+			'stonewright-oauth-consent' => 'pages/consent.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -230,7 +231,7 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-abilities';
 			} elseif ( 'blueprints.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-blueprints';
-			} elseif ( 'audit.css' === $page_styles[ $page ] ) {
+			} elseif ( 'pages/audit.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-sandbox';

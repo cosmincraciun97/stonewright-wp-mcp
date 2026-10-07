@@ -729,7 +729,11 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		}
 
 		public function query( string $query ): int|false {
-			unset( $query );
+			if ( str_starts_with( $query, 'DELETE FROM' ) && str_contains( $query, 'stonewright_incidents' ) ) {
+				$removed             = count( $this->incident_rows );
+				$this->incident_rows = [];
+				return $removed;
+			}
 			return 0;
 		}
 

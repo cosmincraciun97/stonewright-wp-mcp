@@ -19,7 +19,6 @@ final class AdminShellCssTest extends TestCase {
 	private const IMPORTANT_CEILING = [
 		'admin/abilities.css'     => 1,
 		'admin/admin.css'         => 2,
-		'admin/audit.css'         => 18,
 		'admin/block-queue.css'   => 0,
 		'admin/blueprints.css'    => 0,
 		'admin/design-studio.css' => 0,

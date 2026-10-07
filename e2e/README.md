@@ -70,6 +70,17 @@ allowance adds an `allowance-unused` annotation to the report so the entry is no
 forgotten; axe rule ids in an allowance that are no longer reported add an
 `axe-allowance-unused` annotation.
 
+**The consent screen** has no slug: it exists for a pending authorization request. `tests/helpers/consent.ts`
+registers a throw-away client through the site's own OAuth route, starts an authorization request with PKCE and
+follows the redirect, and `admin-ui.spec.ts` and `ui-contract.spec.ts` hold the screen to the page loop's gates (no
+overflow, no console error, axe, one h1 near the top, one primary action, no unnamed control, the destination keeps
+its port). A site that does not serve OAuth skips it.
+
+**Activity behaviour** (`tests/activity-pages.spec.ts`, desktop only): the Audit log drawer, the typed delete
+confirmation (opened, never submitted), the matching rules stated under the filters and reduced motion with the
+drawer open; the Troubleshoot run against a synthetic report (results above the fold, summary in words, a failed
+request that leaves a notice standing).
+
 Projects cover the supported light theme at five viewports:
 
 | Viewport | Size |
