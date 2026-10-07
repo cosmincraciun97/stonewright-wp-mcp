@@ -226,12 +226,14 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertSame( 'edit_posts', $registered['capability'] );
 		$this->assertSame( [ QueueConsole::class, 'render' ], $registered['callback'] );
 
-		// The console registers its tab through the menu registry when it is attached.
+		// The console registers its tab through the menu registry on init, after it is attached.
 		$GLOBALS['stonewright_test_actions'] = [];
 		$GLOBALS['stonewright_test_actions']['admin_menu'] = [];
 		$rc = new \ReflectionProperty( QueueConsole::class, 'attached' );
 		$rc->setValue( null, false );
 		QueueConsole::attach_hooks();
+		$this->assertNull( MenuRegistry::entry( $slug ), 'The tab is registered on init, where labels can be translated.' );
+		do_action( 'init' );
 
 		$entry = MenuRegistry::entry( $slug );
 		$this->assertIsArray( $entry );

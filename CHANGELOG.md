@@ -439,6 +439,20 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Register the Block queue and Rescue tabs of the Activity hub on `init`, so no
+  Stonewright label is translated before WordPress is ready to load the text
+  domain and WordPress no longer reports translation loading triggered too
+  early. Every label, count and capability stays as it was.
+- Register Stonewright's ability categories after the categories other plugins
+  register on the same hook, so a category that another plugin registers (such
+  as `elementor`) is no longer registered a second time. Every ability keeps a
+  registered category.
+- Leave the default server of the bundled MCP adapter out of a request in which
+  the Abilities API has already fired `wp_abilities_api_init` before the adapter
+  initialised (the Troubleshoot page builds the REST server after listing
+  abilities). That server would have been created with three tools that were not
+  registered. Every REST request still creates it, and the Stonewright servers
+  and their tools are unchanged.
 - Draw the label of a Setup step that is still to do at full strength instead of
   at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities
