@@ -391,6 +391,10 @@ async function main(): Promise<void> {
 		const { runCommandCli } = await import('./cli/command.js');
 		process.exit(await runCommandCli(argv.slice(1)));
 	}
+	if (argv[0] === 'rescue') {
+		const { runRescueCli } = await import('./cli/rescue.js');
+		process.exit(await runRescueCli(argv.slice(1)));
+	}
 
 	log.info('Stonewright companion starting');
 

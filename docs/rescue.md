@@ -1,0 +1,167 @@
+# Rescue
+
+Rescue is Stonewright's way back from a change that leaves a site failing. Before a risky change is made, Stonewright records how to undo it. After the change, it asks the site whether it still loads. When the site does not load, it undoes the change, asks again, and tells the agent what happened. When it cannot undo the change, the incident stays open until an administrator or an agent finishes the job from **Stonewright > Rescue**, the `stonewright-rescue-rollback` ability, or WP-CLI.
+
+Rescue works on changes Stonewright makes through its abilities. It does not watch changes made by anything else.
+
+## What Rescue covers
+
+| Change | Undone by | Checked afterwards |
+|---|---|---|
+| Post content written through an ability that snapshots the post (Elementor, Gutenberg, content writes) | The post snapshot taken before the write | The post's own page. A draft is checked through a preview link |
+| Options and theme settings | The restore point taken before the write | The home page |
+| Theme file write or patch | The backup of the file, or removal of a file the write created | The home page for files that are not PHP. The home page, a wp-admin screen and the REST index for PHP, plus an optional URL on the same site |
+| Plugin activation and deactivation | The plugin's previous state. Stonewright itself is never touched | The home page, a wp-admin screen and the REST index |
+| Sandbox file activation | The active copy is disabled; the draft stays for review | The home page, a wp-admin screen and the REST index |
+| Custom-code snippet saved through WPCode or Code Snippets | The provider's snapshot, when it took one. Without one, no rollback is offered | The home page, a wp-admin screen and the REST index |
+
+A call that changes several of these is checked once and rolled back in reverse order when the check fails.
+
+## How a protected write runs
+
+1. **Arm.** The write site records a change set: an id, the ability, what is touched, and the recipe that undoes it. This happens before anything changes.
+2. **Baseline.** Before the write, Stonewright asks the site the same questions it will ask afterwards, and keeps the answers on the change set. A call checks each leg once, and the page of the first post only. The cost is one more probe for each risky write.
+3. **Write.** The ability runs as it always did.
+4. **Probe.** When the call finishes, Stonewright asks the site, over HTTP from the site, whether it still loads. A call that changed nothing is closed as verified without a probe.
+5. **Settle.**
+   - The probe passes: the change set is `verified`.
+   - The probe fails: the recipe runs, the site is probed again, and the change set is `rolled_back`. `site_status` says whether the site loads again. `still_failing` means the fault may not come from this change, and the change set records that. If the recipe fails, the change set is `rollback_failed` and the incident stays open.
+   - A leg that passed in the baseline and cannot be reached now (a refused connection, a timeout, an empty answer, or any 5xx) counts as failed, so a change that hangs or crashes the server is rolled back like a fatal and the site is checked again.
+   - The probe is unavailable and the baseline was too (the host blocks requests from the site to itself, or nothing answered): the change set stays `armed`. It is listed as not verified and a short notice tells the agent. Rescue never reports a healthy site without a passing check.
+6. **Report.** A failed check turns the ability's result into an error that carries the evidence, so an agent that only reads error messages still sees it.
+
+| Error code | Meaning |
+|---|---|
+| `stonewright_rescue_write_rolled_back` | The site stopped loading and the change was rolled back. `site_status` says whether the site loads again |
+| `stonewright_rescue_rollback_failed` | The site stopped loading and the rollback failed. The message names the `incident_id` and the ability to call |
+
+Both carry `change_set_id`, `incident_id`, `rollback_status`, `site_status` (`healthy`, `still_failing` or `unknown`), a compact `probe`, and `original_error_code` when the ability had already failed.
+
+A theme-file write keeps its own receipt and adds `site_probe` (`passed`, `failed`, `unavailable` or `skipped`). It reports `verification_status` `verified` and `effect_verified` true only when the check after the write passed; when the check could not run or was skipped it reports `unverified`, and `probe_unavailable` when the site could not be reached. A write the journal cannot describe is still checked and undone from memory; there is just no change set to point at.
+
+## The change journal
+
+The journal is the record Rescue keeps for each change set. It has two copies that are kept in step:
+
+- A compact JSON file in `wp-content/uploads/stonewright-state/`, named `journal-` followed by 32 random hex characters. It holds the id, ability, resource, recipe reference, the paths the change touches, the armed time and the state, and it is where a fatal is recorded. It can be read without WordPress or the database. The folder is protected with `.htaccess`, `web.config` and a blank `index.php`. A write takes an exclusive lock on a `.lock` file, writes a temporary file and renames it over the journal, so a reader never sees half a document. The file holds at most 50 entries and drops the oldest settled one first. Secrets are redacted before anything is written.
+- A database option (`stonewright_change_journal`) with the same entries plus what the file never carries: who made the change, the exact recipe detail, the probe evidence and the rollback outcome.
+
+If the uploads folder cannot be written, the journal keeps working from the database and **Stonewright > Rescue** says so. A fatal recorded in the file while the database was down is imported by the next wp-admin or REST request that loads WordPress with the database available.
+
+The database copy is the authority, and the file is input. The file can add a fatal to a change set the database already holds under the same id, ability and resource. It never creates a change set, a recipe or a path. Anything else it carries (an entry nobody armed, another recipe, a stale fatal on a change that was rolled back) is dropped, and the file is written again from the database copy. A file larger than 1 MB, the most the rescue helper reads, is not read at all and is replaced.
+
+### States
+
+| State | Meaning |
+|---|---|
+| `armed` | Recorded and the change made, not yet verified |
+| `verified` | A passing check followed the change, or the call changed nothing |
+| `rolled_back` | The recipe ran after a failed check, or on request. The outcome is stored on the change set |
+| `rollback_failed` | The recipe failed or could not run. This is an open incident |
+| `incident` | A PHP fatal was recorded against the change set. This is an open incident |
+
+While an incident is open, every ability response carries a banner (below) and the tool list includes `stonewright-rescue-status` and `stonewright-rescue-rollback`.
+
+## The health probe
+
+A probe is up to five short requests, called legs:
+
+| Leg | What it asks |
+|---|---|
+| `home` | The home page |
+| `admin` | A wp-admin screen, reached with a one-time internal token that is bound to one path and one user and lasts three minutes. The user's cookies and Application Passwords are never used |
+| `rest` | The REST index |
+| `post` | The page of the post that was written (a preview link for a draft) |
+| `custom` | A URL the write asked to have checked. It must have exactly the home URL's scheme, host and port. It is not followed if it redirects |
+
+A leg fails on HTTP 500, on the WordPress critical error page, or on PHP's own fatal text in the response. A blocked loopback request, a login wall, a redirect, a gateway error or a timeout is not a failure and not a success: the leg is `unavailable`, and a probe with no passing leg is `unavailable` as a whole, unless the same leg passed in the baseline (see above). A request that carries the internal token never follows a redirect, so the token cannot be sent to wherever a redirect points. The evidence keeps leg names, statuses, HTTP codes and short reasons. It never holds a URL, a header or a response body.
+
+When every leg of a probe fails to connect, later probes send one request with a three second timeout for ten minutes, so a host that cannot call itself never makes writes wait. Any answer ends that.
+
+Three filters adjust the probe: `stonewright_rescue_probe_enabled` (return `false` to turn it off), `stonewright_rescue_probe_args` and `https_local_ssl_verify`. On a slow host, raise `timeout` through `stonewright_rescue_probe_args`: a leg that passed before a write and times out after it counts as failed.
+
+## What an agent sees
+
+- **After a failed write:** the error codes above.
+- **While an incident is open:** every ability response carries `pending_incident` with `id`, `ability`, `since` and `rollback`, the name of the ability to call. A response whose output schema forbids extra properties declares the field, so it still validates.
+- **Short notices:** a `notices` list carries one-line messages with a lifetime, for example that the probe is unavailable on this host. At most five lines of 160 characters are kept.
+
+## Abilities
+
+| Ability | Kind | Notes |
+|---|---|---|
+| `stonewright/rescue-status` (`stonewright-rescue-status`) | Read | Needs `manage_options`. Lists open incidents, changes that were never verified and the latest changes, each with the rollback it would run. Changes nothing and runs no probe |
+| `stonewright/rescue-rollback` (`stonewright-rescue-rollback`) | Write | Needs `manage_options`. Input `incident_id`, `action` (`rollback`, the default, or `recheck`), `dry_run` and, in production-safe mode, a `confirmation_token`. `rollback` runs the recorded recipe and probes the site afterwards. `recheck` only probes again and closes the incident when the site loads, for a change someone undid by hand. A `dry_run` of the rollback returns the plan, which says how old the change is and warns when a newer change to the same item exists (the rollback would overwrite it), and needs no token. A `recheck` changes the incident, so it needs the token even with `dry_run`. The rollback claims the change set first, so a double click, or the page and an agent together, run it once: the second caller gets `stonewright_rescue_in_progress` (a claim older than five minutes is ignored). The outcome is written to the change set and to the audit log |
+
+The rollback restores a state Stonewright recorded itself, and only for a change set in the journal. It is not a way around the permission model.
+
+## The Rescue page
+
+**Stonewright > Rescue** (administrators only) lists the change sets that need attention in one table: the short id, when, what changed and who changed it, the health check evidence, the rollback that would run, the state and the actions.
+
+- **Roll back** opens a confirmation that names the change set, shows what changed and what is restored, and puts Cancel first. In production-safe mode the confirmation also asks for the words ROLL BACK and carries a confirmation token that was issued for that one change set and expires after ten minutes.
+- **Check again** probes the site again and closes the incident when it loads.
+- Each row says how long ago the change was made. The confirmation warns when a newer change to the same item exists, because the rollback would overwrite it. While a rollback of a change set is running, its row says so instead of offering the buttons.
+- **Prompt for your agent** holds the words to hand an agent that should finish the job.
+- **Open in safe mode** starts safe mode, in which WordPress loads only Stonewright and a default theme, through a link that works once, when the rescue helper can issue one. You sign in on the site's normal sign-in page first, and safe mode starts after that (see below).
+
+Every action is a plain form post with a nonce, so the page works without scripts. Scripts add the dialog, the copy buttons and a busy state. After an action the page shows what happened, with a receipt id that matches the audit log. The page works at 400 px.
+
+## Safe mode and the command line
+
+A small must-use helper records a PHP fatal that follows a change against its change set, and opens a short-lived safe mode for the administrator a one-time link was issued to. `wp stonewright rescue status` and `wp stonewright rescue rollback` list incidents and roll one back from the command line. Both read the same journal and run the same rollback as the ability and the page, with the same permission and confirmation rules.
+
+### The rescue helper
+
+Stonewright installs a small must-use plugin, `wp-content/mu-plugins/stonewright-rescue.php`, when it is activated and again after an update. On every wp-admin page load Stonewright compares it with its own copy and writes it again when it is missing or was changed. When the folder cannot be written, or file changes are turned off for the site, an admin notice says so and Stonewright goes on without the helper: a fatal error after a change is then not recorded and safe mode is not available. Deactivating Stonewright leaves the file where it is, and it does nothing; deleting Stonewright removes it.
+
+When a PHP fatal error happens, the helper matches the file of the error with the paths of the open change sets, and of the ones settled in the last 15 minutes, and records an incident on the matching change set. It never rolls anything back and reads no database.
+
+### Safe mode
+
+Safe mode is a short browser session in which WordPress loads only Stonewright and the default theme. Open it with **Stonewright > Rescue > Open in safe mode**, or with the link in the WordPress recovery mode email.
+
+- The link works once, for 15 minutes, for one administrator. Only a hash of it is stored.
+- Opening the link starts a 30 minute session in the browser. It signs nobody in and changes nothing about the sign-in page: signing in always runs with the site's normal plugins, so two-factor, login limiting and captcha plugins work as they always do.
+- Safe mode starts once the administrator the link was issued for has signed in. If that administrator is already signed in, WordPress sends the browser on to the Rescue page and safe mode starts there. From then on, wp-admin and admin-ajax requests, and that administrator's REST and front-end requests, load in safe mode. A different user signing in ends the session, and so do signing out, **Leave safe mode** in the notice, and the 30 minutes.
+- The session is a cookie that is HttpOnly, Secure on HTTPS sites and SameSite=Lax. Only wp-admin and the front controller (`index.php`) are loaded in safe mode. The sign-in page, XML-RPC, cron, every other entry script and every request without the cookie, anonymous front-end traffic included, never are.
+- Changes to the active plugins and to the theme are paused while the session lasts. A rollback from the Rescue page is the exception: it works on the real selection.
+- Settings > General > "Safe mode on the MCP route" is off by default. While an incident is open, a REST request that WordPress serves through `index.php` to `/wp-json/mcp/stonewright` with a Basic credential, or to `/wp-json/mcp/stonewright-oauth` with a Bearer credential, loads the same way, with Stonewright's own authentication and permission checks unchanged. Other plugins, including security plugins, do not run on those requests. A request to the sign-in page, to wp-admin, to `xmlrpc.php` or to any other script is never loaded this way.
+
+If the sign-in page itself does not load, safe mode cannot start. Use WordPress recovery mode (its link is in the same email), WP-CLI or the companion.
+
+### WP-CLI
+
+`wp stonewright rescue status` lists the open incidents. `wp stonewright rescue rollback <incident>` runs the same rollback as the ability and the page, probes the site afterwards and records the outcome. Both need an administrator (`--user=<login or id>`). In production-safe mode the rollback needs a confirmation token: `--issue-token` prints one for that incident, and `--confirmation-token=<token>` (or the `STONEWRIGHT_CONFIRMATION_TOKEN` environment variable) confirms the rollback. Exit code 2 means a token is needed. The command needs only WordPress core and Stonewright, so it works with every other plugin and the theme skipped:
+
+```text
+wp stonewright rescue status --user=admin --skip-plugins=<every active plugin but stonewright> --skip-themes
+```
+
+### Companion
+
+On a site with a local WordPress root, `stonewright rescue status` and `stonewright rescue rollback <incident>` run that command with every active plugin but Stonewright skipped, so the site does not have to load. Every process starts through the tokenized WP-CLI runner (`execFile`, argv tokens, no shell). See the companion README.
+
+## Limits
+
+- Rescue cannot fix a fatal in WordPress core, in `wp-config.php` or in a drop-in, or a database that is down: the helper does not run, or WordPress cannot start.
+- Rescue needs the site to be able to call itself over HTTP. When it cannot, changes stay `armed` and are listed as not verified.
+- Only writes made inside an ability call are journaled. A write made from an admin screen or by WP-CLI is not.
+- A call that writes several posts checks the page of the first one, and takes the baseline for it only.
+- Each risky write costs one more probe, taken before it. On a host that cannot call itself the first one waits for its timeouts; later ones are quick for ten minutes.
+- A custom-code snippet without a provider snapshot has no rollback. It is listed so it can be undone by hand and checked again.
+- Safe mode cannot skip other must-use plugins, because WordPress offers no way to skip them. A fatal error in one of them, an active Stonewright sandbox file included, stops the requests that load it, safe mode and WP-CLI included. The health check that follows the write rolls the change back in the usual case; otherwise remove the file over SFTP.
+- An incident is recorded only when the file of the fatal error is, or lies inside, a path the change touched, and the error is still the last PHP error at shutdown. A fatal error in an included file that the write did not list, a memory or time limit hit in unrelated code, and a change without paths are not recorded by the shutdown handler.
+- Signing in always uses the site's normal sign-in page with all its plugins, so safe mode cannot start while that page fails to load. Use WordPress recovery mode (its link is in the same email), WP-CLI or the companion then.
+- The rescue link is a credential: it works once, expires after 15 minutes and is bound to one administrator, and the web server may log the URL of the request that uses it.
+- Other plugins do not run on the requests that safe mode covers, so rules they add for wp-admin or REST requests, such as an IP allow list, do not apply to those requests.
+- A rollback that runs in safe mode does not run the hooks of the plugins that safe mode left out, such as a cache purge or a style rebuild they would do after a save.
+- The recovery mode email is sent by WordPress at most once a day by default, not on multisite networks, and only for a fatal error that WordPress attributes to a plugin or theme. The Rescue page can give a link whenever the helper is installed.
+- The MCP route setting recognises the default REST prefix (`/wp-json/` and `?rest_route=`). A site that changes the prefix is not covered.
+- The helper cannot be installed where the must-use plugins folder is read-only or file changes are disabled. Then there is no record of fatal errors and no safe mode, and an admin notice says so.
+
+## Related
+
+- [Transactions and recovery](transactions.md#rescue-after-risky-changes)
+- [Security guarantees](security-guarantees.md#rule-13---rescue-after-risky-changes)
+- [Security](security.md#rescue-after-a-failed-change)

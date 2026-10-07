@@ -69,6 +69,7 @@ final class AdminShell {
 				'label' => __( 'Safety & Diagnostics', 'stonewright' ),
 				'pages' => [
 					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
+					'stonewright-rescue'    => __( 'Rescue', 'stonewright' ),
 				],
 			],
 		];

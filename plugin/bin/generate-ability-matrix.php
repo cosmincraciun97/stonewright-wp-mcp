@@ -460,6 +460,8 @@ function find_test_file( string $class ): string {
 		'QualityCheck'       => 'tests/Unit/Design/QualityCheckAbilityTest.php',
 		'CheckpointRecord'   => 'tests/Unit/Design/DesignCheckpointTest.php',
 		'CancelFinalizerChanges' => 'tests/Unit/Gutenberg/CancelFinalizerChangesTest.php',
+		'RescueStatus'           => 'tests/Unit/Security/RescueAbilitiesTest.php',
+		'RescueRollback'         => 'tests/Unit/Security/RescueAbilitiesTest.php',
 	];
 	if ( isset( $class_tests[ $short ] ) ) {
 		return $class_tests[ $short ];

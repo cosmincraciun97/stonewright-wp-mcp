@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Sandbox;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -78,6 +79,7 @@ final class SandboxActivate extends AbilityKernel {
 					return $token_error;
 				}
 
+				RescueGuard::arm_sandbox_write( $a['name'] );
 				$result = SandboxFiles::activate( $a['name'] );
 				if ( is_wp_error( $result ) ) {
 					return $result;

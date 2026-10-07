@@ -32,9 +32,57 @@
 - Add the built-in `how-to-write-skills` skill, covering trigger descriptions,
   body size, version constraints, exposure flags, import review, and testing a
   skill before it is enabled.
+- Add Stonewright Rescue. Before a risky write, Stonewright records a change set
+  in a change journal: the ability, what it touches, and the recipe that undoes
+  it. Before the write the site is asked the same questions, and when the
+  ability returns a health probe asks whether the home page, a wp-admin screen,
+  the REST index, or the written post still loads. A check that answered before
+  the write and cannot be reached after it counts as a failure.
+  When the site fails, the recorded rollback runs, the site is probed again,
+  and the result becomes `stonewright_rescue_write_rolled_back` or
+  `stonewright_rescue_rollback_failed` with the evidence. A probe that cannot
+  reach the site is reported as unavailable and never as healthy. Rescue
+  covers post writes, option and theme-setting writes, theme files, plugin
+  activation and deactivation, sandbox activation, and custom-code snippets
+  saved through WPCode or Code Snippets.
+- Add the abilities `stonewright/rescue-status` and `stonewright/rescue-rollback`.
+  The rollback needs `manage_options` and, in production-safe mode, a
+  confirmation token. It supports `dry_run` and a `recheck` action, probes the
+  site afterwards, and records its outcome on the change set and in the Audit
+  Log.
+- Add **Stonewright > Rescue**. The page lists the changes that need attention
+  with their health check evidence, rolls one back after a confirmation (a
+  typed phrase in production-safe mode), checks the site again, and copies a
+  prompt for an agent. Every action is a form post with a nonce, so the page
+  works without scripts, and it is usable at 400 px.
+- Add `pending_incident` and `notices` to ability responses. While a rescue
+  incident is open, every response names it and the ability that rolls it
+  back. Responses whose output schema forbids extra properties declare both
+  fields.
+- Add the rescue helper, a must-use plugin (`mu/stonewright-rescue.php`) that
+  Stonewright installs into `wp-content/mu-plugins/` on activation and after an
+  update, compares with its own copy on every admin page load, and writes again
+  when it is missing or changed. It records a fatal error that follows a
+  Stonewright change on the change set in the journal file. An admin notice
+  says so when the folder cannot be written.
+- Add safe mode. A one-time rescue link (15 minutes, one administrator, hashed at
+  rest) starts a browser session in which, after the administrator signs in on
+  the normal sign-in page, wp-admin and that administrator's requests load with
+  only Stonewright and the default theme. The sign-in page itself always loads
+  with the site's plugins. The link is added to the WordPress recovery mode
+  email when the fatal error belongs to a change.
+- Add the setting `stonewright_rescue_mcp_safe_boot` (Settings > General, off by
+  default): while a rescue incident is open, REST requests to the Stonewright
+  MCP routes that carry credentials load in safe mode.
+- Add `wp stonewright rescue status` and `wp stonewright rescue rollback
+  <incident>`. In production-safe mode the rollback needs a confirmation token
+  (`--issue-token`).
 
 ### Changed
 
+- Deleting the plugin always removes the rescue helper, also when the plugin
+  data is kept. A full data removal also deletes the journal files in
+  `uploads/stonewright-state/`.
 - Licensing: the plugin and Visual are GPL-2.0-or-later.
 - Return the grant's current refresh credential, with a new access credential,
   when a refresh credential is presented again within 60 seconds of its use,
@@ -82,6 +130,11 @@
   scheduled event, on every site of a network.
 - Report the error class instead of the exception message when the block
   registry fails during a batch mutation; the message stays in the server log.
+- Theme-file writes use the Rescue health probe for their check after the
+  write. The receipt adds `site_probe` (`passed`, `failed`, `unavailable`, or
+  `skipped`) and `incident_id`; `theme_write_smoke_failed` keeps its code and
+  carries the probe evidence. A theme-file write reports `verified` and
+  `effect_verified` only when that check passed, and `unverified` otherwise.
 
 ### Fixed
 

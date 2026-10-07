@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Sandbox;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -89,6 +90,7 @@ final class SandboxToggle extends AbilityKernel {
 				if ( 'disable' === $a['action'] ) {
 					$result = SandboxFiles::disable( $a['name'] );
 				} else {
+					RescueGuard::arm_sandbox_write( $a['name'] );
 					$result = SandboxFiles::enable( $a['name'] );
 				}
 

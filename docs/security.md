@@ -69,6 +69,21 @@ also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which
 verifies the reference, target, and backup hash before entering the same
 transaction and smoke gates. Do not expose or accept absolute backup paths.
 
+### Rescue after a failed change
+
+A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:
+
+- The health probe signs in to wp-admin with an internal token, never with the administrator's cookie or an Application Password. A token is stored as a hash, bound to one path, one probe request, and one user. It works for GET only, lasts three minutes, and is used up by its first valid request. The login it creates exists only for that request and is destroyed when the request ends.
+- A request that carries the token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port.
+- Anyone can send the token header. Only a token that exists is audited, when it is accepted or refused. A guess leaves no audit row and touches no transient.
+- The journal file is input, not a source of entries: it can add a fatal to a change set the database already holds, and nothing else. It cannot create a change set or a recipe, so planting an entry in it does not put a rollback on the Rescue page. A file over 1 MB is not read.
+- A rollback claims its change set under the journal lock before the recipe runs, so a double click, or the page and an ability together, run it once.
+- Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
+- `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
+- The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
+
+See [Rescue](rescue.md).
+
 ### Supply chain
 
 Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
@@ -112,9 +127,15 @@ history, and settings stay in the database. Defining
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
 table, every `stonewright_` option (the OAuth signing and encryption keys
 included), every `stonewright_` and `sw_cc_` transient, and the scheduled
-events, on every site of a network. See
+events, on every site of a network, and the change journal files in
+`uploads/stonewright-state/` (a file in that folder that Stonewright did not write
+stays). See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
+
+The rescue helper is not data. It is the file `wp-content/mu-plugins/stonewright-rescue.php`,
+which the plugin installed, and deleting the plugin always removes it. Deactivating the
+plugin leaves it in place, where it does nothing until the plugin is active again.
 
 ## php-execute runtime guards
 

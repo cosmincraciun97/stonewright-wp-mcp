@@ -121,6 +121,7 @@ final class AdminShellTest extends TestCase {
 		self::assertSame(
 			[
 				'stonewright-audit-log' => 'Audit Log',
+				'stonewright-rescue'    => 'Rescue',
 			],
 			$safety
 		);

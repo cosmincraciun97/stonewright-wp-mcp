@@ -38,6 +38,20 @@ Runtime behavior (plugin):
 
 Do not claim absolute transactional ACID guarantees across WP-CLI, object cache, and Elementor CSS regeneration. The envelope makes agent edits **more recoverable**, not a database transaction.
 
+## Rescue after risky changes
+
+The envelope verifies the document it wrote. Rescue verifies the site. Any write that snapshots a post (including every envelope run), changes options, activates a plugin or sandbox file, writes a theme file, or saves a custom-code snippet is also recorded in the change journal before it happens. When the ability returns, one health probe checks that the home page, wp-admin, the REST index, or the written post's page still loads.
+
+| Outcome | Result |
+|---|---|
+| The site loads | The change set is `verified` and the result is unchanged |
+| The site fails | The recorded rollback runs, the site is probed again, and the result becomes the error `stonewright_rescue_write_rolled_back` (or `stonewright_rescue_rollback_failed` when the rollback fails) with `change_set_id`, `rollback_status`, and `site_status` |
+| The probe cannot reach the site | The change set stays `armed` and a notice tells the agent that recent changes are not verified |
+
+The site is also asked before the write, and a check that answered then and cannot be reached afterwards counts as failed. A theme-file write keeps its receipt and adds `site_probe` (`passed`, `failed`, `unavailable`, or `skipped`). It reports `verification_status` `verified` and `effect_verified` true only when the check after the write passed; otherwise `unverified`.
+
+After `stonewright_rescue_write_rolled_back` the change is gone. Read `site_status` before trying again. Call `stonewright-rescue-status` to see open incidents and `stonewright-rescue-rollback` to finish one. See [Rescue](rescue.md).
+
 ## Agent workflow
 
 1. `stonewright-task-start`

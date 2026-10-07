@@ -76,9 +76,10 @@ final class ThemeWriteTransactionTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
-		self::assertTrue( $result['effect_verified'] );
 		self::assertSame( hash( 'sha256', $after ), hash( 'sha256', (string) file_get_contents( $path ) ) );
-		self::assertSame( 'verified', $result['verification_status'] );
+		self::assertSame( 'skipped', $result['site_probe'] );
+		self::assertSame( 'unverified', $result['verification_status'], 'The readback matched, but the site was not checked after the write.' );
+		self::assertFalse( $result['effect_verified'] );
 		self::assertSame( 'not_needed', $result['rollback_status'] );
 	}
 

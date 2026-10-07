@@ -12,17 +12,24 @@ namespace Stonewright\WpMcp\Core;
 
 /**
  * What uninstall.php runs when the site owner asked for all plugin data to go, by defining
- * the constant STONEWRIGHT_REMOVE_ALL_DATA as true. Without it nothing is removed.
+ * the constant STONEWRIGHT_REMOVE_ALL_DATA as true. Without it no data is removed.
+ *
+ * The rescue helper, the must-use plugin file that the plugin installs, is code and not data. It is
+ * removed when the plugin is deleted whatever the setting says, by remove_code(), which uninstall.php
+ * runs before it looks at the setting.
  *
  * The removal list is the constants below: every table the plugin creates, the name
  * prefixes of its options (this covers the OAuth signing and encryption keys) and of its
  * transients, and the events it schedules. A site is cleaned in this order: events,
- * tables, options and transients. On a multisite network every site is cleaned, because
- * deleting the plugin removes it for all of them. The object cache is flushed once at the
- * end; transients that live only in an external object cache expire on their own.
+ * tables, options and transients, then the change journal files in uploads/stonewright-state/.
+ * On a multisite network every site is cleaned, because deleting the plugin removes it for all
+ * of them. The object cache is flushed once at the end; transients that live only in an
+ * external object cache expire on their own.
  *
  * WordPress includes uninstall.php without loading the plugin, so this class uses no other
- * plugin class. UninstallerTest keeps the lists in step with the code that creates the data.
+ * plugin class except RescueInstaller, which uninstall.php loads first and which needs no other
+ * class either, and the change journal classes, which uninstall.php loads when the data is to go.
+ * UninstallerTest keeps the lists in step with the code that creates the data.
  */
 final class Uninstaller {
 
@@ -90,6 +97,16 @@ final class Uninstaller {
 		return defined( self::CONSTANT ) && true === constant( self::CONSTANT );
 	}
 
+	/**
+	 * Remove the code the plugin installed outside its own folder: the rescue helper. It runs on every
+	 * uninstall, with or without the setting that removes the data, and changes no data.
+	 *
+	 * @return bool Whether no helper is left.
+	 */
+	public static function remove_code(): bool {
+		return RescueInstaller::remove();
+	}
+
 	/** The entry point of uninstall.php: remove everything when it was asked for, nothing otherwise. */
 	public static function run(): void {
 		global $wpdb;
@@ -143,6 +160,18 @@ final class Uninstaller {
 		}
 		foreach ( $this->option_names() as $name ) {
 			delete_option( $name );
+		}
+		$this->erase_state_files();
+	}
+
+	/**
+	 * Deletes the change journal file of the current site, with its lock and the files that close the
+	 * folder to the web (uploads/stonewright-state/). Files in that folder that the journal did not
+	 * write stay, and so does the folder then. uninstall.php loads the journal classes for this.
+	 */
+	private function erase_state_files(): void {
+		if ( class_exists( \Stonewright\WpMcp\Security\ChangeJournal::class ) ) {
+			\Stonewright\WpMcp\Security\ChangeJournal::erase_state_files();
 		}
 	}
 

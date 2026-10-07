@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Provider-neutral custom-code pipeline.
@@ -208,6 +209,10 @@ final class ProviderOps extends AbilityKernel {
 							'available' => array_keys( ProviderRegistry::all() ),
 						]
 					);
+				}
+
+				if ( 'apply' === $action && ! in_array( $provider_id, [ 'theme-file', 'customizer-css' ], true ) ) {
+					RescueGuard::arm_custom_code_write( $provider_id, sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) ) );
 				}
 
 				return match ( $action ) {

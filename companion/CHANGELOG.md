@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- `stonewright rescue status|rollback <incident>` runs the plugin's
+  `wp stonewright rescue` command on a site with a local WordPress root, with
+  every active plugin but Stonewright skipped (`--skip-plugins=<list>`) and the
+  theme skipped (`--skip-themes`), so a rescue rollback still works when
+  another plugin or the theme stops WordPress from loading. It starts every
+  process through the tokenized WP-CLI runner (`execFile`, argv tokens only, no
+  shell, eval, `--exec` or `--require`), validates the incident id, the user,
+  the plugin names and the token before anything runs, passes the confirmation
+  token through the child's environment instead of its arguments, and writes
+  one audit row without arguments, token or output. Exit code 2 means a
+  confirmation token is required.
+
 ### Fixed
 
 - Refresh runtime dependency floors and security overrides, and use a patched
