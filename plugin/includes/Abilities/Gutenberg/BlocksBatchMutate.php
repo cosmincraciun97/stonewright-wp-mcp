@@ -182,7 +182,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 					}
 				}
 
-				$parsed  = parse_blocks( (string) $post->post_content );
+				$parsed  = BlockTree::parse( (string) $post->post_content );
 				$working = is_array( $parsed ) ? $parsed : [];
 				$allow_raw = ! empty( $args['allow_raw_html'] );
 				$grant     = (string) ( $args['custom_code_grant'] ?? '' );

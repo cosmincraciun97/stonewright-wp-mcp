@@ -43,7 +43,7 @@ final class UpdateBlock extends AbilityKernel {
 			'properties'           => [
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'   => [ 'type' => 'integer', 'minimum' => 1 ],
-				'path'      => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
+				'path'      => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ], 'description' => 'Index path of the block in the blocks-parse tree: its position among the root blocks, then among the innerBlocks of each parent.' ],
 				'attrs'     => [ 'type' => 'object' ],
 				'innerHTML' => [ 'type' => 'string' ],
 				'allow_raw_html' => [ 'type' => 'boolean', 'default' => false ],
@@ -85,11 +85,18 @@ final class UpdateBlock extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$blocks      = parse_blocks( $post->post_content );
+				$blocks      = BlockTree::parse( (string) $post->post_content );
 				$path        = array_map( 'intval', (array) $args['path'] );
 				$existing    = BlockTree::get( $blocks, $path );
 				if ( null === $existing ) {
 					return $this->error( 'invalid_path', __( 'Block path not found.', 'stonewright' ) );
+				}
+				if ( isset( $args['innerHTML'] ) && ! empty( $existing['innerBlocks'] ) ) {
+					return $this->error(
+						'unsafe_nested_inner_html',
+						__( 'innerHTML cannot be replaced on a block that contains innerBlocks; update the child blocks instead.', 'stonewright' ),
+						[ 'path' => $path ]
+					);
 				}
 
 				$allow_raw  = ! empty( $args['allow_raw_html'] );

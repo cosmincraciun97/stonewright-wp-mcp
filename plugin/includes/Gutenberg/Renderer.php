@@ -105,6 +105,8 @@ final class Renderer {
 			case 'group':
 			case 'row':
 			case 'section':
+			case 'card':
+			case 'column':
 				return Group::render( $block, $path, $diagnostics, $resolver );
 
 			case 'buttons':

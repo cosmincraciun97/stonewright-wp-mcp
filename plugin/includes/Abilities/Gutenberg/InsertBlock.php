@@ -54,8 +54,8 @@ final class InsertBlock extends AbilityKernel {
 					],
 					'required'   => [ 'name' ],
 				],
-				'path'     => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
-				'position'       => [ 'type' => 'integer' ],
+				'path'     => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ], 'description' => 'Index path (blocks-parse tree) of the parent block to insert into. Omit to insert among the root blocks.' ],
+				'position'       => [ 'type' => 'integer', 'description' => 'Index among the siblings listed by blocks-parse. Omit to append.' ],
 				'allow_raw_html' => [ 'type' => 'boolean', 'default' => false ],
 				'custom_code_grant' => [
 					'type'        => 'string',
@@ -105,9 +105,18 @@ final class InsertBlock extends AbilityKernel {
 					return $valid;
 				}
 
-				$blocks   = parse_blocks( $post->post_content );
-				$path     = isset( $args['path'] ) ? array_map( 'intval', (array) $args['path'] ) : [];
-				$position = isset( $args['position'] ) ? (int) $args['position'] : count( $blocks );
+				$blocks = BlockTree::parse( (string) $post->post_content );
+				$path   = isset( $args['path'] ) ? array_map( 'intval', (array) $args['path'] ) : [];
+				if ( [] === $path ) {
+					$siblings = count( $blocks );
+				} else {
+					$parent = BlockTree::get( $blocks, $path );
+					if ( null === $parent ) {
+						return $this->error( 'invalid_path', __( 'Insert parent path not found.', 'stonewright' ), [ 'path' => $path ] );
+					}
+					$siblings = is_array( $parent['innerBlocks'] ?? null ) ? count( $parent['innerBlocks'] ) : 0;
+				}
+				$position = isset( $args['position'] ) ? max( 0, min( (int) $args['position'], $siblings ) ) : $siblings;
 				$spec     = [
 					'name'        => $name,
 					'attributes'  => $attrs,
@@ -155,7 +164,10 @@ final class InsertBlock extends AbilityKernel {
 				$new_block   = $this->normalize_input_block( $input );
 
 				$mutated = BlockTree::insert( $blocks, $path, $position, $new_block );
-				$html    = BlockSerializer::serialize( $mutated );
+				if ( $mutated instanceof \WP_Error ) {
+					return $this->error( $mutated->get_error_code(), $mutated->get_error_message(), [ 'path' => $path ] );
+				}
+				$html = BlockSerializer::serialize( $mutated );
 
 				$result = wp_update_post(
 					wp_slash(

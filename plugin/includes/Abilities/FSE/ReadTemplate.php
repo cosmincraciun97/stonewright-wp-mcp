@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\FSE\TemplateStore;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -88,35 +89,6 @@ final class ReadTemplate extends AbilityKernel {
 	 * @return object|\WP_Post|null
 	 */
 	protected function find_template_post( string $slug, string $theme, string $post_type ): ?object {
-		$posts = get_posts(
-			[
-				'post_type'      => $post_type,
-				'name'           => $slug,
-				'posts_per_page' => 1,
-				'post_status'    => [ 'publish', 'auto-draft', 'draft' ],
-				'meta_query'     => [
-					[
-						'key'   => 'theme',
-						'value' => $theme,
-					],
-				],
-				// theme is stored as a post_name prefix in WP core: slug = "theme//template"
-				// We accept either naming style.
-			]
-		);
-
-		// WP core stores templates as "theme//slug" composite slugs.
-		if ( empty( $posts ) ) {
-			$posts = get_posts(
-				[
-					'post_type'      => $post_type,
-					'name'           => $theme . '//' . $slug,
-					'posts_per_page' => 1,
-					'post_status'    => [ 'publish', 'auto-draft', 'draft' ],
-				]
-			);
-		}
-
-		return ! empty( $posts ) ? $posts[0] : null;
+		return TemplateStore::find( $slug, $theme, $post_type );
 	}
 }

@@ -252,6 +252,32 @@
 - Show success, error, warning, and info notices on Stonewright pages in their
   status colour, and widen the Audit Log user column so a login name stays on
   one line on a wide screen.
+- Address blocks the same way in every block read and write. A block's index
+  in `stonewright/blocks-parse` is its path in `stonewright/blocks-update`,
+  `stonewright/blocks-remove`, `stonewright/blocks-insert` and
+  `stonewright/blocks-batch-mutate`, also when the stored content has blank
+  lines between blocks. A path or insert parent that names no block returns
+  `stonewright_invalid_path` and leaves the post unchanged. Nested writes keep
+  the wrapper markup of the parent block, and `stonewright/blocks-update`
+  refuses to replace the HTML of a block that holds inner blocks.
+- Store templates and template parts written by
+  `stonewright/fse-write-template` and `stonewright/fse-write-template-part`
+  the way WordPress does (slug as the post name, theme as the `wp_theme` term,
+  area as the `wp_template_part_area` term), so `get_block_template()`,
+  `stonewright/fse-read-template` and `stonewright/fse-update-template` find
+  them. An earlier record written under a composite name is found and repaired
+  on the next write. `stonewright/fse-update-template` stores a customized
+  theme file template the same way.
+- Keep `isGlobalStylesUserThemeJSON: true` on every global styles record
+  written by `stonewright/fse-write-global-styles` and
+  `stonewright/fse-update-global-styles`, the marker WordPress needs to apply
+  the record. Merge mode now works on the record WordPress creates, and empty
+  settings or styles are no longer stored as lists.
+- Render `card` and `column` blocks, with their nested blocks, in the
+  Gutenberg renderers instead of dropping them with an `unsupported_node`
+  diagnostic.
+- Register the Recipe Hero and Recipe Slider block editor scripts after the
+  WordPress editor packages they use, so they no longer fail on editor load.
 
 ### Security
 

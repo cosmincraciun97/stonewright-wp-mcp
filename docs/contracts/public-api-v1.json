@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T02:25:57+00:00",
+    "generated_at": "2026-10-07T02:31:56+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -259,7 +259,7 @@
             "ability_name": "stonewright/blocks-insert",
             "mcp_name": "stonewright-blocks-insert",
             "kind": "Write",
-            "input_schema_hash": "4f7b72ca02b906669ce59442f03172e7ff04ff4745a09062edc39e1948ab8b5a",
+            "input_schema_hash": "a15dfb5fa425d8993b8c7e6779e4b237d4d6c1e8dad5ecaf095cd7fa55f343aa",
             "output_schema_hash": "095713dc1a4afbe90d335791b69a860eb7fa8efb77faa1443ff8f14401b9a79a",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -439,7 +439,7 @@
             "ability_name": "stonewright/blocks-remove",
             "mcp_name": "stonewright-blocks-remove",
             "kind": "Write",
-            "input_schema_hash": "5e21b280e37b4872478e6944577f9cde86a46475151247fbcf553c19955865ac",
+            "input_schema_hash": "257645a31aa077e656b55f067245382b48f48f3fda54a71e53288a539c6cd5e0",
             "output_schema_hash": "c492bc9aa6bc7d09abc3b00d0d0274ca5a40fbf1ee55988e63f200be43722128",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -499,7 +499,7 @@
             "ability_name": "stonewright/blocks-update",
             "mcp_name": "stonewright-blocks-update",
             "kind": "Write",
-            "input_schema_hash": "e34c1f2c333cd0193b5cadecf4eae384bd793a341919731aa820105e14782fc6",
+            "input_schema_hash": "03db5700e6bd572dbc97a1fcfaa8d9f74e92e931086a8fa25adb7373a884ec72",
             "output_schema_hash": "fa413d0f3b1ca6b0dd33acf820de787a46f943ca8af84ca7562db6ad84426a84",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {

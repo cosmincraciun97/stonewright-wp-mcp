@@ -160,9 +160,12 @@ Queue **one non-terminal change per post**. A second `queue-change` while an
 item is still `queued` or `serialized` returns `stonewright_finalizer_pending_change`.
 Drain serialize → finalize, then queue the next section.
 
-`stonewright-blocks-parse` compact paths skip `parse_blocks()` whitespace
-nodes. Insert/remove/queue `path` and `position` are raw `parse_blocks()`
-indexes. Read the root names (including `null`) before choosing a slot.
+Block addressing is one scheme everywhere. The index of a block in
+`stonewright-blocks-parse` (root list, then `innerBlocks`) is its `path` in
+`blocks-update`, `blocks-remove`, `blocks-insert`, `blocks-batch-mutate` and
+`queue-change`; insert `position` counts the same list. The blank whitespace
+between root blocks has no index. A path that names no block fails with
+`stonewright_invalid_path` and writes nothing.
 
 ## Output quality
 
@@ -386,6 +389,10 @@ before calling.
 `stonewright/fse-get-theme-json` reads the merged theme.json (theme + user).
 Use it to inspect current values before writing.
 
+Every global styles write keeps `isGlobalStylesUserThemeJSON: true` on the user
+record; WordPress ignores a user record that lacks it. `mode: merge` works on
+the record WordPress creates.
+
 Use `theme.json` as the main design contract for block themes. Keep repeated
 colors, font sizes, spacing, layout widths, and block-level styles there so
 clients can keep editing through the Site Editor instead of editing custom CSS.
@@ -410,6 +417,11 @@ Template parts use `type: "wp_template_part"`. Prefer
 `stonewright/fse-write-template-part` for updates. Snapshot with
 `stonewright-site-backup-page` first — these abilities do not snapshot
 internally.
+
+`stonewright/fse-write-template` and `stonewright/fse-write-template-part` store
+the template the way WordPress does (post name = slug, `wp_theme` term = theme),
+so `fse-read-template`, `fse-update-template` and the site resolve the same
+`theme//slug` id.
 
 A `core/template-part` block in a page body is `save:null`. Insert it on the
 server path (`slug`, `theme`, `area` from the live schema). Do not queue it

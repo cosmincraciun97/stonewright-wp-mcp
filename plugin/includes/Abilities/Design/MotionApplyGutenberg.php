@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
 use Stonewright\WpMcp\Design\Motion\GutenbergMotionApplier;
 use Stonewright\WpMcp\Design\Motion\MotionPlanVerifier;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\BlockTree;
 
 /**
  * Applies a compiled gutenberg-fse motion plan to one post through
@@ -131,7 +132,7 @@ final class MotionApplyGutenberg extends AbilityKernel {
 			return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
 		}
 
-		$parsed = parse_blocks( (string) $post->post_content );
+		$parsed = BlockTree::parse( (string) $post->post_content );
 		$built  = GutenbergMotionApplier::build_operations(
 			is_array( $parsed ) ? $parsed : [],
 			array_values( (array) ( $args['targets'] ?? [] ) ),

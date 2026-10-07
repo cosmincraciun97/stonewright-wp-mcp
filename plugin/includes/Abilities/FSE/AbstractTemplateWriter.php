@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\FSE\TemplateStore;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockMarkup;
@@ -86,6 +87,7 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 
 		// ── Find existing post ───────────────────────────────────────────────
 		$post_type = $this->post_type();
+		$area      = $this->area_term( $args );
 		$existing  = $this->find_existing( $slug, $theme, $post_type );
 
 		if ( null !== $existing ) {
@@ -105,6 +107,7 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}
+			TemplateStore::normalize( $existing, $slug, $theme, $area );
 			return [
 				'post_id'     => (int) $existing->ID,
 				'snapshot_id' => $snapshot_id,
@@ -113,28 +116,24 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 		}
 
 		// ── Insert new post ──────────────────────────────────────────────────
-		$post_id = wp_insert_post(
-			wp_slash(
-				[
-					'post_type'    => $post_type,
-					'post_name'    => $theme . '//' . $slug,
-					'post_title'   => $slug,
-					'post_content' => $content,
-					'post_excerpt' => $desc,
-					'post_status'  => 'publish',
-				]
-			),
-			true
+		// post_name is the slug and the wp_theme term names the theme: the shape
+		// get_block_template() resolves.
+		$post_id = TemplateStore::insert(
+			$post_type,
+			$slug,
+			$theme,
+			[
+				'post_content' => $content,
+				'post_excerpt' => $desc,
+			],
+			$area
 		);
 		if ( is_wp_error( $post_id ) ) {
 			return $post_id;
 		}
 
-		// Store theme as meta so ReadTemplate can look it up.
-		update_post_meta( (int) $post_id, 'theme', $theme );
-
 		return [
-			'post_id'     => (int) $post_id,
+			'post_id'     => $post_id,
 			'snapshot_id' => null,
 			'action'      => 'created',
 		];
@@ -145,32 +144,20 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 	// -------------------------------------------------------------------------
 
 	/**
+	 * Template part area stored as the `wp_template_part_area` term. Empty for
+	 * post types without areas.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function area_term( array $args ): string {
+		return '';
+	}
+
+	/**
 	 * @return object|\WP_Post|null
 	 */
 	protected function find_existing( string $slug, string $theme, string $post_type ): ?object {
-		// WP core uses "theme//slug" as post_name.
-		$posts = get_posts(
-			[
-				'post_type'      => $post_type,
-				'name'           => $theme . '//' . $slug,
-				'posts_per_page' => 1,
-				'post_status'    => [ 'publish', 'auto-draft', 'draft' ],
-			]
-		);
-		if ( ! empty( $posts ) ) {
-			return $posts[0];
-		}
-		// Fallback: bare slug.
-		$posts = get_posts(
-			[
-				'post_type'      => $post_type,
-				'name'           => $slug,
-				'posts_per_page' => 1,
-				'post_status'    => [ 'publish', 'auto-draft', 'draft' ],
-				'meta_query'     => [ [ 'key' => 'theme', 'value' => $theme ] ],
-			]
-		);
-		return ! empty( $posts ) ? $posts[0] : null;
+		return TemplateStore::find( $slug, $theme, $post_type );
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
