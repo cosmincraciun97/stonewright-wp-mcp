@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Elementor\Provider;
 
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\V4\AtomicReadbackVerifier;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 
 /** Selects read-only provider evidence after document architecture is known. */
@@ -491,6 +492,19 @@ final class ProviderRouter {
 	/** Whether a schema fits the depth, key and byte limits the router applies to every schema it reports. */
 	public static function schema_within_limits( array $schema ): bool {
 		return ! self::schema_summary( $schema )['truncated'];
+	}
+
+	/**
+	 * The element and depth caps every Elementor route applies to a tree it reads or compares: the same
+	 * bounds the V4 readback verifier uses. Callers that walk a document stop at these.
+	 *
+	 * @return array{max_elements:int,max_depth:int}
+	 */
+	public static function element_limits(): array {
+		return [
+			'max_elements' => AtomicReadbackVerifier::MAX_NODES,
+			'max_depth'    => AtomicReadbackVerifier::MAX_DEPTH,
+		];
 	}
 
 	/** @return array{keys_count:int,max_depth:int,bytes:int,truncated:bool} */

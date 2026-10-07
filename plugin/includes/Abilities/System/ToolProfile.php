@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -758,6 +759,9 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/theme-file-read',
 				'stonewright/theme-file-patch',
 				'stonewright/theme-custom-css',
+				// Section reuse: hidden by SectionReuseSetting while the site setting is off.
+				'stonewright/section-reuse-find',
+				'stonewright/section-reuse-extract',
 				// Diagnostics sit after the write essentials under a client cap.
 				'stonewright/blocks-batch-mutate',
 				'stonewright/design-section-manifest',
@@ -840,6 +844,8 @@ final class ToolProfile extends AbilityKernel {
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/section-reuse-find',
+				'stonewright/section-reuse-extract',
 				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
@@ -986,7 +992,13 @@ final class ToolProfile extends AbilityKernel {
 			default                       => array_merge( $startup, $direction_writes, $blueprints, $rest ),
 		};
 
-		return array_values( array_unique( $with_blueprints ) );
+		$names = array_values( array_unique( $with_blueprints ) );
+		if ( ! SectionReuseSetting::is_enabled() ) {
+			// The reuse abilities exist only while the site setting allows them.
+			$names = array_values( array_diff( $names, SectionReuseSetting::ABILITIES ) );
+		}
+
+		return $names;
 	}
 
 	/**

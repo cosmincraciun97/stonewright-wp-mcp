@@ -114,6 +114,11 @@ an error and the snapshot is restored.
   the supported path for them. See
   [Native execution](../elementor-v4-engine.md#native-execution) for the closure,
   the routing, and `staged_in_autosave`.
+- `stonewright/elementor-v4-update-node` with `operations` copies a section from
+  `stonewright/section-reuse-extract` (`insert_section`) and adapts it
+  (`update_node`) in one dry run and one apply, on the Stonewright V4 writer,
+  with a recursive readback of the whole document. See
+  [Batch mode](../elementor-v4-engine.md#batch-mode-reusing-a-section).
 - V4 abilities are **blocked in `production-safe` mode** for all write
   operations.
 

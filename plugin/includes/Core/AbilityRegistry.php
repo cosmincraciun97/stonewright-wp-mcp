@@ -310,6 +310,9 @@ use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Abilities\Site\SiteSnapshot;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
+use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseExtract;
+use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseFind;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 
 /**
  * Lists every Stonewright ability and registers it with the Abilities API.
@@ -337,6 +340,10 @@ final class AbilityRegistry {
 			RescueStatus::class,
 			RescueRollback::class,
 			CreateOneTimeLink::class,
+
+			// Section reuse: hidden from the tool lists while the setting is off.
+			SectionReuseFind::class,
+			SectionReuseExtract::class,
 
 			// Runtime.
 			PhpExecute::class,
@@ -1600,11 +1607,11 @@ final class AbilityRegistry {
 		$classes = self::list();
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
-			return self::filter_disabled_v4_abilities( $classes );
+			return self::filter_hidden_abilities( $classes );
 		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
-				return self::filter_disabled_v4_abilities( $classes );
+				return self::filter_hidden_abilities( $classes );
 			}
 			// Session profiles only add tools on top of the configured surface.
 			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
@@ -1618,7 +1625,7 @@ final class AbilityRegistry {
 				true
 			);
 
-			return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+			return self::filter_hidden_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
 		}
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
@@ -1630,7 +1637,23 @@ final class AbilityRegistry {
 			true
 		);
 
-		return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+		return self::filter_hidden_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+	}
+
+	/**
+	 * The classes that stay on the public MCP surface: the experimental V4 abilities are hidden while
+	 * their flag is off, and the section reuse abilities while that setting is off.
+	 *
+	 * @param array<int, class-string<Ability>> $classes
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_hidden_abilities( array $classes ): array {
+		$classes = self::filter_disabled_v4_abilities( $classes );
+		if ( SectionReuseSetting::is_enabled() ) {
+			return $classes;
+		}
+
+		return array_values( array_filter( $classes, static fn( string $class ): bool => ! in_array( $class, [ SectionReuseFind::class, SectionReuseExtract::class ], true ) ) );
 	}
 
 	/**

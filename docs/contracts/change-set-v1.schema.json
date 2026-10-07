@@ -127,6 +127,64 @@
                 "null"
             ],
             "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "reuse_source": {
+            "description": "Sections copied from other posts by an insert: for each, the source post, its builder and the section locator. Present only on a write that reused a section.",
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+                "type": "object",
+                "required": [
+                    "post_id",
+                    "builder",
+                    "locator"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                    "post_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "builder": {
+                        "type": "string",
+                        "enum": [
+                            "gutenberg",
+                            "elementor-v3",
+                            "elementor-v4"
+                        ]
+                    },
+                    "locator": {
+                        "type": "object",
+                        "required": [
+                            "kind"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "element",
+                                    "block",
+                                    "pattern"
+                                ]
+                            },
+                            "id": {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            "path": {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            "anchor": {
+                                "type": "string",
+                                "maxLength": 64
+                            }
+                        }
+                    }
+                }
+            },
+            "x-extension": true
         }
     },
     "allOf": [

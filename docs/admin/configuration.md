@@ -145,6 +145,14 @@ Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
 and related abilities. It is off by default and only relevant on sites running
 Elementor 3.18+.
 
+### Reuse saved sections
+
+One row of the Step 1 form, after **Enable Elementor V4 atomic abilities**. The switch saves the option `stonewright_section_reuse` as `ask` (on, the default) or `off` through the same Settings API form as the other settings, so it needs `manage_options` and the form's nonce, and a change is written to the Audit Log (`stonewright/section-reuse-setting`).
+
+While it is on, an info callout says what it does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that a copy needs no confirmation token because it removes nothing and that copying an Elementor V4 section stays blocked.
+
+Turning it off hides `stonewright-section-reuse-find` and `stonewright-section-reuse-extract` from tool lists and profiles, makes the reuse abilities and insert operations refuse, and tells agents so: the value is in `agent_preferences.section_reuse` of `stonewright-task-start`, and for fifteen minutes after the change every response carries one `notices` line. A client that keeps an old tool list is still safe, because each reuse ability checks the live option. The row stacks label above control at narrow widths.
+
 ---
 
 ## Card 2 - Authentication

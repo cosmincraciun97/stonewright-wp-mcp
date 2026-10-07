@@ -121,7 +121,7 @@ sizes and `verification.evidence.truncated` names a list that was cut.
 | Ability | Planned change: `kind` / `ref` / `action` | `rollback_recipe_ref.kind` |
 |---|---|---|
 | `stonewright/elementor-v3-batch-mutate` | `element` / element id / the operation action | `post_snapshot` |
-| `stonewright/elementor-v4-update-node` | `element` / element id / `update_settings` | `post_snapshot` |
+| `stonewright/elementor-v4-update-node` | `element` / element id / `update_settings`; with `operations`, one entry per operation | `post_snapshot` |
 | `stonewright/blocks-batch-mutate` | `block` / block path, `root` for the top level / the operation action | `post_snapshot` |
 | `stonewright/theme-file-patch` | `file` / theme-relative path / the patch mode | `theme_backup` |
 | `stonewright/theme-backup-restore` | `file` / theme-relative path / `restore` | none |
@@ -129,6 +129,8 @@ sizes and `verification.evidence.truncated` names a list that was cut.
 | `stonewright/custom-code-provider` (`dry-run`, `apply`, `rollback`) | `custom_code` / `provider:target` / `apply` or `rollback` | `provider_snapshot` (apply only) |
 | `stonewright/theme-chrome-update` | `theme_option` / `bucket.key` / `set` | `option_snapshot` |
 | `stonewright/elementor-post-write-verify` | `element` or `content` / checked element id or marker hash / `render` | taken from the given change set |
+
+A batch that copies a section (`insert_section`) adds `reuse_source` to its change set; see [Extending the shape](#extending-the-shape).
 
 A custom-code provider that delegates to a typed ability (theme files, Customizer
 CSS) returns that ability's change set unchanged.
@@ -175,6 +177,19 @@ and never listed in `required`, in the published schema. A write supplies the va
 under `extensions` when it calls `ChangeSet::build()`; the field is omitted when it
 does not apply, and a name that is not declared is dropped. Consumers ignore
 properties they do not know.
+
+### `reuse_source`
+
+The first declared extension. A write that copies sections with `insert_section` (`elementor-v3-batch-mutate`, `elementor-v4-update-node` with `operations`, `blocks-batch-mutate`) reports `reuse_source`, a list of at most 20 entries, one per distinct section copied:
+
+```json
+"reuse_source": [
+  { "post_id": 41, "builder": "elementor-v3", "locator": { "kind": "element", "id": "a1b2c3d" } },
+  { "post_id": 52, "builder": "gutenberg", "locator": { "kind": "block", "path": "1", "anchor": "features" } }
+]
+```
+
+`locator.kind` is `element` (with `id`), `block` (with `path`, the block path as dot-separated indexes, and `anchor` when the block has one), or `pattern`. A source is recorded only when the current user may read and edit it. The field is absent on a write that reused nothing. Each planned change of an `insert_section` names the new root element; the elements copied under it are part of the plan, so a verified copy reports no `unexpected` change.
 
 ## Native policy note
 

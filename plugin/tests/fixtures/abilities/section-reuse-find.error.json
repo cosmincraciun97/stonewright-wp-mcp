@@ -1,0 +1,9 @@
+{
+    "args": {
+        "builder": "gutenberg",
+        "roles": [
+            "hero"
+        ]
+    },
+    "expect_permission_error": true
+}

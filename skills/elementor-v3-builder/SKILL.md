@@ -17,6 +17,9 @@ operations take a backup snapshot before executing. Use
 For a new native Loop Grid or Loop Carousel, prefer
 `stonewright/elementor-wire-loop`: dry-run first, then apply the same
 idempotent request after reviewing the resolved live controls and query probe.
+When building a page, load `stonewright-section-reuse` first: the site may
+already have a matching section to copy with an `insert_section` operation of
+the same batch (skip it when `agent_preferences.section_reuse` is `off`).
 
 ## Pre-flight
 

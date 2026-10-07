@@ -230,6 +230,17 @@ Prefer `dry_run` first. Use class/variable abilities for kit-level styles; do
 not use this ability for tree restructure, elType/widgetType remaps, or full
 styles-map editing.
 
+## Batch mode: reusing a section
+
+`stonewright/elementor-v4-update-node` also takes `operations` instead of `element_id` and `settings`: a list of up to 50 `insert_section` and `update_node` operations applied to the document in memory. One dry run and one apply cover the whole list: one snapshot, one write lock, one write, and the recursive nested readback of the whole document, with the snapshot restored on a mismatch.
+
+- `insert_section` copies a `SectionPortableV1` payload from `stonewright/section-reuse-extract` under `parent_id` (or `parent_ref`, or the document root). Every element gets a fresh id; every local style id becomes `e-<element id>-<suffix>` and every class list follows; a global class or variable that does not exist fails with that exact reference; an Atomic type the site does not have fails with `missing_feature: atomic_type:<type>`. Later operations address the new nodes as `@<op_id>.<placeholder>`.
+- `update_node` patches one node with the validation of the single-node mode, a node of an earlier insert included.
+- The route follows `NativeRoute::for_document`: the document root of a V4 or empty document and any Atomic container are accepted; a V3 document or V3 parent fails with `v4_architecture_mismatch`; the root of a mixed document is refused (`native_route_refused`). Elementor's native composition takes a composition description, not a raw Atomic tree, so the copy always runs on this writer. The response's `route` gives `stonewright_v4_fallback`, the reason, and the document route.
+- After a verified write, the batch and the single-node mode alike, Elementor is asked to drop the cached local styles of the page, so the styles are built again on the next view.
+- V4 writes stay blocked in `production-safe`; a dry run is allowed there.
+- Custom CSS in a copied style needs the custom-code approval; the empty `custom_css` key every variant carries is not custom CSS.
+
 ## Fixture status
 
 The fixtures in `plugin/tests/fixtures/elementor-v4` are Stonewright-authored

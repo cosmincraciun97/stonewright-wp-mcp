@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**392** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**394** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -12,6 +12,7 @@ matrix after changing the registry.
 
 | Category | Count | Scope |
 |---|---:|---|
+| Section reuse | 2 | Find sections the site already has and extract one as a portable payload. The copy itself is an insert operation of the V3, V4 and block batch writers. |
 | Security | 7 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, and rescue status and rollback. |
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
@@ -54,6 +55,18 @@ matrix after changing the registry.
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
+
+## Section reuse
+
+| Name | Kind | What it does |
+|---|---|---|
+| `stonewright/section-reuse-find` | Read | Lists sections the current user can read and edit, grouped by the roles a new page needs (hero, features, testimonials, pricing, FAQ, CTA, gallery, contact, other). Each candidate carries its source, locator, role guess, layout summary, a layout-only similarity from 0 to 1, a short outline, and reuse warnings. At most the 200 most recent sources are scanned and `scan.truncated` says when there were more. |
+| `stonewright/section-reuse-extract` | Read | Returns one section as a portable payload in its own builder format, with Elementor element ids and V4 local style ids replaced by placeholders and Gutenberg anchors listed, plus every reference the section carries (each with whether it exists here) and its layout summary. Changes nothing. |
+| `insert_section` of `stonewright/elementor-v3-batch-mutate` | Write | Inserts a V3 payload under fresh ids in the same dry run and apply as `update_element` adaptations that address the new elements as `@op_id.placeholder`. |
+| `insert_section` and `update_node` of `stonewright/elementor-v4-update-node` (`operations`) | Write | The same for a V4 payload, with local style ids remapped. Experimental; blocked in `production-safe`. |
+| `insert_section` of `stonewright/blocks-batch-mutate` | Write | The same for a Gutenberg payload; later `update` operations address its blocks with `section_ref` and `relative_path`. |
+
+The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are left out of the tool lists and the profiles, `find` answers only `{ "enabled": false, "instruction": ... }`, and every other reuse call fails with `stonewright_section_reuse_off`. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. See [Section reuse](architecture.md#section-reuse).
 
 All ability responses support optional `stonewright_fields` projection while
 retaining top-level fields required by their declared output schema. The

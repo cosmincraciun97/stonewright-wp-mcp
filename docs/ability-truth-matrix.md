@@ -327,6 +327,15 @@
 
 ---
 
+## SectionReuse
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests | External | Hints |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/section-reuse-find` | `stonewright-section-reuse-find` | `SectionReuse\SectionReuseFind` | Lists sections already on this site that could be reused for the sections a new page needs, from pages, posts, Elementor saved templates and Gutenberg patterns the current user can read and edit. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` | No | read-only |
+| `stonewright/section-reuse-extract` | `stonewright-section-reuse-extract` | `SectionReuse\SectionReuseExtract` | Returns one section of a saved page, post, Elementor template or Gutenberg pattern as a portable payload in its own builder format: Elementor element ids and V4 local style ids are replaced by placeholders, Gutenberg anchors are listed, and every reference (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, templates) is reported with whether it exists here. | Read | `Permissions::edit_post( $post_id )` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` | No | read-only |
+
+---
+
 ## ContentModel
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests | External | Hints |
@@ -707,7 +716,7 @@ Certification is data-driven: one contract per ability under `plugin/data/elemen
 
 ## Summary
 
-Total abilities registered: **392**
+Total abilities registered: **394**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -14,6 +14,11 @@ All write operations that touch post content or theme.json take a snapshot first
 Static and third-party block writes go through the browser finalizer. The
 server serialize path is only for true `save:null` dynamic blocks.
 
+When building a page, load `stonewright-section-reuse` first: the site may
+already have a matching section to copy with an `insert_section` operation of
+`stonewright-blocks-batch-mutate` (skip it when
+`agent_preferences.section_reuse` is `off`).
+
 ## Block Theme Production Workflow
 
 Use this workflow when the user asks for a Gutenberg-only page, a block theme,

@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **392 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **394 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **392** abilities
+### Plugin mode — **394** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -113,6 +113,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Theme chrome | 2 | Blocksy / Kadence Theme / GeneratePress color, type, header, footer |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
+| Section reuse | 2 | Find sections the site already has and extract one as a portable payload; the copy is an insert operation of the V3, V4 and block batch writers |
 | Security + sandbox | 15 | Tokens, one-time links, incident repair receipts, rescue status and rollback, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
@@ -324,6 +325,10 @@ Before a risky change, Stonewright records how to undo it. Afterwards it asks th
 
 Rescue covers post, option, theme-file, plugin, sandbox, and custom-code writes made through Stonewright abilities. A health probe that cannot reach the site reports it as unavailable and never as healthy. Rescue cannot fix a fatal in WordPress core or `wp-config.php`, or a database that is down. See [Rescue](docs/rescue.md).
 
+### Section reuse
+
+When you ask an agent to build a page, it can offer to copy a section that already exists on another page of the site, then adapt it to your instructions and the active Design Direction. It works inside one builder family (Gutenberg, Elementor V3, or Elementor V4) and never converts between them. Candidates come only from pages, posts, Elementor saved templates, and Gutenberg patterns that you can read and edit; the page the section is copied from is never changed. A copy is written in the same dry run and apply as the text and image changes, with the same snapshot, readback, CSS handling, change set, and audit as any other write. **Stonewright > Setup > Settings > Reuse saved sections** turns it off; agents learn the value on their next call. See [Section reuse](docs/architecture.md#section-reuse).
+
 ### Native rules
 
 Stonewright ships a registry of operating rules that apply to **every** site
@@ -456,7 +461,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **392** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **394** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

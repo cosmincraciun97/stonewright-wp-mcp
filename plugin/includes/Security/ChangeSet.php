@@ -67,11 +67,58 @@ final class ChangeSet {
 
 	/**
 	 * Declared optional extension fields: name => [ 'nullable' => bool, 'schema' => JSON schema of the value ].
-	 * Version 1 declares none.
+	 * `reuse_source` lists the source post and section locator of each section an insert copied.
 	 *
 	 * @var array<string, array{nullable: bool, schema: array<string, mixed>}>
 	 */
-	public const EXTENSIONS = [];
+	public const EXTENSIONS = [
+		'reuse_source' => [
+			'nullable' => false,
+			'schema'   => [
+				'description' => 'Sections copied from other posts by an insert: for each, the source post, its builder and the section locator. Present only on a write that reused a section.',
+				'type' => 'array',
+				'maxItems' => 20,
+				'items' => [
+					'type' => 'object',
+					'required' => [ 'post_id', 'builder', 'locator' ],
+					'additionalProperties' => false,
+					'properties' => [
+						'post_id' => [
+							'type' => 'integer',
+							'minimum' => 1,
+						],
+						'builder' => [
+							'type' => 'string',
+							'enum' => [ 'gutenberg', 'elementor-v3', 'elementor-v4' ],
+						],
+						'locator' => [
+							'type' => 'object',
+							'required' => [ 'kind' ],
+							'additionalProperties' => false,
+							'properties' => [
+								'kind' => [
+									'type' => 'string',
+									'enum' => [ 'element', 'block', 'pattern' ],
+								],
+								'id' => [
+									'type' => 'string',
+									'maxLength' => 64,
+								],
+								'path' => [
+									'type' => 'string',
+									'maxLength' => 64,
+								],
+								'anchor' => [
+									'type' => 'string',
+									'maxLength' => 64,
+								],
+							],
+						],
+					],
+				],
+			],
+		],
+	];
 
 	private const MAX_ID_LENGTH       = 96;
 	private const MAX_REF_LENGTH      = 190;
