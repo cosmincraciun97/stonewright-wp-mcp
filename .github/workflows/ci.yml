@@ -255,9 +255,22 @@ jobs:
           cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
           node scripts/package-verify.mjs --require-visual-bundle
 
-  e2e-admin-ui:
+  # The suite runs serially against one WordPress, so it is split by viewport group into parallel jobs, each
+  # with its own environment. The e2e-admin-ui job below passes only when every group passes.
+  e2e-admin-ui-group:
+    name: e2e-admin-ui (${{ matrix.group }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: desktop-1440
+            projects: --project=desktop-1440-light
+          - group: desktop-1024-tablet-782
+            projects: --project=desktop-1024-light --project=tablet-782-light
+          - group: mobile-390-320
+            projects: --project=mobile-390-light --project=mobile-320-light
     defaults:
       run:
         working-directory: e2e
@@ -322,23 +335,36 @@ jobs:
           php plugin/bin/verify-jetpack-manifests.php dist/e2e-unpacked/stonewright
       - name: Start wp-env
         run: npx wp-env start --config .wp-env.package.json
-      - name: Run admin-ui Playwright suite
+      - name: Run admin-ui Playwright suite for this viewport group
         env:
           WP_BASE_URL: http://localhost:8888
           WP_USERNAME: admin
           WP_PASSWORD: password
           CI: "true"
-        run: npx playwright test
+          PLAYWRIGHT_PROJECTS: ${{ matrix.projects }}
+        # Word splitting of PLAYWRIGHT_PROJECTS is intended: it holds one or more --project options.
+        run: npx playwright test $PLAYWRIGHT_PROJECTS
       - name: Stop wp-env
         if: always()
         run: npx wp-env stop --config .wp-env.package.json
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
-          name: e2e-admin-ui-artifacts
+          name: e2e-admin-ui-artifacts-${{ matrix.group }}
           path: |
             e2e/artifacts/
             e2e/test-results/
             e2e/playwright-report/
           if-no-files-found: ignore
           retention-days: 3
+
+  e2e-admin-ui:
+    if: ${{ always() }}
+    needs: e2e-admin-ui-group
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every viewport group to pass
+        env:
+          GROUPS_RESULT: ${{ needs.e2e-admin-ui-group.result }}
+        run: test "$GROUPS_RESULT" = "success"
