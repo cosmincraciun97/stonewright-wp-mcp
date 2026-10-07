@@ -495,6 +495,17 @@ development builds were never stable releases.
   under `Admin\Setup`; `ConfigurationPage` keeps the menu, the settings
   registration and the form handlers.
 
+### Removed
+
+- Remove the unused `league/oauth2-server` dependency and the packages only it
+  required (`lcobucci/jwt`, `lcobucci/clock`, `league/event`, `league/uri`,
+  `league/uri-interfaces`, `psr/clock`, `psr/http-message`,
+  `stella-maris/clock`), and the unused `nyholm/psr7` and `psr/http-factory`.
+  The release ZIP no longer carries them. `defuse/php-encryption` 2.4.0, which
+  seals the OAuth credentials, is now a direct requirement of the plugin at the
+  same version, and the `conflict` entries for `lcobucci/jwt`,
+  `lcobucci/clock` and `league/uri` are gone.
+
 ### Fixed
 
 - Register the Block queue and Rescue tabs of the Activity hub on `init`, so no

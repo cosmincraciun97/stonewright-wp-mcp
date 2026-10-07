@@ -24,6 +24,10 @@
   one audit row without arguments, token or output. Exit code 2 means a
   confirmation token is required.
 
+### Changed
+
+- Update `smol-toml` to 1.9.0 and the locked `proxy-addr` to 2.0.8.
+
 ### Fixed
 
 - Correct the documented retry behaviour of the companion: it sends each
