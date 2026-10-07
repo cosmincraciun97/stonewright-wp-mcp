@@ -517,7 +517,7 @@ final class RescueSafeBootTest extends TestCase {
 
 		$result = \Stonewright_Rescue::with_stored_selection(
 			static function (): array {
-				\Stonewright_Rescue::with_stored_selection( static fn (): null => null );
+				\Stonewright_Rescue::with_stored_selection( static fn () => null );
 				return [ MuRuntime::filter( 'pre_update_option_template', 'new', 'stored', 'template' ) ];
 			}
 		);
