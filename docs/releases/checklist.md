@@ -21,6 +21,10 @@ Run from `plugin/` unless noted.
 - [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs`
       - prerelease/stable flags and exact published assets.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
+- [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms --history` - Git history is free of
+      configured private project terms. Run it on a full clone; the scan stops on a shallow clone.
+      Without the private terms locally, run the manual `History hygiene` workflow from the Actions
+      tab; it runs the same scan as the release workflow.
 - [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
 - [ ] `cd ../companion && npm run lint` - zero lint errors.
@@ -47,10 +51,14 @@ becomes the latest release. The native updater stays on the installed channel.
 
 1. Update release notes under `docs/releases/<version>.md`.
 2. Tag the verified commit as `v<version>`.
-3. Push the tag. The release workflow packages:
+3. Push the tag. The release workflow's `package` job builds and verifies:
    - `stonewright-<version>.zip`
    - `stonewright-companion-<version>.tgz`
    - `SHA256SUMS.txt`
+
+   Its `publish` job runs in the `release` environment, re-checks the checksums,
+   and creates the GitHub release. When that environment requires reviewers,
+   approve the pending deployment in the Actions run.
 4. Confirm the GitHub release links to the expected assets and checksums.
 5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
    verification before upload.

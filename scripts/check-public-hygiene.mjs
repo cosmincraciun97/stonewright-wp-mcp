@@ -148,6 +148,29 @@ function inspectFile(absolutePath) {
 	}
 }
 
+function requireCompleteHistory() {
+	const result = spawnSync('git', ['rev-parse', '--is-shallow-repository'], {
+		cwd: repoRoot,
+		encoding: 'utf8',
+	});
+	if (result.status !== 0) {
+		process.stderr.write('Unable to tell whether the Git history is complete; refusing to scan it.\n');
+		process.exit(2);
+	}
+	const shallow = result.stdout.trim();
+	if (shallow === 'true') {
+		process.stderr.write(
+			'--history needs the complete Git history, but this clone is shallow. ' +
+				'Fetch the full history (actions/checkout fetch-depth: 0, or git fetch --unshallow) and run the scan again.\n',
+		);
+		process.exit(2);
+	}
+	if (shallow !== 'false') {
+		process.stderr.write(`Unexpected shallow-repository answer "${shallow}"; refusing to scan the Git history.\n`);
+		process.exit(2);
+	}
+}
+
 function walk(directory) {
 	for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
 		if (
@@ -180,6 +203,7 @@ if (scanHistory) {
 		process.stderr.write('--history can only scan the repository root.\n');
 		process.exit(2);
 	}
+	requireCompleteHistory();
 	for (const [index, term] of privateTerms.entries()) {
 		const escaped = escapeRegex(term);
 		const contentResult = spawnSync(
