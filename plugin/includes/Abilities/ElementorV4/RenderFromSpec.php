@@ -36,7 +36,7 @@ final class RenderFromSpec extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. dry_run=true (default) returns the tree without writing.', 'stonewright' );
+		return __( 'Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. dry_run=true (default) returns the tree without writing. Section styling is written as typed Atomic styles; an unsupported property or block type returns an error naming its path.', 'stonewright' );
 	}
 
 	public function category(): string {

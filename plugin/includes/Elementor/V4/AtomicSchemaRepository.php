@@ -30,7 +30,19 @@ final class AtomicSchemaRepository {
 
 		$bundled = [
 			'e-div-block' => self::layout( 'Div', [] ),
-			'e-flexbox'   => self::layout( 'Container', [ 'direction' => 'string', 'gap' => 'size' ] ),
+			'e-flexbox'   => self::layout(
+				'Container',
+				[
+					'direction'       => 'string',
+					'gap'             => 'size',
+					'padding'         => [ 'key' => 'padding', 'type' => 'style-dimensions' ],
+					'background'      => [ 'key' => 'background', 'type' => 'style-background' ],
+					'width'           => [ 'key' => 'width', 'type' => 'style-size' ],
+					'justify_content' => [ 'key' => 'justify-content', 'type' => 'style-string' ],
+					'align_items'     => [ 'key' => 'align-items', 'type' => 'style-string' ],
+					'z_index'         => [ 'key' => 'z-index', 'type' => 'style-number' ],
+				]
+			),
 			'e-grid'      => self::layout( 'Grid', [ 'columns' => 'string', 'rows' => 'string', 'gap' => 'size' ] ),
 			'e-heading'   => self::widget( 'Heading', [ 'text' => [ 'key' => 'title', 'type' => 'html-v3' ], 'level' => [ 'key' => 'tag', 'type' => 'heading-level' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 			'e-paragraph' => self::widget( 'TextEditor', [ 'text' => [ 'key' => 'paragraph', 'type' => 'html-v3' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
@@ -274,13 +286,15 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
-	 * @param array<string, string> $props
+	 * @param array<string, string|array{key:string,type:string}> $props A bare type is a flex style prop; an array names the style key and prop type.
 	 * @return array<string, mixed>
 	 */
 	private static function layout( string $design_type, array $props ): array {
 		$mapped = [];
 		foreach ( $props as $name => $type ) {
-			$mapped[ $name ] = [ 'key' => 'gap' === $name ? 'gap' : 'flex-' . $name, 'type' => 'style-' . $type ];
+			$mapped[ $name ] = is_array( $type )
+				? $type
+				: [ 'key' => 'gap' === $name ? 'gap' : 'flex-' . $name, 'type' => 'style-' . $type ];
 		}
 		if ( 'Grid' === $design_type ) {
 			$mapped = [

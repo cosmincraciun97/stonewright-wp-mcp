@@ -76,7 +76,17 @@ emits a site-wide atomic-style clear for one post.
 - target kind and filename (never raw path or URL);
 - hashed path/URL and before/after direct-file manifest hashes;
 - distinct `generation_status`, `delivery_status`, and
-  `frontend_verification_status` (`verified|blocked|failed|not_checked`);
+  `frontend_verification_status` (`verified|blocked|failed|not_checked`;
+  `delivery_status` also reports `not_applicable` when the page has no CSS
+  file);
+- `css_file_status` (`present|not_produced`): a page whose styles are empty,
+  for example a page built only from Atomic elements that keep their styles in
+  the markup, produces no post CSS file. The call then succeeds with
+  `css_file_status: not_produced` and `css_file_reason: empty_css`, only when
+  Elementor itself reports an empty stylesheet and no other CSS asset changed.
+  A missing file without that evidence, or under the internal CSS print method
+  (`stonewright_elementor_css_inline_print_method`), is still refused and
+  rolled back;
 - HTTP probes for the target CSS and any existing
   `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets
   (a login 302 is delivery blocked, not a generation failure);

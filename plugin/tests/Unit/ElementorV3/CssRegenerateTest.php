@@ -202,10 +202,61 @@ final class CssRegenerateTest extends TestCase {
 		self::assertStringNotContainsString( 'Secret private page title XYZ', (string) wp_json_encode( $result ) );
 	}
 
+	public function test_page_without_post_css_regenerates_with_a_truthful_result(): void {
+		$this->write_css( 'post-999.css', 'sibling' );
+		Post::$factory = function ( int $id ): object {
+			return new class( $id, $this->css_dir ) {
+				public function __construct( private int $post_id, private string $css_dir ) {
+				}
+
+				public function update_file(): void {
+				}
+
+				public function get_content(): string {
+					return '';
+				}
+
+				public function get_path(): string {
+					return $this->css_dir . '/post-' . $this->post_id . '.css';
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+				}
+			};
+		};
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['effect_verified'] );
+		self::assertSame( 'verified', $result['generation_status'] );
+		self::assertSame( 'not_applicable', $result['delivery_status'] );
+		self::assertSame( 'not_produced', $result['css_file_status'] ?? null );
+		self::assertSame( 'empty_css', $result['css_file_reason'] ?? null );
+		self::assertSame( 'not_needed', $result['rollback_status'] );
+		self::assertArrayNotHasKey( 'root_error_code', $result );
+		self::assertSame( 'sibling', $this->read_css( 'post-999.css' ) );
+		self::assertFalse( is_file( $this->css_dir . '/post-301.css' ) );
+	}
+
+	public function test_page_with_post_css_reports_the_file_as_present(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'present', $result['css_file_status'] ?? null );
+		self::assertArrayNotHasKey( 'css_file_reason', $result );
+	}
+
 	public function test_output_schema_declares_generation_and_delivery_status(): void {
 		$properties = ( new CssRegenerate() )->output_schema()['properties'];
 		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['generation_status']['enum'] );
-		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['delivery_status']['enum'] );
+		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ], $properties['delivery_status']['enum'] );
+		self::assertSame( [ 'present', 'not_produced' ], $properties['css_file_status']['enum'] );
 		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['frontend_verification_status']['enum'] );
 		self::assertArrayHasKey( 'root_error_code', $properties );
 		self::assertArrayHasKey( 'failed_check', $properties );

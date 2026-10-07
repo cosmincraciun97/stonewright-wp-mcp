@@ -27,7 +27,7 @@ final class CssRegenerate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates one Elementor post or loop CSS file through the official update_file API inside a guarded asset transaction, then returns hashed health evidence. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
+		return __( 'Regenerates one Elementor post or loop CSS file through the official update_file API inside a guarded asset transaction, then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -70,7 +70,15 @@ final class CssRegenerate extends AbilityKernel {
 				],
 				'delivery_status'              => [
 					'type' => 'string',
-					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ],
+				],
+				'css_file_status'              => [
+					'type' => 'string',
+					'enum' => [ 'present', 'not_produced' ],
+				],
+				'css_file_reason'              => [
+					'type' => 'string',
+					'enum' => [ 'empty_css' ],
 				],
 				'frontend_verification_status' => [
 					'type' => 'string',
@@ -151,10 +159,12 @@ final class CssRegenerate extends AbilityKernel {
 					$probes    = is_array( $evidence['protected_probes_after'] ?? null ) ? $evidence['protected_probes_after'] : [];
 					$generation = self::status_token( $evidence['generation_status'] ?? '' );
 					$delivery   = self::status_token( $evidence['delivery_status'] ?? '' );
+					$file_status = 'not_produced' === ( $evidence['css_file_status'] ?? '' ) ? 'not_produced' : 'present';
 					if ( 'not_checked' === $generation ) {
 						$generation = (bool) ( $operation['ok'] ?? false ) ? 'verified' : 'failed';
 					}
-					$complete = 'verified' === $generation && 'verified' === $delivery;
+					$no_file_ok = 'not_produced' === $file_status && 'not_applicable' === $delivery;
+					$complete   = 'verified' === $generation && ( 'verified' === $delivery || $no_file_ok );
 					$root     = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
 					$failed   = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
 					if ( ! $complete ) {
@@ -188,6 +198,7 @@ final class CssRegenerate extends AbilityKernel {
 						'effect_verified'              => $complete,
 						'generation_status'            => $generation,
 						'delivery_status'              => $delivery,
+						'css_file_status'              => $file_status,
 						'frontend_verification_status' => 'not_checked',
 						'before_manifest_sha256'       => (string) ( $evidence['before_manifest_sha256'] ?? '' ),
 						'after_manifest_sha256'        => (string) ( $evidence['after_manifest_sha256'] ?? '' ),
@@ -197,6 +208,9 @@ final class CssRegenerate extends AbilityKernel {
 						'write_receipt'                => $receipt,
 						'retryable'                    => false,
 					];
+					if ( 'not_produced' === $file_status ) {
+						$result['css_file_reason'] = (string) ( $evidence['css_file_reason'] ?? 'empty_css' );
+					}
 					if ( ! $complete ) {
 						$result['root_error_code'] = $root;
 						$result['failed_check']    = $failed;
@@ -238,7 +252,7 @@ final class CssRegenerate extends AbilityKernel {
 
 	private static function status_token( string $status ): string {
 		$status = sanitize_key( $status );
-		return in_array( $status, [ 'verified', 'blocked', 'failed', 'not_checked' ], true ) ? $status : 'not_checked';
+		return in_array( $status, [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ], true ) ? $status : 'not_checked';
 	}
 
 	private static function trace( string $event ): void {
