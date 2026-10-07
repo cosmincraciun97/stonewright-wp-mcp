@@ -136,6 +136,34 @@ final class McpSchemaWireTest extends TestCase {
 		self::assertNull( McpSchemaWire::repair_response( null ) );
 	}
 
+	public function test_repair_accepts_results_and_tools_that_are_objects(): void {
+		// initialize answers with an object result whose capabilities are objects.
+		$initialize = [
+			'jsonrpc' => '2.0',
+			'id'      => 1,
+			'result'  => (object) [
+				'protocolVersion' => '2025-06-18',
+				'capabilities'    => (object) [ 'tools' => (object) [ 'listChanged' => true ] ],
+				'serverInfo'      => (object) [ 'name' => 'stonewright' ],
+			],
+		];
+		self::assertSame(
+			json_encode( $initialize ),
+			json_encode( McpSchemaWire::repair_response( $initialize ) )
+		);
+
+		$tool = (object) [
+			'name'        => 'a',
+			'inputSchema' => (object) [ 'type' => 'object', 'properties' => [ 'l' => [ 'type' => 'array', 'items' => [] ] ] ],
+		];
+		$list = [ 'jsonrpc' => '2.0', 'id' => 2, 'result' => (object) [ 'tools' => [ $tool ] ] ];
+
+		$json = (string) json_encode( McpSchemaWire::repair_response( $list ) );
+
+		self::assertStringContainsString( '"items":{}', $json );
+		self::assertStringContainsString( '"name":"a"', $json );
+	}
+
 	public function test_repair_handles_batch_responses(): void {
 		$batch = [
 			[ 'id' => 1, 'result' => [ 'tools' => [ [ 'name' => 'a', 'inputSchema' => [ 'type' => 'object', 'properties' => [ 'l' => [ 'type' => 'array', 'items' => [] ] ] ] ] ] ] ],
