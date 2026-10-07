@@ -393,6 +393,17 @@
   element margins, so a card title no longer carries 16 px above and below it,
   and make a standalone link at least 24 px wide.
 
+### Removed
+
+- Remove the unused `league/oauth2-server` dependency and the packages only it
+  required (`lcobucci/jwt`, `lcobucci/clock`, `league/event`, `league/uri`,
+  `league/uri-interfaces`, `psr/clock`, `psr/http-message`,
+  `stella-maris/clock`), and the unused `nyholm/psr7` and `psr/http-factory`.
+  The release ZIP no longer carries them. `defuse/php-encryption` 2.4.0, which
+  seals the OAuth credentials, is now a direct requirement of the plugin at the
+  same version, and the `conflict` entries for `lcobucci/jwt`,
+  `lcobucci/clock` and `league/uri` are gone.
+
 ### Fixed
 
 - Draw the label of a Setup step that is still to do at full strength instead of
