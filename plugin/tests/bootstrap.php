@@ -2378,6 +2378,10 @@ if ( ! class_exists( 'WP_Site_Health' ) ) {
 		}
 
 		public function get_tests(): array {
+			if ( isset( $GLOBALS['stonewright_test_site_health_tests'] ) && is_array( $GLOBALS['stonewright_test_site_health_tests'] ) ) {
+				return $GLOBALS['stonewright_test_site_health_tests'];
+			}
+
 			return [
 				'direct' => [
 					'test' => [
@@ -2388,6 +2392,41 @@ if ( ! class_exists( 'WP_Site_Health' ) ) {
 					],
 				],
 			];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_wordpress_version(): array {
+			return [ 'label' => 'Your site is running the current WordPress version.', 'status' => 'good', 'badge' => [ 'label' => 'Performance', 'color' => 'blue' ], 'description' => '<p>Current.</p>' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_https_status(): array {
+			return [ 'label' => 'Your website is using an active HTTPS connection.', 'status' => 'good', 'badge' => [ 'label' => 'Security', 'color' => 'blue' ], 'description' => '<p>The site is served over HTTPS.</p>' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_authorization_header(): array {
+			return [ 'label' => 'The Authorization header is working as expected.', 'status' => 'good', 'badge' => [ 'label' => 'Security', 'color' => 'blue' ], 'description' => '' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_background_updates(): array {
+			return [ 'label' => 'Background updates are working.', 'status' => 'good', 'badge' => [ 'label' => 'Security', 'color' => 'blue' ], 'description' => '' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_dotorg_communication(): array {
+			return [ 'label' => 'Can communicate with WordPress.org.', 'status' => 'good', 'badge' => [ 'label' => 'Security', 'color' => 'blue' ], 'description' => '' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_loopback_requests(): array {
+			return [ 'label' => 'Your site can perform loopback requests.', 'status' => 'good', 'badge' => [ 'label' => 'Performance', 'color' => 'blue' ], 'description' => '' ];
+		}
+
+		/** @return array<string, mixed> */
+		public function get_test_page_cache(): array {
+			return [ 'label' => 'Page cache is detected.', 'status' => 'recommended', 'badge' => [ 'label' => 'Performance', 'color' => 'orange' ], 'description' => '' ];
 		}
 	}
 }
@@ -3482,7 +3521,7 @@ if ( ! class_exists( 'WP_Query', false ) ) {
 		public int $found_posts = 0;
 		public function __construct( $args = [] ) {
 			$this->posts       = array_values( $GLOBALS['stonewright_test_search_posts'] ?? [] );
-			$this->found_posts = count( $this->posts );
+			$this->found_posts = (int) ( $GLOBALS['stonewright_test_search_found_posts'] ?? count( $this->posts ) );
 		}
 	}
 }

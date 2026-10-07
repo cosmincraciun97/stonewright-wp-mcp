@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
@@ -41,7 +42,7 @@ final class SetupDiagnostics {
 		$endpoint      = is_string( $args['endpoint'] ?? null ) && '' !== (string) $args['endpoint']
 			? (string) $args['endpoint']
 			: ConnectClientConfig::mcp_endpoint_url();
-		$tool_count    = count( AbilityRegistry::enabled_abilities() );
+		$tool_count    = LiveAbilities::exposed_count();
 		$surface       = AbilityRegistry::mcp_surface();
 		$oauth_site    = HttpSurface::site();
 		$oauth_allowed = $oauth_site->transport_allowed();

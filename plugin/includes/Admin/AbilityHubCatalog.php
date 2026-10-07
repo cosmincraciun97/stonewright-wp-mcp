@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 
 /**
  * Groups discovered abilities by registering provider for the admin hub.
@@ -21,17 +22,19 @@ final class AbilityHubCatalog {
 	 * @return list<array<string, mixed>>
 	 */
 	public static function collect(): array {
-		$items = [];
-		$seen  = [];
+		$items      = [];
+		$seen       = [];
+		$registered = LiveAbilities::registered_names();
 
 		foreach ( AbilityRegistry::all_abilities() as $ability ) {
 			$name = (string) ( $ability['name'] ?? '' );
 			if ( '' === $name ) {
 				continue;
 			}
-			$ability['provider'] = 'stonewright';
-			$items[]             = $ability;
-			$seen[ $name ]       = true;
+			$ability['provider']   = 'stonewright';
+			$ability['registered'] = LiveAbilities::is_registered( $name, $registered );
+			$items[]               = $ability;
+			$seen[ $name ]         = true;
 		}
 
 		$external = self::wp_abilities();

@@ -299,7 +299,7 @@ final class PublicApiContractSnapshot {
 		// Normalize allowlist.renamed empty object vs empty array for stable output.
 		if ( isset( $document['allowlist'] ) && is_array( $document['allowlist'] ) ) {
 			$renamed = $document['allowlist']['renamed'] ?? [];
-			if ( ( is_array( $renamed ) && [] === $renamed ) || $renamed instanceof \stdClass ) {
+			if ( ( is_array( $renamed ) && [] === $renamed ) || ( $renamed instanceof \stdClass && [] === get_object_vars( $renamed ) ) ) {
 				$document['allowlist']['renamed'] = new \stdClass();
 			}
 		}

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\StaticAnalysis;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -22,7 +23,7 @@ final class Environment extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Reports the runtime environment (memory limit, debug flag, environment type).', 'stonewright' );
+		return __( 'Reports the runtime environment (memory limit, debug flag, environment type, and the PHP functions that can run commands and are left enabled).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -40,6 +41,7 @@ final class Environment extends AbilityKernel {
 				'wp_cron'          => [ 'type' => 'boolean' ],
 				'is_ssl'           => [ 'type' => 'boolean' ],
 				'rest_prefix'      => [ 'type' => 'string' ],
+				'dangerous_php_functions' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
 		];
 	}
@@ -57,6 +59,7 @@ final class Environment extends AbilityKernel {
 			'wp_cron'          => ! ( defined( 'DISABLE_WP_CRON' ) && constant( 'DISABLE_WP_CRON' ) ),
 			'is_ssl'           => is_ssl(),
 			'rest_prefix'      => rest_get_url_prefix(),
+			'dangerous_php_functions' => StaticAnalysis::enabled_functions(),
 		];
 	}
 }

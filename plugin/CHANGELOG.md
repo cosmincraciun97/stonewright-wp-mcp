@@ -165,6 +165,39 @@
 - Show success, error, warning, and info notices on Stonewright pages in their
   status colour, and widen the Audit Log user column so a login name stays on
   one line on a wide screen.
+- Serve valid JSON Schema for every ability over MCP. An empty schema, such
+  as the `items` of a permissive array or an empty `properties` map, is sent as
+  `{}` in `tools/list` and in the bounded schemas of `get-ability-info`; it was
+  sent as `[]`, which is not a schema. A test validates the input and output
+  schema of every registered ability against a JSON Schema 2020-12 structure.
+- Rename the Google Maps widget ability to `stonewright/elementor-add-google-maps`.
+  The Abilities API accepts only lowercase letters, digits, and dashes in an
+  ability name, so the underscore name could not be registered. The public API
+  contract records the rename, and a test checks every ability name.
+- Count tools from the abilities WordPress registered. The Setup connection
+  test, the Troubleshoot report, the Dashboard, and the AI Abilities page showed
+  the number of ability classes; an ability that WordPress refused was still
+  counted and shown as enabled. The AI Abilities page now marks an enabled
+  ability that is not registered.
+- Return `profiles_available`, `workflow_rules`, and `token_rules` from
+  `tool-profile` with `action: "resolve"`, and declare that `tools` holds tool
+  names for `resolve` and tool objects for `activate`. `resolve` failed output
+  validation for every profile.
+- Make `page` optional in a design spec, as documented, in both schema
+  versions: a spec without `page`, or with an empty one, is valid, and
+  `page.title` is optional. Validation errors now fill in the message, name the
+  failing path and the expected shape, and the first errors are part of the
+  error message that MCP clients receive.
+- Run the WordPress Site Health tests in `site-health` and `site-health-test`.
+  `site-health` returns the direct tests; `site-health-test` runs the named test
+  and returns its status, label, description, and badge.
+- Report the number of matches in `total` of `search-query` instead of the
+  number of results on the page. Matches the caller may not read stay excluded.
+- Write the warning about PHP functions that can run commands when the set of
+  enabled functions changes and at most once a day, not on every request. The
+  list is returned as `dangerous_php_functions` by `site-environment`.
+- Keep renames recorded in the public API contract allowlist when the contract
+  is regenerated.
 
 ### Security
 

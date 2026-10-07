@@ -7,7 +7,6 @@
   "additionalProperties": false,
   "required": [
     "version",
-    "page",
     "sections"
   ],
   "properties": {
@@ -58,9 +57,6 @@
     "page": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "title"
-      ],
       "properties": {
         "title": {
           "type": "string",

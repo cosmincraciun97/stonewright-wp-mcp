@@ -33,7 +33,7 @@ JSON Schema draft: 2020-12
 | Field | Type | Description |
 |---|---|---|
 | `source` | object | Traceability metadata — where this spec came from. |
-| `page` | object | Page-level metadata (title, slug, template, status). |
+| `page` | object | Page-level metadata (title, slug, template, status). May be left out or empty; every field in it is optional. |
 | `tokens` | object | Design tokens: colors, typography, spacing, radius, shadow. |
 | `responsive` | object | Breakpoint pixel values for mobile, tablet, and desktop. |
 
@@ -73,7 +73,7 @@ Traceability metadata. Not required but recommended when the spec was generated 
 
 | Field | Type | Constraint | Description |
 |---|---|---|---|
-| `title` | string | max 255 chars | Page title. Required if you want the renderer to set it. |
+| `title` | string | max 255 chars | Page title. Optional. |
 | `slug` | string | max 200 chars | URL slug. |
 | `template` | string | — | Page template filename (without `.php`). |
 | `status` | string | `draft`, `publish`, `private`, `pending` | Post status. |
@@ -244,18 +244,29 @@ structured diagnostic when the widget or required control is unavailable.
 
 ## Validation
 
-Use the `stonewright/design/validate-spec` ability to validate a spec before rendering:
+Use the `stonewright/design-validate-spec` ability to validate a spec before rendering:
 
 ```json
 {
-  "tool": "stonewright/design/validate-spec",
+  "tool": "stonewright/design-validate-spec",
   "arguments": {
     "spec": { "version": "1.0.0", "sections": [] }
   }
 }
 ```
 
-On failure the ability returns a `WP_Error` with the `stonewright_spec_invalid` code and an array of JSON schema violations. On success it returns the spec unchanged so you can pipe it directly to a renderer.
+The ability returns `valid`, `errors`, and `normalized`. Every renderer runs the same validation first and, on failure, returns the `stonewright_spec_invalid` error. Its message names the first failing paths and the shape each one expects, for example `page: The data (string) must match the type: object (expected: object with optional title, slug, template and status)`. The full list is in the error data. Each entry has:
+
+| Field | Description |
+|---|---|
+| `path`, `path_string` | Where the problem is, as a list and as text such as `sections[0].blocks`. |
+| `keyword`, `message` | The rule that failed and its description. |
+| `received_type` | `missing`, `string`, `array`, `object`, and so on. |
+| `allowed_shapes` | The shapes the path accepts, when the validator knows them. |
+| `nearest_valid_example` | A small valid value for the path. |
+| `repair_hint` | What to change. |
+
+On success the validated spec is returned, with `version` and `sections` normalized, so you can pass it directly to a renderer.
 
 ---
 

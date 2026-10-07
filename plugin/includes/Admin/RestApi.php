@@ -3,7 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
-use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -117,7 +117,7 @@ final class RestApi {
 
 		$enabled       = (bool) get_option( 'stonewright_enabled', false );
 		$endpoint      = ConnectClientConfig::mcp_endpoint_url();
-		$tool_count    = count( AbilityRegistry::enabled_abilities() );
+		$tool_count    = LiveAbilities::exposed_count();
 		$app_available = self::application_passwords_available();
 		$app_count     = self::application_password_count();
 		$elementor     = defined( 'ELEMENTOR_VERSION' ) || class_exists( '\\Elementor\\Plugin' );

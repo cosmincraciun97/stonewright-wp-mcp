@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\LiveAbilities;
 
 /**
  * Admin page for enabling and reviewing Stonewright abilities.
@@ -144,7 +145,7 @@ final class AbilitiesPage {
 					}
 					$provider_enabled = 0;
 					foreach ( $provider_abilities as $ability ) {
-						if ( ! in_array( (string) $ability['name'], $disabled_abilities, true ) ) {
+						if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
 							++$provider_enabled;
 						}
 					}
@@ -181,7 +182,7 @@ final class AbilitiesPage {
 								<?php
 								$cat_enabled = 0;
 								foreach ( $category_abilities as $ability ) {
-									if ( ! in_array( (string) $ability['name'], $disabled_abilities, true ) ) {
+									if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
 										++$cat_enabled;
 									}
 								}
@@ -292,6 +293,9 @@ final class AbilitiesPage {
 			<div class="stonewright-ability-main">
 				<strong class="sw-ability-label"><?php echo esc_html( (string) $ability['label'] ); ?></strong>
 				<p><?php echo esc_html( (string) $ability['description'] ); ?></p>
+				<?php if ( $is_enabled && false === ( $ability['registered'] ?? true ) ) : ?>
+					<span class="sw-badge sw-badge--warn"><?php esc_html_e( 'Not registered with WordPress', 'stonewright' ); ?></span>
+				<?php endif; ?>
 			</div>
 			<code class="stonewright-mcp-tool sw-ability-tool"><?php echo esc_html( $tool_name ); ?></code>
 			<span class="stonewright-kind-badge stonewright-kind-badge--<?php echo esc_attr( $kind ); ?>">
@@ -372,7 +376,7 @@ final class AbilitiesPage {
 		foreach ( $abilities as $ability ) {
 			$name = (string) $ability['name'];
 			$kind = self::kind_for( $name );
-			if ( ! in_array( $name, $disabled_abilities, true ) ) {
+			if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
 				++$enabled;
 			}
 			if ( 'read' === $kind ) {

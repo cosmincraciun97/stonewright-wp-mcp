@@ -112,6 +112,13 @@ final class DiscoverExecuteTest extends TestCase {
 		self::assertLessThanOrEqual( 4, $this->schema_depth( $result['input_schema'] ) );
 	}
 
+	public function test_get_ability_info_returns_schemas_that_encode_empty_nodes_as_objects(): void {
+		$ping = ( new GetAbilityInfo() )->execute( [ 'name' => 'stonewright/ping' ] );
+
+		self::assertIsArray( $ping );
+		self::assertStringContainsString( '"properties":{}', (string) json_encode( $ping['input_schema'] ) );
+	}
+
 	public function test_execute_ability_runs_ping_through_context_guard(): void {
 		$result = ( new ExecuteAbility() )->execute(
 			[

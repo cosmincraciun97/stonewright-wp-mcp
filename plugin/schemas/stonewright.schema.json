@@ -5,7 +5,7 @@
   "description": "Renderer-agnostic page description used by Stonewright to materialize Gutenberg, Elementor V3, and Elementor V4 pages from a single source of truth.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "page", "sections"],
+  "required": ["version", "sections"],
   "properties": {
     "version": {
       "type": "string",
@@ -33,7 +33,6 @@
     "page": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title"],
       "properties": {
         "title": { "type": "string", "maxLength": 255 },
         "slug": { "type": "string", "maxLength": 200 },
