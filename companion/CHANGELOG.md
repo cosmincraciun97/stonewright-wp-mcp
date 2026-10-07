@@ -26,6 +26,10 @@
 
 ### Fixed
 
+- Correct the documented retry behaviour of the companion: it sends each
+  WordPress MCP request once and does not repeat it after a timeout or network
+  error; on OAuth connections an HTTP 401 refreshes the access token and sends
+  that request once more, a tool call included.
 - Refresh runtime dependency floors and security overrides, and use a patched
   test-runner version.
 

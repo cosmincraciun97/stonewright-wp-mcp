@@ -89,6 +89,47 @@ The check is not authentication: a request that passes still needs valid
 credentials and the permissions of its user. A refused request never reaches the
 MCP transport or an ability.
 
+### OAuth rate limits behind a reverse proxy
+
+The OAuth endpoints are limited per client address, and the registering address
+of a client is stored as a keyed hash. The address is the one the web server
+reports for the connection (`REMOTE_ADDR`). Behind a reverse proxy or load
+balancer every client then has the address of the proxy and shares one budget.
+
+A site behind a proxy can name it. The setting is **off by default**: with no
+trusted proxy configured, `X-Forwarded-For` is never read, so a client cannot
+choose its own budget by sending that header.
+
+```php
+// wp-config.php: a list, or one comma-separated string.
+define( 'STONEWRIGHT_TRUSTED_PROXIES', [ '10.0.0.0/8', '2001:db8:aaaa::/48' ] );
+
+// Or from code. The filter receives the list the constant holds.
+add_filter( 'stonewright_trusted_proxies', static function ( array $proxies ): array {
+    $proxies[] = '192.0.2.10';
+    return $proxies;
+} );
+```
+
+- Each entry is an IP address or a CIDR range, IPv4 or IPv6. An entry that is
+  not readable, and a range with a prefix length of 0, are skipped.
+- Only when `REMOTE_ADDR` is inside the list is the header read. The client is
+  the right-most `X-Forwarded-For` address that is not itself a trusted proxy,
+  so values the client wrote on the left cannot replace the address the first
+  trusted proxy saw. When every address in the chain is a trusted proxy, the
+  connection address is used.
+- A header that holds anything other than a comma-separated list of IP
+  addresses (a name, `unknown`, a value with a port, an empty entry) is ignored
+  as a whole and the connection address is used.
+- The same address is used for every OAuth rate-limit and abuse-budget key. An
+  IPv6 address still counts as its `/64` prefix and an IPv4-mapped IPv6 address
+  as the IPv4 address it carries.
+
+List only proxies you operate, and make sure they replace or append to
+`X-Forwarded-For` rather than pass a client's header through unchanged at the
+edge. Other uses of the connection address, such as the address a one-time
+sign-in link is bound to, keep reading `REMOTE_ADDR`.
+
 ### Site policy filters on abilities
 
 WordPress 7.1 runs lifecycle filters inside an ability call, so site policy and

@@ -54,9 +54,10 @@ returns the grant's current refresh token instead. Access tokens last one hour.
 A refresh token expires after 30 days without use, and a grant ends at most 90
 days after it was authorized, after which the client signs in again. Seven-day
 continuity is a refresh SLO within that grant, not a seven-day bearer token.
-Handshake and allowlisted read-only bootstrap calls may retry once;
-mutations never retry. `stonewright-task-start` reconnects a degraded session
-once.
+Each WordPress MCP request is sent once and is not repeated after a timeout or
+network error; on OAuth connections an HTTP 401 refreshes the access token and
+the request is sent once more, a tool call included. `stonewright-task-start`
+reconnects a degraded session once.
 
 ## Choose the connection method
 

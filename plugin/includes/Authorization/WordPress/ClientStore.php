@@ -51,7 +51,7 @@ final class ClientStore implements ClientDirectory {
 	 * @param (\Closure(): string)|null $identifiers New 32-hex client identifiers.
 	 */
 	public function __construct( private Database $db, private Clock $clock, ?\Closure $address = null, ?\Closure $identifiers = null ) {
-		$this->address = $address ?? static fn (): string => self::remote_address();
+		$this->address = $address ?? static fn (): string => ClientAddress::resolve();
 		$this->identifiers = $identifiers ?? static fn (): string => bin2hex( random_bytes( 16 ) );
 	}
 
@@ -238,10 +238,5 @@ final class ClientStore implements ClientDirectory {
 			}
 		}
 		return $value;
-	}
-
-	private static function remote_address(): string {
-		$address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
-		return false === filter_var( $address, FILTER_VALIDATE_IP ) ? '' : $address;
 	}
 }

@@ -479,8 +479,9 @@ Companion status, doctor, and task-start reports use **schema version 3**.
 `stonewright-task-start` is the first call; on a degraded session it reconnects
 once and either continues or returns a truthful local result. Terminal OAuth
 failures set `reauthentication_required` with a model-visible `user_action`.
-Automatic retry covers handshake and allowlisted read-only bootstrap only;
-mutations are never retried.
+The companion sends each WordPress MCP request once and does not repeat it after
+a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+access token and the request is sent once more, a tool call included.
 
 Direct mode is a capability mode inside the companion, not a third transport.
 If the plugin is absent and you use Direct mode, you are using local stdio and

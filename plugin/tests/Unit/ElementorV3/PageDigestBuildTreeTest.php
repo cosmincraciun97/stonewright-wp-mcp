@@ -319,6 +319,70 @@ final class PageDigestBuildTreeTest extends TestCase {
 		self::assertFileDoesNotExist( $this->css_dir . '/post-' . $this->post_id . '.css' );
 	}
 
+	/** @return array<int, array<string, mixed>> */
+	private static function marker_tree( string $title ): array {
+		return [
+			[
+				'id'       => 'mark001',
+				'elType'   => 'container',
+				'settings' => [],
+				'elements' => [
+					[
+						'id'         => 'markhead',
+						'elType'     => 'widget',
+						'widgetType' => 'heading',
+						'settings'   => [ 'title' => $title ],
+						'elements'   => [],
+					],
+				],
+			],
+		];
+	}
+
+	public function test_build_tree_reports_the_lock_renew_after_commit_as_ok_when_the_lease_holds(): void {
+		$result = ( new BuildTree() )->execute( [ 'post_id' => $this->post_id, 'tree' => self::marker_tree( 'Committed marker' ) ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [ 'renew_after_commit' => 'ok' ], $result['lock'] );
+	}
+
+	public function test_build_tree_keeps_the_commit_and_reports_lost_after_commit_when_the_second_renew_loses_the_lock(): void {
+		$post_id = $this->post_id;
+		$marker  = 'Committed marker';
+		$renews  = 0;
+		$arm     = static function () use ( &$arm, &$renews, $post_id, $marker ): void {
+			$GLOBALS['stonewright_test_before_option_update'] = static function ( string $option ) use ( &$arm, &$renews, $post_id, $marker ): void {
+				if ( ! str_starts_with( $option, 'stonewright_elementor_lock_' ) ) {
+					$arm();
+					return;
+				}
+				// Count the lease renewals that follow the document commit; the second one loses the lock.
+				if ( str_contains( (string) get_post_meta( $post_id, '_elementor_data', true ), $marker ) && 2 === ++$renews ) {
+					$GLOBALS['stonewright_test_options'][ $option ] = [
+						'post_id'     => $post_id,
+						'owner'       => 'foreign-writer',
+						'acquired_at' => time(),
+						'expires_at'  => time() + 120,
+					];
+					return;
+				}
+				$arm();
+			};
+		};
+		$arm();
+
+		$result = ( new BuildTree() )->execute( [ 'post_id' => $this->post_id, 'tree' => self::marker_tree( $marker ) ] );
+
+		self::assertSame( 2, $renews, 'The lock is renewed twice after the commit.' );
+		self::assertIsArray( $result, 'A renew that fails after the commit is evidence, not an error.' );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'lost_after_commit', $result['lock']['renew_after_commit'] );
+		self::assertNotSame( '', $result['snapshot_id'] );
+		self::assertStringContainsString( $marker, (string) get_post_meta( $this->post_id, '_elementor_data', true ), 'The committed document is not rolled back.' );
+		self::assertSame( 'foreign-writer', $GLOBALS['stonewright_test_options'][ 'stonewright_elementor_lock_' . $this->post_id ]['owner'], 'The other writer keeps its lock.' );
+	}
+
 	private function remove_css_assets(): void {
 		foreach ( [ 'post-' . $this->post_id . '.css', 'custom-frontend.min.css' ] as $name ) {
 			$path = $this->css_dir . '/' . $name;

@@ -264,8 +264,10 @@ fields are prohibited by omission.
 with `authentication.agent_notice_required: true` and a client-specific
 `user_action`. Continuity target is 604800 seconds (seven days) within a grant
 that ends at most 90 days after authorization, where each refresh token
-expires after 30 days without use. Automatic retry is handshake and allowlisted
-read-only bootstrap only; mutations are never retried.
+expires after 30 days without use. Each WordPress MCP request is sent once and is not
+repeated after a timeout or network error; on OAuth connections an HTTP 401
+refreshes the access token and the request is sent once more, a tool call
+included.
 
 Degraded `stonewright-task-start` reconnects once. Recovery fields report
 whether the last good catalog is preserved and whether remote calls are

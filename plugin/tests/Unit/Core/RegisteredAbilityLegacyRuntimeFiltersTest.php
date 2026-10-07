@@ -104,4 +104,18 @@ final class RegisteredAbilityLegacyRuntimeFiltersTest extends TestCase {
 		self::assert_error( $throwing->has_permission( [ 'value' => 'x' ] ), 'ability_callback_exception' );
 		self::assert_error( $throwing->execute( [ 'value' => 'x' ] ), 'ability_invalid_permissions' );
 	}
+
+	public function test_a_permission_callback_that_answers_neither_true_nor_an_error_denies(): void {
+		foreach ( [ null, 1, 'yes', 'true', [ 'ok' ], [], new \stdClass(), 1.0 ] as $answer ) {
+			$ability = $this->ability(
+				[
+					'permission_callback' => static fn () => $answer,
+				]
+			);
+
+			self::assertFalse( $ability->has_permission( [ 'value' => 'x' ] ), 'Answer: ' . var_export( $answer, true ) );
+			self::assert_error( $ability->execute( [ 'value' => 'x' ] ), 'ability_invalid_permissions' );
+		}
+		self::assertSame( 0, $this->calls['execute'], 'No ability ran on a loose answer.' );
+	}
 }

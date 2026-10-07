@@ -145,8 +145,9 @@ After a client-specific restart / MCP reload (not only a chat refresh):
 - Status and gateway reports must be honest when disconnected or unauthorized.
   Schema version 3 includes authentication state. Terminal OAuth failures set
   `reauthentication_required` with a model-visible `user_action`; relay it and
-  stop. `stonewright-task-start` reconnects a degraded session once. Mutations
-  are never retried.
+  stop. `stonewright-task-start` reconnects a degraded session once. The
+  companion sends each request once; only an OAuth connection repeats a request,
+  once, after an HTTP 401 and a token refresh.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
   returns a header or token fragment.
