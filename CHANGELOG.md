@@ -506,6 +506,9 @@ development builds were never stable releases.
 - Design directions: restoring a revision stores the status that revision had,
   and clears the active-direction pointer when the restored contract is not
   ready, so an active direction is always ready.
+- Render a wrapped bullet or numbered item in release notes (Plugins → View
+  details) as one list item: the lines that continue it, up to the next blank
+  line or block, are joined into it.
 - Draw the label of a Setup step that is still to do at full strength instead of
   at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities
