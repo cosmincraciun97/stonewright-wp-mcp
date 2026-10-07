@@ -80,7 +80,7 @@ final class AdminBootstrap {
 		if ( 'production-safe' === $mode ) {
 			return;
 		}
-		echo '<div class="notice notice-error"><p><strong>';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>';
 		echo esc_html__( 'Stonewright P0:', 'stonewright' );
 		echo '</strong> ';
 		echo esc_html(
@@ -134,7 +134,7 @@ final class AdminBootstrap {
 		// Bust browser cache when any shared admin asset changes without a version bump.
 		$asset_mtimes = [];
 		$plugin_path  = defined( 'STONEWRIGHT_PATH' ) ? (string) constant( 'STONEWRIGHT_PATH' ) : '';
-		foreach ( [ 'assets/admin/shell.css', 'assets/admin/shell.js', 'assets/admin/admin.css', 'assets/admin/admin.js' ] as $asset ) {
+		foreach ( [ 'assets/admin/sw-ui.css', 'assets/admin/sw-ui.js', 'assets/admin/shell.css', 'assets/admin/shell.js', 'assets/admin/admin.css', 'assets/admin/admin.js' ] as $asset ) {
 			$path = $plugin_path . $asset;
 			if ( '' !== $plugin_path && is_readable( $path ) ) {
 				$asset_mtimes[] = (int) filemtime( $path );
@@ -148,10 +148,27 @@ final class AdminBootstrap {
 			return;
 		}
 
+		// The shared UI layer is registered first and everything else depends on it, so its tokens and
+		// components are in place before any page file. It applies only inside `.sw-ui`.
+		wp_enqueue_style(
+			'stonewright-ui',
+			$url_base . 'assets/admin/sw-ui.css',
+			[],
+			$version
+		);
+
+		wp_enqueue_script(
+			'stonewright-ui',
+			$url_base . 'assets/admin/sw-ui.js',
+			[],
+			$version,
+			true
+		);
+
 		wp_enqueue_style(
 			'stonewright-admin-shell',
 			$url_base . 'assets/admin/shell.css',
-			[],
+			[ 'stonewright-ui' ],
 			$version
 		);
 
@@ -172,7 +189,7 @@ final class AdminBootstrap {
 		wp_enqueue_script(
 			'stonewright-admin-shell',
 			$url_base . 'assets/admin/shell.js',
-			[],
+			[ 'stonewright-ui' ],
 			$version,
 			true
 		);

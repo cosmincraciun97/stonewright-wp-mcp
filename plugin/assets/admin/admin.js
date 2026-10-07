@@ -33,25 +33,6 @@
 		} );
 	}
 
-	/**
-	 * Auto-dismiss notice elements after 5 seconds if they have
-	 * the is-dismissible class (mirrors WP core admin notices).
-	 */
-	function initAutoDismissNotices() {
-		var notices = document.querySelectorAll( '.notice.is-dismissible' );
-		notices.forEach( function ( notice ) {
-			window.setTimeout( function () {
-				notice.style.transition = 'opacity 0.4s';
-				notice.style.opacity = '0';
-				window.setTimeout( function () {
-					if ( notice.parentNode ) {
-						notice.parentNode.removeChild( notice );
-					}
-				}, 400 );
-			}, 5000 );
-		} );
-	}
-
 	function textFromTarget( target ) {
 		if ( ! target ) {
 			return '';
@@ -1771,7 +1752,6 @@
 
 	document.addEventListener( 'DOMContentLoaded', function () {
 		initDeleteConfirm();
-		initAutoDismissNotices();
 		initCopyButtons();
 		initSecretToggles();
 		initTokenGenerators();

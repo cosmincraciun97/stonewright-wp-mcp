@@ -38,12 +38,12 @@ final class KeyRecoveryNotice {
 		$result = isset( $_GET[ self::RESULT_ARG ] ) ? sanitize_key( wp_unslash( (string) $_GET[ self::RESULT_ARG ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only flag set by the retry redirect.
 		if ( $this->keys->ready() ) {
 			if ( 'ready' === $result ) {
-				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Stonewright OAuth keys are ready.', 'stonewright' ) . '</p></div>';
+				echo '<div class="notice notice-success is-dismissible stonewright-notice"><p>' . esc_html__( 'Stonewright OAuth keys are ready.', 'stonewright' ) . '</p></div>';
 			}
 			return;
 		}
 		$error = $this->keys->error();
-		echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'Stonewright OAuth is unavailable:', 'stonewright' ) . '</strong> ';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>' . esc_html__( 'Stonewright OAuth is unavailable:', 'stonewright' ) . '</strong> ';
 		echo esc_html__( 'the signing or encryption key could not be created. Application Passwords keep working; OAuth connections need the keys.', 'stonewright' ) . '</p>';
 		if ( null !== $error ) {
 			echo '<p><code>' . esc_html( $error ) . '</code></p>';

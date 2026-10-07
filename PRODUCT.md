@@ -31,6 +31,8 @@ Precise, calm, capable. Quality through restraint and craft, never decoration.
 3. White-space with purpose. Use a light workspace, compact typography, and deliberate grouping.
 4. One component language. Navigation, buttons, fields, badges, tables, and feedback behave consistently.
 5. Safety stays visible. Permissions, backups, confirmation, audit, and update boundaries remain clear.
+6. Native first. Extend WordPress's admin conventions and the user's colour scheme instead of repainting wp-admin.
+7. Findable. One navigation, one place to start, and empty states that teach the next step.
 
 ## Accessibility & Inclusion
 

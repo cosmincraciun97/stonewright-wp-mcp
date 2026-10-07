@@ -423,13 +423,18 @@ final class AuthorizationPages {
 		return $redirect . ( str_contains( $redirect, '?' ) ? '&' : '?' ) . http_build_query( $parameters, '', '&', PHP_QUERY_RFC3986 );
 	}
 
-	/** Scheme and host of a callback, the part a user can recognize. */
+	/**
+	 * Scheme, host and port of a callback, the part a user can recognize.
+	 *
+	 * The port is part of an origin, so it is kept when the callback names one: on a loopback
+	 * address another local process could be listening on a different port.
+	 */
 	private static function origin( string $uri ): string {
 		$parts = parse_url( $uri );
 		if ( ! is_array( $parts ) || ! isset( $parts['scheme'], $parts['host'] ) ) {
 			return '';
 		}
-		return $parts['scheme'] . '://' . $parts['host'];
+		return $parts['scheme'] . '://' . $parts['host'] . ( isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '' );
 	}
 
 	private static function compose(): self {

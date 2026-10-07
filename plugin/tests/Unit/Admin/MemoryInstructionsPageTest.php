@@ -130,6 +130,29 @@ final class MemoryInstructionsPageTest extends TestCase {
 		);
 	}
 
+	public function test_the_custom_instructions_textarea_has_a_label_and_its_help_is_linked(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertSame( 1, preg_match( '/<textarea\b[^>]*\bname="stonewright_custom_instructions"[^>]*>/', $html, $textarea ) );
+		self::assertSame( 1, preg_match( '/\bid="([^"]+)"/', $textarea[0], $id ), 'The textarea needs an id for its label.' );
+		self::assertSame( 'stonewright_custom_instructions', $id[1] );
+		self::assertMatchesRegularExpression(
+			'/<label\b[^>]*\bfor="stonewright_custom_instructions"[^>]*>\s*Custom instructions\s*<\/label>/',
+			$html,
+			'The textarea is named by a label, not by a heading nearby.'
+		);
+
+		// The two help paragraphs under the heading are what the field is described by.
+		self::assertSame( 1, preg_match( '/\baria-describedby="([^"]+)"/', $textarea[0], $described ) );
+		foreach ( explode( ' ', $described[1] ) as $help_id ) {
+			self::assertStringContainsString( 'id="' . $help_id . '"', $html, $help_id );
+		}
+	}
+
 	public function test_import_submission_adds_new_skills_as_drafts_and_reports_the_skipped_ones(): void {
 		$tables          = new SkillTablesDouble();
 		$GLOBALS['wpdb'] = $tables;

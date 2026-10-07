@@ -17,8 +17,11 @@
 	/* text hierarchy: primary / secondary / muted on surface */
 	--sw-text: #171921;
 	--sw-text-secondary: #474c57;
-	--sw-text-muted: #68707d;
+	--sw-text-muted: #646c78;
 	--sw-text-invert: #ffffff;
+
+	/* borders of form controls: 3:1 or better on surface and page (WCAG 1.4.11) */
+	--sw-border-control: #868d9b;
 
 	/* brand indigo family */
 	--sw-brand: #4f46e5;
@@ -48,7 +51,7 @@
 	/* header (always dark chrome) */
 	--sw-shell-header-bg: #16181d;
 	--sw-shell-header-fg: #f8f9fa;
-	--sw-shell-header-muted: rgba(248, 249, 250, 0.45);
+	--sw-shell-header-muted: rgba(248, 249, 250, 0.6);
 	--sw-shell-header-link: rgba(248, 249, 250, 0.78);
 	--sw-shell-header-hover-bg: rgba(255, 255, 255, 0.08);
 	--sw-shell-header-current-bg: rgba(79, 70, 229, 0.35);
@@ -75,8 +78,8 @@
 	--sw-font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
 
 	/* Elevation + motion */
-	--sw-radius: 10px;
-	--sw-radius-sm: 6px;
+	--sw-radius: 8px;
+	--sw-radius-sm: 4px;
 	--sw-radius-lg: 14px;
 	--sw-radius-pill: 999px;
 	--sw-ease: cubic-bezier(.25, .46, .45, .94);
@@ -85,7 +88,8 @@
 	/* Shell surfaces */
 	--sw-shell-bg: var(--sw-bg);
 	--sw-shell-content-max: 1200px;
-	--sw-shell-offset: 76px;
+	/* Height of the chrome that stays fixed above the content: the admin bar. shell.js keeps it exact. */
+	--sw-shell-offset: var(--wp-admin--admin-bar--height, 32px);
 
 	/* Compat aliases (legacy names used by page CSS) */
 	--sw-color-card: var(--sw-surface);
@@ -127,9 +131,9 @@
 	--sw-user-fg: var(--sw-ok-text);
 	--sw-uploaded-bg: var(--sw-warn-soft);
 	--sw-uploaded-fg: var(--sw-warn-text);
-	--sw-shadow: var(--sw-shadow-1);
-	--sw-shadow-hover: var(--sw-shadow-2);
-	--sw-transition: var(--sw-dur) var(--sw-ease);
+	--sw-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+	--sw-shadow-hover: 0 4px 16px rgba(0, 0, 0, .14);
+	--sw-transition: .18s var(--sw-ease);
 
 	color-scheme: light;
 }
@@ -151,7 +155,10 @@
 	font-family: var(--sw-font-sans);
 	font-size: var(--sw-text-md);
 	line-height: 1.55;
-	overflow-x: hidden;
+	/* clip, not hidden: hidden turns the shell into the scroll container of everything sticky inside it.
+	   flow-root keeps the block formatting context hidden used to give. */
+	display: flow-root;
+	overflow-x: clip;
 }
 
 .sw-shell *,
@@ -161,9 +168,11 @@
 }
 
 .sw-shell__header {
-	position: sticky;
-	top: 32px;
+	/* Scrolls with the page: a 140-304px sticky band would cover focused fields (WCAG 2.4.11). */
+	position: static;
 	z-index: 100;
+	/* Focus ring for everything in the dark header; indigo on near-black is 2.82:1. */
+	--sw-focus-ring: var(--sw-shell-header-fg);
 	display: flex;
 	align-items: center;
 	gap: var(--sw-space-4);
@@ -338,7 +347,7 @@
 .sw-shell textarea {
 	background: var(--sw-surface) !important;
 	color: var(--sw-text) !important;
-	border-color: var(--sw-border) !important;
+	border-color: var(--sw-border-control) !important;
 	box-shadow: none !important;
 }
 
@@ -403,14 +412,26 @@
 	background: var(--sw-surface-raised) !important;
 }
 
-.sw-shell .wp-list-table code,
-.sw-shell table.widefat code,
-.sw-shell code {
+/* Inline code is a chip. Code inside a pre block is the block's own text, so the chip is excluded there
+   (:where() keeps the specificity of each selector what it was). */
+.sw-shell .wp-list-table code:where(:not(pre code)),
+.sw-shell table.widefat code:where(:not(pre code)),
+.sw-shell code:where(:not(pre code)) {
 	background: var(--sw-bg) !important;
 	color: var(--sw-text-secondary) !important;
 	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	padding: 1px 6px;
+	font-size: var(--sw-text-xs);
+}
+
+.sw-shell pre code {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	margin: 0;
+	color: inherit;
 	font-size: var(--sw-text-xs);
 }
 
@@ -442,11 +463,11 @@
 	color: var(--sw-text-muted);
 }
 
+/* No selector here may be qualified by an element type (input[type="submit"].button): at (0,3,1) it
+   outranked the primary rule below and every submit_button() primary rendered as secondary. */
 .sw-shell .button,
 .sw-shell .button-secondary,
-.sw-shell .button-primary,
-.sw-shell input[type="submit"].button,
-.sw-shell input[type="button"].button {
+.sw-shell .button-primary {
 	background: var(--sw-surface) !important;
 	color: var(--sw-text) !important;
 	border: 1px solid var(--sw-border-strong) !important;
@@ -461,8 +482,7 @@
 }
 
 .sw-shell .button:hover,
-.sw-shell .button-secondary:hover,
-.sw-shell input[type="submit"].button:hover {
+.sw-shell .button-secondary:hover {
 	background: var(--sw-bg) !important;
 	border-color: var(--sw-brand) !important;
 	color: var(--sw-brand) !important;
@@ -510,14 +530,14 @@
 /* ------------------------------------------------------------------ */
 .sw-notice-drawer {
 	max-width: var(--sw-shell-content-max);
-	/* Clear sticky header + admin bar (JS sets --sw-shell-offset). */
-	margin: max(var(--sw-space-6), calc(var(--sw-shell-offset, 76px) - 32px + var(--sw-space-4))) auto 0;
+	/* Directly under the header: the header scrolls with the page, so there is nothing to clear. */
+	margin: var(--sw-space-3) auto 0;
 	padding: 0 var(--sw-space-5);
 	border: none;
 }
 
 html.sw-has-shell {
-	scroll-padding-top: var(--sw-shell-offset, 76px);
+	scroll-padding-top: var(--sw-shell-offset, 32px);
 }
 
 .sw-notice-drawer[hidden] {

@@ -178,8 +178,9 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-knowledge-import"', $html );
 	}
 
-	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
-		$GLOBALS['wpdb'] = new class() {
+	/** A database double that serves the Dashboard one audit row, a two day sparkline and no skills or memory. */
+	private static function dashboard_wpdb(): object {
+		return new class() {
 			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
@@ -216,6 +217,48 @@ final class AdminPagesPolishTest extends TestCase {
 				return '1';
 			}
 		};
+	}
+
+	/** The Dashboard tile that follows the "Companion" label, as plain text. */
+	private static function companion_tile( string $html ): string {
+		self::assertSame( 1, preg_match( '#<article class="sw-stat-card">(?:(?!</article>).)*?<div class="sw-stat-card__label">\s*Companion\s*</div>.*?</article>#s', $html, $tile ), 'The Dashboard has a Companion tile.' );
+
+		return (string) preg_replace( '/\s+/', ' ', trim( strip_tags( $tile[0] ) ) );
+	}
+
+	/** @dataProvider companion_option_states */
+	public function test_the_companion_tile_shows_a_state_not_the_raw_option( mixed $option, string $expected_state, string $expected_detail ): void {
+		$GLOBALS['wpdb'] = self::dashboard_wpdb();
+		if ( null === $option ) {
+			unset( $GLOBALS['stonewright_test_options']['stonewright_companion_url'] );
+		} else {
+			$GLOBALS['stonewright_test_options']['stonewright_companion_url'] = $option;
+		}
+
+		ob_start();
+		StatusPage::render();
+		$html = (string) ob_get_clean();
+
+		$tile = self::companion_tile( $html );
+		self::assertStringContainsString( $expected_state, $tile );
+		self::assertStringContainsString( $expected_detail, $tile );
+		self::assertStringNotContainsString( '<code></code>', $html, 'An empty option must not leave an empty value chip.' );
+		self::assertStringNotContainsString( 'secret', $html, 'Credentials in a configured URL are never shown.' );
+		self::assertStringNotContainsString( '/private/path', $html, 'Only the host and port of a configured URL are shown.' );
+	}
+
+	/** @return array<string, array{0: mixed, 1: string, 2: string}> */
+	public static function companion_option_states(): array {
+		return [
+			'empty option'           => [ '', 'Not used', 'No bridge URL set' ],
+			'blank option'           => [ '   ', 'Not used', 'No bridge URL set' ],
+			'configured bridge'      => [ 'http://127.0.0.1:8765', 'Configured', '127.0.0.1:8765' ],
+			'configured with extras' => [ 'https://user:secret@bridge.example.test:9443/private/path?token=x', 'Configured', 'bridge.example.test:9443' ],
+		];
+	}
+
+	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
+		$GLOBALS['wpdb'] = self::dashboard_wpdb();
 
 		ob_start();
 		StatusPage::render();

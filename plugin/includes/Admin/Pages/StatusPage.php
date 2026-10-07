@@ -44,7 +44,7 @@ final class StatusPage {
 		}
 
 		$mode           = (string) get_option( 'stonewright_mode', 'development' );
-		$companion_url  = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
+		$companion      = self::companion_state( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ) );
 		$elementor_ver  = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '';
 		$elementor_pro  = class_exists( 'ElementorPro\Plugin' );
 		$recent_entries = AuditLog::recent( 8, 1 );
@@ -130,8 +130,15 @@ final class StatusPage {
 
 				<article class="sw-stat-card">
 					<span class="sw-stat-card__icon dashicons dashicons-admin-links" aria-hidden="true"></span>
-					<div class="sw-stat-card__value"><code><?php echo esc_html( $companion_url ); ?></code></div>
+					<div class="sw-stat-card__value"><?php echo esc_html( $companion['state'] ); ?></div>
 					<div class="sw-stat-card__label"><?php esc_html_e( 'Companion', 'stonewright' ); ?></div>
+					<span class="sw-stat-card__meta">
+						<?php if ( '' !== $companion['host'] ) : ?>
+							<code><?php echo esc_html( $companion['host'] ); ?></code>
+						<?php else : ?>
+							<?php echo esc_html( $companion['detail'] ); ?>
+						<?php endif; ?>
+					</span>
 					<a class="sw-stat-card__link" href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright' ) ); ?>">
 						<?php esc_html_e( 'Details', 'stonewright' ); ?>
 					</a>
@@ -282,6 +289,41 @@ final class StatusPage {
 			</p>
 		</div>
 		<?php
+	}
+
+	/**
+	 * What the Dashboard says about the optional local bridge: a state, never the stored value.
+	 *
+	 * The tile names a host and port only. A configured URL may carry a path, a query or credentials,
+	 * and none of that belongs on a page that is read at a glance. Nothing here claims the bridge is
+	 * running: the page does not probe it.
+	 *
+	 * @return array{state: string, host: string, detail: string}
+	 */
+	private static function companion_state( string $url ): array {
+		$url = trim( $url );
+		if ( '' === $url ) {
+			return [
+				'state'  => __( 'Not used', 'stonewright' ),
+				'host'   => '',
+				'detail' => __( 'No bridge URL set', 'stonewright' ),
+			];
+		}
+
+		$parts = parse_url( $url );
+		if ( ! is_array( $parts ) || ! isset( $parts['host'] ) || '' === $parts['host'] ) {
+			return [
+				'state'  => __( 'Needs attention', 'stonewright' ),
+				'host'   => '',
+				'detail' => __( 'The bridge URL is not valid', 'stonewright' ),
+			];
+		}
+
+		return [
+			'state'  => __( 'Configured', 'stonewright' ),
+			'host'   => $parts['host'] . ( isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '' ),
+			'detail' => '',
+		];
 	}
 
 	private static function relative_time( string $mysql_utc ): string {

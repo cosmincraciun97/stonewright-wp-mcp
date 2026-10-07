@@ -1,0 +1,661 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * Stonewright shared admin UI: the behaviour of the components in sw-ui.css.
+ *
+ * Everything here reacts to `data-sw-ui-*` attributes, which only markup of the shared layer carries, so a page
+ * that has not adopted the layer is never touched. The public API lives on `window.Stonewright.ui`.
+ *
+ * Hooks
+ *   [data-sw-ui-copy="#id"]            copy the text or value of #id (or data-sw-ui-copy-text) and say so
+ *   [data-sw-ui-reveal="#id"]          show or hide a masked value (aria-pressed)
+ *   [data-sw-ui-tabs]                  an ARIA tab list: roving tabindex, Arrow, Home and End keys
+ *   details[data-sw-ui-remember="k"]   remember open or closed per browser
+ *   [data-sw-ui-dialog-open="#id"]     open a <dialog class="sw-ui-dialog">; [data-sw-ui-dialog-close] closes it
+ *   [data-sw-ui-confirm-phrase]        an input that enables [data-sw-ui-confirm-submit] when it holds the phrase
+ *   [data-sw-ui-search]                the field the "/" key focuses
+ */
+( function () {
+	'use strict';
+
+	var root = ( window.Stonewright = window.Stonewright || {} );
+	if ( root.ui ) {
+		return;
+	}
+
+	var reducedMotion = window.matchMedia ? window.matchMedia( '(prefers-reduced-motion: reduce)' ) : null;
+
+	/** False when the user asks for reduced motion; the query is live, so this always reads the current setting. */
+	function motionOK() {
+		return ! ( reducedMotion && reducedMotion.matches );
+	}
+
+	function scrollToElement( element ) {
+		if ( element && element.scrollIntoView ) {
+			element.scrollIntoView( { behavior: motionOK() ? 'smooth' : 'auto', block: 'start' } );
+		}
+	}
+
+	/** Milliseconds of a --sw-dur* token as it computes on an element (0 under reduced motion), or a fallback. */
+	function tokenMs( element, name, fallback ) {
+		if ( ! element || ! window.getComputedStyle ) {
+			return fallback;
+		}
+		var raw = window.getComputedStyle( element ).getPropertyValue( name ).trim();
+		var value = parseFloat( raw );
+		if ( isNaN( value ) ) {
+			return fallback;
+		}
+		return /ms$/.test( raw ) ? value : /s$/.test( raw ) ? value * 1000 : fallback;
+	}
+
+	function ready( fn ) {
+		if ( document.readyState === 'loading' ) {
+			document.addEventListener( 'DOMContentLoaded', fn );
+		} else {
+			fn();
+		}
+	}
+
+	function el( tag, className, text ) {
+		var node = document.createElement( tag );
+		if ( className ) {
+			node.className = className;
+		}
+		if ( text !== undefined ) {
+			node.textContent = text;
+		}
+		return node;
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Portal: one `.sw-ui` element on the body holds the live regions and the toasts, so they are in
+	// scope of the layer wherever the page puts its own wrapper.
+	// -----------------------------------------------------------------------------------------------
+
+	var portal = null;
+
+	function ensurePortal() {
+		if ( portal && document.body.contains( portal ) ) {
+			return portal;
+		}
+		portal = el( 'div', 'sw-ui sw-ui-portal' );
+		portal.setAttribute( 'data-sw-ui-portal', '' );
+
+		var polite = el( 'div', 'sw-ui-visually-hidden' );
+		polite.setAttribute( 'role', 'status' );
+		polite.setAttribute( 'aria-live', 'polite' );
+		polite.setAttribute( 'data-sw-ui-live', 'polite' );
+
+		var assertive = el( 'div', 'sw-ui-visually-hidden' );
+		assertive.setAttribute( 'role', 'alert' );
+		assertive.setAttribute( 'data-sw-ui-live', 'assertive' );
+
+		var region = el( 'div', 'sw-ui-toast-region' );
+		region.setAttribute( 'aria-live', 'polite' );
+		region.setAttribute( 'data-sw-ui-toasts', '' );
+
+		portal.appendChild( polite );
+		portal.appendChild( assertive );
+		portal.appendChild( region );
+		document.body.appendChild( portal );
+		return portal;
+	}
+
+	/** Say something to assistive technology without showing it. */
+	function announce( message, politeness ) {
+		var region = ensurePortal().querySelector( '[data-sw-ui-live="' + ( politeness === 'assertive' ? 'assertive' : 'polite' ) + '"]' );
+		if ( ! region ) {
+			return;
+		}
+		// Clearing first makes a repeated message announce again.
+		region.textContent = '';
+		window.setTimeout( function () {
+			region.textContent = String( message || '' );
+		}, 40 );
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Toasts: ephemeral confirmation, at most three, paused while pointed at or focused.
+	// -----------------------------------------------------------------------------------------------
+
+	var MAX_TOASTS = 3;
+
+	function dismissToast( toast ) {
+		if ( ! toast || ! toast.parentNode ) {
+			return;
+		}
+		window.clearTimeout( toast.swUiTimer );
+		var wait = motionOK() ? tokenMs( toast, '--sw-dur-exit', 120 ) : 0;
+		toast.setAttribute( 'data-state', 'leaving' );
+		window.setTimeout( function () {
+			if ( toast.parentNode ) {
+				toast.parentNode.removeChild( toast );
+			}
+		}, wait );
+	}
+
+	/**
+	 * Show a toast. options: { action: { label, onClick }, duration: ms, politeness }.
+	 * It lasts 5 seconds, or 8 when it carries an action, and is announced through the live region of the portal.
+	 */
+	function toast( message, options ) {
+		options = options || {};
+		var region = ensurePortal().querySelector( '[data-sw-ui-toasts]' );
+		while ( region.children.length >= MAX_TOASTS ) {
+			region.removeChild( region.firstChild );
+		}
+
+		var item = el( 'div', 'sw-ui-toast' );
+		item.appendChild( el( 'span', 'sw-ui-toast__text', String( message || '' ) ) );
+
+		var duration = typeof options.duration === 'number' ? options.duration : ( options.action ? 8000 : 5000 );
+		if ( options.action && options.action.label ) {
+			var button = el( 'button', 'sw-ui-btn sw-ui-btn--xs', options.action.label );
+			button.type = 'button';
+			button.addEventListener( 'click', function () {
+				if ( typeof options.action.onClick === 'function' ) {
+					options.action.onClick();
+				}
+				dismissToast( item );
+			} );
+			item.appendChild( button );
+		}
+
+		function arm() {
+			window.clearTimeout( item.swUiTimer );
+			item.swUiTimer = window.setTimeout( function () {
+				dismissToast( item );
+			}, duration );
+		}
+		item.addEventListener( 'mouseenter', function () {
+			window.clearTimeout( item.swUiTimer );
+		} );
+		item.addEventListener( 'focusin', function () {
+			window.clearTimeout( item.swUiTimer );
+		} );
+		item.addEventListener( 'mouseleave', arm );
+		item.addEventListener( 'focusout', arm );
+
+		region.appendChild( item );
+		arm();
+		return item;
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Copy
+	// -----------------------------------------------------------------------------------------------
+
+	function targetOf( selector ) {
+		if ( ! selector ) {
+			return null;
+		}
+		try {
+			return document.querySelector( selector );
+		} catch ( error ) {
+			return null;
+		}
+	}
+
+	function textOf( node ) {
+		if ( ! node ) {
+			return '';
+		}
+		return 'value' in node ? String( node.value || '' ) : String( node.textContent || '' );
+	}
+
+	function copyViaTextarea( value ) {
+		var area = el( 'textarea' );
+		area.value = value;
+		area.setAttribute( 'readonly', '' );
+		area.className = 'sw-ui-visually-hidden';
+		document.body.appendChild( area );
+		area.select();
+		var copied = false;
+		try {
+			copied = document.execCommand( 'copy' );
+		} catch ( error ) {
+			copied = false;
+		}
+		document.body.removeChild( area );
+		return copied;
+	}
+
+	/** Copy text. Resolves to true when it reached the clipboard. */
+	function copy( value ) {
+		value = String( value || '' );
+		if ( window.navigator.clipboard && window.navigator.clipboard.writeText ) {
+			return window.navigator.clipboard.writeText( value ).then( function () {
+				return true;
+			}, function () {
+				return copyViaTextarea( value );
+			} );
+		}
+		return Promise.resolve( copyViaTextarea( value ) );
+	}
+
+	function selectContents( node ) {
+		if ( ! node ) {
+			return;
+		}
+		if ( node.select ) {
+			node.select();
+			return;
+		}
+		if ( window.getSelection && document.createRange ) {
+			var range = document.createRange();
+			range.selectNodeContents( node );
+			var selection = window.getSelection();
+			selection.removeAllRanges();
+			selection.addRange( range );
+		}
+	}
+
+	function statusFor( button ) {
+		var named = targetOf( button.getAttribute( 'data-sw-ui-copy-status' ) );
+		if ( named ) {
+			return named;
+		}
+		var wrapper = button.closest ? button.closest( '.sw-ui-copy' ) : null;
+		return wrapper ? wrapper.querySelector( '.sw-ui-copy__status' ) : null;
+	}
+
+	function onCopyClick( button ) {
+		var source = targetOf( button.getAttribute( 'data-sw-ui-copy' ) );
+		var literal = button.getAttribute( 'data-sw-ui-copy-text' );
+		var value = literal !== null ? literal : textOf( source );
+		var status = statusFor( button );
+		if ( ! value ) {
+			return;
+		}
+
+		copy( value ).then( function ( copied ) {
+			window.clearTimeout( button.swUiCopyTimer );
+			if ( copied ) {
+				button.setAttribute( 'data-state', 'copied' );
+				if ( status ) {
+					status.textContent = button.getAttribute( 'data-sw-ui-copied-label' ) || 'Copied';
+				}
+				button.swUiCopyTimer = window.setTimeout( function () {
+					button.removeAttribute( 'data-state' );
+					if ( status ) {
+						status.textContent = '';
+					}
+				}, 1600 );
+				return;
+			}
+			// The clipboard is blocked: leave the text selected and say how to copy it.
+			selectContents( source );
+			if ( status ) {
+				status.textContent = button.getAttribute( 'data-sw-ui-copy-failed-label' ) || 'Press Ctrl+C';
+			}
+		} );
+	}
+
+	function onRevealClick( button ) {
+		var target = targetOf( button.getAttribute( 'data-sw-ui-reveal' ) );
+		if ( ! target ) {
+			return;
+		}
+		var shown = button.getAttribute( 'aria-pressed' ) === 'true';
+		if ( target.tagName === 'INPUT' ) {
+			target.type = shown ? 'password' : 'text';
+		} else {
+			target.hidden = shown;
+		}
+		button.setAttribute( 'aria-pressed', shown ? 'false' : 'true' );
+		var label = shown ? button.getAttribute( 'data-sw-ui-show-label' ) : button.getAttribute( 'data-sw-ui-hide-label' );
+		if ( label ) {
+			button.setAttribute( 'aria-label', label );
+			var text = button.querySelector( '[data-sw-ui-reveal-label]' );
+			if ( text ) {
+				text.textContent = label;
+			}
+		}
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Tabs (WAI-ARIA tabs pattern, automatic activation)
+	// -----------------------------------------------------------------------------------------------
+
+	function initTabList( list ) {
+		if ( list.getAttribute( 'data-sw-ui-tabs-ready' ) === '1' ) {
+			return;
+		}
+		list.setAttribute( 'data-sw-ui-tabs-ready', '1' );
+		var tabs = Array.prototype.slice.call( list.querySelectorAll( '[role="tab"]' ) );
+
+		function select( tab, focus ) {
+			tabs.forEach( function ( other ) {
+				var active = other === tab;
+				other.setAttribute( 'aria-selected', active ? 'true' : 'false' );
+				other.setAttribute( 'tabindex', active ? '0' : '-1' );
+				var panel = targetOf( '#' + other.getAttribute( 'aria-controls' ) );
+				if ( panel ) {
+					panel.hidden = ! active;
+				}
+			} );
+			if ( focus ) {
+				tab.focus();
+			}
+		}
+
+		tabs.forEach( function ( tab ) {
+			tab.addEventListener( 'click', function () {
+				select( tab, false );
+			} );
+		} );
+
+		list.addEventListener( 'keydown', function ( event ) {
+			var index = tabs.indexOf( document.activeElement );
+			if ( index < 0 ) {
+				return;
+			}
+			var rtl = window.getComputedStyle( list ).direction === 'rtl';
+			var next = null;
+			if ( event.key === 'ArrowRight' ) {
+				next = tabs[ ( index + ( rtl ? -1 : 1 ) + tabs.length ) % tabs.length ];
+			} else if ( event.key === 'ArrowLeft' ) {
+				next = tabs[ ( index + ( rtl ? 1 : -1 ) + tabs.length ) % tabs.length ];
+			} else if ( event.key === 'Home' ) {
+				next = tabs[ 0 ];
+			} else if ( event.key === 'End' ) {
+				next = tabs[ tabs.length - 1 ];
+			}
+			if ( next ) {
+				event.preventDefault();
+				select( next, true );
+			}
+		} );
+	}
+
+	function initTabs( scope ) {
+		Array.prototype.forEach.call( ( scope || document ).querySelectorAll( '[data-sw-ui-tabs]' ), initTabList );
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Disclosure memory: open or closed per browser, never required for the page to work.
+	// -----------------------------------------------------------------------------------------------
+
+	function storageKey( name ) {
+		return 'stonewright.ui.open.' + name;
+	}
+
+	function readOpen( name ) {
+		try {
+			return window.localStorage.getItem( storageKey( name ) );
+		} catch ( error ) {
+			return null;
+		}
+	}
+
+	function writeOpen( name, open ) {
+		try {
+			window.localStorage.setItem( storageKey( name ), open ? '1' : '0' );
+		} catch ( error ) {
+			/* Storage can be blocked or full; the disclosure still works. */
+		}
+	}
+
+	function initDisclosures( scope ) {
+		Array.prototype.forEach.call( ( scope || document ).querySelectorAll( 'details[data-sw-ui-remember]' ), function ( details ) {
+			if ( details.getAttribute( 'data-sw-ui-remember-ready' ) === '1' ) {
+				return;
+			}
+			details.setAttribute( 'data-sw-ui-remember-ready', '1' );
+			var name = details.getAttribute( 'data-sw-ui-remember' );
+			var stored = readOpen( name );
+			if ( stored === '1' ) {
+				details.open = true;
+			} else if ( stored === '0' ) {
+				details.open = false;
+			}
+			details.addEventListener( 'toggle', function () {
+				writeOpen( name, details.open );
+			} );
+		} );
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Dialogs
+	// -----------------------------------------------------------------------------------------------
+
+	function openDialog( dialog, opener ) {
+		if ( ! dialog ) {
+			return;
+		}
+		dialog.swUiOpener = opener || document.activeElement;
+		if ( typeof dialog.showModal === 'function' ) {
+			if ( ! dialog.open ) {
+				dialog.showModal();
+			}
+		} else {
+			dialog.setAttribute( 'open', '' );
+			dialog.setAttribute( 'role', 'dialog' );
+			dialog.setAttribute( 'aria-modal', 'true' );
+			var first = dialog.querySelector( '[autofocus], button, [href], input, select, textarea' );
+			if ( first ) {
+				first.focus();
+			}
+		}
+	}
+
+	function closeDialog( dialog ) {
+		if ( ! dialog ) {
+			return;
+		}
+		if ( typeof dialog.close === 'function' ) {
+			dialog.close();
+		} else {
+			dialog.removeAttribute( 'open' );
+			resetConfirmation( dialog );
+			returnFocus( dialog );
+		}
+	}
+
+	function returnFocus( dialog ) {
+		var opener = dialog.swUiOpener;
+		if ( opener && opener.focus && document.body.contains( opener ) ) {
+			opener.focus();
+		}
+	}
+
+	function onConfirmInput( input ) {
+		var dialog = input.closest ? input.closest( 'dialog' ) : null;
+		var scope = dialog || document;
+		var submit = scope.querySelector( '[data-sw-ui-confirm-submit]' );
+		if ( submit ) {
+			submit.disabled = input.value !== input.getAttribute( 'data-sw-ui-confirm-phrase' );
+		}
+	}
+
+	/** A confirmation typed in an earlier visit never carries over: closing the dialog clears it. */
+	function resetConfirmation( dialog ) {
+		Array.prototype.forEach.call( dialog.querySelectorAll( '[data-sw-ui-confirm-phrase]' ), function ( input ) {
+			input.value = '';
+			onConfirmInput( input );
+		} );
+	}
+
+	var FOCUSABLE = 'a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex]';
+
+	function tabStops( dialog ) {
+		return Array.prototype.filter.call( dialog.querySelectorAll( FOCUSABLE ), function ( node ) {
+			return ! node.disabled && node.tabIndex >= 0 && node.getClientRects().length > 0;
+		} );
+	}
+
+	/** Tab and Shift+Tab wrap inside an open dialog instead of leaving it for the browser's own controls. */
+	function onDialogTab( event ) {
+		if ( event.key !== 'Tab' || event.defaultPrevented ) {
+			return;
+		}
+		var dialog = event.target && event.target.closest ? event.target.closest( 'dialog.sw-ui-dialog' ) : null;
+		if ( ! dialog || ! dialog.open ) {
+			return;
+		}
+		var stops = tabStops( dialog );
+		if ( ! stops.length ) {
+			event.preventDefault();
+			return;
+		}
+		var first = stops[ 0 ];
+		var last = stops[ stops.length - 1 ];
+		if ( event.shiftKey && document.activeElement === first ) {
+			event.preventDefault();
+			last.focus();
+		} else if ( ! event.shiftKey && document.activeElement === last ) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Saved-row flash and inserted notices
+	// -----------------------------------------------------------------------------------------------
+
+	/** Tint an element for a moment after an inline save or toggle. No layout change. */
+	function flash( element ) {
+		if ( ! element ) {
+			return;
+		}
+		element.classList.remove( 'sw-ui-flash' );
+		// Reading a layout property restarts the animation when the class is added again.
+		void element.offsetWidth;
+		element.classList.add( 'sw-ui-flash' );
+		window.setTimeout( function () {
+			element.classList.remove( 'sw-ui-flash' );
+		}, motionOK() ? tokenMs( element, '--sw-dur-flash', 1200 ) : 0 );
+	}
+
+	var ICONS = { ok: 'check', warn: 'alert', danger: 'x', info: 'info' };
+
+	/**
+	 * Insert a notice made by script. It is announced, and it eases in because it was not there at load.
+	 * options: { variant: ok|warn|danger|info, title, text }. Resolves the element it inserted.
+	 */
+	function notify( container, options ) {
+		options = options || {};
+		var variant = ICONS[ options.variant ] ? options.variant : 'info';
+		var notice = el( 'div', 'sw-ui-notice sw-ui-notice--' + variant + ' sw-ui-notice--enter' );
+		notice.setAttribute( 'role', variant === 'warn' || variant === 'danger' ? 'alert' : 'status' );
+
+		var body = el( 'div' );
+		if ( options.title ) {
+			body.appendChild( el( 'div', 'sw-ui-notice__title', String( options.title ) ) );
+		}
+		if ( options.text ) {
+			body.appendChild( el( 'div', 'sw-ui-notice__text', String( options.text ) ) );
+		}
+		notice.appendChild( body );
+		notice.addEventListener( 'animationend', function () {
+			notice.classList.remove( 'sw-ui-notice--enter' );
+		} );
+		( container || document.body ).appendChild( notice );
+		return notice;
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Search shortcut
+	// -----------------------------------------------------------------------------------------------
+
+	function isEditable( node ) {
+		if ( ! node || node === document.body ) {
+			return false;
+		}
+		var tag = node.tagName;
+		return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable === true;
+	}
+
+	function onSearchShortcut( event ) {
+		if ( event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || isEditable( event.target ) ) {
+			return;
+		}
+		var field = document.querySelector( '[data-sw-ui-search]' );
+		if ( ! field || field.offsetParent === null ) {
+			return;
+		}
+		event.preventDefault();
+		field.focus();
+		if ( field.select ) {
+			field.select();
+		}
+	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Delegated events
+	// -----------------------------------------------------------------------------------------------
+
+	function init() {
+		initTabs( document );
+		initDisclosures( document );
+
+		document.addEventListener( 'click', function ( event ) {
+			var target = event.target && event.target.closest ? event.target : null;
+			if ( ! target ) {
+				return;
+			}
+			var copyButton = target.closest( '[data-sw-ui-copy]' );
+			if ( copyButton ) {
+				event.preventDefault();
+				onCopyClick( copyButton );
+				return;
+			}
+			var reveal = target.closest( '[data-sw-ui-reveal]' );
+			if ( reveal ) {
+				event.preventDefault();
+				onRevealClick( reveal );
+				return;
+			}
+			var opener = target.closest( '[data-sw-ui-dialog-open]' );
+			if ( opener ) {
+				event.preventDefault();
+				openDialog( targetOf( opener.getAttribute( 'data-sw-ui-dialog-open' ) ), opener );
+				return;
+			}
+			var closer = target.closest( '[data-sw-ui-dialog-close]' );
+			if ( closer ) {
+				event.preventDefault();
+				closeDialog( closer.closest( 'dialog' ) );
+				return;
+			}
+			// A click on the backdrop of a dialog that allows it closes the dialog.
+			if ( target.tagName === 'DIALOG' && target.hasAttribute( 'data-sw-ui-light-dismiss' ) ) {
+				closeDialog( target );
+			}
+		} );
+
+		document.addEventListener( 'input', function ( event ) {
+			if ( event.target && event.target.hasAttribute && event.target.hasAttribute( 'data-sw-ui-confirm-phrase' ) ) {
+				onConfirmInput( event.target );
+			}
+		} );
+
+		// close fires on the dialog itself and does not bubble, so it is captured.
+		document.addEventListener( 'close', function ( event ) {
+			if ( event.target && event.target.tagName === 'DIALOG' && event.target.classList.contains( 'sw-ui-dialog' ) ) {
+				resetConfirmation( event.target );
+				returnFocus( event.target );
+			}
+		}, true );
+
+		document.addEventListener( 'keydown', onSearchShortcut );
+		document.addEventListener( 'keydown', onDialogTab );
+	}
+
+	root.ui = {
+		version: '1',
+		motionOK: motionOK,
+		scrollTo: scrollToElement,
+		announce: announce,
+		toast: toast,
+		copy: copy,
+		flash: flash,
+		notify: notify,
+		openDialog: openDialog,
+		closeDialog: closeDialog,
+		initTabs: initTabs,
+		initDisclosures: initDisclosures,
+	};
+
+	ready( init );
+}() );

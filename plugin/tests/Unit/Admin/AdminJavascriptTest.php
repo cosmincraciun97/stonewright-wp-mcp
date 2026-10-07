@@ -28,6 +28,49 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringNotContainsString( 'Copy failed', $body );
 	}
 
+	public function test_notices_are_never_removed_on_a_timer(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		// An error from another plugin or a core "Settings saved" must stay until it is dismissed (WCAG 2.2.1).
+		self::assertStringNotContainsString( 'initAutoDismissNotices', $script );
+		self::assertStringNotContainsString( 'is-dismissible', $script );
+		self::assertStringNotContainsString( 'removeChild( notice )', $script );
+		self::assertStringNotContainsString( "style.transition = 'opacity", $script );
+	}
+
+	/** The body of one function of shell.js, so the checks below read that function and nothing else. */
+	private static function shell_function( string $name ): string {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$start  = strpos( $script, 'function ' . $name . '(' );
+		self::assertNotFalse( $start, $name . ' must exist in shell.js' );
+		$next = strpos( $script, "\n\tfunction ", (int) $start + 10 );
+
+		return substr( $script, (int) $start, false === $next ? null : $next - (int) $start );
+	}
+
+	public function test_the_shell_only_relocates_notices_wordpress_printed(): void {
+		$body = self::shell_function( 'isForeignNotice' );
+
+		// Everything the plugin renders, and every class the plugin owns, is excluded.
+		self::assertStringContainsString( '.sw-shell__content', $body );
+		self::assertStringContainsString( '.sw-notice-drawer', $body );
+		self::assertMatchesRegularExpression( '/\(sw\|stonewright\)-/', $body, 'sw-* and stonewright-* classes mark plugin content wherever they sit in the class list.' );
+		// Only WordPress notice classes count; matching on any class that merely contains "notice" caught plugin markup.
+		self::assertStringNotContainsString( '/notice/i', $body );
+		self::assertStringContainsString( '.notice, .updated, .error, .update-nag', $body );
+
+		$collect = self::shell_function( 'collectForeignNotices' );
+		self::assertStringNotContainsString( '[class*="notice"]', $collect );
+	}
+
+	public function test_the_shell_offset_counts_only_chrome_that_stays_fixed(): void {
+		$body = self::shell_function( 'updateShellOffset' );
+
+		// The header scrolls with the page, so only the admin bar is fixed above the content.
+		self::assertStringContainsString( 'wpadminbar', $body );
+		self::assertStringNotContainsString( 'sw-shell__header', $body );
+	}
+
 	public function test_declarative_button_handlers_prevent_default_form_submission(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

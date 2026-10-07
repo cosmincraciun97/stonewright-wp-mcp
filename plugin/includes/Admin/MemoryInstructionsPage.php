@@ -182,16 +182,19 @@ final class MemoryInstructionsPage {
 							<?php esc_html_e( 'Enable custom instructions', 'stonewright' ); ?>
 						</label>
 					</p>
-					<p class="description"><?php esc_html_e( 'Use for a short baseline rule set that should always be visible to connected agents. Keep larger procedures as skills instead.', 'stonewright' ); ?></p>
+					<p class="description" id="stonewright-custom-instructions-help"><?php esc_html_e( 'Use for a short baseline rule set that should always be visible to connected agents. Keep larger procedures as skills instead.', 'stonewright' ); ?></p>
 					<p>
+						<label class="screen-reader-text" for="stonewright_custom_instructions"><?php esc_html_e( 'Custom instructions', 'stonewright' ); ?></label>
 						<textarea
+							id="stonewright_custom_instructions"
 							name="stonewright_custom_instructions"
 							rows="10"
 							class="large-text code"
 							maxlength="4000"
+							aria-describedby="stonewright-custom-instructions-help stonewright-custom-instructions-limit"
 						><?php echo esc_textarea( $instructions ); ?></textarea>
 					</p>
-					<p class="description"><?php esc_html_e( 'Up to 4000 characters. Shorter instructions keep discovery faster and cheaper.', 'stonewright' ); ?></p>
+					<p class="description" id="stonewright-custom-instructions-limit"><?php esc_html_e( 'Up to 4000 characters. Shorter instructions keep discovery faster and cheaper.', 'stonewright' ); ?></p>
 					<div class="sw-actions">
 						<?php submit_button( __( 'Save instructions', 'stonewright' ), 'primary', 'submit', false ); ?>
 					</div>

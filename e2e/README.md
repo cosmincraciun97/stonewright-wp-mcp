@@ -5,13 +5,59 @@ and the `e2e:admin-ui` CI job.
 
 ## What it checks
 
-For each Stonewright admin page (Dashboard, Setup, AI Abilities, Blueprints,
-Sandbox, Skills, Memory, Audit Log):
+For each Stonewright admin page in `tests/helpers/admin-pages.ts` (Dashboard,
+Setup, AI Abilities, Prompts, Code Approval, Sandbox, Skills, Memory, Audit Log,
+Troubleshoot, Context, Design):
 
 - HTTP status &lt; 400
 - No horizontal overflow (`scrollWidth - clientWidth <= 0`)
 - No product console errors
+- No serious or critical axe finding (WCAG 2.0, 2.1 and 2.2 level A and AA) at
+  1440 and 390 px, apart from the rule ids in the page's allowance
 - Screenshot archived under `artifacts/` (gitignored)
+
+### UI contract (`tests/ui-contract.spec.ts`)
+
+The contract has two parts.
+
+**The component sheet** (`plugin/tests/fixtures/admin-ui/component-sheet.html`) is a page
+rendered from the PHP helpers in `plugin/includes/Admin/Ui/`, loaded next to the
+legacy shell stylesheets. It needs no WordPress login: the page and the stylesheets
+and script of the shared UI layer are served from the repository through request
+interception. At every viewport it must have no overflow, no text under 12px, no
+target under 24px, no duplicate id, every control and field named, no axe finding of
+any impact (also with each dialog and drawer open), stacking tables below 783px,
+and 40px or larger controls at 782px and below. Once, at 1440px, it checks the
+behaviour: tabs, dialogs (safe action focused, Tab wraps, Escape returns focus, a typed
+confirmation is cleared on close), the drawer, copy, secret reveal, remembered
+disclosures, the `/` shortcut, toasts and inserted notices, a visible 2px focus ring on
+every control, the accent contrast in all nine WordPress colour schemes (the current
+palette and the brighter one earlier releases carried), reduced motion (no animation or
+transition runs), forced colours (borders, icons and a highlighted selection survive),
+no transition over 240ms, and that no rule of the layer reaches markup outside `.sw-ui`.
+
+After changing a helper, regenerate the sheet and run the sheet tests locally:
+
+```bash
+(cd ../plugin && STONEWRIGHT_UPDATE_FIXTURES=1 composer test -- --filter ComponentSheetSnapshotTest)
+WP_BASE_URL=http://127.0.0.1:8888 npx playwright test ui-contract.spec.ts --grep "UI layer on the component sheet"
+```
+
+(`WP_BASE_URL` only has to answer the setup check; the sheet tests do not use it.)
+
+**The pages** are measured with the probe in `tests/helpers/ui-probe.ts` at 1440 and
+390px: the first h1 starts within the budget, sticky chrome covers at most 25% of the
+viewport, no plugin-owned notice sits in the "other WordPress notices" drawer, every
+primary button is painted with the accent fill, no unnamed control, no unlabelled
+field, and counts of text under 12px, targets under 24px and repeated ids that stay
+within the page's allowance.
+
+`tests/helpers/ui-budget.ts` holds those allowances. They only go down: when a page
+adopts the shared UI layer, delete its entry. A page with no entry has no allowance
+beyond the navigation chrome the shell prints. A run that measures less than an
+allowance adds an `allowance-unused` annotation to the report so the entry is not
+forgotten; axe rule ids in an allowance that are no longer reported add an
+`axe-allowance-unused` annotation.
 
 Projects cover the supported light theme at five viewports:
 

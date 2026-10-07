@@ -182,6 +182,20 @@
 - Add `wp stonewright rescue status` and `wp stonewright rescue rollback
   <incident>`. In production-safe mode the rollback needs a confirmation token
   (`--issue-token`).
+- Add a shared admin UI layer. `assets/admin/sw-ui.css` and `sw-ui.js` hold the
+  design tokens, the components (buttons, badges, tags, notices, callouts,
+  toasts, tables, tabs, hub navigation, dialogs, drawers, copy fields, switches,
+  forms, empty states, skeletons, disclosures, and a lineage list), and their
+  behaviour. Everything applies inside an element with the class `sw-ui`, so a
+  page that has not adopted the layer looks as it did. The accent follows the
+  user's WordPress admin colour scheme, with a darker text colour for schemes
+  whose accent is too light to read on white; animations change only opacity
+  and transform for 100 to 240 ms and stop when the user asks for reduced
+  motion. The Stonewright admin styles and scripts depend on the layer, so it
+  loads first.
+- Add PHP helpers under `includes/Admin/Ui/` that print the markup of those
+  components with escaped text: buttons, badges, notices, copy fields, fact
+  lists, tables, empty states, cards, page headers, and icons.
 
 ### Changed
 
@@ -275,6 +289,25 @@
   `skipped`) and `incident_id`; `theme_write_smoke_failed` keeps its code and
   carries the probe evidence. A theme-file write reports `verified` and
   `effect_verified` only when that check passed, and `unverified` otherwise.
+- Keep Stonewright's own notices where its pages print them. Only notices from
+  WordPress core and other plugins move into the collapsed "Other WordPress
+  notices" drawer, so the Code approval warning and guidance, the Setup mode
+  and bridge callouts, and the Memory explainer stay visible. A notice no
+  longer removes itself after five seconds.
+- Start the first heading nearer the top of every Stonewright page: at 256 px
+  instead of 400 px on a 1440 px screen (298 px instead of 496 px at 782 px,
+  390 px instead of 680 px at 400 px). The header scrolls with the page and the
+  notice drawer sits 12 px below it.
+- Show the Companion bridge on the Dashboard as a state ("Not used",
+  "Configured", or "Needs attention") with its host and port, not the stored
+  URL.
+- Draw the admin bar ON indicator in green with a dot. Name each switch on AI
+  Abilities after its ability, label the bulk action and category selects, and
+  give the Custom instructions field on Memory a label, with its guidance and
+  limit as descriptions.
+- Set badge text at 12 px in sentence case instead of 10 px in capitals, and
+  darken the muted text colour and the border of form controls so they meet
+  4.5:1 and 3:1.
 
 ### Fixed
 
@@ -465,6 +498,15 @@
   and property to the live handle and checks the same writes as before.
 - Make the pattern of the Sandbox file name field valid in current browsers and
   equal to the server-side file name rule.
+- Fix primary submit buttons on Stonewright pages (Save Settings and the other
+  `input[type=submit].button-primary` buttons) rendering as secondary buttons.
+- Fix the AI Abilities filter bar: it sticks directly under the admin bar from
+  783 px up, and the search field stays 40 px tall at 400 px wide instead of
+  growing to 160 px.
+- Show the port of an OAuth callback on the consent screen, so "Returns you to"
+  reads `http://127.0.0.1:7999` and not `http://127.0.0.1`.
+- Show code inside a `pre` block as the block's own text, not as a chip inside
+  the block.
 
 ### Security
 
