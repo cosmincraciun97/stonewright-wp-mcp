@@ -426,7 +426,7 @@ final class SandboxLibraryPage {
 	 * @param string $file Validated basename.
 	 */
 	private static function render_editor( string $file ): void {
-		$path  = SandboxFiles::draft_dir() . '/' . $file;
+		$path  = SandboxFiles::stored_path( $file );
 		$mode  = get_option( 'stonewright_mode', 'development' );
 		$prod  = 'production-safe' === $mode;
 
@@ -528,10 +528,9 @@ final class SandboxLibraryPage {
 	 * @param string $file Validated basename.
 	 */
 	private static function render_diff( string $file ): void {
-		$draft_dir    = SandboxFiles::draft_dir();
-		$active_path  = $draft_dir . '/' . $file;
+		$active_path  = SandboxFiles::stored_path( $file );
 		$pending_ext  = preg_replace( '/\.php$/', '.pending.php', $file );
-		$pending_path = $draft_dir . '/' . $pending_ext;
+		$pending_path = SandboxFiles::stored_path( (string) $pending_ext );
 
 		$left_label  = __( 'Current Draft', 'stonewright' );
 		$right_label = __( 'Pending Version', 'stonewright' );
@@ -845,7 +844,7 @@ final class SandboxLibraryPage {
 			wp_die( esc_html( $validated->get_error_message() ) );
 		}
 
-		$full_path = SandboxFiles::draft_dir() . '/' . $file;
+		$full_path = SandboxFiles::stored_path( $file );
 		$max_bytes = 262144;
 		$size      = @filesize( $full_path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 
@@ -1028,7 +1027,7 @@ final class SandboxLibraryPage {
 
 		// Optimistic-lock / conflict detection: re-hash the current disk content
 		// and compare against the hash the form captured at render time.
-		$path         = SandboxFiles::draft_dir() . '/' . $name;
+		$path         = SandboxFiles::stored_path( $name );
 		$file_existed = file_exists( $path );
 		$disk_content = $file_existed ? (string) file_get_contents( $path ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		$disk_hash    = $file_existed ? substr( hash( 'sha256', $disk_content ), 0, 16 ) : '';
@@ -1312,7 +1311,7 @@ final class SandboxLibraryPage {
 		}
 
 		$sandbox_dir = SandboxFiles::draft_dir();
-		$candidate   = $sandbox_dir . '/' . $name;
+		$candidate   = SandboxFiles::stored_path( $name );
 		$real_dir    = realpath( $sandbox_dir );
 
 		if ( false === $real_dir ) {

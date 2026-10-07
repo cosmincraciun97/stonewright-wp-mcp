@@ -125,8 +125,12 @@ port `8765`.
 
 Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
 HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
-Click **Generate token**, save settings, then copy **Developer launch values**
-into the bridge process. The bridge token must match the saved token.
+Click **Generate token**, copy the token or the **Developer launch values**
+before leaving the page, then save settings. A saved bridge token is never shown
+again: the field stays empty with a "stored" note, saving with an empty field
+keeps it, and **Remove the stored value when saving** clears it. Until a new
+token is generated the launch values show a placeholder. The bridge token must
+match the saved token.
 
 For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
 stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or

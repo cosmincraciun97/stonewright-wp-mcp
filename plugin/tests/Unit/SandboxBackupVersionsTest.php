@@ -44,8 +44,8 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 		// Clean up test files.
 		$patterns = [
-			$this->sandbox_dir . '/backup-test-*.php',
-			$this->sandbox_dir . '/backup-test-*.php.*.bak.php',
+			$this->sandbox_dir . '/backup-test-*.draft',
+			$this->sandbox_dir . '/backup-test-*.bak',
 		];
 		foreach ( $patterns as $pattern ) {
 			$files = glob( $pattern );
@@ -90,7 +90,7 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_write_creates_backup_of_existing_file(): void {
 		$name = 'backup-test-create.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		// Write initial content.
 		file_put_contents( $path, "<?php\n// v1\n" );
@@ -108,7 +108,7 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_write_does_not_create_backup_for_new_file(): void {
 		$name = 'backup-test-new.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 		if ( file_exists( $path ) ) {
 			unlink( $path );
 		}
@@ -121,13 +121,13 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_backup_versions_sorted_newest_first(): void {
 		$name = 'backup-test-sorted.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		$ts1 = time() - 200;
 		$ts2 = time() - 100;
 
-		file_put_contents( $path . '.' . $ts1 . '.bak.php', "<?php\n// old\n" );
-		file_put_contents( $path . '.' . $ts2 . '.bak.php', "<?php\n// newer\n" );
+		file_put_contents( $this->sandbox_dir . '/backup-test-sorted.' . $ts1 . '.bak', "<?php\n// old\n" );
+		file_put_contents( $this->sandbox_dir . '/backup-test-sorted.' . $ts2 . '.bak', "<?php\n// newer\n" );
 
 		$versions = SandboxFiles::backup_versions( $name );
 
@@ -141,7 +141,7 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_write_multiple_times_creates_multiple_backups(): void {
 		$name = 'backup-test-multi.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		file_put_contents( $path, "<?php\n// v1\n" );
 		SandboxFiles::write( $name, "<?php\n// v2\n" );
@@ -157,7 +157,7 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_rollback_replaces_content_with_backup(): void {
 		$name = 'backup-test-rollback.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		// Write v1.
 		file_put_contents( $path, "<?php\n// v1-rollback-target\n" );
@@ -190,13 +190,13 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_rollback_with_unsafe_backup_content_is_blocked(): void {
 		$name = 'backup-test-unsafe-rb.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		file_put_contents( $path, "<?php\n// safe\n" );
 
 		// Manually create a backup with unsafe content.
 		$ts          = time() - 50;
-		$backup_path = $path . '.' . $ts . '.bak.php';
+		$backup_path = $this->sandbox_dir . '/backup-test-unsafe-rb.' . $ts . '.bak';
 		file_put_contents( $backup_path, "<?php\nev" . "al(\$x);\n" );
 
 		$result = $this->call_do_rollback( $name, false, '', $ts );
@@ -214,7 +214,7 @@ final class SandboxBackupVersionsTest extends TestCase {
 
 	public function test_rollback_with_nonexistent_timestamp_returns_error(): void {
 		$name = 'backup-test-nots.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 		file_put_contents( $path, "<?php\n// content\n" );
 
 		$result = $this->call_do_rollback( $name, false, '', 999 );

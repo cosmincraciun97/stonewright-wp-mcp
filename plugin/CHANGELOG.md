@@ -165,6 +165,22 @@
 - Show success, error, warning, and info notices on Stonewright pages in their
   status colour, and widen the Audit Log user column so a login name stays on
   one line on a wide screen.
+- Store sandbox drafts and their backups without a PHP extension (`name.draft`
+  and `name.<time>.bak`) so no web server can run them, remove a draft's
+  backups together with the draft, and rename drafts and backups written by
+  earlier versions the first time the folder is used after the update. Files
+  that cannot take their new name, and any other file in the folder that a web
+  server could run as PHP, are renamed to `.quarantined` and never overwritten
+  or deleted. The folder guard now denies every request on Apache 2.4
+  (`Require all denied`), Apache 2.2 and IIS, and its index file stops at once
+  outside WordPress.
+- Let `stonewright/php-execute` run `esc_sql()`, `wp_count_posts()`,
+  `get_posts()` and every other call that needs the database handle's own
+  escaping and query code on sites that use a database driver with its own
+  `wpdb` subclass, such as SQLite. The guarded handle now forwards every method
+  and property to the live handle and checks the same writes as before.
+- Make the pattern of the Sandbox file name field valid in current browsers and
+  equal to the server-side file name rule.
 
 ### Security
 
@@ -201,6 +217,19 @@
   reading the request body, and stop auditing the browser's claim polling as a
   write. REST audit rows summarize `html` and any string longer than 512 bytes,
   and cut parameter names longer than 96 bytes.
+- Keep sandbox drafts and backups from running as PHP when a web server that
+  ignores `.htaccess` (nginx, IIS, PHP's built-in server) is asked for them by
+  URL: they no longer carry a PHP extension, and a deleted draft no longer
+  leaves a backup behind.
+- Write the activated copy of a sandbox draft with `defined( 'ABSPATH' ) || exit;`
+  as its first statement, after any leading `declare` and `namespace`
+  statements, so an active sandbox file stops at once when a web server runs it
+  outside WordPress. The static analysis gate and the other activation checks
+  are unchanged.
+- Stop writing stored Unsplash and Pexels API keys and the bridge token into the
+  Setup page. The fields stay empty and show that a value is stored, the bridge
+  launch values use a placeholder, saving an empty field keeps the stored value,
+  a new value replaces it, and a checkbox removes it.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

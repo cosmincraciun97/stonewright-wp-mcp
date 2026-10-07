@@ -75,7 +75,7 @@ final class WidgetList extends AbilityKernel {
 			if ( '' === $slug ) {
 				continue;
 			}
-			$active_file = $draft_dir . '/widget-' . $slug . '.php';
+			$active_file = SandboxFiles::stored_path( 'widget-' . $slug . '.php' );
 			$seen_slugs[ $slug ] = true;
 
 			$widgets[] = [
@@ -87,11 +87,11 @@ final class WidgetList extends AbilityKernel {
 		}
 
 		// 2. Pending files not yet in the registry.
-		$pending_files = glob( $draft_dir . '/widget-*.pending.php' );
+		$pending_files = glob( $draft_dir . '/widget-*.pending.' . SandboxFiles::DRAFT_EXTENSION );
 		if ( false !== $pending_files ) {
 			foreach ( $pending_files as $path ) {
-				$base = basename( $path ); // widget-foo.pending.php
-				if ( ! preg_match( '/^widget-([a-z][a-z0-9_-]{2,40})\.pending\.php$/', $base, $m ) ) {
+				$base = basename( $path ); // widget-foo.pending.draft
+				if ( ! preg_match( '/^widget-([a-z][a-z0-9_-]{2,40})\.pending\.' . SandboxFiles::DRAFT_EXTENSION . '$/', $base, $m ) ) {
 					continue;
 				}
 				$slug = $m[1];
