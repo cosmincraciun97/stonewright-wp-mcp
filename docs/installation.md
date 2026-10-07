@@ -71,7 +71,9 @@ MCP tools for WordPress work instead of shelling out to `wp ...`.
 
 Deleting the plugin from **Plugins** keeps its data: OAuth grants and keys,
 memory, skills, audit history, and settings stay in the database for a
-reinstall or a rollback. To remove all of it, define
+reinstall or a rollback. Deleting the plugin always removes the rescue helper it
+installed in `wp-content/mu-plugins/`; deactivating it leaves the helper in
+place, where it does nothing. To remove all of it, define
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin. What that
 removes, and how to roll back, is in
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).

@@ -244,8 +244,11 @@ grants and keys, memory, skills, audit history, and settings as they were. Only
 defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
 every plugin table, every `stonewright_` option (the OAuth keys included),
 every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up
-and audit retention events, on every site of a network. See
+and audit retention events, on every site of a network, and the change journal
+files in `uploads/stonewright-state/`. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
+The rescue helper in `wp-content/mu-plugins/` is code, not data, and deleting the
+plugin always removes it.
 
 Memory, user-created skills, and audit payloads reject or redact credential
 material before persistence. Plugin mode stores site state in WordPress. Direct
@@ -290,6 +293,18 @@ real `wpdb` subclass (`ProtectedWpdbProxy extends wpdb`): it copies the live
 connection and table prefix, intercepts `query()` as the write choke point, and
 restores the original global in `finally`. Compatibility does not weaken the
 guard. See [php-execute runtime guards](security.md#php-execute-runtime-guards).
+
+### Rescue
+
+Risky writes run inside a frame. `AbilityKernel` opens a `RescueGuard` frame around every audited ability and closes it before the audit row is written, so the row records the final outcome.
+
+1. A write site arms a change set in `ChangeJournal` before it changes anything. Post and option snapshots arm themselves in `Backup`, and the plugin, sandbox, custom-code, and theme-file writes make one call each. A write made outside an ability call is not journaled, because nothing would settle it.
+2. When the ability returns, the guard checks whether the call changed what it guarded and runs one `HealthProbe` for everything the call changed. The probe's `admin` leg loads the Rescue page through `ProbeToken`, a single-use internal header token that signs the loopback request in for that request only.
+3. Each entry settles as `verified`, stays `armed` when the probe is unavailable, or is rolled back through `RollbackRecipes`, probed again, and marked `rolled_back` (or `rollback_failed`, which is an open incident).
+4. A failed check turns the result into a `WP_Error` (`stonewright_rescue_write_rolled_back` or `stonewright_rescue_rollback_failed`) whose message and data carry the compact evidence, because a client that only reads the message must still see it.
+5. `ChangeJournal` keeps two copies in step under one critical section: a compact file in `uploads/stonewright-state/` that the rescue MU-plugin and WP-CLI read without the plugin, and a database option with the detail the file never holds. `AgentNotices` carries the open incident to agents as `pending_incident` on every ability response, and `AbilityRegistry` adds the two Rescue abilities to the tool list while one is open.
+
+See [Rescue](rescue.md) for the journal format, the probe, and the limits.
 
 ### Audit error codes
 

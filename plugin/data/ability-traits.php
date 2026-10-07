@@ -309,6 +309,8 @@ return [
 	'stonewright/post-revision-get' => [ 'write' => false, 'external' => false ],
 	'stonewright/post-revision-list' => [ 'write' => false, 'external' => false ],
 	'stonewright/post-revision-restore' => [ 'write' => true, 'external' => false ],
+	'stonewright/rescue-rollback' => [ 'write' => true, 'external' => false ],
+	'stonewright/rescue-status' => [ 'write' => false, 'external' => false ],
 	'stonewright/rules-get' => [ 'write' => false, 'external' => false ],
 	'stonewright/sandbox-activate' => [ 'write' => true, 'external' => false ],
 	'stonewright/sandbox-deactivate' => [ 'write' => true, 'external' => false ],

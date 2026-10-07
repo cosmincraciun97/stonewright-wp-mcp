@@ -39,6 +39,101 @@ final class UninstallerTest extends TestCase {
 		StorageRig::reset_globals();
 	}
 
+	public function test_remove_code_deletes_the_rescue_helper_and_nothing_else(): void {
+		$dir = WP_CONTENT_DIR . '/mu-plugins';
+		if ( ! is_dir( $dir ) ) {
+			mkdir( $dir, 0777, true );
+		}
+		file_put_contents( $dir . '/stonewright-rescue.php', "<?php\n// @stonewright-rescue-mu\n" );
+		file_put_contents( $dir . '/another-plugin.php', "<?php\n" );
+
+		try {
+			self::assertTrue( Uninstaller::remove_code() );
+			self::assertFileDoesNotExist( $dir . '/stonewright-rescue.php' );
+			self::assertFileExists( $dir . '/another-plugin.php' );
+		} finally {
+			@unlink( $dir . '/another-plugin.php' );
+			@unlink( $dir . '/stonewright-rescue.php' );
+		}
+	}
+
+	/**
+	 * A test site whose uploads folder holds a journal file with its lock and the files that close the folder.
+	 *
+	 * @return array{0:string,1:string} The uploads folder and the state folder inside it.
+	 */
+	private static function site_with_state_files(): array {
+		$uploads = sys_get_temp_dir() . '/sw-uninstall-' . bin2hex( random_bytes( 5 ) );
+		$state   = $uploads . '/stonewright-state';
+		mkdir( $state, 0777, true );
+		$journal = $state . '/journal-' . str_repeat( 'a1', 16 ) . '.json';
+		file_put_contents( $journal, '{"version":1,"updated_at":0,"entries":[]}' );
+		file_put_contents( $journal . '.lock', '' );
+		file_put_contents( $state . '/.htaccess', 'Require all denied' );
+		file_put_contents( $state . '/index.php', "<?php\n// Silence is golden.\n" );
+		$GLOBALS['stonewright_test_upload_dir'] = [
+			'basedir' => $uploads,
+			'baseurl' => 'https://example.test/wp-content/uploads',
+			'error'   => false,
+		];
+		return [ $uploads, $state ];
+	}
+
+	private static function remove_tree( string $path ): void {
+		unset( $GLOBALS['stonewright_test_upload_dir'] );
+		if ( ! is_dir( $path ) ) {
+			return;
+		}
+		foreach ( scandir( $path ) ?: [] as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+			is_dir( $path . '/' . $item ) ? self::remove_tree( $path . '/' . $item ) : @unlink( $path . '/' . $item );
+		}
+		@rmdir( $path );
+	}
+
+	public function test_a_full_removal_erases_the_journal_files_of_the_site(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		$wpdb                = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertDirectoryDoesNotExist( $state, 'the journal file, its lock and the files that close the folder are gone' );
+			self::assertDirectoryExists( $uploads, 'the uploads folder itself stays' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_a_full_removal_leaves_a_file_in_the_state_folder_that_is_not_the_journal(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		file_put_contents( $state . '/notes.txt', 'put here by someone else' );
+		$wpdb = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertFileExists( $state . '/notes.txt' );
+			self::assertSame( [], glob( $state . '/journal-*' ) ?: [], 'the journal files are gone' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_removing_only_the_code_keeps_the_journal_files(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+
+		try {
+			Uninstaller::remove_code();
+
+			self::assertCount( 2, glob( $state . '/journal-*' ) ?: [], 'the journal and its lock are data and stay' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
 	public function test_removal_is_not_requested_without_the_constant(): void {
 		self::assertFalse( Uninstaller::requested() );
 	}

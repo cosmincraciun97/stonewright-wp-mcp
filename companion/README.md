@@ -302,6 +302,33 @@ runs require a fresh one-use plan approved with its SHA-256. Exit codes: 0 =
 verified success, 1 = failure, 2 = approval required. Recipes need a local
 WordPress root bound with `stonewright connect add|repair --wp-root <path>`.
 
+### Rescue (local WP-CLI)
+
+List and roll back a Stonewright rescue incident on a site that has a local
+WordPress root, also when another plugin or the theme stops the site from
+loading:
+
+```text
+stonewright rescue status [--site <alias>] [--user <login|id>] [--json]
+stonewright rescue rollback <incident> [--site <alias>] [--user <login|id>] [--json]
+stonewright rescue rollback <incident> --issue-token [--site <alias>] [--user <login|id>]
+stonewright rescue rollback <incident> --token <confirmation token> [--site <alias>] [--user <login|id>]
+```
+
+The command runs the plugin's `wp stonewright rescue status|rollback` with
+`--skip-plugins=<every active plugin but Stonewright>` and `--skip-themes`. It
+reads the active plugins first with `wp option get active_plugins` (all plugins
+skipped), and refuses a plugin name that cannot be passed safely. Every process
+starts through the tokenized WP-CLI runner (`execFile`, argv tokens, no shell);
+there is no eval, shell, `--exec` or `--require` path, and the incident id, the
+user and the token are checked against strict patterns before anything runs.
+`--user` defaults to the user saved for the site. In production-safe mode the
+rollback needs a confirmation token: run it with `--issue-token`, then run it
+again with `--token`. The token goes to WP-CLI in the environment variable
+`STONEWRIGHT_CONFIRMATION_TOKEN`, never as an argument. Exit codes: 0 = done,
+1 = failed, 2 = a confirmation token is required. Each run writes one local
+audit row without arguments, token or output.
+
 ### Doctor (connection health)
 
 ```bash

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\PluginsManage;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Activates an installed plugin.
@@ -77,6 +78,7 @@ final class PluginActivate extends AbilityKernel {
 			static function ( array $args ) {
 				require_once ABSPATH . 'wp-admin/includes/plugin.php';
 				$plugin = (string) $args['plugin'];
+				RescueGuard::arm_plugin_write( $plugin, is_plugin_active( $plugin ) );
 				$result = activate_plugin( $plugin );
 				if ( is_wp_error( $result ) ) {
 					return $result;

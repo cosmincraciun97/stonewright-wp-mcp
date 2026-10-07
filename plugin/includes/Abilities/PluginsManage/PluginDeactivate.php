@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\PluginsManage;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Deactivates a plugin (cannot deactivate Stonewright itself).
@@ -74,6 +75,7 @@ final class PluginDeactivate extends AbilityKernel {
 				if ( str_contains( $plugin, 'stonewright' ) ) {
 					return new \WP_Error( 'stonewright_self_protection', 'Cannot deactivate Stonewright from itself.' );
 				}
+				RescueGuard::arm_plugin_write( $plugin, is_plugin_active( $plugin ) );
 				deactivate_plugins( $plugin );
 				return [
 					'plugin' => $plugin,

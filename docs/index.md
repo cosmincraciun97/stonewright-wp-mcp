@@ -25,6 +25,7 @@ workflows with operator controls.
 - [Elementor transactions + connection verify](transactions.md)
 - [Native planner evidence policy](design-evidence-native-planner.md)
 - [Security model](security.md)
+- [Rescue: recover from a change that breaks the site](rescue.md)
 - [Companion](companion.md)
 - [Skill packs](skills.md)
 - [Plugin specializations](specializations.md)
@@ -51,6 +52,7 @@ workflows with operator controls.
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
+| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, and its limits |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

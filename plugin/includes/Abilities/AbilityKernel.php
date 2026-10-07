@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -115,6 +116,7 @@ abstract class AbilityKernel implements Ability {
 			'ability' => $this->name(),
 			'details' => [],
 		];
+		RescueGuard::enter( $this->name() );
 		try {
 			$result = $callback( $args );
 		} catch ( \Throwable $_throwable ) {
@@ -128,6 +130,8 @@ abstract class AbilityKernel implements Ability {
 				]
 			);
 		}
+		// Probe what the call armed before the audit row is written, so the row records the outcome.
+		$result   = RescueGuard::leave( $result );
 		$finished = array_pop( self::$audited_calls );
 		$elementor_receipt = \Stonewright\WpMcp\Support\ElementorData::last_elementor_write_receipt();
 		if ( $result instanceof \WP_Error && [] !== $elementor_receipt ) {

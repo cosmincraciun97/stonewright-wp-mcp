@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T02:43:02+00:00",
+    "generated_at": "2026-10-07T02:54:47+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -5955,6 +5955,46 @@
                 "readonly": false,
                 "destructive": true,
                 "idempotent": false,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/rescue-rollback",
+            "mcp_name": "stonewright-rescue-rollback",
+            "kind": "Write",
+            "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
+            "output_schema_hash": "a2b14b69865cc50d5e5c1b1f7759aaf65b7d4c7243fb315eac71491ed9e39c2d",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/rescue-status",
+            "mcp_name": "stonewright-rescue-status",
+            "kind": "Read",
+            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
+            "output_schema_hash": "5c40329280a39412378b690216ded81fb2baced3a5a1a54cebcfb5000696c631",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
                 "openWorldHint": false
             }
         },

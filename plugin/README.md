@@ -330,6 +330,18 @@ surface audit are maintained in [`../DESIGN.md`](../DESIGN.md).
 The durable audit, OAuth, write-receipt, incident, and diagnostics contract is
 documented in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
 
+### Rescue
+
+Risky writes are recorded before they run and checked after they finish.
+
+- `RescueGuard` arms a change set in `ChangeJournal` before a write. Post and option snapshots arm themselves through `Backup`; plugin, sandbox, custom-code, and theme-file writes call `RescueGuard::arm_plugin_write()`, `arm_sandbox_write()`, `arm_custom_code_write()`, and `arm_standalone()`. `AbilityKernel` settles the call when the ability returns.
+- `HealthProbe` asks the site over HTTP whether it still loads (the home page, a wp-admin screen, the REST index, the written post, an optional same-site URL). `RollbackRecipes` undoes the change when it does not.
+- The journal is `wp-content/uploads/stonewright-state/journal-<random>.json` (at most 50 entries) and the `stonewright_change_journal` option.
+- Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
+- Filters: `stonewright_rescue_probe_enabled`, `stonewright_rescue_probe_args`, and `https_local_ssl_verify`.
+
+See [docs/rescue.md](../docs/rescue.md).
+
 ## Code Payload Handling
 
 Abilities that accept code — `stonewright/php-execute`,
@@ -357,7 +369,8 @@ issued for different content.
 
 Write abilities must use real permission callbacks, snapshots where required,
 confirmation tokens in production-safe mode, and `Validator::validate()` before
-rendering Design Specs.
+rendering Design Specs. A write that changes state a post or option snapshot does
+not cover arms a rescue entry with the matching `RescueGuard` method.
 
 ## Ability Groups
 

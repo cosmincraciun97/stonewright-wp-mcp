@@ -152,7 +152,10 @@ extra columns.
 
 Deleting the plugin keeps its data. A reinstall, or a rollback to an earlier
 release, finds OAuth grants and keys, memory, user-created skills, audit
-history, and settings as they were. To roll back:
+history, and settings as they were. The rescue helper is not data: deleting
+the plugin always removes `wp-content/mu-plugins/stonewright-rescue.php`, the
+must-use file the plugin installed. Deactivating the plugin leaves it in
+place, where it does nothing until the plugin is active again. To roll back:
 
 1. Make sure `STONEWRIGHT_REMOVE_ALL_DATA` is not defined as `true` (see
    below).
@@ -181,6 +184,8 @@ Deleting the plugin then removes:
   every connected client has to sign in again after a reinstall;
 - every transient whose name starts with `stonewright_` or `sw_cc_`;
 - the scheduled events `stonewright_oauth_gc` and `stonewright_audit_retention`;
+- the change journal files in `uploads/stonewright-state/` (a file in that
+  folder that Stonewright did not write stays);
 - all of the above on every site of a multisite network, because deleting the
   plugin removes it for all of them.
 

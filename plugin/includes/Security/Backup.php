@@ -67,6 +67,7 @@ final class Backup {
 		];
 		$store = self::trim( $store );
 		update_option( self::OPTION_SNAPSHOTS, $store, false );
+		RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id );
 
 		return $restore_id;
 	}
@@ -143,6 +144,7 @@ final class Backup {
 		if ( post_type_supports( $post->post_type, 'revisions' ) ) {
 			wp_save_post_revision( $post_id );
 		}
+		RescueGuard::arm_post_write( $post_id, $snapshot_id );
 
 		return $snapshot_id;
 	}
@@ -205,6 +207,67 @@ final class Backup {
 		return $operations_verified
 			&& $expected === $readback
 			&& hash_equals( Json::hash( $expected ), Json::hash( $readback ) );
+	}
+
+	/**
+	 * Whether the post (and the tracked meta) now differs from a snapshot.
+	 *
+	 * @return bool|null Null when the snapshot or the post cannot be read.
+	 */
+	public static function differs_from_snapshot( int $post_id, string $snapshot_id ): ?bool {
+		$snapshot = self::get_snapshot( $post_id, $snapshot_id );
+		if ( ! $snapshot ) {
+			return null;
+		}
+		$expected = self::expected_restore_state( $snapshot );
+		if ( null === $expected ) {
+			return null;
+		}
+		$current = self::read_restore_state( $post_id, $expected['meta'] );
+		if ( null === $current ) {
+			return null;
+		}
+		return ! hash_equals( Json::hash( $expected ), Json::hash( $current ) );
+	}
+
+	/**
+	 * Whether any option or theme mod of a restore point now differs from what it captured.
+	 *
+	 * @return bool|null Null when the restore point is unknown.
+	 */
+	public static function options_differ_from_snapshot( string $restore_id ): ?bool {
+		$store = get_option( self::OPTION_SNAPSHOTS, [] );
+		$row   = is_array( $store ) && isset( $store[ $restore_id ] ) && is_array( $store[ $restore_id ] ) ? $store[ $restore_id ] : null;
+		if ( null === $row ) {
+			return null;
+		}
+		foreach ( (array) ( $row['options'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = get_option( $key, $sentinel );
+			$exists   = $value !== $sentinel;
+			if ( ! $exists && isset( $GLOBALS['stonewright_test_options'] ) && is_array( $GLOBALS['stonewright_test_options'] ) ) {
+				$exists = array_key_exists( $key, $GLOBALS['stonewright_test_options'] );
+				$value  = $exists ? $GLOBALS['stonewright_test_options'][ $key ] : null;
+			}
+			if ( (bool) ( $payload['exists'] ?? false ) !== $exists || ( $exists && Json::hash( $value ) !== Json::hash( $payload['value'] ?? null ) ) ) {
+				return true;
+			}
+		}
+		foreach ( (array) ( $row['theme_mods'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) || ! function_exists( 'get_theme_mod' ) ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = get_theme_mod( $key, $sentinel );
+			$exists   = $value !== $sentinel;
+			if ( (bool) ( $payload['exists'] ?? false ) !== $exists || ( $exists && Json::hash( $value ) !== Json::hash( $payload['value'] ?? null ) ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

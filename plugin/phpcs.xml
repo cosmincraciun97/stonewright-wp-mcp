@@ -4,6 +4,7 @@
 
     <file>includes/</file>
     <file>stonewright.php</file>
+    <file>mu/</file>
 
     <arg value="ps"/>
     <arg name="extensions" value="php"/>

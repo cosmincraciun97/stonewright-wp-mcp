@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Design\Motion\MotionPlanCompiler;
 use Stonewright\WpMcp\Design\Motion\MotionPresetRegistry;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\AuditEvent;
+use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 
@@ -468,6 +469,9 @@ final class ContractTest extends TestCase {
 		if ( 'stonewright/incident-repair-record' === $ability->name() ) {
 			$this->seed_verified_repair_contract();
 		}
+		if ( 'stonewright/rescue-rollback' === $ability->name() ) {
+			$this->seed_open_rescue_incident();
+		}
 
 		$result = $ability->execute( $args );
 
@@ -514,6 +518,21 @@ final class ContractTest extends TestCase {
 
 	private static function fixture_slug( string $ability_name ): string {
 		return str_replace( [ 'stonewright/', '/', '.' ], [ '', '-', '-' ], $ability_name );
+	}
+
+	/** An open incident for the rescue-rollback fixture to plan a rollback for. */
+	private function seed_open_rescue_incident(): void {
+		ChangeJournal::reset_for_tests();
+		$entry = ChangeJournal::arm(
+			[
+				'ability'       => 'stonewright/example-write',
+				'resource_type' => 'option',
+				'resource_key'  => 'blogname',
+				'recipe'        => [ 'type' => 'option_restore', 'ref' => 'contract-restore-point' ],
+				'change_set_id' => 'cs-contract-open-incident',
+			]
+		);
+		ChangeJournal::settle( (string) $entry['id'], 'rollback_failed' );
 	}
 
 	private function seed_verified_repair_contract(): void {

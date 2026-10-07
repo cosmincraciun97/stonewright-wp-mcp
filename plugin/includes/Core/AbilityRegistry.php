@@ -9,7 +9,9 @@ use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
+use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
@@ -289,6 +291,8 @@ use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
+use Stonewright\WpMcp\Abilities\Security\RescueRollback;
+use Stonewright\WpMcp\Abilities\Security\RescueStatus;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\Site\ChangeLog;
@@ -329,6 +333,8 @@ final class AbilityRegistry {
 			AuditReconcile::class,
 			RuntimeDataPurge::class,
 			IncidentRepairRecord::class,
+			RescueStatus::class,
+			RescueRollback::class,
 			CreateOneTimeLink::class,
 
 			// Runtime.
@@ -911,7 +917,7 @@ final class AbilityRegistry {
 			unset( $input['stonewright_context_token'] );
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
 			$result = self::maybe_project( $ability, $result, $fields );
-			return self::maybe_attach_task_start_hint( $ability, $result );
+			return AgentNotices::attach( self::maybe_attach_task_start_hint( $ability, $result ) );
 		}
 
 		$token = isset( $input['stonewright_context_token'] ) && is_string( $input['stonewright_context_token'] )
@@ -934,7 +940,7 @@ final class AbilityRegistry {
 		try {
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
 			$result = self::maybe_project( $ability, $result, $fields );
-			return self::maybe_attach_task_start_hint( $ability, $result );
+			return AgentNotices::attach( self::maybe_attach_task_start_hint( $ability, $result ) );
 		} finally {
 			ExecutionContext::clear();
 		}
@@ -1156,11 +1162,14 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * The output schema clients are given. A schema that forbids extra properties also declares
+	 * the optional notice fields, so a notice can never make a response invalid against it.
+	 *
 	 * @return array<string, mixed>
 	 */
-	private static function output_schema_for_ability( Ability $ability ): array {
+	public static function output_schema_for_ability( Ability $ability ): array {
 		/** @var array<string, mixed> $schema */
-		$schema = self::normalise_schema_object_maps( $ability->output_schema() );
+		$schema = self::normalise_schema_object_maps( AgentNotices::declare_in_schema( $ability->output_schema() ) );
 		return $schema;
 	}
 
@@ -1798,6 +1807,11 @@ final class AbilityRegistry {
 	 */
 	private static function essential_extra_ability_names(): array {
 		$extra = (array) get_option( 'stonewright_essential_extra_abilities', [] );
+		if ( ChangeJournal::has_open_incident() ) {
+			// An agent told about an incident must be able to call the tools that answer it.
+			$extra[] = 'stonewright/rescue-status';
+			$extra[] = 'stonewright/rescue-rollback';
+		}
 
 		return array_values(
 			array_filter(

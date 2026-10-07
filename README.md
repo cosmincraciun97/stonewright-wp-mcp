@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **389 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **391 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **389** abilities
+### Plugin mode — **391** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -113,7 +113,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Theme chrome | 2 | Blocksy / Kadence Theme / GeneratePress color, type, header, footer |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
-| Security + sandbox | 13 | Tokens, one-time links, incident repair receipts, sandbox lifecycle |
+| Security + sandbox | 15 | Tokens, one-time links, incident repair receipts, rescue status and rollback, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
 | System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
@@ -314,8 +314,15 @@ Typed mutation paths may use combinations of:
 - Readback verification on selected write paths
 - Audit logging
 - Rollback or restore workflows where supported
+- Rescue: a change journal, a health probe after risky writes, and an automatic rollback when the site stops loading
 
 Not every surface uses every gate. Prefer typed abilities over unrestricted PHP when a typed path exists. Read [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
+
+### Rescue
+
+Before a risky change, Stonewright records how to undo it. Afterwards it asks the site whether it still loads, rolls the change back when it does not, and tells the agent what happened. A change it cannot undo stays open as an incident that an administrator or an agent can finish from **Stonewright > Rescue**, `stonewright-rescue-rollback`, or `wp stonewright rescue`.
+
+Rescue covers post, option, theme-file, plugin, sandbox, and custom-code writes made through Stonewright abilities. A health probe that cannot reach the site reports it as unavailable and never as healthy. Rescue cannot fix a fatal in WordPress core or `wp-config.php`, or a database that is down. See [Rescue](docs/rescue.md).
 
 ### Native rules
 
@@ -449,7 +456,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **389** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **391** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -490,7 +497,7 @@ repository follow the common MCP server JSON shape used by several clients.
 ## Admin interface
 
 Plugin mode admin pages include Setup, Troubleshoot, Dashboard (Site Pulse),
-Abilities, Prompts, Design, Skills, Memory, Context, Sandbox, and Audit Log. The Audit Log is the single
+Abilities, Prompts, Design, Skills, Memory, Context, Sandbox, Audit Log, and Rescue. The Audit Log is the single
 responsive incident view; Sandbox does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,
 component contracts, responsive rules, and page-by-page release checklist live
@@ -530,6 +537,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [WooCommerce support and safety](docs/woocommerce.md)
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
+- [Rescue](docs/rescue.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
 - [Beta.13 runtime evidence template](docs/testing/beta13-runtime-evidence-template.md)
 - [Motion and UI excellence](docs/motion-and-ui-excellence.md)

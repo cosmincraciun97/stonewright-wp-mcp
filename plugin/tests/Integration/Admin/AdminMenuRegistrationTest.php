@@ -257,6 +257,6 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertArrayHasKey( 'stonewright-sandbox', $workflows );
 		$this->assertSame( 'Sandbox', $workflows['stonewright-sandbox'] );
 		$this->assertSame( 'Block Editor Queue', $workflows[ $slug ] ?? null );
-		$this->assertSame( [ 'stonewright-audit-log' => 'Audit Log' ], $safety );
+		$this->assertSame( [ 'stonewright-audit-log' => 'Audit Log', 'stonewright-rescue' => 'Rescue' ], $safety );
 	}
 }

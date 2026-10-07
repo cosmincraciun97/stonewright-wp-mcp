@@ -37,6 +37,7 @@ use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
+use Stonewright\WpMcp\Security\RescueHooks;
 use Stonewright\WpMcp\Security\StaticAnalysis;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -165,6 +166,10 @@ final class PluginRegistration {
 		AdminBarIndicator::register();
 		McpbBundle::register();
 		AdminBootstrap::register();
+		RescueHooks::register();
+		if ( class_exists( RescueBootstrap::class ) ) {
+			RescueBootstrap::register();
+		}
 
 		StaticAnalysis::assert_environment();
 	}

@@ -256,11 +256,41 @@ vendor/bin/phpunit tests/Unit/Elementor/Write/ElementorWriteReceiptTest.php
 vendor/bin/phpunit tests/Unit/Gutenberg/BlocksBatchMutateTest.php
 ```
 
+## Rule 13 - Rescue after risky changes
+
+A risky write is journaled before it runs and checked afterwards. When the site stops
+loading, the change is rolled back from the state recorded before it, and the outcome is
+recorded on the change set and in the audit log. A rollback that cannot complete leaves an
+open incident with a way back: an ability, an admin page, and a WP-CLI command, each held to
+the same permission and confirmation rules. A health probe that cannot reach the site is
+reported as unavailable, never as healthy, except that a check which answered before the write and
+cannot be reached after it counts as failed. The journal file never creates a change set or a recipe.
+
+Enforced by:
+
+- `plugin/includes/Security/ChangeJournal.php`
+- `plugin/includes/Security/RescueGuard.php`
+- `plugin/includes/Security/HealthProbe.php`
+- `plugin/includes/Security/RollbackRecipes.php`
+- `plugin/includes/Abilities/Security/RescueRollback.php`
+
+Verify:
+
+```bash
+cd plugin
+vendor/bin/phpunit tests/Unit/Security/ChangeJournalTest.php
+vendor/bin/phpunit tests/Unit/Security/RescueGuardTest.php
+vendor/bin/phpunit tests/Unit/Security/HealthProbeTest.php
+vendor/bin/phpunit tests/Unit/Security/RollbackRecipesTest.php
+vendor/bin/phpunit tests/Unit/Security/RescueAbilitiesTest.php
+```
+
 ## Threat Model
 
 In scope:
 
 - Unintended writes from a misconfigured MCP prompt.
+- A change that leaves the site unable to load.
 - Privilege escalation through ability permission mistakes.
 - Sandbox code injection.
 - Generic PHP adapter or shell workaround outside `stonewright/php-execute`.

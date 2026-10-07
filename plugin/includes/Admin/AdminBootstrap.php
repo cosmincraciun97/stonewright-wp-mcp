@@ -200,6 +200,7 @@ final class AdminBootstrap {
 			'stonewright-sandbox'       => 'sandbox.css',
 			'stonewright-design'        => 'skills-memory.css',
 			'stonewright-context'       => 'skills-memory.css',
+			'stonewright-rescue'        => 'pages/rescue.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {

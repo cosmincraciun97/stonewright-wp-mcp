@@ -33,6 +33,7 @@ final class BundledPackTest extends TestCase {
 		'stonewright-seo-optimize',
 		'stonewright-spectra-build-page',
 		'stonewright-stonewright',
+		'stonewright-stonewright-rescue',
 		'stonewright-stonewright-review',
 		'stonewright-visual-direction',
 		'stonewright-woocommerce-catalog',
@@ -107,10 +108,10 @@ final class BundledPackTest extends TestCase {
 		$counts = $this->service()->refresh_bundled_pack();
 
 		self::assertIsArray( $counts );
-		self::assertSame( 38, $counts['inserted'] );
-		self::assertCount( 38, $this->tables->skills );
+		self::assertSame( 39, $counts['inserted'] );
+		self::assertCount( 39, $this->tables->skills );
 		$sources = array_count_values( array_column( $this->tables->skills, 'source' ) );
-		self::assertSame( [ 'builtin' => 20, 'playbook' => 18 ], [ 'builtin' => $sources['builtin'], 'playbook' => $sources['playbook'] ] );
+		self::assertSame( [ 'builtin' => 21, 'playbook' => 18 ], [ 'builtin' => $sources['builtin'], 'playbook' => $sources['playbook'] ] );
 		foreach ( $this->tables->skills as $row ) {
 			self::assertSame( [ '1', '1', '1' ], [ $row['enabled'], $row['enable_agentic'], $row['enable_prompt'] ], (string) $row['slug'] );
 			self::assertSame( [ 'active', '1', '0', '[]' ], [ $row['status'], $row['revision'], $row['verification_count'], $row['conflict_json'] ], (string) $row['slug'] );
@@ -137,7 +138,7 @@ final class BundledPackTest extends TestCase {
 
 		self::assertIsArray( $counts );
 		self::assertSame( 0, $counts['inserted'] + $counts['updated'] + $counts['reclaimed'] + $counts['retired'] );
-		self::assertSame( 38, $counts['unchanged'] );
+		self::assertSame( 39, $counts['unchanged'] );
 		self::assertSame( $before, $this->tables->skills );
 		self::assertSame( [], $this->tables->versions );
 	}

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\CustomCode;
 
 use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\PhpSyntaxValidator;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 
 /**
@@ -191,6 +192,7 @@ final class ProviderSupport {
 			$payload['active'] = (bool) $extra['active'];
 		}
 		set_transient( 'sw_cc_snap_' . $snapshot_id, $payload, DAY_IN_SECONDS );
+		RescueGuard::note_provider_snapshot( $provider, $target_id, $snapshot_id );
 		$out = [
 			'snapshot_id'   => $snapshot_id,
 			'path'          => $path,
