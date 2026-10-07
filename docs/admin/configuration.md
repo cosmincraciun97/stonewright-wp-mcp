@@ -304,10 +304,23 @@ workaround.
 
 ### Prompt Library
 
-The dedicated **Prompts** tab contains searchable, outcome-grouped starters.
-Each card states whether it supports Plugin mode, Direct mode, or both, lists
-requirements and verification, and contains no credentials or private site
+**Stonewright > Prompt library** (Knowledge) contains searchable, outcome-grouped
+starters. Each card states whether it supports Plugin mode, Direct mode, or both,
+lists requirements and verification, and contains no credentials or private site
 data.
+
+The starters cover inspection, repair, Elementor, Gutenberg, content models,
+media, SEO, design, WooCommerce, safety, and operations. For the current release
+they include a change watched by Rescue, rolling back a failed change, restoring a
+page from a snapshot, repairing a failed write with `repair_of` and reading the
+lineage in **Stonewright > Audit log**, building a page from sections the site
+already has, editing an Elementor V4 page through the native bridge, working
+read-only with the inspect profile, and following the active Design Direction.
+
+The catalog is `plugin/data/prompts/catalog.json`. A PHPUnit test checks that
+every tool a prompt names exists in the ability matrix (Plugin mode) or the Direct
+tool contract (Direct mode), that every admin page it points to is registered, and
+that no prompt mentions a removed or renamed feature.
 
 ## Keep Stonewright current
 

@@ -135,15 +135,15 @@ test.describe('Knowledge pages: behaviour', () => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => undefined);
 		await open(page, 'stonewright-prompts');
 		const cards = page.locator('[data-sw-prompt-card]');
-		await expect(cards).toHaveCount(21);
-		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText('Showing 21 of 21 prompts');
+		await expect(cards).toHaveCount(29);
+		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText('Showing 29 of 29 prompts');
 
 		await page.getByLabel('Search prompts').fill('figma');
 		await expect(page.locator('[data-sw-prompt-card]:visible').first()).toBeVisible();
 		const visible = await page.locator('[data-sw-prompt-card]:not([hidden])').count();
 		expect(visible).toBeGreaterThan(0);
-		expect(visible).toBeLessThan(21);
-		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText(`Showing ${visible} of 21 prompts`);
+		expect(visible).toBeLessThan(29);
+		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText(`Showing ${visible} of 29 prompts`);
 
 		await page.getByLabel('Search prompts').fill('zzzz-no-such-prompt');
 		await expect(page.getByText('No prompt matches')).toBeVisible();
