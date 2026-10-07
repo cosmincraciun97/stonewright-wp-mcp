@@ -128,7 +128,10 @@ final class RescueFatalProcessTest extends TestCase {
 		$problems = array_values(
 			array_filter(
 				preg_split( '/\R/', trim( $log ) ) ?: [],
+				// PHP 8.4 and later deprecate the E_USER_ERROR that the user_error scenario itself raises;
+				// that line comes from the scenario file, not from the handler.
 				static fn ( string $line ): bool => '' !== $line && ! preg_match( '/PHP (Fatal|Parse) error/', $line ) && ! preg_match( '/^(Stack trace:|#\d+ |  thrown in)/', $line )
+					&& ! preg_match( '/PHP Deprecated: +Passing E_USER_ERROR to trigger_error\(\) is deprecated .*site-a.functions\.php on line 2$/', $line )
 			)
 		);
 		self::assertSame( [], $problems, 'the handler raised no warning, notice or second fatal error: ' . $log );
