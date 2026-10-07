@@ -103,8 +103,8 @@ final class ReleaseNotesRenderer {
 			if ( 1 === preg_match( '/^[-*+][ \t]+/', $line ) ) {
 				$items = [];
 				while ( $i < $n && 1 === preg_match( '/^[-*+][ \t]+(.*)$/', $lines[ $i ], $item ) ) {
-					$items[] = '<li>' . self::inline( $item[1] ) . '</li>';
 					++$i;
+					$items[] = '<li>' . self::inline( self::item_text( $item[1], $lines, $i ) ) . '</li>';
 				}
 				$html .= '<ul>' . implode( '', $items ) . '</ul>';
 				continue;
@@ -113,8 +113,8 @@ final class ReleaseNotesRenderer {
 			if ( 1 === preg_match( '/^\d{1,9}\.[ \t]+/', $line ) ) {
 				$items = [];
 				while ( $i < $n && 1 === preg_match( '/^\d{1,9}\.[ \t]+(.*)$/', $lines[ $i ], $item ) ) {
-					$items[] = '<li>' . self::inline( $item[1] ) . '</li>';
 					++$i;
+					$items[] = '<li>' . self::inline( self::item_text( $item[1], $lines, $i ) ) . '</li>';
 				}
 				$html .= '<ol>' . implode( '', $items ) . '</ol>';
 				continue;
@@ -129,6 +129,22 @@ final class ReleaseNotesRenderer {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * The text of one list item: its first line plus the wrapped lines that follow it, up to a blank line or the next block.
+	 *
+	 * @param list<string> $lines All lines of the document.
+	 * @param int          $i     Index of the line after the item's first line; moved past the continuation lines.
+	 */
+	private static function item_text( string $first, array $lines, int &$i ): string {
+		$parts = [ $first ];
+		$n     = count( $lines );
+		while ( $i < $n && '' !== trim( $lines[ $i ] ) && ! self::is_block_start( $lines[ $i ] ) ) {
+			$parts[] = trim( $lines[ $i ] );
+			++$i;
+		}
+		return implode( ' ', $parts );
 	}
 
 	private static function is_block_start( string $line ): bool {

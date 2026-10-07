@@ -230,6 +230,37 @@ MD;
 		self::assertEmpty( $GLOBALS['stonewright_test_wp_kses_post_calls'] );
 	}
 
+	public function test_wrapped_list_items_keep_their_continuation_lines_in_one_item(): void {
+		$markdown = <<<'MD'
+## Fixed
+
+- Select the autoload-winning `wordpress/mcp-adapter` runtime instead of
+  treating extra Composer mappings as an active conflict.
+- Keep Direct fallback on typed plugin-route absence, split
+  `/mcp/stonewright` from `/mcp/stonewright-oauth` in Setup.
+
+1. First step that is long enough to
+   continue on a second line.
+2. Second step.
+
+Closing paragraph.
+MD;
+		$html     = ReleaseNotesRenderer::render( $markdown );
+
+		self::assertSame( 4, substr_count( $html, '<li>' ), 'Two bullets and two numbered steps.' );
+		self::assertSame( 1, substr_count( $html, '<ul>' ), 'A wrapped bullet does not end the list.' );
+		self::assertSame( 1, substr_count( $html, '<ol>' ), 'A wrapped step does not end the list.' );
+		self::assertMatchesRegularExpression( '/<li>Select the autoload-winning <code>wordpress\/mcp-adapter<\/code> runtime instead of treating extra Composer mappings as an active conflict\.<\/li>/', $html );
+		self::assertMatchesRegularExpression( '/<li>First step that is long enough to continue on a second line\.<\/li>/', $html );
+		self::assertMatchesRegularExpression( '/<\/ol><p>Closing paragraph\.<\/p>$/', $html );
+	}
+
+	public function test_a_list_item_continuation_stops_at_the_next_block(): void {
+		$html = ReleaseNotesRenderer::render( "- Item one\n  continues here\n## Next heading\n- Item two\n```\ncode\n```" );
+
+		self::assertMatchesRegularExpression( '/<ul><li>Item one continues here<\/li><\/ul><h2>Next heading<\/h2><ul><li>Item two<\/li><\/ul><pre><code>/', $html );
+	}
+
 	private function assertNoExecutableMarkup( string $html ): void {
 		self::assertDoesNotMatchRegularExpression( '/<script\b/i', $html );
 		self::assertDoesNotMatchRegularExpression( '/<iframe\b/i', $html );
