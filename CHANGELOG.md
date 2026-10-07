@@ -278,6 +278,11 @@ development builds were never stable releases.
 
 ### Changed
 
+- Update the Prompt library: every starter names only tools and admin pages that
+  exist in the mode it is tagged for, and eight new starters cover Rescue and
+  rollback, snapshot restore, repair lineage, section reuse, the native Elementor
+  V4 bridge, the inspect profile and the Design Direction. A test fails when a
+  prompt names something that does not exist or a removed feature.
 - Build the Knowledge pages (Skills, Memory, Context, Design, Prompt library)
   from the shared admin UI layer. Memory lists the entries first, in a table
   that stacks at 782px, with the add form and the entry editor as native

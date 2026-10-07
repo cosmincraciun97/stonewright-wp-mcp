@@ -11,6 +11,7 @@ safety, and release claims must match the code shipped in the same commit.
 | Companion version | `companion/package.json` and `companion/src/version.ts` |
 | Plugin abilities | generated `docs/ability-truth-matrix.md` |
 | Direct tools | `DIRECT_TOOL_NAMES` in `companion/src/direct/registry.ts` |
+| Prompt library | `plugin/data/prompts/catalog.json`, checked by `PromptCatalogGuardTest` against the ability matrix, the Direct tool contract and the menu registry |
 | Current release notes | `docs/releases/<version>.md` |
 | Admin design system | `DESIGN.md` |
 | Public workflow rules | `AGENTS.md` and runtime agent instructions |

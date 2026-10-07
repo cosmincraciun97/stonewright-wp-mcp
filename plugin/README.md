@@ -179,8 +179,19 @@ final admin page.
 ### Prompt library
 
 Searchable outcome-tagged prompts ship in `data/prompts/catalog.json` and appear
-on Setup. Agents still start with `stonewright-task-start` (skill refs, truncated
-Context text, and a Design Direction pointer — not the full libraries).
+under **Stonewright > Prompt library** (Knowledge). Each entry has an `id`, a
+`title`, an `outcome` (its group), `modes` (`plugin`, `direct`, or both), a
+`summary`, `prerequisites`, `tools`, the `prompt` text, and a `verification`
+line. The starters cover the current release: Rescue and rolling back a failed
+change, restoring a page from a snapshot, repairing a failed write and reading
+its lineage in the Audit log, section reuse, the native Elementor V4 bridge, the
+read-only inspect profile and the active Design Direction.
+`tests/Unit/Support/PromptCatalogGuardTest.php` checks every tool name a prompt
+mentions against the ability matrix (Plugin mode) and the Direct tool contract
+(Direct mode), every admin page it points to against the menu registry, and
+fails on a removed or renamed feature. Agents still start with
+`stonewright-task-start` (skill refs, truncated Context text, and a Design
+Direction pointer — not the full libraries).
 
 ### Persistent Skills And Memory
 
