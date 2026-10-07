@@ -172,15 +172,68 @@ if ( ! function_exists( 'wp_json_encode' ) ) {
 	}
 }
 
+// Translation timing guard. While `$GLOBALS['stonewright_test_translation_guard']` is true, every call to a
+// translation function is recorded in `$GLOBALS['stonewright_test_early_translations']` with the code that made
+// it. A test turns the guard on for the part of a request that runs before `init`, because WordPress reports a
+// text domain that is read that early.
+$GLOBALS['stonewright_test_translation_guard']  ??= false;
+$GLOBALS['stonewright_test_early_translations'] ??= [];
+
+if ( ! function_exists( 'stonewright_test_record_translation' ) ) {
+	function stonewright_test_record_translation( string $function, string $text ): void {
+		if ( empty( $GLOBALS['stonewright_test_translation_guard'] ) ) {
+			return;
+		}
+		$caller = 'unknown';
+		foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 8 ) as $frame ) { // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace
+			if ( isset( $frame['file'] ) && __FILE__ !== $frame['file'] ) {
+				$caller = basename( (string) $frame['file'] ) . ':' . ( $frame['line'] ?? 0 );
+				break;
+			}
+		}
+		$GLOBALS['stonewright_test_early_translations'][] = $function . "( '" . $text . "' ) at " . $caller;
+	}
+}
+
 if ( ! function_exists( '_n' ) ) {
 	function _n( string $single, string $plural, int $number, string $domain = 'default' ): string {
+		stonewright_test_record_translation( '_n', $single );
 		return 1 === $number ? $single : $plural;
 	}
 }
 
 if ( ! function_exists( '__' ) ) {
 	function __( string $text, string $domain = 'default' ): string {
+		stonewright_test_record_translation( '__', $text );
 		return $text;
+	}
+}
+
+if ( ! function_exists( '_x' ) ) {
+	function _x( string $text, string $context, string $domain = 'default' ): string {
+		stonewright_test_record_translation( '_x', $text );
+		return $text;
+	}
+}
+
+if ( ! function_exists( '_nx' ) ) {
+	function _nx( string $single, string $plural, int $number, string $context, string $domain = 'default' ): string {
+		stonewright_test_record_translation( '_nx', $single );
+		return 1 === $number ? $single : $plural;
+	}
+}
+
+if ( ! function_exists( '_e' ) ) {
+	function _e( string $text, string $domain = 'default' ): void {
+		stonewright_test_record_translation( '_e', $text );
+		echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+}
+
+if ( ! function_exists( '_ex' ) ) {
+	function _ex( string $text, string $context, string $domain = 'default' ): void {
+		stonewright_test_record_translation( '_ex', $text );
+		echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }
 
@@ -2652,6 +2705,25 @@ if ( ! class_exists( 'WP_Block_Patterns_Registry' ) ) {
 	}
 }
 
+if ( ! function_exists( 'load_plugin_textdomain' ) ) {
+	function load_plugin_textdomain( string $domain, string|false $deprecated = false, string|false $plugin_rel_path = false ): bool {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'register_activation_hook' ) ) {
+	/** Plugin activation and deactivation hooks are recorded in `stonewright_test_lifecycle_hooks`. */
+	function register_activation_hook( string $file, callable $callback ): void {
+		$GLOBALS['stonewright_test_lifecycle_hooks']['activate'][] = [ $file, $callback ];
+	}
+}
+
+if ( ! function_exists( 'register_deactivation_hook' ) ) {
+	function register_deactivation_hook( string $file, callable $callback ): void {
+		$GLOBALS['stonewright_test_lifecycle_hooks']['deactivate'][] = [ $file, $callback ];
+	}
+}
+
 if ( ! function_exists( 'add_action' ) ) {
 	/**
 	 * WordPress add_action stub — records hooks so tests can inspect them.
@@ -2995,24 +3067,42 @@ $GLOBALS['stonewright_test_registered_settings'] ??= [];
 
 if ( ! function_exists( 'esc_html__' ) ) {
 	function esc_html__( string $text, string $domain = 'default' ): string {
+		stonewright_test_record_translation( 'esc_html__', $text );
 		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 	}
 }
 
 if ( ! function_exists( 'esc_attr__' ) ) {
 	function esc_attr__( string $text, string $domain = 'default' ): string {
+		stonewright_test_record_translation( 'esc_attr__', $text );
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_html_x' ) ) {
+	function esc_html_x( string $text, string $context, string $domain = 'default' ): string {
+		stonewright_test_record_translation( 'esc_html_x', $text );
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_attr_x' ) ) {
+	function esc_attr_x( string $text, string $context, string $domain = 'default' ): string {
+		stonewright_test_record_translation( 'esc_attr_x', $text );
 		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 	}
 }
 
 if ( ! function_exists( 'esc_attr_e' ) ) {
 	function esc_attr_e( string $text, string $domain = 'default' ): void {
+		stonewright_test_record_translation( 'esc_attr_e', $text );
 		echo htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }
 
 if ( ! function_exists( 'esc_html_e' ) ) {
 	function esc_html_e( string $text, string $domain = 'default' ): void {
+		stonewright_test_record_translation( 'esc_html_e', $text );
 		echo htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }

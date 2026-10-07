@@ -33,14 +33,14 @@ final class QueueConsole {
 			return;
 		}
 		self::$attached = true;
-		self::add_to_menu_registry();
+		add_action( 'init', [ self::class, 'add_to_menu_registry' ] );
 		add_action( 'admin_menu', [ self::class, 'attach_page' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
 		add_action( 'rest_api_init', [ QueueEndpoint::class, 'attach_routes' ] );
 	}
 
-	/** The tab of the Activity hub. Idempotent: attach_hooks() and render() both make sure it exists. */
-	private static function add_to_menu_registry(): void {
+	/** The tab of the Activity hub. It is registered on `init`, where labels can be translated; render() makes sure it exists too. */
+	public static function add_to_menu_registry(): void {
 		MenuRegistry::add(
 			self::PAGE,
 			__( 'Block queue', 'stonewright' ),

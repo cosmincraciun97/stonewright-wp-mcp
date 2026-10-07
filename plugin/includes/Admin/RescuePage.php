@@ -46,7 +46,7 @@ final class RescuePage {
 	private static $safe_mode_resolver = null;
 
 	public static function register(): void {
-		self::add_to_menu_registry();
+		add_action( 'init', [ self::class, 'add_to_menu_registry' ] );
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_rescue_rollback', [ self::class, 'handle_rollback' ] );
 		add_action( 'admin_post_stonewright_rescue_recheck', [ self::class, 'handle_recheck' ] );
@@ -65,8 +65,8 @@ final class RescuePage {
 		);
 	}
 
-	/** The tab of the Activity hub. Idempotent: register() and render() both make sure it exists. */
-	private static function add_to_menu_registry(): void {
+	/** The tab of the Activity hub. It is registered on `init`, where labels can be translated; render() makes sure it exists too. */
+	public static function add_to_menu_registry(): void {
 		MenuRegistry::add(
 			self::SLUG,
 			__( 'Rescue', 'stonewright' ),
