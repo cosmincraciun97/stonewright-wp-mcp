@@ -76,12 +76,23 @@ final class McpSchemaWire {
 			return $data;
 		}
 
-		$tools = $data['result']['tools'] ?? null;
-		if ( ! is_array( $tools ) ) {
+		// The adapter may answer with objects (initialize does), so read the result either way.
+		$result = $data['result'] ?? null;
+		if ( $result instanceof stdClass ) {
+			if ( ! isset( $result->tools ) ) {
+				return $data;
+			}
+			$result = (array) $result;
+		}
+		if ( ! is_array( $result ) || ! isset( $result['tools'] ) || ! is_array( $result['tools'] ) ) {
 			return $data;
 		}
 
+		$tools = $result['tools'];
 		foreach ( $tools as $index => $tool ) {
+			if ( $tool instanceof stdClass ) {
+				$tool = (array) $tool;
+			}
 			if ( ! is_array( $tool ) ) {
 				continue;
 			}
@@ -92,7 +103,8 @@ final class McpSchemaWire {
 			}
 			$tools[ $index ] = $tool;
 		}
-		$data['result']['tools'] = $tools;
+		$result['tools'] = $tools;
+		$data['result']  = $result;
 
 		return $data;
 	}
