@@ -93,6 +93,7 @@ final class V4UpdateNodeChangeSetTest extends TestCase {
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
+		unset( $GLOBALS['stonewright_test_audit_rows'] );
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_user_logged_in']  = false;
@@ -209,6 +210,40 @@ final class V4UpdateNodeChangeSetTest extends TestCase {
 		self::assertSame( $failed_id, $repair['change_set']['repair_of'] );
 		self::assertValidChangeSet( $repair['change_set'] );
 		self::assertSame( $failed_id, $this->last_row()['repair_of'] );
+	}
+
+	public function test_a_repair_row_points_at_the_newest_event_of_the_change_it_repairs(): void {
+		$failed = ( new UpdateNode() )->execute( self::arguments( [ 'element_id' => 'missing-id' ] ) );
+		self::assertInstanceOf( \WP_Error::class, $failed );
+		$failed_id  = $failed->get_error_data()['change_set']['change_set_id'];
+		$failed_row = $this->last_row();
+		self::assertSame( $failed_id, $failed_row['change_set_id'] );
+		self::assertNotSame( '', (string) $failed_row['event_id'] );
+		self::assertSame( '', (string) $failed_row['parent_event_id'], 'A first change has no parent event.' );
+		// The audit table answers newest first: a later event of the same change, and a newer event of another change.
+		$newest = array_merge( $failed_row, [ 'event_id' => '11111111-1111-4111-8111-111111111111' ] );
+		$other  = array_merge( $failed_row, [ 'change_set_id' => 'cs-other', 'event_id' => '22222222-2222-4222-8222-222222222222' ] );
+		$GLOBALS['stonewright_test_audit_rows'] = [ $other, $newest, $failed_row ];
+
+		$repair = ( new UpdateNode() )->execute( self::arguments( [ 'repair_of' => $failed_id ] ) );
+
+		self::assertIsArray( $repair, $repair instanceof \WP_Error ? $repair->get_error_message() : '' );
+		$repair_row = $this->last_row();
+		self::assertSame( $failed_id, $repair_row['repair_of'] );
+		self::assertSame( '11111111-1111-4111-8111-111111111111', $repair_row['parent_event_id'] );
+	}
+
+	public function test_a_node_update_without_an_element_or_operations_is_refused_before_anything_is_read(): void {
+		foreach ( [ [ 'element_id' => null ], [ 'settings' => null ] ] as $missing ) {
+			$arguments = array_filter( self::arguments( $missing ), static fn ( mixed $value ): bool => null !== $value );
+
+			$result = ( new UpdateNode() )->execute( $arguments );
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_missing_element_id', $result->get_error_code() );
+			self::assertSame( 400, $result->get_error_data()['status'] );
+		}
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was written.' );
 	}
 
 	public function test_the_ability_declares_the_lineage_inputs_and_the_change_set_output(): void {

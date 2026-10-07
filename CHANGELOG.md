@@ -269,6 +269,14 @@ development builds were never stable releases.
   on the Plugins screen, and open the Overview once after the first activation
   (not after a bulk activation, in the network admin, or on a site that has
   already chosen whether Stonewright is on).
+- Add a trusted-proxy setting for OAuth rate limiting, off by default. List the
+  proxies in front of the site as IP addresses or CIDR ranges (IPv4 and IPv6)
+  in the `STONEWRIGHT_TRUSTED_PROXIES` constant or the
+  `stonewright_trusted_proxies` filter; when the connection comes from one of
+  them, the client address is the right-most `X-Forwarded-For` address that is
+  not a trusted proxy, so clients behind one reverse proxy no longer share a
+  single budget. Without the setting the header is never read. The same
+  address keys every rate limit and the registering-address hash of a client.
 
 - Add `Admin\Ui\Tabs` (tabs that are links work without script; with script they
   switch in place, keep the choice in the address and open a view that holds a
@@ -522,6 +530,10 @@ development builds were never stable releases.
 - Render a wrapped bullet or numbered item in release notes (Plugins → View
   details) as one list item: the lines that continue it, up to the next blank
   line or block, are joined into it.
+- Correct the documented retry behaviour of the companion: it sends each
+  WordPress MCP request once and does not repeat it after a timeout or network
+  error; on OAuth connections an HTTP 401 refreshes the access token and sends
+  that request once more, a tool call included.
 - Draw the label of a Setup step that is still to do at full strength instead of
   at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities

@@ -12,8 +12,9 @@ namespace Stonewright\WpMcp\Authorization\WordPress;
 
 /**
  * Method, lowercase headers, the raw body (form or JSON, decoded by the protocol layer
- * so repeated parameters stay visible) and the address the connection came from. The
- * address is the server-observed REMOTE_ADDR, never a forwarding header a client can set.
+ * so repeated parameters stay visible) and the address the request counts as. The address
+ * is the server-observed REMOTE_ADDR; a forwarding header is read only when REMOTE_ADDR is
+ * a configured trusted proxy (see ClientAddress).
  */
 final class OAuthRequest {
 
@@ -46,9 +47,8 @@ final class OAuthRequest {
 		return strtolower( trim( explode( ';', (string) $this->header( 'content-type' ) )[0] ) );
 	}
 
-	/** The connection's address as the web server saw it, or an empty string. */
+	/** The address the current request counts as (see ClientAddress), or an empty string. */
 	public static function remote_address(): string {
-		$address = isset( $_SERVER['REMOTE_ADDR'] ) ? trim( (string) $_SERVER['REMOTE_ADDR'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validated as an IP address below.
-		return false === filter_var( $address, FILTER_VALIDATE_IP ) ? '' : $address;
+		return ClientAddress::resolve();
 	}
 }

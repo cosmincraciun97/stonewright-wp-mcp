@@ -173,8 +173,10 @@ the last good remote catalog, and either continues with the remote task-start
 call or returns a truthful local gateway result. Plugin-only mode never
 silently enables Direct writes on a transport failure.
 
-Automatic retry is restricted to handshake and explicitly allowlisted read-only
-bootstrap operations. Tool mutations are never retried.
+The companion sends each WordPress MCP request once and does not repeat it after
+a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+access token and the request is sent once more with the new token, a tool call
+included.
 
 Terminal OAuth results use `error_code: reauthentication_required` (never
 `plugin_unavailable` and never a generic transport error). Companion-backed

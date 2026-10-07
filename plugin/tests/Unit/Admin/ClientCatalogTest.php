@@ -280,4 +280,13 @@ final class ClientCatalogTest extends TestCase {
 			self::assertContains( $slug, $chooser_slugs );
 		}
 	}
+
+	public function test_clients_that_sign_in_with_oauth_say_so(): void {
+		foreach ( [ 'antigravity', 'claude-code', 'claude-desktop', 'gemini-cli', 'windsurf', 'zed' ] as $slug ) {
+			$client = ClientCatalog::get( $slug );
+
+			self::assertIsArray( $client, $slug );
+			self::assertTrue( $client['oauth_support'], $slug );
+		}
+	}
 }

@@ -96,8 +96,9 @@ Transient HTTP responses and network failures use bounded exponential backoff,
 Server-side throttling is a fixed window per endpoint and requester, updated
 atomically in the rate-limit table with a compare-and-swap. When the table
 cannot be read or written, the request is admitted and a warning is logged. The
-requester is the connection address as the web server reports it, never a
-forwarding header; the authorization page counts the signed-in user instead.
+requester is the connection address as the web server reports it; a forwarding
+header is read only from a configured trusted proxy (none by default), and the
+authorization page counts the signed-in user instead.
 An IPv6 address counts as its `/64` prefix, an IPv4-mapped IPv6 address counts
 as the IPv4 address it carries, and an IPv4 address counts as itself.
 
