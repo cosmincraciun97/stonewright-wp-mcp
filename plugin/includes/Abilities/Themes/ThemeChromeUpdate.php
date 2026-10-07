@@ -7,6 +7,8 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Expertise\ThemeChrome;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -54,6 +56,8 @@ final class ThemeChromeUpdate extends AbilityKernel {
 				'header'             => [ 'type' => 'object' ],
 				'footer'             => [ 'type' => 'object' ],
 				'confirmation_token' => [ 'type' => 'string' ],
+				'repair_of'          => ChangeSet::input_properties()['repair_of'],
+				'supersedes'         => ChangeSet::input_properties()['supersedes'],
 			],
 		];
 	}
@@ -70,6 +74,7 @@ final class ThemeChromeUpdate extends AbilityKernel {
 				'active'          => [ 'type' => 'boolean' ],
 				'snapshot_id'     => [ 'type' => 'string' ],
 				'effect_verified' => [ 'type' => 'boolean' ],
+				'change_set'      => ChangeSet::output_property(),
 			],
 			'required'             => [ 'ok', 'theme', 'dry_run', 'changed', 'active' ],
 		];
@@ -166,6 +171,32 @@ final class ThemeChromeUpdate extends AbilityKernel {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * ChangeSetV1 of the chrome update: one planned change per theme key, hashed
+	 * over the option and theme-mod values the option snapshot covers, with that
+	 * snapshot as the rollback recipe.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data    = ChangeSetSources::data( $result );
+		$planned = [];
+		if ( is_array( $data['changes'] ?? null ) && [] !== $data['changes'] ) {
+			foreach ( array_values( $data['changes'] ) as $index => $change ) {
+				$planned[] = ChangeSet::entry( 'theme_option', (string) ( $change['bucket'] ?? '' ) . '.' . (string) ( $change['key'] ?? '' ), 'set', $index );
+			}
+		} else {
+			foreach ( [ 'colors', 'typography', 'header', 'footer' ] as $bucket ) {
+				foreach ( array_keys( is_array( $args[ $bucket ] ?? null ) ? $args[ $bucket ] : [] ) as $key ) {
+					$planned[] = ChangeSet::entry( 'theme_option', $bucket . '.' . $key, 'set', count( $planned ) );
+				}
+			}
+		}
+		return ChangeSetSources::options( $args, $result, $status, $planned, 'ok' === $status && array_key_exists( 'changed', $data ) && false === $data['changed'] );
 	}
 
 	/**

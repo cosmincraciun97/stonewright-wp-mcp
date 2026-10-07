@@ -128,7 +128,8 @@ client, so an identifier a caller made up never becomes a row of its own.
 One write receipt is the transaction handoff. It contains the transaction and
 change-set IDs, architecture, targets, lock fingerprint and age, snapshot,
 before/planned/after/readback hashes, verification state, rollback state,
-root failure path, retry guidance, and bounded recovery instructions.
+root failure path, retry guidance, and bounded recovery instructions. Each write
+also returns it as a `ChangeSetV1` (see below).
 
 Elementor V3 batch mutation owns one post lock, one snapshot, one persistence
 write, one readback, and one rollback decision. The write path may preserve
@@ -145,6 +146,40 @@ operations in memory, then snapshots, writes, reads back, and restores once on
 failure. Existing block attributes and child structure are preserved unless
 the operation explicitly changes them. Remove remains confirmation-gated in
 `production-safe` mode.
+
+## Change sets and repair lineage
+
+Every write family that returns a receipt also returns one `ChangeSetV1` under
+`change_set`: the planned, applied, missing, and unexpected changes, the hashes
+before and after, the verification status with its evidence, the rollback recipe,
+and the lineage fields `repair_of` and `supersedes`. It is built from the receipt the
+write already returns, so there is one receipt contract, not two. The field list,
+the verification rules, and the abilities that return it are in
+[Elementor transaction envelope](transactions.md#change-set-changesetv1); the schema
+is [contracts/change-set-v1.schema.json](contracts/change-set-v1.schema.json).
+
+A write that repairs a failed change passes `repair_of` with that change's
+`change_set_id`. The audit row stores it in the indexed `repair_of` column, and
+`parent_event_id` points at the newest audit event of the repaired change. A change
+set's state is decided by its newest deciding row: a failure, including a failed
+verification, makes it failed; a verified success makes it verified; planned,
+blocked, and retryable rows decide nothing. The Audit Log joins change sets by
+`repair_of` into a nested list in its lineage drawer: failed change, failed
+verification, repair, verified.
+
+A verified repair resolves the incident the repaired change opened. The incident
+must be open or observing, its last change set must be the one named by
+`repair_of`, and the repair must concern the same resource. The incident moves to
+`resolved`; the repair's audit row becomes its resolution event, and the incident
+keeps the repair's `change_set_id`, `repair_of`, and `after_sha256` as its receipt.
+The other conditions of closure are unchanged: only a verified outcome resolves
+(a dry run, a request that changes nothing, and an unverified success do not), a
+rollback incident or an incident whose rollback failed stays open for an operator,
+and an incident that names an expected verifier waits for that verifier. A later
+failure with the same cause reopens the incident and counts the reopening.
+
+Successful rows never carry an `incident_id`, a root error code, or a remediation
+code, including the row of a verified repair that resolves an incident.
 
 ## Design evidence and diagnostics
 

@@ -7,7 +7,10 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -64,6 +67,8 @@ final class UpdateNode extends AbilityKernel {
 					'type'    => 'boolean',
 					'default' => false,
 				],
+				'repair_of'  => ChangeSet::input_properties()['repair_of'],
+				'supersedes' => ChangeSet::input_properties()['supersedes'],
 			],
 			'required'             => [ 'post_id', 'element_id', 'settings' ],
 		];
@@ -80,6 +85,7 @@ final class UpdateNode extends AbilityKernel {
 				'settings'    => [ 'type' => 'object' ],
 				'architecture' => [ 'type' => 'string', 'enum' => [ 'empty', 'v3', 'v4', 'mixed' ] ],
 				'warnings'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'change_set'   => ChangeSet::output_property(),
 			],
 		];
 	}
@@ -218,6 +224,40 @@ final class UpdateNode extends AbilityKernel {
 					'warnings'     => $warnings,
 				];
 			}
+		);
+	}
+
+	/**
+	 * ChangeSetV1 of the node patch: one planned settings change on the node, read
+	 * from the request and the write receipt. After a verified write the live
+	 * document is compared with the snapshot taken before it, so a change to any
+	 * other element is reported as unexpected.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data       = ChangeSetSources::data( $result );
+		$post_id    = (int) ( $args['post_id'] ?? 0 );
+		$element_id = (string) ( $args['element_id'] ?? '' );
+		$entry      = ChangeSet::entry( 'element', $element_id, 'update_settings', 0 );
+		$receipt    = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+		$snapshot   = (string) ( $data['snapshot_id'] ?? $receipt['snapshot_id'] ?? '' );
+		$before     = (string) ( $receipt['before_hash'] ?? '' );
+		$after      = (string) ( $receipt['readback_hash'] ?? $receipt['after_hash'] ?? '' );
+
+		return ChangeSetSources::receipt(
+			$args,
+			$result,
+			$status,
+			[ $entry ],
+			[ $entry ],
+			[
+				'unchanged'  => 'ok' === $status && empty( $args['dry_run'] ) && '' !== $before && $before === $after,
+				'unexpected' => static fn (): array => ChangeSetSources::elements_outside_plan( $post_id, $snapshot, [ $element_id ] ),
+				'seed'       => [ $element_id, TreeHasher::hash( $args['settings'] ?? [] ), (string) ( $args['mode'] ?? 'merge' ) ],
+			]
 		);
 	}
 

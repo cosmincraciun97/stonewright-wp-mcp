@@ -41,6 +41,7 @@ final class AuditLogSchemaTest extends TestCase {
 		'resource_type',
 		'resource_ref',
 		'change_set_id',
+		'repair_of',
 		'execution_status',
 		'verification_status',
 		'effect_verified',
@@ -137,13 +138,33 @@ final class AuditLogSchemaTest extends TestCase {
 	}
 
 	public function test_audit_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
-		update_option( 'stonewright_audit_schema_version', 2 );
+		update_option( 'stonewright_audit_schema_version', 3 );
 		$GLOBALS['wpdb'] = $this->make_skip_wpdb( self::AUDIT_COLUMNS );
 
 		AuditLog::maybe_install_table();
 
 		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls );
-		self::assertSame( 2, (int) get_option( 'stonewright_audit_schema_version', 0 ) );
+		self::assertSame( 3, (int) get_option( 'stonewright_audit_schema_version', 0 ) );
+	}
+
+	public function test_audit_table_of_version_2_is_upgraded_to_carry_repair_of(): void {
+		update_option( 'stonewright_audit_schema_version', 2 );
+		$GLOBALS['wpdb'] = $this->make_skip_wpdb( self::AUDIT_COLUMNS );
+
+		AuditLog::maybe_install_table();
+
+		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls, 'A version 2 table must go through dbDelta to gain repair_of.' );
+		self::assertSame( 3, (int) get_option( 'stonewright_audit_schema_version', 0 ) );
+	}
+
+	public function test_audit_schema_without_repair_of_is_not_reported_healthy(): void {
+		update_option( 'stonewright_audit_schema_version', 3 );
+		$GLOBALS['wpdb'] = $this->make_skip_wpdb( array_values( array_diff( self::AUDIT_COLUMNS, [ 'repair_of' ] ) ) );
+
+		self::assertFalse( AuditLog::table_schema_ok() );
+		AuditLog::maybe_install_table();
+
+		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls, 'A missing repair_of column must trigger the install step.' );
 	}
 
 	public function test_incident_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
@@ -163,7 +184,7 @@ final class AuditLogSchemaTest extends TestCase {
 		AuditLog::maybe_install_table();
 
 		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls );
-		self::assertSame( 2, (int) get_option( 'stonewright_audit_schema_version', 0 ) );
+		self::assertSame( 3, (int) get_option( 'stonewright_audit_schema_version', 0 ) );
 	}
 
 	/**

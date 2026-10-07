@@ -14,6 +14,7 @@ rollback status.
 - a readable incident cause for blocked, authentication, and error rows;
 - incident state (`observing`, `open`, `resolved`, `suppressed`), occurrence and
   reopen counts, expected verifier, and remediation code;
+- a **Change set** line with a short identifier, a copy button, and the lineage of a change set that has relatives (see below);
 - the redacted structured payload behind **View payload**.
 
 Use **Copy payload** when attaching evidence to a private support report. Review
@@ -52,12 +53,61 @@ it first even though Stonewright redacts known credential and code fields.
 - The **Recurring errors** panel lists patterns that failed more than once. A
   pattern leaves the panel after 30 days without an occurrence.
 
+## Change sets and repair lineage
+
+Every row that belongs to a change set shows a **Change set** line in its
+details: a short identifier (the full identifier is its tooltip), a **Copy**
+button that copies the full identifier, and **Show rows**, which filters the log
+to that change set. While the log is filtered to a change set, a chip under the
+filters names it, and its **Remove change set filter** link takes off only that
+filter; the chip stays when no row matches.
+
+A write that repairs a failed change passes `repair_of` with that change's
+`change_set_id`. When a change set has relatives (a repair of it, a change it
+repairs, a change it supersedes, or a parent that left the log), its line also
+has a **Lineage** button. The button opens a drawer titled with the change set.
+The drawer holds one panel per chain of change sets:
+
+- a summary: how many change sets failed, were verified, or are not verified,
+  the UTC time span, and the site mode;
+- a nested list in which a repair sits under the change it repairs, oldest
+  first. For example: a change that verified when written, a failed
+  verification of it, the repair, and the repair verified;
+- one list item per change set, readable as text: a state badge
+  (**Verification failed**, **Failed**, **Verified**, or **Not verified**), the
+  operation, the time, the duration, the ability code, the short identifier,
+  the change set it repairs or supersedes, the state of the incident it opened,
+  and a **Show rows** link. The change set of the row you opened the drawer
+  from is marked **This change set**;
+- a branch with more than five repairs folds into a `details` element, and the
+  panel draws at most 50 change sets before **Show N more** lists the rest.
+  The list indents three levels; deeper change sets keep the third level's
+  indent and say which level they are, such as "… Level 5";
+- a note when the chain is longer than 100 change sets, and the text
+  "not in this log" for a repair whose parent was pruned.
+
+The drawer is a modal dialog. Tab moves from node to node, Escape or **Close**
+closes it, and focus returns to the **Lineage** button that opened it. At 782 px
+and below it fills the screen. The panels are rendered by the server; the script
+that opens the drawer makes no request, and without it the **Show rows** links
+still work. The page looks up the change sets of its rows with the indexed
+`change_set_id` and `repair_of` columns, at most three hops, and prints at most
+25 panels.
+
+The page renderer reaches the drawer through two hooks only:
+`stonewright_audit_log_toolbar` runs under the filter form with the filters, the
+rows of the page, and the incident state of each incident, and
+`stonewright_audit_log_change_set_cell` runs once for each row that names a
+change set. Without a callback on them the page shows no **Change set** line.
+
 ## Layout contract
 
 Large screens use one fixed-layout table. At narrower admin widths each row
 becomes a labeled card, and the details cell spans the full card. Payloads wrap
 and scroll inside their own container; they must never widen the WordPress admin
-page.
+page. The lineage drawer wraps long identifiers and reads at a 400 px viewport
+without horizontal scrolling. Its styles are in
+`assets/admin/pages/audit-lineage.css` and use design tokens only.
 
 Sandbox no longer embeds a second audit table. Historical
 `stonewright-sandbox&tab=audit` links point to this page so filters, pagination,
@@ -66,7 +116,8 @@ incident guidance, and payload behavior have one implementation.
 ## Retention and updates
 
 The log is append-only during normal operation. Plugin updates and schema
-migrations preserve existing audit rows. A genuinely fresh installation starts
+migrations preserve existing audit rows; the update that adds `repair_of` adds
+the column and its index in place. A genuinely fresh installation starts
 with zero rows; the first real operation may add one.
 
 Administrative cleanup uses only

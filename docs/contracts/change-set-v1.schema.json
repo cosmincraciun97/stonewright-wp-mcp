@@ -1,0 +1,297 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://stonewright.dev/contracts/change-set-v1.schema.json",
+    "title": "ChangeSetV1",
+    "description": "The change set a Stonewright write returns under `change_set`. Version 1 is additions-only: its required fields keep their names, types and meaning; a later revision may add optional extension fields but never removes or retypes a field.",
+    "x-extension-policy": "An optional extension field is declared by adding one property to `properties` with `x-extension: true`. It is never listed in `required`, a producer omits it when it does not apply, and a consumer ignores a property it does not know. The same declaration is added to Stonewright\\WpMcp\\Security\\ChangeSet::EXTENSIONS.",
+    "type": "object",
+    "required": [
+        "schema",
+        "change_set_id",
+        "planned",
+        "applied",
+        "missing",
+        "unexpected",
+        "before_hash",
+        "after_hash",
+        "verification",
+        "rollback_available",
+        "rollback_recipe_ref",
+        "repair_of",
+        "supersedes",
+        "approval_reason"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "schema": {
+            "description": "Shape discriminator.",
+            "const": "ChangeSetV1"
+        },
+        "change_set_id": {
+            "description": "Identifier of this change set. Audit rows of the write carry it as change_set_id.",
+            "$ref": "#/$defs/changeSetId"
+        },
+        "planned": {
+            "description": "Changes the write intended. A no-op change appears here only.",
+            "$ref": "#/$defs/changeList"
+        },
+        "applied": {
+            "description": "Planned changes the independent readback confirmed.",
+            "$ref": "#/$defs/changeList"
+        },
+        "missing": {
+            "description": "Planned changes the readback did not confirm, or that were not written.",
+            "$ref": "#/$defs/changeList"
+        },
+        "unexpected": {
+            "description": "Changes the readback shows that the plan did not ask for.",
+            "$ref": "#/$defs/changeList"
+        },
+        "before_hash": {
+            "description": "SHA-256 of the target before the write; empty when it is not known.",
+            "$ref": "#/$defs/hash"
+        },
+        "after_hash": {
+            "description": "SHA-256 of the target as read back after the write; for a dry run, the hash the write would produce; empty when the write did not run.",
+            "$ref": "#/$defs/hash"
+        },
+        "verification": {
+            "description": "Outcome of the independent verification and the bounded evidence behind it.",
+            "type": "object",
+            "required": [
+                "status",
+                "evidence"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "status": {
+                    "enum": [
+                        "verified",
+                        "failed",
+                        "unverified"
+                    ]
+                },
+                "evidence": {
+                    "$ref": "#/$defs/evidence"
+                }
+            }
+        },
+        "rollback_available": {
+            "description": "True when a recipe can undo this change set now.",
+            "type": "boolean"
+        },
+        "rollback_recipe_ref": {
+            "description": "Reference to the rollback recipe; null exactly when rollback_available is false.",
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "kind",
+                        "ref"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                        },
+                        "ref": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 190
+                        },
+                        "target": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 190
+                        }
+                    }
+                }
+            ]
+        },
+        "repair_of": {
+            "description": "change_set_id of the failed change this write repairs.",
+            "$ref": "#/$defs/nullableChangeSetId"
+        },
+        "supersedes": {
+            "description": "change_set_id of an earlier change this write replaces.",
+            "$ref": "#/$defs/nullableChangeSetId"
+        },
+        "approval_reason": {
+            "description": "Code naming the approval the write ran under; null when no write ran.",
+            "type": [
+                "string",
+                "null"
+            ],
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "required": [
+                    "rollback_available"
+                ],
+                "properties": {
+                    "rollback_available": {
+                        "const": true
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "rollback_recipe_ref": {
+                        "type": "object"
+                    }
+                }
+            },
+            "else": {
+                "properties": {
+                    "rollback_recipe_ref": {
+                        "type": "null"
+                    }
+                }
+            }
+        }
+    ],
+    "$defs": {
+        "changeSetId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
+        },
+        "nullableChangeSetId": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1,
+            "maxLength": 96
+        },
+        "hash": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{64})?$"
+        },
+        "change": {
+            "type": "object",
+            "required": [
+                "kind",
+                "ref",
+                "action"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                },
+                "ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 190
+                },
+                "action": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,47}$"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "note": {
+                    "type": "string",
+                    "maxLength": 160
+                }
+            }
+        },
+        "changeList": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+                "$ref": "#/$defs/change"
+            }
+        },
+        "evidenceValue": {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                        "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                        ],
+                        "maxLength": 200
+                    }
+                },
+                {
+                    "type": "object",
+                    "maxProperties": 24,
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                        ],
+                        "maxLength": 200
+                    }
+                }
+            ]
+        },
+        "evidence": {
+            "type": "object",
+            "required": [
+                "counts"
+            ],
+            "maxProperties": 24,
+            "properties": {
+                "counts": {
+                    "description": "Exact list sizes, kept even when a list is cut to its 50-entry bound.",
+                    "type": "object",
+                    "required": [
+                        "planned",
+                        "applied",
+                        "missing",
+                        "unexpected"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "planned": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "applied": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "missing": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "unexpected": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                }
+            },
+            "additionalProperties": {
+                "$ref": "#/$defs/evidenceValue"
+            }
+        }
+    }
+}

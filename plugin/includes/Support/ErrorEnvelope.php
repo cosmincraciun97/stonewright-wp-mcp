@@ -86,6 +86,11 @@ final class ErrorEnvelope {
 				$payload[ $key ] = $data[ $key ];
 			}
 		}
+		// A failed write names its change set so the caller can pass it as repair_of.
+		$change_set_id = self::change_set_id( $data );
+		if ( '' !== $change_set_id ) {
+			$payload['change_set_id'] = $change_set_id;
+		}
 
 		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
 			$requests = [];
@@ -178,7 +183,21 @@ final class ErrorEnvelope {
 
 			$out[ $key ] = $value;
 		}
+		$change_set_id = self::change_set_id( $data );
+		if ( '' !== $change_set_id ) {
+			$out['change_set_id'] = $change_set_id;
+		}
 		return $out;
+	}
+
+	/**
+	 * Identifier of the change set a failed write attached to its error data.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function change_set_id( array $data ): string {
+		$id = is_array( $data['change_set'] ?? null ) ? ( $data['change_set']['change_set_id'] ?? null ) : null;
+		return is_string( $id ) ? mb_substr( sanitize_text_field( $id ), 0, 96 ) : '';
 	}
 
 	/**

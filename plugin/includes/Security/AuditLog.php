@@ -31,8 +31,10 @@ final class AuditLog {
 	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 	private const DENIAL_LOCK_TTL_SECONDS = 5;
 	private const DENIAL_LOCK_ATTEMPTS = 500;
-	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_VERSION = 3;
 	private const SCHEMA_OPTION = 'stonewright_audit_schema_version';
+	/** Columns the admin and lineage readers select. */
+	private const ROW_COLUMNS = 'id, ability_name, user_id, result_status, sanitized_args, correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner, event_type, operation_class, resource_type, resource_ref, change_set_id, repair_of, execution_status, verification_status, effect_verified, rollback_status, before_sha256, after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend, site_fingerprint, mode, severity, event_id, schema_version, category, outcome, severity_level, root_error_code, resource_key_hash, normalized_path, cause_fingerprint, strategy_fingerprint, transaction_id, context_token_id_hash, expected_verifier, remediation_code, retryable, retry_after_seconds, incident_id, redacted_details, created_at';
 
 	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
 	private static ?bool $schema_healthy = null;
@@ -173,6 +175,7 @@ final class AuditLog {
 			'resource_type',
 			'resource_ref',
 			'change_set_id',
+			'repair_of',
 			'execution_status',
 			'verification_status',
 			'effect_verified',
@@ -266,6 +269,7 @@ final class AuditLog {
 			resource_type VARCHAR(96) NOT NULL DEFAULT '',
 			resource_ref VARCHAR(255) NOT NULL DEFAULT '',
 			change_set_id VARCHAR(96) NOT NULL DEFAULT '',
+			repair_of VARCHAR(96) NOT NULL DEFAULT '',
 			execution_status VARCHAR(32) NOT NULL DEFAULT '',
 			verification_status VARCHAR(32) NOT NULL DEFAULT '',
 			effect_verified TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
@@ -309,6 +313,7 @@ final class AuditLog {
 			KEY verification_idx (verification_status),
 			KEY rollback_idx (rollback_status),
 			KEY change_set_idx (change_set_id),
+			KEY repair_of_idx (repair_of),
 			KEY category_idx (category),
 			KEY outcome_idx (outcome),
 			KEY incident_idx (incident_id),
@@ -416,6 +421,7 @@ final class AuditLog {
 				'resource_type'     => self::meta_string( $meta, 'resource_type' ),
 				'resource_ref'      => self::logical_resource_ref( $meta, $sanitized_args ),
 				'change_set_id'     => self::meta_string( $meta, 'change_set_id' ),
+				'repair_of'         => $event['repair_of'],
 				'execution_status'  => self::meta_string( $meta, 'execution_status', $status ),
 				'verification_status'=> $verification,
 				'effect_verified'    => true === ( $meta['effect_verified'] ?? false ) ? 1 : 0,
@@ -504,6 +510,9 @@ final class AuditLog {
 		try {
 			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
 				IncidentStore::observe( $event );
+			} elseif ( '' !== $event['repair_of'] ) {
+				// A verified repair resolves the incident the repaired change opened.
+				IncidentStore::resolve_repaired( $event );
 			}
 			} catch ( \Throwable $t ) {
 				if ( $event['terminal'] ) {
@@ -965,16 +974,8 @@ final class AuditLog {
 
 		[ $where_sql, $params ] = self::build_filter_clause( $filters );
 
-		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
-				correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
-				event_type, operation_class, resource_type, resource_ref, change_set_id,
-				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
-				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,
-				site_fingerprint, mode, severity, event_id, schema_version, category,
-				outcome, severity_level, root_error_code, resource_key_hash, normalized_path,
-				cause_fingerprint, strategy_fingerprint, transaction_id, context_token_id_hash,
-				expected_verifier, remediation_code, retryable,
-				retry_after_seconds, incident_id, redacted_details, created_at
+		$columns = self::ROW_COLUMNS;
+		$sql     = "SELECT {$columns}
 			FROM {$table}
 			{$where_sql}
 			ORDER BY id DESC
@@ -992,6 +993,20 @@ final class AuditLog {
 		return is_array( $rows ) ? $rows : [];
 	}
 
+	/** Event id of the newest audit row recorded for a change set; '' when there is none. */
+	public static function latest_event_id( string $change_set_id ): string {
+		$change_set_id = mb_substr( sanitize_text_field( $change_set_id ), 0, 96 );
+		if ( '' === $change_set_id ) {
+			return '';
+		}
+		foreach ( self::recent( 1, 1, [ 'change_set_id' => $change_set_id ] ) as $row ) {
+			if ( is_array( $row ) && $change_set_id === (string) ( $row['change_set_id'] ?? '' ) ) {
+				return (string) ( $row['event_id'] ?? '' );
+			}
+		}
+		return '';
+	}
+
 	/** @return array<string, mixed>|null */
 	public static function find_event( string $event_id ): ?array {
 		$event_id = strtolower( trim( $event_id ) );
@@ -1000,6 +1015,44 @@ final class AuditLog {
 		}
 		$rows = self::recent( 1, 1, [ 'event_id' => $event_id ] );
 		return isset( $rows[0] ) && is_array( $rows[0] ) ? $rows[0] : null;
+	}
+
+	/**
+	 * Rows that belong to the given change sets or link to them: the rows of those
+	 * change sets, and the rows of every change set that repairs one of them.
+	 * Oldest first, bounded; both lookups use indexed columns.
+	 *
+	 * @param list<string> $change_set_ids
+	 * @return list<array<string, mixed>>
+	 */
+	public static function lineage_rows( array $change_set_ids, int $limit = 200 ): array {
+		global $wpdb;
+		$ids = [];
+		foreach ( $change_set_ids as $id ) {
+			$id = mb_substr( sanitize_text_field( (string) $id ), 0, 96 );
+			if ( '' !== $id ) {
+				$ids[ $id ] = $id;
+			}
+		}
+		$ids = array_slice( array_values( $ids ), 0, 100 );
+		if ( [] === $ids ) {
+			return [];
+		}
+		$table        = self::table_name();
+		$columns      = self::ROW_COLUMNS;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%s' ) );
+		$sql          = "SELECT {$columns}
+			FROM {$table}
+			WHERE change_set_id IN ({$placeholders}) OR repair_of IN ({$placeholders})
+			ORDER BY id ASC
+			LIMIT %d"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and column list internal; placeholders generated.
+		$params = array_merge( $ids, $ids, [ max( 1, min( 500, $limit ) ) ] );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- Placeholder list assembled above; values prepared.
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A );
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+
+		return is_array( $rows ) ? array_values( array_filter( $rows, 'is_array' ) ) : [];
 	}
 
 	/**

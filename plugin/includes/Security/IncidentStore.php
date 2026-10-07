@@ -396,6 +396,78 @@ final class IncidentStore {
 		return self::persist_cas( $row, $token );
 	}
 
+	/**
+	 * Resolve the incidents a verified repair fixes.
+	 *
+	 * The event is the audit event of a write that passed `repair_of`. An incident
+	 * resolves only when that write verified, the incident's last change set is the
+	 * one it repairs, and both concern the same resource. A rollback incident and
+	 * an incident whose rollback failed stay open for an operator, and an incident
+	 * that names an expected verifier waits for that verifier.
+	 *
+	 * @param array<string, mixed> $event Normalized audit event (see AuditEvent::normalize()).
+	 * @return int Number of incidents resolved.
+	 */
+	public static function resolve_repaired( array $event ): int {
+		if ( AuditEvent::OUTCOME_SUCCESS !== (string) ( $event['outcome'] ?? '' ) ) {
+			return 0;
+		}
+		$repair_of  = self::safe_text( $event['repair_of'] ?? '', 96 );
+		$change_set = self::safe_text( $event['change_set_id'] ?? '', 96 );
+		$resource   = self::safe_hash( $event['resource_key_hash'] ?? '' );
+		$event_id   = self::safe_text( $event['event_id'] ?? '', 36 );
+		if ( '' === $repair_of || '' === $change_set || '' === $resource || '' === $event_id
+			|| ! in_array( strtolower( (string) ( $event['verification_status'] ?? '' ) ), [ 'verified', 'passed' ], true ) ) {
+			return 0;
+		}
+
+		$resolved = 0;
+		foreach ( array_merge( self::recent( 500, [ 'state' => 'open' ] ), self::recent( 500, [ 'state' => 'observing' ] ) ) as $listed ) {
+			// Only incidents whose last change set is the repaired one are read again.
+			if ( ! is_array( $listed ) || ! hash_equals( (string) ( $listed['last_change_set_id'] ?? '' ), $repair_of ) ) {
+				continue;
+			}
+			$incident_id = self::safe_hash( $listed['incident_id'] ?? '' );
+			$row         = '' === $incident_id ? null : self::find( $incident_id );
+			if ( null === $row
+				|| ! in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true )
+				|| ! hash_equals( (string) ( $row['last_change_set_id'] ?? '' ), $repair_of )
+				|| ! hash_equals( self::safe_hash( $row['resource_key_hash'] ?? '' ), $resource ) ) {
+				continue;
+			}
+			$expected_verifier = (string) ( $row['expected_verifier'] ?? '' );
+			if ( '' !== $expected_verifier && $expected_verifier !== (string) ( $event['ability'] ?? '' ) ) {
+				continue;
+			}
+			$evidence = json_decode( (string) ( $row['evidence_json'] ?? '' ), true );
+			if ( AuditEvent::CATEGORY_ROLLBACK === (string) ( $row['category'] ?? '' )
+				|| ( is_array( $evidence ) && 'failed' === strtolower( (string) ( $evidence['rollback_status'] ?? '' ) ) ) ) {
+				continue;
+			}
+
+			$after_hash                 = self::safe_hash( $event['after_sha256'] ?? '' );
+			$token                      = self::version_token_from_row( $row );
+			$row['state']               = 'resolved';
+			$row['resolved_at']         = gmdate( 'Y-m-d H:i:s' );
+			$row['resolution_event_id'] = $event_id;
+			$row['repair_phase']        = 'verified';
+			$row['repair_receipt_id']   = hash( 'sha256', implode( '|', [ $incident_id, $change_set, $repair_of, $after_hash ] ) );
+			$row['resolution_json']     = Json::encode( [
+				'verification_status' => 'verified',
+				'event_id'            => $event_id,
+				'change_set_id'       => $change_set,
+				'repair_of'           => $repair_of,
+				'after_sha256'        => $after_hash,
+			] );
+			$row['generation'] = (int) ( $row['generation'] ?? 1 ) + 1;
+			$row['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+			if ( self::persist_cas( $row, $token ) ) {
+				++$resolved;
+			}
+		}
+		return $resolved;
+	}
+
 	/** @return list<array<string, mixed>> */
 	public static function recent( int $limit = 50, array $filters = [] ): array {
 		$limit = max( 1, min( 500, $limit ) );

@@ -10,6 +10,9 @@ use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\CustomCode\Providers\CodeSnippetsProvider;
 use Stonewright\WpMcp\CustomCode\Providers\WpCodeProvider;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
+use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
+
+require_once dirname( __DIR__ ) . '/Security/ChangeSetAssertions.php';
 
 /**
  * @covers \Stonewright\WpMcp\CustomCode\Providers\WpCodeProvider
@@ -17,6 +20,7 @@ use Stonewright\WpMcp\Security\CustomCodeGrant;
  * @covers \Stonewright\WpMcp\Abilities\CustomCode\ProviderOps
  */
 final class ProviderPipelineTest extends TestCase {
+	use ChangeSetAssertions;
 
 	/** @var array<string, array{code:string,title:string,language:string,active:bool}> */
 	private array $wpcode_store = [];
@@ -292,6 +296,98 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertIsArray( $dry );
 		self::assertTrue( $dry['agent_must_stop'] );
 		self::assertArrayNotHasKey( 'custom_code_grant', $dry );
+	}
+
+	public function test_ops_report_a_change_set_for_dry_run_apply_and_rollback(): void {
+		$ops       = new ProviderOps();
+		$candidate = "<?php\necho 'after';\n";
+		$base      = [ 'provider' => 'wpcode', 'target_id' => '12', 'code' => $candidate, 'language' => 'php' ];
+
+		$dry = $ops->execute( $base + [ 'action' => 'dry-run' ] );
+		self::assertIsArray( $dry );
+		$planned = $dry['change_set'];
+		self::assertValidChangeSet( $planned );
+		self::assertSame( [ [ 'kind' => 'custom_code', 'ref' => 'wpcode:12', 'action' => 'apply', 'index' => 0 ] ], $planned['planned'] );
+		self::assertSame( 'dry_run', $planned['verification']['evidence']['outcome'] );
+		self::assertSame( $dry['before_sha256'], $planned['before_hash'] );
+		self::assertSame( $dry['after_sha256'], $planned['after_hash'] );
+		self::assertSame( [], $planned['applied'] );
+		self::assertNull( $planned['approval_reason'] );
+
+		$stopped = $ops->execute( $base + [ 'action' => 'apply', 'expected_before_sha256' => $dry['before_sha256'] ] );
+		self::assertInstanceOf( \WP_Error::class, $stopped );
+		$stopped_set = $stopped->get_error_data()['change_set'];
+		self::assertValidChangeSet( $stopped_set );
+		self::assertSame( 'unverified', $stopped_set['verification']['status'] );
+		self::assertSame( 'not_applied', $stopped_set['verification']['evidence']['outcome'] );
+		self::assertSame( $stopped_set['planned'], $stopped_set['missing'] );
+
+		$grant = CustomCodeGrant::issue( [ 'path' => 'wpcode/snippet/12', 'after_sha256' => $dry['after_sha256'], 'language' => 'php' ] );
+		self::assertIsArray( $grant );
+		$applied = $ops->execute( $base + [ 'action' => 'apply', 'custom_code_grant' => $grant['token'], 'expected_before_sha256' => $dry['before_sha256'] ] );
+		self::assertIsArray( $applied, $applied instanceof \WP_Error ? $applied->get_error_message() : '' );
+		$change_set = $applied['change_set'];
+		self::assertValidChangeSet( $change_set );
+		self::assertSame( 'verified', $change_set['verification']['status'] );
+		self::assertSame( $change_set['planned'], $change_set['applied'] );
+		self::assertSame( $dry['before_sha256'], $change_set['before_hash'] );
+		self::assertSame( $dry['after_sha256'], $change_set['after_hash'] );
+		self::assertSame( [ 'kind' => 'provider_snapshot', 'ref' => $applied['snapshot_id'], 'target' => 'wpcode:12' ], $change_set['rollback_recipe_ref'] );
+		self::assertTrue( $change_set['rollback_available'] );
+		self::assertSame( 'custom_code_grant', $change_set['approval_reason'] );
+		self::assertStringNotContainsString( $grant['token'], (string) wp_json_encode( $change_set ) );
+
+		$rolled_back = $ops->execute( [ 'action' => 'rollback', 'provider' => 'wpcode', 'target_id' => '12', 'snapshot_id' => $applied['snapshot_id'] ] );
+		self::assertIsArray( $rolled_back, $rolled_back instanceof \WP_Error ? $rolled_back->get_error_message() : '' );
+		$restored = $rolled_back['change_set'];
+		self::assertValidChangeSet( $restored );
+		self::assertSame( [ 'rollback' ], array_column( $restored['planned'], 'action' ) );
+		self::assertSame( 'verified', $restored['verification']['status'] );
+		self::assertSame( $dry['before_sha256'], $restored['after_hash'], 'A rollback ends in the snapshot state.' );
+		self::assertSame( '', $restored['before_hash'] );
+		self::assertFalse( $restored['rollback_available'] );
+	}
+
+	public function test_ops_report_a_failed_apply_with_its_cause_and_no_recipe_when_nothing_changed(): void {
+		$ops       = new ProviderOps();
+		$candidate = "<?php\necho 'x';\n";
+		$dry       = $ops->execute( [ 'action' => 'dry-run', 'provider' => 'wpcode', 'target_id' => '12', 'code' => $candidate, 'language' => 'php' ] );
+		self::assertIsArray( $dry );
+		$this->wpcode_store['12']['code'] = "<?php\necho 'raced';\n";
+		$grant = CustomCodeGrant::issue( [ 'path' => 'wpcode/snippet/12', 'after_sha256' => $dry['after_sha256'], 'language' => 'php' ] );
+		self::assertIsArray( $grant );
+
+		$conflict = $ops->execute(
+			[
+				'action'                 => 'apply',
+				'provider'               => 'wpcode',
+				'target_id'              => '12',
+				'code'                   => $candidate,
+				'language'               => 'php',
+				'custom_code_grant'      => $grant['token'],
+				'expected_before_sha256' => $dry['before_sha256'],
+				'repair_of'              => 'cs-an-earlier-change',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $conflict );
+		$change_set = $conflict->get_error_data()['change_set'];
+		self::assertValidChangeSet( $change_set );
+		self::assertSame( 'failed', $change_set['verification']['status'] );
+		self::assertSame( $change_set['planned'], $change_set['missing'] );
+		self::assertSame( 'stonewright_custom_code_concurrency_conflict', $change_set['verification']['evidence']['root_error_code'] );
+		self::assertFalse( $change_set['rollback_available'] );
+		self::assertSame( 'cs-an-earlier-change', $change_set['repair_of'] );
+	}
+
+	public function test_reads_and_discovery_report_no_change_set(): void {
+		$ops = new ProviderOps();
+
+		foreach ( [ [ 'action' => 'discover' ], [ 'action' => 'list', 'provider' => 'wpcode' ], [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] ] as $arguments ) {
+			$result = $ops->execute( $arguments );
+			self::assertIsArray( $result, $arguments['action'] );
+			self::assertArrayNotHasKey( 'change_set', $result, $arguments['action'] );
+		}
 	}
 
 	public function test_invalid_php_rejected_on_dry_run(): void {
