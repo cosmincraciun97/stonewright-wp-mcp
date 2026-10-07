@@ -138,6 +138,7 @@ describe('OAuth seven-day continuity (fake clock)', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	},
-		20_000,
+		// 169 refresh windows each write the token store; on Windows every write also verifies its ACL through PowerShell.
+		120_000,
 	);
 });
