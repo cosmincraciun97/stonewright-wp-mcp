@@ -14,6 +14,19 @@ final class SiteHealthTest extends AbilityKernel {
  return __( 'Runs a named site health check when Site Health REST is available.', 'stonewright' ); }
 	public function category(): string {
  return 'site'; }
+	/**
+	 * Some of the checks contact wordpress.org.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'=>'object',

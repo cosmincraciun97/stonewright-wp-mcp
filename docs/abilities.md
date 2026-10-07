@@ -128,6 +128,76 @@ companion through `query-local-stonewright.js`, create action scripts such as
 source to reverse-engineer tool schemas, or hand-roll JSON-RPC to reach this
 runner when `stonewright-context-bootstrap` is missing.
 
+## Tool annotations and exposure
+
+Every ability registers four hints in `meta.annotations`. The MCP adapter maps
+them to the tool annotations a client reads from `tools/list`, so a client can
+tell a read from a write, an addition from an overwrite, and a local tool from
+one that reaches the web before it calls the tool:
+
+| Ability meta | MCP annotation | Meaning |
+|---|---|---|
+| `readonly` | `readOnlyHint` | The ability changes nothing. |
+| `destructive` | `destructiveHint` | It can overwrite or delete what exists; `false` means it only adds. |
+| `idempotent` | `idempotentHint` | Repeating the call with the same arguments has no further effect. |
+| `openWorldHint` | `openWorldHint` | It can reach hosts outside the site: web requests, downloads, third-party services. |
+
+The hints come from the code of the ability and from its name:
+
+- An ability that cannot change state is read-only, not destructive, and
+  idempotent (`Read` in the matrix).
+- Any other ability is not read-only. It is not destructive when the last verb
+  of its name only adds (`create`, `add`, `insert`, `upload`, `duplicate`,
+  `backup`, `queue`); otherwise it is destructive, including when the name holds
+  no known verb and when the verb can replace an earlier entry (`record`,
+  `capture`, `register`, `define`, `activate`). It is idempotent when its name
+  says `delete`, `remove`, or `deactivate`.
+- An ability whose code makes HTTP requests, downloads, oEmbed lookups, or
+  sideloads is open-world (`External` is `Yes` in the matrix).
+
+`docs/ability-truth-matrix.md` lists the result for each ability in its **Hints**
+column. An ability whose nature differs overrides a hint in its `meta()`:
+
+```php
+public function meta(): array {
+    return [ 'annotations' => [ 'readonly' => false, 'idempotent' => false ] ];
+}
+```
+
+Abilities that store a context token or mint the token that authorizes a
+destructive call (`task-start`, `context-bootstrap`, `workflow-preflight`,
+`security-issue-confirmation-token`) are not read-only; `execute-ability` can do
+what the ability it runs does; `php-execute` and the WP-CLI runners can reach
+any host. `plugin-activate` only adds to the active list, so it is not
+destructive and is idempotent; `elementor-create-custom-widget` writes the
+widget file under its slug without looking for an earlier one, so it is
+destructive; `design-checkpoint-record` only signs an approval token, so it is
+not destructive.
+
+After you change an ability, run `cd plugin && composer docs:matrix`. It rewrites
+the matrix and `plugin/data/ability-traits.php`, the facts the plugin reads when
+it registers abilities; an ability missing from that file registers the
+conservative hints (not read-only, destructive, not idempotent, open-world). Run
+`composer contracts:generate` to record the hints in
+`docs/contracts/public-api-v1.json`, which `composer contracts:compat` compares.
+
+The hints describe an ability to a client. They grant nothing and remove no gate:
+permission, mode, confirmation, backup, validation, and audit checks run on every
+call. WordPress's REST run endpoint
+(`/wp-json/wp-abilities/v1/abilities/<name>/run`) chooses the HTTP method from
+the hints: GET for a read-only ability, DELETE for a destructive and idempotent
+one, POST for the others. `POST /wp-json/stonewright/v1/abilities/run` is not
+affected.
+
+Exposure. Each ability also registers `meta.public`, the single exposure flag of
+WordPress 7.1 (it seeds `show_in_rest`), and the per-channel flags that older
+cores and the MCP adapter read: `meta.mcp.public` and `meta.show_in_rest`. All
+three are `true`. An ability opts out of every channel with `'public' => false`
+in its `meta()`, or out of one channel with `show_in_rest` or `mcp.public`.
+`GET /wp-json/stonewright/v1/abilities` returns each input schema prepared with
+`wp_prepare_json_schema_for_client()` on WordPress 7.1 and later, and unchanged
+on older cores.
+
 ## Discover-execute
 
 `discover-execute` is an opt-in MCP profile. Auto routing never selects it.

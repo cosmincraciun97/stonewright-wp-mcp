@@ -42,6 +42,19 @@ final class PhpExecute extends AbilityKernel {
 		return 'runtime';
 	}
 
+	/**
+	 * PHP in the loaded runtime can reach any host.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

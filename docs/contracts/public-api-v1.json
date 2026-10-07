@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T02:19:34+00:00",
+    "generated_at": "2026-10-07T02:25:57+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -47,6 +47,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -61,6 +67,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -75,6 +87,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -89,6 +107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -103,6 +127,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -117,6 +147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -131,6 +167,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -145,6 +187,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -159,6 +207,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -173,6 +227,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -187,6 +247,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -201,6 +267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -215,6 +287,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -229,6 +307,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -243,6 +327,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -257,6 +347,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -271,6 +367,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -285,6 +387,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -299,12 +407,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-queue-change",
             "mcp_name": "stonewright-blocks-queue-change",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "31092f8dd11d75de14cd21bcf633649bdef613bbd5c6d9c7f02daf5a79e2050b",
             "output_schema_hash": "a48b9d3532a8b2db4e2200a02d9119bff71c9ca1a4346bab942614b3e7a9e3a6",
             "permission_class": "Permissions::edit_post( (int)",
@@ -313,6 +427,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -327,6 +447,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -341,6 +467,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -355,6 +487,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -369,6 +507,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -383,6 +527,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -397,6 +547,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -411,6 +567,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -425,6 +587,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -439,6 +607,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -453,6 +627,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -467,6 +647,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -481,12 +667,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/comment-create",
             "mcp_name": "stonewright-comment-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "426e30705dfe014c542ceeaf89fde3d15c5ca42e6b8add139e0c483fe71344fe",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::edit_posts()",
@@ -495,6 +687,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -509,6 +707,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -523,6 +727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -537,12 +747,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/comment-update",
             "mcp_name": "stonewright-comment-update",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "5a2307ebe61ba798aeb87e5e5c7239f42dac8a6d229c1b0dbfdebd3feced2244",
             "output_schema_hash": "c49b985ee9699ca84b854108922fd8947dd24bdc7add27419487f2103decd08b",
             "permission_class": "Permissions::moderate_comments()",
@@ -551,6 +767,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -565,6 +787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -579,6 +807,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -593,6 +827,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -607,6 +847,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -621,6 +867,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -635,6 +887,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -649,6 +907,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -663,6 +927,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -677,6 +947,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -691,6 +967,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -705,6 +987,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -719,6 +1007,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -733,6 +1027,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -747,6 +1047,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -761,6 +1067,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -775,12 +1087,18 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-checkpoint-record",
             "mcp_name": "stonewright-design-checkpoint-record",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "b4d4b95dd77632df525e590c05a09d055cf26c2720eb8fb373c407e60f135409",
             "output_schema_hash": "69e7cf8825ee651b9b72ead9a3e8cf2cb514a861b6fc2734a071aae2e432427b",
             "permission_class": "Permissions::can_manage_design() (compound)",
@@ -789,6 +1107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -803,6 +1127,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -817,6 +1147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -831,12 +1167,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-direction-capture",
             "mcp_name": "stonewright-design-direction-capture",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "05ec1068e662b1e95b7354f0a3a8d84e5e9c8342b3ef49788a9b8f29ac9437c9",
             "output_schema_hash": "05d8590993edff9e3dcd4a8913dd726f5cda106b6f10d324cb415169fc12be46",
             "permission_class": "Permissions::can_manage_design()",
@@ -845,6 +1187,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -859,6 +1207,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -873,6 +1227,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -887,12 +1247,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-direction-save",
             "mcp_name": "stonewright-design-direction-save",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9cd1204650c6669b166a9447bbf4a247f7660d31bf7d9f9e10841c75a580c8ec",
             "output_schema_hash": "7dbdbc7837e074ef01fe66ec1c8ac7179b2ef84c784aa9be24727fdeb5e464c3",
             "permission_class": "Permissions::can_manage_design()",
@@ -901,6 +1267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -915,6 +1287,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -929,6 +1307,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -943,6 +1327,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -957,6 +1347,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -971,6 +1367,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -985,6 +1387,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -999,6 +1407,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1013,6 +1427,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1027,6 +1447,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1041,6 +1467,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1055,6 +1487,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1069,6 +1507,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1083,6 +1527,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -1097,12 +1547,18 @@
                 "token": false,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-quality-check",
             "mcp_name": "stonewright-design-quality-check",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9fdec23433826facc080497159e364549867c18e0ec380211e7eab6106ea239d",
             "output_schema_hash": "8b46050b57d30691d6d53f63972566cedb02bb4afd065d5a0332bee16517b02a",
             "permission_class": "Permissions::can_manage_design() (compound)",
@@ -1111,6 +1567,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1125,6 +1587,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1139,6 +1607,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -1153,6 +1627,12 @@
                 "token": false,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1167,6 +1647,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1181,6 +1667,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1195,6 +1687,12 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1209,6 +1707,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1223,6 +1727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1237,6 +1747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1251,6 +1767,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1265,6 +1787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1279,6 +1807,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1293,6 +1827,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1307,6 +1847,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1321,6 +1867,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1335,6 +1887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1349,6 +1907,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1363,6 +1927,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1377,6 +1947,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1391,6 +1967,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1405,6 +1987,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1419,6 +2007,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1433,6 +2027,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1447,6 +2047,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1461,6 +2067,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1475,6 +2087,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1489,6 +2107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1503,6 +2127,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1517,6 +2147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1531,6 +2167,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1545,6 +2187,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1559,6 +2207,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1573,6 +2227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1587,6 +2247,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1601,6 +2267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1615,6 +2287,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1629,6 +2307,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1643,6 +2327,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1657,6 +2347,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1671,6 +2367,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1685,6 +2387,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1699,6 +2407,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1713,6 +2427,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1727,6 +2447,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1741,6 +2467,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1755,6 +2487,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1769,6 +2507,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1783,6 +2527,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1797,6 +2547,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1811,6 +2567,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1825,6 +2587,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1839,6 +2607,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1853,6 +2627,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1867,6 +2647,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1881,6 +2667,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1895,6 +2687,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1909,6 +2707,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1923,6 +2727,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1937,6 +2747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1951,6 +2767,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1965,6 +2787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1979,6 +2807,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1993,6 +2827,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2007,6 +2847,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2021,6 +2867,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2035,6 +2887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2049,6 +2907,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2063,6 +2927,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2077,6 +2947,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2091,6 +2967,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2105,6 +2987,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2119,6 +3007,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2133,6 +3027,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2147,6 +3047,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2161,6 +3067,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2175,6 +3087,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2189,6 +3107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2203,6 +3127,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2217,6 +3147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2231,6 +3167,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2245,6 +3187,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2259,6 +3207,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2273,6 +3227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2287,6 +3247,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2301,6 +3267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2315,6 +3287,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2329,6 +3307,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2343,6 +3327,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2357,6 +3347,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2371,6 +3367,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2385,6 +3387,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2399,6 +3407,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2413,6 +3427,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2427,6 +3447,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2441,6 +3467,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2455,6 +3487,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2469,6 +3507,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2483,6 +3527,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2497,6 +3547,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2511,6 +3567,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2525,6 +3587,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2539,6 +3607,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2553,6 +3627,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2567,6 +3647,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2581,6 +3667,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2595,6 +3687,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2609,6 +3707,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2623,6 +3727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2637,6 +3747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -2651,6 +3767,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2665,6 +3787,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2679,6 +3807,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2693,6 +3827,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2707,6 +3847,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2721,6 +3867,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2735,6 +3887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2749,6 +3907,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2763,6 +3927,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2777,6 +3947,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2791,6 +3967,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2805,6 +3987,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2819,6 +4007,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2833,6 +4027,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2847,6 +4047,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2861,6 +4067,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2875,6 +4087,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2889,6 +4107,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2903,12 +4127,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-legacy-debt-migrate",
             "mcp_name": "stonewright-elementor-v3-legacy-debt-migrate",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "bf97a4c1610a0edd61288430b3ab52f691264320b8b0835db40f586f6d9916ae",
             "output_schema_hash": "bf85c7f0451767217662afcfa768ab44d9e4b691e19dead4c3ebea9476622899",
             "permission_class": "Permissions::edit_post( (int)",
@@ -2917,6 +4147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2931,6 +4167,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2945,6 +4187,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2959,6 +4207,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2973,6 +4227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2987,6 +4247,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3001,6 +4267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3015,6 +4287,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3029,6 +4307,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3043,6 +4327,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3057,6 +4347,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3071,6 +4367,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3085,12 +4387,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v4-atomic-widget-define",
             "mcp_name": "stonewright-elementor-v4-atomic-widget-define",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "05c581f73c24e97377fc6b16be22a451775e16a768095659c35965e1bf9ba05f",
             "output_schema_hash": "7a754958038a1a18e1105b918d4f6ca5038d770235542b25a9b4868e193c7639",
             "permission_class": "Permissions::can_manage_sandbox()",
@@ -3099,6 +4407,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3113,6 +4427,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3127,6 +4447,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3141,6 +4467,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3155,6 +4487,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3169,6 +4507,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3183,6 +4527,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3197,6 +4547,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3211,6 +4567,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3225,6 +4587,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3239,6 +4607,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3253,6 +4627,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3267,6 +4647,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3281,6 +4667,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3295,6 +4687,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3309,6 +4707,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3323,6 +4727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3337,6 +4747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3351,6 +4767,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3365,6 +4787,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3379,6 +4807,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3393,6 +4827,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3407,6 +4847,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3421,12 +4867,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/feedback-capture",
             "mcp_name": "stonewright-feedback-capture",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "eb02ff2f7cd324305d521923364dcbd971e993d8cbc610dade279127aa9fce3c",
             "output_schema_hash": "6d41bf1a365dbe874cb4d51f006dafe2080d9c22d2808871c49e442b8f237da7",
             "permission_class": "Permissions::manage_options()",
@@ -3435,6 +4887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3449,6 +4907,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3463,6 +4927,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3477,6 +4947,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3491,6 +4967,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3505,6 +4987,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3519,6 +5007,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3533,6 +5027,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3547,6 +5047,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3561,6 +5067,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3575,6 +5087,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3589,6 +5107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3603,6 +5127,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3617,6 +5147,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3631,6 +5167,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3645,6 +5187,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3659,6 +5207,12 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3673,6 +5227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3687,6 +5247,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3701,6 +5267,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3715,12 +5287,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/knowledge-import",
             "mcp_name": "stonewright-knowledge-import",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "c3a509a0df4d18547338cbcb59076e6236b2322db9c7c750bc845785f61da581",
             "output_schema_hash": "835d1e3435ce51bc76281fc5fe50ef8ba861909476abb8c14cd46f3bf549c429",
             "permission_class": "Permissions::manage_options()",
@@ -3729,6 +5307,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3743,6 +5327,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3757,6 +5347,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3771,12 +5367,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/media-optimize",
             "mcp_name": "stonewright-media-optimize",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9b386e3d92664ef8a963d11ddc8239e4cd9fb39bb9d2f338a16392db12bff90d",
             "output_schema_hash": "628662f736c2ada576f159ca89fb91366b62ce3f958c3e64ec1b2a59abf4567a",
             "permission_class": "Permissions::edit_post( $id )",
@@ -3785,6 +5387,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3799,6 +5407,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3813,6 +5427,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3827,6 +5447,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3841,6 +5467,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3855,6 +5487,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3869,6 +5507,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3883,6 +5527,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3897,12 +5547,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-add-item",
             "mcp_name": "stonewright-menu-add-item",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "f3a458b617a2cba5e98f46e60e028d4ae0f889e7265ad5cd8d20f5204dacc040",
             "output_schema_hash": "9995bbc2dd737e5061b6fe0093436a4cd251de31a59474c3703070fc17d1b2f3",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3911,12 +5567,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-assign-location",
             "mcp_name": "stonewright-menu-assign-location",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "79232ee2c494f3f902f964f312bda07c59a719b2006ca6e6bc54012b9f4637c7",
             "output_schema_hash": "6436a53935552531ee6aec7aa1352b767a49dbe217bd4ff0d7fde3ad4f642206",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3925,12 +5587,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-create",
             "mcp_name": "stonewright-menu-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "a83746470844ab3b3d4fb78b86e807efb77a77cda91068b58906a921b89f5867",
             "output_schema_hash": "1d8d444c83b9c5843b689efbb6ae3e32ff4aa5d817f7977e14899c001a62cbaf",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3939,12 +5607,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-delete",
             "mcp_name": "stonewright-menu-delete",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "8adad38ad2f67aa0626ce8af140322234b758e8654b93082f90a03af8dd22067",
             "output_schema_hash": "babf503ecbb10dc6ad10094800cefdf311fac92c05b17f15ee63cf5a6a63bf99",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3953,6 +5627,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3967,6 +5647,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3981,6 +5667,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3995,6 +5687,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4009,6 +5707,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4023,6 +5727,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4037,6 +5747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4051,6 +5767,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4065,6 +5787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4079,6 +5807,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -4093,12 +5827,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/plugin-activate",
             "mcp_name": "stonewright-plugin-activate",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "aa6d83da2164d5899df8c515103212349d3ee3007d28aabcee6a24d127350dca",
             "output_schema_hash": "0b97a397fc9478fac77fb6acaf956fd68c0e0d2b89e5bb7f7d030ec02b343425",
             "permission_class": "Permissions::activate_plugins()",
@@ -4107,6 +5847,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4121,6 +5867,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4135,6 +5887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4149,6 +5907,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4163,6 +5927,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4177,6 +5947,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4191,6 +5967,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4205,6 +5987,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4219,6 +6007,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4233,6 +6027,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4247,6 +6047,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4261,6 +6067,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4275,6 +6087,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4289,6 +6107,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4303,6 +6127,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4317,6 +6147,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4331,6 +6167,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4345,6 +6187,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4359,12 +6207,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/security-runtime-data-purge",
             "mcp_name": "stonewright-security-runtime-data-purge",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "ddf971e6fd83bb2ae968311a9ea288f674e4c923d45c3b2216e40ffb3b441c33",
             "output_schema_hash": "2e76c9ad2cc98399ed008ca511ecb8b0f14371bd08ac38ad10299d7731a2957f",
             "permission_class": "Permissions::manage_options()",
@@ -4373,6 +6227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4387,6 +6247,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4401,6 +6267,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4415,6 +6287,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4429,6 +6307,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4443,6 +6327,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4457,6 +6347,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4471,12 +6367,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/site-create-revision",
             "mcp_name": "stonewright-site-create-revision",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "a31d8b135a928a2293ac86289d1b4beacf0ed6c6713f099cedf3ca119ea13dde",
             "output_schema_hash": "41e73479bc660f48b6c339db932f74f606dff513f4c59fa72f692be8fb726175",
             "permission_class": "Permissions::edit_post( $post_id )",
@@ -4485,6 +6387,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4499,6 +6407,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4513,6 +6427,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4527,6 +6447,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4541,6 +6467,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4555,6 +6487,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4569,6 +6507,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4583,6 +6527,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4597,6 +6547,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4611,6 +6567,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4625,6 +6587,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4639,6 +6607,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4653,6 +6627,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4667,6 +6647,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4681,6 +6667,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -4695,6 +6687,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4709,6 +6707,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4723,6 +6727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4737,6 +6747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4751,6 +6767,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4765,6 +6787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4779,6 +6807,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4793,6 +6827,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4807,12 +6847,18 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
             "ability_name": "stonewright/theme-builder-create-template",
             "mcp_name": "stonewright-theme-builder-create-template",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "1528610ee1d49fc5d84355add44dd443b2a8ad4a2f78871e55131bd06fd5486c",
             "output_schema_hash": "43e3dc0b4406afd9de7abb6cca94202bd5df1a925498bace96051a8ab2761909",
             "permission_class": "Permissions::edit_posts()",
@@ -4821,6 +6867,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4835,6 +6887,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4849,6 +6907,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4863,12 +6927,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-builder-set-conditions",
             "mcp_name": "stonewright-theme-builder-set-conditions",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "7ba7ddf72bc7487d00135645c3af6226218c1a914ed78dcc618ddd2ce8211ddc",
             "output_schema_hash": "ef893afdecc2d1c99b33ce153c8bb8177f852d8c411be8eb7e3c34e775ca3098",
             "permission_class": "Permissions::edit_posts()",
@@ -4877,6 +6947,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4891,6 +6967,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4905,6 +6987,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4919,6 +7007,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4933,6 +7027,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4947,6 +7047,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4961,6 +7067,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4975,6 +7087,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4989,6 +7107,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5003,12 +7127,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/user-create",
             "mcp_name": "stonewright-user-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "6e86e32809f46cc1eed1f418d4c4fb13c85b0d5de43183effaf40947ec563bfd",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::create_users()",
@@ -5017,6 +7147,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5031,6 +7167,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5045,6 +7187,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5059,12 +7207,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/user-update",
             "mcp_name": "stonewright-user-update",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "688093cc6b813eb724715c3942b04deffd7366e987373e7a3dd7b5f47068a923",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::edit_users()",
@@ -5073,6 +7227,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5087,6 +7247,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5101,6 +7267,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5115,6 +7287,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5129,6 +7307,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5143,6 +7327,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5157,6 +7347,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5171,6 +7367,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5185,6 +7387,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5199,6 +7407,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5213,6 +7427,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5227,6 +7447,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5241,6 +7467,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5255,6 +7487,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5269,6 +7507,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5283,6 +7527,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5297,6 +7547,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5311,6 +7567,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5325,6 +7587,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5339,6 +7607,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5353,6 +7627,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5367,6 +7647,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5381,6 +7667,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5395,6 +7687,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5409,6 +7707,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5423,6 +7727,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5437,6 +7747,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5451,6 +7767,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5465,6 +7787,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5479,6 +7807,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         }
     ]

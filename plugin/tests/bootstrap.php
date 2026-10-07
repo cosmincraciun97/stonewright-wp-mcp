@@ -1154,6 +1154,10 @@ if ( ! class_exists( 'WP_Error' ) ) {
 			return $this->errors[0]['code'] ?? '';
 		}
 
+		public function has_errors(): bool {
+			return [] !== $this->errors;
+		}
+
 		public function get_error_message( string|int $code = '' ): string {
 			foreach ( $this->errors as $e ) {
 				if ( '' === $code || $e['code'] === $code ) {
@@ -2577,6 +2581,12 @@ $GLOBALS['stonewright_test_rest_routes'] ??= [];
 $GLOBALS['stonewright_test_ability_categories'] ??= [];
 $GLOBALS['stonewright_test_doing_it_wrong']     ??= [];
 
+if ( ! function_exists( '_doing_it_wrong' ) ) {
+	function _doing_it_wrong( string $function_name, string $message, string $version ): void {
+		$GLOBALS['stonewright_test_doing_it_wrong'][] = $function_name . ': ' . $message . ' (' . $version . ')';
+	}
+}
+
 if ( ! function_exists( 'wp_has_ability_category' ) ) {
 	function wp_has_ability_category( string $slug ): bool {
 		return isset( $GLOBALS['stonewright_test_ability_categories'][ $slug ] );
@@ -2611,6 +2621,11 @@ if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
 	function rest_validate_value_from_schema( mixed $value, mixed $args, string $param = '' ): bool|\WP_Error {
 		if ( $args instanceof \stdClass ) {
 			throw new \Error( 'Cannot use object of type stdClass as array' );
+		}
+
+		// A test that needs real refusals installs a validator: callable( $value, $schema, $param ): bool|WP_Error.
+		if ( isset( $GLOBALS['stonewright_test_rest_validator'] ) && is_callable( $GLOBALS['stonewright_test_rest_validator'] ) ) {
+			return $GLOBALS['stonewright_test_rest_validator']( $value, $args, $param );
 		}
 
 		if ( ! is_array( $args ) || [] === $args ) {

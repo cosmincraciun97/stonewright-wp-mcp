@@ -30,6 +30,21 @@ final class NormalizeAssets extends AbilityKernel {
 		return 'design';
 	}
 
+	/**
+	 * Sideloads missing files into the media library and adds attachments; nothing that exists is overwritten.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

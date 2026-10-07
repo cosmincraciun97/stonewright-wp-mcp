@@ -140,6 +140,20 @@ final class ToolProfile extends AbilityKernel {
 		return 'system';
 	}
 
+	/**
+	 * Switches the tool profile of the session and records the switch in two bookkeeping options; no site content is overwritten or removed, and repeating the call changes nothing more.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+				'idempotent'  => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

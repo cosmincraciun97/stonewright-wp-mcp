@@ -29,6 +29,20 @@ final class PluginActivate extends AbilityKernel {
 		return 'plugins';
 	}
 
+	/**
+	 * Adds the plugin to the active list; nothing is overwritten, and activating it again changes nothing more.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+				'idempotent'  => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

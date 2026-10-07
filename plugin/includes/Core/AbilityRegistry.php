@@ -772,38 +772,66 @@ final class AbilityRegistry {
 				continue;
 			}
 
-			$input_schema = self::input_schema_for_ability( $ability );
-			$args         = [
-				'label'               => $ability->label(),
-				'description'         => $ability->description(),
-				'ability_class'       => RegisteredAbility::class,
-				'category'            => $ability->category(),
-				'input_schema'        => $input_schema,
-				'output_schema'       => self::output_schema_for_ability( $ability ),
-				'permission_callback' => [ $ability, 'permission_callback' ],
-				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
-				// are guaranteed valid UTF-8 regardless of client encoding.
-				// This transparently handles Windows PowerShell \uXXXX escapes.
-				'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
-					return self::execute_with_context_guard( $ability, Utf8::deep_sanitize( $input ) );
-				},
-				'meta'                => array_merge(
-					[
-						'mcp'          => [ 'public' => true ],
-						// WordPress core's `/wp-json/wp-abilities/v1/abilities`
-						// list endpoint filters by `meta.show_in_rest === true`
-						// (see WP_REST_Abilities_V1_List_Controller::get_items).
-						// Without this, every Stonewright ability is invisible
-						// to standard MCP/REST clients even though they are
-						// registered. Per-ability `meta()` overrides can opt out.
-						'show_in_rest' => true,
-					],
-					$ability->meta()
-				),
-			];
-
-			wp_register_ability( $name, $args );
+			wp_register_ability( $name, self::registration_args( $ability ) );
 		}
+	}
+
+	/**
+	 * Arguments that register one ability with the Abilities API.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function registration_args( Ability $ability ): array {
+		return [
+			'label'               => $ability->label(),
+			'description'         => $ability->description(),
+			'ability_class'       => RegisteredAbility::class,
+			'category'            => $ability->category(),
+			'input_schema'        => self::input_schema_for_ability( $ability ),
+			'output_schema'       => self::output_schema_for_ability( $ability ),
+			'permission_callback' => [ $ability, 'permission_callback' ],
+			// Wrap execute with UTF-8 deep_sanitize so all ability inputs
+			// are guaranteed valid UTF-8 regardless of client encoding.
+			// This transparently handles Windows PowerShell \uXXXX escapes.
+			'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
+				return self::execute_with_context_guard( $ability, Utf8::deep_sanitize( $input ) );
+			},
+			'meta'                => self::registration_meta( $ability ),
+		];
+	}
+
+	/**
+	 * Meta of one registered ability: its own meta() plus the exposure flags and the MCP tool
+	 * annotations.
+	 *
+	 * Exposure. WordPress 7.1 reads the single flag `meta.public` and seeds `show_in_rest` from
+	 * it; the bundled MCP adapter reads `meta.mcp.public` and falls back to `meta.public`.
+	 * Cores before 7.1 ignore `public`, and `/wp-json/wp-abilities/v1/abilities` lists only
+	 * abilities whose `meta.show_in_rest` is true, so the per-channel flags stay explicit.
+	 * An ability opts out of every channel with `public => false` in its meta(), or out of one
+	 * channel with `show_in_rest` or `mcp.public`.
+	 *
+	 * Annotations. They always come from AbilityAnnotations, which applies the `annotations`
+	 * an ability states in its meta() on top of what the registry derives.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function registration_meta( Ability $ability ): array {
+		$ability_meta = $ability->meta();
+		$public       = array_key_exists( 'public', $ability_meta ) ? true === $ability_meta['public'] : true;
+
+		$meta = array_merge(
+			[
+				'mcp'          => [ 'public' => $public ],
+				'show_in_rest' => $public,
+			],
+			$ability_meta
+		);
+
+		$meta['public']      = $public;
+		$meta['annotations'] = AbilityAnnotations::for_ability( $ability );
+
+		return $meta;
 	}
 
 	public static function ability_by_name( string $name ): ?Ability {

@@ -146,6 +146,8 @@ final class PluginRegistration {
 		WidgetLoader::register();
 		GitHubUpdater::register();
 		VendorGuard::register();
+		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
+		McpOriginGuard::register();
 		EditorSaveGuard::register();
 		BasicAuthCredentials::register();
 		// OAuth storage: clean-up handler, schema upgrade on init, key notice and retry.

@@ -33,6 +33,21 @@ final class IssueConfirmationToken extends AbilityKernel {
 		return 'security';
 	}
 
+	/**
+	 * Issues a short-lived confirmation token that authorizes a destructive call, so a client must not treat the call as read-only.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

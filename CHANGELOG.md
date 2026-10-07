@@ -92,6 +92,18 @@ development builds were never stable releases.
   it fills the screen at 782 px and below. The page mounts it through the
   `stonewright_audit_log_toolbar` and `stonewright_audit_log_change_set_cell`
   hooks.
+- Declare MCP tool annotations on every ability: `readonly`, `destructive`,
+  `idempotent`, and `openWorldHint` in `meta.annotations`, which MCP clients
+  read as `readOnlyHint`, `destructiveHint`, `idempotentHint`, and
+  `openWorldHint`. Read abilities are read-only and idempotent; a write is
+  destructive unless its name only adds something; an ability that makes web
+  requests is open-world. An ability whose nature differs states its own hints
+  in `meta()`. The ability truth matrix gains **External** and **Hints**
+  columns, `plugin/data/ability-traits.php` records the facts the plugin reads
+  when it registers abilities, and the public API contract records the hints of
+  each ability.
+- Register `meta.public`, the exposure flag of WordPress 7.1, on every ability
+  next to `meta.mcp.public` and `meta.show_in_rest`.
 
 ### Changed
 
@@ -154,6 +166,28 @@ development builds were never stable releases.
 - Add the indexed `repair_of` column to the audit table (schema version 3); the
   update adds it in place. The audit rows of a repair carry `repair_of` and a
   `parent_event_id` that points at the newest event of the repaired change.
+- Run the WordPress 7.1 ability lifecycle filters `wp_ability_validate_input`,
+  `wp_ability_permission_result`, and `wp_ability_validate_output` on
+  Stonewright abilities, on every supported WordPress version, so site policy
+  and security plugins can refuse a call. A filter cannot approve a call that
+  Stonewright refused: a failed schema check, a denied permission callback, and
+  a failed output check stay refusals. Checking permissions no longer validates
+  the input a second time inside one `execute()` call.
+- WordPress's REST run endpoint (`wp-abilities/v1`) chooses the HTTP method from
+  the annotations: GET for a read-only ability, DELETE for a destructive and
+  idempotent one, POST for the others.
+- Return the input schemas of `GET /stonewright/v1/abilities` through
+  `wp_prepare_json_schema_for_client()` on WordPress 7.1 and later.
+- List an ability that records its call through `audit_write()`, or carries a
+  confirmation gate, as a write in the ability truth matrix and the public API
+  contract; both use one detection. 19 abilities changed from `Read` to `Write`
+  (for example `stonewright-comment-create`, `stonewright-user-create`,
+  `stonewright-plugin-activate`, and `stonewright-menu-create`), and the
+  contract lists four abilities that the matrix already listed as writes
+  (`stonewright-design-direction-save`, `stonewright-design-direction-capture`,
+  `stonewright-design-quality-check`, and
+  `stonewright-security-runtime-data-purge`) as `Write`.
+- `stonewright-elementor-v4-migrate` declares `destructive` in its annotations.
 
 ### Fixed
 
@@ -281,6 +315,15 @@ development builds were never stable releases.
   reading the request body, and stop auditing the browser's claim polling as a
   write. REST audit rows summarize `html` and any string longer than 512 bytes,
   and cut parameter names longer than 96 bytes.
+- Validate the `Origin` header on the MCP routes `mcp/stonewright` and
+  `mcp/stonewright-oauth`. A request without an `Origin` passes; a request from
+  the site's own origin (home URL or site URL: scheme, host, and port) or from
+  an origin listed through the `stonewright_mcp_allowed_origins` filter passes;
+  any other origin, including `null`, is refused with 403 and a JSON-RPC error
+  body. Command-line and server-side clients, which send no `Origin`, are not
+  affected.
+- Refuse an ability call when its permission callback is missing, throws, or
+  returns anything other than `true` or an error.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

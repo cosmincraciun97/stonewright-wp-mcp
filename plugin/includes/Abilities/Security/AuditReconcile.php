@@ -31,6 +31,21 @@ final class AuditReconcile extends AbilityKernel {
 		return 'security';
 	}
 
+	/**
+	 * Applies the migration to stored audit rows in place; repeating it with the same arguments changes nothing more.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => true,
+				'idempotent'  => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

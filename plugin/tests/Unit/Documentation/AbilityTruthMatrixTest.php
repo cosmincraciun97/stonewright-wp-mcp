@@ -116,13 +116,13 @@ final class AbilityTruthMatrixTest extends TestCase {
 	// New tests — column count, Status column, no empty/??? cells
 	// -------------------------------------------------------------------------
 
-	public function test_every_ability_row_has_eleven_columns(): void {
+	public function test_every_ability_row_has_thirteen_columns(): void {
 		$bad = [];
 		foreach ( self::$matrix_rows as $row ) {
-			if ( count( $row['columns'] ) !== 11 ) {
-				// 11 cells = slug + MCP tool + class + desc + R/W + perm + token + backup + validator + status + tests
+			if ( count( $row['columns'] ) !== 13 ) {
+				// 13 cells = slug + MCP tool + class + desc + R/W + perm + token + backup + validator + status + tests + external + hints
 				$bad[] = sprintf(
-					'%s has %d columns (expected 11)',
+					'%s has %d columns (expected 13)',
 					$row['slug'],
 					count( $row['columns'] )
 				);
@@ -131,9 +131,37 @@ final class AbilityTruthMatrixTest extends TestCase {
 
 		self::assertEmpty(
 			$bad,
-			"Some matrix rows do not have exactly 11 columns (including MCP Tool and Status):\n  " .
+			"Some matrix rows do not have exactly 13 columns (including MCP Tool, Status, External and Hints):\n  " .
 			implode( "\n  ", $bad ) . "\n\nRun `composer docs:matrix` to regenerate."
 		);
+	}
+
+	/**
+	 * @return array<string, array{string, string, string}>
+	 */
+	public static function hint_rows(): array {
+		return [
+			'a read'                                   => [ 'stonewright/content-get-page', 'No', 'read-only' ],
+			'a read that reaches the web'              => [ 'stonewright/oembed-resolve', 'Yes', 'read-only, open-world' ],
+			'an additive write'                        => [ 'stonewright/content-create-page', 'No', 'additive' ],
+			'a write that reaches the web'             => [ 'stonewright/media-upload', 'Yes', 'additive, open-world' ],
+			'an overwrite'                             => [ 'stonewright/content-update-page', 'No', 'destructive' ],
+			'a delete'                                 => [ 'stonewright/comment-delete', 'No', 'destructive, idempotent' ],
+			'an ability that issues tokens'            => [ 'stonewright/task-start', 'No', 'additive' ],
+			'the executor of any other ability'        => [ 'stonewright/execute-ability', 'No', 'destructive, open-world' ],
+			'the PHP runtime'                          => [ 'stonewright/php-execute', 'No', 'destructive, open-world' ],
+		];
+	}
+
+	/**
+	 * @dataProvider hint_rows
+	 */
+	public function test_the_matrix_documents_external_calls_and_tool_hints( string $slug, string $external, string $hints ): void {
+		$row = $this->find_row( $slug );
+
+		self::assertNotNull( $row, $slug . ' is missing from the matrix. Run `composer docs:matrix`.' );
+		self::assertSame( $external, trim( $row['columns'][11] ?? '' ), $slug . ': External column.' );
+		self::assertSame( $hints, trim( $row['columns'][12] ?? '' ), $slug . ': Hints column.' );
 	}
 
 	public function test_context_bootstrap_row_documents_mcp_tool_name(): void {

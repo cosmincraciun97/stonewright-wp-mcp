@@ -21,7 +21,11 @@ final class Migrate extends AbilityKernel {
 	public function category(): string {
  return 'elementor'; }
 	public function meta(): array {
- return [ 'experimental' => true, 'destructive' => true ]; }
+		return [
+			'experimental' => true,
+			'annotations'  => [ 'destructive' => true ],
+		];
+	}
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

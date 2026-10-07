@@ -55,6 +55,80 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   once, and its pending approvals and unused authorization codes are closed
   first. If it uses an Application Password, revoke that password.
 
+### Web pages calling the MCP routes
+
+The MCP transport asks a server to validate the `Origin` header, so a web page
+cannot drive the server from a visitor's browser (DNS rebinding and cross-site
+requests). Stonewright checks it on both routes, `mcp/stonewright` and
+`mcp/stonewright-oauth`, before the OAuth bearer check and before any ability
+runs.
+
+- A request **without** an `Origin` header (or with an empty one) passes.
+  Command-line, desktop, and server-side clients do not send one.
+- A request from the site's own origin passes: the origin of the home URL or of
+  the site URL, compared by scheme, host, and port. For a site at
+  `https://example.com`, `https://example.com:443` is the same origin and
+  `http://example.com` is not.
+- A request from an origin the operator lists passes. Add a browser-based tool
+  with the `stonewright_mcp_allowed_origins` filter, which receives a list of
+  `scheme://host[:port]` strings and the request:
+
+  ```php
+  add_filter( 'stonewright_mcp_allowed_origins', static function ( array $origins ): array {
+      $origins[] = 'http://localhost:6274';
+      return $origins;
+  } );
+  ```
+
+  A wildcard, a value with a path, and `null` are ignored.
+- Any other `Origin`, including the opaque `null`, is refused with **403** and a
+  JSON-RPC error body without a request id (`error.code` -32008), for every
+  method including a CORS preflight.
+
+The check is not authentication: a request that passes still needs valid
+credentials and the permissions of its user. A refused request never reaches the
+MCP transport or an ability.
+
+### Site policy filters on abilities
+
+WordPress 7.1 runs lifecycle filters inside an ability call, so site policy and
+security plugins can govern abilities. Stonewright abilities run the three
+filters that sit in the methods Stonewright replaces, on every supported
+WordPress version, and the core filters in the methods it does not replace on
+WordPress 7.1 and later:
+
+| Filter | Runs | What a filter can do |
+|---|---|---|
+| `wp_ability_validate_input` | after the input schema check | refuse a call, or reword a refusal |
+| `wp_ability_permission_result` | after the ability's permission callback | withdraw a grant, or reword a refusal |
+| `wp_ability_validate_output` | after the output schema check | withhold a result, or reword a refusal |
+| `wp_pre_execute_ability`, `wp_ability_normalize_input`, `wp_ability_execute_result` | inside WordPress's own `execute()` (7.1 and later) | as WordPress documents them |
+
+A filter can refuse or narrow a call. It cannot approve a call that Stonewright
+refused: a failed schema check, a denied permission callback, and a failed
+output check stay refusals whatever the filters return, so no filter can lift a
+Stonewright gate (permission callbacks, confirmation tokens, modes, backups,
+validation, audit). A permission callback that is missing, throws, or returns
+anything other than `true` or an error also refuses the call.
+
+Each filter runs once for one `execute()` call. The MCP transport checks
+permissions before it executes, so the normalize-input, input-validation, and
+permission filters run twice for one MCP tool call.
+
+Two paths run an ability without its registered object and so without these
+filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
+and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
+gates and the list of disabled abilities. To block an ability on every path,
+disable it (`stonewright_disabled_abilities`).
+
+### Tool annotations are hints
+
+Every ability declares MCP tool annotations (read-only, destructive,
+idempotent, open-world) so a client can tell a read from a write before it calls
+a tool. They describe the ability for the client; they grant nothing and remove
+nothing. Every gate is enforced by Stonewright on every call, whatever a client
+does with the hints. See [Abilities](abilities.md#tool-annotations-and-exposure).
+
 ### Custom code and theme-file recovery
 
 `stonewright/php-execute` cannot mutate code files. Theme PHP/CSS/JS changes use
@@ -160,6 +234,7 @@ archives exclude Direct sites config, memory, and audit state.
 - [ ] `COMPANION_BEARER_TOKEN` set to a strong random value.
 - [ ] `COMPANION_ALLOWED_ORIGINS` restricted to known request origins.
 - [ ] Companion running on a private network only.
+- [ ] `stonewright_mcp_allowed_origins` lists only browser-based MCP tools that are in use; command-line and desktop clients need no entry.
 - [ ] Audit log monitored or exported to a centralized logging system.
 - [ ] `STONEWRIGHT_REMOVE_ALL_DATA` not defined, unless the plugin's data is meant to be removed when the plugin is deleted.
 - [ ] `WP_DEBUG` off in production (prevents diagnostic information leakage).
