@@ -114,13 +114,17 @@ npm test
 
 ## CI
 
-The `e2e-admin-ui` job in `.github/workflows/ci.yml`:
+The `e2e-admin-ui (<group>)` jobs in `.github/workflows/ci.yml` run in parallel, one per viewport group
+(`desktop-1440`; `desktop-1024-tablet-782`; `mobile-390-320`). Each one:
 
 1. Installs clean production plugin dependencies
 2. Builds and extracts the exact release ZIP layout
 3. Verifies every Jetpack Autoloader manifest path in that extracted archive
-4. Starts `wp-env` from `e2e/.wp-env.package.json` with pinned Elementor 3.30.0 and WooCommerce active
-5. Runs `npx playwright test`
+4. Starts its own `wp-env` from `e2e/.wp-env.package.json` with pinned Elementor 3.30.0 and WooCommerce active
+5. Runs `npx playwright test` with the `--project` options of its group
+
+The `e2e-admin-ui` job passes only when every group passes. To run one group locally, pass the same
+options, for example `npx playwright test --project=mobile-390-light --project=mobile-320-light`.
 
 ## WordPress matrix (Phase 12)
 
