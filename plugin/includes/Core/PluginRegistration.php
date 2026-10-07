@@ -273,7 +273,7 @@ final class PluginRegistration {
 		$current  = is_array( $mismatch ) ? (string) ( $mismatch['current_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::current_origin() );
 		$review   = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
 
-		echo '<div class="notice notice-error"><p><strong>Stonewright:</strong> ';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>Stonewright:</strong> ';
 		echo esc_html__(
 			'AI abilities are BLOCKED because the site domain no longer matches the locked origin. Operator enablement was left unchanged. Review and rebind this site after confirming the new domain is intentional.',
 			'stonewright'

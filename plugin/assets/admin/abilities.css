@@ -9,7 +9,8 @@
 
 .sw-abilities-filters {
 	position: sticky;
-	top: var(--sw-shell-offset, 76px);
+	/* The shell header scrolls away, so the bar sticks directly under the admin bar. */
+	top: var(--wp-admin--admin-bar--height, 32px);
 	z-index: 20;
 	display: flex;
 	flex-wrap: wrap;
@@ -182,11 +183,19 @@
 	background: var(--sw-surface);
 }
 
-@media screen and (max-width: 782px) {
-	.sw-abilities-filters {
-		top: var(--sw-shell-offset, 76px);
+/* Below 961px the toolbar becomes a column. In a column a flex-basis is a height, so the search
+   field would be 160px tall; it keeps the height of a field. */
+@media screen and (max-width: 960px) {
+	.sw-abilities-search {
+		flex: 0 0 auto;
 	}
+}
 
+@media screen and (max-width: 782px) {
+	/* A stacked filter bar is taller than a phone can spare: it scrolls with the page. */
+	.sw-abilities-filters {
+		position: static;
+	}
 
 	.sw-abilities-stats {
 		margin-left: 0;

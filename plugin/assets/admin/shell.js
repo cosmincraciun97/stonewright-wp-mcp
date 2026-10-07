@@ -12,37 +12,38 @@
 		}
 	}
 
-	function updateShellOffset(shell) {
-		var header = shell.querySelector('.sw-shell__header');
+	/**
+	 * Publish the height of the chrome that stays fixed above the content: the WordPress admin bar.
+	 * The shell header scrolls with the page, so it is not part of the offset.
+	 */
+	function updateShellOffset() {
 		var adminBar = document.getElementById('wpadminbar');
-		var top = 0;
-		if (adminBar) {
-			top += adminBar.offsetHeight || 0;
-		}
-		if (header) {
-			top += header.offsetHeight || 0;
-		}
+		var top = adminBar ? adminBar.offsetHeight || 0 : 0;
 		if (top > 0) {
 			document.documentElement.style.setProperty('--sw-shell-offset', top + 'px');
 		}
 	}
 
+	/**
+	 * True only for a notice another plugin or WordPress itself printed.
+	 *
+	 * Everything the plugin renders stays where it is: its page content, anything already in the drawer,
+	 * and any element carrying a sw-* or stonewright-* class wherever that class sits in the list
+	 * (the plugin prints its own admin notices with one).
+	 */
 	function isForeignNotice(node) {
 		if (!(node instanceof HTMLElement)) {
 			return false;
 		}
-		if (node.classList.contains('sw-notice')) {
+		if (node.closest('.sw-shell__content, .sw-notice-drawer')) {
 			return false;
 		}
-		// Stonewright-owned UI must never be relocated.
-		var cls = node.className || '';
-		if (typeof cls === 'string' && cls.indexOf('sw-') === 0) {
+		var cls = typeof node.className === 'string' ? node.className : '';
+		if (/(^|\s)(sw|stonewright)-/.test(cls)) {
 			return false;
 		}
-		var matches =
-			node.matches('.notice, .updated, .error, .update-nag') ||
-			(typeof cls === 'string' && /notice/i.test(cls) && !/^sw-/.test(cls));
-		return matches;
+		// Only the classes WordPress prints for its own notices count.
+		return node.matches('.notice, .updated, .error, .update-nag');
 	}
 
 	function collectForeignNotices(shell) {
@@ -54,21 +55,11 @@
 		}
 
 		var root = document.getElementById('wpbody-content') || document.body;
-		var candidates = root.querySelectorAll('.notice, .update-nag, .error, .updated, [class*="notice"]');
+		var candidates = root.querySelectorAll('.notice, .update-nag, .error, .updated');
 		var moved = 0;
 
 		candidates.forEach(function (node) {
 			if (!isForeignNotice(node)) {
-				return;
-			}
-			if (body.contains(node)) {
-				return;
-			}
-			if (shell.contains(node) && node.closest('[data-sw-notice-drawer]')) {
-				return;
-			}
-			// Skip notices nested deep inside interactive widgets that are not top-level WP notices.
-			if (node.closest('.sw-shell__content') && node.closest('form') && node.classList.contains('sw-notice')) {
 				return;
 			}
 			body.appendChild(node);
@@ -266,10 +257,8 @@
 			return;
 		}
 		document.documentElement.classList.add('sw-has-shell');
-		updateShellOffset(shell);
-		window.addEventListener('resize', function () {
-			updateShellOffset(shell);
-		});
+		updateShellOffset();
+		window.addEventListener('resize', updateShellOffset);
 		collectForeignNotices(shell);
 		watchNotices(shell);
 		initCopyPrompts(shell);

@@ -2956,13 +2956,15 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 
 if ( ! function_exists( 'wp_enqueue_style' ) ) {
 	function wp_enqueue_style( string $handle, string $src = '', array $deps = [], mixed $ver = false, string $media = 'all' ): void {
-		$GLOBALS['stonewright_test_enqueued_styles'][] = $handle;
+		$GLOBALS['stonewright_test_enqueued_styles'][]                   = $handle;
+		$GLOBALS['stonewright_test_enqueue_details']['style'][ $handle ] = [ 'src' => $src, 'deps' => $deps ];
 	}
 }
 
 if ( ! function_exists( 'wp_enqueue_script' ) ) {
 	function wp_enqueue_script( string $handle, string $src = '', array $deps = [], mixed $ver = false, bool $in_footer = false ): void {
-		$GLOBALS['stonewright_test_enqueued_scripts'][] = $handle;
+		$GLOBALS['stonewright_test_enqueued_scripts'][]                   = $handle;
+		$GLOBALS['stonewright_test_enqueue_details']['script'][ $handle ] = [ 'src' => $src, 'deps' => $deps, 'in_footer' => $in_footer ];
 	}
 }
 

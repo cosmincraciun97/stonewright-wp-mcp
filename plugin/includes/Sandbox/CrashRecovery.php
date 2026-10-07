@@ -97,7 +97,7 @@ final class CrashRecovery {
 		$names = array_map( 'basename', $files );
 		$list  = implode( ', ', array_map( 'esc_html', $names ) );
 
-		echo '<div class="notice notice-error"><p><strong>Stonewright Sandbox:</strong> ';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>Stonewright Sandbox:</strong> ';
 		echo 'The following sandbox file(s) caused a fatal error and have been automatically disabled: ';
 		echo $list; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $names already escaped via esc_html above.
 		echo '. Please review and fix them before re-activating.</p></div>';

@@ -54,7 +54,9 @@ abilities that are currently enabled and not blocked by the master toggle.
 
 ### Per-ability toggle
 
-Each row in the table has a checkbox. Unchecking it and submitting posts to
+Each row in the table has a switch: a checkbox with the switch role, named after
+the ability it controls so a screen reader announces which ability it turns on or
+off. Unchecking it and submitting posts to
 `admin-post.php?action=stonewright_toggle_ability`. The handler:
 
 1. Validates the nonce (`stonewright_toggle_ability`).

@@ -6,40 +6,7 @@
  * Version: 1.0.0
  */
 
-/* ------------------------------------------------------------------ */
-/* CSS Custom Properties                                                */
-/* ------------------------------------------------------------------ */
-:root {
-    --sw-radius:         8px;
-    --sw-radius-sm:      4px;
-    --sw-shadow:         0 2px 8px rgba(0, 0, 0, .08);
-    --sw-shadow-hover:   0 4px 16px rgba(0, 0, 0, .14);
-    --sw-transition:     0.18s cubic-bezier(.25, .46, .45, .94);
-
-    --sw-color-bg:       var(--sw-bg);
-    --sw-color-card:     var(--sw-surface);
-    --sw-color-border:   var(--sw-border);
-    --sw-color-border-hover: var(--sw-border-strong);
-    --sw-color-text:     var(--sw-text);
-    --sw-color-muted:    var(--sw-text-muted);
-    --sw-color-pre:      var(--sw-bg);
-
-    /* Status badge palette */
-    --sw-active-bg:      var(--sw-ok-soft);
-    --sw-active-fg:      var(--sw-ok-text);
-    --sw-disabled-bg:    var(--sw-bg);
-    --sw-disabled-fg:    var(--sw-text-muted);
-    --sw-crashed-bg:     var(--sw-danger-soft);
-    --sw-crashed-fg:     var(--sw-danger-text);
-    --sw-draft-bg:       var(--sw-warn-soft);
-    --sw-draft-fg:       var(--sw-warn-text);
-    --sw-builtin-bg:     var(--sw-info-soft);
-    --sw-builtin-fg:     var(--sw-info-text);
-    --sw-user-bg:        var(--sw-ok-soft);
-    --sw-user-fg:        var(--sw-ok-text);
-    --sw-uploaded-bg:    var(--sw-warn-soft);
-    --sw-uploaded-fg:    var(--sw-warn-text);
-}
+/* Design tokens are declared once, in shell.css. */
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                               */
@@ -172,10 +139,8 @@
 .sw-badge {
     display: inline-flex;
     align-items: center;
-    font-size: 10px;
+    font-size: var(--sw-text-xs);
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .06em;
     padding: 2px 9px;
     border-radius: 999px;
     white-space: nowrap;
@@ -189,8 +154,29 @@
 .sw-badge--builtin   { background: var(--sw-builtin-bg);  color: var(--sw-builtin-fg);  }
 .sw-badge--user      { background: var(--sw-user-bg);     color: var(--sw-user-fg);     }
 .sw-badge--uploaded  { background: var(--sw-uploaded-bg); color: var(--sw-uploaded-fg); }
-.sw-badge--category  { background: var(--sw-text-muted); color: var(--sw-text-muted); }
 .sw-badge--php       { background: var(--sw-brand-soft); color: var(--sw-brand); }
+
+/* Quiet count or label: neutral fill with a hairline, so a zero still reads as a badge. */
+.sw-badge--muted {
+    background: var(--sw-bg);
+    color: var(--sw-text-secondary);
+    border: 1px solid var(--sw-border);
+}
+
+/* Short highlighted label inside a card ("Recommended for your setup"). */
+.sw-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 var(--sw-space-2);
+    border-radius: var(--sw-radius-pill);
+    background: var(--sw-brand-soft);
+    color: var(--sw-brand-strong);
+    font-size: var(--sw-text-xs);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+}
 
 /* ------------------------------------------------------------------ */
 /* Toggle switch                                                        */
@@ -322,38 +308,3 @@
     box-shadow: var(--sw-shadow);
     animation: sw-slide-in 0.2s ease;
 }
-
-/* ------------------------------------------------------------------ */
-/* Onboarding / paste block                                             */
-/* ------------------------------------------------------------------ */
-.sw-paste-block {
-    background: var(--sw-text-muted);
-    color: var(--sw-text-muted);
-    border-radius: var(--sw-radius);
-    padding: 16px 18px;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-    font-size: 12.5px;
-    line-height: 1.7;
-    position: relative;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-
-.sw-paste-block__copy {
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    background: var(--sw-text-muted);
-    color: var(--sw-text-muted);
-    border: none;
-    border-radius: 4px;
-    padding: 4px 10px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: background var(--sw-transition);
-}
-
-.sw-paste-block__copy:hover {
-    background: var(--sw-text-muted);
-}
-

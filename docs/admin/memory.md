@@ -29,6 +29,10 @@ The instructions are also included in the output of the
 `stonewright-system-abilities-list` MCP tool so agents can read them
 programmatically.
 
+The textarea is labelled "Custom instructions" for screen readers, and the
+guidance printed above it and the 4000-character limit printed below it are
+linked to it as descriptions.
+
 Enabled Context page text (`Stonewright → Context`) is prepended to this
 block before it reaches agents. Compact `stonewright-task-start` includes up
 to 400 characters of that combined text in `context.custom_instructions.text`.

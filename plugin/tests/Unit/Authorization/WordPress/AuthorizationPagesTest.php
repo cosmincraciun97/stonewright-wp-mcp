@@ -241,14 +241,54 @@ final class AuthorizationPagesTest extends TestCase {
 
 		self::assertStringNotContainsString( '<script>alert(1)</script>', $html );
 		self::assertStringContainsString( '&lt;script&gt;alert(1)&lt;/script&gt; &amp; Co', $html );
-		self::assertStringContainsString( 'http://127.0.0.1', $html );
-		self::assertStringNotContainsString( '7999', $html );
+		// The port is part of an origin: another local process could hold another port.
+		self::assertStringContainsString( '<code>http://127.0.0.1:7999</code>', $html );
 		self::assertStringNotContainsString( '/callback', $html );
 		self::assertMatchesRegularExpression( '/<form method="post" action="">/', $html );
 		self::assertStringContainsString( 'name="approve"', $html );
 		self::assertStringContainsString( 'name="deny"', $html );
 		self::assertStringContainsString( 'value="test-nonce-' . AuthorizationPages::nonce_action( $token ) . '"', $html );
 		self::assertStringContainsString( 'Stonewright Test', $html );
+	}
+
+	/**
+	 * @dataProvider callbacks_and_the_origin_the_consent_screen_shows
+	 *
+	 * @param string $registered The callback the client registered.
+	 * @param string $requested  The callback the authorization request names.
+	 * @param string $expected   What "Returns you to" shows.
+	 */
+	public function test_the_consent_screen_returns_you_to_the_callback_scheme_host_and_port( string $registered, string $requested, string $expected ): void {
+		$client = $this->http->rig->clients->create(
+			[
+				'redirect_uris'              => [ $registered ],
+				'grant_types'                => [ 'authorization_code', 'refresh_token' ],
+				'response_types'             => [ 'code' ],
+				'token_endpoint_auth_method' => 'none',
+				'client_name'                => 'Synthetic client',
+			]
+		)['client_id'];
+		$token  = $this->pending_token( [ 'client_id' => $client, 'redirect_uri' => $requested ] );
+
+		$outcome = $this->pages()->review( self::consent_query( $token ), 7 );
+		self::assertSame( PageOutcome::VIEW, $outcome->kind );
+		self::assertSame( $expected, $outcome->view['destination'] );
+
+		$html = AuthorizationPages::render( $outcome->view );
+		self::assertStringContainsString( '<code>' . $expected . '</code>', $html );
+		self::assertStringNotContainsString( 'callback', $html );
+	}
+
+	/** @return array<string, array{0: string, 1: string, 2: string}> */
+	public static function callbacks_and_the_origin_the_consent_screen_shows(): array {
+		return [
+			'loopback address with its registered port'  => [ 'http://127.0.0.1:7999/callback', 'http://127.0.0.1:7999/callback', 'http://127.0.0.1:7999' ],
+			'loopback address with a port the client chose' => [ 'http://127.0.0.1:7999/callback', 'http://127.0.0.1:43210/callback', 'http://127.0.0.1:43210' ],
+			'localhost with a port the client chose'     => [ 'http://localhost/callback', 'http://localhost:51234/callback', 'http://localhost:51234' ],
+			'IPv6 loopback with a port'                  => [ 'http://[::1]/callback', 'http://[::1]:9090/callback', 'http://[::1]:9090' ],
+			'HTTPS host without a port'                  => [ 'https://client.example.test/oauth/callback', 'https://client.example.test/oauth/callback', 'https://client.example.test' ],
+			'HTTPS host with a port'                     => [ 'https://client.example.test:8443/oauth/callback', 'https://client.example.test:8443/oauth/callback', 'https://client.example.test:8443' ],
+		];
 	}
 
 	public function test_an_unknown_or_foreign_consent_token_is_refused(): void {

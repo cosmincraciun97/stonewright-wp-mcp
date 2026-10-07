@@ -1,20 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
+import { PAGE_GATE_PROJECTS, STONEWRIGHT_PAGES } from './helpers/admin-pages';
+import { expectNoNewAxeViolations } from './helpers/axe-gate';
 
 const artifactDir = path.join(process.cwd(), 'artifacts');
-
-/** Stonewright admin pages exercised by the Phase 0 baseline gate. */
-const STONEWRIGHT_PAGES = [
-	{ slug: 'stonewright-status', label: 'Dashboard' },
-	{ slug: 'stonewright', label: 'Setup' },
-	{ slug: 'stonewright-abilities', label: 'AI Abilities' },
-	{ slug: 'stonewright-prompts', label: 'Prompts' },
-	{ slug: 'stonewright-custom-code-approval', label: 'Code Approval' },
-	{ slug: 'stonewright-sandbox', label: 'Sandbox' },
-	{ slug: 'stonewright-skills', label: 'Skills' },
-	{ slug: 'stonewright-memory', label: 'Memory' },
-	{ slug: 'stonewright-audit-log', label: 'Audit Log' },
-] as const;
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -164,6 +153,11 @@ test.describe('Stonewright admin UI', () => {
 				productErrors,
 				`${label}: console errors\n${productErrors.join('\n')}`,
 			).toEqual([]);
+
+			// axe at one desktop and one phone width: no serious or critical finding outside the page's allowance.
+			if ((PAGE_GATE_PROJECTS as readonly string[]).includes(testInfo.project.name)) {
+				await expectNoNewAxeViolations(page, slug, testInfo);
+			}
 
 			const safeName = `${testInfo.project.name}-${slug}`.replace(/[^a-z0-9-_]+/gi, '-');
 			await page.screenshot({

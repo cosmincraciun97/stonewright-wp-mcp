@@ -101,6 +101,129 @@ final class AbilitiesPageTest extends TestCase {
 		self::assertMatchesRegularExpression( '/Read\s+\d+/', $html );
 	}
 
+	/** @return array{0: \DOMDocument, 1: \DOMXPath} */
+	private static function rendered_page(): array {
+		ob_start();
+		AbilitiesPage::render();
+		$html = (string) ob_get_clean();
+
+		$previous = libxml_use_internal_errors( true );
+		$dom      = new \DOMDocument();
+		$dom->loadHTML( '<?xml encoding="utf-8" ?>' . $html );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $previous );
+
+		return [ $dom, new \DOMXPath( $dom ) ];
+	}
+
+	/** The text a space separated list of ids points at, the way an accessible name is computed. */
+	private static function name_from_ids( \DOMDocument $dom, string $ids ): string {
+		$parts = [];
+		foreach ( preg_split( '/\s+/', trim( $ids ) ) ?: [] as $id ) {
+			$node = $dom->getElementById( $id );
+			self::assertNotNull( $node, 'aria-labelledby points at a missing id: ' . $id );
+			$parts[] = trim( (string) preg_replace( '/\s+/', ' ', $node->textContent ) );
+		}
+
+		return implode( ' ', $parts );
+	}
+
+	public function test_each_ability_switch_is_named_after_its_ability(): void {
+		[ $dom, $xpath ] = self::rendered_page();
+
+		$switches = $xpath->query( '//input[@name="ability_enabled"]' );
+		self::assertNotFalse( $switches );
+		self::assertGreaterThan( 10, $switches->length, 'The hub lists many abilities.' );
+
+		$names = [];
+		foreach ( $switches as $switch ) {
+			self::assertInstanceOf( \DOMElement::class, $switch );
+			$row = $switch->parentNode;
+			while ( $row instanceof \DOMElement && ! str_contains( $row->getAttribute( 'class' ), 'stonewright-ability-row' ) ) {
+				$row = $row->parentNode;
+			}
+			self::assertInstanceOf( \DOMElement::class, $row );
+
+			$name = self::name_from_ids( $dom, $switch->getAttribute( 'aria-labelledby' ) );
+			self::assertStringStartsWith( $row->getAttribute( 'data-label' ), $name, 'The switch is named by the ability label of its row.' );
+			self::assertSame( 'switch', $switch->getAttribute( 'role' ), 'An on/off control that applies at once is a switch.' );
+			$names[ $row->getAttribute( 'data-name' ) ] = $name;
+		}
+
+		self::assertSame( count( $names ), count( array_unique( $names ) ), 'No two switches may share a name, even when two abilities share a label.' );
+	}
+
+	public function test_each_row_checkbox_says_what_it_selects(): void {
+		[ $dom, $xpath ] = self::rendered_page();
+
+		$boxes = $xpath->query( '//input[@name="stonewright_abilities[]"]' );
+		self::assertNotFalse( $boxes );
+		self::assertGreaterThan( 10, $boxes->length );
+
+		$names = [];
+		foreach ( $boxes as $box ) {
+			self::assertInstanceOf( \DOMElement::class, $box );
+			$name = self::name_from_ids( $dom, $box->getAttribute( 'aria-labelledby' ) );
+			self::assertStringStartsWith( 'Select ', $name );
+			self::assertNotSame( 'Select', trim( $name ) );
+			$names[ $box->getAttribute( 'value' ) ] = $name;
+		}
+
+		self::assertSame( count( $names ), count( array_unique( $names ) ), 'No two row checkboxes may share a name.' );
+	}
+
+	public function test_each_details_toggle_names_the_ability_it_opens(): void {
+		[ $dom, $xpath ] = self::rendered_page();
+
+		$summaries = $xpath->query( '//details[contains(@class,"stonewright-ability-details")]/summary' );
+		self::assertNotFalse( $summaries );
+		self::assertGreaterThan( 10, $summaries->length );
+
+		$names = [];
+		foreach ( $summaries as $summary ) {
+			self::assertInstanceOf( \DOMElement::class, $summary );
+			$name = self::name_from_ids( $dom, $summary->getAttribute( 'aria-labelledby' ) );
+			// The visible word stays at the start of the name (WCAG 2.5.3).
+			self::assertStringStartsWith( 'Details ', $name );
+			$names[] = $name;
+		}
+
+		self::assertSame( count( $names ), count( array_unique( $names ) ), 'No two Details toggles may share a name.' );
+	}
+
+	public function test_the_label_ids_the_names_point_at_are_unique_per_ability(): void {
+		[ , $xpath ] = self::rendered_page();
+
+		$ids = [];
+		foreach ( $xpath->query( '//*[@id]' ) ?: [] as $node ) {
+			\assert( $node instanceof \DOMElement );
+			$ids[] = $node->getAttribute( 'id' );
+		}
+		$label_ids = array_filter( $ids, static fn ( string $id ): bool => str_ends_with( $id, '-label' ) );
+
+		self::assertNotEmpty( $label_ids );
+		self::assertSame( count( $label_ids ), count( array_unique( $label_ids ) ), 'Duplicate ids would point every name at the first ability.' );
+	}
+
+	public function test_the_bulk_selects_are_labelled(): void {
+		[ $dom, $xpath ] = self::rendered_page();
+
+		foreach ( [ 'stonewright_bulk_action', 'stonewright_bulk_category' ] as $field ) {
+			$selects = $xpath->query( '//select[@name="' . $field . '"]' );
+			self::assertNotFalse( $selects );
+			self::assertSame( 1, $selects->length, $field );
+			$select = $selects->item( 0 );
+			self::assertInstanceOf( \DOMElement::class, $select );
+
+			$id = $select->getAttribute( 'id' );
+			self::assertNotSame( '', $id, $field . ' needs an id for its label.' );
+			$labels = $xpath->query( '//label[@for="' . $id . '"]' );
+			self::assertNotFalse( $labels );
+			self::assertSame( 1, $labels->length, $field . ' needs one label.' );
+			self::assertNotSame( '', trim( (string) $labels->item( 0 )?->textContent ), $field );
+		}
+	}
+
 	public function test_form_field_name_snapshot_is_stable(): void {
 		ob_start();
 		AbilitiesPage::render();

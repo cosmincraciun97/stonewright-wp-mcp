@@ -1,0 +1,2007 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Stonewright shared admin UI layer: design tokens, base styles and components.
+ *
+ * Scope.   Everything here applies inside an element with the class `sw-ui`. A page, or one island of a page,
+ *          opts in by wrapping its markup in `.sw-ui` (Ui\Scope::wrap() does it). Nothing outside `.sw-ui` is
+ *          touched, so pages that have not moved to this layer look exactly as they did.
+ * Names.   Every class starts with `sw-ui-` so it can never meet a class an older stylesheet defines.
+ *          `sw-ui` itself is the scope root. Tokens keep the `--sw-*` names; inside `.sw-ui` they carry the
+ *          values of this layer, and the legacy token names are aliased to them further down.
+ * Rules.   Enforced by tests/Unit/Assets/SwUiCssContractTest.php:
+ *          - no !important, no @layer;
+ *          - specificity at most (0,2,0). Block rules are `.sw-ui .sw-ui-x`; rules with a pseudo-class, a state
+ *            attribute or a pseudo-element start with `:where(.sw-ui)` instead, so a state never outranks a block;
+ *          - raw colours exist only in the token sections above the "components" marker;
+ *          - every duration comes from a --sw-dur* token, and only opacity, transform, colours and
+ *            background-position move.
+ * Accent.  `--sw-accent` follows the user's WordPress colour scheme (--wp-admin-theme-color). Text drawn in the
+ *          accent uses `--sw-accent-text`, which is lifted for the core schemes whose accent is too light to read
+ *          on white.
+ */
+
+/* ====================================================================== */
+/* 1. Tokens                                                                */
+/* ====================================================================== */
+.sw-ui {
+	/* Accent: the WordPress admin colour scheme, with Stonewright indigo as the fallback. */
+	--sw-accent: var(--wp-admin-theme-color, #4f46e5);
+	--sw-accent-strong: var(--wp-admin-theme-color-darker-10, #4338ca);
+	--sw-accent-stronger: var(--wp-admin-theme-color-darker-20, #3730a3);
+	--sw-accent-soft: #eeefff;
+	--sw-accent-fill: var(--sw-accent);
+	--sw-accent-fill-hover: var(--sw-accent-strong);
+	--sw-accent-text: var(--sw-accent-strong);
+	--sw-on-accent: #fff;
+	--sw-focus-ring: var(--sw-accent-text);
+	--sw-focus-width: var(--wp-admin-border-width-focus, 2px);
+
+	/* Surfaces and lines: WordPress's own neutral ramp, so nothing is repainted behind the plugin. */
+	--sw-bg: #f0f0f1;
+	--sw-surface: #fff;
+	--sw-surface-raised: #f6f7f7;
+	--sw-surface-sunken: #f0f0f1;
+	--sw-border: #dcdcde;
+	--sw-border-strong: #c3c4c7;
+	--sw-border-control: #80848a; /* 3.8:1 on white, 3.3:1 on the page: inputs, switch tracks, checkboxes */
+	--sw-overlay: rgb(29 35 39 / .55);
+	--sw-inverse-bg: #1d2327;
+	--sw-inverse-fg: #f0f0f1;
+	--sw-inverse-muted: #c3c4c7;
+	--sw-inverse-border: #3c434a;
+	--sw-inverse-control: #8c8f94;
+	--sw-inverse-hover: rgb(255 255 255 / .1);
+	--sw-skeleton-shine: #f9f9f9;
+
+	/* Text */
+	--sw-text: #1d2327;
+	--sw-text-secondary: #3c434a;
+	--sw-text-muted: #646970; /* 5.5:1 on white, 4.9:1 on the page, 4.8:1 or better on every status tint */
+	--sw-text-invert: #fff;
+
+	/* Status: text, soft fill, border. Always paired with an icon or a word. */
+	--sw-ok: #157347;
+	--sw-ok-soft: #e7f6ee;
+	--sw-ok-border: #9fd4b6;
+	--sw-warn: #8a5a00;
+	--sw-warn-soft: #fff3d6;
+	--sw-warn-border: #e5c66d;
+	--sw-danger: #b42318;
+	--sw-danger-soft: #fdebe9;
+	--sw-danger-border: #f0a8a1;
+	--sw-danger-strong: #8f1c13;
+	--sw-info: #0369a1;
+	--sw-info-soft: #e0f2fe;
+	--sw-info-border: #9fcbe6;
+	--sw-neutral: #3c434a;
+	--sw-neutral-soft: #f0f0f1;
+	--sw-neutral-border: #c3c4c7;
+
+	/* Type: sizes are --sw-fs-* so they cannot be mistaken for the --sw-text-* colours. */
+	--sw-font-sans: inherit;
+	--sw-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+	--sw-fs-xs: 12px;
+	--sw-fs-sm: 13px;
+	--sw-fs-md: 14px;
+	--sw-fs-lg: 16px;
+	--sw-fs-xl: 20px;
+	--sw-fs-2xl: 24px;
+	--sw-lh-tight: 1.25;
+	--sw-lh-ui: 1.4;
+	--sw-lh-body: 1.55;
+	--sw-weight-regular: 400;
+	--sw-weight-medium: 500;
+	--sw-weight-semibold: 600;
+
+	/* Space (4px grid) and layout */
+	--sw-space-1: 4px;
+	--sw-space-2: 8px;
+	--sw-space-3: 12px;
+	--sw-space-4: 16px;
+	--sw-space-5: 24px;
+	--sw-space-6: 32px;
+	--sw-space-7: 48px;
+	--sw-space-8: 64px;
+	--sw-gutter: 20px;
+	--sw-card-pad: 16px;
+	--sw-content-max: 1280px;
+	--sw-header-h: 56px;
+	--sw-adminbar-h: var(--wp-admin--admin-bar--height, 32px);
+
+	/* Shape */
+	--sw-radius-control: 2px; /* what core uses for .button and inputs: never overridden */
+	--sw-radius-sm: 4px;
+	--sw-radius: 8px;
+	--sw-radius-lg: 12px;
+	--sw-radius-pill: 999px;
+
+	/* Control heights: 40 is core's default, 32 the compact tier, 24 the WCAG 2.5.8 floor. */
+	--sw-control-h: 40px;
+	--sw-control-h-sm: 32px;
+	--sw-control-h-xs: 24px;
+
+	/* Elevation */
+	--sw-shadow-1: 0 1px 2px rgb(29 35 39 / .06);
+	--sw-shadow-2: 0 6px 18px rgb(29 35 39 / .12);
+	--sw-shadow-3: 0 16px 40px rgb(29 35 39 / .2);
+
+	/* Motion: one switch scales every duration, and reduced motion sets it to 0. */
+	--sw-motion-scale: 1;
+	--sw-dur-fast: calc(100ms * var(--sw-motion-scale));
+	--sw-dur: calc(150ms * var(--sw-motion-scale));
+	--sw-dur-slow: calc(240ms * var(--sw-motion-scale));
+	--sw-dur-reveal: calc(120ms * var(--sw-motion-scale));
+	--sw-dur-enter: calc(180ms * var(--sw-motion-scale));
+	--sw-dur-exit: calc(120ms * var(--sw-motion-scale));
+	--sw-dur-toast: calc(200ms * var(--sw-motion-scale));
+	/* Ambient loops and the saved-row flash are not interaction feedback, so they sit outside 100-240ms. */
+	--sw-dur-spin: calc(700ms * var(--sw-motion-scale));
+	--sw-dur-shimmer: calc(1400ms * var(--sw-motion-scale));
+	--sw-dur-flash: calc(1200ms * var(--sw-motion-scale));
+	--sw-ease: cubic-bezier(.2, 0, 0, 1);
+	--sw-ease-in: cubic-bezier(.4, 0, 1, 1);
+
+	/* Stacking: the admin bar is 99999 and Thickbox 100050. */
+	--sw-z-sticky: 90;
+	--sw-z-popover: 100000;
+	--sw-z-modal: 100050;
+	--sw-z-toast: 100060;
+
+	color: var(--sw-text);
+	font-family: var(--sw-font-sans);
+	font-size: var(--sw-fs-sm);
+	line-height: var(--sw-lh-ui);
+}
+
+/* A plain fallback is declared above; the derived tint replaces it where colour mixing exists. */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+	.sw-ui {
+		--sw-accent-soft: color-mix(in srgb, var(--sw-accent) 9%, #fff);
+	}
+}
+
+/* ====================================================================== */
+/* 2. Core colour scheme fallbacks                                          */
+/* ====================================================================== */
+/*
+ * The text colour of an accent is its darker-10 step. On every core scheme of WordPress 7.1 that is 4.8:1 or
+ * better on white, the page and the accent tint. The light, midnight, ocean and sunrise schemes get a fallback
+ * for a brighter accent: it mixes the step toward the ink until it clears 4.5:1, and a darker fill so white
+ * button text clears it too. SwUiAccentContrastTest evaluates these formulas for every scheme.
+ */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+	.admin-color-light .sw-ui {
+		--sw-accent-fill: color-mix(in srgb, var(--sw-accent) 85%, var(--sw-text));
+	}
+
+	.admin-color-midnight .sw-ui {
+		--sw-accent-text: color-mix(in srgb, var(--sw-accent-strong) 80%, var(--sw-text));
+		--sw-accent-fill: color-mix(in srgb, var(--sw-accent) 80%, var(--sw-text));
+	}
+
+	.admin-color-ocean .sw-ui {
+		--sw-accent-fill: color-mix(in srgb, var(--sw-accent) 90%, var(--sw-text));
+	}
+
+	.admin-color-sunrise .sw-ui {
+		--sw-accent-text: color-mix(in srgb, var(--sw-accent-strong) 60%, var(--sw-text));
+		--sw-accent-fill: color-mix(in srgb, var(--sw-accent) 65%, var(--sw-text));
+	}
+
+	:is(.admin-color-light, .admin-color-midnight, .admin-color-ocean, .admin-color-sunrise) .sw-ui {
+		--sw-accent-fill-hover: color-mix(in srgb, var(--sw-accent-fill) 88%, var(--sw-text));
+	}
+}
+
+/* ====================================================================== */
+/* 3. Legacy token aliases                                                  */
+/* ====================================================================== */
+/*
+ * Inside `.sw-ui` every older token name resolves to a token of this layer, so a legacy rule that still applies
+ * to markup inside an island (the shell's generic overrides, or page CSS during a migration) takes the island's
+ * values. Names that are also defined above are not repeated. Outside `.sw-ui` the old names keep the values
+ * shell.css gives them. SwUiCssContractTest fails when a name shell.css declares has no alias here.
+ */
+.sw-ui {
+	--sw-brand: var(--sw-accent-text);
+	--sw-brand-strong: var(--sw-accent-stronger);
+	--sw-brand-fill: var(--sw-accent-fill);
+	--sw-brand-fill-hover: var(--sw-accent-fill-hover);
+	--sw-brand-soft: var(--sw-accent-soft);
+	--sw-on-brand: var(--sw-on-accent);
+	--sw-ok-text: var(--sw-ok);
+	--sw-warn-text: var(--sw-warn);
+	--sw-danger-text: var(--sw-danger);
+	--sw-info-text: var(--sw-info);
+	--sw-text-xs: var(--sw-fs-xs);
+	--sw-text-sm: var(--sw-fs-sm);
+	--sw-text-md: var(--sw-fs-md);
+	--sw-text-lg: var(--sw-fs-lg);
+	--sw-text-xl: var(--sw-fs-xl);
+	--sw-text-2xl: var(--sw-fs-2xl);
+	--sw-shell-bg: var(--sw-bg);
+	--sw-shell-content-max: var(--sw-content-max);
+	--sw-shell-offset: var(--sw-adminbar-h);
+
+	/* The dark header band is not re-themed by this layer, so its tokens keep their values. */
+	--sw-shell-header-bg: #16181d;
+	--sw-shell-header-fg: #f8f9fa;
+	--sw-shell-header-muted: rgb(248 249 250 / .6);
+	--sw-shell-header-link: rgb(248 249 250 / .78);
+	--sw-shell-header-hover-bg: rgb(255 255 255 / .08);
+	--sw-shell-header-current-bg: rgb(79 70 229 / .35);
+	--sw-shell-header-border: rgb(255 255 255 / .18);
+
+	--sw-color-card: var(--sw-surface);
+	--sw-color-border: var(--sw-border);
+	--sw-color-border-hover: var(--sw-border-strong);
+	--sw-color-text: var(--sw-text);
+	--sw-color-muted: var(--sw-text-muted);
+	--sw-color-bg: var(--sw-bg);
+	--sw-color-pre: var(--sw-bg);
+	--sw-surface-subtle: var(--sw-surface-raised);
+	--sw-ink: var(--sw-text);
+	--sw-ink-soft: var(--sw-text-secondary);
+	--sw-gray-50: var(--sw-bg);
+	--sw-gray-100: var(--sw-bg);
+	--sw-gray-200: var(--sw-border);
+	--sw-gray-300: var(--sw-border-strong);
+	--sw-gray-500: var(--sw-text-muted);
+	--sw-gray-700: var(--sw-text-secondary);
+	--sw-gray-900: var(--sw-text);
+	--sw-success: var(--sw-ok);
+	--sw-success-bg: var(--sw-ok-soft);
+	--sw-warning: var(--sw-warn);
+	--sw-warning-bg: var(--sw-warn-soft);
+	--sw-danger-bg: var(--sw-danger-soft);
+	--sw-info-bg: var(--sw-info-soft);
+	--sw-active-bg: var(--sw-ok-soft);
+	--sw-active-fg: var(--sw-ok);
+	--sw-disabled-bg: var(--sw-bg);
+	--sw-disabled-fg: var(--sw-text-muted);
+	--sw-crashed-bg: var(--sw-danger-soft);
+	--sw-crashed-fg: var(--sw-danger);
+	--sw-draft-bg: var(--sw-warn-soft);
+	--sw-draft-fg: var(--sw-warn);
+	--sw-builtin-bg: var(--sw-info-soft);
+	--sw-builtin-fg: var(--sw-info);
+	--sw-user-bg: var(--sw-ok-soft);
+	--sw-user-fg: var(--sw-ok);
+	--sw-uploaded-bg: var(--sw-warn-soft);
+	--sw-uploaded-fg: var(--sw-warn);
+	--sw-shadow: var(--sw-shadow-1);
+	--sw-shadow-hover: var(--sw-shadow-2);
+	--sw-transition: var(--sw-dur) var(--sw-ease);
+}
+
+/* ====================================================================== */
+/* 4. Reduced motion                                                        */
+/* ====================================================================== */
+@media (prefers-reduced-motion: reduce) {
+	.sw-ui {
+		--sw-motion-scale: 0;
+	}
+}
+
+/* === components: raw colours stop here; use tokens below this line === */
+
+/* ====================================================================== */
+/* 5. Base                                                                  */
+/* ====================================================================== */
+:where(.sw-ui) *,
+:where(.sw-ui) *::before,
+:where(.sw-ui) *::after {
+	box-sizing: border-box;
+}
+
+:where(.sw-ui) :where(h1, h2, h3, h4) {
+	margin: 0;
+	color: var(--sw-text);
+	font-weight: var(--sw-weight-semibold);
+	line-height: var(--sw-lh-tight);
+}
+
+:where(.sw-ui) :where(p, dl, dd, figure) {
+	margin: 0;
+}
+
+.sw-ui a {
+	color: var(--sw-accent-text);
+	text-underline-offset: 2px;
+}
+
+:where(.sw-ui) :focus-visible {
+	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
+	outline-offset: 2px;
+}
+
+.sw-ui code {
+	padding: 1px 6px;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text-secondary);
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-fs-xs);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui pre code {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+}
+
+.sw-ui .sw-ui-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.sw-ui .sw-ui-num {
+	font-variant-numeric: tabular-nums;
+}
+
+.sw-ui .sw-ui-sprite {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+
+.sw-ui .sw-ui-icon {
+	width: 16px;
+	height: 16px;
+	flex: none;
+	fill: none;
+	stroke: currentcolor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.sw-ui .sw-ui-icon--lg {
+	width: 20px;
+	height: 20px;
+}
+
+/* Standalone links keep a 24px target; links inside a sentence are exempt and keep the default style. */
+.sw-ui .sw-ui-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-1);
+	min-height: var(--sw-control-h-xs);
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-link--external::after {
+	content: "\2197";
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-ui .sw-ui-stack {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+.sw-ui .sw-ui-grid {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+.sw-ui .sw-ui-grid--2-1 {
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+	align-items: start;
+}
+
+/* ====================================================================== */
+/* 6. Page header, hub navigation and in-page navigation                    */
+/* ====================================================================== */
+.sw-ui .sw-ui-page {
+	max-width: var(--sw-content-max);
+	padding-bottom: var(--sw-space-6);
+}
+
+.sw-ui .sw-ui-page-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2) var(--sw-space-4);
+	min-height: var(--sw-header-h);
+	padding: var(--sw-space-3) 0;
+}
+
+.sw-ui .sw-ui-page-header__main {
+	flex: 1 1 320px;
+	min-width: 0;
+}
+
+.sw-ui .sw-ui-page-header__eyebrow {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-medium);
+}
+
+.sw-ui .sw-ui-page-header__logo {
+	width: 16px;
+	height: 16px;
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-accent-fill);
+}
+
+.sw-ui .sw-ui-page-header__aside {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+/* The title overrides core's `.wrap h1` (23px, regular weight, padded). */
+.sw-ui .sw-ui-page-title {
+	margin: 0;
+	padding: 0;
+	color: var(--sw-text);
+	font-size: var(--sw-fs-2xl);
+	font-weight: var(--sw-weight-semibold);
+	line-height: var(--sw-lh-tight);
+	letter-spacing: -.01em;
+}
+
+.sw-ui .sw-ui-page-lede {
+	max-width: 70ch;
+	margin-top: var(--sw-space-1);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-md);
+	line-height: var(--sw-lh-body);
+}
+
+.sw-ui .sw-ui-hubnav {
+	display: flex;
+	gap: var(--sw-space-1);
+	margin: 0 0 var(--sw-space-5);
+	padding: 0;
+	border-bottom: 1px solid var(--sw-border-strong);
+	list-style: none;
+	overflow-x: auto; /* contained scroll: the bar never wraps to a second row */
+	overscroll-behavior-x: contain;
+	scrollbar-width: none;
+}
+
+.sw-ui .sw-ui-hubnav__link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h);
+	padding: 0 var(--sw-space-3);
+	border-bottom: 2px solid transparent;
+	color: var(--sw-text-secondary);
+	font-weight: var(--sw-weight-medium);
+	text-decoration: none;
+	white-space: nowrap;
+	transition: color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+/* The bar scrolls inside its own box, which would clip an outside ring: the ring is drawn inside the link. */
+:where(.sw-ui) .sw-ui-hubnav__link:focus-visible {
+	outline-offset: -3px;
+}
+
+:where(.sw-ui) .sw-ui-hubnav__link:hover {
+	border-bottom-color: var(--sw-border-strong);
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-hubnav__link[aria-current="page"] {
+	border-bottom-color: var(--sw-accent-fill);
+	color: var(--sw-accent-text);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-toc {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+	padding: 0;
+	list-style: none;
+}
+
+.sw-ui .sw-ui-toc :where(a) {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--sw-control-h-sm);
+	padding: 0 var(--sw-space-3);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-surface);
+	color: var(--sw-text-secondary);
+	font-weight: var(--sw-weight-medium);
+	text-decoration: none;
+}
+
+:where(.sw-ui) .sw-ui-toc :where(a)[aria-current="location"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+.sw-ui .sw-ui-chip-filter {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-1);
+	min-height: var(--sw-control-h-sm);
+	padding: 0 var(--sw-space-3);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-surface);
+	color: var(--sw-text-secondary);
+	font: inherit;
+	font-weight: var(--sw-weight-medium);
+	cursor: pointer;
+	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease), color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-chip-filter[aria-pressed="true"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+/* ====================================================================== */
+/* 7. Buttons                                                               */
+/* ====================================================================== */
+.sw-ui .sw-ui-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h);
+	padding: 0 var(--sw-space-4);
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius-control);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	font: inherit;
+	font-weight: var(--sw-weight-medium);
+	line-height: 1;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease), color var(--sw-dur-fast) var(--sw-ease), transform var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-btn:hover {
+	border-color: var(--sw-accent-text);
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-btn:active {
+	transform: translateY(1px);
+}
+
+.sw-ui .sw-ui-btn--primary {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-fill);
+	color: var(--sw-on-accent);
+}
+
+:where(.sw-ui) .sw-ui-btn--primary:hover {
+	border-color: var(--sw-accent-fill-hover);
+	background: var(--sw-accent-fill-hover);
+	color: var(--sw-on-accent);
+}
+
+.sw-ui .sw-ui-btn--tertiary {
+	border-color: transparent;
+	background: transparent;
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-btn--tertiary:hover {
+	border-color: transparent;
+	background: var(--sw-accent-soft);
+}
+
+.sw-ui .sw-ui-btn--danger {
+	border-color: var(--sw-danger);
+	background: var(--sw-surface);
+	color: var(--sw-danger);
+}
+
+:where(.sw-ui) .sw-ui-btn--danger:hover {
+	border-color: var(--sw-danger);
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger);
+}
+
+.sw-ui .sw-ui-btn--danger-solid {
+	border-color: var(--sw-danger);
+	background: var(--sw-danger);
+	color: var(--sw-text-invert);
+}
+
+:where(.sw-ui) .sw-ui-btn--danger-solid:hover {
+	border-color: var(--sw-danger-strong);
+	background: var(--sw-danger-strong);
+	color: var(--sw-text-invert);
+}
+
+.sw-ui .sw-ui-btn--sm {
+	min-height: var(--sw-control-h-sm);
+	padding: 0 var(--sw-space-3);
+}
+
+.sw-ui .sw-ui-btn--xs {
+	min-height: var(--sw-control-h-xs);
+	padding: 0 var(--sw-space-2);
+	font-size: var(--sw-fs-xs);
+}
+
+/* An icon-only button is square at every size: its width follows the height of its size tier. */
+.sw-ui .sw-ui-btn--icon {
+	aspect-ratio: 1;
+	padding: 0;
+}
+
+:where(.sw-ui) .sw-ui-btn[disabled],
+:where(.sw-ui) .sw-ui-btn[aria-disabled="true"] {
+	border-color: var(--sw-border);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text-muted);
+	cursor: not-allowed;
+	transform: none;
+}
+
+:where(.sw-ui) .sw-ui-btn[aria-busy="true"] {
+	pointer-events: none;
+}
+
+/* Loading: the label stays, a spinner takes the icon slot in front of it. */
+:where(.sw-ui .sw-ui-btn[aria-busy="true"])::before {
+	content: "";
+	width: 14px;
+	height: 14px;
+	flex: none;
+	border: 2px solid currentcolor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: sw-ui-spin var(--sw-dur-spin) linear infinite;
+}
+
+@keyframes sw-ui-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.sw-ui .sw-ui-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-actions--end {
+	justify-content: flex-end;
+}
+
+/* ====================================================================== */
+/* 8. Cards, sections and summary bands                                     */
+/* ====================================================================== */
+.sw-ui .sw-ui-card {
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+}
+
+.sw-ui .sw-ui-card__header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-2) var(--sw-space-4);
+	padding: var(--sw-space-3) var(--sw-card-pad);
+	border-bottom: 1px solid var(--sw-border);
+}
+
+.sw-ui .sw-ui-card__title {
+	font-size: var(--sw-fs-lg);
+}
+
+.sw-ui .sw-ui-card__desc {
+	margin-top: var(--sw-space-1);
+	color: var(--sw-text-secondary);
+}
+
+.sw-ui .sw-ui-card__body {
+	padding: var(--sw-card-pad);
+}
+
+.sw-ui .sw-ui-card__body--flush {
+	padding: 0;
+}
+
+.sw-ui .sw-ui-card__footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-3) var(--sw-card-pad);
+	border-top: 1px solid var(--sw-border);
+	border-radius: 0 0 var(--sw-radius) var(--sw-radius);
+	background: var(--sw-surface-raised);
+}
+
+:where(.sw-ui) .sw-ui-card--compact .sw-ui-card__body {
+	padding: var(--sw-space-3);
+}
+
+.sw-ui .sw-ui-card--interactive {
+	transition: border-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-card--interactive:hover {
+	border-color: var(--sw-accent-fill);
+}
+
+.sw-ui .sw-ui-section {
+	scroll-margin-top: calc(var(--sw-adminbar-h) + var(--sw-control-h) + var(--sw-space-4));
+}
+
+.sw-ui .sw-ui-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	margin: 0 0 var(--sw-space-4);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	overflow: hidden;
+}
+
+.sw-ui .sw-ui-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	padding: var(--sw-space-3) var(--sw-space-4);
+	border-inline-start: 1px solid var(--sw-border);
+}
+
+:where(.sw-ui) .sw-ui-stat:first-child {
+	border-inline-start: 0;
+}
+
+.sw-ui .sw-ui-stat__label {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-medium);
+}
+
+.sw-ui .sw-ui-stat__value {
+	font-size: var(--sw-fs-xl);
+	font-weight: var(--sw-weight-semibold);
+	line-height: 1.2;
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-stat__meta {
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+/* Key-value facts: audit details, consent, receipts. */
+.sw-ui .sw-ui-kv {
+	display: grid;
+	grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);
+	gap: var(--sw-space-2) var(--sw-space-4);
+	margin: 0;
+}
+
+.sw-ui .sw-ui-kv :where(dt) {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-medium);
+}
+
+.sw-ui .sw-ui-kv :where(dd) {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-kv--inline {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-1) var(--sw-space-5);
+}
+
+.sw-ui .sw-ui-kv--inline > :where(div) {
+	display: flex;
+	gap: var(--sw-space-2);
+}
+
+/* ====================================================================== */
+/* 9. Badges, tags, counts and status                                       */
+/* ====================================================================== */
+.sw-ui .sw-ui-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 22px;
+	padding: 0 var(--sw-space-2);
+	border: 1px solid var(--sw-neutral-border);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-neutral-soft);
+	color: var(--sw-neutral);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-semibold);
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.sw-ui .sw-ui-badge--ok {
+	border-color: var(--sw-ok-border);
+	background: var(--sw-ok-soft);
+	color: var(--sw-ok);
+}
+
+.sw-ui .sw-ui-badge--warn {
+	border-color: var(--sw-warn-border);
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn);
+}
+
+.sw-ui .sw-ui-badge--danger {
+	border-color: var(--sw-danger-border);
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger);
+}
+
+.sw-ui .sw-ui-badge--info {
+	border-color: var(--sw-info-border);
+	background: var(--sw-info-soft);
+	color: var(--sw-info);
+}
+
+.sw-ui .sw-ui-badge--accent {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-badge--dot::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentcolor;
+}
+
+.sw-ui .sw-ui-tag {
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	padding: 0 var(--sw-space-2);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-sm);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+	white-space: nowrap;
+}
+
+.sw-ui .sw-ui-count {
+	min-width: 20px;
+	padding: 1px 6px;
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-surface-sunken);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+/* A dot and a word for table cells; the word always carries the meaning. */
+.sw-ui .sw-ui-status {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+:where(.sw-ui) .sw-ui-status::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border-radius: 50%;
+	background: var(--sw-neutral);
+}
+
+:where(.sw-ui) .sw-ui-status--ok::before {
+	background: var(--sw-ok);
+}
+
+:where(.sw-ui) .sw-ui-status--warn::before {
+	background: var(--sw-warn);
+}
+
+:where(.sw-ui) .sw-ui-status--danger::before {
+	background: var(--sw-danger);
+}
+
+/* ====================================================================== */
+/* 10. Notices (events) and callouts (guidance)                             */
+/* ====================================================================== */
+.sw-ui .sw-ui-notice,
+.sw-ui .sw-ui-callout {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-3) var(--sw-space-4);
+	border: 1px solid var(--sw-info-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-info-soft);
+	color: var(--sw-text);
+}
+
+/* The info look is the base look; the modifier lets markup state its variant. */
+.sw-ui .sw-ui-notice--info,
+.sw-ui .sw-ui-callout--info {
+	border-color: var(--sw-info-border);
+	background: var(--sw-info-soft);
+}
+
+.sw-ui .sw-ui-notice--ok,
+.sw-ui .sw-ui-callout--ok {
+	border-color: var(--sw-ok-border);
+	background: var(--sw-ok-soft);
+}
+
+.sw-ui .sw-ui-notice--warn,
+.sw-ui .sw-ui-callout--warn {
+	border-color: var(--sw-warn-border);
+	background: var(--sw-warn-soft);
+}
+
+.sw-ui .sw-ui-notice--danger,
+.sw-ui .sw-ui-callout--danger {
+	border-color: var(--sw-danger-border);
+	background: var(--sw-danger-soft);
+}
+
+:where(.sw-ui) .sw-ui-notice > .sw-ui-icon,
+:where(.sw-ui) .sw-ui-callout > .sw-ui-icon {
+	margin-top: 2px;
+	color: var(--sw-info);
+}
+
+:where(.sw-ui) .sw-ui-notice--ok > .sw-ui-icon,
+:where(.sw-ui) .sw-ui-callout--ok > .sw-ui-icon {
+	color: var(--sw-ok);
+}
+
+:where(.sw-ui) .sw-ui-notice--warn > .sw-ui-icon,
+:where(.sw-ui) .sw-ui-callout--warn > .sw-ui-icon {
+	color: var(--sw-warn);
+}
+
+:where(.sw-ui) .sw-ui-notice--danger > .sw-ui-icon,
+:where(.sw-ui) .sw-ui-callout--danger > .sw-ui-icon {
+	color: var(--sw-danger);
+}
+
+.sw-ui .sw-ui-notice__title {
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-notice__text {
+	margin-top: 2px;
+	color: var(--sw-text-secondary);
+}
+
+.sw-ui .sw-ui-notice__actions {
+	margin-top: var(--sw-space-2);
+}
+
+/* Only a notice inserted by script announces itself with motion; one in the page at load does not. */
+.sw-ui .sw-ui-notice--enter {
+	animation: sw-ui-notice-in var(--sw-dur-enter) var(--sw-ease);
+}
+
+@keyframes sw-ui-notice-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+/* ====================================================================== */
+/* 11. Forms                                                                */
+/* ====================================================================== */
+.sw-ui .sw-ui-field {
+	display: grid;
+	gap: var(--sw-space-1);
+}
+
+.sw-ui .sw-ui-field--sm {
+	max-width: 12ch;
+}
+
+.sw-ui .sw-ui-field--md {
+	max-width: 320px;
+}
+
+.sw-ui .sw-ui-field__label {
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-field__help {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-ui .sw-ui-field__error {
+	display: flex;
+	gap: var(--sw-space-1);
+	color: var(--sw-danger);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-medium);
+}
+
+/* Only the border colour, the focus ring and the metrics are set; the control stays a native control. */
+.sw-ui .sw-ui-input,
+.sw-ui .sw-ui-select,
+.sw-ui .sw-ui-textarea {
+	width: 100%;
+	max-width: 100%;
+	min-height: var(--sw-control-h);
+	padding: 0 var(--sw-space-3);
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius-control);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	font: inherit;
+	font-size: var(--sw-fs-md);
+}
+
+.sw-ui .sw-ui-textarea {
+	min-height: 96px;
+	padding: var(--sw-space-2) var(--sw-space-3);
+	line-height: var(--sw-lh-body);
+}
+
+/* An invalid control gets a red border and an inner ring of the same colour. */
+:where(.sw-ui) .sw-ui-input[aria-invalid="true"],
+:where(.sw-ui) .sw-ui-select[aria-invalid="true"],
+:where(.sw-ui) .sw-ui-textarea[aria-invalid="true"] {
+	border-color: var(--sw-danger);
+	box-shadow: inset 0 0 0 1px var(--sw-danger);
+}
+
+.sw-ui .sw-ui-form-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.sw-ui .sw-ui-form-table :where(th) {
+	width: 220px;
+	padding: var(--sw-space-3) var(--sw-space-4) var(--sw-space-3) 0;
+	font-weight: var(--sw-weight-semibold);
+	text-align: start;
+	vertical-align: top;
+}
+
+.sw-ui .sw-ui-form-table :where(td) {
+	padding: var(--sw-space-3) 0;
+	vertical-align: top;
+}
+
+.sw-ui .sw-ui-form-table :where(tr + tr) :where(th, td) {
+	border-top: 1px solid var(--sw-border);
+}
+
+.sw-ui .sw-ui-fieldset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.sw-ui .sw-ui-fieldset :where(legend) {
+	padding: 0;
+	font-weight: var(--sw-weight-semibold);
+}
+
+/* A label around a checkbox or radio supplies a 24px target; the control itself stays core's 16px. */
+.sw-ui .sw-ui-checkbox {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h-xs);
+}
+
+/*
+ * A switch is a native checkbox (role="switch") laid invisibly over a drawn track, so it keeps form semantics,
+ * keyboard and the no-script fallback, and core's own checkbox glyph never shows through. The thumb is the
+ * second cue: its position says on or off without the colour.
+ */
+.sw-ui .sw-ui-switch {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h-xs);
+}
+
+.sw-ui .sw-ui-switch :where(input) {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: 0;
+	z-index: 1;
+	width: 40px;
+	height: 24px;
+	margin: 0;
+	opacity: 0;
+	transform: translateY(-50%);
+	cursor: pointer;
+}
+
+:where(.sw-ui) .sw-ui-switch__track {
+	position: relative;
+	flex: none;
+	width: 40px;
+	height: 24px;
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-border-control);
+	transition: background-color var(--sw-dur) var(--sw-ease), border-color var(--sw-dur) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-switch__track::after {
+	content: "";
+	position: absolute;
+	inset-block-start: 2px;
+	inset-inline-start: 2px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--sw-text-invert);
+	transition: transform var(--sw-dur) var(--sw-ease);
+}
+
+:where(.sw-ui .sw-ui-switch input:checked) + .sw-ui-switch__track {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-fill);
+}
+
+:where(.sw-ui .sw-ui-switch input:checked) + .sw-ui-switch__track::after {
+	transform: translateX(16px);
+}
+
+:where(.sw-ui .sw-ui-switch input:focus-visible) + .sw-ui-switch__track {
+	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
+	outline-offset: 2px;
+}
+
+:where(.sw-ui .sw-ui-switch input:disabled) + .sw-ui-switch__track {
+	opacity: .5;
+	cursor: not-allowed;
+}
+
+/* Two or three exclusive options as real radios. */
+.sw-ui .sw-ui-segmented {
+	position: relative;
+	display: inline-flex;
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius-control);
+	background: var(--sw-surface);
+}
+
+.sw-ui .sw-ui-segmented :where(label) {
+	display: inline-flex;
+	align-items: center;
+	min-height: calc(var(--sw-control-h) - 2px);
+	padding: 0 var(--sw-space-3);
+	font-weight: var(--sw-weight-medium);
+	cursor: pointer;
+}
+
+.sw-ui .sw-ui-segmented :where(input) {
+	position: absolute;
+	opacity: 0;
+}
+
+:where(.sw-ui) .sw-ui-segmented :where(label):has(:where(input):checked) {
+	background: var(--sw-accent-fill);
+	color: var(--sw-on-accent);
+}
+
+:where(.sw-ui) .sw-ui-segmented :where(label):has(:where(input):focus-visible) {
+	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
+	outline-offset: 2px;
+}
+
+/* Inline help: a button that opens a native popover, so it works on click, tap and keyboard, not only hover. */
+.sw-ui .sw-ui-help {
+	display: inline-grid;
+	place-items: center;
+	width: var(--sw-control-h-xs);
+	height: var(--sw-control-h-xs);
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--sw-text-secondary);
+	cursor: pointer;
+}
+
+:where(.sw-ui) .sw-ui-help:hover {
+	color: var(--sw-accent-text);
+}
+
+.sw-ui .sw-ui-popover {
+	max-width: min(320px, calc(100% - 32px));
+	margin: var(--sw-space-2);
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	box-shadow: var(--sw-shadow-2);
+}
+
+/* Why a control is disabled, linked with aria-describedby. */
+.sw-ui .sw-ui-hint {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+}
+
+/* ====================================================================== */
+/* 12. Copy fields and code blocks                                          */
+/* ====================================================================== */
+.sw-ui .sw-ui-copy {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	max-width: 100%;
+}
+
+.sw-ui .sw-ui-copy__value {
+	flex: 1 1 14rem;
+	min-width: 0;
+	padding: 6px var(--sw-space-3);
+	overflow-wrap: anywhere;
+}
+
+/* A secret sits in a read-only password field, set in the code face so its characters line up when shown. */
+:where(.sw-ui) .sw-ui-copy--secret .sw-ui-copy__value {
+	font-family: var(--sw-font-mono);
+}
+
+.sw-ui .sw-ui-copy__status {
+	min-width: 0;
+	color: var(--sw-ok);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-medium);
+}
+
+/* The state is told by script: the check replaces the copy glyph for a moment and the status says "Copied". */
+.sw-ui .sw-ui-copy__icon-done {
+	display: none;
+}
+
+:where(.sw-ui) [data-state="copied"] .sw-ui-copy__icon-done {
+	display: inline;
+	animation: sw-ui-pop var(--sw-dur-reveal) var(--sw-ease);
+}
+
+:where(.sw-ui) [data-state="copied"] .sw-ui-copy__icon-copy {
+	display: none;
+}
+
+@keyframes sw-ui-pop {
+	from {
+		transform: scale(.9);
+	}
+}
+
+.sw-ui .sw-ui-code {
+	--sw-focus-ring: var(--sw-inverse-fg);
+	border: 1px solid var(--sw-inverse-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-inverse-bg);
+	color: var(--sw-inverse-fg);
+	overflow: hidden;
+}
+
+.sw-ui .sw-ui-code__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-inverse-border);
+	color: var(--sw-inverse-muted);
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-ui .sw-ui-code__body {
+	margin: 0;
+	padding: var(--sw-space-3);
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	font: var(--sw-fs-xs) / 1.6 var(--sw-font-mono);
+	overflow-x: auto;
+	white-space: pre;
+}
+
+:where(.sw-ui) .sw-ui-code .sw-ui-btn {
+	border-color: var(--sw-inverse-control);
+	background: transparent;
+	color: var(--sw-inverse-fg);
+}
+
+:where(.sw-ui .sw-ui-code) .sw-ui-btn:hover {
+	border-color: var(--sw-inverse-fg);
+	background: var(--sw-inverse-hover);
+	color: var(--sw-inverse-fg);
+}
+
+/* ====================================================================== */
+/* 13. Tables and toolbars                                                  */
+/* ====================================================================== */
+.sw-ui .sw-ui-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--sw-fs-sm);
+}
+
+.sw-ui .sw-ui-table :where(th) {
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-border-strong);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-semibold);
+	text-align: start;
+}
+
+.sw-ui .sw-ui-table :where(td) {
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-border);
+	vertical-align: middle;
+}
+
+.sw-ui .sw-ui-table--comfortable :where(td) {
+	padding-block: var(--sw-space-3);
+}
+
+.sw-ui .sw-ui-table :where(tbody tr) {
+	transition: background-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-table :where(tbody tr):hover {
+	background: var(--sw-surface-raised);
+}
+
+.sw-ui .sw-ui-table__primary {
+	display: block;
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-table__meta {
+	display: block;
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-ui .sw-ui-table__actions {
+	text-align: end;
+	white-space: nowrap;
+}
+
+.sw-ui .sw-ui-table__num {
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+/* A contained scroll region for wide technical data; it is focusable so a keyboard can scroll it. */
+.sw-ui .sw-ui-table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.sw-ui .sw-ui-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2) var(--sw-space-3);
+	margin: 0 0 var(--sw-space-4);
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+}
+
+.sw-ui .sw-ui-toolbar__search {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+
+.sw-ui .sw-ui-toolbar__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-toolbar__meta {
+	margin-inline-start: auto;
+	color: var(--sw-text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ====================================================================== */
+/* 14. Tabs, disclosure, empty states and skeletons                         */
+/* ====================================================================== */
+.sw-ui .sw-ui-tabs {
+	display: flex;
+	gap: var(--sw-space-1);
+	border-bottom: 1px solid var(--sw-border-strong);
+	overflow-x: auto;
+}
+
+.sw-ui .sw-ui-tabs__tab {
+	min-height: var(--sw-control-h);
+	padding: 0 var(--sw-space-3);
+	border: 0;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: var(--sw-text-secondary);
+	font: inherit;
+	font-weight: var(--sw-weight-medium);
+	cursor: pointer;
+	transition: color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+/* The tab list scrolls inside its own box, which would clip an outside ring: the ring is drawn inside the tab. */
+:where(.sw-ui) .sw-ui-tabs__tab:focus-visible {
+	outline-offset: -3px;
+}
+
+:where(.sw-ui) .sw-ui-tabs__tab:hover {
+	color: var(--sw-accent-text);
+}
+
+:where(.sw-ui) .sw-ui-tabs__tab[aria-selected="true"] {
+	border-bottom-color: var(--sw-accent-fill);
+	color: var(--sw-accent-text);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-tabs__panel {
+	padding-top: var(--sw-space-4);
+}
+
+.sw-ui .sw-ui-disclosure {
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+}
+
+:where(.sw-ui) .sw-ui-disclosure + .sw-ui-disclosure {
+	margin-top: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-disclosure > :where(summary) {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h);
+	padding: 0 var(--sw-space-3);
+	font-weight: var(--sw-weight-semibold);
+	list-style: none;
+	cursor: pointer;
+}
+
+:where(.sw-ui .sw-ui-disclosure > summary)::-webkit-details-marker {
+	display: none;
+}
+
+:where(.sw-ui .sw-ui-disclosure > summary) .sw-ui-icon {
+	transition: transform var(--sw-dur) var(--sw-ease);
+}
+
+:where(.sw-ui .sw-ui-disclosure[open] > summary) .sw-ui-icon {
+	transform: rotate(90deg);
+}
+
+/* Opening is instant for layout; only the arriving content fades in. */
+.sw-ui .sw-ui-disclosure__body {
+	padding: var(--sw-space-3);
+	border-top: 1px solid var(--sw-border);
+	animation: sw-ui-reveal var(--sw-dur-reveal) var(--sw-ease);
+}
+
+@keyframes sw-ui-reveal {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+.sw-ui .sw-ui-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--sw-space-2);
+	max-width: 52ch;
+	margin: 0 auto;
+	padding: var(--sw-space-6) var(--sw-space-4);
+	text-align: center;
+}
+
+.sw-ui .sw-ui-empty__icon {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+.sw-ui .sw-ui-empty__title {
+	font-size: var(--sw-fs-lg);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-empty__text {
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-md);
+	line-height: var(--sw-lh-body);
+}
+
+.sw-ui .sw-ui-empty--inline {
+	flex-direction: row;
+	max-width: none;
+	margin: 0;
+	padding: var(--sw-space-3) var(--sw-space-4);
+	text-align: start;
+}
+
+.sw-ui .sw-ui-empty--first-run {
+	padding-block: var(--sw-space-7);
+}
+
+:where(.sw-ui) .sw-ui-empty--error .sw-ui-empty__icon {
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger);
+}
+
+:where(.sw-ui) .sw-ui-empty--no-results .sw-ui-empty__icon {
+	background: var(--sw-surface-sunken);
+	color: var(--sw-text-secondary);
+}
+
+/* A skeleton reserves the loaded height, so nothing shifts when the content arrives. */
+.sw-ui .sw-ui-skeleton {
+	display: block;
+	min-height: 14px;
+	border-radius: var(--sw-radius-sm);
+	background: linear-gradient(90deg, var(--sw-surface-sunken) 25%, var(--sw-skeleton-shine) 37%, var(--sw-surface-sunken) 63%);
+	background-size: 400% 100%;
+	animation: sw-ui-shimmer var(--sw-dur-shimmer) ease-in-out infinite;
+}
+
+.sw-ui .sw-ui-skeleton--title {
+	width: 40%;
+	min-height: 20px;
+}
+
+.sw-ui .sw-ui-skeleton--text {
+	width: 90%;
+}
+
+.sw-ui .sw-ui-skeleton--pill {
+	width: 72px;
+	min-height: 22px;
+	border-radius: var(--sw-radius-pill);
+}
+
+.sw-ui .sw-ui-skeleton--row {
+	min-height: 40px;
+}
+
+.sw-ui .sw-ui-skeleton--card {
+	min-height: 120px;
+	border-radius: var(--sw-radius);
+}
+
+@keyframes sw-ui-shimmer {
+	from {
+		background-position: 100% 0;
+	}
+
+	to {
+		background-position: 0 0;
+	}
+}
+
+/* ====================================================================== */
+/* 15. Toasts, dialogs and drawers                                          */
+/* ====================================================================== */
+/* Script appends toasts to a region inside a `.sw-ui` portal on the body, so they are in scope wherever the page is. */
+.sw-ui .sw-ui-toast-region {
+	--sw-focus-ring: var(--sw-inverse-fg);
+	position: fixed;
+	inset-inline-end: var(--sw-space-4);
+	inset-block-end: var(--sw-space-4);
+	z-index: var(--sw-z-toast);
+	display: grid;
+	gap: var(--sw-space-2);
+	width: min(360px, calc(100% - 32px));
+}
+
+.sw-ui .sw-ui-toast {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-3) var(--sw-space-4);
+	border-radius: var(--sw-radius);
+	background: var(--sw-inverse-bg);
+	color: var(--sw-inverse-fg);
+	box-shadow: var(--sw-shadow-3);
+	animation: sw-ui-toast-in var(--sw-dur-toast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-toast .sw-ui-btn {
+	margin-inline-start: auto;
+	border-color: var(--sw-inverse-control);
+	background: transparent;
+	color: var(--sw-inverse-fg);
+}
+
+/* Leaving is shorter than arriving and only fades. */
+:where(.sw-ui) .sw-ui-toast[data-state="leaving"] {
+	opacity: 0;
+	transition: opacity var(--sw-dur-exit) var(--sw-ease-in);
+}
+
+@keyframes sw-ui-toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+}
+
+.sw-ui .sw-ui-dialog {
+	width: min(480px, calc(100% - 32px));
+	padding: 0;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-lg);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	box-shadow: var(--sw-shadow-3);
+	opacity: 1;
+	transform: none;
+}
+
+:where(.sw-ui) .sw-ui-dialog::backdrop {
+	background: var(--sw-overlay);
+}
+
+.sw-ui .sw-ui-dialog__header,
+.sw-ui .sw-ui-dialog__body,
+.sw-ui .sw-ui-dialog__footer {
+	padding: var(--sw-space-4);
+}
+
+.sw-ui .sw-ui-dialog__body {
+	display: grid;
+	gap: var(--sw-space-3);
+}
+
+.sw-ui .sw-ui-dialog__title {
+	font-size: var(--sw-fs-lg);
+}
+
+.sw-ui .sw-ui-dialog__footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--sw-space-2);
+	border-top: 1px solid var(--sw-border);
+}
+
+/* The same dialog docked to the inline end of the screen: row details and the like. */
+.sw-ui .sw-ui-drawer {
+	width: min(34rem, 100%);
+	max-width: 100%;
+	height: 100%;
+	max-height: 100%;
+	margin: 0;
+	margin-inline-start: auto;
+	border-radius: 0;
+}
+
+/* Dialogs and drawers fade in and out where the browser can animate display; elsewhere they just appear. */
+@supports (transition-behavior: allow-discrete) {
+	.sw-ui .sw-ui-dialog {
+		transition: opacity var(--sw-dur-exit) var(--sw-ease-in), transform var(--sw-dur-exit) var(--sw-ease-in), overlay var(--sw-dur-exit) allow-discrete, display var(--sw-dur-exit) allow-discrete;
+	}
+
+	:where(.sw-ui) .sw-ui-dialog::backdrop {
+		transition: opacity var(--sw-dur-exit) var(--sw-ease-in), overlay var(--sw-dur-exit) allow-discrete, display var(--sw-dur-exit) allow-discrete;
+	}
+
+	:where(.sw-ui) .sw-ui-dialog:not([open]) {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+
+	:where(.sw-ui) .sw-ui-drawer:not([open]) {
+		transform: translateX(16px);
+	}
+
+	:where(.sw-ui) .sw-ui-dialog[open] {
+		transition-duration: var(--sw-dur-enter);
+		transition-timing-function: var(--sw-ease);
+	}
+
+	:where(.sw-ui .sw-ui-dialog:not([open]))::backdrop {
+		opacity: 0;
+	}
+
+	@starting-style {
+		:where(.sw-ui) .sw-ui-dialog[open] {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+
+		:where(.sw-ui) .sw-ui-drawer[open] {
+			transform: translateX(16px);
+		}
+
+		:where(.sw-ui .sw-ui-dialog[open])::backdrop {
+			opacity: 0;
+		}
+	}
+}
+
+/* After an inline save or toggle the row's tint fades back to nothing; no layout change. */
+.sw-ui .sw-ui-flash {
+	animation: sw-ui-flash var(--sw-dur-flash) var(--sw-ease);
+}
+
+@keyframes sw-ui-flash {
+	from {
+		background-color: var(--sw-accent-soft);
+	}
+}
+
+/* ====================================================================== */
+/* 16. Lineage                                                              */
+/* ====================================================================== */
+.sw-ui .sw-ui-lineage {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.sw-ui .sw-ui-lineage :where(ol) {
+	margin: 0;
+	margin-inline-start: var(--sw-space-4);
+	padding: 0;
+	padding-inline-start: var(--sw-space-3);
+	border-inline-start: 1px solid var(--sw-border-strong);
+	list-style: none;
+}
+
+.sw-ui .sw-ui-lineage__node {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h);
+}
+
+/* ====================================================================== */
+/* 17. Narrow screens                                                       */
+/* ====================================================================== */
+@media (max-width: 1024px) {
+	.sw-ui .sw-ui-col--secondary {
+		display: none;
+	}
+}
+
+@media (max-width: 782px) {
+	.sw-ui .sw-ui-grid--2-1 {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.sw-ui .sw-ui-page-title {
+		font-size: var(--sw-fs-xl);
+	}
+
+	/* Touch tiers: 44px default, 40px small. The 24px floor of the extra small button stays. */
+	.sw-ui .sw-ui-btn {
+		min-height: 44px;
+	}
+
+	.sw-ui .sw-ui-btn--sm {
+		min-height: 40px;
+	}
+
+	.sw-ui .sw-ui-btn--xs {
+		min-height: var(--sw-control-h-xs);
+	}
+
+	.sw-ui .sw-ui-input,
+	.sw-ui .sw-ui-select {
+		min-height: 44px;
+	}
+
+	.sw-ui .sw-ui-form-table :where(th, td) {
+		display: block;
+		width: auto;
+		padding-inline-end: 0;
+	}
+
+	.sw-ui .sw-ui-form-table :where(th) {
+		padding-bottom: 0;
+	}
+
+	.sw-ui .sw-ui-kv {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+	}
+
+	.sw-ui .sw-ui-kv :where(dd + dt) {
+		margin-top: var(--sw-space-2);
+	}
+
+	/* A stacking table: each row becomes a card of label and value pairs (td[data-label]). */
+	.sw-ui .sw-ui-table--stack :where(thead) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+
+	.sw-ui .sw-ui-table--stack,
+	.sw-ui .sw-ui-table--stack :where(tbody, tr) {
+		display: block;
+	}
+
+	.sw-ui .sw-ui-table--stack :where(tr) {
+		padding: var(--sw-space-3);
+		border-bottom: 1px solid var(--sw-border);
+	}
+
+	.sw-ui .sw-ui-table--stack :where(td) {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--sw-space-3);
+		padding: var(--sw-space-1) 0;
+		border: 0;
+		text-align: end;
+	}
+
+	/* Only a cell with a data-label gets a label; the primary cell (name and meta) has none and reads as the card title. */
+	:where(.sw-ui .sw-ui-table--stack) [data-label]::before {
+		content: attr(data-label);
+		color: var(--sw-text-muted);
+		font-size: var(--sw-fs-xs);
+		font-weight: var(--sw-weight-medium);
+		text-align: start;
+	}
+
+	:where(.sw-ui) .sw-ui-table--stack .sw-ui-table__primary-cell {
+		display: block;
+		text-align: start;
+	}
+
+	.sw-ui .sw-ui-toolbar--sticky {
+		position: static;
+	}
+
+	.sw-ui .sw-ui-drawer {
+		width: 100%;
+	}
+}
+
+/* A sticky toolbar sticks under the admin bar, from 783px up only. */
+@media (min-width: 783px) {
+	.sw-ui .sw-ui-toolbar--sticky {
+		position: sticky;
+		top: var(--sw-adminbar-h);
+		z-index: var(--sw-z-sticky);
+	}
+}
+
+/* ====================================================================== */
+/* 18. Reduced motion and forced colours                                    */
+/* ====================================================================== */
+/*
+ * The duration tokens are already 0 here. Loops get a static equivalent instead of a zero-length animation,
+ * and nothing keeps a transform it only held while moving.
+ */
+@media (prefers-reduced-motion: reduce) {
+	:where(.sw-ui .sw-ui-btn[aria-busy="true"])::before {
+		animation: none;
+		border-right-color: currentcolor;
+		border-style: dotted;
+	}
+
+	.sw-ui .sw-ui-skeleton {
+		animation: none;
+		background: var(--sw-surface-sunken);
+	}
+}
+
+/* Forced colours: state keeps its border and its thumb position, and focus uses the system highlight. */
+@media (forced-colors: active) {
+	:where(.sw-ui) :focus-visible {
+		outline-color: Highlight;
+	}
+
+	.sw-ui .sw-ui-badge,
+	.sw-ui .sw-ui-tag,
+	.sw-ui .sw-ui-btn,
+	.sw-ui .sw-ui-card,
+	.sw-ui .sw-ui-notice,
+	.sw-ui .sw-ui-callout {
+		border-color: CanvasText;
+	}
+
+	.sw-ui .sw-ui-switch__track {
+		border-color: ButtonText;
+	}
+
+	:where(.sw-ui .sw-ui-switch input:checked) + .sw-ui-switch__track {
+		background: Highlight;
+	}
+
+	/* A selected or pressed state, and a solid button, is drawn in the system highlight pair. The pair is set
+	   explicitly, so the browser's own adjustment (and its text backplate) is switched off for these. */
+	:where(.sw-ui) .sw-ui-chip-filter[aria-pressed="true"],
+	:where(.sw-ui) .sw-ui-toc :where(a)[aria-current="location"],
+	:where(.sw-ui) .sw-ui-segmented :where(label):has(:where(input):checked),
+	.sw-ui .sw-ui-btn--primary,
+	.sw-ui .sw-ui-btn--danger-solid {
+		forced-color-adjust: none;
+		border-color: Highlight;
+		background: Highlight;
+		color: HighlightText;
+	}
+
+	/* An unselected tab keeps no underline; the selected one is drawn in the highlight colour. */
+	.sw-ui .sw-ui-hubnav__link,
+	.sw-ui .sw-ui-tabs__tab {
+		border-bottom-color: Canvas;
+	}
+
+	:where(.sw-ui) .sw-ui-hubnav__link[aria-current="page"],
+	:where(.sw-ui) .sw-ui-tabs__tab[aria-selected="true"] {
+		border-bottom-color: Highlight;
+	}
+
+	.sw-ui .sw-ui-skeleton {
+		border: 1px dashed GrayText;
+	}
+}
+
+/* The hidden attribute must beat the display a component sets; this stays the last rule. */
+.sw-ui [hidden] {
+	display: none;
+}

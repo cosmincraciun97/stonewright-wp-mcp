@@ -42,6 +42,7 @@ final class AbilitiesPage {
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 		$groups             = AbilityHubCatalog::grouped();
+		$label_counts       = self::label_counts( $groups );
 		$stats              = self::compute_stats( $abilities, $disabled_abilities );
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only admin notice flag.
 		$notice             = isset( $_GET['stonewright_toggled'] )
@@ -92,7 +93,10 @@ final class AbilitiesPage {
 					autocomplete="off"
 				/>
 
-				<select name="stonewright_bulk_action" form="stonewright-bulk-form">
+				<label class="screen-reader-text" for="stonewright-bulk-action">
+					<?php esc_html_e( 'Bulk action', 'stonewright' ); ?>
+				</label>
+				<select id="stonewright-bulk-action" name="stonewright_bulk_action" form="stonewright-bulk-form">
 					<option value=""><?php esc_html_e( 'Bulk action', 'stonewright' ); ?></option>
 					<option value="enable_selected"><?php esc_html_e( 'Enable selected', 'stonewright' ); ?></option>
 					<option value="disable_selected"><?php esc_html_e( 'Disable selected', 'stonewright' ); ?></option>
@@ -100,7 +104,10 @@ final class AbilitiesPage {
 					<option value="disable_category"><?php esc_html_e( 'Disable category', 'stonewright' ); ?></option>
 				</select>
 
-				<select name="stonewright_bulk_category" form="stonewright-bulk-form">
+				<label class="screen-reader-text" for="stonewright-bulk-category">
+					<?php esc_html_e( 'Category for the bulk action', 'stonewright' ); ?>
+				</label>
+				<select id="stonewright-bulk-category" name="stonewright_bulk_category" form="stonewright-bulk-form">
 					<option value=""><?php esc_html_e( 'Category', 'stonewright' ); ?></option>
 					<?php foreach ( self::category_options( $groups ) as $category ) : ?>
 						<option value="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( self::category_label( $category ) ); ?></option>
@@ -234,7 +241,7 @@ final class AbilitiesPage {
 											<span><?php esc_html_e( 'Details', 'stonewright' ); ?></span>
 										</div>
 										<?php foreach ( $category_abilities as $index => $ability ) : ?>
-											<?php self::render_ability_row( $ability, $disabled_abilities, $category, $index ); ?>
+											<?php self::render_ability_row( $ability, $disabled_abilities, $category, $index, $label_counts ); ?>
 										<?php endforeach; ?>
 									</div>
 								</details>
@@ -249,21 +256,48 @@ final class AbilitiesPage {
 	}
 
 	/**
+	 * How many abilities carry each label, so a label shared by two abilities can be told apart.
+	 *
+	 * @param array<string, array{categories: array<string, list<array<string, mixed>>>}> $groups
+	 * @return array<string, int>
+	 */
+	private static function label_counts( array $groups ): array {
+		$labels = [];
+		foreach ( $groups as $group ) {
+			foreach ( $group['categories'] as $category_abilities ) {
+				foreach ( $category_abilities as $ability ) {
+					$labels[] = (string) $ability['label'];
+				}
+			}
+		}
+
+		return array_count_values( $labels );
+	}
+
+	/**
 	 * @param array<string, mixed> $ability
 	 * @param array<int, string>   $disabled_abilities
+	 * @param array<string, int>   $label_counts
 	 */
 	private static function render_ability_row(
 		array $ability,
 		array $disabled_abilities,
 		string $category,
-		int $index
+		int $index,
+		array $label_counts = []
 	): void {
 		$name       = (string) $ability['name'];
 		$is_enabled = ! in_array( $name, $disabled_abilities, true );
 		$kind       = self::kind_for( $name );
 		$row_id     = 'stonewright-ability-' . sanitize_html_class( str_replace( '/', '-', $name ) );
 		$form_id    = $row_id . '-form-' . $index;
+		$label_id   = $row_id . '-label';
+		$select_id  = $row_id . '-select';
+		$details_id = $row_id . '-details';
+		$tool_id    = $row_id . '-tool';
 		$tool_name  = (string) ( $ability['mcp_tool_name'] ?? AbilityRegistry::mcp_tool_name( $name ) );
+		// Controls are named after the ability label; when two abilities share a label the tool name tells them apart.
+		$name_ids = $label_id . ( ( $label_counts[ (string) $ability['label'] ] ?? 1 ) > 1 ? ' ' . $tool_id : '' );
 		?>
 		<form id="<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="stonewright_toggle_ability"/>
@@ -286,31 +320,34 @@ final class AbilitiesPage {
 					name="stonewright_abilities[]"
 					value="<?php echo esc_attr( $name ); ?>"
 					form="stonewright-bulk-form"
+					aria-labelledby="<?php echo esc_attr( $select_id . ' ' . $name_ids ); ?>"
 				/>
-				<span class="screen-reader-text"><?php esc_html_e( 'Select ability', 'stonewright' ); ?></span>
+				<span class="screen-reader-text" id="<?php echo esc_attr( $select_id ); ?>"><?php esc_html_e( 'Select', 'stonewright' ); ?></span>
 			</label>
 			<div class="stonewright-ability-main">
-				<strong class="sw-ability-label"><?php echo esc_html( (string) $ability['label'] ); ?></strong>
+				<strong class="sw-ability-label" id="<?php echo esc_attr( $label_id ); ?>"><?php echo esc_html( (string) $ability['label'] ); ?></strong>
 				<p><?php echo esc_html( (string) $ability['description'] ); ?></p>
 			</div>
-			<code class="stonewright-mcp-tool sw-ability-tool"><?php echo esc_html( $tool_name ); ?></code>
+			<code class="stonewright-mcp-tool sw-ability-tool" id="<?php echo esc_attr( $tool_id ); ?>"><?php echo esc_html( $tool_name ); ?></code>
 			<span class="stonewright-kind-badge stonewright-kind-badge--<?php echo esc_attr( $kind ); ?>">
 				<?php echo esc_html( self::kind_label( $kind ) ); ?>
 			</span>
 			<label class="sw-switch" title="<?php esc_attr_e( 'Enable or disable ability', 'stonewright' ); ?>">
 				<input
 					type="checkbox"
+					role="switch"
 					name="ability_enabled"
 					value="1"
 					form="<?php echo esc_attr( $form_id ); ?>"
 					data-stonewright-submit-form="<?php echo esc_attr( $form_id ); ?>"
+					aria-labelledby="<?php echo esc_attr( $name_ids ); ?>"
 					<?php checked( $is_enabled ); ?>
 				/>
 				<span class="sw-switch__track" aria-hidden="true"></span>
 				<span class="screen-reader-text"><?php esc_html_e( 'Enable or disable ability', 'stonewright' ); ?></span>
 			</label>
 			<details class="stonewright-ability-details">
-				<summary><?php esc_html_e( 'Details', 'stonewright' ); ?></summary>
+				<summary id="<?php echo esc_attr( $details_id ); ?>" aria-labelledby="<?php echo esc_attr( $details_id . ' ' . $name_ids ); ?>"><?php esc_html_e( 'Details', 'stonewright' ); ?></summary>
 				<?php self::render_schema_table( $ability ); ?>
 			</details>
 		</div>
