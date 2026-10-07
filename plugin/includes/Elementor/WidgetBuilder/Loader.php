@@ -8,25 +8,25 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 /**
  * Loads Stonewright-built Elementor widgets at runtime.
  *
- * Widget files live in SandboxFiles::draft_dir(), NOT in mu-plugins.
- * This loader scans draft_dir for files matching the pattern
- * widget-<slug>.php (without the .pending suffix) on the
+ * Widget files live in SandboxFiles::draft_dir(), NOT in mu-plugins, stored
+ * as widget-<slug>.draft so no web server can run them. This loader scans
+ * draft_dir for those files (without the .pending suffix) on the
  * elementor/widgets/register hook and require_once's each one.
  *
  * The generated file's self-contained registration closure then fires
  * and adds the widget class to Elementor's widget manager.
  *
  * Skipped files:
- *  - *.pending.php — not yet approved via widget_register.
- *  - Any filename that does not match ^widget-[a-z0-9_-]+\.php$ exactly.
+ *  - *.pending.draft — not yet approved via widget_register.
+ *  - Any filename that does not match ^widget-[a-z0-9_-]+\.draft$ exactly.
  */
 final class Loader {
 
 	/** Pattern for active (non-pending) widget files. */
-	private const ACTIVE_PATTERN = '/^widget-[a-z0-9_-]+\.php$/';
+	private const ACTIVE_PATTERN = '/^widget-[a-z0-9_-]+\.' . SandboxFiles::DRAFT_EXTENSION . '$/';
 
-	/** Pattern that identifies a pending file — must be excluded. */
-	private const PENDING_SUFFIX = '.pending.php';
+	/** Suffix that identifies a pending file — must be excluded. */
+	private const PENDING_SUFFIX = '.pending.' . SandboxFiles::DRAFT_EXTENSION;
 
 	private static bool $registered = false;
 
@@ -56,7 +56,7 @@ final class Loader {
 	public static function load_widgets( \Elementor\Widgets_Manager $widgets_manager ): void {
 		$draft_dir = SandboxFiles::draft_dir();
 
-		$files = glob( $draft_dir . '/widget-*.php' );
+		$files = glob( $draft_dir . '/widget-*.' . SandboxFiles::DRAFT_EXTENSION );
 		if ( false === $files ) {
 			return;
 		}
@@ -94,7 +94,7 @@ final class Loader {
 			// C1 — After requiring the file, call register_with_manager() directly
 			// instead of relying on a secondary add_action hook in the generated file.
 			// The generated function is named stonewright_register_widget_<safe_slug>.
-			$slug_part = preg_replace( '/^widget-(.+)\.php$/', '$1', $base );
+			$slug_part = preg_replace( '/^widget-(.+)\.' . SandboxFiles::DRAFT_EXTENSION . '$/', '$1', $base );
 			if ( null !== $slug_part ) {
 				$safe_fn_slug = str_replace( '-', '_', $slug_part );
 				$fn           = 'stonewright_register_widget_' . $safe_fn_slug . '_with_manager';

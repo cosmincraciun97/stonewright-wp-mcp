@@ -19,6 +19,9 @@ final class ConfigurationPage {
 	private const CAPABILITY   = 'manage_options';
 	private const OPTION_GROUP = 'stonewright_settings';
 
+	/** A submitted secret field equal to this text means "unchanged". */
+	public const SECRET_MASK = '********';
+
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_menu' ] );
 		add_action( 'admin_init', [ self::class, 'register_settings' ] );
@@ -384,7 +387,7 @@ final class ConfigurationPage {
 		register_setting( self::OPTION_GROUP, 'stonewright_companion_token', [
 			'type'              => 'string',
 			'default'           => '',
-			'sanitize_callback' => 'sanitize_text_field',
+			'sanitize_callback' => self::secret_sanitizer( 'stonewright_companion_token' ),
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_elementor_v4_atomic', [
@@ -402,14 +405,87 @@ final class ConfigurationPage {
 		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
 			'type'              => 'string',
 			'default'           => '',
-			'sanitize_callback' => 'sanitize_text_field',
+			'sanitize_callback' => self::secret_sanitizer( 'stonewright_unsplash_access_key' ),
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_pexels_api_key', [
 			'type'              => 'string',
 			'default'           => '',
-			'sanitize_callback' => 'sanitize_text_field',
+			'sanitize_callback' => self::secret_sanitizer( 'stonewright_pexels_api_key' ),
 		] );
+	}
+
+	/**
+	 * Sanitizer for a secret setting.
+	 *
+	 * The Setup form never carries the stored value, so on that form an empty
+	 * (or unchanged mask) field keeps the stored secret, a new value replaces
+	 * it, and only an explicit clear request removes it. Updates made from
+	 * code are plain text-field updates.
+	 *
+	 * @return callable(mixed): string
+	 */
+	private static function secret_sanitizer( string $option ): callable {
+		return static function ( mixed $value ) use ( $option ): string {
+			$submitted = is_string( $value ) ? sanitize_text_field( $value ) : '';
+
+			// phpcs:disable WordPress.Security.NonceVerification.Missing -- options.php verified the settings nonce before it calls the sanitizers.
+			$option_page = isset( $_POST['option_page'] ) ? sanitize_key( (string) wp_unslash( $_POST['option_page'] ) ) : '';
+			if ( self::OPTION_GROUP !== $option_page ) {
+				return $submitted;
+			}
+
+			$clear = isset( $_POST['stonewright_clear_secrets'] ) && is_array( $_POST['stonewright_clear_secrets'] )
+				? array_map( 'strval', (array) wp_unslash( $_POST['stonewright_clear_secrets'] ) )
+				: [];
+			// phpcs:enable WordPress.Security.NonceVerification.Missing
+			if ( in_array( $option, $clear, true ) ) {
+				return '';
+			}
+
+			if ( '' === $submitted || self::SECRET_MASK === $submitted ) {
+				return (string) get_option( $option, '' );
+			}
+
+			return $submitted;
+		};
+	}
+
+	/**
+	 * Prints a password field for a secret setting. The stored value is never
+	 * put into the page: the field stays empty and a placeholder says that a
+	 * value is stored, with an explicit control to remove it.
+	 */
+	private static function render_secret_input( string $option, bool $stored ): void {
+		?>
+		<input
+			type="password"
+			class="regular-text"
+			name="<?php echo esc_attr( $option ); ?>"
+			id="<?php echo esc_attr( $option ); ?>"
+			value=""
+			<?php if ( $stored ) : ?>
+				data-stonewright-secret-stored="1"
+				placeholder="<?php echo esc_attr( __( 'Stored. Leave empty to keep it, or type a new value.', 'stonewright' ) ); ?>"
+			<?php endif; ?>
+			autocomplete="new-password"
+		/>
+		<?php
+	}
+
+	/**
+	 * Prints the control that removes a stored secret when the form is saved.
+	 */
+	private static function render_secret_clear( string $option, bool $stored ): void {
+		if ( ! $stored ) {
+			return;
+		}
+		?>
+		<label class="stonewright-secret-clear">
+			<input type="checkbox" name="stonewright_clear_secrets[]" value="<?php echo esc_attr( $option ); ?>"/>
+			<?php esc_html_e( 'Remove the stored value when saving', 'stonewright' ); ?>
+		</label>
+		<?php
 	}
 
 	public static function render(): void {
@@ -421,8 +497,9 @@ final class ConfigurationPage {
 		$effective_state     = PluginEffectiveState::effective_state();
 		$mode                = (string) get_option( 'stonewright_mode', 'development' );
 		$companion_url       = (string) get_option( 'stonewright_companion_url', '' );
-		$companion_token     = (string) get_option( 'stonewright_companion_token', '' );
-		$bridge_token        = '' !== $companion_token ? $companion_token : '<choose-a-long-random-token>';
+		// Stored secrets are only tested for presence: their values never reach the page.
+		$has_companion_token = '' !== (string) get_option( 'stonewright_companion_token', '' );
+		$bridge_token        = $has_companion_token ? '<your-saved-bridge-token>' : '<choose-a-long-random-token>';
 		$bridge_launch_env   = implode(
 			"\n",
 			[
@@ -435,8 +512,8 @@ final class ConfigurationPage {
 		$atomic_enabled      = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
 		$mcp_surface         = \Stonewright\WpMcp\Core\AbilityRegistry::mcp_surface();
-		$unsplash_key        = (string) get_option( 'stonewright_unsplash_access_key', '' );
-		$pexels_key          = (string) get_option( 'stonewright_pexels_api_key', '' );
+		$has_unsplash_key    = '' !== (string) get_option( 'stonewright_unsplash_access_key', '' );
+		$has_pexels_key      = '' !== (string) get_option( 'stonewright_pexels_api_key', '' );
 		$current_user        = wp_get_current_user();
 		$current_user_id     = get_current_user_id();
 		$username            = isset( $current_user->user_login ) ? (string) $current_user->user_login : '';
@@ -635,26 +712,14 @@ final class ConfigurationPage {
 						</div>
 						<div class="sw-field">
 							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>
-							<input
-								type="password"
-								class="regular-text"
-								name="stonewright_unsplash_access_key"
-								id="stonewright_unsplash_access_key"
-								value="<?php echo esc_attr( $unsplash_key ); ?>"
-								autocomplete="off"
-							/>
+							<?php self::render_secret_input( 'stonewright_unsplash_access_key', $has_unsplash_key ); ?>
+							<?php self::render_secret_clear( 'stonewright_unsplash_access_key', $has_unsplash_key ); ?>
 							<p class="description"><?php esc_html_e( 'Leave empty to keep Unsplash off. Openverse stock search works without any key.', 'stonewright' ); ?></p>
 						</div>
 						<div class="sw-field">
 							<label for="stonewright_pexels_api_key"><?php esc_html_e( 'Pexels API key (optional)', 'stonewright' ); ?></label>
-							<input
-								type="password"
-								class="regular-text"
-								name="stonewright_pexels_api_key"
-								id="stonewright_pexels_api_key"
-								value="<?php echo esc_attr( $pexels_key ); ?>"
-								autocomplete="off"
-							/>
+							<?php self::render_secret_input( 'stonewright_pexels_api_key', $has_pexels_key ); ?>
+							<?php self::render_secret_clear( 'stonewright_pexels_api_key', $has_pexels_key ); ?>
 							<p class="description"><?php esc_html_e( 'Leave empty to keep Pexels off. Only used by stock-image abilities when set.', 'stonewright' ); ?></p>
 						</div>
 
@@ -690,14 +755,7 @@ final class ConfigurationPage {
 								<div class="sw-field stonewright-field-row stonewright-secret-field">
 									<label for="stonewright_companion_token"><?php esc_html_e( 'Bridge token', 'stonewright' ); ?></label>
 									<div class="stonewright-inline-controls sw-actions">
-										<input
-											type="password"
-											class="regular-text"
-											name="stonewright_companion_token"
-											id="stonewright_companion_token"
-											value="<?php echo esc_attr( $companion_token ); ?>"
-											autocomplete="off"
-										/>
+										<?php self::render_secret_input( 'stonewright_companion_token', $has_companion_token ); ?>
 										<button type="button" class="button" data-stonewright-secret-toggle="stonewright_companion_token">
 											<?php esc_html_e( 'Reveal', 'stonewright' ); ?>
 										</button>
@@ -708,6 +766,10 @@ final class ConfigurationPage {
 											<?php esc_html_e( 'Generate token', 'stonewright' ); ?>
 										</button>
 									</div>
+									<?php if ( $has_companion_token ) : ?>
+										<p class="description"><?php esc_html_e( 'A bridge token is stored and is not shown again. Generate a new token to replace it; the launch values below keep a placeholder until you do.', 'stonewright' ); ?></p>
+									<?php endif; ?>
+									<?php self::render_secret_clear( 'stonewright_companion_token', $has_companion_token ); ?>
 								</div>
 								<details class="stonewright-bridge-env-panel">
 									<summary><?php esc_html_e( 'Developer launch values', 'stonewright' ); ?></summary>
@@ -716,6 +778,7 @@ final class ConfigurationPage {
 										id="stonewright-companion-bridge-env"
 										class="stonewright-bridge-env"
 										data-stonewright-bridge-token-source="stonewright_companion_token"
+										data-stonewright-bridge-token-placeholder="<?php echo esc_attr( $bridge_token ); ?>"
 									><?php echo esc_html( $bridge_launch_env ); ?></pre>
 									<button type="button" class="button button-small" data-stonewright-copy="stonewright-companion-bridge-env">
 										<?php esc_html_e( 'Copy bridge launch env', 'stonewright' ); ?>

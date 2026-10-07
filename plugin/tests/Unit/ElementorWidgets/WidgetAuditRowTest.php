@@ -63,7 +63,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
-		self::assertFileExists( SandboxFiles::draft_dir() . '/widget-audit-define.pending.php' );
+		self::assertFileExists( SandboxFiles::stored_path( 'widget-audit-define.pending.php' ) );
 
 		$rows = $this->rows_for( self::DEFINE );
 		self::assertCount( 1, $rows );
@@ -79,7 +79,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_static_guard_rejected', $result->get_error_code() );
-		self::assertFileDoesNotExist( SandboxFiles::draft_dir() . '/widget-audit-define-guard.pending.php' );
+		self::assertFileDoesNotExist( SandboxFiles::stored_path( 'widget-audit-define-guard.pending.php' ) );
 
 		$rows = $this->rows_for( self::DEFINE );
 		self::assertCount( 1, $rows );
@@ -99,7 +99,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
-		self::assertFileExists( SandboxFiles::draft_dir() . '/widget-audit-register.php' );
+		self::assertFileExists( SandboxFiles::stored_path( 'widget-audit-register.php' ) );
 
 		$rows = $this->rows_for( self::REGISTER );
 		self::assertCount( 1, $rows );
@@ -130,7 +130,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 	public function test_register_writes_exactly_one_row_when_the_source_guard_rejects(): void {
 		file_put_contents(
-			SandboxFiles::draft_dir() . '/widget-audit-register-guard.pending.php',
+			SandboxFiles::stored_path( 'widget-audit-register-guard.pending.php' ),
 			"<?php\n" . 'sys' . 'tem( $command );' . "\n"
 		);
 
@@ -138,7 +138,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_static_guard_rejected', $result->get_error_code() );
-		self::assertFileDoesNotExist( SandboxFiles::draft_dir() . '/widget-audit-register-guard.php' );
+		self::assertFileDoesNotExist( SandboxFiles::stored_path( 'widget-audit-register-guard.php' ) );
 
 		$rows = $this->rows_for( self::REGISTER );
 		self::assertCount( 1, $rows );
@@ -163,7 +163,7 @@ final class WidgetAuditRowTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( $activate, $result['registered'] );
-		self::assertFileExists( SandboxFiles::draft_dir() . '/' . $file );
+		self::assertFileExists( SandboxFiles::stored_path( $file ) );
 
 		$rows = $this->rows_for( self::CREATE );
 		self::assertCount( 1, $rows );
@@ -187,7 +187,7 @@ final class WidgetAuditRowTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_static_guard_rejected', $result->get_error_code() );
-		self::assertFileDoesNotExist( SandboxFiles::draft_dir() . '/widget-audit-create-guard.pending.php' );
+		self::assertFileDoesNotExist( SandboxFiles::stored_path( 'widget-audit-create-guard.pending.php' ) );
 
 		$rows = $this->rows_for( self::CREATE );
 		self::assertCount( 1, $rows );
@@ -251,14 +251,14 @@ final class WidgetAuditRowTest extends TestCase {
 	private function stage_widget( string $slug ): void {
 		$staged = ( new WidgetDefine() )->execute( $this->define_args( $slug ) );
 		self::assertIsArray( $staged );
-		self::assertFileExists( SandboxFiles::draft_dir() . '/widget-' . $slug . '.pending.php' );
+		self::assertFileExists( SandboxFiles::stored_path( 'widget-' . $slug . '.pending.php' ) );
 
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		AuditLog::reset_request_state();
 	}
 
 	private function remove_staged_widgets(): void {
-		foreach ( glob( SandboxFiles::draft_dir() . '/widget-audit-*.php' ) ?: [] as $file ) {
+		foreach ( glob( SandboxFiles::stored_path( 'widget-audit-*.php' ) ) ?: [] as $file ) {
 			@unlink( $file );
 		}
 	}

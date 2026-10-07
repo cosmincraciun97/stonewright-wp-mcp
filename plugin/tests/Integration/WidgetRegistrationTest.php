@@ -48,10 +48,10 @@ final class WidgetRegistrationTest extends TestCase {
 
 		// Clean up any widget files left in the sandbox draft dir.
 		$draft_dir = SandboxFiles::draft_dir();
-		foreach ( glob( $draft_dir . '/widget-*.php' ) ?: [] as $f ) {
+		foreach ( glob( $draft_dir . '/widget-*.draft' ) ?: [] as $f ) {
 			@unlink( $f );
 		}
-		foreach ( glob( $draft_dir . '/widget-*.pending.php' ) ?: [] as $f ) {
+		foreach ( glob( $draft_dir . '/widget-*.pending.draft' ) ?: [] as $f ) {
 			@unlink( $f );
 		}
 	}
@@ -91,7 +91,7 @@ final class WidgetRegistrationTest extends TestCase {
 		$this->assertTrue( (bool) ( $result['ok'] ?? false ) );
 		$this->assertSame( 'int-widget', $result['widget_slug'] );
 
-		$pending = SandboxFiles::draft_dir() . '/widget-int-widget.pending.php';
+		$pending = SandboxFiles::stored_path( 'widget-int-widget.pending.php' );
 		$this->assertFileExists( $pending );
 	}
 
@@ -99,7 +99,7 @@ final class WidgetRegistrationTest extends TestCase {
 		$ability = new WidgetDefine();
 		$ability->execute( self::define_args() );
 
-		$content = file_get_contents( SandboxFiles::draft_dir() . '/widget-int-widget.pending.php' );
+		$content = file_get_contents( SandboxFiles::stored_path( 'widget-int-widget.pending.php' ) );
 		$this->assertNotFalse( $content );
 		$this->assertStringContainsString( 'Widget_Base', $content );
 		$this->assertStringContainsString( 'int-widget', $content );
@@ -113,8 +113,8 @@ final class WidgetRegistrationTest extends TestCase {
 		$this->assertNotInstanceOf( \WP_Error::class, $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
 		$this->assertTrue( (bool) ( $result['ok'] ?? false ) );
 
-		$pending = SandboxFiles::draft_dir() . '/widget-int-widget.pending.php';
-		$active  = SandboxFiles::draft_dir() . '/widget-int-widget.php';
+		$pending = SandboxFiles::stored_path( 'widget-int-widget.pending.php' );
+		$active  = SandboxFiles::stored_path( 'widget-int-widget.php' );
 
 		$this->assertFileDoesNotExist( $pending );
 		$this->assertFileExists( $active );
@@ -136,7 +136,7 @@ final class WidgetRegistrationTest extends TestCase {
 		( new WidgetDefine() )->execute( self::define_args() ); // overwrites pending.
 		// Rename active back to pending so register can run again.
 		$draft_dir = SandboxFiles::draft_dir();
-		rename( $draft_dir . '/widget-int-widget.php', $draft_dir . '/widget-int-widget.pending.php' );
+		rename( SandboxFiles::stored_path( 'widget-int-widget.php' ), SandboxFiles::stored_path( 'widget-int-widget.pending.php' ) );
 		( new WidgetRegister() )->execute( [ 'widget_slug' => 'int-widget' ] );
 
 		$registered = (array) get_option( 'stonewright_registered_widgets', [] );
@@ -146,12 +146,12 @@ final class WidgetRegistrationTest extends TestCase {
 
 	public function test_define_overwrites_existing_pending_file(): void {
 		( new WidgetDefine() )->execute( self::define_args() );
-		$mtime1 = filemtime( SandboxFiles::draft_dir() . '/widget-int-widget.pending.php' );
+		$mtime1 = filemtime( SandboxFiles::stored_path( 'widget-int-widget.pending.php' ) );
 
 		// Sleep 1s to ensure mtime differs.
 		sleep( 1 );
 		( new WidgetDefine() )->execute( self::define_args() );
-		$mtime2 = filemtime( SandboxFiles::draft_dir() . '/widget-int-widget.pending.php' );
+		$mtime2 = filemtime( SandboxFiles::stored_path( 'widget-int-widget.pending.php' ) );
 
 		$this->assertGreaterThan( (int) $mtime1, (int) $mtime2 );
 	}

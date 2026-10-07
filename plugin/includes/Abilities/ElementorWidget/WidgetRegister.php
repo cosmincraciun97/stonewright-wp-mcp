@@ -105,11 +105,10 @@ final class WidgetRegister extends AbilityKernel {
 					return $token_error;
 				}
 
-				$draft_dir    = SandboxFiles::draft_dir();
 				$pending_name = 'widget-' . $slug . '.pending.php';
 				$active_name  = 'widget-' . $slug . '.php';
-				$pending_path = $draft_dir . '/' . $pending_name;
-				$active_path  = $draft_dir . '/' . $active_name;
+				$pending_path = SandboxFiles::stored_path( $pending_name );
+				$active_path  = SandboxFiles::stored_path( $active_name );
 
 				// 3. Ensure pending file exists.
 				if ( ! file_exists( $pending_path ) ) {

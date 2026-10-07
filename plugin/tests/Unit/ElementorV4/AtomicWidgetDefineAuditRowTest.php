@@ -53,7 +53,7 @@ final class AtomicWidgetDefineAuditRowTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
-		self::assertFileExists( SandboxFiles::draft_dir() . '/atomic-audit-atomic.php' );
+		self::assertFileExists( SandboxFiles::stored_path( 'atomic-audit-atomic.php' ) );
 
 		$rows = $this->rows_for( self::ABILITY );
 		self::assertCount( 1, $rows );
@@ -69,7 +69,7 @@ final class AtomicWidgetDefineAuditRowTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_static_guard_rejected', $result->get_error_code() );
-		self::assertFileDoesNotExist( SandboxFiles::draft_dir() . '/atomic-audit-atomic-guard.php' );
+		self::assertFileDoesNotExist( SandboxFiles::stored_path( 'atomic-audit-atomic-guard.php' ) );
 
 		$rows = $this->rows_for( self::ABILITY );
 		self::assertCount( 1, $rows );

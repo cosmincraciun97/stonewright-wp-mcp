@@ -190,15 +190,38 @@ events, on every site of a network. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
 
+## Stored secrets on the Setup page
+
+The Setup page never writes a stored API key (Unsplash, Pexels) or the bridge
+token into the page. The fields stay empty and show that a value is stored; the
+bridge launch values use a placeholder until a new token is generated in the
+browser. Saving with an empty field keeps the stored value, typing a value
+replaces it, and the **Remove the stored value when saving** checkbox clears
+it. The values are plain options in the database, readable by anyone with
+database or `manage_options` access; keep the site database private and prefer
+short-lived keys.
+
+## Sandbox draft storage
+
+Sandbox drafts and their backups are stored without a PHP extension, the folder
+denies web requests on Apache, IIS and servers that ignore `.htaccess`
+(nothing in it can run as PHP), and activation writes the only executable copy
+with an `ABSPATH` guard as its first statement. See [Sandbox](admin/sandbox.md).
+
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet
-the plugin wraps the live `$wpdb` handle with a real `wpdb` subclass
-(`ProtectedWpdbProxy extends wpdb` via `ProtectedWpdbWriteGuard`):
+the plugin wraps the live `$wpdb` handle with `ProtectedWpdbProxy`, installed
+by `ProtectedWpdbWriteGuard`:
 
-- The proxy copies the live connection and table prefix, intercepts `query()`
-  as the write choke point, and restores the original global in `finally`.
-  Type compatibility does not weaken the guard.
+- The proxy is a `wpdb` only for type checks. Every method and every property
+  read or write is forwarded to the live handle, so a driver subclass (for
+  example the SQLite integration) keeps its own escaping, query code and state
+  and `esc_sql()`, `wp_count_posts()` and `get_posts()` behave as outside
+  php-execute. The write policy runs before a call is forwarded: `query()`,
+  `get_var()`, `get_row()`, `get_col()` and `get_results()` check the SQL they
+  run, and `insert()`, `replace()`, `update()` and `delete()` check the table
+  and payload. The original global is restored in `finally`.
 - `read_only:true` rejects any WordPress state mutation.
 - Direct `$wpdb` `insert` / `update` / `replace` / `delete` / write `query` calls
   against core tables (`posts`, `postmeta`, `options`, `users`, `usermeta`) are

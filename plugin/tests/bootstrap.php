@@ -471,8 +471,8 @@ $GLOBALS['stonewright_test_wpdb_inserts'] ??= [];
 
 if ( ! class_exists( 'wpdb' ) ) {
 	/**
-	 * Test-harness wpdb. Declared properties match the live class enough for
-	 * ProtectedWpdbProxy to extend it and synchronize query/connection state.
+	 * Test-harness wpdb. Declared properties and methods match the live class enough for
+	 * ProtectedWpdbProxy to extend it and forward every call and property to a real handle.
 	 */
 	#[\AllowDynamicProperties]
 	class wpdb {
@@ -501,6 +501,30 @@ if ( ! class_exists( 'wpdb' ) ) {
 			$previous             = $this->suppress_errors;
 			$this->suppress_errors = (bool) $suppress;
 			return $previous;
+		}
+
+		/**
+		 * Escape helpers shaped like the live class: _escape() walks arrays and
+		 * hands every string to _real_escape(), which a driver can override.
+		 */
+		public function _real_escape( $data ) {
+			return addslashes( (string) $data );
+		}
+
+		public function _escape( $data ) {
+			if ( is_array( $data ) ) {
+				foreach ( $data as $key => $value ) {
+					$data[ $key ] = $this->_escape( $value );
+				}
+				return $data;
+			}
+			return is_string( $data ) ? $this->_real_escape( $data ) : $data;
+		}
+
+		public function escape_by_ref( &$data ) {
+			if ( ! is_float( $data ) ) {
+				$data = $this->_real_escape( $data );
+			}
 		}
 	}
 }

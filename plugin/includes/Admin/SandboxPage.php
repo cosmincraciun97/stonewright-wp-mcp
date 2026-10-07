@@ -167,7 +167,7 @@ final class SandboxPage {
 									<label for="stonewright_new_filename"><?php esc_html_e( 'Filename', 'stonewright' ); ?></label>
 								</th>
 								<td>
-									<input type="text" id="stonewright_new_filename" name="stonewright_filename" class="regular-text" placeholder="my-snippet.php" required pattern="[a-z0-9_-]+\.php"/>
+									<input type="text" id="stonewright_new_filename" name="stonewright_filename" class="regular-text" placeholder="my-snippet.php" required pattern="<?php echo esc_attr( SandboxFiles::name_pattern() ); ?>"/>
 									<p class="description"><?php esc_html_e( 'Lowercase letters, digits, hyphens, underscores. Must end in .php', 'stonewright' ); ?></p>
 								</td>
 							</tr>
@@ -348,8 +348,10 @@ final class SandboxPage {
 			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p></div>';
 			return;
 		}
-		$files  = glob( $sandbox_dir . '*.php' ) ?: [];
-		$active = array_filter( $files, static fn( string $f ) => file_exists( $mu_dir . SandboxFiles::active_prefix() . basename( $f ) ) );
+		$active = array_filter(
+			array_column( SandboxFiles::list_files(), 'name' ),
+			static fn( string $name ) => file_exists( $mu_dir . SandboxFiles::active_prefix() . $name )
+		);
 		if ( empty( $active ) ) {
 			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p></div>';
 			return;
@@ -358,8 +360,7 @@ final class SandboxPage {
 		echo '<th scope="col">' . esc_html__( 'File', 'stonewright' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Size', 'stonewright' ) . '</th>';
 		echo '</tr></thead><tbody>';
-		foreach ( $active as $f ) {
-			$name = basename( $f );
+		foreach ( $active as $name ) {
 			$size = size_format( (int) @filesize( $mu_dir . SandboxFiles::active_prefix() . $name ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			echo '<tr><td>' . esc_html( $name ) . '</td><td>' . esc_html( $size ) . '</td></tr>';
 		}

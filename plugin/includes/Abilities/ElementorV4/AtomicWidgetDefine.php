@@ -154,7 +154,7 @@ final class AtomicWidgetDefine extends AbilityKernel {
 					return $written;
 				}
 
-				$sandbox_path = SandboxFiles::draft_dir() . '/' . $filename;
+				$sandbox_path = SandboxFiles::stored_path( $filename );
 
 				return $this->ok( [
 					'class_name'   => $class_name,

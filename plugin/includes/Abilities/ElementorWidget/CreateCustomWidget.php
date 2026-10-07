@@ -279,13 +279,12 @@ final class CreateCustomWidget extends AbilityKernel {
 					);
 				}
 
-				// 6. Write the file. If activating, write directly as .php so
-				// the WidgetLoader picks it up; otherwise stage .pending.php
-				// for review.
-				$dir       = SandboxFiles::draft_dir();
+				// 6. Write the file. If activating, store it under the active
+				// widget name so the WidgetLoader picks it up; otherwise stage
+				// the pending name for review. Both are stored as .draft files.
 				$ext       = $activate ? '.php' : '.pending.php';
 				$filename  = 'widget-' . $slug . $ext;
-				$abs_path  = $dir . '/' . $filename;
+				$abs_path  = SandboxFiles::stored_path( $filename );
 				$bytes     = file_put_contents( $abs_path, $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 				if ( false === $bytes ) {
 					return new \WP_Error(

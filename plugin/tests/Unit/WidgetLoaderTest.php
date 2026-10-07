@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader;
+use Stonewright\WpMcp\Sandbox\SandboxFiles;
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\WidgetBuilder\Loader
@@ -29,7 +30,7 @@ final class WidgetLoaderTest extends TestCase {
 		}
 
 		// Clean any stale widget files.
-		foreach ( glob( $this->temp_dir . '/widget-*.php' ) ?: [] as $f ) {
+		foreach ( glob( $this->temp_dir . '/widget-*.draft' ) ?: [] as $f ) {
 			@unlink( $f );
 		}
 
@@ -45,7 +46,7 @@ final class WidgetLoaderTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		foreach ( glob( $this->temp_dir . '/widget-*.php' ) ?: [] as $f ) {
+		foreach ( glob( $this->temp_dir . '/widget-*.draft' ) ?: [] as $f ) {
 			@unlink( $f );
 		}
 	}
@@ -56,7 +57,7 @@ final class WidgetLoaderTest extends TestCase {
 
 	/** Create a file that, when require_once'd, sets a marker in $GLOBALS. */
 	private function make_widget_file( string $filename ): void {
-		$path = $this->temp_dir . '/' . $filename;
+		$path = SandboxFiles::stored_path( $filename );
 		file_put_contents( $path, "<?php \$GLOBALS['loader_loaded'][] = " . var_export( $filename, true ) . ";\n" );
 	}
 
@@ -87,8 +88,8 @@ final class WidgetLoaderTest extends TestCase {
 
 		// Create files with names that do not match ^widget-[a-z0-9_-]+\.php$.
 		$this->make_widget_file( 'widget-BadCase.php' );    // uppercase — won't match glob, but belt-and-suspenders.
-		file_put_contents( $this->temp_dir . '/random-file.php', "<?php \$GLOBALS['loader_loaded'][] = 'random-file.php';\n" );
-		file_put_contents( $this->temp_dir . '/widget-.php', "<?php \$GLOBALS['loader_loaded'][] = 'widget-.php';\n" );
+		file_put_contents( SandboxFiles::stored_path( 'random-file.php' ), "<?php \$GLOBALS['loader_loaded'][] = 'random-file.php';\n" );
+		file_put_contents( SandboxFiles::stored_path( 'widget-.php' ), "<?php \$GLOBALS['loader_loaded'][] = 'widget-.php';\n" );
 
 		Loader::load_widgets( $this->manager_spy );
 
@@ -150,7 +151,7 @@ final class WidgetLoaderTest extends TestCase {
 		$source = (string) $result;
 
 		$filename = 'widget-' . $slug . '.php';
-		file_put_contents( $this->temp_dir . '/' . $filename, $source );
+		file_put_contents( SandboxFiles::stored_path( $filename ), $source );
 
 		$spy = new class() extends \Elementor\Widgets_Manager {
 			/** @var array<int, \Elementor\Widget_Base> */
@@ -177,7 +178,7 @@ final class WidgetLoaderTest extends TestCase {
 		// Disallowed sequence — breaks StaticGuard. Concatenated to avoid literal match.
 		$bad_seq = 'ev' . 'al';
 		$content = "<?php \$GLOBALS['loader_loaded'][] = 'evil-guard.php'; {$bad_seq}('1+1');\n";
-		$path    = $this->temp_dir . '/widget-evil-guard.php';
+		$path    = SandboxFiles::stored_path( 'widget-evil-guard.php' );
 		file_put_contents( $path, $content );
 
 		Loader::load_widgets( $this->manager_spy );
@@ -199,7 +200,7 @@ final class WidgetLoaderTest extends TestCase {
 		$GLOBALS['loader_loaded'] = [];
 
 		// Syntactically broken PHP triggers ParseError on require_once.
-		$bad_path = $this->temp_dir . '/widget-parse-err.php';
+		$bad_path = SandboxFiles::stored_path( 'widget-parse-err.php' );
 		file_put_contents( $bad_path, "<?php class { broken syntax\n" );
 
 		// A valid sibling written after the bad file (glob order may vary).

@@ -79,8 +79,8 @@
 		}, 1600 );
 	}
 
-	function bridgeEnvText( token ) {
-		var value = token || '<choose-a-long-random-token>';
+	function bridgeEnvText( token, placeholder ) {
+		var value = token || placeholder || '<choose-a-long-random-token>';
 		return [
 			'STONEWRIGHT_HTTP_ENABLE=1',
 			'PORT=8765',
@@ -94,7 +94,7 @@
 			return;
 		}
 		document.querySelectorAll( '[data-stonewright-bridge-token-source="' + tokenInput.id + '"]' ).forEach( function ( block ) {
-			block.textContent = bridgeEnvText( tokenInput.value || '' );
+			block.textContent = bridgeEnvText( tokenInput.value || '', block.getAttribute( 'data-stonewright-bridge-token-placeholder' ) || '' );
 		} );
 	}
 
