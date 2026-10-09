@@ -77,7 +77,7 @@ final class ContextPage {
 		}
 
 		$snapshot = ContextSnapshot::for_admin();
-		$stored   = (string) get_option( UserContext::OPTION, '' );
+		$stored   = UserContext::stored();
 		$enabled  = (bool) get_option( UserContext::ENABLED_OPTION, false );
 		$notice   = isset( $_GET['stonewright_context_notice'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			? sanitize_key( (string) wp_unslash( $_GET['stonewright_context_notice'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -88,9 +88,11 @@ final class ContextPage {
 			$html .= Notice::render(
 				'ok',
 				__( 'User context saved.', 'stonewright' ),
-				$enabled
-					? __( 'Agents receive it at task start.', 'stonewright' )
-					: __( 'It is off, so agents do not receive it. Turn on "Include user context in task start" to use it.', 'stonewright' )
+				self::reach_sentence( mb_strlen( $stored ) ) . ' ' . (
+					$enabled
+						? __( 'Agents receive it at task start.', 'stonewright' )
+						: __( 'It is off, so agents do not receive it. Turn on "Include user context in task start" to use it.', 'stonewright' )
+				)
 			);
 		}
 		$html .= Html::element( 'div', [ 'class' => 'sw-context__cols' ], self::system_card( $snapshot ) . self::user_card( $stored, $enabled ) );
@@ -165,6 +167,24 @@ final class ContextPage {
 		);
 	}
 
+	/**
+	 * How many characters are stored and how many of them each task-start mode carries.
+	 */
+	private static function reach_sentence( int $stored ): string {
+		$reach = UserContext::reach( $stored );
+		if ( 0 === $reach['stored'] ) {
+			return __( 'Nothing is stored, so there is no user context to send.', 'stonewright' );
+		}
+
+		return sprintf(
+			/* translators: 1: characters stored, 2: characters compact task start receives, 3: characters full task start receives */
+			__( '%1$d characters stored. Compact task start receives %2$d of them; full task start and context-bootstrap receive %3$d.', 'stonewright' ),
+			$reach['stored'],
+			$reach['compact'],
+			$reach['full']
+		);
+	}
+
 	private static function user_card( string $stored, bool $enabled ): string {
 		$fields = FormField::switch(
 			__( 'Include user context in task start', 'stonewright' ),
@@ -185,9 +205,10 @@ final class ContextPage {
 					'value'     => $stored,
 					'maxlength' => UserContext::MAX_STORED,
 					'help'      => sprintf(
-						/* translators: 1: characters stored, 2: characters agents receive */
-						__( 'Up to %1$d characters are stored. Agents receive the first %2$d characters at task start, so put the most important lines first.', 'stonewright' ),
+						/* translators: 1: characters stored, 2: characters compact task start carries, 3: characters full task start carries */
+						__( 'Up to %1$d characters are stored as plain text; tags are removed. Compact task start (the default) carries the first %2$d characters, and full task start and context-bootstrap the first %3$d characters, so put the most important lines first.', 'stonewright' ),
 						UserContext::MAX_STORED,
+						UserContext::MAX_COMPACT,
 						UserContext::MAX_INJECTED
 					),
 				]

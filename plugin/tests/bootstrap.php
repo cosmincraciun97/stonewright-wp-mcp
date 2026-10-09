@@ -1088,6 +1088,25 @@ if ( ! function_exists( 'wp_get_environment_type' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_is_application_passwords_supported' ) ) {
+	function wp_is_application_passwords_supported(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_app_passwords_supported'] ?? ( is_ssl() || 'local' === wp_get_environment_type() ) );
+	}
+}
+
+if ( ! function_exists( 'wp_is_application_passwords_available' ) ) {
+	function wp_is_application_passwords_available(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_app_passwords_available'] ?? wp_is_application_passwords_supported() );
+	}
+}
+
+if ( ! function_exists( 'wp_is_application_passwords_available_for_user' ) ) {
+	function wp_is_application_passwords_available_for_user( mixed $user ): bool {
+		unset( $user );
+		return wp_is_application_passwords_available() && (bool) ( $GLOBALS['stonewright_test_app_passwords_available_for_user'] ?? true );
+	}
+}
+
 if ( ! function_exists( 'is_admin' ) ) {
 	function is_admin(): bool {
 		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
@@ -1238,6 +1257,13 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 
 if ( ! function_exists( 'sanitize_textarea_field' ) ) {
 	function sanitize_textarea_field( string $text ): string {
+		// Like core, a stray "<" that does not open a tag is turned into &lt; before the tags are stripped.
+		$text = preg_replace_callback(
+			'%<[^>]*?((?=<)|>|$)%',
+			static fn ( array $match ): string => str_contains( $match[0], '>' ) ? $match[0] : htmlspecialchars( $match[0], ENT_QUOTES ),
+			$text
+		) ?? $text;
+
 		return trim( strip_tags( $text ) );
 	}
 }

@@ -17,9 +17,9 @@ final class DiagnosticGraphTest extends TestCase {
 
 	public function test_failed_prerequisite_skips_dependents_and_counts_problems(): void {
 		$graph = new DiagnosticGraph();
-		$graph->add( 'endpoint', [], static fn() => DiagnosticCheck::problem( 'endpoint', 'Endpoint', 'Missing route', 'Restore the route.' ) );
-		$graph->add( 'oauth_metadata', [ 'endpoint' ], static fn() => DiagnosticCheck::ok( 'oauth_metadata', 'OAuth metadata', 'Metadata loaded.' ) );
-		$graph->add( 'registration', [ 'oauth_metadata' ], static fn() => DiagnosticCheck::ok( 'registration', 'Registration', 'Registration passed.' ) );
+		$graph->add( 'endpoint', [], static fn() => DiagnosticCheck::problem( 'endpoint', 'Endpoint', 'Missing route', 'Restore the route.' ), 'MCP endpoint' );
+		$graph->add( 'oauth_metadata', [ 'endpoint' ], static fn() => DiagnosticCheck::ok( 'oauth_metadata', 'OAuth metadata', 'Metadata loaded.' ), 'OAuth metadata' );
+		$graph->add( 'registration', [ 'oauth_metadata' ], static fn() => DiagnosticCheck::ok( 'registration', 'Registration', 'Registration passed.' ), 'Registration' );
 		$result = $graph->run();
 		self::assertSame( 'problem', $result['checks'][0]['status'] );
 		self::assertSame( 'skipped', $result['checks'][1]['status'] );
@@ -27,10 +27,36 @@ final class DiagnosticGraphTest extends TestCase {
 		self::assertSame( 1, $result['counts']['problem'] );
 		self::assertSame( 2, $result['counts']['skipped'] );
 		self::assertSame( 0, $result['counts']['ok'] );
-		self::assertStringContainsString( 'endpoint', (string) $result['checks'][1]['summary'] );
-		self::assertStringContainsString( 'oauth_metadata', (string) $result['checks'][2]['summary'] );
+		self::assertSame( 'Skipped: needs MCP endpoint to pass first.', $result['checks'][1]['summary'] );
+		self::assertSame( 'Skipped: needs OAuth metadata to pass first.', $result['checks'][2]['summary'] );
+		self::assertSame( 'OAuth metadata', $result['checks'][1]['label'], 'A skipped check is shown under its label, not its id.' );
+		self::assertSame( 'Registration', $result['checks'][2]['label'] );
 		self::assertSame( [ 'endpoint' ], $result['checks'][1]['depends_on'] );
 		self::assertSame( [ 'oauth_metadata' ], $result['checks'][2]['depends_on'] );
+	}
+
+	public function test_a_skipped_check_names_every_failed_prerequisite_in_words(): void {
+		$graph = new DiagnosticGraph();
+		$graph->add( 'plugin', [], static fn() => DiagnosticCheck::problem( 'plugin', 'Plugin', 'Off', 'Turn on.' ), 'Stonewright abilities' );
+		$graph->add( 'mcp_runtime', [], static fn() => DiagnosticCheck::problem( 'mcp_runtime', 'Runtime', 'Blocked', 'Fix.' ), 'MCP runtime' );
+		$graph->add( 'transport', [], static fn() => DiagnosticCheck::ok( 'transport', 'Transport', 'Fine.' ), 'Transport' );
+		$graph->add( 'connection', [ 'plugin', 'mcp_runtime', 'transport' ], static fn() => DiagnosticCheck::ok( 'connection', 'Connection', 'Fine.' ), 'Connection' );
+		$result = $graph->run();
+
+		$connection = $result['checks'][3];
+		self::assertSame( 'skipped', $connection['status'] );
+		self::assertSame( 'Skipped: needs Stonewright abilities and MCP runtime to pass first.', $connection['summary'] );
+		self::assertSame( [ 'plugin', 'mcp_runtime', 'transport' ], $connection['depends_on'], 'The ids stay available to tools.' );
+	}
+
+	public function test_a_node_without_a_label_is_spelled_out_not_shown_as_its_id(): void {
+		$graph = new DiagnosticGraph();
+		$graph->add( 'mcp_runtime', [], static fn() => DiagnosticCheck::problem( 'mcp_runtime', 'Runtime', 'Blocked', 'Fix.' ) );
+		$graph->add( 'tool_surface', [ 'mcp_runtime' ], static fn() => DiagnosticCheck::ok( 'tool_surface', 'Tool surface', 'Fine.' ) );
+		$result = $graph->run();
+
+		self::assertSame( 'Tool surface', $result['checks'][1]['label'] );
+		self::assertSame( 'Skipped: needs Mcp runtime to pass first.', $result['checks'][1]['summary'] );
 	}
 
 	public function test_skipped_callbacks_are_not_invoked(): void {

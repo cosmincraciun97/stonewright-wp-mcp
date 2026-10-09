@@ -550,7 +550,10 @@ Stonewright task. It issues the same write context token while returning a
 compact, task-aware response that includes:
 
 - current instructions, including **truncated site Context / custom
-  instructions text** (up to 400 characters) when those are enabled
+  instructions text** when those are enabled: the first 400 characters of the
+  Context text followed by the custom instructions (`responseMode=full` and
+  `stonewright-context-bootstrap` carry the first 1,200 characters of the Context
+  text and up to 2,400 of the combined text)
 - a **Design Direction pointer** (`context.design_direction_ref`) when a
   direction is active, plus `required_actions: read_design_direction_brief`
 - **agent preferences** (`context.agent_preferences`), a compact object of
@@ -710,9 +713,11 @@ active direction with no second source of truth for the same fact. Compact
 the `stonewright-design-direction-brief` tool). The full contract stays
 behind that brief.
 
-Two invariants follow: only a contract whose `readiness.ready` is true can be
-activated, and the active direction cannot be archived — another direction must
-be activated first.
+Three invariants follow: only a contract whose `readiness.ready` is true can be
+activated, the active direction cannot be archived — another direction must
+be activated first — and a saved or restored revision that is not ready clears
+the active pointer, so the active direction is always ready. The save, capture
+and restore abilities and the Design page report that as `active_cleared`.
 
 ### Raw source versus trusted contract
 
@@ -751,7 +756,7 @@ the `design` category:
 |---|---|---|
 | `stonewright/design-direction-list` | Read | `Permissions::read()` |
 | `stonewright/design-direction-get` | Read | `Permissions::read()` |
-| `stonewright/design-direction-brief` | Read | `Permissions::read()` |
+| `stonewright/design-direction-brief` | Read | `Permissions::read()`, context token (list and get need none) |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |

@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
+use Stonewright\WpMcp\Context\UserContext;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
@@ -35,7 +36,7 @@ final class WorkflowPreflight extends AbilityKernel {
 	/**
 	 * Compact custom-instruction text budget. Trim here before dropping the field.
 	 */
-	private const COMPACT_CUSTOM_INSTRUCTIONS_CHARS = 400;
+	private const COMPACT_CUSTOM_INSTRUCTIONS_CHARS = UserContext::MAX_COMPACT;
 
 	/**
 	 * Compact JSON byte budget for task-start / workflow-preflight.

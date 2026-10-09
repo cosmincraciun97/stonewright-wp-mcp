@@ -351,9 +351,13 @@ procedures are in [Updating Stonewright](../updates.md).
 
 The Setup page exposes two distinct checks:
 
-1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint
-   URL (informational), MCP runtime selection, server registration, Application
-   Passwords, tool surface, Elementor detection. Passing configuration checks
+1. **Run preflight** — local readiness only, six rows: Stonewright
+   abilities (the effective state, so a domain lock that blocks them is an error,
+   not a pass), **Domain lock** (the locked and the current address, with the
+   rebind or restore remedy), MCP endpoint (an error only when no URL can be
+   resolved), Application Passwords (with the real cause when they are off), Tool
+   surface and Elementor detection. MCP runtime selection and server registration
+   are Troubleshoot checks, not preflight rows. Passing configuration checks
    means the site *looks* ready. It does **not** prove live MCP auth or tool
    calls; the connection card says the connection has not been tested until
    Verify connection runs.
@@ -363,7 +367,10 @@ The Setup page exposes two distinct checks:
    `tools/list` (asserts `stonewright-task-start`, bounded pagination) → a
    read-only `stonewright-task-start` call → always revokes the test password.
    HTTP 200 with JSON-RPC errors, `isError`, or `ok:false` fails the matching
-   step. Never turns green solely because Application Passwords exist.
+   step. Never turns green solely because Application Passwords exist. When
+   `tools/list` has no `stonewright-task-start` because the domain lock (or
+   another block) stops the abilities, the advice says so and names the rebind
+   or restore action instead of "enable abilities".
 
 For the companion stdio path, also run:
 
@@ -377,7 +384,7 @@ refresh hints. It never prints secrets.
 
 ### Troubleshoot / Run diagnostics
 
-**Stonewright → Setup → Troubleshoot** is the operator
+**Stonewright → Troubleshoot** (its own page in the Setup group) is the operator
 path when a client cannot connect. Pick **How do you connect?** first:
 **OAuth**, **Application Password**, **Local companion**, or **Not sure**.
 **Not sure** runs safe discovery and recommends a method; it does not guess

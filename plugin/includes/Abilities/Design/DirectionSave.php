@@ -46,7 +46,7 @@ final class DirectionSave extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Validates and stores a design direction contract, creating a new revision when the contract changed. Returns the contract hash before and after.', 'stonewright' );
+		return __( 'Validates and stores a design direction contract, creating a new revision when the contract changed. Returns the contract hash before and after. Saving a not-ready revision of the active direction switches it off and reports active_cleared.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -104,6 +104,7 @@ final class DirectionSave extends AbilityKernel {
 				'operation_class'        => [ 'type' => 'string' ],
 				'resource_type'          => [ 'type' => 'string' ],
 				'effect_verified'        => [ 'type' => 'boolean' ],
+				'active_cleared'         => [ 'type' => 'boolean' ],
 			],
 			'required'   => [ 'ok', 'id', 'slug', 'status', 'revision', 'versioned', 'contract_hash', 'effect_verified' ],
 		];
@@ -157,6 +158,7 @@ final class DirectionSave extends AbilityKernel {
 						'previous_contract_hash' => (string) $result['hash_before'],
 						'before_sha256'          => (string) $result['hash_before'],
 						'after_sha256'           => $hash,
+						'active_cleared'         => (bool) $result['active_cleared'],
 						'operation_class'        => 'design_direction.save',
 						'resource_type'          => 'design_direction',
 						'verification_status'    => 'verified',

@@ -414,6 +414,45 @@ final class DesignDirectionServiceTest extends TestCase {
 		$this->assertNull( $this->service->active() );
 	}
 
+	public function test_saving_a_not_ready_revision_of_the_active_direction_clears_the_active_pointer(): void {
+		$ready = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $this->service->activate( (int) $ready['id'], 5 ) );
+
+		$result = $this->service->save( $this->input(), 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( (int) $ready['id'], $result['id'] );
+		$this->assertSame( 'draft', $result['status'] );
+		$this->assertTrue( $result['active_cleared'] );
+		$this->assertTrue( $result['audit']['active_cleared'] );
+		$this->assertSame( 0, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_saving_a_ready_revision_of_the_active_direction_keeps_it_active(): void {
+		$ready = $this->service->save( $this->ready_input(), 5 );
+		$this->service->activate( (int) $ready['id'], 5 );
+
+		$changed = $this->ready_input();
+		$changed['contract']['identity']['summary'] = 'Sharper edges.';
+		$result = $this->service->save( $changed, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( (int) $ready['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_saving_a_not_ready_revision_of_an_inactive_direction_reports_no_clearing(): void {
+		$ready = $this->service->save( $this->ready_input( 'Other' ), 5 );
+		$this->service->activate( (int) $ready['id'], 5 );
+
+		$result = $this->service->save( $this->input(), 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( (int) $ready['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
 	public function test_restoring_a_ready_revision_keeps_the_direction_ready_and_active(): void {
 		$first   = $this->service->save( $this->ready_input(), 5 );
 		$changed = $this->ready_input();
