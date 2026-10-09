@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -70,6 +71,12 @@ final class UpdatePageSettings extends AbilityKernel {
 				$css_gate    = ElementorCustomCssGate::assert_incoming( $incoming, $args );
 				if ( $css_gate instanceof \WP_Error ) {
 					return $css_gate;
+				}
+				foreach ( $incoming as $key => $value ) {
+					$violation = CssValueGuard::setting_violation( (string) $key, $value );
+					if ( null !== $violation ) {
+						return CssValueGuard::refusal( 'settings.' . $key . ( '' === $violation['path'] ? '' : '.' . $violation['path'] ), $violation['expected'], $value );
+					}
 				}
 				$snapshot_id = Backup::snapshot_post( $post_id );
 

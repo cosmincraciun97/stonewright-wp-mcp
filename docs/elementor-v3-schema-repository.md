@@ -76,6 +76,18 @@ After schema and evidence validation, `SparseSettingsNormalizer` sparsifies the
 Use surgical `elementor-v3-batch-mutate` (or the typed add/update abilities).
 Do not full-tree rewrite a document to fix one control.
 
+## Value checks
+
+`SettingsValidator` checks the value of a known control as well as its key.
+Colour controls take hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`, a CSS colour
+name, `transparent`, `currentColor`, a global colour variable or an empty
+string; `font` controls take a plain family name; typography weight, transform,
+style and decoration come from fixed lists; slider, dimension, `box_shadow` and
+`text_shadow` values need numeric parts and a unit from a fixed list; a
+`__globals__` binding is `globals/<type>?id=<id>` or an empty string. Any other
+value fails with `stonewright_elementor_settings_invalid` and the offending
+key. See [Security](security.md#values-that-reach-generated-css).
+
 ## Compatibility
 
 `stonewright/elementor-v3-get-widget-schema` and

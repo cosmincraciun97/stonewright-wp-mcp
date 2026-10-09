@@ -915,6 +915,32 @@ development builds were never stable releases.
 - Refuse an Elementor HTML widget write that has no `allow_html_widget: true`
   when the HTML widget site option is on, with
   `html_widget_requires_explicit_approval`.
+- Refuse colour and typography values that are not real values. An Elementor
+  colour control takes hex (3, 4, 6 or 8 digits), `rgb()`, `rgba()`, `hsl()`,
+  `hsla()` with numeric arguments, a CSS colour name, `transparent`,
+  `currentColor`, an Elementor global colour variable, or an empty string; a
+  `__globals__` binding takes the stored `globals/<type>?id=<id>` form or an
+  empty string. Font families are plain names, font weight, transform, style and
+  decoration come from fixed lists, and slider, dimension and shadow values need
+  numeric parts and a unit from a fixed list. Anything else fails with
+  `stonewright_elementor_settings_invalid` and the key. The check runs in every
+  Elementor write path, and in `elementor-v3-update-kit-colors`,
+  `elementor-v3-update-kit-typography`, `elementor-v3-kit-batch-mutate` and
+  `elementor-v3-update-page-settings` (colour, typography and unit keys, and
+  kit palette ids).
+- Make `elementor-css-regenerate` refuse a post whose stored settings carry
+  `;`, braces, `<`, `>`, `url(`, `expression(` or similar under a colour,
+  typography, unit or numeric-side key, with `stonewright_elementor_css_unsafe_value`
+  and the paths, before any backup, lock or generation. Custom CSS keys stay
+  under the custom-code approval gate.
+- Stop `stonewright-design-mirror-export` from writing files. It returns each
+  page's JSON, filename, byte count and SHA-256 in the result to the
+  authenticated caller, up to 1.5 MB of JSON per call, and checks edit
+  permission for every post. On plugin update, and on each export call, the
+  `uploads/stonewright-mirror` folder from earlier versions gets `index.php`,
+  `.htaccess` and `web.config` deny rules, and the regular `.json` files in it
+  that carry the export format are deleted; links, subfolders and other files
+  stay. The counts are logged.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 
