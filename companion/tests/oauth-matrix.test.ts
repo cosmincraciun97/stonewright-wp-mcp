@@ -5,10 +5,10 @@
  * rotation/replay, terminal reauth, JSON error shapes, and transient vs
  * terminal classification. Prefer these over live browser OAuth for CI.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 import {
 	LOST_RESPONSE_RETRY_DEADLINE_MS,
 	LOST_RESPONSE_RETRY_LATEST_START_MS,
@@ -19,6 +19,9 @@ import {
 	type OAuthTokenSet,
 	type OAuthTokenSetV2,
 } from '../src/oauth-token-manager.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 function makeResponse(payload: Record<string, unknown> | string, status = 200, headers: Record<string, string> = {}): Response {
 	const body = typeof payload === 'string' ? payload : JSON.stringify(payload);

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 import { verifyWindowsOAuthStorage } from '../src/oauth-windows-privacy.js';
 import {
 	OAuthReauthRequiredError,
@@ -10,6 +10,9 @@ import {
 	OAuthTransientError,
 	type OAuthTokenSet,
 } from '../src/oauth-token-manager.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 function makeResponse(payload: Record<string, unknown>, status = 200, headers: Record<string, string> = {}): Response {
 	return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json', ...headers } });

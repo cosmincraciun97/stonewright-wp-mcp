@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmdirSync } from 'node:fs';
+import { mkdtempSync, rmdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FIXTURE_RUN_ID_ENV, createFixtureRunId, fixtureRootName, isFixtureRunId, oauthFixtureBase } from './oauth-fixture-cleanup.js';
@@ -51,4 +51,26 @@ export function createOAuthTestDirectory(prefix = 'stonewright-oauth-'): string 
 		process.once('exit', () => { try { rmdirSync(ownedRoot); } catch { /* Refuse remaining fixture contents. */ } });
 	}
 	return mkdtempSync(join(fixtureRoot, prefix)); // Inherit the independently established native test ACL.
+}
+
+/** Long enough for the native ACL helper to build and start on a cold Windows runner. */
+export const OAUTH_WARMUP_TIMEOUT_MS = 120_000;
+
+/**
+ * Windows only. The first private token store operation of a test process builds and starts the native ACL
+ * helper, which can take tens of seconds on a cold runner. A test file runs this in beforeAll with
+ * OAUTH_WARMUP_TIMEOUT_MS, so that start-up is not charged to its first test. The store module is loaded
+ * here, not at the top of this helper, so files that load it later keep their own module setup.
+ */
+export async function warmUpOAuthStore(): Promise<void> {
+	if (process.platform !== 'win32') return;
+	const { OAuthTokenStore } = await import('../../src/oauth-token-manager.js');
+	const directory = createOAuthTestDirectory('stonewright-oauth-warmup-');
+	try {
+		const store = new OAuthTokenStore(join(directory, 'tokens.json'));
+		store.save({ accessToken: 'example-warmup-access', refreshToken: 'example-warmup-refresh', expiresAt: 0, tokenType: 'Bearer' });
+		store.clear();
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
 }
