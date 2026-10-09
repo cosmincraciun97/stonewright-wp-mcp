@@ -101,6 +101,8 @@ Enforced by:
 - `plugin/includes/Security/ConfirmationToken.php`
 - `plugin/includes/Abilities/Common/ConfirmationGuard.php`
 
+A token is bound to the ability and to every other argument of the call, works once, and lives 60 to 3600 seconds. A dry run that writes nothing (for example `elementor-v3-update-element` with `dry_run: true`) needs no token; the write does.
+
 Verify:
 
 ```bash

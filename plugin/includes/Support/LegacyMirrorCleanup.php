@@ -19,12 +19,6 @@ final class LegacyMirrorCleanup {
 
 	private const MAX_BYTES = 16777216;
 
-	private const HTACCESS = "# Stonewright: deny direct access.\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder deny,allow\nDeny from all\n</IfModule>\n";
-
-	private const WEB_CONFIG = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<configuration>\n\t<system.webServer>\n\t\t<authorization>\n\t\t\t<deny users=\"*\" />\n\t\t</authorization>\n\t</system.webServer>\n</configuration>\n";
-
-	private const INDEX = "<?php\n// Silence is golden.\n";
-
 	/**
 	 * @return array{status:string,guarded:bool,removed:int,kept:int}
 	 */
@@ -50,7 +44,7 @@ final class LegacyMirrorCleanup {
 
 		$entries = scandir( $dir );
 		foreach ( false === $entries ? [] : $entries as $name ) {
-			if ( '.' === $name || '..' === $name || in_array( $name, [ 'index.php', '.htaccess', 'web.config' ], true ) ) {
+			if ( '.' === $name || '..' === $name || in_array( $name, DirectoryGuard::FILES, true ) ) {
 				continue;
 			}
 			$path = $dir . '/' . $name;
@@ -76,22 +70,7 @@ final class LegacyMirrorCleanup {
 
 	/** Writes the three guard files that are missing. Existing guard files are never overwritten. */
 	private static function guard( string $dir ): bool {
-		$ok = true;
-		foreach ( [
-			'index.php'  => self::INDEX,
-			'.htaccess'  => self::HTACCESS,
-			'web.config' => self::WEB_CONFIG,
-		] as $name => $body ) {
-			$path = $dir . '/' . $name;
-			if ( is_file( $path ) ) {
-				continue;
-			}
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			if ( false === @file_put_contents( $path, $body ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-				$ok = false;
-			}
-		}
-		return $ok;
+		return DirectoryGuard::apply( $dir );
 	}
 
 	private static function is_export_file( string $name, string $path ): bool {

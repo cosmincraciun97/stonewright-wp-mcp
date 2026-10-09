@@ -148,7 +148,7 @@ final class CreateCustomWidget extends AbilityKernel {
 				],
 				'confirmation_token' => [
 					'type'        => 'string',
-					'description' => 'Required only in production-safe mode (Permissions::is_production_safe()).',
+					'description' => 'Required only in production-safe mode. Issue it with stonewright/security-issue-confirmation-token for this ability and the full argument object: the token is bound to every other argument, so any change to the arguments needs a new token.',
 				],
 			],
 		];
@@ -215,17 +215,9 @@ final class CreateCustomWidget extends AbilityKernel {
 					);
 				}
 
-				// 2. Production-safe token check. Verify the slug + template
-				// pair so the token can't be reused with a swapped template.
-				$token_error = $this->production_safe_token_error(
-					$a,
-					[
-						'slug'     => $slug,
-						'title'    => $title,
-						'template' => $template,
-						'activate' => $activate,
-					]
-				);
+				// 2. Production-safe token check. The token is bound to every
+				// argument except confirmation_token itself.
+				$token_error = $this->production_safe_token_error( $a, $a );
 				if ( null !== $token_error ) {
 					return $token_error;
 				}

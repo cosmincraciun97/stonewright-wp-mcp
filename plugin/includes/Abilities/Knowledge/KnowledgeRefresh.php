@@ -4,14 +4,17 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Knowledge;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Knowledge\ElementorKnowledgeStore;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * `stonewright/elementor-knowledge-refresh`.
  *
  * Self-update path: the LLM (or a cron job) hands Stonewright a URL
- * and Stonewright rewrites the matching `docs/knowledge/elementor/`
- * file when the content has actually changed.
+ * and Stonewright rewrites the matching article in the private knowledge
+ * store (`<uploads>/stonewright-private/knowledge/elementor/<hub>/<slug>.md`)
+ * when the content has actually changed. The store is guarded against direct
+ * access and is the only place the knowledge readers look.
  *
  * Two fetch modes:
  *   - vanilla wp_remote_get (works for `developers.elementor.com`
@@ -23,7 +26,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *     production path for those URLs.
  *
  * Pipeline:
- *   1. Validate URL / hub / body.
+ *   1. Validate URL host (elementor.com or a subdomain), hub and body.
  *   2. Resolve target subdirectory (widgets / editor / theme /
  *      developer / custom-widget / help-root) from `hub` or by URL
  *      heuristic.
@@ -54,7 +57,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'Self-updates the Stonewright Elementor knowledge base from a canonical URL. USE THIS WHEN: a user asks about a newly-released Elementor feature the cached docs don\'t cover, OR `elementor-describe-widget` returns `stale: true`, OR a doc was edited upstream. Two modes: vanilla wp_remote_get (good for developers.elementor.com SSR) and explicit `body` (caller provides browser-rendered DOM text — the production path for elementor.com/help/* SPA URLs). Returns `{ content_changed, status, file_path, slug, hash, hub }`. When the vanilla fetch returns an SPA shell, replies `status: "needs_js_render"` so the caller can retry via the companion harvester.',
+			'Self-updates the Stonewright Elementor knowledge base from a canonical URL. Articles are stored in a private, access-guarded folder under the uploads directory (stonewright-private/knowledge/elementor); the knowledge search, explain-editor and describe-widget tools read only that folder and return nothing until the first refresh. USE THIS WHEN: a user asks about a newly-released Elementor feature the cached docs don\'t cover, OR `elementor-describe-widget` returns `stale: true`, OR a doc was edited upstream. Two modes: vanilla wp_remote_get (good for developers.elementor.com SSR) and explicit `body` (caller provides browser-rendered DOM text — the production path for elementor.com/help/* SPA URLs). Returns `{ content_changed, status, file_path, slug, hash, hub }`. When the vanilla fetch returns an SPA shell, replies `status: "needs_js_render"` so the caller can retry via the companion harvester.',
 			'stonewright'
 		);
 	}
@@ -73,12 +76,12 @@ final class KnowledgeRefresh extends AbilityKernel {
 				'url'  => [
 					'type'        => 'string',
 					'pattern'     => '^https?://',
-					'description' => 'Canonical URL to refresh. Must be on elementor.com or developers.elementor.com.',
+					'description' => 'Canonical URL to refresh. The host must be elementor.com or a subdomain of it, such as developers.elementor.com.',
 				],
 				'hub'  => [
 					'type'        => 'string',
 					'enum'        => [ 'widgets', 'editor', 'theme', 'developer', 'custom-widget', 'help-root' ],
-					'description' => 'Hub to file the article under. Inferred from URL when omitted.',
+					'description' => 'Hub folder to file the article under. Inferred from the URL when omitted.',
 				],
 				'body' => [
 					'type'        => 'string',
@@ -129,13 +132,23 @@ final class KnowledgeRefresh extends AbilityKernel {
 					return $this->error( 'invalid_url', __( 'A valid http(s) URL is required.', 'stonewright' ), [ 'status' => 400 ] );
 				}
 
-				$host = parse_url( $url, PHP_URL_HOST ) ?: '';
-				$host = strtolower( $host );
-				if ( ! ( str_ends_with( $host, 'elementor.com' ) || str_ends_with( $host, 'developers.elementor.com' ) ) ) {
-					return $this->error( 'invalid_host', __( 'URL must be on elementor.com or developers.elementor.com.', 'stonewright' ), [ 'status' => 400 ] );
+				$host = parse_url( $url, PHP_URL_HOST );
+				if ( ! is_string( $host ) || ! self::is_allowed_host( $host ) ) {
+					return $this->error( 'invalid_host', __( 'URL must be on elementor.com or one of its subdomains, such as developers.elementor.com.', 'stonewright' ), [ 'status' => 400 ] );
 				}
 
-				$hub = isset( $a['hub'] ) && is_string( $a['hub'] ) ? $a['hub'] : self::infer_hub_from_url( $url );
+				$hub = array_key_exists( 'hub', $a ) && null !== $a['hub'] ? $a['hub'] : self::infer_hub_from_url( $url );
+				if ( ! ElementorKnowledgeStore::is_valid_hub( $hub ) ) {
+					return $this->error(
+						'invalid_hub',
+						sprintf(
+							/* translators: %s: comma-separated list of hub names. */
+							__( 'hub must be one of: %s.', 'stonewright' ),
+							implode( ', ', ElementorKnowledgeStore::HUBS )
+						),
+						[ 'status' => 400 ]
+					);
+				}
 
 				$body            = isset( $a['body'] ) && is_string( $a['body'] ) ? $a['body'] : null;
 				$title_override  = isset( $a['title'] ) && is_string( $a['title'] ) ? $a['title'] : null;
@@ -146,9 +159,12 @@ final class KnowledgeRefresh extends AbilityKernel {
 				$harvest_source = 'wp-remote-get';
 				if ( $body === null ) {
 					// Vanilla fetch path.
+					// reject_unsafe_urls refuses local and private addresses, for the URL and for every redirect it follows.
 					$resp = wp_remote_get( $url, [
-						'timeout'  => 20,
-						'user-agent' => 'StonewrightMCP/1.0 (+https://github.com/cosmincraciun97/stonewright-wp-mcp)',
+						'timeout'            => 20,
+						'redirection'        => 3,
+						'reject_unsafe_urls' => true,
+						'user-agent'         => 'StonewrightMCP/1.0 (+https://github.com/cosmincraciun97/stonewright-wp-mcp)',
 					] );
 					if ( is_wp_error( $resp ) ) {
 						return $this->error( 'fetch_failed', $resp->get_error_message(), [ 'status' => 502 ] );
@@ -180,9 +196,11 @@ final class KnowledgeRefresh extends AbilityKernel {
 				$body_text = self::extract_body_text( $body );
 				$hash      = 'sha256-' . hash( 'sha256', $body_text );
 
-				$slug  = self::slug_from_url( $url );
-				$dir   = self::knowledge_dir() . '/' . $hub;
-				$file  = $dir . '/' . $slug . '.md';
+				$slug = self::slug_from_url( $url );
+				$file = ElementorKnowledgeStore::file_path( $hub, $slug );
+				if ( null === $file ) {
+					return $this->error( 'store_unavailable', __( 'The private Elementor knowledge folder under uploads could not be created or protected, or the target path is not inside it.', 'stonewright' ), [ 'status' => 500 ] );
+				}
 
 				$previous_hash = null;
 				if ( is_file( $file ) ) {
@@ -192,7 +210,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 							'ok'              => true,
 							'content_changed' => false,
 							'status'          => 'unchanged',
-							'file_path'       => self::relative( $file ),
+							'file_path'       => ElementorKnowledgeStore::relative( $file ),
 							'slug'            => $slug,
 							'hash'            => $hash,
 							'hub'             => $hub,
@@ -217,13 +235,9 @@ final class KnowledgeRefresh extends AbilityKernel {
 					. "---\n\n"
 					. trim( $body_text ) . "\n";
 
-				if ( ! is_dir( $dir ) ) {
-					wp_mkdir_p( $dir );
-				}
-
 				$written = file_put_contents( $file, $frontmatter ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 				if ( false === $written ) {
-					return $this->error( 'write_failed', sprintf( 'Could not write %s', self::relative( $file ) ), [ 'status' => 500 ] );
+					return $this->error( 'write_failed', sprintf( 'Could not write %s', ElementorKnowledgeStore::relative( $file ) ), [ 'status' => 500 ] );
 				}
 
 				// Append change log (H.3).
@@ -233,7 +247,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 					'ok'              => true,
 					'content_changed' => true,
 					'status'          => $previous_hash === null ? 'created' : 'updated',
-					'file_path'       => self::relative( $file ),
+					'file_path'       => ElementorKnowledgeStore::relative( $file ),
 					'slug'            => $slug,
 					'hash'            => $hash,
 					'hub'             => $hub,
@@ -249,21 +263,10 @@ final class KnowledgeRefresh extends AbilityKernel {
 	// Helpers
 	// -----------------------------------------------------------------
 
-	private static function knowledge_dir(): string {
-		return dirname( __DIR__, 3 ) . '/../docs/knowledge/elementor';
-	}
-
-	private static function relative( string $path ): string {
-		$root = realpath( dirname( __DIR__, 3 ) . '/..' );
-		if ( $root === false ) {
-			return $path;
-		}
-		$norm = str_replace( '\\', '/', $path );
-		$root = str_replace( '\\', '/', $root );
-		if ( str_starts_with( $norm, $root . '/' ) ) {
-			return substr( $norm, strlen( $root ) + 1 );
-		}
-		return $norm;
+	/** True for elementor.com and its subdomains; never for a host that merely ends in the same letters. */
+	private static function is_allowed_host( string $host ): bool {
+		$host = strtolower( $host );
+		return 'elementor.com' === $host || str_ends_with( $host, '.elementor.com' );
 	}
 
 	private static function infer_hub_from_url( string $url ): string {
@@ -293,7 +296,9 @@ final class KnowledgeRefresh extends AbilityKernel {
 		$parts = array_values( array_filter( explode( '/', trim( $path, '/' ) ), static fn( $p ) => $p !== '' ) );
 		$slug = end( $parts ) ?: 'untitled';
 		$slug = preg_replace( '/[^A-Za-z0-9._-]+/', '-', (string) $slug ) ?? 'untitled';
-		$slug = trim( $slug, '-' );
+		// A slug starts with a letter or digit, so it can never be a dot segment or an underscore-prefixed file.
+		$slug = substr( ltrim( $slug, '.-_' ), 0, 120 );
+		$slug = rtrim( $slug, '-' );
 		return $slug !== '' ? $slug : 'untitled';
 	}
 
@@ -393,7 +398,10 @@ final class KnowledgeRefresh extends AbilityKernel {
 	}
 
 	private static function append_change_log( string $url, string $hub, string $slug, string $hash, ?string $previous_hash, string $fetched_at ): void {
-		$log_path = self::knowledge_dir() . '/_change_log.md';
+		$log_path = ElementorKnowledgeStore::change_log_path();
+		if ( null === $log_path ) {
+			return;
+		}
 		$entry    = sprintf(
 			"- %s — `%s/%s.md` (%s) — %s\n",
 			$fetched_at,

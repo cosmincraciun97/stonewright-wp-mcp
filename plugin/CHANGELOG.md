@@ -818,6 +818,26 @@
   issued for the whole call, and require it in production-safe mode. The
   per-write `confirmation_token` field is removed; the token covers every write
   of the call.
+- Keep the Elementor knowledge in a private folder under uploads
+  (`stonewright-private/knowledge/elementor/<hub>/<slug>.md`); the plugin
+  package ships no articles. `elementor-knowledge-search`, `elementor-explain-editor` and
+  `elementor-describe-widget` read only that folder and return nothing, with a
+  hint that names `elementor-knowledge-refresh`, until the first refresh;
+  `elementor-knowledge-refresh` writes only there. Every folder level of the
+  store gets `index.php`, `.htaccess` and `web.config` deny rules. Files that an
+  earlier version wrote elsewhere are left alone.
+- Bind the confirmation token of `elementor-create-custom-widget` to the full
+  argument object, as for the other confirmed abilities, so a token issued the
+  standard way is accepted. A token issued for only `slug`, `title`, `template`
+  and `activate` is no longer accepted.
+- Make `elementor-v3-update-element` with `dry_run: true` need no confirmation
+  token in production-safe mode, like the dry runs of `elementor-v3-batch-mutate`
+  and `elementor-v3-build-page-from-spec`. A dry run writes nothing: no
+  snapshot, post meta or write lock. A write still needs a token bound to its
+  arguments.
+- State the real range of `ttl_seconds` on `security-issue-confirmation-token`:
+  60 to 3600 seconds (the schema minimum was 1 while the lifetime was never
+  shorter than 60). `expires_at` reports the actual expiry.
 
 ### Security
 
@@ -917,6 +937,11 @@
   `.htaccess` and `web.config` deny rules, and the regular `.json` files in it
   that carry the export format are deleted; links, subfolders and other files
   stay. The counts are logged.
+- Accept only `elementor.com` and hosts ending in `.elementor.com` in
+  `elementor-knowledge-refresh`; hosts such as `evilelementor.com` and
+  `elementor.com.example.test` are refused. `hub` is checked against its list
+  in code, and the final file path is checked to stay inside the knowledge
+  store, before anything is written.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 
