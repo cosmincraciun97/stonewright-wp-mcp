@@ -183,8 +183,10 @@ final class ResponsiveIntegrationTest extends TestCase {
             'padding' => [ 'desktop' => '12px 24px', 'mobile' => '8px 16px' ],
         ];
         $element = Button::render( $node, $this->resolver, 'p0.s0.b0' );
-        $this->assertSame( '12px 24px', $element['settings']['padding'] );
-        $this->assertSame( '8px 16px', $element['settings']['padding_mobile'] );
+        // The button's padding control is `text_padding`, a dimensions control.
+        $this->assertArrayNotHasKey( 'padding', $element['settings'] );
+        $this->assertSame( [ '12', '24' ], [ $element['settings']['text_padding']['top'], $element['settings']['text_padding']['right'] ] );
+        $this->assertSame( [ '8', '16' ], [ $element['settings']['text_padding_mobile']['top'], $element['settings']['text_padding_mobile']['right'] ] );
     }
 
     // -------------------------------------------------------------------------

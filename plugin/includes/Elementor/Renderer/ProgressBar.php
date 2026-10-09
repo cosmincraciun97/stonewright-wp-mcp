@@ -38,10 +38,6 @@ final class ProgressBar {
 			$settings['bar_color'] = (string) $resolver->resolve( (string) $node['color'] );
 		}
 
-		if ( isset( $node['style'] ) ) {
-			$settings['striped'] = 'striped' === $node['style'] ? 'yes' : '';
-		}
-
 		return [
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',

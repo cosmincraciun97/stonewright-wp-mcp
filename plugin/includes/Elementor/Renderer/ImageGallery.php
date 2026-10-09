@@ -59,6 +59,8 @@ final class ImageGallery {
 		}
 
 		if ( isset( $node['spacing'] ) ) {
+			// The custom spacing control is shown only once `image_spacing` is `custom`.
+			$settings['image_spacing']        = 'custom';
 			$settings['image_spacing_custom'] = [
 				'unit' => 'px',
 				'size' => (int) $node['spacing'],

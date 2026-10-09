@@ -190,7 +190,7 @@ final class StyleMapper {
 	 * @param array<string, mixed> $settings
 	 * @return array<string, mixed>
 	 */
-	private static function activate_groups( array $settings ): array {
+	public static function activate_groups( array $settings ): array {
 		$to_add = [];
 
 		foreach ( array_keys( $settings ) as $key ) {

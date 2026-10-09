@@ -105,6 +105,17 @@ final class AddContainer extends AbilityKernel {
 					if ( null === $parent_path ) {
 						return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
 					}
+					if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+						return $this->error(
+							'parent_not_container',
+							__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+							[
+								'status'         => 400,
+								'parent_id'      => (string) $args['parent_id'],
+								'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+							]
+						);
+					}
 				}
 
 				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;

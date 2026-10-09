@@ -114,8 +114,7 @@ final class SettingsKeyAliasesTest extends TestCase {
 	}
 
 	public function test_validator_keeps_text_editor_column_gap_and_social_icons_row_gap(): void {
-		// The bundled catalog describes the column_gap condition as a terms list; conditions are not the subject here.
-		$text = SettingsValidator::validate( 'text-editor', [ 'editor' => '<p>Body</p>', 'text_columns' => '2', 'column_gap' => [ 'size' => 24, 'unit' => 'px' ] ], true, false );
+		$text = SettingsValidator::validate( 'text-editor', [ 'editor' => '<p>Body</p>', 'text_columns' => '2', 'column_gap' => [ 'size' => 24, 'unit' => 'px' ] ] );
 		self::assertIsArray( $text );
 		self::assertSame( [ 'size' => 24, 'unit' => 'px' ], $text['settings']['column_gap'] );
 		self::assertArrayNotHasKey( 'flex_column_gap', $text['settings'] );
