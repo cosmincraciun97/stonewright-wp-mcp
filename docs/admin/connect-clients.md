@@ -61,7 +61,49 @@ continuity is a refresh SLO within that grant, not a seven-day bearer token.
 Each WordPress MCP request is sent once and is not repeated after a timeout or
 network error; on OAuth connections an HTTP 401 refreshes the access token and
 the request is sent once more, a tool call included. `stonewright-task-start`
-reconnects a degraded session once.
+reconnects a degraded session once. A token refresh whose response never
+arrived (a timeout or a reset connection) is the one request that is repeated:
+the companion sends it once more with the same refresh credential, within 30
+seconds of the first, while it still holds the refresh lock. A refresh that got
+any HTTP response is not repeated.
+
+## When a client has to sign in or connect again
+
+A connected client keeps working through normal use, a server restart and the
+daily clean-up. It has to sign in again, or be connected again, in these cases:
+
+- **A connection made with an earlier release of the plugin** keeps the
+  deadline it was given then, 14 days after that sign-in. After it the client
+  signs in once more; the new connection then follows the limits below.
+- **30 days without use.** A refresh credential that is not used for 30 days
+  expires. Every refresh issues a new one, so a client that keeps refreshing
+  stays signed in.
+- **The 90-day limit.** A grant ends at most 90 days after it was authorized.
+  Refreshing does not extend it.
+- **Disconnect or revocation.** **Disconnect** under **Connected OAuth
+  clients**, or a revocation request from the client, closes the whole grant.
+- **A credential used again outside the window.** A refresh credential
+  presented more than 60 seconds after it was replaced, or any older one,
+  counts as a replay and closes the whole grant, including the current
+  credential. This includes a client that lost a response and retries late,
+  and two programs that keep separate copies of one credential.
+- **The approving user loses access.** If the user who approved the connection
+  loses the capability or is deleted, refresh is refused. The grant is not
+  closed, so it works again once the access is restored, but a client that
+  clears its saved sign-in on that error signs in again.
+- **A change of the WordPress authentication salts or the Stonewright OAuth
+  keys.** Changing `AUTH_KEY`, `AUTH_SALT` or the other authentication salts,
+  replacing or deleting the OAuth keys, removing the plugin data, or restoring
+  a database without the keys signs every client out.
+- **A rollback to an earlier release of the plugin.** Credentials issued by the
+  newer release are not accepted by the earlier one.
+- **A removed client registration.** A client registered through dynamic
+  registration is removed when it has no live grant and either never completed
+  a grant and registered more than 30 days ago, or last completed one more
+  than 180 days ago. The identifier it stored no longer exists. The site
+  answers `invalid_client`, signing in again with that identifier cannot work,
+  and the connection has to be removed from the AI client and added again from
+  **Stonewright → Setup**. Clients an administrator created are not removed.
 
 ## Choose the connection method
 

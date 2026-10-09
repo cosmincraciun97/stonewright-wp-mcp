@@ -26,6 +26,20 @@
 
 ### Changed
 
+- Retry a token refresh once when no response arrived at all (a timeout or a
+  reset connection). The retry sends the same refresh credential while the
+  cross-process refresh lock is still held, starts at most 30 seconds after the
+  first request, and is aborted 50 seconds after it, inside the server's
+  60-second duplicate window. A received HTTP response is never retried. When
+  the retry fails too, or the server answers `invalid_grant`, the connection
+  asks for authorization again as before.
+- Say why authorization is required again. The `user_action` for
+  `invalid_client`, `refresh_token_expired`, `refresh_token_revoked`,
+  `refresh_outcome_unknown`, and a bare `invalid_grant` starts with one fixed
+  sentence, followed by the client-specific action. For `invalid_client` the
+  action is to remove the Stonewright server from the AI client and add it again
+  from **Stonewright > Setup**, because a sign-in alone cannot restore a
+  registration the site no longer has. `reason_code` is unchanged.
 - Update `smol-toml` to 1.9.0 and the locked `proxy-addr` to 2.0.8.
 
 ### Fixed

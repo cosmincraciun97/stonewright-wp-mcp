@@ -272,6 +272,14 @@
 
 ### Changed
 
+- Keep a dynamically registered OAuth client that completed a grant for 180
+  days after its last use. The daily clean-up removes such a client only when
+  its last use is more than 180 days old and it has no live grant. A
+  registration that never completed a grant is removed 30 days after it
+  registered, and clients an administrator created stay. A refresh credential
+  expires after 30 days without use and a grant ends at most 90 days after
+  authorization, so an AI client that returns after a lapse signs in again with
+  its stored client identifier.
 - Update the Prompt library: every starter names only tools and admin pages that
   exist in the mode it is tagged for, and eight new starters cover Rescue and
   rollback, snapshot restore, repair lineage, section reuse, the native Elementor

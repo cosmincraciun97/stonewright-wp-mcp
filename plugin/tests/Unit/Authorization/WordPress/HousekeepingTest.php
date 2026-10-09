@@ -96,9 +96,13 @@ final class HousekeepingTest extends TestCase {
 		self::assertNotContains( $legacy_dead['family_hash'], $families_left );
 	}
 
-	public function test_unused_clients_and_old_rate_rows_are_removed(): void {
+	public function test_idle_clients_follow_their_lifetime_and_old_rate_rows_are_removed(): void {
 		$this->rig->at( self::NOW - ClientStore::UNUSED_LIFETIME - 60 );
 		$stale = $this->rig->register_client();
+		$granted = $this->rig->register_client();
+		$this->rig->clients->touch( $granted, self::NOW - 31 * 86400 );
+		$long_idle = $this->rig->register_client();
+		$this->rig->clients->touch( $long_idle, self::NOW - ClientStore::USED_LIFETIME - 60 );
 		$this->rig->at( self::NOW );
 		$fresh = $this->rig->register_client();
 		$old = self::NOW - Housekeeping::RATE_LIMIT_RETENTION - 1;
@@ -108,8 +112,10 @@ final class HousekeepingTest extends TestCase {
 
 		$counts = $this->housekeeping()->run();
 
-		self::assertSame( 1, $counts['clients'] );
+		self::assertSame( 2, $counts['clients'] );
 		self::assertNull( $this->rig->clients->find( $stale ) );
+		self::assertNull( $this->rig->clients->find( $long_idle ) );
+		self::assertNotNull( $this->rig->clients->find( $granted ) );
 		self::assertNotNull( $this->rig->clients->find( $fresh ) );
 		self::assertSame( 2, $counts['rate_limits'] );
 		self::assertSame( [ hash( 'sha256', 'new' ) ], array_column( $this->rig->rows( 'rate_limits' ), 'bucket_key' ) );

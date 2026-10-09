@@ -115,27 +115,78 @@ final class ClientStoreTest extends TestCase {
 		self::assertSame( gmdate( 'Y-m-d H:i:s', StorageRig::T + 50 ), $this->rig->row( 'clients', 'client_id', $client_id )['last_used_at'] );
 	}
 
-	public function test_prune_removes_clients_unused_for_thirty_days_without_a_live_family(): void {
-		$old = StorageRig::T - ClientStore::UNUSED_LIFETIME - 10;
-		[ $with_family ] = $this->rig->connect();
-		$this->rig->clients->touch( $with_family, $old );
-		$unused = $this->rig->clients->create( self::profile() )['client_id'];
-		$this->rig->clients->touch( $unused, $old );
-		$recent = $this->rig->clients->create( self::profile() )['client_id'];
-		$this->rig->clients->touch( $recent, StorageRig::T - 86400 );
-		$this->rig->at( $old );
+	public function test_prune_keeps_a_client_that_completed_a_grant_for_longer_than_thirty_days(): void {
+		$client_id = $this->rig->clients->create( self::profile() )['client_id'];
+		$this->rig->clients->touch( $client_id, StorageRig::T - 31 * 86400 );
+
+		self::assertSame( 0, $this->rig->clients->prune( StorageRig::T ) );
+		self::assertNotNull( $this->rig->clients->find( $client_id ) );
+
+		self::assertSame( 0, $this->rig->clients->prune( StorageRig::T + 148 * 86400 ) );
+		self::assertNotNull( $this->rig->clients->find( $client_id ), 'Idle for 179 days.' );
+	}
+
+	public function test_prune_removes_a_client_idle_for_more_than_the_used_lifetime_without_a_live_family(): void {
+		$client_id = $this->rig->clients->create( self::profile() )['client_id'];
+		$this->rig->clients->touch( $client_id, StorageRig::T - ClientStore::USED_LIFETIME - 10 );
+
+		self::assertSame( 1, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertNull( $this->rig->clients->find( $client_id ) );
+	}
+
+	public function test_prune_keeps_a_client_idle_for_more_than_the_used_lifetime_while_a_family_is_live(): void {
+		[ $client_id ] = $this->rig->connect();
+		$this->rig->clients->touch( $client_id, StorageRig::T - ClientStore::USED_LIFETIME - 10 );
+
+		self::assertSame( 0, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertNotNull( $this->rig->clients->find( $client_id ) );
+	}
+
+	public function test_prune_removes_a_client_that_never_completed_a_grant_after_thirty_days(): void {
+		$this->rig->at( StorageRig::T - ClientStore::UNUSED_LIFETIME - 10 );
 		$never_used = $this->rig->clients->create( self::profile() )['client_id'];
-		$admin = $this->rig->clients->create( self::profile() )['client_id'];
-		$this->rig->db->execute( 'UPDATE ' . $this->rig->db->table( 'clients' ) . " SET admin_created = 1 WHERE client_id = %s", [ $admin ] );
+		$this->rig->at( StorageRig::T - ClientStore::UNUSED_LIFETIME + 86400 );
+		$recent = $this->rig->clients->create( self::profile() )['client_id'];
 		$this->rig->at( StorageRig::T );
 
-		self::assertSame( 2, $this->rig->clients->prune( StorageRig::T ) );
+		self::assertSame( 1, $this->rig->clients->prune( StorageRig::T ) );
 
-		self::assertNotNull( $this->rig->clients->find( $with_family ) );
-		self::assertNull( $this->rig->clients->find( $unused ) );
-		self::assertNotNull( $this->rig->clients->find( $recent ) );
 		self::assertNull( $this->rig->clients->find( $never_used ) );
-		self::assertNotNull( $this->rig->clients->find( $admin ) );
+		self::assertNotNull( $this->rig->clients->find( $recent ) );
+	}
+
+	public function test_prune_keeps_administrator_created_clients_whatever_their_age(): void {
+		$this->rig->at( StorageRig::T - ClientStore::USED_LIFETIME - 10 );
+		$never_used = $this->rig->clients->create( self::profile() )['client_id'];
+		$used = $this->rig->clients->create( self::profile() )['client_id'];
+		$this->rig->clients->touch( $used, StorageRig::T - ClientStore::USED_LIFETIME - 10 );
+		foreach ( [ $never_used, $used ] as $client_id ) {
+			$this->rig->db->execute( 'UPDATE ' . $this->rig->db->table( 'clients' ) . ' SET admin_created = 1 WHERE client_id = %s', [ $client_id ] );
+		}
+		$this->rig->at( StorageRig::T );
+
+		self::assertSame( 0, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertNotNull( $this->rig->clients->find( $never_used ) );
+		self::assertNotNull( $this->rig->clients->find( $used ) );
+	}
+
+	public function test_prune_gives_a_metadata_document_client_the_same_two_lifetimes(): void {
+		$profile = self::profile( [ 'client_id_metadata_document' => 'https://client.example.test/metadata.json' ] );
+		$granted = hash( 'sha256', 'document-granted' );
+		$never = hash( 'sha256', 'document-never' );
+		$this->rig->at( StorageRig::T - ClientStore::UNUSED_LIFETIME - 10 );
+		$this->rig->clients->save_document( $granted, $profile, StorageRig::T + 600 );
+		$this->rig->clients->save_document( $never, $profile, StorageRig::T + 600 );
+		$this->rig->clients->touch( $granted, StorageRig::T - 31 * 86400 );
+		$this->rig->at( StorageRig::T );
+
+		self::assertSame( 1, $this->rig->clients->prune( StorageRig::T ) );
+
+		self::assertNotNull( $this->rig->clients->find( $granted ) );
+		self::assertNull( $this->rig->clients->find( $never ) );
 	}
 
 	public function test_prune_works_through_every_eligible_client_in_successive_batches(): void {
