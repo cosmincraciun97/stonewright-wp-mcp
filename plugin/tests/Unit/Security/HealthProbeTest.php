@@ -538,6 +538,206 @@ final class HealthProbeTest extends TestCase {
 		self::assertSame( $passed, HealthProbe::compare( $passed, [ 'home' ] ) );
 	}
 
+	// -- A leg that gets no answer at all is asked once more -------------------------------------
+
+	/**
+	 * Answers requests in order: each reply is a [code, body] pair or a WP_Error. The last reply repeats.
+	 *
+	 * @param list<array{0:int,1:string}|\WP_Error> $replies
+	 */
+	private function sequence( array $replies ): void {
+		$call = 0;
+		HealthProbe::set_transport(
+			function ( string $url, array $args ) use ( $replies, &$call ) {
+				$this->requests[] = [ 'url' => $url, 'args' => $args ];
+				$reply            = $replies[ min( $call, count( $replies ) - 1 ) ];
+				++$call;
+				if ( $reply instanceof \WP_Error ) {
+					return $reply;
+				}
+				return [ 'response' => [ 'code' => $reply[0] ], 'body' => $reply[1], 'headers' => [] ];
+			}
+		);
+	}
+
+	private function silence(): \WP_Error {
+		return new \WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
+	}
+
+	private function published_post( int $id = 12 ): void {
+		$GLOBALS['stonewright_test_posts'][ $id ] = (object) [ 'ID' => $id, 'post_status' => 'publish', 'post_type' => 'page' ];
+	}
+
+	public function test_a_leg_that_passed_before_and_gets_no_answer_is_asked_once_more_with_the_longest_wait(): void {
+		$this->published_post();
+		$this->sequence( [ $this->silence(), [ 200, '<html>page</html>' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+
+		$first   = HealthProbe::run( $context );
+		$retried = HealthProbe::retry_silent_legs( $first, [ 'post' ], $context );
+		$judged  = HealthProbe::compare( $retried, [ 'post' ] );
+
+		self::assertSame( 'passed', $judged['status'] );
+		self::assertFalse( $judged['fatal'] );
+		self::assertCount( 2, $this->requests );
+		self::assertSame( HealthProbe::TIMEOUT, $this->requests[0]['args']['timeout'] );
+		self::assertSame( 15, $this->requests[1]['args']['timeout'], 'The second attempt waits as long as a leg may.' );
+		self::assertTrue( $judged['legs'][0]['retried'] );
+		self::assertSame( 'http_request_failed', $judged['legs'][0]['first_reason'] );
+		self::assertSame( 200, $judged['legs'][0]['http'] );
+		self::assertSame( 'ok', $judged['legs'][0]['reason'] );
+	}
+
+	public function test_a_leg_that_gets_no_answer_twice_is_failed(): void {
+		$this->published_post();
+		$this->sequence( [ $this->silence() ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+
+		$judged = HealthProbe::compare( HealthProbe::retry_silent_legs( HealthProbe::run( $context ), [ 'post' ], $context ), [ 'post' ] );
+
+		self::assertSame( 'failed', $judged['status'] );
+		self::assertCount( 2, $this->requests, 'One more attempt, no more.' );
+		self::assertSame( 'degraded_http_request_failed', $judged['legs'][0]['reason'] );
+		self::assertTrue( $judged['legs'][0]['retried'] );
+	}
+
+	/** @dataProvider answeredFailureProvider */
+	public function test_a_leg_that_answers_with_a_failure_is_failed_at_once_and_never_asked_again( array $reply ): void {
+		$this->published_post();
+		$this->sequence( [ $reply, [ 200, 'ok' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+
+		$retried = HealthProbe::retry_silent_legs( HealthProbe::run( $context ), [ 'post' ], $context );
+		$judged  = HealthProbe::compare( $retried, [ 'post' ] );
+
+		self::assertSame( 'failed', $judged['status'] );
+		self::assertCount( 1, $this->requests );
+		self::assertArrayNotHasKey( 'retried', $judged['legs'][0] );
+	}
+
+	/** @return array<string, array{0:array{0:int,1:string}}> */
+	public static function answeredFailureProvider(): array {
+		return [
+			'a bare 500'         => [ [ 500, '' ] ],
+			'the critical error' => [ [ 500, '<body id="error-page"><p>There has been a critical error on this website.</p></body>' ] ],
+			'a fatal in a 200'   => [ [ 200, "Fatal error: Uncaught Error: nope in /var/www/site-a/x.php:3\nStack trace:\n#0 {main}\n  thrown in /var/www/site-a/x.php on line 3" ] ],
+			'a gateway error'    => [ [ 502, 'Bad Gateway' ] ],
+			'a service error'    => [ [ 503, 'Service Unavailable' ] ],
+		];
+	}
+
+	public function test_a_leg_that_did_not_pass_before_is_not_asked_again(): void {
+		$this->published_post();
+		$this->sequence( [ $this->silence(), [ 200, 'ok' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+		$first   = HealthProbe::run( $context );
+
+		$retried = HealthProbe::retry_silent_legs( $first, [], $context );
+
+		self::assertSame( $first, $retried );
+		self::assertSame( 'unavailable', HealthProbe::compare( $retried, [] )['status'] );
+		self::assertCount( 1, $this->requests );
+	}
+
+	public function test_only_the_legs_that_passed_before_are_asked_again(): void {
+		$this->sequence( [ $this->silence(), $this->silence(), [ 200, 'ok' ] ] );
+		$context = [ 'legs' => [ 'home', 'rest' ], 'user_id' => 7 ];
+		$first   = HealthProbe::run( $context );
+		self::assertCount( 2, $this->requests );
+
+		HealthProbe::retry_silent_legs( $first, [ 'rest' ], $context );
+
+		self::assertCount( 3, $this->requests );
+		self::assertStringContainsString( '/wp-json/', $this->requests[2]['url'] );
+	}
+
+	public function test_a_leg_the_probe_could_not_ask_for_is_not_asked_again(): void {
+		$probe = HealthProbe::summary_of( [ [ 'leg' => 'admin', 'status' => 'unavailable', 'http' => 0, 'reason' => 'token_unavailable', 'ms' => 0 ] ] );
+		$this->sequence( [ [ 200, 'ok' ] ] );
+
+		$retried = HealthProbe::retry_silent_legs( $probe, [ 'admin' ], [ 'legs' => [ 'admin' ], 'user_id' => 7 ] );
+
+		self::assertSame( $probe, $retried );
+		self::assertSame( [], $this->requests );
+	}
+
+	public function test_the_second_attempt_carries_a_fresh_token_for_a_draft_leg(): void {
+		$GLOBALS['stonewright_test_posts'][13] = (object) [ 'ID' => 13, 'post_status' => 'draft', 'post_type' => 'page' ];
+		$this->sequence( [ $this->silence(), [ 200, '<html>preview</html>' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 13, 'user_id' => 7 ];
+
+		$judged = HealthProbe::compare( HealthProbe::retry_silent_legs( HealthProbe::run( $context ), [ 'post' ], $context ), [ 'post' ] );
+
+		self::assertSame( 'passed', $judged['status'] );
+		self::assertCount( 2, $this->requests );
+		$tokens = array_map( static fn ( array $r ): string => (string) ( $r['args']['headers'][ ProbeToken::HEADER ] ?? '' ), $this->requests );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', $tokens[0] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', $tokens[1] );
+		self::assertNotSame( $tokens[0], $tokens[1], 'A token works once.' );
+		parse_str( (string) parse_url( $this->requests[0]['url'], PHP_URL_QUERY ), $first );
+		parse_str( (string) parse_url( $this->requests[1]['url'], PHP_URL_QUERY ), $second );
+		self::assertNotSame( $first[ ProbeToken::PARAM ], $second[ ProbeToken::PARAM ], 'And so does its nonce.' );
+		self::assertSame( 0, $this->requests[1]['args']['redirection'], 'A request with a token follows no redirect.' );
+	}
+
+	public function test_the_second_attempt_stays_inside_the_probe_budget(): void {
+		$this->published_post();
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+		$silent  = static fn ( int $ms ): array => HealthProbe::summary_of( [ [ 'leg' => 'post', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => $ms ] ] );
+
+		$this->sequence( [ [ 200, 'ok' ] ] );
+		HealthProbe::retry_silent_legs( $silent( 10000 ), [ 'post' ], $context );
+		self::assertSame( 15, $this->requests[0]['args']['timeout'] );
+		self::assertLessThanOrEqual( HealthProbe::BUDGET_SECS, 10 + $this->requests[0]['args']['timeout'] );
+
+		$this->requests = [];
+		HealthProbe::retry_silent_legs( $silent( 18000 ), [ 'post' ], $context );
+		self::assertSame( 12, $this->requests[0]['args']['timeout'], 'The wait shrinks to what is left of the budget.' );
+
+		$this->requests = [];
+		$spent          = $silent( 25000 );
+		self::assertSame( $spent, HealthProbe::retry_silent_legs( $spent, [ 'post' ], $context ), 'Too little budget is left for a worthwhile wait.' );
+		self::assertSame( [], $this->requests );
+	}
+
+	public function test_once_a_second_attempt_gets_no_answer_the_other_legs_are_not_tried(): void {
+		$this->sequence( [ $this->silence() ] );
+		$context = [ 'legs' => [ 'home', 'rest' ], 'user_id' => 7 ];
+		$first   = HealthProbe::run( $context );
+		self::assertCount( 2, $this->requests );
+
+		$retried = HealthProbe::retry_silent_legs( $first, [ 'home', 'rest' ], $context );
+
+		self::assertCount( 3, $this->requests, 'The site is failing; waiting for every other leg too would only delay the rollback.' );
+		self::assertTrue( $retried['legs'][0]['retried'] );
+		self::assertArrayNotHasKey( 'retried', $retried['legs'][1] );
+	}
+
+	public function test_an_answer_to_the_second_attempt_ends_the_quick_mode_the_first_one_started(): void {
+		$this->published_post();
+		$this->sequence( [ $this->silence(), [ 200, 'ok' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ];
+
+		$first = HealthProbe::run( $context );
+		self::assertTrue( HealthProbe::loopback_cooling_down(), 'Every leg of that probe got no answer.' );
+		HealthProbe::retry_silent_legs( $first, [ 'post' ], $context );
+
+		self::assertFalse( HealthProbe::loopback_cooling_down() );
+	}
+
+	public function test_the_evidence_of_a_second_attempt_holds_no_url_header_or_body(): void {
+		$GLOBALS['stonewright_test_posts'][13] = (object) [ 'ID' => 13, 'post_status' => 'draft', 'post_type' => 'page' ];
+		$this->sequence( [ $this->silence(), [ 200, 'secret-body-text' ] ] );
+		$context = [ 'legs' => [ 'post' ], 'post_id' => 13, 'user_id' => 7 ];
+
+		$encoded = (string) wp_json_encode( HealthProbe::retry_silent_legs( HealthProbe::run( $context ), [ 'post' ], $context ) );
+
+		self::assertStringNotContainsString( 'secret-body-text', $encoded );
+		self::assertStringNotContainsString( 'example.test', $encoded );
+		self::assertStringNotContainsString( 'sw_probe', $encoded );
+		self::assertStringNotContainsString( ProbeToken::HEADER, $encoded );
+	}
+
 	public function test_a_probe_can_be_built_from_the_legs_that_were_taken_one_at_a_time(): void {
 		$legs = [
 			[ 'leg' => 'home', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 5 ],

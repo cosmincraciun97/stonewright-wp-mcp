@@ -860,13 +860,19 @@ final class ChangeJournal {
 			if ( ! is_array( $leg ) ) {
 				continue;
 			}
-			$legs[] = [
+			$entry = [
 				'leg'    => self::short_text( $leg['leg'] ?? '', 16 ),
 				'status' => self::short_text( $leg['status'] ?? '', 16 ),
 				'http'   => isset( $leg['http'] ) && is_numeric( $leg['http'] ) ? (int) $leg['http'] : 0,
 				'reason' => self::short_text( $leg['reason'] ?? '', 48 ),
 				'ms'     => isset( $leg['ms'] ) && is_numeric( $leg['ms'] ) ? max( 0, (int) $leg['ms'] ) : 0,
 			];
+			if ( ! empty( $leg['retried'] ) ) {
+				// A leg that got no answer and was asked once more: the reason of the first attempt is kept.
+				$entry['retried']      = true;
+				$entry['first_reason'] = self::short_text( $leg['first_reason'] ?? '', 48 );
+			}
+			$legs[] = $entry;
 		}
 		$status = isset( $probe['status'] ) && is_scalar( $probe['status'] ) ? (string) $probe['status'] : '';
 		return [

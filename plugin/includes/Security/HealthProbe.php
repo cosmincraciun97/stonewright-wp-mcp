@@ -33,6 +33,15 @@ final class HealthProbe {
 	public const BODY_LIMIT  = 262144;
 	public const BUDGET_SECS = 30;
 
+	/** The longest a single request may wait. */
+	public const MAX_TIMEOUT = 15;
+
+	/**
+	 * How long the second attempt at a leg that got no answer waits: the longest a request may,
+	 * so the first render of a freshly written page can finish. It never goes past BUDGET_SECS in all.
+	 */
+	public const RETRY_TIMEOUT = self::MAX_TIMEOUT;
+
 	/** Seconds a request waits while loopback requests are known to fail, and how long that is remembered. */
 	public const QUICK_TIMEOUT = 3;
 	public const COOLDOWN_KEY  = 'stonewright_probe_loopback_failing';
@@ -219,6 +228,89 @@ final class HealthProbe {
 	}
 
 	/**
+	 * Whether loopback requests are known to fail, so that a probe is one short request.
+	 */
+	public static function loopback_cooling_down(): bool {
+		return false !== get_transient( self::COOLDOWN_KEY );
+	}
+
+	/**
+	 * Ask once more about a leg that got no answer at all.
+	 *
+	 * A leg that passed before a change and gets no answer after it (HTTP 0: a timeout, a refused
+	 * connection) may only be slow, for example on the first render of a page that was just written.
+	 * Each such leg is probed once more, with the longest wait a request may have, and the second
+	 * outcome replaces the first. A server error, the critical error page and a fatal marker are
+	 * answers, not silence: they are never asked about twice. Neither is a leg that did not pass
+	 * before, nor one the probe could not ask for (no token). A leg is marked "retried" and keeps the
+	 * reason of the first attempt. Once a second attempt also gets no answer, the remaining legs are
+	 * left as they are: the verdict is failed and waiting longer would only delay the rollback.
+	 * The second attempts together stay inside what is left of BUDGET_SECS.
+	 *
+	 * @param array<string, mixed> $probe         A probe taken after the change.
+	 * @param list<string>         $passed_before Names of the legs that passed before it.
+	 * @param array<string, mixed> $context       The context the probe was run with.
+	 * @return array<string, mixed>
+	 */
+	public static function retry_silent_legs( array $probe, array $passed_before, array $context ): array {
+		if ( [] === $passed_before || ! is_array( $probe['legs'] ?? null ) ) {
+			return $probe;
+		}
+		$spent = 0.0;
+		foreach ( $probe['legs'] as $leg ) {
+			$spent += is_array( $leg ) ? max( 0, (int) ( $leg['ms'] ?? 0 ) ) / 1000 : 0.0;
+		}
+		$legs    = [];
+		$retried = false;
+		$stop    = false;
+		foreach ( $probe['legs'] as $leg ) {
+			$name = is_array( $leg ) ? (string) ( $leg['leg'] ?? '' ) : '';
+			if ( $stop
+				|| ! is_array( $leg )
+				|| 'unavailable' !== ( $leg['status'] ?? '' )
+				|| 0 !== (int) ( $leg['http'] ?? 0 )
+				|| 'token_unavailable' === (string) ( $leg['reason'] ?? '' )
+				|| ! in_array( $name, $passed_before, true )
+			) {
+				$legs[] = $leg;
+				continue;
+			}
+			$wait = min( self::RETRY_TIMEOUT, (int) floor( self::BUDGET_SECS - $spent ) );
+			if ( $wait < self::TIMEOUT ) {
+				// Not enough budget left for a wait worth the delay.
+				$legs[] = $leg;
+				continue;
+			}
+			// Every attempt asks for its own nonce and, for a leg that needs one, its own token.
+			$second = self::probe_leg( $name, array_merge( $context, [ 'timeout' => $wait ] ) );
+			if ( 'skipped' === $second['status'] || 'token_unavailable' === $second['reason'] ) {
+				$legs[] = $leg;
+				continue;
+			}
+			$spent                 += $second['ms'] / 1000;
+			$retried                = true;
+			$second['retried']      = true;
+			$second['first_reason'] = substr( (string) ( $leg['reason'] ?? '' ), 0, 48 );
+			$legs[]                 = $second;
+			if ( 0 === $second['http'] ) {
+				$stop = true;
+			} else {
+				// The site answered: it can call itself.
+				delete_transient( self::COOLDOWN_KEY );
+				if ( 'passed' === $second['status'] ) {
+					AgentNotices::dismiss( self::NOTICE_KEY );
+				}
+			}
+		}
+		if ( ! $retried ) {
+			return $probe;
+		}
+		$judged               = self::summarize( $legs );
+		$judged['checked_at'] = (int) ( $probe['checked_at'] ?? time() );
+		return $judged;
+	}
+
+	/**
 	 * A probe made of legs that were taken one at a time.
 	 *
 	 * @param list<array<string, mixed>> $legs
@@ -339,7 +431,7 @@ final class HealthProbe {
 		// wherever a redirect points. A caller-chosen URL is not followed either.
 		$redirects = isset( $headers[ ProbeToken::HEADER ] ) || 'custom' === $leg ? 0 : 2;
 		$args      = [
-			'timeout'             => isset( $context['timeout'] ) ? max( 1, min( 15, (int) $context['timeout'] ) ) : self::TIMEOUT,
+			'timeout'             => isset( $context['timeout'] ) ? max( 1, min( self::MAX_TIMEOUT, (int) $context['timeout'] ) ) : self::TIMEOUT,
 			'redirection'         => $redirects,
 			'sslverify'           => (bool) apply_filters( 'https_local_ssl_verify', false ),
 			'limit_response_size' => self::BODY_LIMIT,

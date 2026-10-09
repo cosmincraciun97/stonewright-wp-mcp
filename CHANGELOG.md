@@ -589,6 +589,13 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Fix Rescue rolling back a healthy write when the first render of a freshly
+  written page is slow. A leg that passed before the write and gets no answer
+  at all after it (a timeout or a refused connection) is probed once more,
+  with the longest wait a probe request may have (15 seconds, inside the
+  30 second probe budget) and a fresh token, before the write counts as failed.
+  A server error, the critical error page and a PHP fatal are still failures
+  at once, with no second attempt. The probe evidence marks a leg asked twice.
 - Fix `detach_patterns` on a `blocks-batch-mutate` `insert_section`: the input
   schema accepts `true`, `false`, or a list of pattern ids.
 - Fix section reuse while the setting is `off`: `stonewright-task-start` no
