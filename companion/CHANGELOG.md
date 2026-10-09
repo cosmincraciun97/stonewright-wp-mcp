@@ -41,6 +41,9 @@
   from **Stonewright > Setup**, because a sign-in alone cannot restore a
   registration the site no longer has. `reason_code` is unchanged.
 - Update `smol-toml` to 1.9.0 and the locked `proxy-addr` to 2.0.8.
+- Test runs on Windows remove their OAuth fixture folders at the drive root
+  when the run ends, and remove folders of earlier runs that are older than 24
+  hours.
 
 ### Fixed
 
