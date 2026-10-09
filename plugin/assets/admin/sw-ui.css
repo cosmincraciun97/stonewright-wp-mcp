@@ -147,6 +147,26 @@
 	--sw-z-modal: 100050;
 	--sw-z-toast: 100060;
 
+	/*
+	 * The band at the top of every page is always dark, like the admin bar, so a colour scheme does not re-theme it.
+	 * The tooltip of its EXP marker is near-black. --sw-band-exp-size is the one text size of the layer under 12px:
+	 * the marker is a superscript on the link, and its words are also hidden text in the link and the tooltip.
+	 */
+	--sw-band-bg: #16181d;
+	--sw-band-fg: #f8f9fa;
+	--sw-band-link: rgb(248 249 250 / .78);
+	--sw-band-label: rgb(248 249 250 / .5); /* 4.9:1 on the band */
+	--sw-band-rule: rgb(255 255 255 / .18);
+	--sw-band-hover: rgb(255 255 255 / .08);
+	--sw-band-current: rgb(79 70 229 / .35);
+	--sw-band-count: rgb(255 255 255 / .12);
+	--sw-band-focus: #a5b4fc; /* 8:1 on the band: the keyboard ring */
+	--sw-band-shadow: 0 6px 18px rgb(23 25 33 / .1);
+	--sw-band-ease: cubic-bezier(.25, .46, .45, .94);
+	--sw-band-exp-size: 8px;
+	--sw-tip-bg: #171921;
+	--sw-tip-fg: #f7f8fb;
+
 	color: var(--sw-text);
 	font-family: var(--sw-font-sans);
 	font-size: var(--sw-fs-sm);
@@ -223,7 +243,7 @@
 	--sw-shell-content-max: var(--sw-content-max);
 	--sw-shell-offset: var(--sw-adminbar-h);
 
-	/* The dark header band is not re-themed by this layer, so its tokens keep their values. */
+	/* The older shell header tokens keep their values; the band uses the --sw-band-* tokens of section 1. */
 	--sw-shell-header-bg: #16181d;
 	--sw-shell-header-fg: #f8f9fa;
 	--sw-shell-header-muted: rgb(248 249 250 / .6);
@@ -539,6 +559,177 @@
 	border-color: var(--sw-accent-fill);
 	background: var(--sw-accent-soft);
 	color: var(--sw-accent-text);
+}
+
+/* ====================================================================== */
+/* 6a. Band: the dark navigation at the top of every Stonewright page       */
+/* ====================================================================== */
+/*
+ * The mark and the name, then one link to every page in groups. It spans the page and scrolls with it; the strip
+ * above it is the WordPress Help row (32px, 60px on a phone). Rows wrap as whole groups; on a phone each group is a
+ * row, and the shell's 8px side padding is the inset. It has no margin: the top padding of the content and the page
+ * header's own padding put the title 24px below it (16px at 782px and below). The --sw-band-* custom properties set
+ * here are this component's own sizes; its colours are tokens of section 1.
+ */
+.sw-ui .sw-ui-band {
+	--sw-focus-ring: var(--sw-band-focus);
+	--sw-band-link-h: var(--sw-control-h-sm);
+	--sw-band-link-fs: var(--sw-fs-sm);
+	--sw-band-link-pad: var(--sw-space-3);
+	--sw-band-link-pad-exp: 32px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-4);
+	margin: 0;
+	padding: var(--sw-space-3) var(--sw-space-5);
+	background: var(--sw-band-bg);
+	box-shadow: var(--sw-band-shadow);
+	color: var(--sw-band-fg);
+}
+
+.sw-ui .sw-ui-band__brand {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-band__logo {
+	display: block;
+	width: 28px;
+	height: 28px;
+}
+
+.sw-ui .sw-ui-band__name {
+	color: var(--sw-band-fg);
+	font-size: var(--sw-fs-md);
+	font-weight: 700;
+	letter-spacing: .02em;
+	line-height: var(--sw-lh-body);
+}
+
+.sw-ui .sw-ui-band__nav {
+	display: flex;
+	flex: 1 1 auto;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-width: 0;
+}
+
+.sw-ui .sw-ui-band__group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1);
+	min-height: var(--sw-band-link-h);
+	max-width: 100%;
+}
+
+.sw-ui .sw-ui-band__group--labelled {
+	padding-inline-start: var(--sw-space-2);
+	border-inline-start: 1px solid var(--sw-band-rule);
+}
+
+/* No rule in front of the first group. */
+:where(.sw-ui) .sw-ui-band__group:first-child {
+	padding-inline-start: 0;
+	border-inline-start-width: 0;
+}
+
+.sw-ui .sw-ui-band__label {
+	padding: 0 var(--sw-space-1);
+	color: var(--sw-band-label);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-semibold);
+	letter-spacing: .06em;
+	line-height: var(--sw-lh-body);
+	text-transform: uppercase;
+}
+
+.sw-ui .sw-ui-band__link {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: var(--sw-band-link-h);
+	padding: 0 var(--sw-band-link-pad);
+	border-radius: var(--sw-radius-sm);
+	color: var(--sw-band-link);
+	font-size: var(--sw-band-link-fs);
+	font-weight: var(--sw-weight-medium);
+	text-decoration: none;
+	white-space: nowrap;
+	transition: background-color var(--sw-dur) var(--sw-band-ease), color var(--sw-dur) var(--sw-band-ease);
+}
+
+.sw-ui .sw-ui-band__link--exp {
+	padding-inline-end: var(--sw-band-link-pad-exp);
+}
+
+:where(.sw-ui) .sw-ui-band__link:hover {
+	background-color: var(--sw-band-hover);
+	color: var(--sw-band-fg);
+}
+
+/* The ring itself is the layer's one outline (pointer-focus block, last in this file). */
+:where(.sw-ui) .sw-ui-band__link:focus-visible {
+	background-color: var(--sw-band-hover);
+	border-radius: var(--sw-radius-control);
+	color: var(--sw-band-fg);
+}
+
+:where(.sw-ui) .sw-ui-band__link[aria-current="page"] {
+	background-color: var(--sw-band-current);
+	color: var(--sw-band-fg);
+}
+
+.sw-ui .sw-ui-band__exp {
+	position: absolute;
+	inset-block-start: var(--sw-space-1);
+	inset-inline-end: 6px;
+	color: var(--sw-band-fg);
+	font-size: var(--sw-band-exp-size);
+	font-weight: var(--sw-weight-semibold);
+	letter-spacing: .06em;
+	line-height: var(--sw-band-exp-size);
+	text-transform: uppercase;
+	cursor: help;
+}
+
+.sw-ui .sw-ui-band__count {
+	min-width: 20px;
+	margin-inline-start: var(--sw-space-2);
+	padding: 0 6px;
+	border-radius: var(--sw-radius-pill);
+	background-color: var(--sw-band-count);
+	color: var(--sw-band-fg);
+	font-size: var(--sw-fs-xs);
+	line-height: 18px;
+	text-align: center;
+}
+
+/* The tooltip of an EXP link sits in the portal on the body, placed by sw-ui.js; it is above the admin bar. */
+.sw-ui .sw-ui-band-tip {
+	position: absolute;
+	z-index: var(--sw-z-popover);
+	width: max-content;
+	max-width: 280px;
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-tip-bg);
+	box-shadow: var(--sw-band-shadow);
+	color: var(--sw-tip-fg);
+	font-size: var(--sw-fs-xs);
+	font-weight: var(--sw-weight-regular);
+	line-height: 1.4;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--sw-dur) var(--sw-band-ease);
+}
+
+:where(.sw-ui) .sw-ui-band-tip[data-state="shown"] {
+	opacity: 1;
 }
 
 /* ====================================================================== */
@@ -2042,6 +2233,42 @@
 
 	.sw-ui .sw-ui-checkbox {
 		min-height: 40px;
+	}
+}
+
+/* The band narrows in two steps and keeps the current link visible under forced colours (rules of section 6a). */
+@media (max-width: 782px) {
+	.sw-ui .sw-ui-band {
+		padding-inline: var(--sw-space-3);
+	}
+}
+
+@media (max-width: 400px) {
+	.sw-ui .sw-ui-band {
+		--sw-band-link-h: 28px;
+		--sw-band-link-fs: var(--sw-fs-xs);
+		--sw-band-link-pad: var(--sw-space-2);
+		--sw-band-link-pad-exp: 30px;
+		padding-inline: var(--sw-space-2);
+	}
+
+	.sw-ui .sw-ui-band__group {
+		flex-basis: 100%;
+	}
+
+	.sw-ui .sw-ui-band__group--labelled {
+		padding-inline-start: 0;
+		border-inline-start-width: 0;
+	}
+
+	.sw-ui .sw-ui-band__label {
+		display: none;
+	}
+}
+
+@media (forced-colors: active) {
+	:where(.sw-ui) .sw-ui-band__link[aria-current="page"] {
+		text-decoration: underline;
 	}
 }
 

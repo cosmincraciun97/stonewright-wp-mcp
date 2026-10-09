@@ -53,15 +53,22 @@ field, and counts of text under 12px, targets under 24px and repeated ids that s
 within the page's allowance.
 
 **The shell** (the last part of `ui-contract.spec.ts`, run at every viewport) holds the frame
-every page is printed in: one visible `h1` that names the page and sits within 120px of the
-top at 1440 (200px at 390), no header band or second navigation, one tab bar per hub with
-the current tab marked and the tabs in `STONEWRIGHT_HUBS` order, the skip link first and
-landing in the content region, `hr.wp-header-end` between the header and the content, the
-sidebar in hub order, the Beta marker in words, notices that stay in place up to three and
+every page is printed in: the band with a link to every page in the groups of `STONEWRIGHT_BAND`
+(the page that is open marked), one visible `h1` that names the page and sits within 120px of
+the band's bottom edge at 1440 (200px at 390), a tab bar only on a page with tabs of its own
+(`STONEWRIGHT_OWN_TABS`), the skip link first and landing in the content region, `hr.wp-header-end` between the header and the content, the
+sidebar in hub order, the EXP marker in the band and the sidebar and no Beta badge, notices that stay in place up to three and
 fold into one disclosure above that (open for an error or a warning, never holding a
 notice the plugin printed, never removed on a timer), headings without core's margins, the
 plugin row links and the two Help tabs. A page added to `STONEWRIGHT_PAGES` names its hub
-and tab, so it is covered by all of this at once.
+and its band link, so it is covered by all of this at once.
+
+**The band** (`tests/top-band.spec.ts`) holds the band and the EXP markers on the real pages: the
+mark and name, the groups with their labels and rules, the current link, the sizes and colours of
+the links, the band's position and padding at each width, the EXP marker's position, the tooltip
+on hover, focus and Escape (centred 8px above the link, 8px inside the viewport at 320px, above
+the admin bar, a fade that reduced motion removes), the sidebar tooltip in the sidebar, the folded
+flyout and the mobile menu, and no horizontal overflow at 1440, 1024, 782, 400 and 320px.
 
 `tests/helpers/ui-budget.ts` holds those allowances. They only go down: when a page
 adopts the shared UI layer, delete its entry. A page with no entry has no allowance

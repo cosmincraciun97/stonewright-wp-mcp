@@ -39,9 +39,9 @@ final class MenuOrderTest extends TestCase {
 			[ 'Memory', 'manage_options', 'stonewright-memory', 'Memory & Instructions' ],
 			[ 'Audit Log', 'manage_options', 'stonewright-audit-log', 'Audit Log' ],
 			[ 'Dashboard', 'manage_options', 'stonewright-status', 'Dashboard' ],
-			[ '<span class="sw-menu-label">Design</span> EXP', 'manage_options', 'stonewright-design', 'Design' ],
-			[ '<span class="sw-menu-label">Context</span> EXP', 'manage_options', 'stonewright-context', 'Context' ],
-			[ '<span class="sw-menu-label">Troubleshoot</span> EXP', 'manage_options', 'stonewright-troubleshoot', 'Troubleshoot' ],
+			[ '<span class="sw-menu-label">Design</span> <span class="sw-menu-exp">EXP</span>', 'manage_options', 'stonewright-design', 'Design' ],
+			[ '<span class="sw-menu-label">Context</span> <span class="sw-menu-exp">EXP</span>', 'manage_options', 'stonewright-context', 'Context' ],
+			[ '<span class="sw-menu-label">Troubleshoot</span> <span class="sw-menu-exp">EXP</span>', 'manage_options', 'stonewright-troubleshoot', 'Troubleshoot' ],
 			[ 'Prompts', 'manage_options', 'stonewright-prompts', 'Prompt Library' ],
 			[ 'Rescue', 'manage_options', 'stonewright-rescue', 'Rescue' ],
 		];
@@ -106,7 +106,7 @@ final class MenuOrderTest extends TestCase {
 		self::assertSame( 'Rescue', $labels['stonewright-rescue'] );
 	}
 
-	public function test_a_beta_page_is_marked_in_words_not_by_an_abbreviation(): void {
+	public function test_an_experimental_page_carries_the_exp_marker_with_words_for_assistive_technology(): void {
 		$GLOBALS['submenu'] = [ 'stonewright' => $this->registered() ];
 
 		MenuOrder::apply();
@@ -116,11 +116,14 @@ final class MenuOrderTest extends TestCase {
 			$labels[ $item[2] ] = $item[0];
 		}
 		foreach ( [ 'stonewright-troubleshoot', 'stonewright-context', 'stonewright-design' ] as $slug ) {
-			self::assertStringContainsString( 'class="sw-menu-beta"', $labels[ $slug ], $slug );
-			self::assertStringContainsString( '>Beta<', $labels[ $slug ], $slug );
-			self::assertStringNotContainsString( 'EXP', $labels[ $slug ], $slug );
+			self::assertStringContainsString( 'class="sw-menu-exp"', $labels[ $slug ], $slug );
+			self::assertStringContainsString( '>EXP<', $labels[ $slug ], $slug );
+			self::assertStringContainsString( 'data-sw-tip="This feature is experimental."', $labels[ $slug ], $slug );
+			self::assertStringContainsString( '<span class="screen-reader-text"> This feature is experimental.</span>', $labels[ $slug ], $slug );
+			self::assertStringNotContainsString( 'Beta', $labels[ $slug ], $slug );
 		}
-		self::assertStringNotContainsString( 'Beta', $labels['stonewright-abilities'] );
+		self::assertStringNotContainsString( 'EXP', $labels['stonewright-abilities'] );
+		self::assertSame( 'Overview', $labels['stonewright-status'], 'The names and the order of the sidebar are the registry\'s.' );
 	}
 
 	public function test_it_keeps_slugs_capabilities_and_page_titles_and_leaves_unknown_pages_last(): void {

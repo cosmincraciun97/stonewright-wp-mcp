@@ -20,7 +20,7 @@ export interface PageBudget {
 	readonly axe: readonly string[];
 }
 
-/** The chrome every shell page prints: the page header and a hub tab bar. It measures clean, so it carries no allowance. */
+/** The chrome every shell page prints: the band and the page header. It measures clean, so it carries no allowance. */
 const SHELL: Pick<PageBudget, 'smallText' | 'smallTargets'> = { smallText: [0, 0], smallTargets: [0, 0] };
 
 function onTopOfShell(extra: { smallText?: readonly [number, number]; smallTargets?: readonly [number, number]; duplicateIds?: readonly string[]; axe?: readonly string[] }): PageBudget {
@@ -49,8 +49,9 @@ export function budgetFor(slug: string): PageBudget {
 }
 
 /**
- * Highest allowed top edge of the first h1, in page pixels (the WordPress admin bar included). The page header
- * is a single row, so the title starts within 120px at 1440 and 200px at 390.
+ * Highest allowed distance from the bottom edge of the band (or, on a screen without one, the top of the page) to the
+ * top edge of the first h1. The page header is a single row under the band, so the title starts within 120px at 1440
+ * and 200px at 390.
  */
 export const H1_TOP_MAX = { desktop: 120, mobile: 200 } as const;
 

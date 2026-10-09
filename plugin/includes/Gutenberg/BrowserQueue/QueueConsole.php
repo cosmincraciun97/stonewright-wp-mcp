@@ -136,8 +136,6 @@ final class QueueConsole {
 			[
 				'title'   => __( 'Block queue', 'stonewright' ),
 				'lede'    => self::lede(),
-				'hub'     => 'activity',
-				'beta'    => true,
 				'actions' => $connected ? Button::render( __( 'Resume processing', 'stonewright' ), [ 'attrs' => [ 'data-queue-resume' => true ] ] ) : '',
 			]
 		);

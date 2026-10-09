@@ -9,7 +9,10 @@ import type { Page } from '@playwright/test';
 export interface UiProbe {
 	/** Pixels by which the page is wider than the viewport (0 when it fits). */
 	horizontalOverflow: number;
-	/** Top edge of the first visible h1 in page coordinates, or null when the page has none. */
+	/**
+	 * Distance from the bottom edge of the band (the top of the page, for a screen without one) to the top edge of the
+	 * first visible h1, or null when the page has none.
+	 */
 	h1Top: number | null;
 	/** Lowest bottom edge, in viewport pixels, of sticky or fixed chrome that stays on screen after scrolling. */
 	stickyChromeBottom: number;
@@ -63,7 +66,8 @@ export function probeUi(options: { scope: string }): UiProbe {
 		if (!node.nodeValue || !node.nodeValue.trim() || !parent) {
 			continue;
 		}
-		if (/^(SCRIPT|STYLE|NOSCRIPT|OPTION|TEXTAREA)$/.test(parent.tagName) || !visible(parent) || assistiveOnly(parent)) {
+		// The EXP marker of the band is an 8px superscript by design; its words are also hidden text in the link and the tooltip.
+		if (/^(SCRIPT|STYLE|NOSCRIPT|OPTION|TEXTAREA)$/.test(parent.tagName) || !visible(parent) || assistiveOnly(parent) || parent.closest('.sw-ui-band__exp')) {
 			continue;
 		}
 		const size = parseFloat(getComputedStyle(parent).fontSize);
@@ -188,7 +192,9 @@ export function probeUi(options: { scope: string }): UiProbe {
 
 	// 7. Layout: first h1, overflow, and the chrome that stays on screen while scrolling.
 	const h1 = Array.from(root.querySelectorAll('h1')).find(visible);
-	const h1Top = h1 ? Math.round(h1.getBoundingClientRect().top + window.scrollY) : null;
+	const band = document.querySelector('.sw-ui-band');
+	const bandBottom = band ? band.getBoundingClientRect().bottom + window.scrollY : 0;
+	const h1Top = h1 ? Math.round(h1.getBoundingClientRect().top + window.scrollY - bandBottom) : null;
 	const doc = document.documentElement;
 	const horizontalOverflow = Math.max(0, doc.scrollWidth - doc.clientWidth);
 

@@ -21,6 +21,7 @@ final class Html {
 
 	/** Attribute names a helper may set, besides data-* and aria-*. */
 	private const ALLOWED = [
+		'alt', // The name of an image of the layer (the band's mark).
 		'action', // A form posts to a URL the page chose; it is escaped as a URL below. formaction is not allowed.
 		'autocomplete',
 		'autofocus',
@@ -32,6 +33,7 @@ final class Html {
 		'disabled',
 		'for',
 		'form',
+		'height',
 		'hidden',
 		'href',
 		'id',
@@ -55,15 +57,17 @@ final class Html {
 		'scope',
 		'selected',
 		'spellcheck',
+		'src', // An image of the plugin; it is escaped as a URL below.
 		'tabindex',
 		'target',
 		'title',
 		'type',
 		'value',
+		'width',
 	];
 
 	/** Attributes whose value is a URL. */
-	private const URL_ATTRIBUTES = [ 'action', 'href' ];
+	private const URL_ATTRIBUTES = [ 'action', 'href', 'src' ];
 
 	private static int $counter = 0;
 

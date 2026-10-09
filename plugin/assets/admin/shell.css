@@ -178,7 +178,7 @@
 	box-sizing: border-box;
 }
 
-/* The page header and the hub tab bar print their own spacing. WordPress places its notices after
+/* The page header and the tab bar print their own spacing. WordPress places its notices after
    `hr.wp-header-end`, directly under them. */
 .sw-shell__chrome {
 	margin: 0;
@@ -682,8 +682,9 @@ html.sw-has-shell {
 		box-sizing: border-box;
 	}
 
+	/* The page header sits 16px below the band: 4px here and the header's own 12px. */
 	.sw-shell__content {
-		padding: var(--sw-space-3);
+		padding: var(--sw-space-1) var(--sw-space-3) var(--sw-space-3);
 		max-width: 100%;
 		box-sizing: border-box;
 	}

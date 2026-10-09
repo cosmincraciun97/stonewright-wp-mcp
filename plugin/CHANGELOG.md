@@ -238,16 +238,17 @@
   14-day sparkline; and the Site Pulse, Elementor, skill and memory facts the
   Dashboard had. The address `page=stonewright-status` is unchanged.
 - Add a menu registry (`MenuRegistry`) and a sidebar order pass (`MenuOrder`).
-  Pages register their hub, tab, title and order once; the sidebar, the tab
-  bars, the page headers and the Help tabs read the same list. Rescue and the
+  Pages register their hub, tab, title and order once; the sidebar, the band,
+  the tab bars, the page headers and the Help tabs read the same list. Rescue and the
   block queue console register through it. The sidebar is ordered by hub:
   Overview, Setup, AI Abilities, Knowledge, Custom code, Activity.
-- Add a tab bar under the page header for every hub with more than one page.
-  Knowledge holds Skills, Memory, Context, Design and Prompt library; Custom
-  code holds Drafts, Library, Active, Crash recovery and Approvals; Activity
+- Group the pages in six hubs: Knowledge holds Skills, Memory, Context, Design
+  and Prompt library; Custom code holds Custom code and Code approval; Activity
   holds Audit log, Block queue and Rescue; Setup holds Setup and Troubleshoot.
-  A tab shows a number for open incidents, queued or failed block changes and
-  changes needing a rollback, and a user sees only the tabs they can open.
+  A link in the band shows a number for open incidents, queued or failed block
+  changes and changes needing a rollback, and a user sees only the pages they
+  can open. A page with tabs of its own (Custom code) has a tab bar under the
+  page header.
 - Add a skip link to the shell, and two Help tabs on every Stonewright page:
   "What is this page?" and "Glossary".
 - Add **Overview** and **Setup** links and a **Docs** link to the Stonewright row
@@ -405,9 +406,9 @@
   approval warning and guidance, the Setup mode and bridge callouts, and the
   Memory explainer stay visible. A notice no longer removes itself after five
   seconds.
-- Start the first heading nearer the top of every Stonewright page: within
-  120 px of the top of the screen at 1440 px and within 200 px at 390 px. The
-  page header scrolls with the page.
+- Start the first heading of every Stonewright page right below the band:
+  about 24 px under it, 16 px at 782 px and below, whatever notices WordPress
+  shows. The band and the page header scroll with the page.
 - Show the Companion bridge on the Overview as a state ("Not used",
   "Configured", or "Needs attention") with its host and port, not the stored
   URL.
@@ -418,19 +419,27 @@
 - Set badge text at 12 px in sentence case instead of 10 px in capitals, and
   darken the muted text colour and the border of form controls so they meet
   4.5:1 and 3:1.
-- Replace the two-row dark header with one page header (title, a line of
-  explanation, status and the page's main action) and the hub's tab bar. The
-  WordPress sidebar is the only navigation. The sidebar now says Overview,
-  Custom code (was Workflows), Knowledge (the Skills landing page), Prompt
-  library (was Prompts), Block queue (was Block Editor Queue) and Activity
-  (the Audit log landing page); the page addresses did not change.
-- Say **Beta** in words, in the sidebar and in the page header with a visible
-  sentence, in place of the 8 to 9 px "EXP" marker and its hover-only tooltip.
-- Show the Sandbox tabs (Drafts, Library, Active, Crash recovery) in the Custom
-  code tab bar instead of a second row of tabs inside the page, and show the
-  block queue console inside the shell with the same header and tabs as the
-  other pages. The Rescue page and the console no longer print their own
-  heading.
+- Group the links of the dark band at the top of every Stonewright page by
+  hub, in sidebar order: Overview, SETUP (Setup, Troubleshoot), AI Abilities,
+  KNOWLEDGE (Skills, Memory, Context, Design, Prompt library), CUSTOM CODE
+  (Custom code, Code approval) and ACTIVITY (Audit log, Block queue, Rescue).
+  A hub with two links or more shows its name and a thin rule. The band lists
+  only the pages the user can open, highlights the current page on any of its
+  tabs, shows a count beside a link that has something to show, and sits above
+  one page header (title, a line of explanation, status and the page's main
+  action). The Stonewright consent screen has no band. The sidebar says
+  Overview, Custom code (was Workflows), Knowledge (the Skills landing page),
+  Prompt library (was Prompts), Block queue (was Block Editor Queue) and
+  Activity (the Audit log landing page); the page addresses did not change.
+- Read the small **EXP** marker of a page that is still changing as "This
+  feature is experimental." in the band and the sidebar: the marker is hidden
+  from screen readers and the words are hidden text on the link and the
+  entry. In the band the tooltip shows on hover and keyboard focus and closes
+  with Escape; in the sidebar it shows while the pointer is over the marker.
+- Show a tab bar under the page header only on a page with tabs of its own:
+  Custom code (Drafts, Library, Active, Crash recovery). Show the block queue
+  console inside the shell with the same band and header as the other pages.
+  The Rescue page and the console no longer print their own heading.
 - Fold WordPress and other plugins' notices into the "Other WordPress notices"
   disclosure only when more than three arrive; fewer stay where WordPress puts
   them, under the page header, drawn the way WordPress draws them. The

@@ -117,4 +117,19 @@ final class SwUiJavascriptContractTest extends TestCase {
 		self::assertStringContainsString( 'event.ctrlKey || event.metaKey || event.altKey', $script );
 		self::assertStringContainsString( 'isEditable( event.target )', $script );
 	}
+
+	public function test_the_band_tooltip_is_text_only_positioned_in_the_viewport_and_closed_by_escape(): void {
+		$script = self::script();
+
+		self::assertStringContainsString( '// Band tooltip (data-sw-ui-tip)', $script, 'The block is named, so a merge keeps it apart.' );
+		self::assertStringContainsString( "'data-sw-ui-tip'", $script );
+		self::assertStringContainsString( "setAttribute( 'role', 'tooltip' )", $script );
+		self::assertStringContainsString( "setAttribute( 'aria-describedby'", $script, 'The link is described by the tooltip while it is shown.' );
+		self::assertStringContainsString( "removeAttribute( 'aria-describedby' )", $script, 'At rest the link has no description from the script.' );
+		self::assertStringContainsString( "event.key === 'Escape'", $script );
+		self::assertStringContainsString( 'TIP_EDGE = 8', $script, 'Kept 8px inside the viewport.' );
+		self::assertStringContainsString( 'TIP_GAP = 8', $script, '8px above the link.' );
+		self::assertStringContainsString( "'focusin'", $script, 'The keyboard shows it too.' );
+		self::assertStringContainsString( 'ensurePortal().appendChild( tip )', $script, 'It is added to the portal of the layer, in scope of its tokens.' );
+	}
 }

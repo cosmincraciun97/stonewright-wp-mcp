@@ -13,9 +13,9 @@ namespace Stonewright\WpMcp\Admin;
 use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
- * One list that the sidebar order, the hub tab bars, the page headers and the Help tabs all read.
+ * One list that the sidebar order, the band, the tab bars of pages with tabs, the page headers and the Help tabs all read.
  *
- * A hub is a group of pages that share a landing page and a tab bar: Overview, Setup, AI Abilities, Knowledge,
+ * A hub is a group of pages that share a landing page and a group of links in the band: Overview, Setup, AI Abilities, Knowledge,
  * Custom code and Activity. A page belongs to one hub. A page can be a tab of its own (its own slug) or a tab of
  * another page (the same slug with a different `tab` query value, as the Custom code tabs are).
  *
@@ -24,6 +24,7 @@ use Stonewright\WpMcp\Security\IncidentStore;
  *
  * @phpstan-type Entry array{slug: string, tab: string, hub: string, label: string, title: string, lede: string, order: int, beta: bool, in_menu: bool, menu_label: string, capability: string, count: (callable(): int)|null, count_label: string, default: bool}
  * @phpstan-type Link array{label: string, url: string, current: bool, count: int|null, count_label: string}
+ * @phpstan-type BandGroup array{hub: string, label: string, links: list<array{label: string, url: string, current: bool, count: int|null, count_label: string, beta: bool}>}
  */
 final class MenuRegistry {
 
@@ -66,9 +67,11 @@ final class MenuRegistry {
 	 *     default?: bool
 	 * } $args "label" is the tab text. "title" is the page heading and defaults to the label. "in_menu" is false for a
 	 *         page that is reached by URL and never listed in the sidebar. "menu_label" overrides the sidebar text, which
-	 *         is otherwise the hub name on the first page of a hub and the label on the others. "capability" is what the
-	 *         page needs (manage_options by default): the tab bar lists only the tabs the user can open. "count" returns a number
-	 *         shown beside the tab, described for assistive technology by "count_label".
+	 *         is otherwise the hub name on the first page of a hub and the label on the others, and the text of the
+	 *         band link, which is otherwise the title of a page with several tabs and the label of any other. "capability" is what the
+	 *         page needs (manage_options by default): the band and the tab bar list only what the user can open. "count"
+	 *         returns a number shown beside the link, described for assistive technology by "count_label". "beta" marks a
+	 *         page that is still changing with the EXP marker, in the band and in the sidebar.
 	 */
 	public static function add( string $slug, string $label, string $hub, array $args = [] ): void {
 		self::load();
@@ -216,30 +219,85 @@ final class MenuRegistry {
 	}
 
 	/**
-	 * The tab links of a hub for the page that is open.
+	 * The tabs of one page for the page that is open: the entries that share its slug, as links, for a page that
+	 * has several. A page without tabs of its own gets none, and the pages of its hub are not listed: the band
+	 * links every page.
 	 *
 	 * @return list<Link>
 	 */
-	public static function links( string $hub, string $current_slug, string $current_tab ): array {
-		$entries = array_values( array_filter( self::hub_entries( $hub ), static fn ( array $entry ): bool => current_user_can( $entry['capability'] ) ) );
-		$current = self::current_entry_key( $entries, $current_slug, $current_tab );
+	public static function tab_links( string $slug, string $current_tab ): array {
+		$own = array_values( array_filter( self::entries(), static fn ( array $entry ): bool => $slug === $entry['slug'] ) );
+		if ( count( $own ) < 2 ) {
+			return [];
+		}
+
+		$entries = array_values( array_filter( $own, static fn ( array $entry ): bool => current_user_can( $entry['capability'] ) ) );
+		$current = self::current_entry_key( $entries, $slug, $current_tab );
 		$links   = [];
 		foreach ( $entries as $entry ) {
 			$args = [ 'page' => $entry['slug'] ];
 			if ( '' !== $entry['tab'] ) {
 				$args['tab'] = $entry['tab'];
 			}
-			$count   = self::count( $entry );
 			$links[] = [
 				'label'       => $entry['label'],
 				'url'         => add_query_arg( $args, admin_url( 'admin.php' ) ),
 				'current'     => $entry['slug'] . '|' . $entry['tab'] === $current,
-				'count'       => $count,
+				'count'       => self::count( $entry ),
 				'count_label' => $entry['count_label'],
 			];
 		}
 
 		return $links;
+	}
+
+	/**
+	 * The links of the band: one per page the user can open, in registry order (hub, then order), grouped by hub.
+	 *
+	 * The text of a link is the entry's menu label when it has one, the page title for a page that has several
+	 * tabs of its own, and the label otherwise. The current link is the page that is open, on any of its tabs.
+	 *
+	 * @return list<BandGroup>
+	 */
+	public static function band_groups( string $current_slug ): array {
+		$entries = self::entries();
+		$tabs    = array_count_values( array_column( $entries, 'slug' ) );
+		$groups  = [];
+		$seen    = [];
+		foreach ( $entries as $entry ) {
+			if ( isset( $seen[ $entry['slug'] ] ) || ! current_user_can( $entry['capability'] ) ) {
+				continue;
+			}
+			$seen[ $entry['slug'] ] = true;
+
+			$text = $entry['label'];
+			if ( '' !== $entry['menu_label'] ) {
+				$text = $entry['menu_label'];
+			} elseif ( $tabs[ $entry['slug'] ] > 1 ) {
+				$text = $entry['title'];
+			}
+			$link = [
+				'label'       => $text,
+				'url'         => add_query_arg( [ 'page' => $entry['slug'] ], admin_url( 'admin.php' ) ),
+				'current'     => $current_slug === $entry['slug'],
+				'count'       => self::count( $entry ),
+				'count_label' => $entry['count_label'],
+				'beta'        => $entry['beta'],
+			];
+
+			$last = array_key_last( $groups );
+			if ( null !== $last && $groups[ $last ]['hub'] === $entry['hub'] ) {
+				$groups[ $last ]['links'][] = $link;
+				continue;
+			}
+			$groups[] = [
+				'hub'   => $entry['hub'],
+				'label' => self::hub_label( $entry['hub'] ),
+				'links' => [ $link ],
+			];
+		}
+
+		return $groups;
 	}
 
 	/** The `tab` value of the current request, cleaned. */
