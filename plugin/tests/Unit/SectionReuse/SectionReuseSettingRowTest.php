@@ -62,14 +62,35 @@ final class SectionReuseSettingRowTest extends TestCase {
 		self::assertStringNotContainsString( ' checked', $off );
 	}
 
-	public function test_the_info_callout_shows_only_while_the_setting_is_on_and_is_announced_politely(): void {
+	public function test_the_info_callout_shows_only_while_the_saved_setting_is_on_and_is_announced_politely(): void {
 		$on = self::row();
 		self::assertStringContainsString( 'sw-ui-callout--info', $on );
-		self::assertStringContainsString( '<div aria-live="polite"><div class="sw-ui-callout', $on );
+		self::assertStringContainsString( 'aria-live="polite"><div class="sw-ui-callout', $on );
 		self::assertStringContainsString( 'never changes the page it copies from', $on );
 
 		$GLOBALS['stonewright_test_options'][ SectionReuseSetting::OPTION ] = 'off';
-		self::assertStringNotContainsString( 'sw-ui-callout', self::row() );
+		$off = self::row();
+		self::assertStringNotContainsString( 'aria-live="polite"><div class="sw-ui-callout', $off, 'Nothing is in the live region on load.' );
+		self::assertStringContainsString( 'aria-live="polite"></div>', $off );
+	}
+
+	public function test_the_callout_follows_the_switch_through_a_template_and_one_polite_live_region(): void {
+		foreach ( [ 'ask', 'off' ] as $value ) {
+			$GLOBALS['stonewright_test_options'][ SectionReuseSetting::OPTION ] = $value;
+			$html = self::row();
+
+			self::assertSame( 1, substr_count( $html, 'aria-live="polite"' ), 'One live region.' );
+			self::assertStringContainsString( 'data-sw-ui-live-fill="#stonewright_section_reuse_callout_region"', $html );
+			self::assertStringContainsString( 'data-sw-ui-live-fill-from="#stonewright_section_reuse_callout_template"', $html );
+			self::assertStringContainsString( '<template id="stonewright_section_reuse_callout_template"><div class="sw-ui-callout', $html, 'The callout is always available to the script.' );
+			$region = (string) substr( $html, (int) strpos( $html, '<div id="stonewright_section_reuse_callout_region"' ), 400 );
+			self::assertStringStartsWith( '<div id="stonewright_section_reuse_callout_region" aria-live="polite">', $region );
+			self::assertSame( 'ask' === $value, str_starts_with( substr( $region, strlen( '<div id="stonewright_section_reuse_callout_region" aria-live="polite">' ) ), '<div class="sw-ui-callout' ), 'The region holds the callout only while the saved value is ask.' );
+		}
+	}
+
+	public function test_the_help_says_the_setting_changes_when_the_form_is_saved(): void {
+		self::assertStringContainsString( 'The setting changes when you save.', self::row() );
 	}
 
 	public function test_production_safe_mode_says_what_changes(): void {

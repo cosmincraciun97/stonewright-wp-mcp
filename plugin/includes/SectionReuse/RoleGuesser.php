@@ -12,10 +12,13 @@ namespace Stonewright\WpMcp\SectionReuse;
 
 /**
  * Names a section's role from its builder-native structure: the widget or block types it holds, how it
- * repeats, and where it sits on the page. The rules run in a fixed order and the first that matches wins,
+ * repeats, and where it sits on the page (a hero is the first section, or one of the first three with an h1). The rules run in a fixed order and the first that matches wins,
  * so the guess is deterministic. It is a hint for choosing candidates, not a classification to rely on.
  */
 final class RoleGuesser {
+
+	/** A section with an h1 is a hero candidate when it is among this many first sections of its page. */
+	public const HERO_WINDOW = 3;
 
 	/** @var list<string> */
 	public const ROLES = [ 'hero', 'features', 'testimonials', 'pricing', 'faq', 'cta', 'gallery', 'contact', 'other' ];
@@ -50,7 +53,7 @@ final class RoleGuesser {
 		if ( $signals['cta'] > 0 ) {
 			return 'cta';
 		}
-		if ( 0 === $index && $counts['headings'] >= 1 && ( $counts['buttons'] >= 1 || $counts['images'] >= 1 ) ) {
+		if ( self::is_hero( $counts, $signals, $index ) ) {
 			return 'hero';
 		}
 		if ( $counts['headings'] >= 1 && ( $repeated >= 3 || ( $repeated >= 2 && (int) $summary['columns'] >= 2 ) ) ) {
@@ -61,5 +64,20 @@ final class RoleGuesser {
 		}
 
 		return 'other';
+	}
+
+	/**
+	 * A hero has a heading and a button or an image, and either opens the page or carries an h1 within the
+	 * first few sections, so an intro or a banner above it does not hide it.
+	 *
+	 * @param array{headings:int,images:int,buttons:int,forms:int} $counts
+	 * @param array<string,int>                                    $signals
+	 */
+	private static function is_hero( array $counts, array $signals, int $index ): bool {
+		if ( $counts['headings'] < 1 || ( $counts['buttons'] < 1 && $counts['images'] < 1 ) ) {
+			return false;
+		}
+
+		return 0 === $index || ( $index < self::HERO_WINDOW && (int) ( $signals['h1'] ?? 0 ) > 0 );
 	}
 }

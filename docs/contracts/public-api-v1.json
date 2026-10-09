@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T21:01:04+00:00",
+    "generated_at": "2026-10-09T21:38:19+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -142,7 +142,7 @@
             "ability_name": "stonewright/blocks-batch-mutate",
             "mcp_name": "stonewright-blocks-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "8a8beeb5d238578713ce4675e0267201b2c1e8d54102fc63eb93bae0d3e13111",
+            "input_schema_hash": "da2b58a2af278b8082c73dd56befcfd7d4b35a0c35fdd1d927047f0331f97558",
             "output_schema_hash": "799c19db50556ee039ec34e9359e2fab86fb32bc58e272770fa4f0ec6af1ba0d",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {

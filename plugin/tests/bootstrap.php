@@ -1102,7 +1102,7 @@ if ( ! function_exists( 'current_theme_supports' ) ) {
 
 if ( ! function_exists( 'wp_is_block_theme' ) ) {
 	function wp_is_block_theme(): bool {
-		return true;
+		return $GLOBALS['stonewright_test_is_block_theme'] ?? true;
 	}
 }
 
@@ -2209,6 +2209,19 @@ if ( ! function_exists( 'get_posts' ) ) {
 				array_filter(
 					$posts,
 					static fn( object $post ): bool => in_array( (string) ( $post->post_type ?? '' ), $post_types, true )
+				)
+			);
+		}
+
+		// A simple taxonomy filter: a post carries the terms it belongs to in $post->stonewright_test_terms[ taxonomy ].
+		foreach ( (array) ( $args['tax_query'] ?? [] ) as $clause ) {
+			if ( ! is_array( $clause ) || ! isset( $clause['taxonomy'] ) ) {
+				continue;
+			}
+			$posts = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => [] !== array_intersect( (array) ( $clause['terms'] ?? [] ), (array) ( $post->stonewright_test_terms[ $clause['taxonomy'] ] ?? [] ) )
 				)
 			);
 		}

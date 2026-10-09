@@ -41,7 +41,7 @@ final class PortableSection {
 	 * Builds the portable form of a section of a source post.
 	 *
 	 * @param array{builder:string,index:int,locator:array<string,mixed>,node:array<string,mixed>} $section One entry of {@see SectionSource::sections()}.
-	 * @return array{section:array<string,mixed>,inspection:array<string,mixed>,layout:array<string,mixed>,stats:array<string,int>}|\WP_Error
+	 * @return array{section:array<string,mixed>,inspection:array<string,mixed>,layout:array<string,mixed>,stats:array<string,int>,migrated:list<array{block:string,key:string,to:string}>}|\WP_Error
 	 */
 	public static function extract( object $post, array $section ): array|\WP_Error {
 		$limits  = ProviderRouter::element_limits();
@@ -52,9 +52,12 @@ final class PortableSection {
 			'source'  => [ 'post_id' => (int) $post->ID, 'locator' => self::source_locator( $section['locator'] ) ],
 		];
 		$placeholders = 0;
+		$migrated     = [];
 
 		if ( Builder::GUTENBERG === $builder ) {
-			$blocks = self::gutenberg_blocks( $post, $section );
+			$moved             = LegacyBlockAttributes::migrate( self::gutenberg_blocks( $post, $section ) );
+			$blocks            = $moved['blocks'];
+			$migrated          = $moved['migrated'];
 			$payload['blocks'] = $blocks;
 			$inspection        = self::inspect_blocks( $blocks, $limits );
 			$payload['anchors'] = $inspection['anchors'];
@@ -81,6 +84,7 @@ final class PortableSection {
 			'inspection' => $inspection,
 			'layout'     => $layout,
 			'stats'      => [ 'elements' => Builder::GUTENBERG === $builder ? 0 : $layout['elements'], 'blocks' => Builder::GUTENBERG === $builder ? $layout['elements'] : 0, 'placeholders' => $placeholders, 'bytes' => $bytes ],
+			'migrated'   => $migrated,
 		];
 	}
 

@@ -16,7 +16,9 @@ use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
  * Finds the sections of one builder family on the site, newest sources first.
  *
  * Sources are published and draft pages and posts of public post types, Elementor saved section and
- * container templates, and Gutenberg patterns; never trashed posts, autosaves or revisions. Only a post the
+ * container templates, Gutenberg patterns and, for Gutenberg on a block theme, the customized templates and
+ * template parts of the active theme (a template that exists only as a theme file has no post and is not a
+ * source); never trashed posts, autosaves or revisions. Only a post the
  * current user may both read and edit is considered. The scan looks at the 200 most recent sources and says
  * when there were more. Each source is summarized once per modification time and builder version
  * ({@see SignatureCache}); the summary is layout-only and deterministic.
@@ -116,9 +118,26 @@ final class SourceScanner {
 				? [ [ 'key' => '_elementor_edit_mode', 'value' => 'builder' ] ]
 				: [ 'relation' => 'OR', [ 'key' => '_elementor_edit_mode', 'compare' => 'NOT EXISTS' ], [ 'key' => '_elementor_edit_mode', 'value' => 'builder', 'compare' => '!=' ] ],
 		];
+		$found = (array) get_posts( $args );
+		if ( ! Builder::is_elementor( $builder ) && function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
+			// Customized templates belong to the theme that was active when they were saved, so only the active one counts.
+			$found = array_merge(
+				$found,
+				(array) get_posts(
+					array_merge(
+						$args,
+						[
+							'post_type'  => SectionSource::SITE_TEMPLATE_POST_TYPES,
+							'meta_query' => [],
+							'tax_query'  => [ [ 'taxonomy' => 'wp_theme', 'field' => 'name', 'terms' => [ get_stylesheet() ] ] ],
+						]
+					)
+				)
+			);
+		}
 		$posts = array_values(
 			array_filter(
-				(array) get_posts( $args ),
+				$found,
 				static fn( mixed $post ): bool => is_object( $post )
 					&& (int) $post->ID !== $exclude_post_id
 					&& in_array( SectionSource::field( $post, 'post_status' ), [ 'publish', 'draft' ], true )

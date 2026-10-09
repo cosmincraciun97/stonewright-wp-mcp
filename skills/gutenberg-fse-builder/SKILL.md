@@ -14,10 +14,14 @@ All write operations that touch post content or theme.json take a snapshot first
 Static and third-party block writes go through the browser finalizer. The
 server serialize path is only for true `save:null` dynamic blocks.
 
-When building a page, load `stonewright-section-reuse` first: the site may
-already have a matching section to copy with an `insert_section` operation of
-`stonewright-blocks-batch-mutate` (skip it when
-`agent_preferences.section_reuse` is `off`).
+When building a page, or working on a template or template part (a header,
+footer, or a section of a customized template), load `stonewright-section-reuse`
+first: the site may already have a matching section to copy with an
+`insert_section` operation of `stonewright-blocks-batch-mutate` (skip it when
+`agent_preferences.section_reuse` is `off`). Customized templates and template
+parts of the active block theme are sources and targets of reuse; a template
+that exists only as a theme file is not, until it has been customized in the
+Site Editor.
 
 ## Block Theme Production Workflow
 

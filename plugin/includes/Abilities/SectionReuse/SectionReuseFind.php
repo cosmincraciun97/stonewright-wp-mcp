@@ -20,6 +20,7 @@ use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\SectionReuse\SectionSource;
 use Stonewright\WpMcp\SectionReuse\Similarity;
 use Stonewright\WpMcp\SectionReuse\SourceScanner;
+use Stonewright\WpMcp\SectionReuse\SourceWarnings;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -269,7 +270,7 @@ final class SectionReuseFind extends AbilityKernel {
 			'capped'     => ! empty( $section['layout']['capped'] ),
 			'similarity' => $score,
 			'outline'    => $section['outline'],
-			'warnings'   => ReuseWarnings::from( $references ),
+			'warnings'   => array_merge( ReuseWarnings::from( $references ), SourceWarnings::for_post( $post ) ),
 		];
 	}
 }
