@@ -186,6 +186,7 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( [ 'stonewright-audit-log', 'stonewright-rescue' ], array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ) );
 		$entry = MenuRegistry::entry( 'stonewright-rescue' );
 		self::assertSame( 'manage_options', $entry['capability'] ?? '' );
+		self::assertTrue( $entry['beta'] ?? false, 'Rescue carries the EXP marker in the band and the sidebar.' );
 		self::assertStringContainsString( 'Roll back a change that stopped the site from loading', $entry['lede'] ?? '' );
 	}
 
@@ -221,7 +222,7 @@ final class RescuePageTest extends TestCase {
 
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Rescue</h1><p class="sw-ui-page-lede">Roll back a change that stopped the site from loading', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
-		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link" href="[^"]*page=stonewright-rescue" aria-current="page">Rescue<\/a>/', $html, 'Rescue is the current link of the band, in the Activity group.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link sw-ui-band__link--exp" href="[^"]*page=stonewright-rescue" aria-current="page" data-sw-ui-tip="This feature is experimental\.">Rescue<span class="sw-ui-band__exp" aria-hidden="true">EXP<\/span>/', $html, 'Rescue is the current link of the band, in the Activity group, with the EXP marker.' );
 		self::assertStringContainsString( '<span class="sw-ui-band__label" aria-hidden="true">Activity</span>', $html );
 		self::assertStringNotContainsString( 'sw-ui-hubnav', $html, 'Rescue has no tabs of its own.' );
 	}

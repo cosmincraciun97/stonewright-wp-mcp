@@ -714,6 +714,39 @@ test.describe('The shell on Stonewright pages', () => {
 		});
 	}
 
+	/** The space above and below the Stonewright pill in the admin bar, and the bar's own height. */
+	async function pillSpace(page: Page): Promise<{ above: number; below: number; bar: number; pill: number } | null> {
+		return page.evaluate(() => {
+			const bar = document.querySelector('#wpadminbar');
+			const pill = document.querySelector('#wp-admin-bar-stonewright-on .stonewright-ab-badge');
+			if (!bar || !pill || getComputedStyle(pill).display === 'none' || pill.getBoundingClientRect().height === 0) {
+				return null;
+			}
+			const barBox = bar.getBoundingClientRect();
+			const pillBox = pill.getBoundingClientRect();
+			return { above: pillBox.top - barBox.top, below: barBox.bottom - pillBox.bottom, bar: barBox.height, pill: pillBox.height };
+		});
+	}
+
+	test('the Stonewright pill in the admin bar has equal space above and below it, in the admin and on the front end', async ({ page }) => {
+		const width = page.viewportSize()?.width ?? 1440;
+		test.skip(width < 360, 'At 320px the other items of the phone bar leave no room to show the pill, so there is nothing to centre.');
+		const phone = width <= 782;
+		for (const address of ['/wp-admin/admin.php?page=stonewright-status', '/']) {
+			await page.goto(address, { waitUntil: 'domcontentloaded' });
+			await page.locator('#wpadminbar').waitFor({ state: 'attached' });
+			if (phone) {
+				// WordPress hides the bar's own items on a phone. Showing the node proves the pill is centred in the 46px bar too.
+				await page.addStyleTag({ content: '#wpadminbar #wp-admin-bar-stonewright-on { display: list-item; }' });
+			}
+			const space = await pillSpace(page);
+			expect(space, `${address}: the pill is in the bar`).not.toBeNull();
+			expect(space!.bar, `${address}: the bar is 32px on a desktop and 46px on a phone`).toBe(phone ? 46 : 32);
+			expect(Math.abs(space!.above - space!.below), `${address}: ${space!.above}px above, ${space!.below}px below`).toBeLessThanOrEqual(0.5);
+			expect(space!.pill, `${address}: a pill taller than its text`).toBeGreaterThanOrEqual(20);
+		}
+	});
+
 	test('the skip link is the first stop in the shell, shows on focus and lands in the content', async ({ page }) => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-skills', { waitUntil: 'domcontentloaded' });
 		const skip = page.locator('.sw-shell a.screen-reader-shortcut');
@@ -774,8 +807,8 @@ test.describe('The shell on Stonewright pages', () => {
 
 		const marked = await page.locator('.sw-ui-band__link--exp').evaluateAll((links) => links.map((link) => (link.childNodes[0]?.textContent ?? '').trim()));
 		expect(marked).toEqual([...STONEWRIGHT_EXP_LINKS]);
-		await expect(page.locator('.sw-ui-band__exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP']);
-		await expect(page.locator('#toplevel_page_stonewright .sw-menu-exp')).toHaveCount(3);
+		await expect(page.locator('.sw-ui-band__exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP', 'EXP']);
+		await expect(page.locator('#toplevel_page_stonewright .sw-menu-exp')).toHaveCount(4);
 		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(0);
 
 		await expect(page.locator('.sw-shell__chrome .sw-ui-badge')).toHaveCount(0);

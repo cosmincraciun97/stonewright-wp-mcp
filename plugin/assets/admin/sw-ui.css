@@ -1995,6 +1995,52 @@
 	min-height: var(--sw-control-h);
 }
 
+/* A checklist: one row per check, with its status, its name and its detail in three aligned columns. */
+.sw-ui .sw-ui-checks {
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	list-style: none;
+}
+
+.sw-ui .sw-ui-checks__item {
+	display: grid;
+	grid-template-columns: 6rem minmax(0, 12rem) minmax(0, 1fr);
+	align-items: baseline;
+	gap: var(--sw-space-1) var(--sw-space-4);
+	margin: 0;
+	padding: var(--sw-space-2) var(--sw-space-4);
+}
+
+:where(.sw-ui) .sw-ui-checks__item + .sw-ui-checks__item {
+	border-top: 1px solid var(--sw-border);
+}
+
+.sw-ui .sw-ui-checks__item--danger {
+	background: var(--sw-danger-soft);
+}
+
+.sw-ui .sw-ui-checks__item :where(.sw-ui-badge) {
+	justify-self: start;
+}
+
+.sw-ui .sw-ui-checks__label {
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-checks__detail {
+	display: grid;
+	gap: var(--sw-space-1);
+	color: var(--sw-text-secondary);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-checks__fix {
+	color: var(--sw-text);
+}
+
 /* ====================================================================== */
 /* 16a. Drawer layout, filter links and lineage detail (Activity pages)     */
 /* ====================================================================== */
@@ -2118,6 +2164,16 @@
 
 	.sw-ui .sw-ui-kv :where(dd + dt) {
 		margin-top: var(--sw-space-2);
+	}
+
+	/* A check keeps its status and name on one line and puts the detail under them. */
+	.sw-ui .sw-ui-checks__item {
+		grid-template-columns: max-content minmax(0, 1fr);
+		column-gap: var(--sw-space-3);
+	}
+
+	.sw-ui .sw-ui-checks__detail {
+		grid-column: 1 / -1;
 	}
 
 	/* A stacking table: each row becomes a card of label and value pairs (td[data-label]). */
@@ -2483,6 +2539,55 @@
 	background: var(--sw-accent-soft);
 }
 
+/*
+ * The file field (an input of type file): the native control, so it keeps its label, its keyboard use and its file
+ * name text. Its button is drawn as the secondary button at the default size, and the name of the chosen file (or
+ * "No file chosen") follows it.
+ */
+.sw-ui .sw-ui-file {
+	box-sizing: border-box;
+	max-width: 100%;
+	min-height: var(--sw-control-h);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--sw-text-secondary);
+	font: inherit;
+	cursor: pointer;
+	outline-offset: 2px;
+}
+
+:where(.sw-ui) .sw-ui-file::file-selector-button {
+	box-sizing: border-box;
+	min-height: var(--sw-control-h);
+	margin-inline-end: var(--sw-space-3);
+	padding: 0 var(--sw-space-4);
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius-control);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	font: inherit;
+	font-weight: var(--sw-weight-medium);
+	line-height: 1;
+	cursor: pointer;
+	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease), color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui .sw-ui-file:hover)::file-selector-button {
+	border-color: var(--sw-accent-text);
+	color: var(--sw-accent-text);
+}
+
+@media (max-width: 782px) {
+	.sw-ui .sw-ui-file {
+		min-height: 44px;
+	}
+
+	:where(.sw-ui) .sw-ui-file::file-selector-button {
+		min-height: 44px;
+	}
+}
+
 /* ====================================================================== */
 /* Pointer focus (added with the admin UI polish pass)                      */
 /* ====================================================================== */
@@ -2495,12 +2600,12 @@
  * rules they answer, (0,3,0) to (0,4,1) against core's `.wp-core-ui .button-primary:focus` at (0,3,0), so no
  * declaration needs `!important`. Text fields keep the ring they draw on every focus.
  */
-.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus:not(:focus-visible) {
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"], [type="file"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus:not(:focus-visible) {
 	outline: 0;
 	box-shadow: none;
 }
 
-.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus-visible {
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"], [type="file"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus-visible {
 	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
 	box-shadow: none;
 }

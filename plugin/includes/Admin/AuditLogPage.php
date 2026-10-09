@@ -537,8 +537,8 @@ final class AuditLogPage {
 
 		$buttons = Button::group(
 			[
-				Button::render( __( 'Filter', 'stonewright' ), [ 'variant' => 'primary', 'size' => 'sm', 'type' => 'submit', 'attrs' => [ 'data-sw-audit-filter' => true ] ] ),
-				Button::render( __( 'Reset filters', 'stonewright' ), [ 'variant' => 'tertiary', 'size' => 'sm', 'href' => admin_url( 'admin.php?page=' . self::SLUG ) ] ),
+				Button::render( __( 'Filter', 'stonewright' ), [ 'variant' => 'primary', 'type' => 'submit', 'attrs' => [ 'data-sw-audit-filter' => true ] ] ),
+				Button::render( __( 'Reset filters', 'stonewright' ), [ 'variant' => 'tertiary', 'href' => admin_url( 'admin.php?page=' . self::SLUG ) ] ),
 			]
 		);
 		$rules   = Html::element(

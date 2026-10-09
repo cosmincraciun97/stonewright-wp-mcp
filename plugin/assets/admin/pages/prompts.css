@@ -11,20 +11,20 @@
 	font-size: var(--sw-fs-lg);
 }
 
-/* Outcome groups sit side by side in as many columns as fit; the cards of one outcome stack under its heading. */
+/* Each outcome is a full-width section: its heading, then one grid of cards. Sections stack, so no column is ever shorter than its neighbour. */
 .sw-prompts .sw-prompts__groups {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-	align-items: start;
-	gap: var(--sw-space-5) var(--sw-space-4);
+	gap: var(--sw-space-6);
 }
 
 .sw-prompts .sw-prompts__groups > [data-sw-ui-filter-empty] {
 	grid-column: 1 / -1;
 }
 
+/* The cards of a row share one height. */
 .sw-prompts .sw-prompts__grid {
 	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
 	gap: var(--sw-space-4);
 }
 
@@ -34,11 +34,36 @@
 	min-width: 0;
 }
 
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__header {
+	display: grid;
+	justify-content: stretch;
+	align-content: start;
+	gap: 0;
+}
+
 .sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__body {
 	flex: 1 1 auto;
 	display: grid;
 	align-content: start;
 	gap: var(--sw-space-3);
+}
+
+/* The copy action on the left and the modes on the right; on a narrow card the modes wrap under the action. */
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__footer {
+	margin-block-start: auto;
+}
+
+/*
+ * Where the browser can share rows with the grid (subgrid), the header, body and footer of every card in a row sit on
+ * the same three lines, so descriptions, requirement lists, tool lists and copy buttons line up across the row.
+ */
+@supports (grid-template-rows: subgrid) {
+	.sw-prompts .sw-prompts__grid > .sw-ui-card {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+	}
 }
 
 .sw-prompts .sw-prompts__list {

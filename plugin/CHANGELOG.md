@@ -272,6 +272,25 @@
 
 ### Changed
 
+- Mark Rescue as experimental with the EXP marker in the band and the sidebar,
+  like Troubleshoot, Context, Design and Block queue.
+- Lay the Prompt library out as one full-width section per outcome with a grid
+  of equal cards. Cards in a row share one height, and their descriptions,
+  requirement lists, tool lists and copy buttons sit on the same lines. Every
+  card shows its modes in the footer beside the copy action.
+- Show the Setup verification results as a checklist with the status, the name
+  and the detail in their own columns, a next step under the detail and a
+  tinted row for a failure. The two verification buttons share one height.
+- Move the domain lock action to the footer of its card as a secondary button
+  of the default size, with the reason it is disabled beside it.
+- Give the older Rescue buttons the height, text size and corner of the
+  layer's buttons, and make the Filter and Reset filters buttons of the Audit
+  log as tall as the fields beside them.
+- Style the file field of the Skills import as a layer control: a button of the
+  default size and the name of the chosen file beside it. The field stays the
+  labelled, keyboard-operable native input.
+- Centre the "Stonewright ON" pill of the admin bar with equal space above and
+  below in the 32px and the 46px bar.
 - Update the Prompt library: every starter names only tools and admin pages that
   exist in the mode it is tagged for, and eight new starters cover Rescue and
   rollback, snapshot restore, repair lineage, section reuse, the native Elementor

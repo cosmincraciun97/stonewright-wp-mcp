@@ -196,10 +196,10 @@ final class AdminBarIndicator {
 		}
 
 		echo '<style>'
-			. '#wpadminbar #wp-admin-bar-stonewright-on > .ab-item { color: #fff; }'
-			. '#wpadminbar .stonewright-ab-badge { padding: 0 8px; border-radius: 3px; font-weight: 600; }'
+			. '#wpadminbar #wp-admin-bar-stonewright-on > .ab-item { display: flex; align-items: center; color: #fff; }'
+			. '#wpadminbar .stonewright-ab-badge { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 20px; padding: 0 8px; border-radius: 3px; font-weight: 600; line-height: 1; }'
 			. '#wpadminbar .stonewright-ab-badge--on { background: #157347; color: #fff; }'
-			. '#wpadminbar .stonewright-ab-badge--on::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; vertical-align: middle; }'
+			. '#wpadminbar .stonewright-ab-badge--on::before { content: ""; flex: none; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; }'
 			. '#wpadminbar .stonewright-ab-badge--off { background: #646970; color: #fff; }'
 			. '#wpadminbar .stonewright-ab-badge--error { background: #b32d2e; color: #fff; }'
 			. '#wpadminbar .stonewright-ab-badge--blocked { background: #996800; color: #fff; }'

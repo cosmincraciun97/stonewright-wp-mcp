@@ -16,6 +16,7 @@ const SETUP = '/wp-admin/admin.php?page=stonewright';
 const ABILITIES = '/wp-admin/admin.php?page=stonewright-abilities';
 const SANDBOX = '/wp-admin/admin.php?page=stonewright-sandbox';
 const MEMORY = '/wp-admin/admin.php?page=stonewright-memory';
+const SKILLS_IMPORT = '/wp-admin/admin.php?page=stonewright-skills&view=import';
 
 interface Paint {
 	outlineStyle: string;
@@ -32,6 +33,8 @@ interface Target {
 	find: (page: Page) => Locator;
 	/** A control that navigates, copies or saves is held back from doing so: only its focus is under test. */
 	inert?: boolean;
+	/** A control the mouse does not focus (a file field opens its dialog instead): only the keyboard ring is checked here. */
+	keyboardOnly?: boolean;
 	/** Runs after the page loads and before the control is found, for a control the page does not print itself. */
 	prepare?: (page: Page) => Promise<void>;
 }
@@ -72,6 +75,7 @@ const TARGETS: Target[] = [
 	{ name: 'secondary link', page: MEMORY, find: (page) => page.locator('a.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'step choice card', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="radio"]:not([disabled]):visible').first(), inert: true },
 	{ name: 'client choice', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="tab"][aria-selected="false"]:visible').first(), inert: true },
+	{ name: 'Skills import file field', page: SKILLS_IMPORT, find: (page) => page.locator('.sw-ui-dropzone input[type="file"]'), inert: true, keyboardOnly: true },
 	{ name: 'disclosure summary', page: SETUP, find: (page) => page.locator('.sw-setup summary:visible').first(), inert: true },
 	{ name: 'older-markup link', page: ABILITIES, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] a'), inert: true },
 	{ name: 'older-markup core .button', page: SANDBOX, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] button.button'), inert: true },
@@ -141,7 +145,8 @@ test.describe('Pointer focus on Stonewright controls', () => {
 	});
 
 	for (const target of TARGETS) {
-		test(`${target.name}: no ring, outline, border or shadow after a mouse click`, async ({ page }) => {
+		const pointerTest = target.keyboardOnly ? test.skip : test;
+		pointerTest(`${target.name}: no ring, outline, border or shadow after a mouse click`, async ({ page }) => {
 			await gotoAdmin(page, target.page);
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
 			await target.prepare?.(page);
