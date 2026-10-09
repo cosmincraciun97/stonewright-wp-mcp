@@ -205,8 +205,9 @@ final class ElementorTransactionRunner {
 			$envelope['snapshot_id'] = $snapshot_id;
 		}
 
+		// The transaction-run ability verifies its own confirmation token before calling the runner.
 		$batch = new BatchMutate();
-		$result = $batch->execute(
+		$result = $batch->execute_with_verified_token(
 			[
 				'post_id'       => $post_id,
 				'operations'    => $envelope['operations'],

@@ -6,13 +6,20 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 
 /**
- * Export Elementor JSON as git-friendly mirror files under uploads.
+ * Export Elementor JSON for selected posts as git-friendly text.
+ *
+ * The JSON is returned in the ability result to the authenticated caller. No
+ * export file is written, so nothing is published under a public path.
  *
  * @stonewright-status experimental
  */
 final class DesignMirrorExport extends AbilityKernel {
+
+	/** Upper bound for the JSON text returned by one call. */
+	private const MAX_RESPONSE_BYTES = 1500000;
 
 	public function name(): string {
 		return 'stonewright/design-mirror-export';
@@ -23,7 +30,7 @@ final class DesignMirrorExport extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Exports Elementor tree JSON for selected posts into wp-content/uploads/stonewright-mirror/ with sorted keys for stable diffs. Read-only; does not run git.', 'stonewright' );
+		return __( 'Returns the Elementor tree JSON of selected posts in the result, one entry per post with a suggested filename, byte count, SHA-256 and the JSON text, with sorted keys for stable diffs. Writes no file and publishes nothing; export files that earlier versions left in the uploads folder are removed. The total JSON per call is capped. Does not run git.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -53,10 +60,25 @@ final class DesignMirrorExport extends AbilityKernel {
 			'additionalProperties' => true,
 			'properties'           => [
 				'ok'      => [ 'type' => 'boolean' ],
-				'dir'     => [ 'type' => 'string' ],
-				'exports' => [ 'type' => 'array' ],
+				'exports' => [
+					'type'  => 'array',
+					'items' => [
+						'type'                 => 'object',
+						'additionalProperties' => true,
+						'properties'           => [
+							'post_id'  => [ 'type' => 'integer' ],
+							'ok'       => [ 'type' => 'boolean' ],
+							'slug'     => [ 'type' => 'string' ],
+							'filename' => [ 'type' => 'string' ],
+							'bytes'    => [ 'type' => 'integer' ],
+							'sha256'   => [ 'type' => 'string' ],
+							'json'     => [ 'type' => 'string' ],
+							'error'    => [ 'type' => 'string', 'enum' => [ 'not_found', 'forbidden', 'encode_failed', 'response_too_large' ] ],
+						],
+					],
+				],
 			],
-			'required'             => [ 'ok', 'dir', 'exports' ],
+			'required'             => [ 'ok', 'exports' ],
 		];
 	}
 
@@ -79,16 +101,11 @@ final class DesignMirrorExport extends AbilityKernel {
 					return $this->error( 'invalid_args', __( 'post_ids is required.', 'stonewright' ) );
 				}
 
-				$upload = wp_upload_dir();
-				if ( ! empty( $upload['error'] ) ) {
-					return $this->error( 'upload_dir', (string) $upload['error'] );
-				}
-				$base = trailingslashit( (string) $upload['basedir'] ) . 'stonewright-mirror';
-				if ( ! wp_mkdir_p( $base ) ) {
-					return $this->error( 'mkdir_failed', __( 'Could not create stonewright-mirror directory.', 'stonewright' ) );
-				}
+				// Remove and guard files that earlier versions published under uploads.
+				LegacyMirrorCleanup::run();
 
 				$exports = [];
+				$total   = 0;
 				foreach ( $ids as $raw_id ) {
 					$post_id = (int) $raw_id;
 					$post    = get_post( $post_id );
@@ -97,6 +114,14 @@ final class DesignMirrorExport extends AbilityKernel {
 							'post_id' => $post_id,
 							'ok'      => false,
 							'error'   => 'not_found',
+						];
+						continue;
+					}
+					if ( ! Permissions::edit_post( $post_id ) ) {
+						$exports[] = [
+							'post_id' => $post_id,
+							'ok'      => false,
+							'error'   => 'forbidden',
 						];
 						continue;
 					}
@@ -118,22 +143,34 @@ final class DesignMirrorExport extends AbilityKernel {
 						];
 						continue;
 					}
+					$json  .= "
+";
+					$bytes  = strlen( $json );
+					if ( $total + $bytes > self::MAX_RESPONSE_BYTES ) {
+						$exports[] = [
+							'post_id' => $post_id,
+							'ok'      => false,
+							'error'   => 'response_too_large',
+							'bytes'   => $bytes,
+						];
+						continue;
+					}
+					$total += $bytes;
 
-					$slug = sanitize_title( (string) ( $post->post_name ?: ( 'post-' . $post_id ) ) );
-					$file = $base . '/' . $slug . '.json';
-					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-					$written = file_put_contents( $file, $json . "\n" );
+					$slug      = sanitize_title( (string) ( $post->post_name ?: ( 'post-' . $post_id ) ) );
 					$exports[] = [
 						'post_id'  => $post_id,
-						'ok'       => false !== $written,
-						'path'     => $file,
-						'bytes'    => false === $written ? 0 : (int) $written,
+						'ok'       => true,
+						'slug'     => $slug,
+						'filename' => $slug . '.json',
+						'bytes'    => $bytes,
+						'sha256'   => hash( 'sha256', $json ),
+						'json'     => $json,
 					];
 				}
 
 				return [
 					'ok'      => true,
-					'dir'     => $base,
 					'exports' => $exports,
 				];
 			}

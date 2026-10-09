@@ -7,9 +7,11 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
 use Stonewright\WpMcp\Elementor\CssTargetResolver;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * Regenerates one Elementor post or loop CSS file inside a guarded transaction.
@@ -116,6 +118,33 @@ final class CssRegenerate extends AbilityKernel {
 
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
+				}
+
+				// Elementor prints stored colour, typography and unit values into the
+				// stylesheet unescaped, so a page that stores a value carrying CSS
+				// control characters is never handed to the generator.
+				$unsafe = CssValueGuard::unsafe_values_in_tree( ElementorData::read( $post_id ) );
+				$page   = get_post_meta( $post_id, '_elementor_page_settings', true );
+				if ( is_array( $page ) ) {
+					$unsafe = array_merge( $unsafe, CssValueGuard::unsafe_values_in_settings( $page, 'page_settings' ) );
+				}
+				if ( [] !== $unsafe ) {
+					$paths = array_slice( array_column( $unsafe, 'path' ), 0, 10 );
+					return $this->error(
+						'elementor_css_unsafe_value',
+						sprintf(
+							/* translators: %s: setting path */
+							__( 'CSS regeneration refused: %s stores a value with CSS control characters.', 'stonewright' ),
+							(string) $paths[0]
+						),
+						[
+							'status'    => 422,
+							'retryable' => true,
+							'paths'     => $paths,
+							'count'     => count( $unsafe ),
+							'repair'    => 'Replace the listed settings with a real colour, font family or numeric value through elementor-v3-update-element, then regenerate again.',
+						]
+					);
 				}
 
 				$resolved = ( new CssTargetResolver() )->resolve( $post_id, $asset_kind );

@@ -16,6 +16,14 @@ use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
  */
 final class ElementorV3MotionApplierTest extends TestCase {
 
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options']        = [];
+		$GLOBALS['stonewright_test_posts']          = [];
+		$GLOBALS['stonewright_test_user_caps']      = [];
+		$GLOBALS['stonewright_test_user_logged_in'] = false;
+		$GLOBALS['stonewright_test_transients']     = [];
+	}
+
 	public function test_builds_batch_mutate_update_operations(): void {
 		$result = ElementorV3MotionApplier::build_operations(
 			[ [ 'target_id' => 'hero-copy', 'element_id' => 'elem123', 'widget_type' => 'heading' ] ],
@@ -139,6 +147,61 @@ final class ElementorV3MotionApplierTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $out );
 		self::assertSame( 'stonewright_motion_expected_tree_hash_required', $out->get_error_code() );
+	}
+
+	public function test_ability_write_succeeds_with_its_own_token_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$GLOBALS['stonewright_test_user_caps']                   = [ 'edit_post' => true, 'edit_posts' => true ];
+		$GLOBALS['stonewright_test_user_logged_in']              = true;
+		$GLOBALS['stonewright_test_transients']                  = [];
+		$tree = [
+			[
+				'id'       => 'root123',
+				'elType'   => 'container',
+				'settings' => [ 'container_type' => 'flex' ],
+				'elements' => [
+					[ 'id' => 'elem123', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => [ 'title' => 'Hello' ], 'elements' => [] ],
+				],
+			],
+		];
+		$GLOBALS['stonewright_test_posts'] = [
+			1 => (object) [
+				'ID'           => 1,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'V3 page',
+				'post_content' => 'body',
+				'post_excerpt' => '',
+				'meta'         => [
+					'_elementor_data'      => wp_json_encode( $tree ),
+					'_elementor_edit_mode' => 'builder',
+					'_elementor_version'   => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0',
+				],
+			],
+		];
+		$ability = new MotionApplyElementorV3();
+		$args    = [
+			'post_id'            => 1,
+			'dry_run'            => false,
+			'plan'               => self::plan(),
+			'targets'            => [ [ 'target_id' => 'hero-copy', 'element_id' => 'elem123', 'widget_type' => 'heading' ] ],
+			'evidence'           => [ 'hero-copy' => self::evidence() ],
+			'expected_tree_hash' => \Stonewright\WpMcp\Elementor\Write\TreeHasher::hash( $tree ),
+		];
+
+		$refused = $ability->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_confirmation_required', $refused->get_error_code() );
+
+		$token  = \Stonewright\WpMcp\Security\ConfirmationToken::issue( $ability->name(), $args );
+		$result = $ability->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray(
+			$result,
+			'Expected array, got WP_Error: ' . ( $result instanceof \WP_Error ? $result->get_error_code() . ' ' . $result->get_error_message() : '' )
+		);
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'fadeInUp', \Stonewright\WpMcp\Support\ElementorData::read( 1 )[0]['elements'][0]['settings']['_animation'] );
 	}
 
 	private static function plan(): array {

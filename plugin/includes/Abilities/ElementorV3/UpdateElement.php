@@ -163,7 +163,7 @@ final class UpdateElement extends AbilityKernel {
 				if ( $css_gate instanceof \WP_Error ) {
 					return $css_gate;
 				}
-				$supplied = SettingsKeyAliases::normalize( $incoming )['settings'];
+				$supplied = SettingsKeyAliases::normalize_for_element( $incoming, (string) ( $existing['elType'] ?? '' ), (string) ( $existing['widgetType'] ?? '' ) )['settings'];
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
 				$element_type = (string) ( $existing['elType'] ?? '' );
 				if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {

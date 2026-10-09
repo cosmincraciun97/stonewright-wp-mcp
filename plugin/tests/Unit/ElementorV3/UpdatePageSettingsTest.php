@@ -59,6 +59,31 @@ final class UpdatePageSettingsTest extends TestCase {
 		self::assertSame( 'stonewright/theme-custom-css', $result->get_error_data()['gated_tool'] );
 	}
 
+	public function test_colour_and_unit_values_that_are_not_safe_for_css_are_refused_without_a_write(): void {
+		foreach ( [
+			[ 'background_color' => 'red;}body{display:none}' ],
+			[ 'background_color_b' => 'javascript:alert(1)' ],
+			[ 'padding' => [ 'top' => '1', 'right' => '1', 'bottom' => '1', 'left' => '1', 'unit' => 'px;}x{' ] ],
+			[ '__globals__' => [ 'background_color' => 'url(//example.com/x.png)' ] ],
+		] as $settings ) {
+			$result = ( new UpdatePageSettings() )->execute( [ 'post_id' => 10, 'settings' => $settings, 'mode' => 'merge' ] );
+
+			self::assertInstanceOf( \WP_Error::class, $result, (string) array_key_first( $settings ) );
+			self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
+			self::assertStringContainsString( 'settings.' . array_key_first( $settings ), $result->get_error_message() );
+		}
+		self::assertSame( [ 'custom_css', 'hide_title' ], array_keys( $GLOBALS['stonewright_test_posts'][10]->meta['_elementor_page_settings'] ) );
+	}
+
+	public function test_real_colour_values_are_still_written(): void {
+		$result = ( new UpdatePageSettings() )->execute(
+			[ 'post_id' => 10, 'settings' => [ 'background_color' => '#112233', '__globals__' => [ 'background_color' => 'globals/colors?id=primary' ] ], 'mode' => 'merge' ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( '#112233', $GLOBALS['stonewright_test_posts'][10]->meta['_elementor_page_settings']['background_color'] );
+	}
+
 	public function test_idempotent_same_settings_are_successful_when_update_post_meta_returns_false(): void {
 		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => false ];
 

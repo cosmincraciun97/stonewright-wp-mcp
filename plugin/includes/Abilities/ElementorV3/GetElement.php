@@ -59,21 +59,9 @@ final class GetElement extends AbilityKernel {
 			return $this->error( 'not_found', __( 'Element not found in page data.', 'stonewright' ) );
 		}
 
-		$element = $tree;
-		foreach ( $path as $index ) {
-			$element = $element[ $index ];
-			if ( ! empty( $element['elements'] ) && $index !== end( $path ) ) {
-				$element = $element['elements'];
-			}
-		}
-
-		// Walk again cleanly to fetch a final reference.
-		$current = $tree;
-		foreach ( $path as $pos => $index ) {
-			$current = $current[ $index ];
-			if ( $pos !== array_key_last( $path ) ) {
-				$current = $current['elements'] ?? [];
-			}
+		$current = ElementorData::element_at( $tree, $path );
+		if ( null === $current ) {
+			return $this->error( 'not_found', __( 'Element not found in page data.', 'stonewright' ) );
 		}
 
 		return [

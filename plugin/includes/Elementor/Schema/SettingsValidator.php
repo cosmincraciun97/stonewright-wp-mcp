@@ -16,13 +16,14 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
-		$aliases  = SettingsKeyAliases::normalize( $settings );
-		$settings = $aliases['settings'];
-		$schema   = WidgetSchemaRepository::get( $widget_type );
+		$schema = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
+		$controls = (array) ( $schema['controls'] ?? [] );
+		$aliases  = SettingsKeyAliases::normalize( $settings, $controls );
+		$settings = $aliases['settings'];
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings, $controls ) );
 	}
 
 	/**
@@ -268,6 +269,12 @@ final class SettingsValidator {
 			if ( ! isset( $controls[ (string) $target ] ) ) {
 				$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'unknown_binding_target', 'a live control name', $binding, self::nearest_keys( (string) $target, array_keys( $controls ) ) );
 			}
+			if ( '__globals__' === $key ) {
+				if ( ! CssValueGuard::is_global_reference( $binding ) ) {
+					$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'invalid_binding', 'a global reference such as globals/colors?id=primary, or an empty string', $binding );
+				}
+				continue;
+			}
 			if ( ! is_string( $binding ) && ! is_array( $binding ) ) {
 				$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'invalid_binding', 'a dynamic tag/global binding string or object', $binding );
 			}
@@ -329,28 +336,51 @@ final class SettingsValidator {
 			return null;
 		}
 
+		$typography = CssValueGuard::typography_field_is_valid( (string) ( $control['key'] ?? '' ), $value );
+		if ( false === $typography ) {
+			return self::violation( $path, 'invalid_typography_value', CssValueGuard::typography_expected( (string) $control['key'] ), $value );
+		}
+
 		$valid = match ( $type ) {
-			'number', 'slider'                         => self::valid_number_or_slider( $value ),
+			'number'                                   => self::valid_number_or_slider( $value ),
+			'slider'                                   => self::valid_number_or_slider( $value ) && ( ! is_array( $value ) || CssValueGuard::slider_parts_safe( $value ) ),
 			'url'                                      => self::valid_url_value( $value ),
 			'media', 'gallery'                         => self::valid_media_value( $value ),
 			'switcher', 'select', 'choose', 'select2'  => is_scalar( $value ) || is_array( $value ),
-			'color', 'text', 'textarea', 'wysiwyg', 'code', 'date_time', 'hidden' => is_scalar( $value ) || null === $value,
-			'dimensions'                               => is_array( $value ) && self::only_keys( $value, [ 'top', 'right', 'bottom', 'left', 'unit', 'isLinked' ] ),
+			'color'                                    => CssValueGuard::is_color( $value ),
+			'font'                                     => CssValueGuard::is_font_family( $value ),
+			'text', 'textarea', 'wysiwyg', 'code', 'date_time', 'hidden' => is_scalar( $value ) || null === $value,
+			'dimensions'                               => is_array( $value ) && self::only_keys( $value, [ 'top', 'right', 'bottom', 'left', 'unit', 'isLinked' ] ) && CssValueGuard::dimensions_parts_safe( $value ),
+			'box_shadow'                               => CssValueGuard::is_shadow( $value, true ),
+			'text_shadow'                              => CssValueGuard::is_shadow( $value, false ),
 			default                                    => is_scalar( $value ) || is_array( $value ) || null === $value,
 		};
+		if ( $valid ) {
+			return null;
+		}
 
-		return $valid ? null : self::violation( $path, 'invalid_shape', 'a value compatible with Elementor control type ' . ( '' !== $type ? $type : 'unknown' ), $value );
+		$expected = match ( $type ) {
+			'color'                                    => CssValueGuard::COLOR_EXPECTED,
+			'font'                                     => CssValueGuard::typography_expected( 'font_family' ),
+			'slider'                                   => is_array( $value ) && ( array_key_exists( 'size', $value ) || array_key_exists( 'sizes', $value ) )
+				? 'a number or an object with numeric size and a unit from the supported list'
+				: 'a value compatible with Elementor control type slider',
+			'dimensions'                               => 'an object with numeric sides and a unit from the supported list',
+			'box_shadow', 'text_shadow'                => 'a shadow object with numeric geometry and a real colour',
+			default                                    => 'a value compatible with Elementor control type ' . ( '' !== $type ? $type : 'unknown' ),
+		};
+		return self::violation( $path, 'invalid_shape', $expected, $value );
 	}
 
 	/**
 	 * @param array<string, mixed>|null $condition_settings Optional merge-context for control conditions.
 	 * @return array<string, mixed>|null
 	 */
-	private static function normalize_condition_settings( ?array $condition_settings ): ?array {
+	private static function normalize_condition_settings( ?array $condition_settings, ?array $controls = null ): ?array {
 		if ( null === $condition_settings ) {
 			return null;
 		}
-		$aliases = SettingsKeyAliases::normalize( $condition_settings );
+		$aliases = SettingsKeyAliases::normalize( $condition_settings, $controls );
 		return $aliases['settings'];
 	}
 
