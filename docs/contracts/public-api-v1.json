@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T20:43:00+00:00",
+    "generated_at": "2026-10-09T21:01:04+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -4002,7 +4002,7 @@
             "ability_name": "stonewright/elementor-v3-build-page-from-spec",
             "mcp_name": "stonewright-elementor-v3-build-page-from-spec",
             "kind": "Write",
-            "input_schema_hash": "34fd7f09e0882f1f59a89f2ad36c97d94526fcac5c700fc56adb670468a9ad1f",
+            "input_schema_hash": "2cf55e985ae62b75f021a6ad6f18c7b1d367806e665341b1d8eb06615ed5bc72",
             "output_schema_hash": "c81d9cb0373bef57d6dbbfbe75aa8434d6e8cee43f79400d6293ab884311adc3",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
