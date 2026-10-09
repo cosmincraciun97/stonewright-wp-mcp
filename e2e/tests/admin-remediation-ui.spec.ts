@@ -67,32 +67,49 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 		waitUntil: 'domcontentloaded',
 	});
 	const row = page
-		.locator('.sw-audit-row')
-		.filter({ hasText: 'stonewright/php-execute' })
+		.getByRole('row', { name: /stonewright\/php-execute/ })
 		.first();
 	await expect(row).toBeVisible();
-	await expect(row.locator('[data-label="Details"]')).toBeVisible();
-	await row.locator('summary').click();
+	const details = row.getByRole('button', { name: /^Details of event \d+, stonewright\/php-execute$/ });
+	await expect(details).toBeVisible();
+	await details.click();
 
-	const payload = row.locator('.sw-audit-payload');
+	const drawer = page.locator('#sw-audit-drawer');
+	await expect(drawer).toBeVisible();
+	const payload = drawer.locator('[data-sw-audit-panel]:not([hidden]) pre.sw-ui-code__body');
 	await expect(payload).toBeVisible();
-	await expect(row.getByRole('button', { name: 'Copy redacted details' })).toBeVisible();
+	await expect(payload).toContainText('execution_status');
+	await expect(
+		drawer.getByRole('button', { name: /^Copy.*redacted details of event \d+$/ }),
+	).toBeVisible();
 
-	const containment = await payload.evaluate((node) => {
-		const payloadRect = node.getBoundingClientRect();
-		const content = document.querySelector('.sw-shell__content');
-		const contentRect = content?.getBoundingClientRect();
-		return {
-			documentOverflow:
-				document.documentElement.scrollWidth - document.documentElement.clientWidth,
-			contained:
-				!!contentRect &&
-				payloadRect.left >= contentRect.left - 1 &&
-				payloadRect.right <= contentRect.right + 1,
-		};
-	});
-	expect(containment.documentOverflow).toBeLessThanOrEqual(2);
-	expect(containment.contained).toBe(true);
+	// The recorded payload is short, so also put one unbroken 800-character line in the block: a long value must
+	// scroll inside the block, never widen the drawer or the page.
+	const measure = (long: boolean) =>
+		payload.evaluate((node, stress) => {
+			if (stress) {
+				(node.querySelector('code') ?? node).textContent = 'contained-'.repeat(80);
+			}
+			const payloadRect = node.getBoundingClientRect();
+			const drawerRect = node.closest('dialog')?.getBoundingClientRect();
+			const viewportWidth = document.documentElement.clientWidth;
+			return {
+				documentOverflow: document.documentElement.scrollWidth - viewportWidth,
+				inViewport: payloadRect.left >= -1 && payloadRect.right <= viewportWidth + 1,
+				inDrawer:
+					!!drawerRect &&
+					payloadRect.left >= drawerRect.left - 1 &&
+					payloadRect.right <= drawerRect.right + 1,
+				scrollsInside: node.scrollWidth > node.clientWidth,
+			};
+		}, long);
+	for (const stress of [false, true]) {
+		const containment = await measure(stress);
+		expect(containment.documentOverflow).toBeLessThanOrEqual(2);
+		expect(containment.inViewport).toBe(true);
+		expect(containment.inDrawer).toBe(true);
+		if (stress) expect(containment.scrollsInside).toBe(true);
+	}
 });
 
 test('legacy Sandbox audit links lead to the single dedicated Audit Log', async ({
