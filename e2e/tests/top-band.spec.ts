@@ -252,7 +252,11 @@ test.describe('The band tooltip', () => {
 
 			const linkBox = await box(link);
 			const tipBox = await box(tooltip);
-			expect(Math.abs(tipBox.x + tipBox.width / 2 - (linkBox.x + linkBox.width / 2)), `${label}: centred on the whole link`).toBeLessThanOrEqual(1);
+			// Centred on the whole link, unless that would put it closer than 8px to a viewport edge: then it is kept 8px inside.
+			const viewport = await page.evaluate(() => document.documentElement.clientWidth);
+			const centred = linkBox.x + linkBox.width / 2 - tipBox.width / 2;
+			const expectedX = Math.min(Math.max(centred, 8), viewport - 8 - tipBox.width);
+			expect(Math.abs(tipBox.x - expectedX), `${label}: centred on the whole link, or kept 8px inside the viewport`).toBeLessThanOrEqual(1);
 			expect(Math.round(linkBox.y - tipBox.bottom), `${label}: 8px above the link`).toBe(8);
 			expect(await link.getAttribute('aria-describedby')).toBe(await tooltip.getAttribute('id'));
 
@@ -440,7 +444,9 @@ test.describe('The sidebar EXP marker', () => {
 			// The tooltip starts 8px right of the marker and is one line of 11px text with 8px padding at each side.
 			const reach = { left: markerBox.right + 8, top: markerBox.top, right: markerBox.right + 8 + 140, bottom: markerBox.bottom };
 			const clipping: string[] = [];
-			for (let node = element.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+			// The body and the root are the page's own scroll containers (a plugin can set overflow on the body); the
+			// marker is in view while it is hovered, so only the sidebar, the flyout and the menu can cut the tooltip.
+			for (let node = element.parentElement; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
 				const style = getComputedStyle(node);
 				const clips = [style.overflowX, style.overflowY].some((value) => value !== 'visible') || style.contain.includes('paint') || style.clipPath !== 'none';
 				if (!clips) {
