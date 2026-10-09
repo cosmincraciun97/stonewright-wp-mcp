@@ -210,7 +210,7 @@ test.describe('Prompt library layout', () => {
 
 	test('each outcome is a full-width section; its cards sit in aligned rows of equal height with no holes, and every card has the same parts', async ({ page }) => {
 		await open(page, 'stonewright-prompts');
-		await expect(page.locator('[data-sw-prompt-card]')).toHaveCount(29);
+		await expect(page.locator('[data-sw-prompt-card]')).toHaveCount(31);
 
 		const problems = await page.evaluate(() => {
 			const found: string[] = [];

@@ -64,6 +64,11 @@ async function addOlderMarkup(page: Page): Promise<void> {
 	});
 }
 
+/** The Skills app draws its view again once the catalog arrives; wait for that, so the field measured is the final one. */
+async function skillsCatalogLoaded(page: Page): Promise<void> {
+	await page.locator('[data-sw-skills][aria-busy="false"]').waitFor({ state: 'attached', timeout: 15_000 });
+}
+
 const TARGETS: Target[] = [
 	{ name: 'band link', page: SETUP, find: (page) => page.locator('.sw-ui-band__link:not([aria-current])').first(), inert: true },
 	{ name: 'band EXP link', page: SETUP, find: (page) => page.locator('.sw-ui-band__link--exp:not([aria-current])').first(), inert: true },
@@ -75,7 +80,7 @@ const TARGETS: Target[] = [
 	{ name: 'secondary link', page: MEMORY, find: (page) => page.locator('a.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'step choice card', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="radio"]:not([disabled]):visible').first(), inert: true },
 	{ name: 'client choice', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="tab"][aria-selected="false"]:visible').first(), inert: true },
-	{ name: 'Skills import file field', page: SKILLS_IMPORT, find: (page) => page.locator('.sw-ui-dropzone input[type="file"]'), inert: true, keyboardOnly: true },
+	{ name: 'Skills import file field', page: SKILLS_IMPORT, prepare: skillsCatalogLoaded, find: (page) => page.locator('.sw-ui-dropzone input[type="file"]'), inert: true, keyboardOnly: true },
 	{ name: 'disclosure summary', page: SETUP, find: (page) => page.locator('.sw-setup summary:visible').first(), inert: true },
 	{ name: 'older-markup link', page: ABILITIES, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] a'), inert: true },
 	{ name: 'older-markup core .button', page: SANDBOX, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] button.button'), inert: true },
