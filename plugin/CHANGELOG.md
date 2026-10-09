@@ -854,6 +854,49 @@
 - State the real range of `ttl_seconds` on `security-issue-confirmation-token`:
   60 to 3600 seconds (the schema minimum was 1 while the lifetime was never
   shorter than 60). `expires_at` reports the actual expiry.
+- Make `elementor-v3-build-page-from-spec` with `mode: "replace_section"`
+  replace the container built from the spec section with the same section `id`,
+  and no other. A build that names its sections records the section id next to
+  the container id in post meta (`_stonewright_spec_sections`); the document
+  itself gains no key. The replaced container keeps its element id and every
+  other container is left as it is. Every spec section needs an `id`. The call
+  writes nothing and returns `stonewright_replace_section_id_required`,
+  `stonewright_replace_section_unrecorded` (a page built before sections were
+  recorded, or by another tool: rebuild it once with `mode: "replace"`),
+  `stonewright_replace_section_target_missing` or
+  `stonewright_replace_section_target_ambiguous`; it never matches by position
+  or element id. A dry run returns the same answer as the write.
+- Render the spec `icon` block into the icon widget's `selected_icon` control,
+  a value and a library, instead of an `icon` key the schema does not define.
+  Make every other block renderer emit only settings the write validation
+  accepts: set the typography toggle with a directly given `font_size` on
+  heading, paragraph, text editor and button blocks and on the labels of
+  `chip-list`, put the button block's padding in `text_padding`, add
+  `image_spacing: "custom"` with an image gallery's spacing, use the video
+  widget's `poster` (hosted video) or image overlay (embedded video), add the
+  `message` and `redirect` expire actions a countdown's message and redirect
+  need, drop the unsupported `striped` progress setting and the image box's
+  `link_to`, and add the call-to-action `border_radius` only when the live
+  widget defines it. A spec test now renders each block type and runs it
+  through the write validation against the bundled schemas.
+- Evaluate control conditions written as `relation` (`and` or `or`) and
+  `terms`, including nested groups, the operators `==`, `!=`, `===`, `!==`,
+  `in`, `!in`, `contains`, `!contains`, `<`, `<=`, `>` and `>=`, and a
+  `name[key]` sub-value, when a setting is checked against its control. Text
+  Editor `column_gap` is accepted when `text_columns` is empty or above 1. A
+  condition with an operator that is not defined keeps the control inactive and
+  the error names the operator. A flat condition is also met by a
+  multiple-value control that contains the expected value.
+- Refuse a widget as the parent in `elementor-v3-add-container`,
+  `elementor-v3-move-element` and the `add_container` and `move_element`
+  operations of `elementor-v3-batch-mutate`, with `parent_not_container`, as
+  the widget add paths already do.
+- Accept a column whose `_inline_size` is empty (`null` or `""`), which is how
+  Elementor stores a column without a custom width. Make the dry run of
+  `elementor-build-tree` run the checks the write runs against the stored
+  document, and compare the validated settings with the written ones without
+  regard to key order, so a rebuilt column that lists `_column_size` and
+  `_inline_size` in another order no longer fails at the write.
 
 ### Security
 

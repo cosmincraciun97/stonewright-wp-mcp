@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\IconValueNormalizer;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
@@ -21,11 +22,12 @@ final class Icon {
 		$icon_value   = (string) ( $node['icon'] ?? $node['value'] ?? 'fas fa-star' );
 		$icon_library = (string) ( $node['library'] ?? 'fa-solid' );
 
-		$settings = [
-			'icon' => [
-				'value'   => $icon_value,
-				'library' => $icon_library,
-			],
+		// The icon widget's control is `selected_icon`, an icons control holding a value and a library.
+		$normalized = IconValueNormalizer::normalize( [ 'value' => $icon_value, 'library' => isset( $node['library'] ) ? $icon_library : '' ] );
+		$settings   = [
+			'selected_icon' => $normalized instanceof \WP_Error
+				? [ 'value' => $icon_value, 'library' => $icon_library ]
+				: $normalized,
 		];
 
 		if ( isset( $node['size'] ) ) {

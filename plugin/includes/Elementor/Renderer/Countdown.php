@@ -158,12 +158,15 @@ final class Countdown {
 			$settings['expire_actions'] = array_values( array_map( 'strval', $actions ) );
 		}
 
+		// The message and redirect controls are shown only while their action is selected.
 		if ( isset( $node['expire_message'] ) ) {
 			$settings['message_after_expire'] = (string) $node['expire_message'];
+			$settings['expire_actions']       = self::with_action( $settings['expire_actions'] ?? [], 'message' );
 		}
 
 		if ( isset( $node['expire_redirect_url'] ) ) {
 			$settings['expire_redirect_url'] = [ 'url' => (string) $node['expire_redirect_url'] ];
+			$settings['expire_actions']      = self::with_action( $settings['expire_actions'] ?? [], 'redirect' );
 		}
 
 		// Style block.
@@ -179,6 +182,14 @@ final class Countdown {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	/**
+	 * @param array<int, string> $actions
+	 * @return array<int, string>
+	 */
+	private static function with_action( array $actions, string $action ): array {
+		return in_array( $action, $actions, true ) ? $actions : array_merge( $actions, [ $action ] );
 	}
 
 	/**

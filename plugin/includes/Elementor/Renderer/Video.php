@@ -64,7 +64,14 @@ final class Video {
 		}
 
 		if ( isset( $node['poster']['url'] ) ) {
-			$settings['video_poster'] = [ 'url' => (string) $node['poster']['url'] ];
+			$poster = [ 'url' => (string) $node['poster']['url'] ];
+			if ( 'hosted' === $video_type ) {
+				$settings['poster'] = $poster;
+			} else {
+				// Embedded players take a cover image through the image overlay.
+				$settings['show_image_overlay'] = 'yes';
+				$settings['image_overlay']      = $poster;
+			}
 		}
 
 		return [

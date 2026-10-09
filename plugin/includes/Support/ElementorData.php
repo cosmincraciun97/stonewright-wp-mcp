@@ -434,7 +434,7 @@ final class ElementorData {
 		if ( $validated instanceof \WP_Error ) {
 			return $validated;
 		}
-		if ( $validated['settings'] !== $after ) {
+		if ( self::sorted_by_key( $validated['settings'] ) !== self::sorted_by_key( $after ) ) {
 			return self::settings_delta_error( $path . '.settings', 'delta_result_mismatch', 'The validated settings delta does not reproduce the proposed document exactly.' );
 		}
 
@@ -551,6 +551,25 @@ final class ElementorData {
 			}
 		}
 		return $patch;
+	}
+
+	/**
+	 * The map with its keys in a fixed order, so two settings maps that hold the same keys and values compare
+	 * equal whatever order the keys were written in. Lists keep their order, and values keep their types.
+	 *
+	 * @param array<int|string, mixed> $value
+	 * @return array<int|string, mixed>
+	 */
+	private static function sorted_by_key( array $value ): array {
+		foreach ( $value as $key => $item ) {
+			if ( is_array( $item ) ) {
+				$value[ $key ] = self::sorted_by_key( $item );
+			}
+		}
+		if ( ! array_is_list( $value ) ) {
+			ksort( $value );
+		}
+		return $value;
 	}
 
 	/** @param array<string, mixed> $settings */

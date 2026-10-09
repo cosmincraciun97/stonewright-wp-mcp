@@ -485,8 +485,9 @@ final class BatchMutateTest extends TestCase {
 						'parent_id'   => 'root',
 						'widget_type' => 'heading',
 						'settings'    => [
-							'title'     => 'Aliased',
-							'font_size' => [ 'size' => 18, 'unit' => 'px' ],
+							'title'                 => 'Aliased',
+							'typography_typography' => 'custom',
+							'font_size'             => [ 'size' => 18, 'unit' => 'px' ],
 						],
 					],
 				],
@@ -940,14 +941,21 @@ final class BatchMutateTest extends TestCase {
 						'parent_id'         => 'root',
 						'widget_type'       => 'heading',
 						'settings'          => [
-							'title'     => 'From direction',
-							'font_size' => [ 'size' => 56, 'unit' => 'px' ],
+							'title'                 => 'From direction',
+							'typography_typography' => 'custom',
+							'font_size'             => [ 'size' => 56, 'unit' => 'px' ],
 						],
 						'settings_evidence' => [
 							'title' => [
 								'schema_hash'           => $schema['schema_hash'],
 								'source'                => 'figma:node/hero-title',
 								'confidence'            => 0.99,
+								'responsive_scope'      => 'desktop',
+								'requires_confirmation' => false,
+							],
+							'typography_typography' => [
+								'source'                => 'direction-brief',
+								'confidence'            => 0.95,
 								'responsive_scope'      => 'desktop',
 								'requires_confirmation' => false,
 							],
@@ -1142,6 +1150,7 @@ final class BatchMutateTest extends TestCase {
 					'widgetType' => 'heading',
 					'settings'   => [
 						'title'                       => 'Desktop title',
+						'typography_typography'       => 'custom',
 						'typography_font_size_tablet' => [ 'size' => 30, 'unit' => 'px' ],
 						'typography_font_size_mobile' => [ 'size' => 22, 'unit' => 'px' ],
 					],

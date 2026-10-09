@@ -808,6 +808,10 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
+		}
 
 		$settings  = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
 		$scope     = self::validate_responsive_scope( $operation, $settings, 'container' );
@@ -1203,6 +1207,10 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
+		}
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
@@ -1330,6 +1338,30 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		return false;
+	}
+
+	/**
+	 * The error for a parent that cannot hold child elements, or null when the parent is the document root, a
+	 * container, a section or a column.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $parent_path
+	 */
+	private function parent_container_error( array $tree, array $parent_path ): ?\WP_Error {
+		if ( [] === $parent_path || ElementorData::accepts_children( $tree, $parent_path ) ) {
+			return null;
+		}
+		$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];
+
+		return $this->error(
+			'parent_not_container',
+			__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+			[
+				'status'         => 400,
+				'parent_id'      => (string) ( $parent['id'] ?? '' ),
+				'parent_el_type' => (string) ( $parent['elType'] ?? '' ),
+			]
+		);
 	}
 
 	/**

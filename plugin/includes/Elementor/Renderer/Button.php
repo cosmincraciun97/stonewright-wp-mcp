@@ -70,7 +70,8 @@ final class Button {
 		}
 
 		if ( isset( $node['padding'] ) ) {
-			$settings = Responsive::apply( $settings, 'padding', $node['padding'] );
+			// The button's padding control is `text_padding`, a dimensions control.
+			$settings = StyleMapper::apply( $settings, [ 'padding' => $node['padding'] ], [ 'padding' => [ 'key' => 'text_padding', 'is_dimension' => true ] ] );
 		}
 
 		if ( isset( $node['size'] ) ) {
@@ -160,7 +161,7 @@ final class Button {
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
 			'widgetType' => 'button',
-			'settings'   => $settings,
+			'settings'   => StyleMapper::activate_groups( $settings ),
 			'elements'   => [],
 		];
 	}

@@ -51,7 +51,7 @@ final class CallToActionTest extends TestCase {
 		self::assertSame( 'call-to-action', $result['widgetType'] );
 		self::assertSame( 'cover', $result['settings']['skin'] );
 		self::assertSame( 320, $result['settings']['min-height']['size'] );
-		self::assertSame( '20', $result['settings']['border_radius']['top'] );
+		self::assertArrayNotHasKey( 'border_radius', $result['settings'], 'The bundled widget defines no border radius control.' );
 		self::assertSame( 'center', $result['settings']['alignment'] );
 		self::assertSame( 'middle', $result['settings']['vertical_position'] );
 		self::assertSame( 'https://example.test/cover.jpg', $result['settings']['bg_image']['url'] );
@@ -104,7 +104,8 @@ final class CallToActionTest extends TestCase {
 	}
 
 	public function test_custom_min_height_and_radius(): void {
-		$result = CallToAction::render(
+		$diagnostics = [];
+		$result      = CallToAction::render(
 			[
 				'type'          => 'cta',
 				'skin'          => 'cover',
@@ -114,13 +115,63 @@ final class CallToActionTest extends TestCase {
 				'alignment'     => 'start',
 			],
 			new Resolver( [] ),
-			's1.b0'
+			's1.b0',
+			$diagnostics
 		);
 
 		self::assertIsArray( $result );
 		self::assertSame( 400, $result['settings']['min-height']['size'] );
-		self::assertSame( '24', $result['settings']['border_radius']['left'] );
 		self::assertSame( 'start', $result['settings']['alignment'] );
+		self::assertArrayNotHasKey( 'border_radius', $result['settings'] );
+		self::assertSame( 'border_radius_unsupported', $diagnostics[0]['reason'] );
+		self::assertSame( 's1.b0', $diagnostics[0]['path'] );
+	}
+
+	public function test_border_radius_is_emitted_when_the_live_widget_defines_the_control(): void {
+		$base                       = $this->original_elementor;
+		\Elementor\Plugin::$instance = (object) array_merge(
+			(array) $base,
+			[
+				'widgets_manager' => new class( $base->widgets_manager ) {
+					public function __construct( private object $inner ) {
+					}
+
+					public function get_widget_types( ?string $name = null ): array|object|null {
+						$widget = $this->inner->get_widget_types( $name );
+						if ( 'call-to-action' !== $name || ! is_object( $widget ) ) {
+							return $widget;
+						}
+						return new class( $widget ) {
+							public function __construct( private object $widget ) {
+							}
+
+							public function get_title(): string {
+								return $this->widget->get_title();
+							}
+
+							/** @return list<string> */
+							public function get_categories(): array {
+								return $this->widget->get_categories();
+							}
+
+							/** @return array<string, array<string, mixed>> */
+							public function get_controls(): array {
+								return $this->widget->get_controls() + [ 'border_radius' => [ 'type' => 'dimensions', 'tab' => 'style', 'section' => 'box' ] ];
+							}
+						};
+					}
+				},
+			]
+		);
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_transients'] = [];
+
+		$diagnostics = [];
+		$result      = CallToAction::render( [ 'type' => 'cta', 'skin' => 'cover', 'title' => 'CTA', 'border_radius' => 24 ], new Resolver( [] ), 's1.b0', $diagnostics );
+
+		self::assertIsArray( $result );
+		self::assertSame( '24', $result['settings']['border_radius']['left'] );
+		self::assertSame( [], $diagnostics );
 	}
 
 	/**

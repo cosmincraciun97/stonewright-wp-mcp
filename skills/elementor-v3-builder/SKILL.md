@@ -134,6 +134,14 @@ page, the call returns the retryable `stonewright_elementor_write_busy`; the mes
 ends with `{"retryable":true,"retry_after":N}`. Repeat it after `retry_after` seconds.
 Every V3 writer, including `elementor-v3-update-page-settings`, answers a busy page this way.
 
+With `mode: "replace_section"`, every spec section needs an `id`. The call replaces the
+container that an earlier `replace` or `append` build recorded for that id, keeps that
+container's element id, and leaves every other container as it is. It writes nothing and
+returns an error when a section has no `id`, when the page has no section record (it was
+built before sections were recorded, or by another tool; rebuild it once with
+`mode: "replace"`), or when the id matches no container or more than one. A section is
+never matched by its position or its element id. `dry_run: true` returns the same answer.
+
 ```json
 {
   "post_id": 42,

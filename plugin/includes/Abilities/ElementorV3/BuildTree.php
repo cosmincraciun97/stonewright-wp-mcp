@@ -115,6 +115,11 @@ final class BuildTree extends AbilityKernel {
 				}
 
 				if ( $dry_run ) {
+					// The same checks the write runs against the stored document, so the dry run reports what the apply would.
+					$preflight = ElementorData::preflight( ElementorData::read( $post_id ), $normalized, [ 'force_destructive' => true ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
 					return [
 						'ok'              => true,
 						'post_id'         => $post_id,
