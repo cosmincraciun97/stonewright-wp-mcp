@@ -56,6 +56,7 @@ final class DiagnosticsPanel {
 		$method   = SetupDiagnostics::resolve_method( $report );
 		$grouped  = self::group_checks( $checks );
 		$counts   = self::counts_from_report( $report, $grouped );
+		$unfinished = self::has_unrun_checks( $checks );
 
 		$field = static function ( string $id, string $label, string $control, string $help = '' ): string {
 			return Html::element(
@@ -95,22 +96,12 @@ final class DiagnosticsPanel {
 				. $field( 'stonewright-diag-symptom', __( 'What do you see in your AI client?', 'stonewright' ), $symptom_select, $help )
 		);
 
-		$summary = Html::element( 'div', [ 'class' => 'sw-troubleshoot-summary', 'role' => 'status', 'data-sw-diag-summary' => true ], self::summary_html( $counts ) );
+		$summary = Html::element( 'div', [ 'class' => 'sw-troubleshoot-summary', 'role' => 'status', 'data-sw-diag-summary' => true ], self::summary_html( $counts, $unfinished ) );
 		$results = Html::element( 'div', [ 'data-sw-diag-results' => true, 'aria-busy' => 'false' ], self::results_html( $grouped ) );
 
 		$actions = Button::render( __( 'Run diagnostics', 'stonewright' ), [ 'variant' => 'primary', 'type' => 'submit', 'form' => 'stonewright-diagnostics-form', 'attrs' => [ 'data-sw-diag-run' => true ] ] )
-			. Button::render(
-				__( 'Copy report for support', 'stonewright' ),
-				[
-					'attrs' => [
-						'data-sw-ui-copy'              => '#stonewright-diagnostics-copy',
-						'data-sw-ui-copy-status'       => '#stonewright-diagnostics-copy-status',
-						'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
-						'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
-					],
-				]
-			)
-			. Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'role' => 'status', 'id' => 'stonewright-diagnostics-copy-status' ], '' );
+			. self::copy_button( __( 'Copy report for support', 'stonewright' ), '#stonewright-diagnostics-copy', 'stonewright-diagnostics-copy-status', false )
+			. Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'role' => 'status', 'id' => 'stonewright-diagnostics-copy-status' ], '' );
 
 		$body = Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', 'stonewright' ) ) )
 			. $form
@@ -133,11 +124,14 @@ final class DiagnosticsPanel {
 	}
 
 	/**
-	 * What the report adds up to, in words: problems and warnings first, or that there are none.
+	 * What the report adds up to, in words: problems and warnings first, or that there are none. "So far" is said
+	 * only while checks have really not run; information rows that every run contains do not make a finished run
+	 * look unfinished.
 	 *
 	 * @param array{problem: int, warning: int, info: int, ok: int, skipped: int} $counts
+	 * @param bool $unfinished Whether some check has not run yet.
 	 */
-	public static function summary_text( array $counts ): string {
+	public static function summary_text( array $counts, bool $unfinished = false ): string {
 		$problems = sprintf( /* translators: %d: number of problems */ _n( '%d problem', '%d problems', $counts['problem'], 'stonewright' ), $counts['problem'] );
 		$warnings = sprintf( /* translators: %d: number of warnings */ _n( '%d warning', '%d warnings', $counts['warning'], 'stonewright' ), $counts['warning'] );
 		if ( $counts['problem'] > 0 && $counts['warning'] > 0 ) {
@@ -153,7 +147,7 @@ final class DiagnosticsPanel {
 			return sprintf( __( '%s to look at.', 'stonewright' ), $warnings );
 		}
 
-		if ( $counts['info'] + $counts['skipped'] > 0 ) {
+		if ( $unfinished ) {
 			return __( 'No problems or warnings so far. Run the diagnostics to complete the checks that have not run.', 'stonewright' );
 		}
 
@@ -161,8 +155,8 @@ final class DiagnosticsPanel {
 	}
 
 	/** @param array{problem: int, warning: int, info: int, ok: int, skipped: int} $counts */
-	private static function summary_html( array $counts ): string {
-		$text = Html::text( self::summary_text( $counts ) );
+	private static function summary_html( array $counts, bool $unfinished ): string {
+		$text = Html::text( self::summary_text( $counts, $unfinished ) );
 
 		return $counts['problem'] + $counts['warning'] > 0 ? Html::element( 'strong', [], $text ) : $text;
 	}
@@ -196,6 +190,39 @@ final class DiagnosticsPanel {
 		return $html;
 	}
 
+	/**
+	 * Whether some check is still waiting for a run: those carry the not_run marker.
+	 *
+	 * @param list<mixed> $checks
+	 */
+	private static function has_unrun_checks( array $checks ): bool {
+		foreach ( $checks as $check ) {
+			if ( is_array( $check ) && is_array( $check['evidence'] ?? null ) && 'not_run' === ( $check['evidence']['state'] ?? '' ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * A copy button that swaps its icon for a check when the text was copied, the way the other copy buttons do.
+	 */
+	private static function copy_button( string $label, string $source, string $status_id, bool $small ): string {
+		return Html::element(
+			'button',
+			[
+				'type'                         => 'button',
+				'class'                        => $small ? 'sw-ui-btn sw-ui-btn--sm' : 'sw-ui-btn',
+				'data-sw-ui-copy'              => $source,
+				'data-sw-ui-copy-status'       => '#' . $status_id,
+				'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+				'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+			],
+			Icon::render( 'copy', [ 'class' => 'sw-ui-copy__icon-copy' ] ) . Icon::render( 'check', [ 'class' => 'sw-ui-copy__icon-done' ] ) . Html::element( 'span', [], Html::text( $label ) )
+		);
+	}
+
 	private static function folded_html( string $summary, string $body ): string {
 		return Html::element(
 			'details',
@@ -222,7 +249,7 @@ final class DiagnosticsPanel {
 			}
 			$primary = Html::element( 'span', [ 'class' => 'sw-ui-table__primary' ], Html::text( (string) ( $check['label'] ?? '' ) ) )
 				. ( '' !== $summary ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $summary ) ) : '' )
-				. ( '' !== $remedy && in_array( $status, [ 'problem', 'warning' ], true ) ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $remedy ) ) : '' );
+				. ( '' !== $remedy && $remedy !== $summary && in_array( $status, [ 'problem', 'warning' ], true ) ? Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( $remedy ) ) : '' );
 
 			$button = '';
 			if ( null !== $action ) {
@@ -231,17 +258,9 @@ final class DiagnosticsPanel {
 				} elseif ( 'retry' === $action['type'] ) {
 					$button = Button::render( $action['label'], [ 'size' => 'sm', 'attrs' => [ 'data-sw-diag-run' => true ] ] );
 				} else {
-					$button = Button::render(
-						$action['label'],
-						[
-							'size'  => 'sm',
-							'attrs' => [
-								'data-sw-ui-copy'              => '#' . $action['target'],
-								'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
-								'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
-							],
-						]
-					);
+					$status_id = 'stonewright-diag-copy-status-' . ( '' !== $check_id ? $check_id : 'check' );
+					$button    = self::copy_button( $action['label'], '#' . $action['target'], $status_id, true )
+						. Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'role' => 'status', 'id' => $status_id ], '' );
 				}
 			}
 			if ( '' !== $copy && '' !== $check_id ) {

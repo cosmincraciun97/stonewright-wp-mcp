@@ -13,6 +13,9 @@ hubs. A hub is a set of pages that share a landing page and a group of links in 
 | Custom code | Custom code (Drafts, Library, Active and Crash recovery tabs), Code approval |
 | Activity | Audit log, Block queue, Rescue |
 
+Pages with their own guide: [Troubleshoot](troubleshoot.md), [Memory](memory.md),
+[Context](context.md), [Design](design.md) and [Audit log](audit-log.md).
+
 Page addresses did not change: every `page=stonewright-...` link and bookmark still
 opens the same page. The Custom code tabs use the `tab` values the Sandbox page
 already had (`drafts`, `library`, `mu-plugins`, `crash-recovery`); Code approval is its

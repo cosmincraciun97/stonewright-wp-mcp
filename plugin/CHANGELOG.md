@@ -614,6 +614,42 @@
   add more elements than the element cap of one write
   (`stonewright_section_batch_too_large`).
 
+- Design: saving, importing or capturing a revision that is not ready for the
+  active design direction switches the direction off, as restoring one already
+  did, so agents stop receiving it. `design-direction-save`,
+  `design-direction-capture` and `design-direction-restore` return
+  `active_cleared` (declared in their output schemas), and the Design page says
+  the direction was switched off. A refused DESIGN.md import shows the
+  validator's reason, or a short list of reasons, escaped, instead of one fixed
+  sentence. The active direction card shows spacing, typography, radii,
+  elevation, motion tokens and components next to the colors, dials and rules.
+- Troubleshoot and Setup: a domain lock mismatch is its own check. It names the
+  locked and the current address and the Setup actions that resolve it (Review
+  and rebind this site, Restore prior domain binding). The Stonewright
+  abilities row, the Setup preflight and the Verify connection advice use the
+  effective state of the abilities instead of the stored switch, so a blocked
+  site is never reported as enabled. With Stonewright off or blocked, the OAuth
+  challenge and OAuth dynamic registration checks are skipped like the other
+  dependent checks, and a skipped check shows its own name and says which
+  checks it needed in words instead of check ids. A failing check no longer
+  prints the same sentence as cause and remedy, and the Application Passwords
+  check names the real cause (no support in this WordPress, plain HTTP without a
+  local environment type, a filter or setting, or one user). The MCP and OAuth
+  MCP server registration checks start the REST server in the request and read
+  the recorded outcome; when they cannot be checked they say why and name the
+  checks that cover them.
+- Troubleshoot: a finished run with no problem or warning says "No problems or
+  warnings."; "so far" is shown only while checks have not run. **Copy report
+  for support** swaps its icon for a check and shows **Copied**, and the report
+  lists each check's name and summary and the remedy of a problem or warning,
+  with credentials, passwords and the install path removed.
+- Context: the user context is stored and sent as plain text, with tags removed
+  and no HTML entities, so `5 < 6` and quotes stay as typed, and saving the form
+  again changes nothing. A value stored earlier with entities is read as the
+  text it stands for; reading does not rewrite it. The page says that compact
+  task start carries the first 400 characters and full task start and
+  context-bootstrap the first 1,200, and the saved notice gives the stored
+  character count and how much each mode receives.
 - Log the Rescue health probe's own requests in as the user a probe token was
   issued for before anything about the request is recorded, so the admin leg
   and the preview of a draft, private or pending page are answered as that

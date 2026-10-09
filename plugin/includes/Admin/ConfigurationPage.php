@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
+use Stonewright\WpMcp\Admin\Diagnostics\SupportReport;
 use Stonewright\WpMcp\Admin\Setup\ApplicationPasswords;
 use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupPage;
@@ -184,6 +185,8 @@ final class ConfigurationPage {
 			]
 		);
 		update_option( 'stonewright_diagnostics_last', $report, false );
+		// The support report is built here, with its redaction, so the page copies exactly what the server vetted.
+		$report['report_text'] = SupportReport::render( $report );
 		wp_send_json_success( $report );
 	}
 

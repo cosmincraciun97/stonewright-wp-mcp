@@ -143,6 +143,63 @@ final class ContextPageTest extends TestCase {
 		self::assertStringNotContainsString( 'Agents receive it at task start.', $off );
 	}
 
+	public function test_the_card_states_what_compact_and_full_task_start_really_carry(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'first 400 characters', $html );
+		self::assertStringContainsString( 'first 1200 characters', $html );
+		self::assertStringContainsString( 'compact task start', strtolower( $html ) );
+		self::assertSame( 400, UserContext::MAX_COMPACT );
+		self::assertSame( 1200, UserContext::MAX_INJECTED );
+	}
+
+	public function test_the_saved_notice_gives_the_stored_count_and_what_each_mode_receives(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = str_repeat( 'a', 1500 );
+		$_GET['stonewright_context_notice']                              = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '1500 characters stored', $html );
+		self::assertStringContainsString( 'Compact task start receives 400 of them', $html );
+		self::assertStringContainsString( 'full task start and context-bootstrap receive 1200', $html );
+		self::assertStringContainsString( 'Agents receive it at task start.', $html );
+	}
+
+	public function test_the_saved_notice_for_a_short_text_says_all_of_it_is_received(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = str_repeat( 'b', 120 );
+		$_GET['stonewright_context_notice']                              = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '120 characters stored', $html );
+		self::assertStringContainsString( 'Compact task start receives 120 of them', $html );
+		self::assertStringContainsString( 'full task start and context-bootstrap receive 120', $html );
+	}
+
+	public function test_the_saved_notice_counts_characters_when_the_switch_is_off_and_when_the_text_is_empty(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context']         = str_repeat( 'c', 600 );
+		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;
+		$_GET['stonewright_context_notice']                                      = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$off = (string) ob_get_clean();
+		self::assertStringContainsString( '600 characters stored', $off );
+		self::assertStringContainsString( 'It is off, so agents do not receive it.', $off );
+
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = '';
+		ob_start();
+		ContextPage::render();
+		$empty = (string) ob_get_clean();
+		self::assertStringContainsString( 'Nothing is stored', $empty );
+	}
+
 	public function test_an_empty_user_context_shows_an_empty_editor_and_the_off_state(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_user_context']         = '';
 		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;

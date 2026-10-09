@@ -31,10 +31,10 @@
 		return pair[ number === 1 ? 0 : 1 ].replace( '%d', String( number ) );
 	}
 
-	function icon( name ) {
+	function icon( name, extraClass ) {
 		var svg = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
 		var use = document.createElementNS( 'http://www.w3.org/2000/svg', 'use' );
-		svg.setAttribute( 'class', 'sw-ui-icon' );
+		svg.setAttribute( 'class', 'sw-ui-icon' + ( extraClass ? ' ' + extraClass : '' ) );
 		svg.setAttribute( 'aria-hidden', 'true' );
 		use.setAttribute( 'href', '#sw-ui-icon-' + name );
 		svg.appendChild( use );
@@ -97,15 +97,24 @@
 			cell.appendChild( retry );
 		} else {
 			var copyId = action.target.replace( /[^a-z0-9_-]/gi, '' );
-			var button = el( 'button', 'sw-ui-btn sw-ui-btn--sm', action.label );
+			var statusId = 'stonewright-diag-copy-status-' + id;
+			var button = el( 'button', 'sw-ui-btn sw-ui-btn--sm' );
 			button.type = 'button';
 			button.setAttribute( 'data-sw-ui-copy', '#' + copyId );
+			button.setAttribute( 'data-sw-ui-copy-status', '#' + statusId );
 			button.setAttribute( 'data-sw-ui-copied-label', config.text.copied );
 			button.setAttribute( 'data-sw-ui-copy-failed-label', config.text.copyFailed );
+			button.appendChild( icon( 'copy', 'sw-ui-copy__icon-copy' ) );
+			button.appendChild( icon( 'check', 'sw-ui-copy__icon-done' ) );
+			button.appendChild( el( 'span', '', action.label ) );
+			var status = el( 'span', 'sw-ui-visually-hidden' );
+			status.id = statusId;
+			status.setAttribute( 'role', 'status' );
 			var source = el( 'pre', '', copyText );
 			source.id = copyId;
 			source.hidden = true;
 			cell.appendChild( button );
+			cell.appendChild( status );
 			cell.appendChild( source );
 		}
 		return cell;
@@ -137,7 +146,7 @@
 			if ( summary ) {
 				primary.appendChild( el( 'span', 'sw-ui-table__meta', summary ) );
 			}
-			if ( check.remedy && ( status === 'problem' || status === 'warning' ) ) {
+			if ( check.remedy && check.remedy !== summary && ( status === 'problem' || status === 'warning' ) ) {
 				primary.appendChild( el( 'span', 'sw-ui-table__meta', check.remedy ) );
 			}
 			var result = el( 'td' );
@@ -176,45 +185,11 @@
 		return unfinished ? config.text.noProblemsYet : config.text.noProblems;
 	}
 
-	function formatReport( report ) {
-		var lines = [ 'Stonewright support report' ];
-		var evidenceKeys = [ 'http_status', 'duration_ms', 'error_code', 'error_class', 'timeout' ];
-		var versionLabels = { plugin: 'Plugin', companion_contract: 'Companion', wordpress: 'WordPress', php: 'PHP', tool_count: 'Tools' };
-		if ( report.method ) {
-			lines.push( 'Method: ' + String( report.method ).replace( /[^a-z0-9_-]/gi, '' ) );
-		}
-		if ( report.correlation_id ) {
-			lines.push( 'Correlation: ' + String( report.correlation_id ).slice( 0, 64 ) );
-		}
-		var versions = report.versions || {};
-		Object.keys( versionLabels ).forEach( function ( key ) {
-			if ( versions[ key ] !== undefined && versions[ key ] !== null ) {
-				lines.push( versionLabels[ key ] + ': ' + String( versions[ key ] ) );
-			}
+	/** Whether some check is still waiting for a run: those carry the not_run marker in their evidence. */
+	function hasUnrunChecks( checks ) {
+		return checks.some( function ( check ) {
+			return !! ( check && check.evidence && check.evidence.state === 'not_run' );
 		} );
-		var counts = report.counts || {};
-		var bits = [];
-		[ 'problem', 'warning', 'info', 'ok', 'skipped' ].forEach( function ( key ) {
-			if ( typeof counts[ key ] === 'number' ) {
-				bits.push( key + '=' + counts[ key ] );
-			}
-		} );
-		if ( bits.length ) {
-			lines.push( 'Counts: ' + bits.join( ' ' ) );
-		}
-		( report.checks || [] ).forEach( function ( check ) {
-			if ( ! check || ! check.id || ! check.status ) {
-				return;
-			}
-			lines.push( '[' + check.status + '] ' + check.id );
-			var evidence = check.evidence || {};
-			evidenceKeys.forEach( function ( key ) {
-				if ( evidence[ key ] !== undefined && evidence[ key ] !== null && typeof evidence[ key ] !== 'object' ) {
-					lines.push( '  ' + key + '=' + String( evidence[ key ] ).slice( 0, 200 ) );
-				}
-			} );
-		} );
-		return lines.join( '\n' ).trim();
 	}
 
 	/** Paints the report into the results region and the summary; returns the first row that needs attention. */
@@ -243,11 +218,12 @@
 		}
 
 		summary.textContent = '';
-		summary.appendChild( el( problems + warnings > 0 ? 'strong' : 'span', '', summaryText( problems, warnings, groups.info.length + groups.skipped.length > 0 ) ) );
+		summary.appendChild( el( problems + warnings > 0 ? 'strong' : 'span', '', summaryText( problems, warnings, hasUnrunChecks( report.checks || [] ) ) ) );
 
+		// The support report is built on the server, with the same redaction as the one printed with the page.
 		var source = root.querySelector( '[data-sw-diag-copy]' );
-		if ( source ) {
-			source.textContent = formatReport( report );
+		if ( source && typeof report.report_text === 'string' ) {
+			source.textContent = report.report_text;
 		}
 		return results.querySelector( 'table tbody tr' );
 	}

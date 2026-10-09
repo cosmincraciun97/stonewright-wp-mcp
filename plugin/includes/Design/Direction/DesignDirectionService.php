@@ -161,7 +161,13 @@ final class DesignDirectionService {
 
 		$this->repository->commit_transaction();
 
-		return $this->result( 'save', $id, $record, $hash_before, $hash_after, $versioned, $actor_id );
+		$active_cleared = $this->clear_pointer_when_not_ready( (int) $id, $contract );
+
+		$result                            = $this->result( 'save', $id, $record, $hash_before, $hash_after, $versioned, $actor_id );
+		$result['active_cleared']          = $active_cleared;
+		$result['audit']['active_cleared'] = $active_cleared;
+
+		return $result;
 	}
 
 	/**
@@ -382,13 +388,7 @@ final class DesignDirectionService {
 
 		$this->repository->commit_transaction();
 
-		// An active direction must be ready. When the restored revision is not, the pointer is cleared so the
-		// state the page and the brief report is the state the record is in.
-		$active_cleared = false;
-		if ( $id === (int) get_option( self::ACTIVE_OPTION, 0 ) && true !== ( $contract['readiness']['ready'] ?? false ) ) {
-			update_option( self::ACTIVE_OPTION, 0 );
-			$active_cleared = true;
-		}
+		$active_cleared = $this->clear_pointer_when_not_ready( $id, $contract );
 
 		$result                               = $this->result( 'restore', $id, $restored, $hash_before, $hash_after, $versioned, $actor_id );
 		$result['restored_revision']          = $revision;
@@ -596,6 +596,24 @@ final class DesignDirectionService {
 		}
 
 		$this->repository->save( $record );
+	}
+
+	/**
+	 * An active direction must be ready. When the stored contract of the active direction is not ready, the pointer
+	 * is cleared so the state the page and the brief report is the state the record is in.
+	 *
+	 * @param int                 $id       Direction id that was just written.
+	 * @param array<string,mixed> $contract Contract that was stored.
+	 * @return bool Whether the pointer was cleared.
+	 */
+	private function clear_pointer_when_not_ready( int $id, array $contract ): bool {
+		if ( $id !== (int) get_option( self::ACTIVE_OPTION, 0 ) || true === ( $contract['readiness']['ready'] ?? false ) ) {
+			return false;
+		}
+
+		update_option( self::ACTIVE_OPTION, 0 );
+
+		return true;
 	}
 
 	private function restore_pointer( int $previous ): void {

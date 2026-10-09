@@ -36,11 +36,15 @@ and the textarea share one **Settings** form: WordPress saves every option of a
 settings group on each post and clears the ones the post did not carry, so one
 form that posts all three keeps saving one from clearing another.
 
-Enabled Context page text (`Stonewright → Knowledge → Context`) is prepended to this
-block before it reaches agents. Compact `stonewright-task-start` includes up
-to 400 characters of that combined text in `context.custom_instructions.text`.
-The rest is available with `responseMode=full`. Pluginless Direct mode never
-sees wp-admin Context or custom instructions.
+The connect-time server instructions carry the custom instructions only (their
+first 1200 characters). Enabled Context page text (`Stonewright → Knowledge → Context`)
+is not part of them: it reaches agents in `stonewright-task-start` and
+`stonewright-context-bootstrap`, in front of the custom instructions. Compact
+`stonewright-task-start` includes the first 400 characters of that combined text
+in `context.custom_instructions.text`; `responseMode=full` and
+`stonewright-context-bootstrap` carry the first 1200 characters of the Context
+text and the combined text up to 2400 characters. See [Context](context.md).
+Pluginless Direct mode never sees wp-admin Context or custom instructions.
 
 ### Enabling and disabling
 
@@ -54,7 +58,8 @@ Maximum length is 4000 characters. The sanitizer in
 `MemoryInstructionsPage::register_settings()` truncates silently to that
 limit on save. Newlines are preserved; HTML is not stripped, but the content
 is injected as plain text into the MCP description rather than rendered as
-markup.
+markup. The Context page text is different: it is stored as plain text with
+tags removed and no HTML entities (see [Context](context.md)).
 
 ---
 

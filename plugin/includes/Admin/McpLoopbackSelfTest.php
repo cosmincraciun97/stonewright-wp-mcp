@@ -3,6 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Diagnostics\AbilitiesState;
+use Stonewright\WpMcp\Security\PluginEffectiveState;
+
 /**
  * Authenticated MCP loopback verifier for the Setup connection center.
  *
@@ -552,6 +555,11 @@ final class McpLoopbackSelfTest {
 		$names = array_values( array_unique( $names ) );
 
 		if ( ! in_array( self::TASK_START_NAME, $names, true ) ) {
+			$state = AbilitiesState::current();
+			$fix   = $state['effective'] || PluginEffectiveState::STATE_DISABLED_BY_OPERATOR === $state['state']
+				? __( 'Enable Stonewright abilities and ensure the active tool profile exposes stonewright-task-start, then reload the AI client and retry.', 'stonewright' )
+				: trim( $state['summary'] . ' ' . $state['remedy'] );
+
 			return [
 				'step'       => self::step(
 					'tools_list',
@@ -561,7 +569,7 @@ final class McpLoopbackSelfTest {
 						__( 'tools/list did not include %s.', 'stonewright' ),
 						self::TASK_START_NAME
 					),
-					__( 'Enable Stonewright abilities and ensure the active tool profile exposes stonewright-task-start, then reload the AI client and retry.', 'stonewright' ),
+					$fix,
 					true
 				),
 				'session_id' => $response['session_id'],

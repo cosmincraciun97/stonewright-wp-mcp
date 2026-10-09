@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T21:38:19+00:00",
+    "generated_at": "2026-10-09T22:24:17+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -1183,7 +1183,7 @@
             "mcp_name": "stonewright-design-direction-capture",
             "kind": "Write",
             "input_schema_hash": "05ec1068e662b1e95b7354f0a3a8d84e5e9c8342b3ef49788a9b8f29ac9437c9",
-            "output_schema_hash": "05d8590993edff9e3dcd4a8913dd726f5cda106b6f10d324cb415169fc12be46",
+            "output_schema_hash": "400fccc77c5137c82f9c17398857f574ebc803745a252bea27b76bc649178cce",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
@@ -1243,7 +1243,7 @@
             "mcp_name": "stonewright-design-direction-restore",
             "kind": "Write",
             "input_schema_hash": "ec93ba571713725baf987358c340dfb87c79f40f59c1146a4affaa32a4849eed",
-            "output_schema_hash": "782c0169b12ce4c1c5019f646edc1afe49fd50e2266da3c24723e52445c2ae61",
+            "output_schema_hash": "1555f0cf2dbc9bd5d0196b13fe577cd504228b2ce04c1b6d93cee19cd2a80dbb",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
@@ -1263,7 +1263,7 @@
             "mcp_name": "stonewright-design-direction-save",
             "kind": "Write",
             "input_schema_hash": "9cd1204650c6669b166a9447bbf4a247f7660d31bf7d9f9e10841c75a580c8ec",
-            "output_schema_hash": "7dbdbc7837e074ef01fe66ec1c8ac7179b2ef84c784aa9be24727fdeb5e464c3",
+            "output_schema_hash": "016a2d81044b20fa4a8302809dfde263784c99e7ce93763225006cbf38fb69cf",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,

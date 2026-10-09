@@ -97,6 +97,70 @@ final class SupportReportTest extends TestCase {
 		self::assertLessThanOrEqual( SupportReport::MAX_BYTES, strlen( $text ) );
 	}
 
+	public function test_report_lists_each_check_with_its_label_summary_and_remedy(): void {
+		$text = SupportReport::render(
+			[
+				'method' => 'oauth-http',
+				'checks' => [
+					DiagnosticCheck::problem( 'application_passwords', 'Application Passwords', 'Unavailable: a filter turns them off.', 'Look for the wp_is_application_passwords_available filter.' )->to_array(),
+					DiagnosticCheck::ok( 'transport', 'Connection transport', 'HTTPS active.' )->to_array(),
+					DiagnosticCheck::skipped( 'connection', 'Connection', 'Skipped: needs Stonewright abilities to pass first.', [ 'plugin' ] )->to_array(),
+				],
+			]
+		);
+
+		self::assertStringContainsString( '[problem] application_passwords', $text );
+		self::assertStringContainsString( 'Application Passwords: Unavailable: a filter turns them off.', $text );
+		self::assertStringContainsString( 'Fix: Look for the wp_is_application_passwords_available filter.', $text );
+		self::assertStringContainsString( 'Connection transport: HTTPS active.', $text );
+		self::assertStringContainsString( 'Connection: Skipped: needs Stonewright abilities to pass first.', $text );
+		self::assertSame( 1, substr_count( $text, 'Fix: ' ), 'Only problems and warnings carry a remedy.' );
+	}
+
+	public function test_report_summaries_never_carry_secrets(): void {
+		$group   = implode( ' ', [ 'abcd', 'efgh', 'ijkl', 'mnop', 'qrst', 'uvwx' ] );
+		$summary ='Registration failed: Authorization: Bearer abc123def456ghi789, Basic dXNlcjpwYXNzd29yZA==, password=hunter2hunter2, '
+			. 'https://admin:s3cr3tpass@example.test/wp-json, access_token=tok-9f8e7d6c5b4a, cookie: wordpress_logged_in_x=abcdef, '
+			. 'app password ' . $group . ', and a key 0123456789abcdef0123456789abcdef0123456789abcdef.';
+		$text    = SupportReport::render(
+			[
+				'checks' => [
+					DiagnosticCheck::problem( 'oauth_registration', 'OAuth dynamic registration', $summary, 'Retry with client_secret=shh-its-a-secret.' )->to_array(),
+				],
+			]
+		);
+
+		foreach ( [ 'abc123def456ghi789', 'dXNlcjpwYXNzd29yZA==', 'hunter2hunter2', 's3cr3tpass', 'tok-9f8e7d6c5b4a', 'wordpress_logged_in_x=abcdef', $group, '0123456789abcdef0123456789abcdef', 'shh-its-a-secret' ] as $secret ) {
+			self::assertStringNotContainsString( $secret, $text, $secret );
+		}
+		self::assertStringContainsString( 'Registration failed', $text );
+		self::assertStringContainsString( 'example.test/wp-json', $text, 'Ordinary addresses stay readable.' );
+		foreach ( explode( "\n", $text ) as $line ) {
+			self::assertLessThanOrEqual( SupportReport::MAX_LINE_LENGTH, strlen( $line ) );
+		}
+	}
+
+	public function test_report_keeps_a_plain_bearer_challenge_sentence(): void {
+		$text = SupportReport::render(
+			[ 'checks' => [ DiagnosticCheck::ok( 'oauth_challenge', 'OAuth challenge', 'OAuth MCP endpoint returned HTTP 401 with a Bearer challenge.' )->to_array() ] ]
+		);
+
+		self::assertStringContainsString( 'with a Bearer challenge.', $text );
+	}
+
+	public function test_report_omits_evidence_lines_with_no_value(): void {
+		$text = SupportReport::render(
+			[
+				'checks' => [
+					DiagnosticCheck::ok( 'mcp_server_registration', 'MCP server registration', 'MCP server stonewright is registered.', [ 'server_id' => 'stonewright', 'state' => 'registered', 'error_code' => '', 'http_status' => 0 ] )->to_array(),
+				],
+			]
+		);
+
+		self::assertStringNotContainsString( 'error_code', $text );
+		self::assertStringContainsString( 'http_status: 0', $text, 'A zero is a value.' );
+	}
+
 	public function test_report_rejects_an_arbitrary_request_dump(): void {
 		$text = SupportReport::render(
 			[

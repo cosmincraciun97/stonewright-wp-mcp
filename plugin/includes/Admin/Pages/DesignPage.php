@@ -37,6 +37,18 @@ final class DesignPage {
 	private const ACTIVATE_NONCE = 'stonewright_design_activate';
 	private const IMPORT_ID      = 'sw-design-import';
 
+	/** Seconds a refused import's reasons wait for the page that shows them. */
+	private const REFUSAL_TTL = 120;
+
+	/** Reasons printed for one refused import. */
+	private const REFUSAL_SHOWN = 5;
+
+	/** Longest reason printed, in characters. */
+	private const REFUSAL_LENGTH = 240;
+
+	/** Rows printed for one token group before the rest is summarized. */
+	private const GROUP_ROWS = 12;
+
 	private static ?DesignDirectionService $service = null;
 
 	public static function register(): void {
@@ -143,6 +155,9 @@ final class DesignPage {
 		if ( $result instanceof WP_Error ) {
 			return 'import-error';
 		}
+		if ( true === ( $result['active_cleared'] ?? false ) ) {
+			return 'imported-draft-deactivated';
+		}
 		$id = (int) ( $result['id'] ?? 0 );
 		if ( $id > 0 && $id === (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) ) {
 			return 'imported-active';
@@ -161,6 +176,9 @@ final class DesignPage {
 			? (string) wp_unslash( $_POST['design_markdown'] )
 			: '';
 		$result   = self::import_document( $markdown, get_current_user_id() );
+		if ( $result instanceof WP_Error ) {
+			self::remember_import_refusal( $result, get_current_user_id() );
+		}
 		$notice   = self::notice_for_import( $result );
 
 		wp_safe_redirect(
@@ -173,6 +191,68 @@ final class DesignPage {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Keeps the reasons a refused import gave for the next page load of the same user. The reasons travel in a
+	 * short-lived transient, never in the redirect URL, so a link cannot put its own text on the page.
+	 */
+	public static function remember_import_refusal( WP_Error $error, int $user_id ): void {
+		if ( $user_id < 1 ) {
+			return;
+		}
+		set_transient( self::refusal_key( $user_id ), self::refusal_reasons( $error ), self::REFUSAL_TTL );
+	}
+
+	/**
+	 * The validator's messages and any outstanding readiness issues of a refusal, each trimmed to one line.
+	 *
+	 * @return list<string>
+	 */
+	public static function refusal_reasons( WP_Error $error ): array {
+		$raw  = [ $error->get_error_message() ];
+		$data = $error->get_error_data();
+		if ( is_array( $data ) && is_array( $data['issues'] ?? null ) ) {
+			foreach ( $data['issues'] as $issue ) {
+				if ( is_scalar( $issue ) ) {
+					$raw[] = (string) $issue;
+				}
+			}
+		}
+
+		$reasons = [];
+		foreach ( $raw as $reason ) {
+			$reason = trim( (string) preg_replace( '/\s+/', ' ', (string) $reason ) );
+			if ( '' === $reason ) {
+				continue;
+			}
+			if ( strlen( $reason ) > self::REFUSAL_LENGTH ) {
+				$reason = rtrim( substr( $reason, 0, self::REFUSAL_LENGTH ) ) . '...';
+			}
+			$reasons[ $reason ] = $reason;
+		}
+
+		return array_values( $reasons );
+	}
+
+	/**
+	 * Reads and clears the reasons remembered for this user.
+	 *
+	 * @return list<string>
+	 */
+	private static function take_import_refusal( int $user_id ): array {
+		if ( $user_id < 1 ) {
+			return [];
+		}
+		$key     = self::refusal_key( $user_id );
+		$reasons = get_transient( $key );
+		delete_transient( $key );
+
+		return is_array( $reasons ) ? array_values( array_filter( array_map( 'strval', $reasons ), static fn ( string $reason ): bool => '' !== $reason ) ) : [];
+	}
+
+	private static function refusal_key( int $user_id ): string {
+		return 'stonewright_design_import_refusal_' . $user_id;
 	}
 
 	public static function handle_activate(): void {
@@ -213,7 +293,7 @@ final class DesignPage {
 			? sanitize_key( (string) wp_unslash( $_GET['stonewright_design_notice'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			: '';
 
-		$html = self::notice_html( $notice );
+		$html = self::notice_html( $notice, 'import-error' === $notice ? self::take_import_refusal( get_current_user_id() ) : [] );
 		if ( [] === $records ) {
 			$html .= Card::render(
 				__( 'Active direction', 'stonewright' ),
@@ -240,19 +320,53 @@ final class DesignPage {
 
 	/**
 	 * What the last action did. Each outcome has its own message; errors are alerts and never go away.
+	 *
+	 * @param list<string> $reasons Why a refused import was refused.
 	 */
-	private static function notice_html( string $key ): string {
+	private static function notice_html( string $key, array $reasons = [] ): string {
+		if ( 'import-error' === $key ) {
+			return self::import_error_notice( $reasons );
+		}
+
 		return match ( $key ) {
+			'imported-draft-deactivated' => Notice::render( 'warn', __( 'Design direction imported, and switched off.', 'stonewright' ), __( 'This direction was the active direction, and the new revision is not ready, so it is now a draft and no longer active. Agents no longer follow a design direction. The reasons are listed under Directions.', 'stonewright' ) ),
 			'imported-active'  => Notice::render( 'ok', __( 'Design direction imported and activated.', 'stonewright' ), __( 'Agents now follow it. It is listed under Directions.', 'stonewright' ) ),
 			'imported-draft'   => Notice::render( 'warn', __( 'Design direction imported, stored as a draft.', 'stonewright' ), __( 'It is not active because its readiness checks are not met. The reasons are listed under Directions.', 'stonewright' ) ),
 			'imported-ready'   => Notice::render( 'warn', __( 'Design direction imported, but not activated.', 'stonewright' ), __( 'It passes its readiness checks. Activate it from the list below.', 'stonewright' ) ),
 			'activated'        => Notice::render( 'ok', __( 'Design direction activated.', 'stonewright' ), __( 'Agents now follow it.', 'stonewright' ) ),
 			'deactivated'      => Notice::render( 'ok', __( 'Design direction deactivated.', 'stonewright' ), __( 'Agents no longer follow a design direction. Activate it again from the list below.', 'stonewright' ) ),
-			'import-error'     => Notice::render( 'danger', __( 'The DESIGN.md import was rejected.', 'stonewright' ), __( 'Check the front matter, the tokens and any secret-like prose, then import again.', 'stonewright' ) ),
 			'activate-error'   => Notice::render( 'danger', __( 'The design direction could not be activated.', 'stonewright' ), __( 'Only a direction whose readiness checks pass can be activated.', 'stonewright' ) ),
 			'deactivate-error' => Notice::render( 'danger', __( 'The active design direction could not be cleared.', 'stonewright' ), __( 'Try again. If it keeps failing, check that the site can write its options.', 'stonewright' ) ),
 			default            => '',
 		};
+	}
+
+	/**
+	 * The refusal notice: the validator's reason, or a short list of reasons, always escaped.
+	 *
+	 * @param list<string> $reasons
+	 */
+	private static function import_error_notice( array $reasons ): string {
+		$title = __( 'The DESIGN.md import was rejected.', 'stonewright' );
+		if ( [] === $reasons ) {
+			return Notice::render( 'danger', $title, __( 'Check the front matter, the tokens and any secret-like prose, then import again.', 'stonewright' ) );
+		}
+
+		$shown = array_slice( $reasons, 0, self::REFUSAL_SHOWN );
+		if ( 1 === count( $shown ) ) {
+			return Notice::render( 'danger', $title, $shown[0] );
+		}
+
+		$items = '';
+		foreach ( $shown as $reason ) {
+			$items .= Html::element( 'li', [], Html::text( $reason ) );
+		}
+		$more = count( $reasons ) - count( $shown );
+		if ( $more > 0 ) {
+			$items .= Html::element( 'li', [], Html::text( sprintf( /* translators: %d: number of reasons not shown */ _n( 'and %d more.', 'and %d more.', $more, 'stonewright' ), $more ) ) );
+		}
+
+		return Notice::render( 'danger', $title, '', [ 'text_html' => Html::element( 'ul', [ 'class' => 'sw-design__list' ], $items ) ] );
 	}
 
 	/**
@@ -280,14 +394,18 @@ final class DesignPage {
 		}
 
 		$columns = '';
-		$colors  = is_array( $tokens['colors'] ?? null ) ? $tokens['colors'] : [];
-		if ( [] !== $colors ) {
-			$items = [];
-			foreach ( $colors as $token => $value ) {
-				$items[] = [ 'label' => (string) $token, 'value_html' => Html::element( 'code', [], Html::text( (string) $value ) ) ];
-			}
-			$columns .= Html::element( 'div', [], Html::element( 'h3', [ 'class' => 'sw-design__label' ], Html::text( __( 'Colors', 'stonewright' ) ) ) . KvList::render( $items, [ 'label' => __( 'Colors', 'stonewright' ) ] ) );
+		$groups  = [
+			'colors'     => __( 'Colors', 'stonewright' ),
+			'typography' => __( 'Typography', 'stonewright' ),
+			'spacing'    => __( 'Spacing', 'stonewright' ),
+			'radii'      => __( 'Radii', 'stonewright' ),
+			'elevation'  => __( 'Elevation', 'stonewright' ),
+			'motion'     => __( 'Motion tokens', 'stonewright' ),
+		];
+		foreach ( $groups as $group => $title ) {
+			$columns .= self::token_column( $title, $tokens[ $group ] ?? [] );
 		}
+		$columns .= self::token_column( __( 'Components', 'stonewright' ), $contract['components'] ?? [] );
 		$columns .= self::list_column( __( 'Do', 'stonewright' ), $guidance['do'] ?? [] );
 		$columns .= self::list_column( __( 'Don\'t', 'stonewright' ), $guidance['avoid'] ?? [] );
 		if ( '' !== $columns ) {
@@ -301,6 +419,36 @@ final class DesignPage {
 				'actions_html' => Badge::render( __( 'Active', 'stonewright' ), [ 'variant' => 'ok', 'dot' => true ] ),
 			]
 		);
+	}
+
+	/**
+	 * One group of the contract as a titled list of name and value rows. A value that is a set of properties reads
+	 * as "property: value" pairs. Long groups show their first rows and count the rest.
+	 *
+	 * @param mixed $entries
+	 */
+	private static function token_column( string $title, mixed $entries ): string {
+		if ( ! is_array( $entries ) || [] === $entries ) {
+			return '';
+		}
+
+		$items = [];
+		foreach ( $entries as $name => $value ) {
+			if ( count( $items ) >= self::GROUP_ROWS ) {
+				$items[] = [ 'label' => '...', 'value' => sprintf( /* translators: %d: number of rows not shown */ __( 'and %d more', 'stonewright' ), count( $entries ) - self::GROUP_ROWS ) ];
+				break;
+			}
+			if ( is_array( $value ) ) {
+				$pairs = [];
+				foreach ( $value as $property => $property_value ) {
+					$pairs[] = (string) $property . ': ' . ( is_scalar( $property_value ) ? (string) $property_value : (string) wp_json_encode( $property_value ) );
+				}
+				$value = implode( ', ', $pairs );
+			}
+			$items[] = [ 'label' => (string) $name, 'value_html' => Html::element( 'code', [], Html::text( (string) $value ) ) ];
+		}
+
+		return Html::element( 'div', [], Html::element( 'h3', [ 'class' => 'sw-design__label' ], Html::text( $title ) ) . KvList::render( $items, [ 'label' => $title ] ) );
 	}
 
 	private static function no_active_card(): string {
