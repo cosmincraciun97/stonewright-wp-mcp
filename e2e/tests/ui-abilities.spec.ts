@@ -51,6 +51,8 @@ async function switchOf(tr: Locator): Promise<Locator> {
 
 /** Read the state the server holds, through the page's own bulk route, then restore it. */
 async function restore(page: Page, names: string[], enabled: boolean): Promise<void> {
+	// A switch change still in flight could land after this request and undo it, so let the page's requests finish first.
+	await page.waitForLoadState('networkidle').catch(() => undefined);
 	const config = await page.evaluate(() => {
 		const root = document.querySelector('[data-sw-abilities]') as HTMLElement;
 		return { url: root.dataset.restUrl ?? '', rest: root.dataset.restNonce ?? '', bulk: root.dataset.bulkNonce ?? '' };
@@ -197,10 +199,14 @@ test.describe('the switch', () => {
 
 	test('hands the change to the form when the REST route is blocked', async ({ page }) => {
 		await open(page);
+		const name = (await (await row(page, 'site-info')).locator('[data-sw-ability]').getAttribute('data-sw-ability')) ?? '';
+		// Start from the ability switched on, whatever an earlier test of the group left behind.
+		await restore(page, [name], true);
+		await open(page);
 		await page.route(TOGGLE_ROUTE, (route) => route.fulfill({ status: 404, contentType: 'text/html', body: '<p>Blocked</p>' }));
 		const tr = await row(page, 'site-info');
 		const toggle = await switchOf(tr);
-		const name = (await tr.locator('[data-sw-ability]').getAttribute('data-sw-ability')) ?? '';
+		await expect(toggle).toBeChecked();
 		try {
 			await Promise.all([page.waitForURL(/stonewright_toggled=disabled/), toggle.click()]);
 			await expect(page.locator('.sw-ui-notice--ok')).toContainText('Ability turned off.');
