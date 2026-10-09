@@ -535,6 +535,33 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Log the Rescue health probe's own requests in as the user a probe token was
+  issued for before anything about the request is recorded, so the admin leg
+  and the preview of a draft, private or pending page are answered as that
+  user and a write to them is verified. The identity is kept for that one
+  request only, is removed when it ends, and a token that is expired, used or
+  bound to another path or nonce still logs nobody in.
+- Clear the pending rescue incident when the automatic rollback of a change
+  succeeds after the rescue helper recorded a fatal for it. A rollback that
+  fails keeps the incident open.
+- Include `code`, `change_set_id`, `incident_id`, `rollback_status`,
+  `site_status` and `original_error_code` in the error message an MCP client
+  receives for `stonewright_rescue_write_rolled_back` and
+  `stonewright_rescue_rollback_failed`. Other error data is not copied.
+- Send an administrator who opens a rescue link while already signed in as the
+  administrator it was issued for on to the page named in the link (the Rescue
+  page by default) instead of showing the sign-in form. Only a plain GET visit
+  of the sign-in page is sent on, only to an address on the site, and only
+  when the signed-in user is the session's administrator.
+- Remove the notice that the health probe is unavailable as soon as a probe
+  passes.
+- Show the state of the rescue helper on **Stonewright > Rescue** and as
+  `helper` (`state`, `safe_mode`) in `rescue-status`, and offer **Open in safe
+  mode** only while the helper is installed and loaded.
+- Refuse a revision id in `content-update-page` with
+  `stonewright_invalid_post_type` before any capability check, snapshot or
+  write.
+
 - Make `elementor-v3-update-page-settings` take the per-post write lease before
   it snapshots or writes, and release it on every path. A page another writer
   holds is refused with the retryable `stonewright_elementor_write_busy`, and

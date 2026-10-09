@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T18:24:56+00:00",
+    "generated_at": "2026-10-09T20:43:00+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -6003,7 +6003,7 @@
             "mcp_name": "stonewright-rescue-status",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "5c40329280a39412378b690216ded81fb2baced3a5a1a54cebcfb5000696c631",
+            "output_schema_hash": "6f53b6efe629c743d6d1e904f3c7d5d3d32477fce1d3b7245317b91653997664",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

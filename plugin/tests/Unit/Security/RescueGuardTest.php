@@ -198,6 +198,22 @@ final class RescueGuardTest extends TestCase {
 		self::assertStringNotContainsString( 'example.test', $message );
 	}
 
+	public function test_the_code_of_a_rolled_back_write_survives_the_message_only_view_of_an_mcp_client(): void {
+		$this->site( static fn (): string => self::post_is_changed() );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		$message = \Stonewright\WpMcp\Support\ErrorEnvelope::with_agent_visible_payload( $result )->get_error_message();
+
+		$data = $result->get_error_data();
+		self::assertStringContainsString( '"code":"stonewright_rescue_write_rolled_back"', $message );
+		self::assertStringContainsString( '"site_status":"healthy"', $message );
+		self::assertStringContainsString( '"change_set_id":"' . $data['change_set_id'] . '"', $message );
+		self::assertStringNotContainsString( 'example.test', $message );
+		self::assertStringNotContainsString( 'resource_type', $message );
+	}
+
 	public function test_a_site_that_still_fails_after_the_rollback_is_reported_as_such(): void {
 		$this->site( static fn (): string => 'broken' );
 		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
@@ -244,6 +260,39 @@ final class RescueGuardTest extends TestCase {
 		self::assertCount( 1, $notices );
 		self::assertStringContainsString( 'not verified', $notices[0] );
 		self::assertSame( 'changed body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_the_unavailable_notice_is_cleared_as_soon_as_a_probe_passes(): void {
+		$state = 'unavailable';
+		$this->site( static function () use ( &$state ): string {
+			return $state;
+		} );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		RescueGuard::leave( [ 'ok' => true ] );
+		self::assertCount( 1, AgentNotices::fields()['notices'] ?? [], 'The host could not call itself.' );
+
+		$state = 'healthy';
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change( 32 );
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertSame( [ 'ok' => true ], $result );
+		$states = array_column( ChangeJournal::recent(), 'state', 'resource_key' );
+		self::assertSame( 'verified', $states['32'] );
+		self::assertArrayNotHasKey( 'notices', AgentNotices::fields(), 'The notice does not outlive the recovery.' );
+	}
+
+	public function test_a_probe_that_fails_or_cannot_run_keeps_the_unavailable_notice(): void {
+		$this->site( static fn (): string => 'unavailable' );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		RescueGuard::leave( [ 'ok' => true ] );
+
+		$this->site( static fn (): string => 'timeout' );
+		HealthProbe::run( [ 'legs' => [ 'home' ] ] );
+
+		self::assertCount( 1, AgentNotices::fields()['notices'] ?? [] );
 	}
 
 	public function test_a_call_that_changed_nothing_is_not_probed(): void {

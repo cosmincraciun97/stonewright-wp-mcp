@@ -834,6 +834,7 @@ final class Stonewright_Rescue {
 			}
 			if ( 'login' === $context ) {
 				add_filter( 'login_message', [ __CLASS__, 'login_notice' ] );
+				add_action( 'login_init', [ __CLASS__, 'continue_when_signed_in' ] );
 			}
 		}
 		if ( self::mcp_mode_applies() ) {
@@ -1047,6 +1048,31 @@ final class Stonewright_Rescue {
 	/** Filter for login_message: tells the administrator what happens after sign-in. */
 	public static function login_notice( $message ) {
 		return $message . '<p class="message">' . esc_html__( 'A Stonewright rescue link was opened in this browser. Sign in as the administrator it was issued for: Stonewright safe mode starts after you sign in.', 'stonewright' ) . '</p>';
+	}
+
+	/**
+	 * Action for login_init. A browser that already holds a session and is signed in as the session's
+	 * administrator is sent on to the page the link named (the Rescue page) instead of being shown the
+	 * sign-in form. Only a plain visit of the sign-in page is sent on, and only to a local address.
+	 */
+	public static function continue_when_signed_in() {
+		if ( self::$session_user < 1 || ! isset( $_SERVER['REQUEST_METHOD'] ) || 'GET' !== $_SERVER['REQUEST_METHOD'] ) {
+			return;
+		}
+		if ( ! empty( $_GET['reauth'] ) || ! empty( $_GET['interim-login'] ) || ( isset( $_GET['action'] ) && 'login' !== $_GET['action'] ) ) {
+			return;
+		}
+		$current = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $current !== self::$session_user || ! self::is_administrator( $current ) ) {
+			return;
+		}
+		$target = admin_url( 'admin.php?page=stonewright-rescue' );
+		if ( isset( $_GET['redirect_to'] ) && is_string( $_GET['redirect_to'] ) && function_exists( 'wp_validate_redirect' ) ) {
+			$target = wp_validate_redirect( $_GET['redirect_to'], $target );
+		}
+		self::send_header( 'Location: ' . str_replace( [ "\r", "\n" ], '', $target ), 302 );
+		self::send_header( 'Cache-Control: no-store, max-age=0' );
+		self::stop();
 	}
 
 	/** Filter for login_message: a rescue link that cannot be used. */

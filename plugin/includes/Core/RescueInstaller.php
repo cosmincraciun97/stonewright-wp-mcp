@@ -123,6 +123,25 @@ final class RescueInstaller {
 	}
 
 	/**
+	 * The helper as an administrator or an agent needs to see it, with no path or hash.
+	 *
+	 * The state is installed (the current helper is in place and loaded), not_loaded (it is in place
+	 * but this request did not load it yet), or the state of status() when it is not: missing,
+	 * modified, unwritable, file_mods_disabled or source_invalid. safe_mode says whether a safe
+	 * mode link can be issued.
+	 *
+	 * @return array{state:string,safe_mode:bool}
+	 */
+	public static function summary(): array {
+		$state = self::status()['state'];
+		$ready = 'ok' === $state && RescueRuntime::version() >= self::REQUIRED_VERSION;
+		if ( 'ok' === $state ) {
+			$state = $ready ? 'installed' : 'not_loaded';
+		}
+		return [ 'state' => $state, 'safe_mode' => $ready ];
+	}
+
+	/**
 	 * Copies the bundled file into place, or reports why it did not.
 	 *
 	 * @return array{state:string,target:string,installed_sha256:?string,bundled_sha256:?string,writable:bool}

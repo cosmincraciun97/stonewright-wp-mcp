@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Core\RescueInstaller;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -148,7 +149,7 @@ final class RescuePage {
 			echo '<div class="sw-rescue-notice sw-rescue-notice--warn" role="status"><p>' . esc_html__( 'The journal file could not be written, so a fatal cannot be matched to a change while the database is down. Rollbacks from this page still work. Check that the uploads folder is writable.', 'stonewright' ) . '</p></div>';
 		}
 		self::render_callouts( $guarded );
-		self::render_stats( count( $open ), count( $unconfirmed ) );
+		self::render_stats( count( $open ), count( $unconfirmed ), RescueInstaller::summary() );
 		self::render_attention( $attention, $guarded, count( $unconfirmed ) );
 		self::render_recent( $recent );
 		echo '<p class="screen-reader-text" role="status" aria-live="polite" data-sw-rescue-live></p>';
@@ -213,14 +214,41 @@ final class RescuePage {
 		}
 	}
 
-	private static function render_stats( int $open, int $unverified ): void {
+	/**
+	 * @param array{state:string,safe_mode:bool} $helper
+	 */
+	private static function render_stats( int $open, int $unverified, array $helper ): void {
 		$last = self::last_rollback();
 		echo '<dl class="sw-rescue-stats" data-sw-rescue-stats>';
 		self::stat( __( 'Open incidents', 'stonewright' ), esc_html( (string) $open ) );
 		self::stat( __( 'Not verified', 'stonewright' ), esc_html( (string) $unverified ) );
 		self::stat( __( 'Last rollback', 'stonewright' ), null === $last ? esc_html__( 'None yet', 'stonewright' ) : self::time_html( $last, 'j M Y, H:i' ) );
 		self::stat( __( 'Mode', 'stonewright' ), esc_html( self::mode_label() ) );
+		self::stat( __( 'Rescue helper', 'stonewright' ), '<span data-sw-rescue-helper="' . esc_attr( $helper['state'] ) . '">' . esc_html( self::helper_label( $helper['state'] ) ) . '</span>' );
 		echo '</dl>';
+		if ( ! $helper['safe_mode'] ) {
+			echo '<p class="sw-rescue-note">' . esc_html( self::helper_note( $helper['state'] ) ) . '</p>';
+		}
+	}
+
+	private static function helper_label( string $state ): string {
+		return match ( $state ) {
+			'installed'          => __( 'Installed', 'stonewright' ),
+			'not_loaded'         => __( 'Installed, loads on the next request', 'stonewright' ),
+			'modified'           => __( 'Changed on disk', 'stonewright' ),
+			'unwritable'         => __( 'Not installed (folder not writable)', 'stonewright' ),
+			'file_mods_disabled' => __( 'Not installed (file changes are off)', 'stonewright' ),
+			'source_invalid'     => __( 'Not installed (bundled file damaged)', 'stonewright' ),
+			default              => __( 'Not installed', 'stonewright' ),
+		};
+	}
+
+	/** Says what is lost without the helper, so a missing button is never a mystery. */
+	private static function helper_note( string $state ): string {
+		if ( 'not_loaded' === $state ) {
+			return __( 'Safe mode is not available until the next request loads the rescue helper. Reload this page.', 'stonewright' );
+		}
+		return __( 'Safe mode is not available, and a fatal error after a change is not recorded automatically, because the rescue helper is not in place. Stonewright installs it when it is activated and repairs it on a wp-admin page load.', 'stonewright' );
 	}
 
 	/**
@@ -706,7 +734,11 @@ final class RescuePage {
 		if ( false === self::$safe_mode_resolver ) {
 			return false;
 		}
-		return null !== self::$safe_mode_resolver || class_exists( self::KEYS_CLASS );
+		if ( null !== self::$safe_mode_resolver ) {
+			return true;
+		}
+		// The link needs the helper: without it nothing would redeem the key.
+		return class_exists( self::KEYS_CLASS ) && RescueInstaller::summary()['safe_mode'];
 	}
 
 	private static function resolve_safe_mode( int $user_id ): ?string {

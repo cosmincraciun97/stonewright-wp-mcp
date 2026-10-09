@@ -179,4 +179,76 @@ final class ErrorEnvelopeTest extends TestCase {
 		$negative = new \WP_Error( 'x', 'Busy.', [ 'retry_after' => -5 ] );
 		self::assertSame( 'Busy.', ErrorEnvelope::with_agent_visible_payload( $negative )->get_error_message() );
 	}
+
+	/** @return array<string, array{0:string}> */
+	public static function rescue_error_codes(): array {
+		return [
+			'rolled back'     => [ 'stonewright_rescue_write_rolled_back' ],
+			'rollback failed' => [ 'stonewright_rescue_rollback_failed' ],
+		];
+	}
+
+	/**
+	 * @dataProvider rescue_error_codes
+	 */
+	public function test_a_rescue_error_carries_its_code_and_safe_fields_in_the_agent_message( string $code ): void {
+		$error = new \WP_Error(
+			$code,
+			'The site stopped loading after this change.',
+			[
+				'status'              => 500,
+				'retryable'           => false,
+				'rollback_status'     => 'succeeded',
+				'incident_id'         => 'cs-abc123',
+				'change_set_id'       => 'cs-abc123',
+				'site_status'         => 'healthy',
+				'original_error_code' => 'stonewright_plugin_activation_failed',
+				'probe'               => [ 'status' => 'failed', 'legs' => [ [ 'leg' => 'home', 'url' => 'https://example.test/?sw_probe=secret' ] ] ],
+				'resource_type'       => 'plugin',
+				'root_error_code'     => 'stonewright_rescue_probe_failed',
+				'token'               => 'must-not-leak',
+			]
+		);
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+
+		$message = $visible->get_error_message();
+		self::assertSame( $code, $visible->get_error_code() );
+		self::assertStringContainsString( '"code":"' . $code . '"', $message );
+		self::assertStringContainsString( '"change_set_id":"cs-abc123"', $message );
+		self::assertStringContainsString( '"incident_id":"cs-abc123"', $message );
+		self::assertStringContainsString( '"rollback_status":"succeeded"', $message );
+		self::assertStringContainsString( '"site_status":"healthy"', $message );
+		self::assertStringContainsString( '"original_error_code":"stonewright_plugin_activation_failed"', $message );
+		foreach ( [ 'must-not-leak', 'sw_probe', 'example.test', 'resource_type', 'root_error_code', '"probe"', '"status"' ] as $internal ) {
+			self::assertStringNotContainsString( $internal, $message, $internal );
+		}
+		self::assertSame( 'must-not-leak', $visible->get_error_data()['token'], 'The PHP error data is untouched.' );
+	}
+
+	public function test_only_a_rescue_error_gets_a_code_in_its_message(): void {
+		$error = new \WP_Error( 'stonewright_elementor_write_busy', 'Busy.', [ 'retryable' => true, 'site_status' => 'healthy', 'rollback_status' => 'succeeded' ] );
+
+		$message = ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message();
+
+		self::assertSame( 'Busy. {"retryable":true}', $message );
+	}
+
+	public function test_rescue_fields_are_bounded_strings(): void {
+		$error = new \WP_Error(
+			'stonewright_rescue_write_rolled_back',
+			'Rolled back.',
+			[
+				'change_set_id'   => str_repeat( 'a', 200 ),
+				'site_status'     => [ 'not' => 'a string' ],
+				'rollback_status' => str_repeat( 'b', 200 ),
+			]
+		);
+
+		$message = ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message();
+
+		self::assertStringContainsString( '"change_set_id":"' . str_repeat( 'a', 96 ) . '"', $message );
+		self::assertStringNotContainsString( 'not', $message );
+		self::assertStringNotContainsString( str_repeat( 'b', 100 ), $message );
+	}
 }

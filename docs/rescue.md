@@ -17,6 +17,8 @@ Rescue works on changes Stonewright makes through its abilities. It does not wat
 
 A call that changes several of these is checked once and rolled back in reverse order when the check fails.
 
+`content-update-page` refuses the id of a revision (`stonewright_invalid_post_type`) before it snapshots or writes: a revision is a saved copy of a page, so there is no page to check.
+
 ## How a protected write runs
 
 1. **Arm.** The write site records a change set: an id, the ability, what is touched, and the recipe that undoes it. This happens before anything changes.
@@ -36,6 +38,8 @@ A call that changes several of these is checked once and rolled back in reverse 
 | `stonewright_rescue_rollback_failed` | The site stopped loading and the rollback failed. The message names the `incident_id` and the ability to call |
 
 Both carry `change_set_id`, `incident_id`, `rollback_status`, `site_status` (`healthy`, `still_failing` or `unknown`), a compact `probe`, and `original_error_code` when the ability had already failed.
+
+An MCP client receives only the error message, so the message carries the evidence (the failed legs of the probe included) and ends with a compact JSON object holding `code`, `change_set_id`, `incident_id`, `rollback_status`, `site_status` and `original_error_code`. The REST error carries the code and the full data.
 
 A theme-file write keeps its own receipt and adds `site_probe` (`passed`, `failed`, `unavailable` or `skipped`). It reports `verification_status` `verified` and `effect_verified` true only when the check after the write passed; when the check could not run or was skipped it reports `unverified`, and `probe_unavailable` when the site could not be reached. A write the journal cannot describe is still checked and undone from memory; there is just no change set to point at.
 
@@ -74,7 +78,7 @@ A probe is up to five short requests, called legs:
 | `post` | The page of the post that was written (a preview link for a draft). For an Elementor kit, which has no page of its own, the public front page, requested without the internal token |
 | `custom` | A URL the write asked to have checked. It must have exactly the home URL's scheme, host and port. It is not followed if it redirects |
 
-A leg fails on HTTP 500, on the WordPress critical error page, or on PHP's own fatal text in the response. A blocked loopback request, a login wall, a redirect, a gateway error or a timeout is not a failure and not a success: the leg is `unavailable`, and a probe with no passing leg is `unavailable` as a whole, unless the same leg passed in the baseline (see above). A request that carries the internal token never follows a redirect, so the token cannot be sent to wherever a redirect points. The evidence keeps leg names, statuses, HTTP codes and short reasons. It never holds a URL, a header or a response body.
+A leg fails on HTTP 500, on the WordPress critical error page, or on PHP's own fatal text in the response. A blocked loopback request, a login wall, a redirect, a gateway error or a timeout is not a failure and not a success: the leg is `unavailable`, and a probe with no passing leg is `unavailable` as a whole, unless the same leg passed in the baseline (see above). A request that carries the internal token never follows a redirect, so the token cannot be sent to wherever a redirect points. The first thing a request with a valid token does is become the user the token was issued for, before anything about the request is recorded. It stays that user for that request only: the identity and the short session behind it end with the request, and a token that is expired, already used, or sent to another path or with another nonce logs nobody in. The evidence keeps leg names, statuses, HTTP codes and short reasons. It never holds a URL, a header or a response body.
 
 When every leg of a probe fails to connect, later probes send one request with a three second timeout for ten minutes, so a host that cannot call itself never makes writes wait. Any answer ends that.
 
@@ -84,13 +88,13 @@ Three filters adjust the probe: `stonewright_rescue_probe_enabled` (return `fals
 
 - **After a failed write:** the error codes above.
 - **While an incident is open:** every ability response carries `pending_incident` with `id`, `ability`, `since` and `rollback`, the name of the ability to call. A response whose output schema forbids extra properties declares the field, so it still validates.
-- **Short notices:** a `notices` list carries one-line messages with a lifetime, for example that the probe is unavailable on this host. At most five lines of 160 characters are kept.
+- **Short notices:** a `notices` list carries one-line messages with a lifetime, for example that the probe is unavailable on this host. At most five lines of 160 characters are kept. The notice that the probe is unavailable is removed as soon as a probe passes.
 
 ## Abilities
 
 | Ability | Kind | Notes |
 |---|---|---|
-| `stonewright/rescue-status` (`stonewright-rescue-status`) | Read | Needs `manage_options`. Lists open incidents, changes that were never verified and the latest changes, each with the rollback it would run. Changes nothing and runs no probe |
+| `stonewright/rescue-status` (`stonewright-rescue-status`) | Read | Needs `manage_options`. Lists open incidents, changes that were never verified and the latest changes, each with the rollback it would run, and `helper` (`state` and `safe_mode`): whether the rescue helper is in place and a safe mode link can be issued. Changes nothing and runs no probe |
 | `stonewright/rescue-rollback` (`stonewright-rescue-rollback`) | Write | Needs `manage_options`. Input `incident_id`, `action` (`rollback`, the default, or `recheck`), `dry_run` and, in production-safe mode, a `confirmation_token`. `rollback` runs the recorded recipe and probes the site afterwards. `recheck` only probes again and closes the incident when the site loads, for a change someone undid by hand. A `dry_run` of the rollback returns the plan, which says how old the change is and warns when a newer change to the same item exists (the rollback would overwrite it), and needs no token. A `recheck` changes the incident, so it needs the token even with `dry_run`. The rollback claims the change set first, so a double click, or the page and an agent together, run it once: the second caller gets `stonewright_rescue_in_progress` (a claim older than five minutes is ignored). The outcome is written to the change set and to the audit log |
 
 The rollback restores a state Stonewright recorded itself, and only for a change set in the journal. It is not a way around the permission model.
@@ -103,7 +107,8 @@ The rollback restores a state Stonewright recorded itself, and only for a change
 - **Check again** probes the site again and closes the incident when it loads.
 - Each row says how long ago the change was made. The confirmation warns when a newer change to the same item exists, because the rollback would overwrite it. While a rollback of a change set is running, its row says so instead of offering the buttons.
 - **Prompt for your agent** holds the words to hand an agent that should finish the job.
-- **Open in safe mode** starts safe mode, in which WordPress loads only Stonewright and a default theme, through a link that works once, when the rescue helper can issue one. You sign in on the site's normal sign-in page first, and safe mode starts after that (see below).
+- **Rescue helper** in the summary shows whether the helper is installed (`Installed`, `Installed, loads on the next request`, `Changed on disk` or `Not installed` with the reason). When safe mode cannot start, the page says so under the summary.
+- **Open in safe mode** starts safe mode, in which WordPress loads only Stonewright and a default theme, through a link that works once. The button is shown only while the rescue helper is installed and loaded. You sign in on the site's normal sign-in page first, and safe mode starts after that (see below).
 
 Every action is a plain form post with a nonce, so the page works without scripts. Scripts add the dialog, the copy buttons and a busy state. After an action the page shows what happened, with a receipt id that matches the audit log. The page works at 400 px.
 
@@ -113,7 +118,7 @@ A small must-use helper records a PHP fatal that follows a change against its ch
 
 ### The rescue helper
 
-Stonewright installs a small must-use plugin, `wp-content/mu-plugins/stonewright-rescue.php`, when it is activated and again after an update. On every wp-admin page load Stonewright compares it with its own copy and writes it again when it is missing or was changed. When the folder cannot be written, or file changes are turned off for the site, an admin notice says so and Stonewright goes on without the helper: a fatal error after a change is then not recorded and safe mode is not available. Deactivating Stonewright leaves the file where it is, and it does nothing; deleting Stonewright removes it.
+Stonewright installs a small must-use plugin, `wp-content/mu-plugins/stonewright-rescue.php`, when it is activated and again after an update. On every wp-admin page load Stonewright compares it with its own copy and writes it again when it is missing or was changed. When the folder cannot be written, or file changes are turned off for the site, an admin notice says so and Stonewright goes on without the helper: a fatal error after a change is then not recorded and safe mode is not available. Deactivating Stonewright leaves the file where it is, and it does nothing; deleting Stonewright from the Plugins screen, or with `wp plugin uninstall`, removes it. `wp plugin delete` removes the plugin folder without running the uninstall step, so it leaves `wp-content/mu-plugins/stonewright-rescue.php` behind. The file does nothing without the plugin and can be deleted by hand. Stonewright cannot remove it on that path, because nothing of Stonewright runs when WP-CLI deletes the folder.
 
 When a PHP fatal error happens, the helper matches the file of the error with the paths of the open change sets, and of the ones settled in the last 15 minutes, and records an incident on the matching change set. It never rolls anything back and reads no database.
 
@@ -123,7 +128,7 @@ Safe mode is a short browser session in which WordPress loads only Stonewright a
 
 - The link works once, for 15 minutes, for one administrator. Only a hash of it is stored.
 - Opening the link starts a 30 minute session in the browser. It signs nobody in and changes nothing about the sign-in page: signing in always runs with the site's normal plugins, so two-factor, login limiting and captcha plugins work as they always do.
-- Safe mode starts once the administrator the link was issued for has signed in. If that administrator is already signed in, WordPress sends the browser on to the Rescue page and safe mode starts there. From then on, wp-admin and admin-ajax requests, and that administrator's REST and front-end requests, load in safe mode. A different user signing in ends the session, and so do signing out, **Leave safe mode** in the notice, and the 30 minutes.
+- Safe mode starts once the administrator the link was issued for has signed in. If that administrator is already signed in, opening the link sends the browser on to the page the link names (the Rescue page) instead of showing the sign-in form, and safe mode starts there. Only a plain visit of the sign-in page is sent on, only to an address on the site, and only for the signed-in user the link was issued for. From then on, wp-admin and admin-ajax requests, and that administrator's REST and front-end requests, load in safe mode. A different user signing in ends the session, and so do signing out, **Leave safe mode** in the notice, and the 30 minutes.
 - The session is a cookie that is HttpOnly, Secure on HTTPS sites and SameSite=Lax. Only wp-admin and the front controller (`index.php`) are loaded in safe mode. The sign-in page, XML-RPC, cron, every other entry script and every request without the cookie, anonymous front-end traffic included, never are.
 - Changes to the active plugins and to the theme are paused while the session lasts. A rollback from the Rescue page is the exception: it works on the real selection.
 - Settings > General > "Safe mode on the MCP route" is off by default. While an incident is open, a REST request that WordPress serves through `index.php` to `/wp-json/mcp/stonewright` with a Basic credential, or to `/wp-json/mcp/stonewright-oauth` with a Bearer credential, loads the same way, with Stonewright's own authentication and permission checks unchanged. Other plugins, including security plugins, do not run on those requests. A request to the sign-in page, to wp-admin, to `xmlrpc.php` or to any other script is never loaded this way.

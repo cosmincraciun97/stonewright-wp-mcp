@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\RescueRuntime;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
+use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuStop;
 
 /**
  * Safe boot: which requests it applies to (a valid session; never the login page, anonymous
@@ -97,6 +98,99 @@ final class RescueSafeBootTest extends TestCase {
 		self::assertTrue( \Stonewright_Rescue::is_safe_boot() );
 		self::assertSame( [ MuRuntime::PLUGIN ], MuRuntime::filter( 'option_active_plugins', self::ACTIVE ) );
 		self::assertCount( 1, MuRuntime::option_names( 'stonewright_rescue_sess_' ) );
+	}
+
+	/**
+	 * The login page of a browser that holds a session and a login cookie, with $user_id signed in.
+	 *
+	 * @param array<string, string> $get
+	 * @return list<array{0:string,1:int}> The headers the request sent.
+	 */
+	private function login_page_as( string $token, int $user_id, array $get = [], string $method = 'GET' ): array {
+		MuRuntime::request( 'wp-login.php', $get, [ 'stonewright_rescue_session' => $token, 'wordpress_logged_in_8f14e45f' => 'cookie-value' ], $method );
+		$GLOBALS['stonewright_test_current_user_id'] = $user_id;
+		MuRuntime::start();
+		try {
+			MuRuntime::fire( 'login_init' );
+		} catch ( MuStop ) {
+			// The request ended where the real one would have.
+		}
+		return MuRuntime::$capture->headers;
+	}
+
+	private static function location_of( array $headers ): ?string {
+		foreach ( $headers as [ $line ] ) {
+			if ( str_starts_with( $line, 'Location: ' ) ) {
+				return substr( $line, 10 );
+			}
+		}
+		return null;
+	}
+
+	public function test_the_administrator_who_is_already_signed_in_is_sent_on_instead_of_shown_the_sign_in_form(): void {
+		$token = MuRuntime::open_session( 7 );
+
+		$headers = $this->login_page_as( $token, 7, [ 'redirect_to' => 'https://example.test/wp-admin/admin.php?page=stonewright-rescue' ] );
+
+		self::assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright-rescue', self::location_of( $headers ) );
+		self::assertSame( 1, MuRuntime::$capture->exits, 'The sign-in form is not rendered.' );
+		self::assertContains( 'Cache-Control: no-store, max-age=0', array_column( $headers, 0 ) );
+		self::assertCount( 1, MuRuntime::option_names( 'stonewright_rescue_sess_' ), 'The session stays, so the next wp-admin request is in safe mode.' );
+	}
+
+	public function test_without_a_redirect_the_administrator_is_sent_to_the_rescue_page(): void {
+		$token = MuRuntime::open_session( 7 );
+
+		$headers = $this->login_page_as( $token, 7 );
+
+		self::assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright-rescue', self::location_of( $headers ) );
+	}
+
+	public function test_a_redirect_to_another_host_is_not_followed(): void {
+		$token = MuRuntime::open_session( 7 );
+
+		$headers = $this->login_page_as( $token, 7, [ 'redirect_to' => 'https://elsewhere.example.org/phish' ] );
+
+		self::assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright-rescue', self::location_of( $headers ) );
+	}
+
+	public function test_nobody_is_sent_on_unless_the_signed_in_user_is_the_sessions_administrator(): void {
+		$token = MuRuntime::open_session( 7 );
+		MuRuntime::admin( 9 );
+
+		self::assertNull( self::location_of( $this->login_page_as( $token, 9 ) ), 'another administrator' );
+		self::assertNull( self::location_of( $this->login_page_as( $token, 0 ) ), 'nobody signed in' );
+		MuRuntime::subscriber( 7 );
+		self::assertNull( self::location_of( $this->login_page_as( $token, 7 ) ), 'the user is no longer an administrator' );
+	}
+
+	/** @return array<string, array{0:array<string,string>,1:string}> */
+	public static function login_requests_that_are_left_alone(): array {
+		return [
+			'sign out'          => [ [ 'action' => 'logout' ], 'GET' ],
+			'lost password'     => [ [ 'action' => 'lostpassword' ], 'GET' ],
+			're-authentication' => [ [ 'reauth' => '1' ], 'GET' ],
+			'interim login'     => [ [ 'interim-login' => '1' ], 'GET' ],
+			'a form post'       => [ [], 'POST' ],
+		];
+	}
+
+	/**
+	 * @dataProvider login_requests_that_are_left_alone
+	 * @param array<string, string> $get
+	 */
+	public function test_only_a_plain_visit_of_the_sign_in_page_is_sent_on( array $get, string $method ): void {
+		$token = MuRuntime::open_session( 7 );
+
+		self::assertNull( self::location_of( $this->login_page_as( $token, 7, $get, $method ) ) );
+	}
+
+	public function test_a_login_page_without_a_session_adds_no_redirect(): void {
+		MuRuntime::request( 'wp-login.php', [], [ 'wordpress_logged_in_8f14e45f' => 'cookie-value' ] );
+		$GLOBALS['stonewright_test_current_user_id'] = 7;
+		MuRuntime::start();
+
+		self::assertFalse( MuRuntime::has_action( 'login_init' ) );
 	}
 
 	public function test_a_different_user_signing_in_ends_the_session(): void {

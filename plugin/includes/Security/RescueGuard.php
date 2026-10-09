@@ -497,7 +497,7 @@ final class RescueGuard {
 	private static function note_unavailable( array $probe ): void {
 		$reason = (string) ( $probe['unavailable_reason'] ?? 'no_evidence' );
 		AgentNotices::push(
-			'rescue_probe',
+			HealthProbe::NOTICE_KEY,
 			sprintf( 'rescue: health probe unavailable on this host (%s); recent changes are armed but not verified.', preg_replace( '/[^a-z0-9_]/', '', strtolower( $reason ) ) ),
 			900
 		);
