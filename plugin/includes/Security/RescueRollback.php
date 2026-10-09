@@ -124,14 +124,17 @@ final class RescueRollback {
 
 	/**
 	 * Judge a probe against the baselines the entries took before their writes: a leg that passed
-	 * then and cannot be reached now counts as failed (see HealthProbe::compare()).
+	 * then and cannot be reached now counts as failed (see HealthProbe::compare()). For the probe taken
+	 * right after a write, $retry asks such a leg once more first, in case it was only slow (see
+	 * HealthProbe::retry_silent_legs()).
 	 *
 	 * @param array<string, mixed>       $probe   A probe taken after the change.
 	 * @param list<array<string, mixed>> $entries The entries the probe covers.
 	 * @param array<string, mixed>       $context The context the probe was run with.
+	 * @param bool                       $retry   Ask a leg that got no answer once more before judging it.
 	 * @return array<string, mixed>
 	 */
-	public static function judge( array $probe, array $entries, array $context ): array {
+	public static function judge( array $probe, array $entries, array $context, bool $retry = false ): array {
 		$passed  = [];
 		$post_id = (int) ( $context['post_id'] ?? 0 );
 		foreach ( $entries as $entry ) {
@@ -148,7 +151,11 @@ final class RescueRollback {
 				$passed[ $name ] = true;
 			}
 		}
-		return HealthProbe::compare( $probe, array_keys( $passed ) );
+		$passed = array_keys( $passed );
+		if ( $retry ) {
+			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
+		}
+		return HealthProbe::compare( $probe, $passed );
 	}
 
 	/**
@@ -193,12 +200,16 @@ final class RescueRollback {
 			if ( ! is_array( $leg ) ) {
 				continue;
 			}
-			$legs[] = [
+			$entry = [
 				'leg'    => (string) ( $leg['leg'] ?? '' ),
 				'status' => (string) ( $leg['status'] ?? '' ),
 				'http'   => (int) ( $leg['http'] ?? 0 ),
 				'reason' => (string) ( $leg['reason'] ?? '' ),
 			];
+			if ( ! empty( $leg['retried'] ) ) {
+				$entry['retried'] = true;
+			}
+			$legs[] = $entry;
 		}
 		$out = [
 			'status'   => (string) ( $probe['status'] ?? 'unavailable' ),
@@ -487,11 +498,15 @@ final class RescueRollback {
 		$legs = [];
 		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
 			if ( is_array( $leg ) && 'passed' !== ( $leg['status'] ?? '' ) ) {
-				$legs[] = [
+				$entry = [
 					'leg'    => (string) ( $leg['leg'] ?? '' ),
 					'http'   => (int) ( $leg['http'] ?? 0 ),
 					'reason' => (string) ( $leg['reason'] ?? '' ),
 				];
+				if ( ! empty( $leg['retried'] ) ) {
+					$entry['retried'] = true;
+				}
+				$legs[] = $entry;
 			}
 		}
 		return [
