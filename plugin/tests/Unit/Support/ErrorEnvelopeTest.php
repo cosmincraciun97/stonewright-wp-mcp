@@ -144,4 +144,39 @@ final class ErrorEnvelopeTest extends TestCase {
 			self::assertSame( 'Failed.', ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message() );
 		}
 	}
+
+	public function test_retry_guidance_reaches_the_message_and_the_rest_envelope_without_lock_internals(): void {
+		$error = new \WP_Error(
+			'stonewright_elementor_write_busy',
+			'Another Elementor transaction is writing this post.',
+			[
+				'status'              => 409,
+				'retryable'           => true,
+				'retry_after'         => 12,
+				'retry_after_seconds' => 12,
+				'lock_fingerprint'    => 'abc',
+				'lock_expires_at'     => 1700000000,
+			]
+		);
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		self::assertSame( 'Another Elementor transaction is writing this post. {"retryable":true,"retry_after":12}', $visible->get_error_message() );
+
+		$data = ErrorEnvelope::from_wp_error( $error )['error']['data'];
+		self::assertTrue( $data['retryable'] );
+		self::assertSame( 12, $data['retry_after'] );
+		self::assertArrayNotHasKey( 'lock_fingerprint', $data );
+		self::assertArrayNotHasKey( 'lock_expires_at', $data );
+	}
+
+	public function test_retry_after_seconds_alone_is_reported_as_retry_after_and_is_bounded(): void {
+		$error = new \WP_Error( 'x', 'Busy.', [ 'retryable' => true, 'retry_after_seconds' => 99999 ] );
+		self::assertSame( 'Busy. {"retryable":true,"retry_after":3600}', ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message() );
+
+		$not_numeric = new \WP_Error( 'x', 'Busy.', [ 'retryable' => 'yes', 'retry_after' => 'soon' ] );
+		self::assertSame( 'Busy. {"retryable":true}', ErrorEnvelope::with_agent_visible_payload( $not_numeric )->get_error_message() );
+
+		$negative = new \WP_Error( 'x', 'Busy.', [ 'retry_after' => -5 ] );
+		self::assertSame( 'Busy.', ErrorEnvelope::with_agent_visible_payload( $negative )->get_error_message() );
+	}
 }

@@ -58,6 +58,29 @@ final class ConfirmationTokenSchemaTest extends TestCase {
 		$this->assertNotContains( 'ttl_seconds', $required );
 	}
 
+	public function test_ttl_seconds_schema_states_the_real_range(): void {
+		$ttl = $this->ability->input_schema()['properties']['ttl_seconds'];
+
+		$this->assertSame( 60, $ttl['minimum'] );
+		$this->assertSame( 3600, $ttl['maximum'] );
+		$this->assertSame( 300, $ttl['default'] );
+		$this->assertStringContainsString( '60', (string) $ttl['description'] );
+		$this->assertStringContainsString( '3600', (string) $ttl['description'] );
+	}
+
+	public function test_expires_at_reports_the_clamped_lifetime(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+
+		$before = time();
+		$result = $this->ability->execute( [ 'ability' => 'stonewright/elementor-v3-update-element', 'ttl_seconds' => 1 ] );
+		$after  = time();
+
+		$this->assertIsArray( $result );
+		$expires = strtotime( (string) $result['expires_at'] );
+		$this->assertGreaterThanOrEqual( $before + 60, $expires );
+		$this->assertLessThanOrEqual( $after + 60, $expires );
+	}
+
 	public function test_input_schema_has_no_intent_field(): void {
 		$schema = $this->ability->input_schema();
 		$this->assertArrayNotHasKey( 'intent', $schema['properties'] ?? [] );

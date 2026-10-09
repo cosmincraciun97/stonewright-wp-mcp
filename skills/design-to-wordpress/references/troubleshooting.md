@@ -13,7 +13,8 @@
 ## asset_not_found / unresolved_url
 
 A section references an image URL that `design-normalize-assets` could not
-sideload.
+sideload. In production-safe mode a call that sideloads needs a
+`confirmation_token` issued for its arguments; `sideload: false` needs none.
 
 - Check the URL is publicly accessible from the WordPress server (not localhost
   or behind auth).

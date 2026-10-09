@@ -58,8 +58,10 @@ final class ImplementationContract extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'version'             => [ 'type' => 'string' ],
-				'ok'                  => [ 'type' => 'boolean' ],
-				'sequence'            => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'ok'                  => [ 'type' => 'boolean', 'description' => 'action=validate: true when the spec passes the contract.' ],
+				'errors'              => [ 'type' => 'array', 'items' => [ 'type' => 'object', 'additionalProperties' => true ], 'description' => 'action=validate: policy violations; empty when ok.' ],
+				'css_policy'          => [ 'type' => 'object', 'additionalProperties' => true, 'description' => 'action=validate: the custom CSS rule that was enforced.' ],
+				'sequence'            => [ 'type' => 'array', 'items' => [ 'type' => 'string' ], 'description' => 'action=contract: the ordered workflow steps.' ],
 				'global_styles_first' => [ 'type' => 'object', 'additionalProperties' => true ],
 				'section_batch'       => [ 'type' => 'object', 'additionalProperties' => true ],
 				'native_widget_map'   => [ 'type' => 'object', 'additionalProperties' => true ],
@@ -72,19 +74,9 @@ final class ImplementationContract extends AbilityKernel {
 				'elementor_write_plan'=> [ 'type' => 'object', 'additionalProperties' => true ],
 				'responsive_patterns'=> [ 'type' => 'object', 'additionalProperties' => true ],
 			],
-			'required'   => [
-				'version',
-				'sequence',
-				'global_styles_first',
-				'section_batch',
-				'native_widget_map',
-				'design_evidence',
-				'native_first',
-				'custom_code_phase',
-				'token_efficiency',
-				'hard_failures',
-				'elementor_write_plan',
-			],
+			// Only the fields both actions return are required: action=contract returns the rules (with
+			// sequence), action=validate returns the verdict (ok, errors).
+			'required'   => [ 'version' ],
 			'additionalProperties' => true,
 		];
 	}

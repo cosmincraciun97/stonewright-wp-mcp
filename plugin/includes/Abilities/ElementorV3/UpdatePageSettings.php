@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -78,28 +79,38 @@ final class UpdatePageSettings extends AbilityKernel {
 						return CssValueGuard::refusal( 'settings.' . $key . ( '' === $violation['path'] ? '' : '.' . $violation['path'] ), $violation['expected'], $value );
 					}
 				}
-				$snapshot_id = Backup::snapshot_post( $post_id );
-
-				$existing = get_post_meta( $post_id, '_elementor_page_settings', true );
-				if ( ! is_array( $existing ) ) {
-					$existing = [];
+				$owner = 'page-settings-' . substr( hash( 'sha256', $post_id . '|' . hrtime( true ) ), 0, 24 );
+				$lease = PostWriteLock::acquire( $post_id, $owner );
+				if ( $lease instanceof \WP_Error ) {
+					return $lease;
 				}
 
-				$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
-				$next = 'replace' === $mode
-					? $incoming
-					: array_merge( $existing, $incoming );
+				try {
+					$snapshot_id = Backup::snapshot_post( $post_id );
 
-				if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) && $next !== $existing ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
+					$existing = get_post_meta( $post_id, '_elementor_page_settings', true );
+					if ( ! is_array( $existing ) ) {
+						$existing = [];
+					}
+
+					$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
+					$next = 'replace' === $mode
+						? $incoming
+						: array_merge( $existing, $incoming );
+
+					if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) && $next !== $existing ) {
+						return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
+					}
+
+					PostCacheInvalidator::invalidate( $post_id );
+
+					return [
+						'post_id'     => $post_id,
+						'snapshot_id' => $snapshot_id,
+					];
+				} finally {
+					PostWriteLock::release( $post_id, $owner );
 				}
-
-				PostCacheInvalidator::invalidate( $post_id );
-
-				return [
-					'post_id'     => $post_id,
-					'snapshot_id' => $snapshot_id,
-				];
 			}
 		);
 	}

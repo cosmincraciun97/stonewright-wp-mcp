@@ -24,7 +24,7 @@ final class ExplainEditor extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'USE THIS WHEN an Elementor implementation depends on editor V3/V4 behavior, Theme Builder display rules, custom widgets, or developer API details. Returns ranked knowledge snippets and refresh guidance.',
+			'USE THIS WHEN an Elementor implementation depends on editor V3/V4 behavior, Theme Builder display rules, custom widgets, or developer API details. Returns ranked knowledge snippets and refresh guidance from the private Elementor knowledge store on this site. The store is empty until the first stonewright/elementor-knowledge-refresh; an empty result then carries a hint.',
 			'stonewright'
 		);
 	}
@@ -60,6 +60,7 @@ final class ExplainEditor extends AbilityKernel {
 				'limit'   => [ 'type' => 'integer' ],
 				'max_age_days' => [ 'type' => 'integer' ],
 				'refresh_ability' => [ 'type' => 'string' ],
+				'hint'    => [ 'type' => 'string', 'description' => 'Present when the knowledge store is empty; names the refresh ability.' ],
 				'results' => [ 'type' => 'array' ],
 			],
 		];

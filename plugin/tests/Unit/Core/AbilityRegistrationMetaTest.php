@@ -57,8 +57,9 @@ final class AbilityRegistrationMetaTest extends TestCase {
 		'stonewright/design-checkpoint-record'          => [ false, false, false, false ],
 		// It writes the widget file under its slug without looking for an earlier one, so a repeat replaces the earlier widget.
 		'stonewright/elementor-create-custom-widget'    => [ false, true, false, false ],
-		// They write, but the kernel wrapper they record through declares no nature, so their source shows no write.
+		// It only adds media files and attachments, and fetches them from the web.
 		'stonewright/design-normalize-assets'           => [ false, false, false, true ],
+		// It writes, but the kernel wrapper it records through declares no nature, so its source shows no write.
 		'stonewright/security-audit-reconcile'          => [ false, true, true, false ],
 	];
 

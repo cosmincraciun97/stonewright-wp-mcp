@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Design;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\DesignSpec\AssetReferences;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -13,6 +14,7 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class NormalizeAssets extends AbilityKernel {
+	use ConfirmationGuard;
 
 	public function name(): string {
 		return 'stonewright/design-normalize-assets';
@@ -23,7 +25,7 @@ final class NormalizeAssets extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Resolves remote/asset urls inside a spec to media library attachments, sideloading missing files.', 'stonewright' );
+		return __( 'Resolves remote/asset urls inside a spec to media library attachments, sideloading missing files. In production-safe mode a call that sideloads needs a confirmation_token issued for its arguments; sideload=false needs none.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -50,8 +52,9 @@ final class NormalizeAssets extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'spec'      => [ 'type' => 'object' ],
-				'sideload'  => [ 'type' => 'boolean', 'default' => true ],
+				'sideload'  => [ 'type' => 'boolean', 'default' => true, 'description' => 'false resolves the spec without fetching or storing any file.' ],
 			],
 			'required'             => [ 'spec' ],
 		];
@@ -78,6 +81,13 @@ final class NormalizeAssets extends AbilityKernel {
 			function ( array $args ) {
 				$spec     = (array) $args['spec'];
 				$sideload = ! isset( $args['sideload'] ) || (bool) $args['sideload'];
+				// Fetching a file and adding it to the media library is a write; resolving without it is not.
+				if ( $sideload ) {
+					$token_error = $this->confirmation_token_error( $args, $args );
+					if ( $token_error instanceof \WP_Error ) {
+						return $token_error;
+					}
+				}
 				$resolved = AssetReferences::resolve( $spec, $sideload );
 
 				return [

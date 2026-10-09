@@ -71,7 +71,7 @@ A probe is up to five short requests, called legs:
 | `home` | The home page |
 | `admin` | A wp-admin screen, reached with a one-time internal token that is bound to one path and one user and lasts three minutes. The user's cookies and Application Passwords are never used |
 | `rest` | The REST index |
-| `post` | The page of the post that was written (a preview link for a draft) |
+| `post` | The page of the post that was written (a preview link for a draft). For an Elementor kit, which has no page of its own, the public front page, requested without the internal token |
 | `custom` | A URL the write asked to have checked. It must have exactly the home URL's scheme, host and port. It is not followed if it redirects |
 
 A leg fails on HTTP 500, on the WordPress critical error page, or on PHP's own fatal text in the response. A blocked loopback request, a login wall, a redirect, a gateway error or a timeout is not a failure and not a success: the leg is `unavailable`, and a probe with no passing leg is `unavailable` as a whole, unless the same leg passed in the baseline (see above). A request that carries the internal token never follows a redirect, so the token cannot be sent to wherever a redirect points. The evidence keeps leg names, statuses, HTTP codes and short reasons. It never holds a URL, a header or a response body.
