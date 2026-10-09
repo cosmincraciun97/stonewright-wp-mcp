@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { login } from './helpers/login';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
 import { PAGE_GATE_PROJECTS } from './helpers/admin-pages';
+import { runAbility, runAbilityWithProfileConfirmation, wpRestNonce } from './helpers/wp-rest';
 
 /**
  * The Knowledge hub (Skills, Memory, Context, Design, Prompt library) on the shared UI layer.
@@ -16,6 +17,52 @@ const url = (slug: string, query = '') => `/wp-admin/admin.php?page=${slug}${que
 async function open(page: Page, slug: string, query = ''): Promise<void> {
 	await page.goto(url(slug, query), { waitUntil: 'domcontentloaded' });
 	await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+}
+
+/**
+ * A fresh site holds no memory entry, and the behaviour test above deletes the one it makes, so the edit view has nothing
+ * to open until an entry exists. This creates one through the add form when the list is empty.
+ */
+async function ensureMemoryEntry(page: Page): Promise<void> {
+	await open(page, 'stonewright-memory', '&type=all');
+	if ((await page.getByRole('link', { name: /^Edit / }).count()) > 0) {
+		return;
+	}
+	await open(page, 'stonewright-memory', '&add=1');
+	const addForm = page.locator('#sw-memory-add');
+	await addForm.getByLabel('Name').fill('Edit view entry');
+	await addForm.getByLabel('Key').fill(`qa-edit-view-${RUN}`);
+	await addForm.getByLabel(/^Value/).fill('A value to open in the edit view');
+	await addForm.getByRole('button', { name: 'Create entry' }).click();
+	await expect(page.getByRole('status').filter({ hasText: 'Memory entry created.' })).toBeVisible();
+}
+
+/**
+ * The skills that ship with Stonewright cannot be moved to the trash, so a fresh site has no skill whose Trash button is
+ * enabled. This saves one site skill (an upsert by slug, so a second run replaces it) through the abilities route.
+ */
+async function ensureSiteSkill(page: Page): Promise<void> {
+	await open(page, 'stonewright-skills');
+	const nonce = await wpRestNonce(page);
+	const started = await runAbility(page, nonce, 'stonewright/task-start', {
+		task: 'Save one site skill for the review drawer',
+		surface: 'runtime',
+		intent: 'create a synthetic skill',
+		responseMode: 'compact',
+	});
+	expect(started.ok, JSON.stringify(started.body)).toBeTruthy();
+	const body = started.body as { result?: { context_token?: string }; context_token?: string };
+	const token = String(body.result?.context_token ?? body.context_token ?? '');
+	expect(token).toMatch(/^swctx_/);
+
+	const saved = await runAbilityWithProfileConfirmation(page, nonce, token, 'stonewright/skills-save', {
+		slug: 'qa-review-drawer',
+		title: 'Review drawer check',
+		description: 'Use when a test needs a site skill that can be moved to the trash.',
+		content: '# Review drawer check\n\nA synthetic playbook.\n',
+		stonewright_context_token: token,
+	});
+	expect(saved.ok, JSON.stringify(saved.body)).toBeTruthy();
 }
 
 const DESIGN_DRAFT = (name: string) =>
@@ -168,6 +215,8 @@ test.describe('Knowledge pages: accessibility and motion', () => {
 		{ name: 'Memory', slug: 'stonewright-memory' },
 		{ name: 'Memory with the add form open', slug: 'stonewright-memory', query: '&add=1' },
 		{ name: 'Memory edit view', slug: 'stonewright-memory', query: '&type=all', before: async (page) => {
+			await ensureMemoryEntry(page);
+			await open(page, 'stonewright-memory', '&type=all');
 			await page.getByRole('link', { name: /^Edit / }).first().click();
 			await page.locator('#sw-memory-edit').waitFor();
 		} },
@@ -209,6 +258,7 @@ test.describe('Knowledge pages: accessibility and motion', () => {
 
 	test('Skills: the review drawer is a dialog that opens on its safe action, keeps focus and returns it', async ({ page }, testInfo) => {
 		test.skip(testInfo.project.name !== 'desktop-1440-light', 'Keyboard proof runs once.');
+		await ensureSiteSkill(page);
 		await open(page, 'stonewright-skills');
 		const trash = page.getByRole('button', { name: /^Trash/ }).and(page.locator(':enabled')).first();
 		await trash.waitFor();

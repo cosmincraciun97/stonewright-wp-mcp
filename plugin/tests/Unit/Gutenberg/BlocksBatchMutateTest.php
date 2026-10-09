@@ -469,6 +469,42 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertSame( [ 'undeclared' ], $result->get_error_data()['items'][0]['error']['data']['offending_keys'] );
 	}
 
+	public function test_registered_block_schema_accepts_the_attributes_the_block_supports_add(): void {
+		// WordPress 6.9 lists neither anchor nor lock nor metadata in the registered attributes of a block that supports them.
+		$GLOBALS['stonewright_test_registered_blocks']['core/paragraph'] = (object) [
+			'attributes'      => [ 'className' => [ 'type' => 'string' ], 'layout' => [ 'type' => 'object' ] ],
+			'supports'        => [ 'anchor' => true, 'layout' => true ],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+
+		$accepted = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action' => 'update',
+						'path'   => [ 0 ],
+						'attrs'  => [ 'anchor' => 'features', 'layout' => [ 'type' => 'constrained' ], 'metadata' => [ 'name' => 'Features' ] ],
+					],
+				],
+			]
+		);
+		self::assertIsArray( $accepted, is_wp_error( $accepted ) ? $accepted->get_error_message() : '' );
+		self::assertTrue( $accepted['ok'] );
+
+		$refused = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [ [ 'action' => 'update', 'path' => [ 0 ], 'attrs' => [ 'anchor' => 'features', 'undeclared' => true ] ] ],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( [ 'undeclared' ], $refused->get_error_data()['items'][0]['error']['data']['offending_keys'] );
+	}
+
 	public function test_three_finalizer_ops_queue_three_items_not_a_single_insert(): void {
 		$result = ( new BlocksBatchMutate() )->execute(
 			[

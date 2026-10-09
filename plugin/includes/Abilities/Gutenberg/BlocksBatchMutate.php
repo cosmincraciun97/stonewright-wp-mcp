@@ -1226,7 +1226,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 		if ( ! is_object( $registered ) ) {
 			return null;
 		}
-		$attribute_schemas = isset( $registered->attributes ) && is_array( $registered->attributes ) ? $registered->attributes : [];
+		$attribute_schemas = AttributeValidator::schema_for_type( $registered );
 		$attributes        = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
 		$validated         = AttributeValidator::validate( $name, $attributes, $attribute_schemas );
 		if ( $validated instanceof \WP_Error ) {

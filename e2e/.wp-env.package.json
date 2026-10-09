@@ -6,7 +6,8 @@
     "https://downloads.wordpress.org/plugin/elementor.3.30.0.zip",
     "https://downloads.wordpress.org/plugin/woocommerce.10.9.4.zip",
     "../dist/e2e-unpacked/stonewright",
-    "./fixtures/synthetic-mcp-provider"
+    "./fixtures/synthetic-mcp-provider",
+    "./fixtures/e2e-environment"
   ],
   "config": {
     "WP_DEBUG": true,
