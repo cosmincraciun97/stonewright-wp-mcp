@@ -22,7 +22,7 @@ final class ApplyBundle extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies multiple Elementor V3 page specs in one request. Each write still validates the spec, checks permissions, verifies destructive tokens when required, and snapshots before mutation.', 'stonewright' );
+		return __( 'Applies multiple Elementor V3 page specs in one request. Each write still validates the spec, checks permissions, and snapshots before mutation. In production-safe mode one confirmation_token issued for the whole call covers every write.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -45,12 +45,15 @@ final class ApplyBundle extends AbilityKernel {
 							'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
 							'spec'               => [ 'type' => 'object' ],
 							'replace'            => [ 'type' => 'boolean', 'default' => true ],
-							'confirmation_token' => [ 'type' => 'string' ],
 						],
 						'required'             => [ 'post_id', 'spec' ],
 					],
 				],
 				'stop_on_error' => [ 'type' => 'boolean', 'default' => true ],
+				'confirmation_token' => [
+					'type'        => 'string',
+					'description' => 'Required in production-safe mode. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments; it covers every write in the call.',
+				],
 			],
 			'required'             => [ 'writes' ],
 		];
@@ -107,7 +110,7 @@ final class ApplyBundle extends AbilityKernel {
 						continue;
 					}
 
-					$result = $worker->execute( $write );
+					$result = $worker->execute_with_verified_token( $write );
 					if ( is_wp_error( $result ) ) {
 						++$failed;
 						$items[] = self::wp_error_item( $index, $post_id, $result );

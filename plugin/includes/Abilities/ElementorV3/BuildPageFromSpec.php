@@ -28,6 +28,8 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 	private DesignDirectionService $directions;
 
+	private bool $token_already_verified = false;
+
 	public function __construct( ?DesignDirectionService $directions = null ) {
 		$this->directions = $directions ?? new DesignDirectionService();
 	}
@@ -102,6 +104,23 @@ final class BuildPageFromSpec extends AbilityKernel {
 		return Permissions::edit_post( $id );
 	}
 
+	/**
+	 * Runs a write for a caller that has already verified a confirmation token for the
+	 * request it serves. The token gate of this ability is skipped; every other gate applies.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
+
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,
@@ -131,7 +150,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 				$dry_run = ! empty( $args['dry_run'] );
 				$mode    = self::write_mode( $args );
-				if ( ! $dry_run && in_array( $mode, [ 'replace', 'replace_section' ], true ) ) {
+				if ( ! $dry_run && ! $this->token_already_verified && in_array( $mode, [ 'replace', 'replace_section' ], true ) ) {
 					$verify_args = array_filter(
 						$args,
 						static fn( string $key ): bool => 'confirmation_token' !== $key,

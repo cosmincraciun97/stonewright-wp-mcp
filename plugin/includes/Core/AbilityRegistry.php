@@ -1114,9 +1114,13 @@ final class AbilityRegistry {
 			return false;
 		}
 
-		foreach ( self::read_only_name_markers() as $marker ) {
-			if ( str_contains( $name, $marker ) ) {
-				return false;
+		// The name markers only describe abilities that are not recorded as writes: a write named
+		// like a read, such as an add-list or add-search widget tool, keeps the context gate.
+		if ( ! AbilityAnnotations::is_recorded_write( $name ) ) {
+			foreach ( self::read_only_name_markers() as $marker ) {
+				if ( str_contains( $name, $marker ) ) {
+					return false;
+				}
 			}
 		}
 

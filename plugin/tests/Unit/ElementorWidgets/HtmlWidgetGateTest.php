@@ -13,6 +13,10 @@ use Stonewright\WpMcp\Abilities\ElementorWidgets\AddHtml;
  */
 final class HtmlWidgetGateTest extends TestCase {
 
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options'] = [];
+	}
+
 	public function test_dedicated_html_widget_requires_explicit_allow_flag(): void {
 		$result = ( new AddHtml() )->execute(
 			[
@@ -38,6 +42,37 @@ final class HtmlWidgetGateTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_html_widget_disabled', $result->get_error_code() );
+	}
+
+	public function test_dedicated_html_widget_without_the_flag_is_refused_when_the_site_allows_html(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
+
+		$result = ( new AddHtml() )->execute(
+			[
+				'post_id'   => 123,
+				'parent_id' => 'root',
+				'settings'  => [ 'html' => '<div>unsafe fallback</div>' ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+	}
+
+	public function test_raw_add_widget_without_the_flag_is_refused_when_the_site_allows_html(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
+
+		$result = ( new AddWidget() )->execute(
+			[
+				'post_id'     => 123,
+				'parent_id'   => 'root',
+				'widget_type' => 'html',
+				'settings'    => [ 'html' => '<div>unsafe fallback</div>' ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
 	}
 
 	public function test_html_widget_schema_exposes_explicit_allow_flag(): void {

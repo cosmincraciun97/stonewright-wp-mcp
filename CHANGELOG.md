@@ -804,6 +804,10 @@ development builds were never stable releases.
   scanner or an indexer, before the privacy check gives up. Privacy is still
   rechecked before every attempt, and permission, ownership and other errors
   still fail closed at once.
+- Accept one top-level `confirmation_token` on `elementor-v3-apply-bundle`,
+  issued for the whole call, and require it in production-safe mode. The
+  per-write `confirmation_token` field is removed; the token covers every write
+  of the call.
 
 ### Security
 
@@ -862,6 +866,17 @@ development builds were never stable releases.
   Setup page. The fields stay empty and show that a value is stored, the bridge
   launch values use a placeholder, saving an empty field keeps the stored value,
   a new value replaces it, and a checkbox removes it.
+- Require a confirmation token in production-safe mode for every
+  `elementor-v3-batch-mutate` write that is not a dry run, bound to the
+  arguments of the call. Before, only `remove_element` operations and
+  `mode: replace` required one. Dry runs need no token.
+- Require the task context token on `elementor-add-icon-list`,
+  `elementor-add-price-list`, `elementor-add-read-more`, and
+  `elementor-add-search`. A write ability no longer skips the context token
+  because its name contains `-list`, `-read`, or `-search`.
+- Refuse an Elementor HTML widget write that has no `allow_html_widget: true`
+  when the HTML widget site option is on, with
+  `html_widget_requires_explicit_approval`.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 
