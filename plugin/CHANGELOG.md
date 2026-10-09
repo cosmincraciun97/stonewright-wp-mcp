@@ -277,6 +277,22 @@
   rollback, snapshot restore, repair lineage, section reuse, the native Elementor
   V4 bridge, the inspect profile and the Design Direction. A test fails when a
   prompt names something that does not exist or a removed feature.
+- Add two Prompt library starters, one for looking up Elementor documentation in
+  the site's knowledge store (and filling it with `elementor-knowledge-refresh`)
+  and one for bringing a design's images into the media library with
+  `design-normalize-assets`. Every starter that names a write which needs a
+  confirmation token in production-safe mode (`elementor-v3-batch-mutate`,
+  `elementor-v3-build-page-from-spec`, `elementor-v3-transaction-run`,
+  `blocks-finalize-batch`, the template writers and others) says how the token
+  is issued, and the Elementor starters that write name the retryable
+  `stonewright_elementor_write_busy` error. Page paths follow the hubs, for
+  example Stonewright > Activity > Rescue and Stonewright > Setup > Troubleshoot.
+  The guard test checks the token wording, and that the Block queue, which has
+  no sidebar entry, is written with its hub.
+- The help text of **Reuse saved sections** in production-safe mode says that an
+  Elementor V3 copy needs a confirmation token like any other write, that a
+  Gutenberg copy needs one only when the same change removes a block, and that
+  Elementor V4 copies stay blocked.
 - Build the Knowledge pages (Skills, Memory, Context, Design, Prompt library)
   from the shared admin UI layer. Memory lists the entries first, in a table
   that stacks at 782px, with the add form and the entry editor as native
@@ -429,8 +445,9 @@
   one page header (title, a line of explanation, status and the page's main
   action). The Stonewright consent screen has no band. The sidebar says
   Overview, Custom code (was Workflows), Knowledge (the Skills landing page),
-  Prompt library (was Prompts), Block queue (was Block Editor Queue) and
-  Activity (the Audit log landing page); the page addresses did not change.
+  Prompt library (was Prompts) and Activity (the Audit log landing page); the
+  Block queue (was Block Editor Queue) is a link in the band and has no sidebar
+  entry; the page addresses did not change.
 - Read the small **EXP** marker of a page that is still changing as "This
   feature is experimental." in the band and the sidebar: the marker is hidden
   from screen readers and the words are hidden text on the link and the

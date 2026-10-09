@@ -65,7 +65,7 @@ You may place an **existing** form on a page. You may not edit the form.
    as `{name, attributes, innerBlocks}` via
    `stonewright-blocks-queue-change`. For `core/shortcode` the attribute
    is `text` holding the shortcode string the plugin documents.
-4. `stonewright-blocks-finalizer-runtime` — need the Block Editor Queue
+4. `stonewright-blocks-finalizer-runtime` — need the block queue console
    tab online. Then `stonewright-blocks-pending-batch` until serialized.
 5. Persist with `stonewright-blocks-finalize-batch`.
 

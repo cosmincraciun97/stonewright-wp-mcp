@@ -96,8 +96,8 @@ so commands stay tokenized.
 
 ## 2. Create an Application Password
 
-In WordPress admin, open **Stonewright > Configuration** and use the
-**Application Password** card. Give it a name like `Claude Code` and click
+In WordPress admin, open **Stonewright > Setup**, and in step 2 of **Get started**
+choose **Application Password**. Give it a name like `Claude Code` and click
 **Generate application password**. Copy the generated password immediately;
 WordPress will not show it again.
 

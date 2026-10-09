@@ -21,7 +21,7 @@ The OAuth MCP resource is:
 https://example.com/wp-json/mcp/stonewright-oauth
 ```
 
-**Stonewright → Setup** lists every client that can still use the site under
+**Stonewright → Setup → Connections** lists every client that can still use the site under
 **Connected OAuth clients**, with the people who approved it, when it
 connected, and when it was last used. **Disconnect** (it needs `manage_options`)
 closes every live grant of that client at once: the client loses access
@@ -41,7 +41,7 @@ Bearer parsing, authentication success, proxy stripping suspicion, and the
 Application Password path without returning the header value. It does not
 replace a live client restart or reauthentication.
 
-If the client still cannot connect, open **Stonewright → Troubleshoot**, pick
+If the client still cannot connect, open **Stonewright → Setup → Troubleshoot**, pick
 how you connect, and run diagnostics. The page stays put and shows a loading
 state; copy the report for support. See [Troubleshoot](troubleshoot.md).
 
@@ -101,12 +101,12 @@ stores plaintext in WordPress transients or settings.
 ### WordPress Application Password
 
 WordPress Application Passwords are one-time-display credentials tied to the
-current WordPress user. Generate one from **Stonewright → Setup →
-Application Password**. Copy it immediately; WordPress will not show it again.
+current WordPress user. Generate one in **Stonewright → Setup → Get started**,
+step 2 (**Application Password**). Copy it immediately; WordPress will not show it again.
 
 ### Endpoint
 
-The MCP endpoint is displayed on the Configuration page:
+The MCP endpoint is shown in **Stonewright → Setup → Connections**:
 
 ```text
 https://{your-site}/wp-json/mcp/stonewright

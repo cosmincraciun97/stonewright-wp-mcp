@@ -208,11 +208,11 @@ Remote destructive Direct tools require `confirm: true` by default
 writes on production aliases.
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
-Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
+Copy the **Remote HTTP** snippet from **Stonewright > Setup**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
-WordPress Application Password. The setup diagnostics panel blocks a green
+WordPress Application Password. The Setup preflight (step 4 of **Get started**) blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing. **Stonewright → Troubleshoot** runs a dependency-ordered graph for
+is missing. **Stonewright → Setup → Troubleshoot** runs a dependency-ordered graph for
 OAuth, Application Password, local companion, or **Not sure**, in place with a
 loading state; see [Troubleshoot](admin/troubleshoot.md).
 

@@ -77,7 +77,9 @@ an error and the snapshot is restored.
    for class and variable writes or `Permissions::edit_post()` for post writes.
 2. `Backup::snapshot_post()` is called before any kit or post mutation.
 3. `Validator::validate()` is called before any spec-to-render path (`RenderFromSpec`).
-4. `ConfirmationToken` is required in `production-safe` mode for `RenderFromSpec`.
+4. In `production-safe` mode a V4 write that is not a dry run is refused with
+   `stonewright_v4_experimental_production_block` (`V4FeatureGate`), so a confirmation
+   token never authorizes a V4 write.
 
 ## Current limitations
 

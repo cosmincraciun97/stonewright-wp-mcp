@@ -29,7 +29,9 @@ Sources:
 The entries are ordered by hub. The first page of a hub carries the hub's name
 (Overview, Setup, AI Abilities, Knowledge, Custom code, Activity) and the others keep
 their own (Troubleshoot, Memory, Context, Design, Prompt library, Code approval,
-Rescue). The top-level **Stonewright** entry opens the Overview.
+Rescue). The top-level **Stonewright** entry opens the Overview. The **Block queue** has
+no sidebar entry: it is a page of the Activity hub that the band links to, and the link
+from `stonewright-blocks-finalizer-url` opens it. Editors who can edit posts can open it.
 
 A page that is still changing (Troubleshoot, Context and Design) shows a small **EXP**
 marker after its name. While the pointer is over the marker, a tooltip to its right says

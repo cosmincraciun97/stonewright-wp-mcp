@@ -321,7 +321,7 @@ Not every surface uses every gate. Prefer typed abilities over unrestricted PHP 
 
 ### Rescue
 
-Before a risky change, Stonewright records how to undo it. Afterwards it asks the site whether it still loads, rolls the change back when it does not, and tells the agent what happened. A change it cannot undo stays open as an incident that an administrator or an agent can finish from **Stonewright > Rescue**, `stonewright-rescue-rollback`, or `wp stonewright rescue`.
+Before a risky change, Stonewright records how to undo it. Afterwards it asks the site whether it still loads, rolls the change back when it does not, and tells the agent what happened. A change it cannot undo stays open as an incident that an administrator or an agent can finish from **Stonewright > Activity > Rescue**, `stonewright-rescue-rollback`, or `wp stonewright rescue`.
 
 Rescue covers post, option, theme-file, plugin, sandbox, and custom-code writes made through Stonewright abilities. A health probe that cannot reach the site reports it as unavailable and never as healthy. Rescue cannot fix a fatal in WordPress core or `wp-config.php`, or a database that is down. See [Rescue](docs/rescue.md).
 

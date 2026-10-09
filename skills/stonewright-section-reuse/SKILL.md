@@ -118,8 +118,10 @@ Rules the write enforces, so do not work around them:
 - Send `settings_evidence` and the Design Direction values for visual changes
   the way you would for any Elementor write. Never use `php-execute`, raw meta
   or WP-CLI to copy a section.
-- Production-safe: V3 and Gutenberg copies need no confirmation token because
-  they remove nothing; Elementor V4 writes stay blocked there.
+- Production-safe: an Elementor V3 copy needs a `confirmation_token` issued for
+  the exact call (every `elementor-v3-batch-mutate` write that is not a dry run
+  does); a Gutenberg copy needs one only when the same batch removes a block;
+  Elementor V4 writes stay blocked there. Dry runs need no token.
 
 ## 5. Verify
 

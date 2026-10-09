@@ -307,7 +307,7 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 
 ### Navigation and tabs
 
-- **Hub navigation** (`sw-ui-hubnav`): links to sibling pages, the current one marked `aria-current="page"`; it scrolls inside its own box when it cannot fit and never wraps to a second row.
+- **Tab bar** (`sw-ui-hubnav`, `Ui\HubNav`): links to the tabs of the page that is open, never to other pages, the current one marked `aria-current="page"`; it scrolls inside its own box when it cannot fit and never wraps to a second row.
 - **ARIA tabs** (`sw-ui-tabs` with `data-sw-ui-tabs`; `Ui\Tabs::list()` and `Ui\Tabs::panel()`): views inside one page. Roving `tabindex`, Arrow, Home and End keys, automatic activation, one visible panel. A tab that is a link (`href`) works without script: the server renders the view the address names, and with script a click switches in place, `data-sw-ui-tabs-param` keeps the choice in the address (and in the page's WordPress referer fields), and a link to something inside a hidden view opens that view.
 - **In-page navigation** (`sw-ui-toc`): anchors inside the page, the current one marked `aria-current="location"`.
 - **Filter chips** (`sw-ui-chip-filter`): `aria-pressed` buttons.

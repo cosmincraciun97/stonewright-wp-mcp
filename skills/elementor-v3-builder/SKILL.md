@@ -244,7 +244,10 @@ headings inside loop templates; do not rely on many manual meta updates.
   section and reuse its translated density, variance, and motion rules. Declared
   direction tokens override dial defaults.
 - Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
-  the user explicitly requests HTML.
+  the user explicitly requests HTML. Even then the write is refused unless the
+  site allows HTML widgets (option `stonewright_allow_html_widgets`, off by
+  default) and the call carries `allow_html_widget: true`
+  (`html_widget_requires_explicit_approval`).
 - Start visual tasks by measuring the reference screenshot: viewport/canvas size,
   section bounds, centered max-widths, typography, colors, spacing, and asset
   crop bounds. Record those facts as `DesignEvidence`, call
@@ -422,10 +425,12 @@ Returns `{ "template_id": 150 }`.
 
 In production-safe mode these calls need a confirmation token issued for the exact
 arguments with `stonewright-security-issue-confirmation-token`: every
-`batch-mutate` write that is not a dry run, `apply-bundle` (one token for the whole
-call, passed at the top level), and `build-page-from-spec` with `mode: "replace"`
-or `mode: "replace_section"`. Dry runs of `batch-mutate` need no token. Before
-calling any of them, emit:
+`batch-mutate` write that is not a dry run (an `insert_section` copy included),
+`apply-bundle` (one token for the whole call, passed at the top level; there is
+no per-write token), and every `build-page-from-spec` write that is not a dry
+run, in every `mode` (`append` too). Dry runs of `batch-mutate` and
+`build-page-from-spec` need no token, and a token issued for a dry run does not
+authorize the write. Before calling any of them, emit:
 
 ```
 "Confirm:

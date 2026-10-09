@@ -77,7 +77,8 @@ final class SectionReuseSettingRowTest extends TestCase {
 
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 
-		self::assertStringContainsString( 'In production-safe mode a copy needs no confirmation token', self::row() );
+		self::assertStringContainsString( 'In production-safe mode an Elementor V3 copy needs a confirmation token', self::row() );
+		self::assertStringNotContainsString( 'needs no confirmation token', self::row() );
 	}
 
 	public function test_the_setting_goes_through_the_settings_api_with_a_sanitize_callback_in_the_stonewright_group(): void {
