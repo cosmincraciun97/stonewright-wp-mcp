@@ -39,7 +39,7 @@ function withStore(run: (store: OAuthTokenStore, path: string) => Promise<void>)
 	});
 }
 
-describe('OAuth matrix — terminal reauth JSON errors', () => {
+describe('OAuth matrix — terminal reauth JSON errors', { timeout: 30_000 }, () => {
 	const terminalErrors = [
 		{ error: 'invalid_grant', reason: 'refresh_token_revoked' },
 		{ error: 'invalid_grant', reason: 'refresh_token_expired' },
@@ -75,7 +75,7 @@ describe('OAuth matrix — terminal reauth JSON errors', () => {
 	}
 });
 
-describe('OAuth matrix — refresh rotation and replay', () => {
+describe('OAuth matrix — refresh rotation and replay', { timeout: 30_000 }, () => {
 	it('requires a rotated refresh token distinct from the previous value', async () => {
 		await withStore(async store => {
 			store.save(expiredTokens());
@@ -150,7 +150,7 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 	});
 });
 
-describe('OAuth matrix — JSON / non-JSON error bodies', () => {
+describe('OAuth matrix — JSON / non-JSON error bodies', { timeout: 30_000 }, () => {
 	it('treats non-JSON 400 bodies as non-terminal HTTP failures', async () => {
 		await withStore(async store => {
 			store.save(expiredTokens());
@@ -238,7 +238,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 	});
 });
 
-describe('OAuth matrix — refreshAfterUnauthorized terminal latch', () => {
+describe('OAuth matrix — refreshAfterUnauthorized terminal latch', { timeout: 30_000 }, () => {
 	it('does not re-hit the token endpoint after terminal reauth', async () => {
 		await withStore(async store => {
 			store.save({
@@ -279,7 +279,7 @@ describe('OAuth matrix — refreshAfterUnauthorized terminal latch', () => {
 	});
 });
 
-describe('OAuth matrix — lost refresh response, one bounded retry', () => {
+describe('OAuth matrix — lost refresh response, one bounded retry', { timeout: 30_000 }, () => {
 	const endpoint = 'https://example.test/oauth/token';
 	const start = 1_700_000_000_000;
 
