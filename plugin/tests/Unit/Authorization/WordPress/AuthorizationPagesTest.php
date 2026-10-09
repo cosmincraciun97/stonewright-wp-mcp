@@ -260,6 +260,8 @@ final class AuthorizationPagesTest extends TestCase {
 		self::assertStringContainsString( 'class="sw-ui sw-ui-page sw-oauth-consent"', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ), 'One h1.' );
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Connect Example editor client to Stonewright Test?</h1>', $html );
+		self::assertStringContainsString( '<div class="sw-ui-page-header__main"><h1', $html, 'The title is the first thing in the header.' );
+		self::assertStringNotContainsString( 'page-header__eyebrow', $html );
 		self::assertStringContainsString( 'sw-ui-kv', $html, 'The application, its identification and its destination are facts.' );
 		self::assertSame( 1, substr_count( $html, 'sw-ui-btn--primary' ), 'Approve is the one primary action.' );
 		self::assertMatchesRegularExpression( '/<button[^>]*sw-ui-btn--primary[^>]*name="approve"[^>]*>Approve</', $html );

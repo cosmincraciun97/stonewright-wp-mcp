@@ -19,6 +19,13 @@ final class SwUiCssContractTest extends TestCase {
 	/** Highest specificity any selector may have. */
 	private const MAX_SPECIFICITY = [ 0, 2, 0 ];
 
+	/**
+	 * Highest specificity of the pointer-focus rules (the block that answers WordPress's `:focus` rings). Core's
+	 * `.wp-core-ui .button-primary:focus` is (0,3,0), so the rules that replace it need to be at least as specific
+	 * and later in the cascade; nothing may use `!important` to get there.
+	 */
+	private const MAX_FOCUS_SPECIFICITY = [ 0, 4, 1 ];
+
 	/** Properties that may move: layout never does. The two discrete ones are allowed only with allow-discrete. */
 	private const ANIMATABLE = [ 'opacity', 'transform', 'color', 'background-color', 'border-color', 'background-position' ];
 	private const DISCRETE   = [ 'display', 'overlay' ];
@@ -155,13 +162,55 @@ final class SwUiCssContractTest extends TestCase {
 			}
 			foreach ( CssSource::selectors( $rule['selector'] ) as $selector ) {
 				$specificity = CssSource::specificity( $selector );
-				if ( $specificity > self::MAX_SPECIFICITY ) {
+				$limit       = self::is_pointer_focus_selector( $selector ) ? self::MAX_FOCUS_SPECIFICITY : self::MAX_SPECIFICITY;
+				if ( $specificity > $limit ) {
 					$violations[] = CssSource::format_specificity( $specificity ) . ' ' . $selector . ( '' !== $rule['context'] ? '  [' . $rule['context'] . ']' : '' );
 				}
 			}
 		}
 
 		self::assertSame( [], $violations, "Selectors above (0,2,0):\n" . implode( "\n", $violations ) );
+	}
+
+	private static function is_pointer_focus_selector( string $selector ): bool {
+		return str_starts_with( $selector, '.sw-ui :is(' ) && ( str_ends_with( $selector, ':focus:not(:focus-visible)' ) || str_ends_with( $selector, ':focus-visible' ) );
+	}
+
+	/** @return array{pointer: list<array{name: string, value: string, important: bool}>, keyboard: list<array{name: string, value: string, important: bool}>, selectors: list<string>} */
+	private static function pointer_focus_rules(): array {
+		$found = [ 'pointer' => [], 'keyboard' => [], 'selectors' => [] ];
+		foreach ( CssSource::rules( self::css() ) as $rule ) {
+			if ( $rule['at'] || ! self::is_pointer_focus_selector( $rule['selector'] ) ) {
+				continue;
+			}
+			$found['selectors'][] = $rule['selector'];
+			$key                  = str_ends_with( $rule['selector'], ':focus:not(:focus-visible)' ) ? 'pointer' : 'keyboard';
+			$found[ $key ]        = CssSource::declarations( $rule['body'] );
+		}
+
+		return $found;
+	}
+
+	public function test_a_click_or_tap_draws_no_ring_while_the_keyboard_gets_one_outline_of_the_focus_width(): void {
+		$rules = self::pointer_focus_rules();
+
+		self::assertCount( 2, $rules['selectors'], 'One rule for a pointer click, one for the keyboard.' );
+		self::assertSame( '0', CssSource::value_of( $rules['pointer'], 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $rules['pointer'], 'box-shadow' ) );
+		self::assertSame( 'var(--sw-focus-width) solid var(--sw-focus-ring)', CssSource::value_of( $rules['keyboard'], 'outline' ), 'Keyboard focus is an outline of at least the 2px focus width.' );
+		self::assertSame( 'none', CssSource::value_of( $rules['keyboard'], 'box-shadow' ), 'The ring is the outline, not core\'s shadow on top of it.' );
+	}
+
+	public function test_the_pointer_focus_rules_outrank_the_core_focus_rules_they_answer_without_important(): void {
+		// Core: `a:focus` (0,1,1), `.wp-core-ui .button:focus` and `.wp-core-ui .button-primary:focus` (0,3,0).
+		foreach ( self::pointer_focus_rules()['selectors'] as $selector ) {
+			self::assertGreaterThanOrEqual( [ 0, 3, 0 ], CssSource::specificity( $selector ), $selector );
+			self::assertStringStartsWith( '.sw-ui ', $selector, 'Scoped to the layer, so no WordPress screen is touched.' );
+		}
+		self::assertStringContainsString( ':focus:not(:focus-visible)', self::pointer_focus_rules()['selectors'][0] );
+		foreach ( [ 'a', 'button', 'summary', '[role="tab"]', '[role="radio"]', '[tabindex]' ] as $control ) {
+			self::assertStringContainsString( $control, self::pointer_focus_rules()['selectors'][0], $control );
+		}
 	}
 
 	public function test_the_heading_and_paragraph_reset_beats_the_element_rules_of_wordpress_core(): void {
@@ -182,6 +231,12 @@ final class SwUiCssContractTest extends TestCase {
 
 		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-height' ) );
 		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-width' ) );
+	}
+
+	public function test_the_page_header_has_no_eyebrow_or_logo_rule(): void {
+		// The header prints the title first; no markup carries the product-name line, so no rule styles one.
+		self::assertStringNotContainsString( 'page-header__eyebrow', self::css() );
+		self::assertStringNotContainsString( 'page-header__logo', self::css() );
 	}
 
 	public function test_raw_colours_exist_only_in_the_token_sections(): void {

@@ -772,3 +772,43 @@
 		grid-column: 2;
 	}
 }
+
+/* ------------------------------------------------------------------ */
+/* Copy fallback dialog (built by admin.js when the clipboard is blocked) */
+/* ------------------------------------------------------------------ */
+.sw-copy-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100050;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--sw-space-4);
+	background: color-mix(in srgb, var(--sw-text) 55%, transparent);
+}
+
+.sw-copy-modal[hidden] {
+	display: none;
+}
+
+.sw-copy-modal__dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+	width: min(36rem, 100%);
+	padding: var(--sw-space-4);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	box-shadow: var(--sw-shadow-3);
+}
+
+.sw-copy-modal__dialog textarea {
+	min-height: 10rem;
+	width: 100%;
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-text-sm);
+}

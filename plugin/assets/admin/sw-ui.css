@@ -423,22 +423,6 @@
 	min-width: 0;
 }
 
-.sw-ui .sw-ui-page-header__eyebrow {
-	display: flex;
-	align-items: center;
-	gap: var(--sw-space-2);
-	color: var(--sw-text-muted);
-	font-size: var(--sw-fs-xs);
-	font-weight: var(--sw-weight-medium);
-}
-
-.sw-ui .sw-ui-page-header__logo {
-	width: 16px;
-	height: 16px;
-	border-radius: var(--sw-radius-sm);
-	background: var(--sw-accent-fill);
-}
-
 .sw-ui .sw-ui-page-header__aside {
 	display: flex;
 	flex-wrap: wrap;
@@ -2177,7 +2161,6 @@
 :where(.sw-ui) .sw-ui-choice[aria-selected="true"] {
 	border-color: var(--sw-accent-fill);
 	background: var(--sw-accent-soft);
-	box-shadow: inset 0 0 0 1px var(--sw-accent-fill);
 }
 
 :where(.sw-ui) .sw-ui-choice:disabled {
@@ -2271,6 +2254,28 @@
 :where(.sw-ui) .sw-ui-dropzone--over {
 	border-color: var(--sw-accent-fill);
 	background: var(--sw-accent-soft);
+}
+
+/* ====================================================================== */
+/* Pointer focus (added with the admin UI polish pass)                      */
+/* ====================================================================== */
+
+/*
+ * WordPress draws a box-shadow ring on every `:focus` of a link or a button (`a:focus`, `.wp-core-ui .button:focus`,
+ * `.wp-core-ui .button-primary:focus`), the mouse included, and it stays until the next page loads. A click or a tap
+ * on a link, button, tab, choice or summary draws nothing here; a keyboard reaching the same control
+ * (`:focus-visible`) sees one outline of the focus width, never a shadow. The selectors are as specific as the core
+ * rules they answer, (0,3,0) to (0,4,1) against core's `.wp-core-ui .button-primary:focus` at (0,3,0), so no
+ * declaration needs `!important`. Text fields keep the ring they draw on every focus.
+ */
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus:not(:focus-visible) {
+	outline: 0;
+	box-shadow: none;
+}
+
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus-visible {
+	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
+	box-shadow: none;
 }
 
 /* The hidden attribute must beat the display a component sets; this stays the last rule. */
