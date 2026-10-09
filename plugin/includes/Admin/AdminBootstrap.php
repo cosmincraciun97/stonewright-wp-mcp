@@ -222,9 +222,7 @@ final class AdminBootstrap {
 
 		if ( isset( $page_styles[ $page ] ) ) {
 			$handle = 'stonewright-admin-' . str_replace( [ 'stonewright-', '.css' ], [ '', '' ], $page_styles[ $page ] );
-			if ( 'setup.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-setup';
-			} elseif ( 'abilities.css' === $page_styles[ $page ] ) {
+			if ( 'abilities.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-abilities';
 			} elseif ( 'pages/audit.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-audit';

@@ -118,15 +118,22 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
 	}
 
-	public function test_the_older_setup_stylesheet_only_styles_the_diagnostics_that_still_use_it(): void {
-		$css = self::asset( 'setup.css' );
-
-		// Setup itself is built from the shared layer (pages/setup.css); nothing of its older stepper, cards,
-		// pickers or connect panel is left to carry.
-		foreach ( [ '.sw-setup-page', '.sw-setup-header', '.sw-stepper', '.sw-setup-card', '.sw-client-card', '.sw-method-option', '.sw-connect-', '.sw-update-' ] as $retired ) {
-			self::assertStringNotContainsString( $retired, $css, $retired );
+	public function test_the_stylesheets_no_page_maps_any_more_are_gone(): void {
+		// Setup and Troubleshoot have their own files in pages/, Knowledge pages theirs, and no page maps Blueprints.
+		foreach ( [ 'setup.css', 'skills-memory.css', 'blueprints.css' ] as $retired ) {
+			self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/' . $retired, $retired );
 		}
-		self::assertStringContainsString( '.sw-diag-card', $css );
+		foreach ( [ 'pages/setup.css', 'pages/troubleshoot.css', 'pages/skills.css', 'pages/memory.css' ] as $page_file ) {
+			self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/' . $page_file, $page_file );
+		}
+	}
+
+	public function test_the_copy_fallback_dialog_that_the_page_script_builds_has_styles_in_a_stylesheet_every_page_loads(): void {
+		$css = self::asset( 'admin.css' );
+
+		foreach ( [ '.sw-copy-modal {', '.sw-copy-modal[hidden] {', '.sw-copy-modal__dialog {', '.sw-copy-modal__dialog textarea {' ] as $rule ) {
+			self::assertStringContainsString( $rule, $css, $rule );
+		}
 	}
 
 	public function test_domain_lock_status_centers_its_complete_control_group(): void {

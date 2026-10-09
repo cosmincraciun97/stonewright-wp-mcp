@@ -138,7 +138,6 @@ final class ComponentSheet {
 		return PageHeader::render(
 			'Overview',
 			[
-				'eyebrow'    => 'Stonewright',
 				'lede'       => 'Your AI connection at a glance: what is on, what needs you, and what the agents did.',
 				'aside_html' => Badge::render( 'AI abilities on', [ 'variant' => 'ok', 'dot' => true ] ) . Badge::render( 'Production-safe' ) . Badge::tag( 'v1.0.0-beta.13.3' ),
 			]

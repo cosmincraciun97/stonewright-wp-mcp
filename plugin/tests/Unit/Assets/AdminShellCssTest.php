@@ -20,10 +20,8 @@ final class AdminShellCssTest extends TestCase {
 		'admin/abilities.css'     => 1,
 		'admin/admin.css'         => 2,
 		'admin/block-queue.css'   => 0,
-		'admin/blueprints.css'    => 0,
 		'admin/design-studio.css' => 0,
 		'admin/sandbox.css'       => 21,
-		'admin/setup.css'         => 0,
 		'admin/pages/overview.css' => 0,
 		'admin/shell.css'         => 45,
 		'admin/visual-workspace.css' => 0,
@@ -113,6 +111,31 @@ final class AdminShellCssTest extends TestCase {
 
 		self::assertSame( 'var(--wp-admin--admin-bar--height, 32px)', CssSource::custom_properties( $css, static fn ( string $s ): bool => ':root' === $s )['--sw-shell-offset'] );
 		self::assertSame( 'var(--sw-shell-offset, 32px)', self::value( $css, 'html.sw-has-shell', 'scroll-padding-top' ) );
+	}
+
+	public function test_a_click_on_an_older_page_draws_no_wordpress_focus_ring_and_the_keyboard_ring_stays(): void {
+		$css      = self::shell();
+		$selector = ':is(.sw-shell__chrome, .sw-shell__main) :is(a, button, summary, .button, [role="button"], [role="tab"], [tabindex]):focus:not(:focus-visible)';
+
+		$declarations = self::rule( $css, $selector );
+		self::assertSame( '0', CssSource::value_of( $declarations, 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $declarations, 'box-shadow' ) );
+		foreach ( $declarations as $declaration ) {
+			self::assertFalse( $declaration['important'], 'The rule outranks core by specificity, not by !important.' );
+		}
+		// Core's `.wp-core-ui .button-primary:focus` is (0,3,0); the older pages' links and buttons sit inside the shell's chrome or content.
+		self::assertGreaterThanOrEqual( [ 0, 3, 0 ], CssSource::specificity( $selector ) );
+		self::assertSame( '2px solid var(--sw-focus-ring)', self::value( $css, '.sw-btn:focus-visible, .sw-shell button:focus-visible, .sw-shell a:focus-visible, .sw-shell input:focus-visible, .sw-shell select:focus-visible, .sw-shell textarea:focus-visible, .sw-shell summary:focus-visible', 'outline' ), 'Keyboard focus keeps its 2px ring.' );
+
+		// Core's `.wp-core-ui .button:focus` (0,3,0) sets a transparent outline; the keyboard rule for the same controls is one class more specific.
+		$keyboard     = '.sw-shell :is(.sw-shell__chrome, .sw-shell__main) .button:focus-visible';
+		$declarations = self::rule( $css, $keyboard );
+		self::assertSame( '2px solid var(--sw-focus-ring)', CssSource::value_of( $declarations, 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $declarations, 'box-shadow' ) );
+		foreach ( $declarations as $declaration ) {
+			self::assertFalse( $declaration['important'] );
+		}
+		self::assertGreaterThanOrEqual( [ 0, 4, 0 ], CssSource::specificity( $keyboard ) );
 	}
 
 	public function test_the_abilities_filter_bar_sticks_under_the_admin_bar_and_not_on_a_phone(): void {

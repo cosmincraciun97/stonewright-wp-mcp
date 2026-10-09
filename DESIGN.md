@@ -279,6 +279,7 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 - **Sizes:** default 40px, `sm` 32px, `xs` 24px (the WCAG 2.5.8 floor). At 782px and below the default is 44px, `sm` 40px, and `xs` stays 24px.
 - **Shape:** 2px radius, like core. Icon-only buttons are square at every size and named by `aria-label`.
 - **States:** hover changes colour in 100ms; `:active` presses 1px; `disabled` is greyed and not focusable (a link is marked `aria-disabled`, loses its `href` and leaves the tab order); `busy` sets `aria-busy="true"` and shows a spinner in front of the label (a static dotted ring under reduced motion).
+- **Focus:** a click or tap on a link, button, tab, choice or summary draws no ring, outline or shadow, although WordPress's own admin styles draw a ring on every focus (the layer's pointer-focus block answers them without `!important`); a control reached with the keyboard (`:focus-visible`) shows one outline of at least 2px. The current tab keeps its underline. Text fields keep the ring they draw on every focus.
 - **Naming:** verb plus object, "Disconnect Example client", not "Disconnect". `context` supplies the object for assistive technology only, so a table of repeated actions keeps the short visible label and every action still has its own name.
 
 ### Links
@@ -320,7 +321,7 @@ Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 2
 Every Stonewright page is printed by `AdminShell::open( $slug, [ title, lede, actions, hub ] )` and closed by `AdminShell::close()`. The frame has four parts, in this order:
 
 1. **Skip link** (`a.screen-reader-shortcut` to `#sw-main`): the first stop inside the shell; it shows on focus and moves focus to the content region, so a keyboard user skips the header and the tab bar.
-2. **Page header** (`Ui\PageHeader`): the product eyebrow, the one `h1`, a one-line lede, and on the right the page's status and its primary action (`actions`). A page that is still changing carries a **Beta** badge with a visible one-line explanation; the sidebar entry says "Beta" in words too. There is no `EXP` marker and no hover-only explanation.
+2. **Page header** (`Ui\PageHeader`): the one `h1`, a one-line lede, and on the right the page's status and its primary action (`actions`). A page that is still changing carries a **Beta** badge with a visible one-line explanation; the sidebar entry says "Beta" in words too. There is no `EXP` marker and no hover-only explanation.
 3. **Hub tab bar** (`Ui\HubNav`): links to the pages of the hub the page belongs to, drawn from the menu registry. A hub with one page has none. Counts beside a tab (open incidents, queued or failed block changes, changes needing a rollback) are numbers with words for assistive technology. A user sees only the tabs they can open.
 4. **Content region** (`div#sw-main`, `tabindex="-1"`): the page itself. `hr.wp-header-end` sits between the header and the content, which is where WordPress puts the notices it prints.
 
@@ -425,7 +426,7 @@ Motion confirms what the user just did and shows where something came from. It n
 
 - **Do** keep the default workspace light using Workbench and Paper.
 - **Do** use the 4px grid (`--sw-space-*`) with larger section breaks.
-- **Do** keep every control keyboard reachable with a visible focus ring of at least 2px.
+- **Do** keep every control keyboard reachable with a visible focus ring of at least 2px, and draw no ring, outline or shadow on a link, button, tab or choice after a mouse click or tap.
 - **Do** test 320px, 390px, 782px, 1024px, and 1440px widths.
 - **Do** use semantic HTML and native controls.
 - **Do** expose loading, success, error, disabled, empty, and long-content states.

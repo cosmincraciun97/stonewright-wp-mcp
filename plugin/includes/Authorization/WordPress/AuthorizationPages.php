@@ -289,7 +289,7 @@ final class AuthorizationPages {
 		}
 
 		/* translators: 1: application name, 2: site name */
-		$header = PageHeader::render( sprintf( __( 'Connect %1$s to %2$s?', 'stonewright' ), $client, $site ), [ 'eyebrow' => __( 'Stonewright', 'stonewright' ) ] );
+		$header = PageHeader::render( sprintf( __( 'Connect %1$s to %2$s?', 'stonewright' ), $client, $site ) );
 
 		/* translators: 1: application name, 2: user name */
 		$intro = sprintf( __( '%1$s is asking to use the Stonewright MCP tools on this site as %2$s. It can do only what your account is allowed to do through those tools.', 'stonewright' ), $client, $user );

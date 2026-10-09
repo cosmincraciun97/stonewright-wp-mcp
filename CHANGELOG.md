@@ -473,6 +473,19 @@ development builds were never stable releases.
 - Split the Setup screen's code (`Admin\ConfigurationPage`) into small classes
   under `Admin\Setup`; `ConfigurationPage` keeps the menu, the settings
   registration and the form handlers.
+- Remove the small product-name line (a logo square and the word Stonewright)
+  above the title of every Stonewright page and of the connection approval
+  screen, and the page header's `eyebrow` option and its styles. The title,
+  the explanation line and the page's actions stay.
+- Draw no ring, outline, border or shadow on a link, button, tab, choice card
+  or summary after a mouse click or tap on a Stonewright page. WordPress's own
+  admin styles draw a ring on every focus, mouse included; the layer now
+  answers them for its own markup. A control reached with the keyboard keeps a
+  2 px outline, and the current tab keeps its underline.
+- Remove `assets/admin/setup.css` and `assets/admin/blueprints.css`, which no
+  page loads any more, and the Setup branch of the page style map that could
+  not run. The styles of the copy fallback dialog (shown when the browser
+  blocks the clipboard) moved to `admin.css`.
 
 ### Fixed
 

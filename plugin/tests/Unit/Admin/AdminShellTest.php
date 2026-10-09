@@ -154,6 +154,16 @@ final class AdminShellTest extends TestCase {
 		self::assertMatchesRegularExpression( '/page=stonewright-rescue" aria-current="page">Rescue</', $html );
 	}
 
+	public function test_no_page_prints_a_product_name_line_above_its_title(): void {
+		foreach ( [ 'stonewright-status', 'stonewright-sandbox', 'stonewright-context', 'stonewright-unknown' ] as $slug ) {
+			$html = $this->shell( $slug );
+
+			self::assertStringNotContainsString( 'page-header__eyebrow', $html, $slug );
+			self::assertStringNotContainsString( 'page-header__logo', $html, $slug );
+			self::assertMatchesRegularExpression( '/<div class="sw-ui-page-header__main"><h1 class="sw-ui-page-title">/', $html, $slug );
+		}
+	}
+
 	public function test_an_explicit_empty_hub_removes_the_tab_bar(): void {
 		self::assertStringNotContainsString( 'sw-ui-hubnav', $this->shell( 'stonewright-memory', [ 'hub' => '' ] ) );
 	}
