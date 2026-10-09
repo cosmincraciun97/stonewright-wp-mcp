@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, parse } from 'node:path';
-import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { FIXTURE_RUN_ID_ENV, createFixtureRunId, fixtureRootName, isFixtureRunId, oauthFixtureBase } from './oauth-fixture-cleanup.js';
 
 /** Native ACL fixture setup; never use this helper for user-owned directories. */
 export function setSyntheticOAuthAcl(path: string, foreignRights: boolean | 'Delete' | 'FullControl' = false, createDirectory = false, inheritForeign = true): void {
@@ -41,7 +41,9 @@ export function createOAuthTestDirectory(prefix = 'stonewright-oauth-'): string 
 	if (process.platform !== 'win32') return mkdtempSync(join(tmpdir(), prefix));
 	if (!fixtureRoot) {
 		// A dedicated synthetic root avoids permissive user-profile or AppContainer temp ACLs.
-		fixtureRoot = join(parse(homedir()).root, `stonewright-oauth-fixtures-${randomUUID()}`);
+		// The run id comes from the vitest globalSetup, which removes every root of the run after the workers exit.
+		const runId = process.env[FIXTURE_RUN_ID_ENV];
+		fixtureRoot = join(oauthFixtureBase(), fixtureRootName(isFixtureRunId(runId) ? runId : createFixtureRunId(), randomUUID()));
 		setSyntheticOAuthAcl(fixtureRoot, false, true);
 		process.env['TEMP'] = fixtureRoot;
 		process.env['TMP'] = fixtureRoot;
