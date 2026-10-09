@@ -502,6 +502,44 @@
 
 ### Fixed
 
+- Keep a widget's own control when its name is also a container shorthand.
+  `background`, `gap`, `column_gap` and `row_gap` are no longer rewritten to
+  `background_color`, `flex_gap`, `flex_column_gap` and `flex_row_gap` for a
+  widget whose schema defines them (for example Alert, Divider, Text Editor and
+  Social Icons), on the per-widget add tools, `elementor-v3-add-widget`,
+  `elementor-v3-update-element`, `elementor-v3-batch-mutate` and
+  `elementor-build-tree`. Containers, sections and columns still take the
+  shorthands, and a widget without a control of that name still does.
+- Store a real inner layout from `elementor-add-inner-section`: an inner
+  section (`elType` `section`, `isInner` true) with one column inside a column,
+  or an inner container inside a container, instead of a widget of type
+  `inner-section` that nothing renders. A section as the parent is refused,
+  and `elementor-v3-add-widget` and the `add_widget` operation refuse
+  `inner-section` as a widget type.
+- Refuse to add a widget under another widget. The parent of an added widget
+  must be a container, a section or a column, on the per-widget add tools,
+  `elementor-v3-add-widget` and the `add_widget` operation of
+  `elementor-v3-batch-mutate` (`stonewright_parent_not_container`).
+- Make `elementor-v3-build-page-from-spec` with `mode` `append` work on a page
+  that already has content. Appended elements whose ids are already used on the
+  page get new ids and existing ids never change. A dry run now runs the same
+  checks as the write and returns the same error, and a refused write returns
+  that error with its violations instead of a generic message.
+- Return the retryable `stonewright_elementor_write_busy` error, with the retry
+  delay, when another Elementor write holds the page, from the per-widget add
+  tools, `elementor-v3-add-widget`, `elementor-v3-add-container` and
+  `elementor-v3-build-page-from-spec`, instead of "Could not save Elementor
+  data." `elementor-v3-build-page-from-spec` no longer restores its snapshot
+  after such a refusal.
+- Accept the column width keys Elementor saves, `_column_size` and
+  `_inline_size`, on section columns. `elementor-build-tree` gives a column that
+  has no `_column_size` an even share of its section, so Elementor no longer
+  logs an undefined `_column_size` when it renders the column.
+- Refuse an Elementor Pro or WooCommerce widget on a site where the plugin that
+  renders it is not active, with `stonewright_widget_unavailable`, instead of
+  storing a widget that renders empty.
+- Stop `elementor-v3-get-element` raising a PHP warning for an element nested
+  inside another element.
 - Accept the block attributes that a block's `supports` add (such as
   `anchor`, `lock`, `metadata`, `className`, `align`, colours, `layout` and
   `style`) in

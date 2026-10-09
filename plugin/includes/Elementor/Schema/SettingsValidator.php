@@ -16,13 +16,14 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
-		$aliases  = SettingsKeyAliases::normalize( $settings );
-		$settings = $aliases['settings'];
-		$schema   = WidgetSchemaRepository::get( $widget_type );
+		$schema = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
+		$controls = (array) ( $schema['controls'] ?? [] );
+		$aliases  = SettingsKeyAliases::normalize( $settings, $controls );
+		$settings = $aliases['settings'];
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings, $controls ) );
 	}
 
 	/**
@@ -346,11 +347,11 @@ final class SettingsValidator {
 	 * @param array<string, mixed>|null $condition_settings Optional merge-context for control conditions.
 	 * @return array<string, mixed>|null
 	 */
-	private static function normalize_condition_settings( ?array $condition_settings ): ?array {
+	private static function normalize_condition_settings( ?array $condition_settings, ?array $controls = null ): ?array {
 		if ( null === $condition_settings ) {
 			return null;
 		}
-		$aliases = SettingsKeyAliases::normalize( $condition_settings );
+		$aliases = SettingsKeyAliases::normalize( $condition_settings, $controls );
 		return $aliases['settings'];
 	}
 

@@ -10,7 +10,6 @@ use Stonewright\WpMcp\Design\Evidence\Validator as DesignEvidenceValidator;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
-use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
@@ -188,6 +187,13 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$tree       = self::merge_tree( $existing, $rendered, $mode );
 				$after_hash = TreeHasher::hash( $tree );
 
+				// The write runs these checks too; running them here gives a dry run
+				// and an apply the same answer before anything is snapshotted.
+				$preflight = ElementorData::preflight( $existing, $tree, [ 'force_destructive' => true ] );
+				if ( $preflight instanceof \WP_Error ) {
+					return $preflight;
+				}
+
 				if ( $dry_run ) {
 					$element_count = count( ElementorData::flatten( $tree ) );
 					return [
@@ -223,8 +229,17 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$write_started_at = microtime( true );
 				// Full-page builds can legitimately shrink the previous document after snapshot.
 				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
-					$restored = Backup::restore( $post_id, $snapshot_id );
-					return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored, 'validation_error' => SettingsValidator::last_error() ] );
+					$error = ElementorData::write_error_for_ability();
+					// A refused concurrent write stored nothing; restoring the snapshot
+					// there could overwrite what the other writer saved.
+					if ( 'stonewright_elementor_write_busy' === $error->get_error_code() ) {
+						return $error;
+					}
+					$data             = $error->get_error_data();
+					$data             = is_array( $data ) ? $data : [];
+					$data['restored'] = Backup::restore( $post_id, $snapshot_id );
+					$error->add_data( $data );
+					return $error;
 				}
 				$write_ms = self::elapsed_ms( $write_started_at );
 				$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
@@ -342,7 +357,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 	 */
 	private static function merge_tree( array $existing, array $rendered, string $mode ): array {
 		if ( 'append' === $mode ) {
-			return array_merge( $existing, $rendered );
+			return array_merge( $existing, self::with_unused_ids( $rendered, $existing ) );
 		}
 
 		if ( 'replace_section' !== $mode ) {
@@ -370,6 +385,55 @@ final class BuildPageFromSpec extends AbilityKernel {
 		}
 
 		return $existing;
+	}
+
+	/**
+	 * Gives every element of $rendered whose id is already used in $existing a
+	 * new id. The renderer derives ids from the position in the spec, so a
+	 * second build repeats the ids of the first. Elements that do not collide
+	 * keep their id, and $existing is never changed.
+	 *
+	 * @param array<int, array<string, mixed>> $rendered
+	 * @param array<int, array<string, mixed>> $existing
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function with_unused_ids( array $rendered, array $existing ): array {
+		$used = [];
+		ElementorData::walk(
+			$existing,
+			static function ( array $element ) use ( &$used ): void {
+				$used[ (string) ( $element['id'] ?? '' ) ] = true;
+			}
+		);
+		$reserved = $used;
+		ElementorData::walk(
+			$rendered,
+			static function ( array $element ) use ( &$reserved ): void {
+				$reserved[ (string) ( $element['id'] ?? '' ) ] = true;
+			}
+		);
+
+		$reassign = static function ( array $nodes ) use ( &$reassign, $used, &$reserved ): array {
+			foreach ( $nodes as $index => $node ) {
+				$id = (string) ( $node['id'] ?? '' );
+				if ( '' !== $id && isset( $used[ $id ] ) ) {
+					$attempt = 0;
+					do {
+						$candidate = substr( hash( 'sha256', $id . '|append|' . $attempt ), 0, 7 );
+						++$attempt;
+					} while ( isset( $reserved[ $candidate ] ) );
+					$reserved[ $candidate ] = true;
+					$node['id']             = $candidate;
+				}
+				if ( isset( $node['elements'] ) && is_array( $node['elements'] ) && [] !== $node['elements'] ) {
+					$node['elements'] = $reassign( $node['elements'] );
+				}
+				$nodes[ $index ] = $node;
+			}
+			return $nodes;
+		};
+
+		return $reassign( $rendered );
 	}
 
 	private static function elapsed_ms( float $start ): float {
