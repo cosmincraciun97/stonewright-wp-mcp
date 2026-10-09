@@ -123,6 +123,14 @@ final class AbilityAnnotations {
 	}
 
 	/**
+	 * Whether the recorded facts list the ability as one that can change state.
+	 * An ability with no recorded facts is not reported as a write.
+	 */
+	public static function is_recorded_write( string $ability_name ): bool {
+		return true === ( self::recorded_traits()[ $ability_name ]['write'] ?? false );
+	}
+
+	/**
 	 * Replaces the recorded facts. Pass null to read them from plugin/data/ability-traits.php again.
 	 *
 	 * @param array<string, array{write: bool, external: bool}>|null $traits Facts by ability name.

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -96,6 +97,19 @@ final class AddWidget extends AbilityKernel {
 					}
 				}
 
+				if ( 'inner-section' === $widget_type ) {
+					return $this->error(
+						'inner_section_is_layout',
+						__( 'An inner section is a layout element, not a widget. Use stonewright/elementor-add-inner-section, or add a container with a container parent.', 'stonewright' ),
+						[ 'status' => 400, 'widget_type' => $widget_type ]
+					);
+				}
+
+				$unavailable = WidgetAvailability::refusal( $widget_type );
+				if ( $unavailable instanceof \WP_Error ) {
+					return $unavailable;
+				}
+
 				if ( 'html' !== $widget_type && WidgetCatalog::has( $widget_type ) ) {
 					$settings_in = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
 
@@ -137,6 +151,17 @@ final class AddWidget extends AbilityKernel {
 				if ( null === $parent_path ) {
 					return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
 				}
+				if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+					return $this->error(
+						'parent_not_container',
+						__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+						[
+							'status'         => 400,
+							'parent_id'      => (string) $args['parent_id'],
+							'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+						]
+					);
+				}
 
 				$widget = [
 					'id'         => ElementorData::generate_id(),
@@ -150,7 +175,7 @@ final class AddWidget extends AbilityKernel {
 				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
 
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+					return ElementorData::write_error_for_ability();
 				}
 
 				return [

@@ -168,13 +168,12 @@ final class MotionApplyElementorV3 extends AbilityKernel {
 			return $token_error;
 		}
 
-		$mutation = ( new BatchMutate() )->execute(
+		$mutation = ( new BatchMutate() )->execute_with_verified_token(
 			[
 				'post_id'            => $post_id,
 				'operations'         => $built['operations'],
 				'dry_run'            => false,
 				'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
-				'confirmation_token' => (string) ( $args['confirmation_token'] ?? '' ),
 			]
 		);
 		if ( is_wp_error( $mutation ) ) {

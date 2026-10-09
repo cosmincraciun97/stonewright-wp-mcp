@@ -71,6 +71,12 @@ compatible versions) and cleans the WordPress post cache. It preserves
 `_elementor_css`, never calls Elementor's global files-manager clear, and never
 emits a site-wide atomic-style clear for one post.
 
+`stonewright-elementor-css-regenerate` first scans the stored settings of the
+post, and its page or kit settings, for CSS control characters under colour,
+typography, unit and numeric-side keys. A match fails with
+`stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock
+or generation.
+
 `stonewright-elementor-css-regenerate` reports:
 
 - target kind and filename (never raw path or URL);

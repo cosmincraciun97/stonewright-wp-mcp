@@ -32,6 +32,9 @@ final class ContainerSchemaRepository {
 			$controls = self::fallback_controls();
 			$source   = 'stonewright_offline_renderer_contract';
 		}
+		if ( 'column' === $element_type ) {
+			$controls = self::with_column_width_controls( $controls );
+		}
 
 		$record = [
 			'element_type'        => $element_type,
@@ -108,6 +111,35 @@ final class ContainerSchemaRepository {
 					$controls[ $name ][ $field ] = $control[ $field ];
 				}
 			}
+		}
+		ksort( $controls );
+		return $controls;
+	}
+
+	/**
+	 * Elementor stores the width of a section column under `_column_size` (the
+	 * preset width class) and `_inline_size` (the custom width). Both are part
+	 * of the saved column, so a column carrying them is valid.
+	 *
+	 * @param array<string, array<string, mixed>> $controls
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function with_column_width_controls( array $controls ): array {
+		foreach ( [ '_column_size' => false, '_inline_size' => true ] as $key => $responsive ) {
+			if ( isset( $controls[ $key ] ) ) {
+				continue;
+			}
+			$controls[ $key ] = [
+				'key'        => $key,
+				'type'       => 'hidden',
+				'label'      => '',
+				'tab'        => '',
+				'section'    => '',
+				'responsive' => $responsive,
+				'dynamic'    => [],
+				'condition'  => [],
+				'provenance' => 'elementor_saved_column_width',
+			];
 		}
 		ksort( $controls );
 		return $controls;

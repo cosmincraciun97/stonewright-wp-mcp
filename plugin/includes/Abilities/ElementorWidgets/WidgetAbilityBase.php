@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorWidgets;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -246,6 +247,14 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					}
 				}
 
+				$is_inner_layout = 'inner-section' === $this->slug();
+				if ( ! $is_inner_layout ) {
+					$unavailable = WidgetAvailability::refusal( (string) ( $this->entry()['widget_type'] ?? $this->slug() ) );
+					if ( $unavailable instanceof \WP_Error ) {
+						return $unavailable;
+					}
+				}
+
 				$post_id = (int) ( $args['post_id'] ?? 0 );
 				if ( $post_id < 1 ) {
 					return $this->error( 'invalid_post_id', __( 'post_id is required.', 'stonewright' ) );
@@ -288,11 +297,14 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					}
 				}
 
-				$validated = SettingsValidator::validate( $this->slug(), $settings );
-				if ( $validated instanceof \WP_Error ) {
-					return $validated;
+				// The inner section is a layout element with no controls of its own.
+				if ( ! $is_inner_layout || [] !== $settings ) {
+					$validated = SettingsValidator::validate( $this->slug(), $settings );
+					if ( $validated instanceof \WP_Error ) {
+						return $validated;
+					}
+					$settings = $validated['settings'];
 				}
-				$settings = $validated['settings'];
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );
@@ -302,25 +314,36 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
 				}
 
-				$widget = [
-					'id'         => ElementorData::generate_id(),
-					'elType'     => 'widget',
-					'widgetType' => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
-					'settings'   => empty( $settings ) ? new \stdClass() : $settings,
-					'elements'   => [],
-				];
+				if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+					return $this->parent_error( $tree, $parent_path, $parent_id );
+				}
+
+				if ( $is_inner_layout ) {
+					$widget = self::inner_layout_element( $tree, $parent_path );
+					if ( null === $widget ) {
+						return $this->parent_error( $tree, $parent_path, $parent_id, __( 'An inner section goes inside a column or a container.', 'stonewright' ) );
+					}
+				} else {
+					$widget = [
+						'id'         => ElementorData::generate_id(),
+						'elType'     => 'widget',
+						'widgetType' => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
+						'settings'   => empty( $settings ) ? new \stdClass() : $settings,
+						'elements'   => [],
+					];
+				}
 
 				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
 				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
 
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+					return ElementorData::write_error_for_ability();
 				}
 
 				return [
 					'post_id'          => $post_id,
 					'element_id'       => $widget['id'],
-					'widget_type'      => $widget['widgetType'],
+					'widget_type'      => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
 					'snapshot_id'      => $snapshot_id,
 					'activated_groups' => $activated,
 				];
@@ -331,6 +354,62 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 	// -----------------------------------------------------------------
 	// Helpers
 	// -----------------------------------------------------------------
+
+	/**
+	 * The layout element Elementor stores for an inner section: a nested
+	 * container inside a container, an inner section with one column inside a
+	 * column. Null when the parent cannot hold one.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $parent_path
+	 * @return array<string, mixed>|null
+	 */
+	private static function inner_layout_element( array $tree, array $parent_path ): ?array {
+		$parent_type = (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' );
+		if ( 'container' === $parent_type ) {
+			return [
+				'id'       => ElementorData::generate_id(),
+				'elType'   => 'container',
+				'isInner'  => true,
+				'settings' => [],
+				'elements' => [],
+			];
+		}
+		if ( 'column' !== $parent_type ) {
+			return null;
+		}
+		return [
+			'id'       => ElementorData::generate_id(),
+			'elType'   => 'section',
+			'isInner'  => true,
+			'settings' => [],
+			'elements' => [
+				[
+					'id'       => ElementorData::generate_id(),
+					'elType'   => 'column',
+					'isInner'  => true,
+					'settings' => [ '_column_size' => 100 ],
+					'elements' => [],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $parent_path
+	 */
+	private function parent_error( array $tree, array $parent_path, string $parent_id, ?string $message = null ): \WP_Error {
+		return $this->error(
+			'parent_not_container',
+			$message ?? __( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+			[
+				'status'         => 400,
+				'parent_id'      => $parent_id,
+				'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+			]
+		);
+	}
 
 	/**
 	 * Given an activator key like `typography_typography`, return the

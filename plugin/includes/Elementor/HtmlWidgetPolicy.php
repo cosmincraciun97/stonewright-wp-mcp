@@ -7,7 +7,8 @@ namespace Stonewright\WpMcp\Elementor;
  * Site-level hard block for Elementor HTML widgets.
  *
  * When stonewright_allow_html_widgets is false (default), per-call flags such as
- * allow_html_widget=true are ignored.
+ * allow_html_widget=true are ignored. When it is true, each write must carry
+ * allow_html_widget=true; a call without the flag is refused.
  */
 final class HtmlWidgetPolicy {
 
@@ -29,7 +30,7 @@ final class HtmlWidgetPolicy {
 		}
 
 		// Site allows HTML widgets; still require explicit per-call approval for write paths.
-		if ( array_key_exists( 'allow_html_widget', $args ) && empty( $args['allow_html_widget'] ) ) {
+		if ( true !== filter_var( $args['allow_html_widget'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
 			return new \WP_Error(
 				'html_widget_requires_explicit_approval',
 				__( 'Elementor HTML widgets require allow_html_widget=true when enabled for this site.', 'stonewright' ),

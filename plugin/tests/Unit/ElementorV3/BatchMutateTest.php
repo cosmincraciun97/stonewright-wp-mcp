@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -593,6 +594,117 @@ final class BatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function add_container_args(): array {
+		return [
+			'post_id'    => 501,
+			'operations' => [
+				[
+					'action'    => 'add_container',
+					'parent_id' => 'root',
+					'settings'  => [ 'layout' => 'flex', 'direction' => 'column' ],
+				],
+			],
+		];
+	}
+
+	public function test_non_destructive_write_requires_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BatchMutate() )->execute( self::add_container_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_update_write_requires_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [ 'flex_direction' => 'column' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_dry_run_needs_no_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BatchMutate() )->execute( self::add_container_args() + [ 'dry_run' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['dry_run'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_write_with_a_bound_token_succeeds_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args  = self::add_container_args();
+		$token = ConfirmationToken::issue( 'stonewright/elementor-v3-batch-mutate', $args );
+
+		$result = ( new BatchMutate() )->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['applied'] );
+		self::assertSame( 0, $result['failed'] );
+	}
+
+	public function test_write_with_a_token_bound_to_other_arguments_is_refused_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$other = self::add_container_args();
+		$other['operations'][0]['settings']['direction'] = 'row';
+		$token = ConfirmationToken::issue( 'stonewright/elementor-v3-batch-mutate', $other );
+
+		$result = ( new BatchMutate() )->execute( self::add_container_args() + [ 'confirmation_token' => $token ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_html_widget_without_the_flag_is_refused_when_the_site_allows_html(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
+		$operation = [
+			'action'      => 'add_widget',
+			'parent_id'   => 'root',
+			'widget_type' => 'html',
+			'settings'    => [ 'html' => '<p>example</p>' ],
+		];
+
+		$refused = ( new BatchMutate() )->execute( [ 'post_id' => 501, 'operations' => [ $operation ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertStringContainsString( 'html_widget_requires_explicit_approval', (string) wp_json_encode( [ $refused->get_error_code(), $refused->get_error_data() ] ) );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+
+		$approved = ( new BatchMutate() )->execute( [ 'post_id' => 501, 'operations' => [ $operation + [ 'allow_html_widget' => true ] ] ] );
+
+		self::assertIsArray( $approved );
+		self::assertSame( 1, $approved['applied'] );
+	}
+
+	public function test_write_needs_no_token_outside_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'staging';
+
+		$result = ( new BatchMutate() )->execute( self::add_container_args() );
+
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['applied'] );
 	}
 
 	public function test_batch_rejects_atomic_widget_with_actionable_diagnostics(): void {

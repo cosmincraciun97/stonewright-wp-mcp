@@ -127,6 +127,12 @@ spec renderer first. Use `dry_run: true` to validate, inspect diagnostics, and
 count generated elements without writing; then repeat the call with
 `dry_run: false` and `mode` set to `replace`, `append`, or `replace_section`.
 
+With `mode: "append"`, an element whose id is already on the page gets a new id; ids
+already on the page never change. `dry_run: true` runs the same document checks as
+the write, so it returns the error the write would. When another write holds the
+page, the call returns the retryable `stonewright_elementor_write_busy`; repeat
+it after `retry_after` seconds.
+
 ```json
 {
   "post_id": 42,
@@ -287,6 +293,13 @@ headings inside loop templates; do not rely on many manual meta updates.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+  A widget keeps every key its own schema defines, so `background` or `gap`
+  on a widget that has that control is written as given; the container
+  shorthands (`gap`, `background`, `justify_content`) apply to containers.
+- A widget goes inside a container, a section or a column, never inside another
+  widget. An inner section goes inside a column (it is stored with one column)
+  or inside a container (stored as an inner container). Elementor Pro and
+  WooCommerce widgets are refused on a site where that plugin is not active.
 - Configure all relevant tabs. Content holds source data, items, media, links,
   and semantic choices. Style holds typography, colors, spacing, states,
   borders, shadows, and widget-specific presentation. Advanced can use
@@ -337,6 +350,10 @@ user has approved site-wide design changes, call `update-kit-colors` and
 reuse global tokens instead of repeating raw values. If approval is missing or
 the design is one-off, keep those values local in widget/container controls.
 Mutation abilities do not take a post_id; they write to the active kit post.
+Colour values must be real colours: hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`, a
+CSS colour name, `transparent`, or a global reference. Font families are plain
+names and sizes are numbers with a unit. Any other value is refused with
+`stonewright_elementor_settings_invalid` and the key.
 
 ## Save as template
 
@@ -392,10 +409,14 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
-## Confirmation token for destructive writes
+## Confirmation token for writes
 
-Before calling `build-page-from-spec` with `mode: "replace"` or
-`mode: "replace_section"`, or before `batch-mutate` with `remove_element`, emit:
+In production-safe mode these calls need a confirmation token issued for the exact
+arguments with `stonewright-security-issue-confirmation-token`: every
+`batch-mutate` write that is not a dry run, `apply-bundle` (one token for the whole
+call, passed at the top level), and `build-page-from-spec` with `mode: "replace"`
+or `mode: "replace_section"`. Dry runs of `batch-mutate` need no token. Before
+calling any of them, emit:
 
 ```
 "Confirm:

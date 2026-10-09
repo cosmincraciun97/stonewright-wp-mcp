@@ -502,6 +502,44 @@
 
 ### Fixed
 
+- Keep a widget's own control when its name is also a container shorthand.
+  `background`, `gap`, `column_gap` and `row_gap` are no longer rewritten to
+  `background_color`, `flex_gap`, `flex_column_gap` and `flex_row_gap` for a
+  widget whose schema defines them (for example Alert, Divider, Text Editor and
+  Social Icons), on the per-widget add tools, `elementor-v3-add-widget`,
+  `elementor-v3-update-element`, `elementor-v3-batch-mutate` and
+  `elementor-build-tree`. Containers, sections and columns still take the
+  shorthands, and a widget without a control of that name still does.
+- Store a real inner layout from `elementor-add-inner-section`: an inner
+  section (`elType` `section`, `isInner` true) with one column inside a column,
+  or an inner container inside a container, instead of a widget of type
+  `inner-section` that nothing renders. A section as the parent is refused,
+  and `elementor-v3-add-widget` and the `add_widget` operation refuse
+  `inner-section` as a widget type.
+- Refuse to add a widget under another widget. The parent of an added widget
+  must be a container, a section or a column, on the per-widget add tools,
+  `elementor-v3-add-widget` and the `add_widget` operation of
+  `elementor-v3-batch-mutate` (`stonewright_parent_not_container`).
+- Make `elementor-v3-build-page-from-spec` with `mode` `append` work on a page
+  that already has content. Appended elements whose ids are already used on the
+  page get new ids and existing ids never change. A dry run now runs the same
+  checks as the write and returns the same error, and a refused write returns
+  that error with its violations instead of a generic message.
+- Return the retryable `stonewright_elementor_write_busy` error, with the retry
+  delay, when another Elementor write holds the page, from the per-widget add
+  tools, `elementor-v3-add-widget`, `elementor-v3-add-container` and
+  `elementor-v3-build-page-from-spec`, instead of "Could not save Elementor
+  data." `elementor-v3-build-page-from-spec` no longer restores its snapshot
+  after such a refusal.
+- Accept the column width keys Elementor saves, `_column_size` and
+  `_inline_size`, on section columns. `elementor-build-tree` gives a column that
+  has no `_column_size` an even share of its section, so Elementor no longer
+  logs an undefined `_column_size` when it renders the column.
+- Refuse an Elementor Pro or WooCommerce widget on a site where the plugin that
+  renders it is not active, with `stonewright_widget_unavailable`, instead of
+  storing a widget that renders empty.
+- Stop `elementor-v3-get-element` raising a PHP warning for an element nested
+  inside another element.
 - Accept the block attributes that a block's `supports` add (such as
   `anchor`, `lock`, `metadata`, `className`, `align`, colours, `layout` and
   `style`) in
@@ -767,6 +805,10 @@
   what a clear, rebind or restore did.
 - Fix revoking an Application Password from Setup on sites without pretty
   permalinks (the request lost its password id).
+- Accept one top-level `confirmation_token` on `elementor-v3-apply-bundle`,
+  issued for the whole call, and require it in production-safe mode. The
+  per-write `confirmation_token` field is removed; the token covers every write
+  of the call.
 
 ### Security
 
@@ -825,6 +867,47 @@
   Setup page. The fields stay empty and show that a value is stored, the bridge
   launch values use a placeholder, saving an empty field keeps the stored value,
   a new value replaces it, and a checkbox removes it.
+- Require a confirmation token in production-safe mode for every
+  `elementor-v3-batch-mutate` write that is not a dry run, bound to the
+  arguments of the call. Before, only `remove_element` operations and
+  `mode: replace` required one. Dry runs need no token.
+- Require a confirmation token in production-safe mode for every
+  `elementor-v3-build-page-from-spec` write that is not a dry run, in every
+  mode. Before, only `replace` and `replace_section` required one, and
+  `append` wrote without it.
+- Require the task context token on `elementor-add-icon-list`,
+  `elementor-add-price-list`, `elementor-add-read-more`, and
+  `elementor-add-search`. A write ability no longer skips the context token
+  because its name contains `-list`, `-read`, or `-search`.
+- Refuse an Elementor HTML widget write that has no `allow_html_widget: true`
+  when the HTML widget site option is on, with
+  `html_widget_requires_explicit_approval`.
+- Refuse colour and typography values that are not real values. An Elementor
+  colour control takes hex (3, 4, 6 or 8 digits), `rgb()`, `rgba()`, `hsl()`,
+  `hsla()` with numeric arguments, a CSS colour name, `transparent`,
+  `currentColor`, an Elementor global colour variable, or an empty string; a
+  `__globals__` binding takes the stored `globals/<type>?id=<id>` form or an
+  empty string. Font families are plain names, font weight, transform, style and
+  decoration come from fixed lists, and slider, dimension and shadow values need
+  numeric parts and a unit from a fixed list. Anything else fails with
+  `stonewright_elementor_settings_invalid` and the key. The check runs in every
+  Elementor write path, and in `elementor-v3-update-kit-colors`,
+  `elementor-v3-update-kit-typography`, `elementor-v3-kit-batch-mutate` and
+  `elementor-v3-update-page-settings` (colour, typography and unit keys, and
+  kit palette ids).
+- Make `elementor-css-regenerate` refuse a post whose stored settings carry
+  `;`, braces, `<`, `>`, `url(`, `expression(` or similar under a colour,
+  typography, unit or numeric-side key, with `stonewright_elementor_css_unsafe_value`
+  and the paths, before any backup, lock or generation. Custom CSS keys stay
+  under the custom-code approval gate.
+- Stop `stonewright-design-mirror-export` from writing files. It returns each
+  page's JSON, filename, byte count and SHA-256 in the result to the
+  authenticated caller, up to 1.5 MB of JSON per call, and checks edit
+  permission for every post. On plugin update, and on each export call, the
+  `uploads/stonewright-mirror` folder from earlier versions gets `index.php`,
+  `.htaccess` and `web.config` deny rules, and the regular `.json` files in it
+  that carry the export format are deleted; links, subfolders and other files
+  stay. The counts are logged.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

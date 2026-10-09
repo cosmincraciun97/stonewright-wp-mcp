@@ -14,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
 
@@ -227,13 +228,14 @@ final class BatchMutateChangeSetTest extends TestCase {
 			'post_id'    => 501,
 			'operations' => [ [ 'action' => 'add_widget', 'parent_id' => 'root', 'widget_type' => 'heading', 'settings' => [ 'title' => 'Hello' ] ] ],
 		];
-		$arguments['confirmation_token'] = 'not-checked-for-non-destructive-writes';
+		$token                           = ConfirmationToken::issue( 'stonewright/elementor-v3-batch-mutate', $arguments );
+		$arguments['confirmation_token'] = $token;
 
 		$result = ( new BatchMutate() )->execute( $arguments );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 'confirmation_token', $result['change_set']['approval_reason'] );
-		self::assertStringNotContainsString( 'not-checked-for-non-destructive-writes', (string) wp_json_encode( $result['change_set'] ) );
+		self::assertStringNotContainsString( $token, (string) wp_json_encode( $result['change_set'] ) );
 	}
 
 	public function test_a_repair_passes_repair_of_through_to_the_change_set_and_the_audit_row(): void {
