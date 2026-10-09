@@ -53,6 +53,22 @@ final class DomainLockCardTest extends TestCase {
 		self::assertStringContainsString( 'test-nonce-stonewright_reset_domain_lock', $html );
 	}
 
+	public function test_the_clear_action_is_a_secondary_button_in_the_card_footer_beside_its_reason(): void {
+		foreach ( [ '1', '0' ] as $enabled ) {
+			$GLOBALS['stonewright_test_options']['stonewright_enabled'] = $enabled;
+			DomainLock::lock();
+
+			$html = DomainLockCard::html();
+			self::assertSame( 1, preg_match( '/<div class="sw-ui-card__footer">(.*)<\/div><\/section>/s', $html, $footer ), 'The action sits in the footer of the card.' );
+			$button = self::clear_button( $footer[1] );
+			self::assertStringContainsString( 'class="sw-ui-btn"', $button, 'The secondary button of the layer, at its default size.' );
+			self::assertStringNotContainsString( 'sw-ui-btn--danger', $button );
+			self::assertStringNotContainsString( 'sw-ui-btn--primary', $button );
+			self::assertStringNotContainsString( 'sw-ui-stack', $footer[1], 'Not stacked under the facts.' );
+			self::assertSame( '1' === $enabled ? 1 : 0, substr_count( $footer[1], 'sw-ui-hint' ), 'The reason sits next to a disabled button.' );
+		}
+	}
+
 	public function test_while_abilities_are_off_clearing_is_available(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = '0';
 		DomainLock::lock();

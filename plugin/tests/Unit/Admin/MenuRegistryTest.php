@@ -224,7 +224,7 @@ final class MenuRegistryTest extends TestCase {
 	/** @return list<array{hub: string, label: string, links: list<array<string, mixed>>}> */
 	private function band( string $current = 'stonewright-status' ): array {
 		MenuRegistry::add( 'stonewright-block-finalizer', 'Block queue', 'activity', [ 'order' => 20, 'beta' => true, 'in_menu' => false, 'capability' => 'edit_posts', 'count' => static fn (): int => 3, 'count_label' => 'queued or failed changes' ] );
-		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30 ] );
+		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30, 'beta' => true ] );
 		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_posts' => true ];
 
 		return MenuRegistry::band_groups( $current );
@@ -318,10 +318,10 @@ final class MenuRegistryTest extends TestCase {
 			}
 		}
 
-		foreach ( [ 'Troubleshoot', 'Context', 'Design', 'Block queue' ] as $label ) {
+		foreach ( [ 'Troubleshoot', 'Context', 'Design', 'Block queue', 'Rescue' ] as $label ) {
 			self::assertTrue( $links[ $label ]['beta'], $label );
 		}
-		foreach ( [ 'Overview', 'Setup', 'Skills', 'Custom code', 'Audit log', 'Rescue' ] as $label ) {
+		foreach ( [ 'Overview', 'Setup', 'Skills', 'Custom code', 'Audit log' ] as $label ) {
 			self::assertFalse( $links[ $label ]['beta'], $label );
 		}
 		self::assertSame( 3, $links['Block queue']['count'] );

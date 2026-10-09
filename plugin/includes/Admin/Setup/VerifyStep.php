@@ -35,10 +35,14 @@ final class VerifyStep {
 			]
 		);
 
-		$body = Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Run preflight for local readiness, then Verify connection for a live authenticated MCP loopback (initialize → tools/list → task-start). Preflight alone does not prove a client is connected.', 'stonewright' ) ) )
-			. $actions
-			. Html::element( 'ol', [ 'class' => 'sw-ui-lineage sw-connection-test-results', 'data-stonewright-connection-results' => true, 'hidden' => true, 'aria-live' => 'polite', 'aria-label' => __( 'Preflight results', 'stonewright' ) ], '' )
-			. Html::element( 'ol', [ 'class' => 'sw-ui-lineage sw-connection-verify-results', 'data-stonewright-connection-verify-results' => true, 'hidden' => true, 'aria-live' => 'polite', 'aria-label' => __( 'Connection check results', 'stonewright' ) ], '' );
+		$body = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stack' ],
+			Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Run preflight for local readiness, then Verify connection for a live authenticated MCP loopback (initialize → tools/list → task-start). Preflight alone does not prove a client is connected.', 'stonewright' ) ) )
+				. $actions
+				. Html::element( 'ol', [ 'class' => 'sw-ui-checks sw-connection-test-results', 'data-stonewright-connection-results' => true, 'hidden' => true, 'aria-live' => 'polite', 'aria-label' => __( 'Preflight results', 'stonewright' ) ], '' )
+				. Html::element( 'ol', [ 'class' => 'sw-ui-checks sw-connection-verify-results', 'data-stonewright-connection-verify-results' => true, 'hidden' => true, 'aria-live' => 'polite', 'aria-label' => __( 'Connection check results', 'stonewright' ) ], '' )
+		);
 
 		return Step::html( 4, __( 'Verify the connection', 'stonewright' ), '', $body, self::ID );
 	}

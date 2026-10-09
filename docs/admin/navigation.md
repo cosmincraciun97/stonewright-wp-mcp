@@ -31,7 +31,7 @@ The entries are ordered by hub. The first page of a hub carries the hub's name
 their own (Troubleshoot, Memory, Context, Design, Prompt library, Code approval,
 Rescue). The top-level **Stonewright** entry opens the Overview.
 
-A page that is still changing (Troubleshoot, Context and Design) shows a small **EXP**
+A page that is still changing (Troubleshoot, Context, Design and Rescue) shows a small **EXP**
 marker after its name. While the pointer is over the marker, a tooltip to its right says
 "This feature is experimental." It appears at once, and also in the folded sidebar's flyout
 and in the mobile menu. The marker cannot be focused; screen readers read the same words as
@@ -51,7 +51,7 @@ link.
 - A link shows a number when something needs attention: open incidents on Audit log, queued
   or failed block changes on Block queue, changes needing a rollback on Rescue. Screen readers
   also read what the number counts.
-- A page that is still changing (Troubleshoot, Context, Design and Block queue) has a small
+- A page that is still changing (Troubleshoot, Context, Design, Block queue and Rescue) has a small
   raised **EXP** marker on its link. Pointing at the link, or moving the keyboard to it, shows
   the tooltip "This feature is experimental." above the link. **Escape** closes it. Screen
   readers read the same words as part of the link.

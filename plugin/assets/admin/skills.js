@@ -1211,7 +1211,7 @@
 
 	function dropZone() {
 		var input = el( 'input', {
-			className: 'sw-ui-input',
+			className: 'sw-ui-file',
 			attrs: {
 				type: 'file',
 				id: 'sw-skills-file',

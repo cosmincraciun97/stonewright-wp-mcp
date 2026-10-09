@@ -34,7 +34,7 @@ export const STONEWRIGHT_BAND = [
 ] as const;
 
 /** The pages that are still changing: their band link and their sidebar entry carry the EXP marker. */
-export const STONEWRIGHT_EXP_LINKS = ['Troubleshoot', 'Context', 'Design', 'Block queue'] as const;
+export const STONEWRIGHT_EXP_LINKS = ['Troubleshoot', 'Context', 'Design', 'Block queue', 'Rescue'] as const;
 
 /** The words of the marker's tooltip and of its hidden text. */
 export const EXP_HINT = 'This feature is experimental.';
@@ -58,7 +58,7 @@ export const STONEWRIGHT_SIDEBAR = [
 	'Custom code',
 	'Code approval',
 	'Activity',
-	'Rescue',
+	`Rescue EXP ${EXP_HINT}`,
 ] as const;
 
 /** Projects (viewports) the per-page gates run in: one desktop and one phone width. */

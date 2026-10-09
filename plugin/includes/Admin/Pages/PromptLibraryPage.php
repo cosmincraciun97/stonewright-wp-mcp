@@ -172,13 +172,8 @@ final class PromptLibraryPage {
 		$header = Html::element(
 			'div',
 			[ 'class' => 'sw-ui-card__header' ],
-			Html::element(
-				'div',
-				[],
-				Html::element( 'h3', [ 'class' => 'sw-ui-card__title', 'id' => $title_id ], Html::text( $title ) )
-				. ( '' !== $summary ? Html::element( 'p', [ 'class' => 'sw-ui-card__desc' ], Html::text( $summary ) ) : '' )
-			)
-			. Html::element( 'div', [ 'class' => 'sw-ui-actions', 'role' => 'group', 'aria-label' => __( 'Available modes', 'stonewright' ) ], $mode_tags )
+			Html::element( 'h3', [ 'class' => 'sw-ui-card__title', 'id' => $title_id ], Html::text( $title ) )
+			. ( '' !== $summary ? Html::element( 'p', [ 'class' => 'sw-ui-card__desc' ], Html::text( $summary ) ) : '' )
 		);
 
 		$details = '';
@@ -230,6 +225,7 @@ final class PromptLibraryPage {
 				)
 				. Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'id' => $status_id, 'role' => 'status' ], '' )
 			)
+			. Html::element( 'div', [ 'class' => 'sw-ui-actions', 'role' => 'group', 'aria-label' => __( 'Available modes', 'stonewright' ) ], $mode_tags )
 		);
 
 		return Html::element(

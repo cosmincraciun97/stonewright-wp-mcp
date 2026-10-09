@@ -73,6 +73,7 @@ final class RescuePage {
 			'activity',
 			[
 				'order'       => 30,
+				'beta'        => true,
 				'lede'        => self::lede(),
 				'count'       => static fn (): int => count( ChangeJournal::open_incidents() ) + count( ChangeJournal::unconfirmed() ),
 				'count_label' => __( 'needing attention', 'stonewright' ),
