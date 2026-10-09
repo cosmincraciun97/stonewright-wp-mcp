@@ -32,20 +32,46 @@ interface Target {
 	find: (page: Page) => Locator;
 	/** A control that navigates, copies or saves is held back from doing so: only its focus is under test. */
 	inert?: boolean;
+	/** Adds markup the check needs and the page no longer prints by itself, before the control is looked up. */
+	prepare?: (page: Page) => Promise<void>;
+}
+
+/**
+ * Every Stonewright page now prints its controls with the layer, so the check of older markup adds some: a plain link
+ * and a core `.button` at the start of the content region, as a page that has not moved to the layer printed them.
+ */
+async function addOlderMarkup(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const main = document.querySelector('.sw-shell__main');
+		if (!main || main.querySelector('[data-older-markup]')) {
+			return;
+		}
+		const box = document.createElement('p');
+		box.setAttribute('data-older-markup', '');
+		const link = document.createElement('a');
+		link.href = '#older-markup';
+		link.textContent = 'Older markup link';
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'button';
+		button.textContent = 'Older markup button';
+		box.append(link, ' ', button);
+		main.prepend(box);
+	});
 }
 
 const TARGETS: Target[] = [
 	{ name: 'hub tab', page: SETUP, find: (page) => page.locator('.sw-ui-hubnav__link:not([aria-current])').first(), inert: true },
 	{ name: 'view tab', page: SETUP, find: (page) => page.locator('.sw-setup .sw-ui-tabs > a.sw-ui-tabs__tab[aria-selected="false"]').first(), inert: true },
 	{ name: 'primary button', page: SETUP, find: (page) => page.locator('button.sw-ui-btn--primary:visible').first(), inert: true },
-	{ name: 'primary link', page: SETUP, find: (page) => page.locator('a.sw-ui-btn--primary:visible').first(), inert: true },
+	{ name: 'primary link', page: SANDBOX, find: (page) => page.locator('a.sw-ui-btn--primary:visible').first(), inert: true },
 	{ name: 'secondary button', page: SETUP, find: (page) => page.locator('button.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'secondary link', page: MEMORY, find: (page) => page.locator('a.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'step choice card', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="radio"]:not([disabled]):visible').first(), inert: true },
 	{ name: 'client choice', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="tab"][aria-selected="false"]:visible').first(), inert: true },
 	{ name: 'disclosure summary', page: SETUP, find: (page) => page.locator('.sw-setup summary:visible').first(), inert: true },
-	{ name: 'older-markup link', page: ABILITIES, find: (page) => page.locator('.sw-shell__main a:visible').first(), inert: true },
-	{ name: 'older-markup core .button', page: SANDBOX, find: (page) => page.locator('.sw-shell__main button.button:visible').first(), inert: true },
+	{ name: 'older-markup link', page: ABILITIES, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] a'), inert: true },
+	{ name: 'older-markup core .button', page: SANDBOX, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] button.button'), inert: true },
 	{ name: 'older-markup button', page: ABILITIES, find: (page) => page.locator('.sw-shell__main button:visible, .sw-shell__main .button:visible').first(), inert: true },
 ];
 
@@ -115,6 +141,7 @@ test.describe('Pointer focus on Stonewright controls', () => {
 		test(`${target.name}: no ring, outline, border or shadow after a mouse click`, async ({ page }) => {
 			await gotoAdmin(page, target.page);
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+			await target.prepare?.(page);
 			const control = target.find(page);
 			await expect(control, `a ${target.name} to measure`).toBeVisible();
 			if (target.inert) {
@@ -139,6 +166,7 @@ test.describe('Pointer focus on Stonewright controls', () => {
 		test(`${target.name}: a ring of at least 2px when the keyboard reaches it`, async ({ page }) => {
 			await gotoAdmin(page, target.page);
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+			await target.prepare?.(page);
 			const control = target.find(page);
 			await expect(control).toBeVisible();
 
