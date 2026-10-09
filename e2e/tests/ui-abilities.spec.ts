@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { login } from './helpers/login';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
+import { isRestRoute, restRouteUrl } from './helpers/rest-route';
 
 /**
  * AI Abilities, built from the shared UI layer.
@@ -12,6 +13,9 @@ import { expectNoAxeViolations, settle } from './helpers/axe-gate';
 const URL = '/wp-admin/admin.php?page=stonewright-abilities';
 const DESKTOP = 'desktop-1440-light';
 const PHONE = 'mobile-390-light';
+// Matchers for the REST calls the page makes; they match plain permalinks (?rest_route=...) as well as /wp-json/.
+const TOGGLE_ROUTE = restRouteUrl('stonewright/v1/admin/abilities/toggle');
+const PARAMETERS_ROUTE = restRouteUrl('stonewright/v1/admin/abilities/parameters');
 
 /**
  * Behaviour does not depend on the viewport, so it runs once, at desktop width. A test tagged @phone also runs at
@@ -162,7 +166,7 @@ test.describe('the switch', () => {
 	test('puts the switch back and says so, in a notice that stays, when the server refuses', async ({ page }) => {
 		await page.clock.install();
 		await open(page);
-		await page.route('**/stonewright/v1/admin/abilities/toggle*', (route) =>
+		await page.route(TOGGLE_ROUTE, (route) =>
 			route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 'stonewright_abilities_invalid_nonce', message: 'This page has expired. Reload it and try again.' }) }),
 		);
 		const tr = await row(page, 'site-info');
@@ -182,7 +186,7 @@ test.describe('the switch', () => {
 
 	test('puts the switch back when the server cannot be reached', async ({ page }) => {
 		await open(page);
-		await page.route('**/stonewright/v1/admin/abilities/toggle*', (route) => route.abort('failed'));
+		await page.route(TOGGLE_ROUTE, (route) => route.abort('failed'));
 		const tr = await row(page, 'site-info');
 		const toggle = await switchOf(tr);
 		await toggle.click();
@@ -193,7 +197,7 @@ test.describe('the switch', () => {
 
 	test('hands the change to the form when the REST route is blocked', async ({ page }) => {
 		await open(page);
-		await page.route('**/stonewright/v1/admin/abilities/toggle*', (route) => route.fulfill({ status: 404, contentType: 'text/html', body: '<p>Blocked</p>' }));
+		await page.route(TOGGLE_ROUTE, (route) => route.fulfill({ status: 404, contentType: 'text/html', body: '<p>Blocked</p>' }));
 		const tr = await row(page, 'site-info');
 		const toggle = await switchOf(tr);
 		const name = (await tr.locator('[data-sw-ability]').getAttribute('data-sw-ability')) ?? '';
@@ -201,7 +205,7 @@ test.describe('the switch', () => {
 			await Promise.all([page.waitForURL(/stonewright_toggled=disabled/), toggle.click()]);
 			await expect(page.locator('.sw-ui-notice--ok')).toContainText('Ability turned off.');
 		} finally {
-			await page.unroute('**/stonewright/v1/admin/abilities/toggle*');
+			await page.unroute(TOGGLE_ROUTE);
 			await page.goto(URL, { waitUntil: 'domcontentloaded' });
 			await restore(page, [name], true);
 		}
@@ -359,7 +363,7 @@ test.describe('the routes keep the gates of the form handlers', () => {
 		await open(page);
 		const requests: string[] = [];
 		page.on('request', (request) => {
-			if (request.url().includes('admin/abilities/parameters')) {
+			if (isRestRoute(request.url(), 'stonewright/v1/admin/abilities/parameters')) {
 				requests.push(request.url());
 			}
 		});
@@ -378,7 +382,7 @@ test.describe('the routes keep the gates of the form handlers', () => {
 	test('a failed parameter request says so and can be retried', async ({ page }) => {
 		await open(page);
 		let fail = true;
-		await page.route('**/admin/abilities/parameters*', (route) => (fail ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"code":"x","message":"x"}' }) : route.continue()));
+		await page.route(PARAMETERS_ROUTE, (route) => (fail ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"code":"x","message":"x"}' }) : route.continue()));
 		const tr = await row(page, 'create-post');
 		const details = tr.locator('details[data-sw-ability-params]');
 		await details.locator(':scope > summary').click();

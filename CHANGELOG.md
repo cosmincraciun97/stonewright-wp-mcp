@@ -508,6 +508,13 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Accept the block attributes that a block's `supports` add (such as
+  `anchor`, `lock`, `metadata`, `className`, `align`, colours, `layout` and
+  `style`) in
+  `blocks-batch-mutate` and in the attribute check of the other Gutenberg
+  abilities, so a registered block that supports them takes them. A block that
+  does not declare the support still refuses the attribute, and any other key
+  that the block does not declare is still refused.
 - Register the Block queue and Rescue tabs of the Activity hub on `init`, so no
   Stonewright label is translated before WordPress is ready to load the text
   domain and WordPress no longer reports translation loading triggered too
