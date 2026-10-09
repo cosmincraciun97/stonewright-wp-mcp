@@ -232,13 +232,17 @@ internal static class OAuthWindowsAcl
         catch { return 1; }
     }
 
+    // A request file can stay locked for a short time after its rename, for example while a scanner or indexer
+    // holds it. One second covers such holds and stays well inside the five second response deadline.
+    private const int SharingConflictBudgetMs = 1000;
+
     private static string ReadRequest(string path, string directory)
     {
         Stopwatch deadline = Stopwatch.StartNew();
         IOException lastConflict = null;
         for (;;)
         {
-            if (lastConflict != null && deadline.ElapsedMilliseconds >= 250) throw lastConflict;
+            if (lastConflict != null && deadline.ElapsedMilliseconds >= SharingConflictBudgetMs) throw lastConflict;
             try
             {
                 // Revalidate live privacy before every attempt, including after a sharing conflict.
@@ -251,7 +255,7 @@ internal static class OAuthWindowsAcl
             catch (IOException failure)
             {
                 int code = failure.HResult & 0xffff;
-                if ((code != 32 && code != 33) || deadline.ElapsedMilliseconds >= 250) throw;
+                if ((code != 32 && code != 33) || deadline.ElapsedMilliseconds >= SharingConflictBudgetMs) throw;
                 lastConflict = failure;
                 Thread.Sleep(2);
             }

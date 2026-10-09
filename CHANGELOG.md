@@ -628,6 +628,11 @@ development builds were never stable releases.
   reads `http://127.0.0.1:7999` and not `http://127.0.0.1`.
 - Show code inside a `pre` block as the block's own text, not as a chip inside
   the block.
+- Wait up to one second, instead of a quarter of a second, for a Windows OAuth
+  token file that another program holds open for a moment, such as a virus
+  scanner or an indexer, before the privacy check gives up. Privacy is still
+  rechecked before every attempt, and permission, ownership and other errors
+  still fail closed at once.
 
 ### Security
 

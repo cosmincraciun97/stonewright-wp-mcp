@@ -58,7 +58,7 @@ cache. IPC contains paths and operation names, never token values. Each request
 checks live permissions and ancestry; no ACL result is cached. Executable
 integrity and file identity are checked before requests.
 
-Native request reads use a 250 millisecond retry budget for Windows sharing or
+Native request reads use a one second retry budget for Windows sharing or
 lock violations, rechecking live privacy before each attempt. Permission,
 ownership, reparse, and other errors still fail closed. The helper request
 deadline remains five seconds.
