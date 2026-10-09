@@ -73,6 +73,10 @@ Warnings to say out loud:
 | `synced_patterns` | It uses a synced pattern; the copy keeps pointing at the pattern unless the user wants to change it. |
 | `global_widgets`, `nested_templates` | It uses a global widget or template; it stays linked. |
 | `third_party_widgets` | It needs a plugin's widget or block. |
+| `css_classes_not_approved` | It uses CSS classes this site has not approved (the warning names them), so the copy is refused until a site administrator adds them to the `stonewright_approved_css_classes` option. Offer another candidate. |
+| `custom_css_needs_approval` | It carries custom CSS, which needs a human-issued custom-code grant. Do not apply one yourself; offer another candidate. |
+| `html_widgets` | It holds an HTML widget; the copy is refused unless the site allows HTML widgets and the operation sets `allow_html_widget: true`. |
+| `placeholder_widgets` | It uses a widget whose plugin is not active on this site (Elementor shows a placeholder), so the copy is refused. Offer another candidate. |
 | `missing_*` | Something it refers to no longer exists, so the copy will fail until that is created. Offer another candidate. |
 
 ## 3. Extract
@@ -109,7 +113,20 @@ Rules the write enforces, so do not work around them:
 - Existing global references are kept. Dynamic tags are kept and flagged.
 - The widget type is never changed and no setting is stripped. In V3 a setting
   the live schema does not know blocks the copy with the exact setting named.
-- A duplicate Gutenberg anchor is renamed (`name-2`) with its links.
+  A stored value the live control no longer lists but still maps (a heading
+  `align` of `left`) is accepted as stored; any other unlisted value blocks the
+  copy with its setting named.
+- A duplicate Gutenberg anchor is renamed (`name-2`) with its links. An
+  Elementor id attribute (`_element_id` in V3, `_cssid` in V4) the page already
+  uses is renamed the same way, with the links of the copy, and an
+  `anchors_renamed` warning says so.
+- Give every operation its own `op_id`; a repeated one is refused. One batch may
+  add at most 2000 elements in total; split larger work into batches.
+- V4 text (`e-heading` title, `e-paragraph` paragraph, `e-button` text) is
+  written with the type the live widget declares, `escaped-html` on a current
+  Elementor (`{ "$$type": "escaped-html", "value": "text" }`), not `html-v3`.
+  A copy whose text is stored in another type than the live one is refused until
+  you rewrite it with `update_node` in the same batch.
 - A synced pattern stays a reference. Only when the user wants to edit it, set
   `detach_patterns: true` (or a list of pattern ids) to make a local copy. Ask
   first.
@@ -129,7 +146,9 @@ After the apply:
 
 1. Elementor: run `stonewright-elementor-css-regenerate` for the page, then
    `stonewright-elementor-post-write-verify` with the new element ids. Never
-   clear CSS site-wide.
+   clear CSS site-wide. In production-safe, `stonewright-elementor-css-regenerate`
+   and a rollback with `stonewright-change-restore` each need a
+   `confirmation_token` issued for the exact call.
 2. Check the `change_set`: `reuse_source` names the page each section came
    from, `verification.status` must be `verified`, `unexpected` must be empty.
 3. Open the page in a separate browser tab and check desktop, tablet and

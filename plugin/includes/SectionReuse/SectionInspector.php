@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\SectionReuse;
 
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
+use Stonewright\WpMcp\Elementor\V4\AtomicTextProp;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
@@ -306,17 +307,13 @@ final class SectionInspector {
 		}
 	}
 
-	/** The text of a heading setting: a plain string, or the content of an Atomic html-v3 envelope. */
+	/** The text of a heading setting: a plain string, or the text of an Atomic text envelope of any of its types. */
 	private static function atomic_or_plain_text( mixed $title ): string {
 		if ( is_string( $title ) ) {
 			return $title;
 		}
-		if ( is_array( $title ) && is_array( $title['value'] ?? null ) ) {
-			$content = $title['value']['content'] ?? null;
-			return is_array( $content ) && is_string( $content['value'] ?? null ) ? $content['value'] : '';
-		}
 
-		return '';
+		return AtomicTextProp::text_of( $title ) ?? '';
 	}
 
 	// ---------------------------------------------------------------- Gutenberg

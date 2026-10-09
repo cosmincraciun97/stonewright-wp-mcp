@@ -51,6 +51,7 @@ final class AtomicSchemaRepository {
 			'e-divider'   => self::widget( 'Divider', [] ),
 			'e-svg'       => self::widget( 'Icon', [ 'url' => [ 'key' => 'svg', 'type' => 'svg-src' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 		];
+		$bundled = self::with_live_text_types( $bundled );
 
 		$runtime = self::runtime_discovery();
 		$runtime_schemas = self::index_runtime_items( $runtime['items'] );
@@ -256,6 +257,33 @@ final class AtomicSchemaRepository {
 			$issues[] = [ 'code' => 'runtime_discovery_failed', 'error_class' => get_class( $error ) ];
 		}
 		return [ 'items' => $items, 'issues' => $issues ];
+	}
+
+	/**
+	 * The bundled text props name the text type older Elementor versions use (`html-v3`). When the live widget
+	 * declares another text type, the prop takes the declared one; with no live widget the bundled type stays.
+	 *
+	 * @param array<string, array<string, mixed>> $schemas
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function with_live_text_types( array $schemas ): array {
+		foreach ( $schemas as $atomic_type => $schema ) {
+			if ( 'widget' !== ( $schema['kind'] ?? '' ) || ! is_array( $schema['props'] ?? null ) ) {
+				continue;
+			}
+			foreach ( $schema['props'] as $name => $prop ) {
+				if ( ! is_array( $prop ) || ! is_string( $prop['type'] ?? null ) || ! AtomicTextProp::is_text_type( $prop['type'] ) ) {
+					continue;
+				}
+				$live = AtomicTextProp::live_type( (string) $atomic_type, (string) ( $prop['key'] ?? $name ) );
+				if ( null !== $live ) {
+					$schemas[ $atomic_type ]['props'][ $name ]['type']        = $live;
+					$schemas[ $atomic_type ]['props'][ $name ]['type_source'] = 'live_runtime';
+				}
+			}
+		}
+
+		return $schemas;
 	}
 
 	/** @param list<array<string,mixed>> $items @return array<string,array<string,mixed>> */

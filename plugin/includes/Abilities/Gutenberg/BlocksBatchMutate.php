@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
 use Stonewright\WpMcp\SectionReuse\Builder;
 use Stonewright\WpMcp\SectionReuse\GutenbergSectionInserter;
 use Stonewright\WpMcp\SectionReuse\MarkupSkeleton;
@@ -157,6 +158,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? array_values( $args['operations'] ) : [];
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one block operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				$duplicate = BatchOperationIds::duplicate( $operations );
+				if ( null !== $duplicate ) {
+					return $duplicate;
 				}
 
 				$dry_run      = ! empty( $args['dry_run'] );

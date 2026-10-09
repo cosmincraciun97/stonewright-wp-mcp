@@ -329,7 +329,9 @@ final class SettingsValidator {
 		$type = strtolower( (string) ( $control['type'] ?? '' ) );
 		if ( in_array( $type, [ 'select', 'choose', 'select2' ], true ) && is_scalar( $value ) && isset( $control['options'] ) && is_array( $control['options'] ) ) {
 			$options = array_map( 'strval', array_keys( $control['options'] ) );
-			if ( ! in_array( (string) $value, $options, true ) ) {
+			// A value the control no longer lists but still maps (its `selectors_dictionary`) renders as it did when it was stored.
+			$mapped = isset( $control['selectors_dictionary'] ) && is_array( $control['selectors_dictionary'] ) && array_key_exists( (string) $value, $control['selectors_dictionary'] );
+			if ( ! $mapped && ! in_array( (string) $value, $options, true ) ) {
 				return self::violation( $path, 'invalid_option', 'one of the live control options', $value, array_slice( $options, 0, 10 ) );
 			}
 		}

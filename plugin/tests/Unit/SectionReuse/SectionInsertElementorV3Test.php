@@ -221,7 +221,7 @@ final class SectionInsertElementorV3Test extends TestCase {
 		$result = ( new BatchMutate() )->execute( [ 'post_id' => self::TARGET, 'operations' => [ self::insert_op( $section ) ] ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_data()['items'][0]['error']['code'] );
+		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_code() );
 		self::assertSame( 0, self::target_writes() );
 	}
 

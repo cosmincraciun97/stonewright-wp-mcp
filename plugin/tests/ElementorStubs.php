@@ -313,6 +313,7 @@ Plugin::$instance = (object) [
 							// The button's background group is classic until changed.
 							$controls['background_background']['default'] = 'classic';
 						}
+						$controls['_element_id'] = [ 'type' => 'text', 'label' => 'CSS ID', 'tab' => 'advanced', 'section' => '_section_style' ];
 						$controls['_animation'] = [
 							'type'    => 'select',
 							'label'   => 'Entrance Animation',
@@ -411,4 +412,38 @@ final class Variables_Service {
 	public function create( array $data ): array { $id = 'var_' . count( self::$items ); self::$items[ $id ] = $data; return [ 'variable' => array_merge( [ 'id' => $id ], $data ) ]; }
 	/** @param array<string, mixed> $data @return array<string, mixed> */
 	public function update( string $id, array $data ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } self::$items[ $id ] = array_replace( self::$items[ $id ], $data ); return [ 'variable' => array_merge( [ 'id' => $id ], self::$items[ $id ] ) ]; }
+}
+
+namespace Elementor\Modules\Promotions\Widgets;
+
+/** The placeholder Elementor registers in place of a Pro widget when Pro is not active. */
+class Pro_Widget_Promotion extends \Elementor\Widget_Base {
+	/** @param array<string, mixed>|null $args */
+	public function __construct( private array $data = [], private ?array $args = null ) {}
+
+	public function get_name(): string {
+		return (string) ( $this->args['widget_name'] ?? '' );
+	}
+
+	public function get_title(): string {
+		return (string) ( $this->args['widget_title'] ?? '' );
+	}
+
+	/** @return list<string> */
+	public function get_categories(): array {
+		return [ 'general', 'pro-elements' ];
+	}
+
+	public function show_in_panel(): bool {
+		return false;
+	}
+
+	public function hide_on_search(): bool {
+		return true;
+	}
+
+	/** @return array<string, array<string, mixed>> */
+	public function get_controls(): array {
+		return [];
+	}
 }
