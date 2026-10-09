@@ -227,6 +227,22 @@ Atomic (`e-*`) widgets keep structure-only validation, as before.
 
 Earlier versions wrote `uploads/stonewright-mirror/<slug>.json`. On plugin update, and on each export call, that folder gets `index.php`, `.htaccess` and `web.config` deny rules (existing guard files are kept), and the regular `.json` files directly inside it that carry the export format (`post_id` and `elementor` keys) are deleted. Symbolic links, subfolders and every other file stay. The outcome is logged as counts only. An export can be run again at any time to recreate the JSON.
 
+### Elementor knowledge store
+
+`elementor-knowledge-refresh` stores articles in `uploads/stonewright-private/knowledge/elementor/<hub>/<slug>.md`, and `elementor-knowledge-search`, `elementor-explain-editor` and `elementor-describe-widget` read only that folder. The plugin package ships no articles, so the readers return nothing, with a hint that names the refresh ability, until the first refresh.
+
+- **Guarded folders.** Every folder level the store creates (`stonewright-private`, `knowledge`, `elementor` and the hub folder) gets `index.php`, `.htaccess` and `web.config` deny rules; existing guard files are kept. If the folder cannot be created or guarded, the refresh writes nothing and reports `stonewright_store_unavailable`.
+- **Hosts.** The URL host must be `elementor.com` or end in `.elementor.com`. A host such as `evilelementor.com` or `elementor.com.example.test` is refused before anything is fetched.
+- **Hubs and names.** `hub` must be one of `widgets`, `editor`, `theme`, `developer`, `custom-widget` and `help-root`, checked in code before a path is built. The file name comes from the last URL segment reduced to letters, digits, dot, dash and underscore, and it starts with a letter or digit. A path that is a link, or that resolves outside the store, is refused.
+- **Permissions.** The refresh needs `manage_options` and is audited; the three readers need only the read permission.
+- **Older files.** Articles that an earlier version wrote next to the plugins directory are not read, moved or deleted.
+
+### Confirmation token details
+
+A token is issued by `security-issue-confirmation-token` for one ability and its exact arguments (every argument except `confirmation_token`), works once, and lives 60 to 3600 seconds (`ttl_seconds`, default 300; a value outside that range is refused by the input schema, and the lifetime is never shorter than 60 seconds). `expires_at` in the answer is the real expiry. `elementor-create-custom-widget` follows the same rule: its token covers the full argument object.
+
+A dry run of an Elementor write ability needs no token in `production-safe` mode because it writes nothing: no snapshot, no post meta and no write lock. This holds for `elementor-v3-update-element`, `elementor-v3-batch-mutate` and `elementor-v3-build-page-from-spec`. The write itself still needs a token bound to its arguments, and a token issued for a dry run does not authorize the write (`dry_run` is one of the bound arguments).
+
 ### Supply chain
 
 Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,

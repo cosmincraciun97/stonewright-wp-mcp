@@ -26,7 +26,7 @@ final class IssueConfirmationToken extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Issues a short-lived token required by destructive abilities when stonewright_mode is production-safe.', 'stonewright' );
+		return __( 'Issues a short-lived token required by destructive abilities when stonewright_mode is production-safe. The token is bound to the ability and the exact arguments it is issued for, works once, and lives 60 to 3600 seconds (default 300).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -55,7 +55,13 @@ final class IssueConfirmationToken extends AbilityKernel {
 			'properties'           => [
 				'ability'     => [ 'type' => 'string' ],
 				'args'        => [ 'type' => 'object' ],
-				'ttl_seconds' => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 3600, 'default' => 300 ],
+				'ttl_seconds' => [
+					'type'        => 'integer',
+					'minimum'     => 60,
+					'maximum'     => 3600,
+					'default'     => 300,
+					'description' => 'Token lifetime in seconds, from 60 to 3600 (default 300). The lifetime is never shorter than 60 seconds or longer than 3600; expires_at reports the actual expiry.',
+				],
 			],
 			'required'             => [ 'ability' ],
 		];

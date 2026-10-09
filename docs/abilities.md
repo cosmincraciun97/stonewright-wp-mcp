@@ -38,7 +38,7 @@ matrix after changing the registry.
 | Blueprints | 3 | Blueprint listing, inspection, and guarded application. |
 | Brand Kits | 2 | Reusable brand-kit reads and writes. |
 | Skills | 3 | Agent skill listing, reads, and saves. |
-| Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. |
+| Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. The Elementor articles live in a private folder under uploads that `elementor-knowledge-refresh` fills; the readers return nothing until the first refresh. |
 | Expertise | 4 | Expertise pack discovery and reads. |
 | Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
 | Comments | 5 | Comment list, update, moderation, and deletion. |
