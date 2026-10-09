@@ -98,8 +98,10 @@ final class AdminBootstrap {
 	}
 
 	/**
-	 * Sidebar Beta marker. shell.css only loads on Stonewright pages;
-	 * the left menu is visible everywhere in wp-admin.
+	 * Sidebar EXP marker and its tooltip. shell.css only loads on Stonewright pages; the left menu is visible
+	 * everywhere in wp-admin, so the marker is styled here. The tooltip is CSS only: it shows to the right of the
+	 * marker while the pointer is over it, instantly, in the folded flyout and the mobile menu too. It has no
+	 * keyboard trigger because the marker is not focusable; the words are also hidden text in the entry.
 	 */
 	public static function output_menu_styles(): void {
 		if ( ! is_admin() ) {
@@ -110,7 +112,9 @@ final class AdminBootstrap {
 		}
 
 		echo '<style id="stonewright-admin-menu">'
-			. '#adminmenu .wp-submenu a .sw-menu-beta{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid currentColor;border-radius:3px;font-size:12px;font-weight:500;line-height:16px;white-space:nowrap;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp{position:relative;display:inline-block;margin-inline-start:10px;color:#fff;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:18px;text-transform:uppercase;cursor:help;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp::after{content:attr(data-sw-tip);display:none;position:absolute;inset-inline-start:calc(100% + 8px);top:50%;transform:translateY(-50%);z-index:100000;padding:5px 8px;border-radius:3px;background:#1d2327;box-shadow:0 2px 8px rgba(0,0,0,.28);color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:14.3px;text-transform:none;white-space:nowrap;pointer-events:none;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp:hover::after{display:block;}'
 			. '</style>' . "\n";
 	}
 

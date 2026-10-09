@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin\Ui;
 
 use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Band;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
@@ -48,6 +49,7 @@ final class ComponentSheet {
 			. '<body class="wp-admin wp-core-ui admin-color-modern">' . "\n"
 			. Icon::sprite() . "\n"
 			. '<div id="wpadminbar" role="navigation" aria-label="Toolbar"><span>Compat Fixture</span><span>New</span></div>' . "\n"
+			. Scope::wrap( self::band() ) . "\n"
 			. '<div id="wpcontent"><main id="wpbody-content">' . "\n"
 			. '<div class="sw-shell wrap"><div class="sw-shell__content">' . "\n"
 			. Scope::wrap( self::sections(), [ 'page' => true ] ) . "\n"
@@ -106,6 +108,30 @@ final class ComponentSheet {
 
 	private static function label( string $text ): string {
 		return '<h2 class="sheet-label">' . esc_html( $text ) . '</h2>';
+	}
+
+	/** The band at the top of every page: a labelled group, a single link, an experimental link and a count. */
+	private static function band(): string {
+		$link = static fn ( string $label, bool $current = false, bool $beta = false, ?int $count = null, string $count_label = '' ): array => [
+			'label'       => $label,
+			'url'         => '#' . strtolower( str_replace( ' ', '-', $label ) ),
+			'current'     => $current,
+			'count'       => $count,
+			'count_label' => $count_label,
+			'beta'        => $beta,
+		];
+
+		return Band::render(
+			[
+				[ 'hub' => 'overview', 'label' => 'Overview', 'links' => [ $link( 'Overview', true ) ] ],
+				[ 'hub' => 'setup', 'label' => 'Setup', 'links' => [ $link( 'Setup' ), $link( 'Troubleshoot', false, true ) ] ],
+				[ 'hub' => 'abilities', 'label' => 'AI Abilities', 'links' => [ $link( 'AI Abilities' ) ] ],
+				[ 'hub' => 'knowledge', 'label' => 'Knowledge', 'links' => [ $link( 'Skills' ), $link( 'Memory' ), $link( 'Context', false, true ), $link( 'Design', false, true ), $link( 'Prompt library' ) ] ],
+				[ 'hub' => 'custom-code', 'label' => 'Custom code', 'links' => [ $link( 'Custom code' ), $link( 'Code approval' ) ] ],
+				[ 'hub' => 'activity', 'label' => 'Activity', 'links' => [ $link( 'Audit log', false, false, 3, 'open incidents' ), $link( 'Block queue', false, true, 2, 'queued or failed changes' ), $link( 'Rescue' ) ] ],
+			],
+			[ 'logo_url' => 'stonewright-logo.png' ]
+		);
 	}
 
 	private static function sections(): string {

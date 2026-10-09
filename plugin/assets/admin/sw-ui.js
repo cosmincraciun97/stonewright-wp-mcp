@@ -14,6 +14,7 @@
  *   [data-sw-ui-confirm-phrase]        an input that enables [data-sw-ui-confirm-submit] when it holds the phrase
  *   [data-sw-ui-search]                the field the "/" key focuses
  *   input[data-sw-ui-filter="#id"]     filter the [data-sw-ui-filter-item]s inside #id as you type (see the List filter block)
+ *   [data-sw-ui-tip="text"]            show "text" in a tooltip above the element on hover and focus (see the Band tooltip block)
  */
 ( function () {
 	'use strict';
@@ -697,6 +698,105 @@
 		document.addEventListener( 'keydown', onSearchShortcut );
 		document.addEventListener( 'keydown', onDialogTab );
 	}
+
+	// -----------------------------------------------------------------------------------------------
+	// Band tooltip (data-sw-ui-tip)
+	//
+	// A link of the band that carries data-sw-ui-tip shows that text in a tooltip while the pointer is over the
+	// link or it has keyboard focus. One tooltip at a time, above the link and centred on it, kept inside the
+	// viewport; it fades in and goes away at once on leave, blur or Escape. It is added to the portal, so it is
+	// in scope of the layer's tokens and above the admin bar. While it is shown the link is described by it.
+	// -----------------------------------------------------------------------------------------------
+
+	var TIP_GAP = 8;
+	var TIP_EDGE = 8;
+	var tip = null;
+	var tipOwner = null;
+	var tipDismissed = null;
+
+	function tipTarget( node ) {
+		return node && node.closest ? node.closest( '[data-sw-ui-tip]' ) : null;
+	}
+
+	function hideTip() {
+		if ( tip && tip.parentNode ) {
+			tip.parentNode.removeChild( tip );
+		}
+		if ( tipOwner ) {
+			tipOwner.removeAttribute( 'aria-describedby' );
+		}
+		tip = null;
+		tipOwner = null;
+	}
+
+	/** Centre the tooltip over the link, 8px above it and 8px or more from both edges of the viewport. */
+	function placeTip() {
+		var box = tipOwner.getBoundingClientRect();
+		var width = tip.offsetWidth;
+		var viewport = document.documentElement.clientWidth;
+		var left = Math.max( TIP_EDGE, Math.min( box.left + box.width / 2 - width / 2, viewport - width - TIP_EDGE ) );
+		tip.style.left = left + window.pageXOffset + 'px';
+		tip.style.top = box.top + window.pageYOffset - TIP_GAP - tip.offsetHeight + 'px';
+	}
+
+	function showTip( target ) {
+		if ( target === tipOwner || target === tipDismissed ) {
+			return;
+		}
+		var text = target.getAttribute( 'data-sw-ui-tip' );
+		if ( ! text ) {
+			return;
+		}
+		hideTip();
+		tip = el( 'div', 'sw-ui-band-tip', text );
+		tip.id = 'sw-ui-band-tip';
+		tip.setAttribute( 'role', 'tooltip' );
+		ensurePortal().appendChild( tip );
+		tipOwner = target;
+		target.setAttribute( 'aria-describedby', tip.id );
+		placeTip();
+		// Reading the width starts the fade from opacity 0.
+		void tip.offsetWidth;
+		tip.setAttribute( 'data-state', 'shown' );
+	}
+
+	function leaveTip( event, target ) {
+		if ( ! target || ( event.relatedTarget && target.contains( event.relatedTarget ) ) ) {
+			return;
+		}
+		if ( tipDismissed === target ) {
+			tipDismissed = null;
+		}
+		if ( tipOwner === target ) {
+			hideTip();
+		}
+	}
+
+	document.addEventListener( 'mouseover', function ( event ) {
+		var target = tipTarget( event.target );
+		if ( target ) {
+			showTip( target );
+		}
+	} );
+	document.addEventListener( 'mouseout', function ( event ) {
+		leaveTip( event, tipTarget( event.target ) );
+	} );
+	document.addEventListener( 'focusin', function ( event ) {
+		var target = tipTarget( event.target );
+		if ( target ) {
+			showTip( target );
+		}
+	} );
+	document.addEventListener( 'focusout', function ( event ) {
+		leaveTip( event, tipTarget( event.target ) );
+	} );
+	document.addEventListener( 'keydown', function ( event ) {
+		if ( event.key === 'Escape' && tipOwner ) {
+			tipDismissed = tipOwner;
+			hideTip();
+		}
+	} );
+	window.addEventListener( 'resize', hideTip );
 
 	// -----------------------------------------------------------------------------------------------
 	// Tab links and deep links

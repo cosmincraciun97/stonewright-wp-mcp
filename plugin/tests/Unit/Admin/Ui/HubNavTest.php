@@ -16,19 +16,19 @@ final class HubNavTest extends TestCase {
 		Html::reset_ids();
 	}
 
-	public function test_a_hub_is_a_named_navigation_of_plain_links(): void {
+	public function test_the_tabs_of_a_page_are_a_named_navigation_of_plain_links(): void {
 		$html = HubNav::render(
 			[
-				[ 'label' => 'Skills', 'url' => 'https://example.test/wp-admin/admin.php?page=stonewright-skills', 'current' => true, 'count' => null, 'count_label' => '' ],
-				[ 'label' => 'Memory', 'url' => 'https://example.test/wp-admin/admin.php?page=stonewright-memory', 'current' => false, 'count' => null, 'count_label' => '' ],
+				[ 'label' => 'Drafts', 'url' => 'https://example.test/wp-admin/admin.php?page=stonewright-sandbox&tab=drafts', 'current' => true, 'count' => null, 'count_label' => '' ],
+				[ 'label' => 'Library', 'url' => 'https://example.test/wp-admin/admin.php?page=stonewright-sandbox&tab=library', 'current' => false, 'count' => null, 'count_label' => '' ],
 			],
-			'Knowledge sections'
+			'Custom code sections'
 		);
 
 		self::assertSame(
-			'<nav aria-label="Knowledge sections"><ul class="sw-ui-hubnav">'
-			. '<li><a class="sw-ui-hubnav__link" href="https://example.test/wp-admin/admin.php?page=stonewright-skills" aria-current="page">Skills</a></li>'
-			. '<li><a class="sw-ui-hubnav__link" href="https://example.test/wp-admin/admin.php?page=stonewright-memory">Memory</a></li>'
+			'<nav aria-label="Custom code sections"><ul class="sw-ui-hubnav">'
+			. '<li><a class="sw-ui-hubnav__link" href="https://example.test/wp-admin/admin.php?page=stonewright-sandbox&tab=drafts" aria-current="page">Drafts</a></li>'
+			. '<li><a class="sw-ui-hubnav__link" href="https://example.test/wp-admin/admin.php?page=stonewright-sandbox&tab=library">Library</a></li>'
 			. '</ul></nav>',
 			$html
 		);

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { PAGE_GATE_PROJECTS, STONEWRIGHT_HUBS, STONEWRIGHT_PAGES, STONEWRIGHT_SIDEBAR, viewportKind } from './helpers/admin-pages';
+import { PAGE_GATE_PROJECTS, STONEWRIGHT_BAND, STONEWRIGHT_EXP_LINKS, STONEWRIGHT_OWN_TABS, STONEWRIGHT_PAGES, STONEWRIGHT_SIDEBAR, viewportKind } from './helpers/admin-pages';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
 import { openConsentScreen } from './helpers/consent';
 import { login } from './helpers/login';
@@ -18,8 +18,9 @@ import { measureUi } from './helpers/ui-probe';
  * Part two holds each existing Stonewright page to the same measurements, with the allowance in
  * helpers/ui-budget.ts for what a page has not migrated yet.
  *
- * Part three holds the shell every page is printed in: one page header and h1, one tab bar per hub, a skip link,
- * the notice policy, the sidebar order, and the plugin list and Help entry points.
+ * Part three holds the shell every page is printed in: the band with a link to every page, one page header and h1,
+ * the tabs of a page that has tabs of its own, a skip link, the notice policy, the sidebar order, and the plugin list
+ * and Help entry points. The behaviour of the band (the EXP tooltips, the widths) is in top-band.spec.ts.
  */
 
 const repository = path.resolve(__dirname, '..', '..');
@@ -32,9 +33,10 @@ const SHEET_FILES: Record<string, string> = {
 	'shell.css': 'plugin/assets/admin/shell.css',
 	'admin.css': 'plugin/assets/admin/admin.css',
 	'stonewright-admin.css': 'plugin/assets/css/stonewright-admin.css',
+	'stonewright-logo.png': 'plugin/assets/admin/stonewright-logo.png',
 };
 
-const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png' };
 
 async function openSheet(page: Page): Promise<void> {
 	await page.route(`${SHEET_ORIGIN}/**`, async (route) => {
@@ -658,8 +660,8 @@ test.describe('The shell on Stonewright pages', () => {
 		await login(page);
 	});
 
-	for (const { slug, label, title, hub, tab } of STONEWRIGHT_PAGES) {
-		test(`${label} (${slug}) prints one header, one tab bar and one content region`, async ({ page }) => {
+	for (const { slug, label, title, link } of STONEWRIGHT_PAGES) {
+		test(`${label} (${slug}) prints the band, one header, its own tabs and one content region`, async ({ page }) => {
 			await page.goto(`/wp-admin/admin.php?page=${slug}`, { waitUntil: 'domcontentloaded' });
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
 
@@ -667,20 +669,29 @@ test.describe('The shell on Stonewright pages', () => {
 			await expect(page.locator('.sw-shell h1:visible')).toHaveCount(1);
 			await expect(page.locator('.sw-shell__chrome h1.sw-ui-page-title')).toHaveText(title);
 
-			// The two-row header band and its second navigation are gone.
-			await expect(page.locator('.sw-shell__header, .sw-shell__nav, .sw-shell [role="banner"]')).toHaveCount(0);
+			// The band: one banner with one navigation of the pages in their groups; the page that is open is the current link.
+			await expect(page.locator('.sw-shell header.sw-ui-band[role="banner"]')).toHaveCount(1);
+			const nav = page.locator('.sw-ui-band nav[aria-label="Stonewright admin"]');
+			await expect(nav).toHaveCount(1);
+			const groups = await nav.locator('.sw-ui-band__group').evaluateAll((nodes) =>
+				nodes.map((node) => ({
+					label: node.querySelector('.sw-ui-band__label')?.textContent ?? null,
+					links: Array.from(node.querySelectorAll('a')).map((anchor) => (anchor.childNodes[0]?.textContent ?? '').trim()),
+				})),
+			);
+			expect(groups.map((group) => group.links)).toEqual(STONEWRIGHT_BAND.map((group) => [...group.links]));
+			expect(groups.map((group) => group.label)).toEqual(STONEWRIGHT_BAND.map((group) => (group.links.length > 1 ? group.hub : null)));
+			await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
+			await expect(nav.locator('a[aria-current="page"]')).toHaveText(new RegExp(`^${link}`));
 
-			// The tab bar lists the pages of the hub, marks the current one, and a hub with one page has none.
-			const definition = STONEWRIGHT_HUBS.find((entry) => entry.id === hub);
-			expect(definition, `hub ${hub} is defined`).toBeDefined();
+			// The tab bar holds the tabs of the page itself; a page without tabs of its own has none.
 			const bar = page.locator('.sw-shell__chrome nav');
-			if ((definition?.tabs.length ?? 0) > 1) {
+			const own = STONEWRIGHT_OWN_TABS[slug];
+			if (own) {
 				await expect(bar).toHaveCount(1);
-				await expect(bar).toHaveAttribute('aria-label', `${definition?.label} sections`);
-				const names = await bar.locator('a.sw-ui-hubnav__link').evaluateAll((links) => links.map((link) => (link.childNodes[0]?.textContent ?? '').trim()));
-				expect(names).toEqual([...(definition?.tabs ?? [])]);
+				const names = await bar.locator('a.sw-ui-hubnav__link').evaluateAll((links) => links.map((anchor) => (anchor.childNodes[0]?.textContent ?? '').trim()));
+				expect(names).toEqual([...own]);
 				await expect(bar.locator('a[aria-current="page"]')).toHaveCount(1);
-				await expect(bar.locator('a[aria-current="page"]')).toHaveText(new RegExp(`^${tab}`));
 			} else {
 				await expect(bar).toHaveCount(0);
 			}
@@ -690,14 +701,16 @@ test.describe('The shell on Stonewright pages', () => {
 				const chrome = document.querySelector('.sw-shell__chrome');
 				const marker = document.querySelector('.sw-shell hr.wp-header-end');
 				const main = document.getElementById('sw-main');
+				const band = document.querySelector('.sw-ui-band');
 				return {
 					markerDirectlyAfterHeader: chrome?.nextElementSibling === marker,
 					mainAfterMarker: Boolean(marker && main && marker.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING),
 					mainFocusable: main?.getAttribute('tabindex') === '-1',
 					markers: document.querySelectorAll('hr.wp-header-end').length,
+					headerBelowBand: Boolean(band && chrome && band.getBoundingClientRect().bottom <= chrome.getBoundingClientRect().top),
 				};
 			});
-			expect(order).toEqual({ markerDirectlyAfterHeader: true, mainAfterMarker: true, mainFocusable: true, markers: 1 });
+			expect(order).toEqual({ markerDirectlyAfterHeader: true, mainAfterMarker: true, mainFocusable: true, markers: 1, headerBelowBand: true });
 		});
 	}
 
@@ -713,11 +726,11 @@ test.describe('The shell on Stonewright pages', () => {
 		expect(await page.evaluate(() => document.activeElement?.id)).toBe('sw-main');
 	});
 
-	test('the hub tab bar is reached with Tab and shows a focus ring on every link', async ({ page }) => {
+	test('the band links are reached with Tab, in order, and show a focus ring on every link', async ({ page }) => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-skills', { waitUntil: 'domcontentloaded' });
-		const links = page.locator('.sw-ui-hubnav__link');
+		const links = page.locator('.sw-ui-band__link');
 		const count = await links.count();
-		expect(count).toBe(5);
+		expect(count).toBe(STONEWRIGHT_BAND.reduce((total, group) => total + group.links.length, 0));
 		for (let index = 0; index < count; index += 1) {
 			await links.nth(index).focus();
 			const ring = await links.nth(index).evaluate((link) => {
@@ -729,7 +742,7 @@ test.describe('The shell on Stonewright pages', () => {
 		}
 	});
 
-	test('the Custom code tabs are the old sandbox tabs plus Approvals, with the current one marked', async ({ page }) => {
+	test('the Custom code tabs are Drafts, Library, Active and Crash recovery, with the current one marked; Approvals is a page of the band', async ({ page }) => {
 		for (const [query, tab] of [
 			['', 'Drafts'],
 			['&tab=library', 'Library'],
@@ -738,8 +751,11 @@ test.describe('The shell on Stonewright pages', () => {
 		]) {
 			await page.goto(`/wp-admin/admin.php?page=stonewright-sandbox${query}`, { waitUntil: 'domcontentloaded' });
 			await expect(page.locator('.sw-ui-hubnav a[aria-current="page"]')).toHaveText(new RegExp(`^${tab}`));
+			await expect(page.locator('.sw-ui-band a[aria-current="page"]')).toHaveText('Custom code');
 			await expect(page.locator('.sw-shell__main .sw-tabs')).toHaveCount(0);
 		}
+		await expect(page.locator('.sw-ui-hubnav a', { hasText: 'Approvals' })).toHaveCount(0);
+		await expect(page.locator('.sw-ui-band a', { hasText: 'Code approval' })).toHaveCount(1);
 	});
 
 	test('the sidebar lists the pages in hub order and the top-level link opens the Overview', async ({ page }) => {
@@ -753,13 +769,18 @@ test.describe('The shell on Stonewright pages', () => {
 		expect(top).toMatch(/page=stonewright-status$/);
 	});
 
-	test('a page that is still changing says Beta in words, in the sidebar and the header', async ({ page }) => {
+	test('a page that is still changing carries the EXP marker in the band and the sidebar, and no Beta badge in its header', async ({ page }) => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-troubleshoot', { waitUntil: 'domcontentloaded' });
 
-		await expect(page.locator('.sw-shell__chrome .sw-ui-badge', { hasText: 'Beta' })).toBeVisible();
-		await expect(page.locator('.sw-shell__chrome .sw-ui-hint')).toBeVisible();
-		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(3);
-		expect(await page.locator('body').innerText()).not.toMatch(/\bEXP\b/);
+		const marked = await page.locator('.sw-ui-band__link--exp').evaluateAll((links) => links.map((link) => (link.childNodes[0]?.textContent ?? '').trim()));
+		expect(marked).toEqual([...STONEWRIGHT_EXP_LINKS]);
+		await expect(page.locator('.sw-ui-band__exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP']);
+		await expect(page.locator('#toplevel_page_stonewright .sw-menu-exp')).toHaveCount(3);
+		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(0);
+
+		await expect(page.locator('.sw-shell__chrome .sw-ui-badge')).toHaveCount(0);
+		await expect(page.locator('.sw-shell__chrome')).not.toContainText('Still changing');
+		await expect(page.locator('.sw-shell__chrome')).not.toContainText('Beta');
 	});
 
 	test('notices stay where WordPress puts them; more than three fold into one disclosure that opens for an error', async ({ page }) => {

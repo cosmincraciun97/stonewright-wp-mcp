@@ -25,7 +25,7 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
  * Crashed files are auto-disabled by CrashRecovery.
  *
  * Built from the shared UI layer. The page is the Custom code hub's first page: its tabs (Drafts, Library, Active,
- * Crash recovery) are the hub's own tab bar, so the page prints no tabs of its own.
+ * Crash recovery) are the page's own tab bar, so the page prints no tabs of its own.
  */
 final class SandboxPage {
 

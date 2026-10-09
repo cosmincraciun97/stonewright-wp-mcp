@@ -155,75 +155,178 @@ final class MenuRegistryTest extends TestCase {
 		self::assertNotSame( '', MenuRegistry::entry( 'stonewright-skills' )['lede'] );
 	}
 
-	public function test_links_mark_the_current_page_and_the_current_tab(): void {
-		$links = MenuRegistry::links( 'custom-code', 'stonewright-sandbox', 'library' );
+	public function test_tab_links_are_the_tabs_of_one_page_and_mark_the_current_one(): void {
+		$links   = MenuRegistry::tab_links( 'stonewright-sandbox', 'library' );
 		$byLabel = [];
 		foreach ( $links as $link ) {
 			$byLabel[ $link['label'] ] = $link;
 		}
 
-		self::assertSame( [ 'Drafts', 'Library', 'Active', 'Crash recovery', 'Approvals' ], array_keys( $byLabel ) );
+		self::assertSame( [ 'Drafts', 'Library', 'Active', 'Crash recovery' ], array_keys( $byLabel ), 'Only the tabs of this page: the band lists the other pages.' );
 		self::assertTrue( $byLabel['Library']['current'] );
 		self::assertFalse( $byLabel['Drafts']['current'] );
-		self::assertFalse( $byLabel['Approvals']['current'] );
 		self::assertStringContainsString( 'page=stonewright-sandbox', $byLabel['Library']['url'] );
 		self::assertStringContainsString( 'tab=library', $byLabel['Library']['url'] );
-		self::assertStringContainsString( 'page=stonewright-custom-code-approval', $byLabel['Approvals']['url'] );
-		self::assertStringNotContainsString( 'tab=', $byLabel['Approvals']['url'] );
+	}
+
+	public function test_a_page_without_tabs_of_its_own_has_no_tab_links(): void {
+		foreach ( [ 'stonewright-status', 'stonewright-skills', 'stonewright-custom-code-approval', 'stonewright-unknown' ] as $slug ) {
+			self::assertSame( [], MenuRegistry::tab_links( $slug, '' ), $slug );
+		}
 	}
 
 	public function test_the_default_tab_is_current_when_the_request_names_no_known_tab(): void {
 		foreach ( [ '', 'unknown-tab' ] as $requested ) {
-			$links   = MenuRegistry::links( 'custom-code', 'stonewright-sandbox', $requested );
+			$links   = MenuRegistry::tab_links( 'stonewright-sandbox', $requested );
 			$current = array_values( array_filter( $links, static fn ( array $link ): bool => $link['current'] ) );
 			self::assertCount( 1, $current, 'Exactly one tab is current for "' . $requested . '".' );
 			self::assertSame( 'Drafts', $current[0]['label'] );
 		}
 	}
 
-	public function test_a_page_outside_the_hub_marks_no_tab(): void {
-		$links = MenuRegistry::links( 'knowledge', 'stonewright-status', '' );
-
-		self::assertSame( [], array_values( array_filter( $links, static fn ( array $link ): bool => $link['current'] ) ) );
-	}
-
 	public function test_a_tab_can_show_a_count_and_a_failing_counter_shows_none(): void {
-		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30, 'count' => static fn (): int => 2, 'count_label' => 'needing attention' ] );
-		MenuRegistry::add( 'stonewright-broken', 'Broken', 'activity', [ 'order' => 40, 'count' => static function (): int {
-			throw new \RuntimeException( 'unavailable' );
-		} ] );
+		MenuRegistry::add( 'stonewright-tabbed', 'First', 'activity', [ 'order' => 30, 'tab' => 'one', 'default' => true, 'count' => static fn (): int => 2, 'count_label' => 'needing attention' ] );
+		MenuRegistry::add(
+			'stonewright-tabbed',
+			'Second',
+			'activity',
+			[
+				'order' => 31,
+				'tab'   => 'two',
+				'count' => static function (): int {
+					throw new \RuntimeException( 'unavailable' );
+				},
+			]
+		);
+		MenuRegistry::add( 'stonewright-tabbed', 'Third', 'activity', [ 'order' => 32, 'tab' => 'three', 'count' => static fn (): int => 0 ] );
 
 		$links = [];
-		foreach ( MenuRegistry::links( 'activity', 'stonewright-audit-log', '' ) as $link ) {
+		foreach ( MenuRegistry::tab_links( 'stonewright-tabbed', '' ) as $link ) {
 			$links[ $link['label'] ] = $link;
 		}
 
-		self::assertSame( 2, $links['Rescue']['count'] );
-		self::assertSame( 'needing attention', $links['Rescue']['count_label'] );
-		self::assertNull( $links['Broken']['count'] );
-	}
-
-	public function test_a_zero_count_is_not_shown(): void {
-		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30, 'count' => static fn (): int => 0 ] );
-
-		$links = [];
-		foreach ( MenuRegistry::links( 'activity', 'stonewright-audit-log', '' ) as $link ) {
-			$links[ $link['label'] ] = $link;
-		}
-
-		self::assertNull( $links['Rescue']['count'] );
+		self::assertSame( 2, $links['First']['count'] );
+		self::assertSame( 'needing attention', $links['First']['count_label'] );
+		self::assertNull( $links['Second']['count'] );
+		self::assertNull( $links['Third']['count'], 'A zero count is not shown.' );
 	}
 
 	public function test_a_tab_the_user_cannot_open_is_not_listed(): void {
-		MenuRegistry::add( 'stonewright-block-finalizer', 'Block queue', 'activity', [ 'order' => 20, 'in_menu' => false, 'capability' => 'edit_posts' ] );
+		MenuRegistry::add( 'stonewright-tabbed', 'Open', 'activity', [ 'order' => 30, 'tab' => 'open', 'default' => true ] );
+		MenuRegistry::add( 'stonewright-tabbed', 'Restricted', 'activity', [ 'order' => 31, 'tab' => 'restricted', 'capability' => 'edit_posts' ] );
 
-		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_posts' => true ];
-		self::assertSame( [ 'Block queue' ], array_column( MenuRegistry::links( 'activity', 'stonewright-block-finalizer', '' ), 'label' ), 'An editor sees only what an editor can open.' );
+		self::assertSame( [ 'Open' ], array_column( MenuRegistry::tab_links( 'stonewright-tabbed', '' ), 'label' ) );
 
 		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_posts' => true ];
-		self::assertSame( [ 'Audit log', 'Block queue' ], array_column( MenuRegistry::links( 'activity', 'stonewright-audit-log', '' ), 'label' ) );
+		self::assertSame( [ 'Open', 'Restricted' ], array_column( MenuRegistry::tab_links( 'stonewright-tabbed', '' ), 'label' ) );
+	}
+
+	/** @return list<array{hub: string, label: string, links: list<array<string, mixed>>}> */
+	private function band( string $current = 'stonewright-status' ): array {
+		MenuRegistry::add( 'stonewright-block-finalizer', 'Block queue', 'activity', [ 'order' => 20, 'beta' => true, 'in_menu' => false, 'capability' => 'edit_posts', 'count' => static fn (): int => 3, 'count_label' => 'queued or failed changes' ] );
+		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30 ] );
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_posts' => true ];
+
+		return MenuRegistry::band_groups( $current );
+	}
+
+	public function test_the_band_has_one_link_per_page_in_registry_order(): void {
+		$labels = [];
+		foreach ( $this->band() as $group ) {
+			foreach ( $group['links'] as $link ) {
+				$labels[] = $link['label'];
+			}
+		}
+
+		self::assertSame(
+			[ 'Overview', 'Setup', 'Troubleshoot', 'AI Abilities', 'Skills', 'Memory', 'Context', 'Design', 'Prompt library', 'Custom code', 'Code approval', 'Audit log', 'Block queue', 'Rescue' ],
+			$labels
+		);
+	}
+
+	public function test_the_band_groups_the_links_by_hub(): void {
+		$groups = $this->band();
+
+		self::assertSame( [ 'overview', 'setup', 'abilities', 'knowledge', 'custom-code', 'activity' ], array_column( $groups, 'hub' ) );
+		self::assertSame( [ 'Overview', 'Setup', 'AI Abilities', 'Knowledge', 'Custom code', 'Activity' ], array_column( $groups, 'label' ) );
+		self::assertSame( [ 1, 2, 1, 5, 2, 3 ], array_map( static fn ( array $group ): int => count( $group['links'] ), $groups ) );
+	}
+
+	public function test_the_band_names_a_link_after_its_menu_label_then_the_title_of_a_page_with_tabs_then_its_label(): void {
+		$text = [];
+		foreach ( $this->band() as $group ) {
+			foreach ( $group['links'] as $link ) {
+				$text[ $link['url'] ] = $link['label'];
+			}
+		}
+
+		self::assertContains( 'Code approval', $text, 'The entry that has a menu label uses it.' );
+		self::assertContains( 'Custom code', $text, 'A page with several tabs uses its title, not the label of its first tab.' );
+		self::assertNotContains( 'Drafts', $text );
+		self::assertContains( 'Memory', $text, 'Every other page uses its label, not its longer title.' );
+		self::assertNotContains( 'Memory & instructions', $text );
+		self::assertNotContains( 'Custom code approval', $text );
+	}
+
+	public function test_a_band_link_goes_to_the_page_without_a_tab(): void {
+		foreach ( $this->band() as $group ) {
+			foreach ( $group['links'] as $link ) {
+				self::assertStringContainsString( 'page=stonewright', $link['url'] );
+				self::assertStringNotContainsString( 'tab=', $link['url'] );
+			}
+		}
+	}
+
+	public function test_the_current_link_is_the_page_on_any_of_its_tabs(): void {
+		$_GET['tab'] = 'crash-recovery';
+		$current     = [];
+		foreach ( $this->band( 'stonewright-sandbox' ) as $group ) {
+			foreach ( $group['links'] as $link ) {
+				if ( $link['current'] ) {
+					$current[] = $link['label'];
+				}
+			}
+		}
+		self::assertSame( [ 'Custom code' ], $current );
+
+		$none = [];
+		foreach ( $this->band( 'stonewright-unknown' ) as $group ) {
+			foreach ( $group['links'] as $link ) {
+				$none[] = $link['current'];
+			}
+		}
+		self::assertNotContains( true, $none, 'A page that is not registered marks no link.' );
+	}
+
+	public function test_the_band_lists_only_the_pages_the_user_can_open(): void {
+		$this->band();
+		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_posts' => true ];
+		$groups                                = MenuRegistry::band_groups( 'stonewright-block-finalizer' );
+
+		self::assertSame( [ 'activity' ], array_column( $groups, 'hub' ), 'An editor sees only what an editor can open.' );
+		self::assertSame( [ 'Block queue' ], array_column( $groups[0]['links'], 'label' ) );
 
 		$GLOBALS['stonewright_test_user_caps'] = [];
+		self::assertSame( [], MenuRegistry::band_groups( 'stonewright' ) );
+	}
+
+	public function test_band_links_carry_the_experimental_flag_and_a_count(): void {
+		$links = [];
+		foreach ( $this->band() as $group ) {
+			foreach ( $group['links'] as $link ) {
+				$links[ $link['label'] ] = $link;
+			}
+		}
+
+		foreach ( [ 'Troubleshoot', 'Context', 'Design', 'Block queue' ] as $label ) {
+			self::assertTrue( $links[ $label ]['beta'], $label );
+		}
+		foreach ( [ 'Overview', 'Setup', 'Skills', 'Custom code', 'Audit log', 'Rescue' ] as $label ) {
+			self::assertFalse( $links[ $label ]['beta'], $label );
+		}
+		self::assertSame( 3, $links['Block queue']['count'] );
+		self::assertSame( 'queued or failed changes', $links['Block queue']['count_label'] );
+		self::assertNull( $links['Skills']['count'] );
 	}
 
 	public function test_the_request_tab_is_read_from_the_query_string(): void {

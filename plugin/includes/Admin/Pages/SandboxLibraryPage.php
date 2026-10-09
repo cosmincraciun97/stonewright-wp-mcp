@@ -193,9 +193,9 @@ final class SandboxLibraryPage {
 		AdminShell::open(
 			self::SLUG,
 			[
-				'title' => __( 'Custom code', 'stonewright' ),
-				'lede'  => __( 'Draft, inspect, and activate reviewable PHP files without loading unreviewed code automatically.', 'stonewright' ),
-				'hub'   => 'custom-code',
+				'title'   => __( 'Custom code', 'stonewright' ),
+				'lede'    => __( 'Draft, inspect, and activate reviewable PHP files without loading unreviewed code automatically.', 'stonewright' ),
+				'current' => SandboxPage::SLUG,
 			]
 		);
 		echo Scope::wrap( Html::element( 'div', [ 'class' => 'sw-code' ], $content ), [ 'page' => true ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.

@@ -219,7 +219,9 @@ final class RescuePageTest extends TestCase {
 
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Rescue</h1><p class="sw-ui-page-lede">Roll back a change that stopped the site from loading', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
-		self::assertStringContainsString( '<nav aria-label="Activity sections">', $html, 'Rescue sits in the Activity hub.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link" href="[^"]*page=stonewright-rescue" aria-current="page">Rescue<\/a>/', $html, 'Rescue is the current link of the band, in the Activity group.' );
+		self::assertStringContainsString( '<span class="sw-ui-band__label" aria-hidden="true">Activity</span>', $html );
+		self::assertStringNotContainsString( 'sw-ui-hubnav', $html, 'Rescue has no tabs of its own.' );
 	}
 
 	public function test_a_warning_callout_says_what_rescue_does_and_what_it_never_does(): void {

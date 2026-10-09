@@ -32,20 +32,49 @@ interface Target {
 	find: (page: Page) => Locator;
 	/** A control that navigates, copies or saves is held back from doing so: only its focus is under test. */
 	inert?: boolean;
+	/** Runs after the page loads and before the control is found, for a control the page does not print itself. */
+	prepare?: (page: Page) => Promise<void>;
+}
+
+/**
+ * Every page prints its controls with the shared UI layer, so no page has older markup of its own. This adds, at the
+ * start of the content region, the markup a page or another plugin could still print there: a plain link and a core
+ * `.button`.
+ */
+async function addOlderMarkup(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const main = document.querySelector('.sw-shell__main');
+		if (!main || main.querySelector('[data-older-markup]')) {
+			return;
+		}
+		const holder = document.createElement('p');
+		holder.setAttribute('data-older-markup', '');
+		const link = document.createElement('a');
+		link.href = '#older-markup';
+		link.textContent = 'Older markup link';
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'button';
+		button.textContent = 'Older markup button';
+		holder.append(link, ' ', button);
+		main.prepend(holder);
+	});
 }
 
 const TARGETS: Target[] = [
-	{ name: 'hub tab', page: SETUP, find: (page) => page.locator('.sw-ui-hubnav__link:not([aria-current])').first(), inert: true },
+	{ name: 'band link', page: SETUP, find: (page) => page.locator('.sw-ui-band__link:not([aria-current])').first(), inert: true },
+	{ name: 'band EXP link', page: SETUP, find: (page) => page.locator('.sw-ui-band__link--exp:not([aria-current])').first(), inert: true },
+	{ name: 'page tab', page: SANDBOX, find: (page) => page.locator('.sw-ui-hubnav__link:not([aria-current])').first(), inert: true },
 	{ name: 'view tab', page: SETUP, find: (page) => page.locator('.sw-setup .sw-ui-tabs > a.sw-ui-tabs__tab[aria-selected="false"]').first(), inert: true },
 	{ name: 'primary button', page: SETUP, find: (page) => page.locator('button.sw-ui-btn--primary:visible').first(), inert: true },
-	{ name: 'primary link', page: SETUP, find: (page) => page.locator('a.sw-ui-btn--primary:visible').first(), inert: true },
+	{ name: 'primary link', page: SANDBOX, find: (page) => page.locator('a.sw-ui-btn--primary:visible', { hasText: 'New file' }).first(), inert: true },
 	{ name: 'secondary button', page: SETUP, find: (page) => page.locator('button.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'secondary link', page: MEMORY, find: (page) => page.locator('a.sw-ui-btn:not(.sw-ui-btn--primary):visible').first(), inert: true },
 	{ name: 'step choice card', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="radio"]:not([disabled]):visible').first(), inert: true },
 	{ name: 'client choice', page: SETUP, find: (page) => page.locator('.sw-ui-choice[role="tab"][aria-selected="false"]:visible').first(), inert: true },
 	{ name: 'disclosure summary', page: SETUP, find: (page) => page.locator('.sw-setup summary:visible').first(), inert: true },
-	{ name: 'older-markup link', page: ABILITIES, find: (page) => page.locator('.sw-shell__main a:visible').first(), inert: true },
-	{ name: 'older-markup core .button', page: SANDBOX, find: (page) => page.locator('.sw-shell__main button.button:visible').first(), inert: true },
+	{ name: 'older-markup link', page: ABILITIES, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] a'), inert: true },
+	{ name: 'older-markup core .button', page: SANDBOX, prepare: addOlderMarkup, find: (page) => page.locator('.sw-shell__main [data-older-markup] button.button'), inert: true },
 	{ name: 'older-markup button', page: ABILITIES, find: (page) => page.locator('.sw-shell__main button:visible, .sw-shell__main .button:visible').first(), inert: true },
 ];
 
@@ -115,6 +144,7 @@ test.describe('Pointer focus on Stonewright controls', () => {
 		test(`${target.name}: no ring, outline, border or shadow after a mouse click`, async ({ page }) => {
 			await gotoAdmin(page, target.page);
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+			await target.prepare?.(page);
 			const control = target.find(page);
 			await expect(control, `a ${target.name} to measure`).toBeVisible();
 			if (target.inert) {
@@ -139,6 +169,7 @@ test.describe('Pointer focus on Stonewright controls', () => {
 		test(`${target.name}: a ring of at least 2px when the keyboard reaches it`, async ({ page }) => {
 			await gotoAdmin(page, target.page);
 			await page.locator('.sw-shell').waitFor({ state: 'visible', timeout: 15_000 });
+			await target.prepare?.(page);
 			const control = target.find(page);
 			await expect(control).toBeVisible();
 
@@ -175,8 +206,8 @@ test.describe('Pointer focus on Stonewright controls', () => {
 		expect(alpha(current.underlineAlpha)).toBeGreaterThan(0);
 	});
 
-	test('the tab bar of a hub keeps its underline on the current link after a click on another one', async ({ page }) => {
-		await gotoAdmin(page, SETUP);
+	test('the tabs of a page keep their underline on the current tab after a click on another one', async ({ page }) => {
+		await gotoAdmin(page, SANDBOX);
 		await holdBackActions(page);
 		const current = page.locator('.sw-ui-hubnav__link[aria-current="page"]');
 		const before = await current.evaluate((element) => getComputedStyle(element).borderBottomColor);
@@ -185,5 +216,35 @@ test.describe('Pointer focus on Stonewright controls', () => {
 
 		expect(await current.evaluate((element) => getComputedStyle(element).borderBottomColor)).toBe(before);
 		expect(alpha(before)).toBeGreaterThan(0);
+	});
+
+	test('the band keeps the tint of the current link after a click on another one, and the clicked one draws no box', async ({ page }) => {
+		await gotoAdmin(page, SETUP);
+		await holdBackActions(page);
+		const current = page.locator('.sw-ui-band__link[aria-current="page"]');
+		const other = page.locator('.sw-ui-band__link:not([aria-current])').first();
+		const before = await current.evaluate((element) => getComputedStyle(element).backgroundColor);
+		await other.click();
+		await settleControl(other);
+		await settleControl(current);
+
+		expect(await current.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(before);
+		expect(alpha(before)).toBeGreaterThan(0);
+		const paint = await paintOf(other);
+		expect(drawsNothing(paint), `outline ${paint.outlineStyle} ${paint.outlineWidth}px, shadow ${paint.boxShadow}`).toBe(true);
+	});
+
+	test('a band link reached by the keyboard has one 2px outline and no shadow ring on top of it', async ({ page }) => {
+		await gotoAdmin(page, SETUP);
+		const link = page.locator('.sw-ui-band__link:not([aria-current])').first();
+
+		await page.keyboard.press('Tab');
+		await link.focus();
+		await settleControl(link);
+		const ring = await paintOf(link);
+
+		expect(ring.outlineStyle).toBe('solid');
+		expect(ring.outlineWidth).toBe(2);
+		expect(ring.boxShadow).toBe('none');
 	});
 });

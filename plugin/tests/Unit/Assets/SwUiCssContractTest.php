@@ -48,7 +48,7 @@ final class SwUiCssContractTest extends TestCase {
 	 */
 	private const ALLOWED_TO_NAME_THE_LAYER = [
 		'includes/Admin/AdminBootstrap.php',
-		// The frame prints the page header and the hub tab bar with the layer's helpers.
+		// The frame prints the band, the page header and the tab bar of a page with tabs with the layer's helpers.
 		'includes/Admin/AdminShell.php',
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
 		'includes/Admin/Pages/StatusPage.php',
@@ -142,7 +142,7 @@ final class SwUiCssContractTest extends TestCase {
 		$css = self::css();
 
 		self::assertStringStartsWith( '/* SPDX-License-Identifier: GPL-2.0-or-later */', $css );
-		self::assertLessThan( 64 * 1024, strlen( $css ), 'The component layer should stay under 64 KB before compression.' );
+		self::assertLessThan( 72 * 1024, strlen( $css ), 'The component layer should stay under 72 KB before compression.' );
 		self::assertStringNotContainsString( "\r", $css, 'LF line endings.' );
 		self::assertStringNotContainsString( 'prefers-color-scheme', $css, 'The admin is light only.' );
 	}

@@ -68,14 +68,15 @@ final class AdminShellCssTest extends TestCase {
 		self::assertSame( 'flow-root', CssSource::value_of( $declarations, 'display' ) );
 	}
 
-	public function test_the_shell_has_no_header_band_so_the_page_header_starts_near_the_top(): void {
+	public function test_the_band_belongs_to_the_layer_and_the_shell_keeps_its_rules_for_the_page_header(): void {
 		$css = self::shell();
 
-		// The two-row dark band (140 to 304px tall) is gone; the page prints its own header and the WordPress sidebar is the navigation.
-		foreach ( [ '.sw-shell__header', '.sw-shell__nav', '.sw-shell__brand', '.sw-shell__exp', '.sw-shell__logo' ] as $removed ) {
-			self::assertStringNotContainsString( $removed, $css, $removed );
+		// The dark band is the layer's component (sw-ui.css). The shell stylesheet carries none of its rules and none of the old class names.
+		foreach ( [ '.sw-shell__header', '.sw-shell__nav', '.sw-shell__brand', '.sw-shell__exp', '.sw-shell__logo', 'sw-ui-band' ] as $absent ) {
+			self::assertStringNotContainsString( $absent, $css, $absent );
 		}
-		self::assertSame( 'var(--sw-space-3) var(--sw-space-5) var(--sw-space-7)', self::value( $css, '.sw-shell__content', 'padding' ), 'Only 12px above the header, not the 24px that used to sit under the band.' );
+		// The 12px above the page header and the band's own 12px under it make the 24px gap; on a phone the band leaves 4px, so 16px.
+		self::assertSame( 'var(--sw-space-3) var(--sw-space-5) var(--sw-space-7)', self::value( $css, '.sw-shell__content', 'padding' ) );
 	}
 
 	public function test_the_notice_drawer_is_a_calm_disclosure_that_uses_tokens_and_no_important(): void {

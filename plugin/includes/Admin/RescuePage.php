@@ -139,7 +139,6 @@ final class RescuePage {
 			[
 				'title'   => __( 'Rescue', 'stonewright' ),
 				'lede'    => self::lede(),
-				'hub'     => 'activity',
 				'actions' => (string) ob_get_clean(),
 			]
 		);

@@ -10,8 +10,8 @@ can run them: a draft `slug.php` is the file `slug.draft`, and its backups are
 `slug.<unix time>.bak`. Activation is the only step that produces executable
 code.
 
-The page is a hub: its tab bar holds Drafts, Library, Active (MU plugins) and Crash
-recovery, plus Approvals (the custom-code approval page). The address is
+The page has four tabs in its tab bar: Drafts, Library, Active (MU plugins) and Crash
+recovery. Approvals (the custom-code approval page) is a separate page, linked from the band. The address is
 `admin.php?page=stonewright-sandbox`, with `tab=drafts`, `library`, `mu-plugins` or
 `crash-recovery`; the page was named Sandbox before, and the address did not change.
 

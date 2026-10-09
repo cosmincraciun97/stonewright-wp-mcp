@@ -12,8 +12,8 @@ namespace Stonewright\WpMcp\Admin;
 
 /**
  * Pages register their own sidebar entry, in whatever order the plugin boots them. One pass at the end of
- * `admin_menu` puts those entries in hub order and gives them the registry's names, so the sidebar and the page
- * tab bars agree. The first entry becomes the top-level link, so a click on "Stonewright" opens the Overview.
+ * `admin_menu` puts those entries in hub order and gives them the registry's names, so the sidebar and the
+ * band agree. The first entry becomes the top-level link, so a click on "Stonewright" opens the Overview.
  *
  * Nothing is added, removed or re-registered: each entry keeps its slug, its capability and its page title, which
  * is what keeps every bookmark and every capability check working. Entries that are not in the registry keep
@@ -65,7 +65,7 @@ final class MenuOrder {
 	}
 
 	/**
-	 * The sidebar text: the registry name, followed by "Beta" in words for a page that is still changing.
+	 * The sidebar text: the registry name, followed by the small EXP marker for a page that is still changing.
 	 *
 	 * @param Entry $entry
 	 */
