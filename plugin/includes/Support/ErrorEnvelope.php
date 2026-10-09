@@ -58,6 +58,30 @@ final class ErrorEnvelope {
 	];
 
 	/**
+	 * Errors of a write that Rescue undid. MCP clients receive only the message, so the code and a
+	 * few plain fields are copied into it. Nothing else of the error data is.
+	 *
+	 * @var list<string>
+	 */
+	private const RESCUE_ERROR_CODES = [
+		'stonewright_rescue_write_rolled_back',
+		'stonewright_rescue_rollback_failed',
+	];
+
+	/**
+	 * Data fields copied into the message of a Rescue error: short identifiers and status words.
+	 *
+	 * @var list<string>
+	 */
+	private const RESCUE_MESSAGE_KEYS = [
+		'change_set_id',
+		'incident_id',
+		'rollback_status',
+		'site_status',
+		'original_error_code',
+	];
+
+	/**
 	 * Note on security: keys such as spec, args, confirmation_token, token,
 	 * password, api_key, and secret are implicitly blocked because they are not
 	 * in SAFE_ERROR_DATA_KEYS. The allowlist approach means any new key added to
@@ -98,6 +122,10 @@ final class ErrorEnvelope {
 		$change_set_id = self::change_set_id( $data );
 		if ( '' !== $change_set_id ) {
 			$payload['change_set_id'] = $change_set_id;
+		}
+
+		if ( in_array( (string) $error->get_error_code(), self::RESCUE_ERROR_CODES, true ) ) {
+			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::rescue_fields( $data ) );
 		}
 
 		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
@@ -200,6 +228,22 @@ final class ErrorEnvelope {
 			$out['change_set_id'] = $change_set_id;
 		}
 		return $out;
+	}
+
+	/**
+	 * The plain fields of a Rescue error that the message carries: short strings only.
+	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, string>
+	 */
+	private static function rescue_fields( array $data ): array {
+		$fields = [];
+		foreach ( self::RESCUE_MESSAGE_KEYS as $key ) {
+			if ( isset( $data[ $key ] ) && is_string( $data[ $key ] ) && '' !== $data[ $key ] ) {
+				$fields[ $key ] = mb_substr( sanitize_text_field( $data[ $key ] ), 0, 96 );
+			}
+		}
+		return $fields;
 	}
 
 	/**

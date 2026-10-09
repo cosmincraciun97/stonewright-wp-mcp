@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\RescueInstaller;
+
 /**
  * Runs a journal entry's rollback recipe, probes the site afterwards, and records the outcome
  * on the entry. The automatic rollback after a failed probe (RescueGuard) and the manual one
@@ -295,6 +297,7 @@ final class RescueRollback {
 				ChangeJournal::recent( 5 )
 			),
 			'journal'        => ChangeJournal::storage_status(),
+			'helper'         => RescueInstaller::summary(),
 		];
 	}
 

@@ -44,6 +44,9 @@ final class ProbeToken {
 
 	private static bool $probe_request = false;
 
+	/** @var int The user this request was logged in as, or 0. */
+	private static int $probe_user = 0;
+
 	/**
 	 * Issue a token for one request.
 	 *
@@ -68,38 +71,16 @@ final class ProbeToken {
 	}
 
 	/**
-	 * Check a token against the request that carries it and use it up.
+	 * Check a token against the request that carries it and use it up, and record the outcome.
 	 *
 	 * @return int The user the token was issued for, or 0.
 	 */
 	public static function consume( string $token, string $path, string $nonce ): int {
-		if ( 1 !== preg_match( '/^[a-f0-9]{48}$/D', $token ) ) {
-			return 0;
+		$result = self::redeem( $token, $path, $nonce );
+		if ( null !== $result['accepted'] ) {
+			self::audit( $result['accepted'] );
 		}
-		$key     = self::key( $token );
-		$payload = get_transient( $key );
-		if ( ! is_array( $payload ) ) {
-			// Anyone can send the header. A token that does not exist (never issued, used up, expired and
-			// cleaned away) writes no audit row and touches no coalescing transient, so a stream of
-			// guesses costs the site one read each. Only a token that exists is accepted or refused on the record.
-			return 0;
-		}
-		$method = isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( $_SERVER['REQUEST_METHOD'] ) : 'GET';
-		if ( 'GET' !== $method
-			|| (int) ( $payload['expires'] ?? 0 ) < time()
-			|| ! hash_equals( (string) ( $payload['path'] ?? '' ), self::normalize_path( $path ) )
-			|| ! hash_equals( (string) ( $payload['nonce'] ?? '' ), $nonce )
-		) {
-			self::audit( false );
-			return 0;
-		}
-		// Single use: only the request that deletes the stored token proceeds.
-		if ( true !== delete_transient( $key ) ) {
-			self::audit( false );
-			return 0;
-		}
-		self::audit( true );
-		return max( 0, (int) ( $payload['user'] ?? 0 ) );
+		return $result['user'];
 	}
 
 	/**
@@ -113,13 +94,19 @@ final class ProbeToken {
 		$uri   = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
 		$path  = (string) wp_parse_url( $uri, PHP_URL_PATH );
 		$nonce = isset( $_GET[ self::PARAM ] ) && is_string( $_GET[ self::PARAM ] ) ? $_GET[ self::PARAM ] : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A one-use probe nonce, checked against the stored token.
-		$user  = self::consume( $token, $path, $nonce );
-		if ( $user < 1 ) {
-			return;
+		// The audit row names the current user, and WordPress keeps the first answer for the rest of the
+		// request. So the token is checked without recording anything, the request takes on the token's
+		// identity, and only then is the outcome recorded.
+		$result = self::redeem( $token, $path, $nonce );
+		$user   = $result['user'];
+		if ( $user >= 1 ) {
+			self::$probe_request = true;
+			$handler             = self::$login_handler ?? [ self::class, 'login_for_this_request' ];
+			$handler( $user );
 		}
-		self::$probe_request = true;
-		$handler = self::$login_handler ?? [ self::class, 'login_for_this_request' ];
-		$handler( $user );
+		if ( null !== $result['accepted'] ) {
+			self::audit( $result['accepted'] );
+		}
 	}
 
 	/**
@@ -160,6 +147,9 @@ final class ProbeToken {
 			}
 		}
 		self::$open_sessions[] = [ 'manager' => $manager, 'session' => $session ];
+		// The request is this user from the first lookup on, whatever the cookies would resolve to.
+		self::$probe_user = $user_id;
+		wp_set_current_user( $user_id );
 		if ( ! self::$shutdown_registered ) {
 			self::$shutdown_registered = true;
 			register_shutdown_function( [ self::class, 'end_sessions' ] );
@@ -170,8 +160,13 @@ final class ProbeToken {
 	 * Destroy the sessions this request opened. Runs when the request ends.
 	 */
 	public static function end_sessions(): void {
-		$open               = self::$open_sessions;
+		$open                = self::$open_sessions;
 		self::$open_sessions = [];
+		// Nothing stays elevated once the probe request is over, unless something else has since chosen another user.
+		if ( 0 !== self::$probe_user && get_current_user_id() === self::$probe_user ) {
+			wp_set_current_user( 0 );
+		}
+		self::$probe_user = 0;
 		foreach ( $open as $entry ) {
 			try {
 				$entry['manager']->destroy( $entry['session'] );
@@ -185,7 +180,40 @@ final class ProbeToken {
 	public static function reset_for_tests(): void {
 		self::$open_sessions  = [];
 		self::$probe_request  = false;
+		self::$probe_user     = 0;
 		self::$login_handler  = null;
+	}
+
+	/**
+	 * Validate a token and use it up, without recording the outcome.
+	 *
+	 * @return array{user:int,accepted:bool|null} `accepted` is null for a token that does not exist.
+	 */
+	private static function redeem( string $token, string $path, string $nonce ): array {
+		if ( 1 !== preg_match( '/^[a-f0-9]{48}$/D', $token ) ) {
+			return [ 'user' => 0, 'accepted' => null ];
+		}
+		$key     = self::key( $token );
+		$payload = get_transient( $key );
+		if ( ! is_array( $payload ) ) {
+			// Anyone can send the header. A token that does not exist (never issued, used up, expired and
+			// cleaned away) writes no audit row and touches no coalescing transient, so a stream of
+			// guesses costs the site one read each. Only a token that exists is accepted or refused on the record.
+			return [ 'user' => 0, 'accepted' => null ];
+		}
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( $_SERVER['REQUEST_METHOD'] ) : 'GET';
+		if ( 'GET' !== $method
+			|| (int) ( $payload['expires'] ?? 0 ) < time()
+			|| ! hash_equals( (string) ( $payload['path'] ?? '' ), self::normalize_path( $path ) )
+			|| ! hash_equals( (string) ( $payload['nonce'] ?? '' ), $nonce )
+		) {
+			return [ 'user' => 0, 'accepted' => false ];
+		}
+		// Single use: only the request that deletes the stored token proceeds.
+		if ( true !== delete_transient( $key ) ) {
+			return [ 'user' => 0, 'accepted' => false ];
+		}
+		return [ 'user' => max( 0, (int) ( $payload['user'] ?? 0 ) ), 'accepted' => true ];
 	}
 
 	private static function key( string $token ): string {

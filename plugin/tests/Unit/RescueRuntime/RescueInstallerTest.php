@@ -77,6 +77,23 @@ final class RescueInstallerTest extends TestCase {
 		self::assertTrue( $status['writable'] );
 	}
 
+	public function test_the_summary_says_whether_the_helper_is_installed_and_whether_safe_mode_can_start(): void {
+		self::assertSame( [ 'state' => 'missing', 'safe_mode' => false ], RescueInstaller::summary() );
+
+		RescueInstaller::install();
+		self::assertSame( [ 'state' => 'installed', 'safe_mode' => true ], RescueInstaller::summary() );
+
+		file_put_contents( RescueInstaller::target_path(), "<?php\n// changed\n" );
+		self::assertSame( 'modified', RescueInstaller::summary()['state'] );
+		self::assertFalse( RescueInstaller::summary()['safe_mode'] );
+	}
+
+	public function test_the_summary_carries_no_path_or_hash(): void {
+		RescueInstaller::install();
+
+		self::assertSame( [ 'state', 'safe_mode' ], array_keys( RescueInstaller::summary() ) );
+	}
+
 	public function test_install_copies_the_bundled_file_byte_for_byte(): void {
 		$status = RescueInstaller::install();
 

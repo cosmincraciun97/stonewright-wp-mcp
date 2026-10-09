@@ -8,6 +8,8 @@ use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\RescuePage;
+use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
@@ -682,6 +684,38 @@ final class RescuePageTest extends TestCase {
 		$html = $this->html();
 		self::assertStringContainsString( 'name="action" value="stonewright_rescue_safe_mode"', $html );
 		self::assertStringContainsString( 'Open in safe mode', $html );
+	}
+
+	public function test_without_a_helper_the_safe_mode_button_is_not_offered_and_the_page_says_why(): void {
+		RescuePage::set_safe_mode_resolver( null );
+		MuRuntime::load();
+		RescueInstaller::remove();
+
+		$html = $this->html();
+
+		self::assertStringNotContainsString( 'stonewright_rescue_safe_mode', $html );
+		self::assertStringNotContainsString( 'Open in safe mode', $html );
+		self::assertStringContainsString( 'data-sw-rescue-helper="missing"', $html );
+		self::assertStringContainsString( 'Not installed', $html );
+		self::assertStringContainsString( 'Safe mode is not available', $html );
+	}
+
+	public function test_with_a_healthy_helper_the_page_shows_its_state_and_offers_safe_mode(): void {
+		RescuePage::set_safe_mode_resolver( null );
+		MuRuntime::load();
+		RescueInstaller::install();
+
+		try {
+			$html = $this->html();
+		} finally {
+			RescueInstaller::remove();
+		}
+
+		self::assertStringContainsString( 'data-sw-rescue-helper="installed"', $html );
+		self::assertStringContainsString( 'Rescue helper', $html );
+		self::assertStringContainsString( 'Installed', $html );
+		self::assertStringContainsString( 'name="action" value="stonewright_rescue_safe_mode"', $html );
+		self::assertStringNotContainsString( 'Safe mode is not available', $html );
 	}
 
 	public function test_by_default_the_link_comes_from_the_shared_safe_boot_contract(): void {

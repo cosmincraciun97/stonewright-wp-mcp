@@ -115,6 +115,16 @@ final class RescueAbilitiesTest extends TestCase {
 		self::assertLessThan( 600, strlen( (string) wp_json_encode( $result ) ) );
 	}
 
+	public function test_status_reports_the_state_of_the_rescue_helper_when_it_is_healthy_too(): void {
+		$result = ( new RescueStatus() )->execute( [] );
+
+		self::assertSame( [ 'state', 'safe_mode' ], array_keys( $result['helper'] ) );
+		self::assertSame( 'missing', $result['helper']['state'], 'No helper is installed in the unit environment.' );
+		self::assertFalse( $result['helper']['safe_mode'] );
+		self::assertStringNotContainsString( 'mu-plugins', (string) wp_json_encode( $result ), 'No path is reported.' );
+		self::assertArrayHasKey( 'helper', ( new RescueStatus() )->output_schema()['properties'] );
+	}
+
 	public function test_status_lists_an_open_incident_with_its_plan(): void {
 		$id = $this->open_post_incident();
 

@@ -87,6 +87,14 @@ final class RescueStatus extends AbilityKernel {
 					],
 				],
 				'journal'        => [ 'type' => 'object' ],
+				'helper'         => [
+					'type'        => 'object',
+					'description' => 'The rescue helper (a must-use file): state, and whether safe mode can start.',
+					'properties'  => [
+						'state'     => [ 'type' => 'string' ],
+						'safe_mode' => [ 'type' => 'boolean' ],
+					],
+				],
 			],
 			'required'   => [ 'ok', 'open_incidents', 'unconfirmed', 'recent', 'journal' ],
 		];

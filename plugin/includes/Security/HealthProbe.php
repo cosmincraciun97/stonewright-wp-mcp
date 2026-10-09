@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Support\AgentNotices;
+
 /**
  * Asks the site, over HTTP from the site, whether it still loads.
  *
@@ -35,6 +37,9 @@ final class HealthProbe {
 	public const QUICK_TIMEOUT = 3;
 	public const COOLDOWN_KEY  = 'stonewright_probe_loopback_failing';
 	public const COOLDOWN_SECS = 600;
+
+	/** Key of the agent notice that says probes are unavailable on this host. */
+	public const NOTICE_KEY = 'rescue_probe';
 
 	private const LEGS = [ 'home', 'admin', 'rest', 'post', 'custom' ];
 
@@ -97,6 +102,10 @@ final class HealthProbe {
 		}
 		$summary = self::summarize( $results );
 		self::track_loopback( $summary );
+		if ( 'passed' === $summary['status'] ) {
+			// The host can call itself again: a notice that it cannot is no longer true.
+			AgentNotices::dismiss( self::NOTICE_KEY );
+		}
 		return $summary;
 	}
 

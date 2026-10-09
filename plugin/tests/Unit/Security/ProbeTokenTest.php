@@ -23,6 +23,9 @@ final class ProbeTokenTest extends TestCase {
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_current_user_id'] = 0;
+		unset( $GLOBALS['stonewright_test_current_user_cache'], $GLOBALS['stonewright_test_set_current_user'] );
+		$GLOBALS['stonewright_test_cache_current_user'] = true;
 		$_SERVER['REQUEST_METHOD'] = 'GET';
 		unset( $_SERVER['HTTP_X_STONEWRIGHT_PROBE'], $_SERVER['REQUEST_URI'], $_GET['sw_probe'] );
 		ProbeToken::reset_for_tests();
@@ -38,6 +41,12 @@ final class ProbeTokenTest extends TestCase {
 			unset( $_COOKIE[ $cookie ] );
 		}
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset(
+			$GLOBALS['stonewright_test_cache_current_user'],
+			$GLOBALS['stonewright_test_current_user_cache'],
+			$GLOBALS['stonewright_test_set_current_user']
+		);
+		$GLOBALS['stonewright_test_current_user_id'] = 0;
 	}
 
 	public function test_a_token_authenticates_its_user_exactly_once(): void {
@@ -206,6 +215,110 @@ final class ProbeTokenTest extends TestCase {
 		$_SERVER['HTTP_X_STONEWRIGHT_PROBE'] = (string) ProbeToken::issue( 7, self::PATH, self::NONCE );
 		ProbeToken::authenticate_request();
 		self::assertTrue( ProbeToken::is_probe_request() );
+	}
+
+	// -- The request is the token's user from the first lookup, and nobody else ---------------
+
+	private function present_token( string $token, string $path = self::PATH ): void {
+		$_SERVER['HTTP_X_STONEWRIGHT_PROBE'] = $token;
+		$_SERVER['REQUEST_URI']              = $path . '?page=stonewright-rescue&sw_probe=' . self::NONCE;
+		$_GET['sw_probe']                    = self::NONCE;
+	}
+
+	public function test_a_valid_token_makes_the_request_the_token_user_and_never_caches_nobody_first(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$this->present_token( (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) );
+
+		ProbeToken::authenticate_request();
+
+		self::assertSame( 7, get_current_user_id(), 'The first lookup of the request is the probe user, not user 0.' );
+		self::assertSame( 7, $GLOBALS['stonewright_test_set_current_user'] ?? null );
+		self::assertTrue( ProbeToken::is_probe_request() );
+	}
+
+	public function test_the_token_use_is_recorded_for_the_probe_user_after_the_identity_is_set(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$this->present_token( (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) );
+
+		ProbeToken::authenticate_request();
+
+		$rows = $this->token_audit_rows();
+		self::assertCount( 1, $rows );
+		self::assertSame( 7, (int) $rows[0]['data']['user_id'] );
+		self::assertSame( 'ok', $rows[0]['data']['result_status'] );
+	}
+
+	public function test_the_probe_identity_ends_with_the_request(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$this->present_token( (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) );
+		ProbeToken::authenticate_request();
+		self::assertSame( 7, get_current_user_id() );
+
+		ProbeToken::end_sessions();
+
+		self::assertSame( 0, get_current_user_id(), 'Nothing stays elevated once the probe request is over.' );
+		self::assertCount( 1, \WP_Session_Tokens::$destroyed );
+	}
+
+	public function test_ending_the_sessions_leaves_a_different_current_user_alone(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$this->present_token( (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) );
+		ProbeToken::authenticate_request();
+		wp_set_current_user( 9 );
+
+		ProbeToken::end_sessions();
+
+		self::assertSame( 9, get_current_user_id() );
+	}
+
+	/** @return array<string, array{0:string}> */
+	public static function refused_requests(): array {
+		return [
+			'never issued' => [ 'unknown' ],
+			'expired'      => [ 'expired' ],
+			'foreign path' => [ 'foreign' ],
+			'replayed'     => [ 'replayed' ],
+		];
+	}
+
+	/**
+	 * @dataProvider refused_requests
+	 */
+	public function test_a_refused_token_leaves_the_request_anonymous_and_unelevated( string $case ): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$token = (string) ProbeToken::issue( 7, self::PATH, self::NONCE );
+		$path  = self::PATH;
+		if ( 'unknown' === $case ) {
+			$token = str_repeat( 'b', 48 );
+		} elseif ( 'expired' === $case ) {
+			$key = array_key_first( $GLOBALS['stonewright_test_transients'] );
+			$GLOBALS['stonewright_test_transients'][ $key ]['expires'] = time() - 1;
+		} elseif ( 'foreign' === $case ) {
+			$path = '/wp-admin/options.php';
+		} else {
+			self::assertSame( 7, ProbeToken::consume( $token, self::PATH, self::NONCE ) );
+			$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+			unset( $GLOBALS['stonewright_test_current_user_cache'] );
+		}
+		$this->present_token( $token, $path );
+
+		ProbeToken::authenticate_request();
+
+		self::assertSame( 0, get_current_user_id() );
+		self::assertArrayNotHasKey( 'stonewright_test_set_current_user', $GLOBALS );
+		self::assertFalse( ProbeToken::is_probe_request() );
+		self::assertSame( [], \WP_Session_Tokens::$created );
+		self::assertArrayNotHasKey( 'wordpress_logged_in_test', $_COOKIE );
+	}
+
+	public function test_a_request_without_the_header_is_never_given_an_identity(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		ProbeToken::issue( 7, self::PATH, self::NONCE );
+
+		ProbeToken::authenticate_request();
+
+		self::assertArrayNotHasKey( 'stonewright_test_set_current_user', $GLOBALS );
+		self::assertSame( 0, get_current_user_id() );
 	}
 
 	/** @return list<array<string, mixed>> */

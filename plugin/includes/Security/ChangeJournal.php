@@ -519,7 +519,10 @@ final class ChangeJournal {
 		$toggled  = false;
 		$ran      = false;
 		$run      = static function ( array $document, bool $file_backed, bool $rewrite ) use ( $change, &$imported, &$toggled, &$ran ): ?array {
-			$ran   = true;
+			$ran = true;
+			// Another request (the probe's own, the helper's import) may have written since this one first read
+			// the journal or the flag: decide from what is stored now, not from this request's cached copy.
+			self::forget_cached_options();
 			$store = self::load_store();
 			self::merge_file( $store, $document, $imported );
 			$changed = $change( $store );
@@ -706,6 +709,17 @@ final class ChangeJournal {
 			update_option( self::OPEN_OPTION, $open ?? '', true );
 		}
 		return $was !== ( null !== $open );
+	}
+
+	/** Drop this request's cached copy of the journal option and the open flag, so the next read goes to the database. */
+	private static function forget_cached_options(): void {
+		if ( ! function_exists( 'wp_cache_delete' ) ) {
+			return;
+		}
+		wp_cache_delete( self::DB_OPTION, 'options' );
+		wp_cache_delete( self::OPEN_OPTION, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
 	}
 
 	private static function bump_tool_surface(): void {

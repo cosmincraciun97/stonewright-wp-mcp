@@ -40,6 +40,7 @@ final class ChangeJournalTest extends TestCase {
 			$GLOBALS['stonewright_test_upload_dir'] = $this->original_upload_dir;
 		}
 		$GLOBALS['stonewright_test_options'] = [];
+		unset( $GLOBALS['stonewright_test_option_cache_enabled'], $GLOBALS['stonewright_test_option_cache'] );
 		unset( $_SERVER['HTTP_USER_AGENT'] );
 		ChangeJournal::reset_for_tests();
 		self::remove_tree( $this->uploads );
@@ -663,6 +664,51 @@ final class ChangeJournalTest extends TestCase {
 			}
 		);
 		clearstatcache();
+	}
+
+	/**
+	 * Run something as another request would: with an option cache of its own, then put this
+	 * request's cache back, stale as it is.
+	 */
+	private function as_another_request( callable $run ): void {
+		$mine                                     = $GLOBALS['stonewright_test_option_cache'] ?? [];
+		$GLOBALS['stonewright_test_option_cache'] = [];
+		$run();
+		$GLOBALS['stonewright_test_option_cache'] = $mine;
+	}
+
+	/** The flag as the next request would read it. */
+	private static function stored_open_flag(): mixed {
+		return $GLOBALS['stonewright_test_options'][ ChangeJournal::OPEN_OPTION ] ?? '';
+	}
+
+	public function test_a_rollback_that_succeeds_closes_an_incident_another_request_recorded_meanwhile(): void {
+		$GLOBALS['stonewright_test_option_cache_enabled'] = true;
+		$entry = ChangeJournal::arm( self::spec() );
+		self::assertNull( ChangeJournal::banner(), 'This request has read the flag: nothing is open yet.' );
+
+		// While this request probes, the helper records a fatal and the probe's own request imports it.
+		$this->external_incident( $entry['id'], 5000 );
+		$this->as_another_request( static fn (): int => ChangeJournal::sync_from_file() );
+		self::assertSame( $entry['id'], self::stored_open_flag()['id'] ?? null, 'The other request opened the incident.' );
+
+		ChangeJournal::settle( $entry['id'], 'rolled_back', [ 'rollback' => [ 'status' => 'succeeded' ] ] );
+
+		self::assertSame( '', self::stored_open_flag(), 'The next request must not be told about an incident that can no longer be rolled back.' );
+		self::assertSame( [], ChangeJournal::open_incidents() );
+	}
+
+	public function test_a_rollback_that_fails_keeps_the_incident_open_even_after_another_request_imported_it(): void {
+		$GLOBALS['stonewright_test_option_cache_enabled'] = true;
+		$entry = ChangeJournal::arm( self::spec() );
+		ChangeJournal::banner();
+		$this->external_incident( $entry['id'], 5000 );
+		$this->as_another_request( static fn (): int => ChangeJournal::sync_from_file() );
+
+		ChangeJournal::settle( $entry['id'], 'rollback_failed', [ 'rollback' => [ 'status' => 'failed' ] ] );
+
+		self::assertSame( $entry['id'], self::stored_open_flag()['id'] ?? null );
+		self::assertCount( 1, ChangeJournal::open_incidents() );
 	}
 
 	/** @return list<array<string, mixed>> */
