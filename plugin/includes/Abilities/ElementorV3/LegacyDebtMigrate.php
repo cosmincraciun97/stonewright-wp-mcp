@@ -154,7 +154,7 @@ final class LegacyDebtMigrate extends AbilityKernel {
 			}
 		}
 
-		$batch = ( new BatchMutate() )->execute(
+		$batch = ( new BatchMutate() )->execute_with_verified_token(
 			[
 				'post_id'           => $post_id,
 				'dry_run'           => false,

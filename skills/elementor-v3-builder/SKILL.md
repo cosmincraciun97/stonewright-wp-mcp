@@ -392,10 +392,14 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
-## Confirmation token for destructive writes
+## Confirmation token for writes
 
-Before calling `build-page-from-spec` with `mode: "replace"` or
-`mode: "replace_section"`, or before `batch-mutate` with `remove_element`, emit:
+In production-safe mode these calls need a confirmation token issued for the exact
+arguments with `stonewright-security-issue-confirmation-token`: every
+`batch-mutate` write that is not a dry run, `apply-bundle` (one token for the whole
+call, passed at the top level), and `build-page-from-spec` with `mode: "replace"`
+or `mode: "replace_section"`. Dry runs of `batch-mutate` need no token. Before
+calling any of them, emit:
 
 ```
 "Confirm:

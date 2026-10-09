@@ -47,6 +47,8 @@ use Stonewright\WpMcp\Support\ElementorData;
 final class BatchMutate extends AbilityKernel {
 	use ConfirmationGuard;
 
+	private bool $token_already_verified = false;
+
 	public function name(): string {
 		return 'stonewright/elementor-v3-batch-mutate';
 	}
@@ -92,7 +94,7 @@ final class BatchMutate extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
 				],
-				'confirmation_token' => [ 'type' => 'string' ],
+				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
 				'operations'         => [
 					'type'     => 'array',
 					'minItems' => 1,
@@ -214,6 +216,23 @@ final class BatchMutate extends AbilityKernel {
 		return Permissions::edit_post( $id );
 	}
 
+	/**
+	 * Runs a write for a caller that has already verified a confirmation token for the
+	 * request it serves. The token gate of this ability is skipped; every other gate applies.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
+
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,
@@ -243,7 +262,7 @@ final class BatchMutate extends AbilityKernel {
 					return $css_gate;
 				}
 
-				if ( ! $dry_run && self::contains_destructive_operation( $operations ) ) {
+				if ( ! $dry_run && ! $this->token_already_verified ) {
 					$verify_args = array_filter(
 						$args,
 						static fn( string $key ): bool => 'confirmation_token' !== $key,
@@ -1379,19 +1398,6 @@ final class BatchMutate extends AbilityKernel {
 			'action'     => 'add_' . $kind,
 			'element_id' => $element_id,
 		];
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $operations
-	 */
-	private static function contains_destructive_operation( array $operations ): bool {
-		foreach ( $operations as $operation ) {
-			if ( is_array( $operation ) && ( 'remove_element' === ( $operation['action'] ?? '' ) || 'replace' === ( $operation['mode'] ?? '' ) ) ) {
-				return true;
-			}
-		}
-
-		return false;
 	}
 
 	/**

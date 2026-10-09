@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T05:03:29+00:00",
+    "generated_at": "2026-10-09T14:24:42+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -3942,7 +3942,7 @@
             "ability_name": "stonewright/elementor-v3-apply-bundle",
             "mcp_name": "stonewright-elementor-v3-apply-bundle",
             "kind": "Write",
-            "input_schema_hash": "577a0dd4dfa6764d6b27c681f7d9a22d257c947891aa84a63e7e94b0bf1faf85",
+            "input_schema_hash": "36a1d8008db007dca8b4ff88850e56696faafa422dbfe5cbd0da561b5d68e4ec",
             "output_schema_hash": "cdcf610df6b00c52d82c0db4866129aad5332772dc7745a2ba19dde96237af9c",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
@@ -3982,7 +3982,7 @@
             "ability_name": "stonewright/elementor-v3-batch-mutate",
             "mcp_name": "stonewright-elementor-v3-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "09c6a60c36ed93706ae885168a7b756400a520a1d5ca66922cd41fc7d6c29b53",
+            "input_schema_hash": "87a7fbdf29d6d16fd7c0658372f1f3abff78fcb082174b81ec39113271a0e495",
             "output_schema_hash": "3b6b3c9a48ef233da50587bfa5b9ed5c721f41ecaaf326ddd28a9b110ca42c3e",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {

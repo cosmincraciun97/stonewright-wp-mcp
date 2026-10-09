@@ -34,6 +34,26 @@ final class HtmlWidgetHardBlockTest extends TestCase {
 		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
 	}
 
+	public function test_site_on_refuses_a_call_that_carries_no_flag(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
+		$result = HtmlWidgetPolicy::allowed( [] );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+
+		$result = HtmlWidgetPolicy::allowed( [ 'widget_type' => 'html', 'settings' => [ 'html' => '<p>x</p>' ] ] );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+	}
+
+	public function test_site_on_refuses_a_flag_that_is_not_true(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
+		foreach ( [ false, null, 0, '', '0' ] as $value ) {
+			$result = HtmlWidgetPolicy::allowed( [ 'allow_html_widget' => $value ] );
+			self::assertInstanceOf( \WP_Error::class, $result, var_export( $value, true ) );
+			self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+		}
+	}
+
 	public function test_site_on_allows_with_flag_true(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_allow_html_widgets'] = true;
 		$result = HtmlWidgetPolicy::allowed( [ 'allow_html_widget' => true ] );

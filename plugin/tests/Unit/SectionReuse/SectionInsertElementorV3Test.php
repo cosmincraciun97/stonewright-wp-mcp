@@ -16,6 +16,7 @@ use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseExtract;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\SectionReuse\ReferenceCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ElementorData;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
@@ -387,10 +388,18 @@ final class SectionInsertElementorV3Test extends TestCase {
 		self::assertSame( 0, self::target_writes() );
 	}
 
-	public function test_production_safe_mode_needs_no_token_for_an_insert_that_removes_nothing(): void {
+	public function test_production_safe_mode_needs_a_token_for_an_insert_that_removes_nothing(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$arguments = [ 'post_id' => self::TARGET, 'operations' => [ self::insert_op( self::section() ) ] ];
 
-		$result = ( new BatchMutate() )->execute( [ 'post_id' => self::TARGET, 'operations' => [ self::insert_op( self::section() ) ] ] );
+		$refused = ( new BatchMutate() )->execute( $arguments );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_confirmation_required', $refused->get_error_code() );
+		self::assertSame( 0, self::target_writes() );
+
+		$token  = ConfirmationToken::issue( 'stonewright/elementor-v3-batch-mutate', $arguments );
+		$result = ( new BatchMutate() )->execute( $arguments + [ 'confirmation_token' => $token ] );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 'verified', $result['verification_status'] );
