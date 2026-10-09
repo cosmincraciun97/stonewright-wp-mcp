@@ -52,6 +52,52 @@ final class V3MutationCompilerTest extends TestCase {
 		self::assertSame( 'stonewright_parent_not_found', $result->get_error_code() );
 	}
 
+	public function test_a_widget_cannot_be_the_parent_of_another_widget(): void {
+		$tree   = [ self::container( 'parent-a' ) ];
+		$tree[0]['elements'][] = [
+			'id'         => 'leaf-1',
+			'elType'     => 'widget',
+			'widgetType' => 'heading',
+			'settings'   => [ 'title' => 'Leaf' ],
+			'elements'   => [],
+		];
+
+		$result = ( new V3MutationCompiler() )->compile(
+			$tree,
+			[
+				[
+					'action'      => 'add_widget',
+					'parent_id'   => 'leaf-1',
+					'widget_type' => 'heading',
+					'settings'    => [ 'title' => 'Child' ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_parent_not_container', $result->get_error_code() );
+		self::assertSame( 'leaf-1', $result->get_error_data()['parent_id'] );
+	}
+
+	public function test_columns_and_sections_are_valid_widget_parents(): void {
+		$tree = [
+			[
+				'id'       => 'sec-a',
+				'elType'   => 'section',
+				'settings' => [],
+				'elements' => [ [ 'id' => 'col-a', 'elType' => 'column', 'settings' => [], 'elements' => [] ] ],
+			],
+		];
+
+		foreach ( [ 'sec-a', 'col-a' ] as $parent ) {
+			$result = ( new V3MutationCompiler() )->compile(
+				$tree,
+				[ [ 'action' => 'add_widget', 'parent_id' => $parent, 'widget_type' => 'heading', 'settings' => [ 'title' => 'Ok' ] ] ]
+			);
+			self::assertIsArray( $result, $parent );
+		}
+	}
+
 	/** @return array<string, mixed> */
 	private static function container( string $id ): array {
 		return [

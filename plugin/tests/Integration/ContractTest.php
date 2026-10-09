@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
 use Stonewright\WpMcp\Design\Motion\MotionPlanCompiler;
 use Stonewright\WpMcp\Design\Motion\MotionPresetRegistry;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\IncidentStore;
@@ -32,6 +33,9 @@ final class ContractTest extends TestCase {
 	private string $elementor_css_dir = '';
 
 	protected function setUp(): void {
+		// The success fixtures exercise every per-widget add tool, so the plugins
+		// behind the Pro and WooCommerce widgets count as active here.
+		WidgetAvailability::override_plugins( true, true );
 		IncidentStore::reset_for_tests();
 		WidgetSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_audit_rows'] = [];
@@ -172,6 +176,7 @@ final class ContractTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		WidgetAvailability::override_plugins( null, null );
 		Post::$factory = null;
 		$this->remove_elementor_css_fixtures();
 		unset( $GLOBALS['stonewright_test_home_url'] );

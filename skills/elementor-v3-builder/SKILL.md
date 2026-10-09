@@ -127,6 +127,12 @@ spec renderer first. Use `dry_run: true` to validate, inspect diagnostics, and
 count generated elements without writing; then repeat the call with
 `dry_run: false` and `mode` set to `replace`, `append`, or `replace_section`.
 
+With `mode: "append"`, an element whose id is already on the page gets a new id; ids
+already on the page never change. `dry_run: true` runs the same document checks as
+the write, so it returns the error the write would. When another write holds the
+page, the call returns the retryable `stonewright_elementor_write_busy`; repeat
+it after `retry_after` seconds.
+
 ```json
 {
   "post_id": 42,
@@ -287,6 +293,13 @@ headings inside loop templates; do not rely on many manual meta updates.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+  A widget keeps every key its own schema defines, so `background` or `gap`
+  on a widget that has that control is written as given; the container
+  shorthands (`gap`, `background`, `justify_content`) apply to containers.
+- A widget goes inside a container, a section or a column, never inside another
+  widget. An inner section goes inside a column (it is stored with one column)
+  or inside a container (stored as an inner container). Elementor Pro and
+  WooCommerce widgets are refused on a site where that plugin is not active.
 - Configure all relevant tabs. Content holds source data, items, media, links,
   and semantic choices. Style holds typography, colors, spacing, states,
   borders, shadows, and widget-specific presentation. Advanced can use
