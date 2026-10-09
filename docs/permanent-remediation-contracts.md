@@ -82,7 +82,13 @@ refresh must return a new, nonempty refresh token; omission or replay of the
 previous token clears local token state and requires reauthorization. The new
 rotated token replaces the old value. `invalid_grant`, `invalid_client`, and
 `unauthorized_client` delete local token state and stop retrying; the caller
-receives a reauthorization-required result.
+receives a reauthorization-required result whose `user_action` begins with one
+fixed sentence for the reason. A refresh that got no response at all (a timeout
+or a reset connection) is sent once more with the same refresh credential, only
+when the retry can start within 30 seconds of the first request and while the
+refresh lock is held; the retry is aborted 50 seconds after the first request.
+A received HTTP response is never retried, and a second failure reports
+`refresh_outcome_unknown`.
 
 Authorization, token exchange, refresh, and bearer validation carry or verify
 the exact canonical MCP resource. Protected Resource Metadata advertises only

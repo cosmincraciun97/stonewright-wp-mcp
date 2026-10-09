@@ -54,7 +54,10 @@ presented again within 60 seconds of its use receives the grant's current
 refresh token.
 
 The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+a timeout or network error. The one exception is a token refresh that got no
+response at all: it is sent once more with the same refresh credential, at most
+30 seconds after the first request and ended 50 seconds after it, inside the
+server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more, a tool call included. When the session is
 degraded, `stonewright-task-start` reconnects once and either continues with
 the remote call or returns a truthful local gateway result. Plugin-only mode

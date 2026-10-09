@@ -22,7 +22,8 @@ use Stonewright\WpMcp\Support\Logger;
  *   replay still revokes the family it created;
  * - expired pending consents and expired access rows;
  * - every row of families whose deadline passed more than FAMILY_MARGIN ago;
- * - dynamically registered clients unused for 30 days without a live family;
+ * - dynamically registered clients without a live family that never completed a grant
+ *   and registered more than 30 days ago, or last completed one more than 180 days ago;
  * - rate-limit rows older than RATE_LIMIT_RETENTION;
  * and compacts consumed refresh history, keeping the current credential and its
  * immediate predecessor. Each step runs on its own; a failing step is logged.
