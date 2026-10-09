@@ -130,8 +130,9 @@ count generated elements without writing; then repeat the call with
 With `mode: "append"`, an element whose id is already on the page gets a new id; ids
 already on the page never change. `dry_run: true` runs the same document checks as
 the write, so it returns the error the write would. When another write holds the
-page, the call returns the retryable `stonewright_elementor_write_busy`; repeat
-it after `retry_after` seconds.
+page, the call returns the retryable `stonewright_elementor_write_busy`; the message
+ends with `{"retryable":true,"retry_after":N}`. Repeat it after `retry_after` seconds.
+Every V3 writer, including `elementor-v3-update-page-settings`, answers a busy page this way.
 
 ```json
 {

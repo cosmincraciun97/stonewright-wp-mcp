@@ -87,7 +87,7 @@ return [
 	'stonewright/design-motion-plan' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-motion-suggest' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-native-plan' => [ 'write' => false, 'external' => false ],
-	'stonewright/design-normalize-assets' => [ 'write' => false, 'external' => true ],
+	'stonewright/design-normalize-assets' => [ 'write' => true, 'external' => true ],
 	'stonewright/design-preview-render' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-quality-check' => [ 'write' => true, 'external' => false ],
 	'stonewright/design-section-manifest' => [ 'write' => false, 'external' => false ],

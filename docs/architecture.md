@@ -490,7 +490,13 @@ state is touched. Only then does
 `PostCacheInvalidator` deletes the official document cache key and cleans the
 WordPress post cache. It preserves CSS metadata and never triggers a global
 files or atomic-style clear. A failed readback restores the previous document
-and invalidates only its HTML/object cache.
+and invalidates only its HTML/object cache. `elementor-v3-update-page-settings`
+takes the same per-post lease before it snapshots or writes; a busy page is
+refused with `stonewright_elementor_write_busy` and nothing is written.
+When an ability error reaches an MCP client, only the error message is shown, so
+the message ends with a small JSON object holding `retryable` and
+`retry_after` (seconds) for a busy or rate-limited call. Other error data stays
+out of it.
 
 Elementor kit globals use the separate typed
 `stonewright/elementor-v3-kit-batch-mutate` transaction because kit settings

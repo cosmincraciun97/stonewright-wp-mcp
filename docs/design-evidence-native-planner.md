@@ -110,7 +110,10 @@ nothing.
 
 Custom CSS without a recorded `native_gap.reason` fails
 `stonewright/design-implementation-contract` (`action: validate`) with
-`stonewright_spec_invalid` / `custom_css_without_native_gap`.
+`stonewright_spec_invalid` / `custom_css_without_native_gap`. A passing
+`validate` answers `ok`, `version`, `errors` and `css_policy`; only the default
+`contract` action returns the workflow `sequence`, so `version` is the one field
+the output schema requires of both.
 
 ## Phase-two customization
 

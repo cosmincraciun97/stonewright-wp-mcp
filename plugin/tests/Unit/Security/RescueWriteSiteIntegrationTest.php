@@ -222,6 +222,32 @@ final class RescueWriteSiteIntegrationTest extends TestCase {
 		self::assertSame( 'verified', ChangeJournal::recent()[0]['state'] );
 	}
 
+	public function test_a_kit_write_is_verified_by_the_front_page_when_the_kit_url_only_redirects(): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 44;
+		$GLOBALS['stonewright_test_posts'][44]                      = (object) [ 'ID' => 44, 'post_type' => 'elementor_library', 'post_status' => 'publish', 'post_title' => 'Default Kit', 'post_content' => '', 'post_excerpt' => '', 'post_parent' => 0, 'post_name' => 'default-kit', 'meta' => [] ];
+		HealthProbe::set_transport(
+			function ( string $url, array $args ) {
+				$this->requests[] = [ 'url' => $url, 'args' => $args ];
+				$code             = str_contains( $url, 'p=44' ) ? 301 : 200;
+				return [ 'response' => [ 'code' => $code ], 'body' => 'ok', 'headers' => [] ];
+			}
+		);
+		$ability = $this->ability(
+			function ( array $args ): array {
+				Backup::snapshot_post( 44 );
+				$GLOBALS['stonewright_test_posts'][44]->post_content = 'new kit settings';
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertSame( [ 'ok' => true ], $ability->execute( [] ) );
+
+		$entry = ChangeJournal::recent()[0];
+		self::assertSame( 'verified', $entry['state'] );
+		foreach ( $this->requests as $request ) {
+			self::assertStringNotContainsString( 'p=44', $request['url'] );
+		}
+	}
 	public function test_an_ability_that_throws_still_closes_its_frame(): void {
 		$this->post( 31, 'original body' );
 		$thrower = $this->ability(
