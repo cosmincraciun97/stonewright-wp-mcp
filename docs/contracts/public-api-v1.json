@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-07T05:03:29+00:00",
+    "generated_at": "2026-10-09T14:24:28+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -1383,7 +1383,7 @@
             "mcp_name": "stonewright-design-mirror-export",
             "kind": "Write",
             "input_schema_hash": "08052b920d52c0439fcea5749a2252c94c87236a8c4978fd64b1f2a5025c4f6c",
-            "output_schema_hash": "19e3e41a07c0bb4aeaf5efb0a63f9e799f439db1cae10b86464007f8d7b98018",
+            "output_schema_hash": "d56620376c8d8144a917e388aa4a8e4b37a398c5cebad80b7c32a3e4c33d3d7f",
             "permission_class": "Permissions::edit_post( (int) (compound)",
             "gates": {
                 "backup": false,

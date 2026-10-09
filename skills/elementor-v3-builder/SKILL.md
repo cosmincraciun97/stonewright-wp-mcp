@@ -337,6 +337,10 @@ user has approved site-wide design changes, call `update-kit-colors` and
 reuse global tokens instead of repeating raw values. If approval is missing or
 the design is one-off, keep those values local in widget/container controls.
 Mutation abilities do not take a post_id; they write to the active kit post.
+Colour values must be real colours: hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`, a
+CSS colour name, `transparent`, or a global reference. Font families are plain
+names and sizes are numbers with a unit. Any other value is refused with
+`stonewright_elementor_settings_invalid` and the key.
 
 ## Save as template
 

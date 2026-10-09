@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -26,7 +27,7 @@ final class UpdateKitTypography extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates global typography (font family, weight, size, line height) in the Elementor active kit.', 'stonewright' );
+		return __( 'Updates global typography (font family, weight, size, line height) in the Elementor active kit. Font families are plain names, weights are keywords or 1 to 1000, sizes are numbers with a supported unit; other values are refused.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -88,6 +89,16 @@ final class UpdateKitTypography extends AbilityKernel {
 				$token_error = $this->confirmation_token_error( $args, $verify_args );
 				if ( null !== $token_error ) {
 					return $token_error;
+				}
+
+				foreach ( array_values( (array) $args['fonts'] ) as $index => $font ) {
+					$violation = is_array( $font )
+						? CssValueGuard::typography_row_violation( $font, true )
+						: [ 'path' => '', 'expected' => 'a typography row object' ];
+					if ( null !== $violation ) {
+						$path = 'fonts.' . $index . ( '' === $violation['path'] ? '' : '.' . $violation['path'] );
+						return CssValueGuard::refusal( $path, $violation['expected'], is_array( $font ) ? ( $font[ $violation['path'] ] ?? null ) : $font );
+					}
 				}
 
 				$kit_id = (int) get_option( 'elementor_active_kit', 0 );

@@ -209,6 +209,24 @@ Section reuse copies content between posts, so its checks are about who may read
 - **The setting is a policy, not a hint.** Hiding the tools is a convenience; every reuse ability and insert operation reads the live option when it runs and fails with `stonewright_section_reuse_off`. A change of the option is audited and needs `manage_options` and the nonce of the Setup form.
 - **Notices carry no secrets.** The fifteen-minute line is a fixed sentence that names the setting value.
 
+### Values that reach generated CSS
+
+Elementor prints colour, typography, unit and spacing values into the generated stylesheet without escaping them, so a value such as `red;}body{display:none}` would hide a page and would carry CSS past the custom-CSS approval gate, which guards only `custom_css` keys. Stonewright accepts these values only in their real forms:
+
+- **Colour controls**: hex with 3, 4, 6 or 8 digits; `rgb()`, `rgba()`, `hsl()` and `hsla()` with numeric arguments; a CSS colour name; `transparent`; `currentColor`; an Elementor global colour variable (`var(--e-global-color-<id>)`); or an empty string, which clears the colour. A `__globals__` binding is the stored `globals/<type>?id=<id>` form or an empty string.
+- **Typography**: font families are plain names (letters, digits, spaces and `. , + & -`); weight is `normal`, `bold`, `bolder`, `lighter` or 1 to 1000; text transform, font style and text decoration come from fixed lists.
+- **Slider, dimension and shadow values**: numeric parts and a unit from a fixed list; shadow colours follow the colour rule.
+- **Anything else** is refused with `stonewright_elementor_settings_invalid` and the key. The check runs in every Elementor element write, in `elementor-v3-update-kit-colors`, `elementor-v3-update-kit-typography`, `elementor-v3-kit-batch-mutate` and `elementor-v3-update-page-settings`.
+- **Before generation**, `elementor-css-regenerate` scans the stored settings of the post (and its page or kit settings) for `;`, braces, `<`, `>`, `url(`, `expression(`, `@import`, comment markers and backslashes under colour, typography, unit and numeric-side keys. A match is refused with `stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock or generation. Custom CSS keys are not scanned there; they stay under the custom-code approval gate.
+
+Atomic (`e-*`) widgets keep structure-only validation, as before.
+
+### Design mirror export
+
+`stonewright-design-mirror-export` returns the Elementor JSON of the posts the caller can edit in the ability result; it writes no file. Nothing is published under `wp-content/uploads`, so a private or draft page is never readable without authentication. The JSON per call is capped at 1.5 MB; a post that would pass the cap is reported with `response_too_large`.
+
+Earlier versions wrote `uploads/stonewright-mirror/<slug>.json`. On plugin update, and on each export call, that folder gets `index.php`, `.htaccess` and `web.config` deny rules (existing guard files are kept), and the regular `.json` files directly inside it that carry the export format (`post_id` and `elementor` keys) are deleted. Symbolic links, subfolders and every other file stay. The outcome is logged as counts only. An export can be run again at any time to recreate the JSON.
+
 ### Supply chain
 
 Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,

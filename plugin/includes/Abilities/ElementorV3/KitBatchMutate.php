@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -167,9 +168,13 @@ final class KitBatchMutate extends AbilityKernel {
 
 				$planned = $current;
 				$applied = 0;
-				foreach ( $operations as $operation ) {
+				foreach ( $operations as $operation_index => $operation ) {
 					if ( ! is_array( $operation ) ) {
 						return $this->error( 'invalid_operation', __( 'Each kit operation must be an object.', 'stonewright' ), [ 'status' => 400 ] );
+					}
+					$unsafe = self::unsafe_operation( $operation, 'operations.' . $operation_index );
+					if ( $unsafe instanceof \WP_Error ) {
+						return $unsafe;
 					}
 					$next = self::apply_operation( $planned, $operation );
 					if ( $next instanceof \WP_Error ) {
@@ -277,6 +282,51 @@ final class KitBatchMutate extends AbilityKernel {
 				}
 			}
 		);
+	}
+
+	/**
+	 * Refuses colour, typography and unit values that are not safe to emit into generated CSS.
+	 *
+	 * @param array<string, mixed> $operation
+	 */
+	private static function unsafe_operation( array $operation, string $base ): ?\WP_Error {
+		$group = (string) ( $operation['group'] ?? '' );
+		if ( 'colors' === $group ) {
+			foreach ( array_values( (array) ( $operation['colors'] ?? [] ) ) as $index => $row ) {
+				$violation = is_array( $row ) ? CssValueGuard::color_row_violation( $row, false ) : null;
+				if ( null !== $violation ) {
+					return CssValueGuard::refusal( $base . '.colors.' . $index . '.' . $violation['path'], $violation['expected'], $row[ $violation['path'] ] ?? null );
+				}
+			}
+		}
+		if ( 'typography' === $group ) {
+			foreach ( array_values( (array) ( $operation['fonts'] ?? [] ) ) as $index => $row ) {
+				$violation = is_array( $row ) ? CssValueGuard::typography_row_violation( $row, false ) : null;
+				if ( null !== $violation ) {
+					return CssValueGuard::refusal( $base . '.fonts.' . $index . '.' . $violation['path'], $violation['expected'], $row[ $violation['path'] ] ?? null );
+				}
+			}
+		}
+		if ( 'layout' === $group || 'settings' === $group ) {
+			if ( isset( $operation['setting'] ) ) {
+				$violation = CssValueGuard::setting_violation( (string) $operation['setting'], $operation['value'] ?? null );
+				if ( null !== $violation ) {
+					return CssValueGuard::refusal( $base . '.value' . ( '' === $violation['path'] ? '' : '.' . $violation['path'] ), $violation['expected'], $operation['value'] ?? null );
+				}
+			}
+			foreach ( is_array( $operation['settings'] ?? null ) ? $operation['settings'] : [] as $key => $value ) {
+				$violation = CssValueGuard::setting_violation( (string) $key, $value );
+				if ( null !== $violation ) {
+					return CssValueGuard::refusal( $base . '.settings.' . $key . ( '' === $violation['path'] ? '' : '.' . $violation['path'] ), $violation['expected'], $value );
+				}
+			}
+			foreach ( [ 'container_width', 'space_between_widgets' ] as $shortcut ) {
+				if ( isset( $operation[ $shortcut ] ) && is_array( $operation[ $shortcut ] ) && ! CssValueGuard::slider_value_is_safe( $operation[ $shortcut ] ) ) {
+					return CssValueGuard::refusal( $base . '.' . $shortcut, 'a number or an object with numeric size and a unit from the supported list', $operation[ $shortcut ] );
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

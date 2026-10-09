@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -26,7 +27,7 @@ final class UpdateKitColors extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces or merges the global color palette in the Elementor active kit.', 'stonewright' );
+		return __( 'Replaces or merges the global color palette in the Elementor active kit. Colour values must be hex, rgb(), rgba(), hsl(), hsla(), a CSS colour name, transparent or a global colour variable; ids are letters, digits, hyphen and underscore.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -84,6 +85,14 @@ final class UpdateKitColors extends AbilityKernel {
 				$token_error = $this->confirmation_token_error( $args, $verify_args );
 				if ( null !== $token_error ) {
 					return $token_error;
+				}
+
+				foreach ( array_values( (array) $args['colors'] ) as $index => $row ) {
+					$candidate = is_array( $row ) ? [ 'id' => $row['id'] ?? '', 'color' => $row['color'] ?? '' ] : [];
+					$violation = CssValueGuard::color_row_violation( $candidate, true );
+					if ( null !== $violation ) {
+						return CssValueGuard::refusal( 'colors.' . $index . '.' . $violation['path'], $violation['expected'], $candidate[ $violation['path'] ] ?? null );
+					}
 				}
 
 				$kit_id = $this->resolve_kit_id();

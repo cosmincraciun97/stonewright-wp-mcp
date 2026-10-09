@@ -43,6 +43,7 @@ use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\RescueHooks;
 use Stonewright\WpMcp\Security\StaticAnalysis;
+use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -247,6 +248,8 @@ final class PluginRegistration {
 		IncidentStore::maybe_install_table();
 		SkillTables::ensure();
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
+		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
+		LegacyMirrorCleanup::run();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 
