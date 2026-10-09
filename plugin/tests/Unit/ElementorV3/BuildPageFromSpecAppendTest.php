@@ -7,6 +7,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -144,6 +145,40 @@ final class BuildPageFromSpecAppendTest extends TestCase {
 		foreach ( $GLOBALS['stonewright_test_post_meta_calls'] as $call ) {
 			self::assertNotSame( '_elementor_data', $call['meta_key'], 'A refused write must not touch the document.' );
 		}
+	}
+
+	public function test_append_requires_confirmation_in_production_safe_mode(): void {
+		self::assertIsArray( ( new BuildPageFromSpec() )->execute( [ 'post_id' => 778, 'spec' => self::spec( 'alpha', 'First' ) ] ) );
+		$before = $GLOBALS['stonewright_test_posts'][778]->meta['_elementor_data'];
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BuildPageFromSpec() )->execute( [ 'post_id' => 778, 'mode' => 'append', 'spec' => self::spec( 'beta', 'Second' ) ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][778]->meta['_elementor_data'], 'Nothing is written without a token.' );
+	}
+
+	public function test_append_with_a_bound_token_writes_in_production_safe_mode(): void {
+		self::assertIsArray( ( new BuildPageFromSpec() )->execute( [ 'post_id' => 778, 'spec' => self::spec( 'alpha', 'First' ) ] ) );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args  = [ 'post_id' => 778, 'mode' => 'append', 'spec' => self::spec( 'beta', 'Second' ) ];
+		$token = ConfirmationToken::issue( 'stonewright/elementor-v3-build-page-from-spec', $args );
+
+		$result = ( new BuildPageFromSpec() )->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		self::assertCount( 2, $this->stored_tree() );
+	}
+
+	public function test_append_dry_run_needs_no_token_in_production_safe_mode(): void {
+		self::assertIsArray( ( new BuildPageFromSpec() )->execute( [ 'post_id' => 778, 'spec' => self::spec( 'alpha', 'First' ) ] ) );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BuildPageFromSpec() )->execute( [ 'post_id' => 778, 'mode' => 'append', 'dry_run' => true, 'spec' => self::spec( 'beta', 'Second' ) ] );
+
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		self::assertCount( 1, $this->stored_tree(), 'A dry run writes nothing.' );
 	}
 
 	/**

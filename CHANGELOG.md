@@ -908,6 +908,10 @@ development builds were never stable releases.
   `elementor-v3-batch-mutate` write that is not a dry run, bound to the
   arguments of the call. Before, only `remove_element` operations and
   `mode: replace` required one. Dry runs need no token.
+- Require a confirmation token in production-safe mode for every
+  `elementor-v3-build-page-from-spec` write that is not a dry run, in every
+  mode. Before, only `replace` and `replace_section` required one, and
+  `append` wrote without it.
 - Require the task context token on `elementor-add-icon-list`,
   `elementor-add-price-list`, `elementor-add-read-more`, and
   `elementor-add-search`. A write ability no longer skips the context token

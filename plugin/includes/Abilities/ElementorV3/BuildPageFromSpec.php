@@ -61,7 +61,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'mode'               => [ 'type' => 'string', 'enum' => [ 'replace', 'append', 'replace_section' ] ],
 				'expected_tree_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
-				'confirmation_token' => [ 'type' => 'string' ],
+				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run, in every mode. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
 				'design_scope'       => [
 					'type'        => 'string',
 					'enum'        => DesignCheckpoint::scopes(),
@@ -149,7 +149,8 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 				$dry_run = ! empty( $args['dry_run'] );
 				$mode    = self::write_mode( $args );
-				if ( ! $dry_run && ! $this->token_already_verified && in_array( $mode, [ 'replace', 'replace_section' ], true ) ) {
+				// In production-safe every write that is not a dry run needs a token bound to its arguments, whatever the mode.
+				if ( ! $dry_run && ! $this->token_already_verified ) {
 					$verify_args = array_filter(
 						$args,
 						static fn( string $key ): bool => 'confirmation_token' !== $key,
