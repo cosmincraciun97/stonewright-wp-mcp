@@ -46,7 +46,7 @@ Stonewright\WpMcp\Security\Backup::restore( $post_id, $snapshot_id );
 
 ### Confirmation tokens for destructive operations
 
-Abilities that permanently delete or overwrite data issue a short-lived token via `Stonewright\WpMcp\Security\ConfirmationToken::issue()`. The token is tied to the ability name, a hash of the original arguments, and the user ID. The caller must echo the token back within five minutes. This prevents an MCP client from blindly retrying a delete operation after a network interruption.
+Abilities that permanently delete or overwrite data issue a short-lived token via `Stonewright\WpMcp\Security\ConfirmationToken::issue()`. The token is tied to the ability name, a hash of the original arguments, and the user ID. The caller must echo the token back before it expires (five minutes by default). This prevents an MCP client from blindly retrying a delete operation after a network interruption.
 
 Tokens are stored as WordPress transients, so they expire automatically and are not persisted to the database permanently.
 
@@ -123,7 +123,7 @@ The companion HTTP server enforces bearer token authentication (`COMPANION_BEARE
 
 **MCP client issues a delete command against a production site.** Blocked by `production-safe` mode. Enable it on any site where delete operations must not be reachable.
 
-**Replay attack against a destructive ability.** Blocked by confirmation tokens. Each token is single-use and expires in five minutes.
+**Replay attack against a destructive ability.** Blocked by confirmation tokens. Each token is single-use and expires after five minutes by default (`ttl_seconds` accepts 60 to 3600).
 
 **Replay of a rotated OAuth refresh token.** Revokes the full refresh family
 and all access tokens for the grant, forcing explicit reauthorization.

@@ -115,8 +115,10 @@ and a SHA-1 prefix of the spec for traceability.
 ## Confirmation token (production-safe mode)
 
 `BuildPageFromSpec` uses the `ConfirmationGuard` trait. When
-`stonewright_mode = production-safe`, the ability requires a valid
-`confirmation_token` before reaching Step 2. See
+`stonewright_mode = production-safe`, every call that is not a dry run requires a
+valid `confirmation_token` bound to the call's arguments before it reaches Step 2,
+whatever its `mode` (`replace`, `append` or `replace_section`). A call with
+`dry_run: true` writes nothing and needs no token. See
 [`docs/security-guarantees.md`](../security-guarantees.md) for the token flow.
 
 ## Diagnostics response shape

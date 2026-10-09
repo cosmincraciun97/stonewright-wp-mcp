@@ -269,7 +269,10 @@ For each breakpoint frame in DesignEvidence:
 ## Backup / production-safe
 
 - `Backup::snapshot_post` before Elementor/template writes.
-- Confirmation tokens for destructive ops in production-safe mode.
+- Confirmation tokens in production-safe mode: every `stonewright-elementor-v3-build-page-from-spec`
+  and `stonewright-elementor-v3-batch-mutate` write that is not a dry run (dry runs need none),
+  one top-level token on `stonewright-elementor-v3-apply-bundle`, and
+  `stonewright-design-normalize-assets` while it sideloads (`sideload: false` needs none).
 - FSE/Elementor transactions rollback on readback failure.
 
 ## Motion pipeline (DesignSpec motion contract)

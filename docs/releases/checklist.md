@@ -45,9 +45,12 @@ Run from `plugin/` unless noted.
 ## Publish
 
 Release-channel policy applies only to future tags. The existing beta.9 tag,
-release record, and assets are historical and must remain untouched. A future
-beta or release-candidate tag is a GitHub prerelease; only a stable SemVer tag
-becomes the latest release. The native updater stays on the installed channel.
+release record, and assets are historical and must remain untouched. The release
+notes declare one channel, and the release workflow sets the GitHub flags from it.
+A supported public beta (`supported`) keeps its prerelease SemVer and is published as
+a normal GitHub release marked `Latest`. A preview (`preview`) is published as a
+GitHub prerelease and is never `Latest`. A stable release (`stable`) uses stable
+SemVer and is marked `Latest`. The native updater stays on the installed channel.
 
 1. Update release notes under `docs/releases/<version>.md`.
 2. Tag the verified commit as `v<version>`.
@@ -83,7 +86,7 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Install WordPress 6.7+ locally.
 - [ ] Upload and activate Stonewright.
 - [ ] Confirm activation produces no PHP errors or warnings.
-- [ ] Open WordPress Admin > Stonewright > Settings.
+- [ ] Open WordPress Admin > Stonewright > Setup > Settings.
 - [ ] Enable the plugin master toggle.
 
 ### 2. MCP Ping And Context
@@ -133,6 +136,10 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Confirm `stonewright_confirmation_required`.
 - [ ] Issue a token through `stonewright/security-issue-confirmation-token`.
 - [ ] Retry with the confirmation token and context token.
+- [ ] Attempt an `elementor-v3-batch-mutate` or `elementor-v3-build-page-from-spec` write that is
+      not a dry run without a token and confirm it is refused; confirm the same call with
+      `dry_run: true` runs without one.
+- [ ] Confirm an Elementor V4 write is blocked.
 
 ### 8. Companion Authentication
 

@@ -1,6 +1,6 @@
 # Rescue
 
-Rescue is Stonewright's way back from a change that leaves a site failing. Before a risky change is made, Stonewright records how to undo it. After the change, it asks the site whether it still loads. When the site does not load, it undoes the change, asks again, and tells the agent what happened. When it cannot undo the change, the incident stays open until an administrator or an agent finishes the job from **Stonewright > Rescue**, the `stonewright-rescue-rollback` ability, or WP-CLI.
+Rescue is Stonewright's way back from a change that leaves a site failing. Before a risky change is made, Stonewright records how to undo it. After the change, it asks the site whether it still loads. When the site does not load, it undoes the change, asks again, and tells the agent what happened. When it cannot undo the change, the incident stays open until an administrator or an agent finishes the job from **Stonewright > Activity > Rescue**, the `stonewright-rescue-rollback` ability, or WP-CLI.
 
 Rescue works on changes Stonewright makes through its abilities. It does not watch changes made by anything else.
 
@@ -46,7 +46,7 @@ The journal is the record Rescue keeps for each change set. It has two copies th
 - A compact JSON file in `wp-content/uploads/stonewright-state/`, named `journal-` followed by 32 random hex characters. It holds the id, ability, resource, recipe reference, the paths the change touches, the armed time and the state, and it is where a fatal is recorded. It can be read without WordPress or the database. The folder is protected with `.htaccess`, `web.config` and a blank `index.php`. A write takes an exclusive lock on a `.lock` file, writes a temporary file and renames it over the journal, so a reader never sees half a document. The file holds at most 50 entries and drops the oldest settled one first. Secrets are redacted before anything is written.
 - A database option (`stonewright_change_journal`) with the same entries plus what the file never carries: who made the change, the exact recipe detail, the probe evidence and the rollback outcome.
 
-If the uploads folder cannot be written, the journal keeps working from the database and **Stonewright > Rescue** says so. A fatal recorded in the file while the database was down is imported by the next wp-admin or REST request that loads WordPress with the database available.
+If the uploads folder cannot be written, the journal keeps working from the database and **Stonewright > Activity > Rescue** says so. A fatal recorded in the file while the database was down is imported by the next wp-admin or REST request that loads WordPress with the database available.
 
 The database copy is the authority, and the file is input. The file can add a fatal to a change set the database already holds under the same id, ability and resource. It never creates a change set, a recipe or a path. Anything else it carries (an entry nobody armed, another recipe, a stale fatal on a change that was rolled back) is dropped, and the file is written again from the database copy. A file larger than 1 MB, the most the rescue helper reads, is not read at all and is replaced.
 
@@ -97,7 +97,7 @@ The rollback restores a state Stonewright recorded itself, and only for a change
 
 ## The Rescue page
 
-**Stonewright > Rescue** (administrators only) lists the change sets that need attention in one table: the short id, when, what changed and who changed it, the health check evidence, the rollback that would run, the state and the actions.
+**Stonewright > Activity > Rescue** (administrators only) lists the change sets that need attention in one table: the short id, when, what changed and who changed it, the health check evidence, the rollback that would run, the state and the actions.
 
 - **Roll back** opens a confirmation that names the change set, shows what changed and what is restored, and puts Cancel first. In production-safe mode the confirmation also asks for the words ROLL BACK and carries a confirmation token that was issued for that one change set and expires after ten minutes.
 - **Check again** probes the site again and closes the incident when it loads.
@@ -119,7 +119,7 @@ When a PHP fatal error happens, the helper matches the file of the error with th
 
 ### Safe mode
 
-Safe mode is a short browser session in which WordPress loads only Stonewright and the default theme. Open it with **Stonewright > Rescue > Open in safe mode**, or with the link in the WordPress recovery mode email.
+Safe mode is a short browser session in which WordPress loads only Stonewright and the default theme. Open it with **Stonewright > Activity > Rescue > Open in safe mode**, or with the link in the WordPress recovery mode email.
 
 - The link works once, for 15 minutes, for one administrator. Only a hash of it is stored.
 - Opening the link starts a 30 minute session in the browser. It signs nobody in and changes nothing about the sign-in page: signing in always runs with the site's normal plugins, so two-factor, login limiting and captcha plugins work as they always do.

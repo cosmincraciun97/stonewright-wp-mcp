@@ -61,11 +61,11 @@ token, even with `dry_run`, because it can close the incident.
   leaves the incident open.
 - Do not skip the confirmation token in production-safe mode.
 - When `recipe.available` is false, no automatic rollback exists. Tell the user
-  and point to **Stonewright > Rescue** in wp-admin; do not improvise one.
+  and point to **Stonewright > Activity > Rescue** in wp-admin; do not improvise one.
 
 ## When the site is down
 
 The abilities need the site to answer. When wp-admin does not load, the user can
 open the Stonewright rescue link from the WordPress recovery mode email, sign in
-as usual, and use Stonewright > Rescue in safe mode; or run
+as usual, and use Stonewright > Activity > Rescue in safe mode; or run
 `wp stonewright rescue status` on the server.

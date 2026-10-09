@@ -101,7 +101,7 @@ Enforced by:
 - `plugin/includes/Security/ConfirmationToken.php`
 - `plugin/includes/Abilities/Common/ConfirmationGuard.php`
 
-A token is bound to the ability and to every other argument of the call, works once, and lives 60 to 3600 seconds. A dry run that writes nothing (for example `elementor-v3-update-element` with `dry_run: true`) needs no token; the write does.
+A token is bound to the ability and to every other argument of the call, works once, and lives 60 to 3600 seconds. A dry run that writes nothing (for example `elementor-v3-update-element` with `dry_run: true`) needs no token; the write does. This includes every `elementor-v3-batch-mutate` and `elementor-v3-build-page-from-spec` write that is not a dry run, whatever its `mode`; `elementor-v3-apply-bundle` takes one top-level token for the whole call; and `design-normalize-assets` needs one while it sideloads (`sideload: false` needs none).
 
 Verify:
 
@@ -155,7 +155,7 @@ vendor/bin/phpunit tests/Unit/WpCli/WpCliAbilitiesTest.php
 ## Rule 8 - Context Before Task Work
 
 Agents must call MCP tool `stonewright-task-start` at the start of every task.
-Write abilities require the returned `stonewright_context_token`.
+Write abilities require the returned `stonewright_context_token`. A name never exempts a write: `elementor-add-icon-list`, `elementor-add-price-list`, `elementor-add-read-more` and `elementor-add-search` need it although their names end like read tools.
 
 Enforced by:
 

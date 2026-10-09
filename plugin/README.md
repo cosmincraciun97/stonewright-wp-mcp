@@ -137,17 +137,17 @@ Public tool surface for MCP clients: `bootstrap` | `essential` | `full`.
 - **essential** — compact day-to-day Elementor/content fast path (default for new installs when set on activation).
 - **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface. Opt-in `inspect` is a read-only profile (discovery, read, and verify tools; no `php-execute`); activating it adds its tools to the session and never changes the saved surface.
 
-Toggle in **Stonewright → Setup**. Contracts for the public ability list live in
+Choose it in **Stonewright → Setup → Settings**. Contracts for the public ability list live in
 `docs/contracts/public-api-v1.json` (regenerate with `composer contracts:generate`).
 
 ### Verify connection
 
-**Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
+**Stonewright → Setup → Get started**, step 4 (**Verify connection**), runs an authenticated MCP loopback
 (initialize → notifications/initialized → tools/list → task-start with
 `serverInfo.name` Stonewright). Preflight alone does not prove a live
 client session.
 
-**Stonewright → Troubleshoot** (also on Setup) runs a dependency-ordered
+**Stonewright → Setup → Troubleshoot** runs a dependency-ordered
 diagnostic graph from **Run diagnostics** without reloading the admin page when
 JavaScript is available. Pick **How do you connect?** first: **OAuth**,
 **Application Password**, **Local companion**, or **Not sure** (safe discovery
@@ -184,12 +184,15 @@ under **Stonewright > Prompt library** (Knowledge). Each entry has an `id`, a
 `summary`, `prerequisites`, `tools`, the `prompt` text, and a `verification`
 line. The starters cover the current release: Rescue and rolling back a failed
 change, restoring a page from a snapshot, repairing a failed write and reading
-its lineage in the Audit log, section reuse, the native Elementor V4 bridge, the
-read-only inspect profile and the active Design Direction.
+its lineage in **Stonewright > Activity > Audit log**, section reuse, the native Elementor V4
+bridge, looking up Elementor documentation in the site's knowledge store, bringing a
+design's images into the media library, the read-only inspect profile and the active
+Design Direction.
 `tests/Unit/Support/PromptCatalogGuardTest.php` checks every tool name a prompt
 mentions against the ability matrix (Plugin mode) and the Direct tool contract
 (Direct mode), every admin page it points to against the menu registry, and
-fails on a removed or renamed feature. Agents still start with
+fails on a removed or renamed feature, and checks that a prompt naming a write that needs a
+confirmation token in `production-safe` mode says how the token is issued. Agents still start with
 `stonewright-task-start` (skill refs, truncated Context text, and a Design
 Direction pointer — not the full libraries).
 
@@ -290,7 +293,7 @@ the registry rather than restating rule text in PHP.
 
 ### Client Setup In Admin
 
-The Configuration page guides enablement, authentication, client connection,
+The Setup page guides enablement, authentication, client connection,
 component updates, and live verification. OAuth and Application Password share
 one client tablist; changing the authentication method updates instructions
 inside the same selected-client panel. Unsupported combinations stay visible
@@ -349,7 +352,7 @@ Risky writes are recorded before they run and checked after they finish.
 - `RescueGuard` arms a change set in `ChangeJournal` before a write. Post and option snapshots arm themselves through `Backup`; plugin, sandbox, custom-code, and theme-file writes call `RescueGuard::arm_plugin_write()`, `arm_sandbox_write()`, `arm_custom_code_write()`, and `arm_standalone()`. `AbilityKernel` settles the call when the ability returns.
 - `HealthProbe` asks the site over HTTP whether it still loads (the home page, a wp-admin screen, the REST index, the written post, an optional same-site URL). `RollbackRecipes` undoes the change when it does not.
 - The journal is `wp-content/uploads/stonewright-state/journal-<random>.json` (at most 50 entries) and the `stonewright_change_journal` option.
-- Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
+- Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Activity → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
 - Filters: `stonewright_rescue_probe_enabled`, `stonewright_rescue_probe_args`, and `https_local_ssl_verify`.
 
 See [docs/rescue.md](../docs/rescue.md).

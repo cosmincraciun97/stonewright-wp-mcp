@@ -79,7 +79,7 @@ through the finalizer; they cannot take template / global-style writes.
 ## Which write path
 
 Default: queue `{name, attributes, innerBlocks}` and persist through the
-Block Editor Queue. That is the path for static core blocks and every
+block queue console. That is the path for static core blocks and every
 third-party namespace.
 
 Server path (`stonewright-blocks-insert` / `stonewright-blocks-update` /
@@ -150,7 +150,7 @@ visual section call `stonewright-blocks-queue-change` explicitly.
    (`post_id`, `block_spec`, `action`, `path`, `position`,
    `expected_content_hash`). Spec shape: `{name, attributes, innerBlocks}`.
 5. `stonewright-blocks-finalizer-runtime`. Require `online: true`. If it is
-   false, tell the operator to open **Stonewright → Block Editor Queue** and
+   false, tell the operator to open **Stonewright → Activity → Block queue** and
    leave it open. `keep_open` is true on purpose.
    `stonewright-blocks-finalizer-url` is the same link.
 6. Poll `stonewright-blocks-pending-batch` until ids are `serialized`. The
@@ -459,7 +459,7 @@ persist. `stonewright/fse-update-global-styles` and
 | Name not registered | `block_not_registered` | Re-list. Do not invent names. |
 | PHP insert of a partial schema | `unknown_block_attributes` | Re-queue on the finalizer. |
 | Partial schema, queue accepted | `likely_partial_schema` | Leave the keys. Let the editor save. |
-| Item still `queued` | `finalizer_not_serialized` (409) | Open Block Editor Queue. Wait. Retry. |
+| Item still `queued` | `finalizer_not_serialized` (409) | Open the block queue console (Stonewright → Activity → Block queue). Wait. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Fresh hash. Re-queue. |
 | Heartbeat dead | `online: false` | Do not finalize. Do not PHP-serialize static blocks. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard the blob. Re-queue. |

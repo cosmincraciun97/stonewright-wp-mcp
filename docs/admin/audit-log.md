@@ -2,8 +2,8 @@
 
 The Audit log (**Stonewright → Activity → Audit log**) is Stonewright's single
 append-only view of redacted Plugin mutations, protected REST writes,
-authentication incidents, verification, and rollback status. Its tab shows the
-number of open incidents; Block queue and Rescue are the other tabs of the
+authentication incidents, verification, and rollback status. Its link in the band
+shows the number of open incidents; Block queue and Rescue are the other pages of the
 Activity hub (see [Navigation](navigation.md)).
 
 ## What the page shows

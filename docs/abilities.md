@@ -22,10 +22,11 @@ matrix after changing the registry.
 | Patterns | 5 | List, create, update, delete, and categorize synced patterns. |
 | Full Site Editing | 12 | theme.json, templates, template parts, global styles, navigation, and child-theme handoff. |
 | Elementor V3 | 35 | Structure editing, transactions, document health, performance audit, legacy-debt report, CSS regenerate, observation-only post-write verification, specs, kit globals, preflight, and batch mutation. |
+| Elementor native bridge | 2 | Report Elementor's own MCP module and its certified abilities, and run a certified ability inside Stonewright's snapshot, write lock, readback and change set. |
 | Elementor V4 (Experimental) | 14 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 4 | Custom Elementor widget project helpers. |
 | Elementor Widgets | 94 | Deprecated generated per-widget compatibility builders. |
-| Design | 28 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
+| Design | 33 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
 | Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime (full profile only). |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Memory | 6 | Persistent memory, generalization, corrections, and learned records. |
@@ -66,7 +67,7 @@ matrix after changing the registry.
 | `insert_section` and `update_node` of `stonewright/elementor-v4-update-node` (`operations`) | Write | The same for a V4 payload, with local style ids remapped. Experimental; blocked in `production-safe`. |
 | `insert_section` of `stonewright/blocks-batch-mutate` | Write | The same for a Gutenberg payload; later `update` operations address its blocks with `section_ref` and `relative_path`. |
 
-The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are left out of the tool lists and the profiles, `find` answers only `{ "enabled": false, "instruction": ... }`, and every other reuse call fails with `stonewright_section_reuse_off`. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. See [Section reuse](architecture.md#section-reuse).
+The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are left out of the tool lists and the profiles, `find` answers only `{ "enabled": false, "instruction": ... }`, and every other reuse call fails with `stonewright_section_reuse_off`. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. In `production-safe` mode an Elementor V3 `insert_section` needs the confirmation token that every `elementor-v3-batch-mutate` write needs unless it is a dry run, and a Gutenberg `insert_section` needs one only when the same batch removes a block. See [Section reuse](architecture.md#section-reuse).
 
 All ability responses support optional `stonewright_fields` projection while
 retaining top-level fields required by their declared output schema. The
@@ -111,6 +112,8 @@ for tokens, text, styles, assets, and node hints, but agents should not copy a
 broken layer tree into WordPress when the visible design needs a cleaner native
 structure. For long designs, agents should capture multiple section reference
 screenshots and compare section-by-section before final full-page signoff.
+
+Write abilities need the task context token that `stonewright-task-start` returns, as `stonewright_context_token` in their input. A name does not exempt a write: the markers `-get`, `-list`, `-read`, `-describe`, `-discover`, `-explain`, `-search`, `-validate`, `-status`, `-preview`, `-parse` and `-serialize` exempt an ability only when it is not recorded as a write, so `elementor-add-icon-list`, `elementor-add-price-list`, `elementor-add-read-more` and `elementor-add-search` need the token like any other write. A short list of abilities (task start, ping, site reads, skill and memory reads, the Elementor knowledge readers and a few planners) never needs it.
 
 `stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
 for automatic matching, or `prompt` for explicit prompt/command entries.

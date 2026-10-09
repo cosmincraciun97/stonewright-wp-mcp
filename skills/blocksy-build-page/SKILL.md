@@ -59,7 +59,7 @@ the gap.
 ## Pending-change pipeline
 
 The page body is serialized by the live block editor, not by PHP. Queue a
-spec, keep the Block Editor Queue tab online, then persist hashed HTML.
+spec, keep the block queue console tab online, then persist hashed HTML.
 Theme chrome is a separate write.
 
 1. `stonewright-blocks-parse` the target post so you know `path`, `position`,
@@ -71,8 +71,8 @@ Theme chrome is a separate write.
 3. Call `stonewright-blocks-finalizer-runtime`. You need `online: true`, a
    `finalizer_url` / `url`, `pending_count`, and per-target
    `editor_frame_url`. `keep_open` is true on purpose.
-4. If `online` is false, tell the operator to open **Stonewright → Block
-   Editor Queue** and leave that tab open. Do not finalize while the
+4. If `online` is false, tell the operator to open **Stonewright → Activity →
+   Block queue** and leave that tab open. Do not finalize while the
    heartbeat is dead. `stonewright-blocks-finalizer-url` is the same URL if
    you only need the link.
 5. Poll `stonewright-blocks-pending-batch` until the queued ids are
@@ -289,9 +289,9 @@ from chrome / `theme.json` over hardcoded hex.
 | Theme adapter inactive | `stonewright_theme_inactive` / `check-setup.active` false | This pack does not apply. Switch theme or use `gutenberg-fse-builder`. |
 | Queue rejected unknown keys on PHP insert | `unknown_block_attributes` | You used the server path for a partial schema. Re-queue on the finalizer. |
 | Warning only, queue accepted | `likely_partial_schema` | Expected for companion `kadence/` / `generateblocks/` / `uagb/` names. Leave the keys. |
-| Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Open Block Editor Queue. Wait for serialize. Retry. |
+| Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Open the block queue console (Stonewright → Activity → Block queue). Wait for serialize. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Queue again with a fresh `expected_content_hash`. |
-| Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize the body. Keep the Queue tab open. |
+| Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize the body. Keep the console tab open. |
 
 Do not write the page body through theme chrome. Do not write header/footer
 chrome through the block queue.

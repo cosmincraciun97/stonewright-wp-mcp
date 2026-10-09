@@ -17,7 +17,10 @@ For every Elementor document mutation in Plugin mode:
 4. Prefer one dry-run and one consolidated
    `stonewright-elementor-v3-batch-mutate` call per post. Include
    `expected_tree_hash` where supported. Do not issue parallel writes to the
-   same document.
+   same document. In `production-safe` mode the apply needs a confirmation token
+   issued for exactly that call and the dry run needs none. When another writer holds
+   the page, the call returns the retryable `stonewright_elementor_write_busy` with
+   `retry_after` seconds: wait, then repeat that one call.
 5. Apply the typed write. Stonewright snapshots first, verifies serialized
    readback, then invalidates only the target post's element/HTML cache and
    WordPress object cache. It does not delete CSS metadata or clear Elementor's

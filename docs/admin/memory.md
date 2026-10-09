@@ -36,7 +36,7 @@ and the textarea share one **Settings** form: WordPress saves every option of a
 settings group on each post and clears the ones the post did not carry, so one
 form that posts all three keeps saving one from clearing another.
 
-Enabled Context page text (`Stonewright → Context`) is prepended to this
+Enabled Context page text (`Stonewright → Knowledge → Context`) is prepended to this
 block before it reaches agents. Compact `stonewright-task-start` includes up
 to 400 characters of that combined text in `context.custom_instructions.text`.
 The rest is available with `responseMode=full`. Pluginless Direct mode never
