@@ -1707,7 +1707,7 @@ final class BatchMutate extends AbilityKernel {
 			$data['execution_status'] = 'blocked';
 		}
 
-		return $data;
+		return array_merge( $data, SectionReuseSetting::refusal_flags( $cause_code ) );
 	}
 
 	/**

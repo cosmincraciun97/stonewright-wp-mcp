@@ -50,6 +50,14 @@ final class SwUiJavascriptContractTest extends TestCase {
 		}
 	}
 
+	public function test_a_checkbox_can_fill_a_live_region_from_a_template_without_building_markup(): void {
+		$script = self::script();
+
+		self::assertStringContainsString( 'data-sw-ui-live-fill', $script );
+		self::assertStringContainsString( 'data-sw-ui-live-fill-from', $script );
+		self::assertStringContainsString( '.content.cloneNode( true )', $script, 'The region is filled from a template element, never from a string.' );
+	}
+
 	public function test_the_public_api_hangs_off_one_namespace_and_loads_once(): void {
 		$script = self::script();
 

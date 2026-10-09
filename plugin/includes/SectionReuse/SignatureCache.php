@@ -22,6 +22,9 @@ final class SignatureCache {
 	public const OPTION      = 'stonewright_section_signatures';
 	public const MAX_ENTRIES = 200;
 
+	/** Changes whenever what a signature holds, or how its role is guessed, changes; older entries are analyzed again. */
+	private const RULES = 'r2';
+
 	/** @var array<string, array{m:string,v:string,s:int,sections:list<array<string,mixed>>}>|null */
 	private static ?array $entries = null;
 	private static bool $dirty     = false;
@@ -37,7 +40,7 @@ final class SignatureCache {
 	public static function get( int $post_id, string $modified, string $version ): ?array {
 		$entries = self::load();
 		$entry   = $entries[ (string) $post_id ] ?? null;
-		if ( null === $entry || $entry['m'] !== $modified || $entry['v'] !== $version ) {
+		if ( null === $entry || $entry['m'] !== $modified || $entry['v'] !== $version . '#' . self::RULES ) {
 			++self::$misses;
 			return null;
 		}
@@ -51,7 +54,7 @@ final class SignatureCache {
 	/** @param list<array<string, mixed>> $sections */
 	public static function put( int $post_id, string $modified, string $version, array $sections ): void {
 		self::load();
-		self::$entries[ (string) $post_id ] = [ 'm' => $modified, 'v' => $version, 's' => ++self::$sequence, 'sections' => $sections ];
+		self::$entries[ (string) $post_id ] = [ 'm' => $modified, 'v' => $version . '#' . self::RULES, 's' => ++self::$sequence, 'sections' => $sections ];
 		self::$dirty                        = true;
 	}
 

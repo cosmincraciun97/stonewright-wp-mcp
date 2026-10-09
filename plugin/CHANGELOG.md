@@ -35,6 +35,16 @@
 - Add the `reuse_source` field to ChangeSetV1 (the first declared extension)
   and the `stonewright-section-reuse` skill, with a one-line pointer in the
   Elementor V3, Elementor V4, and Gutenberg skills.
+- Add customized `wp_template` and `wp_template_part` posts of the active
+  block theme to the sources of `section-reuse-find` (marked with their post
+  type and the kind `site-template`) for users who may edit them; a template
+  that exists only as a theme file is not a source. Add the warnings
+  `draft_source` and `password_protected_source` to candidates and extract
+  results, and `legacy_attributes` to extract: for the blocks whose WordPress
+  deprecations do so, the older `textAlign` attribute is moved to
+  `style.typography.textAlign` so a section saved by an older WordPress is not
+  refused whole. The insert stays strict and names any other attribute the
+  block does not declare.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -547,6 +557,21 @@
 
 ### Fixed
 
+- Fix `detach_patterns` on a `blocks-batch-mutate` `insert_section`: the input
+  schema accepts `true`, `false`, or a list of pattern ids.
+- Fix section reuse while the setting is `off`: `stonewright-task-start` no
+  longer offers the section reuse skill, and the bundled skill is stored as
+  `stonewright-section-reuse` instead of a doubled prefix (a bundled skill
+  directory that already starts with `stonewright-` keeps its own name). The
+  `stonewright_section_reuse_off` refusal is blocked and not retryable, is not
+  counted as a recurring error or wrapped in repeat-failure advice, and a
+  recorded entry is hidden and removed when the setting changes.
+- Fix the role guess of a section: a section with an h1, a heading and a button
+  or image among the first three sections of its page is a hero, not only the
+  first one. Cached section signatures are analyzed again.
+- Fix the Setup callout of **Reuse saved sections**: it follows the switch
+  before saving and is announced politely; the setting still changes only when
+  the form is saved.
 - Log the Rescue health probe's own requests in as the user a probe token was
   issued for before anything about the request is recorded, so the admin leg
   and the preview of a draft, private or pending page are answered as that

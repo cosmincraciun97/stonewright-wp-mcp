@@ -21,15 +21,18 @@ between them.
 
 Read `agent_preferences.section_reuse` from `stonewright-task-start`.
 
-- `off`: do not use this skill. Build normally and never mention reuse. A
-  `notices` line such as `section_reuse: off - do not offer section reuse` says
-  the same.
+- `off`: do not use this skill. Build normally and never mention reuse. While it
+  is off the two reuse tools are not listed at all (a client that lists tools
+  again cannot call them), and a `notices` line such as
+  `section_reuse: off - do not offer section reuse` says the same.
 - `ask` (the default): continue below.
 
-The setting can change during a session. If a call returns
-`stonewright_section_reuse_off`, or `stonewright-section-reuse-find` answers
-`enabled: false`, stop using reuse at once, build the rest normally, and say
-nothing about it.
+The setting can change during a session, and a client may keep an old tool
+list. If a call returns `stonewright_section_reuse_off` (an `extract`, or an
+`insert_section` operation), or an in-process `stonewright-section-reuse-find`
+answers `enabled: false`, stop using reuse at once, build the rest normally,
+and say nothing about it. The refusal is not a fault and is not retryable:
+do not repeat the call and do not rerun it as a dry run.
 
 ## 1. Find first, ask second
 
@@ -53,8 +56,13 @@ to 1 (text, media and style values never count), a short `outline`, and
 `warnings`. `scan.truncated` is true when the site has more than 200 sources and
 only the most recent were looked at.
 
-If the setting is off or no role has a candidate, build the page normally and
-do not mention reuse.
+If no role has a candidate, build the page normally and do not mention reuse.
+
+On a block theme the candidates also include the customized templates and
+template parts of the active theme (`source.type` is `wp_template` or
+`wp_template_part`, `source.kind` is `site-template`), which is where to look
+when the work is a template or a header or footer part. A template that exists
+only as a theme file has no post and is never a candidate.
 
 ## 2. One short question
 
@@ -73,7 +81,10 @@ Warnings to say out loud:
 | `synced_patterns` | It uses a synced pattern; the copy keeps pointing at the pattern unless the user wants to change it. |
 | `global_widgets`, `nested_templates` | It uses a global widget or template; it stays linked. |
 | `third_party_widgets` | It needs a plugin's widget or block. |
-| `missing_*` | Something it refers to no longer exists, so the copy will fail until that is created. Offer another candidate. |
+| `draft_source`, `password_protected_source` | It comes from a draft or a password-protected page, so its text is not public yet; the copy would put it on a page visitors can read. Say so and let the user decide. |
+| `legacy_attributes` (extract) | An older block setting was moved to its current form, for example a heading's `textAlign` to `style.typography.textAlign`; nothing else changed. Mention it only when it matters. |
+| `missing_media` | A picture it refers to is gone. The copy still succeeds, but the image stays broken until the user supplies a new one. |
+| other `missing_*` (global colors, fonts, classes, variables, templates, patterns) | Something it refers to no longer exists, so the copy fails with that exact reference until it is created. Offer another candidate. |
 
 ## 3. Extract
 
@@ -110,9 +121,10 @@ Rules the write enforces, so do not work around them:
 - The widget type is never changed and no setting is stripped. In V3 a setting
   the live schema does not know blocks the copy with the exact setting named.
 - A duplicate Gutenberg anchor is renamed (`name-2`) with its links.
-- A synced pattern stays a reference. Only when the user wants to edit it, set
-  `detach_patterns: true` (or a list of pattern ids) to make a local copy. Ask
-  first.
+- A synced pattern stays a reference (`detach_patterns: false`, the default).
+  Only when the user wants to edit it, set `detach_patterns: true` (every
+  synced pattern of the section) or a list of pattern ids to make a local copy.
+  Ask first.
 - In Gutenberg, a change to a static block may change its text, links and
   images, not its tags. Use the finalizer for structural changes.
 - Send `settings_evidence` and the Design Direction values for visual changes
@@ -140,5 +152,6 @@ After the apply:
 
 - Never edit or delete the source page.
 - Never copy between builders, or hand-convert a section.
-- Never offer reuse when the setting is off.
+- Never offer reuse when the setting is off, and never retry a
+  `stonewright_section_reuse_off` refusal.
 - Never reuse a form, dynamic tag or synced pattern without telling the user.

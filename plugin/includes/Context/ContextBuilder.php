@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentActions;
 use Stonewright\WpMcp\Security\IncidentStore;
@@ -213,7 +214,12 @@ final class ContextBuilder {
 
 		$query = self::normalise( $task . ' ' . $surface );
 		$rows  = [];
+		$reuse = SectionReuseSetting::is_enabled();
 		foreach ( $skills as $skill ) {
+			// While section reuse is off its skill is not offered: the abilities it describes are not listed.
+			if ( ! $reuse && SectionReuseSetting::SKILL_SLUG === (string) ( $skill['slug'] ?? '' ) ) {
+				continue;
+			}
 			if ( 'candidate' === (string) ( $skill['source'] ?? '' )
 				&& ! RuntimeFingerprint::matches_constraints( (array) ( $skill['version_constraints'] ?? [] ) ) ) {
 				continue;

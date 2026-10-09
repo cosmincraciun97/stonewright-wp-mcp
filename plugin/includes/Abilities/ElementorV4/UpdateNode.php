@@ -347,16 +347,19 @@ final class UpdateNode extends AbilityKernel {
 			return $this->error(
 				'batch_operation_failed',
 				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ),
-				[
-					'status'        => 400,
-					'items'         => $items,
-					'failed'        => $failed,
-					'failed_index'  => $first,
-					'write_blocked' => true,
-					'retryable'     => true,
-					'before_hash'   => $before_hash,
-					'repair'        => 'Fix the reported operation and rerun the dry run. No partial batch is persisted.',
-				]
+				array_merge(
+					[
+						'status'        => 400,
+						'items'         => $items,
+						'failed'        => $failed,
+						'failed_index'  => $first,
+						'write_blocked' => true,
+						'retryable'     => true,
+						'before_hash'   => $before_hash,
+						'repair'        => 'Fix the reported operation and rerun the dry run. No partial batch is persisted.',
+					],
+					SectionReuseSetting::refusal_flags( (string) ( $items[ $first ]['error']['code'] ?? '' ) )
+				)
 			);
 		}
 
