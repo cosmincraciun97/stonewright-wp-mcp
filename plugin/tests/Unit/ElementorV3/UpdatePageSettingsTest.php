@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdatePageSettings;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\UpdatePageSettings
@@ -117,5 +118,50 @@ final class UpdatePageSettingsTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_write_failed', $result->get_error_code() );
+	}
+
+	public function test_busy_page_is_refused_before_a_snapshot_or_write(): void {
+		PostWriteLock::acquire( 10, 'other-transaction', 30 );
+
+		$result = ( new UpdatePageSettings() )->execute(
+			[ 'post_id' => 10, 'settings' => [ 'hide_title' => 'no' ], 'mode' => 'merge' ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertTrue( $result->get_error_data()['retryable'] );
+		self::assertArrayNotHasKey( '_stonewright_backups', $GLOBALS['stonewright_test_posts'][10]->meta, 'A refused call must not snapshot.' );
+		self::assertSame( 'yes', $GLOBALS['stonewright_test_posts'][10]->meta['_elementor_page_settings']['hide_title'] );
+		self::assertTrue( PostWriteLock::owned_by( 10, 'other-transaction' ), 'The other writer keeps its lease.' );
+	}
+
+	public function test_lease_is_released_after_a_successful_write(): void {
+		$result = ( new UpdatePageSettings() )->execute(
+			[ 'post_id' => 10, 'settings' => [ 'hide_title' => 'no' ], 'mode' => 'merge' ]
+		);
+
+		self::assertIsArray( $result );
+		self::assertNotInstanceOf( \WP_Error::class, PostWriteLock::acquire( 10, 'next-writer', 30 ) );
+	}
+
+	public function test_lease_is_released_after_a_failed_write(): void {
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => false ];
+
+		$result = ( new UpdatePageSettings() )->execute(
+			[ 'post_id' => 10, 'settings' => [ 'hide_title' => 'no' ], 'mode' => 'merge' ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_write_failed', $result->get_error_code() );
+		self::assertNotInstanceOf( \WP_Error::class, PostWriteLock::acquire( 10, 'next-writer', 30 ) );
+	}
+
+	public function test_lease_is_released_after_a_refused_value(): void {
+		$result = ( new UpdatePageSettings() )->execute(
+			[ 'post_id' => 10, 'settings' => [ 'background_color' => 'red;}body{display:none}' ], 'mode' => 'merge' ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertNotInstanceOf( \WP_Error::class, PostWriteLock::acquire( 10, 'next-writer', 30 ) );
 	}
 }

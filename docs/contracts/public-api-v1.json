@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T15:18:21+00:00",
+    "generated_at": "2026-10-09T18:24:56+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -1343,7 +1343,7 @@
             "mcp_name": "stonewright-design-implementation-contract",
             "kind": "Read",
             "input_schema_hash": "30060eb7abb0b4578938000fa1db646b8a025eca68f0b45007c1155da025857d",
-            "output_schema_hash": "78b0e285e295c218ff473e7949ec7f9259c2bc18db8826dbb60a818694a9e8ec",
+            "output_schema_hash": "25beda6abd2229e99d5e1b37f658a0f27743b971877946fa77beefe9ee2e8d90",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -1521,13 +1521,13 @@
         {
             "ability_name": "stonewright/design-normalize-assets",
             "mcp_name": "stonewright-design-normalize-assets",
-            "kind": "Read",
-            "input_schema_hash": "f7e5722f6528b23ded6428140a456c89a13d35a1a5e4af316be333ce37c57974",
+            "kind": "Write",
+            "input_schema_hash": "f71262af33d5d6e514a436b365c6782c31e5995ca8b04f8d4087dbb0faa647bf",
             "output_schema_hash": "ba49d9c93fad64a05289035cea46d5a4a19a3f0009a36ad0e5f639e65646c219",
             "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             },

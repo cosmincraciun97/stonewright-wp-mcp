@@ -535,6 +535,22 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Make `elementor-v3-update-page-settings` take the per-post write lease before
+  it snapshots or writes, and release it on every path. A page another writer
+  holds is refused with the retryable `stonewright_elementor_write_busy`, and
+  nothing is written or snapshotted.
+- Include `retryable` and `retry_after` (seconds) in the error message an MCP
+  client receives for a busy page, as a trailing JSON object. Other error data
+  is not copied. The REST error envelope carries `retry_after` as well.
+- Fix `stonewright-design-implementation-contract` with `action: "validate"`
+  failing its own output schema. The schema now requires only `version`, which
+  both actions return, and describes the `contract` fields (`sequence` and the
+  rules) and the `validate` fields (`ok`, `errors`, `css_policy`) separately.
+- Probe the public front page after an Elementor kit write
+  (`elementor-v3-update-kit-colors`, `elementor-v3-update-kit-typography`,
+  `elementor-v3-kit-batch-mutate`) instead of the kit's own address, which only
+  redirects. The change can now end `verified`. The probe sends no internal
+  token to that page, and page writes are probed as before.
 - Keep a widget's own control when its name is also a container shorthand.
   `background`, `gap`, `column_gap` and `row_gap` are no longer rewritten to
   `background_color`, `flex_gap`, `flex_column_gap` and `flex_row_gap` for a
@@ -878,6 +894,11 @@ development builds were never stable releases.
 
 ### Security
 
+- Require a confirmation token bound to its arguments for
+  `stonewright-design-normalize-assets` in production-safe mode whenever it
+  sideloads (the default). `sideload: false` fetches and stores nothing and needs
+  no token. The ability is now listed as a write with a token gate in the
+  ability matrix.
 - Revoke the grant created from an authorization code when that code is
   replayed.
 - Expire refresh credentials after 30 days without use and end a grant at most

@@ -86,6 +86,14 @@ final class ErrorEnvelope {
 				$payload[ $key ] = $data[ $key ];
 			}
 		}
+		// A busy or rate-limited call tells the caller whether and when to retry.
+		if ( array_key_exists( 'retryable', $data ) ) {
+			$payload['retryable'] = (bool) $data['retryable'];
+		}
+		$retry_after = self::retry_after( $data );
+		if ( null !== $retry_after ) {
+			$payload['retry_after'] = $retry_after;
+		}
 		// A failed write names its change set so the caller can pass it as repair_of.
 		$change_set_id = self::change_set_id( $data );
 		if ( '' !== $change_set_id ) {
@@ -183,11 +191,30 @@ final class ErrorEnvelope {
 
 			$out[ $key ] = $value;
 		}
+		$retry_after = self::retry_after( $data );
+		if ( null !== $retry_after ) {
+			$out['retry_after'] = $retry_after;
+		}
 		$change_set_id = self::change_set_id( $data );
 		if ( '' !== $change_set_id ) {
 			$out['change_set_id'] = $change_set_id;
 		}
 		return $out;
+	}
+
+	/**
+	 * Seconds a caller should wait before retrying, from `retry_after` or
+	 * `retry_after_seconds`. Only a positive number is reported, capped at one hour.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function retry_after( array $data ): ?int {
+		foreach ( [ 'retry_after', 'retry_after_seconds' ] as $key ) {
+			if ( isset( $data[ $key ] ) && is_numeric( $data[ $key ] ) && (float) $data[ $key ] > 0 ) {
+				return min( 3600, (int) ceil( (float) $data[ $key ] ) );
+			}
+		}
+		return null;
 	}
 
 	/**

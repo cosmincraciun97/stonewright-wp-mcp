@@ -272,6 +272,57 @@ final class HealthProbeTest extends TestCase {
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', (string) $this->requests[0]['args']['headers'][ ProbeToken::HEADER ] );
 	}
 
+	/** @return array<string, array{0:string}> */
+	public static function kitStatusProvider(): array {
+		return [ 'published kit' => [ 'publish' ], 'draft kit' => [ 'draft' ] ];
+	}
+
+	/** @dataProvider kitStatusProvider */
+	public function test_a_kit_write_is_probed_at_the_front_page_without_credentials( string $status ): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 44;
+		$GLOBALS['stonewright_test_posts'][44]                      = (object) [ 'ID' => 44, 'post_status' => $status, 'post_type' => 'elementor_library' ];
+		$this->transport( [ 'home' => [ 200, '<html>front page</html>' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 44, 'user_id' => 7 ] );
+
+		self::assertSame( 'passed', $probe['status'] );
+		self::assertSame( 'full', $probe['coverage'] );
+		self::assertSame( 'post', $probe['legs'][0]['leg'] );
+		self::assertCount( 1, $this->requests );
+		self::assertStringStartsWith( 'https://example.test/?' . ProbeToken::PARAM . '=', $this->requests[0]['url'] );
+		self::assertStringNotContainsString( '?p=44', $this->requests[0]['url'] );
+		self::assertStringNotContainsString( 'preview', $this->requests[0]['url'] );
+		self::assertArrayNotHasKey( ProbeToken::HEADER, $this->requests[0]['args']['headers'], 'A public page needs no probe token.' );
+	}
+
+	public function test_a_kit_is_also_recognised_by_its_template_type_when_it_is_not_the_active_kit(): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 7;
+		$GLOBALS['stonewright_test_posts'][45]                      = (object) [ 'ID' => 45, 'post_status' => 'publish', 'post_type' => 'elementor_library', 'meta' => [ '_elementor_template_type' => 'kit' ] ];
+		$this->transport( [ 'home' => [ 200, '<html>front page</html>' ] ] );
+
+		HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 45, 'user_id' => 7 ] );
+
+		self::assertStringNotContainsString( '?p=45', $this->requests[0]['url'] );
+	}
+
+	public function test_a_failing_front_page_after_a_kit_write_fails_the_probe(): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 44;
+		$GLOBALS['stonewright_test_posts'][44]                      = (object) [ 'ID' => 44, 'post_status' => 'publish', 'post_type' => 'elementor_library' ];
+		$this->transport( [ 'home' => [ 500, '<body id="error-page"></body>' ] ] );
+
+		self::assertSame( 'failed', HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 44, 'user_id' => 7 ] )['status'] );
+	}
+
+	public function test_a_template_that_is_not_a_kit_keeps_its_own_probe(): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 44;
+		$GLOBALS['stonewright_test_posts'][46]                      = (object) [ 'ID' => 46, 'post_status' => 'publish', 'post_type' => 'elementor_library', 'meta' => [ '_elementor_template_type' => 'section' ] ];
+		$this->transport( [ 'post' => [ 200, '<html>template</html>' ] ] );
+
+		HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 46, 'user_id' => 7 ] );
+
+		self::assertStringContainsString( '?p=46', $this->requests[0]['url'] );
+	}
+
 	public function test_a_failure_on_the_post_page_fails_the_probe(): void {
 		$GLOBALS['stonewright_test_posts'][12] = (object) [ 'ID' => 12, 'post_status' => 'publish', 'post_type' => 'page' ];
 		$this->transport( [ 'post' => [ 500, '<body id="error-page"></body>' ] ] );

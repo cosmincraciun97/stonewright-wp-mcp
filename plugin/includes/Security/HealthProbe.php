@@ -15,7 +15,8 @@ namespace Stonewright\WpMcp\Security;
  *
  * A probe is a few short requests, called legs: the home page, a wp-admin screen (reached with
  * the internal ProbeToken, never the user's cookie or an Application Password), the REST index
- * and, after a post write, the post itself. Each leg is judged on what it returns. A fatal is
+ * and, after a post write, the post itself (for a kit, the public front page, which shows the kit's
+ * styles). Each leg is judged on what it returns. A fatal is
  * a failure: HTTP 500, the WordPress critical-error page, or PHP's own fatal text in the body.
  * A host that blocks loopback requests, a login wall, a gateway error or a timeout is not a
  * failure and not a success: the leg is "unavailable", and a probe with no passing leg is
@@ -362,6 +363,10 @@ final class HealthProbe {
 		if ( false === $status || 'trash' === $status ) {
 			return null;
 		}
+		if ( self::is_kit( $post_id ) ) {
+			// A kit has no front-end page of its own; its styles show on the public front page.
+			return [ 'url' => home_url( '/' ), 'needs_login' => false ];
+		}
 		if ( 'publish' === $status ) {
 			$link = get_permalink( $post_id );
 			return is_string( $link ) && '' !== $link ? [ 'url' => $link, 'needs_login' => false ] : null;
@@ -371,6 +376,18 @@ final class HealthProbe {
 		}
 		$preview = get_preview_post_link( $post_id );
 		return is_string( $preview ) && '' !== $preview ? [ 'url' => $preview, 'needs_login' => true ] : null;
+	}
+
+	/**
+	 * Whether a post is an Elementor kit (site-wide styles): the active kit, or a library post whose
+	 * template type is kit.
+	 */
+	private static function is_kit( int $post_id ): bool {
+		if ( $post_id === (int) get_option( 'elementor_active_kit', 0 ) ) {
+			return true;
+		}
+		return 'elementor_library' === get_post_type( $post_id )
+			&& 'kit' === get_post_meta( $post_id, '_elementor_template_type', true );
 	}
 
 	/**

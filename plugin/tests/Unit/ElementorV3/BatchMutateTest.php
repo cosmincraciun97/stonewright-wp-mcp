@@ -349,6 +349,9 @@ final class BatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		$message = \Stonewright\WpMcp\Support\ErrorEnvelope::with_agent_visible_payload( $result )->get_error_message();
+		self::assertStringContainsString( '"retryable":true', $message );
+		self::assertMatchesRegularExpression( '/"retry_after":\d+/', $message );
 	}
 
 	public function test_write_rechecks_page_after_acquiring_lock(): void {
