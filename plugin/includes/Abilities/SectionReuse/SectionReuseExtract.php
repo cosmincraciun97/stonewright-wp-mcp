@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Abilities\SectionReuse;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\SectionReuse\Builder;
+use Stonewright\WpMcp\SectionReuse\ElementorInsertWarnings;
 use Stonewright\WpMcp\SectionReuse\LegacyBlockAttributes;
 use Stonewright\WpMcp\SectionReuse\PortableSection;
 use Stonewright\WpMcp\SectionReuse\ReferenceCatalog;
@@ -148,7 +149,12 @@ final class SectionReuseExtract extends AbilityKernel {
 					'references' => $references,
 					'layout'     => $layout,
 					'outline'    => $extracted['inspection']['outline'],
-					'warnings'   => array_merge( ReuseWarnings::from( $references ), SourceWarnings::for_post( $post ), LegacyBlockAttributes::warnings( $extracted['migrated'] ) ),
+					'warnings'   => array_merge(
+						ReuseWarnings::from( $references ),
+						SourceWarnings::for_post( $post ),
+						LegacyBlockAttributes::warnings( $extracted['migrated'] ),
+						ElementorInsertWarnings::for_section( $section['builder'], is_array( $extracted['section']['element'] ?? null ) ? $extracted['section']['element'] : [] )
+					),
 					'stats'      => $extracted['stats'],
 					'next_step'  => $gutenberg
 						? 'Insert it with an insert_section operation of stonewright-blocks-batch-mutate. Address its blocks in the same batch with section_ref and relative_path.'

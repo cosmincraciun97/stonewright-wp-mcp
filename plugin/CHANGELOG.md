@@ -580,6 +580,40 @@
 - Fix the Setup callout of **Reuse saved sections**: it follows the switch
   before saving and is announced politely; the setting still changes only when
   the form is saved.
+- Write Elementor V4 text (the title of `e-heading`, the paragraph of
+  `e-paragraph`, the text of `e-button`) with the prop type the live widget
+  declares in its props schema (`escaped-html`, `html-v3`, `html-v2` or
+  `html`), in `elementor-v4-update-node`, `elementor-v4-render-from-spec` and
+  every other V4 text write. The bundled `html-v3` map applies only when no
+  live schema is available. An envelope of another type, or one whose value is
+  not the shape of its type, is refused; the readback of a write refuses text
+  the live widget would render empty, and restores the snapshot, instead of
+  reporting it verified.
+- Report a section of the wrong builder sent to `elementor-v3-batch-mutate` or
+  `elementor-v4-update-node` as `stonewright_section_builder_mismatch` before
+  the custom CSS gate reads it.
+- Accept in a copied V3 section a stored select or choose value that the live
+  control still maps through its `selectors_dictionary` (for example a heading
+  `align` of `left`). Any other value the control does not list is still
+  refused, naming the setting.
+- Rename an element id attribute that a copied section shares with the page or
+  with another copy in the same batch (`_element_id` in V3, `_cssid` in V4) to
+  `name-2`, `name-3`, point the `#name` links of the copy at it, and return an
+  `anchors_renamed` warning.
+- Warn at `section-reuse-extract` about what the insert will refuse: CSS
+  classes not in `stonewright_approved_css_classes` (named), custom CSS that
+  needs a custom-code grant, HTML widgets, and placeholder widgets. The refusal
+  of unapproved CSS classes names the classes and how a site approves them.
+- Refuse, in the dry run and the apply, a V3 section that holds a placeholder
+  Elementor registers for a plugin that is not active
+  (`stonewright_section_placeholder_widget`) or a widget that is not registered
+  (`stonewright_section_widget_unregistered`), with or without settings.
+- Refuse a batch with a duplicate `op_id` (`stonewright_duplicate_op_id`) in
+  `elementor-v3-batch-mutate`, `elementor-v4-update-node` and
+  `blocks-batch-mutate`, and refuse a batch whose `insert_section` operations
+  add more elements than the element cap of one write
+  (`stonewright_section_batch_too_large`).
+
 - Log the Rescue health probe's own requests in as the user a probe token was
   issued for before anything about the request is recorded, so the admin leg
   and the preview of a draft, private or pending page are answered as that

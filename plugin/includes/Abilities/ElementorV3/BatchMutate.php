@@ -32,6 +32,7 @@ use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Design\Diagnostics\ThirdPartyControlRiskMap;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
 use Stonewright\WpMcp\SectionReuse\Builder;
 use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
 use Stonewright\WpMcp\SectionReuse\PortableSection;
@@ -48,6 +49,9 @@ final class BatchMutate extends AbilityKernel {
 	use ConfirmationGuard;
 
 	private bool $token_already_verified = false;
+
+	/** @var int Elements the insert_section operations of the batch that is running add; checked against the element cap. */
+	private int $inserted_elements = 0;
 
 	public function name(): string {
 		return 'stonewright/elementor-v3-batch-mutate';
@@ -238,6 +242,7 @@ final class BatchMutate extends AbilityKernel {
 			$args,
 			function ( array $args ) {
 				$start      = microtime( true );
+				$this->inserted_elements = 0;
 				$post_id    = (int) $args['post_id'];
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
 				$operations = self::apply_batch_responsive_scope( $operations, $args );
@@ -255,6 +260,16 @@ final class BatchMutate extends AbilityKernel {
 				}
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one batch operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+
+				$duplicate = BatchOperationIds::duplicate( $operations );
+				if ( null !== $duplicate ) {
+					return $duplicate;
+				}
+				// A section of the other builder is a mistake of the caller; it is reported as such before the custom CSS gate reads it.
+				$mismatch = SectionReuseSetting::is_enabled() ? PortableSection::operations_builder_mismatch( $operations, Builder::ELEMENTOR_V3 ) : null;
+				if ( null !== $mismatch ) {
+					return $mismatch;
 				}
 
 				$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => $operations ], $args );
@@ -1267,6 +1282,10 @@ final class BatchMutate extends AbilityKernel {
 		if ( $payload instanceof \WP_Error ) {
 			return $payload;
 		}
+		$budget = ElementorSectionInserter::within_batch_budget( $this->inserted_elements, $payload );
+		if ( $budget instanceof \WP_Error ) {
+			return $budget;
+		}
 		if ( self::contains_html_widget( $payload['element'] ) ) {
 			$policy = HtmlWidgetPolicy::allowed( $operation );
 			if ( $policy instanceof \WP_Error ) {
@@ -1304,6 +1323,7 @@ final class BatchMutate extends AbilityKernel {
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $built['element'] );
+		$this->inserted_elements += count( $built['id_map'] );
 		$root_id  = (string) $built['element']['id'];
 		if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
 			$refs[ $operation['op_id'] ] = $root_id;

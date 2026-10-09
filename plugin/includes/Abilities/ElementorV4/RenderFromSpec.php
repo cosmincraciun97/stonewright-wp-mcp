@@ -138,6 +138,7 @@ return $gate; }
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
+				$existing = [];
 				if ( $replace ) {
 					$verify_args = array_filter(
 						$args,
@@ -162,7 +163,7 @@ return $gate; }
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}
-				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec' );
+				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec', [ 'ids' => array_keys( ElementorData::flatten( $atomic_tree ) ), 'before' => $existing ] );
 				if ( $readback instanceof \WP_Error ) {
 					return $readback;
 				}

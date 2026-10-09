@@ -106,7 +106,7 @@ final class ContainerSchemaRepository {
 				'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 				'provenance' => 'live_elementor_runtime',
 			];
-			foreach ( [ 'default', 'options', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
+			foreach ( [ 'default', 'options', 'selectors_dictionary', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
 				if ( array_key_exists( $field, $control ) ) {
 					$controls[ $name ][ $field ] = $control[ $field ];
 				}
@@ -188,6 +188,7 @@ final class ContainerSchemaRepository {
 			'box_shadow_box_shadow' => [ 'type' => 'switcher' ],
 			'z_index'               => [ 'type' => 'number', 'responsive' => true ],
 			'css_id'                => [ 'type' => 'text' ],
+			'_element_id'           => [ 'type' => 'text' ],
 			'css_classes'           => [ 'type' => 'text' ],
 			'_css_classes'          => [ 'type' => 'text' ],
 			'position'              => [ 'type' => 'select' ],

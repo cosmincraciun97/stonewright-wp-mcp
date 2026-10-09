@@ -227,7 +227,7 @@ final class SectionInsertElementorV4Test extends TestCase {
 		$result = self::batch( [ self::insert_op( $section ) ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_data()['items'][0]['error']['code'] );
+		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_code() );
 	}
 
 	public function test_a_missing_global_class_or_variable_fails_with_the_exact_reference(): void {
