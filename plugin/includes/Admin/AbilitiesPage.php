@@ -3,23 +3,64 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\Nonce;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
 
 /**
  * Admin page for enabling and reviewing Stonewright abilities.
+ *
+ * Built from the shared UI layer. The page script (assets/admin/pages/abilities.js) switches abilities through
+ * the routes of AbilitiesRestApi without a reload; the bulk form and the two admin-post handlers below stay as
+ * the way in when script or REST is not available. Both ways change the option through AbilityToggles.
  */
 final class AbilitiesPage {
 
-	private const SLUG              = 'stonewright-abilities';
-	private const CAPABILITY        = 'manage_options';
-	private const NONCE_ACTION      = 'stonewright_toggle_ability';
-	private const BULK_NONCE_ACTION = 'stonewright_bulk_abilities';
+	public const SLUG              = 'stonewright-abilities';
+	public const CAPABILITY        = 'manage_options';
+	public const NONCE_ACTION      = 'stonewright_toggle_ability';
+	public const BULK_NONCE_ACTION = 'stonewright_bulk_abilities';
+
+	/** Result codes the page prints a notice for (the query value `stonewright_toggled`). */
+	private const RESULT_CODES = [ 'enabled', 'disabled', 'bulk-enabled', 'bulk-disabled', 'bulk-no-action', 'bulk-no-selection', 'bulk-no-category', 'missing-name' ];
+
+	/** Words that are written in capitals or in a fixed form. */
+	private const WORDS = [
+		'acf'         => 'ACF',
+		'api'         => 'API',
+		'cli'         => 'CLI',
+		'css'         => 'CSS',
+		'fse'         => 'FSE',
+		'html'        => 'HTML',
+		'mcp'         => 'MCP',
+		'php'         => 'PHP',
+		'seo'         => 'SEO',
+		'woocommerce' => 'WooCommerce',
+		'wp'          => 'WP',
+	];
+
+	/** Categories whose name is not the slug read as words. */
+	private const CATEGORY_LABELS = [
+		'wp-cli'           => 'WP-CLI',
+		'fse'              => 'Full-site editing',
+		'elementor-widget' => 'Elementor widgets',
+		'registered'       => 'Registered with WordPress',
+	];
 
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_toggle_ability', [ self::class, 'handle_toggle' ] );
 		add_action( 'admin_post_stonewright_bulk_abilities', [ self::class, 'handle_bulk' ] );
+		add_action( 'rest_api_init', [ AbilitiesRestApi::class, 'register' ] );
+		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
 	}
 
 	public static function add_submenu(): void {
@@ -34,219 +75,444 @@ final class AbilitiesPage {
 		);
 	}
 
+	/**
+	 * Load the page script. The stylesheet is enqueued by AdminBootstrap's page style map.
+	 */
+	public static function enqueue( string $hook_suffix = '' ): void {
+		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( (string) $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( self::SLUG !== $page && ! str_contains( $hook_suffix, self::SLUG ) ) {
+			return;
+		}
+		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
+		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
+		wp_enqueue_script( 'stonewright-admin-abilities', $base . 'assets/admin/pages/abilities.js', [ 'stonewright-ui' ], $version, true );
+	}
+
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
 		}
 
-		$abilities          = AbilityHubCatalog::collect();
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
-		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
+		$disabled_abilities = array_map( 'strval', (array) get_option( 'stonewright_disabled_abilities', [] ) );
 		$groups             = AbilityHubCatalog::grouped();
 		$label_counts       = self::label_counts( $groups );
-		$stats              = self::compute_stats( $abilities, $disabled_abilities );
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only admin notice flag.
-		$notice             = isset( $_GET['stonewright_toggled'] )
-			? sanitize_key( wp_unslash( (string) $_GET['stonewright_toggled'] ) )
-			: '';
+		$stats              = AbilityToggles::stats();
+
+		$status = $master_enabled
+			? Badge::render( __( 'AI abilities on', 'stonewright' ), [ 'variant' => 'ok', 'dot' => true ] )
+			: Badge::render( __( 'AI abilities off', 'stonewright' ), [ 'dot' => true ] );
+
+		$html = Scope::wrap( self::page_html( $groups, $label_counts, $disabled_abilities, $stats, $master_enabled ), [ 'page' => true ] );
+
+		AdminShell::open( self::SLUG, [ 'actions' => $status ] );
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+		AdminShell::close();
+	}
+
+	/**
+	 * @param array<string, array{id: string, label: string, registered: bool, categories: array<string, list<array<string, mixed>>>}> $groups
+	 * @param array<string, int>                                                                                                          $label_counts
+	 * @param list<string>                                                                                                                $disabled
+	 * @param array{enabled: int, write: int, read: int, total: int}                                                                      $stats
+	 */
+	private static function page_html( array $groups, array $label_counts, array $disabled, array $stats, bool $master_enabled ): string {
+		$notices = '';
+		if ( ! $master_enabled ) {
+			$notices .= Notice::callout(
+				'warn',
+				__( 'AI abilities are switched off', 'stonewright' ),
+				__( 'You can still set up abilities here, but calls from AI clients are refused until you switch them on. Only ping answers.', 'stonewright' ),
+				[ 'actions_html' => Button::render( __( 'Open Setup', 'stonewright' ), [ 'href' => admin_url( 'admin.php?page=stonewright' ), 'size' => 'sm' ] ) ]
+			);
+		}
+		$notices .= self::result_notice();
+
+		$providers = '';
+		foreach ( $groups as $provider => $group ) {
+			$providers .= self::provider_html( (string) $provider, $group, $label_counts, $disabled );
+		}
+		if ( [] === $groups ) {
+			$providers = EmptyState::render(
+				__( 'No abilities are registered', 'stonewright' ),
+				__( 'Stonewright could not read its ability list. Reload the page; if this repeats, check the PHP error log for a fatal error from a plugin that registers abilities.', 'stonewright' ),
+				[ 'variant' => 'error' ]
+			);
+		}
+
+		$empty = Html::element(
+			'div',
+			[ 'data-sw-abilities-empty' => '', 'hidden' => true, 'id' => 'sw-abilities-empty' ],
+			EmptyState::render(
+				__( 'No abilities match', 'stonewright' ),
+				__( 'Try fewer words, or clear the search.', 'stonewright' ),
+				[
+					'variant'      => 'no-results',
+					'actions_html' => Button::render( __( 'Clear search', 'stonewright' ), [ 'attrs' => [ 'data-sw-abilities-clear' => '' ] ] ),
+				]
+			)
+		);
+
+		$form = Html::element(
+			'form',
+			[
+				'id'     => 'stonewright-bulk-form',
+				'method' => 'post',
+				'action' => admin_url( 'admin-post.php' ),
+				'class'  => 'sw-abilities__form',
+			],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_bulk_abilities' ] )
+				. Nonce::field( self::BULK_NONCE_ACTION )
+				. self::toolbar_html( $groups, $stats )
+				. $empty
+				. Html::element( 'div', [ 'class' => 'sw-abilities__list' ], $providers )
+		);
+
+		return Html::element(
+			'div',
+			[
+				'class'             => 'sw-abilities',
+				'data-sw-abilities' => '',
+				'data-rest-url'     => rest_url( 'stonewright/v1/admin/abilities' ),
+				'data-rest-nonce'   => wp_create_nonce( AbilitiesRestApi::REST_NONCE_ACTION ),
+				'data-toggle-nonce' => wp_create_nonce( self::NONCE_ACTION ),
+				'data-bulk-nonce'   => wp_create_nonce( self::BULK_NONCE_ACTION ),
+				'data-strings'      => (string) wp_json_encode( self::script_strings() ),
+			],
+			Html::element( 'div', [ 'class' => 'sw-abilities__notices', 'data-sw-abilities-notices' => '' ], $notices )
+				. self::toggle_form_html()
+				. $form
+		);
+	}
+
+	/** The result of a form post, printed after the redirect. A refusal is a warning and is announced as one. */
+	private static function result_notice(): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only result flags.
+		$code    = isset( $_GET['stonewright_toggled'] ) ? sanitize_key( wp_unslash( (string) $_GET['stonewright_toggled'] ) ) : '';
+		$changed = isset( $_GET['stonewright_changed'] ) ? max( 0, (int) $_GET['stonewright_changed'] ) : 0;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-		?>
-		<?php AdminShell::open( 'stonewright-abilities' ); ?>
-		<div class="sw-abilities-page stonewright-abilities-page">
-			<?php if ( ! $master_enabled ) : ?>
-				<div class="notice notice-warning sw-notice">
-					<p>
-						<?php esc_html_e( 'Master toggle is off. Abilities remain configurable here but runtime calls are rejected except ping.', 'stonewright' ); ?>
-						<a href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright' ) ); ?>">
-							<?php esc_html_e( 'Open Configuration', 'stonewright' ); ?>
-						</a>
-					</p>
-				</div>
-			<?php endif; ?>
+		if ( ! in_array( $code, self::RESULT_CODES, true ) ) {
+			return '';
+		}
 
-			<?php if ( in_array( $notice, [ 'enabled', 'disabled', 'bulk-enabled', 'bulk-disabled' ], true ) ) : ?>
-				<div class="notice notice-success is-dismissible sw-notice" aria-live="polite">
-					<p><?php esc_html_e( 'Ability settings updated.', 'stonewright' ); ?></p>
-				</div>
-			<?php endif; ?>
+		$refused = str_starts_with( $code, 'bulk-no-' ) || 'missing-name' === $code;
 
-			<form id="stonewright-bulk-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="stonewright_bulk_abilities"/>
-				<?php wp_nonce_field( self::BULK_NONCE_ACTION ); ?>
-			</form>
+		return Notice::render( $refused ? 'warn' : 'ok', AbilityToggles::message( $code, $changed ) );
+	}
 
-			<div class="sw-abilities-filters stonewright-abilities-toolbar" data-sw-abilities-filters>
-				<label class="screen-reader-text" for="stonewright-ability-search">
-					<?php esc_html_e( 'Search abilities', 'stonewright' ); ?>
-				</label>
-				<input
-					type="search"
-					id="stonewright-ability-search"
-					class="regular-text sw-abilities-search"
-					placeholder="<?php esc_attr_e( 'Search by label, tool, category, or kind', 'stonewright' ); ?>"
-					autocomplete="off"
-				/>
+	/**
+	 * The form the page script submits when the REST route cannot be reached. It is the form the switch used to
+	 * submit, one for the whole page instead of one per ability.
+	 */
+	private static function toggle_form_html(): string {
+		return Html::element(
+			'form',
+			[
+				'id'                          => 'sw-abilities-toggle-form',
+				'method'                      => 'post',
+				'action'                      => admin_url( 'admin-post.php' ),
+				'hidden'                      => true,
+				'data-sw-abilities-toggle-form' => '',
+			],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_toggle_ability' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'ability_name', 'value' => '' ] )
+				. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'ability_enabled', 'value' => '' ] )
+				. Nonce::field( self::NONCE_ACTION )
+		);
+	}
 
-				<label class="screen-reader-text" for="stonewright-bulk-action">
-					<?php esc_html_e( 'Bulk action', 'stonewright' ); ?>
-				</label>
-				<select id="stonewright-bulk-action" name="stonewright_bulk_action" form="stonewright-bulk-form">
-					<option value=""><?php esc_html_e( 'Bulk action', 'stonewright' ); ?></option>
-					<option value="enable_selected"><?php esc_html_e( 'Enable selected', 'stonewright' ); ?></option>
-					<option value="disable_selected"><?php esc_html_e( 'Disable selected', 'stonewright' ); ?></option>
-					<option value="enable_category"><?php esc_html_e( 'Enable category', 'stonewright' ); ?></option>
-					<option value="disable_category"><?php esc_html_e( 'Disable category', 'stonewright' ); ?></option>
-				</select>
+	/**
+	 * Search, what is shown and what is on, and the bulk controls. It sticks under the admin bar from 783px up.
+	 *
+	 * @param array<string, array{id: string, label: string, registered: bool, categories: array<string, list<array<string, mixed>>>}> $groups
+	 * @param array{enabled: int, write: int, read: int, total: int}                                                                      $stats
+	 */
+	private static function toolbar_html( array $groups, array $stats ): string {
+		$search = Html::element( 'label', [ 'class' => 'sw-ui-visually-hidden', 'for' => 'stonewright-ability-search' ], Html::text( __( 'Search abilities', 'stonewright' ) ) )
+			. Html::void(
+				'input',
+				[
+					'type'               => 'search',
+					'id'                 => 'stonewright-ability-search',
+					'class'              => 'sw-ui-input sw-ui-toolbar__search',
+					'placeholder'        => __( 'Search by name, tool, category or kind', 'stonewright' ),
+					'autocomplete'       => 'off',
+					'data-sw-ui-search'  => '',
+					'aria-controls'      => 'sw-abilities-empty',
+				]
+			);
 
-				<label class="screen-reader-text" for="stonewright-bulk-category">
-					<?php esc_html_e( 'Category for the bulk action', 'stonewright' ); ?>
-				</label>
-				<select id="stonewright-bulk-category" name="stonewright_bulk_category" form="stonewright-bulk-form">
-					<option value=""><?php esc_html_e( 'Category', 'stonewright' ); ?></option>
-					<?php foreach ( self::category_options( $groups ) as $category ) : ?>
-						<option value="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( self::category_label( $category ) ); ?></option>
-					<?php endforeach; ?>
-				</select>
-
-				<button type="submit" form="stonewright-bulk-form" class="sw-btn sw-btn--secondary sw-btn--sm">
-					<?php esc_html_e( 'Apply', 'stonewright' ); ?>
-				</button>
-
-				<label class="stonewright-select-all">
-					<input type="checkbox" data-stonewright-select-all />
-					<span><?php esc_html_e( 'Select visible', 'stonewright' ); ?></span>
-				</label>
-
-				<div class="sw-abilities-stats" aria-live="polite">
-					<?php
-					printf(
+		$meta = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-toolbar__meta', 'role' => 'status', 'aria-live' => 'polite', 'aria-atomic' => 'true', 'data-sw-abilities-meta' => '' ],
+			Html::element(
+				'span',
+				[ 'data-sw-abilities-shown' => '' ],
+				Html::text( sprintf( /* translators: %d: number of abilities */ _n( '%d ability', '%d abilities', $stats['total'], 'stonewright' ), $stats['total'] ) )
+			)
+			. Html::element( 'span', [ 'aria-hidden' => 'true' ], ' · ' )
+			. Html::element(
+				'span',
+				[ 'data-sw-abilities-stats' => '' ],
+				Html::text(
+					sprintf(
 						/* translators: 1: enabled count, 2: write count, 3: read count */
-						esc_html__( 'Enabled %1$d · Write %2$d · Read %3$d', 'stonewright' ),
-						(int) $stats['enabled'],
-						(int) $stats['write'],
-						(int) $stats['read']
-					);
-					?>
-				</div>
-			</div>
+						__( 'Enabled %1$d · Write %2$d · Read %3$d', 'stonewright' ),
+						$stats['enabled'],
+						$stats['write'],
+						$stats['read']
+					)
+				)
+			)
+		);
 
-			<div class="sw-abilities-empty" data-sw-abilities-empty hidden>
-				<p><?php esc_html_e( 'No abilities match your search.', 'stonewright' ); ?></p>
-			</div>
+		$category_options = Html::element( 'option', [ 'value' => '' ], Html::text( __( 'Category', 'stonewright' ) ) );
+		foreach ( self::category_options( $groups ) as $category ) {
+			$category_options .= Html::element( 'option', [ 'value' => $category ], Html::text( self::category_label( $category ) ) );
+		}
+		$action_options = Html::element( 'option', [ 'value' => '' ], Html::text( __( 'Bulk action', 'stonewright' ) ) )
+			. Html::element( 'option', [ 'value' => 'enable_selected' ], Html::text( __( 'Enable selected', 'stonewright' ) ) )
+			. Html::element( 'option', [ 'value' => 'disable_selected' ], Html::text( __( 'Disable selected', 'stonewright' ) ) )
+			. Html::element( 'option', [ 'value' => 'enable_category' ], Html::text( __( 'Enable whole category', 'stonewright' ) ) )
+			. Html::element( 'option', [ 'value' => 'disable_category' ], Html::text( __( 'Disable whole category', 'stonewright' ) ) );
 
-			<div class="stonewright-provider-group-list sw-abilities-list">
-				<?php foreach ( $groups as $provider => $provider_group ) : ?>
-					<?php
-					$provider_abilities = [];
-					foreach ( $provider_group['categories'] as $category_abilities ) {
-						foreach ( $category_abilities as $ability ) {
-							$provider_abilities[] = $ability;
-						}
-					}
-					$provider_enabled = 0;
-					foreach ( $provider_abilities as $ability ) {
-						if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
-							++$provider_enabled;
-						}
-					}
-					?>
-					<div
-						class="stonewright-provider-group"
-						data-provider="<?php echo esc_attr( (string) $provider ); ?>"
-					>
-						<div class="stonewright-provider-group__header">
-							<div>
-								<span class="stonewright-provider-name"><?php echo esc_html( (string) $provider_group['label'] ); ?></span>
-								<?php if ( ! $provider_group['registered'] ) : ?>
-									<p class="description"><?php esc_html_e( 'Not registered', 'stonewright' ); ?></p>
-								<?php endif; ?>
-							</div>
-							<span class="sw-badge sw-badge--neutral">
-								<?php
-								printf(
-									/* translators: 1: enabled in provider, 2: total in provider */
-									esc_html__( '%1$d / %2$d', 'stonewright' ),
-									(int) $provider_enabled,
-									(int) count( $provider_abilities )
-								);
-								?>
-							</span>
-						</div>
+		$bulk = Html::element(
+			'div',
+			[ 'class' => 'sw-abilities__bulk' ],
+			Html::element(
+				'label',
+				[ 'class' => 'sw-ui-checkbox' ],
+				Html::void( 'input', [ 'type' => 'checkbox', 'data-sw-abilities-select-all' => '' ] )
+					. Html::element( 'span', [], Html::text( __( 'Select visible', 'stonewright' ) ) )
+			)
+			. Html::element( 'label', [ 'class' => 'sw-ui-visually-hidden', 'for' => 'stonewright-bulk-action' ], Html::text( __( 'Bulk action', 'stonewright' ) ) )
+			. Html::element( 'select', [ 'id' => 'stonewright-bulk-action', 'name' => 'stonewright_bulk_action', 'class' => 'sw-ui-select', 'aria-describedby' => 'sw-abilities-bulk-error' ], $action_options )
+			. Html::element( 'label', [ 'class' => 'sw-ui-visually-hidden', 'for' => 'stonewright-bulk-category' ], Html::text( __( 'Category for the bulk action', 'stonewright' ) ) )
+			. Html::element( 'select', [ 'id' => 'stonewright-bulk-category', 'name' => 'stonewright_bulk_category', 'class' => 'sw-ui-select', 'aria-describedby' => 'sw-abilities-bulk-error' ], $category_options )
+			. Button::render( __( 'Apply', 'stonewright' ), [ 'type' => 'submit', 'attrs' => [ 'data-sw-abilities-apply' => '' ] ] )
+			. Html::element( 'span', [ 'class' => 'sw-abilities__selected', 'role' => 'status', 'aria-live' => 'polite', 'data-sw-abilities-selected' => '' ], '' )
+			. Html::element(
+				'p',
+				[ 'class' => 'sw-ui-field__error sw-abilities__error', 'id' => 'sw-abilities-bulk-error', 'hidden' => true, 'data-sw-abilities-error' => '' ],
+				''
+			)
+		);
 
-						<?php if ( [] === $provider_group['categories'] ) : ?>
-							<?php if ( $provider_group['registered'] ) : ?>
-								<p class="description"><?php esc_html_e( 'No abilities in this provider.', 'stonewright' ); ?></p>
-							<?php endif; ?>
-						<?php else : ?>
-							<?php foreach ( $provider_group['categories'] as $category => $category_abilities ) : ?>
-								<?php
-								$cat_enabled = 0;
-								foreach ( $category_abilities as $ability ) {
-									if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
-										++$cat_enabled;
-									}
-								}
-								?>
-								<details
-									class="sw-ability-category"
-									data-provider="<?php echo esc_attr( (string) $provider ); ?>"
-									data-category="<?php echo esc_attr( $category ); ?>"
-									open
-								>
-									<summary class="sw-ability-category__summary">
-										<div class="sw-ability-category__title">
-											<h2><?php echo esc_html( self::category_label( $category ) ); ?></h2>
-										</div>
-										<span class="sw-badge sw-badge--neutral">
-											<?php
-											printf(
-												/* translators: 1: enabled in category, 2: total in category */
-												esc_html__( '%1$d / %2$d', 'stonewright' ),
-												(int) $cat_enabled,
-												(int) count( $category_abilities )
-											);
-											?>
-										</span>
-										<span class="sw-ability-category__actions sw-actions">
-											<button
-												type="submit"
-												form="stonewright-bulk-form"
-												class="sw-btn sw-btn--ghost sw-btn--sm"
-												data-sw-bulk-action="enable_category"
-												data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
-											><?php esc_html_e( 'Enable all', 'stonewright' ); ?></button>
-											<button
-												type="submit"
-												form="stonewright-bulk-form"
-												class="sw-btn sw-btn--ghost sw-btn--sm"
-												data-sw-bulk-action="disable_category"
-												data-sw-bulk-category="<?php echo esc_attr( $category ); ?>"
-											><?php esc_html_e( 'Disable all', 'stonewright' ); ?></button>
-										</span>
-									</summary>
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-toolbar sw-ui-toolbar--sticky', 'role' => 'group', 'aria-label' => __( 'Search and bulk actions', 'stonewright' ) ],
+			$search . $meta . $bulk
+		);
+	}
 
-									<div class="stonewright-ability-table" role="table">
-										<div class="stonewright-ability-table__head" role="row">
-											<span></span>
-											<span><?php esc_html_e( 'Ability', 'stonewright' ); ?></span>
-											<span><?php esc_html_e( 'MCP tool', 'stonewright' ); ?></span>
-											<span><?php esc_html_e( 'Kind', 'stonewright' ); ?></span>
-											<span><?php esc_html_e( 'Enabled', 'stonewright' ); ?></span>
-											<span><?php esc_html_e( 'Details', 'stonewright' ); ?></span>
-										</div>
-										<?php foreach ( $category_abilities as $index => $ability ) : ?>
-											<?php self::render_ability_row( $ability, $disabled_abilities, $category, $index, $label_counts ); ?>
-										<?php endforeach; ?>
-									</div>
-								</details>
-							<?php endforeach; ?>
-						<?php endif; ?>
-					</div>
-				<?php endforeach; ?>
-			</div>
-		</div>
-		<?php AdminShell::close(); ?>
-		<?php
+	/**
+	 * @param array{id: string, label: string, registered: bool, categories: array<string, list<array<string, mixed>>>} $group
+	 * @param array<string, int>                                                                                          $label_counts
+	 * @param list<string>                                                                                                $disabled
+	 */
+	private static function provider_html( string $provider, array $group, array $label_counts, array $disabled ): string {
+		$total   = 0;
+		$enabled = 0;
+		foreach ( $group['categories'] as $abilities ) {
+			foreach ( $abilities as $ability ) {
+				++$total;
+				if ( LiveAbilities::counts_as_enabled( $ability, $disabled ) ) {
+					++$enabled;
+				}
+			}
+		}
+
+		$heading_id = Html::unique_id( 'provider' );
+		$label      = self::humanize( $provider, (string) $group['label'] );
+		$head       = Html::element( 'h2', [ 'class' => 'sw-abilities__provider-title', 'id' => $heading_id ], Html::text( $label ) )
+			. Html::element(
+				'span',
+				[ 'class' => 'sw-ui-badge', 'data-sw-provider-count' => '' ],
+				Html::text( self::count_words( $enabled, $total ) )
+			)
+			. ( ! $group['registered'] ? Html::element( 'span', [ 'class' => 'sw-ui-hint' ], Html::text( __( 'Not registered', 'stonewright' ) ) ) : '' );
+
+		if ( [] === $group['categories'] ) {
+			$body = $group['registered']
+				? EmptyState::render( __( 'No abilities in this provider', 'stonewright' ), '', [ 'variant' => 'inline' ] )
+				: EmptyState::render( __( 'Nothing registered yet', 'stonewright' ), __( 'This provider adds abilities once its plugin is active and registers them with WordPress.', 'stonewright' ), [ 'variant' => 'inline' ] );
+		} else {
+			$body = '';
+			foreach ( $group['categories'] as $category => $abilities ) {
+				$body .= self::category_html( $provider, (string) $category, $abilities, $label_counts, $disabled );
+			}
+		}
+
+		return Html::element(
+			'section',
+			[ 'class' => 'sw-abilities__provider', 'data-provider' => $provider, 'aria-labelledby' => $heading_id ],
+			Html::element( 'div', [ 'class' => 'sw-abilities__provider-head' ], $head ) . $body
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $abilities
+	 * @param array<string, int>         $label_counts
+	 * @param list<string>               $disabled
+	 */
+	private static function category_html( string $provider, string $category, array $abilities, array $label_counts, array $disabled ): string {
+		$enabled = 0;
+		$rows    = [];
+		foreach ( $abilities as $ability ) {
+			if ( LiveAbilities::counts_as_enabled( $ability, $disabled ) ) {
+				++$enabled;
+			}
+			$rows[] = self::ability_row( $ability, $disabled, $label_counts );
+		}
+
+		$label = self::category_label( $category );
+		$table = Table::render(
+			[
+				[ 'key' => 'select', 'label' => __( 'Select', 'stonewright' ), 'hide_label' => true ],
+				[ 'key' => 'ability', 'label' => __( 'Ability', 'stonewright' ), 'primary' => true ],
+				[ 'key' => 'kind', 'label' => __( 'Kind', 'stonewright' ) ],
+				[ 'key' => 'enabled', 'label' => __( 'Enabled', 'stonewright' ) ],
+			],
+			$rows,
+			[
+				'caption' => sprintf(
+					/* translators: %s: category name */
+					__( 'Abilities in %s', 'stonewright' ),
+					$label
+				),
+				'class'   => 'sw-abilities__table',
+			]
+		);
+
+		$actions = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-actions sw-abilities__category-actions', 'hidden' => true, 'data-sw-category-actions' => '' ],
+			Button::render(
+				__( 'Enable all', 'stonewright' ),
+				[ 'size' => 'sm', 'context' => sprintf( /* translators: %s: category name */ __( 'in %s', 'stonewright' ), $label ), 'attrs' => [ 'data-sw-bulk-action' => 'enable_category', 'data-sw-bulk-category' => $category ] ]
+			)
+			. Button::render(
+				__( 'Disable all', 'stonewright' ),
+				[ 'size' => 'sm', 'context' => sprintf( /* translators: %s: category name */ __( 'in %s', 'stonewright' ), $label ), 'attrs' => [ 'data-sw-bulk-action' => 'disable_category', 'data-sw-bulk-category' => $category ] ]
+			)
+		);
+
+		$summary = Html::element(
+			'summary',
+			[],
+			Icon::render( 'chev-r' )
+				. Html::element( 'h3', [ 'class' => 'sw-abilities__category-title' ], Html::text( $label ) )
+				. Html::element( 'span', [ 'class' => 'sw-ui-badge', 'data-sw-category-count' => '' ], Html::text( self::count_words( $enabled, count( $abilities ) ) ) )
+		);
+
+		return Html::element(
+			'details',
+			[
+				'class'         => 'sw-ui-disclosure sw-abilities__category',
+				'data-provider' => $provider,
+				'data-category' => $category,
+			],
+			$summary . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-abilities__category-body' ], $actions . $table )
+		);
+	}
+
+	/**
+	 * One table row. Every control is named after the ability; when two abilities share a label the tool name
+	 * tells them apart.
+	 *
+	 * @param array<string, mixed>                        $ability
+	 * @param list<string>                                $disabled
+	 * @param array<string, int>                          $label_counts
+	 * @return array<string, array{html: string}>
+	 */
+	private static function ability_row( array $ability, array $disabled, array $label_counts ): array {
+		$name       = (string) $ability['name'];
+		$label      = (string) $ability['label'];
+		$is_enabled = ! in_array( $name, $disabled, true );
+		$kind       = AbilityKind::of( $name );
+		$slug       = sanitize_html_class( str_replace( '/', '-', $name ) );
+		$label_id   = 'sw-ability-' . $slug . '-label';
+		$tool_id    = 'sw-ability-' . $slug . '-tool';
+		$select_id  = 'sw-ability-' . $slug . '-select';
+		$params_id  = 'sw-ability-' . $slug . '-params';
+		$tool_name  = (string) ( $ability['mcp_tool_name'] ?? AbilityRegistry::mcp_tool_name( $name ) );
+		$name_ids   = $label_id . ( ( $label_counts[ $label ] ?? 1 ) > 1 ? ' ' . $tool_id : '' );
+
+		$checkbox = Html::element(
+			'label',
+			[ 'class' => 'sw-ui-checkbox' ],
+			Html::void(
+				'input',
+				[
+					'type'                     => 'checkbox',
+					'name'                     => 'stonewright_abilities[]',
+					'value'                    => $name,
+					'aria-labelledby'          => $select_id . ' ' . $name_ids,
+					'data-sw-ability-select'   => '',
+				]
+			)
+			. Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'id' => $select_id ], Html::text( __( 'Select', 'stonewright' ) ) )
+		);
+
+		$not_registered = $is_enabled && false === ( $ability['registered'] ?? true )
+			? Badge::render( __( 'Not registered with WordPress', 'stonewright' ), [ 'variant' => 'warn', 'icon' => 'alert' ] )
+			: '';
+
+		$main = Html::element(
+			'div',
+			[
+				'class'           => 'sw-abilities__main',
+				'data-sw-ability' => $name,
+				'data-ability-label' => $label,
+				'data-tool'       => $tool_name,
+				'data-category'   => (string) $ability['category'],
+				'data-kind'       => $kind,
+				'data-live'       => false === ( $ability['registered'] ?? true ) ? '0' : '1',
+			],
+			Html::element( 'span', [ 'class' => 'sw-ui-table__primary', 'id' => $label_id ], Html::text( $label ) )
+				. Html::element( 'span', [ 'class' => 'sw-ui-table__meta' ], Html::text( (string) $ability['description'] ) )
+				. Html::element( 'code', [ 'class' => 'sw-abilities__tool', 'id' => $tool_id ], Html::text( $tool_name ) )
+				. $not_registered
+				. Html::element(
+					'details',
+					[ 'class' => 'sw-ui-disclosure sw-ui-disclosure--inline', 'data-sw-ability-params' => $name ],
+					Html::element(
+						'summary',
+						[ 'id' => $params_id, 'aria-labelledby' => $params_id . ' ' . $name_ids ],
+						Icon::render( 'chev-r' ) . Html::text( __( 'Parameters', 'stonewright' ) )
+					)
+					. Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body', 'data-sw-ability-params-body' => '' ], '' )
+				)
+		);
+
+		$kind_cell = AbilityKind::DESTRUCTIVE === $kind
+			? Badge::render( AbilityKind::label( $kind ), [ 'variant' => 'danger', 'icon' => 'alert' ] )
+			: Badge::tag( AbilityKind::label( $kind ) );
+
+		$switch = Html::element(
+			'label',
+			[ 'class' => 'sw-ui-switch' ],
+			Html::void(
+				'input',
+				[
+					'type'                    => 'checkbox',
+					'role'                    => 'switch',
+					'value'                   => '1',
+					'checked'                 => $is_enabled,
+					'aria-labelledby'         => $name_ids,
+					'data-sw-ability-switch'  => $name,
+				]
+			)
+			. Html::element( 'span', [ 'class' => 'sw-ui-switch__track', 'aria-hidden' => 'true' ], '' )
+			. Html::element( 'span', [ 'class' => 'sw-abilities__state', 'aria-hidden' => 'true', 'data-sw-ability-state' => '' ], Html::text( $is_enabled ? __( 'On', 'stonewright' ) : __( 'Off', 'stonewright' ) ) )
+		);
+
+		return [
+			'select'  => [ 'html' => $checkbox ],
+			'ability' => [ 'html' => $main ],
+			'kind'    => [ 'html' => $kind_cell ],
+			'enabled' => [ 'html' => $switch ],
+		];
 	}
 
 	/**
@@ -269,162 +535,6 @@ final class AbilitiesPage {
 	}
 
 	/**
-	 * @param array<string, mixed> $ability
-	 * @param array<int, string>   $disabled_abilities
-	 * @param array<string, int>   $label_counts
-	 */
-	private static function render_ability_row(
-		array $ability,
-		array $disabled_abilities,
-		string $category,
-		int $index,
-		array $label_counts = []
-	): void {
-		$name       = (string) $ability['name'];
-		$is_enabled = ! in_array( $name, $disabled_abilities, true );
-		$kind       = self::kind_for( $name );
-		$row_id     = 'stonewright-ability-' . sanitize_html_class( str_replace( '/', '-', $name ) );
-		$form_id    = $row_id . '-form-' . $index;
-		$label_id   = $row_id . '-label';
-		$select_id  = $row_id . '-select';
-		$details_id = $row_id . '-details';
-		$tool_id    = $row_id . '-tool';
-		$tool_name  = (string) ( $ability['mcp_tool_name'] ?? AbilityRegistry::mcp_tool_name( $name ) );
-		// Controls are named after the ability label; when two abilities share a label the tool name tells them apart.
-		$name_ids = $label_id . ( ( $label_counts[ (string) $ability['label'] ] ?? 1 ) > 1 ? ' ' . $tool_id : '' );
-		?>
-		<form id="<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<input type="hidden" name="action" value="stonewright_toggle_ability"/>
-			<input type="hidden" name="ability_name" value="<?php echo esc_attr( $name ); ?>"/>
-			<?php wp_nonce_field( self::NONCE_ACTION ); ?>
-		</form>
-		<div
-			id="<?php echo esc_attr( $row_id ); ?>"
-			class="stonewright-ability-row<?php echo $is_enabled ? '' : ' is-disabled'; ?>"
-			role="row"
-			data-name="<?php echo esc_attr( $name ); ?>"
-			data-label="<?php echo esc_attr( (string) $ability['label'] ); ?>"
-			data-tool="<?php echo esc_attr( $tool_name ); ?>"
-			data-category="<?php echo esc_attr( $category ); ?>"
-			data-kind="<?php echo esc_attr( $kind ); ?>"
-		>
-			<label class="stonewright-row-check">
-				<input
-					type="checkbox"
-					name="stonewright_abilities[]"
-					value="<?php echo esc_attr( $name ); ?>"
-					form="stonewright-bulk-form"
-					aria-labelledby="<?php echo esc_attr( $select_id . ' ' . $name_ids ); ?>"
-				/>
-				<span class="screen-reader-text" id="<?php echo esc_attr( $select_id ); ?>"><?php esc_html_e( 'Select', 'stonewright' ); ?></span>
-			</label>
-			<div class="stonewright-ability-main">
-				<strong class="sw-ability-label" id="<?php echo esc_attr( $label_id ); ?>"><?php echo esc_html( (string) $ability['label'] ); ?></strong>
-				<p><?php echo esc_html( (string) $ability['description'] ); ?></p>
-				<?php if ( $is_enabled && false === ( $ability['registered'] ?? true ) ) : ?>
-					<span class="sw-badge sw-badge--warn"><?php esc_html_e( 'Not registered with WordPress', 'stonewright' ); ?></span>
-				<?php endif; ?>
-			</div>
-			<code class="stonewright-mcp-tool sw-ability-tool" id="<?php echo esc_attr( $tool_id ); ?>"><?php echo esc_html( $tool_name ); ?></code>
-			<span class="stonewright-kind-badge stonewright-kind-badge--<?php echo esc_attr( $kind ); ?>">
-				<?php echo esc_html( self::kind_label( $kind ) ); ?>
-			</span>
-			<label class="sw-switch" title="<?php esc_attr_e( 'Enable or disable ability', 'stonewright' ); ?>">
-				<input
-					type="checkbox"
-					role="switch"
-					name="ability_enabled"
-					value="1"
-					form="<?php echo esc_attr( $form_id ); ?>"
-					data-stonewright-submit-form="<?php echo esc_attr( $form_id ); ?>"
-					aria-labelledby="<?php echo esc_attr( $name_ids ); ?>"
-					<?php checked( $is_enabled ); ?>
-				/>
-				<span class="sw-switch__track" aria-hidden="true"></span>
-				<span class="screen-reader-text"><?php esc_html_e( 'Enable or disable ability', 'stonewright' ); ?></span>
-			</label>
-			<details class="stonewright-ability-details">
-				<summary id="<?php echo esc_attr( $details_id ); ?>" aria-labelledby="<?php echo esc_attr( $details_id . ' ' . $name_ids ); ?>"><?php esc_html_e( 'Details', 'stonewright' ); ?></summary>
-				<?php self::render_schema_table( $ability ); ?>
-			</details>
-		</div>
-		<?php
-	}
-
-	/**
-	 * @param array<string, mixed> $ability
-	 */
-	private static function render_schema_table( array $ability ): void {
-		$schema = is_array( $ability['input_schema'] ?? null ) ? $ability['input_schema'] : [];
-		$props  = is_array( $schema['properties'] ?? null ) ? $schema['properties'] : [];
-		$req    = is_array( $schema['required'] ?? null ) ? $schema['required'] : [];
-
-		if ( [] === $props ) {
-			echo '<p class="description">' . esc_html__( 'No input parameters.', 'stonewright' ) . '</p>';
-			return;
-		}
-		?>
-		<div class="stonewright-schema-table-wrap">
-			<table class="widefat striped stonewright-schema-table">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Parameter', 'stonewright' ); ?></th>
-						<th><?php esc_html_e( 'Type', 'stonewright' ); ?></th>
-						<th><?php esc_html_e( 'Required', 'stonewright' ); ?></th>
-						<th><?php esc_html_e( 'Description', 'stonewright' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $props as $param => $def ) : ?>
-						<?php
-						$def  = is_object( $def ) ? get_object_vars( $def ) : ( is_array( $def ) ? $def : [] );
-						$type = is_array( $def['type'] ?? null ) ? implode( '|', $def['type'] ) : (string) ( $def['type'] ?? '?' );
-						?>
-						<tr>
-							<td><code><?php echo esc_html( (string) $param ); ?></code></td>
-							<td><?php echo esc_html( $type ); ?></td>
-							<td><?php echo in_array( $param, $req, true ) ? esc_html__( 'Yes', 'stonewright' ) : ''; ?></td>
-							<td><?php echo esc_html( (string) ( $def['description'] ?? '' ) ); ?></td>
-						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		</div>
-		<?php
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $abilities
-	 * @param array<int, string>               $disabled_abilities
-	 * @return array{enabled: int, write: int, read: int, total: int}
-	 */
-	private static function compute_stats( array $abilities, array $disabled_abilities ): array {
-		$enabled = 0;
-		$write   = 0;
-		$read    = 0;
-
-		foreach ( $abilities as $ability ) {
-			$name = (string) $ability['name'];
-			$kind = self::kind_for( $name );
-			if ( LiveAbilities::counts_as_enabled( $ability, $disabled_abilities ) ) {
-				++$enabled;
-			}
-			if ( 'read' === $kind ) {
-				++$read;
-			} else {
-				++$write;
-			}
-		}
-
-		return [
-			'enabled' => $enabled,
-			'write'   => $write,
-			'read'    => $read,
-			'total'   => count( $abilities ),
-		];
-	}
-
-	/**
 	 * @param array<string, array{categories: array<string, list<array<string, mixed>>>}> $groups
 	 * @return list<string>
 	 */
@@ -435,52 +545,45 @@ final class AbilitiesPage {
 				$categories[ $category ] = true;
 			}
 		}
-		$keys = array_keys( $categories );
+		$keys = array_map( 'strval', array_keys( $categories ) );
 		sort( $keys );
+
 		return $keys;
 	}
 
-	/**
-	 * @param array<int, array<string, mixed>> $abilities
-	 * @return array<string, array<int, array<string, mixed>>>
-	 */
-	private static function group_by_category( array $abilities ): array {
-		$groups = [];
-		foreach ( $abilities as $ability ) {
-			$category            = (string) $ability['category'];
-			$groups[ $category ] ??= [];
-			$groups[ $category ][] = $ability;
-		}
-		ksort( $groups );
-		return $groups;
-	}
-
-	private static function kind_for( string $name ): string {
-		if ( 1 === preg_match( '/-(delete|remove|deactivate)\b/', $name ) ) {
-			return 'destructive';
-		}
-
-		if ( 1 === preg_match(
-			'/-(create|update|write|apply|insert|save|set|move|upload|optimize|activate|toggle|register|define|bulk|record|duplicate)\b/',
-			$name
-		) ) {
-			return 'write';
-		}
-
-		return 'read';
-	}
-
-	private static function kind_label( string $kind ): string {
-		return match ( $kind ) {
-			'destructive' => __( 'Destructive', 'stonewright' ),
-			'write'       => __( 'Write', 'stonewright' ),
-			default       => __( 'Read', 'stonewright' ),
-		};
+	/** "3 of 5 on": a count in words, so the number never stands alone. */
+	private static function count_words( int $enabled, int $total ): string {
+		return sprintf(
+			/* translators: 1: abilities that are on, 2: abilities in the group */
+			__( '%1$d of %2$d on', 'stonewright' ),
+			$enabled,
+			$total
+		);
 	}
 
 	private static function category_label( string $category ): string {
-		return ucwords( str_replace( '-', ' ', $category ) );
+		return self::CATEGORY_LABELS[ $category ] ?? self::humanize( $category );
 	}
+
+	/** A slug as words in sentence case, with acronyms and product names written as they are. */
+	private static function humanize( string $slug, string $fallback = '' ): string {
+		if ( 'stonewright' === $slug || 'elementor' === $slug ) {
+			return '' !== $fallback ? $fallback : ucfirst( $slug );
+		}
+		$words = [];
+		foreach ( preg_split( '/[-_\s]+/', strtolower( $slug ) ) ?: [] as $index => $word ) {
+			if ( '' === $word ) {
+				continue;
+			}
+			$words[] = self::WORDS[ $word ] ?? ( 0 === $index ? ucfirst( $word ) : $word );
+		}
+
+		return implode( ' ', $words );
+	}
+
+	// -------------------------------------------------------------------------
+	// Form handlers (the way in without script)
+	// -------------------------------------------------------------------------
 
 	public static function handle_toggle(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -489,30 +592,7 @@ final class AbilitiesPage {
 
 		check_admin_referer( self::NONCE_ACTION );
 
-		$ability_name = isset( $_POST['ability_name'] )
-			? sanitize_text_field( wp_unslash( (string) $_POST['ability_name'] ) )
-			: '';
-		if ( '' === $ability_name ) {
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
-			exit;
-		}
-
-		$enable   = isset( $_POST['ability_enabled'] ) && '1' === $_POST['ability_enabled'];
-		$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
-
-		if ( $enable ) {
-			$disabled = array_values( array_filter( $disabled, static fn( mixed $n ): bool => $n !== $ability_name ) );
-			$notice   = 'enabled';
-		} else {
-			if ( ! in_array( $ability_name, $disabled, true ) ) {
-				$disabled[] = $ability_name;
-			}
-			$notice = 'disabled';
-		}
-
-		update_option( 'stonewright_disabled_abilities', $disabled, false );
-
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'stonewright_toggled' => $notice ], admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( self::apply_toggle_request( $_POST ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by check_admin_referer() above.
 		exit;
 	}
 
@@ -523,49 +603,84 @@ final class AbilitiesPage {
 
 		check_admin_referer( self::BULK_NONCE_ACTION );
 
-		$action   = isset( $_POST['stonewright_bulk_action'] )
-			? sanitize_key( wp_unslash( (string) $_POST['stonewright_bulk_action'] ) )
-			: '';
-		$category = isset( $_POST['stonewright_bulk_category'] )
-			? sanitize_key( wp_unslash( (string) $_POST['stonewright_bulk_category'] ) )
-			: '';
-		$selected = isset( $_POST['stonewright_abilities'] )
-			? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['stonewright_abilities'] ) )
-			: [];
-
-		$all      = AbilityHubCatalog::collect();
-		$known    = AbilityHubCatalog::names();
-		$disabled = array_values( array_intersect( (array) get_option( 'stonewright_disabled_abilities', [] ), $known ) );
-		$targets  = in_array( $action, [ 'enable_category', 'disable_category' ], true )
-			? self::ability_names_for_category( $all, $category )
-			: array_values( array_intersect( $selected, $known ) );
-
-		if ( in_array( $action, [ 'enable_selected', 'enable_category' ], true ) ) {
-			$disabled = array_values( array_diff( $disabled, $targets ) );
-			$notice   = 'bulk-enabled';
-		} elseif ( in_array( $action, [ 'disable_selected', 'disable_category' ], true ) ) {
-			$disabled = array_values( array_unique( array_merge( $disabled, $targets ) ) );
-			$notice   = 'bulk-disabled';
-		} else {
-			$notice = '';
-		}
-
-		update_option( 'stonewright_disabled_abilities', $disabled, false );
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'stonewright_toggled' => $notice ], admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( self::apply_bulk_request( $_POST ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by check_admin_referer() above.
 		exit;
 	}
 
 	/**
-	 * @param array<int, array<string, mixed>> $abilities
-	 * @return array<int, string>
+	 * Apply a verified switch post and return the page address to go back to.
+	 *
+	 * @internal Called by handle_toggle() after the capability and nonce checks.
+	 * @param array<array-key, mixed> $post The request body.
 	 */
-	private static function ability_names_for_category( array $abilities, string $category ): array {
-		$names = [];
-		foreach ( $abilities as $ability ) {
-			if ( (string) $ability['category'] === $category ) {
-				$names[] = (string) $ability['name'];
-			}
+	public static function apply_toggle_request( array $post ): string {
+		$name   = isset( $post['ability_name'] ) ? sanitize_text_field( wp_unslash( (string) $post['ability_name'] ) ) : '';
+		$enable = isset( $post['ability_enabled'] ) && '1' === $post['ability_enabled'];
+
+		$result = AbilityToggles::set_enabled( $name, $enable );
+
+		return self::result_url( $result['code'], $result['changed'] );
+	}
+
+	/**
+	 * Apply a verified bulk post and return the page address to go back to.
+	 *
+	 * @internal Called by handle_bulk() after the capability and nonce checks.
+	 * @param array<array-key, mixed> $post The request body.
+	 */
+	public static function apply_bulk_request( array $post ): string {
+		$action   = isset( $post['stonewright_bulk_action'] ) ? sanitize_key( wp_unslash( (string) $post['stonewright_bulk_action'] ) ) : '';
+		$category = isset( $post['stonewright_bulk_category'] ) ? sanitize_key( wp_unslash( (string) $post['stonewright_bulk_category'] ) ) : '';
+		$selected = isset( $post['stonewright_abilities'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $post['stonewright_abilities'] ) ) : [];
+
+		$result = AbilityToggles::bulk( $action, $category, $selected );
+
+		return self::result_url( $result['code'], $result['changed'] );
+	}
+
+	private static function result_url( string $code, int $changed ): string {
+		$args = [ 'page' => self::SLUG, 'stonewright_toggled' => $code ];
+		if ( $changed > 0 ) {
+			$args['stonewright_changed'] = $changed;
 		}
-		return $names;
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
+	}
+
+	/**
+	 * The words the page script says, translated here so the script holds no text of its own.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function script_strings(): array {
+		return [
+			'abilities_one'    => __( '%d ability', 'stonewright' ),
+			'abilities_other'  => __( '%d abilities', 'stonewright' ),
+			'of_total'         => __( '%1$d of %2$d abilities', 'stonewright' ),
+			'enabled_stats'    => __( 'Enabled %1$d · Write %2$d · Read %3$d', 'stonewright' ),
+			'count_words'      => __( '%1$d of %2$d on', 'stonewright' ),
+			'selected'         => __( '%d selected', 'stonewright' ),
+			'toggled_on'       => __( '%s turned on.', 'stonewright' ),
+			'toggled_off'      => __( '%s turned off.', 'stonewright' ),
+			'on'               => __( 'On', 'stonewright' ),
+			'off'              => __( 'Off', 'stonewright' ),
+			'no_match'         => __( 'No abilities match “%s”', 'stonewright' ),
+			'no_match_plain'   => __( 'No abilities match', 'stonewright' ),
+			'undo'             => __( 'Undo', 'stonewright' ),
+			'undone'           => __( 'Change undone.', 'stonewright' ),
+			'working'          => __( 'Applying…', 'stonewright' ),
+			'error_title'      => __( 'The change was not saved', 'stonewright' ),
+			'error_network'    => __( 'The server could not be reached. Check your connection and try again.', 'stonewright' ),
+			'error_expired'    => __( 'This page has expired. Reload it and try again.', 'stonewright' ),
+			'error_generic'    => __( 'The server refused the change. Reload the page and try again.', 'stonewright' ),
+			'params_none'      => __( 'No input parameters.', 'stonewright' ),
+			'params_loading'   => __( 'Loading parameters…', 'stonewright' ),
+			'params_error'     => __( 'Parameters could not be loaded.', 'stonewright' ),
+			'params_retry'     => __( 'Try again', 'stonewright' ),
+			'params_required'  => __( 'required', 'stonewright' ),
+			'need_action'      => AbilityToggles::message( 'bulk-no-action' ),
+			'need_selection'   => AbilityToggles::message( 'bulk-no-selection' ),
+			'need_category'    => AbilityToggles::message( 'bulk-no-category' ),
+		];
 	}
 }

@@ -13,6 +13,8 @@ use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
+use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
+use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
@@ -97,7 +99,9 @@ final class PluginRegistration {
 		// `register_all` is idempotent (it guards against running twice via
 		// AbilityRegistry::$registered_once), so listening on multiple hooks is
 		// safe even if both fire in the same request.
-		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 10 );
+		// Categories register after every plugin that uses the default priority, so a category another plugin
+		// registers on this hook (Elementor registers `elementor`) is left as that plugin defined it.
+		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 99 );
 		add_action( 'wp_abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
@@ -183,6 +187,7 @@ final class PluginRegistration {
 	public static function maybe_boot_mcp_adapter(): void {
 		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
 		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
+			McpDefaultServerGuard::register();
 			\WP\MCP\Core\McpAdapter::instance();
 		} elseif ( ! $compatibility['compatible'] ) {
 			Logger::warning( 'mcp_adapter_ownership_conflict', [ 'preflight' => $compatibility ] );
@@ -284,7 +289,7 @@ final class PluginRegistration {
 		$mismatch = DomainLock::mismatch();
 		$locked   = is_array( $mismatch ) ? (string) ( $mismatch['locked_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::locked_domain() );
 		$current  = is_array( $mismatch ) ? (string) ( $mismatch['current_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::current_origin() );
-		$review   = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+		$review   = SetupTabs::url( 'settings', [], DomainLockCard::ID );
 
 		echo '<div class="notice notice-error stonewright-notice"><p><strong>Stonewright:</strong> ';
 		echo esc_html__(

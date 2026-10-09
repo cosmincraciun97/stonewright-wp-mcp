@@ -266,6 +266,137 @@ final class AttributeValidatorTest extends TestCase {
 	}
 
 	/**
+	 * A block type as WordPress 6.9 registers core/group: the attribute list holds what block.json declares plus what the
+	 * server-side support handlers add (className, style, colours, layout, align). The attributes that only the block
+	 * editor adds from `supports` (anchor, lock, metadata) are not in the list.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function group_type_as_registered_by_wordpress(): array {
+		return [
+			'tagName'         => [ 'type' => 'string', 'default' => 'div' ],
+			'templateLock'    => [ 'type' => [ 'string', 'boolean' ], 'enum' => [ 'all', 'insert', 'contentOnly', false ] ],
+			'allowedBlocks'   => [ 'type' => 'array' ],
+			'align'           => [ 'type' => 'string', 'enum' => [ 'left', 'center', 'right', 'wide', 'full' ] ],
+			'className'       => [ 'type' => 'string' ],
+			'style'           => [ 'type' => 'object' ],
+			'backgroundColor' => [ 'type' => 'string' ],
+			'textColor'       => [ 'type' => 'string' ],
+			'gradient'        => [ 'type' => 'string' ],
+			'fontSize'        => [ 'type' => 'string' ],
+			'layout'          => [ 'type' => 'object' ],
+		];
+	}
+
+	private function register_group_type_as_registered_by_wordpress(): void {
+		$GLOBALS['stonewright_test_registered_blocks'] = [
+			'core/group' => (object) [
+				'attributes'    => $this->group_type_as_registered_by_wordpress(),
+				'supports'      => [
+					'anchor'     => true,
+					'align'      => [ 'wide', 'full' ],
+					'color'      => [ 'gradients' => true, 'link' => true ],
+					'spacing'    => [ 'padding' => true, 'margin' => [ 'top', 'bottom' ] ],
+					'typography' => [ 'fontSize' => true ],
+					'layout'     => [ 'allowSizingOnChildren' => true ],
+					'html'       => false,
+				],
+				'editor_script' => 'wp-block-library',
+			],
+			'core/code'  => (object) [
+				'attributes' => [ 'content' => [ 'type' => 'string' ] ],
+				'supports'   => [ 'html' => false ],
+			],
+			'core/spacer' => (object) [
+				'attributes' => [ 'height' => [ 'type' => 'string' ] ],
+				'supports'   => [ 'anchor' => true, 'customClassName' => false ],
+			],
+		];
+	}
+
+	public function test_accepts_the_attributes_that_the_block_supports_add_to_a_core_group(): void {
+		$this->register_group_type_as_registered_by_wordpress();
+
+		$result = AttributeValidator::validate(
+			'core/group',
+			[
+				'anchor'   => 'features',
+				'layout'   => [ 'type' => 'constrained' ],
+				'className' => 'is-style-card',
+				'lock'     => [ 'move' => true ],
+				'metadata' => [ 'name' => 'Features' ],
+				'style'    => [ 'spacing' => [ 'padding' => '1rem' ] ],
+			]
+		);
+
+		self::assertTrue( $result );
+		self::assertTrue( AttributeValidator::validate_tree( 'core/group', [ 'anchor' => 'features' ], [ [ 'name' => 'core/group', 'attributes' => [ 'anchor' => 'inner' ] ] ] ) );
+	}
+
+	public function test_support_attributes_do_not_open_the_schema_to_other_keys(): void {
+		$this->register_group_type_as_registered_by_wordpress();
+
+		$result = AttributeValidator::validate( 'core/group', [ 'anchor' => 'features', 'undeclared' => true, 'html' => '<b>x</b>' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_code() );
+		self::assertSame( [ 'undeclared', 'html' ], $result->get_error_data()['offending_keys'] );
+	}
+
+	public function test_a_support_attribute_is_refused_when_the_block_does_not_declare_the_support(): void {
+		$this->register_group_type_as_registered_by_wordpress();
+
+		$no_anchor = AttributeValidator::validate( 'core/code', [ 'anchor' => 'snippet' ] );
+		self::assertInstanceOf( \WP_Error::class, $no_anchor );
+		self::assertSame( [ 'anchor' ], $no_anchor->get_error_data()['offending_keys'] );
+
+		$no_class = AttributeValidator::validate( 'core/spacer', [ 'className' => 'x' ] );
+		self::assertInstanceOf( \WP_Error::class, $no_class );
+		self::assertSame( [ 'className' ], $no_class->get_error_data()['offending_keys'] );
+
+		$no_colour = AttributeValidator::validate( 'core/code', [ 'backgroundColor' => 'accent', 'style' => [ 'color' => [] ] ] );
+		self::assertInstanceOf( \WP_Error::class, $no_colour );
+		self::assertSame( [ 'backgroundColor', 'style' ], $no_colour->get_error_data()['offending_keys'] );
+
+		// Every block takes the class name unless it turns the support off, and takes lock and metadata.
+		self::assertTrue( AttributeValidator::validate( 'core/code', [ 'className' => 'x', 'lock' => [ 'remove' => true ], 'metadata' => [ 'name' => 'Code' ] ] ) );
+		self::assertTrue( AttributeValidator::validate( 'core/spacer', [ 'anchor' => 'gap', 'lock' => [ 'move' => true ] ] ) );
+	}
+
+	public function test_support_attributes_keep_their_type_and_the_registered_declaration_wins(): void {
+		$this->register_group_type_as_registered_by_wordpress();
+
+		$bad_anchor = AttributeValidator::validate( 'core/group', [ 'anchor' => 12 ] );
+		self::assertInstanceOf( \WP_Error::class, $bad_anchor );
+		self::assertSame( 'stonewright_invalid_block_attributes', $bad_anchor->get_error_code() );
+		self::assertSame( [ 'anchor' ], $bad_anchor->get_error_data()['offending_keys'] );
+
+		$bad_lock = AttributeValidator::validate( 'core/group', [ 'lock' => 'all' ] );
+		self::assertInstanceOf( \WP_Error::class, $bad_lock );
+		self::assertSame( 'stonewright_invalid_block_attributes', $bad_lock->get_error_code() );
+
+		// The enum the server registered for align still applies.
+		$bad_align = AttributeValidator::validate( 'core/group', [ 'align' => 'sideways' ] );
+		self::assertInstanceOf( \WP_Error::class, $bad_align );
+		self::assertSame( 'stonewright_invalid_block_attributes', $bad_align->get_error_code() );
+		self::assertTrue( AttributeValidator::validate( 'core/group', [ 'align' => 'full' ] ) );
+	}
+
+	public function test_the_effective_schema_of_a_registered_type_includes_the_support_attributes(): void {
+		$this->register_group_type_as_registered_by_wordpress();
+		$registered = \WP_Block_Type_Registry::get_instance()->get_registered( 'core/group' );
+
+		$schema = AttributeValidator::schema_for_type( $registered );
+
+		foreach ( [ 'anchor', 'lock', 'metadata', 'className', 'tagName', 'layout' ] as $key ) {
+			self::assertArrayHasKey( $key, $schema );
+		}
+		self::assertSame( [ 'type' => 'string' ], $schema['anchor'] );
+		self::assertSame( [ 'type' => 'string', 'default' => 'div' ], $schema['tagName'] );
+		self::assertSame( $schema, AttributeValidator::schema_for( 'core/group' ) );
+	}
+
+	/**
 	 * @param array<string, mixed> $result
 	 * @return list<string>
 	 */

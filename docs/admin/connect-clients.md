@@ -5,11 +5,15 @@ administrator to approve the client, and avoids copying a WordPress password
 into client configuration.
 
 1. Open **Stonewright → Setup**.
-2. Enable Stonewright.
-3. Choose **OAuth**.
-4. Pick the client in **Connect Your AI Client** and follow its instructions.
-   OAuth and Application Password share the same client tablist.
+2. Enable Stonewright in **Settings** (step 1 of **Get started** says where it
+   stands).
+3. In **Get started**, step 2, choose **OAuth**.
+4. In step 3, **Connect your AI client**, open your client and follow its
+   instructions. The Application Password route has a picker of the same clients.
 5. Approve the application in WordPress when the browser opens.
+
+The MCP server URL and the suggested server name are on the **Connections** view,
+next to the list of connected OAuth clients.
 
 The OAuth MCP resource is:
 
@@ -54,9 +58,10 @@ returns the grant's current refresh token instead. Access tokens last one hour.
 A refresh token expires after 30 days without use, and a grant ends at most 90
 days after it was authorized, after which the client signs in again. Seven-day
 continuity is a refresh SLO within that grant, not a seven-day bearer token.
-Handshake and allowlisted read-only bootstrap calls may retry once;
-mutations never retry. `stonewright-task-start` reconnects a degraded session
-once.
+Each WordPress MCP request is sent once and is not repeated after a timeout or
+network error; on OAuth connections an HTTP 401 refreshes the access token and
+the request is sent once more, a tool call included. `stonewright-task-start`
+reconnects a degraded session once.
 
 ## Choose the connection method
 

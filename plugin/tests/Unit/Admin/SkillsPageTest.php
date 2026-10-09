@@ -49,12 +49,96 @@ final class SkillsPageTest extends TestCase {
 		self::assertStringContainsString( '&lt;script&gt;alert(2)&lt;/script&gt;', $html );
 		self::assertStringNotContainsString( '<img src=x', $html );
 		self::assertStringNotContainsString( '<script>alert', $html );
-		self::assertStringContainsString( '>built-in<', $html );
-		self::assertStringContainsString( '>draft<', $html );
+		self::assertStringContainsString( '>Built-in<', $html );
+		self::assertStringContainsString( '>Draft<', $html );
 		self::assertStringNotContainsString( '>Binned<', $html );
 		self::assertStringContainsString( 'name="content"', $html );
 	}
 
+	public function test_the_page_is_built_from_the_layer_and_none_of_the_older_skills_classes_remain(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.', 'content' => '# Note' ] );
+
+		$html = $this->render();
+
+		self::assertStringContainsString( 'sw-ui sw-ui-page sw-skills', $html );
+		foreach ( [ 'sw-skills-button', 'class="sw-skills-tab', 'sw-skills-input', 'sw-skills-toolbar', 'class="sw-skills-panel', 'class="sw-badge', 'sw-empty-state', 'class="sw-callout', 'class="sw-card', 'class="sw-field', 'class="sw-actions', 'notice notice-', ' style=' ] as $legacy ) {
+			self::assertStringNotContainsString( $legacy, $html, $legacy );
+		}
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+	}
+
+	public function test_the_view_tabs_use_the_layer_and_keep_the_hooks_the_script_boots_from(): void {
+		$html = $this->render();
+
+		self::assertStringContainsString( '<div class="sw-ui-tabs" role="tablist" aria-label="Skill views">', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-tabs__tab" role="tab" id="sw-skills-tab-catalog" href="[^"]+" data-sw-view="catalog" aria-selected="true" aria-controls="sw-skills-panel-catalog" tabindex="0">Catalog<\/a>/', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-tabs__tab" role="tab" id="sw-skills-tab-trash"[^>]*aria-selected="false"[^>]*tabindex="-1">Trash<\/a>/', $html );
+		self::assertMatchesRegularExpression( '/<section class="sw-ui-tabs__panel" role="tabpanel" id="sw-skills-panel-trash" aria-labelledby="sw-skills-tab-trash" data-sw-panel="trash" hidden>/', $html );
+		self::assertStringContainsString( 'data-sw-skills', $html );
+		self::assertStringContainsString( 'data-sw-current-view="catalog"', $html );
+		self::assertStringNotContainsString( 'data-sw-ui-tabs', $html, 'The script that boots the page owns the tabs; the layer must not bind them twice.' );
+	}
+
+	public function test_a_skill_shows_one_status_badge_and_at_most_two_tags(): void {
+		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.', 'content' => '# Note', 'enabled' => 1, 'enable_agentic' => 1, 'enable_prompt' => 1 ] );
+
+		$html = $this->render();
+
+		self::assertSame( 1, preg_match( '/<li class="sw-skill-row[^"]*"[^>]*>(.*?)<\/li>/s', $html, $row ) );
+		self::assertSame( 1, preg_match_all( '/class="sw-ui-badge[ "]/', $row[1] ), 'One status badge.' );
+		self::assertLessThanOrEqual( 2, preg_match_all( '/class="sw-ui-tag"/', $row[1] ), 'At most two tags.' );
+		self::assertStringContainsString( '>Active<', $row[1] );
+		self::assertStringNotContainsString( '>auto<', $row[1] );
+	}
+
+	public function test_the_catalog_toolbar_has_a_labelled_search_and_the_one_primary_new_skill_action(): void {
+		$html = $this->render();
+
+		self::assertMatchesRegularExpression( '/<label class="sw-ui-field__label" for="sw-skills-search">Search skills<\/label>/', $html );
+		self::assertMatchesRegularExpression( '/<input[^>]*type="search"[^>]*id="sw-skills-search"[^>]*data-sw-skills-search[^>]*disabled/', $html );
+		self::assertSame( 1, preg_match_all( '/sw-ui-btn--primary"[^>]*>(?:<svg.*?<\/svg>)?New skill/', $html ), 'New skill is the one primary button of the catalog.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn sw-ui-btn--primary"[^>]*>(?:<svg.*?<\/svg>)?New skill<\/a>/', $html );
+	}
+
+	public function test_results_are_notices_that_stay_and_errors_are_alerts(): void {
+		$_GET = [ 'saved' => '1' ];
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*Skill saved\./s', $this->render() );
+
+		$_GET = [ 'toggled' => '1' ];
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*Skill updated\./s', $this->render() );
+
+		$_GET = [ 'error' => 'missing_fields' ];
+		self::assertMatchesRegularExpression( '/role="alert"[^>]*>.*Please fill in all required fields/s', $this->render() );
+	}
+
+	public function test_the_editor_labels_every_field_and_names_the_availability_group(): void {
+		$_GET = [ 'view' => 'editor' ];
+
+		$html = $this->render();
+
+		foreach ( [ 'Title', 'Slug', 'Description', 'Content \(Markdown\)' ] as $label ) {
+			self::assertMatchesRegularExpression( '/<label class="sw-ui-field__label" for="[^"]+">' . $label . '<\/label>/', $html, $label );
+		}
+		self::assertMatchesRegularExpression( '/<fieldset class="sw-ui-fieldset sw-ui-stack">\s*<legend>Availability<\/legend>/', $html );
+		self::assertMatchesRegularExpression( '/<label class="sw-ui-checkbox"[^>]*><input type="checkbox"[^>]*name="enabled"[^>]*><span>Skill is active<\/span>/', $html );
+		self::assertStringContainsString( 'value="stonewright_skill_save"', $html );
+		self::assertStringContainsString( 'name="_wpnonce"', $html );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--primary">Save skill<\/button>/', $html );
+	}
+
+	public function test_no_id_is_used_twice(): void {
+		$_GET = [ 'view' => 'editor' ];
+		preg_match_all( '/\bid="([^"]+)"/', $this->render(), $found );
+
+		self::assertSame( [], array_keys( array_filter( array_count_values( $found[1] ), static fn ( int $count ): bool => $count > 1 ) ) );
+	}
+
+	public function test_the_script_boots_without_a_second_status_line_and_the_no_script_note_uses_the_layer(): void {
+		$html = $this->render();
+
+		self::assertStringContainsString( 'data-sw-skills-status', $html );
+		self::assertMatchesRegularExpression( '/<noscript>.*sw-ui-callout.*The catalog, import review, and trash need JavaScript/s', $html );
+	}
 	public function test_editor_prefills_the_requested_skill_and_locks_its_slug(): void {
 		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting "quotes".', 'content' => "# Note\n<b>body</b>", 'enable_prompt' => 0 ] );
 		$_GET = [

@@ -24,10 +24,23 @@
   one audit row without arguments, token or output. Exit code 2 means a
   confirmation token is required.
 
+### Changed
+
+- Update `smol-toml` to 1.9.0 and the locked `proxy-addr` to 2.0.8.
+
 ### Fixed
 
+- Correct the documented retry behaviour of the companion: it sends each
+  WordPress MCP request once and does not repeat it after a timeout or network
+  error; on OAuth connections an HTTP 401 refreshes the access token and sends
+  that request once more, a tool call included.
 - Refresh runtime dependency floors and security overrides, and use a patched
   test-runner version.
+- Wait up to one second, instead of a quarter of a second, for a Windows OAuth
+  token file that another program holds open for a moment, such as a virus
+  scanner or an indexer, before the privacy check gives up. Privacy is still
+  rechecked before every attempt, and permission, ownership and other errors
+  still fail closed at once.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

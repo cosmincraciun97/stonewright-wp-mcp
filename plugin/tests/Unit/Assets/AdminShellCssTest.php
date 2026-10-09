@@ -17,17 +17,13 @@ final class AdminShellCssTest extends TestCase {
 	 * number is always fine.
 	 */
 	private const IMPORTANT_CEILING = [
-		'admin/abilities.css'     => 1,
+		'admin/abilities.css'     => 0,
 		'admin/admin.css'         => 2,
-		'admin/audit.css'         => 18,
 		'admin/block-queue.css'   => 0,
-		'admin/blueprints.css'    => 0,
 		'admin/design-studio.css' => 0,
-		'admin/sandbox.css'       => 21,
-		'admin/setup.css'         => 1,
+		'admin/sandbox.css'       => 0,
 		'admin/pages/overview.css' => 0,
 		'admin/shell.css'         => 45,
-		'admin/skills-memory.css' => 10,
 		'admin/visual-workspace.css' => 0,
 		'css/stonewright-admin.css'  => 5,
 	];
@@ -106,8 +102,8 @@ final class AdminShellCssTest extends TestCase {
 		self::assertSame( 'var(--sw-border)', self::value( $css, '.sw-shell__main .notice, .sw-shell__main .updated, .sw-shell__main .error', 'border-color' ) );
 	}
 
-	public function test_a_heading_block_the_page_prints_for_itself_is_hidden_so_there_is_one_h1(): void {
-		self::assertSame( 'none', self::value( self::shell(), '.sw-shell__main .sw-setup-page > .sw-setup-header', 'display' ) );
+	public function test_no_page_prints_a_heading_block_of_its_own_so_the_shell_needs_no_rule_to_hide_one(): void {
+		self::assertStringNotContainsString( 'sw-setup-header', self::shell(), 'Setup prints its title through the shell.' );
 	}
 
 	public function test_only_the_admin_bar_is_counted_as_fixed_chrome(): void {
@@ -117,20 +113,29 @@ final class AdminShellCssTest extends TestCase {
 		self::assertSame( 'var(--sw-shell-offset, 32px)', self::value( $css, 'html.sw-has-shell', 'scroll-padding-top' ) );
 	}
 
-	public function test_the_abilities_filter_bar_sticks_under_the_admin_bar_and_not_on_a_phone(): void {
-		$css = CssSource::read( 'admin/abilities.css' );
+	public function test_a_click_on_an_older_page_draws_no_wordpress_focus_ring_and_the_keyboard_ring_stays(): void {
+		$css      = self::shell();
+		$selector = ':is(.sw-shell__chrome, .sw-shell__main) :is(a, button, summary, .button, [role="button"], [role="tab"], [tabindex]):focus:not(:focus-visible)';
 
-		self::assertSame( 'var(--wp-admin--admin-bar--height, 32px)', self::value( $css, '.sw-abilities-filters', 'top' ) );
-		self::assertSame( 'sticky', self::value( $css, '.sw-abilities-filters', 'position' ) );
-		self::assertSame( 'static', self::value( $css, '.sw-abilities-filters', 'position', '@media screen and (max-width: 782px)' ), 'A stacked filter bar must not be sticky on a phone.' );
-		self::assertStringNotContainsString( '--sw-shell-offset', $css );
-	}
+		$declarations = self::rule( $css, $selector );
+		self::assertSame( '0', CssSource::value_of( $declarations, 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $declarations, 'box-shadow' ) );
+		foreach ( $declarations as $declaration ) {
+			self::assertFalse( $declaration['important'], 'The rule outranks core by specificity, not by !important.' );
+		}
+		// Core's `.wp-core-ui .button-primary:focus` is (0,3,0); the older pages' links and buttons sit inside the shell's chrome or content.
+		self::assertGreaterThanOrEqual( [ 0, 3, 0 ], CssSource::specificity( $selector ) );
+		self::assertSame( '2px solid var(--sw-focus-ring)', self::value( $css, '.sw-btn:focus-visible, .sw-shell button:focus-visible, .sw-shell a:focus-visible, .sw-shell input:focus-visible, .sw-shell select:focus-visible, .sw-shell textarea:focus-visible, .sw-shell summary:focus-visible', 'outline' ), 'Keyboard focus keeps its 2px ring.' );
 
-	public function test_the_abilities_search_field_keeps_its_height_when_the_toolbar_stacks(): void {
-		$css = CssSource::read( 'admin/abilities.css' );
-
-		// In a column flex container a flex-basis is a height: 1 1 160px made the field 160px tall.
-		self::assertSame( '0 0 auto', self::value( $css, '.sw-abilities-search', 'flex', '@media screen and (max-width: 960px)' ) );
+		// Core's `.wp-core-ui .button:focus` (0,3,0) sets a transparent outline; the keyboard rule for the same controls is one class more specific.
+		$keyboard     = '.sw-shell :is(.sw-shell__chrome, .sw-shell__main) .button:focus-visible';
+		$declarations = self::rule( $css, $keyboard );
+		self::assertSame( '2px solid var(--sw-focus-ring)', CssSource::value_of( $declarations, 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $declarations, 'box-shadow' ) );
+		foreach ( $declarations as $declaration ) {
+			self::assertFalse( $declaration['important'] );
+		}
+		self::assertGreaterThanOrEqual( [ 0, 4, 0 ], CssSource::specificity( $keyboard ) );
 	}
 
 	// ---------------------------------------------------------------------------------------------

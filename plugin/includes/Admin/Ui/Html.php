@@ -21,6 +21,7 @@ final class Html {
 
 	/** Attribute names a helper may set, besides data-* and aria-*. */
 	private const ALLOWED = [
+		'action', // A form posts to a URL the page chose; it is escaped as a URL below. formaction is not allowed.
 		'autocomplete',
 		'autofocus',
 		'checked',
@@ -36,9 +37,12 @@ final class Html {
 		'id',
 		'lang',
 		'maxlength',
+		'method',
+		'min',
 		'multiple',
 		'name',
 		'open',
+		'pattern',
 		'placeholder',
 		'popover',
 		'popovertarget',
@@ -46,8 +50,11 @@ final class Html {
 		'rel',
 		'required',
 		'role',
+		'rows',
 		'rowspan',
 		'scope',
+		'selected',
+		'spellcheck',
 		'tabindex',
 		'target',
 		'title',
@@ -56,7 +63,7 @@ final class Html {
 	];
 
 	/** Attributes whose value is a URL. */
-	private const URL_ATTRIBUTES = [ 'href' ];
+	private const URL_ATTRIBUTES = [ 'action', 'href' ];
 
 	private static int $counter = 0;
 

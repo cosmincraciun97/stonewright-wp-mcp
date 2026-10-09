@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PAGE_GATE_PROJECTS, STONEWRIGHT_HUBS, STONEWRIGHT_PAGES, STONEWRIGHT_SIDEBAR, viewportKind } from './helpers/admin-pages';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
+import { openConsentScreen } from './helpers/consent';
 import { login } from './helpers/login';
 import { H1_TOP_MAX, STICKY_CHROME_MAX_SHARE, budgetFor } from './helpers/ui-budget';
 import { measureUi } from './helpers/ui-probe';
@@ -619,6 +620,39 @@ test.describe('UI contract on Stonewright pages', () => {
 	}
 });
 
+test.describe('UI contract on the consent screen', () => {
+	test.beforeEach(async ({ page }, testInfo) => {
+		test.skip(!(PAGE_GATE_PROJECTS as readonly string[]).includes(testInfo.project.name), 'The page contract runs at one desktop and one phone width.');
+		await login(page);
+	});
+
+	test('the consent screen meets the contract: one h1 near the top, one primary action, named controls, readable facts', async ({ page }, testInfo) => {
+		const opened = await openConsentScreen(page);
+		test.skip(!opened, 'This site does not serve OAuth, so there is no consent screen to open.');
+		await settle(page);
+
+		const kind = viewportKind(testInfo.project.name);
+		const measured = await measureUi(page, '.sw-oauth-consent');
+
+		expect.soft(measured.horizontalOverflow, 'Consent: horizontal overflow').toBe(0);
+		expect.soft(measured.unnamedControls, 'Consent: controls without a name').toEqual([]);
+		expect.soft(measured.unlabelledFields, 'Consent: fields without a label').toEqual([]);
+		expect.soft(measured.duplicateIds, 'Consent: duplicate ids').toEqual([]);
+		expect.soft(measured.wrongPrimaryFills, 'Consent: primary buttons not painted with the accent fill').toEqual([]);
+		expect.soft(measured.smallText, 'Consent: text under 12px').toEqual([]);
+		expect.soft(measured.smallTargets, 'Consent: targets under 24px').toEqual([]);
+		expect(measured.h1Top, 'Consent: the h1 is on the page').not.toBeNull();
+		expect.soft(measured.h1Top ?? 0, `Consent: the h1 starts at ${measured.h1Top}px`).toBeLessThanOrEqual(H1_TOP_MAX[kind]);
+
+		// Approve is the one primary action; Deny is not painted as one.
+		await expect(page.locator('.sw-oauth-consent .sw-ui-btn--primary')).toHaveCount(1);
+		await expect(page.getByRole('button', { name: 'Approve' })).toHaveClass(/sw-ui-btn--primary/);
+		await expect(page.getByRole('button', { name: 'Deny' })).not.toHaveClass(/sw-ui-btn--primary/);
+		// The destination keeps its port.
+		await expect(page.locator('.sw-oauth-consent dd code')).toHaveText('http://127.0.0.1:7999');
+	});
+});
+
 test.describe('The shell on Stonewright pages', () => {
 	test.beforeEach(async ({ page }) => {
 		await login(page);
@@ -775,10 +809,11 @@ test.describe('The shell on Stonewright pages', () => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-custom-code-approval', { waitUntil: 'domcontentloaded' });
 		await page.locator('.sw-shell').waitFor({ state: 'visible' });
 
-		const warning = page.locator('#sw-main .notice', { hasText: 'Human approval only.' });
+		// The warning and the guidance are callouts of the layer, not WordPress notices the shell could relocate.
+		const warning = page.locator('#sw-main .sw-ui-callout--warn', { hasText: 'Human approval only.' });
 		await expect(warning).toBeVisible();
 		await expect(page.locator('.sw-notice-drawer')).toBeHidden();
-		await expect(page.locator('#sw-main .notice')).toHaveCount(2);
+		await expect(page.locator('#sw-main .notice')).toHaveCount(0);
 	});
 
 	test('headings inside the layer carry no margin from WordPress core', async ({ page }) => {

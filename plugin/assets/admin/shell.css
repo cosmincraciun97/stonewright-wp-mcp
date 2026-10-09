@@ -197,11 +197,6 @@
 	outline: none;
 }
 
-/* A heading block the page prints for itself (Setup does) repeats the page header, so the page keeps one h1. */
-.sw-shell__main .sw-setup-page > .sw-setup-header {
-	display: none;
-}
-
 .sw-shell h1,
 .sw-shell h2,
 .sw-shell h3,
@@ -534,6 +529,22 @@ html.sw-has-shell {
 .sw-shell summary:focus-visible {
 	outline: 2px solid var(--sw-focus-ring);
 	outline-offset: 2px;
+}
+
+/* A click or tap on a link, button, tab or summary of a page that has not moved to the layer draws no WordPress ring
+   (`a:focus` and `.wp-core-ui .button:focus` draw one on every focus, mouse included); keyboard focus keeps the
+   outline above. (0,4,0) outranks core's `.wp-core-ui .button-primary:focus` at (0,3,0), so no `!important`. */
+:is(.sw-shell__chrome, .sw-shell__main) :is(a, button, summary, .button, [role="button"], [role="tab"], [tabindex]):focus:not(:focus-visible) {
+	outline: 0;
+	box-shadow: none;
+}
+
+/* A `.button` that the keyboard reaches keeps one 2px outline: core's focus rule for it (`.wp-core-ui .button:focus`,
+   (0,3,0)) paints a transparent outline and would win a tie, so this rule is a class more specific. */
+.sw-shell :is(.sw-shell__chrome, .sw-shell__main) .button:focus-visible {
+	outline: 2px solid var(--sw-focus-ring);
+	outline-offset: 2px;
+	box-shadow: none;
 }
 
 /* Scope primary buttons under the shell so wp-admin .button/link rules lose. */

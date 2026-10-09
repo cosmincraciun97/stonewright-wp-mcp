@@ -1,0 +1,55 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Prompt library: placement only. Every component (cards, tags, buttons, toolbar, notices) comes from sw-ui.css.
+ */
+
+.sw-prompts .sw-prompts__head {
+	margin-bottom: var(--sw-space-3);
+}
+
+.sw-prompts .sw-prompts__head :where(h2) {
+	font-size: var(--sw-fs-lg);
+}
+
+/* Outcome groups sit side by side in as many columns as fit; the cards of one outcome stack under its heading. */
+.sw-prompts .sw-prompts__groups {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+	align-items: start;
+	gap: var(--sw-space-5) var(--sw-space-4);
+}
+
+.sw-prompts .sw-prompts__groups > [data-sw-ui-filter-empty] {
+	grid-column: 1 / -1;
+}
+
+.sw-prompts .sw-prompts__grid {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+.sw-prompts .sw-prompts__grid > .sw-ui-card {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__body {
+	flex: 1 1 auto;
+	display: grid;
+	align-content: start;
+	gap: var(--sw-space-3);
+}
+
+.sw-prompts .sw-prompts__list {
+	margin: 0 0 var(--sw-space-3);
+	padding-inline-start: var(--sw-space-5);
+	list-style: disc;
+}
+
+/* Tool names wrap inside the card. */
+.sw-prompts .sw-prompts__tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+}

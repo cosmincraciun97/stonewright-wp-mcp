@@ -66,6 +66,9 @@ final class TroubleshootPageRenderTest extends TestCase {
 		self::assertStringContainsString( 'MCP runtime compatibility', $html );
 		self::assertStringContainsString( 'Elementor provider discovery', $html );
 		self::assertSame( substr_count( $html, '<section' ), substr_count( $html, '</section>' ) );
+		self::assertStringNotContainsString( 'sw-diag-card', $html );
+		self::assertStringNotContainsString( 'sw-setup-diagnostics', $html );
+		self::assertStringContainsString( 'class="sw-ui sw-ui-page sw-troubleshoot-page"', $html );
 	}
 
 	public function test_a_public_plain_http_site_shows_the_oauth_transport_problem(): void {
@@ -73,7 +76,7 @@ final class TroubleshootPageRenderTest extends TestCase {
 
 		$html = self::render();
 
-		self::assertMatchesRegularExpression( '/sw-diag-card--error" data-status="problem">.*?OAuth transport.*?OAuth is disabled on public plain HTTP sites\./s', $html );
+		self::assertMatchesRegularExpression( '/OAuth transport.*?OAuth is disabled on public plain HTTP sites\..*?sw-ui-badge--danger/s', $html );
 	}
 
 	public function test_the_last_saved_report_is_shown_escaped_after_a_run(): void {

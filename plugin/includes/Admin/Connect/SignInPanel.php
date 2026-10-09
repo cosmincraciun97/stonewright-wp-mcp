@@ -11,15 +11,26 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin\Connect;
 
 use Stonewright\WpMcp\Admin\ClientCatalog;
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\CodeBlock;
+use Stonewright\WpMcp\Admin\Ui\CopyField;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\KvList;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Table;
 
 /**
- * Renders the OAuth part of the Setup screen in three pieces: the sign-in status with
- * the addresses a client needs, one disclosure per AI client with its published setup,
- * and the list of connected clients with a disconnect form each.
+ * Renders the OAuth part of the Setup screen in four pieces: the sign-in status with the addresses a client
+ * needs, the reasons sign-in is off, one disclosure per AI client with its published setup, and the list of
+ * connected clients with a disconnect form each.
  *
- * Everything readable is server-rendered: disclosures are native details elements and
- * disconnecting is a plain form post, so nothing here needs JavaScript. Copy buttons use
- * the admin script when it is present. Every value is escaped at output.
+ * Everything readable is server-rendered: disclosures are native details elements and disconnecting is a plain
+ * form post, so nothing here needs JavaScript. Copy buttons use the shared UI script when it is present. Every
+ * value is escaped at output; markup comes from the Ui helpers.
  *
  * @phpstan-import-type Status from SignInStatus
  * @phpstan-import-type Guide from ClientInstructions
@@ -31,80 +42,112 @@ final class SignInPanel {
 
 	/** @param Status $status */
 	public static function render_status( array $status ): void {
-		$state = $status['available'] ? 'on' : 'off';
-		?>
-		<section class="sw-connect-status sw-connect-status--<?php echo esc_attr( $state ); ?>" aria-labelledby="sw-connect-status-title">
-			<div class="sw-connect-status__head">
-				<h3 id="sw-connect-status-title" class="sw-connect-status__title"><?php esc_html_e( 'OAuth sign-in', 'stonewright' ); ?></h3>
-				<span class="sw-connect-pill sw-connect-pill--<?php echo esc_attr( $state ); ?>">
-					<?php echo esc_html( 'on' === $state ? __( 'On', 'stonewright' ) : __( 'Off', 'stonewright' ) ); ?>
-				</span>
-			</div>
-			<dl class="sw-connect-facts">
-				<div class="sw-connect-facts__row">
-					<dt><?php esc_html_e( 'Transport', 'stonewright' ); ?></dt>
-					<dd><?php echo esc_html( $status['transport_label'] ); ?></dd>
-				</div>
-				<div class="sw-connect-facts__row">
-					<dt id="sw-connect-mcp-url-label"><?php esc_html_e( 'MCP server URL', 'stonewright' ); ?></dt>
-					<dd class="sw-connect-copyable">
-						<code id="sw-connect-mcp-url"><?php echo esc_html( $status['mcp_url'] ); ?></code>
-						<button type="button" class="button button-small" data-stonewright-copy="sw-connect-mcp-url" aria-describedby="sw-connect-mcp-url-label"><?php esc_html_e( 'Copy', 'stonewright' ); ?></button>
-					</dd>
-				</div>
-				<div class="sw-connect-facts__row">
-					<dt id="sw-connect-server-name-label"><?php esc_html_e( 'Suggested server name', 'stonewright' ); ?></dt>
-					<dd class="sw-connect-copyable">
-						<code id="sw-connect-server-name"><?php echo esc_html( ClientInstructions::server_name( $status['server_name'] ) ); ?></code>
-						<button type="button" class="button button-small" data-stonewright-copy="sw-connect-server-name" aria-describedby="sw-connect-server-name-label"><?php esc_html_e( 'Copy', 'stonewright' ); ?></button>
-					</dd>
-				</div>
-			</dl>
-			<?php if ( [] !== $status['issues'] ) : ?>
-				<div class="sw-connect-callout sw-connect-callout--warn">
-					<p class="sw-connect-callout__title"><strong><?php esc_html_e( 'Why OAuth sign-in is off', 'stonewright' ); ?></strong></p>
-					<ul class="sw-connect-issues">
-						<?php foreach ( $status['issues'] as $issue ) : ?>
-							<li class="sw-connect-issue">
-								<span><?php echo esc_html( $issue['reason'] ); ?></span>
-								<span class="sw-connect-issue__fix"><?php echo esc_html( $issue['remedy'] ); ?></span>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-				</div>
-			<?php else : ?>
-				<p class="description"><?php esc_html_e( 'Clients add this URL and send you to this site to approve access. No password is copied into their configuration.', 'stonewright' ); ?></p>
-			<?php endif; ?>
-		</section>
-		<?php
+		echo self::status_html( $status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+	}
+
+	/** @param Status $status */
+	public static function render_issues( array $status ): void {
+		echo self::issues_html( $status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 	}
 
 	/**
-	 * One disclosure per catalog client; the selected client starts open.
+	 * The sign-in status card: whether OAuth sign-in is on, the transport and the addresses a client needs.
+	 *
+	 * @param Status $status
+	 */
+	public static function status_html( array $status ): string {
+		$on    = $status['available'];
+		$badge = $on
+			? Badge::render( __( 'On', 'stonewright' ), [ 'variant' => 'ok', 'dot' => true ] )
+			: Badge::render( __( 'Off', 'stonewright' ), [ 'dot' => true ] );
+
+		$facts = KvList::render(
+			[
+				[ 'label' => __( 'Transport', 'stonewright' ), 'value' => $status['transport_label'] ],
+				[
+					'label'      => __( 'MCP server URL', 'stonewright' ),
+					'value_html' => CopyField::render( $status['mcp_url'], [ 'id' => 'sw-connect-mcp-url', 'label' => __( 'MCP server URL', 'stonewright' ) ] ),
+				],
+				[
+					'label'      => __( 'Suggested server name', 'stonewright' ),
+					'value_html' => CopyField::render( ClientInstructions::server_name( $status['server_name'] ), [ 'id' => 'sw-connect-server-name', 'label' => __( 'server name', 'stonewright' ) ] ),
+				],
+			],
+			[ 'label' => __( 'OAuth sign-in', 'stonewright' ) ]
+		);
+
+		$note = [] !== $status['issues']
+			? self::issues_html( $status )
+			: Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Clients add this URL and send you to this site to approve access. No password is copied into their configuration.', 'stonewright' ) ) );
+
+		return Card::render( __( 'OAuth sign-in', 'stonewright' ), $facts . $note, [ 'actions_html' => $badge, 'id' => 'sw-connect-status' ] );
+	}
+
+	/**
+	 * Why OAuth sign-in is off, with the fix for each reason. Empty when there is nothing to say.
+	 *
+	 * @param Status $status
+	 */
+	public static function issues_html( array $status ): string {
+		if ( [] === $status['issues'] ) {
+			return '';
+		}
+		$items = '';
+		foreach ( $status['issues'] as $issue ) {
+			$items .= Html::element(
+				'li',
+				[ 'class' => 'sw-connect-issue' ],
+				Html::element( 'span', [], Html::text( $issue['reason'] ) ) . ' ' . Html::element( 'span', [ 'class' => 'sw-connect-issue__fix' ], Html::text( $issue['remedy'] ) )
+			);
+		}
+
+		return Notice::callout( 'warn', __( 'Why OAuth sign-in is off', 'stonewright' ), '', [ 'text_html' => Html::element( 'ul', [ 'class' => 'sw-connect-issues' ], $items ) ] );
+	}
+
+	/**
+	 * One disclosure per catalog client; the selected client starts open. Clients that can reach this site come
+	 * first, the ones that cannot follow under their own heading.
 	 *
 	 * @param Status $status
 	 */
 	public static function render_guides( array $status, string $selected = '' ): void {
 		$selected = ClientCatalog::resolve_slug( $selected );
-		$guides   = ClientInstructions::all( $status['mcp_url'], $status['server_name'] );
-		?>
-		<section class="sw-connect" aria-labelledby="sw-connect-title">
-			<h3 id="sw-connect-title" class="sw-connect__title"><?php esc_html_e( 'Sign in from your AI client', 'stonewright' ); ?></h3>
-			<p class="description"><?php esc_html_e( 'Open your client below and follow its own setup: add the MCP server URL, then approve the request on this site when the client opens your browser.', 'stonewright' ); ?></p>
-			<?php self::render_reach( $status ); ?>
-			<div class="sw-connect-clients">
-				<?php foreach ( $guides as $guide ) : ?>
-					<?php self::render_guide( $guide, $status, $guide['slug'] === $selected ); ?>
-				<?php endforeach; ?>
-			</div>
-			<p class="sw-connect-alternative">
-				<strong><?php esc_html_e( 'Prefer a password?', 'stonewright' ); ?></strong>
-				<?php esc_html_e( 'Clients without browser sign-in, and sites that cannot offer OAuth, can connect with an Application Password through the separate endpoint', 'stonewright' ); ?>
-				<code><?php echo esc_html( $status['password_url'] ); ?></code>.
-				<a href="#stonewright-application-password"><?php esc_html_e( 'Choose Application Password in step 2.', 'stonewright' ); ?></a>
-			</p>
-		</section>
-		<?php
+		$works    = '';
+		$blocked  = '';
+		$count    = 0;
+		foreach ( ClientInstructions::all( $status['mcp_url'], $status['server_name'] ) as $guide ) {
+			$warning = self::site_warning( $guide, $status );
+			$item    = self::guide_html( $guide, $warning, $guide['slug'] === $selected );
+			if ( '' === $warning ) {
+				$works .= $item;
+			} else {
+				$blocked .= $item;
+				++$count;
+			}
+		}
+
+		$title_id = 'sw-connect-title';
+		$html     = Html::element( 'h3', [ 'class' => 'sw-connect__title', 'id' => $title_id ], Html::text( __( 'Sign in from your AI client', 'stonewright' ) ) )
+			. Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Open your client below and follow its own setup: add the MCP server URL, then approve the request on this site when the client opens your browser.', 'stonewright' ) ) )
+			. self::reach_html( $status )
+			. Html::element( 'div', [ 'class' => 'sw-connect-clients' ], $works );
+		if ( '' !== $blocked ) {
+			$html .= Html::element(
+				'h4',
+				[ 'class' => 'sw-connect__subtitle' ],
+				Html::text( __( 'Cannot sign in to this site', 'stonewright' ) ) . ' ' . Badge::count( $count )
+			) . Html::element( 'div', [ 'class' => 'sw-connect-clients' ], $blocked );
+		}
+		$html .= Html::element(
+			'p',
+			[ 'class' => 'sw-connect-alternative' ],
+			Html::element( 'strong', [], Html::text( __( 'Prefer a password?', 'stonewright' ) ) ) . ' '
+			. Html::text( __( 'Clients without browser sign-in, and sites that cannot offer OAuth, can connect with an Application Password through the separate endpoint', 'stonewright' ) ) . ' '
+			. Html::element( 'code', [], Html::text( $status['password_url'] ) ) . '. '
+			. Html::element( 'a', [ 'href' => '#stonewright-application-password' ], Html::text( __( 'Choose Application Password in step 2.', 'stonewright' ) ) )
+		);
+
+		echo Html::element( 'section', [ 'class' => 'sw-connect sw-ui-stack', 'aria-labelledby' => $title_id ], $html ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 	}
 
 	/**
@@ -113,138 +156,161 @@ final class SignInPanel {
 	 * @param list<Connection> $connections
 	 */
 	public static function render_connections( array $connections, string $notice = '' ): void {
-		?>
-		<section class="sw-setup-card sw-connect-connections" id="<?php echo esc_attr( self::CONNECTIONS_ID ); ?>" aria-labelledby="sw-connect-connections-title">
-			<div class="stonewright-step-index" aria-hidden="true">&#8644;</div>
-			<div class="stonewright-step-body">
-				<h2 id="sw-connect-connections-title"><?php esc_html_e( 'Connected OAuth clients', 'stonewright' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'Clients that signed in with OAuth and can still use this site. Last used is when the client last received or refreshed its access. Disconnecting revokes that access at once; the client has to sign in again.', 'stonewright' ); ?></p>
-				<?php self::render_notice( $notice ); ?>
-				<?php if ( [] === $connections ) : ?>
-					<p class="sw-connect-empty"><?php esc_html_e( 'No AI client is signed in with OAuth.', 'stonewright' ); ?></p>
-				<?php else : ?>
-					<div class="sw-connect-table-wrap">
-						<table class="widefat striped sw-connect-table">
-							<caption class="screen-reader-text"><?php esc_html_e( 'Connected OAuth clients', 'stonewright' ); ?></caption>
-							<thead>
-								<tr>
-									<th scope="col"><?php esc_html_e( 'Client', 'stonewright' ); ?></th>
-									<th scope="col"><?php esc_html_e( 'Approved by', 'stonewright' ); ?></th>
-									<th scope="col"><?php esc_html_e( 'Connected since', 'stonewright' ); ?></th>
-									<th scope="col"><?php esc_html_e( 'Last used', 'stonewright' ); ?></th>
-									<th scope="col"><span class="screen-reader-text"><?php esc_html_e( 'Action', 'stonewright' ); ?></span></th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php foreach ( $connections as $connection ) : ?>
-									<?php self::render_connection( $connection ); ?>
-								<?php endforeach; ?>
-							</tbody>
-						</table>
-					</div>
-				<?php endif; ?>
-			</div>
-		</section>
-		<?php
-	}
-
-	/** @param Status $status */
-	private static function render_reach( array $status ): void {
-		?>
-		<div class="sw-connect-callout sw-connect-callout--info">
-			<p class="sw-connect-callout__title"><strong><?php esc_html_e( 'Where clients connect from', 'stonewright' ); ?></strong></p>
-			<ul class="sw-connect-reach">
-				<li><?php esc_html_e( "Hosted apps (Claude.ai, Claude Desktop connectors and ChatGPT on the web) connect from their providers' servers, so they reach only sites on the public internet, never a site that runs on your computer or local network.", 'stonewright' ); ?></li>
-				<li><?php esc_html_e( 'Gemini CLI signs in only to HTTPS sites on a public address.', 'stonewright' ); ?></li>
-				<li><?php esc_html_e( 'Desktop apps, editors and command-line clients run on your computer and can reach a local site.', 'stonewright' ); ?></li>
-			</ul>
-			<?php if ( $status['local'] ) : ?>
-				<p class="sw-connect-callout__site">
-					<strong><?php esc_html_e( 'This site looks local', 'stonewright' ); ?></strong>
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: %s: why the site looks local. */
-							__( '(%s): hosted apps and Gemini CLI cannot reach it. Use a client that runs on your computer, or publish the site on a public HTTPS address.', 'stonewright' ),
-							$status['local_reason']
-						)
-					);
-					?>
-				</p>
-			<?php endif; ?>
-		</div>
-		<?php
+		echo self::connections_html( $connections, $notice ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 	}
 
 	/**
-	 * @param Guide  $guide
-	 * @param Status $status
+	 * @param list<Connection> $connections
 	 */
-	private static function render_guide( array $guide, array $status, bool $open ): void {
+	public static function connections_html( array $connections, string $notice = '' ): string {
+		$body = self::notice_html( $notice );
+
+		if ( [] === $connections ) {
+			$body .= EmptyState::render(
+				__( 'No AI client is signed in with OAuth.', 'stonewright' ),
+				__( 'A client appears here after it signs in and you approve it on this site. Choose OAuth in step 2 of Get started, then add the MCP server URL in your client.', 'stonewright' ),
+				[ 'variant' => 'first-run', 'icon' => 'plug', 'heading' => 3 ]
+			);
+
+			return Card::render( __( 'Connected OAuth clients', 'stonewright' ), $body, [ 'id' => self::CONNECTIONS_ID, 'desc' => self::connections_description() ] );
+		}
+
+		$rows = [];
+		foreach ( $connections as $connection ) {
+			/* translators: %d: number of active sign-ins. */
+			$grants = sprintf( _n( '%d active sign-in', '%d active sign-ins', $connection['grants'], 'stonewright' ), $connection['grants'] );
+			$meta   = '' === $connection['identity'] ? $grants : $connection['identity'] . ' · ' . $grants;
+			$rows[] = [
+				'client'    => [ 'text' => $connection['name'], 'meta' => $meta ],
+				'people'    => implode( ', ', $connection['people'] ),
+				'since'     => [ 'html' => self::time_html( $connection['connected_since'], __( 'Unknown', 'stonewright' ) ) ],
+				'last_used' => [ 'html' => self::time_html( $connection['last_used'], __( 'Not yet', 'stonewright' ) ) ],
+				'action'    => [ 'html' => self::disconnect_form( $connection ) ],
+			];
+		}
+
+		$body .= Table::render(
+			[
+				[ 'key' => 'client', 'label' => __( 'Client', 'stonewright' ), 'primary' => true ],
+				[ 'key' => 'people', 'label' => __( 'Approved by', 'stonewright' ), 'secondary' => true ],
+				[ 'key' => 'since', 'label' => __( 'Connected since', 'stonewright' ), 'secondary' => true ],
+				[ 'key' => 'last_used', 'label' => __( 'Last used', 'stonewright' ) ],
+				[ 'key' => 'action', 'label' => __( 'Action', 'stonewright' ), 'actions' => true ],
+			],
+			$rows,
+			[ 'caption' => __( 'Connected OAuth clients', 'stonewright' ), 'class' => 'sw-connect-table' ]
+		);
+
+		return Card::render( __( 'Connected OAuth clients', 'stonewright' ), $body, [ 'id' => self::CONNECTIONS_ID, 'desc' => self::connections_description() ] );
+	}
+
+	private static function connections_description(): string {
+		return __( 'Clients that signed in with OAuth and can still use this site. Last used is when the client last received or refreshed its access. Disconnecting revokes that access at once; the client has to sign in again.', 'stonewright' );
+	}
+
+	/** @param Status $status */
+	private static function reach_html( array $status ): string {
+		$items = '';
+		foreach (
+			[
+				__( "Hosted apps (Claude.ai, Claude Desktop connectors and ChatGPT on the web) connect from their providers' servers, so they reach only sites on the public internet, never a site that runs on your computer or local network.", 'stonewright' ),
+				__( 'Gemini CLI signs in only to HTTPS sites on a public address.', 'stonewright' ),
+				__( 'Desktop apps, editors and command-line clients run on your computer and can reach a local site.', 'stonewright' ),
+			] as $line
+		) {
+			$items .= Html::element( 'li', [], Html::text( $line ) );
+		}
+		$list = Html::element( 'ul', [ 'class' => 'sw-connect-reach' ], $items );
+		if ( $status['local'] ) {
+			$list .= Html::element(
+				'p',
+				[ 'class' => 'sw-connect-callout__site' ],
+				Html::element( 'strong', [], Html::text( __( 'This site looks local', 'stonewright' ) ) ) . ' '
+				. Html::text(
+					sprintf(
+						/* translators: %s: why the site looks local. */
+						__( '(%s): hosted apps and Gemini CLI cannot reach it. Use a client that runs on your computer, or publish the site on a public HTTPS address.', 'stonewright' ),
+						$status['local_reason']
+					)
+				)
+			);
+		}
+
+		return Notice::callout( 'info', __( 'Where clients connect from', 'stonewright' ), '', [ 'text_html' => $list ] );
+	}
+
+	/**
+	 * @param Guide $guide
+	 */
+	private static function guide_html( array $guide, string $warning, bool $open ): string {
 		$slug    = $guide['slug'];
-		$warning = self::site_warning( $guide, $status );
-		?>
-		<details class="sw-connect-client" id="<?php echo esc_attr( 'sw-connect-client-' . $slug ); ?>" data-stonewright-connect-client="<?php echo esc_attr( $slug ); ?>"<?php echo $open ? ' open' : ''; ?>>
-			<summary class="sw-connect-client__summary">
-				<span class="sw-connect-client__name"><?php echo esc_html( $guide['label'] ); ?></span>
-				<span class="sw-connect-client__tag"><?php echo esc_html( $guide['tag'] ); ?></span>
-				<?php if ( '' !== $warning ) : ?>
-					<span class="sw-connect-client__flag"><?php esc_html_e( 'Cannot sign in to this site', 'stonewright' ); ?></span>
-				<?php endif; ?>
-			</summary>
-			<div class="sw-connect-client__body">
-				<?php if ( '' !== $warning ) : ?>
-					<p class="sw-connect-client__warning"><?php echo esc_html( $warning ); ?></p>
-				<?php endif; ?>
-				<ol class="sw-connect-steps">
-					<?php foreach ( $guide['steps'] as $step ) : ?>
-						<li><?php echo esc_html( $step ); ?></li>
-					<?php endforeach; ?>
-				</ol>
-				<?php if ( [] !== $guide['links'] ) : ?>
-					<p class="sw-connect-links">
-						<?php foreach ( $guide['links'] as $link ) : ?>
-							<?php self::render_link( $link ); ?>
-						<?php endforeach; ?>
-					</p>
-				<?php endif; ?>
-				<?php foreach ( $guide['snippets'] as $snippet ) : ?>
-					<?php $code_id = 'sw-connect-' . $slug . '-' . $snippet['key']; ?>
-					<figure class="sw-connect-snippet">
-						<figcaption class="sw-connect-snippet__head">
-							<span class="sw-connect-snippet__title" id="<?php echo esc_attr( $code_id . '-title' ); ?>"><?php echo esc_html( $snippet['title'] ); ?></span>
-							<span class="sw-connect-snippet__where"><?php echo esc_html( $snippet['location'] ); ?></span>
-							<button type="button" class="button button-small" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>" aria-describedby="<?php echo esc_attr( $code_id . '-title' ); ?>"><?php esc_html_e( 'Copy', 'stonewright' ); ?></button>
-						</figcaption>
-						<pre class="sw-connect-snippet__code" id="<?php echo esc_attr( $code_id ); ?>"><code><?php echo esc_html( $snippet['code'] ); ?></code></pre>
-					</figure>
-				<?php endforeach; ?>
-				<?php if ( '' !== $guide['sign_in'] ) : ?>
-					<p class="sw-connect-signin"><strong><?php esc_html_e( 'How sign-in starts:', 'stonewright' ); ?></strong> <?php echo esc_html( $guide['sign_in'] ); ?></p>
-				<?php endif; ?>
-				<?php if ( [] !== $guide['limits'] ) : ?>
-					<ul class="sw-connect-limits">
-						<?php foreach ( $guide['limits'] as $limit ) : ?>
-							<li><?php echo esc_html( $limit ); ?></li>
-						<?php endforeach; ?>
-					</ul>
-				<?php endif; ?>
-			</div>
-		</details>
-		<?php
+		$summary = Icon::render( 'chev-r' )
+			. Html::element( 'span', [ 'class' => 'sw-connect-client__name' ], Html::text( $guide['label'] ) )
+			. Badge::tag( $guide['tag'] )
+			. ( '' !== $warning ? Badge::render( __( 'Cannot sign in to this site', 'stonewright' ), [ 'variant' => 'warn', 'icon' => 'alert' ] ) : '' );
+
+		$body = '';
+		if ( '' !== $warning ) {
+			$body .= Notice::callout( 'warn', '', $warning );
+		}
+		$steps = '';
+		foreach ( $guide['steps'] as $step ) {
+			$steps .= Html::element( 'li', [], Html::text( $step ) );
+		}
+		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
+
+		if ( [] !== $guide['links'] ) {
+			$links = '';
+			foreach ( $guide['links'] as $link ) {
+				$links .= self::link_html( $link );
+			}
+			$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $links );
+		}
+		foreach ( $guide['snippets'] as $snippet ) {
+			$body .= CodeBlock::render(
+				$snippet['code'],
+				[
+					'id'         => 'sw-connect-' . $slug . '-' . $snippet['key'],
+					'title'      => $snippet['title'],
+					'where'      => $snippet['location'],
+					/* translators: 1: snippet title, 2: client name. */
+					'copy_label' => sprintf( __( '%1$s for %2$s', 'stonewright' ), $snippet['title'], $guide['label'] ),
+					'body_class' => 'sw-connect-snippet__code',
+				]
+			);
+		}
+		if ( '' !== $guide['sign_in'] ) {
+			$body .= Html::element( 'p', [ 'class' => 'sw-connect-signin' ], Html::element( 'strong', [], Html::text( __( 'How sign-in starts:', 'stonewright' ) ) ) . ' ' . Html::text( $guide['sign_in'] ) );
+		}
+		if ( [] !== $guide['limits'] ) {
+			$limits = '';
+			foreach ( $guide['limits'] as $limit ) {
+				$limits .= Html::element( 'li', [], Html::text( $limit ) );
+			}
+			$body .= Html::element( 'ul', [ 'class' => 'sw-connect-limits' ], $limits );
+		}
+
+		return Html::element(
+			'details',
+			[
+				'class'                           => 'sw-ui-disclosure sw-connect-client',
+				'id'                              => 'sw-connect-client-' . $slug,
+				'data-stonewright-connect-client' => $slug,
+				'open'                            => $open ? true : null,
+			],
+			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
+		);
 	}
 
 	/** @param array{label: string, url: string, schemes: list<string>} $link */
-	private static function render_link( array $link ): void {
-		$web = [ 'https' ] === $link['schemes'];
-		?>
-		<a class="button" href="<?php echo esc_url( $link['url'], $link['schemes'] ); ?>"<?php echo $web ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>>
-			<?php echo esc_html( $link['label'] ); ?>
-			<?php if ( $web ) : ?>
-				<span class="screen-reader-text"><?php esc_html_e( '(opens in a new tab)', 'stonewright' ); ?></span>
-			<?php endif; ?>
-		</a>
-		<?php
+	private static function link_html( array $link ): string {
+		$web  = [ 'https' ] === $link['schemes'];
+		$text = Html::text( $link['label'] );
+		if ( $web ) {
+			$text .= Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden' ], ' ' . Html::text( __( '(opens in a new tab)', 'stonewright' ) ) );
+		}
+		// The destination may be a client's own scheme (cursor:, vscode:), which the generic attribute helper would drop.
+		return '<a class="sw-ui-btn sw-ui-btn--sm" href="' . esc_url( $link['url'], $link['schemes'] ) . '"' . ( $web ? ' target="_blank" rel="noopener noreferrer"' : '' ) . '>' . $text . '</a>';
 	}
 
 	/**
@@ -270,59 +336,51 @@ final class SignInPanel {
 	}
 
 	/** @param Connection $connection */
-	private static function render_connection( array $connection ): void {
-		$key  = $connection['client_key'];
-		$name = $connection['name'];
-		/* translators: %d: number of active sign-ins. */
-		$grants = sprintf( _n( '%d active sign-in', '%d active sign-ins', $connection['grants'], 'stonewright' ), $connection['grants'] );
-		$meta   = '' === $connection['identity'] ? $grants : $connection['identity'] . ' · ' . $grants;
-		?>
-		<tr>
-			<th scope="row">
-				<span class="sw-connect-table__name"><?php echo esc_html( $name ); ?></span>
-				<span class="sw-connect-table__meta"><?php echo esc_html( $meta ); ?></span>
-			</th>
-			<td><?php echo esc_html( implode( ', ', $connection['people'] ) ); ?></td>
-			<td><?php self::render_time( $connection['connected_since'], __( 'Unknown', 'stonewright' ) ); ?></td>
-			<td><?php self::render_time( $connection['last_used'], __( 'Not yet', 'stonewright' ) ); ?></td>
-			<td>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-connect-disconnect">
-					<input type="hidden" name="action" value="<?php echo esc_attr( ConnectedClients::ACTION ); ?>" />
-					<input type="hidden" name="client" value="<?php echo esc_attr( $key ); ?>" />
-					<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( ConnectedClients::NONCE_PREFIX . $key ) ); ?>" />
-					<?php /* translators: %s: client name. */ ?>
-					<button type="submit" class="button button-small button-link-delete" data-confirm="<?php echo esc_attr( sprintf( __( 'Disconnect %s? It loses access to this site at once and has to sign in again.', 'stonewright' ), $name ) ); ?>">
-						<?php esc_html_e( 'Disconnect', 'stonewright' ); ?><span class="screen-reader-text"> <?php echo esc_html( $name ); ?></span>
-					</button>
-				</form>
-			</td>
-		</tr>
-		<?php
+	private static function disconnect_form( array $connection ): string {
+		$key = $connection['client_key'];
+
+		return Html::element(
+			'form',
+			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-connect-disconnect' ],
+			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => ConnectedClients::ACTION ] )
+			. Html::void( 'input', [ 'type' => 'hidden', 'name' => 'client', 'value' => $key ] )
+			. Html::void( 'input', [ 'type' => 'hidden', 'name' => '_wpnonce', 'value' => wp_create_nonce( ConnectedClients::NONCE_PREFIX . $key ) ] )
+			. Button::render(
+				__( 'Disconnect', 'stonewright' ),
+				[
+					'type'    => 'submit',
+					'variant' => 'danger',
+					'size'    => 'sm',
+					'context' => $connection['name'],
+					'attrs'   => [
+						/* translators: %s: client name. */
+						'data-confirm' => sprintf( __( 'Disconnect %s? It loses access to this site at once and has to sign in again.', 'stonewright' ), $connection['name'] ),
+					],
+				]
+			)
+		);
 	}
 
-	private static function render_time( ?int $timestamp, string $fallback ): void {
+	private static function time_html( ?int $timestamp, string $fallback ): string {
 		if ( null === $timestamp ) {
-			echo esc_html( $fallback );
-			return;
+			return Html::text( $fallback );
 		}
 		$format = trim( (string) get_option( 'date_format', 'M j, Y' ) . ' ' . (string) get_option( 'time_format', 'g:i a' ) );
-		?>
-		<time datetime="<?php echo esc_attr( gmdate( 'c', $timestamp ) ); ?>"><?php echo esc_html( (string) wp_date( $format, $timestamp ) ); ?></time>
-		<?php
+
+		return Html::element( 'time', [ 'datetime' => gmdate( 'c', $timestamp ) ], Html::text( (string) wp_date( $format, $timestamp ) ) );
 	}
 
-	private static function render_notice( string $notice ): void {
+	private static function notice_html( string $notice ): string {
 		$notices = [
-			'disconnected' => [ 'success', 'status', __( 'The client was disconnected. It has to sign in again to use this site.', 'stonewright' ) ],
-			'none'         => [ 'info', 'status', __( 'That client had no active sign-in, so nothing changed.', 'stonewright' ) ],
-			'failed'       => [ 'error', 'alert', __( 'The client could not be disconnected. Try again; the attempt is recorded in the audit log.', 'stonewright' ) ],
+			'disconnected' => [ 'ok', __( 'The client was disconnected. It has to sign in again to use this site.', 'stonewright' ) ],
+			'none'         => [ 'info', __( 'That client had no active sign-in, so nothing changed.', 'stonewright' ) ],
+			'failed'       => [ 'danger', __( 'The client could not be disconnected. Try again; the attempt is recorded in the audit log.', 'stonewright' ) ],
 		];
 		if ( ! isset( $notices[ $notice ] ) ) {
-			return;
+			return '';
 		}
-		[ $type, $role, $message ] = $notices[ $notice ];
-		?>
-		<div class="notice notice-<?php echo esc_attr( $type ); ?> inline sw-notice" role="<?php echo esc_attr( $role ); ?>"><p><?php echo esc_html( $message ); ?></p></div>
-		<?php
+		[ $variant, $message ] = $notices[ $notice ];
+
+		return Notice::render( $variant, $message );
 	}
 }

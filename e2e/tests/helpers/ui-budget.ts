@@ -39,17 +39,8 @@ function onTopOfShell(extra: { smallText?: readonly [number, number]; smallTarge
 export const SHELL_ONLY: PageBudget = onTopOfShell({});
 
 export const PAGE_BUDGETS: Readonly<Record<string, PageBudget>> = {
-	stonewright: onTopOfShell({ smallText: [1, 0], smallTargets: [5, 4], duplicateIds: ['_wpnonce', 'submit'], axe: ['scrollable-region-focusable'] }),
-	'stonewright-abilities': onTopOfShell({ smallTargets: [4, 2], duplicateIds: ['_wpnonce'], axe: ['aria-required-children', 'nested-interactive'] }),
-	'stonewright-prompts': onTopOfShell({ smallTargets: [1, 1] }),
 	'stonewright-custom-code-approval': SHELL_ONLY,
 	'stonewright-sandbox': SHELL_ONLY,
-	'stonewright-skills': SHELL_ONLY,
-	'stonewright-memory': onTopOfShell({ smallTargets: [3, 0], duplicateIds: ['_wpnonce', 'submit', '_stonewright_nonce'] }),
-	'stonewright-audit-log': onTopOfShell({ smallTargets: [2, 2], duplicateIds: ['_stonewright_nonce'] }),
-	'stonewright-troubleshoot': onTopOfShell({ smallTargets: [1, 1] }),
-	'stonewright-context': onTopOfShell({ smallTargets: [1, 1] }),
-	'stonewright-design': SHELL_ONLY,
 };
 
 /** A page not listed above is held to the shell chrome only. */

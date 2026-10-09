@@ -38,6 +38,38 @@ final class HtmlTest extends TestCase {
 		);
 	}
 
+	public function test_a_form_can_carry_its_destination_and_method(): void {
+		self::assertSame(
+			' action="https://example.test/wp-admin/admin-post.php" method="post"',
+			Html::attrs( [ 'action' => 'https://example.test/wp-admin/admin-post.php', 'method' => 'post' ] )
+		);
+		self::assertSame( ' action="options.php"', Html::attrs( [ 'action' => 'options.php' ] ), 'A relative destination stays relative.' );
+		self::assertSame( '', Html::attrs( [ 'action' => 'javascript:alert(1)' ] ), 'A script destination drops the attribute.' );
+		self::assertSame( '', Html::attrs( [ 'formaction' => 'https://example.test/' ] ), 'A button cannot redirect its form.' );
+	}
+
+	public function test_form_controls_may_carry_their_native_constraints(): void {
+		self::assertSame(
+			' rows="8" min="1" pattern="[a-z]+" selected spellcheck="false"',
+			Html::attrs( [ 'rows' => 8, 'min' => 1, 'pattern' => '[a-z]+', 'selected' => true, 'spellcheck' => 'false' ] )
+		);
+	}
+
+	public function test_a_form_can_carry_its_method_and_a_checked_url_as_its_action(): void {
+		self::assertSame( ' method="post" action="https://example.test/wp-admin/admin-post.php"', Html::attrs( [ 'method' => 'post', 'action' => 'https://example.test/wp-admin/admin-post.php' ] ) );
+		self::assertSame( ' method="post"', Html::attrs( [ 'method' => 'post', 'action' => 'javascript:alert(1)' ] ) );
+		self::assertSame( '', Html::attrs( [ 'formaction' => 'https://example.test/' ] ), 'A button never redirects the form it belongs to.' );
+	}
+
+	public function test_a_text_field_can_carry_its_pattern_and_a_textarea_its_rows_and_spellcheck(): void {
+		self::assertSame( ' pattern="[a-z0-9_-]+.php" rows="12" spellcheck="false"', Html::attrs( [ 'pattern' => '[a-z0-9_-]+.php', 'rows' => '12', 'spellcheck' => 'false' ] ) );
+	}
+
+	public function test_an_option_can_be_selected_and_a_choice_checked(): void {
+		self::assertSame( ' value="a" selected', Html::attrs( [ 'value' => 'a', 'selected' => true ] ) );
+		self::assertSame( ' value="a"', Html::attrs( [ 'value' => 'a', 'selected' => false ] ) );
+	}
+
 	public function test_a_time_element_can_carry_its_machine_readable_value(): void {
 		self::assertSame( ' datetime="2026-10-07 06:00:00"', Html::attrs( [ 'datetime' => '2026-10-07 06:00:00' ] ) );
 		self::assertSame( ' datetime="&quot;&gt;x"', Html::attrs( [ 'datetime' => '">x' ] ) );

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
+use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Core\VendorGuard;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
@@ -66,7 +68,7 @@ final class AdminBarIndicator {
 
 		$config_href = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG );
 		if ( 'blocked' === $state ) {
-			$config_href = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+			$config_href = SetupTabs::url( 'settings', [], DomainLockCard::ID );
 		}
 
 		$bar->add_node(

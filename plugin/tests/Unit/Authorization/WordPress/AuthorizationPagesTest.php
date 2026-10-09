@@ -251,6 +251,56 @@ final class AuthorizationPagesTest extends TestCase {
 		self::assertStringContainsString( 'Stonewright Test', $html );
 	}
 
+	public function test_the_consent_screen_is_built_from_the_layer_with_one_primary_action(): void {
+		$client  = $this->http->rig->register_client( 'Example editor client' );
+		$token   = $this->pending_token( [ 'client_id' => $client ] );
+		$outcome = $this->pages()->review( self::consent_query( $token ), 7 );
+		$html    = AuthorizationPages::render( $outcome->view );
+
+		self::assertStringContainsString( 'class="sw-ui sw-ui-page sw-oauth-consent"', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ), 'One h1.' );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Connect Example editor client to Stonewright Test?</h1>', $html );
+		self::assertStringContainsString( '<div class="sw-ui-page-header__main"><h1', $html, 'The title is the first thing in the header.' );
+		self::assertStringNotContainsString( 'page-header__eyebrow', $html );
+		self::assertStringContainsString( 'sw-ui-kv', $html, 'The application, its identification and its destination are facts.' );
+		self::assertSame( 1, substr_count( $html, 'sw-ui-btn--primary' ), 'Approve is the one primary action.' );
+		self::assertMatchesRegularExpression( '/<button[^>]*sw-ui-btn--primary[^>]*name="approve"[^>]*>Approve</', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*name="deny"[^>]*>Deny</', $html );
+		self::assertDoesNotMatchRegularExpression( '/sw-ui-btn--primary[^>]*name="deny"/', $html );
+		self::assertStringNotContainsString( ' style=', $html );
+		self::assertStringNotContainsString( 'class="card"', $html, 'No core card markup.' );
+		self::assertStringNotContainsString( 'scope: mcp', $html, 'The access is described in plain words.' );
+		self::assertStringContainsString( 'Use the Stonewright MCP tools', $html );
+	}
+
+	public function test_a_client_that_registered_itself_is_flagged_because_anyone_can_choose_its_name(): void {
+		$client  = $this->http->rig->register_client( 'Example editor client' );
+		$token   = $this->pending_token( [ 'client_id' => $client ] );
+		$outcome = $this->pages()->review( self::consent_query( $token ), 7 );
+		$html    = AuthorizationPages::render( $outcome->view );
+
+		self::assertStringContainsString( 'sw-ui-callout--warn', $html );
+		self::assertStringContainsString( 'registered itself with this site', $html );
+		self::assertStringContainsString( 'under any name', $html );
+
+		$view                  = $outcome->view;
+		$view['document_host'] = 'client.example.test';
+		$published             = AuthorizationPages::render( $view );
+		self::assertStringNotContainsString( 'sw-ui-callout--warn', $published, 'A client whose information a host publishes is not flagged.' );
+		self::assertStringContainsString( 'Client information published by client.example.test', $published );
+	}
+
+	public function test_a_loopback_destination_says_it_is_on_this_computer(): void {
+		$client  = $this->http->rig->register_client( 'Example editor client' );
+		$token   = $this->pending_token( [ 'client_id' => $client ] );
+		$view    = $this->pages()->review( self::consent_query( $token ), 7 )->view;
+		$loop    = AuthorizationPages::render( $view );
+		self::assertStringContainsString( 'This computer', $loop );
+
+		$view['destination'] = 'https://client.example.test';
+		self::assertStringNotContainsString( 'This computer', AuthorizationPages::render( $view ) );
+	}
+
 	/**
 	 * @dataProvider callbacks_and_the_origin_the_consent_screen_shows
 	 *

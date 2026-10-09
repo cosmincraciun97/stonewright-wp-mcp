@@ -19,6 +19,13 @@ final class SwUiCssContractTest extends TestCase {
 	/** Highest specificity any selector may have. */
 	private const MAX_SPECIFICITY = [ 0, 2, 0 ];
 
+	/**
+	 * Highest specificity of the pointer-focus rules (the block that answers WordPress's `:focus` rings). Core's
+	 * `.wp-core-ui .button-primary:focus` is (0,3,0), so the rules that replace it need to be at least as specific
+	 * and later in the cascade; nothing may use `!important` to get there.
+	 */
+	private const MAX_FOCUS_SPECIFICITY = [ 0, 4, 1 ];
+
 	/** Properties that may move: layout never does. The two discrete ones are allowed only with allow-discrete. */
 	private const ANIMATABLE = [ 'opacity', 'transform', 'color', 'background-color', 'border-color', 'background-position' ];
 	private const DISCRETE   = [ 'display', 'overlay' ];
@@ -46,6 +53,66 @@ final class SwUiCssContractTest extends TestCase {
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
 		'includes/Admin/Pages/StatusPage.php',
 		'assets/admin/pages/overview.css',
+		// The Audit log is built from the layer: its drawers and dialogs, and the lineage list inside the drawer.
+		'includes/Admin/AuditLogPage.php',
+		'includes/Admin/AuditLineageDrawer.php',
+		'assets/admin/pages/audit.css',
+		'assets/admin/pages/audit.js',
+		'assets/admin/pages/audit-lineage.js',
+		// The consent screen is built from the layer; its stylesheet only sets the width.
+		'includes/Authorization/WordPress/AuthorizationPages.php',
+		'assets/admin/pages/consent.css',
+		// The block queue console is built from the layer; its script builds the journal rows with the layer classes.
+		'includes/Gutenberg/BrowserQueue/QueueConsole.php',
+		'assets/admin/block-queue.js',
+		// Troubleshoot is built from the layer; its script paints the check results with the layer classes.
+		'includes/Admin/Pages/TroubleshootPage.php',
+		'includes/Admin/DiagnosticsPanel.php',
+		'assets/admin/pages/troubleshoot.js',
+		'assets/admin/pages/troubleshoot.css',
+		// Setup is built from the layer: its partials print the layer's markup, and its stylesheet only places things.
+		'assets/admin/pages/setup.css',
+		'includes/Admin/Connect/SignInPanel.php',
+		// The Setup-only parts of the page script build the layer's notices, badges, buttons and table.
+		'assets/admin/admin.js',
+		'includes/Admin/Setup/ApplicationPasswords.php',
+		'includes/Admin/Setup/AuthMethodScript.php',
+		'includes/Admin/Setup/AuthenticationStep.php',
+		'includes/Admin/Setup/ClientPicker.php',
+		'includes/Admin/Setup/ConnectStep.php',
+		'includes/Admin/Setup/DomainLockCard.php',
+		'includes/Admin/Setup/Nonce.php',
+		'includes/Admin/Setup/SecretField.php',
+		'includes/Admin/Setup/SectionReuseRow.php',
+		'includes/Admin/Setup/SettingsForm.php',
+		'includes/Admin/Setup/SetupContext.php',
+		'includes/Admin/Setup/SetupPage.php',
+		'includes/Admin/Setup/SetupTabs.php',
+		'includes/Admin/Setup/Step.php',
+		'includes/Admin/Setup/UpdateGuide.php',
+		'includes/Admin/Setup/VerifyStep.php',
+		// The Knowledge hub (Skills, Memory, Context, Design, Prompt library) is built from the layer; the page
+		// stylesheets only place things.
+		'includes/Admin/SkillsPage.php',
+		'includes/Admin/MemoryInstructionsPage.php',
+		'includes/Admin/Pages/ContextPage.php',
+		'includes/Admin/Pages/DesignPage.php',
+		'includes/Admin/Pages/PromptLibraryPage.php',
+		'assets/admin/skills.js',
+		'assets/admin/pages/skills.css',
+		'assets/admin/pages/memory.css',
+		'assets/admin/pages/context.css',
+		'assets/admin/pages/design.css',
+		'assets/admin/pages/prompts.css',
+		// AI Abilities: markup from the helpers, its script, and a stylesheet that only places things.
+		'includes/Admin/AbilitiesPage.php',
+		'assets/admin/abilities.css',
+		'assets/admin/pages/abilities.js',
+		// Custom code hub: Drafts, Library, Active, Crash recovery and Approvals, with one placement stylesheet.
+		'includes/Admin/SandboxPage.php',
+		'includes/Admin/Pages/SandboxLibraryPage.php',
+		'includes/Admin/CustomCodeApprovalPage.php',
+		'assets/admin/sandbox.css',
 	];
 
 	private static function css(): string {
@@ -95,13 +162,55 @@ final class SwUiCssContractTest extends TestCase {
 			}
 			foreach ( CssSource::selectors( $rule['selector'] ) as $selector ) {
 				$specificity = CssSource::specificity( $selector );
-				if ( $specificity > self::MAX_SPECIFICITY ) {
+				$limit       = self::is_pointer_focus_selector( $selector ) ? self::MAX_FOCUS_SPECIFICITY : self::MAX_SPECIFICITY;
+				if ( $specificity > $limit ) {
 					$violations[] = CssSource::format_specificity( $specificity ) . ' ' . $selector . ( '' !== $rule['context'] ? '  [' . $rule['context'] . ']' : '' );
 				}
 			}
 		}
 
 		self::assertSame( [], $violations, "Selectors above (0,2,0):\n" . implode( "\n", $violations ) );
+	}
+
+	private static function is_pointer_focus_selector( string $selector ): bool {
+		return str_starts_with( $selector, '.sw-ui :is(' ) && ( str_ends_with( $selector, ':focus:not(:focus-visible)' ) || str_ends_with( $selector, ':focus-visible' ) );
+	}
+
+	/** @return array{pointer: list<array{name: string, value: string, important: bool}>, keyboard: list<array{name: string, value: string, important: bool}>, selectors: list<string>} */
+	private static function pointer_focus_rules(): array {
+		$found = [ 'pointer' => [], 'keyboard' => [], 'selectors' => [] ];
+		foreach ( CssSource::rules( self::css() ) as $rule ) {
+			if ( $rule['at'] || ! self::is_pointer_focus_selector( $rule['selector'] ) ) {
+				continue;
+			}
+			$found['selectors'][] = $rule['selector'];
+			$key                  = str_ends_with( $rule['selector'], ':focus:not(:focus-visible)' ) ? 'pointer' : 'keyboard';
+			$found[ $key ]        = CssSource::declarations( $rule['body'] );
+		}
+
+		return $found;
+	}
+
+	public function test_a_click_or_tap_draws_no_ring_while_the_keyboard_gets_one_outline_of_the_focus_width(): void {
+		$rules = self::pointer_focus_rules();
+
+		self::assertCount( 2, $rules['selectors'], 'One rule for a pointer click, one for the keyboard.' );
+		self::assertSame( '0', CssSource::value_of( $rules['pointer'], 'outline' ) );
+		self::assertSame( 'none', CssSource::value_of( $rules['pointer'], 'box-shadow' ) );
+		self::assertSame( 'var(--sw-focus-width) solid var(--sw-focus-ring)', CssSource::value_of( $rules['keyboard'], 'outline' ), 'Keyboard focus is an outline of at least the 2px focus width.' );
+		self::assertSame( 'none', CssSource::value_of( $rules['keyboard'], 'box-shadow' ), 'The ring is the outline, not core\'s shadow on top of it.' );
+	}
+
+	public function test_the_pointer_focus_rules_outrank_the_core_focus_rules_they_answer_without_important(): void {
+		// Core: `a:focus` (0,1,1), `.wp-core-ui .button:focus` and `.wp-core-ui .button-primary:focus` (0,3,0).
+		foreach ( self::pointer_focus_rules()['selectors'] as $selector ) {
+			self::assertGreaterThanOrEqual( [ 0, 3, 0 ], CssSource::specificity( $selector ), $selector );
+			self::assertStringStartsWith( '.sw-ui ', $selector, 'Scoped to the layer, so no WordPress screen is touched.' );
+		}
+		self::assertStringContainsString( ':focus:not(:focus-visible)', self::pointer_focus_rules()['selectors'][0] );
+		foreach ( [ 'a', 'button', 'summary', '[role="tab"]', '[role="radio"]', '[tabindex]' ] as $control ) {
+			self::assertStringContainsString( $control, self::pointer_focus_rules()['selectors'][0], $control );
+		}
 	}
 
 	public function test_the_heading_and_paragraph_reset_beats_the_element_rules_of_wordpress_core(): void {
@@ -122,6 +231,12 @@ final class SwUiCssContractTest extends TestCase {
 
 		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-height' ) );
 		self::assertSame( 'var(--sw-control-h-xs)', CssSource::value_of( $declarations, 'min-width' ) );
+	}
+
+	public function test_the_page_header_has_no_eyebrow_or_logo_rule(): void {
+		// The header prints the title first; no markup carries the product-name line, so no rule styles one.
+		self::assertStringNotContainsString( 'page-header__eyebrow', self::css() );
+		self::assertStringNotContainsString( 'page-header__logo', self::css() );
 	}
 
 	public function test_raw_colours_exist_only_in_the_token_sections(): void {

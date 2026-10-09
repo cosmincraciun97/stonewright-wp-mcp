@@ -53,8 +53,9 @@ authorization. A refresh token expires after 30 days without use, and one
 presented again within 60 seconds of its use receives the grant's current
 refresh token.
 
-Automatic retry is restricted to handshake and explicitly allowlisted read-only
-bootstrap operations. Mutations are never retried. When the session is
+The companion sends each WordPress MCP request once and does not repeat it after
+a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+access token and the request is sent once more, a tool call included. When the session is
 degraded, `stonewright-task-start` reconnects once and either continues with
 the remote call or returns a truthful local gateway result. Plugin-only mode
 never silently enables Direct writes on a transport failure.

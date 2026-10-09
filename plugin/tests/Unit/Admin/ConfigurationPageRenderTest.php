@@ -57,6 +57,17 @@ final class ConfigurationPageRenderTest extends TestCase {
 		return $html;
 	}
 
+	/**
+	 * Whether each panel of one authentication method is hidden, in page order.
+	 *
+	 * @return list<bool>
+	 */
+	private static function panels( string $html, string $method ): array {
+		preg_match_all( '/<div data-stonewright-auth-panel="' . preg_quote( $method, '/' ) . '"([^>]*)>/', $html, $matches );
+
+		return array_map( static fn ( string $attributes ): bool => str_contains( $attributes, ' hidden' ), $matches[1] );
+	}
+
 	private static function auth_button( string $html, string $method ): string {
 		self::assertSame( 1, preg_match( '/<button[^>]*data-stonewright-auth-method="' . preg_quote( $method, '/' ) . '"[^>]*>/s', $html, $match ), $method );
 		return $match[0];
@@ -67,12 +78,12 @@ final class ConfigurationPageRenderTest extends TestCase {
 
 		$html = self::render();
 
-		self::assertStringContainsString( 'Choose your authentication method', $html );
-		self::assertStringContainsString( 'sw-connect-pill--on', $html );
+		self::assertStringContainsString( 'Choose how clients sign in', $html );
+		self::assertStringContainsString( 'sw-ui-badge--ok sw-ui-badge--dot">On</span>', $html );
 		self::assertStringContainsString( 'https://example.com/wp-json/mcp/stonewright-oauth', $html );
 		self::assertStringNotContainsString( 'disabled', self::auth_button( $html, 'oauth' ) );
 		self::assertStringContainsString( 'aria-checked="true"', self::auth_button( $html, 'oauth' ) );
-		self::assertSame( count( ClientCatalog::slugs() ), substr_count( $html, '<details class="sw-connect-client"' ) );
+		self::assertSame( count( ClientCatalog::slugs() ), substr_count( $html, '<details class="sw-ui-disclosure sw-connect-client"' ) );
 		self::assertMatchesRegularExpression( '/id="sw-connect-client-claude-code"[^>]* open>/', $html, 'The saved or default client starts open.' );
 		self::assertStringContainsString( 'claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth', $html );
 		self::assertStringContainsString( 'id="' . SignInPanel::CONNECTIONS_ID . '"', $html );
@@ -98,8 +109,8 @@ final class ConfigurationPageRenderTest extends TestCase {
 	public function test_oauth_choice_shows_the_guides_and_hides_the_password_snippets(): void {
 		$html = self::render();
 
-		self::assertSame( 2, substr_count( $html, '<div data-stonewright-auth-panel="oauth" >' ) );
-		self::assertSame( 2, substr_count( $html, '<div data-stonewright-auth-panel="application-password" hidden>' ) );
+		self::assertSame( [ false, false ], self::panels( $html, 'oauth' ) );
+		self::assertSame( [ true, true ], self::panels( $html, 'application-password' ) );
 	}
 
 	public function test_a_saved_password_choice_hides_the_oauth_panels(): void {
@@ -107,8 +118,8 @@ final class ConfigurationPageRenderTest extends TestCase {
 
 		$html = self::render();
 
-		self::assertSame( 2, substr_count( $html, '<div data-stonewright-auth-panel="oauth" hidden>' ) );
-		self::assertSame( 2, substr_count( $html, '<div data-stonewright-auth-panel="application-password" >' ) );
+		self::assertSame( [ true, true ], self::panels( $html, 'oauth' ) );
+		self::assertSame( [ false, false ], self::panels( $html, 'application-password' ) );
 		self::assertStringContainsString( 'aria-checked="true"', self::auth_button( $html, 'application-password' ) );
 	}
 
@@ -117,11 +128,11 @@ final class ConfigurationPageRenderTest extends TestCase {
 
 		$html = self::render();
 
-		self::assertStringContainsString( 'sw-connect-pill--off', $html );
+		self::assertStringContainsString( 'sw-ui-badge sw-ui-badge--dot">Off</span>', $html );
 		self::assertStringContainsString( 'Why OAuth sign-in is off', $html );
 		self::assertStringContainsString( 'plain HTTP', $html );
 		self::assertStringContainsString( 'disabled', self::auth_button( $html, 'oauth' ) );
-		self::assertSame( 2, substr_count( $html, '<div data-stonewright-auth-panel="oauth" hidden>' ) );
+		self::assertSame( [ true, true ], self::panels( $html, 'oauth' ) );
 		self::assertStringContainsString( 'No AI client is signed in with OAuth.', $html );
 	}
 

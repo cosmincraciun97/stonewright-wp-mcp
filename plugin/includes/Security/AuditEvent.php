@@ -322,6 +322,10 @@ final class AuditEvent {
 		if ( self::contains_any( $signal, [ 'permission', 'forbidden', 'capability', 'unauthorized' ] ) ) {
 			return self::CATEGORY_PERMISSION;
 		}
+		// A security check (a confirmation token being verified) is a safety row, not a write.
+		if ( str_starts_with( $ability, 'security.' ) ) {
+			return self::CATEGORY_SAFETY;
+		}
 		if ( self::contains_any( $signal, [ 'safety', 'blocked', 'confirmation', 'grant_required', 'read_only', 'rule_violation', 'css_classes_not_approved', 'not_approved' ] ) ) {
 			return self::CATEGORY_SAFETY;
 		}

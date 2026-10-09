@@ -176,6 +176,8 @@ final class RescuePageTest extends TestCase {
 	public function test_rescue_registers_itself_in_the_activity_hub_through_the_menu_registry(): void {
 		MenuRegistry::reset_for_tests();
 		RescuePage::register();
+		self::assertNull( MenuRegistry::entry( 'stonewright-rescue' ), 'The entry is registered on init, where labels can be translated.' );
+		do_action( 'init' );
 
 		self::assertSame( 'Rescue', AdminShell::pages()['stonewright-rescue'] );
 		self::assertSame( 'activity', MenuRegistry::hub_for( 'stonewright-rescue' ) );

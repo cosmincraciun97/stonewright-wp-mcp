@@ -61,17 +61,29 @@
     const journal = root.document.querySelector("[data-queue-journal]"), status = root.document.querySelector("[data-queue-status]"), counts = root.document.querySelector("[data-queue-counts]");
     let paused = false, running = false, stopped = false; const rows = new Map();
     const say = (text) => { if (status) status.textContent = text; };
+    const stateClass = (state) => state === "failed" ? "sw-ui-badge sw-ui-badge--danger" : state === "serialized" || state === "persisted" ? "sw-ui-badge sw-ui-badge--ok" : state === "cancelled" ? "sw-ui-badge" : "sw-ui-badge sw-ui-badge--warn";
+    const cell = (label, className) => { const td = root.document.createElement("td"); if (label) td.setAttribute("data-label", label); if (className) td.className = className; return td; };
     const show = (id, state, message) => {
       if (!journal) return;
-      let item = rows.get(id); if (!item) { item = root.document.createElement("li"); const label = root.document.createElement("span"); label.setAttribute("data-queue-label", ""); item.append(label); journal.append(item); rows.set(id, item); }
-      item.querySelector("[data-queue-label]").textContent = id + ": " + state + (message ? " — " + message : "");
+      let item = rows.get(id);
+      if (!item) {
+        item = root.document.createElement("tr");
+        const change = cell("", "sw-ui-table__primary-cell"), code = root.document.createElement("code"); code.className = "sw-ui-table__primary"; code.textContent = id; change.append(code);
+        const stateCell = cell("State"), badge = root.document.createElement("span"); badge.setAttribute("data-queue-state", ""); stateCell.append(badge);
+        const detail = cell("Details"), label = root.document.createElement("span"); label.setAttribute("data-queue-label", ""); detail.append(label);
+        const actions = cell("", "sw-ui-table__actions"); actions.setAttribute("data-queue-actions", "");
+        item.append(change, stateCell, detail, actions); journal.append(item); rows.set(id, item);
+        const empty = root.document.querySelector("[data-queue-empty]"); if (empty) empty.hidden = true;
+      }
+      const badge = item.querySelector("[data-queue-state]"); badge.className = stateClass(state); badge.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+      item.querySelector("[data-queue-label]").textContent = message || "";
     };
     const send = async (route, payload) => {
       const response = await root.fetch(config.base + route, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-WP-Nonce": config.nonce }, body: JSON.stringify(payload) });
       const value = await response.json(); return { status: response.status, payload: value && value.data && value.retryable === undefined ? { ...value, retryable: value.data.retryable } : value };
     };
     const receipts = createReceiptJournal((payload) => send("result", payload));
-    const showCounts = (value) => { if (!counts || !value || typeof value !== "object") return; counts.replaceChildren(); for (const state of ["queued", "serialized", "persisted", "failed", "cancelled"]) { const number = value[state]; if (!Number.isInteger(number) || number < 0) continue; const term = root.document.createElement("dt"), detail = root.document.createElement("dd"); term.textContent = state; detail.textContent = String(number); counts.append(term, detail); } };
+    const showCounts = (value) => { if (!counts || !value || typeof value !== "object") return; counts.replaceChildren(); for (const state of ["queued", "serialized", "persisted", "failed", "cancelled"]) { const number = value[state]; if (!Number.isInteger(number) || number < 0) continue; const stat = root.document.createElement("div"), term = root.document.createElement("span"), detail = root.document.createElement("span"); stat.className = "sw-ui-stat"; term.className = "sw-ui-stat__label"; detail.className = "sw-ui-stat__value sw-ui-num"; term.textContent = state.charAt(0).toUpperCase() + state.slice(1); detail.textContent = String(number); stat.append(term, detail); counts.append(stat); } };
     const publish = (id, state, message) => { show(id, state, message); if (root.parent !== root) root.parent.postMessage({ type: "stonewright-queue-progress", id, state, message: message || "" }, root.location.origin); };
     const publishReceipt = (id, receipt) => { publish(id, receipt.state, receipt.paused ? "Awaiting an explicit terminal receipt; resume to check the queue." : receipt.state === "failed" ? "Review the error and submit a corrected batch." : "Ready for guarded finalization"); if (receipt.paused) { paused = true; say("Processing paused without a verified terminal receipt."); } };
     const process = async () => {
@@ -108,7 +120,7 @@
         if (row && target.queue_url && !row.querySelector("[data-queue-cancel]")) {
           const queueUrl = new URL(target.queue_url, root.location.href), queueToken = queueUrl.origin === root.location.origin ? queueUrl.searchParams.get("stonewright_queue_token") : null;
           if (queueToken) {
-            const cancel = root.document.createElement("button"); cancel.type = "button"; cancel.setAttribute("data-queue-cancel", ""); cancel.textContent = "Preview cancellation"; row.append(cancel);
+            const cancel = root.document.createElement("button"); cancel.type = "button"; cancel.className = "sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm"; cancel.setAttribute("data-queue-cancel", ""); cancel.textContent = "Preview cancellation"; cancel.setAttribute("aria-label", "Preview cancellation of change " + target.change_id); const actions = row.querySelector("[data-queue-actions]") || row; actions.append(cancel);
             let previewed = false, grant;
             cancel.addEventListener("click", async () => {
               cancel.disabled = true;
@@ -118,8 +130,8 @@
                 const receipt = await send("cancel", payload);
                 if (receipt.status >= 400) { say("Cancellation was not applied. Review authorization and the required confirmation token."); return; }
                 if (!previewed && receipt.payload.dry_run === true && receipt.payload.verification_status === "planned") {
-                  previewed = true; cancel.textContent = "Confirm cancellation"; say("Cancellation preview is ready for " + target.change_id + ". Confirm to remove this queued operation; saved content is unchanged.");
-                  if (config.mode === "production-safe") { const label = root.document.createElement("label"); label.textContent = "Confirmation token for this cancellation "; grant = root.document.createElement("input"); grant.type = "password"; grant.autocomplete = "off"; label.append(grant); row.append(label); }
+                  previewed = true; cancel.textContent = "Confirm cancellation"; cancel.setAttribute("aria-label", "Confirm cancellation of change " + target.change_id); say("Cancellation preview is ready for " + target.change_id + ". Confirm to remove this queued operation; saved content is unchanged.");
+                  if (config.mode === "production-safe") { const label = root.document.createElement("label"); label.className = "sw-ui-field__label"; label.textContent = "Confirmation token for this cancellation "; grant = root.document.createElement("input"); grant.type = "password"; grant.className = "sw-ui-input"; grant.autocomplete = "off"; label.append(grant); actions.append(label); }
                 } else if (previewed && receipt.payload.effect_verified === true && receipt.payload.verification_status === "verified") { show(target.change_id, "cancelled", "Queue cancellation verified"); if (grant) grant.value = ""; cancel.remove(); }
                 else say("Cancellation outcome is unverified. Check the queue before retrying.");
               } catch { say("Cancellation connection is unavailable. Check the queue before retrying."); }

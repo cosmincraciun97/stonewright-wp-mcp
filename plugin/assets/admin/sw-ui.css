@@ -423,22 +423,6 @@
 	min-width: 0;
 }
 
-.sw-ui .sw-ui-page-header__eyebrow {
-	display: flex;
-	align-items: center;
-	gap: var(--sw-space-2);
-	color: var(--sw-text-muted);
-	font-size: var(--sw-fs-xs);
-	font-weight: var(--sw-weight-medium);
-}
-
-.sw-ui .sw-ui-page-header__logo {
-	width: 16px;
-	height: 16px;
-	border-radius: var(--sw-radius-sm);
-	background: var(--sw-accent-fill);
-}
-
 .sw-ui .sw-ui-page-header__aside {
 	display: flex;
 	flex-wrap: wrap;
@@ -1530,6 +1514,11 @@
 .sw-ui .sw-ui-disclosure__body {
 	padding: var(--sw-space-3);
 	border-top: 1px solid var(--sw-border);
+}
+
+/* The fade belongs to the moment of opening: on a closed disclosure the content is not drawn, so an animation
+   there would sit unfinished until it is opened. */
+:where(.sw-ui .sw-ui-disclosure[open]) > .sw-ui-disclosure__body {
 	animation: sw-ui-reveal var(--sw-dur-reveal) var(--sw-ease);
 }
 
@@ -1816,6 +1805,76 @@
 }
 
 /* ====================================================================== */
+/* 16a. Drawer layout, filter links and lineage detail (Activity pages)     */
+/* ====================================================================== */
+/* A drawer keeps its header and footer in view and scrolls its body. */
+:where(.sw-ui) .sw-ui-drawer[open] {
+	display: flex;
+	flex-direction: column;
+}
+
+:where(.sw-ui .sw-ui-drawer) .sw-ui-dialog__body {
+	flex: 1 1 auto;
+	align-content: start;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.sw-ui .sw-ui-dialog__header--bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-border);
+}
+
+:where(.sw-ui .sw-ui-dialog__header--bar) .sw-ui-dialog__title {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+/* A filter chip that is a link (a server-rendered view): the current one reads as pressed. */
+.sw-ui .sw-ui-chip-filter {
+	text-decoration: none;
+}
+
+:where(.sw-ui) .sw-ui-chip-filter[aria-current="true"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
+}
+
+/* Lineage items: a node row, an optional line of facts under it, and nested repairs. */
+.sw-ui .sw-ui-lineage__item {
+	margin: 0 0 var(--sw-space-2);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-lineage__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 var(--sw-space-2);
+	margin: 0;
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+:where(.sw-ui .sw-ui-lineage__item[aria-current="true"]) > .sw-ui-lineage__node {
+	padding-inline: var(--sw-space-2);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-accent-soft);
+}
+
+/* The list indents three levels and then stops, so a deep chain never scrolls sideways. */
+.sw-ui .sw-ui-lineage :where(ol ol ol ol) {
+	margin-inline-start: 0;
+	padding-inline-start: 0;
+	border-inline-start: 0;
+}
+
+/* ====================================================================== */
 /* 17. Narrow screens                                                       */
 /* ====================================================================== */
 @media (max-width: 1024px) {
@@ -1931,6 +1990,62 @@
 }
 
 /* ====================================================================== */
+/* 17a. Inline disclosure, touch-sized switches and code fields             */
+/* ====================================================================== */
+/*
+ * A disclosure that lives inside a table cell or a line of text: no border, no background, a link-like summary
+ * that is still a 24px target. It follows the base disclosure at equal specificity, so it wins by order.
+ */
+.sw-ui .sw-ui-disclosure--inline {
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.sw-ui .sw-ui-disclosure--inline > :where(summary) {
+	width: fit-content;
+	min-height: var(--sw-control-h-xs);
+	padding: 0;
+	color: var(--sw-accent-text);
+	font-weight: var(--sw-weight-medium);
+}
+
+.sw-ui .sw-ui-disclosure--inline > :where(.sw-ui-disclosure__body) {
+	padding: var(--sw-space-2) 0 0;
+	border-top: 0;
+}
+
+/*
+ * A textarea that holds code: monospace, lines kept as typed, a long line scrolls inside the field. It sits after
+ * the base textarea at equal specificity.
+ */
+.sw-ui .sw-ui-textarea--code {
+	min-height: 320px;
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-fs-sm);
+	line-height: var(--sw-lh-body);
+	overflow: auto;
+	resize: vertical;
+	tab-size: 4;
+	white-space: pre;
+}
+
+/* On a phone a switch and a checkbox are 40px targets; the drawn track keeps its size. */
+@media (max-width: 782px) {
+	.sw-ui .sw-ui-switch {
+		min-height: 40px;
+	}
+
+	.sw-ui .sw-ui-switch :where(input) {
+		height: 40px;
+	}
+
+	.sw-ui .sw-ui-checkbox {
+		min-height: 40px;
+	}
+}
+
+/* ====================================================================== */
 /* 18. Reduced motion and forced colours                                    */
 /* ====================================================================== */
 /*
@@ -2000,6 +2115,167 @@
 	.sw-ui .sw-ui-skeleton {
 		border: 1px dashed GrayText;
 	}
+}
+
+/* ====================================================================== */
+/* 19. Choices and tab links (added with the Setup page)                    */
+/* ====================================================================== */
+
+/*
+ * A choice is a button that selects one option of a group: the sign-in method, the AI client, the connection
+ * method. The state is read from aria-checked (role="radio") or aria-selected (role="tab"), which is what the
+ * scripts of those pages already set, so the look follows the state a screen reader announces.
+ */
+.sw-ui .sw-ui-choices {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: var(--sw-space-2);
+}
+
+.sw-ui .sw-ui-choices--compact {
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+}
+
+.sw-ui .sw-ui-choice {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--sw-space-1);
+	min-height: var(--sw-control-h);
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border: 1px solid var(--sw-border-control);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease);
+}
+
+:where(.sw-ui) .sw-ui-choice:hover {
+	border-color: var(--sw-accent-fill);
+}
+
+:where(.sw-ui) .sw-ui-choice[aria-checked="true"],
+:where(.sw-ui) .sw-ui-choice[aria-selected="true"] {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+}
+
+:where(.sw-ui) .sw-ui-choice:disabled {
+	border-color: var(--sw-border);
+	background: var(--sw-surface-sunken);
+	color: var(--sw-text-muted);
+	cursor: not-allowed;
+}
+
+.sw-ui .sw-ui-choice__title {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-ui .sw-ui-choice__text {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-fs-xs);
+}
+
+/* A tab that is a link (Ui\Tabs with a destination) looks like the button tab. */
+:where(.sw-ui) .sw-ui-tabs__tab:where(a) {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: var(--sw-space-1);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+/* A stack is one column as wide as its container: a long line inside it (a command, a prompt) scrolls in its own
+   block instead of making the column, and the page, wider. */
+.sw-ui .sw-ui-stack {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+/* Code block (Ui\CodeBlock): where the code goes, and the copy status on the dark head. */
+.sw-ui .sw-ui-code__where {
+	margin-inline-start: var(--sw-space-1);
+	color: var(--sw-inverse-muted);
+	font-family: var(--sw-font-mono);
+	overflow-wrap: anywhere;
+}
+
+/* A long path in the head wraps the copy button to the next line instead of widening the block. */
+:where(.sw-ui) .sw-ui-code__head {
+	flex-wrap: wrap;
+}
+
+:where(.sw-ui) .sw-ui-code .sw-ui-copy__status {
+	margin-inline-start: auto;
+	color: var(--sw-inverse-fg);
+}
+
+@media (forced-colors: active) {
+	:where(.sw-ui) .sw-ui-choice[aria-checked="true"],
+	:where(.sw-ui) .sw-ui-choice[aria-selected="true"] {
+		forced-color-adjust: none;
+		border-color: Highlight;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: inset 0 0 0 2px Highlight;
+	}
+}
+
+/* ====================================================================== */
+/* Knowledge hub additions: code-face text areas, the drop zone             */
+/* ====================================================================== */
+
+/* A multi-line field for text a person reads as code (JSON, Markdown, instructions). */
+.sw-ui .sw-ui-textarea--code {
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-fs-sm);
+	line-height: 1.5;
+}
+
+/* The drop zone: where a file can be dropped, with the native file field inside it. */
+.sw-ui .sw-ui-dropzone {
+	display: grid;
+	justify-items: start;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-5);
+	border: 1px dashed var(--sw-border-control);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text-secondary);
+}
+
+:where(.sw-ui) .sw-ui-dropzone--over {
+	border-color: var(--sw-accent-fill);
+	background: var(--sw-accent-soft);
+}
+
+/* ====================================================================== */
+/* Pointer focus (added with the admin UI polish pass)                      */
+/* ====================================================================== */
+
+/*
+ * WordPress draws a box-shadow ring on every `:focus` of a link or a button (`a:focus`, `.wp-core-ui .button:focus`,
+ * `.wp-core-ui .button-primary:focus`), the mouse included, and it stays until the next page loads. A click or a tap
+ * on a link, button, tab, choice or summary draws nothing here; a keyboard reaching the same control
+ * (`:focus-visible`) sees one outline of the focus width, never a shadow. The selectors are as specific as the core
+ * rules they answer, (0,3,0) to (0,4,1) against core's `.wp-core-ui .button-primary:focus` at (0,3,0), so no
+ * declaration needs `!important`. Text fields keep the ring they draw on every focus.
+ */
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus:not(:focus-visible) {
+	outline: 0;
+	box-shadow: none;
+}
+
+.sw-ui :is(a, button, summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]), [role="button"], [role="tab"], [role="radio"], [tabindex]):focus-visible {
+	outline: var(--sw-focus-width) solid var(--sw-focus-ring);
+	box-shadow: none;
 }
 
 /* The hidden attribute must beat the display a component sets; this stays the last rule. */

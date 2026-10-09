@@ -68,7 +68,6 @@ final class AdminShell {
 		$header = PageHeader::render(
 			$title,
 			[
-				'eyebrow'    => __( 'Stonewright', 'stonewright' ),
 				'lede'       => $lede,
 				'aside_html' => $aside,
 			]

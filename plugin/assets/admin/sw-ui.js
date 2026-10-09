@@ -13,6 +13,7 @@
  *   [data-sw-ui-dialog-open="#id"]     open a <dialog class="sw-ui-dialog">; [data-sw-ui-dialog-close] closes it
  *   [data-sw-ui-confirm-phrase]        an input that enables [data-sw-ui-confirm-submit] when it holds the phrase
  *   [data-sw-ui-search]                the field the "/" key focuses
+ *   input[data-sw-ui-filter="#id"]     filter the [data-sw-ui-filter-item]s inside #id as you type (see the List filter block)
  */
 ( function () {
 	'use strict';
@@ -555,6 +556,60 @@
 	}
 
 	// -----------------------------------------------------------------------------------------------
+	// List filter (Knowledge pages)
+	//   input[data-sw-ui-filter="#container"]   the field; it filters the items inside #container as you type
+	//   [data-sw-ui-filter-item]                one item; its text to match is data-sw-ui-filter-text (lower case)
+	//   [data-sw-ui-filter-group]               a group of items: hidden while none of its items matches
+	//   [data-sw-ui-filter-count]               a status line: data-sw-ui-filter-label "Showing %1$s of %2$s"
+	//   [data-sw-ui-filter-empty]               shown when nothing matches
+	// Items and groups are hidden with the `hidden` property, so a filtered item leaves the accessibility tree.
+	// -----------------------------------------------------------------------------------------------
+
+	function applyFilter( input ) {
+		var container = targetOf( input.getAttribute( 'data-sw-ui-filter' ) );
+		if ( ! container ) {
+			return;
+		}
+		var query = String( input.value || '' ).toLowerCase().trim();
+		var items = Array.prototype.slice.call( container.querySelectorAll( '[data-sw-ui-filter-item]' ) );
+		var shown = 0;
+
+		items.forEach( function ( item ) {
+			var text = String( item.getAttribute( 'data-sw-ui-filter-text' ) || item.textContent || '' ).toLowerCase();
+			var match = query === '' || text.indexOf( query ) !== -1;
+			item.hidden = ! match;
+			if ( match ) {
+				shown += 1;
+			}
+		} );
+		Array.prototype.forEach.call( container.querySelectorAll( '[data-sw-ui-filter-group]' ), function ( group ) {
+			group.hidden = group.querySelectorAll( '[data-sw-ui-filter-item]:not([hidden])' ).length === 0;
+		} );
+
+		var empty = container.querySelector( '[data-sw-ui-filter-empty]' );
+		if ( empty ) {
+			empty.hidden = shown !== 0;
+		}
+		var count = container.querySelector( '[data-sw-ui-filter-count]' ) || document.querySelector( '[data-sw-ui-filter-count]' );
+		if ( count ) {
+			var label = count.getAttribute( 'data-sw-ui-filter-label' ) || '%1$s / %2$s';
+			count.textContent = label.replace( '%1$s', String( shown ) ).replace( '%2$s', String( items.length ) );
+		}
+	}
+
+	function initFilters( scope ) {
+		Array.prototype.forEach.call( ( scope || document ).querySelectorAll( 'input[data-sw-ui-filter]' ), function ( input ) {
+			if ( input.getAttribute( 'data-sw-ui-filter-ready' ) === '1' ) {
+				return;
+			}
+			input.setAttribute( 'data-sw-ui-filter-ready', '1' );
+			input.addEventListener( 'input', function () {
+				applyFilter( input );
+			} );
+			applyFilter( input );
+		} );
+	}
+	// -----------------------------------------------------------------------------------------------
 	// Search shortcut
 	// -----------------------------------------------------------------------------------------------
 
@@ -588,13 +643,14 @@
 	function init() {
 		initTabs( document );
 		initDisclosures( document );
+		initFilters( document );
 
 		document.addEventListener( 'click', function ( event ) {
 			var target = event.target && event.target.closest ? event.target : null;
 			if ( ! target ) {
 				return;
 			}
-			var copyButton = target.closest( '[data-sw-ui-copy]' );
+			var copyButton = target.closest( '[data-sw-ui-copy], [data-sw-ui-copy-text]' );
 			if ( copyButton ) {
 				event.preventDefault();
 				onCopyClick( copyButton );
@@ -642,6 +698,93 @@
 		document.addEventListener( 'keydown', onDialogTab );
 	}
 
+	// -----------------------------------------------------------------------------------------------
+	// Tab links and deep links
+	//
+	// A tab can be a link to the same page with the view in its query (`?tab=settings`), so it works without
+	// script. With script a click switches the view in place and the address keeps the choice
+	// (data-sw-ui-tabs-param names the argument), and a link to something inside a hidden view opens that view.
+	// -----------------------------------------------------------------------------------------------
+
+	function rememberTab( list, tab ) {
+		var param = list.getAttribute( 'data-sw-ui-tabs-param' );
+		if ( ! param || ! tab || tab.tagName !== 'A' || ! window.URL ) {
+			return;
+		}
+		try {
+			var target = new window.URL( tab.href, window.location.href );
+			var current = new window.URL( window.location.href );
+			var value = target.searchParams.get( param );
+			if ( value ) {
+				current.searchParams.set( param, value );
+			} else {
+				current.searchParams.delete( param );
+			}
+			window.history.replaceState( window.history.state, '', current.toString() );
+			// A form that returns to the page it was sent from (the WordPress settings form) returns to this view.
+			Array.prototype.forEach.call( document.querySelectorAll( 'input[name="_wp_http_referer"]' ), function ( field ) {
+				field.value = current.pathname + current.search;
+			} );
+		} catch ( error ) {
+			/* A blocked history API leaves the address as it is; the view still switched. */
+		}
+	}
+
+	/** Open the view that holds `element`, when it is in a hidden one. Returns true when it opened one. */
+	function revealPanelFor( element ) {
+		var panel = element && element.closest ? element.closest( '[role="tabpanel"]' ) : null;
+		if ( ! panel || ! panel.hidden || ! panel.id ) {
+			return false;
+		}
+		var tab = document.querySelector( '[role="tab"][aria-controls="' + panel.id + '"]' );
+		if ( ! tab ) {
+			return false;
+		}
+		tab.click();
+		return true;
+	}
+
+	function revealHash() {
+		var hash = window.location.hash;
+		if ( ! hash || hash.length < 2 ) {
+			return;
+		}
+		var target = targetOf( '#' + hash.slice( 1 ).replace( /[^A-Za-z0-9_-]/g, '' ) );
+		if ( target && revealPanelFor( target ) ) {
+			scrollToElement( target );
+		}
+	}
+
+	function initTabLinks() {
+		// The tab lists must be wired before a hash can open a view by clicking its tab (initTabs is idempotent).
+		initTabs( document );
+		Array.prototype.forEach.call( document.querySelectorAll( '[data-sw-ui-tabs]' ), function ( list ) {
+			if ( list.getAttribute( 'data-sw-ui-tab-links-ready' ) === '1' ) {
+				return;
+			}
+			list.setAttribute( 'data-sw-ui-tab-links-ready', '1' );
+			list.addEventListener( 'click', function ( event ) {
+				var tab = event.target && event.target.closest ? event.target.closest( '[role="tab"]' ) : null;
+				if ( tab && tab.tagName === 'A' ) {
+					event.preventDefault();
+					rememberTab( list, tab );
+				}
+			} );
+			// The arrow, Home and End keys move focus (and the selection) in the tab list's own handler; the address
+			// follows the tab that took focus, whichever handler runs first.
+			list.addEventListener( 'focusin', function ( event ) {
+				var tab = event.target && event.target.closest ? event.target.closest( '[role="tab"]' ) : null;
+				if ( tab && tab.getAttribute( 'aria-selected' ) === 'true' ) {
+					rememberTab( list, tab );
+				}
+			} );
+		} );
+		revealHash();
+	}
+
+	window.addEventListener( 'hashchange', revealHash );
+	ready( initTabLinks );
+
 	root.ui = {
 		version: '1',
 		motionOK: motionOK,
@@ -655,6 +798,7 @@
 		closeDialog: closeDialog,
 		initTabs: initTabs,
 		initDisclosures: initDisclosures,
+		initFilters: initFilters,
 	};
 
 	ready( init );

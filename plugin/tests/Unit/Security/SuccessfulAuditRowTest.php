@@ -128,7 +128,7 @@ final class SuccessfulAuditRowTest extends TestCase {
 		$html = $this->render_rows( [ $this->stored_row( 'ok', 'SUCCESS', $incident_id ) ] );
 
 		self::assertStringContainsString( 'stonewright/example-content-update', $html );
-		self::assertStringNotContainsString( 'Incident:', $html );
+		self::assertStringNotContainsString( '<dt>Incident</dt>', $html );
 		self::assertStringNotContainsString( substr( $incident_id, 0, 12 ), $html );
 	}
 
@@ -137,7 +137,7 @@ final class SuccessfulAuditRowTest extends TestCase {
 
 		$html = $this->render_rows( [ $this->stored_row( 'error', 'FAILED', $incident_id ) ] );
 
-		self::assertStringContainsString( 'Incident:', $html );
+		self::assertStringContainsString( '<dt>Incident</dt>', $html );
 		self::assertStringContainsString( 'incident_id=' . $incident_id, $html );
 	}
 

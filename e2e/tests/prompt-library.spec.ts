@@ -26,17 +26,20 @@ test.describe('Prompt Library tab', () => {
 		await expect(page.locator('h1')).toContainText(/Prompt Library/i);
 		const cards = page.locator('[data-sw-prompt-card]');
 		await expect(cards.first()).toBeVisible();
-		await expect(cards).toHaveCount(21);
+		await expect(cards).toHaveCount(29);
 		await expect(page.getByText('Apply a brand kit', { exact: true })).toHaveCount(0);
 		await expect(page.getByText('Build an industry site blueprint', { exact: true })).toHaveCount(0);
-		await expect(page.locator('.sw-prompt-safety')).toContainText(
+		await expect(page.locator('.sw-ui-callout').first()).toContainText(
 			'Prompts contain no site URL, username, Application Password, token',
 		);
-		await expect(page.locator('.sw-prompt-modes').filter({ hasText: 'Plugin' }).first()).toBeVisible();
-		await expect(page.locator('.sw-prompt-modes').filter({ hasText: 'Direct' }).first()).toBeVisible();
-		await expect(page.getByText('Update and verify Stonewright', { exact: true })).toBeVisible();
-		await expect(page.getByText('Direct mode safe site inspection', { exact: true })).toBeVisible();
-		const copy = page.locator('.sw-copy-prompt').first();
+		await expect(page.locator('[aria-label="Available modes"]').filter({ hasText: 'Plugin' }).first()).toBeVisible();
+		await expect(page.locator('[aria-label="Available modes"]').filter({ hasText: 'Direct' }).first()).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Update and verify Stonewright' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Direct mode safe site inspection' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Roll back a failed change' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Build a page from sections my site already has' })).toBeVisible();
+		await expect(page.getByText('Block Editor Queue')).toHaveCount(0);
+		const copy = page.getByRole('button', { name: /^Copy prompt/ }).first();
 		await copy.click();
 		await expect(copy).toContainText(/Copied|Copy/i, { timeout: 3_000 });
 	});

@@ -54,26 +54,55 @@ abilities that are currently enabled and not blocked by the master toggle.
 
 ### Per-ability toggle
 
-Each row in the table has a switch: a checkbox with the switch role, named after
-the ability it controls so a screen reader announces which ability it turns on or
-off. Unchecking it and submitting posts to
-`admin-post.php?action=stonewright_toggle_ability`. The handler:
+Each row in a category table has a switch: a checkbox with the switch role, named
+after the ability it controls so a screen reader announces which ability it turns on
+or off. Moving it saves at once, without reloading the page: the script calls
+`POST /wp-json/stonewright/v1/admin/abilities/toggle` and confirms the change in a
+toast that offers **Undo**. If the server refuses or cannot be reached, the switch
+goes back and a notice that stays on the page says why. If the route is blocked (a
+response that is not JSON), the script hands the change to the form handler below.
 
-1. Validates the nonce (`stonewright_toggle_ability`).
-2. Reads the `stonewright_disabled_abilities` option (an array of ability
-   names).
-3. Adds or removes the ability name from the array.
-4. Calls `update_option( 'stonewright_disabled_abilities', $updated, false )`.
+The route and the form handler `admin-post.php?action=stonewright_toggle_ability` are
+two ways into the same code (`AbilityToggles::set_enabled()`) and keep the same
+gates:
 
-The option is a plain PHP array of string ability names. Serialized by
-WordPress automatically. You can inspect it in wp-options:
+1. The `manage_options` capability.
+2. The nonce of the form (`stonewright_toggle_ability`). The route also needs the
+   REST nonce that WordPress asks of a signed-in request.
+3. The `stonewright_disabled_abilities` option (an array of ability names): the
+   name is added or removed and the option is saved with
+   `update_option( 'stonewright_disabled_abilities', $updated, false )`.
+
+Neither writes an audit row. The option is a plain PHP array of string ability
+names. You can inspect it in wp-options:
 
 ```sql
 SELECT option_value FROM wp_options WHERE option_name = 'stonewright_disabled_abilities';
 ```
 
-The page redirects back with `?stonewright_toggled=enabled` or `=disabled`
-and shows a dismissible success notice.
+### Bulk actions
+
+The toolbar holds the search field, a count of what is shown and what is on, and the
+bulk controls: **Select visible**, a bulk action (enable or disable the selected
+abilities, or a whole category), a category and **Apply**. With script, Apply calls
+`POST /wp-json/stonewright/v1/admin/abilities/bulk` and says how many abilities
+changed in a toast with **Undo**. Apply with nothing chosen says what is missing next
+to the control and moves focus to it; nothing is sent. Each category also has
+**Enable all** and **Disable all** buttons, shown when script runs.
+
+Without script the bulk form posts to `admin-post.php?action=stonewright_bulk_abilities`
+(nonce `stonewright_bulk_abilities`), and the page redirects back with
+`?stonewright_toggled=` set to `bulk-enabled`, `bulk-disabled`, `bulk-no-action`,
+`bulk-no-selection` or `bulk-no-category` (and `stonewright_changed=` with the count).
+The result, or what is missing, is printed as a notice that stays until you leave
+the page. Single switches need script.
+
+### Parameters
+
+The input parameters of an ability are not part of the page. Opening a row's
+**Parameters** loads them once from
+`GET /wp-json/stonewright/v1/admin/abilities/parameters?name=<ability>` (name, type,
+required, description). A failed request says so and offers **Try again**.
 
 ### Master toggle interaction
 
@@ -94,24 +123,20 @@ layer still applies the master toggle check at request time.
 
 ## Filtering and search
 
-### Category chips
+### Categories
 
-A row of `<a class="button">` chips above the table filters by category. The
-active chip has the `button-primary` class. Clicking "All" clears the filter.
-The URL parameter is `?page=stonewright-abilities&cat={category}`.
-
-Category chips display a count of abilities in that category, e.g. **Memory (4)**.
+Abilities are grouped by provider, then by category. Every category starts closed;
+its heading carries a count in words (for example "3 of 5 on"). While a search
+is active, the categories that match open and the others are hidden; clearing the
+search puts them back.
 
 ### Search input
 
-A free-text search box filters rows client-side (no page reload). It matches
-against the ability name, label, and category simultaneously:
-
-```js
-var match = name.indexOf(query) !== -1
-         || label.indexOf(query) !== -1
-         || category.indexOf(query) !== -1;
-```
+The field filters rows in the browser, with no page reload. It matches the ability
+name, label, MCP tool name, category and kind. The matching text is highlighted, and
+the toolbar says "12 of 397 abilities". When nothing matches, an empty state names
+the search and offers **Clear search**. Press `/` to focus the field and Escape to
+clear it.
 
 ### Read-only mode
 

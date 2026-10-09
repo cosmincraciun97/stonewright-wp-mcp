@@ -66,19 +66,20 @@ final class SignInPanelTest extends TestCase {
 		$html = self::html( static fn () => SignInPanel::render_status( self::status() ) );
 
 		self::assertStringContainsString( 'OAuth sign-in', $html );
-		self::assertStringContainsString( 'sw-connect-pill--on', $html );
-		self::assertMatchesRegularExpression( '/sw-connect-pill--on">\s*On\s*</', $html );
+		self::assertStringContainsString( 'sw-ui-badge--ok sw-ui-badge--dot">On</span>', $html );
 		self::assertStringContainsString( '<dd>HTTPS</dd>', $html );
-		self::assertStringContainsString( '<code id="sw-connect-mcp-url">https://example.com/wp-json/mcp/stonewright-oauth</code>', $html );
-		self::assertStringContainsString( 'data-stonewright-copy="sw-connect-mcp-url"', $html );
-		self::assertStringContainsString( '<code id="sw-connect-server-name">stonewright-example-test</code>', $html );
+		self::assertStringContainsString( '<code class="sw-ui-copy__value" id="sw-connect-mcp-url">https://example.com/wp-json/mcp/stonewright-oauth</code>', $html );
+		self::assertStringContainsString( 'data-sw-ui-copy="#sw-connect-mcp-url"', $html );
+		self::assertStringContainsString( 'aria-label="Copy MCP server URL"', $html );
+		self::assertStringContainsString( '<code class="sw-ui-copy__value" id="sw-connect-server-name">stonewright-example-test</code>', $html );
 		self::assertStringNotContainsString( 'Why OAuth sign-in is off', $html );
 	}
 
 	public function test_status_lists_every_reason_sign_in_is_off_with_its_fix(): void {
 		$html = self::html( static fn () => SignInPanel::render_status( self::status( HttpRig::site( false, 'production', 'pretty', 'http://example.com' ) ) ) );
 
-		self::assertStringContainsString( 'sw-connect-pill--off', $html );
+		self::assertStringContainsString( 'sw-ui-badge sw-ui-badge--dot">Off</span>', $html );
+		self::assertStringContainsString( 'sw-ui-callout--warn', $html );
 		self::assertStringContainsString( 'Why OAuth sign-in is off', $html );
 		self::assertStringContainsString( 'turned off', $html );
 		self::assertStringContainsString( 'plain HTTP', $html );
@@ -89,9 +90,9 @@ final class SignInPanelTest extends TestCase {
 	public function test_every_client_is_a_disclosure_and_the_selected_one_is_open(): void {
 		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), 'cursor' ) );
 
-		self::assertSame( count( ClientCatalog::slugs() ), substr_count( $html, '<details class="sw-connect-client"' ) );
-		self::assertMatchesRegularExpression( '/<details class="sw-connect-client" id="sw-connect-client-cursor"[^>]* open>/', $html );
-		self::assertDoesNotMatchRegularExpression( '/<details class="sw-connect-client" id="sw-connect-client-claude-code"[^>]* open>/', $html );
+		self::assertSame( count( ClientCatalog::slugs() ), substr_count( $html, '<details class="sw-ui-disclosure sw-connect-client"' ) );
+		self::assertMatchesRegularExpression( '/<details class="sw-ui-disclosure sw-connect-client" id="sw-connect-client-cursor"[^>]* open>/', $html );
+		self::assertDoesNotMatchRegularExpression( '/<details class="sw-ui-disclosure sw-connect-client" id="sw-connect-client-claude-code"[^>]* open>/', $html );
 		self::assertStringContainsString( '<span class="sw-connect-client__name">Claude Code</span>', $html );
 		self::assertStringContainsString( '<span class="sw-connect-client__name">VS Code with GitHub Copilot</span>', $html );
 	}
@@ -110,11 +111,11 @@ final class SignInPanelTest extends TestCase {
 			}
 		);
 
-		self::assertGreaterThan( 2, (int) preg_match_all( '/data-stonewright-copy="([^"]+)"/', $html, $targets ) );
+		self::assertGreaterThan( 2, (int) preg_match_all( '/data-sw-ui-copy="#([^"]+)"/', $html, $targets ) );
 		foreach ( array_unique( $targets[1] ) as $target ) {
 			self::assertSame( 1, substr_count( $html, 'id="' . $target . '"' ), $target );
 		}
-		self::assertStringContainsString( '<pre class="sw-connect-snippet__code" id="sw-connect-claude-code-add"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $html );
+		self::assertStringContainsString( '<pre class="sw-ui-code__body sw-connect-snippet__code" id="sw-connect-claude-code-add" tabindex="0" aria-label="Add the server: Add the server for Claude Code"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $html );
 		self::assertStringContainsString( '.mcp.json', $html );
 	}
 
@@ -136,7 +137,7 @@ final class SignInPanelTest extends TestCase {
 		self::assertStringContainsString( '<code>https://example.test/wp-json/mcp/stonewright</code>', $html );
 		self::assertStringContainsString( 'href="#stonewright-application-password"', $html );
 		self::assertStringNotContainsString( 'This site looks local', $html );
-		self::assertStringNotContainsString( 'sw-connect-client__flag', $html );
+		self::assertStringNotContainsString( 'Cannot sign in to this site', $html );
 	}
 
 	public function test_a_local_site_flags_the_clients_that_cannot_reach_it(): void {
@@ -146,10 +147,10 @@ final class SignInPanelTest extends TestCase {
 		foreach ( [ 'claude-ai', 'claude-desktop', 'chatgpt', 'gemini-cli', 'claude-code' ] as $slug ) {
 			self::assertMatchesRegularExpression( '/id="sw-connect-client-' . preg_quote( $slug, '/' ) . '".*?<\/summary>/s', $html );
 			preg_match( '/id="sw-connect-client-' . preg_quote( $slug, '/' ) . '".*?<\/summary>/s', $html, $summary );
-			self::assertStringContainsString( 'sw-connect-client__flag', $summary[0], $slug );
+			self::assertStringContainsString( 'Cannot sign in to this site', $summary[0], $slug );
 		}
 		preg_match( '/id="sw-connect-client-cursor".*?<\/summary>/s', $html, $cursor );
-		self::assertStringNotContainsString( 'sw-connect-client__flag', $cursor[0] );
+		self::assertStringNotContainsString( 'Cannot sign in to this site', $cursor[0] );
 		self::assertStringContainsString( 'site-a.test', $html );
 	}
 
@@ -201,17 +202,18 @@ final class SignInPanelTest extends TestCase {
 
 		self::assertStringContainsString( 'id="' . SignInPanel::CONNECTIONS_ID . '"', $html );
 		self::assertStringContainsString( 'Connected OAuth clients', $html );
-		self::assertStringContainsString( '<caption class="screen-reader-text">', $html );
+		self::assertStringContainsString( '<caption class="sw-ui-visually-hidden">Connected OAuth clients</caption>', $html );
 		self::assertStringContainsString( 'Second &lt;b&gt;client&lt;/b&gt;', $html );
 		self::assertStringContainsString( 'Registered automatically', $html );
 		self::assertStringContainsString( '2 active sign-ins', $html );
 		self::assertStringContainsString( 'Editor A, Editor B', $html );
 		self::assertStringContainsString( '<time datetime="2026-01-01T00:00:30+00:00">', $html );
+		self::assertStringContainsString( 'Disconnect<span class="sw-ui-visually-hidden"> Second &lt;b&gt;client&lt;/b&gt;</span>', $html, 'Each action names its client.' );
 		self::assertStringContainsString( 'action="https://example.test/wp-admin/admin-post.php"', $html );
 		self::assertStringContainsString( 'name="action" value="' . ConnectedClients::ACTION . '"', $html );
 		self::assertStringContainsString( 'name="client" value="' . self::KEY . '"', $html );
 		self::assertStringContainsString( 'name="_wpnonce" value="' . wp_create_nonce( ConnectedClients::NONCE_PREFIX . self::KEY ) . '"', $html );
-		self::assertMatchesRegularExpression( '/<button type="submit" class="[^"]*button-link-delete[^"]*" data-confirm="Disconnect Second &lt;b&gt;client&lt;\/b&gt;\?/', $html );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm" data-confirm="Disconnect Second &lt;b&gt;client&lt;\/b&gt;\?/', $html, 'A disconnect is a small destructive button, never a primary one.' );
 	}
 
 	public function test_unknown_dates_read_as_such(): void {
@@ -227,10 +229,10 @@ final class SignInPanelTest extends TestCase {
 		$empty = self::html( static fn () => SignInPanel::render_connections( [], 'disconnected' ) );
 		self::assertStringContainsString( 'No AI client is signed in with OAuth.', $empty );
 		self::assertStringNotContainsString( '<table', $empty );
-		self::assertMatchesRegularExpression( '/class="notice notice-success inline sw-notice" role="status"/', $empty );
+		self::assertMatchesRegularExpression( '/class="sw-ui-notice sw-ui-notice--ok" role="status"/', $empty );
 
 		$failed = self::html( static fn () => SignInPanel::render_connections( [], 'failed' ) );
-		self::assertMatchesRegularExpression( '/class="notice notice-error inline sw-notice" role="alert"/', $failed );
+		self::assertMatchesRegularExpression( '/class="sw-ui-notice sw-ui-notice--danger" role="alert"/', $failed );
 
 		$none = self::html( static fn () => SignInPanel::render_connections( [], 'none' ) );
 		self::assertStringContainsString( 'nothing changed', $none );

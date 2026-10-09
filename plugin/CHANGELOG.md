@@ -254,9 +254,58 @@
   on the Plugins screen, and open the Overview once after the first activation
   (not after a bulk activation, in the network admin, or on a site that has
   already chosen whether Stonewright is on).
+- Add a trusted-proxy setting for OAuth rate limiting, off by default. List the
+  proxies in front of the site as IP addresses or CIDR ranges (IPv4 and IPv6)
+  in the `STONEWRIGHT_TRUSTED_PROXIES` constant or the
+  `stonewright_trusted_proxies` filter; when the connection comes from one of
+  them, the client address is the right-most `X-Forwarded-For` address that is
+  not a trusted proxy, so clients behind one reverse proxy no longer share a
+  single budget. Without the setting the header is never read. The same
+  address keys every rate limit and the registering-address hash of a client.
+
+- Add `Admin\Ui\Tabs` (tabs that are links work without script; with script they
+  switch in place, keep the choice in the address and open a view that holds a
+  link target), `Admin\Ui\CodeBlock` (a command or config with a titled head, a
+  named copy button and a focusable body) and the choice component
+  (`sw-ui-choice`) to the admin UI layer.
 
 ### Changed
 
+- Update the Prompt library: every starter names only tools and admin pages that
+  exist in the mode it is tagged for, and eight new starters cover Rescue and
+  rollback, snapshot restore, repair lineage, section reuse, the native Elementor
+  V4 bridge, the inspect profile and the Design Direction. A test fails when a
+  prompt names something that does not exist or a removed feature.
+- Build the Knowledge pages (Skills, Memory, Context, Design, Prompt library)
+  from the shared admin UI layer. Memory lists the entries first, in a table
+  that stacks at 782px, with the add form and the entry editor as native
+  sections, one **Settings** form for memory abilities, custom instructions and
+  their text, and times in site time with the UTC instant in the `title`.
+  Context shows the system facts and a copyable snapshot beside the user
+  context form. Design lists every stored direction with its state and the
+  reason a draft is not ready. Prompt library filters its cards as you type
+  and says how many are left; copy confirms next to its button. Skills uses
+  the layer's tabs, buttons, badges, tags, notices, empty states and
+  skeletons, opens its review drawer as a native dialog with the safe action
+  focused, and offers undo as a toast. Capabilities, nonces, form actions and
+  REST routes are unchanged.
+- Add `FormField` and `UtcTime` helpers to the admin UI layer, a list filter
+  (`data-sw-ui-filter`, `Stonewright.ui.initFilters`), a drop zone and a
+  code-face text area to `sw-ui.css` and `sw-ui.js`, and an optional row id to
+  `Ui\Table`. A copy button that carries only `data-sw-ui-copy-text` now copies.
+- Move AI Abilities and the Custom code pages (Drafts, Library, Active, Crash
+  recovery, Approvals) to the shared admin UI. AI Abilities switches an ability
+  or runs a bulk action without reloading the page, with a toast and Undo, through
+  two REST routes that keep the capability, nonces and option of the form
+  handlers (a third route lists a row's parameters); the bulk form stays as the
+  way in without script, and Apply with nothing chosen now says what is missing.
+  Categories start closed and a row's parameters load when it opens, so the page
+  prints less than half the elements it did. Custom code gets empty states, one
+  toolbar in the Library in place of a second row of tabs, a status badge per
+  file, a confirmation dialog before a file is deleted, facts and a risk badge on
+  the approval page, and a token that is still shown unmasked. Nothing about the
+  sandbox storage, the file name rule, the nonces, the production-safe tokens or
+  the approval stop changed.
 - `elementor-v4-update-node` accepts `operations` as an alternative to
   `element_id` and `settings`; its input schema now requires only `post_id`, and
   a call with neither form fails with `missing_element_id`.
@@ -392,9 +441,111 @@
 - Make the shared layer's heading and paragraph reset outrank WordPress's
   element margins, so a card title no longer carries 16 px above and below it,
   and make a standalone link at least 24 px wide.
+- The Activity pages use the shared admin UI layer. The Audit log shows an
+  incident band, recurring patterns in one table, a toolbar whose fields each
+  state how they match, the views as links, five stacked columns, and one
+  Details drawer per row that holds the facts and the redacted payload; times
+  are `time` elements in site time with the UTC time in the title. The change
+  set lineage and the Change set line use the same drawer, dialogs and buttons,
+  and `pages/audit-lineage.css` and `audit.css` are removed. Troubleshoot puts
+  Run diagnostics above the results, summarises them in words, lists the checks
+  that need attention in one table with the others folded, and shows
+  placeholders while a run is busy. The Block queue console opened without a
+  session explains how to get one instead of showing dead controls; with a
+  session it shows a counts band and a journal table. The consent screen is a
+  page header and one card of facts with Approve as its one primary action, a
+  warning for a client that registered itself with this site, and a note when
+  the destination is on this computer.
+- The Audit log delete dialog and the dismiss dialog of a recurring pattern are
+  layer dialogs; the browser `confirm()` prompt is gone. Delete all logs still
+  needs the typed phrase `DELETE`.
+- The Audit log lede says that changes made on admin screens, such as Setup
+  settings and Memory edits, are not recorded in the log.
+
+- Rebuild Stonewright > Setup from the admin UI layer as four views shown as
+  tabs: Get started (turn on, choose a sign-in method, connect a client, verify),
+  Settings (the settings form and the domain lock), Connections (sign-in
+  addresses and connected OAuth clients) and Updates. The address `tab` argument
+  chooses the view, so links, redirects after a save and reloads land on the right
+  one; the page header comes from the shell. Every option, field name, nonce,
+  capability and form action is unchanged. Stored API keys and the bridge token
+  are still never written into the page; connected clients and Application
+  Passwords stack as cards on narrow screens; each repeated action names its
+  client or password; the page prints no duplicate id.
+- Split the Setup screen's code (`Admin\ConfigurationPage`) into small classes
+  under `Admin\Setup`; `ConfigurationPage` keeps the menu, the settings
+  registration and the form handlers.
+- Remove the small product-name line (a logo square and the word Stonewright)
+  above the title of every Stonewright page and of the connection approval
+  screen, and the page header's `eyebrow` option and its styles. The title,
+  the explanation line and the page's actions stay.
+- Draw no ring, outline, border or shadow on a link, button, tab, choice card
+  or summary after a mouse click or tap on a Stonewright page. WordPress's own
+  admin styles draw a ring on every focus, mouse included; the layer now
+  answers them for its own markup. A control reached with the keyboard keeps a
+  2 px outline, and the current tab keeps its underline.
+- Remove `assets/admin/setup.css` and `assets/admin/blueprints.css`, which no
+  page loads any more, and the Setup branch of the page style map that could
+  not run. The styles of the copy fallback dialog (shown when the browser
+  blocks the clipboard) moved to `admin.css`.
+
+### Removed
+
+- Remove the unused `league/oauth2-server` dependency and the packages only it
+  required (`lcobucci/jwt`, `lcobucci/clock`, `league/event`, `league/uri`,
+  `league/uri-interfaces`, `psr/clock`, `psr/http-message`,
+  `stella-maris/clock`), and the unused `nyholm/psr7` and `psr/http-factory`.
+  The release ZIP no longer carries them. `defuse/php-encryption` 2.4.0, which
+  seals the OAuth credentials, is now a direct requirement of the plugin at the
+  same version, and the `conflict` entries for `lcobucci/jwt`,
+  `lcobucci/clock` and `league/uri` are gone.
 
 ### Fixed
 
+- Accept the block attributes that a block's `supports` add (such as
+  `anchor`, `lock`, `metadata`, `className`, `align`, colours, `layout` and
+  `style`) in
+  `blocks-batch-mutate` and in the attribute check of the other Gutenberg
+  abilities, so a registered block that supports them takes them. A block that
+  does not declare the support still refuses the attribute, and any other key
+  that the block does not declare is still refused.
+- Register the Block queue and Rescue tabs of the Activity hub on `init`, so no
+  Stonewright label is translated before WordPress is ready to load the text
+  domain and WordPress no longer reports translation loading triggered too
+  early. Every label, count and capability stays as it was.
+- Register Stonewright's ability categories after the categories other plugins
+  register on the same hook, so a category that another plugin registers (such
+  as `elementor`) is no longer registered a second time. Every ability keeps a
+  registered category.
+- Leave the default server of the bundled MCP adapter out of a request in which
+  the Abilities API has already fired `wp_abilities_api_init` before the adapter
+  initialised (the Troubleshoot page builds the REST server after listing
+  abilities). That server would have been created with three tools that were not
+  registered. Every REST request still creates it, and the Stonewright servers
+  and their tools are unchanged.
+- Memory: every action now ends in a message (entry created, saved, deleted,
+  lesson approved, draft discarded, learned rule disabled, settings saved,
+  legacy feedback classified). Adding an entry whose scope and key are already
+  in use is refused with the name of the entry that holds them, and nothing is
+  replaced; moving an entry onto a pair in use is refused the same way.
+- Memory: saving **Enable memory abilities** no longer clears the custom
+  instructions, and saving the instructions no longer clears the memory switch;
+  the three settings share one form.
+- Design: importing, activating and deactivating answer with their own message
+  ("imported and activated", "imported, stored as a draft", "activated",
+  "deactivated"). Every stored direction is listed with its state, a draft
+  shows why it is not ready, and a deactivated or ready direction can be
+  activated again from the list.
+- Design directions: restoring a revision stores the status that revision had,
+  and clears the active-direction pointer when the restored contract is not
+  ready, so an active direction is always ready.
+- Render a wrapped bullet or numbered item in release notes (Plugins → View
+  details) as one list item: the lines that continue it, up to the next blank
+  line or block, are joined into it.
+- Correct the documented retry behaviour of the companion: it sends each
+  WordPress MCP request once and does not repeat it after a timeout or network
+  error; on OAuth connections an HTTP 401 refreshes the access token and sends
+  that request once more, a tool call included.
 - Draw the label of a Setup step that is still to do at full strength instead of
   at 85% opacity, so it reads at 4.5:1 or better.
 - Count `site.public_ability_count` in `stonewright-task-start` from the abilities
@@ -596,6 +747,26 @@
   reads `http://127.0.0.1:7999` and not `http://127.0.0.1`.
 - Show code inside a `pre` block as the block's own text, not as a chip inside
   the block.
+- Delete all logs also deletes every incident, and the dialog, the receipt and
+  the confirmation message say how many events and incidents went. Incidents
+  used to stay behind and pointed at events that no longer existed.
+- Audit log filters that take free text (ability, operation class, root error
+  code and path) match part of the stored value in any case and keep dots, so
+  `design_direction.save` and `skill_write` find their rows; status, category,
+  outcome, verification, rollback, user ID and change set ID match exactly. The
+  page states each rule under its field.
+- Confirmation token checks (`security.confirmation_token`) are recorded in the
+  `SAFETY` category instead of `WRITE`, so a refused call is no longer followed
+  by a row that reads as a successful write.
+- The Troubleshoot summary uses real plurals ("1 problem") and does not say that
+  everything passed while checks have not run.
+
+- Fix **Clear domain lock** giving no feedback and the lock reappearing at once:
+  the site address is recorded again on every request while AI abilities are on,
+  so the action is disabled with that reason while they are on, and Setup says
+  what a clear, rebind or restore did.
+- Fix revoking an Application Password from Setup on sites without pretty
+  permalinks (the request lost its password id).
 
 ### Security
 

@@ -2,11 +2,11 @@
  * Audit Log change-set lineage drawer.
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Enhances server-rendered markup. The Lineage buttons start hidden and appear once
- * this script can open the native modal dialog. Escape, the Close button and a click
- * outside the sheet all end in the dialog's close event, which gives focus back to the
- * button that opened it. The script only toggles attributes and text; the panels are
- * rendered by the server and it makes no request.
+ * Enhances server-rendered markup. The drawer is the layer's drawer: sw-ui.js opens it from the Lineage button,
+ * keeps focus inside it, closes it on Escape, the Close button or a click outside, and gives focus back to the
+ * button that opened it. The Lineage buttons start hidden and appear once the native dialog is available. This
+ * script only chooses the panel the drawer shows, marks the reader's own change set, and lists the nodes that wait
+ * behind "Show more". It toggles attributes and text, makes no request and builds no markup.
  */
 ( function () {
 	'use strict';
@@ -17,9 +17,8 @@
 			return;
 		}
 
-		var title = drawer.querySelector( 'h2' );
+		var title = drawer.querySelector( '.sw-ui-dialog__title' );
 		var panels = drawer.querySelectorAll( '[data-sw-lineage-panel]' );
-		var opener = null;
 
 		function reveal( list ) {
 			var button = drawer.querySelector( '[data-sw-lineage-more="' + list.id + '"]' );
@@ -61,13 +60,11 @@
 			return current;
 		}
 
-		function open( button ) {
+		function prepare( button ) {
 			var panel = document.getElementById( button.getAttribute( 'data-sw-lineage-open' ) );
-			if ( ! panel || drawer.open ) {
+			if ( ! panel ) {
 				return;
 			}
-
-			opener = button;
 			panels.forEach( function ( item ) {
 				item.hidden = item !== panel;
 			} );
@@ -75,29 +72,23 @@
 				title.textContent = button.getAttribute( 'data-sw-lineage-title' );
 			}
 			var current = markCurrent( panel, button.getAttribute( 'data-sw-lineage-for' ) );
-			drawer.showModal();
-			if ( title ) {
-				title.focus();
-			}
 			if ( current ) {
-				current.scrollIntoView( { block: 'nearest' } );
+				// The layer opens the dialog right after this handler; the node can only scroll once it shows.
+				window.setTimeout( function () {
+					current.scrollIntoView( { block: 'nearest' } );
+				}, 0 );
 			}
 		}
 
 		document.querySelectorAll( '[data-sw-lineage-open]' ).forEach( function ( button ) {
 			button.hidden = false;
 			button.addEventListener( 'click', function () {
-				open( button );
+				prepare( button );
 			} );
 		} );
 
 		drawer.addEventListener( 'click', function ( event ) {
-			var target = event.target;
-			if ( target === drawer || target.closest( '[data-sw-lineage-close]' ) ) {
-				drawer.close();
-				return;
-			}
-			var more = target.closest( '[data-sw-lineage-more]' );
+			var more = event.target.closest ? event.target.closest( '[data-sw-lineage-more]' ) : null;
 			var list = more ? document.getElementById( more.getAttribute( 'data-sw-lineage-more' ) ) : null;
 			if ( list ) {
 				reveal( list );
@@ -106,13 +97,6 @@
 					first.focus();
 				}
 			}
-		} );
-
-		drawer.addEventListener( 'close', function () {
-			if ( opener && document.contains( opener ) ) {
-				opener.focus();
-			}
-			opener = null;
 		} );
 	}
 

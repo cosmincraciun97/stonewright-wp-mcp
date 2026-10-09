@@ -129,6 +129,29 @@ decision rather than an accidental click.
 
 ---
 
+## The pages
+
+- **Drafts** lists the files with a status badge, size and modified time. **New file**
+  opens a form (`?tab=drafts&new=1`), **Edit** a code field for one file
+  (`&edit=<name>`). Activate, Deactivate, Disable and Enable are forms, one per row;
+  Delete asks first in a dialog, and without script the Delete button submits the
+  form as before. With no files the page says what sandbox files are and offers
+  **New file**.
+- **Library** has one toolbar: the kind of file (snippets, Elementor widgets,
+  generated plugins), a category, a status and **Filter**. The address is the same as
+  before (`library_tab=`, `category=`, `status=`). **Edit**, **Diff** and
+  **Roll back** open as cards; a diff prints each line that differs twice, with a
+  minus for the current draft and a plus for the pending version. The old address
+  `page=stonewright-sandbox-library` opens the same content inside the shell.
+- **Active** and **Crash recovery** are tables, or an empty state that says what the
+  tab will show.
+- **Approvals** (`page=stonewright-custom-code-approval`) is the human approval step.
+  The warning that only a person approves is on every view. A proposal is shown as
+  the exact candidate (path, language, risk, changed bytes, SHA-256, native gap) and a
+  bounded diff, with one action, **Issue one-time grant**. The grant is shown once in
+  a copy field and is never masked. Agents stop at the proposal: they open or submit
+  this page only when you ask them to perform the approval step.
+
 ## Inline editor
 
 Clicking **Edit** for any file opens an inline textarea below the table,

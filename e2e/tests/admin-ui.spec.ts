@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PAGE_GATE_PROJECTS, STONEWRIGHT_PAGES } from './helpers/admin-pages';
 import { expectNoNewAxeViolations } from './helpers/axe-gate';
+import { openConsentScreen } from './helpers/consent';
+import { gotoAdmin } from './helpers/goto-admin';
 
 const artifactDir = path.join(process.cwd(), 'artifacts');
 
@@ -11,7 +13,7 @@ const WP_PASS = process.env.WP_PASSWORD ?? 'password';
 
 test('Setup shows the exact four-call post-update verification flow', async ({ page }) => {
 	await login(page);
-	await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+	await gotoAdmin(page, '/wp-admin/admin.php?page=stonewright&tab=updates');
 	const steps = page.locator('[data-stonewright-runtime-verification-flow] > li');
 	await expect(steps).toHaveCount(4);
 	await expect(steps).toHaveText([
@@ -242,6 +244,40 @@ test.describe('Stonewright admin UI', () => {
 		});
 	}
 
+	// The consent screen has no slug of its own: it exists for a pending authorization request. It is held to the same
+	// gates as the pages above (loads, no overflow, no console error, axe) and sits outside the shell on purpose.
+	test('Consent screen loads without overflow or console errors', async ({ page }, testInfo) => {
+		const consoleErrors: string[] = [];
+		page.on('console', (msg) => {
+			if (msg.type() === 'error') {
+				consoleErrors.push(msg.text());
+			}
+		});
+		page.on('pageerror', (err) => {
+			consoleErrors.push(err.message);
+		});
+
+		const opened = await openConsentScreen(page);
+		test.skip(!opened, 'This site does not serve OAuth, so there is no consent screen to open.');
+
+		await expect(page.locator('.sw-oauth-consent h1')).toHaveCount(1);
+		const overflow = await page.evaluate(() => {
+			const root = document.documentElement;
+			return root.scrollWidth - root.clientWidth;
+		});
+		expect(overflow, 'Consent screen: horizontal overflow must be <= 0').toBeLessThanOrEqual(0);
+
+		const productErrors = consoleErrors.filter((text) => !isIgnorableConsoleNoise(text));
+		expect(productErrors, `Consent screen: console errors\n${productErrors.join('\n')}`).toEqual([]);
+
+		if ((PAGE_GATE_PROJECTS as readonly string[]).includes(testInfo.project.name)) {
+			await expectNoNewAxeViolations(page, 'stonewright-oauth-consent', testInfo, '.sw-oauth-consent');
+		}
+
+		const safeName = `${testInfo.project.name}-stonewright-oauth-consent`.replace(/[^a-z0-9-_]+/gi, '-');
+		await page.screenshot({ path: path.join(artifactDir, `${safeName}.png`), fullPage: true });
+	});
+
 	test('Setup OAuth chooser switches all client instructions and preserves fallback auth', async ({
 		page,
 	}) => {
@@ -394,6 +430,9 @@ test.describe('Stonewright admin UI', () => {
 		const connectedLink = page.getByRole('link', { name: 'Review connected OAuth clients' }).first();
 		await expect(connectedLink).toBeVisible();
 		await expect(connectedLink).toHaveAttribute('href', '#stonewright-oauth-connections');
+		// The connected clients live in the Connections view; the link opens it.
+		await connectedLink.click();
+		await expect(page.getByRole('tab', { name: /^Connections/ })).toHaveAttribute('aria-selected', 'true');
 		await expect(page.locator('#stonewright-oauth-connections')).toBeVisible();
 		await expect(
 			page.getByRole('heading', { name: 'Connected OAuth clients', exact: true }),
@@ -403,20 +442,20 @@ test.describe('Stonewright admin UI', () => {
 	test('Setup Save Settings returns to Stonewright instead of exposing options.php', async ({
 		page,
 	}) => {
-		await page.goto('/wp-admin/admin.php?page=stonewright', {
+		await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
 			waitUntil: 'domcontentloaded',
 		});
 
 		const settingsForm = page.locator('form.stonewright-settings-form');
 		await expect(settingsForm).toHaveCount(1);
 		await expect(settingsForm).toHaveAttribute('action', 'options.php');
-		const save = settingsForm.getByRole('button', { name: 'Save Settings' });
+		const save = settingsForm.getByRole('button', { name: 'Save settings' });
 		await expect(save).toBeVisible();
 		expect(await save.evaluate((button) => (button as HTMLButtonElement).form?.classList.contains('stonewright-settings-form'))).toBe(true);
 		expect(await settingsForm.locator('form').count()).toBe(0);
 
 		await Promise.all([
-			page.waitForURL(/\/wp-admin\/admin\.php\?page=stonewright(?:&|$)/, {
+			page.waitForURL(/\/wp-admin\/admin\.php\?page=stonewright&tab=settings(?:&|$)/, {
 				timeout: 30_000,
 				waitUntil: 'domcontentloaded',
 			}),

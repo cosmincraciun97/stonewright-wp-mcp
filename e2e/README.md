@@ -70,6 +70,17 @@ allowance adds an `allowance-unused` annotation to the report so the entry is no
 forgotten; axe rule ids in an allowance that are no longer reported add an
 `axe-allowance-unused` annotation.
 
+**The consent screen** has no slug: it exists for a pending authorization request. `tests/helpers/consent.ts`
+registers a throw-away client through the site's own OAuth route, starts an authorization request with PKCE and
+follows the redirect, and `admin-ui.spec.ts` and `ui-contract.spec.ts` hold the screen to the page loop's gates (no
+overflow, no console error, axe, one h1 near the top, one primary action, no unnamed control, the destination keeps
+its port). A site that does not serve OAuth skips it.
+
+**Activity behaviour** (`tests/activity-pages.spec.ts`, desktop only): the Audit log drawer, the typed delete
+confirmation (opened, never submitted), the matching rules stated under the filters and reduced motion with the
+drawer open; the Troubleshoot run against a synthetic report (results above the fold, summary in words, a failed
+request that leaves a notice standing).
+
 Projects cover the supported light theme at five viewports:
 
 | Viewport | Size |
@@ -114,13 +125,17 @@ npm test
 
 ## CI
 
-The `e2e-admin-ui` job in `.github/workflows/ci.yml`:
+The `e2e-admin-ui (<group>)` jobs in `.github/workflows/ci.yml` run in parallel, one per viewport group
+(`desktop-1440`; `desktop-1024-tablet-782`; `mobile-390-320`). Each one:
 
 1. Installs clean production plugin dependencies
 2. Builds and extracts the exact release ZIP layout
 3. Verifies every Jetpack Autoloader manifest path in that extracted archive
-4. Starts `wp-env` from `e2e/.wp-env.package.json` with pinned Elementor 3.30.0 and WooCommerce active
-5. Runs `npx playwright test`
+4. Starts its own `wp-env` from `e2e/.wp-env.package.json` with pinned Elementor 3.30.0 and WooCommerce active
+5. Runs `npx playwright test` with the `--project` options of its group
+
+The `e2e-admin-ui` job passes only when every group passes. To run one group locally, pass the same
+options, for example `npx playwright test --project=mobile-390-light --project=mobile-320-light`.
 
 ## WordPress matrix (Phase 12)
 
