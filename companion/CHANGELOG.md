@@ -36,6 +36,11 @@
   that request once more, a tool call included.
 - Refresh runtime dependency floors and security overrides, and use a patched
   test-runner version.
+- Wait up to one second, instead of a quarter of a second, for a Windows OAuth
+  token file that another program holds open for a moment, such as a virus
+  scanner or an indexer, before the privacy check gives up. Privacy is still
+  rechecked before every attempt, and permission, ownership and other errors
+  still fail closed at once.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

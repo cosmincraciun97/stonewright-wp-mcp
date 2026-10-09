@@ -786,6 +786,11 @@ development builds were never stable releases.
   what a clear, rebind or restore did.
 - Fix revoking an Application Password from Setup on sites without pretty
   permalinks (the request lost its password id).
+- Wait up to one second, instead of a quarter of a second, for a Windows OAuth
+  token file that another program holds open for a moment, such as a virus
+  scanner or an indexer, before the privacy check gives up. Privacy is still
+  rechecked before every attempt, and permission, ownership and other errors
+  still fail closed at once.
 
 ### Security
 

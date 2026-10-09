@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 
-const SOURCE_SHA256 = '77a3786bded94c13135d6346efe65f17beee91255a2723f6574421fad4806913';
+const SOURCE_SHA256 = '64d76f7d7b0f60280bd56759b200dc6dc534c4369e0bbc293860bde00942f607';
 const SOURCE_PATH = fileURLToPath(new URL('../data/oauth-windows-acl.cs', import.meta.url));
 const BOOTSTRAP = [
 	"$ErrorActionPreference = 'Stop'",
