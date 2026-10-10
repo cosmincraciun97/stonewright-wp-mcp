@@ -80,6 +80,31 @@ development builds were never stable releases.
   `style.typography.textAlign` so a section saved by an older WordPress is not
   refused whole. The insert stays strict and names any other attribute the
   block does not declare.
+- Name the rejected settings when an `insert_section` copy in
+  `elementor-v3-batch-mutate` is refused with
+  `stonewright_section_settings_not_reusable`. The message lists up to five key
+  paths with the element placeholder and type (names only, never values), the
+  data lists every rejection (up to 25, each with the path, the violation code
+  and the control type when the key is a control), the batch answer repeats it
+  as `rejected_settings` so a client that reads only the message receives it,
+  and the audit row keeps the key paths. A repeated identical call answers with
+  the same detail. The repair text names three ways out (choose another
+  section, activate the plugin that provides the settings, or copy without them
+  with the user's agreement) and no longer sends the agent to re-read element
+  ids.
+- Add `drop_settings` to the `insert_section` operation of
+  `elementor-v3-batch-mutate`: the user's explicit approval to copy a section
+  without exactly the settings the live schema rejects. The list must equal the
+  rejected settings; a missing or an extra entry is refused with
+  `stonewright_section_drop_settings_mismatch` and removes nothing, and without
+  the option nothing is removed. A CSS class the site has not approved and
+  custom CSS count as rejected settings and are dropped only when listed. The
+  removed settings are listed in the answer, the write receipt and the audit
+  row, and in production-safe mode the confirmation token covers the list. An
+  `insert_section` of `elementor-v4-update-node` or `blocks-batch-mutate` that
+  carries `drop_settings` is refused with
+  `stonewright_section_drop_settings_unsupported`, which says the option applies
+  only to Elementor V3 sections, and nothing is written.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -616,6 +641,16 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Read the style controls that Elementor keeps apart from its other controls
+  into the live schema of widgets, containers, sections and columns. A standard
+  style setting, such as the `title_color` or `align` of a heading, is no longer
+  refused as unknown, `elementor-schema` lists those controls, and the cached
+  schemas are dropped when the plugin version changes.
+- Keep a control that a legacy section or column defines under its own name: the
+  `gap` of a section is no longer renamed to the container control `flex_gap`
+  and then refused.
+- Give the repeated-failure advice of a failed batch the guidance of its cause
+  instead of the generic batch text.
 - Fix Rescue rolling back a healthy write when the first render of a page
   that uses Google fonts is slow. Elementor downloads every font file the
   first time a page uses a font, which can take minutes, longer than a probe

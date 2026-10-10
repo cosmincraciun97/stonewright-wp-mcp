@@ -57,7 +57,11 @@ final class RemediationHints {
 		'stonewright_unknown_widget'         => 'Widget type is not registered on this site. List live widgets / read schema before writing controls.',
 		'stonewright_parent_missing'         => 'Parent container id is missing. Create or locate the parent first, then attach children.',
 		'stonewright_section_reuse_off'      => 'Section reuse is turned off in the Stonewright settings. Do not offer it and do not retry; build the page without reusing sections.',
-		'sw_test_boom'                       => 'Test-only error: fix the fixture cause before retrying.',
+		'stonewright_section_settings_not_reusable'  => 'The section holds settings the live Elementor schema rejects, and the error names them (rejected_settings). Stop and tell the user which source container the section came from and which setting keys are rejected. Then choose another section, activate the plugin that provides these settings, or, only with the user\'s agreement, run the insert again with drop_settings set to the drop_settings_proposal of the error to copy the section without exactly these settings. Nothing was written.',
+		'stonewright_section_drop_settings_mismatch' => 'drop_settings differs from the settings the live schema rejects now (drop_settings_missing, drop_settings_unexpected). Nothing was removed or written. Tell the user what differs, then with the user\'s agreement run the insert again with drop_settings set to the new drop_settings_proposal; otherwise choose another section or activate the plugin that provides the rejected settings.',
+		'stonewright_section_drop_settings_invalid'  => 'drop_settings must be a list of objects with element (the placeholder) and setting (the key), copied from the drop_settings_proposal of the refusal and sent only after the user agrees. Otherwise choose another section or activate the plugin that provides the rejected settings. Nothing was written.',
+		'stonewright_section_drop_settings_unsupported' => 'drop_settings applies only to Elementor V3 sections. Send the operation again without it; nothing was written. For a V4 or Gutenberg section that holds settings or attributes the live site rejects, tell the user and choose another section.',
+		'sw_test_boom'                       =>'Test-only error: fix the fixture cause before retrying.',
 	];
 
 	/** @var array<string, string> */

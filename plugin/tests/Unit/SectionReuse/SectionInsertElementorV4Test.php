@@ -376,4 +376,28 @@ final class SectionInsertElementorV4Test extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_section_source_not_permitted', $result->get_error_data()['items'][0]['error']['code'] );
 	}
+
+	public function test_drop_settings_is_refused_for_a_v4_section_and_nothing_is_written(): void {
+		$section = self::section();
+
+		foreach ( [ true, false ] as $dry_run ) {
+			foreach ( [ [ [ 'element' => 'ph-2', 'setting' => 'title' ] ], 'title', [ true ] ] as $drop ) {
+				$result = self::batch( [ self::insert_op( $section, [ 'drop_settings' => $drop ] ) ], [ 'dry_run' => $dry_run ] );
+
+				self::assertInstanceOf( \WP_Error::class, $result );
+				self::assertSame( 'stonewright_section_drop_settings_unsupported', $result->get_error_data()['items'][0]['error']['code'] );
+				self::assertStringContainsString( 'drop_settings applies only to Elementor V3 sections', $result->get_error_message(), 'The message an MCP client reads says so.' );
+				self::assertStringContainsString( 'Elementor V4 section', $result->get_error_message() );
+				self::assertStringContainsString( 'Nothing was written', $result->get_error_data()['items'][0]['error']['message'] );
+			}
+		}
+		self::assertSame( 0, self::target_writes() );
+	}
+
+	public function test_an_absent_or_null_drop_settings_does_not_change_a_v4_insert(): void {
+		$result = self::batch( [ self::insert_op( self::section(), [ 'drop_settings' => null ] ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 1, self::target_writes() );
+	}
 }

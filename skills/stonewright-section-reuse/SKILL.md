@@ -83,8 +83,8 @@ Warnings to say out loud:
 | `third_party_widgets` | It needs a plugin's widget or block. |
 | `draft_source`, `password_protected_source` | It comes from a draft or a password-protected page, so its text is not public yet; the copy would put it on a page visitors can read. Say so and let the user decide. |
 | `legacy_attributes` (extract) | An older block setting was moved to its current form, for example a heading's `textAlign` to `style.typography.textAlign`; nothing else changed. Mention it only when it matters. |
-| `css_classes_not_approved` | It uses CSS classes this site has not approved (the warning names them), so the copy is refused until a site administrator adds them to the `stonewright_approved_css_classes` option. Offer another candidate. |
-| `custom_css_needs_approval` | It carries custom CSS, which needs a human-issued custom-code grant. Do not apply one yourself; offer another candidate. |
+| `css_classes_not_approved` | It uses CSS classes this site has not approved (the warning names them), so the copy is refused until a site administrator adds them to the `stonewright_approved_css_classes` option. Offer another candidate, or copy it without them if the user agrees (see "When the copy is refused for its settings"). |
+| `custom_css_needs_approval` | It carries custom CSS, which needs a human-issued custom-code grant. Do not apply one yourself; offer another candidate, or copy it without the CSS if the user agrees (see "When the copy is refused for its settings"). |
 | `html_widgets` | It holds an HTML widget; the copy is refused unless the site allows HTML widgets and the operation sets `allow_html_widget: true`. |
 | `placeholder_widgets` | It uses a widget whose plugin is not active on this site (Elementor shows a placeholder), so the copy is refused. Offer another candidate. |
 | `missing_media` | A picture it refers to is gone. The copy still succeeds, but the image stays broken until the user supplies a new one. |
@@ -122,8 +122,9 @@ Rules the write enforces, so do not work around them:
 - Every element gets a fresh id and V4 local styles are remapped; reference the
   new elements as `@<op_id>.<placeholder>`, never by a source id.
 - Existing global references are kept. Dynamic tags are kept and flagged.
-- The widget type is never changed and no setting is stripped. In V3 a setting
-  the live schema does not know blocks the copy with the exact setting named.
+- The widget type is never changed and no setting is stripped on its own. In V3
+  a setting the live schema does not accept blocks the copy, and the refusal
+  names every such setting (see "When the copy is refused for its settings").
   A stored value the live control no longer lists but still maps (a heading
   `align` of `left`) is accepted as stored; any other unlisted value blocks the
   copy with its setting named.
@@ -151,6 +152,41 @@ Rules the write enforces, so do not work around them:
   the exact call (every `elementor-v3-batch-mutate` write that is not a dry run
   does); a Gutenberg copy needs one only when the same batch removes a block;
   Elementor V4 writes stay blocked there. Dry runs need no token.
+
+### When the copy is refused for its settings (Elementor V3)
+
+`stonewright_section_settings_not_reusable` means the live Elementor schema does
+not accept some settings of the section as they are. Nothing was written. The
+message names up to five rejected keys with their element placeholder and type.
+The answer carries the full list as `rejected_settings` (up to 25 entries: the
+element, its type, the path, the code and the control type when there is one)
+and `drop_settings_proposal`, the exact value of the option that copies the
+section without those settings.
+
+1. Stop. Do not repeat the call and do not rerun it as a dry run.
+2. Tell the user which section it is and which keys are rejected: the source
+   container (the page and the section you offered) and the rejected keys by
+   name, for example "the hero of the Home page holds `acme_old_style` on its
+   heading and `acme_legacy_root` on its container, and this Elementor does not
+   accept them".
+3. Offer the three ways out: choose another section, activate the plugin that
+   provides the settings, or copy the section without exactly those settings.
+4. Only when the user agrees to the third, run the insert again with
+   `drop_settings` set to `drop_settings_proposal`, copied unchanged. Never add
+   or remove entries, never send it on your own, and never send it to get past a
+   different refusal. If the list no longer matches
+   (`stonewright_section_drop_settings_mismatch`), tell the user what changed
+   (`drop_settings_missing`, `drop_settings_unexpected`) and ask again.
+5. After the apply, tell the user which settings were left out
+   (`removed_settings`), because the copy can look different from its source.
+
+In production-safe, issue the confirmation_token for the exact call that carries
+`drop_settings`.
+
+`drop_settings` exists only for Elementor V3 sections. An Elementor V4 or Gutenberg
+insert that carries it is refused with
+`stonewright_section_drop_settings_unsupported` and nothing is written; never send
+it there.
 
 ## 5. Verify
 

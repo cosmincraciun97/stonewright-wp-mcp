@@ -464,7 +464,10 @@ final class ErrorPatterns {
 		}
 
 		$code    = $error->get_error_code();
-		$repair  = RemediationHints::for_code( (string) $code, $ability );
+		// A wrapper such as a failed batch names its cause in the data; the cause has the guidance that fits.
+		$context = (array) $error->get_error_data();
+		$cause   = (string) ( $context['root_error_code'] ?? $context['cause_code'] ?? '' );
+		$repair  = RemediationHints::for_code( $cause, $ability, (string) $code );
 		$message = sprintf(
 			/* translators: 1: occurrence count, 2: original error message, 3: repair guidance */
 			__( 'STOP: this exact error occurred %1$d times — do not retry the same call. %2$s Next step: %3$s', 'stonewright' ),

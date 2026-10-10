@@ -10,10 +10,14 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\SectionReuse;
 
+use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetAvailability;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -30,7 +34,9 @@ use Stonewright\WpMcp\Support\ElementorData;
  * - fails with the exact widget when the section holds a placeholder that Elementor registers for a plugin that is
  *   not active, or a widget that is not registered at all;
  * - fails with the exact missing feature when a V4 element type is not available on this site;
- * - never changes a widget type and never removes a setting it does not know.
+ * - never changes a widget type and never removes a setting it does not know; a V3 section whose settings the live
+ *   schema refuses is refused naming every one of them, and it is copied without them only when the caller lists
+ *   exactly those settings in `drop_settings`.
  *
  * It touches no database record and writes nothing; the caller inserts the result with its own write closure.
  */
@@ -45,17 +51,46 @@ final class ElementorSectionInserter {
 	/** Most missing references listed in one error. */
 	private const MAX_MISSING = 20;
 
+	/** Code of the refusal for a V3 section whose settings the live schema does not accept. */
+	public const REFUSED_CODE = 'stonewright_section_settings_not_reusable';
+
+	/** Code of the refusal for a drop_settings list that differs from the settings rejected now. */
+	public const MISMATCH_CODE = 'stonewright_section_drop_settings_mismatch';
+
+	/** Code of the refusal for a drop_settings value that is not a list of element and setting pairs. */
+	public const INVALID_DROP_CODE = 'stonewright_section_drop_settings_invalid';
+
+	/** Code of the refusal for drop_settings on an insert that is not an Elementor V3 section. */
+	public const UNSUPPORTED_DROP_CODE = 'stonewright_section_drop_settings_unsupported';
+
+	/** Most rejected settings one error lists, and most a drop_settings list can approve. */
+	private const MAX_VIOLATIONS = 25;
+
+	/** Most rejected key paths the message of a refusal names. */
+	private const MESSAGE_SETTINGS = 5;
+
+	/** Most passes that take rejected settings out of one element to find the rest. */
+	private const MAX_ROUNDS = 60;
+
+	/** Most entries a drop_settings list may hold. */
+	private const MAX_DROP_REQUESTS = 200;
+
 	/**
 	 * @param array<string, mixed>                $payload     A payload from {@see PortableSection::validate()}.
 	 * @param array<int, array<string, mixed>>    $tree        The document the section goes into, for id uniqueness.
 	 * @param list<int>                           $parent_path Where it goes; an empty path is the document root.
-	 * @param array{id_generator?:callable():string} $options  `id_generator` replaces the random id source in tests.
-	 * @return array{element:array<string,mixed>,id_map:array<string,string>,warnings:list<array<string,mixed>>}|\WP_Error
+	 * @param array{id_generator?:callable():string,drop_settings?:mixed} $options `id_generator` replaces the random id source in tests;
+	 *                                                                             `drop_settings` is the caller's approval to copy a V3 section without exactly the settings the live schema rejects.
+	 * @return array{element:array<string,mixed>,id_map:array<string,string>,warnings:list<array<string,mixed>>,removed:list<array<string,string>>}|\WP_Error
 	 */
 	public static function instantiate( array $payload, string $builder, array $tree, array $parent_path, array $options = [] ): array|\WP_Error {
 		$element = $payload['element'] ?? null;
 		if ( ! is_array( $element ) ) {
 			return new \WP_Error( 'stonewright_section_invalid', 'The section has no element.', [ 'status' => 400 ] );
+		}
+		$drop = self::drop_requests( $options['drop_settings'] ?? null );
+		if ( $drop instanceof \WP_Error ) {
+			return $drop;
 		}
 		$root_type = (string) ( $element['elType'] ?? '' );
 		if ( Builder::ELEMENTOR_V3 === $builder && ! in_array( $root_type, [ 'container', 'section' ], true ) ) {
@@ -96,10 +131,16 @@ final class ElementorSectionInserter {
 		$copy['isInner'] = [] !== $parent_path;
 		$renamed         = [];
 		$copy            = self::rename_dom_ids( $copy, self::dom_ids( $tree ), $renamed );
+		$removed         = [];
 		if ( Builder::ELEMENTOR_V3 === $builder ) {
-			$unwritable = self::unwritable_settings( $copy, array_flip( $id_map ) );
-			if ( null !== $unwritable ) {
-				return $unwritable;
+			$settled = self::settle_settings( $copy, array_flip( $id_map ), $drop );
+			if ( $settled instanceof \WP_Error ) {
+				return $settled;
+			}
+			$copy    = $settled['element'];
+			$removed = $settled['removed'];
+			if ( [] !== $removed ) {
+				$inspection = SectionInspector::inspect( $builder, $copy );
 			}
 		}
 
@@ -107,61 +148,472 @@ final class ElementorSectionInserter {
 		if ( [] !== $renamed ) {
 			$warnings[] = [ 'code' => 'anchors_renamed', 'count' => count( $renamed ), 'items' => array_slice( array_map( static fn( array $pair ): string => $pair[0] . ' -> ' . $pair[1], $renamed ), 0, 5 ) ];
 		}
+		if ( [] !== $removed ) {
+			$warnings[] = [ 'code' => 'settings_removed', 'count' => count( $removed ), 'items' => array_slice( array_map( static fn( array $row ): string => $row['element'] . ' ' . $row['setting'], $removed ), 0, 5 ) ];
+		}
 		$tags     = array_values( array_map( static fn( array $reference ): string => (string) $reference['id'], array_filter( $inspection['references'], static fn( array $reference ): bool => 'dynamic_tag' === $reference['type'] ) ) );
 		if ( [] !== $tags ) {
 			$warnings[] = [ 'code' => 'dynamic_tags_kept', 'count' => count( $tags ), 'items' => array_slice( $tags, 0, 5 ) ];
 		}
 
-		return [ 'element' => $copy, 'id_map' => $id_map, 'warnings' => $warnings ];
+		return [ 'element' => $copy, 'id_map' => $id_map, 'warnings' => $warnings, 'removed' => $removed ];
 	}
 
 	/**
-	 * The error for the first element whose settings the document write would refuse, or null.
+	 * The refusal for an insert operation that carries `drop_settings` where the option does not exist: only an
+	 * Elementor V3 section can be copied without the settings the live schema rejects.
+	 *
+	 * @param array<string, mixed> $operation
+	 */
+	public static function unsupported_drop_settings( array $operation, string $builder_label ): ?\WP_Error {
+		if ( null === ( $operation['drop_settings'] ?? null ) ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			self::UNSUPPORTED_DROP_CODE,
+			sprintf( 'drop_settings applies only to Elementor V3 sections; this is %s. Remove drop_settings from the operation. Nothing was written.', $builder_label ),
+			[ 'status' => 400, 'repair' => RemediationHints::for_code( self::UNSUPPORTED_DROP_CODE ) ]
+		);
+	}
+
+	/**
+	 * The `drop_settings` option of an insert operation as a clean list, or the error for a list that is not one.
+	 *
+	 * @param mixed $raw What the caller sent: a list of `{element, setting}` objects, the placeholder of the
+	 *                   element and the setting key (or `__globals__.key` for one binding), as in the
+	 *                   `drop_settings_proposal` of a refusal. Other keys of an entry are ignored.
+	 * @return list<array{element:string,setting:string}>|\WP_Error An empty list when nothing was sent.
+	 */
+	public static function drop_requests( mixed $raw ): array|\WP_Error {
+		if ( null === $raw || [] === $raw ) {
+			return [];
+		}
+		$invalid = static fn(): \WP_Error => new \WP_Error(
+			self::INVALID_DROP_CODE,
+			'drop_settings must be a list of objects with the placeholder of the element and the setting key, copied from the drop_settings_proposal of the refusal. Nothing was written.',
+			[ 'status' => 400, 'repair' => RemediationHints::for_code( self::INVALID_DROP_CODE ) ]
+		);
+		if ( ! is_array( $raw ) || ! array_is_list( $raw ) || count( $raw ) > self::MAX_DROP_REQUESTS ) {
+			return $invalid();
+		}
+		$list = [];
+		foreach ( $raw as $entry ) {
+			$element = is_array( $entry ) && is_string( $entry['element'] ?? null ) ? trim( $entry['element'] ) : '';
+			$setting = is_array( $entry ) && is_string( $entry['setting'] ?? null ) ? trim( $entry['setting'] ) : '';
+			if ( '' === $element || '' === $setting || strlen( $element ) > 64 || strlen( $setting ) > 190 ) {
+				return $invalid();
+			}
+			$list[ $element . "\n" . $setting ] = [ 'element' => $element, 'setting' => $setting ];
+		}
+
+		return array_values( $list );
+	}
+
+	/**
+	 * Decides what happens to the settings the live schema refuses on the new elements.
 	 *
 	 * A write validates the settings of every new element against the live schema and refuses a setting it
-	 * does not know; it never drops one. A copy therefore either keeps every setting of its source or is
-	 * refused here, in the dry run, naming the exact setting, instead of failing when the page is saved.
+	 * does not know; it never drops one. A copy therefore keeps every setting of its source, or is refused
+	 * here, in the dry run, naming every rejected setting, instead of failing when the page is saved.
 	 *
-	 * @param array<string, mixed>   $element
-	 * @param array<string, string>  $placeholders New id to placeholder.
+	 * The one exception is the caller's explicit approval: `drop_settings` lists the rejected settings, and the
+	 * copy is made without exactly those. The list must match what is rejected now, no more and no less; a
+	 * list that differs refuses the copy and removes nothing.
+	 *
+	 * @param array<string, mixed>                           $copy         The new element tree, under its fresh ids.
+	 * @param array<string, string>                          $placeholders New id to placeholder.
+	 * @param list<array{element:string,setting:string}>     $drop         Settings the caller approved removing.
+	 * @return array{element:array<string,mixed>,removed:list<array<string,string>>}|\WP_Error
 	 */
-	private static function unwritable_settings( array $element, array $placeholders ): ?\WP_Error {
+	private static function settle_settings( array $copy, array $placeholders, array $drop ): array|\WP_Error {
+		$rows = self::rejections( $copy, $placeholders );
+		if ( [] === $rows ) {
+			return [] === $drop ? [ 'element' => $copy, 'removed' => [] ] : self::drop_mismatch( [], [], $drop, [], true );
+		}
+
+		$required  = [];
+		$removable = true;
+		foreach ( $rows as $row ) {
+			$removable = $removable && $row['removable'];
+			foreach ( $row['units'] as $unit => $detail ) {
+				$required[ $row['element'] . "\n" . $unit ] = [ 'element' => $row['element'], 'element_type' => $row['element_type'], 'setting' => (string) $unit ] + $detail;
+			}
+		}
+		$available = $removable && count( $required ) <= self::MAX_VIOLATIONS;
+		if ( [] === $drop || ! $available ) {
+			return self::not_reusable( $rows, $required, $available, $removable ? 'too_many' : 'not_removable' );
+		}
+
+		$given   = [];
+		foreach ( $drop as $entry ) {
+			$given[ $entry['element'] . "\n" . $entry['setting'] ] = $entry;
+		}
+		$missing    = array_values( array_diff_key( $required, $given ) );
+		$unexpected = array_values( array_diff_key( $given, $required ) );
+		if ( [] !== $missing || [] !== $unexpected ) {
+			return self::drop_mismatch( $rows, $required, $drop, [ 'missing' => $missing, 'unexpected' => $unexpected ], true );
+		}
+
+		$units = [];
+		foreach ( $rows as $row ) {
+			$units[ $row['id'] ] = array_keys( $row['units'] );
+		}
+		$stripped = self::without_settings( $copy, $units );
+		// What the write would validate is what was checked: a copy that still has a rejected setting is refused.
+		if ( [] !== self::rejections( $stripped, $placeholders ) ) {
+			return self::not_reusable( $rows, $required, false, 'not_removable' );
+		}
+
+		return [
+			'element' => $stripped,
+			'removed' => array_map(
+				static fn( array $row ): array => array_intersect_key( $row, array_flip( [ 'element', 'element_type', 'setting', 'code', 'control_type' ] ) ),
+				array_values( $required )
+			),
+		];
+	}
+
+	/**
+	 * Every element of the tree whose settings the write would refuse, with the settings to remove for the
+	 * element to pass. A setting is checked the way the write checks it: the live schema, and the gate for CSS
+	 * classes and custom CSS. One validation reports a single kind of problem, so a rejected setting is taken
+	 * out of a working copy and the rest checked again until nothing is left to reject.
+	 *
+	 * @param array<string, mixed>  $element
+	 * @param array<string, string> $placeholders New id to placeholder.
+	 * @return list<array{id:string,element:string,element_type:string,code:string,removable:bool,violations:list<array<string,string>>,units:array<string,array<string,string>>}>
+	 */
+	private static function rejections( array $element, array $placeholders ): array {
 		$type     = (string) ( $element['elType'] ?? '' );
 		$widget   = 'widget' === $type ? (string) ( $element['widgetType'] ?? '' ) : '';
 		$settings = is_array( $element['settings'] ?? null ) ? $element['settings'] : [];
 		$checked  = ! ( 'widget' === $type && ( str_starts_with( $widget, 'e-' ) || 'html' === $widget ) ) && in_array( $type, [ 'widget', 'container', 'section', 'column' ], true ) && [] !== $settings;
+		$rows     = [];
 		if ( $checked ) {
-			$validated = 'widget' === $type
-				? PatchValidator::widget( $widget, [], $settings, 'merge' )
-				: PatchValidator::container( [], $settings, $type, 'merge' );
-			$problem   = $validated instanceof \WP_Error ? $validated : ( $validated['settings'] !== $settings ? new \WP_Error( 'stonewright_elementor_settings_invalid', 'The settings would change when written.', [ 'violations' => [ [ 'path' => 'settings', 'code' => 'delta_result_mismatch' ] ] ] ) : null );
-			if ( null !== $problem ) {
-				$data = is_array( $problem->get_error_data() ) ? $problem->get_error_data() : [];
-				$name = $placeholders[ (string) $element['id'] ] ?? (string) $element['id'];
-				return new \WP_Error(
-					'stonewright_section_settings_not_reusable',
-					sprintf( 'The section holds settings that the live Elementor schema does not accept as they are (element %1$s, %2$s). Stonewright never strips settings, so it did not copy the section.', $name, '' !== $widget ? $widget : $type ),
-					[
-						'status'       => 409,
-						'element'      => $name,
-						'element_type' => '' !== $widget ? $widget : $type,
-						'code'         => (string) $problem->get_error_code(),
-						'violations'   => array_slice( array_values( (array) ( $data['violations'] ?? [] ) ), 0, 10 ),
-						'repair'       => 'Choose another section, or activate the plugin that provides these settings. Nothing was written.',
-					]
-				);
+			$found = self::settings_rejection( $type, $widget, $settings );
+			if ( null !== $found ) {
+				$name  = $placeholders[ (string) $element['id'] ] ?? (string) $element['id'];
+				$kind  = '' !== $widget ? $widget : $type;
+				$rows[] = [
+					'id'           => (string) $element['id'],
+					'element'      => $name,
+					'element_type' => $kind,
+					'code'         => $found['code'],
+					'removable'    => $found['removable'],
+					'violations'   => array_map( static fn( array $violation ): array => array_merge( [ 'element' => $name, 'element_type' => $kind ], $violation ), $found['violations'] ),
+					'units'        => array_map( static fn( array $violation ): array => array_diff_key( $violation, [ 'path' => 1 ] ), $found['units'] ),
+				];
 			}
 		}
 		foreach ( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] as $child ) {
 			if ( is_array( $child ) ) {
-				$found = self::unwritable_settings( $child, $placeholders );
-				if ( null !== $found ) {
-					return $found;
-				}
+				$rows = array_merge( $rows, self::rejections( $child, $placeholders ) );
 			}
 		}
 
-		return null;
+		return $rows;
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @return array{code:string,removable:bool,violations:list<array<string,string>>,units:array<string,array<string,string>>}|null
+	 */
+	private static function settings_rejection( string $type, string $widget, array $settings ): ?array {
+		$work       = $settings;
+		$violations = [];
+		$units      = [];
+		$code       = '';
+		$clean      = false;
+		for ( $round = 0; $round < self::MAX_ROUNDS; ++$round ) {
+			$gate    = ElementorCustomCssGate::refused_settings( $work );
+			$problem = self::settings_problem( $type, $widget, array_diff_key( $work, $gate ) );
+			$found   = [];
+			foreach ( $gate as $key => $reason ) {
+				$found[] = [ 'path' => 'settings.' . $key, 'code' => $reason ];
+			}
+			if ( null !== $problem ) {
+				$found = array_merge( $found, self::problem_violations( $problem ) );
+			}
+			if ( [] === $found ) {
+				$clean = true;
+				break;
+			}
+			$code = '' !== $code ? $code : ( null !== $problem ? (string) $problem->get_error_code() : ( 'css_classes_not_approved' === $found[0]['code'] ? ElementorCustomCssGate::CLASS_ERROR_CODE : ElementorCustomCssGate::ERROR_CODE ) );
+			$round_units = [];
+			foreach ( $found as $violation ) {
+				$described = self::described( $violation, $type, $widget );
+				$violations[] = $described;
+				$unit         = self::removal_unit( $violation['path'] );
+				if ( null !== $unit && self::has_unit( $work, $unit ) && ! isset( $units[ $unit ] ) && ! isset( $round_units[ $unit ] ) ) {
+					$round_units[ $unit ] = $described;
+				}
+			}
+			if ( [] === $round_units ) {
+				break;
+			}
+			foreach ( $round_units as $unit => $described ) {
+				$work          = self::without_unit( $work, (string) $unit );
+				$units[ $unit ] = $described;
+			}
+		}
+
+		if ( [] === $violations ) {
+			return null;
+		}
+
+		return [ 'code' => $code, 'removable' => $clean, 'violations' => $violations, 'units' => $units ];
+	}
+
+	/**
+	 * What validating the settings the way the write does reports, or null when it accepts them as they are.
+	 *
+	 * @param array<string, mixed> $settings
+	 */
+	private static function settings_problem( string $type, string $widget, array $settings ): ?\WP_Error {
+		if ( [] === $settings ) {
+			return null;
+		}
+		$validated = 'widget' === $type
+			? PatchValidator::widget( $widget, [], $settings, 'merge' )
+			: PatchValidator::container( [], $settings, $type, 'merge' );
+		if ( $validated instanceof \WP_Error ) {
+			return $validated;
+		}
+
+		return $validated['settings'] !== $settings
+			? new \WP_Error( 'stonewright_elementor_settings_invalid', 'The settings would change when written.', [ 'violations' => [ [ 'path' => 'settings', 'code' => 'delta_result_mismatch' ] ] ] )
+			: null;
+	}
+
+	/**
+	 * @return list<array{path:string,code:string}>
+	 */
+	private static function problem_violations( \WP_Error $problem ): array {
+		$data = is_array( $problem->get_error_data() ) ? $problem->get_error_data() : [];
+		$list = [];
+		foreach ( is_array( $data['violations'] ?? null ) ? $data['violations'] : [] as $violation ) {
+			if ( is_array( $violation ) && is_string( $violation['path'] ?? null ) && '' !== $violation['path'] ) {
+				$list[] = [ 'path' => $violation['path'], 'code' => (string) ( $violation['code'] ?? '' ) ];
+			}
+		}
+
+		return [] !== $list ? $list : [ [ 'path' => 'settings', 'code' => sanitize_key( (string) $problem->get_error_code() ) ] ];
+	}
+
+	/**
+	 * A violation as the error lists it: the path and code, and the type of the live control when the key is one.
+	 *
+	 * @param array{path:string,code:string} $violation
+	 * @return array<string, string>
+	 */
+	private static function described( array $violation, string $type, string $widget ): array {
+		$described = [ 'path' => $violation['path'], 'code' => $violation['code'] ];
+		$control   = self::control_type( $type, $widget, $violation['path'] );
+		if ( '' !== $control ) {
+			$described['control_type'] = $control;
+		}
+
+		return $described;
+	}
+
+	private static function control_type( string $type, string $widget, string $path ): string {
+		$segments = explode( '.', preg_replace( '/^settings\.?/', '', $path ) ?? '' );
+		$key      = (string) ( $segments[0] ?? '' );
+		if ( in_array( $key, [ '__globals__', '__dynamic__' ], true ) ) {
+			$key = (string) ( $segments[1] ?? '' );
+		}
+		if ( '' === $key ) {
+			return '';
+		}
+		$schema   = 'widget' === $type ? WidgetSchemaRepository::get( $widget ) : ContainerSchemaRepository::get( $type );
+		$controls = is_array( $schema ) && is_array( $schema['controls'] ?? null ) ? $schema['controls'] : [];
+		foreach ( [ $key, ...array_map( static fn( string $suffix ): string => str_ends_with( $key, $suffix ) ? substr( $key, 0, -strlen( $suffix ) ) : '', [ '_widescreen', '_laptop', '_tablet_extra', '_tablet', '_mobile_extra', '_mobile' ] ) ] as $candidate ) {
+			if ( '' !== $candidate && is_array( $controls[ $candidate ] ?? null ) && is_string( $controls[ $candidate ]['type'] ?? null ) ) {
+				return $controls[ $candidate ]['type'];
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * What removing a violation takes out: the top-level setting, or one binding of `__globals__` or `__dynamic__`.
+	 * Null for a violation of the settings as a whole.
+	 */
+	private static function removal_unit( string $path ): ?string {
+		$relative = preg_replace( '/^settings\.?/', '', $path ) ?? '';
+		if ( '' === $relative ) {
+			return null;
+		}
+		$segments = explode( '.', $relative );
+		if ( in_array( $segments[0], [ '__globals__', '__dynamic__' ], true ) && isset( $segments[1] ) && '' !== $segments[1] ) {
+			return $segments[0] . '.' . $segments[1];
+		}
+
+		return $segments[0];
+	}
+
+	/** @param array<string, mixed> $settings */
+	private static function has_unit( array $settings, string $unit ): bool {
+		$segments = explode( '.', $unit, 2 );
+
+		return isset( $segments[1] )
+			? is_array( $settings[ $segments[0] ] ?? null ) && array_key_exists( $segments[1], $settings[ $segments[0] ] )
+			: array_key_exists( $segments[0], $settings );
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @return array<string, mixed>
+	 */
+	private static function without_unit( array $settings, string $unit ): array {
+		$segments = explode( '.', $unit, 2 );
+		if ( ! isset( $segments[1] ) ) {
+			unset( $settings[ $segments[0] ] );
+			return $settings;
+		}
+		if ( is_array( $settings[ $segments[0] ] ?? null ) ) {
+			unset( $settings[ $segments[0] ][ $segments[1] ] );
+			if ( [] === $settings[ $segments[0] ] ) {
+				unset( $settings[ $segments[0] ] );
+			}
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * The tree with the listed settings taken out of the listed elements.
+	 *
+	 * @param array<string, mixed>          $element
+	 * @param array<string, list<string>>   $units   Element id to the units to remove.
+	 * @return array<string, mixed>
+	 */
+	private static function without_settings( array $element, array $units ): array {
+		$id = (string) ( $element['id'] ?? '' );
+		if ( isset( $units[ $id ] ) && is_array( $element['settings'] ?? null ) ) {
+			foreach ( $units[ $id ] as $unit ) {
+				$element['settings'] = self::without_unit( $element['settings'], $unit );
+			}
+		}
+		if ( is_array( $element['elements'] ?? null ) ) {
+			$element['elements'] = array_map( static fn( mixed $child ): mixed => is_array( $child ) ? self::without_settings( $child, $units ) : $child, $element['elements'] );
+		}
+
+		return $element;
+	}
+
+	/**
+	 * The refusal for a section whose settings the live schema does not accept.
+	 *
+	 * @param list<array<string, mixed>>           $rows
+	 * @param array<string, array<string, string>> $required  Every setting that would have to go, by element and setting.
+	 * @param string                               $reason    Why drop_settings cannot be offered, when it cannot.
+	 */
+	private static function not_reusable( array $rows, array $required, bool $available, string $reason ): \WP_Error {
+		$data = self::refusal_data( $rows, $required, $available );
+		if ( ! $available ) {
+			$data['drop_settings_reason'] = $reason;
+		}
+		$next = $available
+			? ' Choose another section, activate the plugin that provides these settings, or ask the user and repeat the insert with drop_settings set to the drop_settings_proposal of this error to copy the section without exactly these settings.'
+			: ' Choose another section or activate the plugin that provides these settings; drop_settings cannot cover ' . ( 'too_many' === $reason ? 'this many settings.' : 'these settings.' );
+
+		return new \WP_Error(
+			self::REFUSED_CODE,
+			sprintf(
+				'The section holds settings that the live Elementor schema does not accept as they are (%1$s). Stonewright never strips settings on its own, so it did not copy the section. Nothing was written.%2$s',
+				self::named( $rows ),
+				$next
+			),
+			$data
+		);
+	}
+
+	/**
+	 * The refusal for a drop_settings list that is not the list of settings rejected now.
+	 *
+	 * @param list<array<string, mixed>>                                       $rows
+	 * @param array<string, array<string, string>>                             $required
+	 * @param list<array{element:string,setting:string}>                       $drop
+	 * @param array{missing?:list<array<string,string>>,unexpected?:list<array<string,string>>} $diff
+	 */
+	private static function drop_mismatch( array $rows, array $required, array $drop, array $diff, bool $available ): \WP_Error {
+		$missing    = $diff['missing'] ?? [];
+		$unexpected = $diff['unexpected'] ?? $drop;
+		$pairs      = static fn( array $list ): string => implode( ', ', array_map( static fn( array $row ): string => $row['element'] . ' ' . $row['setting'], array_slice( $list, 0, self::MESSAGE_SETTINGS ) ) ) . ( count( $list ) > self::MESSAGE_SETTINGS ? sprintf( ', and %d more', count( $list ) - self::MESSAGE_SETTINGS ) : '' );
+		$parts      = [];
+		if ( [] !== $missing ) {
+			$parts[] = 'rejected but not listed: ' . $pairs( $missing );
+		}
+		if ( [] !== $unexpected ) {
+			$parts[] = 'listed but not rejected: ' . $pairs( $unexpected );
+		}
+		$data = self::refusal_data( $rows, $required, $available );
+		$data['drop_settings_missing']    = array_map( static fn( array $row ): array => [ 'element' => $row['element'], 'setting' => $row['setting'] ], array_slice( $missing, 0, self::MAX_VIOLATIONS ) );
+		$data['drop_settings_unexpected'] = array_map( static fn( array $row ): array => [ 'element' => $row['element'], 'setting' => $row['setting'] ], array_slice( $unexpected, 0, self::MAX_VIOLATIONS ) );
+
+		return new \WP_Error(
+			self::MISMATCH_CODE,
+			sprintf( 'drop_settings does not match the settings the live Elementor schema rejects now (%1$s). Nothing was removed and nothing was written. Send drop_settings exactly as the drop_settings_proposal of this error, after the user agrees, or choose another section.', implode( '; ', $parts ) ),
+			$data
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>>           $rows
+	 * @param array<string, array<string, string>> $required
+	 * @return array<string, mixed>
+	 */
+	private static function refusal_data( array $rows, array $required, bool $available ): array {
+		$violations = [];
+		foreach ( $rows as $row ) {
+			foreach ( $row['violations'] as $violation ) {
+				$violations[] = $violation;
+			}
+		}
+		$first = $rows[0] ?? [ 'element' => '', 'element_type' => '', 'code' => '' ];
+		$data  = [
+			'status'                  => 409,
+			'element'                 => (string) $first['element'],
+			'element_type'            => (string) $first['element_type'],
+			'code'                    => (string) $first['code'],
+			'violations'              => array_slice( $violations, 0, self::MAX_VIOLATIONS ),
+			'violations_total'        => count( $violations ),
+			'drop_settings_available' => $available,
+			'repair'                  => RemediationHints::for_code( self::REFUSED_CODE ),
+		];
+		if ( $available ) {
+			$data['drop_settings_proposal'] = array_values( array_map( static fn( array $row ): array => [ 'element' => $row['element'], 'setting' => $row['setting'] ], $required ) );
+		}
+
+		return $data;
+	}
+
+	/**
+	 * The rejected key paths for a message: up to five, grouped by element, names only.
+	 *
+	 * @param list<array<string, mixed>> $rows
+	 */
+	private static function named( array $rows ): string {
+		$total  = 0;
+		$groups = [];
+		foreach ( $rows as $row ) {
+			$names = [];
+			foreach ( $row['violations'] as $violation ) {
+				++$total;
+				if ( $total <= self::MESSAGE_SETTINGS ) {
+					$names[] = preg_replace( '/^settings\.?/', '', (string) $violation['path'] ) ?: 'settings';
+				}
+			}
+			if ( [] !== $names ) {
+				$groups[] = sprintf( 'element %1$s (%2$s): %3$s', $row['element'], $row['element_type'], implode( ', ', array_unique( $names ) ) );
+			}
+		}
+		$more = $total - self::MESSAGE_SETTINGS;
+
+		return implode( '; ', $groups ) . ( $more > 0 ? sprintf( ', and %d more', $more ) : '' );
 	}
 
 	/**

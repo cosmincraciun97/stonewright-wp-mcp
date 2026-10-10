@@ -602,6 +602,8 @@ final class AuditEvent {
 			'failed_action_index',
 			'element_id',
 			'setting_path',
+			'rejected_settings',
+			'removed_settings',
 			'expected_type',
 			'actual_type',
 			'schema_version',

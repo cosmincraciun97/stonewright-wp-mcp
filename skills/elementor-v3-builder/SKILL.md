@@ -19,7 +19,9 @@ For a new native Loop Grid or Loop Carousel, prefer
 idempotent request after reviewing the resolved live controls and query probe.
 When building a page, load `stonewright-section-reuse` first: the site may
 already have a matching section to copy with an `insert_section` operation of
-the same batch (skip it when `agent_preferences.section_reuse` is `off`).
+the same batch (skip it when `agent_preferences.section_reuse` is `off`). When
+such a copy is refused for settings the live schema rejects, stop and follow
+that skill: tell the user, and send `drop_settings` only with their agreement.
 
 ## Pre-flight
 

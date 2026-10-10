@@ -34,6 +34,10 @@ final class ErrorEnvelope {
 		'execution_status',
 		'offending_key',
 		'offending_keys',
+		'rejected_settings',
+		'drop_settings_proposal',
+		'drop_settings_missing',
+		'drop_settings_unexpected',
 		'gated_tool',
 		'gated_mcp_tool',
 		'approval_flow',
@@ -54,6 +58,10 @@ final class ErrorEnvelope {
 		'widget_type',
 		'offending_key',
 		'offending_keys',
+		'rejected_settings',
+		'drop_settings_proposal',
+		'drop_settings_missing',
+		'drop_settings_unexpected',
 		'gated_mcp_tool',
 	];
 
