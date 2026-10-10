@@ -233,7 +233,9 @@ final class ProductionSafeCoverageTest extends TestCase {
 			|| str_contains( $source, 'require_sandbox_confirmation(' )
 			|| str_contains( $source, 'require_confirmation(' )
 			|| str_contains( $source, 'require_production_safe_token(' )
-			|| str_contains( $source, 'audit_write(' );
+			|| str_contains( $source, 'audit_write(' )
+			// The rollback engine verifies the token itself (ChangeRollbackTest), once, so its ability must not.
+			|| str_contains( $source, 'ChangeRollback::run(' );
 	}
 
 	private function is_hard_blocked_in_production_safe( string $source ): bool {

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T08:03:36+00:00",
+    "generated_at": "2026-10-10T11:05:39+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -639,6 +639,46 @@
             }
         },
         {
+            "ability_name": "stonewright/change-diff-get",
+            "mcp_name": "stonewright-change-diff-get",
+            "kind": "Read",
+            "input_schema_hash": "bcd21a7cf81b6957220da3c5034c971b0ba336592014ea97a05af39aab5a9a73",
+            "output_schema_hash": "ae55e1dc786d2160f42f1d67a018c072aeddf06b7d49c062ed0ee909b2ac6a9d",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/change-history-list",
+            "mcp_name": "stonewright-change-history-list",
+            "kind": "Read",
+            "input_schema_hash": "418e7d4153e83bd8a4ad9e6ed223f892847ba1f086eedfbba10bc127a539e041",
+            "output_schema_hash": "30d6572c00d4ced18560bbac61f37964d6884304aab1ef547cbbef070c770f04",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
+            }
+        },
+        {
             "ability_name": "stonewright/change-log",
             "mcp_name": "stonewright-change-log",
             "kind": "Read",
@@ -667,6 +707,26 @@
             "permission_class": "Permissions::edit_post( $post_id ) (compound)",
             "gates": {
                 "backup": true,
+                "token": true,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/change-rollback",
+            "mcp_name": "stonewright-change-rollback",
+            "kind": "Write",
+            "input_schema_hash": "70a856264293aa83aeda3017e4fd62fbdc33c2e15c19dc85ec55e317b20468a4",
+            "output_schema_hash": "6cd5c48fcd05e7f5cfbcb2b69ffc1e67bcc6c45bea5dc0abed8124e82624ac3c",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true

@@ -86,6 +86,7 @@ final class AbilitySourceFacts {
 		'service->restore(',
 		'QualityReportStore::save(',
 		'RuntimeDataPurger::purge(',
+		'ChangeRollback::run(',
 		'new UploadMedia()',
 		'new BuildPageFromSpec()',
 		'ConfirmationGuard',
@@ -106,6 +107,8 @@ final class AbilitySourceFacts {
 		'production_safe_token_error(',
 		'audit_write(',
 		'new BuildPageFromSpec()',
+		// The rollback engine verifies the token itself, so the ability that calls it must not verify it again.
+		'ChangeRollback::run(',
 	];
 
 	/**

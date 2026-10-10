@@ -199,7 +199,7 @@ abstract class FamilyAdapter {
 	/**
 	 * Restore a change from its before image, or undo the creation it recorded.
 	 *
-	 * @param array<string, mixed> $options expected_current_sha256, and permanent (a family that must delete to undo a creation asks for it).
+	 * @param array<string, mixed> $options expected_current_sha256, permanent (a family that must delete to undo a creation asks for it) and kind (redo when the restore redoes a rollback; the row it writes is then a redo row, else a rollback row).
 	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string,limits:list<string>}
 	 *         status is succeeded, noop (already as it was), or failed.
 	 */
@@ -271,7 +271,7 @@ abstract class FamilyAdapter {
 			Logger::warning( 'change_ledger_restore_failed', [ 'error' => $failure::class, 'stage' => 'confirm' ] );
 			$after = null;
 		}
-		$child = self::record_rollback( $row, $type, $new_id, $live, $after, $written['ok'], null === $target );
+		$child = self::record_rollback( $row, $type, $new_id, $live, $after, $written['ok'], null === $target, self::kind_of( $options ) );
 		return self::result( $written['ok'] ? 'succeeded' : 'failed', $written['detail'], $change_id, $child, $limits );
 	}
 
@@ -386,11 +386,20 @@ abstract class FamilyAdapter {
 	}
 
 	/**
+	 * The kind of the row a restore writes: redo when the caller says the restore redoes a rollback, rollback otherwise.
+	 *
+	 * @param array<string, mixed> $options
+	 */
+	private static function kind_of( array $options ): string {
+		return isset( $options['kind'] ) && 'redo' === $options['kind'] ? 'redo' : 'rollback';
+	}
+
+	/**
 	 * @param array<string, mixed> $row
 	 * @param array<string, mixed>|null $live
 	 * @param array<string, mixed>|null $after
 	 */
-	private static function record_rollback( array $row, string $type, string $id, ?array $live, ?array $after, bool $ok, bool $undoes_creation ): ?string {
+	private static function record_rollback( array $row, string $type, string $id, ?array $live, ?array $after, bool $ok, bool $undoes_creation, string $kind ): ?string {
 		if ( ! FamilyLedger::ready() ) {
 			return null;
 		}
@@ -407,7 +416,7 @@ abstract class FamilyAdapter {
 			'family'        => static::ledger_family( $type ),
 			'resource_type' => $type,
 			'resource_id'   => $id,
-			'kind'          => 'rollback',
+			'kind'          => $kind,
 			'parent_id'     => (string) $row['change_id'],
 			'before'        => $live,
 			'summary'       => $summary,

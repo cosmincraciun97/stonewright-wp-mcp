@@ -40,7 +40,7 @@ final class ChangesPage {
 	public const PER_PAGE   = 25;
 
 	/** Status filter value => the ledger statuses it matches. */
-	private const STATUS_GROUPS = [
+	public const STATUS_GROUPS = [
 		'verified'  => [ 'verified' ],
 		'rolled_back' => [ 'rolled_back', 'rolled_back_by' ],
 		'incident'  => [ 'incident', 'rollback_failed' ],

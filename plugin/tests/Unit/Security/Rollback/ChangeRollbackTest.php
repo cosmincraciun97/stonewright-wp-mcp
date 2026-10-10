@@ -197,13 +197,13 @@ final class ChangeRollbackTest extends RollbackTestCase {
 	}
 
 	public function test_a_family_without_a_handler_is_refused_and_says_which(): void {
-		$row = ChangeLedger::record( [ 'ability' => 'stonewright/woocommerce-update-product', 'family' => 'woocommerce', 'resource_type' => 'product', 'resource_id' => '9', 'before' => [ 'price' => '5' ] ] );
+		$row = ChangeLedger::record( [ 'ability' => 'stonewright/settings-admin-write', 'family' => 'other', 'resource_type' => 'admin_setting', 'resource_id' => 'mode', 'before' => [ 'price' => '5' ] ] );
 		self::assertIsArray( $row );
 		ChangeLedger::settle( $row['change_id'], [ 'status' => 'verified', 'after' => [ 'price' => '6' ] ] );
 
 		$error = $this->assert_refused( ChangeRollback::run( $row['change_id'] ), 'stonewright_change_family_unsupported' );
 
-		self::assertSame( 'woocommerce', $error->get_error_data()['family'] );
+		self::assertSame( 'other', $error->get_error_data()['family'] );
 	}
 
 	public function test_a_resource_that_already_equals_the_before_image_is_refused_as_already_restored(): void {
@@ -628,7 +628,7 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		RollbackFamilies::register( $second );
 
 		self::assertSame( $second, RollbackFamilies::handler_for( 'user' ) );
-		self::assertNull( RollbackFamilies::handler_for( 'woocommerce' ) );
+		self::assertNull( RollbackFamilies::handler_for( 'other' ) );
 	}
 
 	public function test_the_built_in_families_are_registered(): void {

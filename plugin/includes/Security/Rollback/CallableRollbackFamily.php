@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security\Rollback;
 
+use Stonewright\WpMcp\Security\ChangeLedger;
+
 /**
  * Wraps `restore( string $change_id, array $options ): array` where the result holds status, detail, limits and
  * rollback_change_id, and the adapter writes its own rollback row (chained through parent_id). The engine keeps every
@@ -58,13 +60,20 @@ final class CallableRollbackFamily implements RollbackFamilyHandler {
 		if ( isset( $options['expected_current_sha256'] ) && '' !== (string) $options['expected_current_sha256'] ) {
 			$pass['expected_current_sha256'] = (string) $options['expected_current_sha256'];
 		}
-		$result = ( $this->restore )( (string) $row['change_id'], $pass );
-		return [
+		$result   = ( $this->restore )( (string) $row['change_id'], $pass );
+		$child_id = isset( $result['rollback_change_id'] ) && is_string( $result['rollback_change_id'] ) && '' !== $result['rollback_change_id'] ? $result['rollback_change_id'] : null;
+		$answer   = [
 			'status'             => (string) ( $result['status'] ?? 'failed' ),
 			'detail'             => (string) ( $result['detail'] ?? '' ),
 			'limits'             => array_values( array_filter( array_map( 'strval', (array) ( $result['limits'] ?? [] ) ), static fn ( string $limit ): bool => '' !== $limit ) ),
-			'rollback_change_id' => isset( $result['rollback_change_id'] ) && is_string( $result['rollback_change_id'] ) && '' !== $result['rollback_change_id'] ? $result['rollback_change_id'] : null,
+			'rollback_change_id' => $child_id,
 		];
+		// A restore that creates the resource again gives it a new id; the row the adapter wrote names it.
+		$child = null === $child_id ? null : ChangeLedger::get( $child_id );
+		if ( null !== $child && '' !== $child['resource_id'] && $child['resource_id'] !== (string) $row['resource_id'] ) {
+			$answer['resource_id'] = $child['resource_id'];
+		}
+		return $answer;
 	}
 
 	public function describe( array $row, string|array|null $image ): string {

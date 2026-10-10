@@ -100,7 +100,9 @@ For a theme file, a snippet, the Customizer CSS or a sandbox file, an undo or a 
 
 ### What can be undone
 
-Posts and their kinds (pages, Elementor documents, Gutenberg content, templates, global styles), settings and other options, menus, widgets, theme files, snippets, the Customizer CSS and sandbox files. A change that is not restorable has no button; the drawer says why. A kind of item that has no restore yet shows **Undo is not available for this change**.
+Posts and their kinds (pages, Elementor documents, Gutenberg content, templates, global styles), settings and other options, theme switches, menus, widgets, theme files, snippets, the Customizer CSS, sandbox files, users (fields and roles, never a password), comments, media (fields and metadata, not the file), WooCommerce products, variations, terms and attributes, site memory, skills and design directions. A change that is not restorable has no button; the drawer says why (for example a plugin delete, a password change or a PHP snippet that ran). A kind of item that has no restore shows **Undo is not available for this change**.
+
+An agent can list, diff and undo the same changes with `stonewright-change-history-list`, `stonewright-change-diff-get` and `stonewright-change-rollback`, and an operator with `wp stonewright changes`; see [Rescue](../rescue.md#reading-and-undoing-from-an-agent-or-the-command-line).
 
 An incident that Rescue lists is still rolled back from Rescue, as before. When Changes undoes a change that Rescue also lists, it uses the same path, so both pages tell the same story.
 

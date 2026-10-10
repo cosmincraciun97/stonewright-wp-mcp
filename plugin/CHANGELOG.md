@@ -18,8 +18,7 @@
   An incident or an unverified change to code is rolled back as before.
 - Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
   of the state before the restore, which undoes it.
-- Add the storage layer for change history, with no ability or page using it
-  yet. A `stonewright_changes` table (created and upgraded with the other
+- Add the storage layer for change history. A `stonewright_changes` table (created and upgraded with the other
   tables) records each change with its ability, user, resource, status and the
   hash and size of the content before and after it. The content is kept as
   gzip blobs in `uploads/stonewright-state/blobs/`, named by sha256, with deny
@@ -34,10 +33,8 @@
   post as it was before and after the write: fields, slug, parent, featured
   image, terms, Elementor keys, page template, SEO keys and ACF values. Abilities
   that create posts, and `content-bulk-upsert-posts`, which overwrote posts
-  without a snapshot, are recorded too. Internal groundwork: no page or ability
-  shows or undoes these records yet, and a ledger failure never changes a write.
-- Record changes to code in the change history, with no page or ability reading
-  them yet. Theme file writes (patch, `theme.json` and backup restore),
+  without a snapshot, are recorded too. A ledger failure never changes a write.
+- Record changes to code in the change history. Theme file writes (patch, `theme.json` and backup restore),
   Customizer CSS updates (the first save included), WPCode and Code Snippets
   saves, and sandbox write, edit, delete, activate and deactivate each leave a
   row with the content before and after, and for a snippet its title, language,
@@ -74,11 +71,10 @@
   brand kit; menus with their items in order, parents and locations (a deleted
   menu keeps its full image); and sidebars with their widgets. Each ability has
   a list of the options it may write, and names on the secret list are never
-  read or stored. Internal groundwork: no page or ability shows or undoes these
-  records yet, and a ledger failure never changes a write.
+  read or stored. A ledger failure never changes a write.
 - Record changes to users, comments, media, WooCommerce, themes, plugins, site
   memory, skills, design directions, `php-execute` and some settings writes in the
-  change history, with no page or ability reading them yet. A user change keeps
+  change history. A user change keeps
   the account fields, roles and capabilities before and after, and never a
   password, session token, application password or other secret user data; a
   changed password and a created or revoked application password are recorded
@@ -93,6 +89,28 @@
   not restorable, with the reason. Restore functions write the before image back
   through the functions the ability used. A history that cannot record never
   stops or changes the write.
+- Add the change history to agents and to WP-CLI. `stonewright-change-history-list`
+  lists changes newest first as short rows (id, time, family, resource, ability,
+  user, status, summary, whether it can be restored and why not, the change a
+  rollback follows and how many follow it), with the filters of the Changes page
+  and paging. `stonewright-change-diff-get` returns the diff of one change, with
+  secrets masked and the size capped, and a summary of its undo: drift, newer
+  changes, whether it can be restored and whether an administrator is needed.
+  `stonewright-change-rollback` undoes a change or redoes a rollback, with
+  `dry_run`, `force_drift`, `expected_current_sha256`, `permanent` and the
+  confirmation token of production-safe mode (a dry run returns the arguments to
+  issue it for); an undo of code is not run on a call and answers
+  `stonewright_rescue_approval_required` with the address of the Changes page.
+  None of the three returns stored content. `wp stonewright changes list`,
+  `diff <change>` and `rollback <change>` (`--dry-run`, `--force-drift`,
+  `--yes`, `--issue-token`) do the same from the command line, with the same
+  rules; the command line is not an administrator, so it cannot approve code.
+- Undo and redo of users (fields and roles, never a password), comments, media,
+  WooCommerce items, theme switches, site memory, skills and design directions,
+  from the Changes page, the ability and WP-CLI. The plan shows the diff of the
+  undo and tells when the item was edited since, as for posts. A redo of a
+  restored memory entry deletes it again. A plugin delete, a password change and
+  a `php-execute` run stay not restorable, with the reason.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
