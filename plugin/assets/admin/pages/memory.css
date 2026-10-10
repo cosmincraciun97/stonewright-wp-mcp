@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Memory page: placement only. Every component (cards, table, tags, forms, notices) comes from sw-ui.css.
+ */
+
+/* A card body holds the add form, the filters and the table: one gap between them. */
+.sw-memory .sw-ui-card__body {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+.sw-memory .sw-memory__subtitle {
+	font-size: var(--sw-fs-lg);
+}
+
+/* A field and its button on one line; the button lines up with the field, not with its label. */
+.sw-memory .sw-memory__inline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var(--sw-space-3);
+}
+
+/* Long keys and names break inside their cell instead of widening the page. */
+.sw-memory .sw-ui-table :where(td) {
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.sw-memory .sw-ui-table__actions .sw-ui-actions {
+	justify-content: flex-end;
+}
+
+.sw-memory .sw-ui-table__actions :where(form) {
+	margin: 0;
+}
+
+.sw-memory .sw-ui-card__footer + .sw-ui-card__body,
+.sw-memory .sw-ui-disclosure__body :where(form) {
+	margin: 0;
+}

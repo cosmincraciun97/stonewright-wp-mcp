@@ -3,21 +3,19 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\SkillExporter;
-use Stonewright\WpMcp\Skills\SkillImporter;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 
 /**
  * REST surface for the skills admin page.
  *
  * Like the Design Studio controller, this is a routing table, a capability and
- * nonce gate, and a dispatcher. The lifecycle rules live in `Skills`,
- * `SkillImporter`, and `SkillExporter`, so the admin UI reaches exactly the
- * same refusals — protected sources, import re-derivation, and the
- * production-safe confirmation gate on hard deletion — that any other caller
- * would hit.
+ * nonce gate, and a dispatcher. Every lifecycle rule lives in the skill library
+ * service, so the admin UI reaches exactly the same refusals — protected
+ * sources, import re-derivation and receipts, and the production-safe
+ * confirmation gate on hard deletion — that any other caller would hit. The
+ * service records the audit event for each mutation it attempts.
  *
  * Route namespace: `stonewright/v1`, path prefix `/skills-studio`. The prefix
  * keeps these routes clear of the public `/skills` endpoints.
@@ -139,7 +137,7 @@ final class SkillsRestApi {
 	}
 
 	/**
-	 * Validate the identifier, then hand the request to the lifecycle helper.
+	 * Validate the identifier, then hand the request to the skill library service.
 	 *
 	 * @return \WP_REST_Response|\WP_Error
 	 */
@@ -170,14 +168,16 @@ final class SkillsRestApi {
 			}
 		}
 
+		$library = SkillLibraryService::open( WordPressBoundary::STUDIO, $request );
+
 		return match ( $route_id ) {
-			'skills.catalog' => self::catalog(),
-			'skills.inspect' => self::inspect( $request ),
-			'skills.import'  => self::import( $request ),
-			'skills.export'  => self::export( $identifier ),
-			'skills.trash'   => self::lifecycle( 'trash', $identifier ),
-			'skills.restore' => self::lifecycle( 'restore', $identifier ),
-			'skills.destroy' => self::destroy( $identifier, $request ),
+			'skills.catalog' => self::catalog( $library ),
+			'skills.inspect' => self::inspect( $library, $request ),
+			'skills.import'  => self::import( $library, $request ),
+			'skills.export'  => self::export( $library, $identifier ),
+			'skills.trash'   => self::lifecycle( $library, 'trash', $identifier ),
+			'skills.restore' => self::lifecycle( $library, 'restore', $identifier ),
+			'skills.destroy' => self::destroy( $library, $identifier, $request ),
 			default          => new \WP_Error(
 				'stonewright_skills_unknown_route',
 				__( 'Unknown skills route.', 'stonewright' ),
@@ -193,16 +193,16 @@ final class SkillsRestApi {
 	/**
 	 * Everything the page renders in one read: live skills, trash, and sources.
 	 */
-	private static function catalog(): \WP_REST_Response {
-		$catalog = Skills::catalog();
+	private static function catalog( SkillLibraryService $library ): \WP_REST_Response {
+		$catalog = $library->catalog_view();
 
 		return rest_ensure_response(
 			[
 				'ok'        => true,
 				'skills'    => $catalog['skills'],
 				'conflicts' => $catalog['conflicts'],
-				'sources'   => Skills::sources(),
-				'trashed'   => Skills::list_trashed(),
+				'sources'   => $catalog['sources'],
+				'trashed'   => $library->trashed(),
 			]
 		);
 	}
@@ -212,8 +212,8 @@ final class SkillsRestApi {
 	 *
 	 * @return \WP_REST_Response|\WP_Error
 	 */
-	private static function inspect( \WP_REST_Request $request ) {
-		$filename = (string) ( $request->get_param( 'filename' ) ?? '' );
+	private static function inspect( SkillLibraryService $library, \WP_REST_Request $request ) {
+		$filename = $request->get_param( 'filename' );
 		$content  = $request->get_param( 'content' );
 
 		if ( ! is_string( $content ) ) {
@@ -224,7 +224,7 @@ final class SkillsRestApi {
 			);
 		}
 
-		$inspection = SkillImporter::inspect( $filename, $content );
+		$inspection = $library->inspect_upload( is_string( $filename ) ? $filename : '', $content );
 
 		if ( is_wp_error( $inspection ) ) {
 			return $inspection;
@@ -241,12 +241,12 @@ final class SkillsRestApi {
 	/**
 	 * Step two of an import: the reviewed file lands as a disabled draft.
 	 *
-	 * The report is echoed back by the browser, so the importer re-derives
-	 * readiness from the content rather than believing what it is handed.
+	 * The review is echoed back by the browser, so the service re-derives it
+	 * from the file and verifies the receipt this site issued for it.
 	 *
 	 * @return \WP_REST_Response|\WP_Error
 	 */
-	private static function import( \WP_REST_Request $request ) {
+	private static function import( SkillLibraryService $library, \WP_REST_Request $request ) {
 		$inspection = $request->get_param( 'inspection' );
 
 		if ( ! is_array( $inspection ) ) {
@@ -257,20 +257,13 @@ final class SkillsRestApi {
 			);
 		}
 
-		$skill_id = SkillImporter::import( $inspection, get_current_user_id() );
+		$content  = $request->get_param( 'content' );
+		$filename = $request->get_param( 'filename' );
+		$skill_id = $library->import_upload( $inspection, is_string( $content ) ? $content : null, is_string( $filename ) ? $filename : null );
 
 		if ( is_wp_error( $skill_id ) ) {
-			self::audit( 'import', [ 'slug' => (string) ( $inspection['slug'] ?? '' ) ], 'blocked' );
 			return $skill_id;
 		}
-
-		self::audit(
-			'import',
-			[
-				'skill_id' => $skill_id,
-				'slug'     => (string) ( $inspection['slug'] ?? '' ),
-			]
-		);
 
 		return rest_ensure_response(
 			[
@@ -283,21 +276,18 @@ final class SkillsRestApi {
 	/**
 	 * @return \WP_REST_Response|\WP_Error
 	 */
-	private static function export( int $skill_id ) {
-		$markdown = SkillExporter::markdown( $skill_id );
+	private static function export( SkillLibraryService $library, int $skill_id ) {
+		$export = $library->export_markdown( $skill_id );
 
-		if ( is_wp_error( $markdown ) ) {
-			return $markdown;
+		if ( is_wp_error( $export ) ) {
+			return $export;
 		}
-
-		$skill = Skills::get_by_id( $skill_id );
-		$slug  = (string) ( $skill['slug'] ?? 'skill' );
 
 		return rest_ensure_response(
 			[
 				'ok'       => true,
-				'filename' => $slug . '.md',
-				'markdown' => $markdown,
+				'filename' => $export['filename'],
+				'markdown' => $export['markdown'],
 			]
 		);
 	}
@@ -307,14 +297,12 @@ final class SkillsRestApi {
 	 *
 	 * @return \WP_REST_Response|\WP_Error
 	 */
-	private static function lifecycle( string $action, int $skill_id ) {
-		$result = 'trash' === $action ? Skills::trash( $skill_id ) : Skills::restore( $skill_id );
+	private static function lifecycle( SkillLibraryService $library, string $action, int $skill_id ) {
+		$result = 'trash' === $action ? $library->move_to_trash( $skill_id ) : $library->bring_back( $skill_id );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
-
-		self::audit( $action, [ 'skill_id' => $skill_id ] );
 
 		return rest_ensure_response(
 			[
@@ -330,16 +318,13 @@ final class SkillsRestApi {
 	 *
 	 * @return \WP_REST_Response|\WP_Error
 	 */
-	private static function destroy( int $skill_id, \WP_REST_Request $request ) {
+	private static function destroy( SkillLibraryService $library, int $skill_id, \WP_REST_Request $request ) {
 		$token  = $request->get_param( 'confirmation_token' );
-		$result = Skills::destroy( $skill_id, is_string( $token ) ? $token : '' );
+		$result = $library->erase_skill( $skill_id, is_string( $token ) ? $token : '' );
 
 		if ( is_wp_error( $result ) ) {
-			self::audit( 'destroy', [ 'skill_id' => $skill_id ], 'blocked' );
 			return $result;
 		}
-
-		self::audit( 'destroy', [ 'skill_id' => $skill_id ] );
 
 		return rest_ensure_response(
 			[
@@ -348,13 +333,6 @@ final class SkillsRestApi {
 				'action'   => 'destroy',
 			]
 		);
-	}
-
-	/**
-	 * @param array<string, mixed> $args Sanitised argument summary for the log.
-	 */
-	private static function audit( string $action, array $args, string $status = 'ok' ): void {
-		AuditLog::record( 'stonewright/skills-' . $action, $args, $status );
 	}
 
 	/**

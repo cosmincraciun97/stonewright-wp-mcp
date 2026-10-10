@@ -1,9 +1,9 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.13.3
+Version: 1.0.0-beta.14
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
-License: [AGPL-3.0-or-later](../LICENSE)
+License: [GPL-2.0-or-later](../LICENSE)
 
 Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter` ^0.6.1. It supports Gutenberg, Full Site Editing, Elementor V3,
@@ -78,7 +78,7 @@ never skip KSES to preserve PHP. WPCode active PHP uses the provider's public
 save and cache APIs.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
-Use the admin **Local WP-CLI bridge (advanced)** controls only when you
+Use the **Local WP-CLI bridge (advanced)** section of Setup → Settings only when you
 deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 The source-install `wp plugin activate stonewright` command is for humans with
 WP-CLI already configured. Runtime agents should not recover by shelling out to
@@ -135,19 +135,19 @@ Public tool surface for MCP clients: `bootstrap` | `essential` | `full`.
 
 - **bootstrap** — minimal first-call set (task-start / profile / recovery). `php-execute` is not on bootstrap.
 - **essential** — compact day-to-day Elementor/content fast path (default for new installs when set on activation).
-- **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface.
+- **full** — entire enabled ability registry, including `php-execute`. Opt-in `discover-execute` is a compact catalog + gated execute profile, not a saved Setup surface. Opt-in `inspect` is a read-only profile (discovery, read, and verify tools; no `php-execute`); activating it adds its tools to the session and never changes the saved surface.
 
-Toggle in **Stonewright → Setup**. Contracts for the public ability list live in
+Choose it in **Stonewright → Setup → Settings**. Contracts for the public ability list live in
 `docs/contracts/public-api-v1.json` (regenerate with `composer contracts:generate`).
 
 ### Verify connection
 
-**Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
+**Stonewright → Setup → Get started**, step 4 (**Verify connection**), runs an authenticated MCP loopback
 (initialize → notifications/initialized → tools/list → task-start with
 `serverInfo.name` Stonewright). Preflight alone does not prove a live
 client session.
 
-**Stonewright → Troubleshoot** (also on Setup) runs a dependency-ordered
+**Stonewright → Setup → Troubleshoot** runs a dependency-ordered
 diagnostic graph from **Run diagnostics** without reloading the admin page when
 JavaScript is available. Pick **How do you connect?** first: **OAuth**,
 **Application Password**, **Local companion**, or **Not sure** (safe discovery
@@ -171,15 +171,30 @@ For a site where this plugin is installed, register `--mode plugin-only`. Use
 credential and repair the named entry without creating another alias.
 
 Setup keeps the Settings API form structurally separate from domain-lock
-recovery actions. **Save Settings** therefore returns to Stonewright Setup;
+recovery actions. **Save settings** therefore returns to Stonewright Setup,
+on the **Settings** view;
 `/wp-admin/options.php` is only the internal WordPress handler and is never the
 final admin page.
 
 ### Prompt library
 
 Searchable outcome-tagged prompts ship in `data/prompts/catalog.json` and appear
-on Setup. Agents still start with `stonewright-task-start` (skill refs, truncated
-Context text, and a Design Direction pointer — not the full libraries).
+under **Stonewright > Prompt library** (Knowledge). Each entry has an `id`, a
+`title`, an `outcome` (its group), `modes` (`plugin`, `direct`, or both), a
+`summary`, `prerequisites`, `tools`, the `prompt` text, and a `verification`
+line. The starters cover the current release: Rescue and rolling back a failed
+change, restoring a page from a snapshot, repairing a failed write and reading
+its lineage in **Stonewright > Activity > Audit log**, section reuse, the native Elementor V4
+bridge, looking up Elementor documentation in the site's knowledge store, bringing a
+design's images into the media library, the read-only inspect profile and the active
+Design Direction.
+`tests/Unit/Support/PromptCatalogGuardTest.php` checks every tool name a prompt
+mentions against the ability matrix (Plugin mode) and the Direct tool contract
+(Direct mode), every admin page it points to against the menu registry, and
+fails on a removed or renamed feature, and checks that a prompt naming a write that needs a
+confirmation token in `production-safe` mode says how the token is issued. Agents still start with
+`stonewright-task-start` (skill refs, truncated Context text, and a Design
+Direction pointer — not the full libraries).
 
 ### Persistent Skills And Memory
 
@@ -278,7 +293,7 @@ the registry rather than restating rule text in PHP.
 
 ### Client Setup In Admin
 
-The Configuration page guides enablement, authentication, client connection,
+The Setup page guides enablement, authentication, client connection,
 component updates, and live verification. OAuth and Application Password share
 one client tablist; changing the authentication method updates instructions
 inside the same selected-client panel. Unsupported combinations stay visible
@@ -298,12 +313,14 @@ Library labels Plugin/Direct support and includes requirements plus verification
 Companion status reports use schema version 3. Call `stonewright-task-start`
 first; a degraded session reconnects once. Terminal OAuth failures return
 `reauthentication_required` with a model-visible `user_action`. Access tokens
-stay one hour; seven-day continuity is a refresh SLO against a fourteen-day
-grant family, not a seven-day bearer token.
+stay one hour; seven-day continuity is a refresh SLO within a grant that ends
+at most 90 days after authorization, not a seven-day bearer token. A refresh
+token expires after 30 days without use, and one presented again within 60
+seconds of its use receives the grant's current refresh token.
 
 ### Design abilities (MCP)
 
-The **Design** tab (`stonewright-design`) is registered under Workflows and
+The **Design** tab (`stonewright-design`) is part of the Knowledge hub and
 edits Design Directions. The `design-library` admin group is not: Design Studio,
 Visual Workspace, and Blueprints pages stay unregistered. Typed design,
 blueprint, and brand-kit abilities remain available over MCP; storage tables
@@ -327,6 +344,18 @@ surface audit are maintained in [`../DESIGN.md`](../DESIGN.md).
 
 The durable audit, OAuth, write-receipt, incident, and diagnostics contract is
 documented in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
+
+### Rescue
+
+Risky writes are recorded before they run and checked after they finish.
+
+- `RescueGuard` arms a change set in `ChangeJournal` before a write. Post and option snapshots arm themselves through `Backup`; plugin, sandbox, custom-code, and theme-file writes call `RescueGuard::arm_plugin_write()`, `arm_sandbox_write()`, `arm_custom_code_write()`, and `arm_standalone()`. `AbilityKernel` settles the call when the ability returns.
+- `HealthProbe` asks the site over HTTP whether it still loads (the home page, a wp-admin screen, the REST index, the written post, an optional same-site URL). `RollbackRecipes` undoes the change when it does not.
+- The journal is `wp-content/uploads/stonewright-state/journal-<random>.json` (at most 50 entries) and the `stonewright_change_journal` option.
+- Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Activity → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
+- Filters: `stonewright_rescue_probe_enabled`, `stonewright_rescue_probe_args`, and `https_local_ssl_verify`.
+
+See [docs/rescue.md](../docs/rescue.md).
 
 ## Code Payload Handling
 
@@ -355,7 +384,8 @@ issued for different content.
 
 Write abilities must use real permission callbacks, snapshots where required,
 confirmation tokens in production-safe mode, and `Validator::validate()` before
-rendering Design Specs.
+rendering Design Specs. A write that changes state a post or option snapshot does
+not cover arms a rescue entry with the matching `RescueGuard` method.
 
 ## Ability Groups
 

@@ -91,7 +91,7 @@ final class DescribeAtomicWidget extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			function ( array $a ): array|\WP_Error {
 				$node_type = (string) ( $a['node_type'] ?? '' );

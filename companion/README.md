@@ -48,10 +48,17 @@ status schema version 3**. `connected` is a derived compatibility field.
 Authentication state includes `reauth_required`; terminal results use
 `reauthentication_required` plus a model-visible `user_action` that the agent
 must relay before more WordPress work. Access tokens stay one hour. Seven-day
-continuity is a refresh SLO against a fixed fourteen-day grant family.
+continuity is a refresh SLO within a grant that ends at most 90 days after
+authorization. A refresh token expires after 30 days without use, and one
+presented again within 60 seconds of its use receives the grant's current
+refresh token.
 
-Automatic retry is restricted to handshake and explicitly allowlisted read-only
-bootstrap operations. Mutations are never retried. When the session is
+The companion sends each WordPress MCP request once and does not repeat it after
+a timeout or network error. The one exception is a token refresh that got no
+response at all: it is sent once more with the same refresh credential, at most
+30 seconds after the first request and ended 50 seconds after it, inside the
+server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
+access token and the request is sent once more, a tool call included. When the session is
 degraded, `stonewright-task-start` reconnects once and either continues with
 the remote call or returns a truthful local gateway result. Plugin-only mode
 never silently enables Direct writes on a transport failure.
@@ -299,6 +306,33 @@ runs require a fresh one-use plan approved with its SHA-256. Exit codes: 0 =
 verified success, 1 = failure, 2 = approval required. Recipes need a local
 WordPress root bound with `stonewright connect add|repair --wp-root <path>`.
 
+### Rescue (local WP-CLI)
+
+List and roll back a Stonewright rescue incident on a site that has a local
+WordPress root, also when another plugin or the theme stops the site from
+loading:
+
+```text
+stonewright rescue status [--site <alias>] [--user <login|id>] [--json]
+stonewright rescue rollback <incident> [--site <alias>] [--user <login|id>] [--json]
+stonewright rescue rollback <incident> --issue-token [--site <alias>] [--user <login|id>]
+stonewright rescue rollback <incident> --token <confirmation token> [--site <alias>] [--user <login|id>]
+```
+
+The command runs the plugin's `wp stonewright rescue status|rollback` with
+`--skip-plugins=<every active plugin but Stonewright>` and `--skip-themes`. It
+reads the active plugins first with `wp option get active_plugins` (all plugins
+skipped), and refuses a plugin name that cannot be passed safely. Every process
+starts through the tokenized WP-CLI runner (`execFile`, argv tokens, no shell);
+there is no eval, shell, `--exec` or `--require` path, and the incident id, the
+user and the token are checked against strict patterns before anything runs.
+`--user` defaults to the user saved for the site. In production-safe mode the
+rollback needs a confirmation token: run it with `--issue-token`, then run it
+again with `--token`. The token goes to WP-CLI in the environment variable
+`STONEWRIGHT_CONFIRMATION_TOKEN`, never as an argument. Exit codes: 0 = done,
+1 = failed, 2 = a confirmation token is required. Each run writes one local
+audit row without arguments, token or output.
+
 ### Doctor (connection health)
 
 ```bash
@@ -371,6 +405,15 @@ For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
 the canonical `stonewright-wp-cli-*` recovery tools remain local.
+For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
+It registers discovery, read, and verify tools plus the permanent gateways and
+the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It
+registers no `stonewright-php-execute`, no `stonewright-wp-cli-run`,
+`-batch-run`, `-job-start`, `-job-status`, or `-install` tool, no command tool,
+and no tool that writes site content, even when the site's saved surface is
+`full`. Call `stonewright-tool-profile` to switch to the profile that owns a
+write. In Direct (pluginless) mode the profile maps to the Direct bootstrap
+surface.
 
 From a GitHub release:
 
@@ -403,7 +446,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs normally use `essential`; `bootstrap`, `full`, `low-tools`, and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs normally use `essential`; `bootstrap`, `full`, `low-tools`, the read-only `inspect`, and specialist profiles remain explicit overrides. `full` and `inspect` are never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_MAX_TOOLS` | optional | Maximum proxied tools registered for the client. Use `50` for capped clients so Stonewright trims deterministically after write-critical ordering. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |

@@ -33,7 +33,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 			'Global MCP surface mutation runs once.',
 		);
 		await login(page);
-		await page.goto('/wp-admin/admin.php?page=stonewright', {
+		await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
 			waitUntil: 'domcontentloaded',
 		});
 
@@ -64,7 +64,7 @@ test.describe('Setup Step 1 instant runtime apply', () => {
 			);
 		} finally {
 			// This option is shared by every project and must never leak test state.
-			await page.goto('/wp-admin/admin.php?page=stonewright', {
+			await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
 				waitUntil: 'domcontentloaded',
 			});
 			const restoreSelect = page.locator('#stonewright_mcp_surface');

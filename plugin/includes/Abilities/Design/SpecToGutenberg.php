@@ -125,10 +125,12 @@ final class SpecToGutenberg extends AbilityKernel {
 				$next_content = $append ? trim( $existing_post->post_content . "\n\n" . $content ) : $content;
 
 				$result = wp_update_post(
-					[
-						'ID'           => $post_id,
-						'post_content' => $next_content,
-					],
+					wp_slash(
+						[
+							'ID'           => $post_id,
+							'post_content' => $next_content,
+						]
+					),
 					true
 				);
 				if ( is_wp_error( $result ) ) {

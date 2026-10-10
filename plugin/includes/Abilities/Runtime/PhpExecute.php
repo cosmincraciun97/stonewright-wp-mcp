@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Security\ProtectedCustomCssWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedFilesystemWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedWpdbWriteGuard;
+use Stonewright\WpMcp\Support\ToolRouting;
 
 /**
  * Executes short, guarded PHP snippets inside the loaded WordPress runtime.
@@ -39,6 +40,19 @@ final class PhpExecute extends AbilityKernel {
 
 	public function category(): string {
 		return 'runtime';
+	}
+
+	/**
+	 * PHP in the loaded runtime can reach any host.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
 	}
 
 	public function input_schema(): array {
@@ -108,6 +122,10 @@ final class PhpExecute extends AbilityKernel {
 				'stdout_truncated'   => [ 'type' => 'boolean' ],
 				'result_truncated'   => [ 'type' => 'boolean' ],
 				'max_output_bytes'   => [ 'type' => 'integer' ],
+				'routing_hint'       => [
+					'type'        => 'object',
+					'description' => 'Present when the snippet matched a common pattern. prefer maps the pattern to typed MCP tool names; the call itself was not blocked.',
+				],
 			],
 			'required'   => [ 'ok', 'stdout', 'result', 'result_type', 'primary', 'return_mode', 'timeout_seconds', 'elapsed_ms', 'memory_delta_bytes', 'stdout_bytes', 'result_bytes', 'stdout_truncated', 'result_truncated', 'max_output_bytes' ],
 		];
@@ -159,13 +177,23 @@ final class PhpExecute extends AbilityKernel {
 					return $guard;
 				}
 
-				return $this->execute_code(
+				$result = $this->execute_code(
 					$code_body,
 					self::normalise_timeout( $runtime_args['timeout_seconds'] ?? 30 ),
 					self::normalise_return_mode( $runtime_args['return_mode'] ?? 'auto' ),
 					self::normalise_max_output_bytes( $runtime_args['max_output_bytes'] ?? self::DEFAULT_MAX_OUTPUT_BYTES ),
 					$read_only
 				);
+
+				// Advice only: the snippet already ran, and nothing here blocks the next one.
+				if ( is_array( $result ) ) {
+					$hint = ToolRouting::hint( ToolRouting::for_snippet( $code_body ), true );
+					if ( [] !== $hint ) {
+						$result['routing_hint'] = $hint;
+					}
+				}
+
+				return $result;
 			}
 		);
 	}

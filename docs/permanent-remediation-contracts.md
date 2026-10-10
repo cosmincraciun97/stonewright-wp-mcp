@@ -8,24 +8,39 @@ paths.
 ## Audit events and incidents
 
 Every audited outcome is normalized to schema `2.0` before persistence. The
-taxonomy separates `AUTH`, `PERMISSION`, `SAFETY`, `VALIDATION`, `TRANSIENT`,
-`WRITE`, `VERIFY`, `ROLLBACK`, `EXTERNAL`, and `INCIDENT` categories from the
-outcomes `SUCCESS`, `BLOCKED`, `RETRYABLE`, and `FAILED`.
+taxonomy separates `AUTH`, `READ`, `HEALTH`, `RUNTIME`, `PERMISSION`, `SAFETY`,
+`VALIDATION`, `TRANSIENT`, `WRITE`, `VERIFY`, `ROLLBACK`, `EXTERNAL`, and
+`INCIDENT` categories from the outcomes `SUCCESS`, `BLOCKED`, `RETRYABLE`, and
+`FAILED`. An ability that declares itself read-only is recorded as `READ`. Lock,
+busy, and conflict errors are recognized from the reported error code, never
+from a word in the ability name, so abilities whose names start with `blocks-`
+are not mistaken for lock errors.
 
 An event carries one root error code, a public message, a bounded resource
 identity, a normalized path, cause and strategy fingerprints, transaction and
 change-set identifiers, retry information, and an allowlisted redacted detail
 map. Context-token identity is hashed. Authorization values, request bodies,
-recipient addresses, page HTML, and filesystem paths are not audit payloads.
+recipient addresses, page HTML, and filesystem paths are not audit payloads. A
+`SUCCESS` event carries no root error code, remediation code, or incident. Every
+`BLOCKED`, `RETRYABLE`, and `FAILED` event carries a public message; when the
+caller supplied none, it names the outcome and the root error code.
 
 Recurring incidents have an explicit lifecycle: `observing`, `open`,
 `resolved`, or `suppressed`. Ordinary failures open after two matching
 occurrences; retryable failures use three; critical rollback failures open
 immediately. Permission and safety blocks do not become agent-repair
-incidents. A resolver closes an incident only after a correlated success with
-the same transaction resource/path or an exact change-set correlation. A new
-matching failure reopens a resolved incident. Legacy rows are classified and
-migrated idempotently into the same contract.
+incidents. An incident is identified by its root error code, ability family,
+and resource type, so one cause is one incident whatever the record, path, or
+category. A resolver closes a write, verification, or rollback incident only
+after a correlated success with the same transaction resource/path or an exact
+change-set correlation. Any other incident also closes after seven days
+without a new occurrence, with the end of that quiet period as its resolution
+time; a daily run performs that sweep and stays scheduled whatever the
+retention setting, while rows and incidents are deleted only when a retention
+window is configured. A new matching failure reopens a
+resolved incident and counts the reopening, also when it arrives after a quiet
+week but before the sweep ran. Legacy rows are classified and migrated
+idempotently into the same contract.
 
 `stonewright/incident-repair-record` is the only typed Plugin closure path. It
 reads the incident, failure event, and proposed verifier event from persisted
@@ -67,7 +82,13 @@ refresh must return a new, nonempty refresh token; omission or replay of the
 previous token clears local token state and requires reauthorization. The new
 rotated token replaces the old value. `invalid_grant`, `invalid_client`, and
 `unauthorized_client` delete local token state and stop retrying; the caller
-receives a reauthorization-required result.
+receives a reauthorization-required result whose `user_action` begins with one
+fixed sentence for the reason. A refresh that got no response at all (a timeout
+or a reset connection) is sent once more with the same refresh credential, only
+when the retry can start within 30 seconds of the first request and while the
+refresh lock is held; the retry is aborted 50 seconds after the first request.
+A received HTTP response is never retried, and a second failure reports
+`refresh_outcome_unknown`.
 
 Authorization, token exchange, refresh, and bearer validation carry or verify
 the exact canonical MCP resource. Protected Resource Metadata advertises only
@@ -78,33 +99,44 @@ access token issued from it.
 Transient HTTP responses and network failures use bounded exponential backoff,
 `Retry-After` when present, jitter, and a circuit breaker. OAuth responses use
 `Cache-Control: no-store`, a bounded `Retry-After`, and a correlation ID.
-Server-side throttling is atomic when the rate-limit table is available and
-falls back only for test doubles or pre-schema startup. It keys endpoint and
-registration counters by client identity plus an IPv4 `/24` or IPv6 `/64`
-network bucket. Forwarded client IPs are trusted only when the immediate peer
-is in the explicit trusted-proxy allowlist.
+Server-side throttling is a fixed window per endpoint and requester, updated
+atomically in the rate-limit table with a compare-and-swap. When the table
+cannot be read or written, the request is admitted and a warning is logged. The
+requester is the connection address as the web server reports it; a forwarding
+header is read only from a configured trusted proxy (none by default), and the
+authorization page counts the signed-in user instead.
+An IPv6 address counts as its `/64` prefix, an IPv4-mapped IPv6 address counts
+as the IPv4 address it carries, and an IPv4 address counts as itself.
 
 Deterministic matrix coverage (discovery paths, PKCE S256-only, resource
 binding, `WWW-Authenticate`, JSON `invalid_grant` reasons, companion terminal
 reauth, and refresh rotation/replay) lives in:
 
-- `plugin/tests/Unit/OAuth/OAuthMatrixContractTest.php`
+- `plugin/tests/Unit/Authorization/`
 - `companion/tests/oauth-matrix.test.ts`
 
 OAuth audit rows preserve retryable and server-side failures on the short
 diagnostic cadence. Terminal client-side failures such as an expired or
 revoked grant are coalesced for 24 hours by endpoint, client, status, error,
 and reason, with sparse aggregate receipts at counts 1, 25, 100, and 500.
+Security events are never coalesced: a refresh replay that revokes a grant, an
+authorization-code replay, an explicit revocation, and a duplicate refresh
+delivery each write their own row, marked as a security event. The row holds
+only allowlisted response fields, the client identifier, and the HTTP status,
+never a credential value.
 Admin rendering resolves registered OAuth client names in one batched lookup;
 pre-login events therefore show a client label instead of an unknown user and
-do not add one database query per row.
+do not add one database query per row. A token, revocation, introspection, or
+authorization request names a client in its row only once the site knows that
+client, so an identifier a caller made up never becomes a row of its own.
 
 ## Elementor and Gutenberg writes
 
 One write receipt is the transaction handoff. It contains the transaction and
 change-set IDs, architecture, targets, lock fingerprint and age, snapshot,
 before/planned/after/readback hashes, verification state, rollback state,
-root failure path, retry guidance, and bounded recovery instructions.
+root failure path, retry guidance, and bounded recovery instructions. Each write
+also returns it as a `ChangeSetV1` (see below).
 
 Elementor V3 batch mutation owns one post lock, one snapshot, one persistence
 write, one readback, and one rollback decision. The write path may preserve
@@ -121,6 +153,40 @@ operations in memory, then snapshots, writes, reads back, and restores once on
 failure. Existing block attributes and child structure are preserved unless
 the operation explicitly changes them. Remove remains confirmation-gated in
 `production-safe` mode.
+
+## Change sets and repair lineage
+
+Every write family that returns a receipt also returns one `ChangeSetV1` under
+`change_set`: the planned, applied, missing, and unexpected changes, the hashes
+before and after, the verification status with its evidence, the rollback recipe,
+and the lineage fields `repair_of` and `supersedes`. It is built from the receipt the
+write already returns, so there is one receipt contract, not two. The field list,
+the verification rules, and the abilities that return it are in
+[Elementor transaction envelope](transactions.md#change-set-changesetv1); the schema
+is [contracts/change-set-v1.schema.json](contracts/change-set-v1.schema.json).
+
+A write that repairs a failed change passes `repair_of` with that change's
+`change_set_id`. The audit row stores it in the indexed `repair_of` column, and
+`parent_event_id` points at the newest audit event of the repaired change. A change
+set's state is decided by its newest deciding row: a failure, including a failed
+verification, makes it failed; a verified success makes it verified; planned,
+blocked, and retryable rows decide nothing. The Audit Log joins change sets by
+`repair_of` into a nested list in its lineage drawer: failed change, failed
+verification, repair, verified.
+
+A verified repair resolves the incident the repaired change opened. The incident
+must be open or observing, its last change set must be the one named by
+`repair_of`, and the repair must concern the same resource. The incident moves to
+`resolved`; the repair's audit row becomes its resolution event, and the incident
+keeps the repair's `change_set_id`, `repair_of`, and `after_sha256` as its receipt.
+The other conditions of closure are unchanged: only a verified outcome resolves
+(a dry run, a request that changes nothing, and an unverified success do not), a
+rollback incident or an incident whose rollback failed stays open for an operator,
+and an incident that names an expected verifier waits for that verifier. A later
+failure with the same cause reopens the incident and counts the reopening.
+
+Successful rows never carry an `incident_id`, a root error code, or a remediation
+code, including the row of a verified repair that resolves an incident.
 
 ## Design evidence and diagnostics
 

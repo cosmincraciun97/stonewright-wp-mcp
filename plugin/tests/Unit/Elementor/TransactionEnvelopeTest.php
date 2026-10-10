@@ -4,8 +4,10 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\ElementorV3\TransactionRun;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
 use Stonewright\WpMcp\Elementor\TransactionEnvelope;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -128,6 +130,35 @@ final class TransactionEnvelopeTest extends TestCase {
 		self::assertTrue( $result['ok'] );
 		self::assertNotEmpty( $result['snapshot_id'] );
 		self::assertFalse( $result['rolled_back'] );
+	}
+
+	public function test_transaction_run_ability_applies_with_its_own_token_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'post_id'    => 601,
+			'operations' => [
+				[
+					'action'      => 'add_widget',
+					'parent_id'   => 'root',
+					'widget_type' => 'heading',
+					'settings'    => [ 'title' => 'Txn headline' ],
+				],
+			],
+		];
+		$ability = new TransactionRun();
+
+		$refused = $ability->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_confirmation_required', $refused->get_error_code() );
+
+		$token  = ConfirmationToken::issue( $ability->name(), $args );
+		$result = $ability->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray(
+			$result,
+			'Expected array, got WP_Error: ' . ( $result instanceof \WP_Error ? $result->get_error_code() . ' ' . $result->get_error_message() : '' )
+		);
+		self::assertTrue( $result['ok'] );
 	}
 
 	public function test_replace_tree_full_tree_path(): void {

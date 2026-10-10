@@ -21,7 +21,13 @@ Enforced by:
 - `plugin/bin/security-audit.php`
 
 `php-execute` is registered on the **full** MCP profile only. Bootstrap and
-essential do not expose it. The `discover-execute` profile also omits it.
+essential do not expose it. The `discover-execute` and read-only `inspect`
+profiles also omit it.
+
+A successful `php-execute` response may carry a `routing_hint` that names the
+typed tool for a common pattern (post meta, options, Elementor data, menus). The
+hint is advice built from fixed text. It never blocks or changes the call, and
+it never repeats the snippet.
 
 Verify:
 
@@ -95,6 +101,8 @@ Enforced by:
 - `plugin/includes/Security/ConfirmationToken.php`
 - `plugin/includes/Abilities/Common/ConfirmationGuard.php`
 
+A token is bound to the ability and to every other argument of the call, works once, and lives 60 to 3600 seconds. A dry run that writes nothing (for example `elementor-v3-update-element` with `dry_run: true`) needs no token; the write does. This includes every `elementor-v3-batch-mutate` and `elementor-v3-build-page-from-spec` write that is not a dry run, whatever its `mode`; `elementor-v3-apply-bundle` takes one top-level token for the whole call; and `design-normalize-assets` needs one while it sideloads (`sideload: false` needs none).
+
 Verify:
 
 ```bash
@@ -147,7 +155,7 @@ vendor/bin/phpunit tests/Unit/WpCli/WpCliAbilitiesTest.php
 ## Rule 8 - Context Before Task Work
 
 Agents must call MCP tool `stonewright-task-start` at the start of every task.
-Write abilities require the returned `stonewright_context_token`.
+Write abilities require the returned `stonewright_context_token`. A name never exempts a write: `elementor-add-icon-list`, `elementor-add-price-list`, `elementor-add-read-more` and `elementor-add-search` need it although their names end like read tools.
 
 Enforced by:
 
@@ -187,7 +195,10 @@ vendor/bin/phpunit tests/Unit/Context
 
 Audit outcomes are normalized to a versioned category/outcome contract. Recurring
 incidents use category-specific thresholds and exact verified correlation for
-resolution; permission and safety blocks are not promoted into repair debt.
+resolution; permission and safety blocks are not promoted into repair debt. A
+verified write that names the failed change in `repair_of`, on the same
+resource, is such a correlation: it resolves the incident that change opened,
+and the row that resolves it carries no `incident_id`.
 
 Enforced by:
 
@@ -200,18 +211,21 @@ Verify:
 ```bash
 cd plugin
 vendor/bin/phpunit tests/Unit/Security/AuditEventIncidentTest.php
+vendor/bin/phpunit tests/Unit/Security/ChangeSetRepairTest.php
 ```
 
 ## Rule 11 - OAuth terminal failure and bounded retry
 
 OAuth refresh rotation is single-flight. Terminal grant/client failures clear
 local token state and stop retrying; transient failures honor bounded retry and
-`Retry-After` behavior. Server throttles do not trust spoofed forwarded headers.
+`Retry-After` behavior. Server throttles never read forwarded headers: a
+request counts under the connection address the web server reports, and an
+IPv6 address counts as its /64 prefix.
 
 Enforced by:
 
 - `companion/src/oauth-token-manager.ts`
-- `plugin/includes/OAuth/OAuthRateLimiter.php`
+- `plugin/includes/Authorization/WordPress/RequestLimiter.php`
 
 Verify:
 
@@ -219,7 +233,7 @@ Verify:
 cd companion
 npx vitest run tests/oauth-token-manager.test.ts
 cd ../plugin
-vendor/bin/phpunit tests/Unit/OAuth/OAuthRateLimiterTest.php
+vendor/bin/phpunit tests/Unit/Authorization/WordPress/RequestLimiterTest.php
 ```
 
 ## Rule 12 - Transaction receipts and evidence-preserving patches
@@ -244,11 +258,45 @@ vendor/bin/phpunit tests/Unit/Elementor/Write/ElementorWriteReceiptTest.php
 vendor/bin/phpunit tests/Unit/Gutenberg/BlocksBatchMutateTest.php
 ```
 
+## Rule 13 - Rescue after risky changes
+
+A risky write is journaled before it runs and checked afterwards. When the site stops
+loading, the change is rolled back from the state recorded before it, and the outcome is
+recorded on the change set and in the audit log. A rollback that cannot complete leaves an
+open incident with a way back: an ability, an admin page, and a WP-CLI command, each held to
+the same permission and confirmation rules. A health probe that cannot reach the site is
+reported as unavailable, never as healthy, except that a check which answered before the write and
+cannot be reached after it counts as failed. The journal file never creates a change set or a recipe.
+A verified change can be rolled back, but a verified change to code is rolled back only by an
+administrator on the Rescue page; an agent's call is refused with `stonewright_rescue_approval_required`.
+The undo of a verified change saves the current state first and puts it back when the undo makes a
+site that worked fail to load.
+
+Enforced by:
+
+- `plugin/includes/Security/ChangeJournal.php`
+- `plugin/includes/Security/RescueGuard.php`
+- `plugin/includes/Security/HealthProbe.php`
+- `plugin/includes/Security/RollbackRecipes.php`
+- `plugin/includes/Abilities/Security/RescueRollback.php`
+
+Verify:
+
+```bash
+cd plugin
+vendor/bin/phpunit tests/Unit/Security/ChangeJournalTest.php
+vendor/bin/phpunit tests/Unit/Security/RescueGuardTest.php
+vendor/bin/phpunit tests/Unit/Security/HealthProbeTest.php
+vendor/bin/phpunit tests/Unit/Security/RollbackRecipesTest.php
+vendor/bin/phpunit tests/Unit/Security/RescueAbilitiesTest.php
+```
+
 ## Threat Model
 
 In scope:
 
 - Unintended writes from a misconfigured MCP prompt.
+- A change that leaves the site unable to load.
 - Privilege escalation through ability permission mistakes.
 - Sandbox code injection.
 - Generic PHP adapter or shell workaround outside `stonewright/php-execute`.

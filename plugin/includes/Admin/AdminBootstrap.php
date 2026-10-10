@@ -33,6 +33,10 @@ final class AdminBootstrap {
 		}
 		self::$registered = true;
 
+		MenuOrder::register();
+		PluginActionLinks::register();
+		ActivationRedirect::register();
+		HelpTabs::register();
 		StatusPage::register();
 		// Design Library admin UI (Design Studio / Visual Workspace / Blueprints)
 		// is intentionally not registered. Typed design abilities remain available
@@ -80,7 +84,7 @@ final class AdminBootstrap {
 		if ( 'production-safe' === $mode ) {
 			return;
 		}
-		echo '<div class="notice notice-error"><p><strong>';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>';
 		echo esc_html__( 'Stonewright P0:', 'stonewright' );
 		echo '</strong> ';
 		echo esc_html(
@@ -94,8 +98,10 @@ final class AdminBootstrap {
 	}
 
 	/**
-	 * Sidebar Experimental marker. shell.css only loads on Stonewright pages;
-	 * the left menu is visible everywhere in wp-admin.
+	 * Sidebar EXP marker and its tooltip. shell.css only loads on Stonewright pages; the left menu is visible
+	 * everywhere in wp-admin, so the marker is styled here. The tooltip is CSS only: it shows to the right of the
+	 * marker while the pointer is over it, instantly, in the folded flyout and the mobile menu too. It has no
+	 * keyboard trigger because the marker is not focusable; the words are also hidden text in the entry.
 	 */
 	public static function output_menu_styles(): void {
 		if ( ! is_admin() ) {
@@ -106,11 +112,9 @@ final class AdminBootstrap {
 		}
 
 		echo '<style id="stonewright-admin-menu">'
-			. '#adminmenu .wp-submenu li:has(.sw-menu-exp),#adminmenu .wp-submenu a:has(.sw-menu-exp){overflow:visible;}'
-			. '#adminmenu .wp-submenu a:has(.sw-menu-exp){display:grid;grid-template-columns:minmax(0,max-content) auto;justify-content:start;justify-items:start;column-gap:10px;align-items:start;white-space:normal;}'
-			. '#adminmenu .wp-submenu a .sw-menu-label{min-width:0;white-space:normal;overflow-wrap:break-word;}'
-			. '#adminmenu .wp-submenu a .sw-menu-exp,#adminmenu .wp-submenu li.current a .sw-menu-exp,#adminmenu .wp-submenu a:hover .sw-menu-exp,#adminmenu .wp-submenu a:focus .sw-menu-exp{grid-column:2;grid-row:1;float:none;margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;display:inline-flex;align-items:center;height:18px;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:1;text-transform:uppercase;color:#fff;white-space:nowrap;cursor:help;position:relative;}'
-			. '#adminmenu .sw-menu-exp:hover::after,#adminmenu .sw-menu-exp:focus-visible::after{content:attr(data-tip);position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px;padding:5px 8px;background:#1d2327;color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:1.3;text-transform:none;white-space:nowrap;border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.28);z-index:100000;pointer-events:none;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp{position:relative;display:inline-block;margin-inline-start:10px;color:#fff;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:18px;text-transform:uppercase;cursor:help;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp::after{content:attr(data-sw-tip);display:none;position:absolute;inset-inline-start:calc(100% + 8px);top:50%;transform:translateY(-50%);z-index:100000;padding:5px 8px;border-radius:3px;background:#1d2327;box-shadow:0 2px 8px rgba(0,0,0,.28);color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:14.3px;text-transform:none;white-space:nowrap;pointer-events:none;}'
+			. '#adminmenu .wp-submenu a .sw-menu-exp:hover::after{display:block;}'
 			. '</style>' . "\n";
 	}
 
@@ -134,7 +138,7 @@ final class AdminBootstrap {
 		// Bust browser cache when any shared admin asset changes without a version bump.
 		$asset_mtimes = [];
 		$plugin_path  = defined( 'STONEWRIGHT_PATH' ) ? (string) constant( 'STONEWRIGHT_PATH' ) : '';
-		foreach ( [ 'assets/admin/shell.css', 'assets/admin/shell.js', 'assets/admin/admin.css', 'assets/admin/admin.js' ] as $asset ) {
+		foreach ( [ 'assets/admin/sw-ui.css', 'assets/admin/sw-ui.js', 'assets/admin/shell.css', 'assets/admin/shell.js', 'assets/admin/admin.css', 'assets/admin/admin.js' ] as $asset ) {
 			$path = $plugin_path . $asset;
 			if ( '' !== $plugin_path && is_readable( $path ) ) {
 				$asset_mtimes[] = (int) filemtime( $path );
@@ -148,10 +152,27 @@ final class AdminBootstrap {
 			return;
 		}
 
+		// The shared UI layer is registered first and everything else depends on it, so its tokens and
+		// components are in place before any page file. It applies only inside `.sw-ui`.
+		wp_enqueue_style(
+			'stonewright-ui',
+			$url_base . 'assets/admin/sw-ui.css',
+			[],
+			$version
+		);
+
+		wp_enqueue_script(
+			'stonewright-ui',
+			$url_base . 'assets/admin/sw-ui.js',
+			[],
+			$version,
+			true
+		);
+
 		wp_enqueue_style(
 			'stonewright-admin-shell',
 			$url_base . 'assets/admin/shell.css',
-			[],
+			[ 'stonewright-ui' ],
 			$version
 		);
 
@@ -172,7 +193,7 @@ final class AdminBootstrap {
 		wp_enqueue_script(
 			'stonewright-admin-shell',
 			$url_base . 'assets/admin/shell.js',
-			[],
+			[ 'stonewright-ui' ],
 			$version,
 			true
 		);
@@ -188,33 +209,29 @@ final class AdminBootstrap {
 		// Page-scoped premium styles (only on Stonewright admin pages).
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
-			'stonewright'               => 'setup.css',
-			'stonewright-troubleshoot' => 'setup.css',
+			'stonewright'               => 'pages/setup.css',
+			'stonewright-troubleshoot' => 'pages/troubleshoot.css',
 			'stonewright-abilities'     => 'abilities.css',
-			// Prompt library reuses the catalog card/grid system from blueprints.css.
-			'stonewright-prompts'       => 'blueprints.css',
-			'stonewright-status'        => 'dashboard.css',
-			'stonewright-audit-log'     => 'audit.css',
-			'stonewright-skills'        => 'skills-memory.css',
-			'stonewright-memory'        => 'skills-memory.css',
+			'stonewright-prompts'       => 'pages/prompts.css',
+			'stonewright-status'        => 'pages/overview.css',
+			'stonewright-audit-log'     => 'pages/audit.css',
+			'stonewright-skills'        => 'pages/skills.css',
+			'stonewright-memory'        => 'pages/memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
-			'stonewright-design'        => 'skills-memory.css',
-			'stonewright-context'       => 'skills-memory.css',
+			// The other pages of the Custom code hub share the Drafts page's stylesheet.
+			'stonewright-custom-code-approval' => 'sandbox.css',
+			'stonewright-sandbox-library'      => 'sandbox.css',
+			'stonewright-design'        => 'pages/design.css',
+			'stonewright-context'       => 'pages/context.css',
+			'stonewright-rescue'        => 'pages/rescue.css',
+			'stonewright-oauth-consent' => 'pages/consent.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
 			$handle = 'stonewright-admin-' . str_replace( [ 'stonewright-', '.css' ], [ '', '' ], $page_styles[ $page ] );
-			if ( 'setup.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-setup';
-			} elseif ( 'skills-memory.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-skills-memory';
-			} elseif ( 'abilities.css' === $page_styles[ $page ] ) {
+			if ( 'abilities.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-abilities';
-			} elseif ( 'blueprints.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-blueprints';
-			} elseif ( 'dashboard.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-dashboard';
-			} elseif ( 'audit.css' === $page_styles[ $page ] ) {
+			} elseif ( 'pages/audit.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-sandbox';
@@ -230,11 +247,11 @@ final class AdminBootstrap {
 
 		// Top-level Setup also matches via hook suffix when page query is missing.
 		if ( ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) )
-			&& ! wp_style_is( 'stonewright-admin-setup', 'enqueued' )
+			&& ! wp_style_is( 'stonewright-admin-pages/setup', 'enqueued' )
 		) {
 			wp_enqueue_style(
-				'stonewright-admin-setup',
-				$url_base . 'assets/admin/setup.css',
+				'stonewright-admin-pages/setup',
+				$url_base . 'assets/admin/pages/setup.css',
 				[ 'stonewright-admin-shell', 'stonewright-admin' ],
 				$version
 			);

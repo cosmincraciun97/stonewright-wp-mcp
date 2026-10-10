@@ -1,0 +1,80 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Prompt library: placement only. Every component (cards, tags, buttons, toolbar, notices) comes from sw-ui.css.
+ */
+
+.sw-prompts .sw-prompts__head {
+	margin-bottom: var(--sw-space-3);
+}
+
+.sw-prompts .sw-prompts__head :where(h2) {
+	font-size: var(--sw-fs-lg);
+}
+
+/* Each outcome is a full-width section: its heading, then one grid of cards. Sections stack, so no column is ever shorter than its neighbour. */
+.sw-prompts .sw-prompts__groups {
+	display: grid;
+	gap: var(--sw-space-6);
+}
+
+.sw-prompts .sw-prompts__groups > [data-sw-ui-filter-empty] {
+	grid-column: 1 / -1;
+}
+
+/* The cards of a row share one height. */
+.sw-prompts .sw-prompts__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+	gap: var(--sw-space-4);
+}
+
+.sw-prompts .sw-prompts__grid > .sw-ui-card {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__header {
+	display: grid;
+	justify-content: stretch;
+	align-content: start;
+	gap: 0;
+}
+
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__body {
+	flex: 1 1 auto;
+	display: grid;
+	align-content: start;
+	gap: var(--sw-space-3);
+}
+
+/* The copy action on the left and the modes on the right; on a narrow card the modes wrap under the action. */
+.sw-prompts .sw-prompts__grid > .sw-ui-card > .sw-ui-card__footer {
+	margin-block-start: auto;
+}
+
+/*
+ * Where the browser can share rows with the grid (subgrid), the header, body and footer of every card in a row sit on
+ * the same three lines, so descriptions, requirement lists, tool lists and copy buttons line up across the row.
+ */
+@supports (grid-template-rows: subgrid) {
+	.sw-prompts .sw-prompts__grid > .sw-ui-card {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+	}
+}
+
+.sw-prompts .sw-prompts__list {
+	margin: 0 0 var(--sw-space-3);
+	padding-inline-start: var(--sw-space-5);
+	list-style: disc;
+}
+
+/* Tool names wrap inside the card. */
+.sw-prompts .sw-prompts__tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+}

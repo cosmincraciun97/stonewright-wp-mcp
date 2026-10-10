@@ -1,7 +1,7 @@
 /*!
- * Stonewright motion runtime v1.0.0. SPDX-License-Identifier: AGPL-3.0-or-later.
- * Original bundled product code. Static-first and fail-open: if initialization
- * fails, every target remains visible. CSS transitions only; no remote code.
+ * Stonewright motion runtime v1.0.0. SPDX-License-Identifier: GPL-2.0-or-later.
+ * Static-first and fail-open: if initialization fails, every target remains
+ * visible. CSS transitions only; no remote code.
  */
 (function () {
 	'use strict';

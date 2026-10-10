@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Memory;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
+use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Memory\LearningRecord
@@ -142,6 +143,78 @@ final class LearningRecordTest extends TestCase {
 		self::assertSame( 'draft', $skill_insert['data']['status'] );
 	}
 
+	public function test_a_learning_draft_for_the_same_topic_is_updated(): void {
+		$wpdb            = $this->make_site_wpdb();
+		$GLOBALS['wpdb'] = $wpdb;
+		$request         = [
+			'scope'        => 'elementor',
+			'topic'        => 'Native widgets',
+			'correction'   => 'Use native Elementor widgets.',
+			'update_skill' => true,
+		];
+
+		$first = ( new LearningRecord() )->execute( $request );
+
+		self::assertIsArray( $first );
+		self::assertSame( [ 'learned-native-widgets', 'draft' ], [ $first['skill_slug'], $first['skill_status'] ] );
+		$id = $first['skill_id'];
+		self::assertIsInt( $id );
+		self::assertSame( [ 'user', 'draft', '0', 'Native widgets', '1' ], $this->skill_columns( $wpdb->skills->skills[ $id ] ) );
+
+		$second = ( new LearningRecord() )->execute( array_replace( $request, [ 'skill_content' => '# Learned: refined' ] ) );
+
+		self::assertIsArray( $second );
+		self::assertArrayNotHasKey( 'skill_error', $second );
+		self::assertSame( [ $id, 'draft' ], [ $second['skill_id'], $second['skill_status'] ] );
+		self::assertSame( [ 'user', 'draft', '0', 'Native widgets', '2' ], $this->skill_columns( $wpdb->skills->skills[ $id ] ) );
+		self::assertSame( '# Learned: refined', $wpdb->skills->skills[ $id ]['content'] );
+	}
+
+	/**
+	 * @dataProvider skills_learning_does_not_own
+	 * @param array<string, mixed> $stored
+	 */
+	public function test_a_skill_learning_does_not_own_is_left_unchanged_while_the_lesson_is_still_stored( array $stored ): void {
+		$wpdb            = $this->make_site_wpdb();
+		$GLOBALS['wpdb'] = $wpdb;
+		$wpdb->skills->seed_skill( $stored + [ 'slug' => 'learned-native-widgets', 'title' => 'Written elsewhere', 'description' => 'Use when widgets come up.', 'content' => '# Not written by learning' ] );
+		$before = $wpdb->skills->skills;
+
+		$result = ( new LearningRecord() )->execute(
+			[
+				'scope'         => 'elementor',
+				'topic'         => 'Native widgets',
+				'correction'    => 'Use native Elementor widgets.',
+				'update_skill'  => true,
+				'skill_content' => '# Learned: replacement',
+			]
+		);
+
+		self::assertSame( $before, $wpdb->skills->skills, 'The stored skill keeps its text, status, exposure, and revision.' );
+		self::assertSame( [], $wpdb->skills->versions );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['verified'] );
+		self::assertNotEmpty( $result['memory_id'], 'The lesson itself is still stored.' );
+		self::assertSame( 'learning-native-widgets', $result['memory_key'] );
+		self::assertSame( 'stonewright_skill_slug_taken', $result['skill_error'] ?? null );
+		self::assertSame( [ null, 'learned-native-widgets', null ], [ $result['skill_id'], $result['skill_slug'], $result['skill_status'] ] );
+	}
+
+	/** @return array<string, array{0: array<string, mixed>}> */
+	public static function skills_learning_does_not_own(): array {
+		return [
+			'active skill for the same topic'      => [ [ 'status' => 'active', 'enabled' => 1, 'topic' => 'Native widgets' ] ],
+			'draft written for another topic'      => [ [ 'status' => 'draft', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => 'Typography' ] ],
+			'draft without a topic'                => [ [ 'status' => 'draft', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => '' ] ],
+			'imported draft for the same topic'    => [ [ 'status' => 'draft', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => 'Native widgets', 'source' => 'uploaded' ] ],
+			'verified knowledge candidate'         => [ [ 'status' => 'draft', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => 'Native widgets', 'source' => 'candidate' ] ],
+			'stale skill for the same topic'       => [ [ 'status' => 'stale', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => 'Native widgets' ] ],
+			'trashed draft for the same topic'     => [ [ 'status' => 'trashed', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'topic' => 'Native widgets', 'trashed_at' => '2026-10-06 08:00:00' ] ],
+			'shipped skill'                        => [ [ 'status' => 'active', 'enabled' => 1, 'topic' => 'Native widgets', 'source' => 'builtin' ] ],
+		];
+	}
+
 	public function test_learning_record_returns_error_when_store_fails(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb( false );
 
@@ -181,6 +254,87 @@ final class LearningRecordTest extends TestCase {
 				]
 			)
 		);
+	}
+
+	/**
+	 * @param array<string, string|null> $row
+	 * @return array<int, string|null>
+	 */
+	private function skill_columns( array $row ): array {
+		return [ $row['source'], $row['status'], $row['enabled'], $row['topic'], $row['revision'] ];
+	}
+
+	/**
+	 * Memory statements go to the memory stand-in and skill statements to the in-memory skill tables.
+	 */
+	private function make_site_wpdb(): object {
+		return new class( $this->make_wpdb(), new SkillTablesDouble() ) {
+			public $prefix     = 'wp_';
+			public $insert_id  = 0;
+			public $last_error = '';
+
+			public function __construct(
+				public object $memory,
+				public SkillTablesDouble $skills
+			) {}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $this->target( $query )->prepare( $query, ...$args );
+			}
+
+			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				return $this->target( $query )->get_row( $query, $output );
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				return $this->target( $query )->get_results( $query, $output );
+			}
+
+			public function get_var( string $query ): mixed {
+				return $this->target( $query )->get_var( $query );
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return $this->memory->get_col( $query, $x );
+			}
+
+			public function query( string $query ): int|bool {
+				return $this->target( $query ) === $this->skills ? $this->skills->query( $query ) : 0;
+			}
+
+			public function esc_like( string $text ): string {
+				return $this->skills->esc_like( $text );
+			}
+
+			public function get_charset_collate(): string {
+				return $this->skills->get_charset_collate();
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int|false {
+				$target           = $this->target( $table );
+				$result           = $target->insert( $table, $data, $format );
+				$this->insert_id  = (int) $target->insert_id;
+				$this->last_error = (string) $target->last_error;
+				return $result;
+			}
+
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, mixed $format = null, mixed $where_format = null ): int|false {
+				return $this->target( $table )->update( $table, $data, $where, $format ?? [], $where_format ?? [] );
+			}
+
+			/** @param array<string, mixed> $where */
+			public function delete( string $table, array $where, mixed $where_format = null ): int|false {
+				return $this->target( $table ) === $this->skills ? $this->skills->delete( $table, $where, $where_format ) : 0;
+			}
+
+			private function target( string $text ): object {
+				return str_contains( $text, 'stonewright_skill' ) ? $this->skills : $this->memory;
+			}
+		};
 	}
 
 	private function make_wpdb( bool $insert_ok = true ): object {

@@ -11,7 +11,7 @@ Run from `plugin/` unless noted.
 - [ ] `composer phpcs` - zero style violations.
 - [ ] `composer security:audit` - exits 0.
 - [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
-- [ ] `composer provenance:lint` - imported/derived source provenance is complete.
+- [ ] `composer provenance:lint` - component licenses are consistent and the companion has no copyleft code.
 - [ ] `composer contracts:compat` - the public ability contract remains compatible.
 - [ ] `composer tokens:measure` - every plugin profile stays within its budget.
 - [ ] Clean `vendor/`, run `composer install --no-dev --classmap-authoritative`,
@@ -21,6 +21,10 @@ Run from `plugin/` unless noted.
 - [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs`
       - prerelease/stable flags and exact published assets.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
+- [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms --history` - Git history is free of
+      configured private project terms. Run it on a full clone; the scan stops on a shallow clone.
+      Without the private terms locally, run the manual `History hygiene` workflow from the Actions
+      tab; it runs the same scan as the release workflow.
 - [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
 - [ ] `cd ../companion && npm run lint` - zero lint errors.
@@ -34,23 +38,31 @@ Run from `plugin/` unless noted.
       packaged plugin, including the Setup no-refresh flow and admin spacing.
 - [ ] Build the exact plugin ZIP and companion TGZ through the
       release workflow recipe; unpack and scan each archive for secrets,
-      private terms, runtime state, development junk, and missing dependencies.
+      private terms, runtime state, development junk (including a `.github`
+      folder), and missing dependencies.
       Published assets are only those two archives plus `SHA256SUMS.txt`.
 - [ ] `git diff --check` - zero whitespace errors.
 
 ## Publish
 
 Release-channel policy applies only to future tags. The existing beta.9 tag,
-release record, and assets are historical and must remain untouched. A future
-beta or release-candidate tag is a GitHub prerelease; only a stable SemVer tag
-becomes the latest release. The native updater stays on the installed channel.
+release record, and assets are historical and must remain untouched. The release
+notes declare one channel, and the release workflow sets the GitHub flags from it.
+A supported public beta (`supported`) keeps its prerelease SemVer and is published as
+a normal GitHub release marked `Latest`. A preview (`preview`) is published as a
+GitHub prerelease and is never `Latest`. A stable release (`stable`) uses stable
+SemVer and is marked `Latest`. The native updater stays on the installed channel.
 
 1. Update release notes under `docs/releases/<version>.md`.
 2. Tag the verified commit as `v<version>`.
-3. Push the tag. The release workflow packages:
+3. Push the tag. The release workflow's `package` job builds and verifies:
    - `stonewright-<version>.zip`
    - `stonewright-companion-<version>.tgz`
    - `SHA256SUMS.txt`
+
+   Its `publish` job runs in the `release` environment, re-checks the checksums,
+   and creates the GitHub release. When that environment requires reviewers,
+   approve the pending deployment in the Actions run.
 4. Confirm the GitHub release links to the expected assets and checksums.
 5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
    verification before upload.
@@ -64,7 +76,7 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Catalog `certification_tier` / `support_tier` / `evidence` still match
       [verified-client-versions.md](../verified-client-versions.md).
 - [ ] OAuth matrix unit tests green when OAuth or companion token manager changed:
-      `./vendor/bin/phpunit --filter OAuth` and
+      `./vendor/bin/phpunit tests/Unit/Authorization` and
       `npx vitest run tests/oauth-matrix.test.ts`.
 - [ ] Release roll-up: [acceptance-report-template.md](acceptance-report-template.md).
 
@@ -75,7 +87,7 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Install WordPress 6.7+ locally.
 - [ ] Upload and activate Stonewright.
 - [ ] Confirm activation produces no PHP errors or warnings.
-- [ ] Open WordPress Admin > Stonewright > Settings.
+- [ ] Open WordPress Admin > Stonewright > Setup > Settings.
 - [ ] Enable the plugin master toggle.
 
 ### 2. MCP Ping And Context
@@ -125,6 +137,10 @@ becomes the latest release. The native updater stays on the installed channel.
 - [ ] Confirm `stonewright_confirmation_required`.
 - [ ] Issue a token through `stonewright/security-issue-confirmation-token`.
 - [ ] Retry with the confirmation token and context token.
+- [ ] Attempt an `elementor-v3-batch-mutate` or `elementor-v3-build-page-from-spec` write that is
+      not a dry run without a token and confirm it is refused; confirm the same call with
+      `dry_run: true` runs without one.
+- [ ] Confirm an Elementor V4 write is blocked.
 
 ### 8. Companion Authentication
 
@@ -177,11 +193,26 @@ becomes the latest release. The native updater stays on the installed channel.
       site aliases, credential references, and Direct state.
 - [ ] Confirm all state remains and no fresh-install seed creates user memory,
       user skills, or audit events.
+- [ ] Delete and reinstall the plugin on the same fixture while
+      `STONEWRIGHT_REMOVE_ALL_DATA` is not defined, and confirm all of that
+      state, including the OAuth grants and keys, is still there.
 
 ## Rollback
 
-1. Deactivate the plugin from WordPress Admin > Plugins or via WP-CLI.
-2. Delete the plugin directory.
-3. Upload the previous release zip.
-4. Reactivate.
-5. Restore mutated Elementor content from Stonewright snapshots or WordPress revisions when needed.
+1. Confirm `STONEWRIGHT_REMOVE_ALL_DATA` is not defined as `true`. Deleting the
+   plugin keeps OAuth grants and keys, memory, skills, audit history, and
+   settings only while it is not.
+2. Deactivate the plugin from WordPress Admin > Plugins or via WP-CLI.
+3. Delete the plugin from Plugins. Removing its directory by hand skips the
+   uninstall handler and keeps all data.
+4. Upload the previous release zip.
+5. Reactivate.
+6. Restore mutated Elementor content from Stonewright snapshots or WordPress revisions when needed.
+
+With `STONEWRIGHT_REMOVE_ALL_DATA` defined as `true`, deleting the plugin
+removes every plugin table, every option whose name starts with `stonewright_`
+(the OAuth signing and encryption keys included), every `stonewright_` and
+`sw_cc_` transient, and the scheduled events `stonewright_oauth_gc` and
+`stonewright_audit_retention`, on every site of a network, and every connected
+OAuth client has to sign in again. Use it only to remove Stonewright for good.
+See [Updating Stonewright](../updates.md#roll-back-reinstall-or-remove-the-plugin).

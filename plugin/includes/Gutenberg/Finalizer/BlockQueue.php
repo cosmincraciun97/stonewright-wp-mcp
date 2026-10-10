@@ -19,6 +19,9 @@ final class BlockQueue {
 	public const OPTION      = 'stonewright_block_finalizer_queue';
 	public const LOCK_OPTION = 'stonewright_block_finalizer_queue_lock';
 
+	/** Audit event recorded when an enqueue sweeps stale entries out of the queue. */
+	public const PRUNE_EVENT = 'gutenberg.queue_prune';
+
 	public const MAX_BATCH_ITEMS      = 20;
 	public const MAX_OPEN_PER_USER    = 20;
 	public const MAX_TOTAL_RECORDS    = 200;
@@ -173,9 +176,12 @@ final class BlockQueue {
 			}
 
 			$prepared[] = [
-				'args'     => $args,
-				'spec'     => $spec,
-				'expected' => $expected,
+				'args'        => $args,
+				'spec'        => $spec,
+				'expected'    => $expected,
+				// The gate below demands a consumed grant for any code in the spec, so by the time a
+				// record is stored these are the kinds of code its grant covered.
+				'custom_code' => RawHtmlGate::spec_custom_code_kinds( $gate_spec ),
 			];
 		}
 
@@ -295,6 +301,7 @@ final class BlockQueue {
 						'created_at'            => $now,
 						'updated_at'            => $now,
 						'allow_raw_html'        => ! empty( $args['allow_raw_html'] ),
+						'custom_code'           => $item['custom_code'],
 					];
 					$state['changes'][ $id ] = $record;
 					$compact                 = self::compact( $record );
@@ -593,6 +600,11 @@ final class BlockQueue {
 	/**
 	 * Accept one serialized terminal result exactly once for its active lease.
 	 *
+	 * The markup is held to the queued change first (see SerializedResultGuard). Markup that does not
+	 * hold up is never kept: the record becomes a failed result with a stable error code, and the
+	 * returned failed receipt names that code as `refusal_code`. A replay of the refused bytes under
+	 * the same result id gets the same failed receipt back.
+	 *
 	 * @param array<string, mixed> $scope
 	 * @return array<string, mixed>|\WP_Error
 	 */
@@ -619,6 +631,10 @@ final class BlockQueue {
 				if ( $result_id === (string) ( $record['result_id'] ?? '' ) && 'serialized' === (string) ( $record['status'] ?? '' ) ) {
 					return self::result_receipt( $record, $idempotency_key, true, 'serialized' );
 				}
+				$refused_hash = (string) ( $record['refused_html_hash'] ?? '' );
+				if ( $result_id === (string) ( $record['result_id'] ?? '' ) && 'failed' === (string) ( $record['status'] ?? '' ) && '' !== $refused_hash && hash_equals( $refused_hash, hash( 'sha256', $html ) ) ) {
+					return self::refusal_receipt( $record, true );
+				}
 				if ( 'queued' !== (string) ( $record['status'] ?? '' ) ) {
 					return self::terminal_error();
 				}
@@ -637,6 +653,23 @@ final class BlockQueue {
 				$expect = hash( 'sha256', $html );
 				if ( '' === $hash || ! hash_equals( $expect, $hash ) ) {
 					return new \WP_Error( 'stonewright_finalizer_hash_mismatch', __( 'Serialized HTML hash does not match the payload.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				$refusal = SerializedResultGuard::refusal( $record, $html );
+				if ( null !== $refusal ) {
+					$state['changes'][ $id ]['status']                 = 'failed';
+					$state['changes'][ $id ]['error']                  = mb_substr( sanitize_text_field( $refusal['message'] ), 0, 500 );
+					$state['changes'][ $id ]['error_code']             = sanitize_key( $refusal['code'] );
+					$state['changes'][ $id ]['serialized_html']        = '';
+					$state['changes'][ $id ]['serialized_html_hash']   = '';
+					$state['changes'][ $id ]['refused_html_hash']      = $expect;
+					$state['changes'][ $id ]['result_id']              = $result_id;
+					$state['changes'][ $id ]['result_idempotency_key'] = hash( 'sha256', $id . '|' . $result_id . '|failed' );
+					$state['changes'][ $id ]['updated_at']             = $now;
+					$saved = self::save( $state );
+					if ( $saved instanceof \WP_Error ) {
+						return $saved;
+					}
+					return self::refusal_receipt( $state['changes'][ $id ], false );
 				}
 				$state['changes'][ $id ]['serialized_html']       = $html;
 				$state['changes'][ $id ]['serialized_html_hash']  = $expect;
@@ -777,6 +810,46 @@ final class BlockQueue {
 				}
 				$state['changes'][ $id ]['status']     = 'persisted';
 				$state['changes'][ $id ]['updated_at'] = time();
+				$saved = self::save( $state );
+				if ( $saved instanceof \WP_Error ) {
+					return $saved;
+				}
+				return true;
+			}
+		);
+
+		return $locked instanceof \WP_Error ? $locked : (bool) $locked;
+	}
+
+	/**
+	 * Fail a serialized record whose stored markup the finalize step refused. The markup is dropped
+	 * and the record becomes a terminal failed result with a stable error code, so nothing is ever
+	 * written to the post from it and the target is free for a corrected change.
+	 *
+	 * @return bool|\WP_Error
+	 */
+	public static function reject_serialized( string $id, string $code, string $message ): bool|\WP_Error {
+		$locked = self::with_lock(
+			static function () use ( $id, $code, $message ) {
+				$state  = self::state();
+				$record = $state['changes'][ $id ] ?? null;
+				if ( ! is_array( $record ) ) {
+					return self::not_found_error();
+				}
+				$owner = (int) ( $record['owner_user_id'] ?? 0 );
+				$actor = (int) get_current_user_id();
+				if ( $owner <= 0 || $actor !== $owner || ! empty( $record['legacy'] ) ) {
+					return self::forbidden_error();
+				}
+				if ( 'serialized' !== (string) ( $record['status'] ?? '' ) ) {
+					return self::terminal_error();
+				}
+				$state['changes'][ $id ]['status']               = 'failed';
+				$state['changes'][ $id ]['error']                = mb_substr( sanitize_text_field( $message ), 0, 500 );
+				$state['changes'][ $id ]['error_code']           = sanitize_key( $code );
+				$state['changes'][ $id ]['serialized_html']      = '';
+				$state['changes'][ $id ]['serialized_html_hash'] = '';
+				$state['changes'][ $id ]['updated_at']           = time();
 				$saved = self::save( $state );
 				if ( $saved instanceof \WP_Error ) {
 					return $saved;
@@ -1469,6 +1542,20 @@ final class BlockQueue {
 		];
 	}
 
+	/**
+	 * The failed receipt of a refused serialization, with the stable code that refused it.
+	 *
+	 * @param array<string, mixed> $record
+	 * @return array<string, mixed>
+	 */
+	private static function refusal_receipt( array $record, bool $duplicate ): array {
+		$key = hash( 'sha256', (string) ( $record['id'] ?? '' ) . '|' . (string) ( $record['result_id'] ?? '' ) . '|failed' );
+		return array_merge(
+			self::result_receipt( $record, $key, $duplicate, 'failed' ),
+			[ 'refusal_code' => (string) ( $record['error_code'] ?? '' ) ]
+		);
+	}
+
 	private static function canonical_event_id( string $seed ): string {
 		if ( 1 === preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $seed ) ) {
 			return strtolower( $seed );
@@ -1790,9 +1877,14 @@ final class BlockQueue {
 		);
 	}
 
+	/**
+	 * Sweeping stale entries out of the queue is maintenance that any enqueue can trigger,
+	 * so it keeps its own event name rather than borrowing the name of an ability whose
+	 * call row the kernel writes.
+	 */
 	private static function audit_prune( int $post_id, int $pruned_count ): void {
 		AuditLog::record(
-			'stonewright/blocks-queue-change',
+			self::PRUNE_EVENT,
 			[
 				'pruned_count' => $pruned_count,
 				'post_id'      => $post_id,

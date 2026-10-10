@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -20,7 +21,7 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_names(): array {
-		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'discover-execute', 'full' ];
+		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'inspect', 'discover-execute', 'full' ];
 	}
 
 	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
@@ -140,6 +141,20 @@ final class ToolProfile extends AbilityKernel {
 		return 'system';
 	}
 
+	/**
+	 * Switches the tool profile of the session and records the switch in two bookkeeping options; no site content is overwritten or removed, and repeating the call changes nothing more.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+				'idempotent'  => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',
@@ -156,7 +171,7 @@ final class ToolProfile extends AbilityKernel {
 					'type'        => 'string',
 					'default'     => 'auto',
 					'enum'        => self::profile_names(),
-					'description' => 'Tool profile to return. Use auto for task-aware routing.',
+					'description' => 'Tool profile to return. Use auto for task-aware routing. inspect lists read-only discovery, read, and verify tools; auto never selects it.',
 				],
 				'task'      => [
 					'type'        => 'string',
@@ -227,16 +242,22 @@ final class ToolProfile extends AbilityKernel {
 					],
 				],
 				'tools'                 => [
-					'type'  => 'array',
-					'items' => [
-						'type'       => 'object',
-						'properties' => [
-							'ability'  => [ 'type' => 'string' ],
-							'mcp_tool' => [ 'type' => 'string' ],
-							'priority' => [ 'type' => 'integer' ],
-							'why'      => [ 'type' => 'string' ],
+					'type'        => 'array',
+					'description' => 'activate: one object per tool. resolve: the ordered MCP tool names.',
+					'items'       => [
+						'oneOf' => [
+							[ 'type' => 'string' ],
+							[
+								'type'       => 'object',
+								'properties' => [
+									'ability'  => [ 'type' => 'string' ],
+									'mcp_tool' => [ 'type' => 'string' ],
+									'priority' => [ 'type' => 'integer' ],
+									'why'      => [ 'type' => 'string' ],
+								],
+								'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
+							],
 						],
-						'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
 					],
 				],
 				'recovery_hints'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -370,6 +391,9 @@ final class ToolProfile extends AbilityKernel {
 				'next_best_tools'       => self::next_best_tools( $profile, $tool_groups, $task, $surface, $intent ),
 				'recovery_hints'        => self::recovery_hints( $missing_names ),
 				'discovery_policy'      => self::discovery_policy(),
+				'profiles_available'    => self::profile_names(),
+				'workflow_rules'        => self::workflow_rules( $profile ),
+				'token_rules'           => self::token_rules(),
 				'ordered'              => true,
 				'source'               => 'plugin',
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
@@ -529,6 +553,11 @@ final class ToolProfile extends AbilityKernel {
 
 		$profile = strtolower( trim( $profile ) );
 		if ( 'bootstrap' === $profile || '' === $profile ) {
+			return;
+		}
+		// A read-only profile adds its tools to the session. It never turns the
+		// operator's bootstrap surface into the essential one, which includes writes.
+		if ( 'inspect' === $profile ) {
 			return;
 		}
 
@@ -725,10 +754,14 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/content-create-page',
 				'stonewright/content-update-page',
 				'stonewright/content-get-page',
+				'stonewright/elementor-native-execute',
 				// Theme-file edits stay inside the max_tools=50 write-critical window.
 				'stonewright/theme-file-read',
 				'stonewright/theme-file-patch',
 				'stonewright/theme-custom-css',
+				// Section reuse: hidden by SectionReuseSetting while the site setting is off.
+				'stonewright/section-reuse-find',
+				'stonewright/section-reuse-extract',
 				// Diagnostics sit after the write essentials under a client cap.
 				'stonewright/blocks-batch-mutate',
 				'stonewright/design-section-manifest',
@@ -811,6 +844,8 @@ final class ToolProfile extends AbilityKernel {
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/section-reuse-find',
+				'stonewright/section-reuse-extract',
 				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
@@ -845,6 +880,38 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/get-ability-info',
 				'stonewright/execute-ability',
 				'stonewright/security-issue-confirmation-token',
+			],
+			// Read-only: discovery, read, and verify tools. Nothing here writes site
+			// content, takes a snapshot, or needs a confirmation token, and the profile
+			// carries no php-execute, blueprint, or direction-write tool.
+			'inspect' => [
+				// Discovery.
+				'stonewright/site-info',
+				'stonewright/site-capabilities',
+				'stonewright/site-plugins-list',
+				'stonewright/site-theme',
+				'stonewright/content-inventory',
+				'stonewright/elementor-v3-capabilities-summary',
+				'stonewright/elementor-v4-status',
+				'stonewright/design-direction-brief',
+				// Read.
+				'stonewright/content-get-page',
+				'stonewright/elementor-v3-get-page-structure',
+				'stonewright/elementor-v4-read-atomic-tree',
+				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/elementor-schema',
+				'stonewright/blocks-get-schema',
+				'stonewright/fse-get-theme-json',
+				'stonewright/theme-file-read',
+				'stonewright/media-list',
+				'stonewright/menu-list',
+				'stonewright/settings-get',
+				// Verify.
+				'stonewright/elementor-post-write-verify',
+				'stonewright/elementor-document-health',
+				'stonewright/design-visual-compare',
+				'stonewright/site-health',
+				'stonewright/capability-preflight',
 			],
 				'site-admin' => [
 					'stonewright/site-info',
@@ -917,14 +984,21 @@ final class ToolProfile extends AbilityKernel {
 			: [];
 
 		// low-tools stays tiny (strict client caps). wp-cli skips blueprints.
+		// inspect and discover-execute carry neither blueprints nor direction writes.
 		// All other profiles put blueprints right after startup so client caps keep them.
 		$with_blueprints = match ( $profile ) {
-			'discover-execute'            => array_merge( $startup, $rest ),
+			'discover-execute', 'inspect' => array_merge( $startup, $rest ),
 			'low-tools', 'wp-cli'         => array_merge( $startup, $direction_writes, $rest ),
 			default                       => array_merge( $startup, $direction_writes, $blueprints, $rest ),
 		};
 
-		return array_values( array_unique( $with_blueprints ) );
+		$names = array_values( array_unique( $with_blueprints ) );
+		if ( ! SectionReuseSetting::is_enabled() ) {
+			// The reuse abilities exist only while the site setting allows them.
+			$names = array_values( array_diff( $names, SectionReuseSetting::ABILITIES ) );
+		}
+
+		return $names;
 	}
 
 	/**
@@ -1014,7 +1088,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
-			'stonewright/elementor-css-regenerate' => 'Regenerate one Elementor post or loop CSS file through update_file inside a guarded asset transaction after apply, then return hashed health evidence.',
+			'stonewright/elementor-css-regenerate' => 'Regenerate one Elementor post or loop CSS file through the Elementor update API inside a guarded asset transaction after apply, advance the stylesheet version, then return hashed health evidence.',
 			'stonewright/elementor-post-write-verify' => 'Observe an Elementor frontend render with CSS generation disabled and assert touched element ids before browser QA. Does not regenerate CSS or invalidate caches.',
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
@@ -1181,6 +1255,15 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/get-ability-info',
 				'stonewright/execute-ability',
 			],
+			'inspect' => [
+				'stonewright/site-capabilities',
+				'stonewright/content-get-page',
+				'stonewright/elementor-v3-get-page-structure',
+				'stonewright/elementor-document-health',
+				'stonewright/elementor-post-write-verify',
+				'stonewright/design-visual-compare',
+				'stonewright/site-health',
+			],
 			default => [],
 		};
 		$preferred_groups = match ( $profile ) {
@@ -1189,6 +1272,7 @@ final class ToolProfile extends AbilityKernel {
 			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'runtime', 'startup' ],
 			'wp-cli' => [ 'wp_cli', 'runtime', 'site_admin', 'startup' ],
 			'discover-execute' => [ 'startup', 'runtime', 'site_admin' ],
+			'inspect' => [ 'site_admin', 'elementor_design', 'content_media', 'gutenberg_fse', 'startup' ],
 			'site-admin' => [ 'site_admin', 'runtime', 'wp_cli', 'startup' ],
 			default => [ 'startup', 'runtime', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
 		};
@@ -1279,6 +1363,12 @@ final class ToolProfile extends AbilityKernel {
 
 		if ( 'gutenberg' === $profile ) {
 			$rules[] = 'Read theme.json, templates, registered blocks, and block supports before writing blocks or FSE templates.';
+		}
+
+		if ( 'inspect' === $profile ) {
+			$rules[] = 'inspect is read-only: it lists discovery, read, and verify tools, and no tool that writes site content, takes a snapshot, or runs PHP.';
+			$rules[] = 'Read the target before anything else, and verify what an earlier change left behind. When a change is needed, call tool-profile with the profile that owns the write, for example elementor-design, gutenberg, content-model, or site-admin.';
+			$rules[] = 'inspect remains opt-in: auto routing never selects it, and activating it does not widen the surface the operator chose.';
 		}
 
 		if ( 'discover-execute' === $profile ) {

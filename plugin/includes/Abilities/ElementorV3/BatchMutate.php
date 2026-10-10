@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+use Stonewright\WpMcp\Elementor\HtmlWidgetPolicy;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\RepeaterPatcher;
@@ -24,11 +25,19 @@ use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Design\Diagnostics\ThirdPartyControlRiskMap;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
+use Stonewright\WpMcp\SectionReuse\Builder;
+use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
+use Stonewright\WpMcp\SectionReuse\PortableSection;
+use Stonewright\WpMcp\SectionReuse\ReuseSource;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -39,6 +48,18 @@ use Stonewright\WpMcp\Support\ElementorData;
 final class BatchMutate extends AbilityKernel {
 	use ConfirmationGuard;
 
+	/** @var list<string> Refusals of an insert_section operation about the settings of the section. */
+	private const SECTION_SETTING_CODES = [
+		'stonewright_section_settings_not_reusable',
+		'stonewright_section_drop_settings_mismatch',
+		'stonewright_section_drop_settings_invalid',
+	];
+
+	private bool $token_already_verified = false;
+
+	/** @var int Elements the insert_section operations of the batch that is running add; checked against the element cap. */
+	private int $inserted_elements = 0;
+
 	public function name(): string {
 		return 'stonewright/elementor-v3-batch-mutate';
 	}
@@ -48,7 +69,7 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs.', 'stonewright' );
+		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -65,6 +86,8 @@ final class BatchMutate extends AbilityKernel {
 				'idempotency_key'     => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
 				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'change_set_id'       => [ 'type' => 'string', 'maxLength' => 96 ],
+				'repair_of'           => ChangeSet::input_properties()['repair_of'],
+				'supersedes'          => ChangeSet::input_properties()['supersedes'],
 				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
 				'responsive_scope'    => [
 					'type'        => 'array',
@@ -82,7 +105,7 @@ final class BatchMutate extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
 				],
-				'confirmation_token' => [ 'type' => 'string' ],
+				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
 				'operations'         => [
 					'type'     => 'array',
 					'minItems' => 1,
@@ -93,7 +116,7 @@ final class BatchMutate extends AbilityKernel {
 						'properties'           => [
 							'action'                 => [
 								'type' => 'string',
-								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element' ],
+								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
 							],
 							'type'                   => [
 								'type'        => 'string',
@@ -128,6 +151,23 @@ final class BatchMutate extends AbilityKernel {
 							'widget_type'            => [ 'type' => 'string' ],
 							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
+							'section'                => [
+								'type'        => 'object',
+								'description' => 'insert_section only: the SectionPortableV1 payload returned by stonewright-section-reuse-extract for an elementor-v3 section. The write gives every element a fresh id; later operations reach the new elements as @op_id.placeholder.',
+							],
+							'drop_settings'          => [
+								'type'        => 'array',
+								'maxItems'    => 200,
+								'items'       => [
+									'type'       => 'object',
+									'properties' => [
+										'element' => [ 'type' => 'string', 'description' => 'Placeholder of the element, as in the section.' ],
+										'setting' => [ 'type' => 'string', 'description' => 'Setting key, or __globals__.key for one binding.' ],
+									],
+									'required'   => [ 'element', 'setting' ],
+								],
+								'description' => "insert_section only: the user's approval to copy the section without exactly the settings the live schema rejects. Send it only after the user agrees, and copy the entries of drop_settings_proposal from the stonewright_section_settings_not_reusable refusal. It must match the settings rejected now, no more and no less; otherwise the insert is refused and nothing is removed. Without it nothing is ever removed.",
+							],
 							'repeater_key'            => [ 'type' => 'string', 'maxLength' => 96 ],
 							'selector'                => [
 								'type'                 => 'object',
@@ -173,6 +213,7 @@ final class BatchMutate extends AbilityKernel {
 				'applied'     => [ 'type' => 'integer' ],
 				'failed'      => [ 'type' => 'integer' ],
 				'items'       => [ 'type' => 'array' ],
+				'removed_settings' => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'refs'          => [ 'type' => 'object' ],
 				'elements'      => [ 'type' => 'integer' ],
 				'element_count' => [ 'type' => 'integer' ],
@@ -188,6 +229,7 @@ final class BatchMutate extends AbilityKernel {
 				'write_receipt' => [ 'type' => 'object' ],
 				'transaction_id' => [ 'type' => 'string' ],
 				'change_set_id' => [ 'type' => 'string' ],
+				'change_set'    => ChangeSet::output_property(),
 				'verification_status' => [ 'type' => 'string' ],
 				'rollback_status' => [ 'type' => 'string' ],
 			],
@@ -199,11 +241,29 @@ final class BatchMutate extends AbilityKernel {
 		return Permissions::edit_post( $id );
 	}
 
+	/**
+	 * Runs a write for a caller that has already verified a confirmation token for the
+	 * request it serves. The token gate of this ability is skipped; every other gate applies.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
+
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
 				$start      = microtime( true );
+				$this->inserted_elements = 0;
 				$post_id    = (int) $args['post_id'];
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
 				$operations = self::apply_batch_responsive_scope( $operations, $args );
@@ -223,12 +283,23 @@ final class BatchMutate extends AbilityKernel {
 					return $this->error( 'missing_operations', __( 'At least one batch operation is required.', 'stonewright' ), [ 'status' => 400 ] );
 				}
 
-				$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => $operations ], $args );
+				$duplicate = BatchOperationIds::duplicate( $operations );
+				if ( null !== $duplicate ) {
+					return $duplicate;
+				}
+				// A section of the other builder is a mistake of the caller; it is reported as such before the custom CSS gate reads it.
+				$mismatch = SectionReuseSetting::is_enabled() ? PortableSection::operations_builder_mismatch( $operations, Builder::ELEMENTOR_V3 ) : null;
+				if ( null !== $mismatch ) {
+					return $mismatch;
+				}
+
+				// A setting the caller lists in drop_settings leaves the copy, so the gate does not read it; the insert still checks that the list is exactly what is rejected.
+				$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => self::without_listed_settings( $operations ) ], $args );
 				if ( $css_gate instanceof \WP_Error ) {
 					return $css_gate;
 				}
 
-				if ( ! $dry_run && self::contains_destructive_operation( $operations ) ) {
+				if ( ! $dry_run && ! $this->token_already_verified ) {
 					$verify_args = array_filter(
 						$args,
 						static fn( string $key ): bool => 'confirmation_token' !== $key,
@@ -357,7 +428,7 @@ final class BatchMutate extends AbilityKernel {
 					$cause_code = (string) ( $first_failed['error']['code'] ?? '' );
 					return $this->error(
 						'batch_operation_failed',
-						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ),
+						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ) . ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? ' ' . (string) ( $first_failed['error']['message'] ?? '' ) : '' ),
 						self::batch_failure_data(
 							$items,
 							$applied,
@@ -378,6 +449,9 @@ final class BatchMutate extends AbilityKernel {
 				foreach ( $items as $item ) {
 					if ( isset( $item['element_id'] ) && is_scalar( $item['element_id'] ) ) {
 						$touched_ids[] = (string) $item['element_id'];
+					}
+					foreach ( is_array( $item['element_ids'] ?? null ) ? $item['element_ids'] : [] as $copied_id ) {
+						$touched_ids[] = (string) $copied_id;
 					}
 				}
 				$touched_ids = array_values( array_unique( array_filter( $touched_ids ) ) );
@@ -480,6 +554,10 @@ final class BatchMutate extends AbilityKernel {
 					$readback_hash = $before_hash;
 				}
 
+				$removed_settings = self::removed_settings( $items );
+				if ( [] !== $removed_settings ) {
+					$receipt->set( 'removed_settings', array_map( static fn( array $row ): string => $row['element'] . ' ' . $row['setting'], $removed_settings ) );
+				}
 				$element_count = count( ElementorData::flatten( $tree ) );
 				if ( $dry_run ) {
 					$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $after_hash )->verified( 'planned' );
@@ -492,6 +570,7 @@ final class BatchMutate extends AbilityKernel {
 					'applied'       => $applied,
 					'failed'        => $failed,
 					'items'         => $items,
+					'removed_settings' => $removed_settings,
 					'refs'          => $refs,
 					'elements'      => $element_count,
 					'element_count' => $element_count,
@@ -558,6 +637,72 @@ final class BatchMutate extends AbilityKernel {
 				return $response;
 			}
 		);
+	}
+
+	/**
+	 * ChangeSetV1 of the batch: one planned change per operation, read from the
+	 * request, the per-operation results and the write receipt. After a verified
+	 * write the live document is compared with the snapshot taken before it, so a
+	 * change the operations did not ask for is reported as unexpected.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data       = ChangeSetSources::data( $result );
+		$operations = self::normalize_operations( array_values( (array) ( $args['operations'] ?? [] ) ) );
+		$items      = array_values( (array) ( $data['items'] ?? [] ) );
+		$planned    = [];
+		$effective  = [];
+		$touched    = [];
+		$removed    = [];
+		$sources    = [];
+		foreach ( $operations as $index => $operation ) {
+			$item   = is_array( $items[ $index ] ?? null ) ? $items[ $index ] : [];
+			$action = (string) ( $operation['action'] ?? '' );
+			$ref    = (string) ( $item['element_id'] ?? $operation['element_id'] ?? '' );
+			if ( '' === $ref ) {
+				$ref = isset( $operation['element_ref'] ) ? '@' . $operation['element_ref'] : ( isset( $operation['op_id'] ) ? '@' . $operation['op_id'] : 'op-' . $index );
+			}
+			$entry     = ChangeSet::entry( 'element', $ref, $action, $index );
+			$planned[] = $entry;
+			if ( ! empty( $item['unchanged'] ) ) {
+				continue;
+			}
+			$effective[] = $entry;
+			if ( 'remove_element' === $action ) {
+				$removed[] = $ref;
+			} else {
+				$touched[] = $ref;
+			}
+			foreach ( is_array( $item['element_ids'] ?? null ) ? $item['element_ids'] : [] as $copied_id ) {
+				$touched[] = (string) $copied_id;
+			}
+			if ( is_array( $item['reuse_source'] ?? null ) ) {
+				$sources[] = $item['reuse_source'];
+			}
+		}
+
+		$post_id  = (int) ( $args['post_id'] ?? 0 );
+		$receipt  = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+		$snapshot = (string) ( $receipt['snapshot_id'] ?? $data['snapshot_id'] ?? '' );
+		$inputs   = ChangeSetSources::receipt(
+			$args,
+			$result,
+			$status,
+			$planned,
+			$effective,
+			[
+				'unchanged'  => 'ok' === $status && [] !== $planned && [] === $effective,
+				'unexpected' => static fn (): array => ChangeSetSources::elements_outside_plan( $post_id, $snapshot, $touched, $removed ),
+			]
+		);
+		if ( [] !== $sources ) {
+			$inputs['extensions'] = [ 'reuse_source' => ReuseSource::for_change_set( $sources ) ];
+		}
+
+		return $inputs;
 	}
 
 	/**
@@ -676,7 +821,8 @@ final class BatchMutate extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private function apply_operation( array &$tree, array $operation, array &$refs, bool $require_evidence, bool $dry_run ): array|\WP_Error {
-		$css_gate = ElementorCustomCssGate::assert_incoming( $operation, $operation, (string) ( $operation['widget_type'] ?? '' ) );
+		$gated    = self::without_listed_settings( [ $operation ] )[0];
+		$css_gate = ElementorCustomCssGate::assert_incoming( $gated, $operation, (string) ( $operation['widget_type'] ?? '' ) );
 		if ( $css_gate instanceof \WP_Error ) {
 			return $css_gate;
 		}
@@ -689,6 +835,7 @@ final class BatchMutate extends AbilityKernel {
 			'patch_repeater_row' => $this->patch_repeater_row( $tree, $operation, $refs, $require_evidence ),
 			'move_element'   => $this->move_element( $tree, $operation, $refs ),
 			'remove_element' => $this->remove_element( $tree, $operation, $refs ),
+			'insert_section' => $this->insert_section( $tree, $operation, $refs ),
 			default          => $this->error( 'invalid_action', __( 'Unsupported Elementor batch action.', 'stonewright' ), [ 'action' => $action ] ),
 		};
 	}
@@ -703,6 +850,10 @@ final class BatchMutate extends AbilityKernel {
 		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
+		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
 		}
 
 		$settings  = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
@@ -1099,6 +1250,10 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
+		}
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
@@ -1132,6 +1287,217 @@ final class BatchMutate extends AbilityKernel {
 			'action'     => 'remove_element',
 			'element_id' => $element_id,
 		];
+	}
+
+	/**
+	 * Copies a portable section into the document under fresh ids.
+	 *
+	 * The same closure as every other operation of the batch: the copy is built in memory with the rest of the
+	 * batch, and the single snapshot, write lock, write and readback of the batch cover it. Nothing here reads
+	 * or writes the source post; the payload is the whole of the section.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>            $operation
+	 * @param array<string, string>           $refs
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function insert_section( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+		// The live option, not the tool list: a client may keep a stale list.
+		if ( ! SectionReuseSetting::is_enabled() ) {
+			return SectionReuseSetting::off_error();
+		}
+		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::ELEMENTOR_V3 );
+		if ( $payload instanceof \WP_Error ) {
+			return $payload;
+		}
+		$budget = ElementorSectionInserter::within_batch_budget( $this->inserted_elements, $payload );
+		if ( $budget instanceof \WP_Error ) {
+			return $budget;
+		}
+		if ( self::contains_html_widget( $payload['element'] ) ) {
+			$policy = HtmlWidgetPolicy::allowed( $operation );
+			if ( $policy instanceof \WP_Error ) {
+				return $policy;
+			}
+		}
+		$source = ReuseSource::of_payload( $payload );
+		if ( null !== $source ) {
+			$access = ReuseSource::check( $source );
+			if ( $access instanceof \WP_Error ) {
+				return $access;
+			}
+		}
+		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
+		if ( $parent_path instanceof \WP_Error ) {
+			return $parent_path;
+		}
+		$parent = [] === $parent_path ? null : self::resolve( $tree, $parent_path );
+		if ( null !== $parent && 'container' !== (string) ( $parent['elType'] ?? '' ) ) {
+			return $this->error( 'parent_not_container', __( 'A section can only be inserted into a container.', 'stonewright' ), [ 'status' => 400, 'parent_id' => (string) ( $parent['id'] ?? '' ) ] );
+		}
+		$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
+		$parent_arch  = null === $parent ? $architecture : AtomicTreeInspector::subtree_architecture( $tree, (string) ( $parent['id'] ?? '' ) );
+		if ( 'v4' === $architecture || ( 'mixed' === $architecture && 'v3' !== $parent_arch ) ) {
+			return $this->error(
+				'v3_architecture_mismatch',
+				__( 'This place in the document is Elementor V4 Atomic. A V3 section is never converted; insert it under a V3 container, or use the V4 operations of elementor-v4-update-node with a V4 section.', 'stonewright' ),
+				[ 'status' => 409, 'architecture' => $architecture ]
+			);
+		}
+		$built = ElementorSectionInserter::instantiate( $payload, Builder::ELEMENTOR_V3, $tree, $parent_path, [ 'drop_settings' => $operation['drop_settings'] ?? null ] );
+		if ( $built instanceof \WP_Error ) {
+			return $built;
+		}
+
+		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
+		$tree     = ElementorData::insert( $tree, $parent_path, $position, $built['element'] );
+		$this->inserted_elements += count( $built['id_map'] );
+		$root_id  = (string) $built['element']['id'];
+		if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
+			$refs[ $operation['op_id'] ] = $root_id;
+			foreach ( $built['id_map'] as $placeholder => $new_id ) {
+				$refs[ $operation['op_id'] . '.' . $placeholder ] = $new_id;
+			}
+		}
+
+		return array_merge(
+			[
+				'action'       => 'insert_section',
+				'element_id'   => $root_id,
+				'element_ids'  => array_values( $built['id_map'] ),
+				'placeholders' => count( $built['id_map'] ),
+			],
+			null === $source ? [] : [ 'reuse_source' => $source ],
+			[] === $built['removed'] ? [] : [ 'removed_settings' => $built['removed'] ],
+			[] === $built['warnings'] ? [] : [ 'warnings' => $built['warnings'] ]
+		);
+	}
+
+	/**
+	 * The operations as the custom code gate reads them: a setting of a section that the operation lists in
+	 * `drop_settings` is left out, because the copy is made without it. A list that does not match the settings the
+	 * live schema rejects refuses the insert before anything is written, so nothing the gate guards is let through.
+	 *
+	 * @param array<int, mixed> $operations
+	 * @return array<int, mixed>
+	 */
+	private static function without_listed_settings( array $operations ): array {
+		foreach ( $operations as $index => $operation ) {
+			if ( ! is_array( $operation ) || 'insert_section' !== (string) ( $operation['action'] ?? '' ) || ! is_array( $operation['section']['element'] ?? null ) ) {
+				continue;
+			}
+			$requests = ElementorSectionInserter::drop_requests( $operation['drop_settings'] ?? null );
+			if ( $requests instanceof \WP_Error || [] === $requests ) {
+				continue;
+			}
+			$operations[ $index ]['section']['element'] = self::without_listed_in( $operation['section']['element'], $requests );
+		}
+
+		return $operations;
+	}
+
+	/**
+	 * @param array<string, mixed>                       $element
+	 * @param list<array{element:string,setting:string}> $requests
+	 * @return array<string, mixed>
+	 */
+	private static function without_listed_in( array $element, array $requests ): array {
+		foreach ( $requests as $request ) {
+			if ( (string) ( $element['id'] ?? '' ) === $request['element'] && is_array( $element['settings'] ?? null ) && ! str_contains( $request['setting'], '.' ) ) {
+				unset( $element['settings'][ $request['setting'] ] );
+			}
+		}
+		if ( is_array( $element['elements'] ?? null ) ) {
+			$element['elements'] = array_map( static fn( mixed $child ): mixed => is_array( $child ) ? self::without_listed_in( $child, $requests ) : $child, $element['elements'] );
+		}
+
+		return $element;
+	}
+
+	/**
+	 * The settings the insert operations removed on the caller's approval, with the operation of each.
+	 *
+	 * @param list<array<string, mixed>> $items
+	 * @return list<array<string, mixed>>
+	 */
+	private static function removed_settings( array $items ): array {
+		$all = [];
+		foreach ( $items as $item ) {
+			foreach ( is_array( $item['removed_settings'] ?? null ) ? $item['removed_settings'] : [] as $row ) {
+				$all[] = array_merge( $row, [ 'operation' => (int) $item['index'] ] );
+			}
+		}
+
+		return $all;
+	}
+
+	/**
+	 * What the audit row keeps of the settings a section insert rejected or removed: element and key, names only.
+	 *
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, scalar|null>
+	 */
+	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
+		$data = ChangeSetSources::data( $result );
+		$rows = [];
+		$key  = '';
+		if ( is_array( $data['rejected_settings'] ?? null ) ) {
+			$key = 'rejected_settings';
+			foreach ( $data['rejected_settings'] as $row ) {
+				$rows[] = (string) ( $row['element'] ?? '' ) . ' ' . ( preg_replace( '/^settings\.?/', '', (string) ( $row['path'] ?? '' ) ) ?: 'settings' );
+			}
+		} elseif ( is_array( $data['removed_settings'] ?? null ) ) {
+			$key = 'removed_settings';
+			foreach ( $data['removed_settings'] as $row ) {
+				$rows[] = (string) ( $row['element'] ?? '' ) . ' ' . (string) ( $row['setting'] ?? '' );
+			}
+		}
+		if ( '' === $key || [] === $rows ) {
+			return [];
+		}
+		$text = implode( ', ', array_unique( $rows ) );
+
+		return [ $key => mb_strlen( $text ) > 250 ? mb_substr( $text, 0, 247 ) . '...' : $text ];
+	}
+
+	/**
+	 * @param array<string, mixed> $element
+	 */
+	private static function contains_html_widget( array $element ): bool {
+		if ( 'widget' === ( $element['elType'] ?? '' ) && HtmlWidgetPolicy::is_html_type( (string) ( $element['widgetType'] ?? '' ) ) ) {
+			return true;
+		}
+		foreach ( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] as $child ) {
+			if ( is_array( $child ) && self::contains_html_widget( $child ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The error for a parent that cannot hold child elements, or null when the parent is the document root, a
+	 * container, a section or a column.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $parent_path
+	 */
+	private function parent_container_error( array $tree, array $parent_path ): ?\WP_Error {
+		if ( [] === $parent_path || ElementorData::accepts_children( $tree, $parent_path ) ) {
+			return null;
+		}
+		$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];
+
+		return $this->error(
+			'parent_not_container',
+			__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+			[
+				'status'         => 400,
+				'parent_id'      => (string) ( $parent['id'] ?? '' ),
+				'parent_el_type' => (string) ( $parent['elType'] ?? '' ),
+			]
+		);
 	}
 
 	/**
@@ -1205,23 +1571,10 @@ final class BatchMutate extends AbilityKernel {
 	/**
 	 * @param array<int, array<string, mixed>> $operations
 	 */
-	private static function contains_destructive_operation( array $operations ): bool {
-		foreach ( $operations as $operation ) {
-			if ( is_array( $operation ) && ( 'remove_element' === ( $operation['action'] ?? '' ) || 'replace' === ( $operation['mode'] ?? '' ) ) ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $operations
-	 */
 	private static function contains_unparented_add( array $operations ): bool {
 		foreach ( $operations as $operation ) {
 			$action = (string) ( $operation['action'] ?? '' );
-			if ( ! in_array( $action, [ 'add_container', 'add_widget' ], true ) ) {
+			if ( ! in_array( $action, [ 'add_container', 'add_widget', 'insert_section' ], true ) ) {
 				continue;
 			}
 			$parent_id  = trim( (string) ( $operation['parent_id'] ?? '' ) );
@@ -1421,7 +1774,7 @@ final class BatchMutate extends AbilityKernel {
 			return ContainerSettings::normalize( $incoming );
 		}
 
-		return \Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases::normalize( $incoming )['settings'];
+		return \Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases::normalize_for_element( $incoming, $element_type )['settings'];
 	}
 
 	/**
@@ -1489,8 +1842,17 @@ final class BatchMutate extends AbilityKernel {
 		if ( IncidentStore::is_input_shape_code( $cause_code ) ) {
 			$data['execution_status'] = 'blocked';
 		}
+		if ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ) {
+			$inner                      = (array) $result->get_error_data();
+			$data['rejected_settings'] = array_values( (array) ( $inner['violations'] ?? [] ) );
+			foreach ( [ 'violations_total', 'drop_settings_available', 'drop_settings_proposal', 'drop_settings_missing', 'drop_settings_unexpected', 'drop_settings_reason' ] as $key ) {
+				if ( array_key_exists( $key, $inner ) ) {
+					$data[ $key ] = $inner[ $key ];
+				}
+			}
+		}
 
-		return $data;
+		return array_merge( $data, SectionReuseSetting::refusal_flags( $cause_code ) );
 	}
 
 	/**
@@ -1536,6 +1898,7 @@ final class BatchMutate extends AbilityKernel {
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
 			'stonewright_elementor_setting_dropped' => 'The requested setting was dropped during sparse normalization. Send a persistable live-schema value or omit the key.',
 			'stonewright_elementor_revision_conflict' => 'Re-read the live Elementor structure and retry with the current expected_tree_hash. No write was performed.',
+			'stonewright_section_settings_not_reusable', 'stonewright_section_drop_settings_mismatch', 'stonewright_section_drop_settings_invalid' => RemediationHints::for_code( $code ),
 			'stonewright_responsive_scope_conflict' => 'Send one breakpoint list per layer. Do not mix conflicting allowed_breakpoints and responsive_scope aliases.',
 			'stonewright_atomic_widget_in_v3_batch' => 'Use the Elementor V4 editor pipeline; never mix e-* widgets into a V3 tree.',
 			default => 'Fix the reported operation and rerun dry_run=true. No page data was written.',

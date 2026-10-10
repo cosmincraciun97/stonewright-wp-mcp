@@ -25,6 +25,19 @@ final class Run extends WpCliAbility {
 		return __( 'Runs a tokenized WP-CLI command through the companion. Supports WordPress write/debug commands for posts, options, plugins, Elementor, Gutenberg, ACF, CPT UI, cache, rewrite rules, and installed plugin commands. Use stonewright/php-execute for PHP runtime snippets.', 'stonewright' );
 	}
 
+	/**
+	 * WP-CLI commands can download from and call hosts outside the site.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

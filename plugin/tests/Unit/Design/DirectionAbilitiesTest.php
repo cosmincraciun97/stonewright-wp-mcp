@@ -282,6 +282,66 @@ final class DirectionAbilitiesTest extends TestCase {
 		$this->assertArrayNotHasKey( 'contract', $result );
 	}
 
+	public function test_save_of_a_not_ready_revision_of_the_active_direction_reports_active_cleared(): void {
+		$ready = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $ready );
+		$this->assertIsArray( $this->service->activate( (int) $ready['id'], 7 ) );
+
+		$result = ( new DirectionSave( $this->service ) )->execute( $this->input() );
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['active_cleared'] );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_save_reports_active_cleared_false_when_nothing_was_cleared(): void {
+		$result = ( new DirectionSave( $this->service ) )->execute( $this->input() );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+	}
+
+	public function test_save_and_restore_declare_active_cleared_in_their_output_schemas(): void {
+		foreach ( [ new DirectionSave( $this->service ), new DirectionRestore( $this->service ) ] as $ability ) {
+			$schema = $ability->output_schema();
+			$this->assertSame( [ 'type' => 'boolean' ], $schema['properties']['active_cleared'] ?? null, $ability->name() );
+		}
+	}
+
+	public function test_restore_of_a_not_ready_revision_of_the_active_direction_reports_active_cleared(): void {
+		$draft = $this->service->save( $this->input(), 7 );
+		$ready = $this->service->save( $this->ready_input(), 7 );
+		$this->assertIsArray( $draft );
+		$this->assertIsArray( $ready );
+		$this->assertIsArray( $this->service->activate( (int) $ready['id'], 7 ) );
+
+		$result = ( new DirectionRestore( $this->service ) )->execute(
+			[
+				'id'       => (int) $draft['id'],
+				'revision' => 1,
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['active_cleared'] );
+		$this->assertSame( 0, (int) get_option( self::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_restore_reports_active_cleared_false_for_an_inactive_direction(): void {
+		$saved = $this->service->save( $this->input(), 7 );
+		$this->assertIsArray( $saved );
+
+		$result = ( new DirectionRestore( $this->service ) )->execute(
+			[
+				'id'       => (int) $saved['id'],
+				'revision' => 1,
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+	}
+
 	public function test_save_verifies_the_stored_contract_hash_on_readback(): void {
 		$result = ( new DirectionSave( $this->service ) )->execute( $this->input() );
 

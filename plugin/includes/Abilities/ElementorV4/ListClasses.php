@@ -27,7 +27,7 @@ final class ListClasses extends AbilityKernel {
 		return is_wp_error( $gate ) ? $gate : Permissions::edit_posts();
 	}
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit( $args, function (): array|\WP_Error {
+		return $this->audit_read( $args, function (): array|\WP_Error {
 			$adapter = AtomicClassRepositoryAdapter::runtime();
 			if ( is_wp_error( $adapter ) ) {
 return $adapter; }

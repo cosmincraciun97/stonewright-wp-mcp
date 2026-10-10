@@ -20,9 +20,14 @@ the already-open editor session, so persistence is never performed twice.
 
 For server-side content batches, use `stonewright/blocks-batch-mutate`. Dynamic
 blocks (`save: null` / `render_callback`) still serialize in PHP. Static and
-third-party blocks are queued as `{name, attributes, innerBlocks}` for the hidden
-`stonewright-block-finalizer` admin page, which runs the live editor `save()` and
-posts hashed HTML back. Persist stays in `stonewright/blocks-finalize-batch`
+third-party blocks are queued as `{name, attributes, innerBlocks}` for the block
+change queue console (`stonewright-block-finalizer`, **Stonewright > Activity > Block queue**:
+a link in the band, no sidebar entry; `edit_posts` required). The console opens each target post in its own block
+editor, which builds the queued blocks, runs the live editor `save()`, and posts
+hashed HTML back. Opened without a session the console says how to get one (open the
+link the agent returns) and shows the site's queued and failed counts; with a session
+it shows an announced status line, a counts band and a journal table with a state
+badge and a named **Preview cancellation** button per change. Persist stays in `stonewright/blocks-finalize-batch`
 (snapshot, confirmation in production-safe, audit, readback). List/status tools
 never return the full spec. See [Permanent remediation contracts](permanent-remediation-contracts.md).
 The browser client treats any result payload with `retryable:true` as pending,

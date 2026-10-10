@@ -22,6 +22,7 @@ final class AuditLogCoverageTest extends TestCase {
 		$GLOBALS['wpdb'] = $this->make_wpdb( true );
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
 		$GLOBALS['stonewright_test_home_url'] = 'https://example.test/';
 	}
 
@@ -34,6 +35,7 @@ final class AuditLogCoverageTest extends TestCase {
 		AuditLog::reset_request_state();
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_transient_ttls'] = [];
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
 		unset( $GLOBALS['stonewright_test_home_url'] );
 		$GLOBALS['stonewright_test_update_option_failures'] = [];
 	}
@@ -180,6 +182,25 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertStringNotContainsString( 'sentinel-free-text-bearer', $encoded );
 		self::assertStringNotContainsString( 'sentinel-meta-error-token', $encoded );
 		self::assertStringContainsString( '[redacted]', $encoded );
+	}
+
+	public function test_prose_redaction_keeps_ordinary_words_and_still_masks_values(): void {
+		AuditLog::record(
+			'stonewright/test',
+			[
+				'message' => 'The refresh token is no longer valid.',
+				'other'   => 'The password is not set.',
+				'leak'    => 'the password is sentinel-prose-password',
+				'leak2'   => 'token was sentinel-prose-token',
+			],
+			'error'
+		);
+
+		$encoded = (string) $GLOBALS['wpdb']->inserts[0]['data']['sanitized_args'];
+		self::assertStringContainsString( 'The refresh token is no longer valid.', $encoded );
+		self::assertStringContainsString( 'The password is not set.', $encoded );
+		self::assertStringNotContainsString( 'sentinel-prose-password', $encoded );
+		self::assertStringNotContainsString( 'sentinel-prose-token', $encoded );
 	}
 
 	public function test_redacts_nested_key_material_certificates_and_credential_blobs_without_consuming_safe_text(): void {
@@ -487,19 +508,42 @@ final class AuditLogCoverageTest extends TestCase {
 
 		self::assertTrue( AuditLog::record( 'stonewright/content-update', [ 'post_id' => 42 ], 'ok' ) );
 		self::assertSame( '', $GLOBALS['wpdb']->last_query );
-		self::assertFalse( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
 		self::assertSame( 'disabled', AuditLog::enforce_retention( true, 1787520000 )['status'] );
+		self::assertSame( '', $GLOBALS['wpdb']->last_query );
 	}
 
-	public function test_configured_retention_uses_daily_schedule_and_unschedules_when_disabled(): void {
+	public function test_daily_retention_job_is_scheduled_whatever_the_retention_setting(): void {
 		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
-		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 0;
 
 		AuditLog::sync_retention_schedule( 1787520000 );
 		self::assertSame( 1787523600, wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
 
-		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 0;
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 7;
 		AuditLog::sync_retention_schedule( 1787520001 );
+		self::assertSame( 1787523600, wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+
+		$GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] = 0;
+		AuditLog::sync_retention_schedule( 1787520002 );
+		self::assertSame( 1787523600, wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+	}
+
+	public function test_daily_retention_job_is_scheduled_when_the_setting_was_never_saved(): void {
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
+		unset( $GLOBALS['stonewright_test_options']['stonewright_audit_retention_days'] );
+
+		AuditLog::sync_retention_schedule( 1787520000 );
+
+		self::assertSame( 1787523600, wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+	}
+
+	public function test_deactivation_unschedules_the_daily_retention_job(): void {
+		$GLOBALS['stonewright_test_scheduled_hooks'] = [];
+		AuditLog::sync_retention_schedule( 1787520000 );
+		self::assertIsInt( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
+
+		AuditLog::unschedule_retention();
+
 		self::assertFalse( wp_next_scheduled( AuditLog::RETENTION_HOOK ) );
 	}
 
@@ -635,6 +679,11 @@ final class AuditLogCoverageTest extends TestCase {
 			public function query( string $query ): int|false {
 				$this->last_query = $query;
 				return array_shift( $this->query_results ) ?? 0;
+			}
+
+			/** The quiet-incident sweep reads incidents before retention; none are open here. */
+			public function get_results( string $query, string $output = OBJECT ): array {
+				return [];
 			}
 		};
 	}

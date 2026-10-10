@@ -12,8 +12,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
-use ReflectionClass;
 use Stonewright\WpMcp\Abilities\Ability;
+use Stonewright\WpMcp\Core\AbilityAnnotations;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -22,64 +22,6 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 final class PublicApiContractSnapshot {
 
 	public const CONTRACT_VERSION = 1;
-
-	/**
-	 * Patterns that mark an ability as mutating state (Write).
-	 *
-	 * Kept in lockstep with plugin/bin/generate-ability-matrix.php.
-	 *
-	 * @var list<string>
-	 */
-	private const WRITE_PATTERNS = [
-		'wp_update_post',
-		'wp_insert_post',
-		'update_post_meta',
-		'add_post_meta',
-		'update_option',
-		'add_option',
-		'delete_option',
-		'update_metadata',
-		'delete_metadata',
-		'file_put_contents',
-		'rename(',
-		'unlink(',
-		'copy(',
-		'SandboxGuards',
-		'snapshot_post',
-		'wp_insert_attachment',
-		'media_handle_sideload',
-		'wpdb->insert(',
-		'wpdb->update(',
-		'wpdb->delete(',
-		'$wpdb->insert',
-		'$wpdb->update',
-		'$wpdb->delete',
-		'Memory::put(',
-		'Memory::put_typed(',
-		'Memory::delete(',
-		'Memory::delete_by_id(',
-		'Memory::update_by_id(',
-		'Skills::save(',
-		'Skills::delete(',
-		'SpecToGutenberg()',
-		'SpecToElementorV3()',
-		'CandidateRepository::create(',
-		'CandidateRepository::verify(',
-		'CandidateRepository::promote(',
-		'CandidateRepository::set_status(',
-		'Skills::rollback(',
-		'ExpertiseStore::record_scorecard(',
-		'ExpertiseEvaluator::evaluate(',
-		'ExpertisePromotion::promote(',
-		'ExpertisePromotion::set_terminal_status(',
-		'ElementorWriter::write',
-		'PostCacheInvalidator::invalidate',
-		'CssRegenerator::regenerate',
-		'new UploadMedia()',
-		'new BuildPageFromSpec()',
-		'ConfirmationGuard',
-		'eval(',
-	];
 
 	/**
 	 * Absolute path to the committed public-api contract snapshot.
@@ -166,6 +108,7 @@ final class PublicApiContractSnapshot {
 				'validator' => self::detect_validator( $source ),
 				'audit'     => self::detect_audit( $source ),
 			],
+			'annotations'        => AbilityAnnotations::for_ability( $ability, AbilitySourceFacts::detect( $class ) ),
 		];
 	}
 
@@ -281,6 +224,24 @@ final class PublicApiContractSnapshot {
 					);
 				}
 			}
+
+			// A contract frozen before annotations existed has none to compare.
+			if ( is_array( $contract['annotations'] ?? null ) ) {
+				$actual_hints = is_array( $current['annotations'] ?? null ) ? $current['annotations'] : [];
+				foreach ( [ 'readonly', 'destructive', 'idempotent', 'openWorldHint' ] as $hint ) {
+					$expected = (bool) ( $contract['annotations'][ $hint ] ?? false );
+					$actual   = (bool) ( $actual_hints[ $hint ] ?? false );
+					if ( $expected !== $actual ) {
+						$violations[] = sprintf(
+							'%s: annotations.%s changed (%s -> %s)',
+							$name,
+							$hint,
+							$expected ? 'true' : 'false',
+							$actual ? 'true' : 'false'
+						);
+					}
+				}
+			}
 		}
 
 		return $violations;
@@ -296,7 +257,7 @@ final class PublicApiContractSnapshot {
 		// Normalize allowlist.renamed empty object vs empty array for stable output.
 		if ( isset( $document['allowlist'] ) && is_array( $document['allowlist'] ) ) {
 			$renamed = $document['allowlist']['renamed'] ?? [];
-			if ( ( is_array( $renamed ) && [] === $renamed ) || $renamed instanceof \stdClass ) {
+			if ( ( is_array( $renamed ) && [] === $renamed ) || ( $renamed instanceof \stdClass && [] === get_object_vars( $renamed ) ) ) {
 				$document['allowlist']['renamed'] = new \stdClass();
 			}
 		}
@@ -376,13 +337,7 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_kind( string $source ): string {
-		$clean = self::source_without_strings_and_comments( $source );
-		foreach ( self::WRITE_PATTERNS as $pattern ) {
-			if ( str_contains( $clean, $pattern ) ) {
-				return 'Write';
-			}
-		}
-		return 'Read';
+		return AbilitySourceFacts::is_write( $source ) ? 'Write' : 'Read';
 	}
 
 	private static function detect_permission( string $source ): string {
@@ -402,14 +357,7 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_token( string $source ): bool {
-		return str_contains( $source, 'use ConfirmationGuard' )
-			|| str_contains( $source, 'ConfirmationToken::verify_or_error' )
-			|| str_contains( $source, 'require_confirmation' )
-			|| str_contains( $source, 'require_sandbox_confirmation' )
-			|| str_contains( $source, 'confirmation_token_error(' )
-			|| str_contains( $source, 'production_safe_token_error(' )
-			|| str_contains( $source, 'audit_write(' )
-			|| str_contains( $source, 'new BuildPageFromSpec()' );
+		return AbilitySourceFacts::has_token_gate( $source );
 	}
 
 	private static function detect_backup( string $source ): bool {
@@ -440,6 +388,8 @@ final class PublicApiContractSnapshot {
 		return str_contains( $clean, 'AuditLog::record' )
 			|| str_contains( $clean, '$this->audit_write(' )
 			|| str_contains( $clean, '->audit_write(' )
+			|| str_contains( $clean, '$this->audit_read(' )
+			|| str_contains( $clean, '->audit_read(' )
 			|| str_contains( $clean, '$this->audit(' )
 			|| str_contains( $clean, '->audit(' );
 	}
@@ -448,30 +398,7 @@ final class PublicApiContractSnapshot {
 	 * Walk parent classes and union source (excluding AbilityKernel/Ability bases).
 	 */
 	private static function source_with_parents( string $class ): string {
-		$stop_at = [
-			'Stonewright\\WpMcp\\Abilities\\AbilityKernel',
-			'Stonewright\\WpMcp\\Abilities\\Ability',
-		];
-
-		$sources = [];
-		try {
-			$ref = new ReflectionClass( $class );
-			while ( $ref !== false ) {
-				$name = $ref->getName();
-				if ( in_array( $name, $stop_at, true ) ) {
-					break;
-				}
-				$src = self::read_file( self::class_to_file( $name ) );
-				if ( '' !== $src ) {
-					$sources[] = $src;
-				}
-				$ref = $ref->getParentClass();
-			}
-		} catch ( \ReflectionException $e ) {
-			$sources[] = self::read_file( self::class_to_file( $class ) );
-		}
-
-		return implode( "\n", $sources );
+		return AbilitySourceFacts::source_with_parents( $class );
 	}
 
 	private static function class_to_file( string $class ): string {
@@ -490,36 +417,7 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function source_without_strings_and_comments( string $source ): string {
-		$tokens = @token_get_all( $source );
-		if ( ! is_array( $tokens ) ) {
-			return $source;
-		}
-
-		$skip_types = [
-			T_CONSTANT_ENCAPSED_STRING,
-			T_ENCAPSED_AND_WHITESPACE,
-			T_COMMENT,
-			T_DOC_COMMENT,
-		];
-		foreach ( [ 'T_START_HEREDOC', 'T_END_HEREDOC', 'T_NOWDOC' ] as $const ) {
-			if ( defined( $const ) ) {
-				$skip_types[] = constant( $const );
-			}
-		}
-
-		$clean = '';
-		foreach ( $tokens as $token ) {
-			if ( is_array( $token ) ) {
-				if ( in_array( $token[0], $skip_types, true ) ) {
-					continue;
-				}
-				$clean .= $token[1];
-				continue;
-			}
-			$clean .= $token;
-		}
-
-		return $clean;
+		return AbilitySourceFacts::code_only( $source );
 	}
 
 	/**

@@ -39,8 +39,8 @@ final class SandboxFilesEditBackupTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 
 		$patterns = [
-			$this->sandbox_dir . '/edit-backup-test-*.php',
-			$this->sandbox_dir . '/edit-backup-test-*.php.*.bak.php',
+			$this->sandbox_dir . '/edit-backup-test-*.draft',
+			$this->sandbox_dir . '/edit-backup-test-*.bak',
 		];
 		foreach ( $patterns as $pattern ) {
 			$files = glob( $pattern );
@@ -59,7 +59,7 @@ final class SandboxFilesEditBackupTest extends TestCase {
 		$original = "<?php\n// ORIGINAL_MARKER\nadd_action('init', '__return_true');\n";
 
 		// Seed the file.
-		file_put_contents( $this->sandbox_dir . '/' . $name, $original ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( SandboxFiles::stored_path( $name ), $original ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 
 		// Sanity: no backups yet.
 		$before = SandboxFiles::backup_versions( $name );
@@ -78,7 +78,7 @@ final class SandboxFilesEditBackupTest extends TestCase {
 		$this->assertStringContainsString( 'ORIGINAL_MARKER', $backup_content, 'Backup must preserve the pre-edit content' );
 
 		// The current file must have the modified content.
-		$current = (string) file_get_contents( $this->sandbox_dir . '/' . $name ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$current = (string) file_get_contents( SandboxFiles::stored_path( $name ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		$this->assertStringContainsString( 'MODIFIED_MARKER', $current, 'Current file must reflect the edit' );
 		$this->assertStringNotContainsString( 'ORIGINAL_MARKER', $current, 'Original marker must be replaced' );
 	}
@@ -87,7 +87,7 @@ final class SandboxFilesEditBackupTest extends TestCase {
 		$name     = 'edit-backup-test-versions.php';
 		$original = "<?php\n// VERSION_ONE\n";
 
-		file_put_contents( $this->sandbox_dir . '/' . $name, $original ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( SandboxFiles::stored_path( $name ), $original ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 
 		SandboxFiles::edit( $name, '// VERSION_ONE', '// VERSION_TWO' );
 
@@ -101,7 +101,7 @@ final class SandboxFilesEditBackupTest extends TestCase {
 
 	public function test_edit_audit_event_is_sandbox_write(): void {
 		$name = 'edit-backup-test-audit.php';
-		file_put_contents( $this->sandbox_dir . '/' . $name, "<?php\n// OLD\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( SandboxFiles::stored_path( $name ), "<?php\n// OLD\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 

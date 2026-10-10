@@ -85,17 +85,19 @@ final class CreateTemplatePart extends AbilityKernel {
 				$area = isset( $args['area'] ) ? (string) $args['area'] : 'uncategorized';
 
 				$post_id = wp_insert_post(
-					[
-						'post_type'    => 'wp_template_part',
-						'post_status'  => 'publish',
-						'post_name'    => $slug,
-						'post_title'   => sanitize_text_field( (string) $args['title'] ),
-						'post_content' => $content,
-						'tax_input'    => [
-							'wp_theme'              => [ get_stylesheet() ],
-							'wp_template_part_area' => [ $area ],
-						],
-					],
+					wp_slash(
+						[
+							'post_type'    => 'wp_template_part',
+							'post_status'  => 'publish',
+							'post_name'    => $slug,
+							'post_title'   => sanitize_text_field( (string) $args['title'] ),
+							'post_content' => $content,
+							'tax_input'    => [
+								'wp_theme'              => [ get_stylesheet() ],
+								'wp_template_part_area' => [ $area ],
+							],
+						]
+					),
 					true
 				);
 

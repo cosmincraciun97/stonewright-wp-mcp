@@ -3,8 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Default MCP-facing instructions that travel with the Stonewright server.
@@ -19,6 +20,7 @@ final class AgentInstructions {
 			'- First call stonewright-task-start; it returns the context token and fast path.',
 			'- stonewright-context-bootstrap and stonewright-workflow-preflight are compatibility tools.',
 			'- Prefer fast_path.tool_profile over a separate stonewright-tool-profile call.',
+			'- ' . AgentHints::LEARNING_TRIGGER,
 			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and ask the user to reload or fix the Stonewright MCP config.',
 			'- ' . McpUsePolicy::compact_bypass_ban_rule(),
 			'- Use MCP tool stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
@@ -33,6 +35,12 @@ final class AgentInstructions {
 			'- Never run wp commands in a normal shell; use Stonewright wp-cli status, discover, run, or batch-run tools.',
 			'- Do not use another MCP adapter execute-php to replace Stonewright php-execute.',
 		];
+
+		// Active Design Direction pointer and agent preferences, from the same
+		// source as the task-start context.
+		foreach ( AgentHints::connect_lines() as $line ) {
+			$parts[] = $line;
+		}
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
 		$custom_instructions  = trim( (string) get_option( 'stonewright_custom_instructions', '' ) );
@@ -62,7 +70,7 @@ final class AgentInstructions {
 			'- Use stonewright/php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls. It runs inside WordPress with loaded plugins and $wpdb.',
 			'- Never write raw _elementor_data through php-execute. Every Elementor V3 node needs a non-empty unique id; use typed Elementor abilities or Backup::snapshot_post plus ElementorData::write.',
 			'- Elementor integrity: no double-encoded JSON, no stripping unknown settings to pass validation, no widgetType remaps (e-paragraph→text-editor etc.) without explicit user intent, no full-tree rewrite for one control — surgical batch-mutate only.',
-			'- Elementor CSS safety: CSS mutation belongs only to stonewright-elementor-css-regenerate, which snapshots the post then regenerates through a post-only guarded transaction. That transaction inventories the direct CSS directory and probes any existing target, custom-frontend.min.css, and custom-pro-widget-nav-menu.min.css before and after. Never pass regenerate_css to stonewright-elementor-post-write-verify; that ability is observation-only and does not regenerate CSS, invalidate caches, or roll back files.',
+			'- Elementor CSS safety: CSS mutation belongs only to stonewright-elementor-css-regenerate, which snapshots the post then regenerates through a post-only guarded transaction. That transaction inventories the direct CSS directory and probes any existing target, custom-frontend.min.css, and custom-pro-widget-nav-menu.min.css before and after. A result with ok:true and delivery_status:blocked means the CSS was written and its version changed but an anonymous request to it is redirected: never rebuild the layout for it. Never pass regenerate_css to stonewright-elementor-post-write-verify; that ability is observation-only and does not regenerate CSS, invalidate caches, or roll back files.',
 			'- If elementor-v3-batch-mutate is missing from tools, fix client surface (task-start / re-list); do not fall back to php-execute or raw meta writes.',
 			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/task-start or the compatibility context-bootstrap path.',
 			'- Persistent skills and memory are authoritative across sessions. Call stonewright/skills-get for every matched skill and stonewright/memory-get or stonewright/memory-list for relevant memory before planning or writing.',
@@ -108,7 +116,7 @@ final class AgentInstructions {
 			'- Buttons, CTAs, links, navigation, forms, and images with unresolved behavior or sources are blocking errors, not decorative placeholders.',
 			'- Complete the native phase before proposing custom code. CSS, CSS+JS, or PHP stays in a separate unapplied proposal until explicit approval, with diff, risk, rollback, and tests.',
 			'- Use real Elementor widgets for the detected intent: nav-menu for navigation, countdown for countdowns, social-icons for social rows, icon-list for footer/link/bullet lists. Do not simulate these with headings, buttons, or arbitrary text blocks.',
-			'- HTML widgets are disabled by default at site level. Never plan around them; use native Elementor widgets and containers. allow_html_widget=true is ignored while the site option is off.',
+			'- HTML widgets are disabled by default at site level. Never plan around them; use native Elementor widgets and containers. allow_html_widget=true is ignored while the site option is off; when it is on, each HTML write must carry allow_html_widget=true.',
 			'- Per-widget stonewright/elementor-add-* abilities are deprecated compatibility tools. Use stonewright/elementor-schema, then stonewright/elementor-v3-batch-mutate with live-schema settings, idempotency, evidence, and readback.',
 			'- For repeated visual structures such as team cards, speaker cards, logos, galleries, and pricing grids, build the first pass with stonewright/elementor-v3-build-page-from-spec using dry_run first. Use stonewright/elementor-v3-batch-mutate for post-screenshot surgical add/update/move/remove fixes instead of dozens of single calls.',
 			'- Use exact Elementor control keys from widget schemas and stonewright/elementor-describe-widget. Do not invent CSS-like setting keys such as `icon`, `icon_primary_color`, `icon_background_color`, or `width` when the schema expects keys such as `selected_icon`, `primary_color`, `secondary_color`, or Advanced layout keys.',
@@ -151,7 +159,7 @@ final class AgentInstructions {
 			$parts[] = $custom_instructions;
 		}
 
-		$skills_block = Skills::instructions_block();
+		$skills_block = SkillLibraryService::open()->agent_index();
 		if ( '' !== $skills_block ) {
 			$parts[] = $skills_block;
 		}

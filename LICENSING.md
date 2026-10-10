@@ -4,10 +4,10 @@ Stonewright is distributed as separately licensed components.
 
 | Component | Path | License | License text |
 |---|---|---|---|
-| WordPress Plugin | `plugin/` | AGPL-3.0-or-later | [`LICENSE`](LICENSE) |
-| Stonewright Visual | `visual/` | AGPL-3.0-or-later | [`LICENSE`](LICENSE) |
+| WordPress Plugin | `plugin/` | GPL-2.0-or-later | [`LICENSE`](LICENSE) |
+| Stonewright Visual | `visual/` | GPL-2.0-or-later | [`LICENSE`](LICENSE) |
 | Node Companion | `companion/` | MIT | [`companion/LICENSE`](companion/LICENSE) |
 
-`AGPL-3.0-or-later` means recipients may use GNU Affero General Public License version 3 or any later version published by the Free Software Foundation. The root `LICENSE` is the canonical, unmodified GNU AGPL version 3 text.
+`GPL-2.0-or-later` means recipients may use the GNU General Public License version 2 or any later version published by the Free Software Foundation.
 
-Third-party and derived files retain their own copyright, SPDX, notice, and compatible license terms. Those terms are recorded in [Upstream Code Reuse](docs/upstream-code-reuse.md) and in file-level notices where required. This component map does not replace or narrow third-party terms.
+Third-party files keep their own copyright, SPDX, notice, and license terms in file-level notices and package metadata. This component map does not replace or narrow third-party terms.

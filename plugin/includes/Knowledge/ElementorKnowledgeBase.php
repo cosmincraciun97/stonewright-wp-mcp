@@ -3,13 +3,11 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Knowledge;
 
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
- * Read-only query facade over docs/knowledge/elementor.
+ * Read-only query facade over the private Elementor knowledge store under uploads.
+ * The store is empty until `stonewright/elementor-knowledge-refresh` has filled it.
  */
 final class ElementorKnowledgeBase {
 
@@ -39,7 +37,7 @@ final class ElementorKnowledgeBase {
 
 		$results = array_slice( $results, 0, $limit );
 
-		return [
+		$response = [
 			'query'         => $query,
 			'area'          => $area,
 			'limit'         => $limit,
@@ -47,6 +45,11 @@ final class ElementorKnowledgeBase {
 			'results'       => $results,
 			'refresh_ability' => 'stonewright/elementor-knowledge-refresh',
 		];
+		if ( [] === $results && [] === ElementorKnowledgeStore::article_files() ) {
+			$response['hint'] = self::empty_store_hint();
+		}
+
+		return $response;
 	}
 
 	/**
@@ -58,7 +61,7 @@ final class ElementorKnowledgeBase {
 		$title    = is_string( $manifest['title'] ?? null ) ? (string) $manifest['title'] : $slug;
 		$search   = self::search( $slug . ' ' . $title . ' widget', 'widgets', 8 );
 
-		return [
+		$response = [
 			'widget'          => $slug,
 			'manifest'        => $manifest,
 			'documents'       => $search['results'],
@@ -66,6 +69,11 @@ final class ElementorKnowledgeBase {
 			'max_age_days'    => self::max_age_days(),
 			'refresh_ability' => 'stonewright/elementor-knowledge-refresh',
 		];
+		if ( isset( $search['hint'] ) ) {
+			$response['hint'] = $search['hint'];
+		}
+
+		return $response;
 	}
 
 	/**
@@ -79,12 +87,8 @@ final class ElementorKnowledgeBase {
 		return self::search( $topic, $area, $limit );
 	}
 
-	private static function knowledge_dir(): string {
-		return dirname( __DIR__, 2 ) . '/../docs/knowledge/elementor';
-	}
-
-	private static function repo_root(): string {
-		return dirname( __DIR__, 2 ) . '/..';
+	private static function empty_store_hint(): string {
+		return __( 'The Elementor knowledge store is empty on this site. Call stonewright/elementor-knowledge-refresh with an elementor.com or developers.elementor.com URL to add articles; the readers return results after the first refresh.', 'stonewright' );
 	}
 
 	private static function normalise_area( ?string $area ): ?string {
@@ -109,23 +113,9 @@ final class ElementorKnowledgeBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private static function documents( ?string $area ): array {
-		$root = self::knowledge_dir();
-		$base = null === $area ? $root : $root . '/' . $area;
-		if ( ! is_dir( $base ) ) {
-			return [];
-		}
-
 		$out = [];
-		$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $base ) );
-		foreach ( $iterator as $file ) {
-			if ( ! $file instanceof SplFileInfo || ! $file->isFile() || strtolower( $file->getExtension() ) !== 'md' ) {
-				continue;
-			}
-			$name = $file->getBasename();
-			if ( str_starts_with( $name, '_' ) ) {
-				continue;
-			}
-			$out[] = self::parse_document( $file->getPathname() );
+		foreach ( ElementorKnowledgeStore::article_files( $area ) as $path ) {
+			$out[] = self::parse_document( $path );
 		}
 		return $out;
 	}
@@ -146,7 +136,7 @@ final class ElementorKnowledgeBase {
 
 		return [
 			'title'      => $title,
-			'path'       => self::relative( $path ),
+			'path'       => ElementorKnowledgeStore::relative( $path ),
 			'source_url' => (string) ( $front['source_url'] ?? '' ),
 			'fetched_at' => (string) ( $front['fetched_at'] ?? '' ),
 			'stale'      => self::is_stale( (string) ( $front['fetched_at'] ?? '' ) ),
@@ -228,20 +218,6 @@ final class ElementorKnowledgeBase {
 	private static function title_from_path( string $path ): string {
 		$stem = pathinfo( $path, PATHINFO_FILENAME );
 		return ucwords( str_replace( [ '-', '_' ], ' ', $stem ) );
-	}
-
-	private static function relative( string $path ): string {
-		$root = realpath( self::repo_root() );
-		$real = realpath( $path );
-		if ( false === $root || false === $real ) {
-			return str_replace( '\\', '/', $path );
-		}
-		$root = str_replace( '\\', '/', $root );
-		$real = str_replace( '\\', '/', $real );
-		if ( str_starts_with( $real, $root . '/' ) ) {
-			return substr( $real, strlen( $root ) + 1 );
-		}
-		return $real;
 	}
 
 	private static function max_age_days(): int {

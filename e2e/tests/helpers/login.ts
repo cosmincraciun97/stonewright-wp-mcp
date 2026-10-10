@@ -31,7 +31,15 @@ export async function login(page: Page): Promise<void> {
 	await page.locator('#user_login').waitFor({ state: 'visible', timeout: 15_000 });
 	await page.locator('#user_login').fill(WP_USER);
 	await page.locator('#user_pass').fill(WP_PASS);
-	await page.locator('#wp-submit').click();
-	await page.waitForURL(/\/wp-admin\//, { timeout: 45_000, waitUntil: 'domcontentloaded' });
+	// Wait for the condition that matters, not for one navigation: the page has left the login form (the click and
+	// the wait are armed together, so a redirect that finishes first is not missed), or WordPress says why it did not.
+	const signedIn = page
+		.waitForURL((url) => !url.pathname.endsWith('/wp-login.php'), { timeout: 45_000, waitUntil: 'domcontentloaded' })
+		.then(() => undefined);
+	await Promise.all([signedIn, page.locator('#wp-submit').click()]).catch(async (error: unknown) => {
+		const reason = (await page.locator('#login_error').innerText({ timeout: 1_000 }).catch(() => '')).trim();
+		const cause = error instanceof Error ? error.message.slice(0, 200) : String(error);
+		throw new Error(`Login did not leave wp-login.php${reason ? `: ${reason}` : ''} (${cause})`);
+	});
 	await assertNoWordpressFatal(page);
 }

@@ -38,6 +38,19 @@ final class Permissions {
 	}
 
 	/**
+	 * Whether a stored OAuth grant subject may still use the MCP server: the account
+	 * exists and holds the capability the MCP transport requires of a signed-in user.
+	 * Checked for a given user ID because token requests carry no logged-in user.
+	 */
+	public static function user_can_use_mcp( int $user_id ): bool {
+		if ( $user_id < 1 ) {
+			return false;
+		}
+		$user = get_user_by( 'id', $user_id );
+		return false !== $user && user_can( $user, 'read' );
+	}
+
+	/**
 	 * Permission gate for sandbox abilities.
 	 *
 	 * Sandbox abilities execute or stage PHP on the production server, so they

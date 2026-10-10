@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
 
-const captured = vi.hoisted(() => ({ child: null as ChildProcess | null, spawn: null as typeof import('node:child_process').spawn | null, blockNextRequest: false, ready: '', holdMs: 150 }));
+const captured = vi.hoisted(() => ({ child: null as ChildProcess | null, spawn: null as typeof import('node:child_process').spawn | null, blockNextRequest: false, ready: '', holdMs: 400, readyAt: 0 }));
 vi.mock('node:child_process', async (importOriginal) => {
 	const original = await importOriginal<typeof import('node:child_process')>();
 	return {
@@ -38,12 +38,14 @@ vi.mock('node:fs', async (importOriginal) => {
 					env: { ...process.env, STONEWRIGHT_SHARING_FIXTURE: Buffer.from(JSON.stringify({ path: from, ready: captured.ready, holdMs: captured.holdMs })).toString('base64') },
 				});
 				child.unref();
-				const deadline = performance.now() + 2_000;
+				// Starting PowerShell can take several seconds on a loaded machine.
+				const deadline = performance.now() + 10_000;
 				const wait = new Int32Array(new SharedArrayBuffer(4));
 				while (!original.existsSync(captured.ready)) {
 					if (performance.now() >= deadline) throw new Error('Synthetic sharing fixture did not become ready.');
 					Atomics.wait(wait, 0, 0, 1);
 				}
+				captured.readyAt = performance.now();
 			}
 			return original.renameSync(from, to);
 		},
@@ -61,13 +63,15 @@ describe.runIf(process.platform === 'win32')('Windows OAuth native helper failur
 			const store = new OAuthTokenStore(path);
 			store.save(initial);
 			captured.ready = join(directory, 'sharing-ready');
-			captured.holdMs = 150;
+			captured.holdMs = 400;
 			captured.blockNextRequest = true;
 			expect(store.load()).toEqual(initial);
 			expect(existsSync(captured.ready)).toBe(true);
+			// The fixture denies reads until it releases the file, so a result before then would mean no sharing conflict was met.
+			expect(performance.now() - captured.readyAt).toBeGreaterThanOrEqual(captured.holdMs - 100);
 			expect(store.load()).toEqual(initial);
 		} finally { captured.blockNextRequest = false; rmSync(directory, { recursive: true, force: true }); }
-	}, 15_000);
+	}, 30_000);
 
 	it('fails closed after a sharing conflict exceeds the bounded retry budget', async () => {
 		vi.resetModules();
@@ -79,15 +83,16 @@ describe.runIf(process.platform === 'win32')('Windows OAuth native helper failur
 			store.save({ accessToken: 'synthetic-access', refreshToken: 'synthetic-refresh', expiresAt: 0 });
 			const previous = readFileSync(path, 'utf8');
 			captured.ready = join(directory, 'sharing-ready');
-			captured.holdMs = 1_500;
+			captured.holdMs = 3_000;
 			captured.blockNextRequest = true;
 			const started = performance.now();
 			expect(() => store.load()).toThrow(/privacy/i);
-			expect(performance.now() - started).toBeLessThan(7_000);
+			// The helper gives up after its one second budget and the caller stops waiting at its five second response deadline; the rest is slack for a loaded machine.
+			expect(performance.now() - started).toBeLessThan(10_000);
 			expect(() => store.clear()).toThrow(/privacy/i);
 			expect(readFileSync(path, 'utf8')).toBe(previous);
 		} finally { captured.blockNextRequest = false; rmSync(directory, { recursive: true, force: true }); }
-	}, 15_000);
+	}, 30_000);
 
 	it('preserves token bytes and requires a process restart after its helper exits', async () => {
 		vi.resetModules();
@@ -106,5 +111,5 @@ describe.runIf(process.platform === 'win32')('Windows OAuth native helper failur
 			expect(() => store.clear()).toThrow(/privacy/i);
 			expect(readFileSync(path, 'utf8')).toBe(previous);
 		} finally { rmSync(directory, { recursive: true, force: true }); }
-	}, 15_000);
+	}, 30_000);
 });

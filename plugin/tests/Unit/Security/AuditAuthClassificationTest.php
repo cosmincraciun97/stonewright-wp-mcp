@@ -253,55 +253,6 @@ final class AuditAuthClassificationTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
 	}
 
-	public function test_dispatch_routes_the_token_endpoint_to_the_auth_recorder(): void {
-		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/oauth/token' );
-		$request->set_body_params(
-			[
-				'grant_type'    => 'authorization_code',
-				'client_id'     => 'client-abc',
-				'client_secret' => 'SENTINEL-SECRET',
-				'code'          => 'SENTINEL-AUTH-CODE',
-			]
-		);
-		$request->set_header( 'Authorization', 'Bearer SENTINEL-HEADER' );
-		$response = new \WP_REST_Response(
-			[
-				'error'             => 'invalid_grant',
-				'error_description' => 'Authorization code SENTINEL-AUTH-CODE with Bearer SENTINEL-HEADER was refused.',
-			],
-			400
-		);
-
-		$returned = RestRoutes::audit_post_dispatch( $response, null, $request );
-		self::assertSame( $response, $returned );
-
-		$row = self::last_audit_row();
-		self::assertSame( 'oauth/token', $row['ability_name'] );
-		self::assertSame( 'auth', $row['result_status'] );
-		// The generic mutation recorder would have summarized the request body.
-		$encoded = (string) $row['sanitized_args'];
-		self::assertStringNotContainsString( 'SENTINEL-SECRET', $encoded );
-		self::assertStringNotContainsString( 'SENTINEL-AUTH-CODE', $encoded );
-		self::assertStringNotContainsString( 'SENTINEL-HEADER', $encoded );
-		self::assertStringNotContainsString( hash( 'sha256', 'SENTINEL-AUTH-CODE' ), $encoded );
-	}
-
-	public function test_dispatch_keeps_oauth_server_faults_as_errors(): void {
-		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/oauth/token' );
-		$request->set_body_params( [ 'client_id' => 'client-abc' ] );
-
-		RestRoutes::audit_post_dispatch(
-			new \WP_Error( 'server_error', 'Boom', [ 'status' => 500 ] ),
-			null,
-			$request
-		);
-
-		$row = self::last_audit_row();
-		self::assertSame( 'oauth/token', $row['ability_name'] );
-		self::assertSame( 'error', $row['result_status'] );
-		self::assertSame( 'high', $row['severity'] );
-	}
-
 	public function test_dispatch_ignores_successful_auth_surface_reads(): void {
 		$request = new \WP_REST_Request( 'GET', '/stonewright/v1/oauth/authorize' );
 

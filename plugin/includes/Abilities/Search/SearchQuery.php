@@ -31,7 +31,7 @@ final class SearchQuery extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::read(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
 				// Subscribers (read only) must not enumerate drafts/private posts.
@@ -47,18 +47,21 @@ final class SearchQuery extends AbilityKernel {
 						'post_status'    => $can_read_private ? 'any' : 'publish',
 					]
 				);
-				$items = [];
+				$items   = [];
+				$skipped = 0;
 				foreach ( $q->posts as $p ) {
 					$status = (string) $p->post_status;
 					if ( 'publish' === $status ) {
 						// Public content is fine for any caller with the read ability gate.
 					} elseif ( ! $can_read_private ) {
+						++$skipped;
 						continue;
 					} elseif (
 						! current_user_can( 'edit_post', (int) $p->ID )
 						&& ! current_user_can( 'read_post', (int) $p->ID )
 						&& ! current_user_can( 'edit_posts' )
 					) {
+						++$skipped;
 						continue;
 					}
 					$items[] = [
@@ -69,7 +72,10 @@ final class SearchQuery extends AbilityKernel {
 						'modified' => (string) $p->post_modified,
 					];
 				}
-				return [ 'items' => $items, 'total' => count( $items ) ];
+				// Matches across all pages, without the ones this caller may not read.
+				$total = max( count( $items ), (int) $q->found_posts - $skipped );
+
+				return [ 'items' => $items, 'total' => $total ];
 			}
 		);
 	}

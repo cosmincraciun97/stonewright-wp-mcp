@@ -127,15 +127,26 @@ final class CallToAction {
 				'size' => $min_height,
 			],
 			'alignment'  => (string) ( $node['alignment'] ?? $node['align'] ?? 'center' ),
-			'border_radius' => [
+		];
+
+		// Only a runtime whose widget defines a border radius control receives one; the default radius is not applied elsewhere.
+		if ( isset( $controls['border_radius'] ) ) {
+			$settings['border_radius'] = [
 				'unit'     => 'px',
 				'top'      => (string) $radius,
 				'right'    => (string) $radius,
 				'bottom'   => (string) $radius,
 				'left'     => (string) $radius,
 				'isLinked' => true,
-			],
-		];
+			];
+		} elseif ( isset( $node['border_radius'] ) ) {
+			$diagnostics[] = self::diagnostic(
+				$canonical_path,
+				'border_radius_unsupported',
+				'The live Call to Action widget has no border radius control; border_radius was not applied.',
+				[ 'widget_type' => self::WIDGET_TYPE ]
+			);
+		}
 
 		if ( '' !== $bg_url || '' !== (string) $bg_id ) {
 			$settings['bg_image'] = [

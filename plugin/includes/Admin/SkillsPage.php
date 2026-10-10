@@ -3,16 +3,26 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\FormField;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 
 /**
  * Admin page: Skills (slug: stonewright-skills).
  *
  * The page renders the shell, the view tabs, and the regions the skills script
  * boots into. Reading the catalog, importing, exporting, trashing, restoring,
- * and destroying all happen over `SkillsRestApi`, which delegates to `Skills`,
- * `SkillImporter`, and `SkillExporter` — so no lifecycle rule lives here.
+ * and destroying all happen over `SkillsRestApi`, which delegates to the skill
+ * library service — so no lifecycle rule lives here.
  *
  * The editor view stays a plain nonce-checked form post. It is the write path
  * that still works with JavaScript switched off, and it is the only form on
@@ -55,25 +65,8 @@ final class SkillsPage {
 		}
 		check_admin_referer( 'stonewright_skill_save' );
 
-		$slug           = sanitize_title( wp_unslash( $_POST['slug'] ?? '' ) );
-		$title          = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
-		$description    = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
-		$content        = wp_unslash( $_POST['content'] ?? '' );
-		$enabled        = ! empty( $_POST['enabled'] );
-		$enable_agentic = ! empty( $_POST['enable_agentic'] );
-		$enable_prompt  = ! empty( $_POST['enable_prompt'] );
-
-		if ( '' === $slug || '' === $title || '' === $content ) {
-			wp_safe_redirect( self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] ) );
-			exit;
-		}
-
-		Skills::save(
-			compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' )
-			+ [ 'source' => 'user' ]
-		);
-
-		wp_safe_redirect( self::redirect_url( 'catalog', [ 'saved' => '1' ] ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- save_submission() sanitizes each field it reads.
+		wp_safe_redirect( self::save_submission( (array) wp_unslash( $_POST ) ) );
 		exit;
 	}
 
@@ -83,15 +76,66 @@ final class SkillsPage {
 		}
 		check_admin_referer( 'stonewright_skill_toggle' );
 
-		$id      = absint( $_POST['id'] ?? 0 );
-		$enabled = ! empty( $_POST['enabled'] );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- toggle_submission() sanitizes each field it reads.
+		wp_safe_redirect( self::toggle_submission( (array) wp_unslash( $_POST ) ) );
+		exit;
+	}
 
-		if ( $id > 0 ) {
-			Skills::toggle( $id, $enabled );
+	/**
+	 * Saves the editor form and returns where the browser goes next.
+	 *
+	 * @param array<string, mixed> $form Unslashed form fields; the caller has checked the capability and nonce.
+	 */
+	public static function save_submission( array $form ): string {
+		$slug           = sanitize_title( is_string( $form['slug'] ?? null ) ? $form['slug'] : '' );
+		$title          = sanitize_text_field( is_string( $form['title'] ?? null ) ? $form['title'] : '' );
+		$description    = sanitize_textarea_field( is_string( $form['description'] ?? null ) ? $form['description'] : '' );
+		$content        = is_string( $form['content'] ?? null ) ? $form['content'] : '';
+		$enabled        = ! empty( $form['enabled'] );
+		$enable_agentic = ! empty( $form['enable_agentic'] );
+		$enable_prompt  = ! empty( $form['enable_prompt'] );
+		$revision       = absint( is_scalar( $form['revision'] ?? null ) ? $form['revision'] : 0 );
+
+		if ( '' === $slug || '' === $title || '' === $content ) {
+			return self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] );
 		}
 
-		wp_safe_redirect( self::redirect_url( 'catalog', [ 'toggled' => '1' ] ) );
-		exit;
+		$input = compact( 'slug', 'title', 'description', 'content', 'enabled', 'enable_agentic', 'enable_prompt' );
+		if ( $revision > 0 ) {
+			// The editor loaded this revision of the skill; a newer one means the form is stale.
+			$input['revision'] = $revision;
+		}
+
+		$result = SkillLibraryService::open( WordPressBoundary::ADMIN )->save_skill( $input );
+
+		if ( is_wp_error( $result ) ) {
+			return self::redirect_url(
+				'editor',
+				[
+					'error' => sanitize_key( (string) $result->get_error_code() ),
+					'skill' => $slug,
+				]
+			);
+		}
+
+		return self::redirect_url( 'catalog', [ 'saved' => '1' ] );
+	}
+
+	/**
+	 * Enables or disables a skill from a form post and returns where the browser goes next.
+	 *
+	 * @param array<string, mixed> $form Unslashed form fields; the caller has checked the capability and nonce.
+	 */
+	public static function toggle_submission( array $form ): string {
+		$id      = absint( is_scalar( $form['id'] ?? null ) ? $form['id'] : 0 );
+		$enabled = ! empty( $form['enabled'] );
+		$result  = $id > 0 ? SkillLibraryService::open( WordPressBoundary::ADMIN )->set_enabled( $id, $enabled ) : true;
+
+		if ( is_wp_error( $result ) ) {
+			return self::redirect_url( 'catalog', [ 'error' => sanitize_key( (string) $result->get_error_code() ) ] );
+		}
+
+		return self::redirect_url( 'catalog', [ 'toggled' => '1' ] );
 	}
 
 	/**
@@ -134,137 +178,168 @@ final class SkillsPage {
 		$current = self::current_view();
 		$labels  = self::view_labels();
 
+		$tabs = '';
+		foreach ( self::VIEWS as $view ) {
+			$is_current = ( $view === $current );
+			$tabs      .= Html::element(
+				'a',
+				[
+					'class'         => 'sw-ui-tabs__tab',
+					'role'          => 'tab',
+					'id'            => 'sw-skills-tab-' . $view,
+					'href'          => self::view_url( $view ),
+					'data-sw-view'  => $view,
+					'aria-selected' => $is_current ? 'true' : 'false',
+					'aria-controls' => 'sw-skills-panel-' . $view,
+					'tabindex'      => $is_current ? '0' : '-1',
+				],
+				Html::text( $labels[ $view ] )
+			);
+		}
+
+		$panels = '';
+		foreach ( self::VIEWS as $view ) {
+			if ( 'editor' === $view ) {
+				$inner = self::editor_html();
+			} elseif ( 'catalog' === $view ) {
+				$inner = self::catalog_panel_html();
+			} else {
+				$inner = self::skeleton_html( $labels[ $view ] );
+			}
+			$panels .= Html::element(
+				'section',
+				[
+					'class'           => 'sw-ui-tabs__panel',
+					'role'            => 'tabpanel',
+					'id'              => 'sw-skills-panel-' . $view,
+					'aria-labelledby' => 'sw-skills-tab-' . $view,
+					'data-sw-panel'   => $view,
+					'hidden'          => $view === $current ? null : true,
+				],
+				$inner
+			);
+		}
+
+		$noscript = '<noscript>' . Notice::callout(
+			'info',
+			__( 'Some views need JavaScript.', 'stonewright' ),
+			__( 'The catalog, import review, and trash need JavaScript. The editor below still saves without it, and every skill stays readable and writable through the Stonewright MCP abilities.', 'stonewright' )
+		) . '</noscript>';
+
+		$inner = self::notices_html()
+			. self::how_it_works_html()
+			. Html::element( 'div', [ 'class' => 'sw-ui-tabs', 'role' => 'tablist', 'aria-label' => __( 'Skill views', 'stonewright' ) ], $tabs )
+			. Html::element( 'div', [ 'class' => 'sw-skills__status', 'data-sw-skills-status' => true ], '' )
+			. $panels
+			. $noscript;
+
+		$page = Scope::wrap(
+			Html::element(
+				'div',
+				[ 'class' => 'sw-ui-stack', 'data-sw-skills' => true, 'data-sw-current-view' => $current ],
+				$inner
+			),
+			[ 'page' => true, 'class' => 'sw-skills stonewright-skills-page' ]
+		);
+
 		AdminShell::open( self::SLUG );
-		?>
-		<div
-			class="sw-skills-page stonewright-skills-page"
-			data-sw-skills
-			data-sw-current-view="<?php echo esc_attr( $current ); ?>"
-		>
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Skills', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Site-owned Markdown playbooks for repeatable WordPress work. Agents skim descriptions first, then load full bodies only when a task matches.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
-			<?php self::render_notices(); ?>
-
-			<details class="sw-callout">
-				<summary><?php esc_html_e( 'How skills work', 'stonewright' ); ?></summary>
-				<div class="sw-callout__body">
-					<p><strong><?php esc_html_e( 'How skills reach agents', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Keep descriptions short and specific. They are the trigger text agents read during discovery; long Markdown bodies stay out of context until needed.', 'stonewright' ); ?></p>
-					<p><strong><?php esc_html_e( 'Provenance', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Built-in skills ship with Stonewright and can be disabled but not removed. Local skills are yours. External skills come from another plugin and always carry their source.', 'stonewright' ); ?></p>
-					<p><strong><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Review every skill before enabling it. An imported file lands disabled, as a draft, and is re-checked on the server no matter what the file claims about itself.', 'stonewright' ); ?></p>
-				</div>
-			</details>
-
-			<div class="sw-skills-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Skill views', 'stonewright' ); ?>">
-				<?php foreach ( self::VIEWS as $view ) : ?>
-					<?php $is_current = ( $view === $current ); ?>
-					<a
-						class="sw-skills-tab<?php echo $is_current ? ' is-current' : ''; ?>"
-						role="tab"
-						id="sw-skills-tab-<?php echo esc_attr( $view ); ?>"
-						href="<?php echo esc_url( self::view_url( $view ) ); ?>"
-						data-sw-view="<?php echo esc_attr( $view ); ?>"
-						aria-selected="<?php echo $is_current ? 'true' : 'false'; ?>"
-						aria-controls="sw-skills-panel-<?php echo esc_attr( $view ); ?>"
-						tabindex="<?php echo $is_current ? '0' : '-1'; ?>"
-					><?php echo esc_html( $labels[ $view ] ); ?></a>
-				<?php endforeach; ?>
-			</div>
-
-			<p class="sw-skills-status" data-sw-skills-status role="status" aria-live="polite"></p>
-
-			<?php foreach ( self::VIEWS as $view ) : ?>
-				<section
-					class="sw-skills-panel"
-					role="tabpanel"
-					id="sw-skills-panel-<?php echo esc_attr( $view ); ?>"
-					aria-labelledby="sw-skills-tab-<?php echo esc_attr( $view ); ?>"
-					data-sw-panel="<?php echo esc_attr( $view ); ?>"
-					<?php echo $view === $current ? '' : 'hidden'; ?>
-				>
-					<?php if ( 'editor' === $view ) : ?>
-						<?php self::render_editor(); ?>
-					<?php elseif ( 'catalog' === $view ) : ?>
-						<?php self::render_catalog_panel(); ?>
-					<?php else : ?>
-						<div class="sw-skills-panel__loading" data-sw-skills-loading>
-							<?php echo esc_html( $labels[ $view ] ); ?>
-						</div>
-					<?php endif; ?>
-				</section>
-			<?php endforeach; ?>
-
-			<noscript>
-				<div class="sw-empty-state stonewright-empty-state">
-					<p><?php esc_html_e( 'The catalog, import review, and trash need JavaScript. The editor below still saves without it, and every skill stays readable and writable through the Stonewright MCP abilities.', 'stonewright' ); ?></p>
-				</div>
-			</noscript>
-		</div>
-		<?php
+		echo $page; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
 	}
 
-	private static function render_catalog_panel(): void {
-		$catalog = Skills::catalog();
-		$skills  = is_array( $catalog['skills'] ?? null ) ? $catalog['skills'] : [];
-		$sources = Skills::sources();
-		$trashed = Skills::list_trashed();
-		?>
-		<div data-sw-skills-ssr="catalog">
-			<div class="sw-skills-toolbar">
-				<div class="sw-field sw-skills-search">
-					<label for="sw-skills-search"><?php esc_html_e( 'Search skills', 'stonewright' ); ?></label>
-					<input
-						type="search"
-						id="sw-skills-search"
-						class="sw-skills-input"
-						data-sw-skills-search
-						disabled
-						aria-busy="true"
-					>
-				</div>
-				<div class="sw-actions">
-					<a class="sw-skills-button sw-skills-button--primary" href="<?php echo esc_url( self::view_url( 'editor' ) ); ?>">
-						<?php esc_html_e( 'New skill', 'stonewright' ); ?>
-					</a>
-				</div>
-			</div>
-			<p class="description">
-				<?php
-				printf(
+	private static function how_it_works_html(): string {
+		$rows = [
+			[ __( 'How skills reach agents', 'stonewright' ), __( 'Keep descriptions short and specific. They are the trigger text agents read during discovery; long Markdown bodies stay out of context until needed.', 'stonewright' ) ],
+			[ __( 'Provenance', 'stonewright' ), __( 'Built-in skills ship with Stonewright and can be disabled but not removed. Local skills are yours. External skills come from another plugin and always carry their source.', 'stonewright' ) ],
+			[ __( 'Trust boundary', 'stonewright' ), __( 'Review every skill before enabling it. An imported file lands disabled, as a draft, and is re-checked on the server no matter what the file claims about itself.', 'stonewright' ) ],
+		];
+		$body = '';
+		foreach ( $rows as [ $title, $text ] ) {
+			$body .= Html::element( 'p', [], Html::element( 'strong', [], Html::text( $title ) ) . ' ' . Html::text( $text ) );
+		}
+
+		return Html::element(
+			'details',
+			[ 'class' => 'sw-ui-disclosure', 'data-sw-ui-remember' => 'skills-how' ],
+			Html::element( 'summary', [], Icon::render( 'chev-r' ) . Html::text( __( 'How skills work', 'stonewright' ) ) )
+			. Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body' ], $body )
+		);
+	}
+
+	/**
+	 * The placeholder a panel shows until the script has read the catalog: it reserves the height of the content.
+	 */
+	private static function skeleton_html( string $label ): string {
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stack', 'aria-busy' => 'true', 'data-sw-skills-loading' => true ],
+			Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'role' => 'status' ], Html::text( $label ) )
+			. Html::element( 'div', [ 'class' => 'sw-ui-skeleton sw-ui-skeleton--card' ], '' )
+			. Html::element( 'div', [ 'class' => 'sw-ui-skeleton sw-ui-skeleton--card' ], '' )
+		);
+	}
+
+	private static function catalog_panel_html(): string {
+		$library = SkillLibraryService::open( WordPressBoundary::ADMIN );
+		$catalog = $library->catalog_view();
+		$skills  = $catalog['skills'];
+		$sources = $catalog['sources'];
+		$trashed = $library->trashed();
+
+		$search = FormField::input(
+			__( 'Search skills', 'stonewright' ),
+			'sw_skills_search',
+			[
+				'id'    => 'sw-skills-search',
+				'type'  => 'search',
+				'attrs' => [ 'data-sw-skills-search' => true, 'data-sw-ui-search' => true, 'disabled' => true, 'aria-busy' => 'true' ],
+			]
+		);
+		$toolbar = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-toolbar' ],
+			Html::element( 'div', [ 'class' => 'sw-ui-toolbar__search' ], $search )
+			. Html::element( 'div', [ 'class' => 'sw-ui-actions' ], Button::render( __( 'New skill', 'stonewright' ), [ 'variant' => 'primary', 'icon' => 'plus', 'href' => self::view_url( 'editor' ) ] ) )
+		);
+		$summary = Html::element(
+			'p',
+			[ 'class' => 'sw-ui-field__help' ],
+			Html::text(
+				sprintf(
 					/* translators: 1: skill count, 2: source count, 3: trashed count */
-					esc_html__( '%1$d skill(s) from %2$d source(s). %3$d in trash.', 'stonewright' ),
+					__( '%1$d skill(s) from %2$d source(s). %3$d in trash.', 'stonewright' ),
 					count( $skills ),
 					count( $sources ),
 					count( $trashed )
-				);
-				?>
-			</p>
-			<div data-sw-skills-list>
-				<?php if ( [] === $skills ) : ?>
-					<div class="sw-empty-state">
-						<p><?php esc_html_e( 'No skills yet. Write one in the editor, or import a reviewed Markdown file.', 'stonewright' ); ?></p>
-					</div>
-				<?php else : ?>
-					<ul class="sw-skills-list">
-						<?php foreach ( $skills as $skill ) : ?>
-							<?php self::render_catalog_skill_row( is_array( $skill ) ? $skill : [] ); ?>
-						<?php endforeach; ?>
-					</ul>
-				<?php endif; ?>
-			</div>
-		</div>
-		<?php
+				)
+			)
+		);
+
+		if ( [] === $skills ) {
+			$list = EmptyState::render(
+				__( 'No skills yet', 'stonewright' ),
+				__( 'Write one in the editor, or import a reviewed Markdown file.', 'stonewright' ),
+				[ 'variant' => 'first-run' ]
+			);
+		} else {
+			$items = '';
+			foreach ( $skills as $skill ) {
+				$items .= self::catalog_skill_row_html( is_array( $skill ) ? $skill : [] );
+			}
+			$list = Html::element( 'ul', [ 'class' => 'sw-skills__list' ], $items );
+		}
+
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stack', 'data-sw-skills-ssr' => 'catalog' ],
+			$toolbar . $summary . Html::element( 'div', [ 'data-sw-skills-list' => true ], $list )
+		);
 	}
 
 	/**
 	 * @param array<string, mixed> $skill
 	 */
-	private static function render_catalog_skill_row( array $skill ): void {
+	private static function catalog_skill_row_html( array $skill ): string {
 		$title       = (string) ( $skill['title'] ?? '' );
 		$slug        = (string) ( $skill['slug'] ?? '' );
 		$description = (string) ( $skill['description'] ?? '' );
@@ -276,36 +351,47 @@ final class SkillsPage {
 		$protected   = in_array( $source, [ 'builtin', 'playbook' ], true );
 		$origin      = 'external' === $source_kind && '' !== $source_id
 			? $source_id
-			: ( $protected ? 'built-in' : $source );
-		?>
-		<li class="sw-skill-row">
-			<div class="sw-skill-row__head">
-				<strong class="sw-skill-row__title"><?php echo esc_html( '' !== $title ? $title : $slug ); ?></strong>
-				<span class="sw-skill-row__badges">
-					<span class="sw-badge sw-badge--<?php echo $protected ? 'playbook' : 'neutral'; ?>"><?php echo esc_html( $origin ); ?></span>
-					<?php if ( $enabled ) : ?>
-						<span class="sw-badge sw-badge--active"><?php esc_html_e( 'active', 'stonewright' ); ?></span>
-					<?php else : ?>
-						<span class="sw-badge sw-badge--disabled"><?php esc_html_e( 'disabled', 'stonewright' ); ?></span>
-					<?php endif; ?>
-					<?php if ( 'active' !== $status ) : ?>
-						<span class="sw-badge sw-badge--info"><?php echo esc_html( $status ); ?></span>
-					<?php endif; ?>
-				</span>
-			</div>
-			<code class="sw-skill-row__slug"><?php echo esc_html( '' !== $slug ? $slug : 'unknown' ); ?></code>
-			<?php if ( '' !== $description ) : ?>
-				<p class="sw-skill-row__description"><?php echo esc_html( $description ); ?></p>
-			<?php endif; ?>
-		</li>
-		<?php
+			: ( $protected ? __( 'Built-in', 'stonewright' ) : ucfirst( $source ) );
+		$title       = '' !== $title ? $title : $slug;
+
+		// One status badge, then at most two tags: where the skill comes from and how agents reach it.
+		if ( 'active' !== $status ) {
+			$state = Badge::render( ucfirst( $status ), [ 'variant' => 'warn' ] );
+		} else {
+			$state = $enabled ? Badge::render( __( 'Active', 'stonewright' ), [ 'variant' => 'ok' ] ) : Badge::render( __( 'Disabled', 'stonewright' ) );
+		}
+		$tags = Badge::tag( $origin );
+		if ( $enabled ) {
+			$auto    = ! empty( $skill['enable_agentic'] );
+			$command = ! empty( $skill['enable_prompt'] );
+			if ( $auto && $command ) {
+				$tags .= Badge::tag( __( 'Auto and command', 'stonewright' ) );
+			} elseif ( $auto ) {
+				$tags .= Badge::tag( __( 'Auto', 'stonewright' ) );
+			} elseif ( $command ) {
+				$tags .= Badge::tag( __( 'Command', 'stonewright' ) );
+			}
+		}
+
+		$head = Html::element(
+			'div',
+			[ 'class' => 'sw-skill-row__head' ],
+			Html::element( 'strong', [ 'class' => 'sw-skill-row__title' ], Html::text( $title ) )
+			. Html::element( 'span', [ 'class' => 'sw-skill-row__badges' ], $state . $tags )
+		);
+		$body = $head
+			. Html::element( 'code', [ 'class' => 'sw-skill-row__slug' ], Html::text( '' !== $slug ? $slug : 'unknown' ) )
+			. ( '' !== $description ? Html::element( 'p', [ 'class' => 'sw-skill-row__description' ], Html::text( $description ) ) : '' )
+			. Html::element( 'div', [ 'class' => 'sw-ui-actions' ], Button::render( __( 'Edit', 'stonewright' ), [ 'size' => 'sm', 'href' => self::editor_url( $slug ), 'context' => $title ] ) );
+
+		return Html::element( 'li', [ 'class' => 'sw-skill-row sw-ui-card' ], Html::element( 'div', [ 'class' => 'sw-ui-card__body' ], $body ) );
 	}
 
 	/**
 	 * The one form on the page: create a skill, or edit the one named by
 	 * `?skill=<slug>`.
 	 */
-	private static function render_editor(): void {
+	private static function editor_html(): string {
 		$skill = self::requested_skill();
 
 		$slug           = (string) ( $skill['slug'] ?? '' );
@@ -316,80 +402,64 @@ final class SkillsPage {
 		$enable_agentic = null === $skill || (bool) ( $skill['enable_agentic'] ?? true );
 		$enable_prompt  = null === $skill || (bool) ( $skill['enable_prompt'] ?? true );
 		$locked_slug    = null !== $skill;
-		?>
-		<div class="sw-card sw-skills-editor">
-			<h2>
-				<?php
-				echo $locked_slug
-					? esc_html__( 'Edit skill', 'stonewright' )
-					: esc_html__( 'New skill', 'stonewright' );
-				?>
-			</h2>
-			<p class="description"><?php esc_html_e( 'The description is the trigger text agents read during discovery. State when the skill applies, not what it contains.', 'stonewright' ); ?></p>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-skills-form">
-				<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
-				<input type="hidden" name="action" value="stonewright_skill_save">
+		$fields = FormField::input( __( 'Title', 'stonewright' ), 'title', [ 'id' => 'sw-skill-title', 'value' => $title, 'required' => true ] )
+			. FormField::input(
+				__( 'Slug', 'stonewright' ),
+				'slug',
+				[
+					'id'          => 'sw-skill-slug',
+					'value'       => $slug,
+					'pattern'     => '[a-z0-9\-]+',
+					'placeholder' => 'my-skill-slug',
+					'required'    => true,
+					'readonly'    => $locked_slug,
+					'size'        => 'md',
+					'help'        => $locked_slug ? __( 'The slug names the skill and cannot change once it is saved.', 'stonewright' ) : __( 'Lowercase letters, numbers and hyphens.', 'stonewright' ),
+				]
+			)
+			. FormField::input(
+				__( 'Description', 'stonewright' ),
+				'description',
+				[
+					'id'          => 'sw-skill-description',
+					'value'       => $description,
+					'placeholder' => __( 'Use when …', 'stonewright' ),
+					'help'        => __( 'The trigger text agents read during discovery. State when the skill applies, not what it contains.', 'stonewright' ),
+				]
+			)
+			. FormField::textarea( __( 'Content (Markdown)', 'stonewright' ), 'content', [ 'id' => 'sw-skill-content', 'value' => $content, 'rows' => 16, 'code' => true, 'required' => true ] )
+			. Html::element(
+				'fieldset',
+				[ 'class' => 'sw-ui-fieldset sw-ui-stack' ],
+				Html::element( 'legend', [], Html::text( __( 'Availability', 'stonewright' ) ) )
+				. FormField::checkbox( __( 'Skill is active', 'stonewright' ), 'enabled', [ 'id' => 'sw-skill-enabled', 'checked' => $enabled ] )
+				. FormField::checkbox( __( 'Auto-match from task descriptions', 'stonewright' ), 'enable_agentic', [ 'id' => 'sw-skill-agentic', 'checked' => $enable_agentic ] )
+				. FormField::checkbox( __( 'Show as a prompt or command', 'stonewright' ), 'enable_prompt', [ 'id' => 'sw-skill-prompt', 'checked' => $enable_prompt ] )
+				. Html::element( 'span', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'Use auto-match for concise, broadly useful rules. Use prompt mode for larger playbooks agents should open only when explicitly requested.', 'stonewright' ) ) )
+			)
+			. Button::group(
+				[
+					Button::render( __( 'Save skill', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'primary' ] ),
+					Button::render( __( 'Back to catalog', 'stonewright' ), [ 'href' => self::view_url( 'catalog' ) ] ),
+				]
+			);
 
-				<p class="sw-field">
-					<label for="sw-skill-title"><?php esc_html_e( 'Title', 'stonewright' ); ?></label>
-					<input type="text" id="sw-skill-title" name="title" value="<?php echo esc_attr( $title ); ?>" required>
-				</p>
+		$form = FormField::post_form(
+			'stonewright_skill_save',
+			'stonewright_skill_save',
+			'_wpnonce',
+			$fields,
+			[
+				'class'  => 'sw-ui-stack',
+				'hidden' => null !== $skill ? [ 'revision' => (string) ( $skill['revision'] ?? '' ) ] : [],
+			]
+		);
 
-				<p class="sw-field">
-					<label for="sw-skill-slug"><?php esc_html_e( 'Slug', 'stonewright' ); ?></label>
-					<input
-						type="text"
-						id="sw-skill-slug"
-						name="slug"
-						value="<?php echo esc_attr( $slug ); ?>"
-						pattern="[a-z0-9\-]+"
-						placeholder="my-skill-slug"
-						required
-						<?php echo $locked_slug ? 'readonly' : ''; ?>
-					>
-				</p>
-
-				<p class="sw-field">
-					<label for="sw-skill-description"><?php esc_html_e( 'Description', 'stonewright' ); ?></label>
-					<input
-						type="text"
-						id="sw-skill-description"
-						name="description"
-						value="<?php echo esc_attr( $description ); ?>"
-						placeholder="<?php esc_attr_e( 'Use when …', 'stonewright' ); ?>"
-					>
-				</p>
-
-				<p class="sw-field">
-					<label for="sw-skill-content"><?php esc_html_e( 'Content (Markdown)', 'stonewright' ); ?></label>
-					<textarea id="sw-skill-content" name="content" rows="16" class="code" required><?php echo esc_textarea( $content ); ?></textarea>
-				</p>
-
-				<fieldset class="sw-fieldset">
-					<legend><?php esc_html_e( 'Availability', 'stonewright' ); ?></legend>
-					<label class="sw-check">
-						<input type="checkbox" name="enabled" value="1" <?php checked( $enabled ); ?>>
-						<span><?php esc_html_e( 'Skill is active', 'stonewright' ); ?></span>
-					</label>
-					<label class="sw-check">
-						<input type="checkbox" name="enable_agentic" value="1" <?php checked( $enable_agentic ); ?>>
-						<span><?php esc_html_e( 'Auto-match from task descriptions', 'stonewright' ); ?></span>
-					</label>
-					<label class="sw-check">
-						<input type="checkbox" name="enable_prompt" value="1" <?php checked( $enable_prompt ); ?>>
-						<span><?php esc_html_e( 'Show as a prompt or command', 'stonewright' ); ?></span>
-					</label>
-					<p class="description"><?php esc_html_e( 'Use auto-match for concise, broadly useful rules. Use prompt mode for larger playbooks agents should open only when explicitly requested.', 'stonewright' ); ?></p>
-				</fieldset>
-
-				<div class="sw-actions">
-					<button type="submit" class="sw-btn sw-btn--primary"><?php esc_html_e( 'Save skill', 'stonewright' ); ?></button>
-					<a class="sw-btn sw-btn--secondary" href="<?php echo esc_url( self::view_url( 'catalog' ) ); ?>"><?php esc_html_e( 'Back to catalog', 'stonewright' ); ?></a>
-				</div>
-			</form>
-		</div>
-		<?php
+		return Card::render(
+			$locked_slug ? __( 'Edit skill', 'stonewright' ) : __( 'New skill', 'stonewright' ),
+			$form
+		);
 	}
 
 	/**
@@ -401,7 +471,7 @@ final class SkillsPage {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only editor selector.
 		$slug = isset( $_GET['skill'] ) ? sanitize_title( (string) wp_unslash( $_GET['skill'] ) ) : '';
 
-		return '' === $slug ? null : Skills::get( $slug );
+		return '' === $slug ? null : SkillLibraryService::open( WordPressBoundary::ADMIN )->find( $slug );
 	}
 
 	/**
@@ -433,17 +503,43 @@ final class SkillsPage {
 		);
 	}
 
-	private static function render_notices(): void {
+	/**
+	 * What the last save or toggle did. A confirmation is a status message and a refusal is an alert; neither goes
+	 * away by itself.
+	 */
+	private static function notices_html(): string {
 		// phpcs:disable WordPress.Security.NonceVerification
+		$html = '';
 		if ( ! empty( $_GET['saved'] ) ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill saved.', 'stonewright' ) . '</p></div>';
+			$html .= Notice::render( 'ok', __( 'Skill saved.', 'stonewright' ) );
 		}
 		if ( ! empty( $_GET['toggled'] ) ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill updated.', 'stonewright' ) . '</p></div>';
+			$html .= Notice::render( 'ok', __( 'Skill updated.', 'stonewright' ) );
 		}
-		if ( ! empty( $_GET['error'] ) && 'missing_fields' === $_GET['error'] ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Please fill in all required fields (title, slug, content).', 'stonewright' ) . '</p></div>';
-		}
+		$error = isset( $_GET['error'] ) ? sanitize_key( (string) wp_unslash( $_GET['error'] ) ) : '';
 		// phpcs:enable
+		if ( '' !== $error ) {
+			$html .= Notice::render( 'danger', self::error_message( $error ) );
+		}
+
+		return $html;
+	}
+
+	private static function editor_url( string $slug ): string {
+		return self::view_url( 'editor' ) . ( '' !== $slug ? '&skill=' . rawurlencode( $slug ) : '' );
+	}
+	/** A notice for a refused save or toggle; the code never reaches the page as markup. */
+	private static function error_message( string $code ): string {
+		return match ( $code ) {
+			'missing_fields'                      => __( 'Please fill in all required fields (title, slug, content).', 'stonewright' ),
+			'stonewright_skill_lint_failed'       => __( 'The skill was not saved as active. Its description must say when to use it, Elementor guidance needs version constraints, and every ability it names must exist. Save it disabled to keep a draft.', 'stonewright' ),
+			'stonewright_skill_protected',
+			'stonewright_skill_identity_reserved',
+			'stonewright_skill_authority_claim'   => __( 'That slug belongs to a skill that ships with Stonewright or comes from another source. Choose a different slug.', 'stonewright' ),
+			'stonewright_skill_sensitive_content' => __( 'Remove credentials and other secrets from the skill before saving it.', 'stonewright' ),
+			'stonewright_skill_toggle_invalid'    => __( 'A stale or retired skill cannot be enabled again.', 'stonewright' ),
+			'stonewright_skill_write_conflict'    => __( 'The skill changed after you opened it, so nothing was saved. The editor shows the current version; apply your edits to it again.', 'stonewright' ),
+			default                               => __( 'The skill was not saved. Check the fields and try again.', 'stonewright' ),
+		};
 	}
 }

@@ -94,8 +94,7 @@ build.
 
 Deterministic CI coverage for these contracts lives in:
 
-- `plugin/tests/Unit/OAuth/OAuthMatrixContractTest.php`
-- `plugin/tests/Unit/OAuth/*` and `plugin/tests/Integration/OAuth/*`
+- `plugin/tests/Unit/Authorization/`
 - `companion/tests/oauth-matrix.test.ts`
 - `companion/tests/oauth-token-manager.test.ts`
 - `companion/tests/wordpress-mcp-oauth.test.ts`

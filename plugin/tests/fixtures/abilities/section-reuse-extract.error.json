@@ -1,0 +1,10 @@
+{
+    "args": {
+        "post_id": 999999,
+        "locator": {
+            "kind": "element",
+            "id": "missing"
+        }
+    },
+    "expect": "wp_error"
+}

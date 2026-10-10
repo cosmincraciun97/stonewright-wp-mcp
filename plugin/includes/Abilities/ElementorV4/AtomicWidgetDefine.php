@@ -7,7 +7,6 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\V4\AtomicCompiler;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -139,11 +138,7 @@ final class AtomicWidgetDefine extends AbilityKernel {
 				// caller's spec is implicated, so surface findings to operators.
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						'StaticGuard rejected the compiled atomic widget source.',
@@ -159,7 +154,7 @@ final class AtomicWidgetDefine extends AbilityKernel {
 					return $written;
 				}
 
-				$sandbox_path = SandboxFiles::draft_dir() . '/' . $filename;
+				$sandbox_path = SandboxFiles::stored_path( $filename );
 
 				return $this->ok( [
 					'class_name'   => $class_name,

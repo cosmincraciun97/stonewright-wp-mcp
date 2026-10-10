@@ -132,8 +132,9 @@ final class BlueprintApplier {
 		}
 
 		$post_id     = isset( $args['post_id'] ) ? (int) $args['post_id'] : 0;
-		$snapshot_id = '';
-		$created     = false;
+		$snapshot_id        = '';
+		$before_snapshot_id = '';
+		$created            = false;
 		$fse_meta    = [];
 
 		if ( $post_id > 0 ) {
@@ -144,36 +145,40 @@ final class BlueprintApplier {
 					__( 'Target post was not found.', 'stonewright' )
 				);
 			}
-			// Pre-create snapshot for non-FSE paths; FSE path uses FseTransactionQueue.
-			if ( 'fse' !== $engine ) {
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return RuleEnforcer::attribute(
-						new \WP_Error(
-							'stonewright_backup_failed',
-							sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
-						),
-						'backup-before-write'
-					);
-				}
+			// The page as it is now, before the title and status change below and before the engine writes.
+			// This is the snapshot the result returns: the engines snapshot again, but only after the change.
+			$snapshot_id = Backup::snapshot_post( $post_id );
+			if ( '' === $snapshot_id ) {
+				return RuleEnforcer::attribute(
+					new \WP_Error(
+						'stonewright_backup_failed',
+						sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+					),
+					'backup-before-write'
+				);
 			}
+			$before_snapshot_id = $snapshot_id;
 			wp_update_post(
-				[
-					'ID'          => $post_id,
-					'post_title'  => $page_title,
-					'post_status' => $mode,
-				],
+				wp_slash(
+					[
+						'ID'          => $post_id,
+						'post_title'  => $page_title,
+						'post_status' => $mode,
+					]
+				),
 				true
 			);
 		} else {
 			$post_type = 'fse' === $engine ? 'page' : 'page';
 			$insert    = wp_insert_post(
-				[
-					'post_type'    => $post_type,
-					'post_title'   => $page_title,
-					'post_status'  => $mode,
-					'post_content' => '',
-				],
+				wp_slash(
+					[
+						'post_type'    => $post_type,
+						'post_title'   => $page_title,
+						'post_status'  => $mode,
+						'post_content' => '',
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $insert ) ) {
@@ -193,7 +198,7 @@ final class BlueprintApplier {
 			if ( is_wp_error( $write ) ) {
 				return $write;
 			}
-			if ( is_array( $write ) && ! empty( $write['snapshot_id'] ) ) {
+			if ( '' === $before_snapshot_id && is_array( $write ) && ! empty( $write['snapshot_id'] ) ) {
 				$snapshot_id = (string) $write['snapshot_id'];
 			}
 		} elseif ( 'fse' === $engine ) {
@@ -201,8 +206,10 @@ final class BlueprintApplier {
 			if ( is_wp_error( $fse_result ) ) {
 				return $fse_result;
 			}
-			$snapshot_id = (string) ( $fse_result['snapshot_id'] ?? '' );
-			$fse_meta    = $fse_result;
+			if ( '' === $before_snapshot_id ) {
+				$snapshot_id = (string) ( $fse_result['snapshot_id'] ?? '' );
+			}
+			$fse_meta = $fse_result;
 		} else {
 			$blocks = GutenbergSpecRenderer::render( $spec, $diagnostics );
 			if ( is_wp_error( $blocks ) ) {
@@ -213,12 +220,14 @@ final class BlueprintApplier {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 			}
 			$result = wp_update_post(
-				[
-					'ID'           => $post_id,
-					'post_content' => $content,
-					'post_title'   => $page_title,
-					'post_status'  => $mode,
-				],
+				wp_slash(
+					[
+						'ID'           => $post_id,
+						'post_content' => $content,
+						'post_title'   => $page_title,
+						'post_status'  => $mode,
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $result ) ) {
@@ -349,11 +358,13 @@ final class BlueprintApplier {
 
 		// Keep page title/status in sync after content write.
 		wp_update_post(
-			[
-				'ID'          => $post_id,
-				'post_title'  => $page_title,
-				'post_status' => $mode,
-			],
+			wp_slash(
+				[
+					'ID'          => $post_id,
+					'post_title'  => $page_title,
+					'post_status' => $mode,
+				]
+			),
 			true
 		);
 
@@ -419,14 +430,16 @@ final class BlueprintApplier {
 		}
 
 		$insert = wp_insert_post(
-			[
-				'post_type'    => 'wp_template',
-				'post_name'    => $theme . '//' . $slug,
-				'post_title'   => $title,
-				'post_content' => $content,
-				'post_status'  => 'publish',
-				'post_excerpt' => 'Stonewright blueprint FSE template',
-			],
+			wp_slash(
+				[
+					'post_type'    => 'wp_template',
+					'post_name'    => $theme . '//' . $slug,
+					'post_title'   => $title,
+					'post_content' => $content,
+					'post_status'  => 'publish',
+					'post_excerpt' => 'Stonewright blueprint FSE template',
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $insert ) ) {

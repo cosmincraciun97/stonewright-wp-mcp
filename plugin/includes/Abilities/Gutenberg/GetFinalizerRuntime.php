@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -104,7 +104,7 @@ final class GetFinalizerRuntime extends AbilityKernel {
 				'post_id'      => (int) $session['post_id'],
 				'queued_count' => (int) $session['queued_count'],
 				'failed_count' => (int) $session['failed_count'],
-				'queue_url'    => FinalizerPage::url( $issued['token'] ),
+				'queue_url'    => QueueConsole::session_link( $issued['token'] ),
 			];
 			$sessions[] = $row;
 			if ( null === $open ) {
@@ -112,7 +112,7 @@ final class GetFinalizerRuntime extends AbilityKernel {
 			}
 		}
 		$first = $open;
-		$url   = is_array( $first ) ? (string) $first['queue_url'] : FinalizerPage::url( '' );
+		$url   = is_array( $first ) ? (string) $first['queue_url'] : QueueConsole::session_link( '' );
 		$count = BlockQueue::pending_count();
 		return [
 			'url'           => $url,
@@ -123,8 +123,8 @@ final class GetFinalizerRuntime extends AbilityKernel {
 			'keep_open'     => true,
 			'session_id'    => is_array( $first ) ? (string) $first['session_id'] : '',
 			'scripts'       => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-block-library' ],
-			'online'        => FinalizerPage::is_online(),
-			'targets'       => FinalizerPage::pending_targets(),
+			'online'        => QueueConsole::runtime_summary()['online'],
+			'targets'       => QueueConsole::target_summaries(),
 			'sessions'      => $sessions,
 		];
 	}

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\BlockTree;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -25,7 +26,7 @@ final class ParseBlocks extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Parses post content or raw HTML into a block tree. Defaults to a name-and-count summary; use responseMode=full for innerHTML and attributes.', 'stonewright' );
+		return __( 'Parses post content or raw HTML into a block tree. Defaults to a name-and-count summary; use responseMode=full for innerHTML and attributes. The position of a block in this tree is its path in blocks-update, blocks-remove, blocks-insert and blocks-batch-mutate; blank whitespace between root blocks is not listed.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -82,7 +83,7 @@ final class ParseBlocks extends AbilityKernel {
 		}
 
 		$mode   = self::response_mode( $args );
-		$blocks = $this->normalize( parse_blocks( $html ) );
+		$blocks = $this->normalize( BlockTree::parse( $html ) );
 		$counts = [];
 		$this->count_names( $blocks, $counts );
 
@@ -122,9 +123,6 @@ final class ParseBlocks extends AbilityKernel {
 	private function normalize( array $blocks ): array {
 		$out = [];
 		foreach ( $blocks as $block ) {
-			if ( null === ( $block['blockName'] ?? null ) && '' === trim( (string) ( $block['innerHTML'] ?? '' ) ) ) {
-				continue;
-			}
 			$out[] = [
 				'name'        => $block['blockName'] ?? null,
 				'attrs'       => isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [],

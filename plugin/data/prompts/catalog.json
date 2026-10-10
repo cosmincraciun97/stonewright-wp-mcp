@@ -9,7 +9,7 @@
       "summary": "Capture a compact operational overview before changing anything.",
       "prerequisites": [
         "Stonewright plugin active",
-        "Application Password authenticated",
+        "Signed in with OAuth or an Application Password",
         "stonewright-task-start available"
       ],
       "tools": [
@@ -35,10 +35,57 @@
         "stonewright-site-pulse",
         "stonewright-settings-update",
         "stonewright-wp-cli-run",
-        "stonewright-site-health-test"
+        "stonewright-site-health-test",
+        "stonewright-rescue-status"
       ],
-      "prompt": "Use Stonewright. Start with stonewright-task-start, then stonewright-site-pulse. For each failed high/critical check, propose a concrete repair. Apply only reversible fixes through typed abilities (stonewright-settings-update, stonewright-wp-cli-run, stonewright-site-health-test) after confirming mode; skip production-safe destructive steps without tokens. Do not use stonewright-php-execute for routine pulse repairs.",
-      "verification": "Pulse score and fixes list present; any writes audited; no confirmation_token skipped in production-safe."
+      "prompt": "Use Stonewright. Start with stonewright-task-start, then stonewright-site-pulse. For each failed high/critical check, propose a concrete repair. Apply only reversible fixes through typed abilities (stonewright-settings-update, stonewright-wp-cli-run), then confirm each one with stonewright-site-health-test. Confirm mode first and skip production-safe destructive steps without tokens. If a write returns a Rescue error or a pending_incident, stop and call stonewright-rescue-status. Do not use stonewright-php-execute for routine pulse repairs.",
+      "verification": "Pulse score and fixes list present; any writes audited and each fix confirmed by a health test; no confirmation_token skipped in production-safe; no write continued after a Rescue error."
+    },
+    {
+      "id": "repair-with-lineage",
+      "title": "Repair a failed change and keep the lineage",
+      "outcome": "repair",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Fix a write that failed verification, link the repair to it, and see the chain in the Audit log.",
+      "prerequisites": [
+        "Plugin mode",
+        "The change_set_id of the failed write (in its result or error data)",
+        "An Elementor V3 or Gutenberg page"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-elementor-v3-batch-mutate",
+        "stonewright-blocks-batch-mutate",
+        "stonewright-elementor-post-write-verify",
+        "stonewright-elementor-css-regenerate",
+        "stonewright-security-issue-confirmation-token"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. A write on page {{post_id}} failed verification. Take its change_set_id from the result or the error data and read what the change set lists as missing or unexpected. Fix only that cause with one dry run and one apply of stonewright-elementor-v3-batch-mutate (or stonewright-blocks-batch-mutate on a block page), passing repair_of set to that change_set_id. In production-safe mode each apply needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly that call; a dry run needs none. If a call returns stonewright_elementor_write_busy, wait the retry_after seconds it reports and repeat only that call; never run two Elementor writes at once. For Elementor, run stonewright-elementor-css-regenerate, then stonewright-elementor-post-write-verify with the change_set the repair returned. Report whether its verification is verified. Make no unrelated change. Tell me the chain (the failed change, its failed verification, the repair, verified) is shown in Stonewright > Activity > Audit log.",
+      "verification": "The repair has repair_of set and its verification is verified; the earlier incident is resolved; the Audit log shows the chain."
+    },
+    {
+      "id": "restore-earlier-version",
+      "title": "Restore a page to an earlier snapshot",
+      "outcome": "repair",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "List the Stonewright snapshots of a page and restore the one I pick.",
+      "prerequisites": [
+        "Plugin mode",
+        "Edit access to the post",
+        "A snapshot exists (every Stonewright write to a post takes one)"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-change-log",
+        "stonewright-change-restore",
+        "stonewright-security-issue-confirmation-token"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-change-log with post_id {{post_id}} to list its snapshots. Show me the candidates with their times and wait for my pick. Restore the chosen snapshot with stonewright-change-restore (post_id and snapshot_id; in production-safe mode also a confirmation_token from stonewright-security-issue-confirmation-token for exactly those arguments). The restore snapshots the current state first, so it can be undone. Then read the page back and verify desktop and mobile.",
+      "verification": "The chosen snapshot_id is restored with restored:true; a new snapshot of the state before the restore exists; the page renders at desktop and mobile."
     },
     {
       "id": "elementor-landing-from-brief",
@@ -48,6 +95,7 @@
       "prerequisites": [
         "Elementor active",
         "plugin mode",
+        "Elementor V3 page (classic widgets and containers)",
         "design brief or screenshot"
       ],
       "tools": [
@@ -55,10 +103,14 @@
         "stonewright-design-native-plan",
         "stonewright-elementor-v3-build-page-from-spec",
         "stonewright-elementor-v3-batch-mutate",
-        "stonewright-elementor-page-digest"
+        "stonewright-design-validate-spec",
+        "stonewright-elementor-css-regenerate",
+        "stonewright-elementor-post-write-verify",
+        "stonewright-elementor-page-digest",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Plan with stonewright-design-native-plan, validate the DesignSpec, snapshot, then build with stonewright-elementor-v3-build-page-from-spec. Polish with stonewright-elementor-v3-batch-mutate. Prefer native Elementor widgets. Verify desktop/tablet/mobile with no horizontal overflow.",
-      "verification": "Page has Elementor data; digest shows structure; no raw HTML widget dump for core sections."
+      "prompt": "Use Stonewright. Call stonewright-task-start and pass the stonewright_context_token it returns on every write. Plan with stonewright-design-native-plan, then validate the DesignSpec with stonewright-design-validate-spec. Build with stonewright-elementor-v3-build-page-from-spec: dry_run:true first, then one apply once the diagnostics are clean (the apply snapshots the page). Polish with stonewright-elementor-v3-batch-mutate. In production-safe mode each apply of those two tools needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly that call; a dry run needs none. If a call returns stonewright_elementor_write_busy, wait the retry_after seconds it reports and repeat only that call; never run two Elementor writes at once. Prefer native Elementor widgets. Then run stonewright-elementor-css-regenerate for the page and stonewright-elementor-post-write-verify with the touched element ids, and verify desktop/tablet/mobile in a separate tab with no horizontal overflow.",
+      "verification": "Page has Elementor data; digest shows structure; post-write verification passes; no raw HTML widget dump for core sections."
     },
     {
       "id": "elementor-section-refactor",
@@ -73,10 +125,60 @@
         "stonewright-task-start",
         "stonewright-elementor-page-digest",
         "stonewright-elementor-v3-backup-page",
-        "stonewright-elementor-v3-batch-mutate"
+        "stonewright-elementor-v3-batch-mutate",
+        "stonewright-elementor-css-regenerate",
+        "stonewright-elementor-post-write-verify",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright on page {{post_id}}. Start with stonewright-task-start, read stonewright-elementor-page-digest, snapshot via backup, then batch-mutate only the hero section for clearer hierarchy and spacing. Leave other sections untouched.",
-      "verification": "Backup snapshot id recorded; only targeted elements changed; digest before/after differs in hero only."
+      "prompt": "Use Stonewright on page {{post_id}}. Start with stonewright-task-start, read stonewright-elementor-page-digest, and snapshot with stonewright-elementor-v3-backup-page. Change only the hero section with stonewright-elementor-v3-batch-mutate for clearer hierarchy and spacing: one dry_run:true batch, then one apply, with settings_evidence and require_evidence:true for visual changes. In production-safe mode the apply needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly that call; the dry run needs none. Then run stonewright-elementor-css-regenerate and stonewright-elementor-post-write-verify with the touched element ids. Leave other sections untouched. If a call returns stonewright_elementor_write_busy, wait the retry_after seconds it reports and repeat only that call; never run two Elementor writes at once.",
+      "verification": "Backup snapshot id recorded; only targeted elements changed (change_set verified, unexpected empty); digest before/after differs in hero only."
+    },
+    {
+      "id": "elementor-v4-native-bridge",
+      "title": "Edit an Elementor V4 page through the native bridge",
+      "outcome": "elementor",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Plan and apply a certified Elementor ability inside Stonewright's snapshot and readback; V3 stays on Stonewright's writers.",
+      "prerequisites": [
+        "Plugin mode in development or staging (V4 writes are blocked in production-safe)",
+        "Elementor V4 atomic abilities switched on in Stonewright > Setup > Settings",
+        "Elementor's own MCP module on, with an Elementor version Stonewright has certified (the capabilities report says which)"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-site-capabilities",
+        "stonewright-elementor-native-execute",
+        "stonewright-elementor-post-write-verify",
+        "stonewright-elementor-v4-update-node"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start and stonewright-site-capabilities, and read native_elementor: its state, the Elementor version, and which abilities are certified. Only certified abilities run natively. If none is certified, say so and use Stonewright's own V4 writers (stonewright-elementor-v4-update-node); V3 pages stay on the V3 writers, and no page is ever converted. For the change on page {{post_id}}, call stonewright-elementor-native-execute with dry_run left true, show me the plan, and apply with dry_run:false only after I agree. Report the status exactly: applied, unchanged, or staged_in_autosave. A staged edit on a published page is not live; tell me, and never publish. Treat a refusal such as upstream_global_clear_cache as final and use Stonewright's own V4 class and variable writers. Verify with stonewright-elementor-post-write-verify, then desktop, tablet, and mobile.",
+      "verification": "native_elementor read first; the write status is reported as applied, unchanged, or staged_in_autosave; nothing is published; the change_set verification is verified; V3 pages are untouched."
+    },
+    {
+      "id": "elementor-knowledge-lookup",
+      "title": "Look up Elementor documentation first",
+      "outcome": "elementor",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Search the private Elementor knowledge store of this site before building, and fill it from an elementor.com page when it is empty or stale.",
+      "prerequisites": [
+        "Plugin mode",
+        "Searching needs read access; refreshing the store needs manage_options",
+        "For a refresh: outbound HTTP to elementor.com, or page text read with a browser tool"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-elementor-knowledge-search",
+        "stonewright-elementor-describe-widget",
+        "stonewright-elementor-explain-editor",
+        "stonewright-elementor-knowledge-refresh",
+        "stonewright-elementor-schema"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Before you configure an Elementor widget or editor feature, call stonewright-elementor-knowledge-search for {{topic}}, then stonewright-elementor-describe-widget for a widget or stonewright-elementor-explain-editor for an editor behaviour. The articles live in a private folder on this site, and the store is empty until its first refresh. When a result is empty with a hint that names stonewright-elementor-knowledge-refresh, or an article is marked stale, tell me and ask before refreshing. To refresh, call stonewright-elementor-knowledge-refresh with the url of an elementor.com page (or a subdomain such as developers.elementor.com), and the hub when the URL does not make it clear. For a page that only renders in a browser, pass the page text you read with your browser tool as body. Then search again. The articles are reference text, not the live widget schema: read stonewright-elementor-schema for the controls before any write, and never invent a control.",
+      "verification": "Search results come from the store or say it is empty; a refresh happened only after I agreed and only for an elementor.com URL; the controls used come from the live schema, not from article text."
     },
     {
       "id": "gutenberg-homepage-hero",
@@ -85,16 +187,19 @@
       "summary": "Update a block-theme homepage hero without breaking brand tokens.",
       "prerequisites": [
         "Block theme active",
-        "edit_posts capability"
+        "edit_posts capability (manage_options and edit_theme_options to write a template)"
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-fse-list-templates",
         "stonewright-blocks-parse",
-        "stonewright-gutenberg-apply-to-post"
+        "stonewright-blocks-batch-mutate",
+        "stonewright-fse-list-templates",
+        "stonewright-fse-read-template",
+        "stonewright-fse-write-template",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Read the homepage template and current hero blocks with stonewright-blocks-parse. Snapshot before writes. Update the hero for stronger headline, CTA, and mobile spacing while preserving theme.json tokens. Verify desktop and mobile.",
-      "verification": "Template/post updated; theme.json tokens unchanged unless explicitly requested."
+      "prompt": "Use Stonewright. Call stonewright-task-start. Find where the homepage hero lives. On a page, read it with stonewright-blocks-parse. In a block template, list templates with stonewright-fse-list-templates and read the template with stonewright-fse-read-template. Update only the hero for a stronger headline, CTA, and mobile spacing: stonewright-blocks-batch-mutate for a page, stonewright-fse-write-template for a template (both snapshot before they write). In production-safe mode stonewright-fse-write-template needs a confirmation_token from stonewright-security-issue-confirmation-token for exactly that call, and stonewright-blocks-batch-mutate needs one when the batch removes a block. Preserve theme.json tokens. Verify desktop and mobile.",
+      "verification": "Page or template updated through one batch; theme.json tokens unchanged unless explicitly requested."
     },
     {
       "id": "gutenberg-fse-footer",
@@ -102,14 +207,16 @@
       "outcome": "gutenberg",
       "summary": "Clean footer template part structure.",
       "prerequisites": [
-        "FSE theme"
+        "FSE theme",
+        "Administrator (manage_options and edit_theme_options)"
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-fse-read-template",
-        "stonewright-fse-write-template-part"
+        "stonewright-fse-list-templates",
+        "stonewright-fse-write-template-part",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Start with stonewright-task-start. Read the footer template part, snapshot, then simplify navigation/social rows for accessibility and consistent spacing. Do not invent brand colors outside theme.json.",
+      "prompt": "Use Stonewright. Start with stonewright-task-start. Find the footer part with stonewright-fse-list-templates (type wp_template_part). Look at how it renders on the front end and in the Site Editor, then simplify its navigation and social rows for accessibility and consistent spacing, and save it with stonewright-fse-write-template-part, which snapshots the part first. In production-safe mode that save needs a confirmation_token from stonewright-security-issue-confirmation-token for exactly those arguments. Do not invent brand colors outside theme.json.",
       "verification": "Footer part saves; no horizontal overflow at 390px width."
     },
     {
@@ -119,16 +226,18 @@
       "summary": "Register a Services model and seed sample rows.",
       "prerequisites": [
         "plugin mode",
+        "manage_options (an administrator registers the type)",
         "edit_posts"
       ],
       "tools": [
         "stonewright-task-start",
         "stonewright-cpt-register",
         "stonewright-content-bulk-upsert-posts",
-        "stonewright-content-inventory"
+        "stonewright-content-inventory",
+        "stonewright-acf-field-group-save"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Create a Services content model with fields for icon, headline, summary, proof metric, and CTA. Seed six service rows with bulk upsert. Finish with content-inventory to confirm counts.",
-      "verification": "CPT visible in inventory; six seeded posts; REST base documented."
+      "prompt": "Use Stonewright. Call stonewright-task-start. Register a Services content type with stonewright-cpt-register (production-safe needs a confirmation token). Keep the fields for icon, headline, summary, proof metric, and CTA as post meta, or as an ACF field group with stonewright-acf-field-group-save when ACF is active. Seed six service rows with stonewright-content-bulk-upsert-posts, with each field in meta. Finish with stonewright-content-inventory to confirm counts.",
+      "verification": "CPT visible in inventory; six seeded posts with their meta; REST base documented."
     },
     {
       "id": "media-stock-fill",
@@ -154,7 +263,7 @@
       "outcome": "seo",
       "summary": "Inspect and update SEO meta for key pages.",
       "prerequisites": [
-        "SEO plugin with REST or Stonewright SEO adapters"
+        "Yoast SEO, Rank Math, AIOSEO, or SEOPress active"
       ],
       "tools": [
         "stonewright-task-start",
@@ -184,7 +293,7 @@
         "stonewright-wp-cli-discover",
         "stonewright-wp-cli-run"
       ],
-      "prompt": "Use Stonewright companion WP-CLI tools only (never shell wp). Call stonewright-task-start, wp-cli-status, discover rewrite/cache commands, then run a safe status check. Flush rewrites only if the operator confirmed staging.",
+      "prompt": "Use Stonewright companion WP-CLI tools only (never shell wp). Call stonewright-task-start and stonewright-wp-cli-status, discover the rewrite and cache commands with stonewright-wp-cli-discover, then run a safe status check with stonewright-wp-cli-run. Flush rewrites only if the operator confirmed staging.",
       "verification": "All WP-CLI calls tokenized; no eval/shell; output includes command results without secrets."
     },
     {
@@ -202,10 +311,79 @@
         "stonewright-task-start",
         "stonewright-design-native-plan",
         "stonewright-elementor-v3-build-page-from-spec",
-        "stonewright-gutenberg-apply-to-post"
+        "stonewright-gutenberg-apply-to-post",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. List MCP tools and extract design with the client's external Figma MCP (console-bridge preferred when present: figma_export_tokens / figma_get_variables / deep component trees; official: get_variable_defs, get_design_context, get_metadata, get_screenshot). Map fields via skills/design-to-wordpress/references/figma-mcp-extraction.md. Normalize into DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright; no raw Figma tree after normalization). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (±2px spacing).",
+      "prompt": "Use Stonewright. Call stonewright-task-start. List MCP tools and extract design with the client's external Figma MCP (console-bridge preferred when present: figma_export_tokens / figma_get_variables / deep component trees; official: get_variable_defs, get_design_context, get_metadata, get_screenshot). Map fields via skills/design-to-wordpress/references/figma-mcp-extraction.md. Normalize into DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright; no raw Figma tree after normalization). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). In production-safe mode every write that is not a dry run needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly that call. CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (±2px spacing).",
       "verification": "Native plan present; native_gap for any CSS; no raw Figma tree after normalization; provenance set on measured values; verification notes per breakpoint."
+    },
+    {
+      "id": "design-direction-before-visual-work",
+      "title": "Follow the active Design Direction",
+      "outcome": "design",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Read the design direction the site names at connect before any visual work.",
+      "prerequisites": [
+        "Plugin mode",
+        "An active Design Direction (Stonewright > Knowledge > Design)"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-design-direction-brief",
+        "stonewright-design-quality-check"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. The connect instructions name the active Design Direction (name, slug, id, and a contract prefix), and stonewright-task-start repeats it as design_direction_ref. If one is active, read it with stonewright-design-direction-brief before any visual work and keep to its tokens, guidance, and waivers; tell me which values you used. If none is active, tell me, say that a DESIGN.md can be imported in Stonewright > Knowledge > Design, and ask before inventing a style. After the work, measure the rendered page with the client's browser tools, pass the evidence to stonewright-design-quality-check, and list any place you deviated from the direction and why.",
+      "verification": "The brief was read before visual work; the values used are named; quality-check findings are reported; any deviation is explained."
+    },
+    {
+      "id": "design-import-spec-images",
+      "title": "Bring a design's images into the media library",
+      "outcome": "design",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Resolve the image URLs of a DesignSpec to media library attachments: check without downloading first, then fetch.",
+      "prerequisites": [
+        "Plugin mode",
+        "upload_files capability",
+        "A DesignSpec with remote or asset image URLs"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-design-normalize-assets",
+        "stonewright-security-issue-confirmation-token",
+        "stonewright-media-set-alt"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Run stonewright-design-normalize-assets on my DesignSpec with sideload:false first: it resolves the spec without fetching or storing any file, so you can see which images already resolve to media library items. Tell me which remote images remain and wait for my yes. Then call it again with sideload left true to fetch them into the media library. In production-safe mode that call needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly its arguments; sideload:false needs none. Report the attachments it added, set meaningful alt text with stonewright-media-set-alt, and hand the returned spec, not the original URLs, to the builder.",
+      "verification": "The sideload:false pass wrote nothing; the fetch ran only after my yes and, in production-safe mode, with its own token; the returned spec points at media library attachments; alt text is set."
+    },
+    {
+      "id": "section-reuse-new-page",
+      "title": "Build a page from sections my site already has",
+      "outcome": "design",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Find matching sections on other pages, offer them once, copy the ones I pick, and adapt them in one batch.",
+      "prerequisites": [
+        "Plugin mode",
+        "Section reuse set to ask (Stonewright > Setup > Settings, Reuse saved sections)",
+        "A Gutenberg, Elementor V3, or Elementor V4 page (reuse never converts between builders)",
+        "Pages or saved templates you can read and edit"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-section-reuse-find",
+        "stonewright-section-reuse-extract",
+        "stonewright-elementor-v3-batch-mutate",
+        "stonewright-elementor-v4-update-node",
+        "stonewright-blocks-batch-mutate",
+        "stonewright-security-issue-confirmation-token"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start and read agent_preferences.section_reuse (the site setting stonewright_section_reuse: ask or off). If it is off, say so, tell me it can be turned on in Stonewright > Setup > Settings, and build every section from scratch. If it is ask, call stonewright-section-reuse-find with the builder (gutenberg, elementor-v3, or elementor-v4), target_post_id {{post_id}}, and the sections this page needs, for example hero, features, testimonials, contact. Ask me one short question with at most three candidates per role and their warnings, and let me pick any or none. For each pick call stonewright-section-reuse-extract, then put the copy and my text and image changes in one batch with insert_section (stonewright-elementor-v3-batch-mutate, stonewright-elementor-v4-update-node with operations, or stonewright-blocks-batch-mutate): one dry run, one apply. In production-safe mode an Elementor V3 apply needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for exactly that call; a Gutenberg apply needs one only when the same batch removes a block; Elementor V4 writes are blocked. A dry run needs none. Follow the active Design Direction and never edit the source page. For Elementor run stonewright-elementor-css-regenerate and stonewright-elementor-post-write-verify, then verify desktop, tablet, and mobile.",
+      "verification": "section_reuse read first and respected; at most one question; the change_set names a reuse_source for each copied section and its verification is verified; the source page is unchanged."
     },
     {
       "id": "profile-self-upgrade",
@@ -226,8 +404,8 @@
         "stonewright-get-ability-info",
         "stonewright-execute-ability"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. If a required tool is missing from the list, call stonewright-tool-profile with action=activate and profile=full (or the matching specialist profile), then re-list tools (tools/list) before continuing. When the client cannot hold the full catalog, use the compact discover-execute path: stonewright-discover-abilities → stonewright-get-ability-info → stonewright-execute-ability (php-execute stays off that profile). Do not invent shell or REST workarounds.",
-      "verification": "tool-profile returns tools_changed/re_list_instruction when applicable; subsequent tools/list includes the needed tool."
+      "prompt": "Use Stonewright. Call stonewright-task-start. If a required tool is missing from the list, call stonewright-tool-profile with action=activate and profile=full (or the matching specialist profile), then re-list tools (tools/list) before continuing. In Plugin mode, when the client cannot hold the full catalog, use the compact path stonewright-discover-abilities, then stonewright-get-ability-info, then stonewright-execute-ability (stonewright-php-execute stays off that profile). Do not invent shell or REST workarounds.",
+      "verification": "stonewright-tool-profile returns tools_changed/re_list_instruction when applicable; subsequent tools/list includes the needed tool."
     },
     {
       "id": "woocommerce-catalog-setup",
@@ -250,9 +428,11 @@
         "stonewright-wc-product-list",
         "stonewright-wc-product-save",
         "stonewright-wc-order-list",
-        "stonewright-wc-sales-report"
+        "stonewright-wc-sales-report",
+        "stonewright-wc-products",
+        "stonewright-wc-orders"
       ],
-      "prompt": "Use Stonewright and call stonewright-task-start first. Inspect the returned mode. In Plugin mode, call stonewright-wc-status and stonewright-wc-catalog-audit, then use native wc product, variation, attribute, and term abilities with dry_run:true before any approved write; read back exact fields after apply. In Direct mode, use only stonewright-wc-product-list, stonewright-wc-order-list, and stonewright-wc-sales-report; do not attempt catalog writes. Never change payments, checkout, taxes, or live order state unless the user explicitly expands scope.",
+      "prompt": "Use Stonewright and call stonewright-task-start first. Inspect the returned mode. In Plugin mode, call stonewright-wc-status and stonewright-wc-catalog-audit, then use native wc product, variation, attribute, and term abilities with dry_run:true before any approved write; read back exact fields after apply. In Direct mode, use only stonewright-wc-products, stonewright-wc-orders, and stonewright-wc-sales-report; do not attempt catalog writes. Never change payments, checkout, taxes, or live order state unless the user explicitly expands scope.",
       "verification": "Mode reported; Plugin writes have dry-run, permission, audit, confirmation when required, and readback receipts; Direct remains read-only."
     },
     {
@@ -269,12 +449,34 @@
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-site-capabilities",
-        "stonewright-content-inventory",
-        "stonewright-wc-product-list"
+        "stonewright-site-discover",
+        "stonewright-content-list",
+        "stonewright-wc-products"
       ],
-      "prompt": "Use Stonewright Direct mode. Call stonewright-task-start first, then stonewright-site-capabilities. Report active Direct capabilities, write mode, matched local skills, memory references, and recurring errors. Inspect content with stonewright-content-inventory and WooCommerce with stonewright-wc-product-list only through typed read tools. Do not install the plugin, use shell WP-CLI, or create REST runner scripts unless I explicitly request a mode change.",
-      "verification": "task-start reports Direct mode; no write occurs; no credential, absolute state path, or private sites.json content appears in output."
+      "prompt": "Use Stonewright Direct mode. Call stonewright-task-start first, then stonewright-site-discover. Report active Direct capabilities, write mode, matched local skills, memory references, and recurring errors. Inspect content with stonewright-content-list and WooCommerce with stonewright-wc-products only through typed read tools. Do not install the plugin, use shell WP-CLI, or create REST runner scripts unless I explicitly request a mode change.",
+      "verification": "stonewright-task-start reports Direct mode; no write occurs; no credential, absolute state path, or private sites.json content appears in output."
+    },
+    {
+      "id": "inspect-profile-read-only",
+      "title": "Look around without any write tools",
+      "outcome": "inspect",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Switch to the read-only inspect profile: discovery, read, and verify tools only.",
+      "prerequisites": [
+        "Plugin mode",
+        "stonewright-tool-profile available",
+        "Or the operator starts the client with STONEWRIGHT_MCP_TOOL_PROFILE=inspect"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-tool-profile",
+        "stonewright-site-snapshot",
+        "stonewright-content-inventory"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-tool-profile with action=activate and profile=inspect, and re-list tools. The inspect profile keeps discovery, read, and verify tools and has no stonewright-php-execute, stonewright-execute-ability, or write tool; automatic routing never picks it. Answer my question about this site with the read tools only: {{question}}. If an answer would need a write, name the profile that owns it and ask me before switching; do not switch on your own.",
+      "verification": "stonewright-tool-profile reports the inspect profile; the re-listed tools include no write tool; nothing is changed."
     },
     {
       "id": "update-and-verify-stonewright",
@@ -293,9 +495,10 @@
         "stonewright-task-start",
         "stonewright-ping",
         "stonewright-site-info",
+        "stonewright-site-discover",
         "stonewright-tool-profile"
       ],
-      "prompt": "Help me update Stonewright without exposing credentials. Determine whether this setup uses Plugin mode, Direct mode, local stdio, or remote HTTP. Plugin mode: update the WordPress ZIP through the native updater. Local stdio or Direct: update the pinned companion release tarball separately. Remote HTTP: no local companion update is required. After the user restarts the MCP client, call stonewright-task-start, stonewright-ping, stonewright-site-info, and stonewright-tool-profile. When the companion is local, also call stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check. Confirm plugin version where applicable, companion_version where applicable, expected_companion_package, startup_ready, and an empty refresh_required_tool_names list. Never inspect or print private client config.",
+      "prompt": "Help me update Stonewright without exposing credentials. Determine whether this setup uses Plugin mode, Direct mode, local stdio, or remote HTTP. Plugin mode: update the WordPress ZIP through the native updater (Stonewright > Setup > Updates). Local stdio or Direct: update the pinned companion release tarball separately. Remote HTTP: no local companion update is required. After the user restarts the MCP client, call stonewright-task-start, stonewright-ping, and stonewright-tool-profile, plus stonewright-site-info in Plugin mode or stonewright-site-discover in Direct mode. When the companion is local, also call stonewright-setup-profile, stonewright-wordpress-mcp-status, and stonewright-client-surface-check. Confirm plugin version where applicable, companion_version where applicable, expected_companion_package, startup_ready, and an empty refresh_required_tool_names list. Never inspect or print private client config.",
       "verification": "Live mode and versions match the selected release; startup_ready is true; required tool list is complete; persistent memory, skills, and audit were not reset."
     },
     {
@@ -310,9 +513,11 @@
       "tools": [
         "stonewright-task-start",
         "stonewright-elementor-page-digest",
-        "stonewright-elementor-v3-transaction-run"
+        "stonewright-elementor-v3-transaction-run",
+        "stonewright-elementor-post-write-verify",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Digest the page, then stonewright-elementor-v3-transaction-run with stop_on_error and rollback_on_error. Prefer native widgets. If readback fails, confirm automatic rollback and report snapshot id.",
+      "prompt": "Use Stonewright. Call stonewright-task-start. Digest the page, then stonewright-elementor-v3-transaction-run with stop_on_error and rollback_on_error. In production-safe mode that call, a dry run included, needs a confirmation_token from stonewright-security-issue-confirmation-token for exactly its arguments. If a call returns stonewright_elementor_write_busy, wait the retry_after seconds it reports and repeat only that call; never run two Elementor writes at once. Prefer native widgets. If readback fails, confirm automatic rollback and report snapshot id. After a successful run, call stonewright-elementor-post-write-verify with the touched element ids.",
       "verification": "Transaction result ok or rolled_back with snapshot; no partial silent failure."
     },
     {
@@ -334,28 +539,31 @@
         "stonewright-site-info",
         "stonewright-tool-profile"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start first. If the client cannot reach WordPress, run stonewright-ping and stonewright-site-info, then follow the Troubleshoot flow from Stonewright > Setup (or the companion connect verify/repair path for local stdio). Confirm the active alias, configured_mode, active_mode, companion_version, and that stonewright-task-start appears in tools/list after restart. If tools are truncated, call stonewright-tool-profile activate with the matching profile and re-list tools. Never print Application Passwords, OAuth tokens, or private client config.",
-      "verification": "Connection mode and alias reported; task-start visible after restart; no credentials or private config in output."
+      "prompt": "Use Stonewright. Call stonewright-task-start first. If the client cannot reach WordPress, run stonewright-ping and stonewright-site-info, then follow the Troubleshoot flow from Stonewright > Setup > Troubleshoot (sign-in addresses and connected OAuth clients are under Stonewright > Setup > Connections), or the companion connect verify/repair path for local stdio. Confirm the active alias, configured_mode, active_mode, companion_version, and that stonewright-task-start appears in tools/list after restart. If tools are truncated, call stonewright-tool-profile activate with the matching profile and re-list tools. Never print Application Passwords, OAuth tokens, or private client config.",
+      "verification": "Connection mode and alias reported; stonewright-task-start visible after restart; no credentials or private config in output."
     },
     {
       "id": "block-theme-section-finalizer",
       "title": "Build a section on my block theme",
       "outcome": "gutenberg",
-      "summary": "Queue block changes through the Block Editor Queue finalizer instead of hand-editing serialized HTML.",
+      "summary": "Queue block changes through the block queue console instead of hand-editing serialized HTML.",
       "prerequisites": [
         "Block theme active",
-        "Block Editor Queue tab reachable in wp-admin",
+        "A browser that can open the block queue console (Stonewright > Activity > Block queue)",
         "edit_posts capability"
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-blocks-finalizer-runtime",
+        "stonewright-blocks-parse",
         "stonewright-blocks-queue-change",
+        "stonewright-blocks-finalizer-runtime",
+        "stonewright-blocks-pending-batch",
         "stonewright-blocks-finalize-batch",
-        "stonewright-blocks-parse"
+        "stonewright-blocks-finalizer-url",
+        "stonewright-security-issue-confirmation-token"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Read the target template or page with stonewright-blocks-parse, then stonewright-blocks-finalizer-runtime to confirm the Block Editor Queue is online. Queue one section change with stonewright-blocks-queue-change, complete the browser finalizer step, and persist with stonewright-blocks-finalize-batch after snapshot. Preserve theme.json tokens unless I explicitly request brand changes. Verify desktop and mobile.",
-      "verification": "Finalizer runtime online; queued change finalized with readback; section renders without horizontal overflow at 390px."
+      "prompt": "Use Stonewright. Call stonewright-task-start. Read the target template or page with stonewright-blocks-parse, then queue one section change with stonewright-blocks-queue-change. Check stonewright-blocks-finalizer-runtime for online:true. If it is offline, give me the link from stonewright-blocks-finalizer-url (the block queue console, Stonewright > Activity > Block queue) and ask me to keep that tab open. Poll stonewright-blocks-pending-batch until the change is serialized, then persist it with stonewright-blocks-finalize-batch (it snapshots first; in production-safe mode it needs a confirmation_token from stonewright-security-issue-confirmation-token for exactly that call). Preserve theme.json tokens unless I explicitly request brand changes. Verify desktop and mobile.",
+      "verification": "Block queue console online; queued change finalized with readback; section renders without horizontal overflow at 390px."
     },
     {
       "id": "elementor-performance-audit",
@@ -390,7 +598,7 @@
         "stonewright-blocks-library-check-setup",
         "stonewright-blocks-library-list-blocks"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-site-capabilities. Report whether Elementor, Gutenberg/FSE, GenerateBlocks, Kadence, Spectra, or Blocksy is active. When Elementor is present, call stonewright-elementor-v3-status. When a third-party block library is active, call stonewright-blocks-library-check-setup and stonewright-blocks-library-list-blocks for that library. Summarize what I can build natively on this site without inventing widgets or block attributes.",
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-site-capabilities. Report whether Elementor, Gutenberg/FSE, GenerateBlocks, Kadence Blocks, Spectra, or Blocksy is active, and for Elementor whether its own MCP module is available (native_elementor). When Elementor is present, call stonewright-elementor-v3-status. When a third-party block library is active, call stonewright-blocks-library-check-setup, and stonewright-blocks-library-list-blocks for GenerateBlocks, Kadence Blocks, or Spectra. Summarize what I can build natively on this site without inventing widgets or block attributes.",
       "verification": "Active builders/libraries listed with version signals; no invented widget or block schemas."
     },
     {
@@ -411,8 +619,52 @@
         "stonewright-theme-file-patch",
         "stonewright-theme-custom-css"
       ],
-      "prompt": "Use Stonewright and call stonewright-task-start first. Prove the native gap, then run the matching approval-gated custom-code tool with dry_run:true. Return approval_url, exact path, before_bytes, after_bytes, changed_bytes, and a short change summary, then stop. Do not open the approval page, issue or retrieve the grant, or apply the candidate unless I explicitly ask you to perform that approval step. After I send the one-time custom_code_grant, apply only the exact approved hash and report backup, readback, smoke, and rollback status.",
-      "verification": "No write occurs before the human-issued grant; candidate path and hash remain unchanged; apply reports verified readback and audit fields."
+      "prompt": "Use Stonewright and call stonewright-task-start first. Prove the native gap, then run the matching approval-gated custom-code tool with dry_run:true. Return approval_url, exact path, before_bytes, after_bytes, changed_bytes, and a short change summary, then stop. Do not open the approval page, issue or retrieve the grant, or apply the candidate unless I explicitly ask you to perform that approval step. After I send the one-time custom_code_grant, apply only the exact approved hash and report backup, readback, the health check, rollback status, and the change_set id.",
+      "verification": "No write occurs before the human-issued grant; candidate path and hash remain unchanged; apply reports verified readback, the health check result, and audit fields."
+    },
+    {
+      "id": "rescue-protected-change",
+      "title": "Make a change with Rescue watching",
+      "outcome": "safety",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Write through a typed ability, read the health check, and never call the site healthy without evidence.",
+      "prerequisites": [
+        "Plugin mode",
+        "manage_options for the Rescue abilities",
+        "The site can call itself over HTTP, or the change stays marked not verified"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-rescue-status",
+        "stonewright-rescue-rollback",
+        "stonewright-security-issue-confirmation-token"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then make this change only through a typed ability, never stonewright-php-execute: {{change}}. Stonewright records how to undo it first and asks the site whether it still loads afterwards. Report the change_set verification and any Rescue outcome (stonewright_rescue_write_rolled_back or stonewright_rescue_rollback_failed, with site_status). If a notice says the health check is unavailable, tell me the change is not verified and check the page and wp-admin another way. If a response carries pending_incident, stop and call stonewright-rescue-status before any other write. Do not retry a rolled-back change without changing the approach.",
+      "verification": "Result says verified, rolled back, or not verified, with evidence; no healthy claim without a passing check; no retry before the incident is closed."
+    },
+    {
+      "id": "rescue-roll-back-incident",
+      "title": "Roll back a failed change",
+      "outcome": "safety",
+      "modes": [
+        "plugin"
+      ],
+      "summary": "Undo a change that left the site failing: dry run first, then confirm the site loads.",
+      "prerequisites": [
+        "Plugin mode",
+        "manage_options",
+        "An open incident or a change that was armed and never verified"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-rescue-status",
+        "stonewright-rescue-rollback",
+        "stonewright-security-issue-confirmation-token"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start, then stonewright-rescue-status. For the open incident, call stonewright-rescue-rollback with its incident_id and dry_run:true, and tell me what it restores, how old the change is, and any warning that a newer change to the same item would be overwritten. Wait for my yes. In production-safe mode get a one-use confirmation_token from stonewright-security-issue-confirmation-token for exactly the call that follows. Then run the rollback and check that site_status is healthy. If a person already undid the change by hand, use action recheck instead. Do not undo it with stonewright-php-execute or WP-CLI. If the site does not load at all, tell me to use Stonewright > Activity > Rescue, the rescue link in the WordPress recovery mode email, or wp stonewright rescue status.",
+      "verification": "site_status is healthy after the rollback; the outcome is on the change set and in Stonewright > Activity > Audit log; no write ran before my confirmation."
     }
   ]
 }

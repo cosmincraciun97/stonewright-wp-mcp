@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -43,7 +43,7 @@ final class UpdateBlock extends AbilityKernel {
 			'properties'           => [
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'   => [ 'type' => 'integer', 'minimum' => 1 ],
-				'path'      => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
+				'path'      => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ], 'description' => 'Index path of the block in the blocks-parse tree: its position among the root blocks, then among the innerBlocks of each parent.' ],
 				'attrs'     => [ 'type' => 'object' ],
 				'innerHTML' => [ 'type' => 'string' ],
 				'allow_raw_html' => [ 'type' => 'boolean', 'default' => false ],
@@ -85,11 +85,18 @@ final class UpdateBlock extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$blocks      = parse_blocks( $post->post_content );
+				$blocks      = BlockTree::parse( (string) $post->post_content );
 				$path        = array_map( 'intval', (array) $args['path'] );
 				$existing    = BlockTree::get( $blocks, $path );
 				if ( null === $existing ) {
 					return $this->error( 'invalid_path', __( 'Block path not found.', 'stonewright' ) );
+				}
+				if ( isset( $args['innerHTML'] ) && ! empty( $existing['innerBlocks'] ) ) {
+					return $this->error(
+						'unsafe_nested_inner_html',
+						__( 'innerHTML cannot be replaced on a block that contains innerBlocks; update the child blocks instead.', 'stonewright' ),
+						[ 'path' => $path ]
+					);
 				}
 
 				$allow_raw  = ! empty( $args['allow_raw_html'] );
@@ -143,7 +150,7 @@ final class UpdateBlock extends AbilityKernel {
 							'queued'        => true,
 							'change_id'     => (string) $queued['id'],
 							'status'        => (string) $queued['status'],
-							'finalizer_url' => FinalizerPage::url( '', (string) ( $queued['session_id'] ?? '' ) ),
+							'finalizer_url' => QueueConsole::session_link( '', (string) ( $queued['session_id'] ?? '' ) ),
 						];
 					}
 				}
@@ -160,10 +167,12 @@ final class UpdateBlock extends AbilityKernel {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$html        = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(
-					[
-						'ID'           => $post_id,
-						'post_content' => $html,
-					],
+					wp_slash(
+						[
+							'ID'           => $post_id,
+							'post_content' => $html,
+						]
+					),
 					true
 				);
 				if ( is_wp_error( $result ) ) {

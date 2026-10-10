@@ -4,7 +4,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Knowledge\Lifecycle;
 
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Support\Json;
 
 /** Site-local lifecycle for researched knowledge and candidate skills. */
@@ -46,8 +47,8 @@ final class CandidateRepository {
 		$id = (int) $wpdb->insert_id;
 		if ( true === ( $input['create_draft_skill'] ?? true ) ) {
 			$skill_slug = 'draft-' . self::slugify( (string) $normalized['topic'] ) . '-' . substr( (string) $normalized['semantic_fingerprint'], 0, 8 );
-			$skill_id   = Skills::save( self::skill_payload( $normalized, $skill_slug, 'draft', 0 ) );
-			if ( $skill_id > 0 ) {
+			$skill_id   = self::skills()->record_evidence( self::skill_payload( $normalized, $skill_slug, 'draft', 0 ) );
+			if ( is_int( $skill_id ) && $skill_id > 0 ) {
 				self::update( $id, [ 'skill_slug' => $skill_slug ] );
 				$row['skill_slug'] = $skill_slug;
 			}
@@ -206,9 +207,10 @@ final class CandidateRepository {
 			return new \WP_Error( 'stonewright_knowledge_promotion_gate', 'Promotion needs two verified successes or explicit user approval with a note.' );
 		}
 
+		$skills    = self::skills();
 		$conflicts = array_values(
 			array_filter(
-				Skills::find_active_by_topic( (string) $candidate['topic'] ),
+				$skills->topic_holders( (string) $candidate['topic'] ),
 				static fn( array $skill ): bool => (string) ( $skill['semantic_fingerprint'] ?? '' ) !== (string) $candidate['semantic_fingerprint']
 			)
 		);
@@ -219,24 +221,20 @@ final class CandidateRepository {
 				[ 'conflicts' => array_column( $conflicts, 'slug' ) ]
 			);
 		}
-		foreach ( $conflicts as $conflict ) {
-			Skills::save(
-				array_merge(
-					$conflict,
-					[ 'enabled' => false, 'status' => 'stale', 'conflicts' => [ (string) $candidate['semantic_fingerprint'] ] ]
-				)
-			);
-		}
 
 		$slug    = '' !== (string) $candidate['skill_slug'] ? (string) $candidate['skill_slug'] : 'learned-' . self::slugify( (string) $candidate['topic'] );
 		$payload = self::skill_payload( $candidate, $slug, 'active', (int) $candidate['verification_count'] );
-		$lint    = Skills::lint( $payload );
+		$lint    = $skills->review_record( $payload );
 		if ( [] !== $lint['errors'] ) {
 			return new \WP_Error( 'stonewright_skill_lint_failed', 'The candidate skill failed promotion lint.', [ 'lint' => $lint ] );
 		}
-		$skill_id = Skills::save( $payload );
-		if ( $skill_id < 1 ) {
-			return new \WP_Error( 'stonewright_skill_promotion_failed', 'The candidate skill could not be activated.' );
+		// Skills this candidate replaces are withdrawn only after it has passed lint; a candidate that fails lint leaves them in service.
+		foreach ( $conflicts as $conflict ) {
+			$skills->withdraw_skill( (string) $conflict['slug'], (string) $candidate['semantic_fingerprint'] );
+		}
+		$skill_id = $skills->record_evidence( $payload );
+		if ( is_wp_error( $skill_id ) ) {
+			return new \WP_Error( 'stonewright_skill_promotion_failed', 'The candidate skill could not be activated.', [ 'root_error_code' => (string) $skill_id->get_error_code() ] );
 		}
 
 		self::update( $id, [ 'status' => 'approved', 'skill_slug' => $slug ] );
@@ -420,11 +418,17 @@ final class CandidateRepository {
 		if ( '' === $slug ) {
 			return;
 		}
-		$skill = Skills::get( $slug );
+		$skills = self::skills();
+		$skill  = $skills->find( $slug );
 		if ( null === $skill || 'active' !== (string) ( $skill['status'] ?? '' ) ) {
 			return;
 		}
-		Skills::save( array_merge( $skill, [ 'enabled' => false, 'status' => 'stale', 'conflicts' => [ $reason ] ] ) );
+		$skills->withdraw_skill( $slug, $reason );
+	}
+
+	/** Candidate skills carry verification evidence, which only the plugin's own lifecycle may write. */
+	private static function skills(): SkillLibraryService {
+		return SkillLibraryService::open( WordPressBoundary::SYSTEM );
 	}
 
 	/** @param array<string, mixed> $row @return array<string, mixed> */

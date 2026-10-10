@@ -2,20 +2,14 @@
     "name": "stonewright/wp-mcp",
     "description": "Stonewright exposes WordPress building primitives to MCP clients.",
     "type": "wordpress-plugin",
-    "license": "AGPL-3.0-or-later",
+    "license": "GPL-2.0-or-later",
     "require": {
         "php": ">=8.1",
         "automattic/jetpack-autoloader": "^5.0",
-        "league/oauth2-server": "^8.5",
-        "nyholm/psr7": "^1.8",
-        "wordpress/mcp-adapter": "^0.6.1",
+        "defuse/php-encryption": "^2.4",
+        "opis/json-schema": "^2.3",
         "wordpress/abilities-api": "^0.1.0 || ^1.0",
-        "opis/json-schema": "^2.3"
-    },
-    "conflict": {
-        "lcobucci/jwt": ">=5.0",
-        "lcobucci/clock": ">=3.0",
-        "league/uri": ">=6.8"
+        "wordpress/mcp-adapter": "^0.6.1"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",

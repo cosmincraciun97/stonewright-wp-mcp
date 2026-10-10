@@ -1,195 +1,128 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /**
- * AI Abilities premium table.
- * Enqueued only on stonewright-abilities.
+ * AI Abilities: placement only. Every component (toolbar, disclosure, table, switch, badges) comes from sw-ui.css.
  */
 
-.sw-abilities-page {
-	max-width: var(--sw-shell-content-max, 1200px);
-}
-
-.sw-abilities-filters {
-	position: sticky;
-	top: var(--sw-shell-offset, 76px);
-	z-index: 20;
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
+.sw-abilities,
+.sw-abilities__form,
+.sw-abilities__list,
+.sw-abilities__provider {
+	display: grid;
 	gap: var(--sw-space-3);
-	padding: var(--sw-space-3) var(--sw-space-4);
-	margin: 0 0 var(--sw-space-5);
-	background: var(--sw-color-card);
-	border: 1px solid var(--sw-color-border);
-	border-radius: var(--sw-radius);
-	box-shadow: var(--sw-shadow-1);
-}
-
-.sw-abilities-search {
 	min-width: 0;
-	flex: 1 1 160px;
-	max-width: 100%;
 }
 
-.sw-abilities-stats {
-	margin-left: auto;
-	font-size: var(--sw-text-sm);
-	font-weight: 600;
-	color: var(--sw-color-muted);
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
-}
-
-.sw-ability-category {
-	background: var(--sw-color-card);
-	border: 1px solid var(--sw-color-border);
-	border-radius: var(--sw-radius);
-	box-shadow: var(--sw-shadow-1);
-	margin: 0 0 var(--sw-space-4);
-	overflow: hidden;
-}
-
-.sw-ability-category.is-filtered-empty {
+.sw-abilities__notices:empty {
 	display: none;
 }
 
-.sw-ability-category__summary {
+.sw-abilities__notices {
+	display: grid;
+	gap: var(--sw-space-3);
+}
+
+/* The bulk controls take the second row of the toolbar. */
+.sw-abilities__bulk {
+	display: flex;
+	flex: 1 1 100%;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2) var(--sw-space-3);
+}
+
+.sw-abilities__bulk .sw-ui-select {
+	width: auto;
+	min-width: 11rem;
+}
+
+.sw-abilities__error {
+	flex: 1 1 100%;
+	margin: 0;
+}
+
+.sw-abilities__provider-head {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--sw-space-3);
-	padding: var(--sw-space-4);
-	cursor: pointer;
-	list-style: none;
-	background: var(--sw-gray-50);
-	border-bottom: 1px solid transparent;
+	gap: var(--sw-space-2) var(--sw-space-3);
+	margin-top: var(--sw-space-3);
 }
 
-.sw-ability-category[open] > .sw-ability-category__summary {
-	border-bottom-color: var(--sw-color-border);
+.sw-abilities__provider-title {
+	font-size: var(--sw-fs-lg);
 }
 
-.sw-ability-category__summary::-webkit-details-marker {
-	display: none;
+.sw-abilities__category > summary {
+	flex-wrap: wrap;
 }
 
-.sw-ability-category__title {
+.sw-abilities__category-title {
 	flex: 1 1 auto;
 	min-width: 0;
+	font-size: var(--sw-fs-md);
 }
 
-.sw-ability-category__title h2 {
-	margin: 0;
-	font-size: var(--sw-text-lg);
-	line-height: 1.25;
+.sw-abilities__category-body {
+	padding: 0;
 }
 
-.sw-ability-category__title .stonewright-provider-name {
-	display: block;
-	font-size: var(--sw-text-xs);
-	color: var(--sw-color-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	margin-bottom: var(--sw-space-1);
+.sw-abilities__category-actions {
+	margin: var(--sw-space-3);
 }
 
-.sw-ability-category__actions {
-	flex: 0 0 auto;
+.sw-abilities__main {
+	display: grid;
+	gap: var(--sw-space-1);
+	min-width: 0;
 }
 
-.sw-abilities-empty {
-	padding: var(--sw-space-6);
-	text-align: center;
-	color: var(--sw-color-muted);
-	background: var(--sw-color-card);
-	border: 1px dashed var(--sw-color-border);
-	border-radius: var(--sw-radius);
-	margin-bottom: var(--sw-space-4);
+.sw-abilities__tool,
+.sw-abilities__main > .sw-ui-badge {
+	justify-self: start;
+	max-width: 100%;
+	overflow-wrap: anywhere;
 }
 
-.sw-abilities-empty[hidden] {
-	display: none !important;
+.sw-abilities__table :where(td:first-child) {
+	width: var(--sw-space-7);
 }
 
-/* Switch */
-.sw-switch {
-	position: relative;
-	display: inline-flex;
-	width: 40px;
-	height: 22px;
-	flex-shrink: 0;
-	align-items: center;
+.sw-abilities .sw-ui-checkbox {
+	min-width: var(--sw-control-h-xs);
+	justify-content: center;
 }
 
-.sw-switch input {
-	position: absolute;
-	opacity: 0;
-	width: 100%;
-	height: 100%;
-	margin: 0;
-	cursor: pointer;
-	z-index: 1;
+.sw-abilities__state {
+	min-width: 3ch;
+	color: var(--sw-text-secondary);
 }
 
-.sw-switch__track {
-	position: absolute;
-	inset: 0;
-	background: var(--sw-gray-300);
-	border-radius: var(--sw-radius-pill);
-	transition: background var(--sw-dur) var(--sw-ease);
-	pointer-events: none;
+.sw-abilities__selected {
+	color: var(--sw-text-secondary);
+	font-variant-numeric: tabular-nums;
 }
 
-.sw-switch__track::before {
-	content: '';
-	position: absolute;
-	height: 16px;
-	width: 16px;
-	left: 3px;
-	top: 3px;
-	background: var(--sw-surface-raised);
-	border-radius: 50%;
-	transition: transform var(--sw-dur) var(--sw-ease);
-	box-shadow: var(--sw-shadow-1);
-}
-
-.sw-switch input:checked + .sw-switch__track {
-	background: var(--sw-success);
-}
-
-.sw-switch input:checked + .sw-switch__track::before {
-	transform: translateX(18px);
-}
-
-.sw-switch input:focus-visible + .sw-switch__track {
-	outline: 2px solid var(--sw-brand);
-	outline-offset: 2px;
-}
-
-.sw-switch input:disabled + .sw-switch__track {
-	opacity: .5;
-	cursor: not-allowed;
-}
-
-.sw-ability-label mark,
-.sw-ability-tool mark {
-	background: var(--sw-brand-soft);
-	color: var(--sw-brand-strong);
-	border-radius: 2px;
+.sw-abilities mark {
 	padding: 0 2px;
+	background: var(--sw-accent-soft);
+	color: var(--sw-accent-text);
 }
 
-.sw-abilities-page .stonewright-ability-table__head {
-	position: static;
-	background: var(--sw-surface);
-}
-
-@media screen and (max-width: 782px) {
-	.sw-abilities-filters {
-		top: var(--sw-shell-offset, 76px);
+@media (max-width: 782px) {
+	.sw-abilities__bulk .sw-ui-select {
+		flex: 1 1 11rem;
 	}
 
+	.sw-abilities__table :where(td:first-child) {
+		width: auto;
+	}
 
-	.sw-abilities-stats {
-		margin-left: 0;
-		width: 100%;
+	/* The checkbox is named by its ability, so the stacked row does not repeat the word Select. */
+	.sw-abilities__table td:first-child {
+		justify-content: flex-start;
+	}
+
+	.sw-abilities__table td:first-child::before {
+		content: none;
 	}
 }

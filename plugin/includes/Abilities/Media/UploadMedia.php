@@ -116,10 +116,12 @@ final class UploadMedia extends AbilityKernel {
 				}
 				if ( ! empty( $args['caption'] ) ) {
 					wp_update_post(
-						[
-							'ID'           => (int) $id,
-							'post_excerpt' => sanitize_text_field( (string) $args['caption'] ),
-						]
+						wp_slash(
+							[
+								'ID'           => (int) $id,
+								'post_excerpt' => sanitize_text_field( (string) $args['caption'] ),
+							]
+						)
 					);
 				}
 

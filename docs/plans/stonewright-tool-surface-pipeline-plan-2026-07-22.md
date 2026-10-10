@@ -3080,17 +3080,15 @@ the operator changes the site surface in admin. It only re-lists when it calls a
 tool again and observes a newer `surface_revision`, or when the user restarts the client.
 
 ## Why we do not patch it here
-The adapter is third-party code under its own SPDX header (see
-`docs/upstream-code-reuse.md`). Editing its behavior would fork upstream. The supported
-propagation path is:
+The adapter is third-party code under its own SPDX header. Editing its behavior would
+fork upstream. The supported propagation path is:
 - **plugin-proxy / Direct mode:** the companion emits `tools/list_changed` on
   `surface_revision` change (see companion `handleToolsChangedResponse`).
 - **plugin-direct:** poll-on-next-call via `surface_revision` on every gateway response.
 
 ## If upstream gains listChanged
 Re-evaluate: advertise `capabilities.tools.listChanged` and wire a push from
-`stonewright_tool_surface_changed`. Track the upstream version in
-`docs/upstream-code-reuse.md` before adopting.
+`stonewright_tool_surface_changed`. Track the upstream version before adopting.
 ```
 
 - [x] **Step 2: Add a non-behavioral marker comment in the vendored handler**
@@ -3317,7 +3315,7 @@ git commit -m "docs: recovery runbook, README architecture diagram, capped-clien
 cd plugin && composer test && composer phpstan && composer phpcs && composer security:audit
 cd ../companion && npm test && npm run typecheck && npm run build
 cd .. && node scripts/check-docs-freshness.mjs && git diff --check
-# Provenance check: copied or derived files must be represented in the reuse ledger.
+# License check: component licenses and the companion license boundary.
 php plugin/bin/lint-upstream-provenance.php
 ```
 

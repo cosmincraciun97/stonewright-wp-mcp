@@ -201,6 +201,47 @@ describe('handleToolsChangedResponse', () => {
 		expect(result.removed).toEqual(['stonewright-elementor-page-digest']);
 	});
 
+	it('lets a switch into the read-only inspect profile drop php-execute, and keeps the gateways', async () => {
+		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
+		const toolProfileHandle = makeHandle();
+		const phpExecuteHandle = makeHandle();
+		const siteInfoHandle = makeHandle();
+		const registered = new Map([
+			['stonewright-tool-profile', { handle: toolProfileHandle, tool: { name: 'stonewright-tool-profile' } }],
+			['stonewright-php-execute', { handle: phpExecuteHandle, tool: { name: 'stonewright-php-execute' } }],
+			['stonewright-site-info', { handle: siteInfoHandle, tool: { name: 'stonewright-site-info' } }],
+		]);
+
+		const result = await handleToolsChangedResponse({
+			server,
+			client: {
+				listTools: vi.fn(() => Promise.resolve([
+					{ name: 'stonewright-tool-profile' },
+					{ name: 'stonewright-php-execute' },
+					{ name: 'stonewright-site-info' },
+				])),
+				callTool: vi.fn(() => Promise.resolve({
+					structuredContent: {
+						ok: true,
+						source: 'plugin',
+						tools: ['stonewright-site-info'],
+					},
+				})),
+			},
+			structured: { tools_changed: true, session_tool_profile: 'inspect' },
+			activeProfile: 'full',
+			maxTools: null,
+			registered,
+			registerProxyTool: vi.fn(),
+		});
+
+		expect(result.profile).toBe('inspect');
+		expect(phpExecuteHandle.disable).toHaveBeenCalledOnce();
+		expect(result.removed).toEqual(['stonewright-php-execute']);
+		expect(toolProfileHandle.disable).not.toHaveBeenCalled();
+		expect(siteInfoHandle.disable).not.toHaveBeenCalled();
+	});
+
 	it('treats advisory recommended_mcp_tools as additive and disables nothing without an authoritative resolve', async () => {
 		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
 		const digestHandle = makeHandle();

@@ -359,6 +359,53 @@ final class BlockQueueTest extends TestCase {
 		self::assertSame( 'serialized', $accepted['status'] ?? null );
 	}
 
+	/** @dataProvider unfaithfulSerializationProvider */
+	public function test_serialized_result_that_does_not_hold_up_against_its_spec_is_stored_as_failed_and_never_kept( string $html, string $code ): void {
+		$queued = $this->enqueue_card( 'Held to the spec' );
+		self::assertIsArray( $queued );
+		$issued = BlockQueue::issue_token( (string) $queued['session_id'] );
+		self::assertIsArray( $issued );
+		$scope = BlockQueue::verify_token( (string) $issued['token'] );
+		self::assertIsArray( $scope );
+		BlockQueue::lease_pending_for_scope( $scope, 'browser-a', 45, 1000 );
+
+		$receipt = BlockQueue::accept_serialized_result( (string) $queued['id'], $html, hash( 'sha256', $html ), $scope, 'browser-a', 'result-refused', 1001 );
+
+		self::assertIsArray( $receipt, is_wp_error( $receipt ) ? $receipt->get_error_code() : '' );
+		self::assertSame( 'failed', $receipt['status'] );
+		self::assertFalse( $receipt['ok'] );
+		self::assertFalse( $receipt['duplicate'] );
+		self::assertSame( $code, $receipt['refusal_code'] );
+		$stored = BlockQueue::get( (string) $queued['id'] );
+		self::assertSame( 'failed', $stored['status'] );
+		self::assertSame( $code, $stored['error_code'] );
+		self::assertSame( '', $stored['serialized_html'] );
+		self::assertSame( '', $stored['serialized_html_hash'] );
+		self::assertSame( 'result-refused', $stored['result_id'] );
+		self::assertNull( BlockQueue::pending_for_target( 42 ) );
+
+		$replay = BlockQueue::accept_serialized_result( (string) $queued['id'], $html, hash( 'sha256', $html ), $scope, 'browser-a', 'result-refused', 1002 );
+		self::assertIsArray( $replay );
+		self::assertTrue( $replay['duplicate'] );
+		self::assertSame( $receipt['idempotency_key'], $replay['idempotency_key'] );
+		self::assertSame( $code, $replay['refusal_code'] );
+
+		$other = '<!-- wp:vendor/card /-->';
+		$late  = BlockQueue::accept_serialized_result( (string) $queued['id'], $other, hash( 'sha256', $other ), $scope, 'browser-a', 'result-refused', 1003 );
+		self::assertInstanceOf( \WP_Error::class, $late );
+		self::assertSame( 'stonewright_finalizer_terminal', $late->get_error_code() );
+	}
+
+	/** @return array<string, array{0:string,1:string}> */
+	public static function unfaithfulSerializationProvider(): array {
+		return [
+			'another block'      => [ '<!-- wp:vendor/other /-->', 'serialized_structure_mismatch' ],
+			'extra blocks'       => [ '<!-- wp:vendor/card /--><!-- wp:vendor/card /-->', 'serialized_structure_mismatch' ],
+			'not block markup'   => [ '<div class="card">x</div>', 'serialized_structure_mismatch' ],
+			'unapproved code'    => [ '<!-- wp:vendor/card --><img src=x onerror=alert(1)><!-- /wp:vendor/card -->', 'serialized_markup_refused' ],
+		];
+	}
+
 	public function test_failed_result_is_terminal_and_idempotent_for_one_result_id(): void {
 		$queued = $this->enqueue_card( 'Fail once' );
 		self::assertIsArray( $queued );
@@ -587,6 +634,55 @@ final class BlockQueueTest extends TestCase {
 		self::assertNull( BlockQueue::get( (string) $queued['id'] ) );
 		self::assertNull( BlockQueue::get( (string) $failed['id'] ) );
 		self::assertStringNotContainsString( 'Foreign queued', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_reject_serialized_fails_the_record_and_drops_its_markup(): void {
+		$queued = $this->enqueue_card( 'Rejected' );
+		self::assertIsArray( $queued );
+		$id   = (string) $queued['id'];
+		$html = '<!-- wp:vendor/card /-->';
+		self::assertTrue( BlockQueue::store_serialized( $id, $html, hash( 'sha256', $html ) ) );
+
+		self::assertTrue( BlockQueue::reject_serialized( $id, 'serialized_markup_refused', 'Refused for the test.' ) );
+
+		$stored = BlockQueue::get( $id );
+		self::assertSame( 'failed', $stored['status'] );
+		self::assertSame( 'serialized_markup_refused', $stored['error_code'] );
+		self::assertSame( 'Refused for the test.', $stored['error'] );
+		self::assertSame( '', $stored['serialized_html'] );
+		self::assertSame( '', $stored['serialized_html_hash'] );
+		self::assertSame( 'serialized_markup_refused', BlockQueue::compact( $stored )['error']['code'] );
+		self::assertNull( BlockQueue::pending_for_target( 42 ), 'A failed change is terminal and frees its target.' );
+	}
+
+	public function test_reject_serialized_only_applies_to_the_owners_serialized_records(): void {
+		$queued = $this->enqueue_card( 'Rejected' );
+		self::assertIsArray( $queued );
+		$id = (string) $queued['id'];
+
+		$still_queued = BlockQueue::reject_serialized( $id, 'serialized_markup_refused', 'No.' );
+		self::assertInstanceOf( \WP_Error::class, $still_queued );
+		self::assertSame( 'stonewright_finalizer_terminal', $still_queued->get_error_code() );
+		self::assertSame( 'queued', BlockQueue::get( $id )['status'] );
+
+		$unknown = BlockQueue::reject_serialized( 'missing-change', 'serialized_markup_refused', 'No.' );
+		self::assertInstanceOf( \WP_Error::class, $unknown );
+		self::assertSame( 'stonewright_finalizer_not_found', $unknown->get_error_code() );
+
+		$html = '<!-- wp:vendor/card /-->';
+		self::assertTrue( BlockQueue::store_serialized( $id, $html, hash( 'sha256', $html ) ) );
+		$GLOBALS['stonewright_test_current_user_id'] = 8;
+		$foreign = BlockQueue::reject_serialized( $id, 'serialized_markup_refused', 'No.' );
+		self::assertInstanceOf( \WP_Error::class, $foreign );
+		self::assertSame( 'stonewright_finalizer_forbidden', $foreign->get_error_code() );
+		self::assertSame( 'serialized', BlockQueue::get( $id )['status'] );
+	}
+
+	public function test_a_queued_change_without_custom_code_records_none(): void {
+		$queued = $this->enqueue_card( 'Plain' );
+		self::assertIsArray( $queued );
+
+		self::assertSame( [], BlockQueue::get( (string) $queued['id'] )['custom_code'] );
 	}
 
 	private function enqueue_card( string $title ): array|\WP_Error {

@@ -5,11 +5,15 @@ administrator to approve the client, and avoids copying a WordPress password
 into client configuration.
 
 1. Open **Stonewright → Setup**.
-2. Enable Stonewright.
-3. Choose **OAuth**.
-4. Pick the client in **Connect Your AI Client** and follow its instructions.
-   OAuth and Application Password share the same client tablist.
+2. Enable Stonewright in **Settings** (step 1 of **Get started** says where it
+   stands).
+3. In **Get started**, step 2, choose **OAuth**.
+4. In step 3, **Connect your AI client**, open your client and follow its
+   instructions. The Application Password route has a picker of the same clients.
 5. Approve the application in WordPress when the browser opens.
+
+The MCP server URL and the suggested server name are on the **Connections** view,
+next to the list of connected OAuth clients.
 
 The OAuth MCP resource is:
 
@@ -17,7 +21,13 @@ The OAuth MCP resource is:
 https://example.com/wp-json/mcp/stonewright-oauth
 ```
 
-Use **Manage connected apps** to inspect or revoke active grants.
+**Stonewright → Setup → Connections** lists every client that can still use the site under
+**Connected OAuth clients**, with the people who approved it, when it
+connected, and when it was last used. **Disconnect** (it needs `manage_options`)
+closes every live grant of that client at once: the client loses access
+immediately and has to sign in again. The client's pending approvals and unused
+authorization codes are closed first, so nothing approved before the disconnect
+can create a new grant.
 
 Clients send this exact canonical resource during authorization, token
 exchange, and refresh. Access tokens issued for another audience are rejected.
@@ -31,7 +41,7 @@ Bearer parsing, authentication success, proxy stripping suspicion, and the
 Application Password path without returning the header value. It does not
 replace a live client restart or reauthentication.
 
-If the client still cannot connect, open **Stonewright → Troubleshoot**, pick
+If the client still cannot connect, open **Stonewright → Setup → Troubleshoot**, pick
 how you connect, and run diagnostics. The page stays put and shows a loading
 state; copy the report for support. See [Troubleshoot](troubleshoot.md).
 
@@ -43,11 +53,57 @@ action and stop WordPress work until the operator reauthenticates. Transient
 `429`/`temporarily_unavailable` responses retain `Retry-After` and are retried
 with bounded backoff; do not start a second manual refresh in parallel.
 Replaying a rotated refresh token revokes the entire token family and all
-access tokens for that grant. Access tokens last one hour. Seven-day continuity
-is a refresh SLO against a fourteen-day grant family, not a seven-day bearer
-token. Handshake and allowlisted read-only bootstrap calls may retry once;
-mutations never retry. `stonewright-task-start` reconnects a degraded session
-once.
+access tokens for that grant; presenting it again within 60 seconds of its use
+returns the grant's current refresh token instead. Access tokens last one hour.
+A refresh token expires after 30 days without use, and a grant ends at most 90
+days after it was authorized, after which the client signs in again. Seven-day
+continuity is a refresh SLO within that grant, not a seven-day bearer token.
+Each WordPress MCP request is sent once and is not repeated after a timeout or
+network error; on OAuth connections an HTTP 401 refreshes the access token and
+the request is sent once more, a tool call included. `stonewright-task-start`
+reconnects a degraded session once. A token refresh whose response never
+arrived (a timeout or a reset connection) is the one request that is repeated:
+the companion sends it once more with the same refresh credential, within 30
+seconds of the first, while it still holds the refresh lock. A refresh that got
+any HTTP response is not repeated.
+
+## When a client has to sign in or connect again
+
+A connected client keeps working through normal use, a server restart and the
+daily clean-up. It has to sign in again, or be connected again, in these cases:
+
+- **A connection made with an earlier release of the plugin** keeps the
+  deadline it was given then, 14 days after that sign-in. After it the client
+  signs in once more; the new connection then follows the limits below.
+- **30 days without use.** A refresh credential that is not used for 30 days
+  expires. Every refresh issues a new one, so a client that keeps refreshing
+  stays signed in.
+- **The 90-day limit.** A grant ends at most 90 days after it was authorized.
+  Refreshing does not extend it.
+- **Disconnect or revocation.** **Disconnect** under **Connected OAuth
+  clients**, or a revocation request from the client, closes the whole grant.
+- **A credential used again outside the window.** A refresh credential
+  presented more than 60 seconds after it was replaced, or any older one,
+  counts as a replay and closes the whole grant, including the current
+  credential. This includes a client that lost a response and retries late,
+  and two programs that keep separate copies of one credential.
+- **The approving user loses access.** If the user who approved the connection
+  loses the capability or is deleted, refresh is refused. The grant is not
+  closed, so it works again once the access is restored, but a client that
+  clears its saved sign-in on that error signs in again.
+- **A change of the WordPress authentication salts or the Stonewright OAuth
+  keys.** Changing `AUTH_KEY`, `AUTH_SALT` or the other authentication salts,
+  replacing or deleting the OAuth keys, removing the plugin data, or restoring
+  a database without the keys signs every client out.
+- **A rollback to an earlier release of the plugin.** Credentials issued by the
+  newer release are not accepted by the earlier one.
+- **A removed client registration.** A client registered through dynamic
+  registration is removed when it has no live grant and either never completed
+  a grant and registered more than 30 days ago, or last completed one more
+  than 180 days ago. The identifier it stored no longer exists. The site
+  answers `invalid_client`, signing in again with that identifier cannot work,
+  and the connection has to be removed from the AI client and added again from
+  **Stonewright → Setup**. Clients an administrator created are not removed.
 
 ## Choose the connection method
 
@@ -67,7 +123,7 @@ routing authority and replaces stale inherited WordPress environment values.
 ## Application Password fallback
 
 This guide covers wiring supported AI clients to Stonewright. The shortest path
-is the **Stonewright > Configuration** page:
+is the **Stonewright → Setup** page:
 
 1. Enable Stonewright abilities.
 2. Choose **Application Password** and generate one in the page.
@@ -87,12 +143,12 @@ stores plaintext in WordPress transients or settings.
 ### WordPress Application Password
 
 WordPress Application Passwords are one-time-display credentials tied to the
-current WordPress user. Generate one from **Stonewright > Configuration >
-Application Password**. Copy it immediately; WordPress will not show it again.
+current WordPress user. Generate one in **Stonewright → Setup → Get started**,
+step 2 (**Application Password**). Copy it immediately; WordPress will not show it again.
 
 ### Endpoint
 
-The MCP endpoint is displayed on the Configuration page:
+The MCP endpoint is shown in **Stonewright → Setup → Connections**:
 
 ```text
 https://{your-site}/wp-json/mcp/stonewright

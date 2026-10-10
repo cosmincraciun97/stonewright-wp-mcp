@@ -1,0 +1,78 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Setup page: placement only. Every component (tabs, cards, choices, code blocks, notices, tables) comes from
+ * sw-ui.css; this file sets lists, widths and the grids the page needs.
+ */
+
+/* Core resets lists inside wp-admin; the numbered procedures and the short lists get their markers back. */
+.sw-setup :where(.sw-connect-steps, .stonewright-bridge-steps, .sw-ui-card__body > ol, .sw-ui-card__body > div > ol) {
+	margin: 0;
+	padding-inline-start: var(--sw-space-5);
+	list-style: decimal;
+}
+
+.sw-setup :where(.sw-connect-limits, .sw-connect-reach, .sw-connect-issues, .sw-ui-disclosure__body > ul) {
+	margin: 0;
+	padding-inline-start: var(--sw-space-5);
+	list-style: disc;
+}
+
+.sw-setup :where(li + li) {
+	margin-block-start: var(--sw-space-1);
+}
+
+/* Help text that holds paragraphs keeps the help size and colour that core's paragraph rule would replace. */
+.sw-setup .sw-ui-field__help > p {
+	margin: 0;
+	font-size: inherit;
+}
+
+/* Widths: a select that holds a long option, and the two update cards side by side. */
+.sw-setup .sw-setup__select {
+	width: 100%;
+	max-width: 28rem;
+}
+
+.sw-setup .sw-setup__pair {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+	align-items: start;
+}
+
+/* The AI client guides stack tight; the group that cannot reach this site has its own small heading. */
+.sw-setup .sw-connect-clients {
+	display: grid;
+	gap: var(--sw-space-2);
+}
+
+.sw-setup .sw-connect__subtitle {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	margin-block-start: var(--sw-space-2);
+	font-size: var(--sw-fs-md);
+}
+
+.sw-setup .sw-connect__title {
+	font-size: var(--sw-fs-lg);
+}
+
+.sw-setup .sw-connect-issue__fix {
+	display: block;
+	color: var(--sw-text-secondary);
+}
+
+/* A guide's summary lays out its name, its type and its flag on one line that wraps on a narrow screen. */
+.sw-setup .sw-connect-client > summary {
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+}
+
+.sw-setup .sw-connect-client__name {
+	font-weight: var(--sw-weight-semibold);
+}
+
+/* A value that cannot break (a URL, a token, a long command) wraps inside its box instead of widening the page. */
+.sw-setup :where(.sw-ui-copy__value, .sw-ui-kv dd, .sw-connect-alternative code) {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}

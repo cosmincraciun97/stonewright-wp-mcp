@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**389** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**394** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -12,7 +12,8 @@ matrix after changing the registry.
 
 | Category | Count | Scope |
 |---|---:|---|
-| Security | 5 | Confirmation tokens, audit reconcile, runtime purge, incident repair, and one-time links. |
+| Section reuse | 2 | Find sections the site already has and extract one as a portable payload. The copy itself is an insert operation of the V3, V4 and block batch writers. |
+| Security | 7 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, and rescue status and rollback. |
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
@@ -21,10 +22,11 @@ matrix after changing the registry.
 | Patterns | 5 | List, create, update, delete, and categorize synced patterns. |
 | Full Site Editing | 12 | theme.json, templates, template parts, global styles, navigation, and child-theme handoff. |
 | Elementor V3 | 35 | Structure editing, transactions, document health, performance audit, legacy-debt report, CSS regenerate, observation-only post-write verification, specs, kit globals, preflight, and batch mutation. |
+| Elementor native bridge | 2 | Report Elementor's own MCP module and its certified abilities, and run a certified ability inside Stonewright's snapshot, write lock, readback and change set. |
 | Elementor V4 (Experimental) | 14 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 4 | Custom Elementor widget project helpers. |
 | Elementor Widgets | 94 | Deprecated generated per-widget compatibility builders. |
-| Design | 28 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
+| Design | 33 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
 | Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime (full profile only). |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Memory | 6 | Persistent memory, generalization, corrections, and learned records. |
@@ -37,7 +39,7 @@ matrix after changing the registry.
 | Blueprints | 3 | Blueprint listing, inspection, and guarded application. |
 | Brand Kits | 2 | Reusable brand-kit reads and writes. |
 | Skills | 3 | Agent skill listing, reads, and saves. |
-| Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. |
+| Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. The Elementor articles live in a private folder under uploads that `elementor-knowledge-refresh` fills; the readers return nothing until the first refresh. |
 | Expertise | 4 | Expertise pack discovery and reads. |
 | Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
 | Comments | 5 | Comment list, update, moderation, and deletion. |
@@ -54,6 +56,32 @@ matrix after changing the registry.
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
+
+## Section reuse
+
+| Name | Kind | What it does |
+|---|---|---|
+| `stonewright/section-reuse-find` | Read | Lists sections the current user can read and edit, grouped by the roles a new page needs (hero, features, testimonials, pricing, FAQ, CTA, gallery, contact, other). Each candidate carries its source (with its status), locator, role guess, layout summary, a layout-only similarity from 0 to 1, a short outline, reuse warnings and, for Elementor, up to six nested containers under `inner`. At most the 200 most recent sources are scanned and `scan.truncated` says when there were more. |
+| `stonewright/section-reuse-extract` | Read | Returns one section, or one container nested at any depth inside a section, as a portable payload in its own builder format, with Elementor element ids and V4 local style ids replaced by placeholders and Gutenberg anchors listed, plus every reference the section carries (each with whether it exists here) and its layout summary. Changes nothing. |
+| `insert_section` of `stonewright/elementor-v3-batch-mutate` | Write | Inserts a V3 payload under fresh ids in the same dry run and apply as `update_element` adaptations that address the new elements as `@op_id.placeholder`. |
+| `insert_section` and `update_node` of `stonewright/elementor-v4-update-node` (`operations`) | Write | The same for a V4 payload, with local style ids remapped. Experimental; blocked in `production-safe`. |
+| `insert_section` of `stonewright/blocks-batch-mutate` | Write | The same for a Gutenberg payload; later `update` operations address its blocks with `section_ref` and `relative_path`. |
+
+Sources of `find` and `extract` are pages and posts of public post types, Elementor saved section and container templates, Gutenberg patterns, and, on a block theme, the **customized** templates and template parts of the active theme (the posts the Site Editor saves under `wp_template` and `wp_template_part`), for a user who may read and edit them, in the status `publish`, `draft`, `pending`, `future` or `private` (never `trash`, `auto-draft`, revisions or attachments). A private, pending or scheduled source is listed and extracted as it is, to a user who may edit it and to no one else, and `source.status` says which; an agent never changes the status of a post to extract from it. A post the user may not edit answers `stonewright_not_found` exactly like a post that does not exist. Each candidate names its source post type in `source.type`; a template or part has `source.kind` `site-template`. A template that exists only as a theme file has no post yet, so it is not a source until someone customizes it in the Site Editor. Inserting into a customized template or template part is an ordinary `blocks-batch-mutate` write on that post.
+
+Candidates and extract results carry `warnings`. Besides the reference warnings (`dynamic_tags`, `forms`, `synced_patterns`, `missing_global_colors`, ...), `draft_source`, `pending_source`, `scheduled_source`, `private_source` and `password_protected_source` say the source is not public, so copying it can put its text on a public page (the password itself is never returned), and `legacy_attributes` (extract only) lists the attributes that were moved to their current form. `missing_media` does not stop a copy: the insert succeeds and the image stays broken until the file exists. Every other `missing_*` warning makes the insert fail with the exact reference.
+
+The locator of an Elementor section is `{ "kind": "element", "id" }`. The id is that of a top-level element, or of a container nested at any depth, and a nested container is a valid copy root when it is a V3 `container` or legacy `section`, or a V4 `e-div-block` or `e-flexbox`, and everything under it belongs to one builder family. A widget, a legacy `column`, another V4 element type or a subtree that mixes V3 and V4 is refused with `stonewright_section_not_copyable` (`reason`: `widget`, `column`, `unsupported` or `mixed_builders`). `find` lists, for each Elementor candidate, at most six nested containers under `inner` (the shallower ones first, down to the fourth level, each with `locator`, `depth`, `type`, `children`, `elements`, and where it applies `repeated` and `heading`) and sets `inner_truncated` when more exist; any other container is addressed by its element id, read from the page's element tree. A nested container is inserted like a section: the same placeholders, fresh ids, id attribute renaming and element cap, and its `isInner` follows where it goes. A source without a usable Elementor document answers `stonewright_no_elementor_document` with a `reason` (`not_built_with_elementor`, `elementor_mode_missing`, `document_empty_or_unreadable`), and an id that matches nothing answers `stonewright_section_not_found`; the messages of both say what a locator may be.
+
+A Gutenberg section saved by an older WordPress may carry the text alignment of a block as a `textAlign` attribute that WordPress now keeps as `style.typography.textAlign`. `extract` moves that attribute, only for the blocks whose own deprecations move it (`core/button`, `core/heading`, `core/post-title`, `core/pullquote`, `core/verse`, and the other blocks named in `LegacyBlockAttributes::TEXT_ALIGN_BLOCKS`) and only when the site registers the block with that support and no `textAlign` attribute, and names it in a `legacy_attributes` warning; the saved markup is carried as it is. Nothing else is changed: the insert stays strict, and any other attribute the registered block does not declare is refused with its key named. A synced pattern detached at insert gets the same treatment.
+
+`detach_patterns` on an `insert_section` operation of `stonewright/blocks-batch-mutate` is `true` (detach every synced pattern the section refers to), `false` (keep them as references, the default), or a list of pattern ids (detach only those). The input schema is `type: ["boolean", "array"]` with integer `items`.
+
+An `insert_section` operation of `stonewright/elementor-v3-batch-mutate` whose section holds settings the live Elementor schema does not accept is refused with `stonewright_section_settings_not_reusable`, and nothing is written. The message names up to five rejected key paths with the element placeholder and type (names only, never values). The error data lists every rejection in `violations` (up to 25, each with the element, its type, the path, the violation code and, when the key is a control, the control type) and counts them in `violations_total`; the batch answer repeats the list as `rejected_settings`, so a client that reads only the message receives it, and the audit row keeps the same key paths, names only, in its `rejected_settings` detail. A repeated identical call answers with the same detail. The refusal offers three ways out: choose another section, activate the plugin that provides the settings, or run the insert again with `drop_settings`.
+
+`drop_settings` is the user's explicit approval to copy the section without exactly the rejected settings. It is a list of `{ "element": "ph-3", "setting": "acme_old_style" }` entries (the placeholder of the element and the setting key, or `__globals__.key` for one binding), and the refusal offers the value to send as `drop_settings_proposal`. The list must equal the settings the schema rejects now, no more and no less: a missing or an extra entry refuses the insert with `stonewright_section_drop_settings_mismatch` (`drop_settings_missing` and `drop_settings_unexpected` say what differs) and removes nothing, and a value that is not such a list is refused with `stonewright_section_drop_settings_invalid`. Nothing that is not listed is ever removed, and without the option nothing is removed. A CSS class the site has not approved and custom CSS that needs a grant count as rejected settings: they are dropped when listed and left to the custom code gate when they are not. The removed settings are listed in `removed_settings` on the operation and at the top of the answer (with the operation index), in a `settings_removed` warning, in `write_receipt.removed_settings` and in the `removed_settings` detail of the audit row. In `production-safe` the confirmation token covers the whole call, so a token issued for the insert without `drop_settings`, or with another list, does not approve it. The option exists only for Elementor V3 sections: an `insert_section` of `stonewright/elementor-v4-update-node` or `stonewright/blocks-batch-mutate` that carries `drop_settings` is refused with `stonewright_section_drop_settings_unsupported`, and nothing is written.
+
+The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are not listed over MCP at all and are left out of the profiles, so a client that lists tools again cannot call them (the call is answered as an unknown tool). A client that keeps an old tool list is still safe: `extract` fails with `stonewright_section_reuse_off`, and `find` answers `{ "enabled": false, "instruction": ... }` only when it is run in-process, for example from PHP. Every `insert_section` operation refuses with `stonewright_section_reuse_off`. That refusal is a blocked, not retryable answer: the failure message of the three batch writers says that section reuse is off and carries `retryable: false` and `execution_status: blocked` for MCP clients, and it is not counted as a recurring error and carries no repeat-failure advice. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. While it is `off`, `stonewright-task-start` does not offer the `stonewright-section-reuse` skill. In `production-safe` mode an Elementor V3 `insert_section` needs the confirmation token that every `elementor-v3-batch-mutate` write needs unless it is a dry run, and a Gutenberg `insert_section` needs one only when the same batch removes a block. Elementor copies carry checks of their own: CSS classes must be in `stonewright_approved_css_classes`, placeholder and unregistered widgets are refused, a repeated id attribute is renamed with an `anchors_renamed` warning, a repeated `op_id` is refused, and one batch may add at most the element cap (2000) of one write; `section-reuse-extract` warns about the first four before the copy. V4 text adaptations use the text type the live widget declares (`escaped-html` on current Elementor, not `html-v3`). See [Section reuse](architecture.md#section-reuse).
 
 All ability responses support optional `stonewright_fields` projection while
 retaining top-level fields required by their declared output schema. The
@@ -79,7 +107,8 @@ sentinel: if it is missing, the Stonewright MCP server did not load.
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
 the task needs to switch or verify a low-token execution profile. It returns
 compact profiles such as `low-tools`, `elementor-design`, `content-model`,
-`gutenberg`, `wp-cli`, and opt-in `discover-execute` with the hyphenated MCP
+`gutenberg`, `wp-cli`, and the opt-in `discover-execute` and read-only
+`inspect` with the hyphenated MCP
 tool names agents should keep using before broad discovery. It also returns `tool_groups`,
 `next_best_tools`, and `discovery_policy` so agents can pick the next Elementor,
 content/media, Gutenberg/FSE, WP-CLI, or site-admin tool without reading the
@@ -97,6 +126,8 @@ for tokens, text, styles, assets, and node hints, but agents should not copy a
 broken layer tree into WordPress when the visible design needs a cleaner native
 structure. For long designs, agents should capture multiple section reference
 screenshots and compare section-by-section before final full-page signoff.
+
+Write abilities need the task context token that `stonewright-task-start` returns, as `stonewright_context_token` in their input. A name does not exempt a write: the markers `-get`, `-list`, `-read`, `-describe`, `-discover`, `-explain`, `-search`, `-validate`, `-status`, `-preview`, `-parse` and `-serialize` exempt an ability only when it is not recorded as a write, so `elementor-add-icon-list`, `elementor-add-price-list`, `elementor-add-read-more` and `elementor-add-search` need the token like any other write. A short list of abilities (task start, ping, site reads, skill and memory reads, the Elementor knowledge readers and a few planners) never needs it.
 
 `stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
 for automatic matching, or `prompt` for explicit prompt/command entries.
@@ -127,6 +158,76 @@ companion through `query-local-stonewright.js`, create action scripts such as
 source to reverse-engineer tool schemas, or hand-roll JSON-RPC to reach this
 runner when `stonewright-context-bootstrap` is missing.
 
+## Tool annotations and exposure
+
+Every ability registers four hints in `meta.annotations`. The MCP adapter maps
+them to the tool annotations a client reads from `tools/list`, so a client can
+tell a read from a write, an addition from an overwrite, and a local tool from
+one that reaches the web before it calls the tool:
+
+| Ability meta | MCP annotation | Meaning |
+|---|---|---|
+| `readonly` | `readOnlyHint` | The ability changes nothing. |
+| `destructive` | `destructiveHint` | It can overwrite or delete what exists; `false` means it only adds. |
+| `idempotent` | `idempotentHint` | Repeating the call with the same arguments has no further effect. |
+| `openWorldHint` | `openWorldHint` | It can reach hosts outside the site: web requests, downloads, third-party services. |
+
+The hints come from the code of the ability and from its name:
+
+- An ability that cannot change state is read-only, not destructive, and
+  idempotent (`Read` in the matrix).
+- Any other ability is not read-only. It is not destructive when the last verb
+  of its name only adds (`create`, `add`, `insert`, `upload`, `duplicate`,
+  `backup`, `queue`); otherwise it is destructive, including when the name holds
+  no known verb and when the verb can replace an earlier entry (`record`,
+  `capture`, `register`, `define`, `activate`). It is idempotent when its name
+  says `delete`, `remove`, or `deactivate`.
+- An ability whose code makes HTTP requests, downloads, oEmbed lookups, or
+  sideloads is open-world (`External` is `Yes` in the matrix).
+
+`docs/ability-truth-matrix.md` lists the result for each ability in its **Hints**
+column. An ability whose nature differs overrides a hint in its `meta()`:
+
+```php
+public function meta(): array {
+    return [ 'annotations' => [ 'readonly' => false, 'idempotent' => false ] ];
+}
+```
+
+Abilities that store a context token or mint the token that authorizes a
+destructive call (`task-start`, `context-bootstrap`, `workflow-preflight`,
+`security-issue-confirmation-token`) are not read-only; `execute-ability` can do
+what the ability it runs does; `php-execute` and the WP-CLI runners can reach
+any host. `plugin-activate` only adds to the active list, so it is not
+destructive and is idempotent; `elementor-create-custom-widget` writes the
+widget file under its slug without looking for an earlier one, so it is
+destructive; `design-checkpoint-record` only signs an approval token, so it is
+not destructive.
+
+After you change an ability, run `cd plugin && composer docs:matrix`. It rewrites
+the matrix and `plugin/data/ability-traits.php`, the facts the plugin reads when
+it registers abilities; an ability missing from that file registers the
+conservative hints (not read-only, destructive, not idempotent, open-world). Run
+`composer contracts:generate` to record the hints in
+`docs/contracts/public-api-v1.json`, which `composer contracts:compat` compares.
+
+The hints describe an ability to a client. They grant nothing and remove no gate:
+permission, mode, confirmation, backup, validation, and audit checks run on every
+call. WordPress's REST run endpoint
+(`/wp-json/wp-abilities/v1/abilities/<name>/run`) chooses the HTTP method from
+the hints: GET for a read-only ability, DELETE for a destructive and idempotent
+one, POST for the others. `POST /wp-json/stonewright/v1/abilities/run` is not
+affected.
+
+Exposure. Each ability also registers `meta.public`, the single exposure flag of
+WordPress 7.1 (it seeds `show_in_rest`), and the per-channel flags that older
+cores and the MCP adapter read: `meta.mcp.public` and `meta.show_in_rest`. All
+three are `true`. An ability opts out of every channel with `'public' => false`
+in its `meta()`, or out of one channel with `show_in_rest` or `mcp.public`.
+`GET /wp-json/stonewright/v1/abilities` returns each input schema prepared with
+`wp_prepare_json_schema_for_client()` on WordPress 7.1 and later, and unchanged
+on older cores.
+
 ## Discover-execute
 
 `discover-execute` is an opt-in MCP profile. Auto routing never selects it.
@@ -144,6 +245,26 @@ The three protocol tools are:
 `execute-ability` cannot invoke itself. Disabled abilities stay disabled.
 `stonewright/php-execute` is not on this profile; it remains on `full`.
 
+## Inspect
+
+`inspect` is an opt-in, read-only MCP profile. Auto routing never selects it.
+Activate it with `stonewright-tool-profile` when the task is to look, not to
+change: the startup set plus discovery, read, and verify tools.
+
+| Group | Tools |
+|---|---|
+| Discovery | `site-info`, `site-capabilities`, `site-plugins-list`, `site-theme`, `content-inventory`, `elementor-v3-capabilities-summary`, `elementor-v4-status`, `design-direction-brief` |
+| Read | `content-get-page`, `elementor-v3-get-page-structure`, `elementor-v4-read-atomic-tree`, `elementor-v3-get-kit-globals`, `elementor-schema`, `blocks-get-schema`, `fse-get-theme-json`, `theme-file-read`, `media-list`, `menu-list`, `settings-get` |
+| Verify | `elementor-post-write-verify` (observation only), `elementor-document-health`, `design-visual-compare`, `site-health`, `capability-preflight` |
+
+The profile has no write tool, no snapshot or confirmation-token tool, no
+blueprint or Design Direction write, and neither `php-execute` nor
+`execute-ability`. Activating it adds these tools to the session. It does not
+change the surface the operator saved: a `bootstrap` surface stays `bootstrap`,
+and a surface that already lists write tools keeps listing them. When a change
+is needed, call `stonewright-tool-profile` with the profile that owns the write
+(`elementor-design`, `gutenberg`, `content-model`, or `site-admin`).
+
 ## Runtime
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
@@ -153,6 +274,22 @@ loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected
 meta writes are blocked; see [Security](security.md#php-execute-runtime-guards).
+
+When a snippet that ran uses a common pattern, the response adds a short
+`routing_hint` that names the typed tool for it. `prefer` maps the pattern to
+MCP tool names, and `note` says the call was not blocked.
+
+| Pattern | Snippet signal | Typed tools named |
+|---|---|---|
+| `post_meta` | `update_post_meta` or `add_post_meta` (or the metadata API with the `post` type) with a literal public key | `stonewright-content-update-post`, `stonewright-content-bulk-upsert-posts` |
+| `options` | `get_option`, `update_option`, or `add_option` with a literal name in the settings allowlist | `stonewright-settings-get`, `stonewright-settings-update` |
+| `elementor_data` | `_elementor_data` | `stonewright-elementor-v3-get-page-structure`, `stonewright-elementor-v3-batch-mutate` |
+| `menus` | `wp_get_nav_menus`, `wp_create_nav_menu`, `wp_update_nav_menu_item`, `wp_delete_nav_menu`, or `set_theme_mod( 'nav_menu_locations' )` | the matching `stonewright-menu-*` tool |
+
+The hint never blocks `php-execute`, never repeats the snippet, omits a tool the
+operator disabled, and names at most four patterns with three tools each.
+`stonewright-task-start` returns the same kind of hint as
+`fast_path.routing_hint` for the patterns the task mentions.
 
 ## WP-CLI
 

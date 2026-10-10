@@ -34,6 +34,10 @@ final class ErrorEnvelope {
 		'execution_status',
 		'offending_key',
 		'offending_keys',
+		'rejected_settings',
+		'drop_settings_proposal',
+		'drop_settings_missing',
+		'drop_settings_unexpected',
 		'gated_tool',
 		'gated_mcp_tool',
 		'approval_flow',
@@ -54,7 +58,35 @@ final class ErrorEnvelope {
 		'widget_type',
 		'offending_key',
 		'offending_keys',
+		'rejected_settings',
+		'drop_settings_proposal',
+		'drop_settings_missing',
+		'drop_settings_unexpected',
 		'gated_mcp_tool',
+	];
+
+	/**
+	 * Errors of a write that Rescue undid. MCP clients receive only the message, so the code and a
+	 * few plain fields are copied into it. Nothing else of the error data is.
+	 *
+	 * @var list<string>
+	 */
+	private const RESCUE_ERROR_CODES = [
+		'stonewright_rescue_write_rolled_back',
+		'stonewright_rescue_rollback_failed',
+	];
+
+	/**
+	 * Data fields copied into the message of a Rescue error: short identifiers and status words.
+	 *
+	 * @var list<string>
+	 */
+	private const RESCUE_MESSAGE_KEYS = [
+		'change_set_id',
+		'incident_id',
+		'rollback_status',
+		'site_status',
+		'original_error_code',
 	];
 
 	/**
@@ -85,6 +117,27 @@ final class ErrorEnvelope {
 			if ( array_key_exists( $key, $data ) ) {
 				$payload[ $key ] = $data[ $key ];
 			}
+		}
+		// A busy or rate-limited call tells the caller whether and when to retry.
+		if ( array_key_exists( 'retryable', $data ) ) {
+			$payload['retryable'] = (bool) $data['retryable'];
+		}
+		// A refusal the caller must not retry says it was blocked, not failed.
+		if ( false === ( $data['retryable'] ?? null ) && 'blocked' === ( $data['execution_status'] ?? null ) ) {
+			$payload['execution_status'] = 'blocked';
+		}
+		$retry_after = self::retry_after( $data );
+		if ( null !== $retry_after ) {
+			$payload['retry_after'] = $retry_after;
+		}
+		// A failed write names its change set so the caller can pass it as repair_of.
+		$change_set_id = self::change_set_id( $data );
+		if ( '' !== $change_set_id ) {
+			$payload['change_set_id'] = $change_set_id;
+		}
+
+		if ( in_array( (string) $error->get_error_code(), self::RESCUE_ERROR_CODES, true ) ) {
+			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::rescue_fields( $data ) );
 		}
 
 		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
@@ -178,7 +231,56 @@ final class ErrorEnvelope {
 
 			$out[ $key ] = $value;
 		}
+		$retry_after = self::retry_after( $data );
+		if ( null !== $retry_after ) {
+			$out['retry_after'] = $retry_after;
+		}
+		$change_set_id = self::change_set_id( $data );
+		if ( '' !== $change_set_id ) {
+			$out['change_set_id'] = $change_set_id;
+		}
 		return $out;
+	}
+
+	/**
+	 * The plain fields of a Rescue error that the message carries: short strings only.
+	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, string>
+	 */
+	private static function rescue_fields( array $data ): array {
+		$fields = [];
+		foreach ( self::RESCUE_MESSAGE_KEYS as $key ) {
+			if ( isset( $data[ $key ] ) && is_string( $data[ $key ] ) && '' !== $data[ $key ] ) {
+				$fields[ $key ] = mb_substr( sanitize_text_field( $data[ $key ] ), 0, 96 );
+			}
+		}
+		return $fields;
+	}
+
+	/**
+	 * Seconds a caller should wait before retrying, from `retry_after` or
+	 * `retry_after_seconds`. Only a positive number is reported, capped at one hour.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function retry_after( array $data ): ?int {
+		foreach ( [ 'retry_after', 'retry_after_seconds' ] as $key ) {
+			if ( isset( $data[ $key ] ) && is_numeric( $data[ $key ] ) && (float) $data[ $key ] > 0 ) {
+				return min( 3600, (int) ceil( (float) $data[ $key ] ) );
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Identifier of the change set a failed write attached to its error data.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function change_set_id( array $data ): string {
+		$id = is_array( $data['change_set'] ?? null ) ? ( $data['change_set']['change_set_id'] ?? null ) : null;
+		return is_string( $id ) ? mb_substr( sanitize_text_field( $id ), 0, 96 ) : '';
 	}
 
 	/**

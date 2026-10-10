@@ -25,6 +25,19 @@ final class JobStart extends WpCliAbility {
 		return __( 'Starts a tokenized WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request.', 'stonewright' );
 	}
 
+	/**
+	 * WP-CLI commands can download from and call hosts outside the site.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

@@ -40,10 +40,6 @@ final class ProtectedWpdbWriteGuard {
 		if ( $original !== self::$installed_original ) {
 			return;
 		}
-		$current = $GLOBALS['wpdb'] ?? null;
-		if ( $current instanceof ProtectedWpdbProxy ) {
-			$current->flush_to_inner();
-		}
 		$GLOBALS['wpdb'] = $original; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restore the original handle after php-execute.
 		self::$installed_original = null;
 	}

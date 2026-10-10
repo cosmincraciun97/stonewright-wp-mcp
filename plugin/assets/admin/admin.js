@@ -33,25 +33,6 @@
 		} );
 	}
 
-	/**
-	 * Auto-dismiss notice elements after 5 seconds if they have
-	 * the is-dismissible class (mirrors WP core admin notices).
-	 */
-	function initAutoDismissNotices() {
-		var notices = document.querySelectorAll( '.notice.is-dismissible' );
-		notices.forEach( function ( notice ) {
-			window.setTimeout( function () {
-				notice.style.transition = 'opacity 0.4s';
-				notice.style.opacity = '0';
-				window.setTimeout( function () {
-					if ( notice.parentNode ) {
-						notice.parentNode.removeChild( notice );
-					}
-				}, 400 );
-			}, 5000 );
-		} );
-	}
-
 	function textFromTarget( target ) {
 		if ( ! target ) {
 			return '';
@@ -79,8 +60,8 @@
 		}, 1600 );
 	}
 
-	function bridgeEnvText( token ) {
-		var value = token || '<choose-a-long-random-token>';
+	function bridgeEnvText( token, placeholder ) {
+		var value = token || placeholder || '<choose-a-long-random-token>';
 		return [
 			'STONEWRIGHT_HTTP_ENABLE=1',
 			'PORT=8765',
@@ -94,7 +75,7 @@
 			return;
 		}
 		document.querySelectorAll( '[data-stonewright-bridge-token-source="' + tokenInput.id + '"]' ).forEach( function ( block ) {
-			block.textContent = bridgeEnvText( tokenInput.value || '' );
+			block.textContent = bridgeEnvText( tokenInput.value || '', block.getAttribute( 'data-stonewright-bridge-token-placeholder' ) || '' );
 		} );
 	}
 
@@ -381,23 +362,11 @@
 		return 'problem';
 	}
 
-	function diagnosticCssStatus( status ) {
-		if ( status === 'ok' ) {
-			return 'ok';
-		}
-		if ( status === 'warning' ) {
-			return 'warn';
-		}
-		if ( status === 'info' || status === 'skipped' ) {
-			return 'info';
-		}
-		return 'error';
-	}
-
 	function humanizeStepId( id ) {
 		var labels = {
 			mint_credential: 'Mint credential',
 			initialize: 'Initialize',
+			initialized: 'Initialized notification',
 			tools_list: 'tools/list',
 			task_start: 'task-start',
 			cleanup: 'Cleanup',
@@ -406,28 +375,54 @@
 		return labels[ id ] || id || '';
 	}
 
+	function connectionIcon( name ) {
+		var svg = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
+		var use = document.createElementNS( 'http://www.w3.org/2000/svg', 'use' );
+		svg.setAttribute( 'class', 'sw-ui-icon' );
+		svg.setAttribute( 'aria-hidden', 'true' );
+		use.setAttribute( 'href', '#sw-ui-icon-' + name );
+		svg.appendChild( use );
+		return svg;
+	}
+
+	/** One row per check: status, name and detail in their own columns, a next step under the detail. */
 	function renderConnectionResults( list, checks ) {
 		list.innerHTML = '';
 		list.hidden = false;
 		( checks || [] ).forEach( function ( check ) {
 			var status = normalizeChecklistStatus( check.status || 'error' );
-			var cssStatus = diagnosticCssStatus( status );
-			var icon = status === 'ok' ? '✓' : ( status === 'warning' ? '!' : ( status === 'info' || status === 'skipped' ? 'ⓘ' : '✗' ) );
+			var badgeFor = {
+				ok: [ 'sw-ui-badge--ok', 'OK', 'check' ],
+				warning: [ 'sw-ui-badge--warn', 'Warning', 'alert' ],
+				info: [ 'sw-ui-badge--info', 'Info', 'info' ],
+				skipped: [ '', 'Skipped', '' ],
+				problem: [ 'sw-ui-badge--danger', 'Problem', 'x' ]
+			};
+			var badgeSpec = badgeFor[ status ] || badgeFor.problem;
 			var li = document.createElement( 'li' );
-			li.className = 'sw-checklist__item sw-checklist__item--' + cssStatus;
+			li.className = 'sw-ui-checks__item' + ( status === 'problem' ? ' sw-ui-checks__item--danger' : '' );
 			li.setAttribute( 'data-status', status );
-			li.innerHTML =
-				'<span class="sw-checklist__icon" aria-hidden="true">' + icon + '</span>' +
-				'<span class="sw-checklist__body">' +
-				'<strong class="sw-checklist__label"></strong>' +
-				'<span class="sw-checklist__detail"></span>' +
-				'</span>';
-			li.querySelector( '.sw-checklist__label' ).textContent = check.label || humanizeStepId( check.id ) || '';
-			var detail = check.detail || '';
-			if ( check.fix ) {
-				detail = detail ? ( detail + ' — ' + check.fix ) : check.fix;
+			var badge = document.createElement( 'span' );
+			badge.className = 'sw-ui-badge ' + badgeSpec[ 0 ];
+			if ( badgeSpec[ 2 ] ) {
+				badge.appendChild( connectionIcon( badgeSpec[ 2 ] ) );
 			}
-			li.querySelector( '.sw-checklist__detail' ).textContent = detail;
+			badge.appendChild( document.createTextNode( badgeSpec[ 1 ] ) );
+			var label = document.createElement( 'strong' );
+			label.className = 'sw-ui-checks__label';
+			label.textContent = check.label || humanizeStepId( check.id ) || '';
+			var detail = document.createElement( 'span' );
+			detail.className = 'sw-ui-checks__detail';
+			detail.textContent = check.detail || '';
+			if ( check.fix ) {
+				var fix = document.createElement( 'span' );
+				fix.className = 'sw-ui-checks__fix';
+				fix.textContent = check.fix;
+				detail.appendChild( fix );
+			}
+			li.appendChild( badge );
+			li.appendChild( label );
+			li.appendChild( detail );
 			list.appendChild( li );
 		} );
 	}
@@ -443,6 +438,7 @@
 					return;
 				}
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Running preflight…' );
 				window.fetch( url, {
 					method: 'GET',
@@ -484,6 +480,7 @@
 					setButtonFeedback( button, 'Failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -500,6 +497,7 @@
 					return;
 				}
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Verifying MCP…' );
 				window.fetch( url, {
 					method: 'POST',
@@ -542,6 +540,7 @@
 					setButtonFeedback( button, 'Failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -559,6 +558,7 @@
 				}
 
 				button.disabled = true;
+				button.setAttribute( 'aria-busy', 'true' );
 				setButtonFeedback( button, 'Checking release…' );
 				var refreshUrl = new window.URL( url, window.location.href );
 				refreshUrl.searchParams.set( 'force', '1' );
@@ -609,7 +609,7 @@
 									: ( data.companion_status === 'mismatch'
 										? 'The configured HTTP bridge does not match the target release.'
 										: data.boundary || 'Local stdio version must be verified in the AI client.' ) ) ) );
-						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--' + (
+						summary.className = 'sw-ui-callout sw-ui-callout--' + (
 							latestRelease.status === 'unavailable' || data.plugin_update_available || [ 'outdated', 'mismatch' ].indexOf( data.companion_status ) !== -1 ? 'warn' : 'info'
 						);
 					}
@@ -649,11 +649,12 @@
 					var summary = panel.querySelector( '[data-stonewright-companion-summary]' );
 					if ( summary ) {
 						summary.textContent = 'Could not read the official release. Check network access and try again.';
-						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--warn';
+						summary.className = 'sw-ui-callout sw-ui-callout--danger';
 					}
 					setButtonFeedback( button, 'Check failed' );
 				} ).finally( function () {
 					button.disabled = false;
+					button.removeAttribute( 'aria-busy' );
 				} );
 			} );
 		} );
@@ -661,120 +662,6 @@
 
 	function escapeRegExp( value ) {
 		return String( value ).replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
-	}
-
-	function clearAbilityHighlights( root ) {
-		root.querySelectorAll( 'mark[data-sw-highlight]' ).forEach( function ( mark ) {
-			var parent = mark.parentNode;
-			if ( ! parent ) {
-				return;
-			}
-			parent.replaceChild( document.createTextNode( mark.textContent || '' ), mark );
-			parent.normalize();
-		} );
-	}
-
-	function highlightAbilityText( node, query ) {
-		if ( ! node || ! query ) {
-			return;
-		}
-		var text = node.textContent || '';
-		var lower = text.toLowerCase();
-		var index = lower.indexOf( query );
-		if ( index === -1 ) {
-			return;
-		}
-		var before = text.slice( 0, index );
-		var match = text.slice( index, index + query.length );
-		var after = text.slice( index + query.length );
-		var frag = document.createDocumentFragment();
-		if ( before ) {
-			frag.appendChild( document.createTextNode( before ) );
-		}
-		var mark = document.createElement( 'mark' );
-		mark.setAttribute( 'data-sw-highlight', '1' );
-		mark.textContent = match;
-		frag.appendChild( mark );
-		if ( after ) {
-			frag.appendChild( document.createTextNode( after ) );
-		}
-		node.textContent = '';
-		node.appendChild( frag );
-	}
-
-	function initAbilitySearch() {
-		var searchInput = document.getElementById( 'stonewright-ability-search' );
-		if ( ! searchInput ) {
-			return;
-		}
-		var emptyState = document.querySelector( '[data-sw-abilities-empty]' );
-		searchInput.addEventListener( 'input', function () {
-			var query = searchInput.value.toLowerCase().trim();
-			var totalVisible = 0;
-			document.querySelectorAll( '.stonewright-provider-group, .sw-ability-category' ).forEach( function ( group ) {
-				var visible = 0;
-				group.querySelectorAll( '.stonewright-ability-row' ).forEach( function ( row ) {
-					var haystack = [
-						row.dataset.name || '',
-						row.dataset.label || '',
-						row.dataset.tool || '',
-						row.dataset.category || '',
-						row.dataset.kind || '',
-					].join( ' ' ).toLowerCase();
-					var match = ! query || haystack.indexOf( query ) !== -1;
-					row.hidden = ! match;
-					clearAbilityHighlights( row );
-					if ( match ) {
-						visible++;
-						totalVisible++;
-						if ( query ) {
-							highlightAbilityText( row.querySelector( '.sw-ability-label' ), query );
-							highlightAbilityText( row.querySelector( '.sw-ability-tool' ), query );
-						}
-					}
-				} );
-				group.classList.toggle( 'is-filtered-empty', visible === 0 );
-			} );
-			if ( emptyState ) {
-				emptyState.hidden = totalVisible > 0 || ! query;
-			}
-		} );
-	}
-
-	function initAbilityBulkControls() {
-		var selectAll = document.querySelector( '[data-stonewright-select-all]' );
-		if ( selectAll ) {
-			selectAll.addEventListener( 'change', function () {
-				document.querySelectorAll( '.stonewright-ability-row:not([hidden]) input[name="stonewright_abilities[]"]' ).forEach( function ( checkbox ) {
-					checkbox.checked = selectAll.checked;
-				} );
-			} );
-		}
-
-		document.querySelectorAll( '[data-stonewright-submit-form]' ).forEach( function ( checkbox ) {
-			checkbox.addEventListener( 'change', function () {
-				var form = document.getElementById( checkbox.getAttribute( 'data-stonewright-submit-form' ) );
-				if ( form ) {
-					form.requestSubmit ? form.requestSubmit() : form.submit();
-				}
-			} );
-		} );
-
-		document.querySelectorAll( '[data-sw-bulk-action]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function ( event ) {
-				event.stopPropagation();
-				var action = button.getAttribute( 'data-sw-bulk-action' ) || '';
-				var category = button.getAttribute( 'data-sw-bulk-category' ) || '';
-				var actionSelect = document.querySelector( 'select[name="stonewright_bulk_action"]' );
-				var categorySelect = document.querySelector( 'select[name="stonewright_bulk_category"]' );
-				if ( actionSelect ) {
-					actionSelect.value = action;
-				}
-				if ( categorySelect ) {
-					categorySelect.value = category;
-				}
-			} );
-		} );
 	}
 
 	function focusTarget( id ) {
@@ -1047,31 +934,39 @@
 		}
 	}
 
+	/**
+	 * Show a message in the live region of the Application Password form as a notice of the shared layer. An error
+	 * is never removed by script; the next result replaces it.
+	 */
+	function setAppPasswordLive( live, variant, title, text ) {
+		live.hidden = false;
+		live.textContent = '';
+		if ( window.Stonewright && window.Stonewright.ui && window.Stonewright.ui.notify ) {
+			return window.Stonewright.ui.notify( live, { variant: variant, title: title, text: text } );
+		}
+		live.textContent = title + ( text ? ' ' + text : '' );
+		return live;
+	}
+
 	function showAppPasswordLive( payload ) {
 		var live = document.querySelector( '[data-stonewright-app-password-live]' );
 		if ( ! live ) {
 			return;
 		}
-		live.hidden = false;
-		live.innerHTML = '';
-		var strong = document.createElement( 'strong' );
-		strong.textContent = 'Application password generated.';
-		live.appendChild( strong );
-		var note = document.createElement( 'span' );
-		note.textContent = ' Shown once in this browser session. The paste-to-agent prompt stays credential-free.';
-		live.appendChild( note );
+		var notice = setAppPasswordLive( live, 'ok', 'Application password generated.', 'Shown once in this browser session. The paste-to-agent prompt stays credential-free.' );
 		var row = document.createElement( 'div' );
-		row.className = 'stonewright-inline-controls sw-actions';
+		row.className = 'sw-ui-actions';
 		var field = document.createElement( 'input' );
 		field.type = 'text';
 		field.readOnly = true;
-		field.className = 'regular-text';
+		field.className = 'sw-ui-input sw-setup__select';
 		field.id = 'stonewright-generated-app-password';
 		field.value = payload.password || '';
 		field.setAttribute( 'autocomplete', 'off' );
+		field.setAttribute( 'aria-label', 'Generated Application Password' );
 		var copyBtn = document.createElement( 'button' );
 		copyBtn.type = 'button';
-		copyBtn.className = 'button button-small';
+		copyBtn.className = 'sw-ui-btn';
 		copyBtn.textContent = 'Copy password only';
 		copyBtn.addEventListener( 'click', function ( event ) {
 			event.preventDefault();
@@ -1094,7 +989,7 @@
 		} );
 		row.appendChild( field );
 		row.appendChild( copyBtn );
-		live.appendChild( row );
+		( notice.lastElementChild || notice ).appendChild( row );
 	}
 
 	function ensurePasswordInventoryTable() {
@@ -1111,12 +1006,21 @@
 			empty.remove();
 		}
 		var table = document.createElement( 'table' );
-		table.className = 'widefat striped stonewright-app-password-table';
+		table.className = 'sw-ui-table sw-ui-table--stack stonewright-app-password-table';
 		var thead = document.createElement( 'thead' );
 		var headRow = document.createElement( 'tr' );
-		[ 'Name', 'UUID', 'Actions' ].forEach( function ( label ) {
+		[ 'Name', 'Created', 'Action' ].forEach( function ( label ) {
 			var th = document.createElement( 'th' );
-			th.textContent = label;
+			th.scope = 'col';
+			if ( label === 'Action' ) {
+				th.className = 'sw-ui-table__actions';
+				var hidden = document.createElement( 'span' );
+				hidden.className = 'sw-ui-visually-hidden';
+				hidden.textContent = label;
+				th.appendChild( hidden );
+			} else {
+				th.textContent = label;
+			}
 			headRow.appendChild( th );
 		} );
 		thead.appendChild( headRow );
@@ -1128,7 +1032,7 @@
 	}
 
 	function updatePasswordInventorySummary( count ) {
-		var summary = document.querySelector( '.stonewright-app-passwords-list summary' );
+		var summary = document.querySelector( '.stonewright-app-passwords-list [data-stonewright-app-password-count]' );
 		if ( ! summary ) {
 			return;
 		}
@@ -1152,17 +1056,34 @@
 		passwords.forEach( function ( item ) {
 			var tr = document.createElement( 'tr' );
 			var nameTd = document.createElement( 'td' );
-			nameTd.textContent = item.name || '';
+			nameTd.className = 'sw-ui-table__primary-cell';
+			var nameText = document.createElement( 'span' );
+			nameText.className = 'sw-ui-table__primary';
+			nameText.textContent = item.name || '';
+			nameTd.appendChild( nameText );
 			var uuidTd = document.createElement( 'td' );
-			uuidTd.textContent = item.uuid || '';
+			uuidTd.setAttribute( 'data-label', 'Created' );
+			if ( item.created ) {
+				var stamp = document.createElement( 'time' );
+				stamp.setAttribute( 'datetime', new Date( item.created * 1000 ).toISOString() );
+				stamp.textContent = new Date( item.created * 1000 ).toLocaleString();
+				uuidTd.appendChild( stamp );
+			} else {
+				uuidTd.textContent = 'Unknown';
+			}
 			var actionTd = document.createElement( 'td' );
+			actionTd.className = 'sw-ui-table__actions';
 			var form = document.createElement( 'form' );
 			form.method = 'post';
 			form.setAttribute( 'data-stonewright-app-password-revoke', item.uuid || '' );
 			var btn = document.createElement( 'button' );
 			btn.type = 'button';
-			btn.className = 'button button-small';
+			btn.className = 'sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm';
 			btn.textContent = 'Revoke';
+			var revokeContext = document.createElement( 'span' );
+			revokeContext.className = 'sw-ui-visually-hidden';
+			revokeContext.textContent = ' ' + ( item.name || '' );
+			btn.appendChild( revokeContext );
 			btn.setAttribute( 'data-confirm', 'Revoke this Application Password? The connected client will lose access immediately.' );
 			btn.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
@@ -1193,7 +1114,7 @@
 		if ( button ) {
 			button.disabled = true;
 		}
-		window.fetch( url + '?uuid=' + encodeURIComponent( uuid ), {
+		window.fetch( url + ( url.indexOf( '?' ) === -1 ? '?' : '&' ) + 'uuid=' + encodeURIComponent( uuid ), {
 			method: 'DELETE',
 			credentials: 'same-origin',
 			cache: 'no-store',
@@ -1290,8 +1211,7 @@
 			var live = form.querySelector( '[data-stonewright-app-password-live]' );
 			if ( ! name ) {
 				if ( live ) {
-					live.hidden = false;
-					live.textContent = 'Enter a name before generating an Application Password.';
+					setAppPasswordLive( live, 'danger', 'Enter a name before generating an Application Password.', '' );
 				}
 				return;
 			}
@@ -1322,8 +1242,7 @@
 				if ( ! result.ok || ! result.data || ! result.data.password ) {
 					var message = ( result.data && result.data.message ) ? result.data.message : 'Could not generate Application Password.';
 					if ( live ) {
-						live.hidden = false;
-						live.textContent = message;
+						setAppPasswordLive( live, 'danger', message, '' );
 					}
 					setButtonFeedback( submit, 'Failed' );
 					return;
@@ -1361,8 +1280,7 @@
 				} );
 			} ).catch( function () {
 				if ( live ) {
-					live.hidden = false;
-					live.textContent = 'Network error generating Application Password.';
+					setAppPasswordLive( live, 'danger', 'Network error generating Application Password.', '' );
 				}
 				if ( submit ) {
 					setButtonFeedback( submit, 'Failed' );
@@ -1408,345 +1326,6 @@
 		} );
 	}
 
-	function diagnosticIcon( status ) {
-		if ( status === 'ok' ) {
-			return '✓';
-		}
-		if ( status === 'warning' ) {
-			return '!';
-		}
-		if ( status === 'info' || status === 'skipped' ) {
-			return 'ⓘ';
-		}
-		return '✗';
-	}
-
-	function formatDiagnosticsCopy( report ) {
-		var lines = [ 'Stonewright support report' ];
-		var evidenceKeys = [ 'http_status', 'duration_ms', 'error_code', 'error_class', 'timeout' ];
-		var countKeys = [ 'problem', 'warning', 'info', 'ok', 'skipped' ];
-		var versionKeys = [ 'plugin', 'companion_contract', 'wordpress', 'php', 'tool_count' ];
-		var versionLabels = {
-			plugin: 'Plugin',
-			companion_contract: 'Companion',
-			wordpress: 'WordPress',
-			php: 'PHP',
-			tool_count: 'Tools',
-		};
-		if ( report && report.method ) {
-			lines.push( 'Method: ' + String( report.method ).replace( /[^a-z0-9_-]/gi, '' ) );
-		}
-		if ( report && report.correlation_id ) {
-			lines.push( 'Correlation: ' + String( report.correlation_id ).slice( 0, 64 ) );
-		}
-		var versions = report && report.versions ? report.versions : {};
-		versionKeys.forEach( function ( key ) {
-			if ( versions[ key ] === undefined || versions[ key ] === null ) {
-				return;
-			}
-			lines.push( ( versionLabels[ key ] || key ) + ': ' + String( versions[ key ] ) );
-		} );
-		var counts = report && report.counts ? report.counts : {};
-		var countBits = [];
-		countKeys.forEach( function ( key ) {
-			if ( typeof counts[ key ] === 'number' ) {
-				countBits.push( key + '=' + counts[ key ] );
-			}
-		} );
-		if ( countBits.length ) {
-			lines.push( 'Counts: ' + countBits.join( ' ' ) );
-		}
-		( ( report && report.checks ) || [] ).forEach( function ( check ) {
-			if ( ! check || ! check.id || ! check.status ) {
-				return;
-			}
-			lines.push( '[' + check.status + '] ' + check.id );
-			var evidence = check.evidence || {};
-			evidenceKeys.forEach( function ( key ) {
-				if ( evidence[ key ] === undefined || evidence[ key ] === null ) {
-					return;
-				}
-				if ( typeof evidence[ key ] === 'object' ) {
-					return;
-				}
-				lines.push( '  ' + key + '=' + String( evidence[ key ] ).slice( 0, 200 ) );
-			} );
-		} );
-		return lines.join( '\n' ).trim();
-	}
-
-	function declaredAction( check ) {
-		var action = check && check.action ? check.action : null;
-		if ( ! action || typeof action !== 'object' ) {
-			return null;
-		}
-		var type = String( action.type || '' );
-		var label = String( action.label || '' );
-		var target = String( action.target || '' ).trim();
-		if ( [ 'copy', 'link', 'retry' ].indexOf( type ) === -1 || ! label || ! target ) {
-			return null;
-		}
-		if ( type === 'link' && /^javascript:/i.test( target ) ) {
-			return null;
-		}
-		return { type: type, label: label, target: target };
-	}
-
-	function appendDiagnosticCard( parent, check ) {
-		var status = normalizeChecklistStatus( check.status || 'problem' );
-		var cssStatus = diagnosticCssStatus( status );
-		var card = document.createElement( 'div' );
-		card.className = 'sw-diag-card sw-diag-card--' + cssStatus;
-		card.setAttribute( 'data-status', status );
-
-		var icon = document.createElement( 'span' );
-		icon.className = 'sw-diag-card__icon';
-		icon.setAttribute( 'aria-hidden', 'true' );
-		icon.textContent = diagnosticIcon( status );
-
-		var bodyEl = document.createElement( 'span' );
-		bodyEl.className = 'sw-diag-card__body';
-
-		var label = document.createElement( 'strong' );
-		label.className = 'sw-diag-card__label';
-		label.textContent = check.label || '';
-
-		var detail = document.createElement( 'span' );
-		detail.className = 'sw-diag-card__detail';
-		detail.textContent = check.summary || check.detail || '';
-
-		bodyEl.appendChild( label );
-		bodyEl.appendChild( detail );
-
-		if ( ( status === 'problem' || status === 'warning' ) && check.remedy ) {
-			var remedy = document.createElement( 'span' );
-			remedy.className = 'sw-diag-card__detail';
-			remedy.textContent = String( check.remedy );
-			bodyEl.appendChild( remedy );
-		}
-
-		var copyText = String( check.copy || check.ticket || '' );
-		var action = declaredAction( check );
-		if ( ! action && copyText ) {
-			action = {
-				type: 'copy',
-				label: 'Copy hosting request',
-				target: 'stonewright-diag-ticket-' + String( check.id || 'check' ).replace( /[^a-z0-9_-]/gi, '' ),
-			};
-		}
-		if ( action ) {
-			if ( action.type === 'link' ) {
-				var link = document.createElement( 'a' );
-				link.className = 'button';
-				link.href = action.target;
-				link.textContent = action.label;
-				bodyEl.appendChild( link );
-			} else if ( action.type === 'retry' ) {
-				var retry = document.createElement( 'button' );
-				retry.type = 'button';
-				retry.className = 'button';
-				retry.setAttribute( 'data-stonewright-run-diagnostics', '' );
-				retry.textContent = action.label;
-				bodyEl.appendChild( retry );
-			} else {
-				var copyId = action.target;
-				var copyBtn = document.createElement( 'button' );
-				copyBtn.type = 'button';
-				copyBtn.className = 'button';
-				copyBtn.setAttribute( 'data-stonewright-copy', copyId );
-				copyBtn.textContent = action.label;
-
-				var copyArea = document.createElement( 'textarea' );
-				copyArea.id = copyId;
-				copyArea.className = 'sw-diag-copy-source';
-				copyArea.setAttribute( 'readonly', '' );
-				copyArea.hidden = true;
-				copyArea.value = copyText;
-
-				bodyEl.appendChild( copyBtn );
-				bodyEl.appendChild( copyArea );
-			}
-		}
-
-		card.appendChild( icon );
-		card.appendChild( bodyEl );
-		parent.appendChild( card );
-	}
-
-	function paintDiagnosticCards( root, report ) {
-		var cards = root.querySelector( '[data-stonewright-diag-cards]' );
-		if ( ! cards ) {
-			return;
-		}
-		cards.textContent = '';
-		var grouped = {
-			problem: [],
-			warning: [],
-			skipped: [],
-			ok: [],
-			info: [],
-		};
-		( ( report && report.checks ) || [] ).forEach( function ( check ) {
-			var status = normalizeChecklistStatus( check.status || 'problem' );
-			if ( ! grouped[ status ] ) {
-				grouped.problem.push( check );
-				return;
-			}
-			grouped[ status ].push( check );
-		} );
-
-		grouped.problem.forEach( function ( check ) {
-			appendDiagnosticCard( cards, check );
-		} );
-		grouped.warning.forEach( function ( check ) {
-			appendDiagnosticCard( cards, check );
-		} );
-		grouped.skipped.forEach( function ( check ) {
-			appendDiagnosticCard( cards, check );
-		} );
-
-		var success = grouped.ok.concat( grouped.info );
-		if ( success.length ) {
-			var details = document.createElement( 'details' );
-			details.className = 'sw-diag-success';
-			var summary = document.createElement( 'summary' );
-			summary.textContent = success.length + ' successful checks';
-			details.appendChild( summary );
-			success.forEach( function ( check ) {
-				appendDiagnosticCard( details, check );
-			} );
-			cards.appendChild( details );
-		}
-
-		var problemCount = grouped.problem.length;
-		var warningCount = grouped.warning.length;
-		if ( report && report.counts ) {
-			if ( typeof report.counts.problem === 'number' ) {
-				problemCount = report.counts.problem;
-			}
-			if ( typeof report.counts.warning === 'number' ) {
-				warningCount = report.counts.warning;
-			}
-		}
-
-		var problems = root.querySelector( '[data-stonewright-diag-problems]' );
-		var warnings = root.querySelector( '[data-stonewright-diag-warnings]' );
-		if ( problems ) {
-			problems.textContent = problemCount + ' Problems';
-			problems.hidden = problemCount === 0;
-		}
-		if ( warnings ) {
-			warnings.textContent = warningCount + ' Warnings';
-			warnings.hidden = warningCount === 0;
-		}
-
-		var copy = document.getElementById( 'stonewright-diagnostics-copy' );
-		if ( copy ) {
-			copy.value = formatDiagnosticsCopy( report || {} );
-		}
-
-		bindCopyButtons();
-	}
-
-	function initRunDiagnostics() {
-		var root = document.querySelector( '[data-stonewright-diagnostics]' );
-		var button = root ? root.querySelector( '[data-stonewright-run-diagnostics]' ) : null;
-		var form = root ? root.querySelector( '.sw-diagnostics-run' ) : null;
-		if ( ! root || ! button || ! form ) {
-			return;
-		}
-
-		var symptom = root.querySelector( '[data-stonewright-diag-symptom]' );
-		var help = root.querySelector( '[data-stonewright-diag-help]' );
-		var helpText = {
-			tools: 'Confirm Stonewright is enabled and the MCP surface is Essential or Full, then restart the AI client so it re-lists tools.',
-			auth: 'Confirm HTTPS or a local WordPress environment, then reconnect from Setup.',
-			unreachable: 'Check the site URL, TLS, and whether a firewall or login wall is blocking the MCP endpoint.',
-			other: 'Run diagnostics above, then copy the report for support.',
-		};
-		if ( symptom && help ) {
-			symptom.addEventListener( 'change', function () {
-				var text = helpText[ symptom.value ] || '';
-				help.textContent = text;
-				help.hidden = ! text;
-			} );
-		}
-
-		function scrollToFirstIssue() {
-			var first = root.querySelector( '.sw-diag-card--error, .sw-diag-card--warn' );
-			if ( first && first.scrollIntoView ) {
-				first.scrollIntoView( { behavior: 'smooth', block: 'start' } );
-			}
-		}
-
-		var problems = root.querySelector( '[data-stonewright-diag-problems]' );
-		var warnings = root.querySelector( '[data-stonewright-diag-warnings]' );
-		if ( problems ) {
-			problems.addEventListener( 'click', scrollToFirstIssue );
-		}
-		if ( warnings ) {
-			warnings.addEventListener( 'click', scrollToFirstIssue );
-		}
-
-		var modeSelect = root.querySelector( '[data-stonewright-diag-mode]' );
-		var running = false;
-		function finishLoading() {
-			running = false;
-			button.disabled = false;
-			button.classList.remove( 'is-loading' );
-			button.setAttribute( 'aria-busy', 'false' );
-			if ( modeSelect ) {
-				modeSelect.disabled = false;
-			}
-		}
-
-		function runDiagnostics( event ) {
-			if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
-				return;
-			}
-			event.preventDefault();
-			if ( running ) {
-				return;
-			}
-
-			var mode = modeSelect && modeSelect.value ? modeSelect.value : 'not-sure';
-			running = true;
-			button.disabled = true;
-			button.classList.add( 'is-loading' );
-			button.setAttribute( 'aria-busy', 'true' );
-			if ( modeSelect ) {
-				modeSelect.disabled = true;
-			}
-
-			var body = new window.URLSearchParams();
-			body.set( 'action', 'stonewright_run_diagnostics' );
-			body.set( 'nonce', window.stonewrightSetup.nonce || '' );
-			body.set( 'mode', mode );
-
-			window.fetch( window.stonewrightSetup.ajaxUrl, {
-				method: 'POST',
-				credentials: 'same-origin',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-				body: body.toString(),
-			} ).then( function ( response ) {
-				return response.json().then( function ( data ) {
-					return { ok: response.ok, data: data };
-				} );
-			} ).then( function ( result ) {
-				var success = !!( result.data && result.data.success );
-				var payload = result.data && result.data.data ? result.data.data : ( result.data || {} );
-				if ( success ) {
-					paintDiagnosticCards( root, payload );
-				}
-			} ).catch( function () {
-				/* Keep the last painted cards. */
-			} ).finally( finishLoading );
-		}
-
-		button.addEventListener( 'click', runDiagnostics );
-		form.addEventListener( 'submit', runDiagnostics );
-	}
-
 	function initContextToggleBadge() {
 		var checkbox = document.getElementById( 'stonewright_user_context_enabled' );
 		var badge = document.querySelector( '[data-sw-context-state]' );
@@ -1771,7 +1350,6 @@
 
 	document.addEventListener( 'DOMContentLoaded', function () {
 		initDeleteConfirm();
-		initAutoDismissNotices();
 		initCopyButtons();
 		initSecretToggles();
 		initTokenGenerators();
@@ -1780,13 +1358,10 @@
 		initConnectionTest();
 		initConnectionVerify();
 		initCompanionUpdateStatus();
-		initAbilitySearch();
-		initAbilityBulkControls();
 		initDeclarativeToggles();
 		initSkillEditorControls();
 		initPromptLibrary();
 		initApplyMcpSurface();
-		initRunDiagnostics();
 		initAppPasswordForm();
 		initContextToggleBadge();
 	} );

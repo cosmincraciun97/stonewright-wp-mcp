@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 import {
   describeAdapterStatus,
@@ -24,6 +24,9 @@ import {
   type EvidenceSummary,
 } from "./evidence-panel.js";
 import { WorkspaceStateMachine, isWriteState, type WorkspaceState } from "./state.js";
+import { ActionLedger } from "../session/action-ledger.js";
+import { canonical, deepFreeze } from "../session/protocol.js";
+import type { ApplyingPermit } from "../session/applying-permit.js";
 
 /**
  * The workspace controller.
@@ -129,6 +132,13 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
   let viewport: WorkspaceViewport = viewports[viewports.length - 1];
   let error: string | null = null;
   let destroyed = false;
+  let generation = 0;
+  let connectedRegistry: EditorRegistryLike | null = null;
+  let baselineRead: string | null = null;
+  let baselineSchema = "";
+  let baselineDirection = "";
+  let pendingAction: string | null = null;
+  const actions = new ActionLedger({ decisionAuthority: { recordedDecision: async () => machine.state === "applying" && !destroyed } });
 
   const snapshot = (): WorkspaceSnapshot => ({
     state: machine.state,
@@ -158,15 +168,18 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
     if (resolution.adapter === null) {
       throw new Error("No editor adapter is connected.");
     }
-    return resolution.adapter.registry();
+    if (!connectedRegistry) throw new Error("Editor tool catalog is unavailable.");
+    return connectedRegistry;
   };
 
   /** The single place a mutating editor tool may be called. */
-  const dispatchWrite = async (operation: ProposedOperation): Promise<void> => {
+  const dispatchWrite = async (input: Record<string, unknown>, permit: ApplyingPermit): Promise<void> => {
     if (!isWriteState(machine.state)) {
       throw new Error(`Refusing to write while the workspace is ${machine.state}.`);
     }
-    await registry().call(operation.tool, { target: operation.target, ...operationArgs(operation) });
+    const editor = registry();
+    if (!editor.apply) throw new Error("The editor does not support approved application.");
+    await editor.apply(String(input.tool), input.args as Record<string, unknown>, permit);
   };
 
   return {
@@ -182,12 +195,18 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
       if (destroyed) {
         throw new Error("This workspace has been destroyed.");
       }
-      resolution = await resolveEditorAdapter(candidatesFor(options));
+      const activeGeneration = ++generation;
+      const selected = await resolveEditorAdapter(candidatesFor(options));
+      if (activeGeneration !== generation) return;
+      if (destroyed) { fail("Editor session closed during connection."); return; }
+      resolution = selected;
+      baselineRead = null;
       if (resolution.error !== null || resolution.adapter === null) {
         fail(resolution.error ?? "No supported editor was found on this page.");
         return;
       }
       error = null;
+      connectedRegistry = resolution.adapter.registry();
       move("connected");
     },
 
@@ -197,7 +216,9 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
       }
       move("reading");
       try {
-        await registry().call(options.readTool ?? "get_page_structure", {});
+        baselineRead = canonical(await registry().call(options.readTool ?? "get_page_structure", {}), 2097152);
+        baselineSchema = canonical(registry().definitions(), 262144);
+        baselineDirection = canonical(options.direction ?? null);
       } catch (cause) {
         fail(messageOf(cause));
       }
@@ -207,7 +228,15 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
       if (machine.state !== "reading") {
         throw new Error(`The workspace must read the page before it can preview; it is ${machine.state}.`);
       }
-      operations = [...next];
+      operations = deepFreeze(JSON.parse(canonical(next, 262144)));
+      const editor = registry();
+      if (!editor.validate || !editor.apply || !baselineRead) throw new Error("The editor has no approved write contract or prior read.");
+      const tool = operations.length === 1 ? operations[0].tool : "batch_call";
+      const args = operations.length === 1 ? operationArgs(operations[0]) : { calls: operations.map((operation) => ({ tool: operation.tool, args: operationArgs(operation) })) };
+      editor.validate(tool, args);
+      const approvedGeneration = generation;
+      const proposed = actions.propose({ action: `page_tool:${tool}`, title: `Apply ${operations.length} change(s)`, session: `controller:${options.postId}:${generation}`, args: { tool, args }, details: { operations, direction: options.direction ?? null }, fresh: async () => !destroyed && generation === approvedGeneration && baselineDirection === canonical(options.direction ?? null) && baselineSchema === canonical(editor.definitions(), 262144) && baselineRead === canonical(await editor.call(options.readTool ?? "get_page_structure", {}), 2097152), current: async () => !destroyed && generation === approvedGeneration, execute: (input, permit) => dispatchWrite(input, permit) });
+      pendingAction = proposed.actionId;
       confirmation = describeConfirmation({
         operations,
         directionLabel: directionLabel(options.direction ?? null),
@@ -227,22 +256,29 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
     },
 
     async decide(decision) {
-      if (machine.state !== "awaiting_confirmation") {
+      const discardingPreview = decision === "deny" && machine.state === "previewing";
+      if (machine.state !== "awaiting_confirmation" && !discardingPreview) {
         throw new Error(`No confirmation is pending; the workspace is ${machine.state}.`);
       }
 
       if (decision === "deny") {
+        // Denial discards the staged change locally, whether or not confirmation
+        // was requested. The workspace leaves the staged state first, so the
+        // denied proposal can never reach the write state.
+        const denied = pendingAction;
+        pendingAction = null;
         confirmation = null;
         operations = [];
         move("connected");
+        if (denied) await actions.decide(denied, "deny");
         return;
       }
 
       move("applying");
       try {
-        for (const operation of operations) {
-          await dispatchWrite(operation);
-        }
+        if (!pendingAction) throw new Error("No immutable proposal is pending.");
+        const receipt = await actions.decide(pendingAction, "allow_once");
+        if (receipt.status !== "succeeded") throw new Error(receipt.error ?? "Approved application failed.");
       } catch (cause) {
         fail(messageOf(cause));
         return;
@@ -260,7 +296,8 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
       }
 
       evidence = [...evidence, ...collected];
-      const summary = summarizeEvidence(evidence);
+      if (destroyed) { fail("Editor session closed during verification."); return; }
+      const summary = summarizeEvidence(collected);
       if (!summary.verified) {
         fail(
           summary.total === 0
@@ -389,6 +426,21 @@ export function mountStonewrightWorkspace(root: HTMLElement, options: WorkspaceO
     root.append(header, canvas, inspector);
   }
 
+  /**
+   * A panel decision only counts while a change is staged: Apply once
+   * confirmation is requested, Cancel from the preview onwards, discarding the
+   * change locally. A click that arrives earlier, later, or twice is ignored;
+   * a counted decision reports its outcome through the controller's state,
+   * never as a rejected promise.
+   */
+  const decideFromPanel = (decision: "allow" | "deny"): void => {
+    const state = controller.getState();
+    if (state !== "awaiting_confirmation" && !(decision === "deny" && state === "previewing")) {
+      return;
+    }
+    controller.decide(decision).catch(() => undefined);
+  };
+
   function paint(): void {
     const current = controller.snapshot();
 
@@ -404,16 +456,21 @@ export function mountStonewrightWorkspace(root: HTMLElement, options: WorkspaceO
     }
 
     evidenceSlot.textContent = "";
-    evidenceSlot.append(renderEvidencePanel(doc, describeEvidencePanel(evidenceRows(current))));
+    // The rows are rebuilt from counts, so the verified marker comes from the
+    // controller's own summary of the evidence it recorded.
+    evidenceSlot.append(renderEvidencePanel(doc, { ...describeEvidencePanel(evidenceRows(current)), summary: current.evidence }));
 
     directionLine.textContent = `Direction: ${directionLabel(current.direction)}`;
 
     confirmSlot.textContent = "";
     if (current.confirmation !== null) {
+      // Until confirmation is requested the panel only previews the change, so
+      // Apply stays disabled.
+      const awaiting = current.state === "awaiting_confirmation";
       confirmSlot.append(
-        renderConfirmationPanel(doc, current.confirmation, {
-          onAllow: () => void controller.decide("allow"),
-          onDeny: () => void controller.decide("deny"),
+        renderConfirmationPanel(doc, { ...current.confirmation, canConfirm: awaiting && current.confirmation.canConfirm }, {
+          onAllow: () => decideFromPanel("allow"),
+          onDeny: () => decideFromPanel("deny"),
         }),
       );
     }
@@ -458,14 +515,8 @@ function directionLabel(direction: DirectionSummary | null): string {
 }
 
 function operationArgs(operation: ProposedOperation): Record<string, unknown> {
-  const args: Record<string, unknown> = { ...(operation.args ?? {}) };
-  if (operation.breakpoint !== undefined) {
-    args.breakpoint = operation.breakpoint;
-  }
-  if (operation.after !== undefined) {
-    args.value = operation.after;
-  }
-  return args;
+  if (!operation.args) throw new Error("The proposal must include exact typed editor arguments.");
+  return JSON.parse(canonical(operation.args));
 }
 
 function messageOf(cause: unknown): string {

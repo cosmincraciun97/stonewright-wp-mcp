@@ -9,7 +9,12 @@ namespace Stonewright\WpMcp\Elementor;
 final class CssRegenerator {
 
 	/**
-	 * @return array{ok:bool,post_id:int,kind:string,method:string,detail:string,path_sha256?:string,url_sha256?:string,error_class?:string}
+	 * Regenerates through Elementor's own update(), which writes the file and stores the CSS
+	 * metadata (time, status) that Elementor prints as the stylesheet's `?ver=` and uses to decide
+	 * whether the file is linked. The CSS version is advanced past its previous value so browsers
+	 * and page caches fetch the regenerated file.
+	 *
+	 * @return array{ok:bool,post_id:int,kind:string,method:string,detail:string,path_sha256?:string,url_sha256?:string,error_class?:string,css_content?:string,print_method?:string,css_version?:int,css_version_before?:int,css_version_changed?:bool}
 	 */
 	public static function regenerate( CssTarget $target ): array {
 		$post_id = $target->post_id();
@@ -46,8 +51,15 @@ final class CssRegenerator {
 				return self::failure( $target, self::path_matches( $expected['path'], $path_before ) ? 'url_mismatch' : 'path_mismatch' );
 			}
 
-			// @phpstan-ignore-next-line Elementor runtime API (Post/Loop::update_file).
-			$css->update_file();
+			$version_before = self::css_version( $css );
+			$use_update     = self::has_public_method( $css, 'update' );
+			if ( $use_update ) {
+				// @phpstan-ignore-next-line Elementor runtime API (Post/Loop::update).
+				$css->update();
+			} else {
+				// @phpstan-ignore-next-line Elementor runtime API (Post/Loop::update_file).
+				$css->update_file();
+			}
 
 			$path = (string) $css->get_path();
 			$url  = (string) $css->get_url();
@@ -58,15 +70,30 @@ final class CssRegenerator {
 				return self::failure( $target, 'empty_css_file' );
 			}
 
-			return [
+			$result = [
 				'ok'          => true,
 				'post_id'     => $post_id,
 				'kind'        => $target->kind(),
-				'method'      => 'elementor_css_update_file',
+				'method'      => $use_update ? 'elementor_css_update' : 'elementor_css_update_file',
 				'detail'      => 'regenerated',
 				'path_sha256' => hash( 'sha256', $path ),
 				'url_sha256'  => hash( 'sha256', $url ),
 			];
+			if ( null !== $version_before ) {
+				$version_after = self::advance_css_version( $css, $post_id, $version_before );
+				if ( null === $version_after ) {
+					return self::failure( $target, 'css_version_not_advanced' );
+				}
+				$result['css_version_before']  = $version_before;
+				$result['css_version']         = $version_after;
+				$result['css_version_changed'] = $version_after !== $version_before;
+			}
+			$content = self::css_content_state( $css );
+			if ( '' !== $content ) {
+				$result['css_content']  = $content;
+				$result['print_method'] = 'internal' === get_option( 'elementor_css_print_method' ) ? 'internal' : 'external';
+			}
+			return $result;
 		} catch ( \Throwable $error ) {
 			return [
 				'ok'          => false,
@@ -79,16 +106,79 @@ final class CssRegenerator {
 		}
 	}
 
+	/**
+	 * Whether Elementor's own CSS object holds any stylesheet content after the update.
+	 * Returns an empty string when the object cannot say.
+	 */
+	private static function css_content_state( object $css ): string {
+		if ( ! method_exists( $css, 'get_content' ) ) {
+			return '';
+		}
+		try {
+			$content = $css->get_content();
+		} catch ( \Throwable $error ) {
+			return '';
+		}
+		if ( ! is_string( $content ) ) {
+			return '';
+		}
+		return '' === trim( $content ) ? 'empty' : 'present';
+	}
+
 	private static function has_public_update_file( object $css ): bool {
-		if ( ! method_exists( $css, 'update_file' ) ) {
+		return self::has_public_method( $css, 'update_file' );
+	}
+
+	private static function has_public_method( object $css, string $name ): bool {
+		if ( ! method_exists( $css, $name ) ) {
 			return false;
 		}
 		try {
-			$method = new \ReflectionMethod( $css, 'update_file' );
+			$method = new \ReflectionMethod( $css, $name );
 		} catch ( \ReflectionException $error ) {
 			return false;
 		}
 		return $method->isPublic();
+	}
+
+	/**
+	 * The stylesheet version Elementor prints as `?ver=`: the `time` of its CSS metadata.
+	 * Null when the object does not expose its metadata.
+	 */
+	private static function css_version( object $css ): ?int {
+		if ( ! self::has_public_method( $css, 'get_meta' ) ) {
+			return null;
+		}
+		try {
+			$time = $css->get_meta( 'time' );
+		} catch ( \Throwable $error ) {
+			return null;
+		}
+		return is_numeric( $time ) ? max( 0, (int) $time ) : 0;
+	}
+
+	/**
+	 * Makes sure the CSS version is greater than it was before the regeneration, which a
+	 * regeneration inside the same second or behind a stored time does not do by itself.
+	 * Returns the version now stored, or null when it could not be advanced.
+	 */
+	private static function advance_css_version( object $css, int $post_id, int $before ): ?int {
+		$after = self::css_version( $css );
+		if ( null !== $after && $after > $before ) {
+			return $after;
+		}
+		try {
+			$meta = $css->get_meta();
+		} catch ( \Throwable $error ) {
+			return null;
+		}
+		if ( ! is_array( $meta ) ) {
+			return null;
+		}
+		$meta['time'] = $before + 1;
+		update_post_meta( $post_id, '_elementor_css', $meta );
+		$after = self::css_version( $css );
+		return null !== $after && $after > $before ? $after : null;
 	}
 
 	/** @param array{path:string,url:string} $expected */

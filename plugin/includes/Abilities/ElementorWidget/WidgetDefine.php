@@ -8,7 +8,6 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -181,11 +180,7 @@ final class WidgetDefine extends AbilityKernel {
 				// 4. StaticGuard scan (defense-in-depth, layer 2).
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'widget_slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						'StaticGuard rejected the compiled widget source. This is a compiler bug — please report it.',
@@ -218,16 +213,13 @@ final class WidgetDefine extends AbilityKernel {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Write source to `<draft_dir>/widget-<slug>.pending.php`.
+	 * Write source to `<draft_dir>/widget-<slug>.pending.draft`.
 	 * Uses raw file_put_contents because SandboxFiles::write() enforces a
-	 * strict name regex that does not allow the .pending.php extension.
+	 * strict name regex that does not allow the pending name.
 	 *
 	 * @return string|\WP_Error Absolute path on success.
 	 */
 	private static function write_pending( string $filename, string $source ): string|\WP_Error {
-		// Ensure draft dir exists.
-		$dir = SandboxFiles::draft_dir();
-
 		// Guard: filename must be safe (no path separators, known pattern).
 		if ( $filename !== basename( $filename ) ) {
 			return new \WP_Error( 'stonewright_widget_invalid_name', 'Path traversal detected in widget filename.' );
@@ -239,7 +231,8 @@ final class WidgetDefine extends AbilityKernel {
 			);
 		}
 
-		$path   = $dir . '/' . $filename;
+		// Stored under a non-PHP name; the loader reads it only after approval.
+		$path   = SandboxFiles::stored_path( $filename );
 		$result = file_put_contents( $path, $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		if ( false === $result ) {
 			return new \WP_Error(
@@ -248,7 +241,6 @@ final class WidgetDefine extends AbilityKernel {
 			);
 		}
 
-		AuditLog::record( self::ABILITY, [ 'widget_slug' => $filename, 'action' => 'write_pending' ] );
 		return $path;
 	}
 }

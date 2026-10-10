@@ -21,8 +21,10 @@ final class Backup {
 	 *
 	 * @param list<string> $option_keys
 	 * @param list<string> $theme_mod_keys
+	 * @param bool         $arm            Whether the restore point arms a rescue entry for the write that follows. False for a restore point that only saves the current state.
+	 * @param list<string> $keep           Restore point ids the history limit must not drop, for a caller that is about to restore one of them.
 	 */
-	public static function snapshot_options( array $option_keys, array $theme_mod_keys = [] ): string {
+	public static function snapshot_options( array $option_keys, array $theme_mod_keys = [], bool $arm = true, array $keep = [] ): string {
 		$restore_id = self::new_snapshot_id();
 		$options    = [];
 		foreach ( $option_keys as $key ) {
@@ -65,8 +67,11 @@ final class Backup {
 			'options'    => $options,
 			'theme_mods' => $theme_mods,
 		];
-		$store = self::trim( $store );
+		$store = self::trim( $store, $keep );
 		update_option( self::OPTION_SNAPSHOTS, $store, false );
+		if ( $arm ) {
+			RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id );
+		}
 
 		return $restore_id;
 	}
@@ -112,7 +117,14 @@ final class Backup {
 		return true;
 	}
 
-	public static function snapshot_post( int $post_id ): string {
+	/**
+	 * Snapshot a post before a write. The history keeps the newest snapshots up to the limit.
+	 *
+	 * @param list<string> $keep Snapshot ids the history limit must not drop, for a caller that is about to restore one of them.
+	 * @param bool         $arm  Whether the snapshot arms a rescue entry for the write that follows. False for a snapshot that only saves the current state.
+	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
+	 */
+	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return '';
@@ -133,7 +145,7 @@ final class Backup {
 		$snapshots                 = get_post_meta( $post_id, self::META_KEY, true );
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
 		$snapshots[ $snapshot_id ] = $payload;
-		$snapshots                 = self::trim( $snapshots );
+		$snapshots                 = self::trim( $snapshots, $keep );
 		self::update_meta( $post_id, self::META_KEY, $snapshots );
 		$readback = self::get_snapshot( $post_id, $snapshot_id );
 		if ( ! is_array( $readback ) || ! self::values_match( $readback, $payload ) || ! hash_equals( Json::hash( $payload ), Json::hash( $readback ) ) ) {
@@ -142,6 +154,9 @@ final class Backup {
 
 		if ( post_type_supports( $post->post_type, 'revisions' ) ) {
 			wp_save_post_revision( $post_id );
+		}
+		if ( $arm ) {
+			RescueGuard::arm_post_write( $post_id, $snapshot_id );
 		}
 
 		return $snapshot_id;
@@ -205,6 +220,67 @@ final class Backup {
 		return $operations_verified
 			&& $expected === $readback
 			&& hash_equals( Json::hash( $expected ), Json::hash( $readback ) );
+	}
+
+	/**
+	 * Whether the post (and the tracked meta) now differs from a snapshot.
+	 *
+	 * @return bool|null Null when the snapshot or the post cannot be read.
+	 */
+	public static function differs_from_snapshot( int $post_id, string $snapshot_id ): ?bool {
+		$snapshot = self::get_snapshot( $post_id, $snapshot_id );
+		if ( ! $snapshot ) {
+			return null;
+		}
+		$expected = self::expected_restore_state( $snapshot );
+		if ( null === $expected ) {
+			return null;
+		}
+		$current = self::read_restore_state( $post_id, $expected['meta'] );
+		if ( null === $current ) {
+			return null;
+		}
+		return ! hash_equals( Json::hash( $expected ), Json::hash( $current ) );
+	}
+
+	/**
+	 * Whether any option or theme mod of a restore point now differs from what it captured.
+	 *
+	 * @return bool|null Null when the restore point is unknown.
+	 */
+	public static function options_differ_from_snapshot( string $restore_id ): ?bool {
+		$store = get_option( self::OPTION_SNAPSHOTS, [] );
+		$row   = is_array( $store ) && isset( $store[ $restore_id ] ) && is_array( $store[ $restore_id ] ) ? $store[ $restore_id ] : null;
+		if ( null === $row ) {
+			return null;
+		}
+		foreach ( (array) ( $row['options'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = get_option( $key, $sentinel );
+			$exists   = $value !== $sentinel;
+			if ( ! $exists && isset( $GLOBALS['stonewright_test_options'] ) && is_array( $GLOBALS['stonewright_test_options'] ) ) {
+				$exists = array_key_exists( $key, $GLOBALS['stonewright_test_options'] );
+				$value  = $exists ? $GLOBALS['stonewright_test_options'][ $key ] : null;
+			}
+			if ( (bool) ( $payload['exists'] ?? false ) !== $exists || ( $exists && Json::hash( $value ) !== Json::hash( $payload['value'] ?? null ) ) ) {
+				return true;
+			}
+		}
+		foreach ( (array) ( $row['theme_mods'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) || ! function_exists( 'get_theme_mod' ) ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = get_theme_mod( $key, $sentinel );
+			$exists   = $value !== $sentinel;
+			if ( (bool) ( $payload['exists'] ?? false ) !== $exists || ( $exists && Json::hash( $value ) !== Json::hash( $payload['value'] ?? null ) ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -449,13 +525,28 @@ final class Backup {
 
 	/**
 	 * @param array<string, array<string, mixed>> $snapshots
+	 * @param list<string>                        $keep      Snapshot ids that stay however old they are.
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function trim( array $snapshots ): array {
+	private static function trim( array $snapshots, array $keep = [] ): array {
 		$limit = (int) apply_filters( 'stonewright_backup_history_limit', 10 );
 		if ( count( $snapshots ) <= $limit ) {
 			return $snapshots;
 		}
-		return array_slice( $snapshots, -$limit, null, true );
+		if ( [] === $keep ) {
+			return array_slice( $snapshots, -$limit, null, true );
+		}
+		$excess = count( $snapshots ) - $limit;
+		foreach ( array_keys( $snapshots ) as $id ) {
+			if ( $excess <= 0 ) {
+				break;
+			}
+			if ( in_array( (string) $id, $keep, true ) ) {
+				continue;
+			}
+			unset( $snapshots[ $id ] );
+			--$excess;
+		}
+		return $snapshots;
 	}
 }

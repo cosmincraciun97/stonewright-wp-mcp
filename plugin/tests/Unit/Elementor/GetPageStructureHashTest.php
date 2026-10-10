@@ -181,7 +181,7 @@ final class GetPageStructureHashTest extends TestCase {
 		self::assertSame( 811, $result['post_id'] );
 
 		// The outline is the only product of the summary build. Its absence, and
-		// the absence of the counts derived from flattening the tree, is what
+		// the absence of the counts computed by flattening the tree, is what
 		// proves the expensive path was skipped rather than merely hidden.
 		self::assertArrayNotHasKey( 'outline', $result );
 		self::assertArrayNotHasKey( 'count', $result );

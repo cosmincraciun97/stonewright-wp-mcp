@@ -1,0 +1,122 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Audit log page: placement only. Every component (stat band, toolbar, table, drawer, badges, lineage) comes
+ * from sw-ui.css.
+ */
+
+/* Toolbar: the primary row of filters, the folded rest, the matching rules and the result count stack. */
+.sw-audit-page .sw-audit-filters {
+	display: grid;
+	gap: var(--sw-space-3);
+}
+
+.sw-audit-page .sw-audit-filters__primary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: start;
+	gap: var(--sw-space-3);
+}
+
+.sw-audit-page .sw-audit-filters__primary .sw-ui-field {
+	flex: 1 1 160px;
+	max-width: 240px;
+}
+
+.sw-audit-page .sw-audit-filters__primary > .sw-ui-actions {
+	margin-block-start: var(--sw-space-5);
+}
+
+.sw-audit-page .sw-audit-filters__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	gap: var(--sw-space-3);
+}
+
+.sw-audit-page .sw-audit-filters .sw-ui-toolbar__meta {
+	margin: 0;
+}
+
+.sw-audit-page .sw-audit-views,
+.sw-audit-page .sw-audit-pages {
+	margin-block: var(--sw-space-3);
+}
+
+.sw-audit-page .sw-incident-summary {
+	--sw-card-pad: var(--sw-space-5);
+}
+
+.sw-audit-page .sw-incident-summary .sw-ui-card__header {
+	padding-block-start: var(--sw-space-5);
+}
+
+.sw-audit-page .sw-incident-summary .sw-ui-stats {
+	margin: 0;
+}
+
+/* A cell with several parts (badge and lines of detail) is one block, so a stacked row cannot spill sideways. */
+.sw-audit-page .sw-audit-cell {
+	display: grid;
+	justify-items: start;
+	gap: var(--sw-space-1);
+	min-width: 0;
+}
+
+/* Event cell: long ability names, codes and identifiers wrap instead of widening the table. */
+.sw-audit-page .sw-audit-ability,
+.sw-audit-page .sw-audit-cause {
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+.sw-audit-page .sw-audit-ability {
+	padding: 0;
+	border: 0;
+	background: none;
+}
+
+.sw-audit-page .sw-audit-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-1);
+	margin-block: var(--sw-space-1);
+}
+
+/* Change set line (printed by the lineage hook) and the active change set filter. */
+.sw-audit-page .sw-audit-lineage-cell,
+.sw-audit-page .sw-audit-lineage-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1) var(--sw-space-2);
+	min-width: 0;
+	margin-block: var(--sw-space-2);
+}
+
+/* A panel in the drawer: facts, then the redacted payload. */
+.sw-audit-page .sw-audit-panel {
+	min-width: 0;
+}
+
+.sw-audit-page .sw-audit-panel > * + * {
+	margin-block-start: var(--sw-space-4);
+}
+
+/* Lineage panel: the counts and span above the tree, the current-node label, and the "show more" row. */
+.sw-audit-page .sw-audit-lineage-summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-1) var(--sw-space-2);
+	margin: 0 0 var(--sw-space-3);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-audit-page .sw-audit-lineage-node__current {
+	color: var(--sw-accent-text);
+	font-weight: var(--sw-weight-semibold);
+}
+
+.sw-audit-page .sw-audit-lineage-more {
+	margin: var(--sw-space-3) 0;
+}

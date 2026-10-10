@@ -30,6 +30,19 @@ final class StockImageImport extends AbilityKernel {
 		return 'media';
 	}
 
+	/**
+	 * Adds an attachment to the media library; nothing that exists is overwritten.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',
@@ -174,7 +187,7 @@ final class StockImageImport extends AbilityKernel {
 				if ( '' !== $title ) {
 					$update['post_title'] = $title;
 				}
-				wp_update_post( $update );
+				wp_update_post( wp_slash( $update ) );
 
 				if ( '' !== $alt ) {
 					update_post_meta( $attachment_id, '_wp_attachment_image_alt', $alt );

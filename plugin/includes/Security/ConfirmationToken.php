@@ -10,7 +10,7 @@ use Stonewright\WpMcp\Support\Json;
  *
  * Token format: swc_<base64url(payload_json)>.<base64url(hmac_sha256)>
  * The payload is canonical JSON of {ability, args_hash, user_id, nonce, expires_at}.
- * The HMAC secret is derived from wp_salt('auth') + a per-install secret stored
+ * The HMAC secret is computed from wp_salt('auth') + a per-install secret stored
  * in the stonewright_confirmation_secret option.
  *
  * Replay protection: on successful verify the nonce is stored in a transient for

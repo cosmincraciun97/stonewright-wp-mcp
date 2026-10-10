@@ -6,7 +6,10 @@ namespace Stonewright\WpMcp\Abilities\CustomCode;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Provider-neutral custom-code pipeline.
@@ -102,6 +105,8 @@ final class ProviderOps extends AbilityKernel {
 				'confirmation_token'     => [ 'type' => 'string' ],
 				'path'                   => [ 'type' => 'string' ],
 				'css'                    => [ 'type' => 'string' ],
+				'repair_of'              => ChangeSet::input_properties()['repair_of'],
+				'supersedes'             => ChangeSet::input_properties()['supersedes'],
 			],
 		];
 	}
@@ -110,6 +115,9 @@ final class ProviderOps extends AbilityKernel {
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => true,
+			'properties'           => [
+				'change_set' => ChangeSet::output_property(),
+			],
 		];
 	}
 
@@ -210,6 +218,10 @@ final class ProviderOps extends AbilityKernel {
 					);
 				}
 
+				if ( 'apply' === $action && ! in_array( $provider_id, [ 'theme-file', 'customizer-css' ], true ) ) {
+					RescueGuard::arm_custom_code_write( $provider_id, sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) ) );
+				}
+
 				return match ( $action ) {
 					'list' => $provider->list( $args ),
 					'read' => $provider->read( (string) ( $args['target_id'] ?? $args['path'] ?? '' ) ),
@@ -224,6 +236,34 @@ final class ProviderOps extends AbilityKernel {
 					),
 				};
 			}
+		);
+	}
+
+	/**
+	 * ChangeSetV1 of a dry-run, apply or rollback that a provider handled itself.
+	 * A provider that delegates to a typed ability returns that ability's change set,
+	 * which is kept as it is; the other actions report none.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$action = sanitize_key( (string) ( $args['action'] ?? '' ) );
+		if ( ! in_array( $action, [ 'dry-run', 'apply', 'rollback' ], true ) || ( is_array( $result ) && is_array( $result['change_set'] ?? null ) ) ) {
+			return null;
+		}
+		$data     = ChangeSetSources::data( $result );
+		$provider = sanitize_key( (string) ( $args['provider'] ?? '' ) );
+		$target   = (string) ( $data['target_id'] ?? $args['target_id'] ?? $args['path'] ?? '' );
+		$ref      = $provider . ':' . ( '' !== $target ? $target : (string) ( $data['path'] ?? '' ) );
+		$rollback = 'rollback' === $action;
+		return ChangeSetSources::file(
+			$args,
+			$result,
+			$status,
+			ChangeSet::entry( 'custom_code', $ref, $rollback ? 'rollback' : 'apply', 0 ),
+			$rollback ? [ 'restore' => true ] : [ 'recipe_kind' => 'provider_snapshot', 'recipe_target' => $ref ]
 		);
 	}
 

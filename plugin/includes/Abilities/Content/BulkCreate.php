@@ -127,12 +127,14 @@ final class BulkCreate extends AbilityKernel {
 					}
 
 					$id = wp_insert_post(
-						[
-							'post_title'   => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
-							'post_content' => wp_kses_post( (string) ( $item['content'] ?? '' ) ),
-							'post_status'  => (string) ( $item['status'] ?? 'draft' ),
-							'post_type'    => $item_post_type,
-						],
+						wp_slash(
+							[
+								'post_title'   => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+								'post_content' => wp_kses_post( (string) ( $item['content'] ?? '' ) ),
+								'post_status'  => (string) ( $item['status'] ?? 'draft' ),
+								'post_type'    => $item_post_type,
+							]
+						),
 						true
 					);
 

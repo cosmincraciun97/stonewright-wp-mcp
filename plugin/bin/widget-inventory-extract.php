@@ -17,7 +17,7 @@
  *   - get_keywords() return array
  *
  * Files that don't `extends ... Widget_Base` are skipped (base / abstract
- * classes don't represent real widgets). Source attribution is derived from
+ * classes don't represent real widgets). Source attribution comes from
  * the file path: `elementor/includes/widgets/` → `free`,
  * `pro-elements/modules/<X>/widgets/` → `pro` (unless X == 'woocommerce', then `wc`).
  *

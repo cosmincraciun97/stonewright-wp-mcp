@@ -13,6 +13,12 @@ final class WidgetSchemaRepository {
 
 	private const CACHE_TTL = 43200;
 	private const CACHE_KEYS_OPTION = 'stonewright_elementor_schema_cache_keys';
+	/** Most persisted schema records kept at once; the oldest are evicted first. */
+	private const CACHE_MAX_ENTRIES = 300;
+	/** Most bytes of persisted schema payload kept at once (compressed size). */
+	private const CACHE_MAX_BYTES = 6291456;
+	/** A single record larger than this is served from the request cache only. */
+	private const CACHE_MAX_ENTRY_BYTES = 524288;
 
 	/** @var array<string, array<string, mixed>> */
 	private static array $request_cache = [];
@@ -32,7 +38,7 @@ final class WidgetSchemaRepository {
 			return self::$request_cache[ $cache_key ];
 		}
 		if ( ! $refresh ) {
-			$cached = get_transient( $cache_key );
+			$cached = self::unpack( get_transient( $cache_key ), $widget_type, (string) $fingerprint['hash'] );
 			if ( is_array( $cached ) ) {
 				self::$request_cache[ $cache_key ] = $cached;
 				return $cached;
@@ -99,8 +105,7 @@ final class WidgetSchemaRepository {
 		unset( $hash_input['captured_at'], $hash_input['expires_at'] );
 		$record['schema_hash']  = hash( 'sha256', (string) wp_json_encode( self::canonicalize( $hash_input ) ) );
 
-		set_transient( $cache_key, $record, self::CACHE_TTL );
-		self::remember_cache_key( $cache_key );
+		self::persist( $cache_key, $record, (string) $fingerprint['hash'] );
 		self::$request_cache[ $cache_key ] = $record;
 		return $record;
 	}
@@ -169,10 +174,8 @@ final class WidgetSchemaRepository {
 	 */
 	public static function invalidate( mixed ...$ignored ): void {
 		unset( $ignored );
-		foreach ( (array) get_option( self::CACHE_KEYS_OPTION, [] ) as $cache_key ) {
-			if ( is_string( $cache_key ) && str_starts_with( $cache_key, 'stonewright_el_schema_' ) ) {
-				delete_transient( $cache_key );
-			}
+		foreach ( array_keys( self::load_index() ) as $cache_key ) {
+			delete_transient( $cache_key );
 		}
 		update_option( self::CACHE_KEYS_OPTION, [], false );
 		self::$request_cache = [];
@@ -182,15 +185,106 @@ final class WidgetSchemaRepository {
 		return 'stonewright_el_schema_' . substr( hash( 'sha256', $fingerprint . ':' . $widget_type ), 0, 40 );
 	}
 
-	private static function remember_cache_key( string $cache_key ): void {
-		$keys = array_values( array_filter( (array) get_option( self::CACHE_KEYS_OPTION, [] ), 'is_string' ) );
-		if ( in_array( $cache_key, $keys, true ) ) {
+	/**
+	 * Stores one record in the persistent cache inside a fixed budget.
+	 *
+	 * The index option (autoload off) maps each key to its runtime fingerprint, payload size
+	 * and write time. Records of another fingerprint are dropped first, then the oldest records
+	 * until the entry and byte budgets hold.
+	 *
+	 * @param array<string, mixed> $record
+	 */
+	private static function persist( string $cache_key, array $record, string $fingerprint ): void {
+		$payload = self::pack( $record );
+		$size    = strlen( $payload );
+		$index   = self::load_index();
+		foreach ( $index as $key => $meta ) {
+			if ( $key === $cache_key || '' === $meta['fingerprint'] || $meta['fingerprint'] !== $fingerprint ) {
+				delete_transient( $key );
+				unset( $index[ $key ] );
+			}
+		}
+		if ( $size > self::CACHE_MAX_ENTRY_BYTES ) {
+			update_option( self::CACHE_KEYS_OPTION, $index, false );
 			return;
 		}
-		$keys[] = $cache_key;
-		update_option( self::CACHE_KEYS_OPTION, array_slice( $keys, -500 ), false );
+		$total = array_sum( array_column( $index, 'bytes' ) );
+		$count = count( $index );
+		while ( $count > 0 && ( $count >= self::CACHE_MAX_ENTRIES || $total + $size > self::CACHE_MAX_BYTES ) ) {
+			$oldest = (string) array_key_first( $index );
+			$total -= $index[ $oldest ]['bytes'];
+			delete_transient( $oldest );
+			unset( $index[ $oldest ] );
+			--$count;
+		}
+		set_transient( $cache_key, $payload, self::CACHE_TTL );
+		$index[ $cache_key ] = [ 'fingerprint' => $fingerprint, 'bytes' => $size, 'at' => time() ];
+		update_option( self::CACHE_KEYS_OPTION, $index, false );
 	}
 
+	/**
+	 * Reads the index. A list of bare keys (older format) comes back with an empty fingerprint
+	 * so the next write removes those records.
+	 *
+	 * @return array<string, array{fingerprint:string,bytes:int,at:int}>
+	 */
+	private static function load_index(): array {
+		$index = [];
+		foreach ( (array) get_option( self::CACHE_KEYS_OPTION, [] ) as $key => $meta ) {
+			if ( is_string( $meta ) && str_starts_with( $meta, 'stonewright_el_schema_' ) ) {
+				$index[ $meta ] = [ 'fingerprint' => '', 'bytes' => 0, 'at' => 0 ];
+				continue;
+			}
+			if ( ! is_string( $key ) || ! str_starts_with( $key, 'stonewright_el_schema_' ) || ! is_array( $meta ) ) {
+				continue;
+			}
+			$index[ $key ] = [
+				'fingerprint' => (string) ( $meta['fingerprint'] ?? '' ),
+				'bytes'       => max( 0, (int) ( $meta['bytes'] ?? 0 ) ),
+				'at'          => (int) ( $meta['at'] ?? 0 ),
+			];
+		}
+		return $index;
+	}
+
+	/**
+	 * @param array<string, mixed> $record
+	 */
+	private static function pack( array $record ): string {
+		$serialized = serialize( $record );
+		if ( function_exists( 'gzdeflate' ) ) {
+			$deflated = gzdeflate( $serialized, 6 );
+			if ( is_string( $deflated ) ) {
+				return 'z1:' . base64_encode( $deflated );
+			}
+		}
+		return 'r1:' . base64_encode( $serialized );
+	}
+
+	/**
+	 * Returns the record only when it decodes cleanly and belongs to this widget and fingerprint.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function unpack( mixed $stored, string $widget_type, string $fingerprint ): ?array {
+		$record = null;
+		if ( is_array( $stored ) ) {
+			$record = $stored;
+		} elseif ( is_string( $stored ) && 1 === preg_match( '/\A(z1|r1):(.*)\z/Ds', $stored, $parts ) ) {
+			$raw = base64_decode( $parts[2], true );
+			if ( 'z1' === $parts[1] && false !== $raw && function_exists( 'gzinflate' ) ) {
+				$raw = @gzinflate( $raw ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a corrupt payload is a cache miss.
+			}
+			if ( is_string( $raw ) ) {
+				$decoded = @unserialize( $raw, [ 'allowed_classes' => false ] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- plain arrays only; a corrupt payload is a cache miss.
+				$record  = is_array( $decoded ) ? $decoded : null;
+			}
+		}
+		if ( ! is_array( $record ) || ( $record['widget_type'] ?? null ) !== $widget_type || ( $record['runtime_fingerprint'] ?? null ) !== $fingerprint ) {
+			return null;
+		}
+		return $record;
+	}
 	private static function manager(): ?object {
 		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
 			return null;
@@ -211,7 +305,7 @@ final class WidgetSchemaRepository {
 	 * @return array<string, array<string, mixed>>
 	 */
 	private static function controls( object $widget ): array {
-		$raw = method_exists( $widget, 'get_controls' ) ? (array) $widget->get_controls() : [];
+		$raw = LiveControls::of( $widget );
 		$out = [];
 		foreach ( $raw as $key => $control ) {
 			if ( ! is_array( $control ) ) {

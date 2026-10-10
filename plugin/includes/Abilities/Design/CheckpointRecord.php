@@ -53,6 +53,19 @@ final class CheckpointRecord extends AbilityKernel {
 		return 'design';
 	}
 
+	/**
+	 * Signs an approval token and stores nothing, so it overwrites nothing.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

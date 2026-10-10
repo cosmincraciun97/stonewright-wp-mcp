@@ -16,13 +16,14 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
-		$aliases  = SettingsKeyAliases::normalize( $settings );
-		$settings = $aliases['settings'];
-		$schema   = WidgetSchemaRepository::get( $widget_type );
+		$schema = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
+		$controls = (array) ( $schema['controls'] ?? [] );
+		$aliases  = SettingsKeyAliases::normalize( $settings, $controls );
+		$settings = $aliases['settings'];
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings, $controls ) );
 	}
 
 	/**
@@ -30,12 +31,13 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
-		$aliases  = SettingsKeyAliases::normalize( $settings );
-		$settings = $aliases['settings'];
-		$schema   = ContainerSchemaRepository::get( $element_type );
+		$schema = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
+		// A key that is a control of this element is never renamed: a legacy section has its own `gap`.
+		$aliases  = SettingsKeyAliases::normalize( $settings, (array) ( $schema['controls'] ?? [] ) );
+		$settings = $aliases['settings'];
 		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
 	}
 
@@ -85,6 +87,11 @@ final class SettingsValidator {
 			}
 
 			$control = (array) $controls[ $control_key ];
+			if ( 'column' === $subject && '_inline_size' === $control_key && ( null === $value || '' === $value ) ) {
+				// Elementor stores a column without a custom width as an empty `_inline_size`.
+				$normalized[ $key ] = $value;
+				continue;
+			}
 			if ( 'boxed_width' === $control_key && [] === (array) ( $control['condition'] ?? [] ) ) {
 				$control['condition'] = [ 'content_width' => 'boxed' ];
 			}
@@ -93,9 +100,25 @@ final class SettingsValidator {
 				$violations[] = $error;
 				continue;
 			}
-			if ( $enforce_conditions && ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $condition_context, $controls ) ) {
-				$violations[] = self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, array_keys( (array) ( $control['condition'] ?? [] ) ) );
-				continue;
+			if ( $enforce_conditions ) {
+				$condition   = (array) ( $control['condition'] ?? [] );
+				$unsupported = [];
+				if ( ! self::condition_is_active( $condition, $condition_context, $controls, $unsupported ) ) {
+					$names        = self::condition_names( $condition );
+					$violations[] = [] === $unsupported
+						? self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, $names )
+						: self::violation(
+							'settings.' . $key,
+							'unsupported_condition_operator',
+							'a condition with a supported operator; the control stays inactive because the operator ' . implode( ', ', $unsupported ) . ' on ' . implode( ', ', $names ) . ' is not supported',
+							$value,
+							$names
+						);
+					continue;
+				}
+				foreach ( $unsupported as $operator ) {
+					$warnings[] = self::violation( 'settings.' . $key, 'unsupported_condition_operator', 'a supported condition operator; ' . $operator . ' was not evaluated', $value );
+				}
 			}
 			$normalized[ $key ] = $value;
 		}
@@ -268,6 +291,12 @@ final class SettingsValidator {
 			if ( ! isset( $controls[ (string) $target ] ) ) {
 				$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'unknown_binding_target', 'a live control name', $binding, self::nearest_keys( (string) $target, array_keys( $controls ) ) );
 			}
+			if ( '__globals__' === $key ) {
+				if ( ! CssValueGuard::is_global_reference( $binding ) ) {
+					$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'invalid_binding', 'a global reference such as globals/colors?id=primary, or an empty string', $binding );
+				}
+				continue;
+			}
 			if ( ! is_string( $binding ) && ! is_array( $binding ) ) {
 				$violations[] = self::violation( 'settings.' . $key . '.' . (string) $target, 'invalid_binding', 'a dynamic tag/global binding string or object', $binding );
 			}
@@ -301,7 +330,9 @@ final class SettingsValidator {
 		$type = strtolower( (string) ( $control['type'] ?? '' ) );
 		if ( in_array( $type, [ 'select', 'choose', 'select2' ], true ) && is_scalar( $value ) && isset( $control['options'] ) && is_array( $control['options'] ) ) {
 			$options = array_map( 'strval', array_keys( $control['options'] ) );
-			if ( ! in_array( (string) $value, $options, true ) ) {
+			// A value the control no longer lists but still maps (its `selectors_dictionary`) renders as it did when it was stored.
+			$mapped = isset( $control['selectors_dictionary'] ) && is_array( $control['selectors_dictionary'] ) && array_key_exists( (string) $value, $control['selectors_dictionary'] );
+			if ( ! $mapped && ! in_array( (string) $value, $options, true ) ) {
 				return self::violation( $path, 'invalid_option', 'one of the live control options', $value, array_slice( $options, 0, 10 ) );
 			}
 		}
@@ -329,28 +360,51 @@ final class SettingsValidator {
 			return null;
 		}
 
+		$typography = CssValueGuard::typography_field_is_valid( (string) ( $control['key'] ?? '' ), $value );
+		if ( false === $typography ) {
+			return self::violation( $path, 'invalid_typography_value', CssValueGuard::typography_expected( (string) $control['key'] ), $value );
+		}
+
 		$valid = match ( $type ) {
-			'number', 'slider'                         => self::valid_number_or_slider( $value ),
+			'number'                                   => self::valid_number_or_slider( $value ),
+			'slider'                                   => self::valid_number_or_slider( $value ) && ( ! is_array( $value ) || CssValueGuard::slider_parts_safe( $value ) ),
 			'url'                                      => self::valid_url_value( $value ),
 			'media', 'gallery'                         => self::valid_media_value( $value ),
 			'switcher', 'select', 'choose', 'select2'  => is_scalar( $value ) || is_array( $value ),
-			'color', 'text', 'textarea', 'wysiwyg', 'code', 'date_time', 'hidden' => is_scalar( $value ) || null === $value,
-			'dimensions'                               => is_array( $value ) && self::only_keys( $value, [ 'top', 'right', 'bottom', 'left', 'unit', 'isLinked' ] ),
+			'color'                                    => CssValueGuard::is_color( $value ),
+			'font'                                     => CssValueGuard::is_font_family( $value ),
+			'text', 'textarea', 'wysiwyg', 'code', 'date_time', 'hidden' => is_scalar( $value ) || null === $value,
+			'dimensions'                               => is_array( $value ) && self::only_keys( $value, [ 'top', 'right', 'bottom', 'left', 'unit', 'isLinked' ] ) && CssValueGuard::dimensions_parts_safe( $value ),
+			'box_shadow'                               => CssValueGuard::is_shadow( $value, true ),
+			'text_shadow'                              => CssValueGuard::is_shadow( $value, false ),
 			default                                    => is_scalar( $value ) || is_array( $value ) || null === $value,
 		};
+		if ( $valid ) {
+			return null;
+		}
 
-		return $valid ? null : self::violation( $path, 'invalid_shape', 'a value compatible with Elementor control type ' . ( '' !== $type ? $type : 'unknown' ), $value );
+		$expected = match ( $type ) {
+			'color'                                    => CssValueGuard::COLOR_EXPECTED,
+			'font'                                     => CssValueGuard::typography_expected( 'font_family' ),
+			'slider'                                   => is_array( $value ) && ( array_key_exists( 'size', $value ) || array_key_exists( 'sizes', $value ) )
+				? 'a number or an object with numeric size and a unit from the supported list'
+				: 'a value compatible with Elementor control type slider',
+			'dimensions'                               => 'an object with numeric sides and a unit from the supported list',
+			'box_shadow', 'text_shadow'                => 'a shadow object with numeric geometry and a real colour',
+			default                                    => 'a value compatible with Elementor control type ' . ( '' !== $type ? $type : 'unknown' ),
+		};
+		return self::violation( $path, 'invalid_shape', $expected, $value );
 	}
 
 	/**
 	 * @param array<string, mixed>|null $condition_settings Optional merge-context for control conditions.
 	 * @return array<string, mixed>|null
 	 */
-	private static function normalize_condition_settings( ?array $condition_settings ): ?array {
+	private static function normalize_condition_settings( ?array $condition_settings, ?array $controls = null ): ?array {
 		if ( null === $condition_settings ) {
 			return null;
 		}
-		$aliases = SettingsKeyAliases::normalize( $condition_settings );
+		$aliases = SettingsKeyAliases::normalize( $condition_settings, $controls );
 		return $aliases['settings'];
 	}
 
@@ -359,7 +413,10 @@ final class SettingsValidator {
 	 * @param array<string, mixed>                $settings Candidate settings.
 	 * @param array<string, array<string, mixed>> $controls Live controls.
 	 */
-	private static function condition_is_active( array $condition, array $settings, array $controls ): bool {
+	private static function condition_is_active( array $condition, array $settings, array $controls, array &$unsupported = [] ): bool {
+		if ( self::is_terms_condition( $condition ) ) {
+			return self::terms_are_satisfied( $condition, $settings, $controls, $unsupported );
+		}
 		foreach ( $condition as $raw_key => $expected ) {
 			if ( ! is_string( $raw_key ) ) {
 				continue;
@@ -370,14 +427,147 @@ final class SettingsValidator {
 			$negated = str_ends_with( $raw_key, '!' );
 			$key     = $negated ? substr( $raw_key, 0, -1 ) : $raw_key;
 			$actual  = $settings[ $key ] ?? ( $controls[ $key ]['default'] ?? null );
-			$matches = is_array( $expected )
-				? in_array( $actual, $expected, true )
-				: $actual === $expected || ( is_scalar( $actual ) && is_scalar( $expected ) && (string) $actual === (string) $expected );
+			if ( is_array( $expected ) ) {
+				$matches = in_array( $actual, $expected, true );
+			} elseif ( is_array( $actual ) && [] !== $actual ) {
+				// A multiple-value control (select2) is met when its value list contains the expected one.
+				$matches = in_array( $expected, $actual, true );
+			} else {
+				$matches = $actual === $expected || ( is_scalar( $actual ) && is_scalar( $expected ) && (string) $actual === (string) $expected );
+			}
 			if ( $negated ? $matches : ! $matches ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Whether a condition is the `relation` / `terms` form rather than the flat `{control: value}` map.
+	 *
+	 * @param array<string, mixed> $condition Elementor condition.
+	 */
+	private static function is_terms_condition( array $condition ): bool {
+		if ( ! isset( $condition['terms'] ) || ! is_array( $condition['terms'] ) || ! array_is_list( $condition['terms'] ) ) {
+			return false;
+		}
+		foreach ( $condition['terms'] as $term ) {
+			if ( ! is_array( $term ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Evaluates a `relation` / `terms` group: `and` (the default) needs every term, `or`
+	 * needs one, and a term may itself be a nested group. A term with an operator that is
+	 * not defined counts as not satisfied and is listed in $unsupported.
+	 *
+	 * @param array<string, mixed>                $group Condition group with `terms`.
+	 * @param array<string, mixed>                $settings Candidate settings.
+	 * @param array<string, array<string, mixed>> $controls Live controls.
+	 * @param list<string>                        $unsupported Collects unsupported operators.
+	 */
+	private static function terms_are_satisfied( array $group, array $settings, array $controls, array &$unsupported ): bool {
+		$is_or     = 'or' === ( $group['relation'] ?? null );
+		$satisfied = ! $is_or;
+		foreach ( (array) $group['terms'] as $term ) {
+			$term = (array) $term;
+			if ( ! empty( $term['terms'] ) && is_array( $term['terms'] ) ) {
+				$result = self::terms_are_satisfied( $term, $settings, $controls, $unsupported );
+			} else {
+				$result = self::term_is_satisfied( $term, $settings, $controls, $unsupported );
+			}
+			if ( $is_or && $result ) {
+				$satisfied = true;
+			} elseif ( ! $is_or && ! $result ) {
+				$satisfied = false;
+			}
+		}
+		return $satisfied;
+	}
+
+	/**
+	 * @param array<string, mixed>                $term One `{name, operator, value}` term.
+	 * @param array<string, mixed>                $settings Candidate settings.
+	 * @param array<string, array<string, mixed>> $controls Live controls.
+	 * @param list<string>                        $unsupported Collects unsupported operators.
+	 */
+	private static function term_is_satisfied( array $term, array $settings, array $controls, array &$unsupported ): bool {
+		$name = is_string( $term['name'] ?? null ) ? $term['name'] : '';
+		if ( 1 !== preg_match( '/(\w+)(?:\[(\w+)])?/', $name, $parts ) ) {
+			return false;
+		}
+		if ( array_key_exists( $parts[1], $settings ) ) {
+			$actual = $settings[ $parts[1] ];
+		} elseif ( isset( $controls[ $parts[1] ] ) ) {
+			// A control that is not sent has its default; data controls without one default to ''.
+			$actual = $controls[ $parts[1] ]['default'] ?? '';
+		} else {
+			$actual = null;
+		}
+		if ( isset( $parts[2] ) && '' !== $parts[2] ) {
+			$actual = is_array( $actual ) ? ( $actual[ $parts[2] ] ?? null ) : null;
+		}
+		$expected = $term['value'] ?? null;
+		$operator = isset( $term['operator'] ) && is_string( $term['operator'] ) ? $term['operator'] : '';
+
+		// phpcs:disable Universal.Operators.StrictComparisons.LooseEqual, Universal.Operators.StrictComparisons.LooseNotEqual -- the `==` and `!=` operators compare loosely.
+		switch ( $operator ) {
+			case '':
+			case '===':
+				return $actual === $expected;
+			case '!==':
+				return $actual !== $expected;
+			case '==':
+				return $actual == $expected;
+			case '!=':
+				return $actual != $expected;
+			case 'in':
+				return is_array( $expected ) && in_array( $actual, $expected, true );
+			case '!in':
+				return ! is_array( $expected ) || ! in_array( $actual, $expected, true );
+			case 'contains':
+				return is_array( $actual ) && in_array( $expected, $actual, true );
+			case '!contains':
+				return ! is_array( $actual ) || ! in_array( $expected, $actual, true );
+			case '<':
+				return $actual < $expected;
+			case '<=':
+				return $actual <= $expected;
+			case '>':
+				return $actual > $expected;
+			case '>=':
+				return $actual >= $expected;
+		}
+		// phpcs:enable
+		if ( ! in_array( $operator, $unsupported, true ) ) {
+			$unsupported[] = $operator;
+		}
+		return false;
+	}
+
+	/**
+	 * Control names a condition refers to, for repair hints.
+	 *
+	 * @param array<string, mixed> $condition Elementor condition.
+	 * @return list<string>
+	 */
+	private static function condition_names( array $condition ): array {
+		if ( ! self::is_terms_condition( $condition ) ) {
+			return array_values( array_map( 'strval', array_keys( $condition ) ) );
+		}
+		$names = [];
+		foreach ( (array) $condition['terms'] as $term ) {
+			$term = (array) $term;
+			if ( ! empty( $term['terms'] ) && is_array( $term['terms'] ) ) {
+				$names = array_merge( $names, self::condition_names( $term ) );
+			} elseif ( is_string( $term['name'] ?? null ) ) {
+				$names[] = $term['name'];
+			}
+		}
+		return array_values( array_unique( $names ) );
 	}
 
 	private static function valid_url_value( mixed $value ): bool {

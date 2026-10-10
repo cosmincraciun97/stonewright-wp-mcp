@@ -4,9 +4,12 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities;
 
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Security\RescueGuard;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Base class abilities extend so they only have to implement
@@ -14,6 +17,14 @@ use Stonewright\WpMcp\Security\RemediationHints;
  * default meta, and convenience helpers.
  */
 abstract class AbilityKernel implements Ability {
+
+	/**
+	 * Audited ability calls in progress on this request, outermost first. Abilities
+	 * can call each other, so every call keeps its own entry until its row is written.
+	 *
+	 * @var list<array{ability: string, details: array<string, scalar|null>}>
+	 */
+	private static array $audited_calls = [];
 
 	abstract public function name(): string;
 
@@ -65,16 +76,47 @@ abstract class AbilityKernel implements Ability {
 	 * ErrorPatterns can form actionable recurring-error signatures. Ability
 	 * authors must never embed secret input values in WP_Error messages.
 	 *
+	 * Rows recorded through this wrapper declare no read/write nature and are
+	 * categorized as writes. Read-only abilities use audit_read().
+	 *
 	 * @param array<string, mixed> $args
 	 * @param callable             $callback
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, '' );
+	}
+
+	/**
+	 * Audit wrapper for abilities that never change site state. The row declares
+	 * the call a read, so the audit log categorizes it as READ whatever the
+	 * ability is named.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_read( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, 'read' );
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @param string               $operation_kind Declared nature: 'read', 'write', or '' when undeclared.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function audit_declared( array $args, callable $callback, string $operation_kind ) {
 		$started_ns = hrtime( true );
 		// A typed Elementor writer may use a narrow legacy response shape. Reset
 		// the request-local receipt here and attach the common transaction contract
 		// below so every write surface returns the same machine-readable evidence.
 		\Stonewright\WpMcp\Support\ElementorData::clear_write_context();
+		self::$audited_calls[] = [
+			'ability' => $this->name(),
+			'details' => [],
+		];
+		RescueGuard::enter( $this->name() );
 		try {
 			$result = $callback( $args );
 		} catch ( \Throwable $_throwable ) {
@@ -88,6 +130,9 @@ abstract class AbilityKernel implements Ability {
 				]
 			);
 		}
+		// Probe what the call armed before the audit row is written, so the row records the outcome.
+		$result   = RescueGuard::leave( $result );
+		$finished = array_pop( self::$audited_calls );
 		$elementor_receipt = \Stonewright\WpMcp\Support\ElementorData::last_elementor_write_receipt();
 		if ( $result instanceof \WP_Error && [] !== $elementor_receipt ) {
 			$data = $result->get_error_data();
@@ -121,12 +166,16 @@ abstract class AbilityKernel implements Ability {
 				$status = 'error';
 					}
 				}
+		$change_set = $this->attach_change_set( $args, $result, $status );
 		$target_id  = self::audit_target_id( $args );
 		$sanitized  = $this->sanitize_for_audit( $args );
-		$metadata   = $this->audit_metadata(
-			$args,
-			$result,
-			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
+		$metadata   = array_merge(
+			null === $finished ? [] : $finished['details'],
+			$this->audit_metadata(
+				$args,
+				$result,
+				(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
+			)
 		);
 		if ( '' !== $target_id && ( ! isset( $metadata['target_id'] ) || ! is_scalar( $metadata['target_id'] ) || '' === trim( (string) $metadata['target_id'] ) ) ) {
 			$metadata['target_id'] = $target_id;
@@ -174,6 +223,9 @@ abstract class AbilityKernel implements Ability {
 			}
 			$metadata = self::merge_receipt_metadata( $metadata, is_array( $result['write_receipt'] ?? null ) ? $result['write_receipt'] : [] );
 		}
+		if ( null !== $change_set ) {
+			$metadata = self::merge_change_set_metadata( $metadata, $change_set );
+		}
 		if ( ! empty( $args['dry_run'] ) && 'ok' === $status ) {
 			if ( ! isset( $metadata['execution_status'] ) || ! is_scalar( $metadata['execution_status'] ) || '' === trim( (string) $metadata['execution_status'] ) ) {
 				$metadata['execution_status'] = 'planned';
@@ -181,6 +233,9 @@ abstract class AbilityKernel implements Ability {
 			if ( ! isset( $metadata['verification_status'] ) || ! is_scalar( $metadata['verification_status'] ) || '' === trim( (string) $metadata['verification_status'] ) ) {
 				$metadata['verification_status'] = 'planned';
 			}
+		}
+		if ( '' !== $operation_kind ) {
+			$metadata['operation_kind'] = $operation_kind;
 		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;
@@ -226,14 +281,15 @@ abstract class AbilityKernel implements Ability {
 
 	/**
 	 * Audit wrapper that requires a production-safe confirmation token before
-	 * the write callback runs. Read abilities must keep using audit().
+	 * the write callback runs, and declares the call a write. Read-only
+	 * abilities use audit_read() instead.
 	 *
 	 * @param array<string, mixed> $args
 	 * @param callable             $callback
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit_write( array $args, callable $callback ) {
-		return $this->audit(
+		return $this->audit_declared(
 			$args,
 			function ( array $args ) use ( $callback ) {
 				$token_error = $this->require_production_safe_token( $args );
@@ -241,7 +297,8 @@ abstract class AbilityKernel implements Ability {
 					return $token_error;
 				}
 				return $callback( $args );
-			}
+			},
+			'write'
 		);
 	}
 
@@ -354,6 +411,81 @@ abstract class AbilityKernel implements Ability {
 	}
 
 	/**
+	 * Declares the ChangeSetV1 a write ability returns under `change_set`.
+	 *
+	 * A write ability that reports a change set overrides this and returns the
+	 * inputs of {@see ChangeSet::build()}, read from its input and from its result
+	 * (the receipt, the hashes, the items it applied). The kernel attaches the
+	 * built change set to the result, or to the error data of a failed write, and
+	 * copies its identity and lineage into the audit row. The default reports none.
+	 *
+	 * @param array<string, mixed>          $args   Ability input.
+	 * @param array<string, mixed>|\WP_Error $result What the ability callback returned, with any Elementor receipt attached.
+	 * @param string                        $status Audit status of the call: ok, error or blocked.
+	 * @return array<string, mixed>|null Builder inputs, or null when the ability reports no change set.
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		return null;
+	}
+
+	/**
+	 * Attach the ability's change set to the result and return it.
+	 *
+	 * A change set a nested ability call already attached is kept. A failure to
+	 * build one never changes the outcome of the write.
+	 *
+	 * @param array<string, mixed>          $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	private function attach_change_set( array $args, array|\WP_Error &$result, string $status ): ?array {
+		try {
+			$inputs = $this->change_set_inputs( $args, $result, $status );
+			if ( null === $inputs ) {
+				$nested = is_array( $result ) && is_array( $result['change_set'] ?? null ) ? $result['change_set'] : null;
+				return null !== $nested && ChangeSet::SCHEMA === ( $nested['schema'] ?? null ) ? $nested : null;
+			}
+			$change_set = ChangeSet::build( $inputs );
+		} catch ( \Throwable $throwable ) {
+			Logger::warning( 'change_set_build_failed', [ 'ability' => $this->name(), 'error' => $throwable->getMessage() ] );
+			return null;
+		}
+		if ( $result instanceof \WP_Error ) {
+			$data                = $result->get_error_data();
+			$data                = is_array( $data ) ? $data : [];
+			$data['change_set']  = $change_set;
+			$result->add_data( $data, $result->get_error_code() );
+		} else {
+			$result['change_set'] = $change_set;
+		}
+		return $change_set;
+	}
+
+	/**
+	 * Copy a change set's identity and lineage into audit metadata. A value the
+	 * ability already set wins, so a write that deliberately leaves its audit
+	 * rows without a change set id keeps doing so.
+	 *
+	 * @param array<string, mixed> $metadata
+	 * @param array<string, mixed> $change_set
+	 * @return array<string, mixed>
+	 */
+	private static function merge_change_set_metadata( array $metadata, array $change_set ): array {
+		foreach ( ChangeSet::audit_metadata( $change_set ) as $key => $value ) {
+			if ( ! array_key_exists( $key, $metadata ) ) {
+				$metadata[ $key ] = $value;
+			}
+		}
+		if ( is_string( $change_set['repair_of'] ?? null ) && ! isset( $metadata['parent_event_id'] ) ) {
+			$parent = AuditLog::latest_event_id( (string) $change_set['repair_of'] );
+			if ( '' !== $parent ) {
+				$metadata['parent_event_id'] = $parent;
+			}
+		}
+		return $metadata;
+	}
+
+	/**
 	 * Flatten only the safe scalar receipt contract into audit metadata. Hash
 	 * names are mapped to the audit schema; nested raw payloads never enter it.
 	 *
@@ -394,6 +526,34 @@ abstract class AbilityKernel implements Ability {
 	 */
 	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
 		return [];
+	}
+
+	/**
+	 * Adds bounded details to the audit row of the call to `$ability` that is in progress.
+	 *
+	 * Code an ability delegates to uses this when it would otherwise record an event
+	 * under the ability's own name: the one row the kernel writes for the call then
+	 * carries the details, and no second row with the same name appears. Only scalar
+	 * values are kept, strings are cut to 255 characters, and the ability's own
+	 * audit_metadata() wins when both set a key.
+	 *
+	 * @param string                     $ability Name of the audited call the details belong to.
+	 * @param array<string, scalar|null> $details
+	 * @return bool True when such a call is in progress and took the details; false when the caller must record its own event.
+	 */
+	public static function add_audit_details( string $ability, array $details ): bool {
+		for ( $index = count( self::$audited_calls ) - 1; $index >= 0; --$index ) {
+			if ( $ability !== self::$audited_calls[ $index ]['ability'] ) {
+				continue;
+			}
+			foreach ( $details as $key => $value ) {
+				if ( is_string( $key ) && ( null === $value || is_scalar( $value ) ) ) {
+					self::$audited_calls[ $index ]['details'][ $key ] = is_string( $value ) ? mb_substr( $value, 0, 255 ) : $value;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -480,5 +640,13 @@ abstract class AbilityKernel implements Ability {
 
 	protected function error( string $code, string $message, array $data = [] ): \WP_Error {
 		return new \WP_Error( 'stonewright_' . $code, $message, $data );
+	}
+
+	/**
+	 * The refusal for a write whose snapshot could not be stored (Backup::snapshot_post() returned an
+	 * empty id). A write without a way back does not run.
+	 */
+	protected function backup_failed_error(): \WP_Error {
+		return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ), [ 'status' => 500 ] );
 	}
 }

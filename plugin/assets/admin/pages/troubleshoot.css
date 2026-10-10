@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Troubleshoot page: placement only. The card, form fields, buttons, table, badges, disclosure, notice and
+ * skeleton come from sw-ui.css.
+ */
+
+.sw-troubleshoot-page .sw-ui-card {
+	margin-block-end: var(--sw-space-4);
+}
+
+.sw-troubleshoot-page .sw-ui-card__body {
+	display: grid;
+	gap: var(--sw-space-4);
+}
+
+/* The two selects sit in one row and stack on a narrow screen. */
+.sw-troubleshoot-page .sw-troubleshoot-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-3) var(--sw-space-4);
+}
+
+.sw-troubleshoot-page .sw-troubleshoot-summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+.sw-troubleshoot-page .sw-troubleshoot-lines {
+	display: grid;
+	gap: var(--sw-space-1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.sw-troubleshoot-page [data-sw-diag-results] > .sw-ui-skeleton {
+	display: block;
+	margin-block-end: var(--sw-space-2);
+}

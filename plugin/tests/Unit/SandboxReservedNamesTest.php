@@ -41,8 +41,8 @@ final class SandboxReservedNamesTest extends TestCase {
 
 		// Clean up any test files created (but not index.php — it is part of the sandbox stub).
 		$patterns = [
-			$this->sandbox_dir . '/reserved-test-*.php',
-			$this->sandbox_dir . '/reserved-test-*.php.*.bak.php',
+			$this->sandbox_dir . '/reserved-test-*.draft',
+			$this->sandbox_dir . '/reserved-test-*.bak',
 		];
 		foreach ( $patterns as $pattern ) {
 			$files = glob( $pattern );
@@ -84,7 +84,7 @@ final class SandboxReservedNamesTest extends TestCase {
 	public function test_bak_files_not_in_list_files(): void {
 		// Create a real snippet + trigger a backup by writing twice.
 		$name = 'reserved-test-bak.php';
-		$path = $this->sandbox_dir . '/' . $name;
+		$path = SandboxFiles::stored_path( $name );
 
 		// Write initial content so a backup can be made.
 		file_put_contents( $path, "<?php\n// v1\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
@@ -92,14 +92,14 @@ final class SandboxReservedNamesTest extends TestCase {
 		// Write via SandboxFiles to trigger backup_before_write.
 		SandboxFiles::write( $name, "<?php\n// v2\n" );
 
-		// Verify at least one .bak.php file exists.
-		$bak_files = glob( $this->sandbox_dir . '/*.bak.php' );
-		$this->assertNotEmpty( $bak_files, 'At least one .bak.php backup should exist after write' );
+		// Verify at least one .bak file exists.
+		$bak_files = glob( $this->sandbox_dir . '/*.bak' );
+		$this->assertNotEmpty( $bak_files, 'At least one .bak backup should exist after write' );
 
-		// list_files() must not include any .bak.php.
+		// list_files() must not include any .bak.
 		$listed_names = array_column( SandboxFiles::list_files(), 'name' );
 		foreach ( $listed_names as $listed_name ) {
-			$this->assertStringNotContainsString( '.bak.php', $listed_name, "Backup file '{$listed_name}' must not appear in list_files()" );
+			$this->assertStringNotContainsString( '.bak', $listed_name, "Backup file '{$listed_name}' must not appear in list_files()" );
 		}
 	}
 

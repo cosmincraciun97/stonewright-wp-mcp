@@ -182,38 +182,10 @@ final class ElementorData {
 		$receipt              = self::new_write_receipt( $post_id, $tree, $options, $previous, $before_hash, $planned_hash );
 		self::$last_elementor_write_receipt = $receipt->to_array();
 
-		if ( empty( $options['skip_integrity'] ) ) {
-			$gate = DocumentIntegrityGate::assert_write_allowed( $tree, $previous, $options );
-			if ( $gate instanceof \WP_Error ) {
-				self::$last_write_error = $gate;
-				self::$last_elementor_write_receipt = $receipt->fail( $gate, 'integrity' )->to_array();
-				return false;
-			}
-		}
-
-		// Always validate the full structure and the global ID set. Settings are
-		// validated separately as a before/after delta so untouched legacy values
-		// cannot poison an otherwise safe surgical write.
-		if ( ! SettingsValidator::validate_tree( $tree, [] ) ) {
-			self::$last_write_error = SettingsValidator::last_error()
-				?? new \WP_Error(
-					'stonewright_elementor_tree_invalid',
-					__( 'Elementor tree structure is invalid.', 'stonewright' ),
-					[ 'status' => 400 ]
-				);
-			self::$last_elementor_write_receipt = $receipt->fail( self::$last_write_error, 'schema' )->to_array();
-			return false;
-		}
-		$id_only_repair = ! empty( $options['id_only_repair'] );
-		if ( $id_only_repair && ! self::trees_equal_except_element_ids( $previous, $tree ) ) {
-			self::$last_write_error = self::settings_delta_error( 'root', 'id_only_repair_scope_violation', 'Element-id repair cannot change settings, content, hierarchy, element types, or ordering.' );
-			self::$last_elementor_write_receipt = $receipt->fail( self::$last_write_error, 'schema.delta' )->to_array();
-			return false;
-		}
-		$delta_error = $id_only_repair ? null : self::validate_settings_delta( $previous, $tree, ! empty( $options['allow_unknown_setting_removal'] ) );
-		if ( $delta_error instanceof \WP_Error ) {
-			self::$last_write_error = $delta_error;
-			self::$last_elementor_write_receipt = $receipt->fail( $delta_error, 'schema.delta' )->to_array();
+		$failure = self::preflight_failure( $previous, $tree, $options );
+		if ( null !== $failure ) {
+			self::$last_write_error             = $failure['error'];
+			self::$last_elementor_write_receipt = $receipt->fail( $failure['error'], $failure['stage'] )->to_array();
 			return false;
 		}
 
@@ -321,6 +293,62 @@ final class ElementorData {
 	}
 
 	/**
+	 * The checks write() runs before it persists anything, without writing: the
+	 * document integrity gate, full-tree structure validation and the settings
+	 * delta against the stored document. A dry run reports the same error the
+	 * write would.
+	 *
+	 * @param array<int, array<string, mixed>> $previous Stored tree.
+	 * @param array<int, array<string, mixed>> $tree     Tree about to be written.
+	 * @param array<string, mixed>             $options  Same options as write().
+	 */
+	public static function preflight( array $previous, array $tree, array $options = [] ): ?\WP_Error {
+		$failure = self::preflight_failure( $previous, $tree, $options );
+		return null === $failure ? null : $failure['error'];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $previous
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $options
+	 * @return array{error:\WP_Error,stage:string}|null
+	 */
+	private static function preflight_failure( array $previous, array $tree, array $options ): ?array {
+		if ( empty( $options['skip_integrity'] ) ) {
+			$gate = DocumentIntegrityGate::assert_write_allowed( $tree, $previous, $options );
+			if ( $gate instanceof \WP_Error ) {
+				return [ 'error' => $gate, 'stage' => 'integrity' ];
+			}
+		}
+
+		// Always validate the full structure and the global ID set. Settings are
+		// validated separately as a before/after delta so untouched legacy values
+		// cannot poison an otherwise safe surgical write.
+		if ( ! SettingsValidator::validate_tree( $tree, [] ) ) {
+			$error = SettingsValidator::last_error()
+				?? new \WP_Error(
+					'stonewright_elementor_tree_invalid',
+					__( 'Elementor tree structure is invalid.', 'stonewright' ),
+					[ 'status' => 400 ]
+				);
+			return [ 'error' => $error, 'stage' => 'schema' ];
+		}
+		$id_only_repair = ! empty( $options['id_only_repair'] );
+		if ( $id_only_repair && ! self::trees_equal_except_element_ids( $previous, $tree ) ) {
+			return [
+				'error' => self::settings_delta_error( 'root', 'id_only_repair_scope_violation', 'Element-id repair cannot change settings, content, hierarchy, element types, or ordering.' ),
+				'stage' => 'schema.delta',
+			];
+		}
+		$delta_error = $id_only_repair ? null : self::validate_settings_delta( $previous, $tree, ! empty( $options['allow_unknown_setting_removal'] ) );
+		if ( $delta_error instanceof \WP_Error ) {
+			return [ 'error' => $delta_error, 'stage' => 'schema.delta' ];
+		}
+
+		return null;
+	}
+
+	/**
 	 * Validate the actual settings delta, not every historical value in the
 	 * resulting document. Structural validation has already run globally.
 	 *
@@ -406,7 +434,7 @@ final class ElementorData {
 		if ( $validated instanceof \WP_Error ) {
 			return $validated;
 		}
-		if ( $validated['settings'] !== $after ) {
+		if ( self::sorted_by_key( $validated['settings'] ) !== self::sorted_by_key( $after ) ) {
 			return self::settings_delta_error( $path . '.settings', 'delta_result_mismatch', 'The validated settings delta does not reproduce the proposed document exactly.' );
 		}
 
@@ -523,6 +551,25 @@ final class ElementorData {
 			}
 		}
 		return $patch;
+	}
+
+	/**
+	 * The map with its keys in a fixed order, so two settings maps that hold the same keys and values compare
+	 * equal whatever order the keys were written in. Lists keep their order, and values keep their types.
+	 *
+	 * @param array<int|string, mixed> $value
+	 * @return array<int|string, mixed>
+	 */
+	private static function sorted_by_key( array $value ): array {
+		foreach ( $value as $key => $item ) {
+			if ( is_array( $item ) ) {
+				$value[ $key ] = self::sorted_by_key( $item );
+			}
+		}
+		if ( ! array_is_list( $value ) ) {
+			ksort( $value );
+		}
+		return $value;
 	}
 
 	/** @param array<string, mixed> $settings */
@@ -861,6 +908,38 @@ final class ElementorData {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Return the element stored at $path (indexes into each level's child list).
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $path
+	 * @return array<string, mixed>|null
+	 */
+	public static function element_at( array $tree, array $path ): ?array {
+		$level   = $tree;
+		$element = null;
+		foreach ( $path as $index ) {
+			if ( ! isset( $level[ $index ] ) || ! is_array( $level[ $index ] ) ) {
+				return null;
+			}
+			$element = $level[ $index ];
+			$level   = isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : [];
+		}
+		return $element;
+	}
+
+	/**
+	 * Whether the element at $path can hold child elements: a container, a
+	 * section or a column. Widgets never can.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $path
+	 */
+	public static function accepts_children( array $tree, array $path ): bool {
+		$element = self::element_at( $tree, $path );
+		return null !== $element && in_array( (string) ( $element['elType'] ?? '' ), [ 'container', 'section', 'column' ], true );
 	}
 
 	/**

@@ -1,5 +1,5 @@
 import { APP_VERSION, companionPackageSpec } from './version.js';
-import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
+import { INSPECT_LOCAL_TOOL_NAMES, proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import { COMMAND_TOOL_PROFILES } from './commands/limits.js';
 import { DIRECT_BOOTSTRAP_TOOL_NAMES, DIRECT_TOOL_NAMES } from './direct/registry.js';
@@ -100,6 +100,15 @@ const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter(
 		'stonewright-wp-cli-run',
 	].includes(name),
 );
+/** Tools that run PHP or WP-CLI work; the read-only inspect profile names none of them. */
+const INSPECT_EXCLUDED_TOOL_NAMES = new Set([
+	'stonewright-php-execute',
+	'stonewright-wp-cli-run',
+	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-job-start',
+	'stonewright-wp-cli-job-status',
+	'stonewright-wp-cli-install',
+]);
 const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-tools', 'minimal', 'strict', 'tiny']);
 
 export function buildSetupProfile(
@@ -155,6 +164,7 @@ export function buildSetupProfile(
 		mcpEnv.STONEWRIGHT_MODE = requestedMode;
 	}
 
+	const readOnly = proxyToolProfileFromEnv(env) === 'inspect';
 	const visibilityChecks = mode === 'direct'
 		? [
 			...DIRECT_BOOTSTRAP_TOOL_NAMES,
@@ -165,7 +175,7 @@ export function buildSetupProfile(
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
-		]
+		].filter((name) => !readOnly || !INSPECT_EXCLUDED_TOOL_NAMES.has(name))
 		: toolVisibilityChecks(env);
 	const checks: SetupCheck[] = [
 		{
@@ -226,7 +236,7 @@ export function buildSetupProfile(
 				'stonewright-content-list',
 				'stonewright-wp-cli-status',
 				'stonewright-wp-cli-run',
-			]
+			].filter((name) => !readOnly || !INSPECT_EXCLUDED_TOOL_NAMES.has(name))
 			: agentUseInstead(env),
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
@@ -243,6 +253,9 @@ export function buildSetupProfile(
 				? 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; task-start plus Direct batch and background-job tools stay visible without php-execute.'
 				: 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; php-execute plus companion WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
+			...(readOnly
+				? ['STONEWRIGHT_MCP_TOOL_PROFILE=inspect is read-only: discovery, read, and verify tools, plus the local WP-CLI status and discovery tools. Call stonewright-tool-profile to switch to the profile that owns a write.']
+				: []),
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
 			'Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
 			MCP_MISSING_BOOTSTRAP_STOP,
@@ -285,6 +298,9 @@ function companionMcpArgs(): string[] {
 }
 
 export function agentUseInstead(env: NodeJS.ProcessEnv = process.env): string[] {
+	if (proxyToolProfileFromEnv(env) === 'inspect') {
+		return AGENT_USE_INSTEAD.filter((name) => !INSPECT_EXCLUDED_TOOL_NAMES.has(name));
+	}
 	return isLowToolsProfile(env) ? LOW_TOOLS_AGENT_USE_INSTEAD : AGENT_USE_INSTEAD;
 }
 
@@ -305,7 +321,8 @@ export function buildToolInventory(
 		: [
 			'stonewright-task-start',
 			'stonewright-context-bootstrap',
-			'stonewright-php-execute',
+			// The read-only inspect profile has no php-execute, so a client never needs to refresh for it.
+			...(profile === 'inspect' ? [] : ['stonewright-php-execute']),
 			...proxiedProfileToolNames.slice(0, 12),
 		];
 	const refreshRequiredToolNames = requestedRefreshBase.filter(
@@ -343,6 +360,12 @@ export function buildToolInventory(
 				'Use this inventory before broad tools/list discovery.',
 				'Call stonewright-task-start first, then use typed Direct tools and direct_wp_cli_tool_names; Direct has no php-execute.',
 				'Never run wp commands, PHP, or ad hoc REST runners outside Stonewright.',
+			]
+			: profile === 'inspect'
+			? [
+				'Use this inventory before broad tools/list discovery.',
+				'The inspect profile is read-only: use direct_wp_cli_tool_names for local WP-CLI status and discovery, and never run wp commands in a normal shell.',
+				'Use proxied_profile_tool_groups to pick the next Stonewright WordPress tool without loading the full ability matrix.',
 			]
 			: [
 				'Use this inventory before broad tools/list discovery.',
@@ -386,7 +409,9 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 
 export function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 	const profile = proxyToolProfileFromEnv(env);
-	const localTools = profile === 'low-tools'
+	const localTools = profile === 'inspect'
+		? [...INSPECT_LOCAL_TOOL_NAMES]
+		: profile === 'low-tools'
 		? [
 			'stonewright-task-start',
 			'stonewright-connect-doctor',

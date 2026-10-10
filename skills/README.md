@@ -16,6 +16,8 @@ workflow against the `stonewright/*` ability surface.
 | `woocommerce-catalog` | WooCommerce products, variations, SKUs, attributes, terms, shipping classes |
 | `wp-plugin-dev` | Plugin scaffold, ability authoring, security patterns, test workflow |
 | `stonewright-review` | Review generated page structure against Design Spec and site state |
+| `stonewright-rescue` | Recover from a change that left the site failing: rescue status, rollback plan and run, and re-check |
+| `stonewright-section-reuse` | Offer sections the site already has for a new page, copy the picked ones and adapt them in the same batch (Gutenberg, Elementor V3, Elementor V4) |
 
 ## Install for Claude Code
 

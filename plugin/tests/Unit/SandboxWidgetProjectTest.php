@@ -48,7 +48,7 @@ final class SandboxWidgetProjectTest extends TestCase {
 		$_POST = [];
 
 		// Clean up widget project files.
-		$files = glob( $this->sandbox_dir . '/widget-*.php' );
+		$files = glob( $this->sandbox_dir . '/widget-*.draft' );
 		if ( is_array( $files ) ) {
 			foreach ( $files as $f ) {
 				if ( file_exists( $f ) ) {
@@ -56,7 +56,7 @@ final class SandboxWidgetProjectTest extends TestCase {
 				}
 			}
 		}
-		$backups = glob( $this->sandbox_dir . '/widget-*.php.*.bak.php' );
+		$backups = glob( $this->sandbox_dir . '/widget-*.bak' );
 		if ( is_array( $backups ) ) {
 			foreach ( $backups as $f ) {
 				if ( file_exists( $f ) ) {
@@ -137,7 +137,7 @@ final class SandboxWidgetProjectTest extends TestCase {
 		$result = $this->run_widget_project_logic( $base );
 
 		$expected_name = 'widget-my-custom-widget.php';
-		$expected_path = $this->sandbox_dir . '/' . $expected_name;
+		$expected_path = SandboxFiles::stored_path( $expected_name );
 
 		$this->assertIsArray( $result );
 		$this->assertSame( 'success', $result['type'] );
@@ -149,7 +149,7 @@ final class SandboxWidgetProjectTest extends TestCase {
 		$base = 'test-stub-widget';
 		$this->run_widget_project_logic( $base );
 
-		$expected_path = $this->sandbox_dir . '/widget-test-stub-widget.php';
+		$expected_path = SandboxFiles::stored_path( 'widget-test-stub-widget.php' );
 		$this->assertFileExists( $expected_path );
 
 		$content = (string) file_get_contents( $expected_path );

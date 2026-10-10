@@ -23,7 +23,7 @@ final class SpecToElementorV4 extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Renders a Stonewright Design Spec into Elementor V4 atomic structure. Gated behind elementor_v4_atomic flag.', 'stonewright' );
+		return __( 'Fallback writer for when no certified native ability covers the page: renders a Stonewright Design Spec into Elementor V4 atomic structure. When native Elementor composition is certified, prefer stonewright-elementor-native-execute. Gated behind elementor_v4_atomic flag. Section styling is written as typed Atomic styles; an unsupported property or block type returns an error naming its path.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -70,7 +70,7 @@ final class SpecToElementorV4 extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			function ( array $args ) {
 				if ( ! class_exists( '\\Stonewright\\WpMcp\\Renderers\\ElementorV4SpecRenderer' ) ) {

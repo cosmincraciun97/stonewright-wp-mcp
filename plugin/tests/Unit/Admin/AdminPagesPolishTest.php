@@ -95,10 +95,12 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'sw-skills-tabs', $html );
-		self::assertStringContainsString( 'sw-skills-panel', $html );
-		self::assertStringContainsString( 'sw-actions', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Skills</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ), 'The shell prints the one h1.' );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( 'sw-ui-tabs', $html );
+		self::assertStringContainsString( 'sw-ui-tabs__panel', $html );
+		self::assertStringContainsString( 'sw-ui-actions', $html );
 
 		// The catalog, import review, and trash are the script's job now, so the
 		// page ships a shell it can fill instead of a card and a form per skill.
@@ -118,19 +120,25 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringNotContainsString( 'ð', $html );
 	}
 
-	public function test_sandbox_page_uses_shared_shell_and_sw_tabs(): void {
+	public function test_sandbox_page_uses_shared_shell_and_the_custom_code_tab_bar(): void {
 		ob_start();
 		SandboxPage::render();
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'stonewright-sandbox-page', $html );
-		self::assertStringContainsString( 'sw-tabs', $html );
-		self::assertStringContainsString( 'sw-tabs__link', $html );
-		self::assertStringContainsString( 'sw-tabs__link is-active', $html );
-		self::assertStringContainsString( 'stonewright-empty-state', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-file-form"', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Custom code</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( 'class="sw-code"', $html );
+		// One tab bar: the hub's. The page no longer prints a second row of tabs.
+		self::assertStringContainsString( '<nav aria-label="Custom code sections">', $html );
+		self::assertStringNotContainsString( 'sw-tabs', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-sandbox&tab=drafts" aria-current="page">Drafts<\/a>/', $html );
+		foreach ( [ 'tab=library', 'tab=mu-plugins', 'tab=crash-recovery', 'page=stonewright-custom-code-approval' ] as $link ) {
+			self::assertStringContainsString( $link, $html, $link );
+		}
+		self::assertStringContainsString( 'sw-ui-empty--first-run', $html );
+		self::assertStringContainsString( 'new=1', $html );
 		self::assertStringNotContainsString( 'tab=audit', $html );
 	}
 
@@ -165,21 +173,24 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'sw-memory-page', $html );
-		self::assertStringContainsString( 'sw-callout', $html );
-		self::assertStringContainsString( 'sw-card', $html );
-		self::assertStringContainsString( 'sw-actions', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Memory &amp; instructions</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringNotContainsString( 'stonewright-page-header', $html );
+		self::assertStringContainsString( 'sw-ui sw-ui-page sw-memory', $html );
+		self::assertStringContainsString( 'sw-ui-callout', $html );
+		self::assertStringContainsString( 'sw-ui-card', $html );
+		self::assertStringContainsString( 'sw-ui-actions', $html );
 		self::assertStringContainsString( 'stonewright_custom_instructions', $html );
 		self::assertStringContainsString( 'stonewright_custom_instructions_enabled', $html );
 		self::assertStringContainsString( 'stonewright_memory_enabled', $html );
-		self::assertStringContainsString( 'stonewright-empty-state', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-memory"', $html );
-		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-knowledge-import"', $html );
+		self::assertStringContainsString( 'sw-ui-empty', $html );
+		self::assertStringContainsString( 'id="sw-memory-add"', $html );
+		self::assertStringContainsString( 'Import JSON', $html );
 	}
 
-	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
-		$GLOBALS['wpdb'] = new class() {
+	/** A database double that serves the Dashboard one audit row, a two day sparkline and no skills or memory. */
+	private static function dashboard_wpdb(): object {
+		return new class() {
 			public $prefix = 'wp_';
 
 			public function prepare( string $query, mixed ...$args ): string {
@@ -216,18 +227,63 @@ final class AdminPagesPolishTest extends TestCase {
 				return '1';
 			}
 		};
+	}
+
+	/** The Overview stat that carries this label, as plain text. */
+	private static function stat( string $html, string $label ): string {
+		self::assertSame( 1, preg_match( '#<div class="sw-ui-stat"><span class="sw-ui-stat__label">' . preg_quote( $label, '#' ) . '</span>.*?</div>#s', $html, $stat ), 'The Overview has a ' . $label . ' stat.' );
+
+		return (string) preg_replace( '/\s+/', ' ', trim( strip_tags( $stat[0] ) ) );
+	}
+
+	/** @dataProvider companion_option_states */
+	public function test_the_companion_stat_shows_a_state_not_the_raw_option( mixed $option, string $expected_state, string $expected_detail ): void {
+		$GLOBALS['wpdb'] = self::dashboard_wpdb();
+		if ( null === $option ) {
+			unset( $GLOBALS['stonewright_test_options']['stonewright_companion_url'] );
+		} else {
+			$GLOBALS['stonewright_test_options']['stonewright_companion_url'] = $option;
+		}
+
+		ob_start();
+		StatusPage::render();
+		$html = (string) ob_get_clean();
+
+		$tile = self::stat( $html, 'Companion' );
+		self::assertStringContainsString( $expected_state, $tile );
+		self::assertStringContainsString( $expected_detail, $tile );
+		self::assertStringNotContainsString( '<code></code>', $html, 'An empty option must not leave an empty value chip.' );
+		self::assertStringNotContainsString( 'secret', $html, 'Credentials in a configured URL are never shown.' );
+		self::assertStringNotContainsString( '/private/path', $html, 'Only the host and port of a configured URL are shown.' );
+	}
+
+	/** @return array<string, array{0: mixed, 1: string, 2: string}> */
+	public static function companion_option_states(): array {
+		return [
+			'empty option'           => [ '', 'Not used', 'No bridge URL set' ],
+			'blank option'           => [ '   ', 'Not used', 'No bridge URL set' ],
+			'configured bridge'      => [ 'http://127.0.0.1:8765', 'Configured', '127.0.0.1:8765' ],
+			'configured with extras' => [ 'https://user:secret@bridge.example.test:9443/private/path?token=x', 'Configured', 'bridge.example.test:9443' ],
+		];
+	}
+
+	public function test_status_page_is_the_overview_inside_the_shell(): void {
+		$GLOBALS['wpdb'] = self::dashboard_wpdb();
 
 		ob_start();
 		StatusPage::render();
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'sw-dashboard-page', $html );
-		self::assertStringContainsString( 'sw-stat-grid', $html );
-		self::assertStringContainsString( 'sw-stat-card', $html );
-		self::assertStringContainsString( 'dashicons-chart-area', $html );
-		self::assertStringContainsString( 'sw-audit-feed', $html );
-		self::assertStringContainsString( 'sw-sparkline', $html );
-		self::assertStringContainsString( 'Dashboard', $html );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Overview</h1>', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
+		self::assertStringContainsString( 'class="sw-ui-stats"', $html );
+		self::assertStringContainsString( 'Needs attention', $html );
+		self::assertStringContainsString( 'Recent activity', $html );
+		self::assertStringContainsString( 'stonewright/ping', $html );
+		self::assertStringContainsString( 'role="img" aria-label="Changes over the last 14 days:', $html );
+		self::assertStringNotContainsString( 'sw-dashboard-page', $html );
+		self::assertStringNotContainsString( 'sw-stat-card', $html );
+		self::assertStringNotContainsString( 'Dashboard', $html );
 	}
 }

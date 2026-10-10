@@ -387,6 +387,97 @@ final class DesignDirectionServiceTest extends TestCase {
 		$this->assertSame( $first['hash_after'], $result['hash_after'] );
 	}
 
+	public function test_restoring_a_draft_revision_stores_the_draft_status_it_had(): void {
+		$draft = $this->service->save( $this->input(), 5 );
+		$this->service->save( $this->ready_input(), 5 );
+
+		$result = $this->service->restore( (int) $draft['id'], 1, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'draft', $result['status'] );
+		$this->assertSame( 'draft', $this->repository->get( (int) $draft['id'] )['status'] );
+		$this->assertFalse( $result['active_cleared'] );
+	}
+
+	public function test_restoring_a_not_ready_revision_of_the_active_direction_clears_the_active_pointer(): void {
+		$draft = $this->service->save( $this->input(), 5 );
+		$ready = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $this->service->activate( (int) $ready['id'], 5 ) );
+		$this->assertSame( (int) $ready['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+
+		$result = $this->service->restore( (int) $draft['id'], 1, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['active_cleared'] );
+		$this->assertTrue( $result['audit']['active_cleared'] );
+		$this->assertSame( 0, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_saving_a_not_ready_revision_of_the_active_direction_clears_the_active_pointer(): void {
+		$ready = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $this->service->activate( (int) $ready['id'], 5 ) );
+
+		$result = $this->service->save( $this->input(), 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( (int) $ready['id'], $result['id'] );
+		$this->assertSame( 'draft', $result['status'] );
+		$this->assertTrue( $result['active_cleared'] );
+		$this->assertTrue( $result['audit']['active_cleared'] );
+		$this->assertSame( 0, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_saving_a_ready_revision_of_the_active_direction_keeps_it_active(): void {
+		$ready = $this->service->save( $this->ready_input(), 5 );
+		$this->service->activate( (int) $ready['id'], 5 );
+
+		$changed = $this->ready_input();
+		$changed['contract']['identity']['summary'] = 'Sharper edges.';
+		$result = $this->service->save( $changed, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( (int) $ready['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_saving_a_not_ready_revision_of_an_inactive_direction_reports_no_clearing(): void {
+		$ready = $this->service->save( $this->ready_input( 'Other' ), 5 );
+		$this->service->activate( (int) $ready['id'], 5 );
+
+		$result = $this->service->save( $this->input(), 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( (int) $ready['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_restoring_a_ready_revision_keeps_the_direction_ready_and_active(): void {
+		$first   = $this->service->save( $this->ready_input(), 5 );
+		$changed = $this->ready_input();
+		$changed['contract']['identity']['summary'] = 'Sharper edges.';
+		$this->service->save( $changed, 5 );
+		$this->service->activate( (int) $first['id'], 5 );
+
+		$result = $this->service->restore( (int) $first['id'], 1, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'ready', $result['status'] );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( (int) $first['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+	}
+
+	public function test_restoring_a_revision_that_claims_ready_without_its_contract_agreeing_is_not_stored_ready(): void {
+		$first = $this->service->save( $this->input(), 5 );
+		$this->repository->version_rows[0]['status'] = 'ready';
+
+		$result = $this->service->restore( (int) $first['id'], 1, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'draft', $result['status'] );
+	}
+
 	public function test_restore_does_not_rewrite_history(): void {
 		$first                                = $this->service->save( $this->input(), 5 );
 		$changed                              = $this->input();

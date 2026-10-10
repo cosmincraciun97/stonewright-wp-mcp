@@ -4,15 +4,28 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin\Pages;
 
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\FormField;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Support\PromptCatalog;
 
 /**
  * Dedicated Prompt Library admin tab.
+ *
+ * A search-first catalog: the field filters the cards as you type (the layer's list filter), the cards are grouped
+ * by outcome, and each card copies its own prompt and says so next to the button.
  */
 final class PromptLibraryPage {
 
 	public const SLUG       = 'stonewright-prompts';
 	public const CAPABILITY = 'manage_options';
+
+	private const LIST_ID = 'sw-prompts-list';
 
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
@@ -21,8 +34,8 @@ final class PromptLibraryPage {
 	public static function add_submenu(): void {
 		add_submenu_page(
 			'stonewright',
-			__( 'Prompt Library', 'stonewright' ),
-			__( 'Prompts', 'stonewright' ),
+			__( 'Prompt library', 'stonewright' ),
+			__( 'Prompt library', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -38,7 +51,7 @@ final class PromptLibraryPage {
 			);
 		}
 
-		$prompts  = PromptCatalog::all();
+		$prompts    = PromptCatalog::all();
 		$by_outcome = [];
 		foreach ( $prompts as $prompt ) {
 			$outcome = (string) ( $prompt['outcome'] ?? 'general' );
@@ -49,116 +62,183 @@ final class PromptLibraryPage {
 		}
 		ksort( $by_outcome );
 
+		$html = Notice::callout(
+			'info',
+			__( 'Every prompt starts with stonewright-task-start.', 'stonewright' ),
+			__( 'Mode tags show where a prompt works. Prompts contain no site URL, username, Application Password, token, memory entry, or audit payload.', 'stonewright' )
+		);
+
+		if ( [] === $prompts ) {
+			$html .= EmptyState::render(
+				__( 'No prompts in the catalog yet', 'stonewright' ),
+				__( 'Prompts are task starters grouped by outcome. They appear here when the catalog has entries.', 'stonewright' ),
+				[ 'variant' => 'first-run' ]
+			);
+		} else {
+			$html .= self::toolbar( count( $prompts ) );
+			$groups = '';
+			$serial = 0;
+			foreach ( $by_outcome as $outcome => $group ) {
+				$groups .= self::group( (string) $outcome, $group, $serial );
+			}
+			$html .= Html::element(
+				'div',
+				[ 'id' => self::LIST_ID, 'class' => 'sw-prompts__groups' ],
+				$groups
+				. Html::element(
+					'div',
+					[ 'data-sw-ui-filter-empty' => true, 'hidden' => true ],
+					EmptyState::render( __( 'No prompt matches', 'stonewright' ), __( 'Try a shorter search, or search by an outcome or a tool name.', 'stonewright' ), [ 'variant' => 'no-results' ] )
+				)
+			);
+		}
+
 		AdminShell::open( self::SLUG );
-		?>
-		<div class="sw-prompts-page stonewright-prompt-library">
-			<div class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Prompt Library', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Outcome-grouped starters for Plugin and Direct mode. Connect Stonewright first, copy only the prompt you need, and keep credentials out of chat.', 'stonewright' ); ?></p>
-				</div>
-			</div>
-
-			<div class="sw-prompt-safety" role="note">
-				<strong><?php esc_html_e( 'Every prompt starts with stonewright-task-start.', 'stonewright' ); ?></strong>
-				<?php esc_html_e( 'Mode badges show where it works. Prompts contain no site URL, username, Application Password, token, memory entry, or audit payload.', 'stonewright' ); ?>
-			</div>
-
-			<label class="screen-reader-text" for="sw-prompt-search"><?php esc_html_e( 'Search prompts', 'stonewright' ); ?></label>
-			<input
-				type="search"
-				id="sw-prompt-search"
-				class="sw-prompt-search regular-text"
-				placeholder="<?php esc_attr_e( 'Filter by title, outcome, or tool…', 'stonewright' ); ?>"
-				data-stonewright-prompt-search
-			/>
-
-			<?php if ( [] === $prompts ) : ?>
-				<div class="sw-empty-state">
-					<p><?php esc_html_e( 'No prompts in the catalog yet.', 'stonewright' ); ?></p>
-				</div>
-			<?php else : ?>
-				<?php foreach ( $by_outcome as $outcome => $group ) : ?>
-					<section class="sw-section" data-sw-prompt-outcome="<?php echo esc_attr( $outcome ); ?>">
-						<div class="sw-section__head">
-							<h2><?php echo esc_html( ucwords( str_replace( '-', ' ', $outcome ) ) ); ?></h2>
-							<p class="sw-section__sub"><?php echo esc_html( sprintf( /* translators: %d: prompt count */ _n( '%d prompt', '%d prompts', count( $group ), 'stonewright' ), count( $group ) ) ); ?></p>
-						</div>
-						<div class="sw-blueprint-grid" data-stonewright-prompt-grid>
-							<?php foreach ( $group as $prompt ) : ?>
-								<?php
-								$id      = (string) ( $prompt['id'] ?? '' );
-								$title   = (string) ( $prompt['title'] ?? $id );
-								$summary = (string) ( $prompt['summary'] ?? '' );
-								$body    = (string) ( $prompt['prompt'] ?? '' );
-								$tools   = is_array( $prompt['tools'] ?? null ) ? $prompt['tools'] : [];
-								$modes   = is_array( $prompt['modes'] ?? null ) ? $prompt['modes'] : [ 'plugin' ];
-								$prerequisites = is_array( $prompt['prerequisites'] ?? null ) ? $prompt['prerequisites'] : [];
-								$verification  = (string) ( $prompt['verification'] ?? '' );
-								$search  = strtolower(
-									trim(
-										$title . ' ' . $outcome . ' ' . $summary . ' ' . $id . ' ' . implode( ' ', array_map( 'strval', $tools ) )
-									)
-								);
-								?>
-								<article
-									class="sw-blueprint-card"
-									data-sw-prompt-card
-									data-stonewright-prompt-card
-									data-outcome="<?php echo esc_attr( $outcome ); ?>"
-									data-title="<?php echo esc_attr( strtolower( $title ) ); ?>"
-									data-search="<?php echo esc_attr( $search ); ?>"
-								>
-									<span class="sw-blueprint-card__industry"><?php echo esc_html( $outcome ); ?></span>
-									<div class="sw-prompt-modes" aria-label="<?php esc_attr_e( 'Available modes', 'stonewright' ); ?>">
-										<?php foreach ( $modes as $mode ) : ?>
-											<span><?php echo esc_html( 'direct' === $mode ? __( 'Direct', 'stonewright' ) : __( 'Plugin', 'stonewright' ) ); ?></span>
-										<?php endforeach; ?>
-									</div>
-									<h3 class="sw-blueprint-card__name"><?php echo esc_html( $title ); ?></h3>
-									<?php if ( '' !== $summary ) : ?>
-										<p class="sw-blueprint-card__desc"><?php echo esc_html( $summary ); ?></p>
-									<?php endif; ?>
-									<details class="sw-prompt-details">
-										<summary><?php esc_html_e( 'Requirements and verification', 'stonewright' ); ?></summary>
-										<?php if ( [] !== $prerequisites ) : ?>
-											<strong><?php esc_html_e( 'Requires', 'stonewright' ); ?></strong>
-											<ul>
-												<?php foreach ( $prerequisites as $prerequisite ) : ?>
-													<li><?php echo esc_html( (string) $prerequisite ); ?></li>
-												<?php endforeach; ?>
-											</ul>
-										<?php endif; ?>
-										<?php if ( '' !== $verification ) : ?>
-											<strong><?php esc_html_e( 'Done when', 'stonewright' ); ?></strong>
-											<p><?php echo esc_html( $verification ); ?></p>
-										<?php endif; ?>
-									</details>
-									<?php if ( [] !== $tools ) : ?>
-										<p class="sw-blueprint-card__meta">
-											<?php foreach ( array_slice( $tools, 0, 4 ) as $tool ) : ?>
-												<code><?php echo esc_html( (string) $tool ); ?></code>
-											<?php endforeach; ?>
-										</p>
-									<?php endif; ?>
-									<div class="sw-blueprint-card__actions">
-										<button
-											type="button"
-											class="sw-btn sw-btn--primary sw-btn--sm sw-copy-prompt"
-											data-prompt="<?php echo esc_attr( $body ); ?>"
-											data-sw-tooltip="<?php echo esc_attr( __( 'Copy this prompt to your clipboard for pasting into an MCP client.', 'stonewright' ) ); ?>"
-										>
-											<?php esc_html_e( 'Copy prompt', 'stonewright' ); ?>
-										</button>
-									</div>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endforeach; ?>
-			<?php endif; ?>
-		</div>
-		<?php
+		echo Scope::wrap( Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $html ), [ 'page' => true, 'class' => 'sw-prompts' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
+	}
+
+	private static function toolbar( int $total ): string {
+		$search = FormField::input(
+			__( 'Search prompts', 'stonewright' ),
+			'prompt_search',
+			[
+				'id'           => 'sw-prompts-search',
+				'type'         => 'search',
+				'placeholder'  => __( 'Filter by title, outcome, or tool…', 'stonewright' ),
+				'autocomplete' => 'off',
+				'attrs'        => [ 'data-sw-ui-filter' => '#' . self::LIST_ID, 'data-sw-ui-search' => true ],
+			]
+		);
+
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-toolbar' ],
+			Html::element( 'div', [ 'class' => 'sw-ui-toolbar__search' ], $search )
+			. Html::element(
+				'span',
+				[
+					'class'                    => 'sw-ui-toolbar__meta',
+					'role'                     => 'status',
+					'data-sw-ui-filter-count'  => true,
+					'data-sw-ui-filter-label'  => __( 'Showing %1$s of %2$s prompts', 'stonewright' ),
+				],
+				Html::text( sprintf( /* translators: 1: prompts shown, 2: prompts in the catalog */ __( 'Showing %1$s of %2$s prompts', 'stonewright' ), (string) $total, (string) $total ) )
+			)
+		);
+	}
+
+	/**
+	 * One outcome: a heading and the cards under it.
+	 *
+	 * @param list<array<string, mixed>> $group
+	 */
+	private static function group( string $outcome, array $group, int &$serial ): string {
+		$id    = 'sw-prompts-group-' . sanitize_html_class( $outcome );
+		$cards = '';
+		foreach ( $group as $prompt ) {
+			++$serial;
+			$cards .= self::card( $prompt, $outcome, $serial );
+		}
+
+		return Html::element(
+			'section',
+			[ 'data-sw-prompt-outcome' => $outcome, 'data-sw-ui-filter-group' => true, 'aria-labelledby' => $id ],
+			Html::element( 'div', [ 'class' => 'sw-prompts__head' ], Html::element( 'h2', [ 'id' => $id ], Html::text( ucwords( str_replace( '-', ' ', $outcome ) ) ) ) )
+			. Html::element( 'div', [ 'class' => 'sw-prompts__grid' ], $cards )
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $prompt
+	 */
+	private static function card( array $prompt, string $outcome, int $serial ): string {
+		$id            = (string) ( $prompt['id'] ?? '' );
+		$title         = (string) ( $prompt['title'] ?? $id );
+		$summary       = (string) ( $prompt['summary'] ?? '' );
+		$body          = (string) ( $prompt['prompt'] ?? '' );
+		$tools         = is_array( $prompt['tools'] ?? null ) ? $prompt['tools'] : [];
+		$modes         = is_array( $prompt['modes'] ?? null ) ? $prompt['modes'] : [ 'plugin' ];
+		$prerequisites = is_array( $prompt['prerequisites'] ?? null ) ? $prompt['prerequisites'] : [];
+		$verification  = (string) ( $prompt['verification'] ?? '' );
+		$search        = strtolower( trim( $title . ' ' . $outcome . ' ' . $summary . ' ' . $id . ' ' . implode( ' ', array_map( 'strval', $tools ) ) ) );
+		$title_id      = 'sw-prompts-title-' . $serial;
+		$status_id     = 'sw-prompts-status-' . $serial;
+
+		$mode_tags = '';
+		foreach ( $modes as $mode ) {
+			$mode_tags .= Badge::tag( 'direct' === $mode ? __( 'Direct', 'stonewright' ) : __( 'Plugin', 'stonewright' ) );
+		}
+		$header = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-card__header' ],
+			Html::element( 'h3', [ 'class' => 'sw-ui-card__title', 'id' => $title_id ], Html::text( $title ) )
+			. ( '' !== $summary ? Html::element( 'p', [ 'class' => 'sw-ui-card__desc' ], Html::text( $summary ) ) : '' )
+		);
+
+		$details = '';
+		if ( [] !== $prerequisites ) {
+			$list = '';
+			foreach ( $prerequisites as $prerequisite ) {
+				$list .= Html::element( 'li', [], Html::text( (string) $prerequisite ) );
+			}
+			$details .= Html::element( 'p', [], Html::element( 'strong', [], Html::text( __( 'Requires', 'stonewright' ) ) ) ) . Html::element( 'ul', [ 'class' => 'sw-prompts__list' ], $list );
+		}
+		if ( '' !== $verification ) {
+			$details .= Html::element( 'p', [], Html::element( 'strong', [], Html::text( __( 'Done when', 'stonewright' ) ) ) ) . Html::element( 'p', [], Html::text( $verification ) );
+		}
+		$body_html = '' !== $details
+			? Html::element(
+				'details',
+				[ 'class' => 'sw-ui-disclosure' ],
+				Html::element( 'summary', [], Icon::render( 'chev-r' ) . Html::text( __( 'Requirements and verification', 'stonewright' ) ) )
+				. Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body' ], $details )
+			)
+			: '';
+		if ( [] !== $tools ) {
+			$codes = '';
+			foreach ( array_slice( $tools, 0, 4 ) as $tool ) {
+				$codes .= Html::element( 'code', [], Html::text( (string) $tool ) );
+			}
+			$body_html .= Html::element( 'p', [ 'class' => 'sw-prompts__tools' ], $codes );
+		}
+
+		$footer = Html::element(
+			'div',
+			[ 'class' => 'sw-ui-card__footer' ],
+			Html::element(
+				'div',
+				[ 'class' => 'sw-ui-actions' ],
+				Button::render(
+					__( 'Copy prompt', 'stonewright' ),
+					[
+						'icon'    => 'copy',
+						'size'    => 'sm',
+						'context' => $title,
+						'attrs'   => [
+							'data-sw-ui-copy-text'         => $body,
+							'data-sw-ui-copy-status'       => '#' . $status_id,
+							'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+							'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+						],
+					]
+				)
+				. Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'id' => $status_id, 'role' => 'status' ], '' )
+			)
+			. Html::element( 'div', [ 'class' => 'sw-ui-actions', 'role' => 'group', 'aria-label' => __( 'Available modes', 'stonewright' ) ], $mode_tags )
+		);
+
+		return Html::element(
+			'article',
+			[
+				'class'                    => 'sw-ui-card',
+				'aria-labelledby'          => $title_id,
+				'data-sw-prompt-card'      => true,
+				'data-sw-ui-filter-item'   => true,
+				'data-sw-ui-filter-text'   => $search,
+				'data-outcome'             => $outcome,
+			],
+			$header . Html::element( 'div', [ 'class' => 'sw-ui-card__body' ], $body_html ) . $footer
+		);
 	}
 }

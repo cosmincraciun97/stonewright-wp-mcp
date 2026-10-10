@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
@@ -25,6 +26,8 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class UpdateElement extends AbilityKernel {
 
+	use ConfirmationGuard;
+
 	public function name(): string {
 		return 'stonewright/elementor-v3-update-element';
 	}
@@ -34,7 +37,7 @@ final class UpdateElement extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Patches settings of an element identified by id. Snapshots before write.', 'stonewright' );
+		return __( 'Patches settings of an element identified by id. Snapshots before write. dry_run:true previews the change, writes nothing and needs no confirmation token in production-safe mode; a write needs a confirmation_token bound to its arguments.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -51,7 +54,7 @@ final class UpdateElement extends AbilityKernel {
 				'element_id' => [ 'type' => 'string' ],
 				'settings'   => [ 'type' => 'object' ],
 				'mode'       => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
-				'dry_run'    => [ 'type' => 'boolean', 'default' => false ],
+				'dry_run'    => [ 'type' => 'boolean', 'default' => false, 'description' => 'Preview only: returns the hashes and changed keys, writes nothing, takes no snapshot or lock, and needs no confirmation token.' ],
 				'expected_tree_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 			],
 			'required'             => [ 'post_id', 'element_id', 'settings' ],
@@ -80,15 +83,28 @@ final class UpdateElement extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit_write(
+		return $this->audit(
 			$args,
 			function ( array $args ) {
+				$dry_run = ! empty( $args['dry_run'] );
+				// A dry run writes nothing, so it needs no token; every write does in production-safe mode.
+				if ( ! $dry_run ) {
+					$verify_args = array_filter(
+						$args,
+						static fn( string $key ): bool => 'confirmation_token' !== $key,
+						ARRAY_FILTER_USE_KEY
+					);
+					$token_error = $this->confirmation_token_error( $args, $verify_args );
+					if ( $token_error instanceof \WP_Error ) {
+						return $token_error;
+					}
+				}
+
 				$post_id = (int) $args['post_id'];
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$dry_run = ! empty( $args['dry_run'] );
 				if ( $dry_run ) {
 					return $this->update( $args, $post_id, true, '' );
 				}
@@ -163,7 +179,7 @@ final class UpdateElement extends AbilityKernel {
 				if ( $css_gate instanceof \WP_Error ) {
 					return $css_gate;
 				}
-				$supplied = SettingsKeyAliases::normalize( $incoming )['settings'];
+				$supplied = SettingsKeyAliases::normalize_for_element( $incoming, (string) ( $existing['elType'] ?? '' ), (string) ( $existing['widgetType'] ?? '' ) )['settings'];
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
 				$element_type = (string) ( $existing['elType'] ?? '' );
 				if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
@@ -224,6 +240,9 @@ final class UpdateElement extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				if ( ! ElementorData::write( $post_id, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ], 'lock_owner' => $lock_owner ] ) ) {
 					return ElementorData::write_error_for_ability();
 				}

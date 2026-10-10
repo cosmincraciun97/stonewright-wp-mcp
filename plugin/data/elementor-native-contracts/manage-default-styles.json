@@ -1,0 +1,384 @@
+{
+    "contract_version": 1,
+    "ability": "elementor/manage-default-styles",
+    "status": "certifiable",
+    "access": "write",
+    "provider": "elementor-core",
+    "source_plugin": "elementor/elementor.php",
+    "runtime_class": "Elementor\\Modules\\Mcp\\Abilities\\Manage_Default_Styles_Ability",
+    "annotations": {
+        "readonly": false,
+        "destructive": true,
+        "idempotent": false
+    },
+    "runtime_contract": {
+        "runtime_operation_limit": 20,
+        "class_type": "class"
+    },
+    "version_policy": "required",
+    "schemas": [
+        {
+            "elementor_versions": {
+                "min": "4.3.0",
+                "max": "4.3.*"
+            },
+            "input_fingerprint": "0176cb0aa66074d61bde2c981f3efddcf29305decaa16ecd7c9b5f8f48340468",
+            "output_fingerprint": "88459b1c4b5cd53df3ee996968d06c5f5f917080db110efa6439a516af8d91fc",
+            "description_fingerprint": "37350cc209ba59c46e655cce381ddfdf6313cf8e610fda7ffe8c7002f5810c7f",
+            "input_schema": {
+                "type": "object",
+                "required": [
+                    "operations"
+                ],
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "description": "Bulk operations (1–20). Each item requires action and tag. update needs css (raw CSS string, same format as manage-classes) and applies site-wide to that HTML tag. Use mode to control merge behaviour on update (patch = upsert variants, replace = overwrite variants for the affected breakpoints). delete removes the tag's default style entirely.",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action",
+                                "tag"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "update",
+                                        "delete"
+                                    ]
+                                },
+                                "tag": {
+                                    "type": "string",
+                                    "description": "HTML wrapper tag to target (e.g. h1, h2, p, a). Must be one of Elementor's allowed wrapper tags."
+                                },
+                                "css": {
+                                    "type": "string",
+                                    "description": "Plain CSS string. Supports &:hover/&:focus/&:active nesting and @media(--breakpoint) blocks. In patch mode: \"prop: null\" removes that prop; \"all: null\" wipes the variant."
+                                },
+                                "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "patch",
+                                        "replace"
+                                    ],
+                                    "default": "patch",
+                                    "description": "patch (default): upsert variants, preserving untouched ones; null/all:null deletions apply. replace: discard all variants for the affected breakpoints, then store new ones; null values have no effect."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "requires": {
+        "capability": "manage_options",
+        "atomic_editor": true
+    },
+    "side_effects": [
+        {
+            "id": "default_style_posts",
+            "scope": "kit",
+            "description": "Creates, updates or deletes e_default_style posts and the active kit map from tag to post."
+        },
+        {
+            "id": "default_styles_update_action",
+            "scope": "hook",
+            "description": "Fires elementor/default_styles/update once per applied operation."
+        }
+    ],
+    "closure_requirements": [
+        "kit_snapshot",
+        "readback",
+        "css_regenerate_post_scoped"
+    ],
+    "summary": {
+        "enum_lists": {
+            "actions": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "action",
+                    "enum"
+                ]
+            }
+        },
+        "flags": {
+            "responsive_css": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "css",
+                    "description"
+                ],
+                "contains_all": [
+                    "@media(--breakpoint)"
+                ]
+            },
+            "pseudo_states": {
+                "schema": "input",
+                "path": [
+                    "properties",
+                    "operations",
+                    "items",
+                    "properties",
+                    "css",
+                    "description"
+                ],
+                "contains_all": [
+                    "&:hover",
+                    "&:focus",
+                    "&:active"
+                ]
+            }
+        }
+    },
+    "probes": [
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "type"
+            ],
+            "equals": "array"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "type"
+            ],
+            "equals": "object"
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "required"
+            ],
+            "same_set": [
+                "action",
+                "tag"
+            ]
+        },
+        {
+            "id": "operations_schema_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties"
+            ],
+            "keys_same_set": [
+                "action",
+                "tag",
+                "css",
+                "mode"
+            ]
+        },
+        {
+            "id": "action_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "action",
+                "type"
+            ],
+            "equals": "string"
+        },
+        {
+            "id": "action_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "action",
+                "enum"
+            ],
+            "exact_strings": [
+                "update",
+                "delete"
+            ]
+        },
+        {
+            "id": "tag_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "tag",
+                "type"
+            ],
+            "equals": "string"
+        },
+        {
+            "id": "tag_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "tag",
+                "description"
+            ],
+            "contains_all": [
+                "html wrapper tag",
+                "allowed wrapper tags"
+            ]
+        },
+        {
+            "id": "css_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "css",
+                "type"
+            ],
+            "equals": "string"
+        },
+        {
+            "id": "css_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "css",
+                "description"
+            ],
+            "contains_all": [
+                "plain css string",
+                "&:hover",
+                "&:focus",
+                "&:active",
+                "@media(--breakpoint)",
+                "prop: null",
+                "all: null",
+                "wipes the variant"
+            ]
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "type"
+            ],
+            "equals": "string"
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "enum"
+            ],
+            "same_set": [
+                "patch",
+                "replace"
+            ]
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "default"
+            ],
+            "equals": "patch"
+        },
+        {
+            "id": "mode_contract_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "items",
+                "properties",
+                "mode",
+                "description"
+            ],
+            "contains_all": [
+                "upsert variants",
+                "preserving untouched",
+                "discard all variants",
+                "affected breakpoints",
+                "null values have no effect"
+            ]
+        },
+        {
+            "id": "operation_semantics_mismatch",
+            "schema": "input",
+            "path": [
+                "properties",
+                "operations",
+                "description"
+            ],
+            "contains_all": [
+                "1–20",
+                "action and tag",
+                "raw css string",
+                "site-wide",
+                "patch = upsert variants",
+                "replace = overwrite variants",
+                "delete removes"
+            ]
+        }
+    ],
+    "evidence": {
+        "plugin": "elementor",
+        "verified_versions": [
+            "4.3.0",
+            "4.3.1",
+            "4.3.2",
+            "4.3.3",
+            "4.3.4"
+        ],
+        "source": "WordPress.org plugin directory release; abilities read from the live runtime and the registering source file",
+        "source_file": "modules/mcp/abilities/manage-default-styles-ability.php"
+    },
+    "routing": {
+        "family": "kit_defaults",
+        "native_write": "allowed"
+    }
+}

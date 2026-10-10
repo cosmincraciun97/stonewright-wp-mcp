@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Gutenberg;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -55,7 +55,7 @@ final class GetFinalizationUrl extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		return [
-			'url'          => FinalizerPage::url(),
+			'url'          => QueueConsole::session_link(),
 			'queued_count' => BlockQueue::pending_count(),
 		];
 	}

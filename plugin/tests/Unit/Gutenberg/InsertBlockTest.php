@@ -70,6 +70,32 @@ final class InsertBlockTest extends TestCase {
 		);
 	}
 
+	public function test_insert_keeps_the_backslashes_of_the_markup_it_writes(): void {
+		$GLOBALS['stonewright_test_registered_blocks'] = [
+			'core/paragraph' => (object) [
+				'attributes'      => [ 'content' => [ 'type' => 'string' ] ],
+				'render_callback' => static fn(): string => '',
+				'is_dynamic'      => true,
+			],
+		];
+
+		$result = ( new InsertBlock() )->execute(
+			[
+				'post_id' => 12,
+				'block'   => [
+					'name'       => 'core/paragraph',
+					'attributes' => [ 'content' => 'a/b' ],
+					'innerHTML'  => '<p>Saved to C:\Temp</p>',
+				],
+			]
+		);
+
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_code() : '' );
+		$content = (string) $GLOBALS['stonewright_test_posts'][12]->post_content;
+		self::assertStringContainsString( 'C:\Temp', $content );
+		self::assertStringContainsString( '"content":"a\/b"', $content );
+	}
+
 	public function test_insert_persists_nested_inner_blocks_for_dynamic_query_tree(): void {
 		$GLOBALS['stonewright_test_registered_blocks'] = [
 			'core/query'         => (object) [

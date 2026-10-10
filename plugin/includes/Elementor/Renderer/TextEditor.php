@@ -78,7 +78,7 @@ final class TextEditor {
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
 			'widgetType' => 'text-editor',
-			'settings'   => $settings,
+			'settings'   => StyleMapper::activate_groups( $settings ),
 			'elements'   => [],
 		];
 	}

@@ -23,7 +23,7 @@ final class DescribeWidget extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'USE THIS WHEN deciding how to render a design pattern as a real Elementor widget. Returns the widget manifest entry, harvested documentation, stale flags, and refresh guidance. Prefer this over simulating widgets with headings/buttons.',
+			'USE THIS WHEN deciding how to render a design pattern as a real Elementor widget. Returns the widget manifest entry, harvested documentation from the private Elementor knowledge store on this site, stale flags, and refresh guidance. The store is empty until the first stonewright/elementor-knowledge-refresh; the documents then stay empty and a hint says so. Prefer this over simulating widgets with headings/buttons.',
 			'stonewright'
 		);
 	}
@@ -55,6 +55,7 @@ final class DescribeWidget extends AbilityKernel {
 				'stale'     => [ 'type' => 'boolean' ],
 				'max_age_days' => [ 'type' => 'integer' ],
 				'refresh_ability' => [ 'type' => 'string' ],
+				'hint'      => [ 'type' => 'string', 'description' => 'Present when the knowledge store is empty; names the refresh ability.' ],
 			],
 		];
 	}

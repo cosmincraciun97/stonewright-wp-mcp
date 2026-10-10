@@ -4,7 +4,7 @@ This checklist tracks the public-release surface for Stonewright.
 
 ## Repository Hygiene
 
-- Root plugin license: AGPL-3.0-or-later.
+- Root plugin license: GPL-2.0-or-later.
 - Companion license: MIT.
 - Security policy present.
 - Code of conduct present.
@@ -64,9 +64,9 @@ manifest target, and test Stonewright/WooCommerce co-activation.
 
 ## Current Hardening Plan
 
-- Keep an upstream reuse ledger for copied or adapted code. Preserve license
-  and copyright notices, document modifications, and never label derived code
-  with an incompatible Stonewright component license.
+- Preserve license and copyright notices on copied or adapted code, document
+  modifications in the file header, and never label derived code with an
+  incompatible Stonewright component license.
 - Keep runtime work inside Stonewright abilities. Use
   `/wp-json/stonewright/v1/abilities/run` only as the Stonewright REST runner
   for clients that cannot execute the MCP ability transport directly.

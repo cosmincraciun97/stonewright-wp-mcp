@@ -55,44 +55,84 @@ The authoritative gate columns live in the generated
 | `stonewright/elementor-v4-list-atomic-node-types` | Read | stable | DesignSpec node types the certified Atomic schema repository can render. |
 | `stonewright/elementor-v4-describe-atomic-widget` | Read | stable | Live props schema for one Atomic widget. |
 | `stonewright/elementor-v4-read-atomic-tree` | Read | experimental | Compact outline (or full tree) of the Atomic elements in a post. |
-| `stonewright/elementor-v4-update-node` | Write | experimental | Settings-only patch of one Atomic node by id, validated against its certified schema. |
+| `stonewright/elementor-v4-update-node` | Write | experimental | Fallback. Settings-only patch of one Atomic node by id, validated against its certified schema. |
 | `stonewright/elementor-v4-list-variables` | Read | experimental | Variables through `Variables_Service`. |
-| `stonewright/elementor-v4-create-variable` | Write | experimental | Creates a variable through `Variables_Service` and verifies readback. |
-| `stonewright/elementor-v4-update-variable` | Write | experimental | Updates a variable through `Variables_Service`. |
+| `stonewright/elementor-v4-create-variable` | Write | experimental | Fallback. Creates a variable through `Variables_Service` and verifies readback. |
+| `stonewright/elementor-v4-update-variable` | Write | experimental | Fallback. Updates a variable through `Variables_Service`. |
 | `stonewright/elementor-v4-list-classes` | Read | experimental | Global classes through `Global_Classes_Repository`. |
-| `stonewright/elementor-v4-create-class` | Write | experimental | Creates a global class. |
-| `stonewright/elementor-v4-update-class` | Write | experimental | Updates a global class. |
+| `stonewright/elementor-v4-create-class` | Write | experimental | Fallback. Creates a global class. |
+| `stonewright/elementor-v4-update-class` | Write | experimental | Fallback. Updates a global class. |
 | `stonewright/elementor-v4-migrate` | Write | experimental | Explicit V3-to-V4 migration with a per-element loss report; never implicit. |
-| `stonewright/elementor-v4-render-from-spec` | Write | experimental | Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
+| `stonewright/elementor-v4-render-from-spec` | Write | experimental | Fallback. Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
 | `stonewright/elementor-v4-atomic-widget-define` | Read | sandboxed | Sandboxed Atomic widget definition. |
+| `stonewright/elementor-native-execute` | Write | experimental | Runs a certified Elementor ability (default styles, element composition, structure read) inside the snapshot, lock, readback, rollback, and audit closure; `dry_run` defaults to true. |
 
 ## Write envelope for V4 abilities
 
-V4 write abilities follow the same AGENTS.md security rules as V3:
+V4 write abilities follow the same AGENTS.md security rules as V3, and every V4
+write reads the stored result back and compares nested content: a dropped child is
+an error and the snapshot is restored.
 
 1. `permission_callback` checks the feature flag, then `Permissions::edit_theme_options()`
    for class and variable writes or `Permissions::edit_post()` for post writes.
 2. `Backup::snapshot_post()` is called before any kit or post mutation.
 3. `Validator::validate()` is called before any spec-to-render path (`RenderFromSpec`).
-4. `ConfirmationToken` is required in `production-safe` mode for `RenderFromSpec`.
+4. In `production-safe` mode a V4 write that is not a dry run is refused with
+   `stonewright_v4_experimental_production_block` (`V4FeatureGate`), so a confirmation
+   token never authorizes a V4 write.
 
 ## Current limitations
 
 - `RenderFromSpec` and `design-spec-to-elementor-v4` render sections and the
   DesignSpec block types `heading`, `paragraph`, `image`, `button`,
-  `separator`, `icon`, `row`, and `column` through `AtomicRenderer`. A block
-  type without a trusted, certified Atomic schema is a structured error; a
+  `separator`, `icon`, `row`, `column`, and `card` through `AtomicRenderer`.
+  A block type without a trusted, certified Atomic schema (`spacer`, `list`,
+  `video`, `embed`, `slider` and the other documented block types) is a
+  `stonewright_v4_unknown_node` error whose message names the block type and its
+  spec path (for example `sections.0.blocks.1`) and lists the supported types; a
   partial tree is never returned as success.
+- Section, row, column, and card styling is written as a local Atomic style
+  class with typed envelopes: `layout` and `direction` (including
+  `desktop`/`tablet`/`mobile` maps, one style variant per breakpoint; a
+  container without either stacks its children), `gap`, `padding`,
+  `background.color`, `width: full` (or `fullWidth`), `justify_content`,
+  `align_items`, and `z_index`. Any other property (a `boxed` or `narrow`
+  `width`, a `grid` layout, `margin`, `css_classes`, `hide_on`, the
+  `sticky*` fields, background images, overlays, position, size and repeat) is
+  refused with `stonewright_v4_unsupported_property`, whose message and
+  `data.path` name the property and its spec path. Styling keys on leaf blocks
+  such as `heading` or `button` are refused the same way.
 - Atomic types discovered at runtime from third-party plugins are inventory
   only. They stay read-only until Stonewright certifies their provider,
   version, provenance, and contract.
 - Licensed Elementor Pro editor and frontend parity is not yet proven by
   controlled-site E2E runs.
-- Elementor's own registered abilities (`elementor/*`) are discovered and
-  fingerprinted by the provider router for evidence only. Stonewright does not
-  route writes through them yet.
+- Elementor's own registered abilities (`elementor/*`) are discovered,
+  fingerprinted, and certified against shipped contracts by the provider router.
+  Only certified abilities whose contract allows a native write run, through
+  `stonewright/elementor-native-execute`: default styles and element composition.
+  Writes that clear generated CSS site-wide (global classes, global variables)
+  are refused with `upstream_global_clear_cache`; the Fallback abilities above stay
+  the supported path for them. See
+  [Native execution](../elementor-v4-engine.md#native-execution) for the closure,
+  the routing, and `staged_in_autosave`.
+- `stonewright/elementor-v4-update-node` with `operations` copies a section from
+  `stonewright/section-reuse-extract` (`insert_section`) and adapts it
+  (`update_node`) in one dry run and one apply, on the Stonewright V4 writer,
+  with a recursive readback of the whole document. See
+  [Batch mode](../elementor-v4-engine.md#batch-mode-reusing-a-section).
 - V4 abilities are **blocked in `production-safe` mode** for all write
   operations.
+
+## Using Elementor's own MCP server alongside
+
+Stonewright does not disable, replace, or compete with Elementor's MCP server,
+and both can be connected to the same client. Use Stonewright when you want
+snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
+quick draft that you will review in the editor. Do not send one change through
+both servers: Stonewright's backup and readback only cover what it writes. When
+Stonewright runs an Elementor ability itself, through
+`stonewright/elementor-native-execute`, the closure covers it.
 
 ## Enabling for development
 
@@ -120,3 +160,6 @@ Primary test files:
   errors for unknown or uncertified types.
 - `plugin/tests/Unit/RendererValidationTest.php`: invalid specs are rejected
   by both `GutenbergSpecRenderer` and `ElementorV4SpecRenderer`.
+- `plugin/tests/Unit/Renderers/ElementorV4SpecRendererTest.php`: section
+  styling through typed envelopes, refusal of unsupported properties and block
+  types with their spec paths.

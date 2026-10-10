@@ -45,6 +45,8 @@ for (const rel of [
 	'includes/Core/PluginRegistration.php',
 	'uninstall.php',
 	'data/global-rules.json',
+	'data/ability-traits.php',
+	'data/elementor-native-contracts/manage-default-styles.json',
 ]) {
 	if (!exists(rel)) fail(`Missing required plugin path: plugin/${rel}`);
 }
@@ -92,6 +94,7 @@ const mustExclude = [
 	'phpstan.neon',
 	'phpcs.xml',
 	'phpunit.xml',
+	'.github',
 ];
 
 // Simulated include set: everything under plugin/ except excludes (like rsync).
@@ -103,7 +106,9 @@ function walkIncluded(dir, base = '') {
 		const rel = base ? `${base}/${entry.name}` : entry.name;
 		const top = rel.split('/')[0];
 		if (excludeSet.has(top) || excludeSet.has(rel)) continue;
+		// rsync excludes these names at any depth, vendor packages included.
 		if (entry.name === '.phpunit.cache' || entry.name === '.phpunit.result.cache') continue;
+		if (entry.name === '.github') continue;
 		const abs = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			out.push(...walkIncluded(abs, rel));
@@ -119,6 +124,7 @@ const forbidden = included.filter(
 	(rel) =>
 		rel.startsWith('tests/') ||
 		rel.startsWith('bin/') ||
+		rel.split('/').includes('.github') ||
 		/^(phpunit|phpstan|phpcs)/.test(rel) ||
 		rel === 'composer.lock' ||
 		rel === 'composer.json',

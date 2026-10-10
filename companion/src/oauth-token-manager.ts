@@ -136,6 +136,17 @@ export class OAuthTokenStore {
 	}
 }
 
+/**
+ * The server answers a refresh credential presented again within 60 seconds of its use with
+ * the grant's current credential. A refresh whose response never arrived is sent once more
+ * with the same credential only if that second request can still start this long after the
+ * first one was sent.
+ */
+export const LOST_RESPONSE_RETRY_LATEST_START_MS = 30_000;
+
+/** The second request of a lost-response retry is aborted this long after the first one was sent. */
+export const LOST_RESPONSE_RETRY_DEADLINE_MS = 50_000;
+
 export interface OAuthTokenManagerOptions {
 	maxAttempts?: number;
 	baseBackoffMs?: number;
@@ -265,7 +276,9 @@ export class OAuthTokenManager {
 
 		let lastTransient: OAuthTransientError | null = null;
 		let attempts = 0;
-		const maxAttempts = this.maxAttempts;
+		let maxAttempts = this.maxAttempts;
+		// When the first request that may have reached the server got no response, the time it was sent.
+		let lostResponseSentAt: number | null = null;
 
 		while (attempts < maxAttempts) {
 			attempts += 1;
@@ -281,6 +294,9 @@ export class OAuthTokenManager {
 						client_id: clientId,
 						...(resource ? { resource } : {}),
 					}).toString(),
+					...(lostResponseSentAt === null
+						? {}
+						: { signal: AbortSignal.timeout(Math.max(1, lostResponseSentAt + LOST_RESPONSE_RETRY_DEADLINE_MS - this.now())) }),
 				});
 			} catch (error) {
 				const diagnostic = classifyTransportFailure(error, {
@@ -294,8 +310,19 @@ export class OAuthTokenManager {
 					diagnostic.kind === 'tls_error' ||
 					diagnostic.kind === 'connection_refused' ||
 					diagnostic.kind === 'unknown_transport_error';
-				if (diagnostic.kind === 'connection_reset' || diagnostic.kind === 'timeout') {
+				if (lostResponseSentAt !== null) {
+					// The one retry got no answer either; the outcome of both requests is unknown.
 					throw this.requireReauthentication('refresh_outcome_unknown');
+				}
+				if (diagnostic.kind === 'connection_reset' || diagnostic.kind === 'timeout') {
+					const delay = this.backoff(attempts - 1);
+					if (this.now() + delay - startedAt > LOST_RESPONSE_RETRY_LATEST_START_MS) {
+						throw this.requireReauthentication('refresh_outcome_unknown');
+					}
+					lostResponseSentAt = startedAt;
+					maxAttempts = attempts + 1;
+					await this.sleep(delay);
+					continue;
 				}
 				if (preConnect && attempts < maxAttempts) {
 					lastTransient = new OAuthTransientError(
@@ -369,7 +396,7 @@ export class OAuthTokenManager {
 				continue;
 			}
 
-			if (consumedHeader !== '0' && (isTransientStatus(response.status) || response.status >= 500)) {
+			if (lostResponseSentAt !== null || (consumedHeader !== '0' && (isTransientStatus(response.status) || response.status >= 500))) {
 				throw this.requireReauthentication('refresh_outcome_unknown');
 			}
 

@@ -68,6 +68,9 @@ final class MoveElement extends AbilityKernel {
 			function ( array $args ) {
 				$post_id     = (int) $args['post_id'];
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				$tree        = ElementorData::read( $post_id );
 
 				$src_path = ElementorData::find_path( $tree, (string) $args['element_id'] );
@@ -87,6 +90,17 @@ final class MoveElement extends AbilityKernel {
 					$parent_path = ElementorData::find_path( $tree, (string) $args['new_parent_id'] );
 					if ( null === $parent_path ) {
 						return $this->error( 'parent_not_found', __( 'New parent not found.', 'stonewright' ) );
+					}
+					if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+						return $this->error(
+							'parent_not_container',
+							__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+							[
+								'status'         => 400,
+								'parent_id'      => (string) $args['new_parent_id'],
+								'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+							]
+						);
 					}
 				}
 

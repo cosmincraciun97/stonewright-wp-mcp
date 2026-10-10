@@ -28,6 +28,101 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringNotContainsString( 'Copy failed', $body );
 	}
 
+	public function test_the_setup_checks_show_a_busy_button_while_they_run_and_clear_it_when_they_end(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		foreach ( [ 'initConnectionTest', 'initConnectionVerify', 'initCompanionUpdateStatus' ] as $name ) {
+			$start = strpos( $script, 'function ' . $name . '()' );
+			self::assertNotFalse( $start, $name );
+			$next = strpos( $script, "
+	function ", (int) $start + 10 );
+			$body = substr( $script, (int) $start, false === $next ? null : $next - (int) $start );
+
+			self::assertStringContainsString( "button.setAttribute( 'aria-busy', 'true' )", $body, $name . ' marks the button busy while the request runs.' );
+			self::assertStringContainsString( "button.removeAttribute( 'aria-busy' )", $body, $name . ' clears it when the request ends, however it ends.' );
+		}
+	}
+
+	public function test_notices_are_never_removed_on_a_timer(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		// An error from another plugin or a core "Settings saved" must stay until it is dismissed (WCAG 2.2.1).
+		self::assertStringNotContainsString( 'initAutoDismissNotices', $script );
+		self::assertStringNotContainsString( 'is-dismissible', $script );
+		self::assertStringNotContainsString( 'removeChild( notice )', $script );
+		self::assertStringNotContainsString( "style.transition = 'opacity", $script );
+	}
+
+	/** The body of one function of shell.js, so the checks below read that function and nothing else. */
+	private static function shell_function( string $name ): string {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$start  = strpos( $script, 'function ' . $name . '(' );
+		self::assertNotFalse( $start, $name . ' must exist in shell.js' );
+		$next = strpos( $script, "\n\tfunction ", (int) $start + 10 );
+
+		return substr( $script, (int) $start, false === $next ? null : $next - (int) $start );
+	}
+
+	public function test_the_shell_only_folds_notices_wordpress_printed(): void {
+		$body = self::shell_function( 'isForeignNotice' );
+
+		// Everything the plugin renders, and every class the plugin owns, is excluded.
+		self::assertStringContainsString( '#sw-main', $body );
+		self::assertStringContainsString( '.sw-notice-drawer', $body );
+		self::assertMatchesRegularExpression( '/\(sw\|stonewright\)-/', $body, 'sw-* and stonewright-* classes mark plugin content wherever they sit in the class list.' );
+		// Only WordPress notice classes count; matching on any class that merely contains "notice" caught plugin markup.
+		self::assertStringNotContainsString( '/notice/i', $body );
+		self::assertStringContainsString( '.notice, .updated, .error, .update-nag', $body );
+
+		$fold = self::shell_function( 'foldNotices' );
+		self::assertStringNotContainsString( '[class*="notice"]', $fold );
+	}
+
+	public function test_notices_are_left_where_wordpress_prints_them_until_more_than_three_arrive(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$fold   = self::shell_function( 'foldNotices' );
+
+		self::assertStringContainsString( 'var MAX_VISIBLE = 3;', $script );
+		self::assertStringContainsString( '> MAX_VISIBLE', $fold, 'Folding starts above three notices.' );
+		// The drawer opens by itself when it holds an error or a warning, so those are never hidden behind a click.
+		self::assertMatchesRegularExpression( '/counts\.error > 0 \|\| counts\.warning > 0/', $fold );
+		self::assertStringContainsString( 'drawer.open = true', $fold );
+		// The title counts what is inside by kind, from words the server supplies.
+		self::assertStringContainsString( 'data-sw-notice-labels', $fold );
+		self::assertStringContainsString( 'severityOf', $fold );
+	}
+
+	public function test_the_plugins_own_notices_are_pinned_before_wordpress_moves_notices(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+		$pin    = self::shell_function( 'pinOwnNotices' );
+
+		self::assertStringContainsString( '#sw-main', $pin );
+		self::assertStringContainsString( "classList.add('inline')", $pin );
+		// WordPress moves every notice that is not `inline` when the page is ready, so the pin runs while the script loads.
+		$call  = strpos( $script, 'pinOwnNotices(printedShell)' );
+		$ready = strpos( $script, "
+	ready(function () {" );
+		self::assertNotFalse( $call );
+		self::assertNotFalse( $ready );
+		self::assertLessThan( (int) $ready, (int) $call, 'The pin is not inside the ready callback.' );
+	}
+
+	public function test_the_shell_script_builds_text_with_text_content_only(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/shell.js' );
+
+		self::assertStringNotContainsString( 'innerHTML', $script );
+		self::assertStringNotContainsString( 'insertAdjacentHTML', $script );
+		self::assertStringNotContainsString( 'sw-notice-drawer__count', $script, 'The count lives in the title now.' );
+	}
+
+	public function test_the_shell_offset_counts_only_chrome_that_stays_fixed(): void {
+		$body = self::shell_function( 'updateShellOffset' );
+
+		// The page header scrolls with the page, so only the admin bar is fixed above the content.
+		self::assertStringContainsString( 'wpadminbar', $body );
+		self::assertStringNotContainsString( 'sw-shell__header', $body );
+	}
+
 	public function test_declarative_button_handlers_prevent_default_form_submission(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 
@@ -135,32 +230,27 @@ final class AdminJavascriptTest extends TestCase {
 	}
 
 	public function test_run_diagnostics_posts_ajax_without_page_refresh(): void {
-		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		$admin = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		self::assertStringNotContainsString( 'initRunDiagnostics', $admin, 'The checks belong to the Troubleshoot page script, not the shared one.' );
 
-		self::assertStringContainsString( 'initRunDiagnostics', $script );
-		self::assertStringContainsString( 'initRunDiagnostics();', $script );
-		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $script );
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/troubleshoot.js' );
+
 		self::assertStringContainsString( "body.set( 'action', 'stonewright_run_diagnostics' )", $script );
-		self::assertStringContainsString( "body.set( 'nonce', window.stonewrightSetup.nonce || '' )", $script );
-		self::assertStringContainsString( "body.set( 'mode', mode )", $script );
-		self::assertStringContainsString( 'sw-diag-card', $script );
-		self::assertStringContainsString( 'is-loading', $script );
+		self::assertStringContainsString( "body.set( 'nonce', config.nonce || '' )", $script );
+		self::assertStringContainsString( "body.set( 'mode', mode && mode.value ? mode.value : 'not-sure' )", $script );
 		self::assertStringContainsString( "setAttribute( 'aria-busy', 'true' )", $script );
-		self::assertStringContainsString( 'Copy hosting request', $script );
-		self::assertStringContainsString( 'scrollIntoView', $script );
+		self::assertStringContainsString( "'aria-busy', on ? 'true' : 'false'", $script );
+		self::assertStringContainsString( 'copyHosting', $script );
 
-		$start = strpos( $script, 'function initRunDiagnostics()' );
+		$start = strpos( $script, 'function run( event )' );
 		self::assertNotFalse( $start );
-		$end = strpos( $script, "document.addEventListener( 'DOMContentLoaded'", $start );
+		$end = strpos( $script, "form.addEventListener( 'submit', run )", $start );
 		self::assertNotFalse( $end );
 		$body = substr( $script, (int) $start, (int) $end - (int) $start );
 
 		self::assertStringContainsString( 'event.preventDefault()', $body );
-		self::assertStringContainsString( 'button.disabled = true', $body );
-		self::assertStringContainsString( 'button.disabled = false', $body );
-		self::assertStringContainsString( "setAttribute( 'aria-busy', 'false' )", $body );
-		self::assertStringContainsString( 'classList.add( \'is-loading\' )', $body );
-		self::assertStringContainsString( 'classList.remove( \'is-loading\' )', $body );
+		self::assertStringContainsString( 'busy( true )', $body );
+		self::assertStringContainsString( 'busy( false )', $body );
 		self::assertStringNotContainsString( 'admin-post.php', $body );
 		self::assertStringNotContainsString( 'location.reload', $body );
 		self::assertStringNotContainsString( 'form.submit()', $body );
@@ -209,7 +299,7 @@ final class AdminJavascriptTest extends TestCase {
 		$page = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/SkillsPage.php' );
 		$js   = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/skills.js' );
 
-		self::assertStringContainsString( 'render_catalog_panel', $page );
+		self::assertStringContainsString( 'catalog_panel_html', $page );
 		self::assertStringContainsString( 'data-sw-skills-ssr', $page );
 		self::assertStringContainsString( 'data-sw-skills-list', $page );
 

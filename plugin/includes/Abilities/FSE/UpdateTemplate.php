@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\FSE\TemplateStore;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockMarkup;
@@ -110,14 +111,27 @@ final class UpdateTemplate extends AbilityKernel {
 				if ( $post_id ) {
 					Backup::snapshot_post( (int) $post_id );
 					$payload['ID'] = (int) $post_id;
-					$result        = wp_update_post( $payload, true );
+					$result        = wp_update_post( wp_slash( $payload ), true );
 				} else {
-					$slug                   = $template->slug ?? '';
-					$payload['post_type']   = $cpt;
-					$payload['post_status'] = 'publish';
-					$payload['post_name']   = (string) $slug;
-					$payload['post_title']  = $payload['post_title'] ?? ( is_object( $template->title ) ? ( $template->title->rendered ?? '' ) : (string) $template->title );
-					$result                 = wp_insert_post( $payload, true );
+					// A template that only exists as a theme file: store the customization
+					// the way core does (slug as post_name, wp_theme term).
+					[ $id_theme, $id_slug ] = array_pad( explode( '//', (string) $args['id'], 2 ), 2, '' );
+					$slug                   = (string) ( $template->slug ?? '' );
+					$slug                   = '' !== $slug ? $slug : $id_slug;
+					$theme                  = (string) ( $template->theme ?? '' );
+					$theme                  = '' !== $theme ? $theme : $id_theme;
+					$area                   = 'wp_template_part' === $cpt ? (string) ( $template->area ?? 'uncategorized' ) : '';
+					$title                  = $payload['post_title'] ?? ( is_object( $template->title ?? null ) ? ( $template->title->rendered ?? '' ) : (string) ( $template->title ?? '' ) );
+					$result                 = TemplateStore::insert(
+						$cpt,
+						$slug,
+						$theme,
+						[
+							'post_content' => $content,
+							'post_title'   => '' !== $title ? $title : $slug,
+						],
+						$area
+					);
 				}
 
 				if ( is_wp_error( $result ) ) {

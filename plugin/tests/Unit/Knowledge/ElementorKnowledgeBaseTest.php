@@ -18,10 +18,53 @@ use Stonewright\WpMcp\Knowledge\ElementorKnowledgeBase;
  */
 final class ElementorKnowledgeBaseTest extends TestCase {
 
+	private string $uploads;
+
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_user_caps']       = [ 'read' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 1;
+
+		// Synthetic store in a temporary uploads directory.
+		$this->uploads = sys_get_temp_dir() . '/sw-kb-' . bin2hex( random_bytes( 6 ) );
+		$GLOBALS['stonewright_test_upload_dir'] = [ 'basedir' => $this->uploads, 'baseurl' => 'https://example.test/wp-content/uploads', 'error' => false ];
+		$this->seed( 'widgets', 'countdown-widget', 'Countdown', 'The countdown widget counts down to a due date and shows days, hours and minutes.' );
+		$this->seed( 'widgets', 'nav-menu-widget', 'Nav Menu', 'The nav menu widget renders a navigation menu with dropdowns.' );
+		$this->seed( 'editor', 'navigator', 'Navigator', 'The navigator lists the elements of the page.' );
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_upload_dir'] );
+		$this->remove_tree( $this->uploads );
+	}
+
+	private function seed( string $hub, string $slug, string $title, string $body ): void {
+		$dir = $this->uploads . '/stonewright-private/knowledge/elementor/' . $hub;
+		if ( ! is_dir( $dir ) ) {
+			mkdir( $dir, 0777, true );
+		}
+		file_put_contents( $dir . '/' . $slug . '.md', "---
+title: " . $title . "
+source_url: https://elementor.com/help/" . $slug . "
+fetched_at: " . gmdate( 'c' ) . "
+---
+
+" . $body . "
+" );
+	}
+
+	private function remove_tree( string $dir ): void {
+		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+		foreach ( scandir( $dir ) ?: [] as $name ) {
+			if ( '.' === $name || '..' === $name ) {
+				continue;
+			}
+			$path = $dir . '/' . $name;
+			is_dir( $path ) ? $this->remove_tree( $path ) : unlink( $path );
+		}
+		rmdir( $dir );
 	}
 
 	public function test_search_finds_relevant_elementor_widget_docs(): void {

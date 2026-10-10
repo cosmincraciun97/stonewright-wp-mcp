@@ -103,8 +103,8 @@ WordPress post cache. It preserves `_elementor_css` and never calls Elementor's
 site-wide files-manager clear. After the typed write, call
 `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then
 `stonewright-elementor-post-write-verify`. The regenerator updates only the
-resolved target through Elementor's official `update_file()` API inside a
-bounded asset transaction. The verifier is observation-only and never
+resolved target through Elementor's official `update()` API inside a
+bounded asset transaction, and moves the stylesheet version (`?ver=`) forward. The verifier is observation-only and never
 regenerates CSS. Never pass `regenerate_css`.
 
 ### Step 7 — Audit log
@@ -115,8 +115,10 @@ and a SHA-1 prefix of the spec for traceability.
 ## Confirmation token (production-safe mode)
 
 `BuildPageFromSpec` uses the `ConfirmationGuard` trait. When
-`stonewright_mode = production-safe`, the ability requires a valid
-`confirmation_token` before reaching Step 2. See
+`stonewright_mode = production-safe`, every call that is not a dry run requires a
+valid `confirmation_token` bound to the call's arguments before it reaches Step 2,
+whatever its `mode` (`replace`, `append` or `replace_section`). A call with
+`dry_run: true` writes nothing and needs no token. See
 [`docs/security-guarantees.md`](../security-guarantees.md) for the token flow.
 
 ## Diagnostics response shape

@@ -6,10 +6,21 @@ on:
   pull_request:
     branches: [main]
 
+# The token is read-only for every job; a job that needs more declares its own permissions block.
+permissions:
+  contents: read
+
+# A pull request has one run at a time: a newer push cancels the older run.
+# Each push to main has its own group and always runs to completion.
+concurrency:
+  group: plugin-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   php:
     name: PHP ${{ matrix.php }} / WP ${{ matrix.wordpress }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -33,10 +44,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, intl, pdo, pdo_mysql, xml
@@ -49,7 +62,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('plugin/composer.lock') }}

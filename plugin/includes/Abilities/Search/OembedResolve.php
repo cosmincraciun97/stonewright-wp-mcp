@@ -21,7 +21,7 @@ final class OembedResolve extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::read(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$url= (string) $args['url'];
 			$html=wp_oembed_get($url);
 			if ( false===$html ) {

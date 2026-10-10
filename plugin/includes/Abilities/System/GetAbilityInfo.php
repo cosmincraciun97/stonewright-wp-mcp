@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpSchemaWire;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -111,12 +112,19 @@ final class GetAbilityInfo extends AbilityKernel {
 			'description'            => mb_substr( $ability->description(), 0, self::MAX_STRING ),
 			'category'               => $ability->category(),
 			'enabled'                => ! in_array( $ability->name(), $disabled, true ),
-			'input_schema'           => $bounded_input['schema'],
-			'output_schema'          => $bounded_output['schema'],
+			'input_schema'           => self::as_json_schema( $bounded_input['schema'] ),
+			'output_schema'          => self::as_json_schema( $bounded_output['schema'] ),
 			'schema_truncated'       => $bounded_input['truncated'] || $bounded_output['truncated'],
 			'has_confirmation_token' => $has_token,
 			'permission_notes'       => 'The target ability permission_callback still applies. Destructive operations require a confirmation_token in production-safe mode. Disabled abilities stay disabled. Backup, audit, and php-execute read-only guards are not bypassed.',
 		];
+	}
+
+	/**
+	 * Empty schema nodes encode as `{}` instead of `[]`.
+	 */
+	private static function as_json_schema( mixed $schema ): mixed {
+		return is_array( $schema ) ? McpSchemaWire::repair_schema( $schema ) : $schema;
 	}
 
 	/**

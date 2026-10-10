@@ -464,6 +464,39 @@ final class ContentCapabilityTest extends TestCase {
 		$this->assertTrue( (bool) $result );
 	}
 
+	public function test_update_page_refuses_a_revision_id_before_any_capability_check(): void {
+		$this->setPost( 77, 'revision', 'inherit' );
+		$GLOBALS['stonewright_test_posts'][77]->post_parent = 5;
+		$this->loginAs( [ 'edit_pages' ] );
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn ( string $cap, mixed ...$args ): bool => true;
+
+		$result = ( new UpdatePage() )->permission_callback( [ 'id' => 77, 'content' => 'x' ] );
+
+		$this->assertError( 'stonewright_invalid_post_type', 400, $result );
+		$this->assertStringContainsString( 'revision', $result->get_error_message() );
+	}
+
+	public function test_update_page_never_writes_a_revision_even_when_executed_directly(): void {
+		$this->setPost( 5, 'page', 'publish' );
+		$this->setPost( 77, 'revision', 'inherit' );
+		$GLOBALS['stonewright_test_posts'][77]->post_parent = 5;
+		$GLOBALS['stonewright_test_wp_update_post_calls']   = [];
+
+		$result = ( new UpdatePage() )->execute( [ 'id' => 77, 'content' => 'changed' ] );
+
+		$this->assertError( 'stonewright_invalid_post_type', 400, $result );
+		$this->assertSame( [], $GLOBALS['stonewright_test_wp_update_post_calls'], 'Nothing is written, and the parent page is left alone.' );
+		$this->assertSame( '', $GLOBALS['stonewright_test_posts'][5]->post_content );
+	}
+
+	public function test_update_page_still_updates_a_page(): void {
+		$this->setPost( 5, 'page', 'publish' );
+		$this->loginAs( [ 'edit_pages' ] );
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn ( string $cap, mixed ...$args ): bool => true;
+
+		$this->assertTrue( ( new UpdatePage() )->permission_callback( [ 'id' => 5, 'content' => 'x' ] ) );
+	}
+
 	public function test_update_page_rejects_invalid_id(): void {
 		$ability = new UpdatePage();
 		$result  = $ability->permission_callback( [ 'id' => 0, 'status' => 'draft' ] );

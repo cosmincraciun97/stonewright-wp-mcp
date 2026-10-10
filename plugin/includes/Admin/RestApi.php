@@ -3,8 +3,11 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
-use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Admin\Diagnostics\AbilitiesState;
+use Stonewright\WpMcp\Admin\Diagnostics\ApplicationPasswordsState;
+use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
+use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -115,10 +118,14 @@ final class RestApi {
 	public static function handle_connection_test( \WP_REST_Request $request ): \WP_REST_Response {
 		unset( $request );
 
-		$enabled       = (bool) get_option( 'stonewright_enabled', false );
+		$ability_state = AbilitiesState::current();
+		$enabled       = $ability_state['effective'];
+		$lock          = DomainLock::status();
+		$locked        = (string) $lock['locked'];
 		$endpoint      = ConnectClientConfig::mcp_endpoint_url();
-		$tool_count    = count( AbilityRegistry::enabled_abilities() );
-		$app_available = self::application_passwords_available();
+		$tool_count    = LiveAbilities::exposed_count();
+		$app_state     = ApplicationPasswordsState::inspect();
+		$app_available = $app_state['available'];
 		$app_count     = self::application_password_count();
 		$elementor     = defined( 'ELEMENTOR_VERSION' ) || class_exists( '\\Elementor\\Plugin' );
 		$elementor_ver = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '';
@@ -130,8 +137,19 @@ final class RestApi {
 				'label'  => __( 'Stonewright abilities', 'stonewright' ),
 				'detail' => $enabled
 					? __( 'Enabled for this site.', 'stonewright' )
-					: __( 'Enable Stonewright in step 1 and save settings.', 'stonewright' ),
-				'fix'    => $enabled ? '' : __( 'Turn on abilities in Setup step 1.', 'stonewright' ),
+					: $ability_state['summary'],
+				'fix'    => $ability_state['remedy'],
+			],
+			[
+				'id'     => 'domain_lock',
+				'status' => $lock['matches'] ? 'ok' : 'error',
+				'label'  => __( 'Domain lock', 'stonewright' ),
+				'detail' => ! $lock['matches']
+					? AbilitiesState::lock_summary()
+					: ( '' !== $locked
+						? sprintf( /* translators: %s: the address the site is locked to */ __( 'Locked to %s, which is the current address of this site.', 'stonewright' ), $locked )
+						: __( 'No domain lock is set yet. Stonewright records the address of this site when AI abilities are turned on.', 'stonewright' ) ),
+				'fix'    => $lock['matches'] ? '' : AbilitiesState::lock_remedy(),
 			],
 			[
 				'id'     => 'mcp_endpoint',
@@ -145,7 +163,7 @@ final class RestApi {
 				'status' => $app_available && $app_count > 0 ? 'ok' : ( $app_available ? 'warn' : 'error' ),
 				'label'  => __( 'Application Passwords', 'stonewright' ),
 				'detail' => ! $app_available
-					? __( 'Unavailable for this user or site.', 'stonewright' )
+					? $app_state['summary']
 					: (
 						$app_count > 0
 							? sprintf(
@@ -156,21 +174,23 @@ final class RestApi {
 							: __( 'Available, but none created yet.', 'stonewright' )
 					),
 				'fix'    => ! $app_available
-					? __( 'Enable HTTPS or Application Passwords for this user.', 'stonewright' )
+					? $app_state['remedy']
 					: ( $app_count > 0 ? '' : __( 'Generate an Application Password in step 2.', 'stonewright' ) ),
 			],
 			[
 				'id'     => 'tool_surface',
 				'status' => $enabled && $tool_count > 0 ? 'ok' : 'error',
 				'label'  => __( 'Tool surface', 'stonewright' ),
-				'detail' => sprintf(
-					/* translators: %d: enabled tool count. */
-					__( '%d tools exposed in the current profile.', 'stonewright' ),
-					$tool_count
-				),
+				'detail' => $enabled
+					? sprintf(
+						/* translators: %d: enabled tool count. */
+						__( '%d tools exposed in the current profile.', 'stonewright' ),
+						$tool_count
+					)
+					: __( 'No tools are exposed while Stonewright is blocked or turned off.', 'stonewright' ),
 				'fix'    => $enabled && $tool_count > 0
 					? ''
-					: __( 'Enable Stonewright and confirm abilities are registered.', 'stonewright' ),
+					: ( $enabled ? __( 'Confirm abilities are registered.', 'stonewright' ) : $ability_state['remedy'] ),
 			],
 			[
 				'id'     => 'elementor',
@@ -206,21 +226,8 @@ final class RestApi {
 		);
 	}
 
-	private static function application_passwords_available(): bool {
-		if ( ! class_exists( '\\WP_Application_Passwords' ) ) {
-			return false;
-		}
-
-		if ( function_exists( 'wp_is_application_passwords_available' ) && ! wp_is_application_passwords_available() ) {
-			return false;
-		}
-
-		return ! function_exists( 'wp_is_application_passwords_available_for_user' )
-			|| (bool) wp_is_application_passwords_available_for_user( wp_get_current_user() );
-	}
-
 	private static function application_password_count(): int {
-		if ( ! self::application_passwords_available() || ! method_exists( '\\WP_Application_Passwords', 'get_user_application_passwords' ) ) {
+		if ( ! ApplicationPasswordsState::inspect()['available'] || ! method_exists( '\\WP_Application_Passwords', 'get_user_application_passwords' ) ) {
 			return 0;
 		}
 

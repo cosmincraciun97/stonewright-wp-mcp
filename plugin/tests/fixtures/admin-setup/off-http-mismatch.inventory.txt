@@ -1,0 +1,809 @@
+# headings
+h1 Setup
+h2 1. Turn on AI abilities
+h2 2. Choose how clients sign in
+h2 3. Connect your AI client
+h3 Sign in from your AI client
+h4 Cannot sign in to this site 2
+h2 4. Verify the connection
+h2 General
+h2 Stock images
+h2 Domain lock
+h2 OAuth sign-in
+h2 Connected OAuth clients
+h3 No AI client is signed in with OAuth.
+h2 Keep Stonewright current
+h2 Update the WordPress plugin
+h2 Update the local companion
+# forms and controls
+(outside any form)
+  button type=button class=sw-ui-choice disabled data-stonewright-auth-method=oauth text="OAuthNot available on this siteSign in through the browser; no password to copy."
+  button type=button class=sw-ui-choice is-active data-stonewright-auth-method=application-password text="Application PasswordGenerate a password and paste it into the client config."
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-antigravity-config data-sw-ui-copy-status=#sw-connect-antigravity-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Antigravity"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-antigravity-cli-config data-sw-ui-copy-status=#sw-connect-antigravity-cli-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Antigravity CLI"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-add data-sw-ui-copy-status=#sw-connect-codex-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Codex and the ChatGPT desktop app"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-login data-sw-ui-copy-status=#sw-connect-codex-login-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Sign in for Codex and the ChatGPT desktop app"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-config data-sw-ui-copy-status=#sw-connect-codex-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Codex and the ChatGPT desktop app"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-cli-add data-sw-ui-copy-status=#sw-connect-codex-cli-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Codex CLI"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-cli-login data-sw-ui-copy-status=#sw-connect-codex-cli-login-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Sign in for Codex CLI"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-codex-cli-config data-sw-ui-copy-status=#sw-connect-codex-cli-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Codex CLI"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-cursor-config data-sw-ui-copy-status=#sw-connect-cursor-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Cursor"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-cursor-login data-sw-ui-copy-status=#sw-connect-cursor-login-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Sign in from the Cursor CLI for Cursor"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-github-copilot-config data-sw-ui-copy-status=#sw-connect-github-copilot-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for GitHub Copilot in VS Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-github-copilot-legacy data-sw-ui-copy-status=#sw-connect-github-copilot-legacy-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Older VS Code format for GitHub Copilot in VS Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-github-copilot-cli data-sw-ui-copy-status=#sw-connect-github-copilot-cli-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add from the command line for GitHub Copilot in VS Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-grok-build-add data-sw-ui-copy-status=#sw-connect-grok-build-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Grok Build"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-grok-build-doctor data-sw-ui-copy-status=#sw-connect-grok-build-doctor-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Check the connection for Grok Build"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-grok-build-config data-sw-ui-copy-status=#sw-connect-grok-build-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Grok Build"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-vscode-copilot-config data-sw-ui-copy-status=#sw-connect-vscode-copilot-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for VS Code with GitHub Copilot"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-vscode-copilot-legacy data-sw-ui-copy-status=#sw-connect-vscode-copilot-legacy-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Older VS Code format for VS Code with GitHub Copilot"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-vscode-copilot-cli data-sw-ui-copy-status=#sw-connect-vscode-copilot-cli-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add from the command line for VS Code with GitHub Copilot"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-windsurf-add data-sw-ui-copy-status=#sw-connect-windsurf-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Windsurf (Devin Desktop)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-windsurf-login data-sw-ui-copy-status=#sw-connect-windsurf-login-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Sign in for Windsurf (Devin Desktop)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-windsurf-config data-sw-ui-copy-status=#sw-connect-windsurf-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Windsurf (Devin Desktop)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-zed-config data-sw-ui-copy-status=#sw-connect-zed-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Zed"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-claude-code-add data-sw-ui-copy-status=#sw-connect-claude-code-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Claude Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-claude-code-login data-sw-ui-copy-status=#sw-connect-claude-code-login-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Sign in for Claude Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-claude-code-project data-sw-ui-copy-status=#sw-connect-claude-code-project-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Share with a project for Claude Code"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-gemini-cli-add data-sw-ui-copy-status=#sw-connect-gemini-cli-add-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Gemini CLI"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-gemini-cli-config data-sw-ui-copy-status=#sw-connect-gemini-cli-config-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Server entry for Gemini CLI"
+  button type=button class=sw-ui-choice data-stonewright-client-card=amazon-q text="Amazon QJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=antigravity text="AntigravityJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=antigravity-cli text="Antigravity CLIJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=chatgpt text="ChatGPTClient-specific config"
+  button type=button class=sw-ui-choice is-active data-stonewright-client-card=claude-code text="Claude CodeTerminal / CLI command"
+  button type=button class=sw-ui-choice data-stonewright-client-card=claude-desktop text="Claude DesktopJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=claude-ai text="Claude.aiClient-specific config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=cline text="ClineJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=codex text="CodexTOML config block"
+  button type=button class=sw-ui-choice data-stonewright-client-card=codex-cli text="Codex CLITOML config block"
+  button type=button class=sw-ui-choice data-stonewright-client-card=cursor text="CursorJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=gemini-cli text="Gemini CLIJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=generic-mcp text="Generic MCPJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=github-copilot text="GitHub CopilotJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=grok-build text="Grok Build / CLITOML config block"
+  button type=button class=sw-ui-choice data-stonewright-client-card=kilo-code text="Kilo CodeJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=opencode text="OpenCodeJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=roo-code text="Roo CodeJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=vscode-copilot text="VS Code (Copilot)JSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=windsurf text="WindsurfJSON MCP config"
+  button type=button class=sw-ui-choice data-stonewright-client-card=zed text="ZedJSON MCP config"
+  button type=button class=sw-ui-choice is-active data-stonewright-method=stdio data-sw-tooltip=Your AI client starts the Stonewright companion on this computer and communicates with it through standard input/output. Required for Direct mode and local WP-CLI. text="Local companion (stdio)AI client starts the companion locally. Required for Direct mode."
+  button type=button class=sw-ui-choice data-stonewright-method=http data-sw-tooltip=Your AI client connects directly to this WordPress site over HTTPS. Best for remote/production sites: nothing to install locally. Requires the application password from this page. text="Remote Streamable HTTPNo Node or companion required."
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-amazon-q-stdio data-sw-ui-copy-status=#sw-client-snippet-amazon-q-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Amazon Q snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-amazon-q-http data-sw-ui-copy-status=#sw-client-snippet-amazon-q-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Amazon Q snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-antigravity-stdio data-sw-ui-copy-status=#sw-client-snippet-antigravity-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Antigravity snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-antigravity-http data-sw-ui-copy-status=#sw-client-snippet-antigravity-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Antigravity snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-antigravity-cli-stdio data-sw-ui-copy-status=#sw-client-snippet-antigravity-cli-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Antigravity CLI snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-antigravity-cli-http data-sw-ui-copy-status=#sw-client-snippet-antigravity-cli-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Antigravity CLI snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-chatgpt-stdio data-sw-ui-copy-status=#sw-client-snippet-chatgpt-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy ChatGPT snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-chatgpt-http data-sw-ui-copy-status=#sw-client-snippet-chatgpt-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy ChatGPT snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-code-stdio data-sw-ui-copy-status=#sw-client-snippet-claude-code-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude Code snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-code-http data-sw-ui-copy-status=#sw-client-snippet-claude-code-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude Code snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-desktop-stdio data-sw-ui-copy-status=#sw-client-snippet-claude-desktop-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude Desktop snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-desktop-http data-sw-ui-copy-status=#sw-client-snippet-claude-desktop-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude Desktop snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-ai-stdio data-sw-ui-copy-status=#sw-client-snippet-claude-ai-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude.ai snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-claude-ai-http data-sw-ui-copy-status=#sw-client-snippet-claude-ai-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Claude.ai snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-cline-stdio data-sw-ui-copy-status=#sw-client-snippet-cline-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Cline snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-cline-http data-sw-ui-copy-status=#sw-client-snippet-cline-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Cline snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-codex-stdio data-sw-ui-copy-status=#sw-client-snippet-codex-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Codex snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-codex-http data-sw-ui-copy-status=#sw-client-snippet-codex-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Codex snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-codex-cli-stdio data-sw-ui-copy-status=#sw-client-snippet-codex-cli-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Codex CLI snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-codex-cli-http data-sw-ui-copy-status=#sw-client-snippet-codex-cli-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Codex CLI snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-cursor-stdio data-sw-ui-copy-status=#sw-client-snippet-cursor-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Cursor snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-cursor-http data-sw-ui-copy-status=#sw-client-snippet-cursor-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Cursor snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-gemini-cli-stdio data-sw-ui-copy-status=#sw-client-snippet-gemini-cli-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Gemini CLI snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-gemini-cli-http data-sw-ui-copy-status=#sw-client-snippet-gemini-cli-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Gemini CLI snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-generic-mcp-stdio data-sw-ui-copy-status=#sw-client-snippet-generic-mcp-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Generic MCP snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-generic-mcp-http data-sw-ui-copy-status=#sw-client-snippet-generic-mcp-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Generic MCP snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-github-copilot-stdio data-sw-ui-copy-status=#sw-client-snippet-github-copilot-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy GitHub Copilot snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-github-copilot-http data-sw-ui-copy-status=#sw-client-snippet-github-copilot-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy GitHub Copilot snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-grok-build-stdio data-sw-ui-copy-status=#sw-client-snippet-grok-build-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Grok Build / CLI snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-grok-build-http data-sw-ui-copy-status=#sw-client-snippet-grok-build-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Grok Build / CLI snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-kilo-code-stdio data-sw-ui-copy-status=#sw-client-snippet-kilo-code-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Kilo Code snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-kilo-code-http data-sw-ui-copy-status=#sw-client-snippet-kilo-code-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Kilo Code snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-opencode-stdio data-sw-ui-copy-status=#sw-client-snippet-opencode-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy OpenCode snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-opencode-http data-sw-ui-copy-status=#sw-client-snippet-opencode-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy OpenCode snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-roo-code-stdio data-sw-ui-copy-status=#sw-client-snippet-roo-code-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Roo Code snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-roo-code-http data-sw-ui-copy-status=#sw-client-snippet-roo-code-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Roo Code snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-vscode-copilot-stdio data-sw-ui-copy-status=#sw-client-snippet-vscode-copilot-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy VS Code (Copilot) snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-vscode-copilot-http data-sw-ui-copy-status=#sw-client-snippet-vscode-copilot-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy VS Code (Copilot) snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-windsurf-stdio data-sw-ui-copy-status=#sw-client-snippet-windsurf-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Windsurf snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-windsurf-http data-sw-ui-copy-status=#sw-client-snippet-windsurf-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Windsurf snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-zed-stdio data-sw-ui-copy-status=#sw-client-snippet-zed-stdio-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Zed snippet (stdio)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-client-snippet-zed-http data-sw-ui-copy-status=#sw-client-snippet-zed-http-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Zed snippet (http)"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-stonewright-text-toggle=stonewright-connect-prompt-full text="Show full text"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#stonewright-connect-prompt-full data-sw-ui-copy-text=(prompt) data-sw-ui-copy-status=#stonewright-connect-prompt-full-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy prompt"
+  button type=button class=sw-ui-btn sw-ui-btn--xs hidden data-stonewright-text-collapse=stonewright-connect-prompt-full text="Show less"
+  button type=button class=sw-ui-btn data-stonewright-connection-test= data-rest-url=https://example.test/wp-json/stonewright/v1/admin/connection-test data-rest-nonce=test-nonce-d73ac0cc88ef4b4be3ea571ffa242588 text="Run preflight"
+  button type=button class=sw-ui-btn sw-ui-btn--primary data-stonewright-connection-verify= data-rest-url=https://example.test/wp-json/stonewright/v1/admin/connection-verify data-rest-nonce=test-nonce-d73ac0cc88ef4b4be3ea571ffa242588 text="Verify connection"
+  button type=button class=sw-ui-btn sw-ui-btn--icon data-sw-ui-copy=#sw-connect-mcp-url data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
+  button type=button class=sw-ui-btn sw-ui-btn--icon data-sw-ui-copy=#sw-connect-server-name data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
+  button type=button class=sw-ui-btn sw-ui-btn--primary data-stonewright-companion-status= data-rest-url=https://example.test/wp-json/stonewright/v1/admin/companion-update-status data-rest-nonce=test-nonce-d73ac0cc88ef4b4be3ea571ffa242588 text="Check latest companion"
+  textarea id=stonewright-companion-update-prompt class=sw-ui-textarea readonly hidden data-stonewright-companion-prompt=
+  button type=button class=sw-ui-btn hidden data-stonewright-companion-prompt-copy= data-sw-ui-copy=#stonewright-companion-update-prompt data-sw-ui-copy-status=#stonewright-companion-prompt-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy update prompt"
+form action=https://example.test/wp-admin/admin-post.php method=post class="stonewright-app-password-form sw-ui-stack"
+  input type=hidden name=action value=stonewright_generate_application_password
+  input type=hidden name=_wpnonce value=test-nonce-stonewright_generate_application_password
+  input type=text name=stonewright_app_password_name id=stonewright_app_password_name placeholder=e.g. Cursor on laptop, Claude Desktop autocomplete=off class=sw-ui-input required
+  button type=submit class=sw-ui-btn sw-ui-btn--primary data-stonewright-app-password-submit=1 text="Generate application password"
+form action=options.php method=post class="stonewright-settings-form sw-ui-stack"
+  input type=hidden name=stonewright_enabled value=0
+  input type=checkbox name=stonewright_enabled id=stonewright_enabled value=1
+  select name=stonewright_mode id=stonewright_mode class=sw-ui-select options=development*,staging,production-safe
+  select name=stonewright_mcp_surface id=stonewright_mcp_surface class=sw-ui-select sw-setup__select options=bootstrap,essential*,full
+  button type=button id=stonewright-apply-mcp-surface class=sw-ui-btn data-sw-apply-mcp-surface= text="Apply now"
+  input type=hidden name=stonewright_elementor_v4_atomic value=0
+  input type=checkbox name=stonewright_elementor_v4_atomic id=stonewright_elementor_v4_atomic value=1
+  input type=hidden name=stonewright_section_reuse value=off
+  input type=checkbox name=stonewright_section_reuse id=stonewright_section_reuse value=ask checked data-sw-ui-live-fill=#stonewright_section_reuse_callout_region data-sw-ui-live-fill-from=#stonewright_section_reuse_callout_template
+  input type=password name=stonewright_unsplash_access_key id=stonewright_unsplash_access_key value= autocomplete=new-password class=sw-ui-input
+  input type=password name=stonewright_pexels_api_key id=stonewright_pexels_api_key value= autocomplete=new-password class=sw-ui-input
+  input type=url name=stonewright_companion_url id=stonewright_companion_url value= placeholder=http://127.0.0.1:8765 autocomplete=off class=sw-ui-input
+  input type=password name=stonewright_companion_token id=stonewright_companion_token value= autocomplete=new-password class=sw-ui-input
+  button type=button class=sw-ui-btn data-sw-ui-reveal=#stonewright_companion_token data-sw-ui-show-label=Show bridge token data-sw-ui-hide-label=Hide bridge token text="Show bridge token"
+  button type=button class=sw-ui-btn data-sw-ui-copy=#stonewright_companion_token data-sw-ui-copy-status=#stonewright-bridge-token-status data-sw-ui-copied-label=Copied text="Copy bridge token"
+  button type=button class=sw-ui-btn data-stonewright-generate-token=stonewright_companion_token text="Generate token"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#stonewright-companion-bridge-env data-sw-ui-copy-status=#stonewright-companion-bridge-env-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy bridge launch values"
+  button type=submit class=sw-ui-btn sw-ui-btn--primary text="Save settings"
+form action=https://example.test/wp-admin/admin-post.php method=post class="sw-ui-stack"
+  input type=hidden name=action value=stonewright_rebind_domain_lock
+  input type=hidden name=_wpnonce value=test-nonce-stonewright_rebind_domain_lock
+  input type=checkbox name=stonewright_rebind_confirm id=stonewright_rebind_confirm value=1 required
+  button type=submit class=sw-ui-btn sw-ui-btn--primary text="Review and rebind this site"
+form action=https://example.test/wp-admin/admin-post.php method=post class=""
+  input type=hidden name=action value=stonewright_rollback_domain_lock
+  input type=hidden name=_wpnonce value=test-nonce-stonewright_rollback_domain_lock
+  button type=submit class=sw-ui-btn text="Restore prior domain binding"
+# links
+#sw-main => Skip to Stonewright content
+https://example.test/wp-admin/admin.php?page=stonewright-status => Overview
+https://example.test/wp-admin/admin.php?page=stonewright => Setup
+https://example.test/wp-admin/admin.php?page=stonewright-troubleshoot => TroubleshootEXP This feature is experimental.
+https://example.test/wp-admin/admin.php?page=stonewright-abilities => AI Abilities
+https://example.test/wp-admin/admin.php?page=stonewright-skills => Skills
+https://example.test/wp-admin/admin.php?page=stonewright-memory => Memory
+https://example.test/wp-admin/admin.php?page=stonewright-context => ContextEXP This feature is experimental.
+https://example.test/wp-admin/admin.php?page=stonewright-design => DesignEXP This feature is experimental.
+https://example.test/wp-admin/admin.php?page=stonewright-prompts => Prompt library
+https://example.test/wp-admin/admin.php?page=stonewright-sandbox => Custom code
+https://example.test/wp-admin/admin.php?page=stonewright-custom-code-approval => Code approval
+https://example.test/wp-admin/admin.php?page=stonewright-audit-log => Audit log
+https://example.test/wp-admin/admin.php?page=stonewright => Get started
+https://example.test/wp-admin/admin.php?page=stonewright&tab=settings => Settings
+https://example.test/wp-admin/admin.php?page=stonewright&tab=connections => Connections
+https://example.test/wp-admin/admin.php?page=stonewright&tab=updates => Updates
+https://example.test/wp-admin/admin.php?page=stonewright&tab=settings => Open settings
+https://example.test/wp-admin/admin.php?page=stonewright&tab=connections#sw-connect-status => Copy the MCP server URL
+#stonewright-oauth-connections => Review connected OAuth clients
+https://example.test/wp-admin/profile.php#application-passwords-section => I already have an application password
+https://chatgpt.com/plugins => Open ChatGPT plugins (opens in a new tab)
+https://claude.ai/customize/connectors => Open Claude connector settings (opens in a new tab)
+https://claude.ai/customize/connectors => Open Claude connector settings (opens in a new tab)
+cursor://anysphere.cursor-deeplink/mcp/install?name=stonewright-example-test&config=eyJ1cmwiOiJodHRwOi8vZXhhbXBsZS5jb20vd3AtanNvbi9tY3Avc3RvbmV3cmlnaHQtb2F1dGgifQ== => Add to Cursor
+vscode:mcp/install?%7B%22name%22%3A%22stonewright-example-test%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Fexample.com%2Fwp-json%2Fmcp%2Fstonewright-oauth%22%7D => Install in VS Code
+vscode-insiders:mcp/install?%7B%22name%22%3A%22stonewright-example-test%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Fexample.com%2Fwp-json%2Fmcp%2Fstonewright-oauth%22%7D => Install in VS Code Insiders
+vscode:mcp/install?%7B%22name%22%3A%22stonewright-example-test%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Fexample.com%2Fwp-json%2Fmcp%2Fstonewright-oauth%22%7D => Install in VS Code
+vscode-insiders:mcp/install?%7B%22name%22%3A%22stonewright-example-test%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Fexample.com%2Fwp-json%2Fmcp%2Fstonewright-oauth%22%7D => Install in VS Code Insiders
+#stonewright-application-password => Choose Application Password in step 2.
+cursor://anysphere.cursor-deeplink/mcp/install?name=stonewright-example-test&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcGFja2FnZSIsImh0dHBzOi8vZ2l0aHViLmNvbS9jb3NtaW5jcmFjaXVuOTcvc3RvbmV3cmlnaHQtd3AtbWNwL3JlbGVhc2VzL2Rvd25sb2FkL3YwLjAuMC10ZXN0L3N0b25ld3JpZ2h0LWNvbXBhbmlvbi0wLjAuMC10ZXN0LnRneiIsInN0b25ld3JpZ2h0LW1jcCJdLCJlbnYiOnsiU1RPTkVXUklHSFRfTU9ERSI6InBsdWdpbiIsIlNUT05FV1JJR0hUX1dQX1VSTCI6Imh0dHBzOi8vZXhhbXBsZS50ZXN0LyIsIlNUT05FV1JJR0hUX1dQX1VTRVJOQU1FIjoiYWRtaW4iLCJTVE9ORVdSSUdIVF9XUF9BUFBfUEFTU1dPUkQiOiI8eW91ci1hcHBsaWNhdGlvbi1wYXNzd29yZD4iLCJTVE9ORVdSSUdIVF9NQ1BfVE9PTF9QUk9GSUxFIjoiZXNzZW50aWFsIn19 => Add to Cursor
+cursor://anysphere.cursor-deeplink/mcp/install?name=stonewright-example-test&config=eyJ1cmwiOiJodHRwczovL2V4YW1wbGUudGVzdC93cC1qc29uL21jcC9zdG9uZXdyaWdodCIsImhlYWRlcnMiOnsiQXV0aG9yaXphdGlvbiI6IkJhc2ljIFlXUnRhVzQ2UEhsdmRYSXRZWEJ3YkdsallYUnBiMjR0Y0dGemMzZHZjbVErIn19 => Add to Cursor
+https://example.test/wp-admin/admin.php?page=stonewright-prompts => Open the Prompt library page
+https://github.com/cosmincraciun97/stonewright-wp-mcp/releases => Open Stonewright Releases (opens in a new tab)
+https://example.test/wp-admin/update-core.php => Dashboard → Updates
+# => Download official companion
+# => Verify SHA-256 checksums
+# hooks (data-stonewright-*, data-sw-*, role, aria-controls)
+a aria-controls=sw-setup-panel-connections x1
+a aria-controls=sw-setup-panel-get-started x1
+a aria-controls=sw-setup-panel-settings x1
+a aria-controls=sw-setup-panel-updates x1
+a data-stonewright-companion-checksums= x1
+a data-stonewright-companion-download= x1
+a data-sw-ui-tip=This feature is experimental. x3
+button aria-controls=sw-client-panel-amazon-q x1
+button aria-controls=sw-client-panel-antigravity x1
+button aria-controls=sw-client-panel-antigravity-cli x1
+button aria-controls=sw-client-panel-chatgpt x1
+button aria-controls=sw-client-panel-claude-ai x1
+button aria-controls=sw-client-panel-claude-code x1
+button aria-controls=sw-client-panel-claude-desktop x1
+button aria-controls=sw-client-panel-cline x1
+button aria-controls=sw-client-panel-codex x1
+button aria-controls=sw-client-panel-codex-cli x1
+button aria-controls=sw-client-panel-cursor x1
+button aria-controls=sw-client-panel-gemini-cli x1
+button aria-controls=sw-client-panel-generic-mcp x1
+button aria-controls=sw-client-panel-github-copilot x1
+button aria-controls=sw-client-panel-grok-build x1
+button aria-controls=sw-client-panel-kilo-code x1
+button aria-controls=sw-client-panel-opencode x1
+button aria-controls=sw-client-panel-roo-code x1
+button aria-controls=sw-client-panel-vscode-copilot x1
+button aria-controls=sw-client-panel-windsurf x1
+button aria-controls=sw-client-panel-zed x1
+button data-stonewright-app-password-submit=1 x1
+button data-stonewright-auth-method=application-password x1
+button data-stonewright-auth-method=oauth x1
+button data-stonewright-client-card=amazon-q x1
+button data-stonewright-client-card=antigravity x1
+button data-stonewright-client-card=antigravity-cli x1
+button data-stonewright-client-card=chatgpt x1
+button data-stonewright-client-card=claude-ai x1
+button data-stonewright-client-card=claude-code x1
+button data-stonewright-client-card=claude-desktop x1
+button data-stonewright-client-card=cline x1
+button data-stonewright-client-card=codex x1
+button data-stonewright-client-card=codex-cli x1
+button data-stonewright-client-card=cursor x1
+button data-stonewright-client-card=gemini-cli x1
+button data-stonewright-client-card=generic-mcp x1
+button data-stonewright-client-card=github-copilot x1
+button data-stonewright-client-card=grok-build x1
+button data-stonewright-client-card=kilo-code x1
+button data-stonewright-client-card=opencode x1
+button data-stonewright-client-card=roo-code x1
+button data-stonewright-client-card=vscode-copilot x1
+button data-stonewright-client-card=windsurf x1
+button data-stonewright-client-card=zed x1
+button data-stonewright-companion-prompt-copy= x1
+button data-stonewright-companion-status= x1
+button data-stonewright-connection-test= x1
+button data-stonewright-connection-verify= x1
+button data-stonewright-generate-token=stonewright_companion_token x1
+button data-stonewright-method=http x1
+button data-stonewright-method=stdio x1
+button data-stonewright-text-collapse=stonewright-connect-prompt-full x1
+button data-stonewright-text-toggle=stonewright-connect-prompt-full x1
+button data-sw-apply-mcp-surface= x1
+button data-sw-tooltip=Your AI client connects directly to this WordPress site over HTTPS. Best for remote/production sites: nothing to install locally. Requires the application password from this page. x1
+button data-sw-tooltip=Your AI client starts the Stonewright companion on this computer and communicates with it through standard input/output. Required for Direct mode and local WP-CLI. x1
+button data-sw-ui-copied-label=Copied x76
+button data-sw-ui-copy-failed-label=Press Ctrl+C x75
+button data-sw-ui-copy-status=#stonewright-bridge-token-status x1
+button data-sw-ui-copy-status=#stonewright-companion-bridge-env-status x1
+button data-sw-ui-copy-status=#stonewright-companion-prompt-status x1
+button data-sw-ui-copy-status=#stonewright-connect-prompt-full-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-amazon-q-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-amazon-q-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-antigravity-cli-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-antigravity-cli-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-antigravity-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-antigravity-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-chatgpt-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-chatgpt-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-ai-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-ai-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-code-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-code-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-desktop-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-claude-desktop-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-cline-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-cline-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-codex-cli-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-codex-cli-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-codex-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-codex-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-cursor-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-cursor-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-gemini-cli-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-gemini-cli-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-generic-mcp-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-generic-mcp-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-github-copilot-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-github-copilot-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-grok-build-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-grok-build-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-kilo-code-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-kilo-code-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-opencode-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-opencode-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-roo-code-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-roo-code-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-vscode-copilot-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-vscode-copilot-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-windsurf-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-windsurf-stdio-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-zed-http-status x1
+button data-sw-ui-copy-status=#sw-client-snippet-zed-stdio-status x1
+button data-sw-ui-copy-status=#sw-connect-antigravity-cli-config-status x1
+button data-sw-ui-copy-status=#sw-connect-antigravity-config-status x1
+button data-sw-ui-copy-status=#sw-connect-claude-code-add-status x1
+button data-sw-ui-copy-status=#sw-connect-claude-code-login-status x1
+button data-sw-ui-copy-status=#sw-connect-claude-code-project-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-add-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-cli-add-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-cli-config-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-cli-login-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-config-status x1
+button data-sw-ui-copy-status=#sw-connect-codex-login-status x1
+button data-sw-ui-copy-status=#sw-connect-cursor-config-status x1
+button data-sw-ui-copy-status=#sw-connect-cursor-login-status x1
+button data-sw-ui-copy-status=#sw-connect-gemini-cli-add-status x1
+button data-sw-ui-copy-status=#sw-connect-gemini-cli-config-status x1
+button data-sw-ui-copy-status=#sw-connect-github-copilot-cli-status x1
+button data-sw-ui-copy-status=#sw-connect-github-copilot-config-status x1
+button data-sw-ui-copy-status=#sw-connect-github-copilot-legacy-status x1
+button data-sw-ui-copy-status=#sw-connect-grok-build-add-status x1
+button data-sw-ui-copy-status=#sw-connect-grok-build-config-status x1
+button data-sw-ui-copy-status=#sw-connect-grok-build-doctor-status x1
+button data-sw-ui-copy-status=#sw-connect-vscode-copilot-cli-status x1
+button data-sw-ui-copy-status=#sw-connect-vscode-copilot-config-status x1
+button data-sw-ui-copy-status=#sw-connect-vscode-copilot-legacy-status x1
+button data-sw-ui-copy-status=#sw-connect-windsurf-add-status x1
+button data-sw-ui-copy-status=#sw-connect-windsurf-config-status x1
+button data-sw-ui-copy-status=#sw-connect-windsurf-login-status x1
+button data-sw-ui-copy-status=#sw-connect-zed-config-status x1
+button data-sw-ui-copy-text=(prompt) x1
+button data-sw-ui-copy=#stonewright-companion-bridge-env x1
+button data-sw-ui-copy=#stonewright-companion-update-prompt x1
+button data-sw-ui-copy=#stonewright-connect-prompt-full x1
+button data-sw-ui-copy=#stonewright_companion_token x1
+button data-sw-ui-copy=#sw-client-snippet-amazon-q-http x1
+button data-sw-ui-copy=#sw-client-snippet-amazon-q-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-antigravity-cli-http x1
+button data-sw-ui-copy=#sw-client-snippet-antigravity-cli-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-antigravity-http x1
+button data-sw-ui-copy=#sw-client-snippet-antigravity-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-chatgpt-http x1
+button data-sw-ui-copy=#sw-client-snippet-chatgpt-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-claude-ai-http x1
+button data-sw-ui-copy=#sw-client-snippet-claude-ai-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-claude-code-http x1
+button data-sw-ui-copy=#sw-client-snippet-claude-code-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-claude-desktop-http x1
+button data-sw-ui-copy=#sw-client-snippet-claude-desktop-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-cline-http x1
+button data-sw-ui-copy=#sw-client-snippet-cline-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-codex-cli-http x1
+button data-sw-ui-copy=#sw-client-snippet-codex-cli-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-codex-http x1
+button data-sw-ui-copy=#sw-client-snippet-codex-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-cursor-http x1
+button data-sw-ui-copy=#sw-client-snippet-cursor-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-gemini-cli-http x1
+button data-sw-ui-copy=#sw-client-snippet-gemini-cli-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-generic-mcp-http x1
+button data-sw-ui-copy=#sw-client-snippet-generic-mcp-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-github-copilot-http x1
+button data-sw-ui-copy=#sw-client-snippet-github-copilot-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-grok-build-http x1
+button data-sw-ui-copy=#sw-client-snippet-grok-build-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-kilo-code-http x1
+button data-sw-ui-copy=#sw-client-snippet-kilo-code-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-opencode-http x1
+button data-sw-ui-copy=#sw-client-snippet-opencode-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-roo-code-http x1
+button data-sw-ui-copy=#sw-client-snippet-roo-code-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-vscode-copilot-http x1
+button data-sw-ui-copy=#sw-client-snippet-vscode-copilot-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-windsurf-http x1
+button data-sw-ui-copy=#sw-client-snippet-windsurf-stdio x1
+button data-sw-ui-copy=#sw-client-snippet-zed-http x1
+button data-sw-ui-copy=#sw-client-snippet-zed-stdio x1
+button data-sw-ui-copy=#sw-connect-antigravity-cli-config x1
+button data-sw-ui-copy=#sw-connect-antigravity-config x1
+button data-sw-ui-copy=#sw-connect-claude-code-add x1
+button data-sw-ui-copy=#sw-connect-claude-code-login x1
+button data-sw-ui-copy=#sw-connect-claude-code-project x1
+button data-sw-ui-copy=#sw-connect-codex-add x1
+button data-sw-ui-copy=#sw-connect-codex-cli-add x1
+button data-sw-ui-copy=#sw-connect-codex-cli-config x1
+button data-sw-ui-copy=#sw-connect-codex-cli-login x1
+button data-sw-ui-copy=#sw-connect-codex-config x1
+button data-sw-ui-copy=#sw-connect-codex-login x1
+button data-sw-ui-copy=#sw-connect-cursor-config x1
+button data-sw-ui-copy=#sw-connect-cursor-login x1
+button data-sw-ui-copy=#sw-connect-gemini-cli-add x1
+button data-sw-ui-copy=#sw-connect-gemini-cli-config x1
+button data-sw-ui-copy=#sw-connect-github-copilot-cli x1
+button data-sw-ui-copy=#sw-connect-github-copilot-config x1
+button data-sw-ui-copy=#sw-connect-github-copilot-legacy x1
+button data-sw-ui-copy=#sw-connect-grok-build-add x1
+button data-sw-ui-copy=#sw-connect-grok-build-config x1
+button data-sw-ui-copy=#sw-connect-grok-build-doctor x1
+button data-sw-ui-copy=#sw-connect-mcp-url x1
+button data-sw-ui-copy=#sw-connect-server-name x1
+button data-sw-ui-copy=#sw-connect-vscode-copilot-cli x1
+button data-sw-ui-copy=#sw-connect-vscode-copilot-config x1
+button data-sw-ui-copy=#sw-connect-vscode-copilot-legacy x1
+button data-sw-ui-copy=#sw-connect-windsurf-add x1
+button data-sw-ui-copy=#sw-connect-windsurf-config x1
+button data-sw-ui-copy=#sw-connect-windsurf-login x1
+button data-sw-ui-copy=#sw-connect-zed-config x1
+button data-sw-ui-hide-label=Hide bridge token x1
+button data-sw-ui-reveal=#stonewright_companion_token x1
+button data-sw-ui-show-label=Show bridge token x1
+code data-stonewright-bridge-state= x1
+code data-stonewright-configured-companion-version= x1
+code data-stonewright-plugin-version= x1
+code data-stonewright-release-version= x1
+code data-stonewright-running-companion-version= x1
+details data-stonewright-connect-client=amazon-q x1
+details data-stonewright-connect-client=antigravity x1
+details data-stonewright-connect-client=antigravity-cli x1
+details data-stonewright-connect-client=chatgpt x1
+details data-stonewright-connect-client=claude-ai x1
+details data-stonewright-connect-client=claude-code x1
+details data-stonewright-connect-client=claude-desktop x1
+details data-stonewright-connect-client=cline x1
+details data-stonewright-connect-client=codex x1
+details data-stonewright-connect-client=codex-cli x1
+details data-stonewright-connect-client=cursor x1
+details data-stonewright-connect-client=gemini-cli x1
+details data-stonewright-connect-client=generic-mcp x1
+details data-stonewright-connect-client=github-copilot x1
+details data-stonewright-connect-client=grok-build x1
+details data-stonewright-connect-client=kilo-code x1
+details data-stonewright-connect-client=opencode x1
+details data-stonewright-connect-client=roo-code x1
+details data-stonewright-connect-client=vscode-copilot x1
+details data-stonewright-connect-client=windsurf x1
+details data-stonewright-connect-client=zed x1
+details data-sw-notice-drawer= x1
+details data-sw-notice-labels={"heading":"Other WordPress notices","error":["%d error","%d errors"],"warning":["%d warning","%d warnings"],"update":["%d update","%d updates"],"notice":["%d notice","%d notices"]} x1
+details data-sw-ui-remember=setup-bridge x1
+div data-stonewright-app-password-live= x1
+div data-stonewright-auth-panel=application-password x2
+div data-stonewright-auth-panel=oauth x2
+div data-stonewright-client-panel=amazon-q x1
+div data-stonewright-client-panel=antigravity x1
+div data-stonewright-client-panel=antigravity-cli x1
+div data-stonewright-client-panel=chatgpt x1
+div data-stonewright-client-panel=claude-ai x1
+div data-stonewright-client-panel=claude-code x1
+div data-stonewright-client-panel=claude-desktop x1
+div data-stonewright-client-panel=cline x1
+div data-stonewright-client-panel=codex x1
+div data-stonewright-client-panel=codex-cli x1
+div data-stonewright-client-panel=cursor x1
+div data-stonewright-client-panel=gemini-cli x1
+div data-stonewright-client-panel=generic-mcp x1
+div data-stonewright-client-panel=github-copilot x1
+div data-stonewright-client-panel=grok-build x1
+div data-stonewright-client-panel=kilo-code x1
+div data-stonewright-client-panel=opencode x1
+div data-stonewright-client-panel=roo-code x1
+div data-stonewright-client-panel=vscode-copilot x1
+div data-stonewright-client-panel=windsurf x1
+div data-stonewright-client-panel=zed x1
+div data-stonewright-client-picker= x1
+div data-stonewright-companion-result= x1
+div data-stonewright-method-picker= x1
+div data-stonewright-method-snippet=http x21
+div data-stonewright-method-snippet=stdio x21
+div data-stonewright-snippet-panels= x1
+div data-sw-mcp-surface-field= x1
+div data-sw-notice-body= x1
+div data-sw-shell= x1
+div data-sw-ui-tabs-param=tab x1
+div data-sw-ui-tabs= x1
+form data-stonewright-app-password-form= x1
+header data-sw-ui-band= x1
+input data-sw-ui-live-fill-from=#stonewright_section_reuse_callout_template x1
+input data-sw-ui-live-fill=#stonewright_section_reuse_callout_region x1
+ol data-stonewright-connection-results= x1
+ol data-stonewright-connection-verify-results= x1
+ol data-stonewright-runtime-verification-flow= x1
+p data-stonewright-companion-summary= x1
+p data-sw-mcp-surface-status= x1
+pre data-stonewright-bridge-token-placeholder=<choose-a-long-random-token> x1
+pre data-stonewright-bridge-token-source=stonewright_companion_token x1
+pre data-stonewright-expanded=false x1
+pre data-stonewright-text-full=(prompt) x1
+pre data-stonewright-text-preview=Configure this installed Stonewright plugin in the current AI client. Choose exactly one transport for this site; do not combine a local stdio entry and an OAuth HTTP entry under the same server name. Do not ask me to paste, reveal, print, or commit a site URL, username, Application Password, token, or private client config.
+
+LOCAL STDIO WITH COMPANION (recommended when local WP-CLI is needed)
+Use the versioned installer, a unique site alias, a collision-safe named server, and plugin-only mode. For automatic Direct fallback use `--mode auto` instead. Working stdio client ids: cursor, claude-desktop, vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai connect via the OAuth HTTP method, not the local installer.
+
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v{VERSION}/stonewright-companion-{VERSION}.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode plugin-only --client <client> --profile essential-static --wp-surface essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --elementor-v4 <yes|no>
+
+`--profile discover-execute` exposes a minimal 3-tool protocol surface.
+
+-- full setup rules hidden; expand below -- x1
+span data-stonewright-app-password-count= x1
+span data-stonewright-app-password-nojs-hint= x1
+span data-sw-ui-reveal-label= x1
+summary data-sw-notice-summary= x1
+textarea data-stonewright-companion-prompt= x1
+# hidden
+details id= class="sw-notice-drawer"
+div id= class="sw-ui-stack"
+div id= class="sw-ui-stack"
+div id= class=""
+div id=sw-client-panel-amazon-q class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-antigravity class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-antigravity-cli class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-chatgpt class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-claude-desktop class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-claude-ai class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-cline class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-codex class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-codex-cli class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-cursor class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-gemini-cli class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-generic-mcp class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-github-copilot class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-grok-build class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-kilo-code class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-opencode class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-roo-code class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-vscode-copilot class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-windsurf class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+div id=sw-client-panel-zed class="sw-client-panel sw-ui-stack"
+div id= class="sw-method-snippet sw-ui-stack"
+button id= class="sw-ui-btn sw-ui-btn--xs"
+ol id= class="sw-ui-checks sw-connection-test-results"
+ol id= class="sw-ui-checks sw-connection-verify-results"
+div id=sw-setup-panel-settings class="sw-ui-tabs__panel"
+div id=sw-setup-panel-connections class="sw-ui-tabs__panel"
+div id=sw-setup-panel-updates class="sw-ui-tabs__panel"
+div id= class="sw-companion-update-result sw-ui-stack"
+textarea id=stonewright-companion-update-prompt class="sw-ui-textarea"
+button id= class="sw-ui-btn"
+a id= class="sw-ui-btn"
+a id= class="sw-ui-link"
+# ids
+stonewright-abilities-settings
+stonewright-application-password
+stonewright-apply-mcp-surface
+stonewright-bridge-token-status
+stonewright-companion-bridge-env
+stonewright-companion-bridge-env-status
+stonewright-companion-bridge-settings
+stonewright-companion-prompt-status
+stonewright-companion-update-prompt
+stonewright-connect-prompt-full
+stonewright-connect-prompt-full-status
+stonewright-domain-lock
+stonewright-mcp-surface-status
+stonewright-oauth-connections
+stonewright-verify
+stonewright_app_password_name
+stonewright_app_password_name_help
+stonewright_companion_token
+stonewright_companion_url
+stonewright_elementor_v4_atomic
+stonewright_elementor_v4_atomic_help
+stonewright_enabled
+stonewright_enabled_help
+stonewright_mcp_surface
+stonewright_mode
+stonewright_mode_help
+stonewright_pexels_api_key
+stonewright_pexels_api_key_help
+stonewright_rebind_confirm
+stonewright_section_reuse
+stonewright_section_reuse_callout
+stonewright_section_reuse_callout_region
+stonewright_section_reuse_callout_template
+stonewright_section_reuse_help
+stonewright_unsplash_access_key
+stonewright_unsplash_access_key_help
+sw-client-panel-amazon-q
+sw-client-panel-antigravity
+sw-client-panel-antigravity-cli
+sw-client-panel-chatgpt
+sw-client-panel-claude-ai
+sw-client-panel-claude-code
+sw-client-panel-claude-desktop
+sw-client-panel-cline
+sw-client-panel-codex
+sw-client-panel-codex-cli
+sw-client-panel-cursor
+sw-client-panel-gemini-cli
+sw-client-panel-generic-mcp
+sw-client-panel-github-copilot
+sw-client-panel-grok-build
+sw-client-panel-kilo-code
+sw-client-panel-opencode
+sw-client-panel-roo-code
+sw-client-panel-vscode-copilot
+sw-client-panel-windsurf
+sw-client-panel-zed
+sw-client-snippet-amazon-q-http
+sw-client-snippet-amazon-q-http-status
+sw-client-snippet-amazon-q-stdio
+sw-client-snippet-amazon-q-stdio-status
+sw-client-snippet-antigravity-cli-http
+sw-client-snippet-antigravity-cli-http-status
+sw-client-snippet-antigravity-cli-stdio
+sw-client-snippet-antigravity-cli-stdio-status
+sw-client-snippet-antigravity-http
+sw-client-snippet-antigravity-http-status
+sw-client-snippet-antigravity-stdio
+sw-client-snippet-antigravity-stdio-status
+sw-client-snippet-chatgpt-http
+sw-client-snippet-chatgpt-http-status
+sw-client-snippet-chatgpt-stdio
+sw-client-snippet-chatgpt-stdio-status
+sw-client-snippet-claude-ai-http
+sw-client-snippet-claude-ai-http-status
+sw-client-snippet-claude-ai-stdio
+sw-client-snippet-claude-ai-stdio-status
+sw-client-snippet-claude-code-http
+sw-client-snippet-claude-code-http-status
+sw-client-snippet-claude-code-stdio
+sw-client-snippet-claude-code-stdio-status
+sw-client-snippet-claude-desktop-http
+sw-client-snippet-claude-desktop-http-status
+sw-client-snippet-claude-desktop-stdio
+sw-client-snippet-claude-desktop-stdio-status
+sw-client-snippet-cline-http
+sw-client-snippet-cline-http-status
+sw-client-snippet-cline-stdio
+sw-client-snippet-cline-stdio-status
+sw-client-snippet-codex-cli-http
+sw-client-snippet-codex-cli-http-status
+sw-client-snippet-codex-cli-stdio
+sw-client-snippet-codex-cli-stdio-status
+sw-client-snippet-codex-http
+sw-client-snippet-codex-http-status
+sw-client-snippet-codex-stdio
+sw-client-snippet-codex-stdio-status
+sw-client-snippet-cursor-http
+sw-client-snippet-cursor-http-status
+sw-client-snippet-cursor-stdio
+sw-client-snippet-cursor-stdio-status
+sw-client-snippet-gemini-cli-http
+sw-client-snippet-gemini-cli-http-status
+sw-client-snippet-gemini-cli-stdio
+sw-client-snippet-gemini-cli-stdio-status
+sw-client-snippet-generic-mcp-http
+sw-client-snippet-generic-mcp-http-status
+sw-client-snippet-generic-mcp-stdio
+sw-client-snippet-generic-mcp-stdio-status
+sw-client-snippet-github-copilot-http
+sw-client-snippet-github-copilot-http-status
+sw-client-snippet-github-copilot-stdio
+sw-client-snippet-github-copilot-stdio-status
+sw-client-snippet-grok-build-http
+sw-client-snippet-grok-build-http-status
+sw-client-snippet-grok-build-stdio
+sw-client-snippet-grok-build-stdio-status
+sw-client-snippet-kilo-code-http
+sw-client-snippet-kilo-code-http-status
+sw-client-snippet-kilo-code-stdio
+sw-client-snippet-kilo-code-stdio-status
+sw-client-snippet-opencode-http
+sw-client-snippet-opencode-http-status
+sw-client-snippet-opencode-stdio
+sw-client-snippet-opencode-stdio-status
+sw-client-snippet-roo-code-http
+sw-client-snippet-roo-code-http-status
+sw-client-snippet-roo-code-stdio
+sw-client-snippet-roo-code-stdio-status
+sw-client-snippet-vscode-copilot-http
+sw-client-snippet-vscode-copilot-http-status
+sw-client-snippet-vscode-copilot-stdio
+sw-client-snippet-vscode-copilot-stdio-status
+sw-client-snippet-windsurf-http
+sw-client-snippet-windsurf-http-status
+sw-client-snippet-windsurf-stdio
+sw-client-snippet-windsurf-stdio-status
+sw-client-snippet-zed-http
+sw-client-snippet-zed-http-status
+sw-client-snippet-zed-stdio
+sw-client-snippet-zed-stdio-status
+sw-connect-antigravity-cli-config
+sw-connect-antigravity-cli-config-status
+sw-connect-antigravity-config
+sw-connect-antigravity-config-status
+sw-connect-claude-code-add
+sw-connect-claude-code-add-status
+sw-connect-claude-code-login
+sw-connect-claude-code-login-status
+sw-connect-claude-code-project
+sw-connect-claude-code-project-status
+sw-connect-client-amazon-q
+sw-connect-client-antigravity
+sw-connect-client-antigravity-cli
+sw-connect-client-chatgpt
+sw-connect-client-claude-ai
+sw-connect-client-claude-code
+sw-connect-client-claude-desktop
+sw-connect-client-cline
+sw-connect-client-codex
+sw-connect-client-codex-cli
+sw-connect-client-cursor
+sw-connect-client-gemini-cli
+sw-connect-client-generic-mcp
+sw-connect-client-github-copilot
+sw-connect-client-grok-build
+sw-connect-client-kilo-code
+sw-connect-client-opencode
+sw-connect-client-roo-code
+sw-connect-client-vscode-copilot
+sw-connect-client-windsurf
+sw-connect-client-zed
+sw-connect-codex-add
+sw-connect-codex-add-status
+sw-connect-codex-cli-add
+sw-connect-codex-cli-add-status
+sw-connect-codex-cli-config
+sw-connect-codex-cli-config-status
+sw-connect-codex-cli-login
+sw-connect-codex-cli-login-status
+sw-connect-codex-config
+sw-connect-codex-config-status
+sw-connect-codex-login
+sw-connect-codex-login-status
+sw-connect-cursor-config
+sw-connect-cursor-config-status
+sw-connect-cursor-login
+sw-connect-cursor-login-status
+sw-connect-gemini-cli-add
+sw-connect-gemini-cli-add-status
+sw-connect-gemini-cli-config
+sw-connect-gemini-cli-config-status
+sw-connect-github-copilot-cli
+sw-connect-github-copilot-cli-status
+sw-connect-github-copilot-config
+sw-connect-github-copilot-config-status
+sw-connect-github-copilot-legacy
+sw-connect-github-copilot-legacy-status
+sw-connect-grok-build-add
+sw-connect-grok-build-add-status
+sw-connect-grok-build-config
+sw-connect-grok-build-config-status
+sw-connect-grok-build-doctor
+sw-connect-grok-build-doctor-status
+sw-connect-mcp-url
+sw-connect-server-name
+sw-connect-status
+sw-connect-title
+sw-connect-vscode-copilot-cli
+sw-connect-vscode-copilot-cli-status
+sw-connect-vscode-copilot-config
+sw-connect-vscode-copilot-config-status
+sw-connect-vscode-copilot-legacy
+sw-connect-vscode-copilot-legacy-status
+sw-connect-windsurf-add
+sw-connect-windsurf-add-status
+sw-connect-windsurf-config
+sw-connect-windsurf-config-status
+sw-connect-windsurf-login
+sw-connect-windsurf-login-status
+sw-connect-zed-config
+sw-connect-zed-config-status
+sw-main
+sw-setup-panel-connections
+sw-setup-panel-get-started
+sw-setup-panel-settings
+sw-setup-panel-updates
+sw-setup-tab-connections
+sw-setup-tab-get-started
+sw-setup-tab-settings
+sw-setup-tab-updates
+sw-ui-card-title-1
+sw-ui-card-title-10
+sw-ui-card-title-11
+sw-ui-card-title-12
+sw-ui-card-title-2
+sw-ui-card-title-3
+sw-ui-card-title-4
+sw-ui-card-title-5
+sw-ui-card-title-6
+sw-ui-card-title-7
+sw-ui-card-title-8
+sw-ui-card-title-9

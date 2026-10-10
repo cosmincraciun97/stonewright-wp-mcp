@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Knowledge;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Knowledge\KnowledgeBundle;
+use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
  * @covers \Stonewright\WpMcp\Knowledge\KnowledgeBundle
@@ -116,10 +117,147 @@ final class KnowledgeBundleTest extends TestCase {
 		self::assertTrue( (bool) get_option( 'stonewright_memory_enabled', false ) );
 		self::assertSame( 1, $result['memory_imported'] );
 		self::assertSame( 1, $result['skills_imported'] );
+		self::assertSame( [], $result['skills_skipped'] );
 		self::assertNotEmpty( $GLOBALS['wpdb']->memory_writes );
 		self::assertNotEmpty( $GLOBALS['wpdb']->skill_writes );
-		self::assertSame( 0, $GLOBALS['wpdb']->skill_writes[0]['enable_agentic'] );
-		self::assertSame( 1, $GLOBALS['wpdb']->skill_writes[0]['enable_prompt'] );
+		// The entry asks for an enabled skill; a bundle only ever adds disabled drafts.
+		$skill_write = $GLOBALS['wpdb']->skill_writes[0];
+		self::assertSame( [ 'draft', 0, 0, 0 ], [ $skill_write['status'], $skill_write['enabled'], $skill_write['enable_agentic'], $skill_write['enable_prompt'] ] );
+	}
+
+	public function test_a_new_skill_arrives_as_a_disabled_draft_whatever_the_entry_says(): void {
+		$tables = $this->use_skill_tables();
+
+		$result = KnowledgeBundle::import(
+			$this->skills_bundle(
+				[
+					[
+						'slug'           => 'Imported Note',
+						'title'          => 'Imported note',
+						'description'    => 'Use when testing the bundle.',
+						'content'        => '# Imported',
+						'enabled'        => true,
+						'enable_agentic' => true,
+						'enable_prompt'  => true,
+						'status'         => 'active',
+						'source'         => 'builtin',
+					],
+				]
+			)
+		);
+
+		$row = $tables->skill_by_slug( 'imported-note' );
+		self::assertIsArray( $row );
+		self::assertSame( [ 'draft', '0', '0', '0', 'user', '1' ], [ $row['status'], $row['enabled'], $row['enable_agentic'], $row['enable_prompt'], $row['source'], $row['revision'] ] );
+		self::assertSame( '# Imported', $row['content'] );
+		self::assertSame( 1, $result['skills_imported'] );
+		self::assertSame( [], $result['skills_skipped'] );
+	}
+
+	public function test_an_existing_local_skill_is_skipped_and_left_untouched(): void {
+		$tables = $this->use_skill_tables();
+		$tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'description' => 'Use when noting.', 'content' => '# Mine', 'revision' => 3 ] );
+		$before = $tables->skills;
+
+		$result = KnowledgeBundle::import( $this->skills_bundle( [ [ 'slug' => 'site-note', 'title' => 'Bundle title', 'content' => '# Bundle', 'enabled' => false ] ] ) );
+
+		self::assertSame( $before, $tables->skills, 'Content, exposure, status, and revision all stay as they were.' );
+		self::assertSame( [], $tables->versions );
+		self::assertSame( 0, $result['skills_imported'] );
+		self::assertSame( [ 'site-note' ], $result['skills_skipped'] );
+	}
+
+	public function test_a_trashed_skill_keeps_its_identity_and_is_skipped(): void {
+		$tables = $this->use_skill_tables();
+		$tables->seed_skill( [ 'slug' => 'binned-note', 'title' => 'Binned', 'content' => '# Binned', 'status' => 'trashed', 'enabled' => 0, 'enable_agentic' => 0, 'enable_prompt' => 0, 'trashed_at' => '2026-10-06 08:00:00' ] );
+		$before = $tables->skills;
+
+		$result = KnowledgeBundle::import( $this->skills_bundle( [ [ 'slug' => 'binned-note', 'title' => 'Bundle title', 'content' => '# Bundle', 'enabled' => true ] ] ) );
+
+		self::assertSame( $before, $tables->skills );
+		self::assertSame( 0, $result['skills_imported'] );
+		self::assertSame( [ 'binned-note' ], $result['skills_skipped'] );
+	}
+
+	public function test_built_in_identities_are_skipped_whether_or_not_the_pack_was_seeded(): void {
+		$tables = $this->use_skill_tables();
+		$tables->seed_skill( [ 'slug' => 'stonewright-elementor-v3-builder', 'title' => 'Builder', 'content' => '# Shipped', 'source' => 'builtin' ] );
+		$before = $tables->skills;
+
+		$result = KnowledgeBundle::import(
+			$this->skills_bundle(
+				[
+					[ 'slug' => 'stonewright-elementor-v3-builder', 'title' => 'Mine', 'content' => '# Mine' ],
+					[ 'slug' => 'playbook-mega-menu', 'title' => 'Mine', 'content' => '# Mine' ],
+				]
+			)
+		);
+
+		self::assertSame( $before, $tables->skills );
+		self::assertNull( $tables->skill_by_slug( 'playbook-mega-menu' ), 'A reserved identity stays free for the pack even before it is seeded.' );
+		self::assertSame( 0, $result['skills_imported'] );
+		self::assertSame( [ 'stonewright-elementor-v3-builder', 'playbook-mega-menu' ], $result['skills_skipped'] );
+	}
+
+	public function test_a_mixed_bundle_adds_the_new_skills_and_names_the_skipped_ones(): void {
+		$tables = $this->use_skill_tables();
+		$tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'content' => '# Mine' ] );
+
+		$result = KnowledgeBundle::import(
+			$this->skills_bundle(
+				[
+					[ 'slug' => 'first-new', 'title' => 'First', 'content' => '# First' ],
+					[ 'slug' => 'Site Note', 'title' => 'Site note again', 'content' => '# Bundle' ],
+					[ 'slug' => '', 'title' => 'No identity', 'content' => '# Nothing' ],
+					[ 'slug' => 'empty-body', 'title' => 'Empty body', 'content' => '' ],
+					'not an entry',
+					[ 'slug' => 'second-new', 'title' => 'Second', 'content' => '# Second' ],
+					[ 'slug' => 'too-long-title', 'title' => str_repeat( 't', 300 ), 'content' => '# Refused by storage' ],
+				]
+			)
+		);
+
+		self::assertSame( [ 'site-note', 'first-new', 'second-new' ], array_column( $tables->skills, 'slug' ) );
+		self::assertSame( '# Mine', $tables->skill_by_slug( 'site-note' )['content'] );
+		self::assertSame( 2, $result['skills_imported'] );
+		self::assertSame( [ 'site-note', 'too-long-title' ], $result['skills_skipped'], 'Entries the library refuses are reported with the ones that already exist.' );
+	}
+
+	public function test_at_most_fifty_skipped_identities_are_reported(): void {
+		$tables  = $this->use_skill_tables();
+		$entries = [];
+		foreach ( range( 1, 55 ) as $number ) {
+			$tables->seed_skill( [ 'slug' => 'site-note-' . $number, 'title' => 'Note ' . $number, 'content' => '# Mine' ] );
+			$entries[] = [ 'slug' => 'site-note-' . $number, 'title' => 'Bundle ' . $number, 'content' => '# Bundle' ];
+		}
+
+		$before = $tables->skills;
+
+		$result = KnowledgeBundle::import( $this->skills_bundle( $entries ) );
+
+		self::assertSame( $before, $tables->skills );
+		self::assertSame( 0, $result['skills_imported'] );
+		self::assertCount( 50, $result['skills_skipped'] );
+		self::assertSame( 'site-note-1', $result['skills_skipped'][0] );
+		self::assertSame( 'site-note-50', $result['skills_skipped'][49] );
+	}
+
+	/**
+	 * @param array<int, mixed> $entries
+	 * @return array<string, mixed>
+	 */
+	private function skills_bundle( array $entries ): array {
+		return [
+			'format'  => 'stonewright-knowledge-bundle',
+			'version' => 1,
+			'skills'  => [ 'entries' => $entries ],
+		];
+	}
+
+	private function use_skill_tables(): SkillTablesDouble {
+		$tables          = new SkillTablesDouble();
+		$GLOBALS['wpdb'] = $tables;
+		return $tables;
 	}
 
 	/**

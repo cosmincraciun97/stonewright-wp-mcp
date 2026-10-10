@@ -42,7 +42,7 @@ final class DirectionRestore extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Writes a stored design direction revision back as a new revision, leaving history intact. Requires a confirmation token in production-safe mode.', 'stonewright' );
+		return __( 'Writes a stored design direction revision back as a new revision, leaving history intact. Restoring a not-ready revision of the active direction switches it off and reports active_cleared. Requires a confirmation token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -90,6 +90,7 @@ final class DirectionRestore extends AbilityKernel {
 				'resource_type'          => [ 'type' => 'string' ],
 				'verification_status'    => [ 'type' => 'string' ],
 				'effect_verified'        => [ 'type' => 'boolean' ],
+				'active_cleared'         => [ 'type' => 'boolean' ],
 			],
 			'required'   => [ 'ok', 'id', 'revision', 'restored_revision', 'versioned', 'contract_hash', 'effect_verified' ],
 		];
@@ -158,6 +159,7 @@ final class DirectionRestore extends AbilityKernel {
 						'previous_contract_hash' => (string) $result['hash_before'],
 						'before_sha256'          => (string) $result['hash_before'],
 						'after_sha256'           => $hash,
+						'active_cleared'         => (bool) $result['active_cleared'],
 						'operation_class'        => 'design_direction.restore',
 						'resource_type'          => 'design_direction',
 						'verification_status'    => 'verified',

@@ -63,7 +63,11 @@ final class DesignPageTest extends TestCase {
 		DesignPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'sw-design-page', $html );
+		self::assertStringContainsString( 'sw-ui sw-ui-page sw-design', $html );
+		self::assertStringNotContainsString( 'class="sw-card', $html );
+		self::assertStringNotContainsString( 'notice notice-', $html );
+		self::assertStringNotContainsString( ' style=', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
 		self::assertStringContainsString( 'Import DESIGN.md', $html );
 		self::assertStringContainsString( 'name="design_markdown"', $html );
 		self::assertStringContainsString( 'value="stonewright_design_import"', $html );
@@ -133,32 +137,257 @@ final class DesignPageTest extends TestCase {
 		self::assertSame( (int) $saved['id'], (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
 	}
 
-	public function test_active_form_wires_checkbox_to_stable_form_id(): void {
+	public function test_the_active_direction_is_shown_with_a_named_deactivate_action_and_no_hover_or_script_switch(): void {
+		$service = $this->service_with_active_direction();
+
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'Quarry', $html );
+		self::assertStringContainsString( 'sw-ui-badge--ok', $html );
+		self::assertMatchesRegularExpression( '/<form[^>]*method="post"[^>]*>(?:(?!<\/form>).)*value="stonewright_design_activate"(?:(?!<\/form>).)*name="direction_id" value="1"/s', $html );
+		self::assertStringContainsString( 'Deactivate', $html );
+		self::assertStringContainsString( 'Quarry</span></button>', $html );
+		self::assertStringNotContainsString( 'data-stonewright-submit-form', $html );
+		self::assertStringNotContainsString( 'type="checkbox"', $html );
+		self::assertSame( 1, $service->active()['id'] );
+	}
+
+	public function test_a_deactivated_direction_stays_listed_and_can_be_switched_on_again(): void {
+		$service = $this->service_with_active_direction();
+		DesignPage::set_active( false, 1, 7 );
+
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'No active design direction', $html );
+		self::assertStringContainsString( 'Quarry', $html, 'The direction is still listed.' );
+		self::assertMatchesRegularExpression( '/<button[^>]*name="direction_enabled"[^>]*value="1"[^>]*>\s*Activate/s', $html );
+		self::assertStringNotContainsString( 'Import a DESIGN.md file to create one.', $html );
+		self::assertNotNull( $service->get( 1 ) );
+	}
+
+	public function test_an_imported_draft_is_listed_with_its_status_and_why_it_cannot_be_activated(): void {
+		$repository = new DesignPageTestRepository();
+		DesignPage::set_service_for_tests( new DesignDirectionService( $repository ) );
+		$result = DesignPage::import_document( $this->document( '', false, [ 'No brand colour is set.' ] ), 7 );
+		self::assertIsArray( $result );
+		self::assertSame( 'draft', $repository->last()['status'] );
+
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'Quarry', $html );
+		self::assertStringContainsString( 'Draft', $html );
+		self::assertStringContainsString( 'No brand colour is set.', $html );
+		self::assertStringNotContainsString( 'name="direction_enabled"', $html, 'A draft cannot be activated, so no switch is offered.' );
+		self::assertStringContainsString( 'No active design direction', $html );
+	}
+
+	public function test_notice_for_import_tells_activated_from_stored_as_a_draft_from_rejected(): void {
+		$repository = new DesignPageTestRepository();
+		DesignPage::set_service_for_tests( new DesignDirectionService( $repository ) );
+
+		$ready = DesignPage::import_document( $this->document(), 7 );
+		self::assertSame( 'imported-active', DesignPage::notice_for_import( $ready ) );
+
+		$draft = DesignPage::import_document( $this->document( '', false, [ 'No brand colour is set.' ], 'Other' ), 7 );
+		self::assertSame( 'imported-draft', DesignPage::notice_for_import( $draft ) );
+
+		self::assertSame( 'imported-ready', DesignPage::notice_for_import( [ 'id' => 99, 'status' => 'ready' ] ) );
+		self::assertSame( 'import-error', DesignPage::notice_for_import( new WP_Error( 'stonewright_direction_invalid', 'bad' ) ) );
+	}
+
+	public function test_importing_a_not_ready_document_over_the_active_direction_switches_it_off_and_says_so(): void {
 		$repository = new DesignPageTestRepository();
 		$service    = new DesignDirectionService( $repository );
 		DesignPage::set_service_for_tests( $service );
+		$first = DesignPage::import_document( $this->document(), 7 );
+		self::assertSame( 'imported-active', DesignPage::notice_for_import( $first ) );
+		self::assertSame( 1, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
 
-		$saved = $service->save( $this->ready_input(), 7 );
+		$second = DesignPage::import_document( $this->document( '', false, [ 'No brand colour is set.' ] ), 7 );
+
+		self::assertIsArray( $second );
+		self::assertTrue( $second['active_cleared'] );
+		self::assertSame( 0, (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) );
+		self::assertSame( 'imported-draft-deactivated', DesignPage::notice_for_import( $second ) );
+
+		$_GET['stonewright_design_notice'] = 'imported-draft-deactivated';
+		$html = $this->render_page();
+		self::assertStringContainsString( 'was the active direction', $html );
+		self::assertStringContainsString( 'Agents no longer follow a design direction', $html );
+		self::assertStringContainsString( 'No active design direction', $html );
+		self::assertStringNotContainsString( 'sw-ui-badge--ok', $html );
+	}
+
+	public function test_a_refused_import_shows_the_validator_reason_escaped(): void {
+		DesignPage::set_service_for_tests( new DesignDirectionService( new DesignPageTestRepository() ) );
+		$result = DesignPage::import_document( "---\n{ no\n---\n", 7 );
+		self::assertInstanceOf( WP_Error::class, $result );
+		DesignPage::remember_import_refusal( $result, 7 );
+
+		$_GET['stonewright_design_notice'] = 'import-error';
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'The DESIGN.md import was rejected.', $html );
+		self::assertStringContainsString( 'Direction front matter is not valid JSON.', $html );
+		self::assertStringNotContainsString( 'Check the front matter, the tokens and any secret-like prose, then import again.', $html );
+	}
+
+	public function test_a_refused_import_lists_the_outstanding_issues_of_a_contradictory_ready_document(): void {
+		DesignPage::set_service_for_tests( new DesignDirectionService( new DesignPageTestRepository() ) );
+		$result = DesignPage::import_document( $this->document( '', true, [ 'Hero is missing.', 'No focus colour.' ] ), 7 );
+		self::assertInstanceOf( WP_Error::class, $result );
+		DesignPage::remember_import_refusal( $result, 7 );
+
+		$_GET['stonewright_design_notice'] = 'import-error';
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'outstanding issues', $html );
+		self::assertStringContainsString( 'Hero is missing.', $html );
+		self::assertStringContainsString( 'No focus colour.', $html );
+		self::assertStringContainsString( '<li>', $html );
+	}
+
+	public function test_refusal_reasons_are_escaped_bounded_and_shown_once(): void {
+		$issues = [];
+		for ( $i = 1; $i <= 9; $i++ ) {
+			$issues[] = 'Issue ' . $i . ' <script>alert(1)</script>';
+		}
+		DesignPage::remember_import_refusal( new WP_Error( 'stonewright_direction_not_ready', 'Not ready <b>x</b>', [ 'issues' => $issues ] ), 7 );
+
+		$_GET['stonewright_design_notice'] = 'import-error';
+		$html = $this->render_page();
+
+		self::assertStringNotContainsString( '<script>alert(1)</script>', $html );
+		self::assertStringNotContainsString( '<b>x</b>', $html );
+		self::assertStringContainsString( 'Issue 1', $html );
+		self::assertStringContainsString( 'Issue 4', $html );
+		self::assertStringNotContainsString( 'Issue 9', $html );
+		self::assertStringContainsString( 'and 5 more', $html );
+
+		self::assertStringNotContainsString( 'Issue 1', $this->render_page(), 'The reasons are shown once.' );
+	}
+
+	public function test_a_refusal_remembered_for_another_user_is_not_shown(): void {
+		DesignPage::remember_import_refusal( new WP_Error( 'x', 'Reason for someone else.' ), 99 );
+
+		$_GET['stonewright_design_notice'] = 'import-error';
+
+		self::assertStringNotContainsString( 'Reason for someone else.', $this->render_page() );
+	}
+
+	public function test_the_active_card_shows_the_whole_contract_in_compact_groups(): void {
+		$service = new DesignDirectionService( new DesignPageTestRepository() );
+		DesignPage::set_service_for_tests( $service );
+		$input                           = $this->ready_input();
+		$input['contract']['tokens']     = [
+			'colors'     => [ 'brand' => '#1a2b3c' ],
+			'typography' => [ 'body' => [ 'family' => 'Inter', 'size' => '1rem' ] ],
+			'spacing'    => [ 'gutter' => '24px' ],
+			'radii'      => [ 'card' => '8px' ],
+			'elevation'  => [ 'raised' => '0 1px 2px #000' ],
+			'motion'     => [ 'duration' => '200ms' ],
+		];
+		$input['contract']['components'] = [ 'button' => [ 'radius' => '8px', 'padding' => '12px 20px' ] ];
+		$saved = $service->save( $input, 7 );
 		self::assertIsArray( $saved );
 		$service->activate( (int) $saved['id'], 7 );
 
-		ob_start();
-		DesignPage::render();
-		$html = (string) ob_get_clean();
+		$html = $this->render_page();
 
-		self::assertStringContainsString( 'id="stonewright-design-active-form"', $html );
-		self::assertStringContainsString( 'data-stonewright-submit-form="stonewright-design-active-form"', $html );
-		self::assertStringContainsString( 'checked="checked"', $html );
+		foreach ( [ 'Colors', 'Typography', 'Spacing', 'Radii', 'Elevation', 'Motion tokens', 'Components' ] as $heading ) {
+			self::assertStringContainsString( '>' . $heading . '<', $html, $heading );
+		}
+		foreach ( [ 'gutter', '24px', 'card', '8px', 'raised', '200ms', 'duration', 'family: Inter', 'size: 1rem', 'button', 'padding: 12px 20px' ] as $fragment ) {
+			self::assertStringContainsString( $fragment, $html, $fragment );
+		}
+	}
 
-		DesignPage::set_active( false, (int) $saved['id'], 7 );
+	public function test_the_active_card_omits_groups_the_contract_leaves_empty_and_escapes_values(): void {
+		$service = new DesignDirectionService( new DesignPageTestRepository() );
+		DesignPage::set_service_for_tests( $service );
+		$input                                    = $this->ready_input();
+		$input['contract']['tokens']              = [ 'spacing' => [ 'gutter' => '24px' ] ];
+		$input['contract']['identity']['summary'] = 'Stone <i>and</i> precision.';
+		$saved = $service->save( $input, 7 );
+		self::assertIsArray( $saved );
+		$service->activate( (int) $saved['id'], 7 );
 
-		ob_start();
-		DesignPage::render();
-		$cleared = (string) ob_get_clean();
+		$html = $this->render_page();
 
-		self::assertStringNotContainsString( 'id="stonewright-design-active-form"', $cleared );
-		self::assertStringNotContainsString( 'checked="checked"', $cleared );
-		self::assertStringContainsString( 'No active design direction', $cleared );
+		self::assertStringContainsString( '>Spacing<', $html );
+		self::assertStringNotContainsString( '>Radii<', $html );
+		self::assertStringNotContainsString( '>Components<', $html );
+		self::assertStringNotContainsString( '<i>and</i>', $html );
+	}
+
+	/**
+	 * @return array<string, array{0: string, 1: string, 2: string}>
+	 */
+	public static function notice_cases(): array {
+		return [
+			'imported and active' => [ 'imported-active', 'Design direction imported and activated.', 'sw-ui-notice--ok' ],
+			'imported as draft'   => [ 'imported-draft', 'stored as a draft', 'sw-ui-notice--warn' ],
+			'imported draft, switched off' => [ 'imported-draft-deactivated', 'was the active direction', 'sw-ui-notice--warn' ],
+			'imported not active' => [ 'imported-ready', 'Design direction imported, but not activated.', 'sw-ui-notice--warn' ],
+			'activated'           => [ 'activated', 'Design direction activated.', 'sw-ui-notice--ok' ],
+			'deactivated'         => [ 'deactivated', 'Design direction deactivated.', 'sw-ui-notice--ok' ],
+			'import rejected'     => [ 'import-error', 'The DESIGN.md import was rejected.', 'sw-ui-notice--danger' ],
+			'activate failed'     => [ 'activate-error', 'The design direction could not be activated.', 'sw-ui-notice--danger' ],
+			'deactivate failed'   => [ 'deactivate-error', 'The active design direction could not be cleared.', 'sw-ui-notice--danger' ],
+		];
+	}
+
+	/**
+	 * @dataProvider notice_cases
+	 */
+	public function test_each_outcome_has_its_own_message(string $key, string $text, string $variant): void {
+		$_GET['stonewright_design_notice'] = $key;
+
+		$html = $this->render_page();
+
+		self::assertStringContainsString( $text, $html );
+		self::assertStringContainsString( $variant, $html );
+		foreach ( array_diff( array_column( self::notice_cases(), 1 ), [ $text ] ) as $other ) {
+			self::assertStringNotContainsString( $other, $html );
+		}
+		self::assertStringNotContainsString( 'Design direction updated.', $html );
+	}
+
+	public function test_the_deactivated_message_says_how_to_switch_the_direction_back_on(): void {
+		$_GET['stonewright_design_notice'] = 'deactivated';
+
+		self::assertStringContainsString( 'Activate it again from the list below.', $this->render_page() );
+	}
+
+	public function test_errors_are_announced_as_alerts_and_confirmations_as_status(): void {
+		$_GET['stonewright_design_notice'] = 'import-error';
+		self::assertMatchesRegularExpression( '/role="alert"[^>]*>.*The DESIGN\.md import was rejected\./s', $this->render_page() );
+
+		$_GET['stonewright_design_notice'] = 'activated';
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*Design direction activated\./s', $this->render_page() );
+	}
+
+	public function test_with_nothing_stored_the_page_explains_and_points_to_the_import(): void {
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'No design direction yet', $html );
+		self::assertStringContainsString( 'href="#sw-design-import"', $html );
+		self::assertStringContainsString( 'id="sw-design-import"', $html );
+	}
+
+	public function test_the_quality_floor_shows_the_severity_as_a_badge_in_words(): void {
+		$html = $this->render_page();
+
+		self::assertStringContainsString( 'contrast.text', $html );
+		self::assertMatchesRegularExpression( '/sw-ui-badge--danger[^>]*>(?:<svg.*?<\/svg>)?Error</s', $html );
+		self::assertStringNotContainsString( '(error)', $html );
+	}
+
+	public function test_the_import_field_has_a_visible_label(): void {
+		$html = $this->render_page();
+
+		self::assertMatchesRegularExpression( '/<label[^>]*for="design_markdown"[^>]*>\s*DESIGN\.md\s*<\/label>/', $html );
+		self::assertStringNotContainsString( 'screen-reader-text', $html );
 	}
 
 	public function test_failed_set_active_maps_to_error_notice_keys(): void {
@@ -177,7 +406,7 @@ final class DesignPageTest extends TestCase {
 		DesignPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'notice-error', $html );
+		self::assertStringContainsString( 'sw-ui-notice--danger', $html );
 		self::assertStringContainsString( 'The active design direction could not be cleared.', $html );
 		self::assertStringNotContainsString( 'Design direction updated.', $html );
 	}
@@ -189,7 +418,7 @@ final class DesignPageTest extends TestCase {
 		DesignPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'notice-error', $html );
+		self::assertStringContainsString( 'sw-ui-notice--danger', $html );
 		self::assertStringContainsString( 'The design direction could not be activated.', $html );
 		self::assertStringNotContainsString( 'Design direction updated.', $html );
 	}
@@ -224,12 +453,32 @@ final class DesignPageTest extends TestCase {
 		};
 	}
 
-	private function document( string $extra_prose = '' ): string {
+	private function service_with_active_direction(): DesignDirectionService {
+		$service = new DesignDirectionService( new DesignPageTestRepository() );
+		DesignPage::set_service_for_tests( $service );
+		$saved = $service->save( $this->ready_input(), 7 );
+		self::assertIsArray( $saved );
+		$service->activate( (int) $saved['id'], 7 );
+
+		return $service;
+	}
+
+	private function render_page(): string {
+		ob_start();
+		DesignPage::render();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * @param list<string> $issues
+	 */
+	private function document( string $extra_prose = '', bool $ready = true, array $issues = [], string $name = 'Quarry' ): string {
 		$contract = (string) wp_json_encode(
 			[
 				'schema_version' => '1.0',
 				'identity'       => [
-					'name'    => 'Quarry',
+					'name'    => $name,
 					'summary' => 'Stone and precision.',
 				],
 				'tokens'         => [
@@ -246,9 +495,9 @@ final class DesignPageTest extends TestCase {
 					'avoid' => [ 'Decorative gradients.' ],
 				],
 				'readiness'      => [
-					'ready'      => true,
+					'ready'      => $ready,
 					'sync_ready' => false,
-					'issues'     => [],
+					'issues'     => $issues,
 				],
 			]
 		);

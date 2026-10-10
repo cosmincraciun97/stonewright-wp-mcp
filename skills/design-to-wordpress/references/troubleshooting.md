@@ -13,7 +13,8 @@
 ## asset_not_found / unresolved_url
 
 A section references an image URL that `design-normalize-assets` could not
-sideload.
+sideload. In production-safe mode a call that sideloads needs a
+`confirmation_token` issued for its arguments; `sideload: false` needs none.
 
 - Check the URL is publicly accessible from the WordPress server (not localhost
   or behind auth).
@@ -56,4 +57,7 @@ writing:
 Reply YES to proceed."
 ```
 
-Only call the write ability after the user replies YES.
+Only call the write ability after the user replies YES. In production-safe mode
+the write also carries a `confirmation_token` issued for exactly its arguments;
+a dry run (`dry_run: true`) needs none, and a token issued for a dry run does not
+authorize the write.

@@ -71,6 +71,9 @@ final class RemediationHintsTest extends TestCase {
 			'grant invalid'      => [ 'stonewright_custom_code_grant_invalid', 'fresh one-time grant' ],
 			'native gap'         => [ 'stonewright_native_gap_required', 'Native implementation has not been disproved' ],
 			'read only'          => [ 'stonewright_php_read_only_violation', 'appropriate typed ability' ],
+			'css protected'      => [ 'stonewright_elementor_css_delivery_protected', 'Do not rebuild or re-save the layout' ],
+			'css probe failed'   => [ 'stonewright_elementor_css_probe_failed', 'do not rebuild the layout' ],
+			'css unsafe redirect' => [ 'stonewright_elementor_css_probe_unsafe_redirect', 'Do not rebuild the layout' ],
 		];
 	}
 

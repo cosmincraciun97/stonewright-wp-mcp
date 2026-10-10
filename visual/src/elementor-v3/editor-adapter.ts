@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
-import { PageToolRegistry } from "../page-tool-registry.js";
+import { DeclaredToolSet } from "../editor-tools/declared-tool-set.js";
 import type { BatchTransaction, NestedEditorTool, NestedToolResult } from "../types.js";
 import { ElementorV3EvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger.js";
 import { hashValue } from "./hash.js";
@@ -22,8 +22,8 @@ export class ElementorV3EditorAdapter {
 
   constructor(private readonly runtime: ElementorV3Runtime) {}
 
-  registry(): PageToolRegistry {
-    return new PageToolRegistry(this.tools(), { begin: async () => this.beginTransaction() });
+  registry(): DeclaredToolSet {
+    return new DeclaredToolSet(this.tools(), { begin: async () => this.beginTransaction() }, { create_element: { primaryResultField: "element_id", publicResultFields: { element_id: { type: "string" } } } }, () => this.runtime.getPageTree());
   }
 
   tools(): NestedEditorTool[] {
@@ -292,7 +292,7 @@ export class ElementorV3EditorAdapter {
       await this.runtime.undo();
       this.historyPosition = Math.max(0, this.historyPosition - 1);
       return { before, after: await hashValue(await this.runtime.getPageTree()) };
-    });
+    }, () => this.treeHash());
   }
 
   private redoTool(): NestedEditorTool {
@@ -301,7 +301,12 @@ export class ElementorV3EditorAdapter {
       await this.runtime.redo();
       this.historyPosition++;
       return { before, after: await hashValue(await this.runtime.getPageTree()) };
-    });
+    }, () => this.treeHash());
+  }
+
+  /** Hash of the tree the editor holds right now. */
+  private async treeHash(): Promise<string> {
+    return hashValue(await this.runtime.getPageTree());
   }
 
   private saveTool(): NestedEditorTool {
@@ -311,6 +316,7 @@ export class ElementorV3EditorAdapter {
       description: "Persists the active Elementor document and verifies the editor is no longer dirty.",
       mutates: true,
       batchable: false,
+      parameters: objectSchema({}),
       execute: async () => {
         await this.runtime.save();
         return result(`Saved Elementor document ${this.runtime.documentId}.`, { document_id: this.runtime.documentId, tree_hash: await hashValue(await this.runtime.getPageTree()) });
@@ -327,6 +333,7 @@ export class ElementorV3EditorAdapter {
       name: "get_evidence_ledger",
       label: "Get Elementor write evidence",
       description: "Returns compact per-setting evidence retained for successful editor mutations.",
+      parameters: objectSchema({}),
       execute: async () => result(`${this.evidence.list().length} evidence entries.`, { entries: this.evidence.list() }),
     };
   }
@@ -398,19 +405,28 @@ export class ElementorV3EditorAdapter {
   }
 }
 
-function historyTool(name: "undo" | "redo", description: string, execute: () => Promise<{ before: string; after: string }>): NestedEditorTool {
+/**
+ * A history step. Its readback re-reads the live tree and requires the hash the
+ * step produced, so a tree that changed after the step fails verification.
+ */
+function historyTool(name: "undo" | "redo", description: string, execute: () => Promise<{ before: string; after: string }>, readTreeHash: () => Promise<string>): NestedEditorTool {
   return {
     name,
     label: `${name[0].toUpperCase()}${name.slice(1)} Elementor action`,
     description,
     mutates: true,
     batchable: false,
+    parameters: objectSchema({}),
     execute: async () => {
       const hashes = await execute();
       if (hashes.before === hashes.after) throw new Error(`Elementor ${name} produced no tree change.`);
       return result(`${name} completed.`, { tree_hash: hashes.after });
     },
-    readback: async (_args, output) => ({ tree_hash: output.details?.tree_hash }),
+    readback: async (_args, output) => {
+      const treeHash = await readTreeHash();
+      if (treeHash !== output.details?.tree_hash) throw new Error(`${name} readback mismatch: the editor tree no longer matches the history result.`);
+      return { tree_hash: treeHash };
+    },
   };
 }
 

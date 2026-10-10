@@ -4,6 +4,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -50,6 +52,7 @@ final class PostWriteVerify extends AbilityKernel {
 					'default'  => [],
 				],
 				'write_receipt' => [ 'type' => 'object', 'description' => 'Receipt returned by the originating batch transaction.' ],
+				'change_set'    => [ 'type' => 'object', 'description' => 'ChangeSetV1 returned by the write being verified. Preferred over write_receipt: the verification is reported under the same change_set_id and keeps its lineage.' ],
 			],
 		];
 	}
@@ -84,6 +87,7 @@ final class PostWriteVerify extends AbilityKernel {
 				'browser_required'    => [ 'type' => 'boolean' ],
 				'browser_recipe'      => [ 'type' => 'object' ],
 				'write_receipt'       => [ 'type' => 'object' ],
+				'change_set'          => ChangeSet::output_property(),
 			],
 			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'generation_status', 'delivery_status', 'frontend_verification_status', 'rendered_bytes', 'render_sha256', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
 		];
@@ -94,7 +98,7 @@ final class PostWriteVerify extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			function ( array $args ): array|\WP_Error {
 				$post_id = (int) ( $args['post_id'] ?? 0 );
@@ -178,6 +182,84 @@ final class PostWriteVerify extends AbilityKernel {
 				return $result;
 			}
 		);
+	}
+
+	/**
+	 * ChangeSetV1 of the verification: the change set of the write being verified
+	 * (given as `change_set`, or recovered from `write_receipt`) with the frontend
+	 * render as its evidence. Each checked element or marker is one planned change;
+	 * those the render shows are applied, the others missing. Without either input
+	 * there is no write to report on, so the verification reports none.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data    = ChangeSetSources::data( $result );
+		$given   = is_array( $args['change_set'] ?? null ) ? $args['change_set'] : [];
+		$receipt = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] ) ? self::sanitize_receipt( $args['write_receipt'] ) : [];
+		$id      = trim( (string) ( $given['change_set_id'] ?? '' ) );
+		if ( '' === $id ) {
+			$id = trim( (string) ( $receipt['change_set_id'] ?? '' ) );
+		}
+		if ( '' === $id ) {
+			return null;
+		}
+
+		$planned = [];
+		$applied = [];
+		$missing = [];
+		foreach ( (array) ( $data['element_checks'] ?? [] ) as $check ) {
+			$entry     = ChangeSet::entry( 'element', (string) ( $check['element_id'] ?? '' ), 'render', count( $planned ) );
+			$planned[] = $entry;
+			if ( ! empty( $check['present'] ) ) {
+				$applied[] = $entry;
+			} else {
+				$missing[] = $entry;
+			}
+		}
+		foreach ( (array) ( $data['content_checks'] ?? [] ) as $check ) {
+			$entry     = ChangeSet::entry( 'content', 'marker-' . substr( (string) ( $check['sha256'] ?? '' ), 0, 12 ), 'render', count( $planned ) );
+			$planned[] = $entry;
+			if ( ! empty( $check['present'] ) ) {
+				$applied[] = $entry;
+			} else {
+				$missing[] = $entry;
+			}
+		}
+
+		$passed   = 'passed' === (string) ( $data['verification_status'] ?? '' ) && 'ok' === $status;
+		$snapshot = (string) ( $receipt['snapshot_id'] ?? '' );
+		$recipe   = is_array( $given['rollback_recipe_ref'] ?? null )
+			? $given['rollback_recipe_ref']
+			: ( '' !== $snapshot ? [ 'kind' => 'post_snapshot', 'ref' => $snapshot, 'target' => (string) ( $receipt['post_id'] ?? $args['post_id'] ?? '' ) ] : null );
+
+		return [
+			'change_set_id'       => $id,
+			'planned'             => $planned,
+			'applied'             => $applied,
+			'missing'             => $missing,
+			'before_hash'         => (string) ( $given['before_hash'] ?? $receipt['before_hash'] ?? '' ),
+			'after_hash'          => (string) ( $given['after_hash'] ?? $receipt['readback_hash'] ?? $receipt['after_hash'] ?? '' ),
+			'verification'        => [
+				'status'   => $passed ? ChangeSet::STATUS_VERIFIED : ChangeSet::STATUS_FAILED,
+				'evidence' => [
+					'method'           => 'frontend_render',
+					'render_sha256'    => (string) ( $data['render_sha256'] ?? '' ),
+					'rendered_bytes'   => isset( $data['rendered_bytes'] ) ? (int) $data['rendered_bytes'] : null,
+					'checked_elements' => count( (array) ( $data['element_checks'] ?? [] ) ),
+					'checked_markers'  => count( (array) ( $data['content_checks'] ?? [] ) ),
+					'failed_check'     => (string) ( $data['failed_check'] ?? '' ),
+					'root_error_code'  => $result instanceof \WP_Error ? sanitize_key( (string) $result->get_error_code() ) : (string) ( $data['root_error_code'] ?? '' ),
+				],
+			],
+			'rollback_available'  => true === ( $given['rollback_available'] ?? null ) || ( null === ( $given['rollback_available'] ?? null ) && null !== $recipe ),
+			'rollback_recipe_ref' => $recipe,
+			'repair_of'           => $given['repair_of'] ?? $receipt['repair_of'] ?? null,
+			'supersedes'          => $given['supersedes'] ?? $receipt['supersedes'] ?? null,
+			'approval_reason'     => $given['approval_reason'] ?? null,
+		];
 	}
 
 	/**

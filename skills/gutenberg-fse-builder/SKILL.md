@@ -14,6 +14,15 @@ All write operations that touch post content or theme.json take a snapshot first
 Static and third-party block writes go through the browser finalizer. The
 server serialize path is only for true `save:null` dynamic blocks.
 
+When building a page, or working on a template or template part (a header,
+footer, or a section of a customized template), load `stonewright-section-reuse`
+first: the site may already have a matching section to copy with an
+`insert_section` operation of `stonewright-blocks-batch-mutate` (skip it when
+`agent_preferences.section_reuse` is `off`). Customized templates and template
+parts of the active block theme are sources and targets of reuse; a template
+that exists only as a theme file is not, until it has been customized in the
+Site Editor.
+
 ## Block Theme Production Workflow
 
 Use this workflow when the user asks for a Gutenberg-only page, a block theme,
@@ -74,7 +83,7 @@ through the finalizer; they cannot take template / global-style writes.
 ## Which write path
 
 Default: queue `{name, attributes, innerBlocks}` and persist through the
-Block Editor Queue. That is the path for static core blocks and every
+block queue console. That is the path for static core blocks and every
 third-party namespace.
 
 Server path (`stonewright-blocks-insert` / `stonewright-blocks-update` /
@@ -145,7 +154,7 @@ visual section call `stonewright-blocks-queue-change` explicitly.
    (`post_id`, `block_spec`, `action`, `path`, `position`,
    `expected_content_hash`). Spec shape: `{name, attributes, innerBlocks}`.
 5. `stonewright-blocks-finalizer-runtime`. Require `online: true`. If it is
-   false, tell the operator to open **Stonewright → Block Editor Queue** and
+   false, tell the operator to open **Stonewright → Activity → Block queue** and
    leave it open. `keep_open` is true on purpose.
    `stonewright-blocks-finalizer-url` is the same link.
 6. Poll `stonewright-blocks-pending-batch` until ids are `serialized`. The
@@ -160,9 +169,12 @@ Queue **one non-terminal change per post**. A second `queue-change` while an
 item is still `queued` or `serialized` returns `stonewright_finalizer_pending_change`.
 Drain serialize → finalize, then queue the next section.
 
-`stonewright-blocks-parse` compact paths skip `parse_blocks()` whitespace
-nodes. Insert/remove/queue `path` and `position` are raw `parse_blocks()`
-indexes. Read the root names (including `null`) before choosing a slot.
+Block addressing is one scheme everywhere. The index of a block in
+`stonewright-blocks-parse` (root list, then `innerBlocks`) is its `path` in
+`blocks-update`, `blocks-remove`, `blocks-insert`, `blocks-batch-mutate` and
+`queue-change`; insert `position` counts the same list. The blank whitespace
+between root blocks has no index. A path that names no block fails with
+`stonewright_invalid_path` and writes nothing.
 
 ## Output quality
 
@@ -386,6 +398,10 @@ before calling.
 `stonewright/fse-get-theme-json` reads the merged theme.json (theme + user).
 Use it to inspect current values before writing.
 
+Every global styles write keeps `isGlobalStylesUserThemeJSON: true` on the user
+record; WordPress ignores a user record that lacks it. `mode: merge` works on
+the record WordPress creates.
+
 Use `theme.json` as the main design contract for block themes. Keep repeated
 colors, font sizes, spacing, layout widths, and block-level styles there so
 clients can keep editing through the Site Editor instead of editing custom CSS.
@@ -410,6 +426,11 @@ Template parts use `type: "wp_template_part"`. Prefer
 `stonewright/fse-write-template-part` for updates. Snapshot with
 `stonewright-site-backup-page` first — these abilities do not snapshot
 internally.
+
+`stonewright/fse-write-template` and `stonewright/fse-write-template-part` store
+the template the way WordPress does (post name = slug, `wp_theme` term = theme),
+so `fse-read-template`, `fse-update-template` and the site resolve the same
+`theme//slug` id.
 
 A `core/template-part` block in a page body is `save:null`. Insert it on the
 server path (`slug`, `theme`, `area` from the live schema). Do not queue it
@@ -442,7 +463,7 @@ persist. `stonewright/fse-update-global-styles` and
 | Name not registered | `block_not_registered` | Re-list. Do not invent names. |
 | PHP insert of a partial schema | `unknown_block_attributes` | Re-queue on the finalizer. |
 | Partial schema, queue accepted | `likely_partial_schema` | Leave the keys. Let the editor save. |
-| Item still `queued` | `finalizer_not_serialized` (409) | Open Block Editor Queue. Wait. Retry. |
+| Item still `queued` | `finalizer_not_serialized` (409) | Open the block queue console (Stonewright → Activity → Block queue). Wait. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Fresh hash. Re-queue. |
 | Heartbeat dead | `online: false` | Do not finalize. Do not PHP-serialize static blocks. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard the blob. Re-queue. |

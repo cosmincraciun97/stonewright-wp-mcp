@@ -60,6 +60,19 @@ final class QualityCheck extends AbilityKernel {
 		return 'design';
 	}
 
+	/**
+	 * Records the quality report of a rendered page; nothing that exists is overwritten.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

@@ -449,9 +449,7 @@
 
 .stonewright-switch,
 .stonewright-inline-controls,
-.stonewright-endpoint-row,
-.stonewright-abilities-toolbar,
-.stonewright-select-all {
+.stonewright-endpoint-row {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -749,171 +747,12 @@
 	margin-top: 16px;
 }
 
-/* ------------------------------------------------------------------ */
-/* Abilities hub                                                       */
-/* ------------------------------------------------------------------ */
-.stonewright-abilities-toolbar {
-	background: var(--sw-surface);
-	border: 1px solid var(--sw-border);
-	border-radius: 6px;
-	flex-wrap: wrap;
-	margin: 14px 0;
-	padding: 12px;
-}
-
-.stonewright-provider-group {
-	background: var(--sw-surface);
-	border: 1px solid var(--sw-border);
-	border-radius: 6px;
-	margin: 0 0 14px;
-	overflow: hidden;
-}
-
-.stonewright-provider-group.is-filtered-empty {
-	display: none;
-}
-
-.stonewright-provider-group__header {
-	align-items: center;
-	background: var(--sw-bg);
-	border-bottom: 1px solid var(--sw-border);
-	display: flex;
-	justify-content: space-between;
-	padding: 10px 12px;
-}
-
-.stonewright-provider-group__header h2 {
-	font-size: 15px;
-	line-height: 1.3;
-	margin: 2px 0 0;
-}
-
-.stonewright-provider-name {
-	color: var(--sw-text-muted);
-	font-size: var(--sw-text-xs);
-	font-weight: 700;
-	letter-spacing: 0;
-	text-transform: uppercase;
-}
-
-.stonewright-ability-table__head,
-.stonewright-ability-row {
-	display: grid;
-	grid-template-columns: 32px minmax(220px, 1.6fr) minmax(180px, 1fr) 110px 86px minmax(120px, .8fr);
-	gap: 10px;
-	padding: 10px 12px;
-}
-
-.stonewright-ability-table__head {
-	border-bottom: 1px solid var(--sw-border);
-	color: var(--sw-text-muted);
-	font-size: var(--sw-text-xs);
-	font-weight: 700;
-	text-transform: uppercase;
-}
-
-.stonewright-ability-row {
-	align-items: start;
-	border-bottom: 1px solid var(--sw-bg);
-}
-
-.stonewright-ability-row:last-child {
-	border-bottom: none;
-}
-
-.stonewright-ability-row.is-disabled {
-	background: var(--sw-bg);
-}
-
-.stonewright-ability-main {
-	min-width: 0;
-}
-
-.stonewright-ability-main strong {
-	display: block;
-	line-height: 1.35;
-}
-
-.stonewright-ability-main p {
-	color: var(--sw-text-muted);
-	font-size: 12px;
-	line-height: 1.45;
-	margin: 2px 0 0;
-	max-width: 720px;
-}
-
-.stonewright-mcp-tool {
-	white-space: normal;
-	word-break: break-word;
-}
-
-.stonewright-kind-badge {
-	border-radius: var(--sw-radius-pill);
-	display: inline-flex;
-	align-items: center;
-	min-height: 22px;
-	font-size: var(--sw-text-xs);
-	font-weight: 700;
-	line-height: 1.7;
-	padding: 1px 8px;
-	text-align: center;
-	width: fit-content;
-}
-
-.stonewright-kind-badge--read {
-	background: var(--sw-info-soft);
-	color: var(--sw-info-text);
-}
-
-.stonewright-kind-badge--write {
-	background: var(--sw-warn-soft);
-	color: var(--sw-warn-text);
-}
-
-.stonewright-kind-badge--destructive {
-	background: var(--sw-danger-soft);
-	color: var(--sw-danger-text);
-}
-
-.stonewright-ability-details {
-	min-width: 0;
-}
-
-.stonewright-ability-details summary {
-	cursor: pointer;
-}
-
-.stonewright-ability-details[open] {
-	grid-column: 2 / -1;
-}
-
-.stonewright-ability-details:not([open]) .stonewright-schema-table-wrap {
-	display: none;
-}
-
-.stonewright-schema-table-wrap {
-	max-width: 100%;
-	overflow-x: auto;
-}
-
-.stonewright-schema-table {
-	margin-top: 8px;
-	/* Prefer wrapping the scroll container, not the whole admin shell. */
-	min-width: min(640px, 100%);
-	width: 100%;
-}
-
-.stonewright-schema-table code {
-	word-break: break-word;
-}
-
 @media screen and (max-width: 960px) {
 	.stonewright-setup-grid {
 		grid-template-columns: 1fr;
 	}
 
-	.stonewright-page-header,
-	.stonewright-abilities-toolbar {
+	.stonewright-page-header {
 		align-items: stretch;
 		flex-direction: column;
 	}
@@ -929,21 +768,47 @@
 		font-size: 24px;
 	}
 
-	.stonewright-ability-table__head {
-		display: none;
-	}
-
-	.stonewright-ability-row {
-		grid-template-columns: 28px minmax(0, 1fr);
-	}
-
-	.stonewright-mcp-tool,
-	.stonewright-kind-badge,
-	.stonewright-ability-details {
-		grid-column: 2;
-	}
-
 	.sw-toggle {
 		grid-column: 2;
 	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Copy fallback dialog (built by admin.js when the clipboard is blocked) */
+/* ------------------------------------------------------------------ */
+.sw-copy-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100050;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--sw-space-4);
+	background: color-mix(in srgb, var(--sw-text) 55%, transparent);
+}
+
+.sw-copy-modal[hidden] {
+	display: none;
+}
+
+.sw-copy-modal__dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+	width: min(36rem, 100%);
+	padding: var(--sw-space-4);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	box-shadow: var(--sw-shadow-3);
+}
+
+.sw-copy-modal__dialog textarea {
+	min-height: 10rem;
+	width: 100%;
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-text-sm);
 }

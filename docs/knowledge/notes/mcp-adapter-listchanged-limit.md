@@ -13,11 +13,11 @@ A **plugin-direct** MCP client (no companion) will not receive an automatic re-l
 
 ## Why we do not patch it here
 
-The adapter is third-party code under its own SPDX header (see `docs/upstream-code-reuse.md`). Editing its behavior would fork upstream. The supported propagation path is:
+The adapter is third-party code under its own SPDX header. Editing its behavior would fork the adapter. The supported propagation path is:
 
 - **plugin-proxy / Direct mode:** the companion emits `tools/list_changed` on `surface_revision` change (see companion `handleToolsChangedResponse`).
 - **plugin-direct:** poll-on-next-call via `surface_revision` on every gateway response.
 
 ## If upstream gains listChanged
 
-Re-evaluate: advertise `capabilities.tools.listChanged` and wire a push from `stonewright_tool_surface_changed`. Track the upstream version in `docs/upstream-code-reuse.md` before adopting.
+Re-evaluate: advertise `capabilities.tools.listChanged` and wire a push from `stonewright_tool_surface_changed`. Record the adapter version that adds it before adopting.

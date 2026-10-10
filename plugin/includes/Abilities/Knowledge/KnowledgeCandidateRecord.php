@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Knowledge;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Mutates candidates and promotes only verified or user-approved skills.
@@ -106,11 +106,17 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 
 	/** @return array<string, mixed>|\WP_Error */
 	private static function rollback( string $slug, int $revision ): array|\WP_Error {
-		$slug = sanitize_title( $slug );
-		if ( '' === $slug || ! Skills::rollback( $slug, $revision ) ) {
-			return new \WP_Error( 'stonewright_skill_rollback_failed', 'Skill revision not found or rollback failed.' );
+		$slug    = sanitize_title( $slug );
+		$library = SkillLibraryService::open();
+		$result  = '' === $slug ? false : $library->roll_back_skill( $slug, $revision );
+		if ( true !== $result ) {
+			return new \WP_Error(
+				'stonewright_skill_rollback_failed',
+				'Skill revision not found or rollback failed.',
+				is_wp_error( $result ) ? [ 'status' => 409, 'root_error_code' => (string) $result->get_error_code() ] : [ 'status' => 404 ]
+			);
 		}
-		return [ 'skill_slug' => $slug, 'restored_revision' => $revision, 'skill' => Skills::get( $slug ) ];
+		return [ 'skill_slug' => $slug, 'restored_revision' => $revision, 'skill' => $library->find( $slug ) ];
 	}
 
 	/** @return array<int, string> */

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\SiteHealthRunner;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -22,7 +23,7 @@ final class Health extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns a summary of WordPress site-health tests for this installation.', 'stonewright' );
+		return __( 'Runs the direct WordPress Site Health tests and returns the status and label of each. Use site-health-test for the loopback, update, HTTPS and cache checks.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -57,25 +58,8 @@ final class Health extends AbilityKernel {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-site-health.php';
 		}
 
-		$health = \WP_Site_Health::get_instance();
-		$tests  = $health->get_tests();
-		$out    = [];
+		SiteHealthRunner::load_admin_includes();
 
-		foreach ( $tests['direct'] as $test_name => $test ) {
-			if ( empty( $test['test'] ) || ! is_callable( $test['test'] ) ) {
-				continue;
-			}
-			$result = call_user_func( $test['test'] );
-			if ( ! is_array( $result ) ) {
-				continue;
-			}
-			$out[] = [
-				'name'   => $test_name,
-				'status' => (string) ( $result['status'] ?? 'unknown' ),
-				'label'  => (string) ( $result['label'] ?? '' ),
-			];
-		}
-
-		return [ 'tests' => $out ];
+		return [ 'tests' => SiteHealthRunner::run_direct_tests( \WP_Site_Health::get_instance() ) ];
 	}
 }

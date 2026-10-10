@@ -69,7 +69,7 @@ final class BlocksBatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']            = [];
 		$GLOBALS['stonewright_test_user_logged_in']       = false;
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
-		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		unset( $GLOBALS['stonewright_test_registered_blocks'], $GLOBALS['stonewright_test_block_registry_throwables'] );
 	}
 
 	public function test_dry_run_compiles_operations_without_snapshot_or_write(): void {
@@ -164,6 +164,67 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertSame( 'change-blocks-1', $result['write_receipt']['change_set_id'] );
 		self::assertSame( 'not_needed', $result['write_receipt']['rollback_status'] );
 		self::assertStringContainsString( 'updated', (string) $GLOBALS['stonewright_test_posts'][801]->post_content );
+	}
+
+	public function test_backslashes_in_block_markup_survive_the_write(): void {
+		$inner  = '<p>Tom \u0026 Jerry in C:\Temp</p>';
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [
+					[
+						'action' => 'insert',
+						'block'  => [ 'blockName' => 'core/paragraph', 'innerHTML' => $inner ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_code() : '' );
+		self::assertSame( 'verified', $result['verification_status'] );
+		$stored = (string) $GLOBALS['stonewright_test_posts'][801]->post_content;
+		self::assertStringContainsString( $inner, $stored );
+		self::assertSame( hash( 'sha256', $stored ), $result['readback_hash'] );
+	}
+
+	/** @dataProvider registryFailureProvider */
+	public function test_registry_exception_message_never_reaches_the_response( int $healthy_lookups ): void {
+		$detail = 'detail-text-for-test';
+		$GLOBALS['stonewright_test_block_registry_throwables'] = array_merge( array_fill( 0, $healthy_lookups, null ), [ new \RuntimeException( $detail ) ] );
+		$log_file = tempnam( sys_get_temp_dir(), 'sw-batch-log-' );
+		self::assertNotFalse( $log_file );
+		$previous_log = ini_get( 'error_log' );
+		ini_set( 'error_log', $log_file );
+
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [ [ 'action' => 'insert', 'block' => [ 'blockName' => 'core/heading', 'innerHTML' => '<h2>After</h2>' ] ] ],
+			]
+		);
+
+		ini_set( 'error_log', (string) $previous_log );
+		$log = (string) file_get_contents( $log_file );
+		@unlink( $log_file );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$exposed = (string) wp_json_encode( [ $result->get_error_message(), $result->get_error_data() ] );
+		self::assertStringNotContainsString( $detail, $exposed );
+		self::assertStringContainsString( 'block_registry_unavailable', $exposed );
+		self::assertStringContainsString( 'RuntimeException', $exposed );
+		self::assertStringContainsString( $detail, $log );
+		self::assertStringContainsString( 'block_registry_unavailable', $log );
+	}
+
+	/** @return array<string, array{0:int}> */
+	public static function registryFailureProvider(): array {
+		// Two lookups (instance, then block) happen while deciding whether the finalizer is needed.
+		return [
+			'registry instance'      => [ 2 ],
+			'registered block lookup' => [ 3 ],
+		];
 	}
 
 	public function test_write_requires_expected_content_hash(): void {
@@ -406,6 +467,42 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_unknown_block_attributes', $result->get_error_data()['root_error_code'] );
 		self::assertSame( [ 'undeclared' ], $result->get_error_data()['items'][0]['error']['data']['offending_keys'] );
+	}
+
+	public function test_registered_block_schema_accepts_the_attributes_the_block_supports_add(): void {
+		// WordPress 6.9 lists neither anchor nor lock nor metadata in the registered attributes of a block that supports them.
+		$GLOBALS['stonewright_test_registered_blocks']['core/paragraph'] = (object) [
+			'attributes'      => [ 'className' => [ 'type' => 'string' ], 'layout' => [ 'type' => 'object' ] ],
+			'supports'        => [ 'anchor' => true, 'layout' => true ],
+			'render_callback' => static fn(): string => '',
+			'is_dynamic'      => true,
+		];
+
+		$accepted = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action' => 'update',
+						'path'   => [ 0 ],
+						'attrs'  => [ 'anchor' => 'features', 'layout' => [ 'type' => 'constrained' ], 'metadata' => [ 'name' => 'Features' ] ],
+					],
+				],
+			]
+		);
+		self::assertIsArray( $accepted, is_wp_error( $accepted ) ? $accepted->get_error_message() : '' );
+		self::assertTrue( $accepted['ok'] );
+
+		$refused = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [ [ 'action' => 'update', 'path' => [ 0 ], 'attrs' => [ 'anchor' => 'features', 'undeclared' => true ] ] ],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( [ 'undeclared' ], $refused->get_error_data()['items'][0]['error']['data']['offending_keys'] );
 	}
 
 	public function test_three_finalizer_ops_queue_three_items_not_a_single_insert(): void {

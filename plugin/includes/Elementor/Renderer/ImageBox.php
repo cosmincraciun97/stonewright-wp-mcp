@@ -41,8 +41,7 @@ final class ImageBox {
 		}
 
 		if ( isset( $node['link']['url'] ) ) {
-			$settings['link_to']  = 'custom';
-			$settings['link']     = [ 'url' => (string) $node['link']['url'] ];
+			$settings['link'] = [ 'url' => (string) $node['link']['url'] ];
 		}
 
 		return [

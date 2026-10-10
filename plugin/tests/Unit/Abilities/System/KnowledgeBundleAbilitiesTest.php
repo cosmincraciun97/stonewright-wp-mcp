@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Abilities\System;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
+use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\System\KnowledgeExport
@@ -58,6 +59,42 @@ final class KnowledgeBundleAbilitiesTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'Never use Elementor HTML widgets by default.', get_option( 'stonewright_custom_instructions', '' ) );
+	}
+
+	public function test_import_ability_adds_new_skills_as_drafts_and_reports_the_skipped_ones(): void {
+		$tables          = new SkillTablesDouble();
+		$GLOBALS['wpdb'] = $tables;
+		$tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'content' => '# Mine' ] );
+
+		$result = ( new KnowledgeImport() )->execute(
+			[
+				'bundle' => [
+					'format'  => 'stonewright-knowledge-bundle',
+					'version' => 1,
+					'skills'  => [
+						'entries' => [
+							[ 'slug' => 'site-note', 'title' => 'Bundle copy', 'content' => '# Bundle', 'enabled' => true ],
+							[ 'slug' => 'new-note', 'title' => 'New note', 'content' => '# New', 'enabled' => true ],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertSame( '# Mine', $tables->skills[1]['content'] );
+		self::assertSame( [ 'draft', '0' ], [ $tables->skills[2]['status'], $tables->skills[2]['enabled'] ] );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [ 1, [ 'site-note' ] ], [ $result['skills_imported'], $result['skills_skipped'] ] );
+	}
+
+	public function test_import_output_schema_lists_the_skipped_skills(): void {
+		$schema = ( new KnowledgeImport() )->output_schema();
+
+		self::assertSame( 'array', $schema['properties']['skills_skipped']['type'] ?? null );
+		self::assertSame( 'string', $schema['properties']['skills_skipped']['items']['type'] ?? null );
+		self::assertSame( 50, $schema['properties']['skills_skipped']['maxItems'] ?? null );
+		self::assertContains( 'skills_skipped', $schema['required'] );
 	}
 
 	private function make_wpdb(): object {

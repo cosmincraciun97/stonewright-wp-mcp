@@ -212,7 +212,44 @@ Local, parameterized WP-CLI recipes stored under
 MCP surface: exactly three tools — `stonewright-command-list`,
 `stonewright-command-get`, `stonewright-command-run` — exposed only on the
 `wp-cli`, `site-admin`, `full`, and `discover-execute` profiles. No HTTP
-routes are added for commands.
+routes are added for commands. The read-only `inspect` profile exposes none of
+them and registers, besides the permanent gateways, only the local
+`stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools.
+
+## Rescue command v1
+
+`stonewright rescue status|rollback <incident>` is a local CLI, not an MCP tool
+and not an HTTP route. It runs the plugin's `wp stonewright rescue` command for
+a site that has a local WordPress root (`connect add|repair --wp-root`), so a
+Stonewright change that stopped the site from loading can still be listed and
+rolled back.
+
+1. Execution is tokenized argv only through the shared WP-CLI runner:
+   `execFile`, `shell: false`, no eval, `eval-file`, `shell`, `package`,
+   `--exec`, `--require` or `--prompt` token anywhere. The invariants of the
+   previous section apply unchanged.
+2. The active plugins are read first with `wp option get active_plugins
+   --format=json --skip-plugins --skip-themes` (and, when that works, the
+   network-active plugins with `wp network meta get 1 active_sitewide_plugins`).
+   The rescue command then runs with `--skip-plugins=<slugs>` where the slugs
+   are every active plugin except the one whose main file is `stonewright.php`,
+   and with `--skip-themes`. A bare `--skip-plugins` is never sent to the rescue
+   command, because it would skip Stonewright too. A plugin name that does not
+   match `^[A-Za-z0-9][A-Za-z0-9._-]{0,99}(/[A-Za-z0-9][A-Za-z0-9._-]{0,99}){0,2}$`
+   stops the command before it runs.
+3. Every value that reaches an argument is checked first: the incident id
+   (`^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$`), the WordPress user (a login without
+   spaces, or a numeric id; default: the user saved for the site) and the
+   confirmation token (`swc_<base64url>.<base64url>`).
+4. The confirmation token is passed to the child process in the environment
+   variable `STONEWRIGHT_CONFIRMATION_TOKEN` and never as an argument. It is not
+   printed. `--issue-token` asks the plugin to print a token for exactly that
+   rollback; the plugin applies its production-safe rules to the rollback itself.
+5. The command prints the stdout and stderr of the plugin command. Exit codes:
+   `0` = done, `1` = failed, `2` = a confirmation token is required.
+6. One local audit row (`stonewright-rescue-status` or
+   `stonewright-rescue-rollback`) records the site, the incident id, the outcome
+   and the duration, never arguments, a token or output.
 
 ## Connection status v3
 
@@ -225,9 +262,14 @@ fields are prohibited by omission.
 `authenticated`, `refreshing`, `transient_failure`, `reauth_required`, or
 `unknown`. Terminal OAuth failures set `error_code: reauthentication_required`
 with `authentication.agent_notice_required: true` and a client-specific
-`user_action`. Continuity target is 604800 seconds (seven days) against a
-fourteen-day grant family. Automatic retry is handshake and allowlisted
-read-only bootstrap only; mutations are never retried.
+`user_action`. Continuity target is 604800 seconds (seven days) within a grant
+that ends at most 90 days after authorization, where each refresh token
+expires after 30 days without use. Each WordPress MCP request is sent once and is not
+repeated after a timeout or network error; on OAuth connections an HTTP 401
+refreshes the access token and the request is sent once more, a tool call
+included. A token refresh that got no response at all is sent once more with the same
+refresh credential within the bounds in the
+[OAuth failure contract](permanent-remediation-contracts.md#oauth-failure-and-rate-limit-contract).
 
 Degraded `stonewright-task-start` reconnects once. Recovery fields report
 whether the last good catalog is preserved and whether remote calls are

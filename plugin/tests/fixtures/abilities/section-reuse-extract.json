@@ -1,0 +1,10 @@
+{
+    "args": {
+        "post_id": 1,
+        "locator": {
+            "kind": "element",
+            "id": "parent1"
+        }
+    },
+    "expect": "ok"
+}

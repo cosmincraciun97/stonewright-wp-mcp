@@ -4,14 +4,29 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin\Pages;
 
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\Ui\Badge;
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\EmptyState;
+use Stonewright\WpMcp\Admin\Ui\FormField;
+use Stonewright\WpMcp\Admin\Ui\Html;
+use Stonewright\WpMcp\Admin\Ui\KvList;
+use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Admin\Ui\Table;
+use Stonewright\WpMcp\Admin\Ui\UtcTime;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionImportSanitizer;
+use Stonewright\WpMcp\Design\Direction\DirectionSummary;
 use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
 use Stonewright\WpMcp\Security\Permissions;
 use WP_Error;
 
 /**
  * Design Direction admin tab. Writes go through the existing direction store.
+ *
+ * The page lists every stored direction, not only the active one, so a direction that was switched off or
+ * imported as a draft is visible, says why it is not active, and can be switched on again when it is ready.
  */
 final class DesignPage {
 
@@ -20,7 +35,19 @@ final class DesignPage {
 
 	private const IMPORT_NONCE   = 'stonewright_design_import';
 	private const ACTIVATE_NONCE = 'stonewright_design_activate';
-	private const ACTIVE_FORM_ID = 'stonewright-design-active-form';
+	private const IMPORT_ID      = 'sw-design-import';
+
+	/** Seconds a refused import's reasons wait for the page that shows them. */
+	private const REFUSAL_TTL = 120;
+
+	/** Reasons printed for one refused import. */
+	private const REFUSAL_SHOWN = 5;
+
+	/** Longest reason printed, in characters. */
+	private const REFUSAL_LENGTH = 240;
+
+	/** Rows printed for one token group before the rest is summarized. */
+	private const GROUP_ROWS = 12;
 
 	private static ?DesignDirectionService $service = null;
 
@@ -34,7 +61,7 @@ final class DesignPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Design', 'stonewright' ),
-			AdminShell::experimental_menu_title( __( 'Design', 'stonewright' ) ),
+			__( 'Design', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -119,6 +146,26 @@ final class DesignPage {
 		return $on ? 'activated' : 'deactivated';
 	}
 
+	/**
+	 * Maps an import result to the notice query key: what was stored, and whether it is active.
+	 *
+	 * @param array<string, mixed>|WP_Error $result
+	 */
+	public static function notice_for_import( array|WP_Error $result ): string {
+		if ( $result instanceof WP_Error ) {
+			return 'import-error';
+		}
+		if ( true === ( $result['active_cleared'] ?? false ) ) {
+			return 'imported-draft-deactivated';
+		}
+		$id = (int) ( $result['id'] ?? 0 );
+		if ( $id > 0 && $id === (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 ) ) {
+			return 'imported-active';
+		}
+
+		return 'ready' === (string) ( $result['status'] ?? '' ) ? 'imported-ready' : 'imported-draft';
+	}
+
 	public static function handle_import(): void {
 		if ( ! Permissions::manage_options() ) {
 			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
@@ -129,18 +176,83 @@ final class DesignPage {
 			? (string) wp_unslash( $_POST['design_markdown'] )
 			: '';
 		$result   = self::import_document( $markdown, get_current_user_id() );
-		$notice   = $result instanceof WP_Error ? 'import-error' : 'imported';
+		if ( $result instanceof WP_Error ) {
+			self::remember_import_refusal( $result, get_current_user_id() );
+		}
+		$notice   = self::notice_for_import( $result );
 
 		wp_safe_redirect(
 			add_query_arg(
 				[
-					'page'                    => self::SLUG,
+					'page'                      => self::SLUG,
 					'stonewright_design_notice' => $notice,
 				],
 				admin_url( 'admin.php' )
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Keeps the reasons a refused import gave for the next page load of the same user. The reasons travel in a
+	 * short-lived transient, never in the redirect URL, so a link cannot put its own text on the page.
+	 */
+	public static function remember_import_refusal( WP_Error $error, int $user_id ): void {
+		if ( $user_id < 1 ) {
+			return;
+		}
+		set_transient( self::refusal_key( $user_id ), self::refusal_reasons( $error ), self::REFUSAL_TTL );
+	}
+
+	/**
+	 * The validator's messages and any outstanding readiness issues of a refusal, each trimmed to one line.
+	 *
+	 * @return list<string>
+	 */
+	public static function refusal_reasons( WP_Error $error ): array {
+		$raw  = [ $error->get_error_message() ];
+		$data = $error->get_error_data();
+		if ( is_array( $data ) && is_array( $data['issues'] ?? null ) ) {
+			foreach ( $data['issues'] as $issue ) {
+				if ( is_scalar( $issue ) ) {
+					$raw[] = (string) $issue;
+				}
+			}
+		}
+
+		$reasons = [];
+		foreach ( $raw as $reason ) {
+			$reason = trim( (string) preg_replace( '/\s+/', ' ', (string) $reason ) );
+			if ( '' === $reason ) {
+				continue;
+			}
+			if ( strlen( $reason ) > self::REFUSAL_LENGTH ) {
+				$reason = rtrim( substr( $reason, 0, self::REFUSAL_LENGTH ) ) . '...';
+			}
+			$reasons[ $reason ] = $reason;
+		}
+
+		return array_values( $reasons );
+	}
+
+	/**
+	 * Reads and clears the reasons remembered for this user.
+	 *
+	 * @return list<string>
+	 */
+	private static function take_import_refusal( int $user_id ): array {
+		if ( $user_id < 1 ) {
+			return [];
+		}
+		$key     = self::refusal_key( $user_id );
+		$reasons = get_transient( $key );
+		delete_transient( $key );
+
+		return is_array( $reasons ) ? array_values( array_filter( array_map( 'strval', $reasons ), static fn ( string $reason ): bool => '' !== $reason ) ) : [];
+	}
+
+	private static function refusal_key( int $user_id ): string {
+		return 'stonewright_design_import_refusal_' . $user_id;
 	}
 
 	public static function handle_activate(): void {
@@ -175,150 +287,325 @@ final class DesignPage {
 			);
 		}
 
-		$active = self::service()->active();
-		$notice = isset( $_GET['stonewright_design_notice'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$active  = self::service()->active();
+		$records = self::service()->list();
+		$notice  = isset( $_GET['stonewright_design_notice'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			? sanitize_key( (string) wp_unslash( $_GET['stonewright_design_notice'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			: '';
-		$floor  = QualityRuleRegistry::floor();
+
+		$html = self::notice_html( $notice, 'import-error' === $notice ? self::take_import_refusal( get_current_user_id() ) : [] );
+		if ( [] === $records ) {
+			$html .= Card::render(
+				__( 'Active direction', 'stonewright' ),
+				EmptyState::render(
+					__( 'No design direction yet', 'stonewright' ),
+					__( 'A design direction is the tokens, dials and rules agents follow when they build pages. Import a DESIGN.md file to create one.', 'stonewright' ),
+					[
+						'variant'      => 'first-run',
+						'actions_html' => Button::render( __( 'Go to the import', 'stonewright' ), [ 'href' => '#' . self::IMPORT_ID ] ),
+					]
+				)
+			);
+		} else {
+			$html .= is_array( $active ) ? self::active_card( $active ) : self::no_active_card();
+			$html .= self::directions_card( $records, is_array( $active ) ? (int) $active['id'] : 0 );
+		}
+		$html .= self::import_card();
+		$html .= self::quality_card();
 
 		AdminShell::open( self::SLUG );
-		?>
-		<div class="sw-design-page stonewright-design-page">
-			<header class="stonewright-page-header">
-				<div>
-					<h1><?php esc_html_e( 'Design', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Import a DESIGN.md direction, review the active contract, and keep the quality floor on generated pages.', 'stonewright' ); ?></p>
-				</div>
-			</header>
-
-			<?php if ( in_array( $notice, [ 'imported', 'activated', 'deactivated' ], true ) ) : ?>
-				<div class="notice notice-success is-dismissible sw-notice"><p><?php esc_html_e( 'Design direction updated.', 'stonewright' ); ?></p></div>
-			<?php elseif ( 'import-error' === $notice ) : ?>
-				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The DESIGN.md import was rejected. Check front matter, tokens, and secret-like prose.', 'stonewright' ); ?></p></div>
-			<?php elseif ( 'activate-error' === $notice ) : ?>
-				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The design direction could not be activated.', 'stonewright' ); ?></p></div>
-			<?php elseif ( 'deactivate-error' === $notice ) : ?>
-				<div class="notice notice-error sw-notice"><p><?php esc_html_e( 'The active design direction could not be cleared.', 'stonewright' ); ?></p></div>
-			<?php endif; ?>
-
-			<section class="sw-card" aria-labelledby="stonewright-active-direction">
-				<h2 id="stonewright-active-direction"><?php esc_html_e( 'Active direction', 'stonewright' ); ?></h2>
-				<?php if ( ! is_array( $active ) ) : ?>
-					<p><?php esc_html_e( 'No active design direction. Import a DESIGN.md file to create one.', 'stonewright' ); ?></p>
-				<?php else : ?>
-					<?php self::render_active( $active ); ?>
-				<?php endif; ?>
-			</section>
-
-			<section class="sw-card" aria-labelledby="stonewright-design-import">
-				<h2 id="stonewright-design-import"><?php esc_html_e( 'Import DESIGN.md', 'stonewright' ); ?></h2>
-				<p><?php esc_html_e( 'Paste a direction document with JSON front matter (tokens, dials, Do/Don\'t). Secrets and tool instructions are stripped before storage.', 'stonewright' ); ?></p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<input type="hidden" name="action" value="stonewright_design_import"/>
-					<?php wp_nonce_field( self::IMPORT_NONCE ); ?>
-					<p>
-						<label class="screen-reader-text" for="design_markdown"><?php esc_html_e( 'DESIGN.md', 'stonewright' ); ?></label>
-						<textarea
-							id="design_markdown"
-							name="design_markdown"
-							class="large-text code"
-							rows="12"
-							required
-						></textarea>
-					</p>
-					<p class="sw-actions">
-						<button type="submit" class="sw-btn sw-btn--primary"><?php esc_html_e( 'Import', 'stonewright' ); ?></button>
-					</p>
-				</form>
-			</section>
-
-			<section class="sw-card" aria-labelledby="stonewright-quality-floor">
-				<h2 id="stonewright-quality-floor"><?php esc_html_e( 'Quality floor', 'stonewright' ); ?></h2>
-				<p><?php esc_html_e( 'Generated pages are checked against these measurable rules. Missing evidence is not a pass.', 'stonewright' ); ?></p>
-				<ul class="sw-checklist">
-					<?php foreach ( $floor as $rule ) : ?>
-						<li>
-							<code><?php echo esc_html( (string) $rule['id'] ); ?></code>
-							<?php echo esc_html( (string) $rule['summary'] ); ?>
-							<span class="description">(<?php echo esc_html( (string) $rule['severity'] ); ?>)</span>
-						</li>
-					<?php endforeach; ?>
-				</ul>
-			</section>
-		</div>
-		<?php
+		echo Scope::wrap( Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $html ), [ 'page' => true, 'class' => 'sw-design' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
+	}
+
+	/**
+	 * What the last action did. Each outcome has its own message; errors are alerts and never go away.
+	 *
+	 * @param list<string> $reasons Why a refused import was refused.
+	 */
+	private static function notice_html( string $key, array $reasons = [] ): string {
+		if ( 'import-error' === $key ) {
+			return self::import_error_notice( $reasons );
+		}
+
+		return match ( $key ) {
+			'imported-draft-deactivated' => Notice::render( 'warn', __( 'Design direction imported, and switched off.', 'stonewright' ), __( 'This direction was the active direction, and the new revision is not ready, so it is now a draft and no longer active. Agents no longer follow a design direction. The reasons are listed under Directions.', 'stonewright' ) ),
+			'imported-active'  => Notice::render( 'ok', __( 'Design direction imported and activated.', 'stonewright' ), __( 'Agents now follow it. It is listed under Directions.', 'stonewright' ) ),
+			'imported-draft'   => Notice::render( 'warn', __( 'Design direction imported, stored as a draft.', 'stonewright' ), __( 'It is not active because its readiness checks are not met. The reasons are listed under Directions.', 'stonewright' ) ),
+			'imported-ready'   => Notice::render( 'warn', __( 'Design direction imported, but not activated.', 'stonewright' ), __( 'It passes its readiness checks. Activate it from the list below.', 'stonewright' ) ),
+			'activated'        => Notice::render( 'ok', __( 'Design direction activated.', 'stonewright' ), __( 'Agents now follow it.', 'stonewright' ) ),
+			'deactivated'      => Notice::render( 'ok', __( 'Design direction deactivated.', 'stonewright' ), __( 'Agents no longer follow a design direction. Activate it again from the list below.', 'stonewright' ) ),
+			'activate-error'   => Notice::render( 'danger', __( 'The design direction could not be activated.', 'stonewright' ), __( 'Only a direction whose readiness checks pass can be activated.', 'stonewright' ) ),
+			'deactivate-error' => Notice::render( 'danger', __( 'The active design direction could not be cleared.', 'stonewright' ), __( 'Try again. If it keeps failing, check that the site can write its options.', 'stonewright' ) ),
+			default            => '',
+		};
+	}
+
+	/**
+	 * The refusal notice: the validator's reason, or a short list of reasons, always escaped.
+	 *
+	 * @param list<string> $reasons
+	 */
+	private static function import_error_notice( array $reasons ): string {
+		$title = __( 'The DESIGN.md import was rejected.', 'stonewright' );
+		if ( [] === $reasons ) {
+			return Notice::render( 'danger', $title, __( 'Check the front matter, the tokens and any secret-like prose, then import again.', 'stonewright' ) );
+		}
+
+		$shown = array_slice( $reasons, 0, self::REFUSAL_SHOWN );
+		if ( 1 === count( $shown ) ) {
+			return Notice::render( 'danger', $title, $shown[0] );
+		}
+
+		$items = '';
+		foreach ( $shown as $reason ) {
+			$items .= Html::element( 'li', [], Html::text( $reason ) );
+		}
+		$more = count( $reasons ) - count( $shown );
+		if ( $more > 0 ) {
+			$items .= Html::element( 'li', [], Html::text( sprintf( /* translators: %d: number of reasons not shown */ _n( 'and %d more.', 'and %d more.', $more, 'stonewright' ), $more ) ) );
+		}
+
+		return Notice::render( 'danger', $title, '', [ 'text_html' => Html::element( 'ul', [ 'class' => 'sw-design__list' ], $items ) ] );
 	}
 
 	/**
 	 * @param array<string, mixed> $record
 	 */
-	private static function render_active( array $record ): void {
-		$contract  = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
-		$identity  = is_array( $contract['identity'] ?? null ) ? $contract['identity'] : [];
-		$tokens    = is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [];
-		$dials     = is_array( $contract['dials'] ?? null ) ? $contract['dials'] : [];
-		$guidance  = is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [];
-		$do        = is_array( $guidance['do'] ?? null ) ? $guidance['do'] : [];
-		$avoid     = is_array( $guidance['avoid'] ?? null ) ? $guidance['avoid'] : [];
-		$record_id = (int) ( $record['id'] ?? 0 );
-		$is_active = $record_id > 0 && $record_id === (int) get_option( DesignDirectionService::ACTIVE_OPTION, 0 );
-		?>
-		<p>
-			<strong><?php echo esc_html( (string) ( $identity['name'] ?? $record['slug'] ?? '' ) ); ?></strong>
-			<?php if ( '' !== (string) ( $identity['summary'] ?? '' ) ) : ?>
-				— <?php echo esc_html( (string) $identity['summary'] ); ?>
-			<?php endif; ?>
-		</p>
-		<form id="<?php echo esc_attr( self::ACTIVE_FORM_ID ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<input type="hidden" name="action" value="stonewright_design_activate"/>
-			<input type="hidden" name="direction_id" value="<?php echo esc_attr( (string) $record_id ); ?>"/>
-			<?php wp_nonce_field( self::ACTIVATE_NONCE ); ?>
-			<label class="sw-switch">
-				<input type="checkbox" name="direction_enabled" value="1" data-stonewright-submit-form="<?php echo esc_attr( self::ACTIVE_FORM_ID ); ?>" <?php checked( $is_active ); ?> />
-				<span><?php esc_html_e( 'Active', 'stonewright' ); ?></span>
-			</label>
-		</form>
-		<?php if ( [] !== $dials ) : ?>
-			<p>
-				<?php
-				printf(
-					/* translators: 1: variance, 2: density, 3: motion */
-					esc_html__( 'Dials — variance %1$d, density %2$d, motion %3$d', 'stonewright' ),
-					(int) ( $dials['variance'] ?? 0 ),
-					(int) ( $dials['density'] ?? 0 ),
-					(int) ( $dials['motion'] ?? 0 )
-				);
-				?>
-			</p>
-		<?php endif; ?>
-		<?php
-		$colors = is_array( $tokens['colors'] ?? null ) ? $tokens['colors'] : [];
-		if ( [] !== $colors ) :
-			?>
-			<p><strong><?php esc_html_e( 'Colors', 'stonewright' ); ?></strong></p>
-			<ul>
-				<?php foreach ( $colors as $token => $value ) : ?>
-					<li><code><?php echo esc_html( (string) $token ); ?></code> <?php echo esc_html( (string) $value ); ?></li>
-				<?php endforeach; ?>
-			</ul>
-		<?php endif; ?>
-		<?php if ( [] !== $do ) : ?>
-			<p><strong><?php esc_html_e( 'Do', 'stonewright' ); ?></strong></p>
-			<ul>
-				<?php foreach ( $do as $item ) : ?>
-					<li><?php echo esc_html( (string) $item ); ?></li>
-				<?php endforeach; ?>
-			</ul>
-		<?php endif; ?>
-		<?php if ( [] !== $avoid ) : ?>
-			<p><strong><?php esc_html_e( 'Don\'t', 'stonewright' ); ?></strong></p>
-			<ul>
-				<?php foreach ( $avoid as $item ) : ?>
-					<li><?php echo esc_html( (string) $item ); ?></li>
-				<?php endforeach; ?>
-			</ul>
-		<?php endif; ?>
-		<?php
+	private static function active_card( array $record ): string {
+		$contract = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
+		$identity = is_array( $contract['identity'] ?? null ) ? $contract['identity'] : [];
+		$tokens   = is_array( $contract['tokens'] ?? null ) ? $contract['tokens'] : [];
+		$dials    = is_array( $contract['dials'] ?? null ) ? $contract['dials'] : [];
+		$guidance = is_array( $contract['guidance'] ?? null ) ? $contract['guidance'] : [];
+		$name     = (string) ( $identity['name'] ?? $record['slug'] ?? '' );
+
+		$body = Html::element( 'p', [ 'class' => 'sw-design__name' ], Html::element( 'strong', [], Html::text( $name ) ) . ( '' !== (string) ( $identity['summary'] ?? '' ) ? ' ' . Html::text( (string) $identity['summary'] ) : '' ) );
+
+		if ( [] !== $dials ) {
+			$body .= KvList::render(
+				[
+					[ 'label' => __( 'Variance', 'stonewright' ), 'value' => (string) (int) ( $dials['variance'] ?? 0 ) ],
+					[ 'label' => __( 'Density', 'stonewright' ), 'value' => (string) (int) ( $dials['density'] ?? 0 ) ],
+					[ 'label' => __( 'Motion', 'stonewright' ), 'value' => (string) (int) ( $dials['motion'] ?? 0 ) ],
+				],
+				[ 'inline' => true, 'label' => __( 'Dials', 'stonewright' ) ]
+			);
+		}
+
+		$columns = '';
+		$groups  = [
+			'colors'     => __( 'Colors', 'stonewright' ),
+			'typography' => __( 'Typography', 'stonewright' ),
+			'spacing'    => __( 'Spacing', 'stonewright' ),
+			'radii'      => __( 'Radii', 'stonewright' ),
+			'elevation'  => __( 'Elevation', 'stonewright' ),
+			'motion'     => __( 'Motion tokens', 'stonewright' ),
+		];
+		foreach ( $groups as $group => $title ) {
+			$columns .= self::token_column( $title, $tokens[ $group ] ?? [] );
+		}
+		$columns .= self::token_column( __( 'Components', 'stonewright' ), $contract['components'] ?? [] );
+		$columns .= self::list_column( __( 'Do', 'stonewright' ), $guidance['do'] ?? [] );
+		$columns .= self::list_column( __( 'Don\'t', 'stonewright' ), $guidance['avoid'] ?? [] );
+		if ( '' !== $columns ) {
+			$body .= Html::element( 'div', [ 'class' => 'sw-design__cols' ], $columns );
+		}
+
+		return Card::render(
+			__( 'Active direction', 'stonewright' ),
+			$body,
+			[
+				'actions_html' => Badge::render( __( 'Active', 'stonewright' ), [ 'variant' => 'ok', 'dot' => true ] ),
+			]
+		);
+	}
+
+	/**
+	 * One group of the contract as a titled list of name and value rows. A value that is a set of properties reads
+	 * as "property: value" pairs. Long groups show their first rows and count the rest.
+	 *
+	 * @param mixed $entries
+	 */
+	private static function token_column( string $title, mixed $entries ): string {
+		if ( ! is_array( $entries ) || [] === $entries ) {
+			return '';
+		}
+
+		$items = [];
+		foreach ( $entries as $name => $value ) {
+			if ( count( $items ) >= self::GROUP_ROWS ) {
+				$items[] = [ 'label' => '...', 'value' => sprintf( /* translators: %d: number of rows not shown */ __( 'and %d more', 'stonewright' ), count( $entries ) - self::GROUP_ROWS ) ];
+				break;
+			}
+			if ( is_array( $value ) ) {
+				$pairs = [];
+				foreach ( $value as $property => $property_value ) {
+					$pairs[] = (string) $property . ': ' . ( is_scalar( $property_value ) ? (string) $property_value : (string) wp_json_encode( $property_value ) );
+				}
+				$value = implode( ', ', $pairs );
+			}
+			$items[] = [ 'label' => (string) $name, 'value_html' => Html::element( 'code', [], Html::text( (string) $value ) ) ];
+		}
+
+		return Html::element( 'div', [], Html::element( 'h3', [ 'class' => 'sw-design__label' ], Html::text( $title ) ) . KvList::render( $items, [ 'label' => $title ] ) );
+	}
+
+	private static function no_active_card(): string {
+		return Card::render(
+			__( 'Active direction', 'stonewright' ),
+			EmptyState::render(
+				__( 'No active design direction.', 'stonewright' ),
+				__( 'Agents follow no design direction right now. Activate a ready direction from the list below, or import one.', 'stonewright' ),
+				[ 'variant' => 'inline' ]
+			)
+		);
+	}
+
+	/**
+	 * @param mixed $items
+	 */
+	private static function list_column( string $title, mixed $items ): string {
+		if ( ! is_array( $items ) || [] === $items ) {
+			return '';
+		}
+		$list = '';
+		foreach ( $items as $item ) {
+			$list .= Html::element( 'li', [], Html::text( (string) $item ) );
+		}
+
+		return Html::element( 'div', [], Html::element( 'h3', [ 'class' => 'sw-design__label' ], Html::text( $title ) ) . Html::element( 'ul', [ 'class' => 'sw-design__list' ], $list ) );
+	}
+
+	/**
+	 * The one form for turning a direction on or off. Same action, nonce and field names as before: "direction_id"
+	 * and, to switch on, "direction_enabled" = 1.
+	 */
+	private static function activation_form( int $id, bool $on, string $name ): string {
+		$button = Button::render(
+			$on ? __( 'Activate', 'stonewright' ) : __( 'Deactivate', 'stonewright' ),
+			[
+				'type'    => 'submit',
+				'size'    => 'sm',
+				'context' => $name,
+				'name'    => $on ? 'direction_enabled' : null,
+				'value'   => $on ? '1' : null,
+			]
+		);
+
+		return FormField::post_form( 'stonewright_design_activate', self::ACTIVATE_NONCE, '_wpnonce', $button, [ 'hidden' => [ 'direction_id' => (string) $id ], 'class' => 'sw-design__form' ] );
+	}
+
+	/**
+	 * Every stored direction with its state in words, so a deactivated or draft direction is never invisible.
+	 *
+	 * @param list<array<string, mixed>> $records
+	 */
+	private static function directions_card( array $records, int $active_id ): string {
+		$rows = [];
+		foreach ( $records as $record ) {
+			$summary  = DirectionSummary::row( $record, $active_id );
+			$contract = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
+			$issues   = is_array( $contract['readiness']['issues'] ?? null ) ? array_values( array_filter( array_map( 'strval', $contract['readiness']['issues'] ), static fn ( string $issue ): bool => '' !== trim( $issue ) ) ) : [];
+			$label    = '' !== $summary['name'] ? (string) $summary['name'] : (string) $summary['slug'];
+			$status   = (string) $summary['status'];
+			$meta     = (string) $summary['slug'];
+			if ( 'ready' !== $status && 'archived' !== $status && [] !== $issues ) {
+				$more  = count( $issues ) - 1;
+				$meta .= ' · ' . sprintf( /* translators: %s: the first reason a direction is not ready */ __( 'Not ready: %s', 'stonewright' ), $issues[0] )
+					. ( $more > 0 ? ' ' . sprintf( /* translators: %d: number of further reasons */ _n( 'and %d more issue.', 'and %d more issues.', $more, 'stonewright' ), $more ) : '' );
+			}
+
+			if ( $summary['active'] ) {
+				$state  = Badge::render( __( 'Active', 'stonewright' ), [ 'variant' => 'ok', 'dot' => true ] );
+				$action = self::activation_form( (int) $summary['id'], false, $label );
+			} elseif ( 'ready' === $status && true === $summary['ready'] ) {
+				$state  = Badge::render( __( 'Ready', 'stonewright' ), [ 'variant' => 'info' ] );
+				$action = self::activation_form( (int) $summary['id'], true, $label );
+			} else {
+				$state  = 'draft' === $status || 'stale' === $status
+					? Badge::render( 'draft' === $status ? __( 'Draft', 'stonewright' ) : __( 'Stale', 'stonewright' ), [ 'variant' => 'warn' ] )
+					: Badge::render( __( 'Archived', 'stonewright' ) );
+				$action = '';
+			}
+
+			$rows[] = [
+				'direction' => [ 'text' => $label, 'meta' => $meta ],
+				'state'     => [ 'html' => $state ],
+				'revision'  => [ 'text' => (string) $summary['revision'] ],
+				'updated'   => [ 'html' => UtcTime::render( (string) $summary['updated_at'] ) ],
+				'action'    => [ 'html' => $action ],
+			];
+		}
+
+		return Card::render(
+			__( 'Directions', 'stonewright' ),
+			Table::render(
+				[
+					[ 'key' => 'direction', 'label' => __( 'Direction', 'stonewright' ), 'primary' => true ],
+					[ 'key' => 'state', 'label' => __( 'State', 'stonewright' ) ],
+					[ 'key' => 'revision', 'label' => __( 'Revision', 'stonewright' ), 'numeric' => true, 'secondary' => true ],
+					[ 'key' => 'updated', 'label' => __( 'Updated', 'stonewright' ), 'secondary' => true ],
+					[ 'key' => 'action', 'label' => __( 'Action', 'stonewright' ), 'actions' => true ],
+				],
+				$rows,
+				[ 'caption' => __( 'Stored design directions', 'stonewright' ) ]
+			),
+			[
+				'flush' => true,
+				'desc'  => __( 'Only a direction that passes its readiness checks can be active. A draft stays here until it does.', 'stonewright' ),
+			]
+		);
+	}
+
+	private static function import_card(): string {
+		$form = FormField::post_form(
+			'stonewright_design_import',
+			self::IMPORT_NONCE,
+			'_wpnonce',
+			FormField::textarea(
+				__( 'DESIGN.md', 'stonewright' ),
+				'design_markdown',
+				[
+					'id'       => 'design_markdown',
+					'rows'     => 12,
+					'code'     => true,
+					'required' => true,
+					'help'     => __( 'Paste a direction document with JSON front matter (tokens, dials, Do and Don\'t). Secrets and tool instructions are stripped before storage.', 'stonewright' ),
+				]
+			) . Button::group( [ Button::render( __( 'Import direction', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'primary' ] ) ] ),
+			[ 'class' => 'sw-ui-stack' ]
+		);
+
+		return Card::render( __( 'Import DESIGN.md', 'stonewright' ), $form, [ 'id' => self::IMPORT_ID ] );
+	}
+
+	private static function quality_card(): string {
+		$rows = [];
+		foreach ( QualityRuleRegistry::floor() as $rule ) {
+			$severity = (string) $rule['severity'];
+			$rows[]   = [
+				'rule'     => [ 'html' => Html::element( 'code', [], Html::text( (string) $rule['id'] ) ) ],
+				'check'    => [ 'text' => (string) $rule['summary'] ],
+				'severity' => [ 'html' => 'error' === $severity ? Badge::render( __( 'Error', 'stonewright' ), [ 'variant' => 'danger', 'icon' => 'x' ] ) : Badge::render( __( 'Warning', 'stonewright' ), [ 'variant' => 'warn', 'icon' => 'alert' ] ) ],
+			];
+		}
+
+		return Card::render(
+			__( 'Quality floor', 'stonewright' ),
+			Table::render(
+				[
+					[ 'key' => 'rule', 'label' => __( 'Rule', 'stonewright' ), 'primary' => true ],
+					[ 'key' => 'check', 'label' => __( 'What it checks', 'stonewright' ) ],
+					[ 'key' => 'severity', 'label' => __( 'Severity', 'stonewright' ) ],
+				],
+				$rows,
+				[ 'caption' => __( 'Quality floor rules', 'stonewright' ) ]
+			),
+			[
+				'flush' => true,
+				'desc'  => __( 'Generated pages are checked against these measurable rules. Missing evidence is not a pass.', 'stonewright' ),
+			]
+		);
 	}
 }

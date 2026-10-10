@@ -12,13 +12,13 @@ use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
  */
 final class BlueprintsPageRenderTest extends TestCase {
 
-	public function test_admin_bootstrap_reuses_blueprint_styles_only_for_prompt_library(): void {
+	public function test_admin_bootstrap_maps_no_page_to_the_blueprint_styles(): void {
 		$source = (string) file_get_contents(
 			dirname( __DIR__, 3 ) . '/includes/Admin/AdminBootstrap.php'
 		);
 		$this->assertStringNotContainsString( "'stonewright-blueprints'", $source );
 		$this->assertStringContainsString( "'stonewright-prompts'", $source );
-		$this->assertStringContainsString( 'blueprints.css', $source );
+		$this->assertStringNotContainsString( 'blueprints.css', $source );
 		// Class reference keeps bootstrap in the type graph for static analysis.
 		$this->assertTrue( class_exists( AdminBootstrap::class ) );
 	}
@@ -35,9 +35,6 @@ final class BlueprintsPageRenderTest extends TestCase {
 		$this->assertStringContainsString( 'sw-blueprint-grid', $html );
 		$this->assertStringContainsString( 'sw-blueprint-card__actions', $html );
 		$this->assertStringContainsString( 'Copy AI Prompt', $html );
-		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/blueprints.css' );
-		$this->assertStringContainsString( '.sw-blueprint-card__actions', $css );
-		$this->assertStringContainsString( 'gap:', $css );
 		// Full multi-line prompt, not the old one-liner only.
 		$this->assertStringContainsString( 'stonewright/blueprint-apply', $html );
 		$this->assertStringContainsString( 'stonewright-task-start', $html );

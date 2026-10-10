@@ -19,9 +19,9 @@ maintainer debugging.
 ## 1. Install And Enable Stonewright
 
 Install the WordPress plugin from a GitHub release ZIP, activate it, then open
-**Stonewright > Configuration**.
+**Stonewright > Setup**.
 
-Generate a WordPress Application Password from the Configuration page and copy
+Generate a WordPress Application Password in **Setup > Get started** and copy
 it immediately. WordPress shows the password once.
 
 ## 2. Open The Antigravity MCP Config
@@ -40,7 +40,7 @@ In Antigravity IDE you can also open it from the agent panel:
 
 ## 3. Add Stonewright
 
-Use the latest release tarball shown by the Stonewright Configuration page.
+Use the latest release tarball shown by the Stonewright Setup page (**Updates** view).
 First register the alias and credential through the hidden installer prompt:
 
 ```bash

@@ -111,12 +111,14 @@ final class Navigation extends AbilityKernel {
 		}
 
 		$id = wp_insert_post(
-			[
-				'post_type'    => 'wp_navigation',
-				'post_status'  => 'publish',
-				'post_title'   => $title,
-				'post_content' => $content,
-			],
+			wp_slash(
+				[
+					'post_type'    => 'wp_navigation',
+					'post_status'  => 'publish',
+					'post_title'   => $title,
+					'post_content' => $content,
+				]
+			),
 			true
 		);
 		if ( is_wp_error( $id ) ) {
@@ -150,7 +152,7 @@ final class Navigation extends AbilityKernel {
 		}
 
 		$snapshot_id = Backup::snapshot_post( (int) $post->ID );
-		$result      = wp_update_post( $payload, true );
+		$result      = wp_update_post( wp_slash( $payload ), true );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}

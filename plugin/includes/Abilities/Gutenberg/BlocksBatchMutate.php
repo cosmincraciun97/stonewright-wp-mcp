@@ -7,12 +7,23 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
+use Stonewright\WpMcp\SectionReuse\Builder;
+use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
+use Stonewright\WpMcp\SectionReuse\GutenbergSectionInserter;
+use Stonewright\WpMcp\SectionReuse\MarkupSkeleton;
+use Stonewright\WpMcp\SectionReuse\PortableSection;
+use Stonewright\WpMcp\SectionReuse\ReuseSource;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockSerializer;
 use Stonewright\WpMcp\Support\BlockTree;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Transactional, optimistic-hash batch mutation for Gutenberg post content.
@@ -29,7 +40,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Parses one post, applies insert/update/move/remove block operations in memory, then snapshots, writes, readbacks, and rolls back once on failure.', 'stonewright' );
+		return __( 'Parses one post, applies insert/update/move/remove block operations in memory, then snapshots, writes, readbacks, and rolls back once on failure. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the post; adapt its blocks in the same batch with update operations that carry section_ref and relative_path.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -65,6 +76,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 					'description' => 'Safety limit for include_full dry-run previews. Full preview fails closed when the compiled tree exceeds it.',
 				],
 				'change_set_id'        => [ 'type' => 'string', 'maxLength' => 96 ],
+				'repair_of'            => ChangeSet::input_properties()['repair_of'],
+				'supersedes'           => ChangeSet::input_properties()['supersedes'],
 				'confirmation_token'   => [ 'type' => 'string' ],
 				'allow_raw_html'       => [ 'type' => 'boolean', 'default' => false ],
 				'custom_code_grant'    => [
@@ -79,8 +92,13 @@ final class BlocksBatchMutate extends AbilityKernel {
 						'type'                 => 'object',
 						'additionalProperties' => true,
 						'properties'           => [
-							'action'      => [ 'type' => 'string', 'enum' => [ 'insert', 'update', 'move', 'remove' ] ],
+							'action'      => [ 'type' => 'string', 'enum' => [ 'insert', 'update', 'move', 'remove', 'insert_section' ] ],
 							'path'        => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ] ],
+							'op_id'       => [ 'type' => 'string', 'maxLength' => 64, 'description' => 'insert_section: a name later update operations use as section_ref.' ],
+							'section'     => [ 'type' => 'object', 'description' => 'insert_section: the SectionPortableV1 payload returned by stonewright-section-reuse-extract for a gutenberg section. Inserted at path (the parent, empty for the post root) and position, or before_path or after_path.' ],
+							'detach_patterns' => [ 'description' => 'insert_section: true, or a list of pattern ids, to replace a synced pattern the section refers to with a local copy of its blocks. Without it a synced pattern stays a reference.', 'type' => [ 'boolean', 'array' ], 'items' => [ 'type' => 'integer', 'minimum' => 1 ] ],
+							'section_ref' => [ 'type' => 'string', 'maxLength' => 64, 'description' => 'update: the op_id of an insert_section of this batch. With relative_path it addresses a block of the new section, wherever earlier operations moved it.' ],
+							'relative_path' => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ], 'description' => 'update with section_ref: the path inside the inserted section, starting with the index among the blocks of the payload.' ],
 							'position'    => [ 'type' => 'integer', 'minimum' => 0 ],
 							'before_path' => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ] ],
 							'after_path'  => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ] ],
@@ -109,6 +127,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 				'applied'             => [ 'type' => 'integer' ],
 				'items'               => [ 'type' => 'array' ],
 				'write_receipt'       => [ 'type' => 'object' ],
+				'change_set'          => ChangeSet::output_property(),
 				'verification_status' => [ 'type' => 'string' ],
 				'rollback_status'     => [ 'type' => 'string' ],
 				'preview_omitted'     => [ 'type' => 'boolean' ],
@@ -140,6 +159,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? array_values( $args['operations'] ) : [];
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one block operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				$duplicate = BatchOperationIds::duplicate( $operations );
+				if ( null !== $duplicate ) {
+					return $duplicate;
 				}
 
 				$dry_run      = ! empty( $args['dry_run'] );
@@ -176,7 +199,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 					}
 				}
 
-				$parsed  = parse_blocks( (string) $post->post_content );
+				$parsed  = BlockTree::parse( (string) $post->post_content );
 				$working = is_array( $parsed ) ? $parsed : [];
 				$allow_raw = ! empty( $args['allow_raw_html'] );
 				$grant     = (string) ( $args['custom_code_grant'] ?? '' );
@@ -215,7 +238,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 								'block_names'      => self::block_names( $working, 25 ),
 							],
 							'full_mode_hint'      => 'Static or third-party blocks must go through stonewright/blocks-queue-change and the browser finalizer.',
-							'finalizer_url'       => FinalizerPage::url(),
+							'finalizer_url'       => QueueConsole::session_link(),
 						];
 					}
 					$queued = BlockQueue::enqueue_many( $items );
@@ -251,19 +274,20 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'block_names'      => self::block_names( $working, 25 ),
 						],
 						'full_mode_hint'      => '',
-						'finalizer_url'       => FinalizerPage::url( '', (string) ( $queued[0]['session_id'] ?? '' ) ),
+						'finalizer_url'       => QueueConsole::session_link( '', (string) ( $queued[0]['session_id'] ?? '' ) ),
 					];
 				}
 
-				$gated = RawHtmlGate::assert_operations( $operations, $allow_raw, $grant, $post_id, ! $dry_run );
+				$gated = RawHtmlGate::assert_operations( $this->gate_operations( $operations ), $allow_raw, $grant, $post_id, ! $dry_run );
 				if ( $gated instanceof \WP_Error ) {
 					return $gated;
 				}
 
 				$items   = [];
+				$context = [ 'post_id' => $post_id ];
 				foreach ( $operations as $index => $raw ) {
 					$operation = is_array( $raw ) ? $raw : [];
-					$result    = $this->apply_operation( $working, $operation );
+					$result    = $this->apply_operation( $working, $operation, $context );
 					if ( $result instanceof \WP_Error ) {
 						$items[] = [
 							'index' => $index,
@@ -276,23 +300,29 @@ final class BlocksBatchMutate extends AbilityKernel {
 						];
 						return $this->error(
 							'batch_operation_failed',
-							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ),
-							[
-								'status'          => 400,
-								'items'           => $items,
-								'failed_index'    => $index,
-								'retryable'       => true,
-								'before_sha256'   => $before_hash,
-								'root_error_code' => $result->get_error_code(),
-							]
+							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ) . SectionReuseSetting::refusal_note( (string) $result->get_error_code() ) . ( ElementorSectionInserter::UNSUPPORTED_DROP_CODE === (string) $result->get_error_code() ? ' ' . $result->get_error_message() : '' ),
+							array_merge(
+								[
+									'status'          => 400,
+									'items'           => $items,
+									'failed_index'    => $index,
+									'retryable'       => true,
+									'before_sha256'   => $before_hash,
+									'root_error_code' => $result->get_error_code(),
+								],
+								SectionReuseSetting::refusal_flags( (string) $result->get_error_code() )
+							)
 						);
 					}
-					$items[] = [
-						'index' => $index,
-						'ok'    => true,
-						'action' => (string) ( $operation['action'] ?? '' ),
-						'path'  => $result['path'] ?? [],
-					];
+					$items[] = array_merge(
+						[
+							'index'  => $index,
+							'ok'     => true,
+							'action' => (string) ( $operation['action'] ?? '' ),
+							'path'   => $result['path'] ?? [],
+						],
+						array_diff_key( $result, [ 'path' => true ] )
+					);
 				}
 
 				$after_html = BlockSerializer::serialize( $working );
@@ -335,7 +365,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 				];
 				if ( $dry_run ) {
 					if ( $include_full ) {
-						$response['preview'] = $working;
+						$response['preview'] = self::without_section_tags( $working );
 					}
 					return $response;
 				}
@@ -376,7 +406,8 @@ final class BlocksBatchMutate extends AbilityKernel {
 					);
 				}
 
-				$written = wp_update_post( [ 'ID' => $post_id, 'post_content' => $after_html ], true );
+				// wp_update_post() expects slashed input and unslashes it before the write.
+				$written = wp_update_post( wp_slash( [ 'ID' => $post_id, 'post_content' => $after_html ] ), true );
 				if ( is_wp_error( $written ) ) {
 					$rollback = $this->restore_and_verify( $post_id, $snapshot_id, $before_hash );
 					$receipt  = $this->failed_receipt( $receipt, $written, $rollback, 'write.persist' );
@@ -426,6 +457,216 @@ final class BlocksBatchMutate extends AbilityKernel {
 		);
 	}
 
+	/**
+	 * ChangeSetV1 of the batch: one planned block change per operation, read from
+	 * the request, the per-operation results and the write receipt. The post
+	 * content is verified as one document, so a readback that differs misses every
+	 * planned change and no block-level change is reported as unexpected.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data    = ChangeSetSources::data( $result );
+		$items   = array_values( (array) ( $data['items'] ?? [] ) );
+		$planned = [];
+		foreach ( array_values( (array) ( $args['operations'] ?? [] ) ) as $index => $operation ) {
+			$operation = is_array( $operation ) ? $operation : [];
+			$item      = is_array( $items[ $index ] ?? null ) ? $items[ $index ] : [];
+			$path      = is_array( $item['path'] ?? null ) ? $item['path'] : ( is_array( $operation['path'] ?? null ) ? $operation['path'] : [] );
+			$planned[] = ChangeSet::entry( 'block', [] === $path ? 'root' : implode( '.', array_map( 'intval', $path ) ), (string) ( $operation['action'] ?? '' ), $index );
+		}
+		$receipt = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+		$before  = (string) ( $receipt['before_hash'] ?? '' );
+		$after   = (string) ( $receipt['after_hash'] ?? '' );
+
+		$inputs  = ChangeSetSources::receipt(
+			$args,
+			$result,
+			$status,
+			$planned,
+			$planned,
+			[ 'unchanged' => 'ok' === $status && empty( $args['dry_run'] ) && empty( $data['queued'] ) && '' !== $before && $before === $after ]
+		);
+		$sources = [];
+		foreach ( $items as $item ) {
+			if ( is_array( $item['reuse_source'] ?? null ) ) {
+				$sources[] = $item['reuse_source'];
+			}
+		}
+		if ( [] !== $sources ) {
+			$inputs['extensions'] = [ 'reuse_source' => ReuseSource::for_change_set( $sources ) ];
+		}
+
+		return $inputs;
+	}
+
+	/**
+	 * The operations as the raw HTML gate should see them: each block of a section to insert is judged like a
+	 * block inserted by hand, so custom code in a copied section needs the same approval.
+	 *
+	 * @param array<int,mixed> $operations
+	 * @return array<int,mixed>
+	 */
+	private function gate_operations( array $operations ): array {
+		$out = [];
+		foreach ( $operations as $operation ) {
+			if ( is_array( $operation ) && 'insert_section' === sanitize_key( (string) ( $operation['action'] ?? '' ) ) && is_array( $operation['section']['blocks'] ?? null ) ) {
+				foreach ( $operation['section']['blocks'] as $block ) {
+					if ( is_array( $block ) ) {
+						$out[] = [ 'block' => $block ];
+					}
+				}
+				continue;
+			}
+			$out[] = $operation;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Copies a portable section into the working blocks.
+	 *
+	 * Everything the batch does to the post happens once, later: the single snapshot, write and readback of the
+	 * batch cover the copy. The blocks are the saved markup of an existing page, so they are not queued for the
+	 * browser finalizer; changes to their text are held to their tag structure (see MarkupSkeleton).
+	 *
+	 * @param array<int,array<string,mixed>> $blocks
+	 * @param array<string,mixed>            $operation
+	 * @param array<string,mixed>            $context
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function insert_section( array &$blocks, array $operation, array &$context ): array|\WP_Error {
+		// The live option, not the tool list: a client may keep a stale list.
+		if ( ! SectionReuseSetting::is_enabled() ) {
+			return SectionReuseSetting::off_error();
+		}
+		$unsupported = ElementorSectionInserter::unsupported_drop_settings( $operation, 'a Gutenberg section' );
+		if ( null !== $unsupported ) {
+			return $unsupported;
+		}
+		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::GUTENBERG );
+		if ( $payload instanceof \WP_Error ) {
+			return $payload;
+		}
+		if ( 'builder' === (string) get_post_meta( (int) ( $context['post_id'] ?? 0 ), '_elementor_edit_mode', true ) ) {
+			return $this->error(
+				'section_builder_mismatch',
+				__( 'This post is built with Elementor. A Gutenberg section is never converted to Elementor.', 'stonewright' ),
+				[ 'status' => 409, 'target_builder' => 'elementor' ]
+			);
+		}
+		$source = ReuseSource::of_payload( $payload );
+		if ( null !== $source ) {
+			$access = ReuseSource::check( $source );
+			if ( $access instanceof \WP_Error ) {
+				return $access;
+			}
+		}
+		$detach = $operation['detach_patterns'] ?? false;
+		$built  = GutenbergSectionInserter::instantiate( $payload, $blocks, is_array( $detach ) ? array_values( array_map( 'intval', $detach ) ) : (bool) $detach );
+		if ( $built instanceof \WP_Error ) {
+			return $built;
+		}
+		$path   = self::path( $operation['path'] ?? [] );
+		$target = $this->insert_target( $blocks, $path, $operation );
+		if ( $target instanceof \WP_Error ) {
+			return $target;
+		}
+		[ $parent_path, $position ] = $target;
+		if ( [] !== $parent_path && null === BlockTree::get( $blocks, $parent_path ) ) {
+			return $this->error( 'invalid_path', __( 'Insert parent path not found.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		$position = min( $position, self::sibling_count( $blocks, $parent_path ) );
+		$op_id    = isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) ? $operation['op_id'] : '';
+		$inserted = 0;
+		foreach ( $built['blocks'] as $index => $block ) {
+			$normalized = $this->normalize_block( $block, 'operations.insert_section.blocks.' . $index );
+			if ( $normalized instanceof \WP_Error ) {
+				return $normalized;
+			}
+			if ( '' !== $op_id ) {
+				$normalized['swRef']      = $op_id;
+				$normalized['swRefIndex'] = $index;
+			}
+			$next = $this->tree_insert( $blocks, $parent_path, $position + $inserted, $normalized );
+			if ( $next instanceof \WP_Error ) {
+				return $next;
+			}
+			$blocks = $next;
+			++$inserted;
+		}
+
+		return array_merge(
+			[ 'path' => array_merge( $parent_path, [ $position ] ), 'blocks' => $inserted ],
+			null === $source ? [] : [ 'reuse_source' => $source ],
+			[] === $built['anchors_renamed'] ? [] : [ 'anchors_renamed' => $built['anchors_renamed'] ],
+			[] === $built['detached'] ? [] : [ 'detached' => $built['detached'] ],
+			[] === $built['warnings'] ? [] : [ 'warnings' => $built['warnings'] ]
+		);
+	}
+
+	/**
+	 * The path of a block of an inserted section, found by the tag its insert left on it, so an earlier
+	 * operation that shifted the section does not break the address.
+	 *
+	 * @param array<int,array<string,mixed>> $blocks
+	 * @return list<int>|\WP_Error
+	 */
+	private function section_path( array $blocks, string $ref, mixed $relative ): array|\WP_Error {
+		$relative = self::path( $relative );
+		if ( [] === $relative ) {
+			return $this->error( 'invalid_path', __( 'relative_path must name a block of the inserted section, starting with its index among the blocks of the payload.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		$found = self::find_tagged( $blocks, $ref, $relative[0], [] );
+		if ( null === $found ) {
+			return $this->error( 'unknown_ref', __( 'No inserted section of this batch has that op_id.', 'stonewright' ), [ 'status' => 400, 'ref' => $ref ] );
+		}
+
+		return array_merge( $found, array_slice( $relative, 1 ) );
+	}
+
+	/**
+	 * @param array<int,array<string,mixed>> $blocks
+	 * @param list<int>                      $prefix
+	 * @return list<int>|null
+	 */
+	private static function find_tagged( array $blocks, string $ref, int $index, array $prefix ): ?array {
+		foreach ( array_values( $blocks ) as $position => $block ) {
+			if ( ( $block['swRef'] ?? null ) === $ref && (int) ( $block['swRefIndex'] ?? -1 ) === $index ) {
+				return array_merge( $prefix, [ $position ] );
+			}
+			if ( [] !== ( $block['innerBlocks'] ?? [] ) && is_array( $block['innerBlocks'] ) ) {
+				$found = self::find_tagged( $block['innerBlocks'], $ref, $index, array_merge( $prefix, [ $position ] ) );
+				if ( null !== $found ) {
+					return $found;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * The blocks without the tags that mark where an inserted section went.
+	 *
+	 * @param array<int,array<string,mixed>> $blocks
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function without_section_tags( array $blocks ): array {
+		foreach ( $blocks as $index => $block ) {
+			unset( $block['swRef'], $block['swRefIndex'] );
+			if ( is_array( $block['innerBlocks'] ?? null ) ) {
+				$block['innerBlocks'] = self::without_section_tags( $block['innerBlocks'] );
+			}
+			$blocks[ $index ] = $block;
+		}
+
+		return $blocks;
+	}
+
 	/** @param array<int,mixed> $operations */
 	private function has_remove( array $operations ): bool {
 		foreach ( $operations as $operation ) {
@@ -436,10 +677,26 @@ final class BlocksBatchMutate extends AbilityKernel {
 		return false;
 	}
 
-	/** @param array<int,array<string,mixed>> $blocks @param array<string,mixed> $operation @return array<string,mixed>|\WP_Error */
-	private function apply_operation( array &$blocks, array $operation ): array|\WP_Error {
-		$action = sanitize_key( (string) ( $operation['action'] ?? '' ) );
-		$path   = self::path( $operation['path'] ?? [] );
+	/**
+	 * @param array<int,array<string,mixed>> $blocks
+	 * @param array<string,mixed>            $operation
+	 * @param array<string,mixed>            $context   Facts of the batch an operation needs: the post id.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function apply_operation( array &$blocks, array $operation, array &$context = [] ): array|\WP_Error {
+		$action  = sanitize_key( (string) ( $operation['action'] ?? '' ) );
+		$via_ref = isset( $operation['section_ref'] ) && is_string( $operation['section_ref'] ) && '' !== $operation['section_ref'];
+		if ( 'insert_section' === $action ) {
+			return $this->insert_section( $blocks, $operation, $context );
+		}
+		if ( $via_ref ) {
+			$resolved = $this->section_path( $blocks, (string) $operation['section_ref'], $operation['relative_path'] ?? [] );
+			if ( $resolved instanceof \WP_Error ) {
+				return $resolved;
+			}
+			$operation['path'] = $resolved;
+		}
+		$path = self::path( $operation['path'] ?? [] );
 		if ( 'insert' === $action ) {
 			$target = $this->insert_target( $blocks, $path, $operation );
 			if ( $target instanceof \WP_Error ) {
@@ -500,6 +757,13 @@ final class BlocksBatchMutate extends AbilityKernel {
 				$mutation['attrs'] = array_merge( is_array( $existing['attrs'] ?? null ) ? $existing['attrs'] : [], $operation['attrs'] );
 			}
 			if ( array_key_exists( 'innerHTML', $operation ) ) {
+				if ( $via_ref && ! MarkupSkeleton::same( (string) ( $existing['innerHTML'] ?? '' ), (string) $operation['innerHTML'] ) ) {
+					return $this->error(
+						'markup_structure_changed',
+						__( 'A change to a block of a copied section may change its text, links and images, not its tags. Static blocks are written by the browser finalizer when their structure must change.', 'stonewright' ),
+						[ 'status' => 400, 'path' => $path ]
+					);
+				}
 				if ( ! empty( $existing['innerBlocks'] ) ) {
 					return $this->error(
 						'unsafe_nested_inner_html',
@@ -923,6 +1187,31 @@ final class BlocksBatchMutate extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * The caller gets the exception class; the message stays in the server log, where it cannot
+	 * leak paths, queries, or credentials into a tool response.
+	 */
+	private function registry_failure( \Throwable $throwable, string $context ): \WP_Error {
+		Logger::error(
+			'block_registry_unavailable',
+			[
+				'path'        => $context,
+				'error_class' => get_class( $throwable ),
+				'message'     => $throwable->getMessage(),
+			]
+		);
+		return $this->error(
+			'block_registry_unavailable',
+			__( 'The registered block schema could not be loaded safely.', 'stonewright' ),
+			[
+				'status'      => 500,
+				'path'        => $context,
+				'detail'      => __( 'The block registry lookup failed; see the server log for the cause.', 'stonewright' ),
+				'error_class' => get_class( $throwable ),
+			]
+		);
+	}
+
 	/** @param array<string,mixed> $block */
 	private function validate_block_schema( array $block, string $context ): ?\WP_Error {
 		if ( ! class_exists( '\WP_Block_Type_Registry' ) ) {
@@ -935,11 +1224,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 		try {
 			$registry = \WP_Block_Type_Registry::get_instance();
 		} catch ( \Throwable $throwable ) {
-			return $this->error(
-				'block_registry_unavailable',
-				__( 'The registered block schema could not be loaded safely.', 'stonewright' ),
-				[ 'status' => 500, 'path' => $context, 'detail' => $throwable->getMessage() ]
-			);
+			return $this->registry_failure( $throwable, $context );
 		}
 		if ( ! is_object( $registry ) || ! method_exists( $registry, 'get_registered' ) ) {
 			return $this->error( 'block_registry_unavailable', __( 'The registered block schema could not be loaded safely.', 'stonewright' ), [ 'status' => 500, 'path' => $context ] );
@@ -948,13 +1233,13 @@ final class BlocksBatchMutate extends AbilityKernel {
 		try {
 			$registered = $registry->get_registered( $name );
 		} catch ( \Throwable $throwable ) {
-			return $this->error( 'block_registry_unavailable', __( 'The registered block schema could not be loaded safely.', 'stonewright' ), [ 'status' => 500, 'path' => $context, 'detail' => $throwable->getMessage() ] );
+			return $this->registry_failure( $throwable, $context );
 		}
 
 		if ( ! is_object( $registered ) ) {
 			return null;
 		}
-		$attribute_schemas = isset( $registered->attributes ) && is_array( $registered->attributes ) ? $registered->attributes : [];
+		$attribute_schemas = AttributeValidator::schema_for_type( $registered );
 		$attributes        = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : [];
 		$validated         = AttributeValidator::validate( $name, $attributes, $attribute_schemas );
 		if ( $validated instanceof \WP_Error ) {

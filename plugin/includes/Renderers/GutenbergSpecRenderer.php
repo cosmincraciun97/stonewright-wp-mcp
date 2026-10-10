@@ -177,14 +177,18 @@ final class GutenbergSpecRenderer {
 			case 'row':
 				$children = [];
 				foreach ( (array) ( $block['blocks'] ?? [] ) as $child_index => $child ) {
-					$mapped = self::render_block( (array) $child, array_merge( $path, [ 'blocks', (int) $child_index ] ), $diagnostics, $tokens );
-					if ( null === $mapped ) {
+					$child      = (array) $child;
+					$child_path = array_merge( $path, [ 'blocks', (int) $child_index ] );
+					// Direct children of a row become core/column; an explicit column node
+					// is the column itself, any other node is wrapped in one.
+					if ( 'column' === (string) ( $child['type'] ?? '' ) ) {
+						$children[] = self::wrap_in_column( self::render_children( $child, $child_path, $diagnostics, $tokens ) );
 						continue;
 					}
-					// Direct children of a row become core/column; explicit column nodes pass through.
-					$children[] = 'core/column' === ( $mapped['blockName'] ?? '' )
-						? $mapped
-						: self::wrap_in_column( [ $mapped ] );
+					$mapped = self::render_block( $child, $child_path, $diagnostics, $tokens );
+					if ( null !== $mapped ) {
+						$children[] = self::wrap_in_column( [ $mapped ] );
+					}
 				}
 				$open  = '<div class="wp-block-columns">';
 				$close = '</div>';
@@ -195,32 +199,51 @@ final class GutenbergSpecRenderer {
 					'innerContent' => array_merge( [ $open ], array_fill( 0, count( $children ), null ), [ $close ] ),
 					'innerBlocks'  => $children,
 				];
+			case 'card':
 			case 'column':
-				$children = [];
-				foreach ( (array) ( $block['blocks'] ?? [] ) as $child_index => $child ) {
-					$mapped = self::render_block( (array) $child, array_merge( $path, [ 'blocks', (int) $child_index ] ), $diagnostics, $tokens );
-					if ( null !== $mapped ) {
-						$children[] = $mapped;
-					}
-				}
-				// Orphan column (section-level, not nested under a row) → group for backward compatibility.
-				$blocks_depth = count( array_filter( $path, static fn( $p ): bool => 'blocks' === $p ) );
-				if ( $blocks_depth <= 1 ) {
-					$open  = '<div class="wp-block-group">';
-					$close = '</div>';
-					return [
-						'blockName'    => 'core/group',
-						'attrs'        => [ 'layout' => [ 'type' => 'constrained' ] ],
-						'innerHTML'    => $open . $close,
-						'innerContent' => array_merge( [ $open ], array_fill( 0, count( $children ), null ), [ $close ] ),
-						'innerBlocks'  => $children,
-					];
-				}
-				return self::wrap_in_column( $children );
+				// A column that is not a direct child of a row (those are handled above) and a
+				// card are containers: a group holding their nested blocks.
+				return self::group( self::render_children( $block, $path, $diagnostics, $tokens ) );
 			default:
 				$diagnostics[] = self::unsupported_node( $type, $path );
 				return null;
 		}
+	}
+
+	/**
+	 * Render the nested `blocks` of a container node.
+	 *
+	 * @param array<string, mixed> $block
+	 * @param array<int, string|int> $path
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @param array{colors?: array<string, string>, typography?: array<string, mixed>} $tokens
+	 * @return list<array<string, mixed>>
+	 */
+	private static function render_children( array $block, array $path, array &$diagnostics, array $tokens ): array {
+		$children = [];
+		foreach ( (array) ( $block['blocks'] ?? [] ) as $child_index => $child ) {
+			$mapped = self::render_block( (array) $child, array_merge( $path, [ 'blocks', (int) $child_index ] ), $diagnostics, $tokens );
+			if ( null !== $mapped ) {
+				$children[] = $mapped;
+			}
+		}
+		return $children;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $children
+	 * @return array<string, mixed>
+	 */
+	private static function group( array $children ): array {
+		$open  = '<div class="wp-block-group">';
+		$close = '</div>';
+		return [
+			'blockName'    => 'core/group',
+			'attrs'        => [ 'layout' => [ 'type' => 'constrained' ] ],
+			'innerHTML'    => $open . $close,
+			'innerContent' => array_merge( [ $open ], array_fill( 0, count( $children ), null ), [ $close ] ),
+			'innerBlocks'  => $children,
+		];
 	}
 
 	/**

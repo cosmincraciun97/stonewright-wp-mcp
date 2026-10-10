@@ -98,8 +98,11 @@ Terminal grant/client failures clear the local state and return
 `reauthentication_required` with a model-visible `user_action`; transient HTTP
 or network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
 breaker. Access tokens last one hour. Seven-day continuity is a refresh SLO
-against a fourteen-day grant family. Handshake and allowlisted read-only
-bootstrap calls may retry once; mutations never retry. Degraded
+within a grant that ends at most 90 days after authorization, where each
+refresh token expires after 30 days without use. Each WordPress MCP
+request is sent once and is not repeated after a timeout or network error; on
+OAuth connections an HTTP 401 refreshes the access token and the request is
+sent once more, a tool call included. Degraded
 `stonewright-task-start` reconnects once. See
 [Permanent remediation contracts](permanent-remediation-contracts.md).
 

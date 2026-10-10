@@ -19,7 +19,7 @@
   "config_format": "cli-only",
   "official_cli_update": "claude mcp add",
   "official_cli_remove": "claude mcp remove",
-  "oauth_support": false,
+  "oauth_support": true,
   "app_password_support": true,
   "relist_behavior": "restart-session",
   "new_task_required_after_catalog_change": true,

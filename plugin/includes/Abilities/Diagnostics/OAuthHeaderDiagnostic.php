@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Diagnostics;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
-use Stonewright\WpMcp\OAuth\Middleware;
+use Stonewright\WpMcp\Authorization\WordPress\ProtectedResource;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -68,17 +68,17 @@ final class OAuthHeaderDiagnostic extends AbilityKernel {
 	public function execute( array $args ): array|\WP_Error {
 		$route = $this->route( isset( $args['route'] ) && is_scalar( $args['route'] ) ? (string) $args['route'] : '' );
 		$route = '/' . ltrim( $route, '/' );
-		$is_oauth_route = Middleware::is_mcp_route( $route );
+		$is_oauth_route = ProtectedResource::is_protected_route( $route );
 		$is_rest_route  = '' !== $route && ( str_starts_with( $route, '/wp-json/' ) || str_starts_with( $route, '/rest/' ) || str_starts_with( $route, '/mcp/' ) );
 		$server_header  = trim( (string) ( $_SERVER['HTTP_AUTHORIZATION'] ?? '' ) );
 		$redirect_header = trim( (string) ( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '' ) );
 		$header_seen    = '' !== $server_header || '' !== $redirect_header;
-		$authorization  = Middleware::get_authorization_header();
-		$bearer_parsed  = Middleware::has_bearer_authorization( $authorization );
+		$authorization  = ProtectedResource::authorization_header();
+		$bearer_parsed  = null !== ProtectedResource::bearer_token( $authorization );
 		$basic_parsed   = 1 === preg_match( '/^\s*Basic\s+\S/i', $authorization );
 		$current_user   = get_current_user_id() > 0;
 		$auth_succeeded = $is_oauth_route
-			? ( $bearer_parsed && Middleware::current_user_can_access_mcp() )
+			? ( $bearer_parsed && ProtectedResource::current_user_can_use_mcp() )
 			: $current_user;
 		$proxy_signal = '' !== (string) ( $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '' )
 			|| '' !== (string) ( $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' )

@@ -4,6 +4,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\SiteHealthRunner;
 /** @stonewright-status stable */
 final class SiteHealthTest extends AbilityKernel {
 	public function name(): string {
@@ -11,9 +12,22 @@ final class SiteHealthTest extends AbilityKernel {
 	public function label(): string {
  return __( 'Site: Health test', 'stonewright' ); }
 	public function description(): string {
- return __( 'Runs a named site health check when Site Health REST is available.', 'stonewright' ); }
+ return __( 'Runs one named WordPress Site Health check on the server and returns its status, label, description and badge.', 'stonewright' ); }
 	public function category(): string {
  return 'site'; }
+	/**
+	 * Some of the checks contact wordpress.org.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'openWorldHint' => true,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'=>'object',
@@ -29,13 +43,20 @@ final class SiteHealthTest extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::manage_options(); }
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$test= (string) $args['test'];
-			// Prefer REST controller if present; otherwise return structured unsupported.
-			if ( !class_exists('\\WP_Site_Health') ) {
+			if ( ! class_exists( '\WP_Site_Health' ) && defined( 'ABSPATH' ) && is_file( ABSPATH . 'wp-admin/includes/class-wp-site-health.php' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/class-wp-site-health.php';
+			}
+			if ( ! class_exists( '\WP_Site_Health' ) ) {
 				return [ 'supported'=>false,'test'=>$test,'hint'=>'Site Health class unavailable.' ];
 			}
-			return [ 'supported'=>true,'test'=>$test,'result'=>[ 'status'=>'unknown','note'=>'Invoke via REST /wp-site-health/v1/tests/{test} on live sites.' ] ];
+			SiteHealthRunner::load_admin_includes();
+			$result = SiteHealthRunner::run_named_test( \WP_Site_Health::get_instance(), $test );
+			if ( null === $result ) {
+				return [ 'supported'=>false,'test'=>$test,'hint'=>'This WordPress version does not provide the "' . $test . '" Site Health test.' ];
+			}
+			return [ 'supported'=>true,'test'=>$test,'result'=>$result ];
 		});
 	}
 }

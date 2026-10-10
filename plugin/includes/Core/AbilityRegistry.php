@@ -9,7 +9,9 @@ use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
+use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
@@ -72,6 +74,7 @@ use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\Diagnostics\CapabilityPreflight;
 use Stonewright\WpMcp\Abilities\Diagnostics\FormDeliveryDiagnostic;
 use Stonewright\WpMcp\Abilities\Diagnostics\OAuthHeaderDiagnostic;
+use Stonewright\WpMcp\Abilities\Elementor\NativeExecute;
 use Stonewright\WpMcp\Abilities\Elementor\ProviderDiscovery;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
@@ -289,6 +292,8 @@ use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
+use Stonewright\WpMcp\Abilities\Security\RescueRollback;
+use Stonewright\WpMcp\Abilities\Security\RescueStatus;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\Site\ChangeLog;
@@ -305,6 +310,9 @@ use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Abilities\Site\SiteSnapshot;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
+use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseExtract;
+use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseFind;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 
 /**
  * Lists every Stonewright ability and registers it with the Abilities API.
@@ -329,7 +337,13 @@ final class AbilityRegistry {
 			AuditReconcile::class,
 			RuntimeDataPurge::class,
 			IncidentRepairRecord::class,
+			RescueStatus::class,
+			RescueRollback::class,
 			CreateOneTimeLink::class,
+
+			// Section reuse: hidden from the tool lists while the setting is off.
+			SectionReuseFind::class,
+			SectionReuseExtract::class,
 
 			// Runtime.
 			PhpExecute::class,
@@ -422,6 +436,7 @@ final class AbilityRegistry {
 
 			// Elementor V3.
 			ProviderDiscovery::class,
+			NativeExecute::class,
 			ElementorStatus::class,
 			ElementorV3CapabilitiesSummary::class,
 			GetKitGlobals::class,
@@ -772,38 +787,66 @@ final class AbilityRegistry {
 				continue;
 			}
 
-			$input_schema = self::input_schema_for_ability( $ability );
-			$args         = [
-				'label'               => $ability->label(),
-				'description'         => $ability->description(),
-				'ability_class'       => RegisteredAbility::class,
-				'category'            => $ability->category(),
-				'input_schema'        => $input_schema,
-				'output_schema'       => self::output_schema_for_ability( $ability ),
-				'permission_callback' => [ $ability, 'permission_callback' ],
-				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
-				// are guaranteed valid UTF-8 regardless of client encoding.
-				// This transparently handles Windows PowerShell \uXXXX escapes.
-				'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
-					return self::execute_with_context_guard( $ability, Utf8::deep_sanitize( $input ) );
-				},
-				'meta'                => array_merge(
-					[
-						'mcp'          => [ 'public' => true ],
-						// WordPress core's `/wp-json/wp-abilities/v1/abilities`
-						// list endpoint filters by `meta.show_in_rest === true`
-						// (see WP_REST_Abilities_V1_List_Controller::get_items).
-						// Without this, every Stonewright ability is invisible
-						// to standard MCP/REST clients even though they are
-						// registered. Per-ability `meta()` overrides can opt out.
-						'show_in_rest' => true,
-					],
-					$ability->meta()
-				),
-			];
-
-			wp_register_ability( $name, $args );
+			wp_register_ability( $name, self::registration_args( $ability ) );
 		}
+	}
+
+	/**
+	 * Arguments that register one ability with the Abilities API.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function registration_args( Ability $ability ): array {
+		return [
+			'label'               => $ability->label(),
+			'description'         => $ability->description(),
+			'ability_class'       => RegisteredAbility::class,
+			'category'            => $ability->category(),
+			'input_schema'        => self::input_schema_for_ability( $ability ),
+			'output_schema'       => self::output_schema_for_ability( $ability ),
+			'permission_callback' => [ $ability, 'permission_callback' ],
+			// Wrap execute with UTF-8 deep_sanitize so all ability inputs
+			// are guaranteed valid UTF-8 regardless of client encoding.
+			// This transparently handles Windows PowerShell \uXXXX escapes.
+			'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
+				return self::execute_with_context_guard( $ability, Utf8::deep_sanitize( $input ) );
+			},
+			'meta'                => self::registration_meta( $ability ),
+		];
+	}
+
+	/**
+	 * Meta of one registered ability: its own meta() plus the exposure flags and the MCP tool
+	 * annotations.
+	 *
+	 * Exposure. WordPress 7.1 reads the single flag `meta.public` and seeds `show_in_rest` from
+	 * it; the bundled MCP adapter reads `meta.mcp.public` and falls back to `meta.public`.
+	 * Cores before 7.1 ignore `public`, and `/wp-json/wp-abilities/v1/abilities` lists only
+	 * abilities whose `meta.show_in_rest` is true, so the per-channel flags stay explicit.
+	 * An ability opts out of every channel with `public => false` in its meta(), or out of one
+	 * channel with `show_in_rest` or `mcp.public`.
+	 *
+	 * Annotations. They always come from AbilityAnnotations, which applies the `annotations`
+	 * an ability states in its meta() on top of what the registry derives.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function registration_meta( Ability $ability ): array {
+		$ability_meta = $ability->meta();
+		$public       = array_key_exists( 'public', $ability_meta ) ? true === $ability_meta['public'] : true;
+
+		$meta = array_merge(
+			[
+				'mcp'          => [ 'public' => $public ],
+				'show_in_rest' => $public,
+			],
+			$ability_meta
+		);
+
+		$meta['public']      = $public;
+		$meta['annotations'] = AbilityAnnotations::for_ability( $ability );
+
+		return $meta;
 	}
 
 	public static function ability_by_name( string $name ): ?Ability {
@@ -883,7 +926,7 @@ final class AbilityRegistry {
 			unset( $input['stonewright_context_token'] );
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
 			$result = self::maybe_project( $ability, $result, $fields );
-			return self::maybe_attach_task_start_hint( $ability, $result );
+			return AgentNotices::attach( self::maybe_attach_task_start_hint( $ability, $result ) );
 		}
 
 		$token = isset( $input['stonewright_context_token'] ) && is_string( $input['stonewright_context_token'] )
@@ -906,7 +949,7 @@ final class AbilityRegistry {
 		try {
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
 			$result = self::maybe_project( $ability, $result, $fields );
-			return self::maybe_attach_task_start_hint( $ability, $result );
+			return AgentNotices::attach( self::maybe_attach_task_start_hint( $ability, $result ) );
 		} finally {
 			ExecutionContext::clear();
 		}
@@ -1071,9 +1114,13 @@ final class AbilityRegistry {
 			return false;
 		}
 
-		foreach ( self::read_only_name_markers() as $marker ) {
-			if ( str_contains( $name, $marker ) ) {
-				return false;
+		// The name markers only describe abilities that are not recorded as writes: a write named
+		// like a read, such as an add-list or add-search widget tool, keeps the context gate.
+		if ( ! AbilityAnnotations::is_recorded_write( $name ) ) {
+			foreach ( self::read_only_name_markers() as $marker ) {
+				if ( str_contains( $name, $marker ) ) {
+					return false;
+				}
 			}
 		}
 
@@ -1128,11 +1175,14 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * The output schema clients are given. A schema that forbids extra properties also declares
+	 * the optional notice fields, so a notice can never make a response invalid against it.
+	 *
 	 * @return array<string, mixed>
 	 */
-	private static function output_schema_for_ability( Ability $ability ): array {
+	public static function output_schema_for_ability( Ability $ability ): array {
 		/** @var array<string, mixed> $schema */
-		$schema = self::normalise_schema_object_maps( $ability->output_schema() );
+		$schema = self::normalise_schema_object_maps( AgentNotices::declare_in_schema( $ability->output_schema() ) );
 		return $schema;
 	}
 
@@ -1532,7 +1582,7 @@ final class AbilityRegistry {
 	 * @param array{profile:string, ability_names:list<string>}|null $session
 	 */
 	private static function count_enabled_for_surface( string $surface, ?array $session ): int {
-		return count( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ) );
+		return LiveAbilities::count_registered( array_column( self::metadata_for_classes( self::classes_for_surface( $surface, $session ) ), 'name' ) );
 	}
 
 	private static function session_profile_transient_key(): ?string {
@@ -1561,11 +1611,11 @@ final class AbilityRegistry {
 		$classes = self::list();
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
-			return self::filter_disabled_v4_abilities( $classes );
+			return self::filter_hidden_abilities( $classes );
 		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
-				return self::filter_disabled_v4_abilities( $classes );
+				return self::filter_hidden_abilities( $classes );
 			}
 			// Session profiles only add tools on top of the configured surface.
 			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
@@ -1579,7 +1629,7 @@ final class AbilityRegistry {
 				true
 			);
 
-			return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+			return self::filter_hidden_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
 		}
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
@@ -1591,7 +1641,23 @@ final class AbilityRegistry {
 			true
 		);
 
-		return self::filter_disabled_v4_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+		return self::filter_hidden_abilities( self::filter_classes_by_allowed_names( $classes, $allowed ) );
+	}
+
+	/**
+	 * The classes that stay on the public MCP surface: the experimental V4 abilities are hidden while
+	 * their flag is off, and the section reuse abilities while that setting is off.
+	 *
+	 * @param array<int, class-string<Ability>> $classes
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function filter_hidden_abilities( array $classes ): array {
+		$classes = self::filter_disabled_v4_abilities( $classes );
+		if ( SectionReuseSetting::is_enabled() ) {
+			return $classes;
+		}
+
+		return array_values( array_filter( $classes, static fn( string $class ): bool => ! in_array( $class, [ SectionReuseFind::class, SectionReuseExtract::class ], true ) ) );
 	}
 
 	/**
@@ -1770,6 +1836,11 @@ final class AbilityRegistry {
 	 */
 	private static function essential_extra_ability_names(): array {
 		$extra = (array) get_option( 'stonewright_essential_extra_abilities', [] );
+		if ( ChangeJournal::has_open_incident() ) {
+			// An agent told about an incident must be able to call the tools that answer it.
+			$extra[] = 'stonewright/rescue-status';
+			$extra[] = 'stonewright/rescue-rollback';
+		}
 
 		return array_values(
 			array_filter(
@@ -1818,6 +1889,9 @@ final class AbilityRegistry {
 			'woocommerce'       => __( 'WooCommerce', 'stonewright' ),
 			'acf'               => __( 'ACF', 'stonewright' ),
 			'seo'               => __( 'SEO', 'stonewright' ),
+			'expertise'         => __( 'Expertise', 'stonewright' ),
+			'diagnostics'       => __( 'Diagnostics', 'stonewright' ),
+			'custom-code'       => __( 'Custom Code', 'stonewright' ),
 		];
 	}
 
@@ -1826,6 +1900,11 @@ final class AbilityRegistry {
 			return;
 		}
 		foreach ( self::categories() as $slug => $label ) {
+			// WordPress registers some categories itself, such as site and user. Registering
+			// one again is a notice, and the registered definition already serves its abilities.
+			if ( function_exists( 'wp_has_ability_category' ) && wp_has_ability_category( $slug ) ) {
+				continue;
+			}
 			wp_register_ability_category(
 				$slug,
 				[

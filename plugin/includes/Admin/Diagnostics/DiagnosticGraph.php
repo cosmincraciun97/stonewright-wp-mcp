@@ -12,7 +12,7 @@ use Throwable;
 final class DiagnosticGraph {
 
 	/**
-	 * @var array<string, array{id: string, depends_on: list<string>, callback: callable, index: int}>
+	 * @var array<string, array{id: string, label: string, depends_on: list<string>, callback: callable, index: int}>
 	 */
 	private array $nodes = [];
 
@@ -20,9 +20,11 @@ final class DiagnosticGraph {
 
 	/**
 	 * @param list<string> $depends_on Dependency check ids.
+	 * @param string       $label      What the check is called in words. A skipped check is shown under it and
+	 *                                  names the checks it needed by theirs; without one the id is spelled out.
 	 * @throws InvalidArgumentException When the id is empty or duplicated.
 	 */
-	public function add( string $id, array $depends_on, callable $callback ): void {
+	public function add( string $id, array $depends_on, callable $callback, string $label = '' ): void {
 		$id = sanitize_key( $id );
 		if ( '' === $id ) {
 			throw new InvalidArgumentException( 'Diagnostic check id is required.' );
@@ -42,6 +44,7 @@ final class DiagnosticGraph {
 
 		$this->nodes[ $id ] = [
 			'id'         => $id,
+			'label'      => '' !== trim( $label ) ? trim( $label ) : ucfirst( str_replace( '_', ' ', $id ) ),
 			'depends_on' => array_values( array_unique( $deps ) ),
 			'callback'   => $callback,
 			'index'      => $this->index,
@@ -72,8 +75,8 @@ final class DiagnosticGraph {
 			if ( [] !== $blocked ) {
 				$results[ $id ] = DiagnosticCheck::skipped(
 					$id,
-					$id,
-					'Skipped: ' . implode( ', ', $blocked ),
+					$node['label'],
+					self::skipped_summary( array_map( fn( string $dep ): string => $this->nodes[ $dep ]['label'], $blocked ) ),
 					$node['depends_on']
 				)->to_array();
 				continue;
@@ -89,7 +92,7 @@ final class DiagnosticGraph {
 			} catch ( Throwable $e ) {
 				$payload = DiagnosticCheck::problem(
 					$id,
-					$id,
+					$node['label'],
 					'Check failed.',
 					'Run diagnostics again.'
 				)->to_array();
@@ -112,6 +115,19 @@ final class DiagnosticGraph {
 			'checks' => $checks,
 			'counts' => self::count_statuses( $checks ),
 		];
+	}
+
+	/**
+	 * Why a check did not run, naming what it needed in words.
+	 *
+	 * @param list<string> $labels Labels of the prerequisites that did not pass.
+	 */
+	private static function skipped_summary( array $labels ): string {
+		$last = array_pop( $labels );
+		$list = [] === $labels ? (string) $last : implode( ', ', $labels ) . ' ' . __( 'and', 'stonewright' ) . ' ' . (string) $last;
+
+		/* translators: %s: names of the checks that must pass first, such as "Stonewright abilities and MCP runtime" */
+		return sprintf( __( 'Skipped: needs %s to pass first.', 'stonewright' ), $list );
 	}
 
 	/**

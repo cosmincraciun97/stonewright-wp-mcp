@@ -7,6 +7,8 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Core\MethodRouter;
+use Stonewright\WpMcp\Security\ChangeSet;
+use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
@@ -123,6 +125,8 @@ final class ThemeFilePatch extends AbilityKernel {
 					'default'     => false,
 					'description' => 'Opt in to conservative decoding of escaped layout for the target file language.',
 				],
+				'repair_of'          => ChangeSet::input_properties()['repair_of'],
+				'supersedes'         => ChangeSet::input_properties()['supersedes'],
 			],
 		];
 	}
@@ -131,6 +135,9 @@ final class ThemeFilePatch extends AbilityKernel {
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => true,
+			'properties'           => [
+				'change_set' => ChangeSet::output_property(),
+			],
 		];
 	}
 
@@ -560,6 +567,30 @@ final class ThemeFilePatch extends AbilityKernel {
 	/** @return array<int, string> */
 	protected function audit_redacted_keys(): array {
 		return array_merge( parent::audit_redacted_keys(), [ 'content', 'custom_code_grant' ] );
+	}
+
+	/**
+	 * ChangeSetV1 of the patch: one planned file change with the candidate and
+	 * readback hashes, the backup reference as its rollback recipe, and the grant
+	 * the apply ran under.
+	 *
+	 * @param array<string, mixed>           $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, mixed>|null
+	 */
+	protected function change_set_inputs( array $args, array|\WP_Error $result, string $status ): ?array {
+		$data = ChangeSetSources::data( $result );
+		$path = (string) ( $data['path'] ?? $data['resource_ref'] ?? $args['path'] ?? '' );
+		if ( '' === $path ) {
+			return null;
+		}
+		return ChangeSetSources::file(
+			$args,
+			$result,
+			$status,
+			ChangeSet::entry( 'file', $path, (string) ( $args['mode'] ?? '' ), 0 ),
+			[ 'recipe_kind' => 'theme_backup', 'recipe_target' => $path ]
+		);
 	}
 
 	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {

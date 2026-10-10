@@ -17,6 +17,11 @@ operations take a backup snapshot before executing. Use
 For a new native Loop Grid or Loop Carousel, prefer
 `stonewright/elementor-wire-loop`: dry-run first, then apply the same
 idempotent request after reviewing the resolved live controls and query probe.
+When building a page, load `stonewright-section-reuse` first: the site may
+already have a matching section to copy with an `insert_section` operation of
+the same batch (skip it when `agent_preferences.section_reuse` is `off`). When
+such a copy is refused for settings the live schema rejects, stop and follow
+that skill: tell the user, and send `drop_settings` only with their agreement.
 
 ## Pre-flight
 
@@ -124,6 +129,21 @@ spec renderer first. Use `dry_run: true` to validate, inspect diagnostics, and
 count generated elements without writing; then repeat the call with
 `dry_run: false` and `mode` set to `replace`, `append`, or `replace_section`.
 
+With `mode: "append"`, an element whose id is already on the page gets a new id; ids
+already on the page never change. `dry_run: true` runs the same document checks as
+the write, so it returns the error the write would. When another write holds the
+page, the call returns the retryable `stonewright_elementor_write_busy`; the message
+ends with `{"retryable":true,"retry_after":N}`. Repeat it after `retry_after` seconds.
+Every V3 writer, including `elementor-v3-update-page-settings`, answers a busy page this way.
+
+With `mode: "replace_section"`, every spec section needs an `id`. The call replaces the
+container that an earlier `replace` or `append` build recorded for that id, keeps that
+container's element id, and leaves every other container as it is. It writes nothing and
+returns an error when a section has no `id`, when the page has no section record (it was
+built before sections were recorded, or by another tool; rebuild it once with
+`mode: "replace"`), or when the id matches no container or more than one. A section is
+never matched by its position or its element id. `dry_run: true` returns the same answer.
+
 ```json
 {
   "post_id": 42,
@@ -197,7 +217,10 @@ the consolidated dry run passes against `expected_tree_hash`.
 Every successful apply returns a cache-closure receipt and a required next step.
 Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
 (resolved post or loop target), then
-`stonewright/elementor-post-write-verify` with all touched element IDs. Never
+`stonewright/elementor-post-write-verify` with all touched element IDs. A result
+with `ok:true`, `delivery_status:blocked` and a warning means the CSS file was
+written and its `?ver=` changed but the anonymous check was redirected: do not
+rebuild the layout for it. Never
 pass `regenerate_css`; that input does not exist. The verifier is
 observation-only: it warms the official frontend builder renderer with CSS
 generation disabled and asserts the IDs without returning page HTML,
@@ -226,7 +249,10 @@ headings inside loop templates; do not rely on many manual meta updates.
   section and reuse its translated density, variance, and motion rules. Declared
   direction tokens override dial defaults.
 - Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
-  the user explicitly requests HTML.
+  the user explicitly requests HTML. Even then the write is refused unless the
+  site allows HTML widgets (option `stonewright_allow_html_widgets`, off by
+  default) and the call carries `allow_html_widget: true`
+  (`html_widget_requires_explicit_approval`).
 - Start visual tasks by measuring the reference screenshot: viewport/canvas size,
   section bounds, centered max-widths, typography, colors, spacing, and asset
   crop bounds. Record those facts as `DesignEvidence`, call
@@ -284,6 +310,13 @@ headings inside loop templates; do not rely on many manual meta updates.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+  A widget keeps every key its own schema defines, so `background` or `gap`
+  on a widget that has that control is written as given; the container
+  shorthands (`gap`, `background`, `justify_content`) apply to containers.
+- A widget goes inside a container, a section or a column, never inside another
+  widget. An inner section goes inside a column (it is stored with one column)
+  or inside a container (stored as an inner container). Elementor Pro and
+  WooCommerce widgets are refused on a site where that plugin is not active.
 - Configure all relevant tabs. Content holds source data, items, media, links,
   and semantic choices. Style holds typography, colors, spacing, states,
   borders, shadows, and widget-specific presentation. Advanced can use
@@ -334,6 +367,10 @@ user has approved site-wide design changes, call `update-kit-colors` and
 reuse global tokens instead of repeating raw values. If approval is missing or
 the design is one-off, keep those values local in widget/container controls.
 Mutation abilities do not take a post_id; they write to the active kit post.
+Colour values must be real colours: hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`, a
+CSS colour name, `transparent`, or a global reference. Font families are plain
+names and sizes are numbers with a unit. Any other value is refused with
+`stonewright_elementor_settings_invalid` and the key.
 
 ## Save as template
 
@@ -389,10 +426,16 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
-## Confirmation token for destructive writes
+## Confirmation token for writes
 
-Before calling `build-page-from-spec` with `mode: "replace"` or
-`mode: "replace_section"`, or before `batch-mutate` with `remove_element`, emit:
+In production-safe mode these calls need a confirmation token issued for the exact
+arguments with `stonewright-security-issue-confirmation-token`: every
+`batch-mutate` write that is not a dry run (an `insert_section` copy included),
+`apply-bundle` (one token for the whole call, passed at the top level; there is
+no per-write token), and every `build-page-from-spec` write that is not a dry
+run, in every `mode` (`append` too). Dry runs of `batch-mutate` and
+`build-page-from-spec` need no token, and a token issued for a dry run does not
+authorize the write. Before calling any of them, emit:
 
 ```
 "Confirm:

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBarIndicator;
+use Stonewright\WpMcp\Admin\ActivationRedirect;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
@@ -12,7 +13,11 @@ use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
+use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
+use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
+use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
@@ -20,17 +25,15 @@ use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
-use Stonewright\WpMcp\Skills\SkillsSeeder;
-use Stonewright\WpMcp\Skills\SkillsTable;
-use Stonewright\WpMcp\Skills\SkillVersionsTable;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
-use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
-use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
+use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\BasicAuthCredentials;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -38,7 +41,9 @@ use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
+use Stonewright\WpMcp\Security\RescueHooks;
 use Stonewright\WpMcp\Security\StaticAnalysis;
+use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -76,7 +81,8 @@ final class PluginRegistration {
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
 		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );
-		add_action( 'plugins_loaded', [ OAuthBootstrap::class, 'boot' ], 20 );
+		// OAuth: discovery, REST routes, authorization pages and bearer protection.
+		add_action( 'plugins_loaded', [ HttpSurface::class, 'register' ], 20, 0 );
 		// Two flavours of the Abilities API exist in the wild and we must
 		// support both:
 		//
@@ -94,10 +100,13 @@ final class PluginRegistration {
 		// `register_all` is idempotent (it guards against running twice via
 		// AbilityRegistry::$registered_once), so listening on multiple hooks is
 		// safe even if both fire in the same request.
-		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 10 );
+		// Categories register after every plugin that uses the default priority, so a category another plugin
+		// registers on this hook (Elementor registers `elementor`) is left as that plugin defined it.
+		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 99 );
 		add_action( 'wp_abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
+		McpSchemaWire::register();
 		add_action( 'plugins_loaded', [ self::class, 'maybe_boot_mcp_adapter' ], 99 );
 
 		// Rescue themes that forgot to declare `add_theme_support( 'elementor-pro' )`
@@ -117,12 +126,12 @@ final class PluginRegistration {
 			'init',
 			static function (): void {
 				ErrorPatterns::migrate_legacy_audit_lessons();
+				ErrorPatterns::return_unapproved_draft_lessons();
 			},
 			20
 		);
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
-		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
-		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
+		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
 		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
 		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
@@ -146,13 +155,16 @@ final class PluginRegistration {
 		WidgetLoader::register();
 		GitHubUpdater::register();
 		VendorGuard::register();
+		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
+		McpOriginGuard::register();
 		EditorSaveGuard::register();
 		BasicAuthCredentials::register();
-		OAuthKeys::register_admin();
+		// OAuth storage: clean-up handler, schema upgrade on init, key notice and retry.
+		AuthorizationLifecycle::register();
 
 		ConfigurationPage::register();
 		CustomCodeApprovalPage::register();
-		FinalizerPage::register();
+		QueueConsole::attach_hooks();
 		AbilitiesPage::register();
 		SandboxPage::register();
 		SkillsPage::register();
@@ -161,6 +173,11 @@ final class PluginRegistration {
 		AdminBarIndicator::register();
 		McpbBundle::register();
 		AdminBootstrap::register();
+		RescueHooks::register();
+		SectionReuseSetting::register();
+		if ( class_exists( RescueBootstrap::class ) ) {
+			RescueBootstrap::register();
+		}
 
 		StaticAnalysis::assert_environment();
 	}
@@ -171,6 +188,7 @@ final class PluginRegistration {
 	public static function maybe_boot_mcp_adapter(): void {
 		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
 		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
+			McpDefaultServerGuard::register();
 			\WP\MCP\Core\McpAdapter::instance();
 		} elseif ( ! $compatibility['compatible'] ) {
 			Logger::warning( 'mcp_adapter_ownership_conflict', [ 'preflight' => $compatibility ] );
@@ -181,16 +199,14 @@ final class PluginRegistration {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
 		IncidentStore::maybe_install_table();
-		OAuthSchema::maybe_install();
-		OAuthKeys::ensure();
-		OAuthSchema::schedule_gc();
-		SkillsTable::force_create_table();
-		SkillVersionsTable::force_create_table();
+		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
+		AuthorizationLifecycle::activate();
+		SkillTables::install();
 		DesignDirectionsTable::install();
 		DesignDirectionVersionsTable::install();
 		CandidateTable::force_create_table();
 		ExpertiseTable::force_create_tables();
-		SkillsSeeder::seed();
+		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
 		// Record domain on first activation so subsequent boots can detect clones.
 		// Uses operator intent only — never writes enablement as a side effect.
 		if ( PluginEffectiveState::enabled_requested() ) {
@@ -215,6 +231,8 @@ final class PluginRegistration {
 			update_option( 'stonewright_mcp_surface', 'essential', false );
 			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
+		// A first activation lands on the Overview; a site that already chose on or off is left where it is.
+		ActivationRedirect::arm();
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 
@@ -228,7 +246,12 @@ final class PluginRegistration {
 			return;
 		}
 		IncidentStore::maybe_install_table();
-		SkillsSeeder::seed();
+		SkillTables::ensure();
+		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
+		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
+		LegacyMirrorCleanup::run();
+		// A schema captured by an earlier version may lack controls the new one reads.
+		WidgetSchemaRepository::invalidate();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 
@@ -271,9 +294,9 @@ final class PluginRegistration {
 		$mismatch = DomainLock::mismatch();
 		$locked   = is_array( $mismatch ) ? (string) ( $mismatch['locked_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::locked_domain() );
 		$current  = is_array( $mismatch ) ? (string) ( $mismatch['current_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::current_origin() );
-		$review   = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+		$review   = SetupTabs::url( 'settings', [], DomainLockCard::ID );
 
-		echo '<div class="notice notice-error"><p><strong>Stonewright:</strong> ';
+		echo '<div class="notice notice-error stonewright-notice"><p><strong>Stonewright:</strong> ';
 		echo esc_html__(
 			'AI abilities are BLOCKED because the site domain no longer matches the locked origin. Operator enablement was left unchanged. Review and rebind this site after confirming the new domain is intentional.',
 			'stonewright'
@@ -288,7 +311,7 @@ final class PluginRegistration {
 	}
 
 	public function on_deactivate(): void {
-		OAuthSchema::unschedule_gc();
+		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}

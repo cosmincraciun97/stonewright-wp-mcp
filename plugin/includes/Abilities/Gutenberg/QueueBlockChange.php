@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Gutenberg;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -108,7 +108,7 @@ final class QueueBlockChange extends AbilityKernel {
 					'status'        => (string) $queued['status'],
 					'post_id'       => (int) $queued['post_id'],
 					'block_name'    => (string) $queued['block_name'],
-					'finalizer_url' => FinalizerPage::url( '', (string) ( $queued['session_id'] ?? '' ) ),
+					'finalizer_url' => QueueConsole::session_link( '', (string) ( $queued['session_id'] ?? '' ) ),
 					'warnings'      => $warnings,
 				];
 			}

@@ -248,7 +248,7 @@ export function createConnectionRuntime(args: {
 		},
 		markReauthenticationRequired: (reasonCode, userAction) => {
 			const action = userAction
-				?? reauthUserActionForClient(activeMcpClientName(runtime));
+				?? reauthUserAction(reasonCode, activeMcpClientName(runtime));
 			runtime.authenticationLatch = reauthenticationRequiredStatus(reasonCode, action);
 			runtime.reauthenticationRequired = true;
 			runtime.status.connected = false;
@@ -1043,7 +1043,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				: runtime.profile;
 			const tools = proxyToolNamesForProfile(
 				// coerce via names lookup; unknown falls to current
-				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, 'discover-execute': 1 }
+				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, inspect: 1, 'discover-execute': 1 }
 					? (requested as ProxyToolProfile)
 					: runtime.profile,
 			);
@@ -1421,6 +1421,21 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 	);
 }
 
+/** One fixed sentence per terminal reason, placed before the client-specific action. Server text is never used. */
+const REAUTH_REASON_SENTENCES: Readonly<Record<string, string>> = {
+	invalid_client: 'This site no longer recognizes this connection, so it must be added again; signing in again is not enough.',
+	refresh_token_expired: 'The sign-in expired after 30 days without use or reached its 90-day limit.',
+	refresh_token_revoked: 'The connection was disconnected, or its credential was reused.',
+	refresh_outcome_unknown: "The site's answer to the last sign-in refresh was lost, so the saved sign-in cannot be trusted.",
+	invalid_grant: "The site did not accept the saved sign-in, for example because the approving user lost access or the site's security keys changed.",
+};
+
+function reauthUserAction(reasonCode: string, clientName: string): string {
+	const sentence = Object.hasOwn(REAUTH_REASON_SENTENCES, reasonCode) ? REAUTH_REASON_SENTENCES[reasonCode] : undefined;
+	const action = reasonCode === 'invalid_client' ? readdUserActionForClient(clientName) : reauthUserActionForClient(clientName);
+	return sentence ? `${sentence} ${action}` : action;
+}
+
 function reauthUserActionForClient(clientName: string): string {
 	const normalized = clientName.trim().toLowerCase();
 	if (normalized.includes('cursor')) {
@@ -1435,9 +1450,26 @@ function reauthUserActionForClient(clientName: string): string {
 	return 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.';
 }
 
+/** The connection's client registration is gone, so it is removed and added again; the companion cannot register a client itself. */
+function readdUserActionForClient(clientName: string): string {
+	const normalized = clientName.trim().toLowerCase();
+	if (normalized.includes('cursor')) {
+		return 'Remove the Stonewright MCP server in Cursor Settings → MCP and add it again from Stonewright → Setup, then run stonewright-task-start again.';
+	}
+	if (normalized.includes('claude') || normalized.includes('anthropic')) {
+		return 'Remove the Stonewright MCP server in your Claude MCP settings and add it again from Stonewright → Setup, then run stonewright-task-start again.';
+	}
+	if (normalized.includes('grok') || normalized.includes('xai')) {
+		return 'Remove the Stonewright MCP server for Grok Build / CLI and add it again from Stonewright → Setup, then run stonewright-task-start again.';
+	}
+	return 'Remove this Stonewright server from the active MCP client and add it again from Stonewright → Setup, then run stonewright-task-start again.';
+}
+
 function toDirectProfile(profile: ProxyToolProfile): DirectToolProfile {
 	if (profile === 'full') return 'full';
 	if (profile === 'bootstrap') return 'bootstrap';
+	// Direct has no inspect surface; its bootstrap surface has no tool that writes site content.
+	if (profile === 'inspect') return 'bootstrap';
 	if (profile === 'essential-static') return 'essential-static';
 	if (profile === 'essential') return 'essential';
 	if (profile === 'elementor-design' || profile === 'content-model' || profile === 'gutenberg' || profile === 'site-admin') {

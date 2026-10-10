@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -13,6 +14,12 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class Capabilities extends AbilityKernel {
+
+	private ProviderRouter $provider_router;
+
+	public function __construct( ?ProviderRouter $provider_router = null ) {
+		$this->provider_router = $provider_router ?? new ProviderRouter();
+	}
 
 	public function name(): string {
 		return 'stonewright/site-capabilities';
@@ -54,6 +61,10 @@ final class Capabilities extends AbilityKernel {
 				],
 				'mode'         => [ 'type' => 'string' ],
 				'feature_flags'=> [ 'type' => 'object' ],
+				'native_elementor' => [
+					'type'        => 'object',
+					'description' => 'Elementor MCP module requirements, registered elementor/* abilities, ownership, schema fingerprints and per-ability certification. Evidence only; no native write is routable.',
+				],
 			],
 			'required'   => [ 'abilities', 'integrations', 'mode' ],
 		];
@@ -86,6 +97,7 @@ final class Capabilities extends AbilityKernel {
 			],
 			'mode'          => (string) get_option( 'stonewright_mode', 'development' ),
 			'feature_flags' => (array) get_option( 'stonewright_feature_flags', [] ),
+			'native_elementor' => $this->provider_router->native_elementor(),
 		];
 	}
 }

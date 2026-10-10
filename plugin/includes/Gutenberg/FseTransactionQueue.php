@@ -194,10 +194,12 @@ final class FseTransactionQueue {
 			}
 			$content = (string) $target['content'];
 			$result  = wp_update_post(
-				[
-					'ID'           => $post_id,
-					'post_content' => $content,
-				],
+				wp_slash(
+					[
+						'ID'           => $post_id,
+						'post_content' => $content,
+					]
+				),
 				true
 			);
 			if ( is_wp_error( $result ) ) {

@@ -26,7 +26,7 @@ final class ChangeRestore extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Restores a post from a Stonewright snapshot. Requires confirmation_token in production-safe mode.', 'stonewright' );
+		return __( 'Restores a post from a Stonewright snapshot. Takes a snapshot of the current state first and returns it as pre_restore_snapshot_id, so the restore can be undone; refuses when that snapshot cannot be stored. Requires confirmation_token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -53,10 +53,11 @@ final class ChangeRestore extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'ok'          => [ 'type' => 'boolean' ],
-				'post_id'     => [ 'type' => 'integer' ],
-				'snapshot_id' => [ 'type' => 'string' ],
-				'restored'    => [ 'type' => 'boolean' ],
+				'ok'                      => [ 'type' => 'boolean' ],
+				'post_id'                 => [ 'type' => 'integer' ],
+				'snapshot_id'             => [ 'type' => 'string' ],
+				'restored'                => [ 'type' => 'boolean' ],
+				'pre_restore_snapshot_id' => [ 'type' => 'string', 'description' => 'Snapshot of the state before the restore. Pass it as snapshot_id to undo the restore.' ],
 			],
 			'required'   => [ 'ok', 'post_id', 'snapshot_id', 'restored' ],
 		];
@@ -94,8 +95,12 @@ final class ChangeRestore extends AbilityKernel {
 					return $this->error( 'snapshot_not_found', __( 'Snapshot not found.', 'stonewright' ) );
 				}
 
-				// Snapshot current state before overwriting so restore is reversible.
-				Backup::snapshot_post( $post_id );
+				// Snapshot the current state before overwriting so the restore is reversible. The history limit must
+				// not drop the snapshot that is about to be restored, and no snapshot means no restore.
+				$pre_restore_id = Backup::snapshot_post( $post_id, [ $snapshot_id ] );
+				if ( '' === $pre_restore_id ) {
+					return $this->error( 'backup_failed', __( 'Backup snapshot failed; restore aborted.', 'stonewright' ), [ 'status' => 500 ] );
+				}
 
 				$ok = Backup::restore_snapshot( $post_id, $snapshot_id );
 				if ( ! $ok ) {
@@ -104,9 +109,10 @@ final class ChangeRestore extends AbilityKernel {
 
 				return $this->ok(
 					[
-						'post_id'     => $post_id,
-						'snapshot_id' => $snapshot_id,
-						'restored'    => true,
+						'post_id'                 => $post_id,
+						'snapshot_id'             => $snapshot_id,
+						'restored'                => true,
+						'pre_restore_snapshot_id' => $pre_restore_id,
 					]
 				);
 			}

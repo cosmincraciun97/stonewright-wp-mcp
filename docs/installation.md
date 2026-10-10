@@ -22,14 +22,18 @@ HTTPS and does not run or require a local companion.
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - OAuth browser access (recommended) or a WordPress Application Password
 - The PHP `openssl` extension for OAuth. OAuth generates its RSA signing key on
-  activation. PHP on Windows stacks such as Laragon, XAMPP, or WAMP often
-  cannot find `openssl.cnf`; Stonewright then retries with the config shipped
-  next to `php.exe` (`extras/ssl/openssl.cnf`) and finally with a minimal
-  config bundled in the plugin, so activation succeeds. If every attempt
-  fails, the plugin still activates, Application Password connections keep
-  working, and an admin notice shows the OpenSSL error with a **Retry OAuth
-  key generation** button. If PHP cannot locate its configuration, set
-  `OPENSSL_CONF` to PHP's `openssl.cnf` and restart the web server before
+  activation. A site that installs its OAuth tables on its first request, such
+  as a sub-site after a network activation, generates its keys then. PHP on
+  Windows stacks such as Laragon, XAMPP, or WAMP often cannot find
+  `openssl.cnf`; Stonewright then retries with the config shipped next to
+  `php.exe` (`extras/ssl/openssl.cnf`) and finally with a minimal config
+  bundled in the plugin, so activation succeeds. If every attempt fails, the
+  plugin still activates, Application Password connections keep working, and
+  an admin notice shows the OpenSSL error with a **Retry key creation**
+  button. Creating new keys signs every connected client out, so a site that
+  already has OAuth clients or grants does not get new keys on a request; the
+  notice says so before the button. If PHP cannot locate its configuration,
+  set `OPENSSL_CONF` to PHP's `openssl.cnf` and restart the web server before
   retrying.
 
 ## Default Plugin setup
@@ -62,6 +66,17 @@ wp plugin activate stonewright
 The `wp plugin activate stonewright` command is for a human source install on a
 machine with WP-CLI already configured. Runtime agents should use Stonewright
 MCP tools for WordPress work instead of shelling out to `wp ...`.
+
+## Remove the plugin
+
+Deleting the plugin from **Plugins** keeps its data: OAuth grants and keys,
+memory, skills, audit history, and settings stay in the database for a
+reinstall or a rollback. Deleting the plugin always removes the rescue helper it
+installed in `wp-content/mu-plugins/`; deactivating it leaves the helper in
+place, where it does nothing. To remove all of it, define
+`STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin. What that
+removes, and how to roll back, is in
+[Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 
 ## Companion
 
@@ -193,11 +208,11 @@ Remote destructive Direct tools require `confirm: true` by default
 writes on production aliases.
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
-Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
+Copy the **Remote HTTP** snippet from **Stonewright > Setup**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
-WordPress Application Password. The setup diagnostics panel blocks a green
+WordPress Application Password. The Setup preflight (step 4 of **Get started**) blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing. **Stonewright → Troubleshoot** runs a dependency-ordered graph for
+is missing. **Stonewright → Setup → Troubleshoot** runs a dependency-ordered graph for
 OAuth, Application Password, local companion, or **Not sure**, in place with a
 loading state; see [Troubleshoot](admin/troubleshoot.md).
 
@@ -341,7 +356,7 @@ stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
 only when an HTTP bridge bind failure should fail startup.
 
 Most users can ignore the optional HTTP bridge. Use **Stonewright >
-Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run
+Setup > Settings > Local WP-CLI bridge (advanced)** only when you deliberately run
 a local bridge for WordPress-side `stonewright/wp-cli-*` abilities. The page
 can generate a bridge token and copy matching launch env values.
 

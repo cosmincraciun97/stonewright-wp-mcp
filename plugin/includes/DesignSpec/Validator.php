@@ -20,6 +20,12 @@ final class Validator {
 
 	public const SCHEMA_ID_V2 = 'https://stonewright.dev/schemas/design-spec/2.0.0.json';
 
+	/** Errors named in the WP_Error message. */
+	private const MESSAGE_ERRORS = 3;
+
+	/** Longest WP_Error message, in characters. */
+	private const MESSAGE_MAX_LENGTH = 600;
+
 	/**
 	 * Validates and normalizes a design spec.
 	 *
@@ -96,7 +102,7 @@ final class Validator {
 			return [
 				[
 					'keyword' => $error->keyword(),
-					'message' => $error->message(),
+					'message' => ( new \Opis\JsonSchema\Errors\ErrorFormatter() )->formatErrorMessage( $error ),
 					'path'    => $error->data()->path(),
 				],
 			];
@@ -121,11 +127,48 @@ final class Validator {
 		return RuleEnforcer::attribute(
 			new \WP_Error(
 				'stonewright_spec_invalid',
-				'Design spec failed validation.',
+				self::failure_message( $errors ),
 				[ 'errors' => $errors ]
 			),
 			'validate-spec-before-render'
 		);
+	}
+
+	/**
+	 * One-line summary that names the failing paths and the expected shapes. MCP clients only
+	 * receive this text, so it carries the first errors; the complete list stays in the error data.
+	 *
+	 * @param array<int|string, mixed> $errors Collected validation errors.
+	 */
+	private static function failure_message( array $errors ): string {
+		$errors  = array_values( $errors );
+		$parts   = [];
+		foreach ( array_slice( $errors, 0, self::MESSAGE_ERRORS ) as $error ) {
+			if ( ! is_array( $error ) ) {
+				continue;
+			}
+			$path_string = isset( $error['path_string'] ) && '' !== (string) $error['path_string']
+				? (string) $error['path_string']
+				: ( isset( $error['path'] ) && is_array( $error['path'] ) && [] !== $error['path'] ? self::path_string( array_values( $error['path'] ) ) : 'spec' );
+			$part        = $path_string . ': ' . trim( (string) ( $error['message'] ?? 'is invalid' ) );
+			$shapes      = isset( $error['allowed_shapes'] ) && is_array( $error['allowed_shapes'] ) ? array_filter( array_map( 'strval', $error['allowed_shapes'] ) ) : [];
+			if ( [] !== $shapes ) {
+				$part .= ' (expected: ' . implode( ' | ', $shapes ) . ')';
+			}
+			$parts[] = $part;
+		}
+
+		$message = 'Design spec failed validation';
+		if ( [] === $parts ) {
+			return $message . '.';
+		}
+
+		$message .= ' (' . count( $errors ) . ( 1 === count( $errors ) ? ' error' : ' errors' ) . '): ' . implode( '; ', $parts );
+		if ( count( $errors ) > count( $parts ) ) {
+			$message .= '; and ' . ( count( $errors ) - count( $parts ) ) . ' more in the error data';
+		}
+
+		return mb_strimwidth( $message, 0, self::MESSAGE_MAX_LENGTH, '...' );
 	}
 
 	/**
@@ -281,7 +324,11 @@ final class Validator {
 			$version = '1.0.0';
 		}
 		$spec['version']  = $version;
-		$spec['page']     = isset( $spec['page'] ) && is_array( $spec['page'] ) ? $spec['page'] : [];
+		// `page` is optional. A missing or empty page is dropped so it never encodes as an empty
+		// JSON array; any other non-object value is kept so the schema reports its path.
+		if ( ! isset( $spec['page'] ) || [] === $spec['page'] ) {
+			unset( $spec['page'] );
+		}
 		$spec['sections'] = isset( $spec['sections'] ) && is_array( $spec['sections'] ) ? array_values( $spec['sections'] ) : [];
 
 		if ( isset( $spec['tokens'] ) && is_array( $spec['tokens'] ) && ! empty( $spec['tokens'] ) ) {
@@ -555,8 +602,8 @@ final class Validator {
 	private static function structural_check( array $spec ): array {
 		$errors = [];
 
-		if ( empty( $spec['page']['title'] ) ) {
-			$errors[] = [ 'keyword' => 'required', 'message' => 'page.title is required', 'path' => [ 'page', 'title' ] ];
+		if ( isset( $spec['page'] ) && ! is_array( $spec['page'] ) ) {
+			$errors[] = [ 'keyword' => 'type', 'message' => 'page must be an object', 'path' => [ 'page' ] ];
 		}
 		if ( ! is_array( $spec['sections'] ) || empty( $spec['sections'] ) ) {
 			$errors[] = [ 'keyword' => 'required', 'message' => 'sections must contain at least one entry', 'path' => [ 'sections' ] ];
@@ -771,6 +818,9 @@ final class Validator {
 		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
 			return [ 'stack', 'row', 'grid' ];
 		}
+		if ( 'page' === $last && 1 === count( $path ) ) {
+			return [ 'object with optional title, slug, template and status' ];
+		}
 		if ( 'sections' === $last ) {
 			return [ 'non-empty array of section objects' ];
 		}
@@ -791,6 +841,9 @@ final class Validator {
 		$last = end( $path );
 		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
 			return [ 'layout' => 'row' ];
+		}
+		if ( 'page' === $last && 1 === count( $path ) ) {
+			return [ 'page' => [ 'title' => 'Home', 'status' => 'draft' ] ];
 		}
 		if ( 'sections' === $last ) {
 			return [
@@ -818,6 +871,9 @@ final class Validator {
 		$last        = end( $path );
 		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
 			return 'Set ' . $path_string . ' to "stack", "row", or "grid"; do not pass an object for section layout.';
+		}
+		if ( 'page' === $last && 1 === count( $path ) ) {
+			return 'page is optional. Set it to an object with optional title, slug, template and status, or omit it.';
 		}
 		if ( 'sections' === $last ) {
 			return 'Set sections to a non-empty array. Each section needs id and blocks.';

@@ -33,7 +33,7 @@ JSON Schema draft: 2020-12
 | Field | Type | Description |
 |---|---|---|
 | `source` | object | Traceability metadata — where this spec came from. |
-| `page` | object | Page-level metadata (title, slug, template, status). |
+| `page` | object | Page-level metadata (title, slug, template, status). May be left out or empty; every field in it is optional. |
 | `tokens` | object | Design tokens: colors, typography, spacing, radius, shadow. |
 | `responsive` | object | Breakpoint pixel values for mobile, tablet, and desktop. |
 
@@ -73,7 +73,7 @@ Traceability metadata. Not required but recommended when the spec was generated 
 
 | Field | Type | Constraint | Description |
 |---|---|---|---|
-| `title` | string | max 255 chars | Page title. Required if you want the renderer to set it. |
+| `title` | string | max 255 chars | Page title. Optional. |
 | `slug` | string | max 200 chars | URL slug. |
 | `template` | string | — | Page template filename (without `.php`). |
 | `status` | string | `draft`, `publish`, `private`, `pending` | Post status. |
@@ -161,7 +161,7 @@ An array of section objects. Sections map to Elementor V3 sections/containers or
 | `name` | string | — | Human-readable label for debugging. |
 | `width` | string | `"boxed"` | `full`, `boxed`, or `narrow`. |
 | `layout` | string or object | `"stack"` | `stack`, `row`, `grid`, legacy `horizontal`/`vertical`, or a non-empty `desktop`/`tablet`/`mobile` map of those values. |
-| `direction` | string or object | derived from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
+| `direction` | string or object | taken from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
 | `gap` | string or number | — | Gap between blocks (CSS value or px integer). |
 | `padding` | dimensions | — | Per-side padding. See dimensions definition below. |
 | `background` | background | — | Background color, image, overlay. |
@@ -224,6 +224,12 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 | `row` | `blocks` | Horizontal flex container with nested blocks. |
 | `column` | `blocks` | Vertical column for nesting inside a `row`. |
 
+The Elementor V4 renderer supports the `heading`, `paragraph`, `image`,
+`button`, `separator`, `icon`, `row`, `column`, and `card` block types. A block
+type outside that list, or a styling property it cannot write, returns a
+structured error that names the node and its path instead of being skipped. See
+[Elementor V4 (experimental)](elementor/v4-experimental.md).
+
 Responsive two-column layouts use one map instead of separate rewrites:
 
 ```json
@@ -244,18 +250,29 @@ structured diagnostic when the widget or required control is unavailable.
 
 ## Validation
 
-Use the `stonewright/design/validate-spec` ability to validate a spec before rendering:
+Use the `stonewright/design-validate-spec` ability to validate a spec before rendering:
 
 ```json
 {
-  "tool": "stonewright/design/validate-spec",
+  "tool": "stonewright/design-validate-spec",
   "arguments": {
     "spec": { "version": "1.0.0", "sections": [] }
   }
 }
 ```
 
-On failure the ability returns a `WP_Error` with the `stonewright_spec_invalid` code and an array of JSON schema violations. On success it returns the spec unchanged so you can pipe it directly to a renderer.
+The ability returns `valid`, `errors`, and `normalized`. Every renderer runs the same validation first and, on failure, returns the `stonewright_spec_invalid` error. Its message names the first failing paths and the shape each one expects, for example `page: The data (string) must match the type: object (expected: object with optional title, slug, template and status)`. The full list is in the error data. Each entry has:
+
+| Field | Description |
+|---|---|
+| `path`, `path_string` | Where the problem is, as a list and as text such as `sections[0].blocks`. |
+| `keyword`, `message` | The rule that failed and its description. |
+| `received_type` | `missing`, `string`, `array`, `object`, and so on. |
+| `allowed_shapes` | The shapes the path accepts, when the validator knows them. |
+| `nearest_valid_example` | A small valid value for the path. |
+| `repair_hint` | What to change. |
+
+On success the validated spec is returned, with `version` and `sections` normalized, so you can pass it directly to a renderer.
 
 ---
 

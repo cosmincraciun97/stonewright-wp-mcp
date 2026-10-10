@@ -16,6 +16,9 @@ final class AuditLog {
 	/** @var list<string> */
 	public const STATUSES = [ 'ok', 'error', 'blocked', 'auth' ];
 
+	/** Text filters that match part of a stored value, in any case; every other filter matches the whole value. */
+	public const CONTAINS_FILTERS = [ 'ability', 'operation_class', 'root_error_code', 'normalized_path' ];
+
 	/** @var list<string> */
 	public const ADMIN_VIEWS = [ 'all', 'errors', 'retryable', 'blocked', 'auth', 'resolved' ];
 
@@ -31,8 +34,10 @@ final class AuditLog {
 	private const DENIAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 	private const DENIAL_LOCK_TTL_SECONDS = 5;
 	private const DENIAL_LOCK_ATTEMPTS = 500;
-	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_VERSION = 3;
 	private const SCHEMA_OPTION = 'stonewright_audit_schema_version';
+	/** Columns the admin and lineage readers select. */
+	private const ROW_COLUMNS = 'id, ability_name, user_id, result_status, sanitized_args, correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner, event_type, operation_class, resource_type, resource_ref, change_set_id, repair_of, execution_status, verification_status, effect_verified, rollback_status, before_sha256, after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend, site_fingerprint, mode, severity, event_id, schema_version, category, outcome, severity_level, root_error_code, resource_key_hash, normalized_path, cause_fingerprint, strategy_fingerprint, transaction_id, context_token_id_hash, expected_verifier, remediation_code, retryable, retry_after_seconds, incident_id, redacted_details, created_at';
 
 	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
 	private static ?bool $schema_healthy = null;
@@ -51,7 +56,7 @@ final class AuditLog {
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
 	 *
 	 * Everything else on an OAuth request or response is either a credential or
-	 * derived from one, so the recorder builds the row from this map alone rather
+	 * built from one, so the recorder builds the row from this map alone rather
 	 * than redacting a copy of the payload.
 	 *
 	 * @var array<string, string>
@@ -173,6 +178,7 @@ final class AuditLog {
 			'resource_type',
 			'resource_ref',
 			'change_set_id',
+			'repair_of',
 			'execution_status',
 			'verification_status',
 			'effect_verified',
@@ -266,6 +272,7 @@ final class AuditLog {
 			resource_type VARCHAR(96) NOT NULL DEFAULT '',
 			resource_ref VARCHAR(255) NOT NULL DEFAULT '',
 			change_set_id VARCHAR(96) NOT NULL DEFAULT '',
+			repair_of VARCHAR(96) NOT NULL DEFAULT '',
 			execution_status VARCHAR(32) NOT NULL DEFAULT '',
 			verification_status VARCHAR(32) NOT NULL DEFAULT '',
 			effect_verified TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
@@ -309,6 +316,7 @@ final class AuditLog {
 			KEY verification_idx (verification_status),
 			KEY rollback_idx (rollback_status),
 			KEY change_set_idx (change_set_id),
+			KEY repair_of_idx (repair_of),
 			KEY category_idx (category),
 			KEY outcome_idx (outcome),
 			KEY incident_idx (incident_id),
@@ -416,6 +424,7 @@ final class AuditLog {
 				'resource_type'     => self::meta_string( $meta, 'resource_type' ),
 				'resource_ref'      => self::logical_resource_ref( $meta, $sanitized_args ),
 				'change_set_id'     => self::meta_string( $meta, 'change_set_id' ),
+				'repair_of'         => $event['repair_of'],
 				'execution_status'  => self::meta_string( $meta, 'execution_status', $status ),
 				'verification_status'=> $verification,
 				'effect_verified'    => true === ( $meta['effect_verified'] ?? false ) ? 1 : 0,
@@ -425,7 +434,7 @@ final class AuditLog {
 				'changed_bytes'     => max( 0, (int) ( $meta['changed_bytes'] ?? 0 ) ),
 				'validator_summary' => self::encoded_meta( $meta['validator_summary'] ?? null ),
 				'smoke_summary'     => self::encoded_meta( $meta['smoke_summary'] ?? null ),
-				'error_code'        => sanitize_key( self::meta_string( $meta, 'error_code' ) ),
+				'error_code'        => AuditEvent::OUTCOME_SUCCESS === $event['outcome'] ? '' : sanitize_key( self::meta_string( $meta, 'error_code' ) ),
 				'cause_key'         => mb_substr( sanitize_text_field( self::meta_string( $meta, 'cause_key' ) ), 0, 255 ),
 				'duration_ms'       => max( 0, (int) ( $meta['duration_ms'] ?? 0 ) ),
 				'backend'           => 'plugin',
@@ -504,6 +513,9 @@ final class AuditLog {
 		try {
 			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
 				IncidentStore::observe( $event );
+			} elseif ( '' !== $event['repair_of'] ) {
+				// A verified repair resolves the incident the repaired change opened.
+				IncidentStore::resolve_repaired( $event );
 			}
 			} catch ( \Throwable $t ) {
 				if ( $event['terminal'] ) {
@@ -536,8 +548,11 @@ final class AuditLog {
 	}
 
 	/**
-	 * Delete a bounded batch of expired audit rows and persist a redacted receipt.
-	 * A zero-day policy explicitly disables automatic retention.
+	 * Daily sweep. Every run that is not throttled closes quiet incidents, with
+	 * or without a retention window. Only when a retention window is configured
+	 * does it also delete a bounded batch of expired audit rows, prune aged
+	 * incidents, and persist a redacted receipt. A zero-day policy disables
+	 * automatic deletion.
 	 *
 	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
 	 */
@@ -551,7 +566,13 @@ final class AuditLog {
 			'deleted_rows'   => 0,
 			'run_at'         => gmdate( 'c', $now ),
 		];
-		if ( 0 === $days || ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) ) {
+		if ( ! $force && false !== get_transient( self::RETENTION_TRANSIENT ) ) {
+			return $base;
+		}
+
+		IncidentStore::close_quiet( $now );
+		if ( 0 === $days ) {
+			set_transient( self::RETENTION_TRANSIENT, 1, DAY_IN_SECONDS );
 			return $base;
 		}
 
@@ -579,14 +600,11 @@ final class AuditLog {
 		return $base;
 	}
 
+	/**
+	 * Keep the daily retention job scheduled whatever the retention setting; the
+	 * job closes quiet incidents even when no retention window is configured.
+	 */
 	public static function sync_retention_schedule( mixed $now = null ): void {
-		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
-		if ( 0 === $days ) {
-			if ( wp_next_scheduled( self::RETENTION_HOOK ) ) {
-				wp_clear_scheduled_hook( self::RETENTION_HOOK );
-			}
-			return;
-		}
 		if ( ! wp_next_scheduled( self::RETENTION_HOOK ) ) {
 			$timestamp = is_int( $now ) ? $now : time();
 			wp_schedule_event( $timestamp + HOUR_IN_SECONDS, 'daily', self::RETENTION_HOOK );
@@ -959,16 +977,8 @@ final class AuditLog {
 
 		[ $where_sql, $params ] = self::build_filter_clause( $filters );
 
-		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
-				correlation_id, operation_id, parent_event_id, attempt, idempotency_key, lifecycle_phase, is_terminal, terminal_owner,
-				event_type, operation_class, resource_type, resource_ref, change_set_id,
-				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
-				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,
-				site_fingerprint, mode, severity, event_id, schema_version, category,
-				outcome, severity_level, root_error_code, resource_key_hash, normalized_path,
-				cause_fingerprint, strategy_fingerprint, transaction_id, context_token_id_hash,
-				expected_verifier, remediation_code, retryable,
-				retry_after_seconds, incident_id, redacted_details, created_at
+		$columns = self::ROW_COLUMNS;
+		$sql     = "SELECT {$columns}
 			FROM {$table}
 			{$where_sql}
 			ORDER BY id DESC
@@ -986,6 +996,20 @@ final class AuditLog {
 		return is_array( $rows ) ? $rows : [];
 	}
 
+	/** Event id of the newest audit row recorded for a change set; '' when there is none. */
+	public static function latest_event_id( string $change_set_id ): string {
+		$change_set_id = mb_substr( sanitize_text_field( $change_set_id ), 0, 96 );
+		if ( '' === $change_set_id ) {
+			return '';
+		}
+		foreach ( self::recent( 1, 1, [ 'change_set_id' => $change_set_id ] ) as $row ) {
+			if ( is_array( $row ) && $change_set_id === (string) ( $row['change_set_id'] ?? '' ) ) {
+				return (string) ( $row['event_id'] ?? '' );
+			}
+		}
+		return '';
+	}
+
 	/** @return array<string, mixed>|null */
 	public static function find_event( string $event_id ): ?array {
 		$event_id = strtolower( trim( $event_id ) );
@@ -994,6 +1018,44 @@ final class AuditLog {
 		}
 		$rows = self::recent( 1, 1, [ 'event_id' => $event_id ] );
 		return isset( $rows[0] ) && is_array( $rows[0] ) ? $rows[0] : null;
+	}
+
+	/**
+	 * Rows that belong to the given change sets or link to them: the rows of those
+	 * change sets, and the rows of every change set that repairs one of them.
+	 * Oldest first, bounded; both lookups use indexed columns.
+	 *
+	 * @param list<string> $change_set_ids
+	 * @return list<array<string, mixed>>
+	 */
+	public static function lineage_rows( array $change_set_ids, int $limit = 200 ): array {
+		global $wpdb;
+		$ids = [];
+		foreach ( $change_set_ids as $id ) {
+			$id = mb_substr( sanitize_text_field( (string) $id ), 0, 96 );
+			if ( '' !== $id ) {
+				$ids[ $id ] = $id;
+			}
+		}
+		$ids = array_slice( array_values( $ids ), 0, 100 );
+		if ( [] === $ids ) {
+			return [];
+		}
+		$table        = self::table_name();
+		$columns      = self::ROW_COLUMNS;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%s' ) );
+		$sql          = "SELECT {$columns}
+			FROM {$table}
+			WHERE change_set_id IN ({$placeholders}) OR repair_of IN ({$placeholders})
+			ORDER BY id ASC
+			LIMIT %d"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and column list internal; placeholders generated.
+		$params = array_merge( $ids, $ids, [ max( 1, min( 500, $limit ) ) ] );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- Placeholder list assembled above; values prepared.
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A );
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+
+		return is_array( $rows ) ? array_values( array_filter( $rows, 'is_array' ) ) : [];
 	}
 
 	/**
@@ -1108,8 +1170,10 @@ final class AuditLog {
 				$params[]  = AuditEvent::CATEGORY_AUTH;
 				break;
 			case 'auth':
-				$clauses[] = 'category = %s';
+				// Like the other problem views, Auth lists refusals and failures, not successful sign-ins.
+				$clauses[] = '(category = %s AND outcome <> %s)';
 				$params[]  = AuditEvent::CATEGORY_AUTH;
+				$params[]  = AuditEvent::OUTCOME_SUCCESS;
 				break;
 			case 'resolved':
 				$incident_table = IncidentStore::table_name();
@@ -1148,15 +1212,15 @@ final class AuditLog {
 			$params[]  = $to . ' 23:59:59';
 		}
 
+		// Matching rules: a filter in CONTAINS_FILTERS matches part of the stored value, any case, with dots and
+		// other punctuation kept; the filters below match the whole value.
 		foreach (
 			[
 				'backend'             => 'backend',
-				'operation_class'     => 'operation_class',
 				'verification_status' => 'verification_status',
 				'rollback_status'     => 'rollback_status',
 				'severity'            => 'severity',
 				'event_type'          => 'event_type',
-				'root_error_code'     => 'root_error_code',
 				'error_code'          => 'error_code',
 			] as $filter_key => $column
 		) {
@@ -1164,6 +1228,13 @@ final class AuditLog {
 			if ( '' !== $value ) {
 				$clauses[] = $column . ' = %s';
 				$params[]  = $value;
+			}
+		}
+		foreach ( [ 'operation_class', 'root_error_code' ] as $filter_key ) {
+			$value = isset( $filters[ $filter_key ] ) ? mb_substr( sanitize_text_field( (string) $filters[ $filter_key ] ), 0, 190 ) : '';
+			if ( '' !== $value ) {
+				$clauses[] = $filter_key . ' LIKE %s';
+				$params[]  = '%' . self::esc_like( $value ) . '%';
 			}
 		}
 
@@ -1193,8 +1264,8 @@ final class AuditLog {
 
 		$normalized_path = isset( $filters['normalized_path'] ) ? self::normalized_filter_path( (string) $filters['normalized_path'] ) : '';
 		if ( '' !== $normalized_path ) {
-			$clauses[] = 'normalized_path = %s';
-			$params[]  = $normalized_path;
+			$clauses[] = 'normalized_path LIKE %s';
+			$params[]  = '%' . self::esc_like( $normalized_path ) . '%';
 		}
 
 		$incident_id = isset( $filters['incident_id'] ) ? strtolower( sanitize_text_field( (string) $filters['incident_id'] ) ) : '';
@@ -1278,6 +1349,10 @@ final class AuditLog {
 		return $out;
 	}
 
+	private const FREE_TEXT_SECRET_KEYS = 'password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie';
+
+	private const FREE_TEXT_PROSE_WORDS = 'no|not|now|none|null|empty|missing|invalid|valid|expired|revoked|required|incorrect|wrong|unset|set|already|still|being|too|a|an|the|only|either|neither|unavailable|available|malformed|unknown|ok';
+
 	private static function redact_free_text( string $value ): string {
 		$value = (string) preg_replace(
 			'/\b(Basic|Bearer)\s+[A-Za-z0-9._~+\/=\-]+/i',
@@ -1285,7 +1360,14 @@ final class AuditLog {
 			$value
 		);
 		$value = (string) preg_replace(
-			'/\b(password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie)\b(\s*(?::|=|\bis\b|\bwas\b)\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'/\b(' . self::FREE_TEXT_SECRET_KEYS . ')\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
+			'$1$2[redacted]',
+			$value
+		);
+		// Prose form ("the token is abc123"). Skip ordinary words so messages
+		// such as "The refresh token is no longer valid." stay readable.
+		$value = (string) preg_replace(
+			'/\b(' . self::FREE_TEXT_SECRET_KEYS . ')\b(\s+(?:is|was)\s+)(?!(?:' . self::FREE_TEXT_PROSE_WORDS . ')\b)(?:"[^"]*"|\'[^\']*\'|[^\s,;&}]+)/i',
 			'$1$2[redacted]',
 			$value
 		);

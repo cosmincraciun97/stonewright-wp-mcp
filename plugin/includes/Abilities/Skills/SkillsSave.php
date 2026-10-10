@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Skills;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Creates or updates a site skill (upsert by slug).
@@ -67,6 +67,11 @@ final class SkillsSave extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Whether the skill should be exposed as an explicit prompt/command entry. Defaults to enabled.',
 				],
+				'revision'       => [
+					'type'        => 'integer',
+					'minimum'     => 1,
+					'description' => 'Revision of the skill as last read (the revision field of skills-get). When given, the save is refused with a 409 conflict if the skill has changed since or no longer exists, so a newer change is never overwritten. Omit it to create a skill or to save without the check.',
+				],
 			],
 		];
 	}
@@ -97,9 +102,10 @@ final class SkillsSave extends AbilityKernel {
 					return $this->error( 'stonewright_skills_invalid_slug', __( 'slug is required and must be non-empty.', 'stonewright' ) );
 				}
 
-				$existing = Skills::get( $slug );
+				$library  = SkillLibraryService::open();
+				$existing = $library->find( $slug );
 
-				$id = Skills::save( [
+				$input = [
 					'slug'           => $slug,
 					'title'          => (string) ( $args['title'] ?? '' ),
 					'description'    => (string) ( $args['description'] ?? '' ),
@@ -107,11 +113,15 @@ final class SkillsSave extends AbilityKernel {
 					'enabled'        => $args['enabled'] ?? true,
 					'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
 					'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
-					'source'         => 'user',
-				] );
+				];
+				if ( isset( $args['revision'] ) ) {
+					$input['revision'] = (int) $args['revision'];
+				}
 
-				if ( 0 === $id ) {
-					return $this->error( 'stonewright_skills_save_failed', __( 'Failed to save skill. The table may not exist yet.', 'stonewright' ) );
+				$id = $library->save_skill( $input );
+
+				if ( is_wp_error( $id ) ) {
+					return $id;
 				}
 
 				return [

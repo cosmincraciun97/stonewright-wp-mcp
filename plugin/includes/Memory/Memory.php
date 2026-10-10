@@ -180,12 +180,15 @@ final class Memory {
 			'value_json' => Json::encode( $value ),
 			'confidence' => $confidence,
 			'created_by' => get_current_user_id(),
+			// Times are written in UTC by the plugin, not left to the database clock.
+			'updated_at' => current_time( 'mysql', true ),
 		];
 
 		if ( $existing ) {
-			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], [ '%s', '%s', '%s', '%f', '%d' ], [ '%d' ] );
+			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], [ '%s', '%s', '%s', '%f', '%d', '%s' ], [ '%d' ] );
 		} else {
-			$wpdb->insert( $table, $data, [ '%s', '%s', '%s', '%f', '%d' ] );
+			$data['created_at'] = $data['updated_at'];
+			$wpdb->insert( $table, $data, [ '%s', '%s', '%s', '%f', '%d', '%s', '%s' ] );
 		}
 	}
 
@@ -369,6 +372,9 @@ final class Memory {
 		];
 
 		$formats = [ '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d' ];
+		// Times are written in UTC by the plugin, not left to the database clock.
+		$data['updated_at'] = current_time( 'mysql', true );
+		$formats[]          = '%s';
 
 		if ( $existing_id > 0 ) {
 			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
@@ -388,7 +394,9 @@ final class Memory {
 			return 0;
 		}
 
-		$result = $wpdb->insert( $table, $data, $formats );
+		$data['created_at'] = $data['updated_at'];
+		$formats[]          = '%s';
+		$result             = $wpdb->insert( $table, $data, $formats );
 		if ( false !== $result ) {
 			return (int) $wpdb->insert_id;
 		}
@@ -403,6 +411,24 @@ final class Memory {
 			]
 		);
 		return 0;
+	}
+
+	/**
+	 * The id of the entry that holds a scope and key pair, or 0 when the pair is free.
+	 *
+	 * A pair is unique: put_typed() replaces the entry that holds it, so a caller that must not replace asks first.
+	 */
+	public static function find_id( string $scope, string $key ): int {
+		global $wpdb;
+		$table = self::table_name();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE scope = %s AND memory_key = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$scope,
+				$key
+			)
+		);
 	}
 
 	/**
@@ -563,18 +589,15 @@ final class Memory {
 	 */
 	public static function mark_retrieved( array $ids ): void {
 		global $wpdb;
-		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'update' ) ) {
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'query' ) || ! method_exists( $wpdb, 'prepare' ) ) {
 			return;
 		}
-		$when = current_time( 'mysql', true );
+		$when  = current_time( 'mysql', true );
+		$table = self::table_name();
 		foreach ( array_values( array_unique( array_filter( array_map( static fn( mixed $id ): int => max( 0, (int) $id ), $ids ) ) ) ) as $id ) {
-			$wpdb->update(
-				self::table_name(),
-				[ 'last_retrieved_at' => $when ],
-				[ 'id' => $id ],
-				[ '%s' ],
-				[ '%d' ]
-			);
+			// Assigning updated_at to itself stops the column's automatic
+			// "on update" timestamp from turning a read into an edit.
+			$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET last_retrieved_at = %s, updated_at = updated_at WHERE id = %d", $when, $id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned table, prepared values.
 		}
 	}
 
@@ -652,6 +675,8 @@ final class Memory {
 		if ( empty( $data ) ) {
 			return false;
 		}
+		$data['updated_at'] = current_time( 'mysql', true );
+		$formats[]          = '%s';
 
 		$result = $wpdb->update( $table, $data, [ 'id' => $id ], $formats, [ '%d' ] );
 		return ( false !== $result );
@@ -680,8 +705,9 @@ final class Memory {
 	}
 
 	/**
-	 * Task-start may load only explicit active rows that are not draft lessons,
-	 * dangerous unverified workarounds, or payloads claiming to be product rules.
+	 * Task-start may load only explicit active rows that are not unapproved draft
+	 * lessons, dangerous unverified workarounds, or payloads claiming to be
+	 * product rules. An approved lesson is offered like any other active row.
 	 *
 	 * @param array<string, mixed> $entry
 	 */
@@ -698,13 +724,27 @@ final class Memory {
 		return ! self::is_dangerous_unverified( $entry );
 	}
 
-	/** @param array<string, mixed> $entry */
+	/**
+	 * A proposed lesson is a draft until an administrator approves it: it must be
+	 * active and carry the approval record written on approval.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
 	private static function is_error_pattern_draft( array $entry ): bool {
 		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
-		if ( 'error-pattern-draft' === (string) ( $value['source'] ?? '' ) ) {
-			return true;
+		if ( 'error-pattern-draft' !== (string) ( $value['source'] ?? '' )
+			&& ! str_starts_with( (string) ( $entry['memory_key'] ?? '' ), 'draft-lesson-' ) ) {
+			return false;
 		}
-		return str_starts_with( (string) ( $entry['memory_key'] ?? '' ), 'draft-lesson-' );
+		return 'active' !== (string) ( $entry['status'] ?? '' ) || ! self::has_approval_record( $value );
+	}
+
+	/** @param array<string, mixed> $value */
+	private static function has_approval_record( array $value ): bool {
+		$approval = $value['approval'] ?? null;
+		return is_array( $approval )
+			&& is_string( $approval['approved_at'] ?? null )
+			&& '' !== trim( $approval['approved_at'] );
 	}
 
 	/** @param array<string, mixed> $entry */

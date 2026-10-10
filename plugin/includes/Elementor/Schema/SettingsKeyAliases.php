@@ -50,16 +50,24 @@ final class SettingsKeyAliases {
 	/**
 	 * Normalize settings keys; prefers canonical when both present.
 	 *
-	 * @param array<string, mixed> $settings
+	 * When `$controls` (the live control list of the element) is given, a key
+	 * that is itself a control of that element is never rewritten: an alias
+	 * only stands in for a name the element does not define.
+	 *
+	 * @param array<string, mixed>                     $settings
+	 * @param array<string, array<string, mixed>>|null $controls Live controls of the element, or null to alias every key.
 	 * @return array{settings: array<string, mixed>, applied: list<array{alias:string,canonical:string}>}
 	 */
-	public static function normalize( array $settings ): array {
+	public static function normalize( array $settings, ?array $controls = null ): array {
 		$applied = [];
 		foreach ( self::ALIASES as $alias => $canonical ) {
 			if ( ! array_key_exists( $alias, $settings ) ) {
 				continue;
 			}
 			if ( $alias === $canonical ) {
+				continue;
+			}
+			if ( null !== $controls && isset( $controls[ $alias ] ) ) {
 				continue;
 			}
 			if ( ! array_key_exists( $canonical, $settings ) ) {
@@ -76,6 +84,25 @@ final class SettingsKeyAliases {
 			'settings' => $settings,
 			'applied'  => $applied,
 		];
+	}
+
+	/**
+	 * Normalize the settings of one element: widgets, containers, sections and columns keep every key their
+	 * live schema defines, and take the alias only for a name the element does not define.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return array{settings: array<string, mixed>, applied: list<array{alias:string,canonical:string}>}
+	 */
+	public static function normalize_for_element( array $settings, string $element_type, string $widget_type = '' ): array {
+		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+			$schema = ContainerSchemaRepository::get( $element_type );
+			return self::normalize( $settings, is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : null );
+		}
+		if ( 'widget' !== $element_type || '' === $widget_type ) {
+			return self::normalize( $settings );
+		}
+		$schema = WidgetSchemaRepository::get( $widget_type );
+		return self::normalize( $settings, is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : null );
 	}
 
 	public static function canonical( string $key ): string {

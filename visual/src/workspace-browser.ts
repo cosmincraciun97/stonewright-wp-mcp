@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /**
  * Browser entry for the Stonewright Visual workspace.
@@ -13,8 +13,8 @@ import { ElementorV3EditorAdapter } from "./elementor-v3/editor-adapter.js";
 import { createWindowElementorV3Runtime } from "./elementor-v3/window-runtime.js";
 import { ElementorV4EditorAdapter } from "./elementor-v4/editor-adapter.js";
 import { createWindowElementorV4Runtime } from "./elementor-v4/window-runtime.js";
-import { GutenbergEditorAdapter } from "./gutenberg/editor-adapter.js";
-import { createWindowGutenbergRuntime } from "./gutenberg/window-runtime.js";
+import { NativeBlockTools } from "./native-blocks/block-tools.js";
+import { bindNativeBlockSession } from "./native-blocks/store-session.js";
 import type { AdapterCandidate, AdapterKind } from "./workspace-ui/adapter-status.js";
 import type { EvidenceEntry, EvidenceStatus } from "./workspace-ui/evidence-panel.js";
 import {
@@ -29,6 +29,9 @@ export * from "./workspace-ui/confirmation-panel.js";
 export * from "./workspace-ui/evidence-panel.js";
 export * from "./workspace-ui/state.js";
 export * from "./workspace-ui/workspace.js";
+export * from "./native-blocks/native-port.js";
+export * from "./native-blocks/store-session.js";
+export * from "./native-blocks/block-tools.js";
 
 export interface WorkspaceBootConfig {
   restBase: string;
@@ -71,7 +74,7 @@ export function defaultAdapterCandidates(target: EditorWindow = window as unknow
     {
       kind: "gutenberg",
       detect: () => hasBlockEditor(target),
-      create: () => new GutenbergEditorAdapter(createWindowGutenbergRuntime(target as never)),
+      create: () => new NativeBlockTools(bindNativeBlockSession(target)),
     },
   ];
 }
@@ -108,13 +111,16 @@ export function evidenceFromReport(payload: unknown): EvidenceEntry[] {
 
   for (const finding of asArray(report.findings)) {
     const row = asRecord(finding);
+    const status = findingStatus(row.severity);
     entries.push({
       label: text(row.rule_id, "rule"),
       rule: text(row.rule_id, "rule"),
-      status: severityToStatus(text(row.severity, "warn")),
+      status,
       viewport: optionalText(row.viewport),
       measured: optionalText(row.element_ref),
       source: "design-quality-check",
+      checked: typeof row.rule_id === "string" && !!row.rule_id && status !== "not_checked",
+      evidenceType: "quality-rule",
     });
   }
 
@@ -124,6 +130,8 @@ export function evidenceFromReport(payload: unknown): EvidenceEntry[] {
       rule: text(rule, "rule"),
       status: "not_checked",
       source: "design-quality-check",
+      checked: false,
+      evidenceType: "quality-rule",
     });
   }
 
@@ -198,6 +206,16 @@ export function mountFromConfig(
 }
 
 /**
+ * One mount of the workspace on the shared root. Mounting a newer run
+ * supersedes it: its controller is destroyed at that moment, so it can no
+ * longer repaint the root, and the run stops at its next step.
+ */
+interface WorkspaceRun {
+  mounted: (controller: WorkspaceController) => void;
+  current: () => boolean;
+}
+
+/**
  * Mounts against a supplied real editor window, connects, and shows what is
  * already known about the post.
  *
@@ -205,13 +223,18 @@ export function mountFromConfig(
  * editor action supplies a same-origin Elementor/Gutenberg window after that
  * runtime is ready. Unsupported runtimes are reported rather than guessed.
  */
-async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise<WorkspaceController | null> {
+async function start(config: WorkspaceBootConfig, target: EditorWindow, run: WorkspaceRun): Promise<WorkspaceController | null> {
   const controller = mountFromConfig(config, target);
   if (controller === null) {
     return null;
   }
+  run.mounted(controller);
 
   await controller.connect();
+  if (!run.current()) {
+    controller.destroy();
+    return null;
+  }
 
   try {
     const stored = await createQualityVerifier(config)({
@@ -219,12 +242,18 @@ async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise
       operations: [],
       direction: directionFromPayload(config.direction),
     });
-    controller.recordEvidence(stored);
+    if (run.current()) {
+      controller.recordEvidence(stored);
+    }
   } catch {
     // No readable report is not an error state of its own: the evidence panel
     // stays empty, which is exactly what "nothing was verified" looks like.
   }
 
+  if (!run.current()) {
+    controller.destroy();
+    return null;
+  }
   return controller;
 }
 
@@ -236,18 +265,22 @@ function boot(): void {
   }
 
   let connectionGeneration = 0;
+  let mounted: WorkspaceController | null = null;
+  const run = (generation: number): WorkspaceRun => ({
+    mounted: (controller) => {
+      mounted?.destroy();
+      mounted = controller;
+    },
+    current: () => generation === connectionGeneration,
+  });
 
   // Paint the host workspace immediately. On a normal wp-admin host the
   // strict runtime checks resolve no adapter, so the UI truthfully starts
   // disconnected; browser tests and legitimate embedded-editor hosts may
   // still resolve a runtime already present on this window.
-  void start(config, target).then((controller) => {
+  void start(config, target, run(0)).then((controller) => {
     if (controller) {
-      if (connectionGeneration === 0) {
-        target.stonewrightVisual = controller;
-      } else {
-        controller.destroy();
-      }
+      target.stonewrightVisual = controller;
     }
   });
 
@@ -256,14 +289,9 @@ function boot(): void {
     if (target.stonewrightVisual) {
       target.stonewrightVisual.destroy();
     }
-    const controller = await start(config, editorWindow);
+    const controller = await start(config, editorWindow, run(generation));
     if (controller) {
-      if (generation === connectionGeneration) {
-        target.stonewrightVisual = controller;
-      } else {
-        controller.destroy();
-        return null;
-      }
+      target.stonewrightVisual = controller;
     }
     return controller;
   };
@@ -315,17 +343,23 @@ function hasAtomicTypes(target: EditorWindow): boolean {
   return [...Object.values(cache), ...Object.values(elements)].some((entry) => entry?.atomic === true);
 }
 
-function severityToStatus(severity: string): EvidenceStatus {
+/**
+ * What a stored finding's severity means for verification. Reports carry
+ * exactly three: an error fails; a warning is advisory, so it stays visible and
+ * checked without blocking verification; `info` marks a waived finding, an
+ * accepted trade-off that counts as a checked pass rather than as a warning.
+ * Any other value cannot be interpreted and stays unchecked.
+ */
+function findingStatus(severity: unknown): EvidenceStatus {
   switch (severity) {
     case "error":
-    case "fail":
       return "fail";
-    case "not_checked":
-      return "not_checked";
-    case "pass":
+    case "warning":
+      return "warn";
+    case "info":
       return "pass";
     default:
-      return "warn";
+      return "not_checked";
   }
 }
 

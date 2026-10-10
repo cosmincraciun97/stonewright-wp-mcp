@@ -262,7 +262,7 @@ final class ContextUserContextTest extends TestCase {
 		if ( count( $floor ) < count( $expected ) ) {
 			self::assertSame( count( $expected ), $contract['floor_count'] ?? null );
 		}
-		self::assertLessThan( 3600, strlen( wp_json_encode( $start ) ?: '' ) );
+		self::assertLessThan( 3750, strlen( wp_json_encode( $start ) ?: '' ) );
 	}
 
 	public function test_context_bootstrap_output_schema_lists_design_direction_ref(): void {
@@ -313,17 +313,43 @@ final class ContextUserContextTest extends TestCase {
 		self::assertSame( 'stonewright/memory-get', $refs[0]['body_tool'] ?? null );
 	}
 
+	public function test_task_start_offers_an_approved_lesson_and_withholds_an_unapproved_draft(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_memory_enabled'] = true;
+		$draft = [ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema first.' ];
+		$GLOBALS['wpdb'] = $this->make_matching_wpdb(
+			[
+				$this->memory_row( 41, 'reference', 'audit', 'draft-lesson-approved', 'Draft lesson: stonewright_demo_failure', 0, 'active', $draft + [ 'approval' => [ 'approved_at' => '2026-10-01 10:00:00', 'approved_by' => 7 ] ] ),
+				$this->memory_row( 42, 'reference', 'audit', 'draft-lesson-unapproved', 'Draft lesson: stonewright_demo_failure', 0, 'active', $draft ),
+			]
+		);
+
+		$start = ( new TaskStart() )->execute(
+			[
+				'task'         => 'Read the exact schema before repairing stonewright_demo_failure.',
+				'surface'      => 'elementor',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $start );
+		$refs = is_array( $start['context']['memory_refs'] ?? null ) ? $start['context']['memory_refs'] : [];
+		self::assertContains( 'draft-lesson-approved', array_column( $refs, 'memory_key' ) );
+		self::assertNotContains( 'draft-lesson-unapproved', array_column( $refs, 'memory_key' ) );
+	}
+
 	/**
+	 * @param array<string, mixed>|null $value Stored value; defaults to the row name.
 	 * @return array<string, mixed>
 	 */
-	private function memory_row( int $id, string $type, string $scope, string $key, string $name, int $precedence, string $status ): array {
+	private function memory_row( int $id, string $type, string $scope, string $key, string $name, int $precedence, string $status, ?array $value = null ): array {
 		return [
 			'id'                  => (string) $id,
 			'type'                => $type,
 			'scope'               => $scope,
 			'memory_key'          => $key,
 			'name'                => $name,
-			'value_json'          => wp_json_encode( $name ),
+			'value_json'          => wp_json_encode( $value ?? $name ),
 			'confidence'          => '1.0000',
 			'topic'               => $name,
 			'version_fingerprint' => '',

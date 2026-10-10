@@ -1,5 +1,5 @@
 /**
- * Stonewright admin shell: notice drawer, shell offset, copy prompts, tooltips.
+ * Stonewright admin shell: notice policy, shell offset, copy prompts, tooltips.
  */
 (function () {
 	'use strict';
@@ -12,93 +12,139 @@
 		}
 	}
 
-	function updateShellOffset(shell) {
-		var header = shell.querySelector('.sw-shell__header');
+	/**
+	 * Publish the height of the chrome that stays fixed above the content: the WordPress admin bar.
+	 * The shell header scrolls with the page, so it is not part of the offset.
+	 */
+	function updateShellOffset() {
 		var adminBar = document.getElementById('wpadminbar');
-		var top = 0;
-		if (adminBar) {
-			top += adminBar.offsetHeight || 0;
-		}
-		if (header) {
-			top += header.offsetHeight || 0;
-		}
+		var top = adminBar ? adminBar.offsetHeight || 0 : 0;
 		if (top > 0) {
 			document.documentElement.style.setProperty('--sw-shell-offset', top + 'px');
 		}
 	}
 
+	/**
+	 * Notices the page prints in its own content stay where the page printed them.
+	 *
+	 * WordPress moves every notice that is not marked `inline` to just after `hr.wp-header-end` when the page is
+	 * ready. The plugin's own pages print notices inside the content region, so they are marked `inline` here,
+	 * synchronously, before WordPress's handler runs.
+	 */
+	function pinOwnNotices(shell) {
+		var content = shell.querySelector('#sw-main');
+		if (!content) {
+			return;
+		}
+		content.querySelectorAll('.notice, .updated, .error').forEach(function (node) {
+			node.classList.add('inline');
+		});
+	}
+
+	/**
+	 * True only for a notice another plugin or WordPress itself printed.
+	 *
+	 * Everything the plugin renders stays where it is: its page content (#sw-main), anything already in the
+	 * drawer, and any element carrying a sw-* or stonewright-* class wherever that class sits in the list
+	 * (the plugin prints its own admin notices with one).
+	 */
 	function isForeignNotice(node) {
 		if (!(node instanceof HTMLElement)) {
 			return false;
 		}
-		if (node.classList.contains('sw-notice')) {
+		if (node.closest('#sw-main, .sw-notice-drawer')) {
 			return false;
 		}
-		// Stonewright-owned UI must never be relocated.
-		var cls = node.className || '';
-		if (typeof cls === 'string' && cls.indexOf('sw-') === 0) {
+		var cls = typeof node.className === 'string' ? node.className : '';
+		if (/(^|\s)(sw|stonewright)-/.test(cls)) {
 			return false;
 		}
-		var matches =
-			node.matches('.notice, .updated, .error, .update-nag') ||
-			(typeof cls === 'string' && /notice/i.test(cls) && !/^sw-/.test(cls));
-		return matches;
+		// Only the classes WordPress prints for its own notices count.
+		return node.matches('.notice, .updated, .error, .update-nag');
 	}
 
-	function collectForeignNotices(shell) {
+	/** error, warning, update or notice: the words the drawer title counts. */
+	function severityOf(node) {
+		if (node.matches('.notice-error, .error')) {
+			return 'error';
+		}
+		if (node.matches('.notice-warning')) {
+			return 'warning';
+		}
+		if (node.matches('.update-nag, .update-message')) {
+			return 'update';
+		}
+		return 'notice';
+	}
+
+	function countLabel(labels, severity, count) {
+		var forms = labels && labels[severity];
+		var template = forms ? forms[count === 1 ? 0 : 1] : '%d';
+		return String(template || '%d').replace('%d', String(count));
+	}
+
+	/**
+	 * Keep up to three notices where WordPress put them. When more arrive, fold them into one disclosure titled
+	 * with how many of each kind it holds. It starts open whenever it holds an error or a warning, so those are
+	 * never hidden behind a click.
+	 */
+	var MAX_VISIBLE = 3;
+
+	function foldNotices(shell) {
 		var drawer = shell.querySelector('[data-sw-notice-drawer]');
 		var body = shell.querySelector('[data-sw-notice-body]');
-		var countEl = shell.querySelector('[data-sw-notice-count]');
-		if (!drawer || !body || !countEl) {
+		var summary = shell.querySelector('[data-sw-notice-summary]');
+		if (!drawer || !body || !summary) {
 			return;
 		}
 
 		var root = document.getElementById('wpbody-content') || document.body;
-		var candidates = root.querySelectorAll('.notice, .update-nag, .error, .updated, [class*="notice"]');
-		var moved = 0;
-
-		candidates.forEach(function (node) {
-			if (!isForeignNotice(node)) {
-				return;
+		var visible = [];
+		root.querySelectorAll('.notice, .update-nag, .error, .updated').forEach(function (node) {
+			if (isForeignNotice(node)) {
+				visible.push(node);
 			}
-			if (body.contains(node)) {
-				return;
-			}
-			if (shell.contains(node) && node.closest('[data-sw-notice-drawer]')) {
-				return;
-			}
-			// Skip notices nested deep inside interactive widgets that are not top-level WP notices.
-			if (node.closest('.sw-shell__content') && node.closest('form') && node.classList.contains('sw-notice')) {
-				return;
-			}
-			body.appendChild(node);
-			moved += 1;
 		});
+		var folded = Array.prototype.slice.call(body.children);
 
-		var total = body.children.length;
-		if (total > 0) {
-			countEl.textContent = String(total);
-			drawer.hidden = false;
-			var summary = drawer.querySelector('.sw-notice-drawer__summary');
-			if (summary) {
-				var label = total === 1
-					? 'Other WordPress notice'
-					: 'Other WordPress notices';
-				// Keep the count badge as a child; rewrite only leading text.
-				var textNode = null;
-				for (var i = 0; i < summary.childNodes.length; i++) {
-					if (summary.childNodes[i].nodeType === 3) {
-						textNode = summary.childNodes[i];
-						break;
-					}
-				}
-				if (textNode) {
-					textNode.textContent = label + ' ';
-				}
-			}
+		if (folded.length + visible.length > MAX_VISIBLE) {
+			visible.forEach(function (node) {
+				body.appendChild(node);
+			});
+			folded = Array.prototype.slice.call(body.children);
 		}
 
-		return moved;
+		if (folded.length === 0) {
+			drawer.hidden = true;
+			return;
+		}
+
+		var labels = {};
+		try {
+			labels = JSON.parse(drawer.getAttribute('data-sw-notice-labels') || '{}');
+		} catch (e) {
+			labels = {};
+		}
+		var counts = { error: 0, warning: 0, update: 0, notice: 0 };
+		folded.forEach(function (node) {
+			counts[severityOf(node)] += 1;
+		});
+		var parts = ['error', 'warning', 'update', 'notice']
+			.filter(function (severity) {
+				return counts[severity] > 0;
+			})
+			.map(function (severity) {
+				return countLabel(labels, severity, counts[severity]);
+			});
+		var title = (labels.heading || '') + ': ' + parts.join(', ');
+		if (summary.textContent !== title) {
+			summary.textContent = title;
+		}
+
+		if (drawer.hidden && (counts.error > 0 || counts.warning > 0)) {
+			drawer.open = true;
+		}
+		drawer.hidden = false;
 	}
 
 	function watchNotices(shell) {
@@ -112,7 +158,7 @@
 				window.clearTimeout(timer);
 			}
 			timer = window.setTimeout(function () {
-				collectForeignNotices(shell);
+				foldNotices(shell);
 			}, 80);
 		});
 		observer.observe(root, { childList: true, subtree: true });
@@ -260,17 +306,21 @@
 		});
 	}
 
+	// Runs now, not on ready: WordPress moves notices when the page is ready, and the plugin's own must be marked first.
+	var printedShell = document.querySelector('[data-sw-shell]');
+	if (printedShell) {
+		pinOwnNotices(printedShell);
+	}
+
 	ready(function () {
 		var shell = document.querySelector('[data-sw-shell]');
 		if (!shell) {
 			return;
 		}
 		document.documentElement.classList.add('sw-has-shell');
-		updateShellOffset(shell);
-		window.addEventListener('resize', function () {
-			updateShellOffset(shell);
-		});
-		collectForeignNotices(shell);
+		updateShellOffset();
+		window.addEventListener('resize', updateShellOffset);
+		foldNotices(shell);
 		watchNotices(shell);
 		initCopyPrompts(shell);
 		initTooltips();

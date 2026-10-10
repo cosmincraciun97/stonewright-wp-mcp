@@ -20,7 +20,7 @@ final class ContainerSchemaRepository {
 		$element      = self::live_element( $element_type );
 
 		if ( is_object( $element ) ) {
-			$controls = self::normalize_controls( method_exists( $element, 'get_controls' ) ? (array) $element->get_controls() : [] );
+			$controls = self::normalize_controls( LiveControls::of( $element ) );
 			$source   = 'elementor_live_controls';
 		} elseif ( self::live_structural_runtime_booted() ) {
 			return new \WP_Error(
@@ -31,6 +31,9 @@ final class ContainerSchemaRepository {
 		} else {
 			$controls = self::fallback_controls();
 			$source   = 'stonewright_offline_renderer_contract';
+		}
+		if ( 'column' === $element_type ) {
+			$controls = self::with_column_width_controls( $controls );
 		}
 
 		$record = [
@@ -103,11 +106,40 @@ final class ContainerSchemaRepository {
 				'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 				'provenance' => 'live_elementor_runtime',
 			];
-			foreach ( [ 'default', 'options', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
+			foreach ( [ 'default', 'options', 'selectors_dictionary', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
 				if ( array_key_exists( $field, $control ) ) {
 					$controls[ $name ][ $field ] = $control[ $field ];
 				}
 			}
+		}
+		ksort( $controls );
+		return $controls;
+	}
+
+	/**
+	 * Elementor stores the width of a section column under `_column_size` (the
+	 * preset width class) and `_inline_size` (the custom width). Both are part
+	 * of the saved column, so a column carrying them is valid.
+	 *
+	 * @param array<string, array<string, mixed>> $controls
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function with_column_width_controls( array $controls ): array {
+		foreach ( [ '_column_size' => false, '_inline_size' => true ] as $key => $responsive ) {
+			if ( isset( $controls[ $key ] ) ) {
+				continue;
+			}
+			$controls[ $key ] = [
+				'key'        => $key,
+				'type'       => 'hidden',
+				'label'      => '',
+				'tab'        => '',
+				'section'    => '',
+				'responsive' => $responsive,
+				'dynamic'    => [],
+				'condition'  => [],
+				'provenance' => 'elementor_saved_column_width',
+			];
 		}
 		ksort( $controls );
 		return $controls;
@@ -156,6 +188,7 @@ final class ContainerSchemaRepository {
 			'box_shadow_box_shadow' => [ 'type' => 'switcher' ],
 			'z_index'               => [ 'type' => 'number', 'responsive' => true ],
 			'css_id'                => [ 'type' => 'text' ],
+			'_element_id'           => [ 'type' => 'text' ],
 			'css_classes'           => [ 'type' => 'text' ],
 			'_css_classes'          => [ 'type' => 'text' ],
 			'position'              => [ 'type' => 'select' ],

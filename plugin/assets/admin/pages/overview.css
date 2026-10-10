@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Overview page: placement only. Every component (cards, stat band, table, badges) comes from sw-ui.css.
+ */
+
+/* The activity sparkline sits above the recent-activity table, inside the flush card body. */
+.sw-overview .sw-overview__spark {
+	padding: var(--sw-card-pad);
+	border-bottom: 1px solid var(--sw-border);
+	color: var(--sw-accent-text);
+}
+
+.sw-overview .sw-overview__spark svg {
+	display: block;
+	max-width: 100%;
+}

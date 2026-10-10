@@ -6,7 +6,7 @@ Stonewright separates a repeated failure from a reusable lesson. An audit error 
 
 Stonewright accepts two evidence classes:
 
-1. **Explicit user corrections** may be recorded immediately with `stonewright-learning-record`. The source and scope remain visible so user direction outranks inferred guidance.
+1. **Explicit user corrections** may be recorded immediately with `stonewright-learning-record`. The source and scope remain visible so user direction outranks inferred guidance. The MCP connect-time instructions and the default compact `stonewright-task-start` (`context.learning`) both tell the agent to call it when the user corrects it or a mistake repeats; a lesson counts only when the receipt carries `verified:true`.
 2. **Audit-derived repairs** become active learning only after a persisted failure and a later independent verifier are strictly correlated through the same resource and change set. Record that closure with `stonewright-incident-repair-record`.
 
 Generic success, an agent-supplied `verified` flag, an unrelated read, or a recipe without persisted proof does not close the incident.
@@ -21,6 +21,12 @@ same cause recurs -> reopened incident -> stale lesson
 ```
 
 The incident remains the lifecycle authority. The memory row is a derived, reusable result. Reopening never deletes history: it marks the promoted lesson stale so task start stops presenting it as active guidance.
+
+An incident covers one cause: the same error code from the same ability family on the same kind of resource. Incidents that do not involve writes, verification, or rollback close after seven days without a new occurrence, and a recurrence reopens the incident and counts the reopening. Write, verification, and rollback incidents close only through a verified repair.
+
+## Proposed lessons
+
+When the same error repeats ten times, Stonewright adds a proposed lesson to Memory as a draft. A draft is not active. An administrator approves or discards it on the Memory page; approval makes the lesson active and records who approved it and when (UTC). An approved lesson is offered to agents like any other active reference entry; a draft, or a lesson that is active without a recorded approval, is not. A one-time repair returns any proposed lesson that is active without a recorded approval to draft.
 
 ## Task-start response
 

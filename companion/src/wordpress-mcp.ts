@@ -158,6 +158,29 @@ export const NEVER_DISABLE_TOOL_NAMES = new Set([
 	'stonewright-php-execute',
 ]);
 
+const INSPECT_NEVER_DISABLE_TOOL_NAMES: ReadonlySet<string> = new Set(
+	[...NEVER_DISABLE_TOOL_NAMES].filter((name) => name !== 'stonewright-php-execute'),
+);
+
+/**
+ * The tools the companion keeps registered whenever the remote lists them. The
+ * read-only inspect profile does not pin php-execute, so a remote that lists it
+ * (an operator surface of full) still leaves it out of an inspect session.
+ */
+export function neverDisableToolNamesFor(profile: ProxyToolProfile): ReadonlySet<string> {
+	return profile === 'inspect' ? INSPECT_NEVER_DISABLE_TOOL_NAMES : NEVER_DISABLE_TOOL_NAMES;
+}
+
+/**
+ * Local tools the read-only inspect profile keeps: the permanent gateways and the
+ * two WP-CLI tools that only read. It has no run, batch, job, or install tool.
+ */
+export const INSPECT_LOCAL_TOOL_NAMES = [
+	...PERMANENT_GATEWAY_TOOL_NAMES,
+	'stonewright-wp-cli-status',
+	'stonewright-wp-cli-discover',
+] as const;
+
 export type ProxyToolProfile =
 	| 'full'
 	| 'bootstrap'
@@ -169,6 +192,7 @@ export type ProxyToolProfile =
 	| 'gutenberg'
 	| 'wp-cli'
 	| 'site-admin'
+	| 'inspect'
 	| 'discover-execute';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
@@ -392,6 +416,44 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-get-ability-info',
 		'stonewright-execute-ability',
 		'stonewright-security-issue-confirmation-token',
+	],
+	// Read-only: mirrors ToolProfile::profile_tools('inspect') in the plugin, name
+	// for name. Discovery, read, and verify tools; no write tool, no php-execute,
+	// no confirmation-token tool.
+	inspect: [
+		'stonewright-context-bootstrap',
+		'stonewright-task-start',
+		'stonewright-tool-profile',
+		'stonewright-skills-get',
+		'stonewright-expertise-get',
+		'stonewright-rules-get',
+		// Discovery.
+		'stonewright-site-info',
+		'stonewright-site-capabilities',
+		'stonewright-site-plugins-list',
+		'stonewright-site-theme',
+		'stonewright-content-inventory',
+		'stonewright-elementor-v3-capabilities-summary',
+		'stonewright-elementor-v4-status',
+		'stonewright-design-direction-brief',
+		// Read.
+		'stonewright-content-get-page',
+		'stonewright-elementor-v3-get-page-structure',
+		'stonewright-elementor-v4-read-atomic-tree',
+		'stonewright-elementor-v3-get-kit-globals',
+		'stonewright-elementor-schema',
+		'stonewright-blocks-get-schema',
+		'stonewright-fse-get-theme-json',
+		'stonewright-theme-file-read',
+		'stonewright-media-list',
+		'stonewright-menu-list',
+		'stonewright-settings-get',
+		// Verify.
+		'stonewright-elementor-post-write-verify',
+		'stonewright-elementor-document-health',
+		'stonewright-design-visual-compare',
+		'stonewright-site-health',
+		'stonewright-capability-preflight',
 	],
 	'site-admin': [
 		...BASE_PROXY_TOOL_NAMES,
@@ -874,7 +936,7 @@ export async function registerWordPressMcpTools(
 		maxTools,
 	);
 	const remoteByName = new Map(tools.map((tool) => [tool.name, tool]));
-	for (const name of NEVER_DISABLE_TOOL_NAMES) {
+	for (const name of neverDisableToolNamesFor(activeProfile)) {
 		if (!kept.includes(name) && remoteByName.has(name) && !COMPANION_OWNED_TOOL_NAMES.has(name)) {
 			kept.push(name);
 		}
@@ -1316,16 +1378,17 @@ export async function handleToolsChangedResponse(options: {
 			authoritative = false;
 		}
 
+		const pinned = neverDisableToolNamesFor(activeProfile);
 		const merged = [...desiredNames];
 		for (const name of hintedNames) {
 			if (!merged.includes(name)) merged.push(name);
 		}
-		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+		for (const name of pinned) {
 			if (byName.has(name) && !merged.includes(name)) merged.push(name);
 		}
 		const { kept } = trimToolsToMax(merged, maxTools);
 		const desiredSet = new Set(kept);
-		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+		for (const name of pinned) {
 			if (byName.has(name)) desiredSet.add(name);
 		}
 
@@ -1334,7 +1397,7 @@ export async function handleToolsChangedResponse(options: {
 
 		for (const [name, entry] of registered) {
 			if (!authoritative) break;
-			if (NEVER_DISABLE_TOOL_NAMES.has(name)) continue;
+			if (pinned.has(name)) continue;
 			if (!desiredSet.has(name)) {
 				if (entry.handle.enabled) {
 					entry.handle.disable();

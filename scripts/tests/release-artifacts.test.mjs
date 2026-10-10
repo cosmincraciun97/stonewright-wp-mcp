@@ -135,3 +135,30 @@ test('local dist inspects versions inside zip and companion tgz', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('plugin zip inspection rejects a bundled .github folder', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stonewright-artifacts-'));
+	try {
+		const pluginRoot = path.join(dir, 'stonewright');
+		fs.mkdirSync(path.join(pluginRoot, 'skills/agent-operating-rules'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, 'skills/playbooks'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, 'assets/visual'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, '.github/workflows'), { recursive: true });
+		fs.writeFileSync(
+			path.join(pluginRoot, 'stonewright.php'),
+			` * Version: ${version}\ndefine( 'STONEWRIGHT_VERSION', '${version}' );\n`,
+		);
+		fs.writeFileSync(path.join(pluginRoot, 'skills/agent-operating-rules/SKILL.md'), '# skill\n');
+		fs.writeFileSync(path.join(pluginRoot, 'skills/playbooks/demo.md'), '# playbook\n');
+		fs.writeFileSync(path.join(pluginRoot, 'assets/visual/workspace-browser.js'), 'console.log(1);\n');
+		fs.writeFileSync(path.join(pluginRoot, '.github/workflows/ci.yml'), 'name: ci\n');
+		execFileSync('zip', ['-qr', 'with-github.zip', 'stonewright'], { cwd: dir });
+		assert.throws(() => inspectPluginZip(path.join(dir, 'with-github.zip'), version), /\.github/);
+
+		fs.rmSync(path.join(pluginRoot, '.github'), { recursive: true, force: true });
+		execFileSync('zip', ['-qr', 'without-github.zip', 'stonewright'], { cwd: dir });
+		assert.doesNotThrow(() => inspectPluginZip(path.join(dir, 'without-github.zip'), version));
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});

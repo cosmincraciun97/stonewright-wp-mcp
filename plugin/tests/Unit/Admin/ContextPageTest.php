@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\Pages\ContextPage;
 use Stonewright\WpMcp\Context\ContextSnapshot;
 use Stonewright\WpMcp\Context\UserContext;
@@ -51,17 +52,11 @@ final class ContextPageTest extends TestCase {
 		$_POST = [];
 	}
 
-	public function test_slug_lives_in_workflows_group(): void {
+	public function test_slug_lives_in_the_knowledge_hub(): void {
 		self::assertSame( 'stonewright-context', ContextPage::SLUG );
 		self::assertSame( 'manage_options', ContextPage::CAPABILITY );
 		self::assertContains( ContextPage::SLUG, array_keys( AdminShell::pages() ) );
-		$workflows = [];
-		foreach ( AdminShell::menu_groups() as $group ) {
-			if ( 'workflows' === $group['id'] ) {
-				$workflows = array_keys( $group['pages'] );
-			}
-		}
-		self::assertContains( ContextPage::SLUG, $workflows );
+		self::assertContains( ContextPage::SLUG, array_column( MenuRegistry::hub_entries( 'knowledge' ), 'slug' ) );
 	}
 
 	public function test_render_refuses_users_without_manage_options(): void {
@@ -76,15 +71,18 @@ final class ContextPageTest extends TestCase {
 		ContextPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'sw-context-page', $html );
+		self::assertStringContainsString( 'sw-ui sw-ui-page sw-context', $html );
+		self::assertStringNotContainsString( 'class="sw-card', $html );
+		self::assertStringNotContainsString( 'sw-toggle', $html );
+		self::assertStringNotContainsString( 'notice notice-', $html );
+		self::assertStringNotContainsString( ' style=', $html );
+		self::assertSame( 1, substr_count( $html, '<h1' ) );
 		self::assertStringContainsString( 'System context', $html );
 		self::assertStringContainsString( 'User context', $html );
 		self::assertStringContainsString( 'Show full system context', $html );
 		self::assertStringContainsString( 'Stonewright build discipline', $html );
-		self::assertStringContainsString( 'sw-toggle', $html );
-		self::assertStringContainsString( 'data-sw-context-state', $html );
-		self::assertStringContainsString( 'data-context-on="On"', $html );
-		self::assertStringContainsString( 'data-context-off="Off"', $html );
+		self::assertMatchesRegularExpression( '/<input type="checkbox" role="switch" id="stonewright_user_context_enabled" name="stonewright_user_context_enabled" value="1" checked/', $html );
+		self::assertMatchesRegularExpression( '/<label class="sw-ui-switch" for="stonewright_user_context_enabled">/', $html );
 		self::assertStringContainsString( '>On<', $html );
 		self::assertStringContainsString( 'id="stonewright_user_context_enabled"', $html );
 		self::assertStringContainsString( 'name="stonewright_user_context"', $html );
@@ -93,6 +91,134 @@ final class ContextPageTest extends TestCase {
 		self::assertStringContainsString( '[redacted-url]', $html );
 		self::assertStringNotContainsString( 'secret.example.test', $html );
 		self::assertStringNotContainsString( 'onclick=', $html );
+	}
+
+	public function test_the_system_snapshot_is_facts_plus_a_copyable_code_block_that_wraps_and_is_named(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression( '/<dl class="sw-ui-kv"[^>]*aria-label="System facts"/', $html );
+		self::assertMatchesRegularExpression( '/<dt>Site URL<\/dt><dd>\[redacted-url\]<\/dd>/', $html );
+		self::assertMatchesRegularExpression( '/<pre class="sw-ui-code__body"[^>]*id="[^"]+"[^>]*tabindex="0"[^>]*aria-label="System instructions"/', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*data-sw-ui-copy="#[^"]+"[^>]*>/', $html );
+		self::assertMatchesRegularExpression( '/<details class="sw-ui-disclosure"[^>]*data-sw-ui-remember="context-system"[^>]*>\s*<summary>.*Show full system context/s', $html );
+	}
+
+	public function test_the_copy_button_is_a_small_button_so_it_keeps_the_touch_tier_at_782px_and_below(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression( '/<button[^>]*class="sw-ui-btn sw-ui-btn--sm"[^>]*data-sw-ui-copy="#/', $html );
+		self::assertStringNotContainsString( 'sw-ui-btn--xs', $html, 'The extra small tier keeps a 24px height at phone width.' );
+	}
+
+	public function test_the_user_context_card_says_what_reaches_agents_and_has_one_primary_action(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Up to 4000 characters are stored', $html );
+		self::assertStringContainsString( 'first 1200 characters', $html );
+		self::assertMatchesRegularExpression( '/<label class="sw-ui-field__label" for="stonewright_user_context">Persisted user context<\/label>/', $html );
+		self::assertSame( 1, preg_match_all( '/sw-ui-btn--primary/', $html ), 'One primary button on the page.' );
+		self::assertStringContainsString( '>Save user context<', $html );
+		self::assertStringContainsString( 'value="stonewright_user_context_save"', $html );
+	}
+
+	public function test_the_saved_notice_is_a_status_message_and_tells_whether_agents_receive_the_text(): void {
+		$_GET['stonewright_context_notice'] = 'saved';
+		ob_start();
+		ContextPage::render();
+		$on = (string) ob_get_clean();
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*User context saved\./s', $on );
+		self::assertStringContainsString( 'Agents receive it at task start.', $on );
+
+		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;
+		ob_start();
+		ContextPage::render();
+		$off = (string) ob_get_clean();
+		self::assertStringContainsString( 'It is off, so agents do not receive it.', $off );
+		self::assertStringNotContainsString( 'Agents receive it at task start.', $off );
+	}
+
+	public function test_the_card_states_what_compact_and_full_task_start_really_carry(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'first 400 characters', $html );
+		self::assertStringContainsString( 'first 1200 characters', $html );
+		self::assertStringContainsString( 'compact task start', strtolower( $html ) );
+		self::assertSame( 400, UserContext::MAX_COMPACT );
+		self::assertSame( 1200, UserContext::MAX_INJECTED );
+	}
+
+	public function test_the_saved_notice_gives_the_stored_count_and_what_each_mode_receives(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = str_repeat( 'a', 1500 );
+		$_GET['stonewright_context_notice']                              = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '1500 characters stored', $html );
+		self::assertStringContainsString( 'Compact task start receives 400 of them', $html );
+		self::assertStringContainsString( 'full task start and context-bootstrap receive 1200', $html );
+		self::assertStringContainsString( 'Agents receive it at task start.', $html );
+	}
+
+	public function test_the_saved_notice_for_a_short_text_says_all_of_it_is_received(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = str_repeat( 'b', 120 );
+		$_GET['stonewright_context_notice']                              = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '120 characters stored', $html );
+		self::assertStringContainsString( 'Compact task start receives 120 of them', $html );
+		self::assertStringContainsString( 'full task start and context-bootstrap receive 120', $html );
+	}
+
+	public function test_the_saved_notice_counts_characters_when_the_switch_is_off_and_when_the_text_is_empty(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context']         = str_repeat( 'c', 600 );
+		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;
+		$_GET['stonewright_context_notice']                                      = 'saved';
+
+		ob_start();
+		ContextPage::render();
+		$off = (string) ob_get_clean();
+		self::assertStringContainsString( '600 characters stored', $off );
+		self::assertStringContainsString( 'It is off, so agents do not receive it.', $off );
+
+		$GLOBALS['stonewright_test_options']['stonewright_user_context'] = '';
+		ob_start();
+		ContextPage::render();
+		$empty = (string) ob_get_clean();
+		self::assertStringContainsString( 'Nothing is stored', $empty );
+	}
+
+	public function test_an_empty_user_context_shows_an_empty_editor_and_the_off_state(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_user_context']         = '';
+		$GLOBALS['stonewright_test_options']['stonewright_user_context_enabled'] = false;
+
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression( '/<textarea[^>]*name="stonewright_user_context"[^>]*><\/textarea>/', $html );
+		self::assertDoesNotMatchRegularExpression( '/role="switch"[^>]*checked/', $html );
+	}
+
+	public function test_no_id_is_used_twice(): void {
+		ob_start();
+		ContextPage::render();
+		$html = (string) ob_get_clean();
+
+		preg_match_all( '/\bid="([^"]+)"/', $html, $found );
+		self::assertSame( [], array_keys( array_filter( array_count_values( $found[1] ), static fn ( int $count ): bool => $count > 1 ) ) );
 	}
 
 	public function test_snapshot_redacts_urls_emails_and_post_ids(): void {

@@ -19,6 +19,29 @@ the V4 add-on was bundled.
 
 Resolution: downgrade to `design-spec-to-elementor-v3` for the same spec.
 
+## stonewright_v4_unknown_node
+
+A block type has no certified Atomic schema. The message names the block type
+and its spec path (for example `sections.0.blocks.1`) and lists the block types
+that render: `heading`, `paragraph`, `image`, `button`, `separator`, `icon`,
+`row`, `column`, `card`. `spacer`, `list`, `video`, `embed` and `slider` do not.
+
+Resolution: remove the block, replace it with a supported one, or build the
+page with the V3 renderer. Do not retry the same spec.
+
+## stonewright_v4_unsupported_property
+
+A section, row, column, card or leaf block carries a property the V4 renderer
+cannot write (for example `margin`, a `boxed` or `narrow` `width`, a `grid`
+layout, a background image, `css_classes`, `hide_on`, or any styling key on a
+leaf block). The message and `data.path` name the property and its spec path.
+Nothing was written.
+
+Resolution: remove the property, move styling to the parent container, or use
+the V3 renderer. Supported container styling is `layout`/`direction`, `gap`,
+`padding`, `background.color`, `width: full`, `justify_content`,
+`align_items` and `z_index`.
+
 ## elementor_v4 integration false
 
 `stonewright/site-capabilities` returned `integrations.elementor_v4: false`.

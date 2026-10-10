@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Security\IncidentStore;
+use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
  * @covers \Stonewright\WpMcp\Admin\MemoryInstructionsPage
@@ -59,7 +60,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 
 		self::assertStringContainsString( 'stonewright-incident-' . str_repeat( 'a', 64 ), $html );
 		self::assertStringContainsString( 'View audit events', $html );
-		self::assertStringContainsString( 'Open (1)', $html );
+		self::assertMatchesRegularExpression( '/Open <span class="sw-ui-count sw-ui-num">1<\/span>/', $html );
 		self::assertStringNotContainsString( 'No memory entries.', $html );
 	}
 
@@ -89,44 +90,134 @@ final class MemoryInstructionsPageTest extends TestCase {
 	}
 
 	public function test_render_includes_memory_edit_controls_and_bundle_import_export(): void {
-		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows(
+		$_GET['edit'] = '9';
+		$table = new MemoryTableDouble();
+		$table->seed(
 			[
-				[
-					'id'          => '9',
-					'type'        => 'feedback',
-					'scope'       => 'site-a-frontend',
-					'memory_key'  => 'no-html-widgets',
-					'name'        => 'No Elementor HTML widgets by default',
-					'value_json'  => wp_json_encode( 'Use native Elementor widgets first.' ),
-					'confidence'  => '1.0000',
-					'created_at'  => '2026-05-24 00:00:00',
-					'updated_at'  => '2026-05-24 00:00:00',
-				],
-			],
-			true
+				'id'         => 9,
+				'type'       => 'feedback',
+				'scope'      => 'site-a-frontend',
+				'memory_key' => 'no-html-widgets',
+				'name'       => 'No Elementor HTML widgets by default',
+				'value_json' => wp_json_encode( 'Use native Elementor widgets first.' ),
+			]
 		);
+		$GLOBALS['wpdb'] = $table;
 
 		ob_start();
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'stonewright-memory-edit-9', $html );
+		self::assertStringContainsString( 'id="sw-memory-edit"', $html );
 		self::assertStringContainsString( 'stonewright_memory_update', $html );
 		self::assertStringContainsString( 'Export JSON', $html );
 		self::assertStringContainsString( 'Import JSON', $html );
 		self::assertStringContainsString( 'Use native Elementor widgets first.', $html );
-		self::assertStringContainsString( 'Verified Repairs', $html );
-		self::assertStringContainsString( 'Unresolved Incidents', $html );
-		self::assertStringContainsString( 'Audit Feedback', $html );
+		self::assertStringContainsString( 'Verified repairs', $html );
+		self::assertStringContainsString( 'Unresolved incidents', $html );
+		self::assertStringContainsString( 'Audit feedback', $html );
 		self::assertStringContainsString( 'plugin-site', $html );
-		self::assertStringContainsString( 'Last retrieved:', $html );
+		self::assertStringContainsString( 'Last retrieved', $html );
 		self::assertStringContainsString( 'Direct-local receipts', $html );
 		self::assertStringContainsString( 'stonewright_memory_migrate_feedback', $html );
 		self::assertStringNotContainsString( 'memory table is missing or outdated', $html );
+		self::assertStringContainsString( 'value="stonewright_memory_delete"', $html );
+		self::assertStringNotContainsString( 'data-confirm', $html );
+	}
+
+	public function test_the_custom_instructions_textarea_has_a_label_and_its_help_is_linked(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertSame( 1, preg_match( '/<textarea\b[^>]*\bname="stonewright_custom_instructions"[^>]*>/', $html, $textarea ) );
+		self::assertSame( 1, preg_match( '/\bid="([^"]+)"/', $textarea[0], $id ), 'The textarea needs an id for its label.' );
+		self::assertSame( 'stonewright_custom_instructions', $id[1] );
 		self::assertMatchesRegularExpression(
-			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm="Delete this memory\?")/i',
-			$html
+			'/<label\b[^>]*\bfor="stonewright_custom_instructions"[^>]*>\s*Custom instructions\s*<\/label>/',
+			$html,
+			'The textarea is named by a label, not by a heading nearby.'
 		);
+
+		// The two help paragraphs under the heading are what the field is described by.
+		self::assertSame( 1, preg_match( '/\baria-describedby="([^"]+)"/', $textarea[0], $described ) );
+		foreach ( explode( ' ', $described[1] ) as $help_id ) {
+			self::assertStringContainsString( 'id="' . $help_id . '"', $html, $help_id );
+		}
+	}
+
+	public function test_import_submission_adds_new_skills_as_drafts_and_reports_the_skipped_ones(): void {
+		$tables          = new SkillTablesDouble();
+		$GLOBALS['wpdb'] = $tables;
+		$tables->seed_skill( [ 'slug' => 'site-note', 'title' => 'Site note', 'content' => '# Mine' ] );
+		$bundle = wp_json_encode(
+			[
+				'format'  => 'stonewright-knowledge-bundle',
+				'version' => 1,
+				'skills'  => [
+					'entries' => [
+						[ 'slug' => 'site-note', 'title' => 'Bundle copy', 'content' => '# Bundle', 'enabled' => true ],
+						[ 'slug' => 'new-note', 'title' => 'New note', 'content' => '# New', 'enabled' => true ],
+					],
+				],
+			]
+		);
+
+		$url = MemoryInstructionsPage::import_submission( (string) $bundle );
+
+		self::assertSame( '# Mine', $tables->skills[1]['content'] );
+		self::assertSame( [ 'draft', '0' ], [ $tables->skills[2]['status'], $tables->skills[2]['enabled'] ] );
+		self::assertStringContainsString( 'page=stonewright-memory', $url );
+		self::assertStringContainsString( 'imported=1', $url );
+		self::assertStringContainsString( 'skills_imported=1', $url );
+		self::assertStringContainsString( 'skills_skipped=1', $url );
+	}
+
+	public function test_import_submission_reports_a_bundle_it_cannot_read(): void {
+		$GLOBALS['wpdb'] = new SkillTablesDouble();
+
+		foreach ( [ 'not json', '"a string"', '{"format":"another-format","version":1}' ] as $raw ) {
+			$url = MemoryInstructionsPage::import_submission( $raw );
+
+			self::assertStringContainsString( 'import_error=1', $url, $raw );
+			self::assertStringNotContainsString( 'imported=1', $url, $raw );
+		}
+	}
+
+	public function test_the_page_says_how_many_skills_arrived_as_drafts_and_how_many_were_not_added(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [], true );
+		$_GET            = [
+			'imported'        => '1',
+			'skills_imported' => '2',
+			'skills_skipped'  => '3',
+		];
+
+		ob_start();
+		MemoryInstructionsPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Knowledge bundle imported.', $html );
+		self::assertStringContainsString( '2 skills were added as disabled drafts', $html );
+		self::assertStringContainsString( '3 skills from the bundle were not added', $html );
+
+		$_GET = [
+			'imported'       => '1',
+			'skills_skipped' => '50',
+		];
+		ob_start();
+		MemoryInstructionsPage::render();
+		$capped = (string) ob_get_clean();
+		self::assertStringContainsString( '50 or more skills from the bundle were not added', $capped );
+		self::assertStringNotContainsString( 'disabled drafts', $capped );
+
+		$_GET = [ 'import_error' => '1' ];
+		ob_start();
+		MemoryInstructionsPage::render();
+		$failed = (string) ob_get_clean();
+		self::assertStringContainsString( 'The bundle could not be imported.', $failed );
+		self::assertStringNotContainsString( 'Knowledge bundle imported.', $failed );
 	}
 
 	public function test_enable_checkboxes_post_hidden_zero_so_uncheck_persists(): void {
@@ -312,14 +403,12 @@ final class MemoryInstructionsPageTest extends TestCase {
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertSame( 1, substr_count( $html, 'sw-learned-rules__item' ) );
+		self::assertSame( 1, substr_count( $html, 'value="stonewright_learning_disable"' ) );
 		self::assertStringContainsString( 'KEEP-ACTIVE-LESSON', $html );
 		self::assertDoesNotMatchRegularExpression(
 			'/sw-learned-rules__text[^>]*>\s*(DRAFT-HIDDEN-LESSON|MISSING-STATUS-LESSON|PATTERN-DRAFT-LESSON)/',
 			$html
 		);
-		self::assertStringContainsString( 'Activation:', $html );
-		self::assertStringContainsString( 'Lifecycle:', $html );
 	}
 
 	public function test_render_surfaces_schema_health_notice_when_table_broken(): void {
@@ -329,7 +418,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 		MemoryInstructionsPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'notice notice-error', $html );
+		self::assertStringContainsString( 'sw-ui-notice--danger', $html );
 		self::assertStringContainsString( 'memory table is missing or outdated', $html );
 	}
 

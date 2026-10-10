@@ -30,7 +30,19 @@ final class AtomicSchemaRepository {
 
 		$bundled = [
 			'e-div-block' => self::layout( 'Div', [] ),
-			'e-flexbox'   => self::layout( 'Container', [ 'direction' => 'string', 'gap' => 'size' ] ),
+			'e-flexbox'   => self::layout(
+				'Container',
+				[
+					'direction'       => 'string',
+					'gap'             => 'size',
+					'padding'         => [ 'key' => 'padding', 'type' => 'style-dimensions' ],
+					'background'      => [ 'key' => 'background', 'type' => 'style-background' ],
+					'width'           => [ 'key' => 'width', 'type' => 'style-size' ],
+					'justify_content' => [ 'key' => 'justify-content', 'type' => 'style-string' ],
+					'align_items'     => [ 'key' => 'align-items', 'type' => 'style-string' ],
+					'z_index'         => [ 'key' => 'z-index', 'type' => 'style-number' ],
+				]
+			),
 			'e-grid'      => self::layout( 'Grid', [ 'columns' => 'string', 'rows' => 'string', 'gap' => 'size' ] ),
 			'e-heading'   => self::widget( 'Heading', [ 'text' => [ 'key' => 'title', 'type' => 'html-v3' ], 'level' => [ 'key' => 'tag', 'type' => 'heading-level' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 			'e-paragraph' => self::widget( 'TextEditor', [ 'text' => [ 'key' => 'paragraph', 'type' => 'html-v3' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
@@ -39,6 +51,7 @@ final class AtomicSchemaRepository {
 			'e-divider'   => self::widget( 'Divider', [] ),
 			'e-svg'       => self::widget( 'Icon', [ 'url' => [ 'key' => 'svg', 'type' => 'svg-src' ], 'link' => [ 'key' => 'link', 'type' => 'link' ] ] ),
 		];
+		$bundled = self::with_live_text_types( $bundled );
 
 		$runtime = self::runtime_discovery();
 		$runtime_schemas = self::index_runtime_items( $runtime['items'] );
@@ -246,6 +259,33 @@ final class AtomicSchemaRepository {
 		return [ 'items' => $items, 'issues' => $issues ];
 	}
 
+	/**
+	 * The bundled text props name the text type older Elementor versions use (`html-v3`). When the live widget
+	 * declares another text type, the prop takes the declared one; with no live widget the bundled type stays.
+	 *
+	 * @param array<string, array<string, mixed>> $schemas
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function with_live_text_types( array $schemas ): array {
+		foreach ( $schemas as $atomic_type => $schema ) {
+			if ( 'widget' !== ( $schema['kind'] ?? '' ) || ! is_array( $schema['props'] ?? null ) ) {
+				continue;
+			}
+			foreach ( $schema['props'] as $name => $prop ) {
+				if ( ! is_array( $prop ) || ! is_string( $prop['type'] ?? null ) || ! AtomicTextProp::is_text_type( $prop['type'] ) ) {
+					continue;
+				}
+				$live = AtomicTextProp::live_type( (string) $atomic_type, (string) ( $prop['key'] ?? $name ) );
+				if ( null !== $live ) {
+					$schemas[ $atomic_type ]['props'][ $name ]['type']        = $live;
+					$schemas[ $atomic_type ]['props'][ $name ]['type_source'] = 'live_runtime';
+				}
+			}
+		}
+
+		return $schemas;
+	}
+
 	/** @param list<array<string,mixed>> $items @return array<string,array<string,mixed>> */
 	private static function index_runtime_items( array $items ): array {
 		$out = [];
@@ -274,13 +314,15 @@ final class AtomicSchemaRepository {
 	}
 
 	/**
-	 * @param array<string, string> $props
+	 * @param array<string, string|array{key:string,type:string}> $props A bare type is a flex style prop; an array names the style key and prop type.
 	 * @return array<string, mixed>
 	 */
 	private static function layout( string $design_type, array $props ): array {
 		$mapped = [];
 		foreach ( $props as $name => $type ) {
-			$mapped[ $name ] = [ 'key' => 'gap' === $name ? 'gap' : 'flex-' . $name, 'type' => 'style-' . $type ];
+			$mapped[ $name ] = is_array( $type )
+				? $type
+				: [ 'key' => 'gap' === $name ? 'gap' : 'flex-' . $name, 'type' => 'style-' . $type ];
 		}
 		if ( 'Grid' === $design_type ) {
 			$mapped = [

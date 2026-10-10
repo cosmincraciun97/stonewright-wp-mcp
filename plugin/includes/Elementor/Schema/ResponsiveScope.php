@@ -118,7 +118,7 @@ final class ResponsiveScope {
 	/**
 	 * Suffix to breakpoint name, longest suffix first.
 	 *
-	 * Derived from breakpoint_suffixes() so the suffix vocabulary has exactly one
+	 * Computed from breakpoint_suffixes() so the suffix vocabulary has exactly one
 	 * definition: `_tablet_extra` must be tested before `_tablet`, or the extra
 	 * breakpoint collapses into the base one.
 	 *

@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Skills;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Returns a single skill by slug.
@@ -65,12 +65,13 @@ final class SkillsGet extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		$slug  = sanitize_title( (string) ( $args['slug'] ?? '' ) );
-		$skill = Skills::get( $slug );
+		$slug    = sanitize_title( (string) ( $args['slug'] ?? '' ) );
+		$library = SkillLibraryService::open();
+		$skill   = $library->find( $slug );
+		$missing = null === $skill ? [] : $library->missing_components( $skill );
 
-		if ( null !== $skill && ! Skills::runtime_visible( $skill ) ) {
-			$components  = Skills::unavailable_components( $skill );
-			$component   = (string) ( $components[0] ?? 'unknown' );
+		if ( [] !== $missing ) {
+			$component   = (string) $missing[0];
 			$constraints = (array) ( $skill['version_constraints'] ?? [] );
 
 			return new \WP_Error(

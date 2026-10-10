@@ -21,7 +21,7 @@ when changing versions.
 2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
-5. **Stonewright > Design** and **Context** tabs hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
+5. The **Design** and **Context** pages (**Stonewright > Knowledge**) hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
 6. Setup uses one client tablist for OAuth and Application Password, including **Grok Build / CLI**. If status reports `reauthentication_required`, relay `user_action` and stop until the operator reauthenticates.
 
 The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
@@ -145,8 +145,9 @@ After a client-specific restart / MCP reload (not only a chat refresh):
 - Status and gateway reports must be honest when disconnected or unauthorized.
   Schema version 3 includes authentication state. Terminal OAuth failures set
   `reauthentication_required` with a model-visible `user_action`; relay it and
-  stop. `stonewright-task-start` reconnects a degraded session once. Mutations
-  are never retried.
+  stop. `stonewright-task-start` reconnects a degraded session once. The
+  companion sends each request once; only an OAuth connection repeats a request,
+  once, after an HTTP 401 and a token refresh.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
   returns a header or token fragment.

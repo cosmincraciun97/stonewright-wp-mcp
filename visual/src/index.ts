@@ -1,15 +1,17 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 import type { WorkspaceRequest } from "./types.js";
-import { WorkspaceDispatcher } from "./workspace-dispatcher.js";
+import { WorkspaceRouter } from "./session/router.js";
 
 export * from "./types.js";
-export * from "./page-tool-registry.js";
-export * from "./tool-schema-summary.js";
-export * from "./workspace-agent-guidance.js";
-export * from "./workspace-backend-tools.js";
-export * from "./workspace-confirmations.js";
-export * from "./workspace-dispatcher.js";
+export * from "./session/protocol.js";
+export * from "./session/router.js";
+export * from "./session/action-ledger.js";
+export * from "./session/host-port.js";
+export * from "./session/backend-policy.js";
+export * from "./session/guidance-data.js";
+export * from "./editor-tools/declared-tool-set.js";
+export * from "./editor-tools/schema-guard.js";
 export * from "./elementor-v3/types.js";
 export * from "./elementor-v3/hash.js";
 export * from "./elementor-v3/evidence-ledger.js";
@@ -20,11 +22,9 @@ export * from "./elementor-v4/types.js";
 export * from "./elementor-v4/schema-validator.js";
 export * from "./elementor-v4/window-runtime.js";
 export * from "./elementor-v4/editor-adapter.js";
-export * from "./gutenberg/types.js";
-export * from "./gutenberg/window-runtime.js";
-export * from "./gutenberg/editor-adapter.js";
-export * from "./skills/skill-registry.js";
-export * from "./skills/use-skill-tool.js";
+export * from "./native-blocks/native-port.js";
+export * from "./native-blocks/store-session.js";
+export * from "./native-blocks/block-tools.js";
 export * from "./workspace-ui/state.js";
 export * from "./workspace-ui/adapter-status.js";
 export * from "./workspace-ui/evidence-panel.js";
@@ -52,7 +52,7 @@ export const STONEWRIGHT_WORKSPACE_TOOL = {
   },
 } as const;
 
-export function createWorkspaceRequestHandler(dispatcher: WorkspaceDispatcher): (request: WorkspaceRequest) => Promise<unknown> {
+export function createWorkspaceRequestHandler(dispatcher: WorkspaceRouter): (request: WorkspaceRequest) => Promise<unknown> {
   return async (request) => {
     if (!request || typeof request.method !== "string" || request.method.trim() === "") throw new Error("stonewright-workspace-request requires method.");
     return dispatcher.dispatch(request.method, request.params ?? {});

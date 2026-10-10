@@ -10,9 +10,13 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Contracts;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Comments\CommentCreate;
+use Stonewright\WpMcp\Abilities\Comments\CommentDelete;
 use Stonewright\WpMcp\Abilities\ElementorV3\CssRegenerate;
 use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
+use Stonewright\WpMcp\Abilities\Site\Ping;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Support\PublicApiContractSnapshot;
 
 /**
@@ -64,6 +68,11 @@ final class PublicApiContractTest extends TestCase {
 			foreach ( [ 'backup', 'token', 'validator', 'audit' ] as $gate ) {
 				$this->assertArrayHasKey( $gate, $row['gates'] );
 				$this->assertIsBool( $row['gates'][ $gate ] );
+			}
+			$this->assertIsArray( $row['annotations'] ?? null, $row['ability_name'] . ' has no annotations in the contract.' );
+			foreach ( [ 'readonly', 'destructive', 'idempotent', 'openWorldHint' ] as $hint ) {
+				$this->assertArrayHasKey( $hint, $row['annotations'] );
+				$this->assertIsBool( $row['annotations'][ $hint ] );
 			}
 			$names[] = (string) $row['ability_name'];
 		}
@@ -264,5 +273,126 @@ final class PublicApiContractTest extends TestCase {
 		$violations = PublicApiContractSnapshot::compatibility_violations( $frozen, $live );
 		$this->assertNotEmpty( $violations );
 		$this->assertStringContainsString( 'gates.audit changed (true -> false)', $violations[0] );
+	}
+
+	public function test_annotation_drift_is_a_contract_violation(): void {
+		$row = [
+			'ability_name'       => 'stonewright/comment-delete',
+			'mcp_name'           => 'stonewright-comment-delete',
+			'kind'               => 'Write',
+			'input_schema_hash'  => str_repeat( 'a', 64 ),
+			'output_schema_hash' => str_repeat( 'b', 64 ),
+			'permission_class'   => 'Permissions::manage_options()',
+			'gates'              => [
+				'backup'    => false,
+				'token'     => true,
+				'validator' => false,
+				'audit'     => true,
+			],
+			'annotations'        => [
+				'readonly'      => false,
+				'destructive'   => true,
+				'idempotent'    => true,
+				'openWorldHint' => false,
+			],
+		];
+
+		$frozen = [
+			'version'   => 1,
+			'allowlist' => [
+				'removed'        => [],
+				'renamed'        => [],
+				'schema_changes' => [],
+			],
+			'abilities' => [ $row ],
+		];
+
+		$live_row                                  = $row;
+		$live_row['annotations']['destructive']   = false;
+		$live_row['annotations']['openWorldHint'] = true;
+		$live                                      = [
+			'version'   => 1,
+			'abilities' => [ $live_row ],
+		];
+
+		$violations = PublicApiContractSnapshot::compatibility_violations( $frozen, $live );
+		$this->assertCount( 2, $violations );
+		$this->assertStringContainsString( 'annotations.destructive changed (true -> false)', $violations[0] );
+		$this->assertStringContainsString( 'annotations.openWorldHint changed (false -> true)', $violations[1] );
+	}
+
+	public function test_a_contract_frozen_before_annotations_existed_is_still_accepted(): void {
+		$row = [
+			'ability_name'       => 'stonewright/ping',
+			'mcp_name'           => 'stonewright-ping',
+			'kind'               => 'Read',
+			'input_schema_hash'  => str_repeat( 'a', 64 ),
+			'output_schema_hash' => str_repeat( 'b', 64 ),
+			'permission_class'   => 'Permissions::read()',
+			'gates'              => [
+				'backup'    => false,
+				'token'     => false,
+				'validator' => false,
+				'audit'     => false,
+			],
+		];
+
+		$frozen = [
+			'version'   => 1,
+			'allowlist' => [
+				'removed'        => [],
+				'renamed'        => [],
+				'schema_changes' => [],
+			],
+			'abilities' => [ $row ],
+		];
+
+		$live_row                = $row;
+		$live_row['annotations'] = [
+			'readonly'      => true,
+			'destructive'   => false,
+			'idempotent'    => true,
+			'openWorldHint' => false,
+		];
+
+		$this->assertSame( [], PublicApiContractSnapshot::compatibility_violations( $frozen, [ 'version' => 1, 'abilities' => [ $live_row ] ] ) );
+	}
+
+	public function test_an_ability_that_records_through_the_write_wrapper_is_a_write(): void {
+		$create = PublicApiContractSnapshot::collect_ability( CommentCreate::class );
+		$this->assertIsArray( $create );
+		$this->assertSame( 'Write', $create['kind'], 'comment-create records through audit_write() and creates a comment.' );
+
+		$ping = PublicApiContractSnapshot::collect_ability( Ping::class );
+		$this->assertIsArray( $ping );
+		$this->assertSame( 'Read', $ping['kind'] );
+	}
+
+	public function test_the_contract_annotations_are_the_ones_the_ability_registers(): void {
+		foreach ( [ Ping::class, CommentCreate::class, CommentDelete::class, MemorySave::class, CssRegenerate::class ] as $class ) {
+			$row = PublicApiContractSnapshot::collect_ability( $class );
+			$this->assertIsArray( $row );
+
+			$registered = AbilityRegistry::registration_args( new $class() )['meta']['annotations'];
+			$this->assertSame( $registered, $row['annotations'], $class );
+		}
+	}
+
+	public function test_encoded_contract_keeps_recorded_renames_and_writes_an_empty_map_as_an_object(): void {
+		$document = [
+			'version'   => 1,
+			'allowlist' => [
+				'removed'        => [],
+				'renamed'        => (object) [ 'stonewright/old-name' => 'stonewright/new-name' ],
+				'schema_changes' => [],
+			],
+			'abilities' => [],
+		];
+
+		$decoded = json_decode( PublicApiContractSnapshot::encode_document( $document ), true, 512, JSON_THROW_ON_ERROR );
+		$this->assertSame( [ 'stonewright/old-name' => 'stonewright/new-name' ], $decoded['allowlist']['renamed'] );
+
+		$document['allowlist']['renamed'] = [];
+		$this->assertStringContainsString( '"renamed": {}', PublicApiContractSnapshot::encode_document( $document ) );
 	}
 }

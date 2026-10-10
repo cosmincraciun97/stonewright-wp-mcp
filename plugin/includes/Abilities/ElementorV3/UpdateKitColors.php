@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -26,7 +27,7 @@ final class UpdateKitColors extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces or merges the global color palette in the Elementor active kit.', 'stonewright' );
+		return __( 'Replaces or merges the global color palette in the Elementor active kit. Colour values must be hex, rgb(), rgba(), hsl(), hsla(), a CSS colour name, transparent or a global colour variable; ids are letters, digits, hyphen and underscore.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -86,6 +87,14 @@ final class UpdateKitColors extends AbilityKernel {
 					return $token_error;
 				}
 
+				foreach ( array_values( (array) $args['colors'] ) as $index => $row ) {
+					$candidate = is_array( $row ) ? [ 'id' => $row['id'] ?? '', 'color' => $row['color'] ?? '' ] : [];
+					$violation = CssValueGuard::color_row_violation( $candidate, true );
+					if ( null !== $violation ) {
+						return CssValueGuard::refusal( 'colors.' . $index . '.' . $violation['path'], $violation['expected'], $candidate[ $violation['path'] ] ?? null );
+					}
+				}
+
 				$kit_id = $this->resolve_kit_id();
 				if ( 0 === $kit_id ) {
 					return $this->error( 'no_kit', __( 'No active Elementor kit.', 'stonewright' ) );
@@ -111,6 +120,9 @@ final class UpdateKitColors extends AbilityKernel {
 				$settings['custom_colors'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 
 				$snapshot_id = Backup::snapshot_post( $kit_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $settings ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor kit colors.', 'stonewright' ) );
 				}

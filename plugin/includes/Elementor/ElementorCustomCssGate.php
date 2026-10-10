@@ -19,6 +19,9 @@ final class ElementorCustomCssGate {
 	public const GATED_MCP_TOOL = 'stonewright-theme-custom-css';
 	public const OPTION = 'stonewright_approved_css_classes';
 
+	/** Most rejected classes the message of the refusal lists; the data lists them all. */
+	private const MESSAGE_CLASSES = 10;
+
 	/** @var list<string> */
 	private const CSS_KEYS = [
 		'custom_css',
@@ -148,32 +151,104 @@ final class ElementorCustomCssGate {
 	}
 
 	/**
+	 * What a payload would trip when it is written, without writing it: the CSS classes the site has not approved,
+	 * the custom CSS keys that need a human grant, and whether an HTML widget carries a style tag.
+	 *
+	 * @param array<string, mixed> $payload
+	 * @return array{rejected_classes: list<string>, css_keys: list<string>, html_style: bool}
+	 */
+	public static function inspect( array $payload ): array {
+		$findings = self::collect( $payload, '' );
+
+		return [
+			'rejected_classes' => self::rejected_classes( $findings['classes'] ),
+			'css_keys'         => array_values( array_unique( array_map( static fn( array $row ): string => $row['key'], $findings['css_keys'] ) ) ),
+			'html_style'       => [] !== $findings['html_style'],
+		];
+	}
+
+	/**
+	 * The top-level settings the gate would refuse right now, by key, each with the reason: a CSS class the site has
+	 * not approved, or custom CSS (or an HTML style tag) that needs a human-issued grant while none is consumed.
+	 * It reads the settings and the site's allowlist only; it records nothing and asks for no grant.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return array<string, string> Key to `css_classes_not_approved` or `custom_css_needs_approval`.
+	 */
+	public static function refused_settings( array $settings ): array {
+		$refused = [];
+		foreach ( $settings as $key => $value ) {
+			$findings = self::collect( [ (string) $key => $value ], '' );
+			if ( [] !== self::rejected_classes( $findings['classes'] ) ) {
+				$refused[ (string) $key ] = 'css_classes_not_approved';
+			} elseif ( ! self::$grant_active && ( [] !== $findings['css_keys'] || [] !== $findings['html_style'] ) ) {
+				$refused[ (string) $key ] = 'custom_css_needs_approval';
+			}
+		}
+
+		return $refused;
+	}
+
+	/**
+	 * The value with every custom CSS key that holds nothing removed, so a key that is only a placeholder is not
+	 * mistaken for custom CSS. An Atomic style variant always has a `custom_css` key, null when it has none.
+	 *
+	 * @param array<mixed> $value
+	 * @return array<mixed>
+	 */
+	public static function without_empty_css_keys( array $value ): array {
+		$out = [];
+		foreach ( $value as $key => $member ) {
+			if ( is_string( $key ) && self::is_css_key( $key ) && ( null === $member || '' === $member || [] === $member ) ) {
+				continue;
+			}
+			$out[ $key ] = is_array( $member ) ? self::without_empty_css_keys( $member ) : $member;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param list<string> $class_strings
+	 * @return list<string>
+	 */
+	private static function rejected_classes( array $class_strings ): array {
+		$allow    = self::approved_css_classes();
+		$rejected = [];
+		foreach ( $class_strings as $raw ) {
+			foreach ( preg_split( '/\s+/', trim( $raw ) ) ?: [] as $class ) {
+				$class = sanitize_html_class( $class );
+				if ( '' !== $class && ! in_array( $class, $allow, true ) ) {
+					$rejected[] = $class;
+				}
+			}
+		}
+
+		return array_values( array_unique( $rejected ) );
+	}
+
+	/**
 	 * @param list<string> $class_strings
 	 */
 	private static function assert_css_classes( array $class_strings ): ?\WP_Error {
 		if ( [] === $class_strings ) {
 			return null;
 		}
-		$allow = self::approved_css_classes();
-		$rejected = [];
-		foreach ( $class_strings as $raw ) {
-			foreach ( preg_split( '/\s+/', trim( $raw ) ) ?: [] as $class ) {
-				$class = sanitize_html_class( $class );
-				if ( '' === $class ) {
-					continue;
-				}
-				if ( ! in_array( $class, $allow, true ) ) {
-					$rejected[] = $class;
-				}
-			}
-		}
-		$rejected = array_values( array_unique( $rejected ) );
+		$allow    = self::approved_css_classes();
+		$rejected = self::rejected_classes( $class_strings );
 		if ( [] === $rejected ) {
 			return null;
 		}
+		$shown = array_slice( $rejected, 0, self::MESSAGE_CLASSES );
+		$more  = count( $rejected ) - count( $shown );
 		return new \WP_Error(
 			self::CLASS_ERROR_CODE,
-			__( 'Elementor CSS classes must be present in the approved_css_classes allowlist.', 'stonewright' ),
+			sprintf(
+				/* translators: 1: the rejected classes, 2: the number of further classes (a sentence part, empty when none) */
+				__( 'Elementor CSS classes must be present in the approved_css_classes allowlist. Not approved: %1$s%2$s. A site approves a class by adding it to the stonewright_approved_css_classes option (or through the stonewright_approved_css_classes filter); otherwise leave the class out and use native Elementor controls.', 'stonewright' ),
+				implode( ', ', $shown ),
+				$more > 0 ? sprintf( /* translators: %d: number of further classes */ __( ' and %d more', 'stonewright' ), $more ) : ''
+			),
 			[
 				'status'                => 400,
 				'retryable'             => true,

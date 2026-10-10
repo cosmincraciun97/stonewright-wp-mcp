@@ -1,9 +1,11 @@
 {
     "version": 1,
-    "generated_at": "2026-09-17T12:05:14+00:00",
+    "generated_at": "2026-10-10T18:05:51+00:00",
     "allowlist": {
         "removed": [],
-        "renamed": {},
+        "renamed": {
+            "stonewright/elementor-add-google_maps": "stonewright/elementor-add-google-maps"
+        },
         "schema_changes": [
             "stonewright/context-bootstrap",
             "stonewright/blocks-batch-mutate",
@@ -27,7 +29,12 @@
             "stonewright/acf-value-update",
             "stonewright/elementor-css-regenerate",
             "stonewright/elementor-post-write-verify",
-            "stonewright/elementor-wire-loop"
+            "stonewright/elementor-wire-loop",
+            "stonewright/custom-code-provider",
+            "stonewright/elementor-v4-update-node",
+            "stonewright/theme-backup-restore",
+            "stonewright/theme-chrome-update",
+            "stonewright/site-environment"
         ]
     },
     "abilities": [
@@ -43,6 +50,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -57,6 +70,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -71,6 +90,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -85,6 +110,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -99,20 +130,32 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-batch-mutate",
             "mcp_name": "stonewright-blocks-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "42492e46fd4cb6ccb208d947ef25f6afd0160422120cf2ef5b6ea9ef5f6e4c9d",
-            "output_schema_hash": "7b9be234032efd88c79fe0b756182326798e40f48c2282b13614ab8de1b76a09",
+            "input_schema_hash": "da2b58a2af278b8082c73dd56befcfd7d4b35a0c35fdd1d927047f0331f97558",
+            "output_schema_hash": "799c19db50556ee039ec34e9359e2fab86fb32bc58e272770fa4f0ec6af1ba0d",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -127,6 +170,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -141,6 +190,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -155,6 +210,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -169,6 +230,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -183,13 +250,19 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-insert",
             "mcp_name": "stonewright-blocks-insert",
             "kind": "Write",
-            "input_schema_hash": "4f7b72ca02b906669ce59442f03172e7ff04ff4745a09062edc39e1948ab8b5a",
+            "input_schema_hash": "a15dfb5fa425d8993b8c7e6779e4b237d4d6c1e8dad5ecaf095cd7fa55f343aa",
             "output_schema_hash": "095713dc1a4afbe90d335791b69a860eb7fa8efb77faa1443ff8f14401b9a79a",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -197,6 +270,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -211,6 +290,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -225,6 +310,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -239,6 +330,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -253,6 +350,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -267,6 +370,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -281,6 +390,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -295,12 +410,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-queue-change",
             "mcp_name": "stonewright-blocks-queue-change",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "31092f8dd11d75de14cd21bcf633649bdef613bbd5c6d9c7f02daf5a79e2050b",
             "output_schema_hash": "a48b9d3532a8b2db4e2200a02d9119bff71c9ca1a4346bab942614b3e7a9e3a6",
             "permission_class": "Permissions::edit_post( (int)",
@@ -309,13 +430,19 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-remove",
             "mcp_name": "stonewright-blocks-remove",
             "kind": "Write",
-            "input_schema_hash": "5e21b280e37b4872478e6944577f9cde86a46475151247fbcf553c19955865ac",
+            "input_schema_hash": "257645a31aa077e656b55f067245382b48f48f3fda54a71e53288a539c6cd5e0",
             "output_schema_hash": "c492bc9aa6bc7d09abc3b00d0d0274ca5a40fbf1ee55988e63f200be43722128",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -323,6 +450,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -337,6 +470,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -351,13 +490,19 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/blocks-update",
             "mcp_name": "stonewright-blocks-update",
             "kind": "Write",
-            "input_schema_hash": "e34c1f2c333cd0193b5cadecf4eae384bd793a341919731aa820105e14782fc6",
+            "input_schema_hash": "03db5700e6bd572dbc97a1fcfaa8d9f74e92e931086a8fa25adb7373a884ec72",
             "output_schema_hash": "fa413d0f3b1ca6b0dd33acf820de787a46f943ca8af84ca7562db6ad84426a84",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -365,6 +510,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -379,6 +530,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -393,6 +550,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -407,6 +570,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -421,6 +590,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -435,6 +610,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -449,6 +630,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -463,6 +650,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -470,19 +663,25 @@
             "mcp_name": "stonewright-change-restore",
             "kind": "Write",
             "input_schema_hash": "659ac95d31837e95301b56e08c3e7822b91eb61eb2fc4351eb497e1be915ac20",
-            "output_schema_hash": "4cbce3a1bbfd0eee9314ed4daa226e2c5936e3b922e1bf37446f95003fa31ff9",
+            "output_schema_hash": "94be09194562c563837193c53f65ea661b733d9051a690e0bfb85b180b24c4c3",
             "permission_class": "Permissions::edit_post( $post_id ) (compound)",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/comment-create",
             "mcp_name": "stonewright-comment-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "426e30705dfe014c542ceeaf89fde3d15c5ca42e6b8add139e0c483fe71344fe",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::edit_posts()",
@@ -491,6 +690,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -505,6 +710,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -519,6 +730,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -533,12 +750,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/comment-update",
             "mcp_name": "stonewright-comment-update",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "5a2307ebe61ba798aeb87e5e5c7239f42dac8a6d229c1b0dbfdebd3feced2244",
             "output_schema_hash": "c49b985ee9699ca84b854108922fd8947dd24bdc7add27419487f2103decd08b",
             "permission_class": "Permissions::moderate_comments()",
@@ -547,6 +770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -561,6 +790,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -575,6 +810,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -589,6 +830,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -603,6 +850,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -617,6 +870,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -631,6 +890,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -645,6 +910,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -659,6 +930,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -673,6 +950,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -687,6 +970,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -694,13 +983,19 @@
             "mcp_name": "stonewright-context-bootstrap",
             "kind": "Read",
             "input_schema_hash": "0e78dcf71a38cacc3b1c13321d79369e27248463d390f5836f4612328a561981",
-            "output_schema_hash": "78ac83acc8119bcc05a7282b0574bbe501faeb5ee99b9d50ec310f8e71e3b33b",
+            "output_schema_hash": "f45943f52ab06061549e035addd66190dcff39b5c1291cb170de4f67f5a8e1c0",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -715,6 +1010,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -729,20 +1030,32 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/custom-code-provider",
             "mcp_name": "stonewright-custom-code-provider",
             "kind": "Write",
-            "input_schema_hash": "b265139ade3937452b1130288c80b22d13a3ef463a48afbd5da5e2450b149de0",
-            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "input_schema_hash": "405c3a96a4cb7785b1de96e5e0711033f04854ecb5999be98e28757687e248a1",
+            "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -757,6 +1070,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -771,12 +1090,18 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-checkpoint-record",
             "mcp_name": "stonewright-design-checkpoint-record",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "b4d4b95dd77632df525e590c05a09d055cf26c2720eb8fb373c407e60f135409",
             "output_schema_hash": "69e7cf8825ee651b9b72ead9a3e8cf2cb514a861b6fc2734a071aae2e432427b",
             "permission_class": "Permissions::can_manage_design() (compound)",
@@ -785,6 +1110,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -799,6 +1130,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -813,6 +1150,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -827,20 +1170,32 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-direction-capture",
             "mcp_name": "stonewright-design-direction-capture",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "05ec1068e662b1e95b7354f0a3a8d84e5e9c8342b3ef49788a9b8f29ac9437c9",
-            "output_schema_hash": "05d8590993edff9e3dcd4a8913dd726f5cda106b6f10d324cb415169fc12be46",
+            "output_schema_hash": "400fccc77c5137c82f9c17398857f574ebc803745a252bea27b76bc649178cce",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -855,6 +1210,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -869,6 +1230,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -876,27 +1243,39 @@
             "mcp_name": "stonewright-design-direction-restore",
             "kind": "Write",
             "input_schema_hash": "ec93ba571713725baf987358c340dfb87c79f40f59c1146a4affaa32a4849eed",
-            "output_schema_hash": "782c0169b12ce4c1c5019f646edc1afe49fd50e2266da3c24723e52445c2ae61",
+            "output_schema_hash": "1555f0cf2dbc9bd5d0196b13fe577cd504228b2ce04c1b6d93cee19cd2a80dbb",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-direction-save",
             "mcp_name": "stonewright-design-direction-save",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9cd1204650c6669b166a9447bbf4a247f7660d31bf7d9f9e10841c75a580c8ec",
-            "output_schema_hash": "7dbdbc7837e074ef01fe66ec1c8ac7179b2ef84c784aa9be24727fdeb5e464c3",
+            "output_schema_hash": "016a2d81044b20fa4a8302809dfde263784c99e7ce93763225006cbf38fb69cf",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -911,6 +1290,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -925,6 +1310,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -939,6 +1330,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -946,13 +1343,19 @@
             "mcp_name": "stonewright-design-implementation-contract",
             "kind": "Read",
             "input_schema_hash": "30060eb7abb0b4578938000fa1db646b8a025eca68f0b45007c1155da025857d",
-            "output_schema_hash": "78b0e285e295c218ff473e7949ec7f9259c2bc18db8826dbb60a818694a9e8ec",
+            "output_schema_hash": "25beda6abd2229e99d5e1b37f658a0f27743b971877946fa77beefe9ee2e8d90",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -967,6 +1370,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -974,13 +1383,19 @@
             "mcp_name": "stonewright-design-mirror-export",
             "kind": "Write",
             "input_schema_hash": "08052b920d52c0439fcea5749a2252c94c87236a8c4978fd64b1f2a5025c4f6c",
-            "output_schema_hash": "19e3e41a07c0bb4aeaf5efb0a63f9e799f439db1cae10b86464007f8d7b98018",
+            "output_schema_hash": "d56620376c8d8144a917e388aa4a8e4b37a398c5cebad80b7c32a3e4c33d3d7f",
             "permission_class": "Permissions::edit_post( (int) (compound)",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -995,6 +1410,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1009,6 +1430,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1023,6 +1450,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1037,6 +1470,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1051,6 +1490,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1065,20 +1510,32 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-normalize-assets",
             "mcp_name": "stonewright-design-normalize-assets",
-            "kind": "Read",
-            "input_schema_hash": "f7e5722f6528b23ded6428140a456c89a13d35a1a5e4af316be333ce37c57974",
+            "kind": "Write",
+            "input_schema_hash": "f71262af33d5d6e514a436b365c6782c31e5995ca8b04f8d4087dbb0faa647bf",
             "output_schema_hash": "ba49d9c93fad64a05289035cea46d5a4a19a3f0009a36ad0e5f639e65646c219",
             "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -1093,12 +1550,18 @@
                 "token": false,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/design-quality-check",
             "mcp_name": "stonewright-design-quality-check",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9fdec23433826facc080497159e364549867c18e0ec380211e7eab6106ea239d",
             "output_schema_hash": "8b46050b57d30691d6d53f63972566cedb02bb4afd065d5a0332bee16517b02a",
             "permission_class": "Permissions::can_manage_design() (compound)",
@@ -1107,6 +1570,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1121,6 +1590,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1135,6 +1610,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -1149,6 +1630,12 @@
                 "token": false,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1163,6 +1650,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1177,6 +1670,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1191,6 +1690,12 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1205,6 +1710,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1219,6 +1730,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -1233,6 +1750,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1247,6 +1770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1261,6 +1790,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1275,6 +1810,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1289,6 +1830,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1303,6 +1850,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1317,6 +1870,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1331,6 +1890,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1345,6 +1910,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1359,6 +1930,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1373,6 +1950,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1387,6 +1970,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1401,6 +1990,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1415,6 +2010,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1429,6 +2030,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1443,6 +2050,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1457,6 +2070,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1471,6 +2090,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1485,11 +2110,17 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
-            "ability_name": "stonewright/elementor-add-google_maps",
-            "mcp_name": "stonewright-elementor-add-google_maps",
+            "ability_name": "stonewright/elementor-add-google-maps",
+            "mcp_name": "stonewright-elementor-add-google-maps",
             "kind": "Write",
             "input_schema_hash": "be6b4cbb479d3803ee5c32f64e2eff19998f1e2803035f2876b469f07a6d9805",
             "output_schema_hash": "3ddc71c78ba788216f54aa35bac426eb4188d83052d3ec9ef4b33a2fb4c0853a",
@@ -1499,6 +2130,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1513,6 +2150,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1527,6 +2170,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1541,6 +2190,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1555,6 +2210,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1569,6 +2230,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1583,6 +2250,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1597,6 +2270,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1611,6 +2290,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1625,6 +2310,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1639,6 +2330,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1653,6 +2350,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1667,6 +2370,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1681,6 +2390,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1695,6 +2410,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1709,6 +2430,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1723,6 +2450,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1737,6 +2470,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1751,6 +2490,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1765,6 +2510,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1779,6 +2530,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1793,6 +2550,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1807,6 +2570,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1821,6 +2590,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1835,6 +2610,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1849,6 +2630,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1863,6 +2650,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1877,6 +2670,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1891,6 +2690,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1905,6 +2710,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1919,6 +2730,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1933,6 +2750,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1947,6 +2770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1961,6 +2790,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1975,6 +2810,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -1989,6 +2830,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2003,6 +2850,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2017,6 +2870,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2031,6 +2890,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2045,6 +2910,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2059,6 +2930,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2073,6 +2950,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2087,6 +2970,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2101,6 +2990,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2115,6 +3010,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2129,6 +3030,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2143,6 +3050,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2157,6 +3070,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2171,6 +3090,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2185,6 +3110,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2199,6 +3130,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2213,6 +3150,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2227,6 +3170,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2241,6 +3190,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2255,6 +3210,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2269,6 +3230,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2283,6 +3250,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2297,6 +3270,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2311,6 +3290,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2325,6 +3310,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2339,6 +3330,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2353,6 +3350,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2367,6 +3370,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2381,6 +3390,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2395,6 +3410,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2409,6 +3430,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2423,6 +3450,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2437,6 +3470,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2451,6 +3490,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2465,6 +3510,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2479,6 +3530,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2493,6 +3550,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2507,6 +3570,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2521,6 +3590,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2535,6 +3610,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2549,13 +3630,19 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-create-custom-widget",
             "mcp_name": "stonewright-elementor-create-custom-widget",
             "kind": "Write",
-            "input_schema_hash": "e9e7676dfd83f46aab7b3124cd8790e09187ee2a016e3200e0a645bde524e6db",
+            "input_schema_hash": "4dfa8b7a6f14880e295c66ae7fea9750a2af573c49c37432823d2d7a75851c3f",
             "output_schema_hash": "755b7d8f8dc5a979ce7e6f8136b75e5f3af9ab60451d3e854d469dea998cc633",
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
@@ -2563,6 +3650,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2570,13 +3663,19 @@
             "mcp_name": "stonewright-elementor-css-regenerate",
             "kind": "Write",
             "input_schema_hash": "eb7718421af5102b2b5ed009e4f750b8bfee85935aefcde10d188f481f774e09",
-            "output_schema_hash": "bb4950c4f82ccdf6fcedaa48db3b53b195f3a2ed159e9ff611e47404e6000dfa",
+            "output_schema_hash": "22398ba0a6935a83e2f465cfb294f2e1bf14b7bc4a62c50c44b96b3e4be87a37",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2584,13 +3683,19 @@
             "mcp_name": "stonewright-elementor-describe-widget",
             "kind": "Read",
             "input_schema_hash": "1376575357938a6090723cdec2722fe784ed73d0672b1b511ffa0a7b583264ea",
-            "output_schema_hash": "e85b42d069d2c6ecbfb3d4e7d10e49ca250bb72b616496e8c86325f627183ced",
+            "output_schema_hash": "c33944344f84f958d527e7ecfe67fb4b76199c9c4054f667470aaed63ef3d4c9",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2605,6 +3710,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2612,20 +3723,26 @@
             "mcp_name": "stonewright-elementor-explain-editor",
             "kind": "Read",
             "input_schema_hash": "e11a7fc33bdc191ffeac76d23f6a45d0715253b463c12590929a02b776746420",
-            "output_schema_hash": "2b11a4a286c9212fbc67c427759c1fe20ef29a79ace96339e3b5c2744a691b08",
+            "output_schema_hash": "1781f1d9e26a1138f06ba60356de873c8814c033fc806030ef5c76745cf410e4",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-knowledge-refresh",
             "mcp_name": "stonewright-elementor-knowledge-refresh",
             "kind": "Write",
-            "input_schema_hash": "e2732c2b1bc0587cdecd050a26b8882c71e28d9bcf20305eb051e044de3380cb",
+            "input_schema_hash": "460bdf1f2dcf9b08452c98e916d33633a5adbe67bb954299a8fb851112655a76",
             "output_schema_hash": "cad7e71abe08af8bb0b64046ddf377e7fd932cb5fa1e6aeb0a6af4daedd26b49",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -2633,6 +3750,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -2640,13 +3763,39 @@
             "mcp_name": "stonewright-elementor-knowledge-search",
             "kind": "Read",
             "input_schema_hash": "f1bc0970b1fb90cc95cd26b499933073413d44e6a936e1fd6f53d2d1b7f648ac",
-            "output_schema_hash": "2b11a4a286c9212fbc67c427759c1fe20ef29a79ace96339e3b5c2744a691b08",
+            "output_schema_hash": "1781f1d9e26a1138f06ba60356de873c8814c033fc806030ef5c76745cf410e4",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-native-execute",
+            "mcp_name": "stonewright-elementor-native-execute",
+            "kind": "Write",
+            "input_schema_hash": "a01b5652646185f4482cb912927e6e81a2a7ca90b35a8461f6bced1c2de3380f",
+            "output_schema_hash": "77cb7b7efa5af52372fe030d41dfb6a5aeb957cf07281d196cc67429e7988c0a",
+            "permission_class": "Permissions::edit_theme_options() (compound)",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2661,6 +3810,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2675,20 +3830,32 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-post-write-verify",
             "mcp_name": "stonewright-elementor-post-write-verify",
             "kind": "Read",
-            "input_schema_hash": "8a52e6cfde1a3690e94ac1204dbe62eeccc7bf724554105bdff21d14d93de07e",
-            "output_schema_hash": "c2d9a79dfb05e24f5bbae346c127e8a0854d6821e23136d1f1e404cb37960095",
+            "input_schema_hash": "1d49a72098c9883005368d11f99bb79fc86154890c8b22bb09d40a8009ec11c8",
+            "output_schema_hash": "5d831a0f0332178f13ac24b806dc5e70b6afb0685cea0414057b95d84ab682e5",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2696,13 +3863,19 @@
             "mcp_name": "stonewright-elementor-provider-discovery",
             "kind": "Read",
             "input_schema_hash": "53f83ac20d2996185eaff3604ac823df55e9ef696d6ecbf5485fd7f7b176eaa1",
-            "output_schema_hash": "4b0400d6fb59b85aa7ca664245713fb25f71cad92909b414832b846a2ffef127",
+            "output_schema_hash": "87ac7073fd8dbb800bd735940ab49bf824dcb31ff0e0c919c10ea31a49fcb4da",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2717,6 +3890,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2731,6 +3910,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2745,13 +3930,19 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-apply-bundle",
             "mcp_name": "stonewright-elementor-v3-apply-bundle",
             "kind": "Write",
-            "input_schema_hash": "577a0dd4dfa6764d6b27c681f7d9a22d257c947891aa84a63e7e94b0bf1faf85",
+            "input_schema_hash": "36a1d8008db007dca8b4ff88850e56696faafa422dbfe5cbd0da561b5d68e4ec",
             "output_schema_hash": "cdcf610df6b00c52d82c0db4866129aad5332772dc7745a2ba19dde96237af9c",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
@@ -2759,6 +3950,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2773,27 +3970,39 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-batch-mutate",
             "mcp_name": "stonewright-elementor-v3-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "004b4484f4b5b02dc35db49eb53f20ff5171457b3bdfff395467b6a1766c7e56",
-            "output_schema_hash": "57f9fb71ff0ab1a2cb5c1982714ff0324225808770cb88c82034375eaaa538e1",
+            "input_schema_hash": "cbb9f38496b575bfeef64a6fb98b2a5347d4b36c39bc2ee1b6e13821940b2a56",
+            "output_schema_hash": "633fe2cd1bff03cc39bf63f0833dd3b6c5eba117f081e3ec159b065f9893c851",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-build-page-from-spec",
             "mcp_name": "stonewright-elementor-v3-build-page-from-spec",
             "kind": "Write",
-            "input_schema_hash": "4271f8604922ce6a2952caad1ef1682a460d72b9319b7763cfd81fdc10fe427c",
+            "input_schema_hash": "2cf55e985ae62b75f021a6ad6f18c7b1d367806e665341b1d8eb06615ed5bc72",
             "output_schema_hash": "c81d9cb0373bef57d6dbbfbe75aa8434d6e8cee43f79400d6293ab884311adc3",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -2801,6 +4010,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2815,6 +4030,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2829,6 +4050,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2843,6 +4070,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2857,6 +4090,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2871,6 +4110,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2885,6 +4130,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2899,12 +4150,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-legacy-debt-migrate",
             "mcp_name": "stonewright-elementor-v3-legacy-debt-migrate",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "bf97a4c1610a0edd61288430b3ab52f691264320b8b0835db40f586f6d9916ae",
             "output_schema_hash": "bf85c7f0451767217662afcfa768ab44d9e4b691e19dead4c3ebea9476622899",
             "permission_class": "Permissions::edit_post( (int)",
@@ -2913,6 +4170,12 @@
                 "token": true,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2927,6 +4190,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2941,6 +4210,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2955,6 +4230,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2969,6 +4250,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -2983,6 +4270,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -2990,13 +4283,19 @@
             "mcp_name": "stonewright-elementor-v3-save-template",
             "kind": "Write",
             "input_schema_hash": "2da840c90d92d92bb25d47c75aeffe0a473a9c16f04f7c3a97925b0d40f32f0f",
-            "output_schema_hash": "fc1235257b2e4ed1b89d78c2091db59091b2162dae2edb218afcacb4288a1bd1",
+            "output_schema_hash": "5d44a80ea0ed072d0478c810cfd4c80ec84e9aafc67c8dea30470ed00ada47a1",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3004,13 +4303,19 @@
             "mcp_name": "stonewright-elementor-v3-status",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "e6027cfb6ee92c025affcf56ff2d3f8b2f94edd6648cde10e8b5e3f895ac2bff",
+            "output_schema_hash": "04f1f5e73398177d7985251db5885fa399ce6ac74253552eca5e4eb81aabc57b",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3025,13 +4330,19 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v3-update-element",
             "mcp_name": "stonewright-elementor-v3-update-element",
             "kind": "Write",
-            "input_schema_hash": "0d2bf4e56971e5dc8d2dc478340c6c71ef4370a44a0395de19007b39075624b0",
+            "input_schema_hash": "99c22080f16cad1a00260f048268ba9224061ca4899d4506cca56dede016b690",
             "output_schema_hash": "b7c9ab56e326ce00fb0882509aed4dbc93215907cc7e61e87efc3c05d624779d",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -3039,6 +4350,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3053,6 +4370,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3067,6 +4390,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3081,12 +4410,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v4-atomic-widget-define",
             "mcp_name": "stonewright-elementor-v4-atomic-widget-define",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "05c581f73c24e97377fc6b16be22a451775e16a768095659c35965e1bf9ba05f",
             "output_schema_hash": "7a754958038a1a18e1105b918d4f6ca5038d770235542b25a9b4868e193c7639",
             "permission_class": "Permissions::can_manage_sandbox()",
@@ -3095,6 +4430,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3109,6 +4450,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3123,6 +4470,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3137,6 +4490,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3151,6 +4510,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3165,6 +4530,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3179,6 +4550,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3193,6 +4570,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3207,6 +4590,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3214,13 +4603,19 @@
             "mcp_name": "stonewright-elementor-v4-render-from-spec",
             "kind": "Write",
             "input_schema_hash": "dbf775f4f7574c7dc7a4dd963b2ff162accb1d525fcadb2bcd2f51a548e8456e",
-            "output_schema_hash": "2095ba927b387aa8fd251b74bce06d2d12a517004e845e305a473463c635f657",
+            "output_schema_hash": "c2950a18261844367c2348c7dba5f45a5d1093ddd2358f619018f2cab840b603",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3235,6 +4630,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3249,20 +4650,32 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/elementor-v4-update-node",
             "mcp_name": "stonewright-elementor-v4-update-node",
             "kind": "Write",
-            "input_schema_hash": "b282fc73dcdd046b7e1683e1f8a44669729495e4a1c85cb8b125d506e99dcb8e",
-            "output_schema_hash": "5da03f9dd574dfb45c090a2517d02fcaa79317a29e605b2f80a145434b1fd2ed",
+            "input_schema_hash": "d13062dac654d14f45835b921e9f3317c4ba66a1ebc30538a8cf1f98692bf214",
+            "output_schema_hash": "9c878a718ce592027375638f0615f260b788e73c93a1f1dda888172107a248fa",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3277,6 +4690,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3291,6 +4710,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3305,6 +4730,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3319,6 +4750,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3333,6 +4770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3347,6 +4790,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3361,6 +4810,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3375,6 +4830,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3389,6 +4850,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3403,6 +4870,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3417,12 +4890,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/feedback-capture",
             "mcp_name": "stonewright-feedback-capture",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "eb02ff2f7cd324305d521923364dcbd971e993d8cbc610dade279127aa9fce3c",
             "output_schema_hash": "6d41bf1a365dbe874cb4d51f006dafe2080d9c22d2808871c49e442b8f237da7",
             "permission_class": "Permissions::manage_options()",
@@ -3431,6 +4910,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3445,6 +4930,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3459,6 +4950,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3473,6 +4970,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3487,6 +4990,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3501,6 +5010,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3515,6 +5030,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3529,6 +5050,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3543,6 +5070,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3557,6 +5090,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3571,6 +5110,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3585,6 +5130,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3599,6 +5150,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3613,6 +5170,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3627,6 +5190,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3641,6 +5210,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3655,6 +5230,12 @@
                 "token": false,
                 "validator": true,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3669,6 +5250,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3683,6 +5270,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3697,6 +5290,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3711,20 +5310,32 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/knowledge-import",
             "mcp_name": "stonewright-knowledge-import",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "c3a509a0df4d18547338cbcb59076e6236b2322db9c7c750bc845785f61da581",
-            "output_schema_hash": "c5bd8700d52657a3f3ba6e77a4c78ca5aa2123335adac04b4e08c6b4f5d57c22",
+            "output_schema_hash": "835d1e3435ce51bc76281fc5fe50ef8ba861909476abb8c14cd46f3bf549c429",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3739,6 +5350,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3753,6 +5370,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3767,12 +5390,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/media-optimize",
             "mcp_name": "stonewright-media-optimize",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "9b386e3d92664ef8a963d11ddc8239e4cd9fb39bb9d2f338a16392db12bff90d",
             "output_schema_hash": "628662f736c2ada576f159ca89fb91366b62ce3f958c3e64ec1b2a59abf4567a",
             "permission_class": "Permissions::edit_post( $id )",
@@ -3781,6 +5410,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3795,6 +5430,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3809,6 +5450,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3823,6 +5470,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -3837,6 +5490,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3851,6 +5510,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -3865,6 +5530,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3879,6 +5550,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3893,12 +5570,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-add-item",
             "mcp_name": "stonewright-menu-add-item",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "f3a458b617a2cba5e98f46e60e028d4ae0f889e7265ad5cd8d20f5204dacc040",
             "output_schema_hash": "9995bbc2dd737e5061b6fe0093436a4cd251de31a59474c3703070fc17d1b2f3",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3907,12 +5590,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-assign-location",
             "mcp_name": "stonewright-menu-assign-location",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "79232ee2c494f3f902f964f312bda07c59a719b2006ca6e6bc54012b9f4637c7",
             "output_schema_hash": "6436a53935552531ee6aec7aa1352b767a49dbe217bd4ff0d7fde3ad4f642206",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3921,12 +5610,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-create",
             "mcp_name": "stonewright-menu-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "a83746470844ab3b3d4fb78b86e807efb77a77cda91068b58906a921b89f5867",
             "output_schema_hash": "1d8d444c83b9c5843b689efbb6ae3e32ff4aa5d817f7977e14899c001a62cbaf",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3935,12 +5630,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/menu-delete",
             "mcp_name": "stonewright-menu-delete",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "8adad38ad2f67aa0626ce8af140322234b758e8654b93082f90a03af8dd22067",
             "output_schema_hash": "babf503ecbb10dc6ad10094800cefdf311fac92c05b17f15ee63cf5a6a63bf99",
             "permission_class": "Permissions::edit_theme_options()",
@@ -3949,6 +5650,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3963,6 +5670,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3977,6 +5690,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -3991,6 +5710,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4005,6 +5730,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4019,6 +5750,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4033,6 +5770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4047,6 +5790,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4061,6 +5810,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4068,13 +5823,19 @@
             "mcp_name": "stonewright-php-execute",
             "kind": "Write",
             "input_schema_hash": "00bee7c4d92c8841e1c15b9d778b8543923aff4c0c9dc4f1fb5908ecc54f95dc",
-            "output_schema_hash": "d5643004b7cb0e98893db8b47f0351ab14e3dfed0c01af4438be2ac56691168f",
+            "output_schema_hash": "37e04b943aaeb949b69ae3795b27337ba567a5f7d96660c1cbb3cc048ac064b4",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -4089,12 +5850,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/plugin-activate",
             "mcp_name": "stonewright-plugin-activate",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "aa6d83da2164d5899df8c515103212349d3ee3007d28aabcee6a24d127350dca",
             "output_schema_hash": "0b97a397fc9478fac77fb6acaf956fd68c0e0d2b89e5bb7f7d030ec02b343425",
             "permission_class": "Permissions::activate_plugins()",
@@ -4103,6 +5870,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4117,6 +5890,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4131,6 +5910,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4145,6 +5930,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4159,6 +5950,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4173,6 +5970,52 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/rescue-rollback",
+            "mcp_name": "stonewright-rescue-rollback",
+            "kind": "Write",
+            "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
+            "output_schema_hash": "24cb95dd9b842466c34f910691322c18054472ae547b14da52f7c8c1fd755556",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/rescue-status",
+            "mcp_name": "stonewright-rescue-status",
+            "kind": "Read",
+            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
+            "output_schema_hash": "6f53b6efe629c743d6d1e904f3c7d5d3d32477fce1d3b7245317b91653997664",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4187,6 +6030,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4201,6 +6050,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4215,6 +6070,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4229,6 +6090,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4243,6 +6110,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4257,6 +6130,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4271,6 +6150,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4285,6 +6170,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4299,6 +6190,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4313,6 +6210,52 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/section-reuse-extract",
+            "mcp_name": "stonewright-section-reuse-extract",
+            "kind": "Read",
+            "input_schema_hash": "35d476d42a9d397a6cd7b3054d2085b533f2e9069483fb386e718f3f4af4049c",
+            "output_schema_hash": "62a30c775de8c5840c6b58f4b0bca6d14c30db136461b7fcf0d77f0afb9db444",
+            "permission_class": "Permissions::edit_post( $post_id )",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
+            }
+        },
+        {
+            "ability_name": "stonewright/section-reuse-find",
+            "mcp_name": "stonewright-section-reuse-find",
+            "kind": "Read",
+            "input_schema_hash": "8fcf9401fda10514fda03ae108b03f7a3cf5c797066a6555c62c00eb5624fcad",
+            "output_schema_hash": "34ea495aadf4a2d2ee036e64286be7ac60d253d75aa6a52ad174566707921516",
+            "permission_class": "Permissions::edit_posts()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4327,6 +6270,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4341,13 +6290,19 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/security-issue-confirmation-token",
             "mcp_name": "stonewright-security-issue-confirmation-token",
             "kind": "Read",
-            "input_schema_hash": "bfcd851ce294d7ef2e9acfc0578edaecb942c63163e538c347931b9100f6bf84",
+            "input_schema_hash": "7eab3576a3603b9e97c0dea1d5745dcca168d8512385f4ec4ebb3701e6a5d393",
             "output_schema_hash": "c0f6bff0fccae52c6931b4e7c8ce7d2284c4b6f158788513eb26edc7e5b829a0",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -4355,12 +6310,18 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/security-runtime-data-purge",
             "mcp_name": "stonewright-security-runtime-data-purge",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "ddf971e6fd83bb2ae968311a9ea288f674e4c923d45c3b2216e40ffb3b441c33",
             "output_schema_hash": "2e76c9ad2cc98399ed008ca511ecb8b0f14371bd08ac38ad10299d7731a2957f",
             "permission_class": "Permissions::manage_options()",
@@ -4369,6 +6330,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4383,6 +6350,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4397,6 +6370,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4411,6 +6390,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4425,6 +6410,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4439,6 +6430,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4453,6 +6450,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4460,19 +6463,25 @@
             "mcp_name": "stonewright-site-capabilities",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "ef750e467c28dee9332dc42ed687cbf9348af18ca8c970282ef85f119523de57",
+            "output_schema_hash": "5e617220265d6ff927d25d4e4c47345fb66ac094d878029dcae53f2ef72814a1",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/site-create-revision",
             "mcp_name": "stonewright-site-create-revision",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "a31d8b135a928a2293ac86289d1b4beacf0ed6c6713f099cedf3ca119ea13dde",
             "output_schema_hash": "41e73479bc660f48b6c339db932f74f606dff513f4c59fa72f692be8fb726175",
             "permission_class": "Permissions::edit_post( $post_id )",
@@ -4481,6 +6490,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4488,13 +6503,19 @@
             "mcp_name": "stonewright-site-environment",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "2f11d1e4f723b191ae802c32f2902554838530b33097bfacbe084693763d6e54",
+            "output_schema_hash": "ec3b2e39aaeb37f59b825a27a6f581ef598f4ffb7940601682f8ae6b12900612",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4509,6 +6530,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4523,6 +6550,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4537,6 +6570,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4551,6 +6590,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4565,6 +6610,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4579,6 +6630,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4593,6 +6650,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4607,6 +6670,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4621,6 +6690,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4635,6 +6710,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4649,13 +6730,19 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/skills-save",
             "mcp_name": "stonewright-skills-save",
             "kind": "Write",
-            "input_schema_hash": "197c58a40b955bfbc5bc423a515a4de27c7c14cbdf90e3170e4aef6043867edf",
+            "input_schema_hash": "2386a56ca7f1c7436649813dc806d926f41809dbf5f8bfa6d223dae071240946",
             "output_schema_hash": "55daf07e404d273e52a54a2f6a010e437f3d150e8e22e5ebe1e72a04b0e0bba6",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -4663,6 +6750,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4677,6 +6770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -4691,6 +6790,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": true
             }
         },
         {
@@ -4705,6 +6810,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4719,6 +6830,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4733,6 +6850,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4747,6 +6870,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4761,6 +6890,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4775,20 +6910,32 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-backup-restore",
             "mcp_name": "stonewright-theme-backup-restore",
             "kind": "Write",
-            "input_schema_hash": "bcdcaa072aa75979c405d07aed77ef65c24afd6287c5466d79252246978096f3",
-            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "input_schema_hash": "42293747fc615901907ee60994c253f85451472a9f713987ce4a85fb24aa1363",
+            "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4803,12 +6950,18 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
             "ability_name": "stonewright/theme-builder-create-template",
             "mcp_name": "stonewright-theme-builder-create-template",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "1528610ee1d49fc5d84355add44dd443b2a8ad4a2f78871e55131bd06fd5486c",
             "output_schema_hash": "43e3dc0b4406afd9de7abb6cca94202bd5df1a925498bace96051a8ab2761909",
             "permission_class": "Permissions::edit_posts()",
@@ -4817,6 +6970,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4831,6 +6990,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4845,6 +7010,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4859,12 +7030,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-builder-set-conditions",
             "mcp_name": "stonewright-theme-builder-set-conditions",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "7ba7ddf72bc7487d00135645c3af6226218c1a914ed78dcc618ddd2ce8211ddc",
             "output_schema_hash": "ef893afdecc2d1c99b33ce153c8bb8177f852d8c411be8eb7e3c34e775ca3098",
             "permission_class": "Permissions::edit_posts()",
@@ -4873,6 +7050,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4887,48 +7070,72 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-chrome-update",
             "mcp_name": "stonewright-theme-chrome-update",
             "kind": "Write",
-            "input_schema_hash": "d095bad1840fc18a6a02ee6b6ddd3452782eea400ec6e51d570ae3e01620649f",
-            "output_schema_hash": "1be421eb70ba67082949484dd2872d94ca0a08e837ac356a6608b62340b06110",
+            "input_schema_hash": "960cd44bcbd4512ba6478eab241b381026c51b7bdc99a5c72709285c87e2ee9f",
+            "output_schema_hash": "626faa059a6922dd4a1fcaa7910b3884052d4c78fba69ee96471dd7f245ec3f4",
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-custom-css",
             "mcp_name": "stonewright-theme-custom-css",
             "kind": "Write",
-            "input_schema_hash": "8b314881d22e09edde6f93c75453d568dce77153dd63675e81be72426d749464",
-            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "input_schema_hash": "cff4f8aa3344856afffe05fed78e3170252eae19256de1e05888eb2ef15224f7",
+            "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::edit_css()",
             "gates": {
                 "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "c041ddabdd8425cdbe918eedb850ca446030c983fa4ecc60ea212ce79d51b93d",
-            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "input_schema_hash": "a6ffc6a03e9047c70573a6d58ff4088dfa148b25d83a6e945991b1fd24d9118d",
+            "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4943,6 +7150,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4957,6 +7170,12 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -4971,20 +7190,32 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/tool-profile",
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
-            "input_schema_hash": "ca252ea14976f5a4be4d090cc924f3cb1e0a9d385239831341d0c214224f4c5f",
-            "output_schema_hash": "97992287d4738c74c674c0a512adfcf03fce9a35bb12f17f117b167f7ada7f7f",
+            "input_schema_hash": "0665e256823aa45492da915efd0d4dd84c687bffbf654ef91d3029422f2ab7cc",
+            "output_schema_hash": "bc1c02e14a635233e37c132a04f4acd0b900015d7d112daee68dfac60d3cb09a",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -4999,12 +7230,18 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/user-create",
             "mcp_name": "stonewright-user-create",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "6e86e32809f46cc1eed1f418d4c4fb13c85b0d5de43183effaf40947ec563bfd",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::create_users()",
@@ -5013,6 +7250,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5027,6 +7270,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5041,6 +7290,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5055,12 +7310,18 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
             "ability_name": "stonewright/user-update",
             "mcp_name": "stonewright-user-update",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "688093cc6b813eb724715c3942b04deffd7366e987373e7a3dd7b5f47068a923",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
             "permission_class": "Permissions::edit_users()",
@@ -5069,6 +7330,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5083,6 +7350,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5097,6 +7370,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5111,6 +7390,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5125,6 +7410,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5139,6 +7430,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5153,6 +7450,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5167,6 +7470,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5181,6 +7490,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5195,6 +7510,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5209,6 +7530,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5223,6 +7550,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5237,6 +7570,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5251,6 +7590,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5265,6 +7610,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5279,6 +7630,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5293,6 +7650,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5307,6 +7670,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5321,6 +7690,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5335,6 +7710,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5349,6 +7730,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5363,6 +7750,12 @@
                 "token": false,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5377,6 +7770,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5391,6 +7790,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": false,
+                "idempotent": false,
+                "openWorldHint": false
             }
         },
         {
@@ -5405,6 +7810,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5419,6 +7830,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5433,6 +7850,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5447,6 +7870,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         },
         {
@@ -5461,6 +7890,12 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            },
+            "annotations": {
+                "readonly": false,
+                "destructive": true,
+                "idempotent": false,
+                "openWorldHint": true
             }
         },
         {
@@ -5475,6 +7910,12 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            },
+            "annotations": {
+                "readonly": true,
+                "destructive": false,
+                "idempotent": true,
+                "openWorldHint": false
             }
         }
     ]

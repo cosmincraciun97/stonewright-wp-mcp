@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { gotoAdmin } from './helpers/goto-admin';
 import {
 	runAbility,
 	runAbilityWithProfileConfirmation,
@@ -66,32 +67,49 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 		waitUntil: 'domcontentloaded',
 	});
 	const row = page
-		.locator('.sw-audit-row')
-		.filter({ hasText: 'stonewright/php-execute' })
+		.getByRole('row', { name: /stonewright\/php-execute/ })
 		.first();
 	await expect(row).toBeVisible();
-	await expect(row.locator('[data-label="Details"]')).toBeVisible();
-	await row.locator('summary').click();
+	const details = row.getByRole('button', { name: /^Details of event \d+, stonewright\/php-execute$/ });
+	await expect(details).toBeVisible();
+	await details.click();
 
-	const payload = row.locator('.sw-audit-payload');
+	const drawer = page.locator('#sw-audit-drawer');
+	await expect(drawer).toBeVisible();
+	const payload = drawer.locator('[data-sw-audit-panel]:not([hidden]) pre.sw-ui-code__body');
 	await expect(payload).toBeVisible();
-	await expect(row.getByRole('button', { name: 'Copy redacted details' })).toBeVisible();
+	await expect(payload).toContainText('execution_status');
+	await expect(
+		drawer.getByRole('button', { name: /^Copy.*redacted details of event \d+$/ }),
+	).toBeVisible();
 
-	const containment = await payload.evaluate((node) => {
-		const payloadRect = node.getBoundingClientRect();
-		const content = document.querySelector('.sw-shell__content');
-		const contentRect = content?.getBoundingClientRect();
-		return {
-			documentOverflow:
-				document.documentElement.scrollWidth - document.documentElement.clientWidth,
-			contained:
-				!!contentRect &&
-				payloadRect.left >= contentRect.left - 1 &&
-				payloadRect.right <= contentRect.right + 1,
-		};
-	});
-	expect(containment.documentOverflow).toBeLessThanOrEqual(2);
-	expect(containment.contained).toBe(true);
+	// The recorded payload is short, so also put one unbroken 800-character line in the block: a long value must
+	// scroll inside the block, never widen the drawer or the page.
+	const measure = (long: boolean) =>
+		payload.evaluate((node, stress) => {
+			if (stress) {
+				(node.querySelector('code') ?? node).textContent = 'contained-'.repeat(80);
+			}
+			const payloadRect = node.getBoundingClientRect();
+			const drawerRect = node.closest('dialog')?.getBoundingClientRect();
+			const viewportWidth = document.documentElement.clientWidth;
+			return {
+				documentOverflow: document.documentElement.scrollWidth - viewportWidth,
+				inViewport: payloadRect.left >= -1 && payloadRect.right <= viewportWidth + 1,
+				inDrawer:
+					!!drawerRect &&
+					payloadRect.left >= drawerRect.left - 1 &&
+					payloadRect.right <= drawerRect.right + 1,
+				scrollsInside: node.scrollWidth > node.clientWidth,
+			};
+		}, long);
+	for (const stress of [false, true]) {
+		const containment = await measure(stress);
+		expect(containment.documentOverflow).toBeLessThanOrEqual(2);
+		expect(containment.inViewport).toBe(true);
+		expect(containment.inDrawer).toBe(true);
+		if (stress) expect(containment.scrollsInside).toBe(true);
+	}
 });
 
 test('legacy Sandbox audit links lead to the single dedicated Audit Log', async ({
@@ -129,8 +147,8 @@ test('audit, memory, and skill controls keep deliberate spacing and aligned heig
 	await page.goto('/wp-admin/admin.php?page=stonewright-memory', {
 		waitUntil: 'domcontentloaded',
 	});
-	const receiptInput = page.locator('.sw-memory-receipt-form input[type="number"]');
-	const receiptButton = page.locator('.sw-memory-receipt-form button');
+	const receiptInput = page.locator('.sw-memory__inline input[type="number"]');
+	const receiptButton = page.locator('.sw-memory__inline').first().getByRole('button', { name: 'Look up receipt' });
 	const inputBox = await receiptInput.boundingBox();
 	const buttonBox = await receiptButton.boundingBox();
 	expect(inputBox).not.toBeNull();
@@ -138,26 +156,26 @@ test('audit, memory, and skill controls keep deliberate spacing and aligned heig
 	expect(Math.abs(inputBox!.height - buttonBox!.height)).toBeLessThanOrEqual(2);
 	expect(Math.abs(inputBox!.y + inputBox!.height / 2 - (buttonBox!.y + buttonBox!.height / 2))).toBeLessThanOrEqual(2);
 
-	const memoryHeader = page.locator('.sw-memory-section-header');
-	await expect(memoryHeader.getByText('Enable memory abilities')).toBeVisible();
-	const headerHeights = await memoryHeader.locator('button, input[type="submit"]').evaluateAll((nodes) =>
+	const saveSettings = page.getByRole('button', { name: 'Save settings' });
+	await expect(page.getByText('Enable memory abilities')).toBeVisible();
+	const settingsHeights = await page.locator('.sw-memory form[action="options.php"] .sw-ui-btn').evaluateAll((nodes) =>
 		nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
 	);
-	expect(headerHeights.length).toBeGreaterThanOrEqual(2);
-	expect(Math.max(...headerHeights) - Math.min(...headerHeights)).toBeLessThanOrEqual(2);
+	expect(settingsHeights.length).toBeGreaterThanOrEqual(1);
+	for (const height of settingsHeights) {
+		expect(Math.abs(height - inputBox!.height)).toBeLessThanOrEqual(2);
+	}
+	await expect(saveSettings).toBeVisible();
 
 	await page.goto('/wp-admin/admin.php?page=stonewright-skills&view=editor', {
 		waitUntil: 'domcontentloaded',
 	});
-	const availability = page.locator('.sw-fieldset');
+	const availability = page.locator('.sw-ui-fieldset');
 	await expect(availability.getByText('Skill is active')).toBeVisible();
 	const rowGap = await availability.evaluate((node) => getComputedStyle(node).rowGap);
 	expect(Number.parseFloat(rowGap)).toBeGreaterThanOrEqual(10);
-	const checkboxMargins = await availability.locator('input[type="checkbox"]').first().evaluate((node) => {
-		const style = getComputedStyle(node);
-		return [style.marginTop, style.marginRight, style.marginBottom, style.marginLeft];
-	});
-	expect(checkboxMargins).toEqual(['0px', '0px', '0px', '0px']);
+	const checkboxTarget = await availability.locator('label.sw-ui-checkbox').first().evaluate((node) => node.getBoundingClientRect().height);
+	expect(checkboxTarget).toBeGreaterThanOrEqual(24);
 });
 
 test('companion update handoff is explicit and never claims browser-side installation', async ({
@@ -166,7 +184,8 @@ test('companion update handoff is explicit and never claims browser-side install
 	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Connect handoff runs once.');
 	await login(page);
 	let statusRequestUrl = '';
-	await page.route('**/stonewright/v1/admin/companion-update-status*', async (route) => {
+	// Matches the route on pretty permalinks (/wp-json/...) and on plain ones (?rest_route=%2Fstonewright%2F...).
+	await page.route((url) => decodeURIComponent(url.href).includes('/stonewright/v1/admin/companion-update-status'), async (route) => {
 		statusRequestUrl = route.request().url();
 		await route.fulfill({
 			status: 200,
@@ -189,9 +208,7 @@ test('companion update handoff is explicit and never claims browser-side install
 			}),
 		});
 	});
-	await page.goto('/wp-admin/admin.php?page=stonewright', {
-		waitUntil: 'domcontentloaded',
-	});
+	await gotoAdmin(page, '/wp-admin/admin.php?page=stonewright&tab=updates');
 
 	const check = page.getByRole('button', { name: 'Check latest companion' });
 	await expect(check).toBeVisible();

@@ -1,8 +1,27 @@
 # Configuration
 
-The Configuration page is the first sub-page under the **Stonewright** menu
-(`dashicons-hammer`, position 76). It owns guided cards for master enable,
-authentication, MCP client connection, updates, and live verification.
+The **Setup** page (called Configuration in earlier versions, which is why this file
+keeps that name) is the first page of the Setup hub, next to Troubleshoot, under
+the **Stonewright** menu (`dashicons-hammer`, position 76). It has four views,
+shown as tabs under the page header:
+
+| View | What it holds | Address |
+| --- | --- | --- |
+| **Get started** | The numbered steps: 1 turn on AI abilities (a status, with a link to Settings), 2 choose OAuth or an Application Password, 3 connect an AI client, 4 verify the connection | `page=stonewright` |
+| **Settings** | The settings form (master enable, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
+| **Connections** | The OAuth sign-in status with its copyable addresses, and the connected OAuth clients with a disconnect each | `page=stonewright&tab=connections` |
+| **Updates** | How to keep the plugin and the companion current | `page=stonewright&tab=updates` |
+
+The server renders the view the `tab` argument names, so a link, a redirect
+after a save, a reload and a no-JavaScript visit all land on the right view. With
+script a tab switches in place and the address follows. A link to something
+inside another view (for example **Review connected OAuth clients**) opens that
+view. The cards below keep their old names (Card 1, Card 2, and so on) because
+the behaviour they describe did not change.
+
+The page is built from the shared admin UI layer (see `DESIGN.md`): the page
+header comes from the shell, the controls are the layer's, and nothing on the
+page is hidden behind a hover.
 
 The connection picker defines both choices in plain language:
 
@@ -16,13 +35,15 @@ The connection picker defines both choices in plain language:
 
 Card 2 recommends OAuth on HTTPS and explicit local WordPress environments.
 OAuth uses browser sign-in, mandatory PKCE S256, dynamic client registration,
-resource-bound access tokens, rotating refresh tokens, and Connected Apps
-revocation. Public plain HTTP sites do not expose OAuth.
+resource-bound access tokens, rotating refresh tokens, and a **Connected OAuth
+clients** list with per-client disconnect. Public plain HTTP sites do not
+expose OAuth.
 
 Application Password remains an independent fallback on the existing
 `/wp-json/mcp/stonewright` route.
 
-Source: `plugin/includes/Admin/ConfigurationPage.php`
+Source: `plugin/includes/Admin/ConfigurationPage.php` (menu, settings registration and
+form handlers) and `plugin/includes/Admin/Setup/` (the page, its views and its steps).
 
 ---
 
@@ -38,13 +59,26 @@ connectivity.
 In the supported JavaScript flow, flipping the toggle saves immediately and
 updates the visible effective state without a page reload. **Apply now** retries
 and verifies the same Step 1 transaction. The no-JavaScript form still uses
-**Save Settings**. A connected client sees the new state through the surface
+**Save settings**. A connected client sees the new state through the surface
 revision/re-list contract described below.
 
-The Settings API form contains only Step 1 settings. Domain-lock rebind,
-rollback, and clear actions are rendered in a separate action panel outside
-that form. After a no-JavaScript save, WordPress redirects back to
-**Stonewright → Setup**; `/wp-admin/options.php` is never the final page.
+The Settings API form contains only the settings of the **Settings** view.
+Domain-lock rebind, rollback, and clear actions are rendered in the **Domain
+lock** card outside that form. After a no-JavaScript save, WordPress redirects
+back to **Stonewright → Setup → Settings**; `/wp-admin/options.php` is never the
+final page. The page confirms a save with a notice.
+
+### Domain lock
+
+Stonewright records the address of the site the first time AI abilities are
+turned on and blocks them when the address later changes (a cloned copy).
+Because the address is recorded again on every request while abilities are on, a
+lock that is cleared while they are on is set again before the page reloads. So
+**Clear domain lock** is disabled while abilities are on, with the reason shown
+next to it; turn abilities off first to leave the lock unset. After **Clear**,
+**Rebind** or **Restore** the card says what happened (cleared, set again, rebound,
+restored). During a mismatch the card shows both addresses and offers rebind and
+restore, never clear.
 
 ### Mode selector
 
@@ -70,9 +104,9 @@ Three modes are stored in the `stonewright_mode` option:
 The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
 essential map to enabled; full maps to disabled. Existing installs without
 `stonewright_mcp_surface` keep their current essential/full behaviour via that
-legacy flag until an admin saves the Configuration page.
+legacy flag until an admin saves the **Settings** view.
 
-On **Setup → Connect**, every runtime control in Step 1 (ability enablement,
+On **Setup → Settings**, every runtime control (ability enablement,
 mode, MCP surface, and Elementor V4 Atomic) saves immediately without a page
 reload. **Apply now** remains as an explicit retry/verification control. Every
 real change bumps one monotonic surface revision. Transport truth:
@@ -124,8 +158,12 @@ port `8765`.
 
 Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
 HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
-Click **Generate token**, save settings, then copy **Developer launch values**
-into the bridge process. The bridge token must match the saved token.
+Click **Generate token**, copy the token or the **Developer launch values**
+before leaving the page, then save settings. A saved bridge token is never shown
+again: the field stays empty with a "stored" note, saving with an empty field
+keeps it, and **Remove the stored value when saving** clears it. Until a new
+token is generated the launch values show a placeholder. The bridge token must
+match the saved token.
 
 For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
 stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
@@ -140,20 +178,36 @@ Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
 and related abilities. It is off by default and only relevant on sites running
 Elementor 3.18+.
 
+### Reuse saved sections
+
+One row of the settings form, after **Elementor V4 atomic abilities**. The switch saves the option `stonewright_section_reuse` as `ask` (on, the default) or `off` through the same Settings API form as the other settings, so it needs `manage_options` and the form's nonce, and a change is written to the Audit Log (`stonewright/section-reuse-setting`).
+
+The info callout under the switch follows the switch as you toggle it, before you save, and a screen reader announces it when it appears (the callout sits in one polite live region). It shows what the setting will mean once saved: the setting itself changes only when you save the form, and without JavaScript the callout shows the saved value. It says what the setting does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that an Elementor V3 copy needs a confirmation token like any other write, that a Gutenberg copy needs one only when the same change removes a block, and that copying an Elementor V4 section stays blocked.
+
+Turning it off removes `stonewright-section-reuse-find` and `stonewright-section-reuse-extract` from the tool lists (over MCP they cannot be called at all) and from the profiles, stops `stonewright-task-start` from offering the section reuse skill, makes an insert operation refuse, and tells agents so: the value is in `agent_preferences.section_reuse` of `stonewright-task-start`, and for fifteen minutes after the change every response carries one `notices` line. A client that keeps an old tool list is still safe, because each reuse ability and insert operation checks the live option; the refusal is not retried and does not appear under recurring errors. The row stacks label above control at narrow widths.
+
 ---
 
 ## Card 2 - Authentication
 
 OAuth is the default on HTTPS and explicit local environments. Select OAuth,
 pick the AI client, and follow the generated instructions. WordPress opens a
-consent screen and records the grant under **Connected Apps**; no WordPress
-password is copied into the client.
+consent screen, and the client then appears in the **Connected OAuth clients**
+card below the connection steps; no WordPress password is copied into the
+client.
+
+That list shows each client's approvers, connection date, and last use.
+**Disconnect** closes every live grant of the client at once, after first
+deleting its pending consent requests and making its unused authorization codes
+unusable, so the client has to sign in again and nothing approved before the
+disconnect can create a new grant. It needs `manage_options` and a nonce, and
+is written to the Audit Log.
 
 Application Password remains the independent fallback. It is sent as HTTP
 Basic Auth with every request (`username:app-password`) to the existing
 `/wp-json/mcp/stonewright` resource.
 
-To generate one from the Configuration page:
+To generate one in **Get started**, step 2:
 
 1. Enter a required label for the client, such as `Claude Code laptop` or
    `Cursor`.
@@ -251,10 +305,26 @@ workaround.
 
 ### Prompt Library
 
-The dedicated **Prompts** tab contains searchable, outcome-grouped starters.
-Each card states whether it supports Plugin mode, Direct mode, or both, lists
-requirements and verification, and contains no credentials or private site
+**Stonewright > Prompt library** (Knowledge) contains searchable, outcome-grouped
+starters. Each card states whether it supports Plugin mode, Direct mode, or both,
+lists requirements and verification, and contains no credentials or private site
 data.
+
+The starters cover inspection, repair, Elementor, Gutenberg, content models,
+media, SEO, design, WooCommerce, safety, and operations. For the current release
+they include a change watched by Rescue, rolling back a failed change, restoring a
+page from a snapshot, repairing a failed write with `repair_of` and reading the
+lineage in **Stonewright > Activity > Audit log**, building a page from sections the site
+already has, editing an Elementor V4 page through the native bridge, looking up
+Elementor documentation in the site's knowledge store, bringing a design's images
+into the media library, working read-only with the inspect profile, and following
+the active Design Direction. A prompt that names a write which needs a confirmation
+token in `production-safe` mode says so, and says that a dry run needs none.
+
+The catalog is `plugin/data/prompts/catalog.json`. A PHPUnit test checks that
+every tool a prompt names exists in the ability matrix (Plugin mode) or the Direct
+tool contract (Direct mode), that every admin page it points to is registered, and
+that no prompt mentions a removed or renamed feature, that a page outside the sidebar (the Block queue) is written with its hub, and that a prompt naming a token-gated write names `confirmation_token` and the tool that issues it.
 
 ## Keep Stonewright current
 
@@ -281,9 +351,13 @@ procedures are in [Updating Stonewright](../updates.md).
 
 The Setup page exposes two distinct checks:
 
-1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint
-   URL (informational), MCP runtime selection, server registration, Application
-   Passwords, tool surface, Elementor detection. Passing configuration checks
+1. **Run preflight** — local readiness only, six rows: Stonewright
+   abilities (the effective state, so a domain lock that blocks them is an error,
+   not a pass), **Domain lock** (the locked and the current address, with the
+   rebind or restore remedy), MCP endpoint (an error only when no URL can be
+   resolved), Application Passwords (with the real cause when they are off), Tool
+   surface and Elementor detection. MCP runtime selection and server registration
+   are Troubleshoot checks, not preflight rows. Passing configuration checks
    means the site *looks* ready. It does **not** prove live MCP auth or tool
    calls; the connection card says the connection has not been tested until
    Verify connection runs.
@@ -293,7 +367,10 @@ The Setup page exposes two distinct checks:
    `tools/list` (asserts `stonewright-task-start`, bounded pagination) → a
    read-only `stonewright-task-start` call → always revokes the test password.
    HTTP 200 with JSON-RPC errors, `isError`, or `ok:false` fails the matching
-   step. Never turns green solely because Application Passwords exist.
+   step. Never turns green solely because Application Passwords exist. When
+   `tools/list` has no `stonewright-task-start` because the domain lock (or
+   another block) stops the abilities, the advice says so and names the rebind
+   or restore action instead of "enable abilities".
 
 For the companion stdio path, also run:
 
@@ -307,7 +384,7 @@ refresh hints. It never prints secrets.
 
 ### Troubleshoot / Run diagnostics
 
-**Stonewright → Troubleshoot** (and the same panel on Setup) is the operator
+**Stonewright → Troubleshoot** (its own page in the Setup group) is the operator
 path when a client cannot connect. Pick **How do you connect?** first:
 **OAuth**, **Application Password**, **Local companion**, or **Not sure**.
 **Not sure** runs safe discovery and recommends a method; it does not guess

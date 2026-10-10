@@ -39,13 +39,13 @@ async function login(page: Page): Promise<void> {
 }
 
 async function ensurePluginEnabled(page: Page): Promise<void> {
-	await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+	await page.goto('/wp-admin/admin.php?page=stonewright&tab=settings', { waitUntil: 'domcontentloaded' });
 	const enabled = page.locator('#stonewright_enabled');
 	if (await enabled.count()) {
 		const checked = await enabled.isChecked();
 		if (!checked) {
 			await enabled.check();
-			const save = page.locator('form input[type="submit"], form button[type="submit"]').first();
+			const save = page.locator('form.stonewright-settings-form button[type="submit"]').first();
 			await save.click();
 			await page.waitForLoadState('domcontentloaded');
 		}

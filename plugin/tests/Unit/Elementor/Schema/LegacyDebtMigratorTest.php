@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtMigrate;
 use Stonewright\WpMcp\Elementor\Schema\LegacyDebtMigrator;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /** @covers \Stonewright\WpMcp\Elementor\Schema\LegacyDebtMigrator */
@@ -135,6 +136,29 @@ final class LegacyDebtMigratorTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_production_safe_migration_apply_succeeds_with_its_own_token(): void {
+		$paths = [ 'button_icon_align' ];
+		$dry   = ( new LegacyDebtMigrate() )->execute( [ 'post_id' => 78, 'element_id' => 'legacy-1', 'paths' => $paths ] );
+		self::assertIsArray( $dry );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$ability = new LegacyDebtMigrate();
+		$args    = [
+			'post_id' => 78, 'element_id' => 'legacy-1', 'paths' => $paths, 'action' => 'apply',
+			'expected_tree_hash' => $dry['before_tree_hash'], 'approved_plan_hash' => $dry['plan_hash'],
+			'idempotency_key' => 'legacy-plan-78',
+		];
+		$token = ConfirmationToken::issue( $ability->name(), $args );
+
+		$result = $ability->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray(
+			$result,
+			'Expected array, got WP_Error: ' . ( $result instanceof \WP_Error ? $result->get_error_code() . ' ' . $result->get_error_message() : '' )
+		);
+		self::assertTrue( $result['write_performed'] );
+		self::assertSame( 'row-reverse', ElementorData::read( 78 )[0]['settings']['button_icon_align'] );
 	}
 
 	private function legacy_post(): object {

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Knowledge;
 
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
  * Imports and exports the persistent guidance that agents see:
@@ -14,6 +14,9 @@ final class KnowledgeBundle {
 
 	public const FORMAT  = 'stonewright-knowledge-bundle';
 	public const VERSION = 1;
+
+	/** Most skipped skill identities an import reports. */
+	public const SKIPPED_LIMIT = 50;
 
 	/**
 	 * @return array<string, mixed>
@@ -32,14 +35,18 @@ final class KnowledgeBundle {
 				'entries' => Memory::list_all( 10000, 0 ),
 			],
 			'skills'       => [
-				'entries' => Skills::list( false ),
+				'entries' => SkillLibraryService::open()->records( false ),
 			],
 		];
 	}
 
 	/**
+	 * Skills arrive as disabled drafts and never replace a skill: an identity that
+	 * is stored in any state, the trash included, or reserved for a built-in skill
+	 * is skipped, and so is an entry the library refuses.
+	 *
 	 * @param array<string, mixed> $bundle
-	 * @return array<string, int>
+	 * @return array{instructions_imported: int, memory_imported: int, skills_imported: int, skills_skipped: array<int, string>}
 	 */
 	public static function import( array $bundle ): array {
 		self::assert_supported_bundle( $bundle );
@@ -47,6 +54,7 @@ final class KnowledgeBundle {
 		$instructions_imported = 0;
 		$memory_imported       = 0;
 		$skills_imported       = 0;
+		$skills_skipped        = [];
 
 		$instructions = $bundle['instructions'] ?? null;
 		if ( is_array( $instructions ) ) {
@@ -101,6 +109,7 @@ final class KnowledgeBundle {
 		if ( is_array( $skills ) ) {
 			$entries = $skills['entries'] ?? [];
 			if ( is_array( $entries ) ) {
+				$library = SkillLibraryService::open();
 				foreach ( $entries as $entry ) {
 					if ( ! is_array( $entry ) ) {
 						continue;
@@ -110,25 +119,19 @@ final class KnowledgeBundle {
 						continue;
 					}
 
-					$source = (string) ( $entry['source'] ?? 'uploaded' );
-					if ( 'builtin' === $source ) {
-						$source = 'uploaded';
-					}
-
-					$id = Skills::save(
+					// A bundle never sets provenance, exposure, or status; its skills wait as local drafts for review.
+					$id = $library->import_bundle_skill(
 						[
-							'slug'           => $slug,
-							'title'          => (string) ( $entry['title'] ?? $slug ),
-							'description'    => (string) ( $entry['description'] ?? '' ),
-							'content'        => (string) $entry['content'],
-							'enabled'        => (bool) ( $entry['enabled'] ?? true ),
-							'enable_agentic' => (bool) ( $entry['enable_agentic'] ?? ( $entry['enabled'] ?? true ) ),
-							'enable_prompt'  => (bool) ( $entry['enable_prompt'] ?? ( $entry['enabled'] ?? true ) ),
-							'source'         => in_array( $source, [ 'user', 'uploaded' ], true ) ? $source : 'uploaded',
+							'slug'        => $slug,
+							'title'       => (string) ( $entry['title'] ?? $slug ),
+							'description' => (string) ( $entry['description'] ?? '' ),
+							'content'     => (string) $entry['content'],
 						]
 					);
-					if ( $id > 0 ) {
+					if ( is_int( $id ) && $id > 0 ) {
 						++$skills_imported;
+					} elseif ( count( $skills_skipped ) < self::SKIPPED_LIMIT ) {
+						$skills_skipped[] = $slug;
 					}
 				}
 			}
@@ -138,6 +141,7 @@ final class KnowledgeBundle {
 			'instructions_imported' => $instructions_imported,
 			'memory_imported'       => $memory_imported,
 			'skills_imported'       => $skills_imported,
+			'skills_skipped'        => $skills_skipped,
 		];
 	}
 

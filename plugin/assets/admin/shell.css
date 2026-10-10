@@ -17,8 +17,11 @@
 	/* text hierarchy: primary / secondary / muted on surface */
 	--sw-text: #171921;
 	--sw-text-secondary: #474c57;
-	--sw-text-muted: #68707d;
+	--sw-text-muted: #646c78;
 	--sw-text-invert: #ffffff;
+
+	/* borders of form controls: 3:1 or better on surface and page (WCAG 1.4.11) */
+	--sw-border-control: #868d9b;
 
 	/* brand indigo family */
 	--sw-brand: #4f46e5;
@@ -48,7 +51,7 @@
 	/* header (always dark chrome) */
 	--sw-shell-header-bg: #16181d;
 	--sw-shell-header-fg: #f8f9fa;
-	--sw-shell-header-muted: rgba(248, 249, 250, 0.45);
+	--sw-shell-header-muted: rgba(248, 249, 250, 0.6);
 	--sw-shell-header-link: rgba(248, 249, 250, 0.78);
 	--sw-shell-header-hover-bg: rgba(255, 255, 255, 0.08);
 	--sw-shell-header-current-bg: rgba(79, 70, 229, 0.35);
@@ -75,8 +78,8 @@
 	--sw-font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
 
 	/* Elevation + motion */
-	--sw-radius: 10px;
-	--sw-radius-sm: 6px;
+	--sw-radius: 8px;
+	--sw-radius-sm: 4px;
 	--sw-radius-lg: 14px;
 	--sw-radius-pill: 999px;
 	--sw-ease: cubic-bezier(.25, .46, .45, .94);
@@ -85,7 +88,8 @@
 	/* Shell surfaces */
 	--sw-shell-bg: var(--sw-bg);
 	--sw-shell-content-max: 1200px;
-	--sw-shell-offset: 76px;
+	/* Height of the chrome that stays fixed above the content: the admin bar. shell.js keeps it exact. */
+	--sw-shell-offset: var(--wp-admin--admin-bar--height, 32px);
 
 	/* Compat aliases (legacy names used by page CSS) */
 	--sw-color-card: var(--sw-surface);
@@ -127,9 +131,9 @@
 	--sw-user-fg: var(--sw-ok-text);
 	--sw-uploaded-bg: var(--sw-warn-soft);
 	--sw-uploaded-fg: var(--sw-warn-text);
-	--sw-shadow: var(--sw-shadow-1);
-	--sw-shadow-hover: var(--sw-shadow-2);
-	--sw-transition: var(--sw-dur) var(--sw-ease);
+	--sw-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+	--sw-shadow-hover: 0 4px 16px rgba(0, 0, 0, .14);
+	--sw-transition: .18s var(--sw-ease);
 
 	color-scheme: light;
 }
@@ -151,7 +155,10 @@
 	font-family: var(--sw-font-sans);
 	font-size: var(--sw-text-md);
 	line-height: 1.55;
-	overflow-x: hidden;
+	/* clip, not hidden: hidden turns the shell into the scroll container of everything sticky inside it.
+	   flow-root keeps the block formatting context hidden used to give. */
+	display: flow-root;
+	overflow-x: clip;
 }
 
 .sw-shell *,
@@ -160,149 +167,34 @@
 	box-sizing: border-box;
 }
 
-.sw-shell__header {
-	position: sticky;
-	top: 32px;
-	z-index: 100;
-	display: flex;
-	align-items: center;
-	gap: var(--sw-space-4);
-	flex-wrap: wrap;
-	padding: var(--sw-space-3) var(--sw-space-5);
-	background: var(--sw-shell-header-bg);
-	color: var(--sw-shell-header-fg);
-	box-shadow: var(--sw-shadow-2);
-}
-
-.sw-shell__brand {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--sw-space-2);
-	flex-shrink: 0;
-}
-
-.sw-shell__logo {
-	font-size: var(--sw-text-lg);
-	line-height: 1;
-	color: var(--sw-brand);
-}
-
-.sw-shell__logo-img {
-	display: block;
-	width: 28px;
-	height: 28px;
-	object-fit: contain;
-	flex-shrink: 0;
-}
-
-.sw-shell__product {
-	font-size: var(--sw-text-md);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-
-.sw-shell__nav {
-	display: flex;
-	align-items: center;
-	gap: var(--sw-space-2);
-	flex: 1 1 auto;
-	flex-wrap: wrap;
-	min-width: 0;
-}
-
-.sw-shell__nav-group {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--sw-space-1);
-	min-width: 0;
-}
-
-.sw-shell__nav-group-label {
-	display: none;
-	font-size: var(--sw-text-xs);
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--sw-shell-header-muted);
-	padding: 0 var(--sw-space-1);
-	white-space: nowrap;
-}
-
-/* Multi-page groups (Safety & Diagnostics) surface the group label. */
-.sw-shell__nav-group--multi {
-	padding-left: var(--sw-space-2);
-	border-left: 1px solid var(--sw-shell-header-border);
-}
-
-.sw-shell__nav-group--multi .sw-shell__nav-group-label {
-	display: inline-flex;
-}
-
-.sw-shell__nav-link {
-	display: inline-flex;
-	align-items: center;
-	position: relative;
-	height: 32px;
-	padding: 0 var(--sw-space-3);
-	border-radius: var(--sw-radius-sm);
-	color: var(--sw-shell-header-link);
-	text-decoration: none;
-	font-size: var(--sw-text-sm);
-	font-weight: 500;
-	transition: background var(--sw-dur) var(--sw-ease), color var(--sw-dur) var(--sw-ease);
-}
-
-.sw-shell__nav-link:has(.sw-shell__exp) {
-	padding-right: calc(var(--sw-space-3) + 1.55em);
-}
-
-.sw-shell__nav-link:hover,
-.sw-shell__nav-link:focus-visible {
-	color: var(--sw-shell-header-fg);
-	background: var(--sw-shell-header-hover-bg);
-	outline: none;
-	text-decoration: none;
-}
-
-.sw-shell__nav-link.is-current,
-.sw-shell__nav-link[aria-current="page"] {
-	color: var(--sw-shell-header-fg);
-	background: var(--sw-shell-header-current-bg);
-	text-decoration: none;
-}
-
-/* Compact EXP sits in the top-right of the tab, not beside the full word. */
-.sw-shell__exp {
-	position: absolute;
-	top: 4px;
-	right: 6px;
-	font-size: 8px;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	line-height: 1;
-	text-transform: uppercase;
-	color: var(--sw-shell-header-fg);
-	background: none;
-	border: none;
-	box-shadow: none;
-	text-shadow: none;
-	padding: 0;
-	margin: 0;
-	border-radius: 0;
-	white-space: nowrap;
-	pointer-events: none;
-	cursor: help;
-}
-
 .sw-shell__content {
 	max-width: var(--sw-shell-content-max);
 	margin: 0 auto;
-	padding: var(--sw-space-5) var(--sw-space-5) var(--sw-space-7);
+	padding: var(--sw-space-3) var(--sw-space-5) var(--sw-space-7);
 	color: var(--sw-text);
 	overflow-x: clip;
 	min-width: 0;
 	width: 100%;
 	box-sizing: border-box;
+}
+
+/* The page header and the tab bar print their own spacing. WordPress places its notices after
+   `hr.wp-header-end`, directly under them. */
+.sw-shell__chrome {
+	margin: 0;
+}
+
+.sw-shell .wp-header-end {
+	margin: 0;
+}
+
+/* The skip link lands here. The region is a target, not a control: it takes focus without a ring. */
+.sw-shell__main {
+	min-width: 0;
+}
+
+.sw-shell__main:focus {
+	outline: none;
 }
 
 .sw-shell h1,
@@ -338,7 +230,7 @@
 .sw-shell textarea {
 	background: var(--sw-surface) !important;
 	color: var(--sw-text) !important;
-	border-color: var(--sw-border) !important;
+	border-color: var(--sw-border-control) !important;
 	box-shadow: none !important;
 }
 
@@ -403,14 +295,26 @@
 	background: var(--sw-surface-raised) !important;
 }
 
-.sw-shell .wp-list-table code,
-.sw-shell table.widefat code,
-.sw-shell code {
+/* Inline code is a chip. Code inside a pre block is the block's own text, so the chip is excluded there
+   (:where() keeps the specificity of each selector what it was). */
+.sw-shell .wp-list-table code:where(:not(pre code)),
+.sw-shell table.widefat code:where(:not(pre code)),
+.sw-shell code:where(:not(pre code)) {
 	background: var(--sw-bg) !important;
 	color: var(--sw-text-secondary) !important;
 	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	padding: 1px 6px;
+	font-size: var(--sw-text-xs);
+}
+
+.sw-shell pre code {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	margin: 0;
+	color: inherit;
 	font-size: var(--sw-text-xs);
 }
 
@@ -442,11 +346,11 @@
 	color: var(--sw-text-muted);
 }
 
+/* No selector here may be qualified by an element type (input[type="submit"].button): at (0,3,1) it
+   outranked the primary rule below and every submit_button() primary rendered as secondary. */
 .sw-shell .button,
 .sw-shell .button-secondary,
-.sw-shell .button-primary,
-.sw-shell input[type="submit"].button,
-.sw-shell input[type="button"].button {
+.sw-shell .button-primary {
 	background: var(--sw-surface) !important;
 	color: var(--sw-text) !important;
 	border: 1px solid var(--sw-border-strong) !important;
@@ -461,8 +365,7 @@
 }
 
 .sw-shell .button:hover,
-.sw-shell .button-secondary:hover,
-.sw-shell input[type="submit"].button:hover {
+.sw-shell .button-secondary:hover {
 	background: var(--sw-bg) !important;
 	border-color: var(--sw-brand) !important;
 	color: var(--sw-brand) !important;
@@ -490,9 +393,11 @@
 	color: var(--sw-text-muted);
 }
 
-.sw-shell .notice,
-.sw-shell .updated,
-.sw-shell .error {
+/* Notices the page prints in its own content keep the flat look they had. Notices from WordPress and other plugins
+   sit outside the content region and look the way core draws them. */
+.sw-shell__main .notice,
+.sw-shell__main .updated,
+.sw-shell__main .error {
 	background: var(--sw-surface);
 	color: var(--sw-text);
 	border-color: var(--sw-border);
@@ -508,72 +413,60 @@
 /* ------------------------------------------------------------------ */
 /* Notice drawer                                                        */
 /* ------------------------------------------------------------------ */
+/* Holds notices other plugins and WordPress printed, only when more than three arrive. Notices below that
+   number stay where WordPress puts them (after `hr.wp-header-end`) and look the way core draws them. */
 .sw-notice-drawer {
-	max-width: var(--sw-shell-content-max);
-	/* Clear sticky header + admin bar (JS sets --sw-shell-offset). */
-	margin: max(var(--sw-space-6), calc(var(--sw-shell-offset, 76px) - 32px + var(--sw-space-4))) auto 0;
-	padding: 0 var(--sw-space-5);
-	border: none;
+	margin: var(--sw-space-3) 0 0;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
 }
 
 html.sw-has-shell {
-	scroll-padding-top: var(--sw-shell-offset, 76px);
-}
-
-.sw-notice-drawer[hidden] {
-	display: none !important;
+	scroll-padding-top: var(--sw-shell-offset, 32px);
 }
 
 .sw-notice-drawer__summary {
 	display: flex;
 	align-items: center;
 	gap: var(--sw-space-2);
+	min-height: 40px;
+	padding: 0 var(--sw-space-4);
 	cursor: pointer;
 	list-style: none;
-	padding: var(--sw-space-3) var(--sw-space-4);
-	background: var(--sw-surface-raised);
-	border: 1px solid var(--sw-border);
-	border-radius: var(--sw-radius-sm);
 	font-size: var(--sw-text-sm);
 	font-weight: 600;
 	color: var(--sw-text);
-	box-shadow: var(--sw-shadow-1);
 }
 
 .sw-notice-drawer__summary::-webkit-details-marker {
 	display: none;
 }
 
-.sw-notice-drawer__count {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 22px;
-	height: 22px;
-	padding: 0 6px;
-	border-radius: var(--sw-radius-pill);
-	background: var(--sw-brand-soft);
-	color: var(--sw-brand-strong);
-	font-size: var(--sw-text-xs);
+.sw-notice-drawer__summary::before {
+	content: "";
+	flex: none;
+	width: 6px;
+	height: 6px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(-45deg);
+}
+
+.sw-notice-drawer[open] > .sw-notice-drawer__summary::before {
+	transform: rotate(45deg);
 }
 
 .sw-notice-drawer__body {
-	margin-top: var(--sw-space-2);
 	display: flex;
 	flex-direction: column;
 	gap: var(--sw-space-2);
+	padding: var(--sw-space-3) var(--sw-space-4);
+	border-top: 1px solid var(--sw-border);
 }
 
-.sw-notice-drawer__body .notice,
-.sw-notice-drawer__body .update-nag,
-.sw-notice-drawer__body .error,
-.sw-notice-drawer__body .updated,
-.sw-notice-drawer__body [class*="notice"] {
-	margin: 0 !important;
-	background: var(--sw-surface) !important;
-	color: var(--sw-text) !important;
-	border-color: var(--sw-border) !important;
-	box-shadow: none !important;
+.sw-shell .sw-notice-drawer__body :is(.notice, .updated, .error, .update-nag) {
+	margin: 0;
 }
 
 /* Stonewright-owned notices stay inline and restyled */
@@ -585,6 +478,27 @@ html.sw-has-shell {
 	color: var(--sw-text);
 }
 
+/* The generic notice rule above flattens the WordPress status classes; these give them back. */
+.sw-shell .sw-notice.notice-success {
+	background: var(--sw-ok-soft);
+	border-color: var(--sw-ok-text);
+}
+
+.sw-shell .sw-notice.notice-error {
+	background: var(--sw-danger-soft);
+	border-color: var(--sw-danger-text);
+}
+
+.sw-shell .sw-notice.notice-warning {
+	background: var(--sw-warn-soft);
+	border-color: var(--sw-warn-text);
+}
+
+.sw-shell .sw-notice.notice-info {
+	background: var(--sw-info-soft);
+	border-color: var(--sw-info-text);
+}
+
 /* ------------------------------------------------------------------ */
 /* Buttons — single system                                              */
 /* ------------------------------------------------------------------ */
@@ -592,10 +506,10 @@ html.sw-has-shell {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sw-space-2);
-	height: 36px;
+	min-height: 40px;
 	padding: 0 var(--sw-space-4);
-	border-radius: var(--sw-radius-sm);
-	font-size: var(--sw-text-xs);
+	border-radius: 2px;
+	font-size: var(--sw-text-sm);
 	font-weight: 600;
 	line-height: 1;
 	cursor: pointer;
@@ -615,6 +529,22 @@ html.sw-has-shell {
 .sw-shell summary:focus-visible {
 	outline: 2px solid var(--sw-focus-ring);
 	outline-offset: 2px;
+}
+
+/* A click or tap on a link, button, tab or summary of a page that has not moved to the layer draws no WordPress ring
+   (`a:focus` and `.wp-core-ui .button:focus` draw one on every focus, mouse included); keyboard focus keeps the
+   outline above. (0,4,0) outranks core's `.wp-core-ui .button-primary:focus` at (0,3,0), so no `!important`. */
+:is(.sw-shell__chrome, .sw-shell__main) :is(a, button, summary, .button, [role="button"], [role="tab"], [tabindex]):focus:not(:focus-visible) {
+	outline: 0;
+	box-shadow: none;
+}
+
+/* A `.button` that the keyboard reaches keeps one 2px outline: core's focus rule for it (`.wp-core-ui .button:focus`,
+   (0,3,0)) paints a transparent outline and would win a tie, so this rule is a class more specific. */
+.sw-shell :is(.sw-shell__chrome, .sw-shell__main) .button:focus-visible {
+	outline: 2px solid var(--sw-focus-ring);
+	outline-offset: 2px;
+	box-shadow: none;
 }
 
 /* Scope primary buttons under the shell so wp-admin .button/link rules lose. */
@@ -668,9 +598,9 @@ html.sw-has-shell {
 }
 
 .sw-btn--sm {
-	height: 32px;
+	min-height: 32px;
 	padding: 0 var(--sw-space-3);
-	font-size: var(--sw-text-xs);
+	font-size: var(--sw-text-sm);
 }
 
 .sw-btn[disabled] {
@@ -719,10 +649,8 @@ html.sw-has-shell {
 .sw-shell .sw-tabs a,
 .sw-shell .sw-tabs__link,
 .sw-shell nav a,
-.sw-shell .sw-shell__nav-link,
 .sw-shell .sw-btn,
-.sw-shell a.button,
-.sw-shell a.sw-stat-card__link {
+.sw-shell a.button {
 	text-decoration: none;
 }
 
@@ -754,23 +682,10 @@ html.sw-has-shell {
 		box-sizing: border-box;
 	}
 
-	.sw-shell__header {
-		top: 46px;
-		padding: var(--sw-space-3) var(--sw-space-3);
-		max-width: 100%;
-		box-sizing: border-box;
-	}
-
+	/* The page header sits 16px below the band: 4px here and the header's own 12px. */
 	.sw-shell__content {
-		padding: var(--sw-space-3);
+		padding: var(--sw-space-1) var(--sw-space-3) var(--sw-space-3);
 		max-width: 100%;
-		box-sizing: border-box;
-	}
-
-	.sw-shell__nav,
-	.sw-shell__header-inner {
-		max-width: 100%;
-		min-width: 0;
 		box-sizing: border-box;
 	}
 }
@@ -778,41 +693,9 @@ html.sw-has-shell {
 /* Ultra-narrow (e2e 320×568 / small phones): keep product surface inside viewport. */
 @media screen and (max-width: 400px) {
 	.sw-shell,
-	.sw-shell__content,
-	.sw-shell__header {
+	.sw-shell__content {
 		padding-left: var(--sw-space-2);
 		padding-right: var(--sw-space-2);
-	}
-
-	/* Long group labels ("Safety & Diagnostics") force scrollWidth past 320. */
-	.sw-shell__nav-group--multi .sw-shell__nav-group-label {
-		display: none;
-	}
-
-	.sw-shell__nav-group--multi {
-		padding-left: 0;
-		border-left: 0;
-	}
-
-	.sw-shell__nav {
-		/* Contain nav width; links wrap instead of expanding the shell. */
-		width: 100%;
-		flex-basis: 100%;
-	}
-
-	.sw-shell__nav-group {
-		/* A multi-link group is wider than a small phone unless the group itself
-		   can wrap. The parent nav wrapping alone only moves the oversized group. */
-		width: 100%;
-		max-width: 100%;
-		flex: 1 1 100%;
-		flex-wrap: wrap;
-	}
-
-	.sw-shell__nav-link {
-		height: 28px;
-		padding: 0 var(--sw-space-2);
-		font-size: var(--sw-text-xs);
 	}
 
 	.sw-shell pre,
@@ -888,27 +771,11 @@ html.sw-has-shell {
 /* ------------------------------------------------------------------ */
 /* Block Editor Queue                                                   */
 /* ------------------------------------------------------------------ */
-.sw-finalizer-panel {
-	max-width: 40rem;
-	margin: var(--sw-space-5) 0 0;
-	padding: var(--sw-space-5) var(--sw-space-6);
-	background: var(--sw-surface);
-	border: 1px solid var(--sw-border);
-	border-radius: var(--sw-radius);
-	box-shadow: var(--sw-shadow-1);
-}
 
-.sw-finalizer-panel > p {
-	margin: 0 0 var(--sw-space-3);
-	font-size: var(--sw-text-sm);
-	line-height: 1.6;
-	color: var(--sw-text-secondary);
-}
 
-.sw-finalizer-panel > p strong {
-	color: var(--sw-text);
-	font-weight: 600;
-}
+
+
+
 
 .sw-finalizer-status {
 	display: flex;

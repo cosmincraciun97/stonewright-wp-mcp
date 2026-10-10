@@ -157,8 +157,83 @@ final class AttributeValidator {
 		if ( ! is_object( $registered ) ) {
 			return null;
 		}
+		return self::schema_for_type( $registered );
+	}
+
+	/**
+	 * The attributes a registered block type accepts: the attributes it registers, the attributes every block takes
+	 * (`lock`, `metadata`) and the attributes that the block's `supports` add. WordPress adds some of the latter on
+	 * the server (colours, spacing, layout) and leaves others to the block editor (anchor), so a registered attribute
+	 * list alone does not name them all. A declaration the block registers itself is never replaced.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function schema_for_type( object $registered ): array {
 		$attributes = isset( $registered->attributes ) && is_array( $registered->attributes ) ? $registered->attributes : [];
-		return $attributes;
+		$supports   = isset( $registered->supports ) && is_array( $registered->supports ) ? $registered->supports : [];
+
+		return $attributes + self::support_attributes( $supports );
+	}
+
+	/**
+	 * @param array<string, mixed> $supports The `supports` of a block type.
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function support_attributes( array $supports ): array {
+		$has = static fn ( string $key ): bool => ! empty( $supports[ $key ] );
+
+		$string = [ 'type' => 'string' ];
+		$object = [ 'type' => 'object' ];
+		$added  = [
+			'lock'     => $object,
+			'metadata' => $object,
+		];
+
+		// A block takes a custom class name unless it turns the support off.
+		if ( $supports['customClassName'] ?? true ) {
+			$added['className'] = $string;
+		}
+		if ( $has( 'anchor' ) ) {
+			$added['anchor'] = $string;
+		}
+		if ( $has( 'align' ) ) {
+			$added['align'] = $string;
+		}
+		if ( $has( 'ariaLabel' ) ) {
+			$added['ariaLabel'] = $string;
+		}
+		if ( $has( 'layout' ) ) {
+			$added['layout'] = $object;
+		}
+		if ( $has( 'allowedBlocks' ) ) {
+			$added['allowedBlocks'] = [ 'type' => 'array' ];
+		}
+		if ( $has( 'color' ) ) {
+			$added['backgroundColor'] = $string;
+			$added['textColor']       = $string;
+			$added['gradient']        = $string;
+		}
+		if ( $has( 'border' ) || $has( '__experimentalBorder' ) ) {
+			$added['borderColor'] = $string;
+		}
+
+		$typography = isset( $supports['typography'] ) && is_array( $supports['typography'] ) ? $supports['typography'] : [];
+		if ( ! empty( $typography['fontSize'] ) ) {
+			$added['fontSize'] = $string;
+		}
+		if ( ! empty( $typography['fontFamily'] ) || ! empty( $typography['__experimentalFontFamily'] ) ) {
+			$added['fontFamily'] = $string;
+		}
+
+		// Each of these supports keeps its values under the `style` attribute.
+		foreach ( [ 'color', 'typography', 'spacing', 'border', '__experimentalBorder', 'dimensions', 'shadow', 'position', 'background', 'filter' ] as $style_support ) {
+			if ( $has( $style_support ) ) {
+				$added['style'] = $object;
+				break;
+			}
+		}
+
+		return $added;
 	}
 
 	/**

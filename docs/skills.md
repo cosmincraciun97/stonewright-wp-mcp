@@ -56,6 +56,9 @@ Each skill has a master active toggle and two exposure flags:
 | `wp-plugin-dev` | `skills/wp-plugin-dev/` | Build WordPress plugins, blocks, widgets, and abilities |
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
 | `visual-direction` | `skills/visual-direction/` | Decide and prove visual direction: capture, reviewed kit sync, first-section checkpoint, rendered evidence |
+| `how-to-write-skills` | `skills/how-to-write-skills/` | Write, review, import, and test site skills: trigger descriptions, version constraints, exposure flags, and the import review |
+| `stonewright-rescue` | `skills/stonewright-rescue/` | Recover from a change that left the site failing: read the rescue status, plan and run the rollback, and re-check after a fix by hand |
+| `stonewright-section-reuse` | `skills/stonewright-section-reuse/` | Find sections the site already has for a new page, offer them in one short question, then copy and adapt the picked ones in the same batch |
 
 `visual-direction` is loaded for new or changed visual direction — a rebrand, a
 new palette or type scale, a different spacing rhythm. It does not replace a
@@ -70,9 +73,26 @@ version expression, for example `{"elementor": ">=3.16"}`; the seeder forwards
 both to the skill record, and a pack that declares neither leaves whatever the
 site already recorded for that slug untouched.
 
+A skill may also declare `requires_provider`, a single provider id. The only
+accepted value is `elementor-native`: Elementor's own MCP abilities are
+registered on the site (the `native_elementor` state is `available` or
+`available_uncertified`). The value is lowercase, one id only; an unknown id,
+a list, an empty value, or a repeated key makes the document invalid.
+`requires_provider` compiles into the visibility constraint
+`"provider:elementor-native": "required"` that is merged into
+`version_constraints`, so the stored record, the export, and the runtime check
+use that constraint. While the provider is absent the skill is hidden from
+agents and prompts exactly like a skill whose required plugin is missing, and
+`stonewright-skills-get` names `provider:elementor-native` as the missing
+requirement. It is shown again as soon as the provider is present. A provider
+requirement never blocks saving, enabling, or exporting a skill. The constraint
+accepts only the expression `required`; skill lint reports an unknown provider
+id or any other expression as `invalid_provider_requirement:<component>`, which
+blocks activation.
+
 ## Skill lifecycle in wp-admin
 
-**Stonewright → Skills** has four views: Catalog, Editor, Import, and Trash.
+**Stonewright → Knowledge → Skills** has four views: Catalog, Editor, Import, and Trash.
 
 **Catalog.** Every skill states where it came from — `built-in` (ships with
 Stonewright), `local` (created on this site), or the id of the plugin that
@@ -93,20 +113,32 @@ go through the REST routes.
 **Import.** Import is two steps. The file is inspected first — UTF-8 Markdown,
 1 MiB ceiling, front matter with `name` and `description` required — and the
 review lists lint errors and trust findings before anything is stored. The
-confirmation binds the content hash, so a file cannot change between review and
-persistence. An imported skill lands **disabled, as a draft**, and is re-checked
-on the server regardless of what the file claims about itself. An import never
-overwrites an existing skill.
+review also carries a receipt that the server issues for the reviewing user and
+that stays valid for 30 minutes; an import without it is refused. The
+confirmation binds the file name and the content hash, so neither the file nor
+its slug can change between review and persistence. A file that tells an agent
+to override the plugin's rules or safety gates, to disable confirmation tokens,
+or to send credentials elsewhere is refused; other trust findings are warnings.
+An imported skill lands **disabled, as a draft**, and is re-checked on the
+server regardless of what the file claims about itself. An import never
+overwrites an existing skill: a slug that already exists, including a reserved
+built-in slug, answers HTTP 409. The skills of an imported knowledge bundle are
+added the same way, as disabled drafts that never replace a skill; the import
+result lists the skipped ones, and the Memory page reports how many skills were
+added and skipped.
 
 **Trash and restore.** Trashing disables a skill everywhere an agent could read
 it and offers an undo. Trashed skills never match `stonewright-task-start`.
 Restore returns the skill as a disabled draft, so somebody has to enable it
 deliberately. Built-in skills can be disabled but not removed.
+`DELETE /stonewright/v1/skills/{id}` moves a skill to the trash in the same way,
+and a built-in skill answers 403.
 
 **Permanent deletion** is a separate, irreversible action in the Trash view. It
 opens a review drawer listing exactly what is about to be destroyed, and in
 `production-safe` mode it also requires a confirmation token issued by
-`stonewright-security-issue-confirmation-token`.
+`stonewright-security-issue-confirmation-token` for ability
+`stonewright/skills-destroy` with args `{"id": <skill id>}`.
 
 No action on the page uses a native browser dialog. Titles, descriptions, and
 imported Markdown reach the DOM as text, never as markup.
@@ -114,8 +146,12 @@ imported Markdown reach the DOM as text, never as markup.
 ## External skill sources
 
 Another plugin can publish skills through the `stonewright_skill_sources`
-filter. Source enumeration is read-only: Stonewright does not execute source
-code and does not fetch URLs.
+filter. The filter receives an empty list and returns sources shaped as
+`['source_id' => 'plugin-slug', 'skills' => [ $skill, ... ]]`, where each skill
+has `slug`, `title`, `description`, and `content`, and may add `topic` and
+`version_constraints`. Published skills appear in the catalog only. Source
+enumeration is read-only: Stonewright does not execute source code and does not
+fetch URLs.
 
 Resolution order is built-in, then this site's database, then registered
 external sources. Built-in ids are reserved and external sources must use

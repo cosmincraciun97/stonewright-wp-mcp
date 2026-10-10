@@ -3,226 +3,126 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Ui\Band;
+use Stonewright\WpMcp\Admin\Ui\HubNav;
+use Stonewright\WpMcp\Admin\Ui\PageHeader;
+use Stonewright\WpMcp\Admin\Ui\Scope;
+
 /**
- * Shared premium admin shell: sticky header and tab nav.
+ * The frame every Stonewright admin page is printed in: a skip link, the band (the product name and a link to
+ * every page, grouped by hub, with the current page marked), one page header (title, a line of explanation, status
+ * and the page's main action), the tab bar of a page that has tabs of its own, and a content region.
  *
- * Presentation only — form handlers and ability gates stay on their pages.
+ * The WordPress sidebar and the band both list the pages. The tab bar lists the tabs of the page that is open and
+ * nothing else.
+ *
+ * Presentation only. Form handlers, nonces and capability checks stay on the pages.
  */
 final class AdminShell {
 
 	/**
-	 * Nav slugs that carry an inline Experimental label (not a pill or chip).
-	 *
-	 * @var list<string>
-	 */
-	private const EXPERIMENTAL_SLUGS = [
-		'stonewright-troubleshoot',
-		'stonewright-context',
-		'stonewright-design',
-		'stonewright-block-finalizer',
-	];
-
-	/**
-	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
-	 *
-	 * @return list<array{id:string,label:string,pages:array<string,string>}>
-	 */
-	public static function menu_groups(): array {
-		return [
-			[
-				'id'    => 'overview',
-				'label' => __( 'Dashboard', 'stonewright' ),
-				'pages' => [
-					'stonewright-status' => __( 'Dashboard', 'stonewright' ),
-				],
-			],
-			[
-				'id'    => 'connect',
-				'label' => __( 'Connect', 'stonewright' ),
-				'pages' => [
-					'stonewright'              => __( 'Setup', 'stonewright' ),
-					'stonewright-troubleshoot' => __( 'Troubleshoot', 'stonewright' ),
-				],
-			],
-			[
-				'id'    => 'capabilities',
-				'label' => __( 'AI Abilities', 'stonewright' ),
-				'pages' => [
-					'stonewright-abilities' => __( 'AI Abilities', 'stonewright' ),
-				],
-			],
-			[
-				'id'    => 'workflows',
-				'label' => __( 'Workflows', 'stonewright' ),
-				'pages' => [
-					'stonewright-context'         => __( 'Context', 'stonewright' ),
-					'stonewright-skills'          => __( 'Skills', 'stonewright' ),
-					'stonewright-memory'          => __( 'Memory', 'stonewright' ),
-					'stonewright-design'          => __( 'Design', 'stonewright' ),
-					'stonewright-sandbox'         => __( 'Sandbox', 'stonewright' ),
-					'stonewright-block-finalizer' => __( 'Block Editor Queue', 'stonewright' ),
-					'stonewright-prompts'         => __( 'Prompts', 'stonewright' ),
-				],
-			],
-			[
-				'id'    => 'safety-diagnostics',
-				'label' => __( 'Safety & Diagnostics', 'stonewright' ),
-				'pages' => [
-					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
-				],
-			],
-		];
-	}
-
-	/**
-	 * Registered Stonewright admin pages (slug => label), IA order.
-	 *
-	 * Single source of truth for shell navigation (flattened from menu_groups).
+	 * Every registered page, slug to its tab label.
 	 *
 	 * @return array<string, string>
 	 */
 	public static function pages(): array {
-		$pages = [];
-		foreach ( self::menu_groups() as $group ) {
-			foreach ( $group['pages'] as $slug => $label ) {
-				$pages[ $slug ] = $label;
-			}
-		}
-		return $pages;
+		return MenuRegistry::pages();
 	}
 
 	/**
-	 * @return list<string>
+	 * Sidebar title of a page that is still changing: its name, then the small "EXP" marker. The marker is hidden
+	 * from assistive technology and its words follow as hidden text, so the entry reads "Design This feature is
+	 * experimental." The tooltip is CSS only (AdminBootstrap::output_menu_styles), because the sidebar is on every
+	 * admin page. HTML is allowed in a menu title.
 	 */
-	public static function experimental_slugs(): array {
-		return self::EXPERIMENTAL_SLUGS;
+	public static function beta_menu_title( string $label ): string {
+		return '<span class="sw-menu-label">' . esc_html( $label ) . '</span> '
+			. '<span class="sw-menu-exp" aria-hidden="true" data-sw-tip="' . esc_attr( Band::exp_hint() ) . '">' . esc_html( Band::exp_text() ) . '</span>'
+			. '<span class="screen-reader-text"> ' . esc_html( Band::exp_hint() ) . '</span>';
 	}
 
 	/**
-	 * Hover copy for the compact EXP marker.
-	 */
-	public static function experimental_hint(): string {
-		return __( 'This feature is experimental.', 'stonewright' );
-	}
-
-	/**
-	 * Compact EXP superscript. Pass $tooltip for sidebar markers that cannot
-	 * put attributes on the parent <a>.
-	 */
-	public static function experimental_marker( string $class, bool $tooltip = true ): string {
-		$attrs = 'class="' . esc_attr( $class ) . '"';
-		if ( $tooltip ) {
-			$hint   = self::experimental_hint();
-			$attrs .= ' data-tip="' . esc_attr( $hint ) . '" aria-label="' . esc_attr( $hint ) . '"';
-		}
-
-		return '<span ' . $attrs . '>EXP</span>';
-	}
-
-	/**
-	 * WordPress sidebar menu_title with a compact EXP marker.
+	 * Open the frame.
 	 *
-	 * Page title stays the plain label. HTML is allowed in menu_title.
-	 */
-	public static function experimental_menu_title( string $label ): string {
-		return '<span class="sw-menu-label">' . esc_html( $label ) . '</span> ' . self::experimental_marker( 'sw-menu-exp' );
-	}
-
-	/**
-	 * Open the shared shell (header + nav + content wrapper).
-	 *
-	 * @param array<string, mixed> $args Optional. Supports `title` string for page H1 in content.
+	 * @phpstan-param array{
+	 *     title?: string,
+	 *     lede?: string,
+	 *     actions?: string,
+	 *     current?: string
+	 * } $args "title" and "lede" default to the registry entry of the page. "actions" is markup built with the Ui
+	 *         helpers (the page's main action and its status): it is printed as given, so it must already be escaped.
+	 *         "current" names the page whose link the band marks, for a page that is a view of another registered page;
+	 *         it defaults to the page itself.
 	 */
 	public static function open( string $current_slug, array $args = [] ): void {
-		$groups  = self::menu_groups();
-		$classes = [ 'sw-shell', 'wrap', 'stonewright-admin-shell' ];
+		$tab   = MenuRegistry::requested_tab();
+		$entry = MenuRegistry::entry( $current_slug, $tab );
+		$title = array_key_exists( 'title', $args ) ? (string) $args['title'] : ( null !== $entry ? $entry['title'] : __( 'Stonewright', 'stonewright' ) );
+		$lede  = array_key_exists( 'lede', $args ) ? (string) $args['lede'] : ( null !== $entry ? $entry['lede'] : '' );
+
+		$band   = Scope::wrap( Band::render( MenuRegistry::band_groups( (string) ( $args['current'] ?? $current_slug ) ), [ 'logo_url' => self::logo_url() ] ) );
+		$header = PageHeader::render(
+			$title,
+			[
+				'lede'       => $lede,
+				'aside_html' => (string) ( $args['actions'] ?? '' ),
+			]
+		);
+		$nav    = '';
+		if ( null !== $entry ) {
+			$nav = HubNav::render(
+				MenuRegistry::tab_links( $current_slug, $tab ),
+				sprintf(
+					/* translators: %s: name of a page that has tabs of its own, for example Custom code */
+					__( '%s sections', 'stonewright' ),
+					$entry['title']
+				)
+			);
+		}
 
 		?>
-		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell>
-			<header class="sw-shell__header" role="banner">
-				<div class="sw-shell__brand">
-					<?php
-					$logo_url = defined( 'STONEWRIGHT_URL' )
-						? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/admin/stonewright-logo.png'
-						: '';
-					$logo_2x  = defined( 'STONEWRIGHT_URL' )
-						? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/brand/stonewright-logo-512.png'
-						: '';
-					if ( '' !== $logo_url ) :
-						?>
-						<img
-							class="sw-shell__logo-img"
-							src="<?php echo esc_url( $logo_url ); ?>"
-							<?php if ( '' !== $logo_2x ) : ?>
-								srcset="<?php echo esc_url( $logo_url ); ?> 1x, <?php echo esc_url( $logo_2x ); ?> 2x"
-							<?php endif; ?>
-							alt="<?php echo esc_attr( __( 'Stonewright', 'stonewright' ) ); ?>"
-							width="28"
-							height="28"
-							decoding="async"
-						/>
-					<?php else : ?>
-						<span class="sw-shell__logo" aria-hidden="true">⬡</span>
-					<?php endif; ?>
-					<span class="sw-shell__product"><?php esc_html_e( 'Stonewright', 'stonewright' ); ?></span>
-				</div>
-				<nav class="sw-shell__nav" aria-label="<?php esc_attr_e( 'Stonewright admin', 'stonewright' ); ?>">
-					<?php foreach ( $groups as $group ) : ?>
-						<?php
-						$group_slugs   = array_keys( $group['pages'] );
-						$group_current = in_array( $current_slug, $group_slugs, true );
-						$is_multi      = count( $group['pages'] ) > 1;
-						?>
-						<div
-							class="sw-shell__nav-group<?php echo $group_current ? ' is-current-group' : ''; ?><?php echo $is_multi ? ' sw-shell__nav-group--multi' : ''; ?>"
-							data-sw-nav-group="<?php echo esc_attr( $group['id'] ); ?>"
-						>
-							<span class="sw-shell__nav-group-label" aria-hidden="true"><?php echo esc_html( $group['label'] ); ?></span>
-							<?php foreach ( $group['pages'] as $slug => $label ) : ?>
-								<?php
-								$url          = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
-								$current      = ( $slug === $current_slug );
-								$experimental = in_array( $slug, self::EXPERIMENTAL_SLUGS, true );
-								?>
-								<a
-									class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
-									href="<?php echo esc_url( $url ); ?>"
-									<?php echo $current ? ' aria-current="page"' : ''; ?>
-									<?php echo $experimental ? ' data-sw-tooltip="' . esc_attr( self::experimental_hint() ) . '"' : ''; ?>
-								>
-									<?php echo esc_html( $label ); ?>
-									<?php
-									if ( $experimental ) {
-										echo ' ' . wp_kses_post( self::experimental_marker( 'sw-shell__exp', false ) );
-									}
-									?>
-								</a>
-							<?php endforeach; ?>
-						</div>
-					<?php endforeach; ?>
-				</nav>
-			</header>
-
-			<details class="sw-notice-drawer" data-sw-notice-drawer hidden>
-				<summary class="sw-notice-drawer__summary">
-					<?php esc_html_e( 'Other WordPress notices', 'stonewright' ); ?>
-					<span class="sw-notice-drawer__count" data-sw-notice-count>0</span>
-				</summary>
-				<div class="sw-notice-drawer__body" data-sw-notice-body></div>
-			</details>
-
+		<div class="sw-shell wrap stonewright-admin-shell" data-sw-shell>
+			<a class="screen-reader-shortcut" href="#sw-main"><?php esc_html_e( 'Skip to Stonewright content', 'stonewright' ); ?></a>
+			<?php echo $band; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value. ?>
 			<div class="sw-shell__content">
+				<?php echo Scope::wrap( $header . $nav, [ 'class' => 'sw-shell__chrome' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value. ?>
+				<hr class="wp-header-end">
+				<details class="sw-notice-drawer" data-sw-notice-drawer data-sw-notice-labels="<?php echo esc_attr( self::notice_labels() ); ?>" hidden>
+					<summary class="sw-notice-drawer__summary" data-sw-notice-summary><?php esc_html_e( 'Other WordPress notices', 'stonewright' ); ?></summary>
+					<div class="sw-notice-drawer__body" data-sw-notice-body></div>
+				</details>
+				<div class="sw-shell__main" id="sw-main" tabindex="-1">
 		<?php
-		unset( $args );
 	}
 
 	/**
-	 * Close the shared shell content wrapper.
+	 * Close the frame.
 	 */
 	public static function close(): void {
 		?>
+				</div><!-- #sw-main -->
 			</div><!-- .sw-shell__content -->
 		</div><!-- .sw-shell -->
 		<?php
+	}
+
+	/** The address of the product mark shown in the band, or an empty string when the plugin address is not known. */
+	private static function logo_url(): string {
+		return defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/admin/stonewright-logo.png' : '';
+	}
+
+	/**
+	 * The words the notice drawer puts in its title, for the script that counts the notices it folds.
+	 */
+	private static function notice_labels(): string {
+		return (string) wp_json_encode(
+			[
+				'heading' => __( 'Other WordPress notices', 'stonewright' ),
+				'error'   => [ __( '%d error', 'stonewright' ), __( '%d errors', 'stonewright' ) ],
+				'warning' => [ __( '%d warning', 'stonewright' ), __( '%d warnings', 'stonewright' ) ],
+				'update'  => [ __( '%d update', 'stonewright' ), __( '%d updates', 'stonewright' ) ],
+				'notice'  => [ __( '%d notice', 'stonewright' ), __( '%d notices', 'stonewright' ) ],
+			]
+		);
 	}
 }

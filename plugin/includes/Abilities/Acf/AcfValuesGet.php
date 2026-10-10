@@ -54,7 +54,7 @@ final class AcfValuesGet extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
 				if ( ! AcfRuntime::is_active() || ! function_exists( 'get_fields' ) ) {

@@ -1,0 +1,32 @@
+name: History hygiene
+
+# Manual run of the release workflow's Git history scan: every commit on every
+# fetched branch and tag is checked for the configured private terms.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: history-hygiene
+  cancel-in-progress: false
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+
+      - name: Scan the Git history for private terms
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        run: node scripts/check-public-hygiene.mjs --require-private-terms --history

@@ -14,7 +14,9 @@ use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
 use Stonewright\WpMcp\Design\Motion\MotionPlanCompiler;
 use Stonewright\WpMcp\Design\Motion\MotionPresetRegistry;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Security\AuditEvent;
+use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 
@@ -31,6 +33,9 @@ final class ContractTest extends TestCase {
 	private string $elementor_css_dir = '';
 
 	protected function setUp(): void {
+		// The success fixtures exercise every per-widget add tool, so the plugins
+		// behind the Pro and WooCommerce widgets count as active here.
+		WidgetAvailability::override_plugins( true, true );
 		IncidentStore::reset_for_tests();
 		WidgetSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_audit_rows'] = [];
@@ -171,6 +176,7 @@ final class ContractTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		WidgetAvailability::override_plugins( null, null );
 		Post::$factory = null;
 		$this->remove_elementor_css_fixtures();
 		unset( $GLOBALS['stonewright_test_home_url'] );
@@ -468,8 +474,17 @@ final class ContractTest extends TestCase {
 		if ( 'stonewright/incident-repair-record' === $ability->name() ) {
 			$this->seed_verified_repair_contract();
 		}
+		if ( 'stonewright/rescue-rollback' === $ability->name() ) {
+			$this->seed_open_rescue_incident();
+		}
 
+		$caps_before = $GLOBALS['stonewright_test_user_caps'] ?? [];
+		if ( 'stonewright/section-reuse-extract' === $ability->name() ) {
+			// The source must be one the user may read and edit, checked again when the ability runs.
+			$GLOBALS['stonewright_test_user_caps'] = array_merge( $caps_before, [ 'read_post' => true, 'edit_post' => true ] );
+		}
 		$result = $ability->execute( $args );
+		$GLOBALS['stonewright_test_user_caps'] = $caps_before;
 
 		$failure = $ability->name();
 		if ( $result instanceof \WP_Error ) {
@@ -514,6 +529,21 @@ final class ContractTest extends TestCase {
 
 	private static function fixture_slug( string $ability_name ): string {
 		return str_replace( [ 'stonewright/', '/', '.' ], [ '', '-', '-' ], $ability_name );
+	}
+
+	/** An open incident for the rescue-rollback fixture to plan a rollback for. */
+	private function seed_open_rescue_incident(): void {
+		ChangeJournal::reset_for_tests();
+		$entry = ChangeJournal::arm(
+			[
+				'ability'       => 'stonewright/example-write',
+				'resource_type' => 'option',
+				'resource_key'  => 'blogname',
+				'recipe'        => [ 'type' => 'option_restore', 'ref' => 'contract-restore-point' ],
+				'change_set_id' => 'cs-contract-open-incident',
+			]
+		);
+		ChangeJournal::settle( (string) $entry['id'], 'rollback_failed' );
 	}
 
 	private function seed_verified_repair_contract(): void {

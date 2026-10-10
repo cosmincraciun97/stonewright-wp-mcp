@@ -3,14 +3,18 @@
  *
  * The page owns no lifecycle rules. Reading the catalog, inspecting an upload,
  * importing, exporting, trashing, restoring, and destroying all go through the
- * skills-studio REST routes, which delegate to `Skills`, `SkillImporter`, and
- * `SkillExporter` — so the browser hits exactly the same refusals as any other
- * caller: protected sources, re-derived import readiness, and the
- * production-safe confirmation token on a hard delete.
+ * skills-studio REST routes, which delegate to the skill library service — so
+ * the browser hits exactly the same refusals as any other caller: protected
+ * sources, re-derived import readiness and receipts, and the production-safe
+ * confirmation token on a hard delete.
  *
  * Skill titles, descriptions, and imported Markdown are untrusted content, so
  * this file builds DOM nodes and assigns textContent rather than composing
- * markup. Confirmation happens in a review drawer, never in a native dialog.
+ * markup. Confirmation happens in a review drawer (a native dialog of the
+ * shared UI layer), never in a browser dialog.
+ *
+ * Buttons, badges, tags, notices, empty states, the drawer and the toasts are
+ * the components of sw-ui.css and sw-ui.js; this file adds none of its own.
  *
  * No third-party dependencies.
  */
@@ -115,63 +119,122 @@
 		return node;
 	}
 
-	var ICON_PATHS = {
-		check: 'M3 8.4l3.3 3.3L13 4.6',
-		plus: 'M8 3v10M3 8h10',
-		trash: 'M3 4.4h10M6.4 4.4V3h3.2v1.4M4.4 4.4l.7 8.2h5.8l.7-8.2',
-		restore: 'M2.6 8a5.4 5.4 0 105.4-5.4c-1.8 0-3.4.9-4.4 2.2M2.6 2.6v2.6h2.6',
-		download: 'M8 3v7M5 7.4L8 10.4l3-3M3 13h10',
-		search: 'M7.2 12.4a5.2 5.2 0 100-10.4 5.2 5.2 0 000 10.4zM11.2 11.2L14 14',
-		alert: 'M8 5.6v3.2M8 11.2h.01M8 2.4l6 11.2H2z'
+	function kit() {
+		return window.Stonewright && window.Stonewright.ui ? window.Stonewright.ui : null;
+	}
+
+	/** The shared sprite holds these glyphs; a name it does not hold draws nothing. */
+	var ICON_IDS = {
+		check: 'check',
+		plus: 'plus',
+		trash: 'trash',
+		restore: 'refresh',
+		search: 'search',
+		alert: 'alert',
+		x: 'x'
 	};
 
-	function icon( name ) {
+	function icon( name, extraClass ) {
+		if ( ! ICON_IDS[ name ] ) {
+			return null;
+		}
 		var svg = document.createElementNS( SVG_NS, 'svg' );
-		var path = document.createElementNS( SVG_NS, 'path' );
+		var use = document.createElementNS( SVG_NS, 'use' );
 
-		svg.setAttribute( 'class', 'sw-skills-button__icon' );
-		svg.setAttribute( 'viewBox', '0 0 16 16' );
+		svg.setAttribute( 'class', 'sw-ui-icon' + ( extraClass ? ' ' + extraClass : '' ) );
 		svg.setAttribute( 'aria-hidden', 'true' );
-		svg.setAttribute( 'focusable', 'false' );
-		path.setAttribute( 'd', ICON_PATHS[ name ] || ICON_PATHS.check );
-		path.setAttribute( 'stroke-linecap', 'round' );
-		path.setAttribute( 'stroke-linejoin', 'round' );
-		svg.appendChild( path );
+		use.setAttribute( 'href', '#sw-ui-icon-' + ICON_IDS[ name ] );
+		svg.appendChild( use );
 
 		return svg;
 	}
 
+	var BUTTON_VARIANTS = {
+		primary: ' sw-ui-btn--primary',
+		danger: ' sw-ui-btn--danger',
+		'danger-solid': ' sw-ui-btn--danger-solid',
+		ghost: ' sw-ui-btn--tertiary'
+	};
+
+	/**
+	 * A button of the layer. `context` names what a repeated action acts on, for assistive technology only, so a
+	 * list of "Inspect" buttons still has a name per skill. `autofocus` marks the safe action of a dialog.
+	 */
 	function button( label, options ) {
 		var config = options || {};
 		var node = el(
 			'button',
 			{
-				className: 'sw-skills-button' + ( config.variant ? ' sw-skills-button--' + config.variant : '' ),
+				className: 'sw-ui-btn' + ( BUTTON_VARIANTS[ config.variant ] || '' ) + ( config.size ? ' sw-ui-btn--' + config.size : '' ),
 				attrs: { type: 'button' },
 				on: config.onClick ? { click: config.onClick } : null
 			},
-			[ config.icon ? icon( config.icon ) : null, el( 'span', { text: label } ) ]
+			[
+				config.icon ? icon( config.icon ) : null,
+				label,
+				config.context ? el( 'span', { className: 'sw-ui-visually-hidden', text: ' ' + config.context } ) : null
+			]
 		);
 
 		if ( config.disabled ) {
 			node.disabled = true;
 		}
-		if ( config.hint ) {
-			node.setAttribute( 'title', config.hint );
+		if ( config.autofocus ) {
+			node.setAttribute( 'autofocus', '' );
+		}
+		if ( config.close ) {
+			node.setAttribute( 'data-sw-ui-dialog-close', '' );
+		}
+		if ( config.describedBy ) {
+			node.setAttribute( 'aria-describedby', config.describedBy );
 		}
 
 		return node;
 	}
 
-	function badge( label, tone ) {
-		return el( 'span', { className: 'sw-badge' + ( tone ? ' sw-badge--' + tone : '' ), text: label } );
+	function linkButton( label, href, options ) {
+		var config = options || {};
+
+		return el(
+			'a',
+			{
+				className: 'sw-ui-btn' + ( BUTTON_VARIANTS[ config.variant ] || '' ) + ( config.size ? ' sw-ui-btn--' + config.size : '' ),
+				attrs: { href: href }
+			},
+			[
+				config.icon ? icon( config.icon ) : null,
+				label,
+				config.context ? el( 'span', { className: 'sw-ui-visually-hidden', text: ' ' + config.context } ) : null
+			]
+		);
 	}
 
-	function fact( label, value ) {
-		return el( 'li', { className: 'sw-skills-fact' }, [
-			el( 'span', { className: 'sw-skills-fact__label', text: label } ),
-			el( 'span', { className: 'sw-skills-fact__value', text: value } )
+	/** A state: ok, warn, info, accent, or neutral when no variant is given. */
+	function badge( label, variant ) {
+		return el( 'span', { className: 'sw-ui-badge' + ( variant ? ' sw-ui-badge--' + variant : '' ), text: label } );
+	}
+
+	/** A fact about the thing (where it comes from, how agents reach it); never a state. */
+	function tag( label ) {
+		return el( 'span', { className: 'sw-ui-tag', text: label } );
+	}
+
+	function sentence( value ) {
+		var out = String( value || '' );
+
+		return out.charAt( 0 ).toUpperCase() + out.slice( 1 );
+	}
+
+	/** One key and value pair of a facts list (dl.sw-ui-kv). */
+	function fact( label, value, danger ) {
+		return el( 'div', null, [
+			el( 'dt', { text: label } ),
+			el( 'dd', { className: danger ? 'sw-skills__danger' : '', text: value } )
 		] );
+	}
+
+	function facts( items, label, inline ) {
+		return el( 'dl', { className: 'sw-ui-kv' + ( inline ? ' sw-ui-kv--inline' : '' ), attrs: { 'aria-label': label } }, items );
 	}
 
 	function text( value, fallback ) {
@@ -180,20 +243,71 @@
 		return '' === out ? fallback : out;
 	}
 
+	/** Guidance or a refusal that belongs to its place: an icon, a title and the details. */
+	function callout( variant, title, children ) {
+		var glyph = { warn: 'alert', danger: 'x', info: 'alert', ok: 'check' }[ variant ] || 'alert';
+
+		return el( 'div', { className: 'sw-ui-callout sw-ui-callout--' + variant }, [
+			icon( glyph, 'sw-ui-icon--lg' ),
+			el( 'div', null, [ el( 'div', { className: 'sw-ui-notice__title', text: title } ) ].concat( children || [] ) )
+		] );
+	}
+
+	/** A block of text in the layer's code face, scrollable and reachable from the keyboard. */
+	function codeBlock( title, body, label ) {
+		return el( 'div', { className: 'sw-ui-code' }, [
+			el( 'div', { className: 'sw-ui-code__head' }, [ el( 'span', { text: title } ) ] ),
+			el( 'pre', { className: 'sw-ui-code__body sw-skills__source', attrs: { tabindex: '0', 'aria-label': label } }, [ el( 'code', { text: body } ) ] )
+		] );
+	}
+
+	/** A message that is a state of its own: what the page has, why, and what to do next. */
+	function emptyState( variant, title, message, actions, code ) {
+		var glyph = 'error' === variant ? 'alert' : ( 'no-results' === variant ? 'search' : 'check' );
+
+		return el( 'div', { className: 'sw-ui-empty' + ( 'default' === variant ? '' : ' sw-ui-empty--' + variant ) }, [
+			el( 'span', { className: 'sw-ui-empty__icon' }, [ icon( glyph, 'sw-ui-icon--lg' ) ] ),
+			el( 'h2', { className: 'sw-ui-empty__title', text: title } ),
+			message ? el( 'p', { className: 'sw-ui-empty__text', text: message } ) : null,
+			code ? el( 'p', { className: 'sw-ui-field__help', text: code } ) : null,
+			actions && actions.length ? el( 'div', { className: 'sw-ui-actions' }, actions ) : null
+		] );
+	}
+
 	/* ------------------------------------------------------------------ */
-	/* Live region                                                         */
+	/* Messages                                                            */
 	/* ------------------------------------------------------------------ */
 
+	/**
+	 * Say what happened. A confirmation is a toast, which leaves by itself; a refusal or failure is a notice that
+	 * stays until the next message, because an error never goes away on a timer.
+	 */
 	function announce( message, tone ) {
 		if ( ! statusNode ) {
 			return;
 		}
-		statusNode.textContent = message ? String( message ) : '';
-		if ( tone ) {
-			statusNode.setAttribute( 'data-tone', tone );
-		} else {
-			statusNode.removeAttribute( 'data-tone' );
+		clear( statusNode );
+		if ( ! message ) {
+			return;
 		}
+		var ui = kit();
+
+		if ( ! ui ) {
+			statusNode.textContent = String( message );
+
+			return;
+		}
+		if ( 'error' === tone ) {
+			ui.notify( statusNode, { variant: 'danger', text: String( message ) } );
+
+			return;
+		}
+		if ( 'ok' === tone ) {
+			ui.toast( String( message ) );
+
+			return;
+		}
+		ui.notify( statusNode, { variant: 'info', text: String( message ) } );
 	}
 
 	function emit( name, detail ) {
@@ -277,159 +391,100 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* Review drawer                                                       */
+	/* Review drawer: a native dialog of the layer                         */
 	/* ------------------------------------------------------------------ */
 
-	var openScrim = null;
-	var lastFocused = null;
-
-	function focusableIn( node ) {
-		return [].slice.call(
-			node.querySelectorAll( 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])' )
-		);
-	}
-
-	function trapFocus( drawer, event ) {
-		var items = focusableIn( drawer );
-
-		if ( ! items.length ) {
-			event.preventDefault();
-			drawer.focus();
-
-			return;
-		}
-
-		var first = items[ 0 ];
-		var last = items[ items.length - 1 ];
-
-		if ( event.shiftKey && document.activeElement === first ) {
-			event.preventDefault();
-			last.focus();
-		} else if ( ! event.shiftKey && document.activeElement === last ) {
-			event.preventDefault();
-			first.focus();
-		}
-	}
-
-	function restoreFocus() {
-		if ( lastFocused && document.contains( lastFocused ) ) {
-			lastFocused.focus();
-		}
-		lastFocused = null;
-	}
+	var openDialogNode = null;
 
 	function closeDrawer() {
-		if ( ! openScrim ) {
-			return;
-		}
-		var scrim = openScrim;
+		if ( openDialogNode ) {
+			var ui = kit();
 
-		openScrim = null;
-		document.removeEventListener( 'keydown', scrim.swKeydown, true );
-		if ( scrim.parentNode ) {
-			scrim.parentNode.removeChild( scrim );
+			if ( ui ) {
+				ui.closeDialog( openDialogNode );
+			}
 		}
-		restoreFocus();
 	}
 
 	/**
 	 * Opens the review drawer. `options.rows` is the summary the user reviews
-	 * before committing: which skill, from which source, in which state.
+	 * before committing: which skill, from which source, in which state. The
+	 * layer closes it on Escape, keeps Tab inside it and returns focus to the
+	 * control that opened it. The safe action takes focus: Cancel when the
+	 * commit is destructive, the commit otherwise.
 	 */
 	function openDrawer( options ) {
 		var config = options || {};
+		var ui = kit();
 
+		if ( ! ui ) {
+			return;
+		}
 		closeDrawer();
-		lastFocused = document.activeElement;
 
-		var titleId = 'sw-skills-drawer-title';
-		var rows = ( config.rows || [] ).map( function ( row ) {
-			return el( 'li', null, [
-				el( 'span', { className: 'sw-skills-review__key', text: row.key } ),
-				el( 'span', {
-					className: 'sw-skills-review__value' + ( row.tone ? ' sw-skills-review__value--' + row.tone : '' ),
-					text: row.value
-				} )
-			] );
+		var opener = document.activeElement;
+		var titleId = 'sw-skills-review-title';
+		var confirmed = false;
+		var destructive = 'danger' === config.confirmTone || 'danger-solid' === config.confirmTone;
+		var items = ( config.rows || [] ).map( function ( row ) {
+			return fact( row.key, row.value, 'danger' === row.tone );
 		} );
 
 		var commitButton = button( config.confirmLabel || 'Confirm', {
-			variant: config.confirmTone || 'primary',
+			variant: destructive ? 'danger-solid' : 'primary',
 			icon: config.confirmIcon || 'check',
+			autofocus: ! destructive || !! config.singleAction,
 			onClick: function () {
+				confirmed = true;
 				var result = config.onConfirm ? config.onConfirm() : null;
 
 				closeDrawer();
 				return result;
 			}
 		} );
+		var cancelButton = config.singleAction
+			? null
+			: button( config.cancelLabel || 'Cancel', { close: true, autofocus: destructive } );
 
-		var drawer = el(
-			'div',
+		var dialog = el(
+			'dialog',
 			{
-				className: 'sw-skills-drawer',
+				className: 'sw-ui-dialog sw-ui-drawer',
 				attrs: {
 					'data-sw-skills-drawer': '',
-					role: 'dialog',
-					'aria-modal': 'true',
 					'aria-labelledby': titleId,
-					tabindex: '-1'
+					'aria-modal': 'true',
+					'data-sw-ui-light-dismiss': ''
 				}
 			},
 			[
-				el( 'h2', { className: 'sw-skills-drawer__title', text: config.title || 'Review', attrs: { id: titleId } } ),
-				config.lede ? el( 'p', { className: 'sw-skills-drawer__lede', text: config.lede } ) : null,
-				el( 'div', { className: 'sw-skills-drawer__body' }, [
-					rows.length ? el( 'ul', { className: 'sw-skills-review' }, rows ) : null,
+				el( 'div', { className: 'sw-ui-dialog__header' }, [
+					el( 'h2', { className: 'sw-ui-dialog__title', text: config.title || 'Review', attrs: { id: titleId } } ),
+					config.lede ? el( 'p', { className: 'sw-skills__lede', text: config.lede } ) : null
+				] ),
+				el( 'div', { className: 'sw-ui-dialog__body' }, [
+					items.length ? facts( items, 'Review', false ) : null,
 					config.extra || null
 				] ),
-				el( 'div', { className: 'sw-skills-drawer__footer' }, [
-					config.singleAction
-						? null
-						: button( config.cancelLabel || 'Cancel', {
-							onClick: function () {
-								closeDrawer();
-								if ( config.onCancel ) {
-									config.onCancel();
-								}
-							}
-						} ),
-					commitButton
-				] )
+				el( 'div', { className: 'sw-ui-dialog__footer' }, [ cancelButton, commitButton ] )
 			]
 		);
 
-		var scrim = el( 'div', { className: 'sw-skills-scrim' }, [ drawer ] );
-
-		scrim.addEventListener( 'click', function ( event ) {
-			if ( event.target === scrim ) {
-				closeDrawer();
-				if ( config.onCancel ) {
-					config.onCancel();
-				}
+		dialog.addEventListener( 'close', function () {
+			if ( openDialogNode === dialog ) {
+				openDialogNode = null;
+			}
+			if ( dialog.parentNode ) {
+				dialog.parentNode.removeChild( dialog );
+			}
+			if ( ! confirmed && config.onCancel ) {
+				config.onCancel();
 			}
 		} );
 
-		scrim.swKeydown = function ( event ) {
-			if ( 'Escape' === event.key ) {
-				event.preventDefault();
-				closeDrawer();
-				if ( config.onCancel ) {
-					config.onCancel();
-				}
-			} else if ( 'Tab' === event.key ) {
-				trapFocus( drawer, event );
-			}
-		};
-
-		document.body.appendChild( scrim );
-		document.addEventListener( 'keydown', scrim.swKeydown, true );
-		openScrim = scrim;
-
-		window.requestAnimationFrame( function () {
-			scrim.classList.add( 'is-open' );
-			commitButton.focus();
-		} );
+		root.appendChild( dialog );
+		openDialogNode = dialog;
+		ui.openDialog( dialog, opener );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -447,10 +502,10 @@
 			return text( skill.source_id, 'external' );
 		}
 		if ( isProtected( skill ) ) {
-			return 'built-in';
+			return 'Built-in';
 		}
 
-		return text( skill.source, 'local' );
+		return sentence( text( skill.source, 'local' ) );
 	}
 
 	function findingsOf( skill ) {
@@ -476,23 +531,29 @@
 		return haystack.indexOf( query.toLowerCase() ) !== -1;
 	}
 
+	/** One state badge and at most two tags: where the skill comes from and how agents reach it. */
 	function skillBadges( skill ) {
-		var out = [ badge( originLabel( skill ), isProtected( skill ) ? 'playbook' : 'neutral' ) ];
+		var status = String( skill.status || '' );
+		var out = [];
 
-		if ( Number( skill.enabled ) ) {
-			out.push( badge( 'active', 'active' ) );
-			if ( Number( skill.enable_agentic ) ) {
-				out.push( badge( 'auto', 'agentic' ) );
-			}
-			if ( Number( skill.enable_prompt ) ) {
-				out.push( badge( 'command', 'prompt' ) );
-			}
+		if ( status && 'active' !== status ) {
+			out.push( badge( sentence( status ), 'warn' ) );
 		} else {
-			out.push( badge( 'disabled', 'disabled' ) );
+			out.push( Number( skill.enabled ) ? badge( 'Active', 'ok' ) : badge( 'Disabled' ) );
 		}
 
-		if ( 'active' !== String( skill.status || '' ) ) {
-			out.push( badge( text( skill.status, 'draft' ), 'info' ) );
+		out.push( tag( originLabel( skill ) ) );
+		if ( Number( skill.enabled ) ) {
+			var auto = !! Number( skill.enable_agentic );
+			var command = !! Number( skill.enable_prompt );
+
+			if ( auto && command ) {
+				out.push( tag( 'Auto and command' ) );
+			} else if ( auto ) {
+				out.push( tag( 'Auto' ) );
+			} else if ( command ) {
+				out.push( tag( 'Command' ) );
+			}
 		}
 
 		return out;
@@ -526,10 +587,7 @@
 	/* ------------------------------------------------------------------ */
 
 	function openInspector( skill ) {
-		var body = el( 'pre', {
-			className: 'sw-skills-source',
-			text: text( skill.content, 'This skill has no body.' )
-		} );
+		var body = codeBlock( 'Skill body', text( skill.content, 'This skill has no body.' ), 'Skill body' );
 
 		openDrawer( {
 			title: text( skill.title, skill.slug ),
@@ -583,58 +641,35 @@
 	/* Trash, undo, restore, destroy                                       */
 	/* ------------------------------------------------------------------ */
 
-	function dismissUndo() {
-		var existing = root.querySelector( '[data-sw-skills-undo]' );
-
-		if ( existing && existing.parentNode ) {
-			existing.parentNode.removeChild( existing );
-		}
-	}
-
 	/**
 	 * The undo affordance. Trash is reversible, so the page says so in place
-	 * instead of making the user hunt for the trash view.
+	 * instead of making the user hunt for the trash view: a toast with an
+	 * Undo action that stays long enough to reach.
 	 */
 	function offerUndo( skill ) {
-		dismissUndo();
+		var ui = kit();
 
-		var toast = el(
-			'div',
-			{
-				className: 'sw-skills-toast',
-				attrs: {
-					'data-sw-skills-undo': '',
-					role: 'status',
-					'aria-live': 'polite'
+		if ( ! ui ) {
+			return;
+		}
+		var toast = ui.toast( text( skill.title, skill.slug ) + ' moved to trash. It no longer reaches agents.', {
+			duration: UNDO_TIMEOUT,
+			action: {
+				label: 'Undo',
+				onClick: function () {
+					restoreSkill( skill );
 				}
-			},
-			[
-				el( 'span', { text: text( skill.title, skill.slug ) + ' moved to trash. It no longer reaches agents.' } ),
-				button( 'Undo', {
-					variant: 'ghost',
-					icon: 'restore',
-					onClick: function () {
-						dismissUndo();
-						restoreSkill( skill );
-					}
-				} ),
-				button( 'Dismiss', { onClick: dismissUndo } )
-			]
-		);
-
-		root.appendChild( toast );
-		window.setTimeout( function () {
-			if ( toast.parentNode ) {
-				toast.parentNode.removeChild( toast );
 			}
-		}, UNDO_TIMEOUT );
+		} );
+
+		toast.setAttribute( 'data-sw-skills-undo', '' );
 	}
 
 	function trashSkill( skill ) {
 		busy( true );
 
 		post( SKILLS_ROUTE + Number( skill.id ) + TRASH_ACTION, {} ).then( function () {
-			announce( text( skill.title, skill.slug ) + ' moved to trash.', 'ok' );
+			announce( '', 'ok' );
 			emit( 'stonewright:skill-trashed', { id: Number( skill.id ), slug: skill.slug } );
 			offerUndo( skill );
 
@@ -701,24 +736,27 @@
 
 		if ( isProductionSafe ) {
 			tokenField = el( 'input', {
-				className: 'sw-skills-input',
+				className: 'sw-ui-input',
 				attrs: {
 					type: 'text',
 					id: 'sw-skills-token',
 					autocomplete: 'off',
-					spellcheck: 'false'
+					spellcheck: 'false',
+					'aria-describedby': 'sw-skills-token-help'
 				}
 			} );
-			extra = el( 'div', { className: 'sw-field' }, [
+			extra = el( 'div', { className: 'sw-ui-field' }, [
 				el( 'label', {
+					className: 'sw-ui-field__label',
 					text: 'Confirmation token',
 					attrs: { for: 'sw-skills-token' }
 				} ),
-				el( 'p', {
-					className: 'description',
-					text: 'This site runs in production-safe mode, so a permanent delete needs a token issued by stonewright/security-issue-confirmation-token for this skill id.'
-				} ),
-				tokenField
+				tokenField,
+				el( 'span', {
+					className: 'sw-ui-field__help',
+					text: 'This site runs in production-safe mode, so a permanent delete needs a token issued by stonewright/security-issue-confirmation-token for this skill id.',
+					attrs: { id: 'sw-skills-token-help' }
+				} )
 			] );
 		}
 
@@ -840,30 +878,38 @@
 		return !!( panel && panel.querySelector( '[data-sw-skills-ssr="catalog"]' ) );
 	}
 
+	/** A skeleton that reserves the height of the content, with a status line for assistive technology. */
 	function pending( panel, message ) {
-		clear( panel ).appendChild( el( 'p', { className: 'sw-skills-panel__loading', text: message } ) );
-	}
-
-	function renderError( panel, error ) {
 		clear( panel ).appendChild(
-			el( 'div', { className: 'sw-empty-state sw-empty-state--error' }, [
-				el( 'p', { text: error.message } ),
-				error.code ? el( 'p', { className: 'description', text: error.code } ) : null,
-				button( 'Try again', { onClick: loadCatalog } )
+			el( 'div', { className: 'sw-ui-stack', attrs: { 'aria-busy': 'true' } }, [
+				el( 'span', { className: 'sw-ui-visually-hidden', text: message, attrs: { role: 'status' } } ),
+				el( 'div', { className: 'sw-ui-skeleton sw-ui-skeleton--card' } ),
+				el( 'div', { className: 'sw-ui-skeleton sw-ui-skeleton--card' } )
 			] )
 		);
 	}
 
+	function renderError( panel, error ) {
+		clear( panel ).appendChild(
+			emptyState( 'error', 'The catalog could not be loaded', error.message, [ button( 'Try again', { onClick: loadCatalog } ) ], error.code )
+		);
+	}
+
 	function skillRow( skill ) {
+		var title = text( skill.title, skill.slug );
+		var hintId = 'sw-skills-protected-hint';
 		var actions = [
 			button( 'Inspect', {
+				size: 'sm',
 				icon: 'search',
+				context: title,
 				onClick: function () {
 					openInspector( skill );
 				}
 			} ),
 			button( 'Export', {
-				icon: 'download',
+				size: 'sm',
+				context: title,
 				onClick: function () {
 					exportSkill( skill );
 				}
@@ -871,21 +917,15 @@
 		];
 
 		if ( canWrite ) {
-			actions.push(
-				el( 'a', {
-					className: 'sw-skills-button',
-					text: 'Edit',
-					attrs: { href: editorUrl( skill.slug ) }
-				} )
-			);
+			actions.push( linkButton( 'Edit', editorUrl( skill.slug ), { size: 'sm', context: title } ) );
 			actions.push(
 				button( 'Trash', {
+					size: 'sm',
 					variant: 'danger',
 					icon: 'trash',
+					context: title,
 					disabled: isProtected( skill ),
-					hint: isProtected( skill )
-						? 'Skills that ship with Stonewright can be disabled but not removed.'
-						: null,
+					describedBy: isProtected( skill ) ? hintId : null,
 					onClick: function () {
 						reviewTrash( skill );
 					}
@@ -893,32 +933,35 @@
 			);
 		}
 
-		return el( 'li', { className: 'sw-skill-row' }, [
-			el( 'div', { className: 'sw-skill-row__head' }, [
-				el( 'strong', { className: 'sw-skill-row__title', text: text( skill.title, skill.slug ) } ),
-				el( 'span', { className: 'sw-skill-row__badges' }, skillBadges( skill ) )
-			] ),
-			el( 'code', { className: 'sw-skill-row__slug', text: text( skill.slug, 'unknown' ) } ),
-			el( 'p', {
-				className: 'sw-skill-row__description',
-				text: text( skill.description, 'No description, so agents have no trigger text to match on.' )
-			} ),
-			el( 'ul', { className: 'sw-skills-facts' }, [
-				fact( 'Revision', String( skill.revision || 1 ) ),
-				fact( 'Verified', String( skill.verification_count || 0 ) ),
-				fact( 'Updated', text( skill.updated_at, 'unknown' ) )
-			] ),
-			el( 'div', { className: 'sw-actions' }, actions )
+		return el( 'li', { className: 'sw-skill-row sw-ui-card' }, [
+			el( 'div', { className: 'sw-ui-card__body' }, [
+				el( 'div', { className: 'sw-skill-row__head' }, [
+					el( 'strong', { className: 'sw-skill-row__title', text: title } ),
+					el( 'span', { className: 'sw-skill-row__badges' }, skillBadges( skill ) )
+				] ),
+				el( 'code', { className: 'sw-skill-row__slug', text: text( skill.slug, 'unknown' ) } ),
+				el( 'p', {
+					className: 'sw-skill-row__description',
+					text: text( skill.description, 'No description, so agents have no trigger text to match on.' )
+				} ),
+				facts( [
+					fact( 'Revision', String( skill.revision || 1 ) ),
+					fact( 'Verified', String( skill.verification_count || 0 ) ),
+					fact( 'Updated', text( skill.updated_at, 'unknown' ) )
+				], 'Skill facts', true ),
+				el( 'div', { className: 'sw-ui-actions' }, actions )
+			] )
 		] );
 	}
 
 	function searchField() {
 		var input = el( 'input', {
-			className: 'sw-skills-input',
+			className: 'sw-ui-input',
 			attrs: {
 				type: 'search',
 				id: 'sw-skills-search',
 				'data-sw-skills-search': '',
+				'data-sw-ui-search': '',
 				placeholder: 'Filter by title, slug, topic, or source',
 				autocomplete: 'off'
 			},
@@ -932,8 +975,8 @@
 
 		input.value = state.query;
 
-		return el( 'div', { className: 'sw-field sw-skills-search' }, [
-			el( 'label', { text: 'Search skills', attrs: { for: 'sw-skills-search' } } ),
+		return el( 'div', { className: 'sw-ui-field' }, [
+			el( 'label', { className: 'sw-ui-field__label', text: 'Search skills', attrs: { for: 'sw-skills-search' } } ),
 			input
 		] );
 	}
@@ -943,18 +986,21 @@
 			return null;
 		}
 
-		return el( 'div', { className: 'sw-skills-notice' }, [
-			el( 'p', { text: state.conflicts.length + ' skill(s) offered by a source were dropped:' } ),
-			el(
-				'ul',
-				null,
-				state.conflicts.map( function ( conflict ) {
-					return el( 'li', {
-						text: text( conflict.slug, 'unknown' ) + ' — ' + text( conflict.reason, 'unspecified' )
-					} );
-				} )
-			)
-		] );
+		return callout(
+			'warn',
+			state.conflicts.length + ' skill(s) offered by a source were dropped:',
+			[
+				el(
+					'ul',
+					{ className: 'sw-skills__issues' },
+					state.conflicts.map( function ( conflict ) {
+						return el( 'li', {
+							text: text( conflict.slug, 'unknown' ) + ' — ' + text( conflict.reason, 'unspecified' )
+						} );
+					} )
+				)
+			]
+		);
 	}
 
 	function paintCatalog() {
@@ -973,20 +1019,16 @@
 
 		if ( ! visible.length ) {
 			listHost.appendChild(
-				el( 'div', { className: 'sw-empty-state' }, [
-					el( 'p', {
-						text: state.skills.length
-							? 'No skill matches that filter.'
-							: 'No skills yet. Write one in the editor, or import a reviewed Markdown file.'
-					} )
-				] )
+				state.skills.length
+					? emptyState( 'no-results', 'No skill matches that filter', 'Try a shorter search, or search by slug, topic or source.' )
+					: emptyState( 'first-run', 'No skills yet', 'Write one in the editor, or import a reviewed Markdown file.' )
 			);
 
 			return;
 		}
 
 		listHost.appendChild(
-			el( 'ul', { className: 'sw-skills-list' }, visible.map( skillRow ) )
+			el( 'ul', { className: 'sw-skills__list' }, visible.map( skillRow ) )
 		);
 	}
 
@@ -1004,25 +1046,22 @@
 		}
 
 		clear( panel );
-		appendAll( panel, [
-			el( 'div', { className: 'sw-skills-toolbar' }, [
-				searchField(),
-				el( 'div', { className: 'sw-actions' }, [
-					el( 'a', {
-						className: 'sw-skills-button sw-skills-button--primary',
-						text: 'New skill',
-						attrs: { href: editorUrl( '' ) }
-					} ),
+		appendAll( panel, el( 'div', { className: 'sw-ui-stack' }, [
+			el( 'div', { className: 'sw-ui-toolbar' }, [
+				el( 'div', { className: 'sw-ui-toolbar__search' }, [ searchField() ] ),
+				el( 'div', { className: 'sw-ui-actions' }, [
+					linkButton( 'New skill', editorUrl( '' ), { variant: 'primary', icon: 'plus' } ),
 					button( 'Reload', { onClick: loadCatalog } )
 				] )
 			] ),
 			el( 'p', {
-				className: 'description',
-				text: state.skills.length + ' skill(s) from ' + state.sources.length + ' source(s). ' + state.trashed.length + ' in trash.'
+				className: 'sw-ui-field__help',
+				text: state.skills.length + ' skill(s) from ' + state.sources.length + ' source(s). ' + state.trashed.length + ' in trash. Skills that ship with Stonewright can be disabled but not removed.',
+				attrs: { id: 'sw-skills-protected-hint' }
 			} ),
 			conflictNotice(),
 			el( 'div', { attrs: { 'data-sw-skills-list': '' } } )
-		] );
+		] ) );
 
 		paintCatalog();
 	}
@@ -1041,70 +1080,68 @@
 
 		if ( ! state.trashed.length ) {
 			panel.appendChild(
-				el( 'div', { className: 'sw-empty-state' }, [
-					el( 'p', { text: 'The trash is empty.' } )
-				] )
+				emptyState( 'default', 'The trash is empty', 'Skills you move to the trash wait here, disabled, until you restore or delete them.' )
 			);
 
 			return;
 		}
 
-		appendAll( panel, [
+		appendAll( panel, el( 'div', { className: 'sw-ui-stack' }, [
 			el( 'p', {
-				className: 'description',
+				className: 'sw-skills__lede',
 				text: 'Trashed skills never reach an agent. Restoring returns a skill as a disabled draft, so somebody has to enable it deliberately.'
 			} ),
 			el(
 				'ul',
-				{ className: 'sw-skills-list' },
+				{ className: 'sw-skills__list' },
 				state.trashed.map( function ( skill ) {
-					return el( 'li', { className: 'sw-skill-row sw-skill-row--trashed' }, [
-						el( 'div', { className: 'sw-skill-row__head' }, [
-							el( 'strong', { className: 'sw-skill-row__title', text: text( skill.title, skill.slug ) } ),
-							el( 'span', { className: 'sw-skill-row__badges' }, [ badge( 'trashed', 'disabled' ) ] )
-						] ),
-						el( 'code', { className: 'sw-skill-row__slug', text: text( skill.slug, 'unknown' ) } ),
-						el( 'ul', { className: 'sw-skills-facts' }, [
-							fact( 'Source', originLabel( skill ) ),
-							fact( 'Trashed', text( skill.trashed_at, 'unknown' ) )
-						] ),
-						el( 'div', { className: 'sw-actions' }, [
-							button( 'Inspect', {
-								icon: 'search',
-								onClick: function () {
-									openInspector( skill );
-								}
-							} ),
-							button( 'Restore', {
-								icon: 'restore',
-								disabled: ! canWrite,
-								onClick: function () {
-									restoreSkill( skill );
-								}
-							} ),
-							button( 'Delete permanently', {
-								variant: 'danger',
-								icon: 'trash',
-								disabled: ! canWrite,
-								onClick: function () {
-									reviewDestroy( skill );
-								}
-							} )
+					var title = text( skill.title, skill.slug );
+
+					return el( 'li', { className: 'sw-skill-row sw-skill-row--trashed sw-ui-card' }, [
+						el( 'div', { className: 'sw-ui-card__body' }, [
+							el( 'div', { className: 'sw-skill-row__head' }, [
+								el( 'strong', { className: 'sw-skill-row__title', text: title } ),
+								el( 'span', { className: 'sw-skill-row__badges' }, [ badge( 'Trashed' ) ] )
+							] ),
+							el( 'code', { className: 'sw-skill-row__slug', text: text( skill.slug, 'unknown' ) } ),
+							facts( [
+								fact( 'Source', originLabel( skill ) ),
+								fact( 'Trashed', text( skill.trashed_at, 'unknown' ) )
+							], 'Skill facts', true ),
+							el( 'div', { className: 'sw-ui-actions' }, [
+								button( 'Inspect', {
+									size: 'sm',
+									icon: 'search',
+									context: title,
+									onClick: function () {
+										openInspector( skill );
+									}
+								} ),
+								button( 'Restore', {
+									size: 'sm',
+									icon: 'restore',
+									context: title,
+									disabled: ! canWrite,
+									onClick: function () {
+										restoreSkill( skill );
+									}
+								} ),
+								button( 'Delete permanently', {
+									size: 'sm',
+									variant: 'danger',
+									icon: 'trash',
+									context: title,
+									disabled: ! canWrite,
+									onClick: function () {
+										reviewDestroy( skill );
+									}
+								} )
+							] )
 						] )
 					] );
 				} )
 			)
-		] );
-	}
-
-	function reportRow( key, value, tone ) {
-		return el( 'li', { className: 'sw-skills-fact' }, [
-			el( 'span', { className: 'sw-skills-fact__label', text: key } ),
-			el( 'span', {
-				className: 'sw-skills-fact__value' + ( tone ? ' sw-skills-fact__value--' + tone : '' ),
-				text: value
-			} )
-		] );
+		] ) );
 	}
 
 	function importReport() {
@@ -1116,55 +1153,65 @@
 		var warnings = Array.isArray( lint.warnings ) ? lint.warnings : [];
 		var findings = Array.isArray( trust.findings ) ? trust.findings : [];
 		var blocked = errors.length || trust.blocked || collision.exists;
+		var blockedHintId = 'sw-skills-import-hint';
 
-		return el( 'div', { className: 'sw-card sw-skills-report' }, [
-			el( 'h3', { text: 'Review: ' + text( inspection.title, inspection.slug ) } ),
-			el( 'p', { className: 'description', text: text( inspection.description, 'This file has no description.' ) } ),
-			el( 'ul', { className: 'sw-skills-facts' }, [
-				reportRow( 'Slug', text( inspection.slug, 'unknown' ) ),
-				reportRow( 'Bytes', String( inspection.bytes || 0 ) ),
-				reportRow( 'Lint errors', String( errors.length ), errors.length ? 'danger' : null ),
-				reportRow( 'Warnings', String( warnings.length ) ),
-				reportRow( 'Findings', String( findings.length ), trust.blocked ? 'danger' : null ),
-				reportRow( 'Slug in use', collision.exists ? 'yes' : 'no', collision.exists ? 'danger' : null )
+		return el( 'section', { className: 'sw-ui-card', attrs: { 'aria-labelledby': 'sw-skills-report-title' } }, [
+			el( 'div', { className: 'sw-ui-card__header' }, [
+				el( 'div', null, [
+					el( 'h2', { className: 'sw-ui-card__title', text: 'Review: ' + text( inspection.title, inspection.slug ), attrs: { id: 'sw-skills-report-title' } } ),
+					el( 'p', { className: 'sw-ui-card__desc', text: text( inspection.description, 'This file has no description.' ) } )
+				] )
 			] ),
-			errors.length
-				? el( 'ul', { className: 'sw-skills-issues' }, errors.map( function ( code ) {
-					return el( 'li', { text: String( code ) } );
-				} ) )
-				: null,
-			findings.length
-				? el( 'ul', { className: 'sw-skills-issues' }, findings.map( function ( finding ) {
-					return el( 'li', {
-						text: String( finding.severity || 'warning' ) + ' — ' + String( finding.message || finding.rule || '' ) +
-							' (line ' + String( finding.line || 0 ) + ')'
-					} );
-				} ) )
-				: null,
-			el( 'pre', { className: 'sw-skills-source', text: text( inspection.content, '' ) } ),
-			el( 'div', { className: 'sw-actions' }, [
-				button( 'Import as disabled draft', {
-					variant: 'primary',
-					icon: 'plus',
-					disabled: !! blocked || ! canWrite,
-					hint: blocked ? 'Fix the reported problems in the file, then inspect it again.' : null,
-					onClick: function () {
-						reviewImport( inspection );
-					}
-				} ),
-				button( 'Discard review', {
-					onClick: function () {
-						state.inspection = null;
-						render( 'import' );
-					}
-				} )
+			el( 'div', { className: 'sw-ui-card__body sw-ui-stack' }, [
+				facts( [
+					fact( 'Slug', text( inspection.slug, 'unknown' ) ),
+					fact( 'Bytes', String( inspection.bytes || 0 ) ),
+					fact( 'Lint errors', String( errors.length ), errors.length > 0 ),
+					fact( 'Warnings', String( warnings.length ) ),
+					fact( 'Findings', String( findings.length ), !! trust.blocked ),
+					fact( 'Slug in use', collision.exists ? 'yes' : 'no', !! collision.exists )
+				], 'Import review', true ),
+				errors.length
+					? callout( 'danger', 'Lint errors', [ el( 'ul', { className: 'sw-skills__issues' }, errors.map( function ( code ) {
+						return el( 'li', { text: String( code ) } );
+					} ) ) ] )
+					: null,
+				findings.length
+					? callout( 'warn', 'Findings', [ el( 'ul', { className: 'sw-skills__issues' }, findings.map( function ( finding ) {
+						return el( 'li', {
+							text: String( finding.severity || 'warning' ) + ' — ' + String( finding.message || finding.rule || '' ) +
+								' (line ' + String( finding.line || 0 ) + ')'
+						} );
+					} ) ) ] )
+					: null,
+				codeBlock( 'File content', text( inspection.content, '' ), 'File content' ),
+				el( 'div', { className: 'sw-ui-actions' }, [
+					button( 'Import as disabled draft', {
+						variant: 'primary',
+						icon: 'plus',
+						disabled: !! blocked || ! canWrite,
+						describedBy: blocked ? blockedHintId : null,
+						onClick: function () {
+							reviewImport( inspection );
+						}
+					} ),
+					button( 'Discard review', {
+						onClick: function () {
+							state.inspection = null;
+							render( 'import' );
+						}
+					} )
+				] ),
+				blocked
+					? el( 'p', { className: 'sw-ui-hint', text: 'Import is off until the reported problems in the file are fixed and it is inspected again.', attrs: { id: blockedHintId } } )
+					: null
 			] )
 		] );
 	}
 
 	function dropZone() {
 		var input = el( 'input', {
-			className: 'sw-skills-file',
+			className: 'sw-ui-file',
 			attrs: {
 				type: 'file',
 				id: 'sw-skills-file',
@@ -1181,22 +1228,22 @@
 			}
 		} );
 
-		var zone = el( 'div', { className: 'sw-skills-dropzone' }, [
+		var zone = el( 'div', { className: 'sw-ui-dropzone' }, [
 			el( 'p', { text: 'Drop a .md skill file here, or choose one.' } ),
-			el( 'label', { text: 'Skill file', attrs: { for: 'sw-skills-file' } } ),
+			el( 'label', { className: 'sw-ui-field__label', text: 'Skill file', attrs: { for: 'sw-skills-file' } } ),
 			input
 		] );
 
 		zone.addEventListener( 'dragover', function ( event ) {
 			event.preventDefault();
-			zone.classList.add( 'is-over' );
+			zone.classList.add( 'sw-ui-dropzone--over' );
 		} );
 		zone.addEventListener( 'dragleave', function () {
-			zone.classList.remove( 'is-over' );
+			zone.classList.remove( 'sw-ui-dropzone--over' );
 		} );
 		zone.addEventListener( 'drop', function ( event ) {
 			event.preventDefault();
-			zone.classList.remove( 'is-over' );
+			zone.classList.remove( 'sw-ui-dropzone--over' );
 
 			var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[ 0 ];
 
@@ -1210,19 +1257,17 @@
 
 	function renderImport( panel ) {
 		clear( panel );
-		appendAll( panel, [
+		appendAll( panel, el( 'div', { className: 'sw-ui-stack' }, [
 			el( 'p', {
-				className: 'description',
+				className: 'sw-skills__lede',
 				text: 'An import is two steps: review, then write. The review reads the file on the server and writes nothing.'
 			} ),
 			dropZone(),
 			state.inspectError
-				? el( 'div', { className: 'sw-empty-state sw-empty-state--error' }, [
-					el( 'p', { text: state.inspectError.message } )
-				] )
+				? emptyState( 'error', 'The file could not be reviewed', state.inspectError.message )
 				: null,
 			state.inspection ? importReport() : null
-		] );
+		] ) );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -1265,7 +1310,6 @@
 		tabNodes.forEach( function ( tab ) {
 			var isCurrent = tab.getAttribute( 'data-sw-view' ) === view;
 
-			tab.classList.toggle( 'is-current', isCurrent );
 			tab.setAttribute( 'aria-selected', isCurrent ? 'true' : 'false' );
 			tab.setAttribute( 'tabindex', isCurrent ? '0' : '-1' );
 		} );

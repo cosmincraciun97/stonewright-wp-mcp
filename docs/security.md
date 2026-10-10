@@ -50,6 +50,125 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   cosmetic warning. Effect fields distinguish execution, verification, and
   rollback, and the Incidents view isolates failed verification or rollback.
 - Use the `ConfirmationToken` mechanism for any custom destructive abilities you add.
+- If the client signed in with OAuth, disconnect it under **Stonewright →
+  Setup → Connected OAuth clients**. Every live grant of that client closes at
+  once, and its pending approvals and unused authorization codes are closed
+  first. If it uses an Application Password, revoke that password.
+
+### Web pages calling the MCP routes
+
+The MCP transport asks a server to validate the `Origin` header, so a web page
+cannot drive the server from a visitor's browser (DNS rebinding and cross-site
+requests). Stonewright checks it on both routes, `mcp/stonewright` and
+`mcp/stonewright-oauth`, before the OAuth bearer check and before any ability
+runs.
+
+- A request **without** an `Origin` header (or with an empty one) passes.
+  Command-line, desktop, and server-side clients do not send one.
+- A request from the site's own origin passes: the origin of the home URL or of
+  the site URL, compared by scheme, host, and port. For a site at
+  `https://example.com`, `https://example.com:443` is the same origin and
+  `http://example.com` is not.
+- A request from an origin the operator lists passes. Add a browser-based tool
+  with the `stonewright_mcp_allowed_origins` filter, which receives a list of
+  `scheme://host[:port]` strings and the request:
+
+  ```php
+  add_filter( 'stonewright_mcp_allowed_origins', static function ( array $origins ): array {
+      $origins[] = 'http://localhost:6274';
+      return $origins;
+  } );
+  ```
+
+  A wildcard, a value with a path, and `null` are ignored.
+- Any other `Origin`, including the opaque `null`, is refused with **403** and a
+  JSON-RPC error body without a request id (`error.code` -32008), for every
+  method including a CORS preflight.
+
+The check is not authentication: a request that passes still needs valid
+credentials and the permissions of its user. A refused request never reaches the
+MCP transport or an ability.
+
+### OAuth rate limits behind a reverse proxy
+
+The OAuth endpoints are limited per client address, and the registering address
+of a client is stored as a keyed hash. The address is the one the web server
+reports for the connection (`REMOTE_ADDR`). Behind a reverse proxy or load
+balancer every client then has the address of the proxy and shares one budget.
+
+A site behind a proxy can name it. The setting is **off by default**: with no
+trusted proxy configured, `X-Forwarded-For` is never read, so a client cannot
+choose its own budget by sending that header.
+
+```php
+// wp-config.php: a list, or one comma-separated string.
+define( 'STONEWRIGHT_TRUSTED_PROXIES', [ '10.0.0.0/8', '2001:db8:aaaa::/48' ] );
+
+// Or from code. The filter receives the list the constant holds.
+add_filter( 'stonewright_trusted_proxies', static function ( array $proxies ): array {
+    $proxies[] = '192.0.2.10';
+    return $proxies;
+} );
+```
+
+- Each entry is an IP address or a CIDR range, IPv4 or IPv6. An entry that is
+  not readable, and a range with a prefix length of 0, are skipped.
+- Only when `REMOTE_ADDR` is inside the list is the header read. The client is
+  the right-most `X-Forwarded-For` address that is not itself a trusted proxy,
+  so values the client wrote on the left cannot replace the address the first
+  trusted proxy saw. When every address in the chain is a trusted proxy, the
+  connection address is used.
+- A header that holds anything other than a comma-separated list of IP
+  addresses (a name, `unknown`, a value with a port, an empty entry) is ignored
+  as a whole and the connection address is used.
+- The same address is used for every OAuth rate-limit and abuse-budget key. An
+  IPv6 address still counts as its `/64` prefix and an IPv4-mapped IPv6 address
+  as the IPv4 address it carries.
+
+List only proxies you operate, and make sure they replace or append to
+`X-Forwarded-For` rather than pass a client's header through unchanged at the
+edge. Other uses of the connection address, such as the address a one-time
+sign-in link is bound to, keep reading `REMOTE_ADDR`.
+
+### Site policy filters on abilities
+
+WordPress 7.1 runs lifecycle filters inside an ability call, so site policy and
+security plugins can govern abilities. Stonewright abilities run the three
+filters that sit in the methods Stonewright replaces, on every supported
+WordPress version, and the core filters in the methods it does not replace on
+WordPress 7.1 and later:
+
+| Filter | Runs | What a filter can do |
+|---|---|---|
+| `wp_ability_validate_input` | after the input schema check | refuse a call, or reword a refusal |
+| `wp_ability_permission_result` | after the ability's permission callback | withdraw a grant, or reword a refusal |
+| `wp_ability_validate_output` | after the output schema check | withhold a result, or reword a refusal |
+| `wp_pre_execute_ability`, `wp_ability_normalize_input`, `wp_ability_execute_result` | inside WordPress's own `execute()` (7.1 and later) | as WordPress documents them |
+
+A filter can refuse or narrow a call. It cannot approve a call that Stonewright
+refused: a failed schema check, a denied permission callback, and a failed
+output check stay refusals whatever the filters return, so no filter can lift a
+Stonewright gate (permission callbacks, confirmation tokens, modes, backups,
+validation, audit). A permission callback that is missing, throws, or returns
+anything other than `true` or an error also refuses the call.
+
+Each filter runs once for one `execute()` call. The MCP transport checks
+permissions before it executes, so the normalize-input, input-validation, and
+permission filters run twice for one MCP tool call.
+
+Two paths run an ability without its registered object and so without these
+filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
+and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
+gates and the list of disabled abilities. To block an ability on every path,
+disable it (`stonewright_disabled_abilities`).
+
+### Tool annotations are hints
+
+Every ability declares MCP tool annotations (read-only, destructive,
+idempotent, open-world) so a client can tell a read from a write before it calls
+a tool. They describe the ability for the client; they grant nothing and remove
+nothing. Every gate is enforced by Stonewright on every call, whatever a client
+does with the hints. See [Abilities](abilities.md#tool-annotations-and-exposure).
 
 ### Custom code and theme-file recovery
 
@@ -65,13 +184,75 @@ also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which
 verifies the reference, target, and backup hash before entering the same
 transaction and smoke gates. Do not expose or accept absolute backup paths.
 
+### Rescue after a failed change
+
+A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:
+
+- The health probe signs in to wp-admin with an internal token, never with the administrator's cookie or an Application Password. A token is stored as a hash, bound to one path, one probe request, and one user. It works for GET only, lasts three minutes, and is used up by its first valid request. The login it creates exists only for that request and is destroyed when the request ends.
+- A request that carries the token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port.
+- Anyone can send the token header. Only a token that exists is audited, when it is accepted or refused. A guess leaves no audit row and touches no transient.
+- The journal file is input, not a source of entries: it can add a fatal to a change set the database already holds, and nothing else. It cannot create a change set or a recipe, so planting an entry in it does not put a rollback on the Rescue page. A file over 1 MB is not read.
+- A rollback claims its change set under the journal lock before the recipe runs, so a double click, or the page and an ability together, run it once.
+- Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
+- `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
+- A verified change can be rolled back, but a verified change to code (a theme file, a custom-code snippet, a sandbox file or the Customizer CSS) is rolled back only by an administrator at the Rescue page. The ability, the REST route and WP-CLI refuse it with `stonewright_rescue_approval_required`, and a confirmation token does not lift the refusal.
+- The undo of a verified change saves the current state first and refuses with `stonewright_rescue_undo_capture_failed` when it cannot, probes the site before and after, and puts the saved state back with `stonewright_rescue_undo_reverted` when the undo made a working site fail. An incident or an unverified change is rolled back as before.
+- The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
+
+See [Rescue](rescue.md).
+
+### Section reuse
+
+Section reuse copies content between posts, so its checks are about who may read what and what a copy may carry.
+
+- **Reading.** `section-reuse-find` lists a source only when the current user holds both `read_post` and `edit_post` for it, whatever its status (publish, draft, pending, future or private), and does not count the posts it skipped, so the scan limit and `scan.truncated` do not depend on posts the user may not use. `section-reuse-extract` requires the same two capabilities for the source post, in the permission callback and again when it runs, and answers a post the user may not edit exactly as it answers one that does not exist (`stonewright_not_found`), so a private post is neither readable nor confirmed to exist. Nothing of a source is stored apart from the signature cache, and the cache is read only for a source the current user may use. The page being built is never offered. An insert is refused (`stonewright_section_source_not_permitted`) when the user cannot read and edit the source its payload names, and `reuse_source` records only sources the user may read and edit.
+- **The payload is untrusted.** An insert checks the payload's shape, builder, size, and depth, regenerates every element id, and never takes an id, a style id, or a post id from it as given. A payload for another builder, or one that mixes V3 and V4 nodes, is refused: sections are never converted.
+- **Nothing is relaxed.** A copy goes through the same write closure as any write of its family: permission, mode, confirmation token where the family requires one, `Backup::snapshot_post()`, write lock, readback, post-scoped CSS only through `elementor-css-regenerate`, ChangeSetV1, audit. Custom CSS, HTML widgets, and raw HTML or script in a copied section need the same approvals as when they are written by hand, and CSS classes must be in the `stonewright_approved_css_classes` option of the site; `section-reuse-extract` warns about each before the copy. A placeholder widget (a plugin widget whose plugin is not active) is never inserted. V4 writes stay blocked in `production-safe`. A copy never writes to the source post or its meta; the signature cache is one non-autoloaded option. Settings of an Elementor V3 copy that the live schema rejects are removed only when the operation lists exactly those settings in `drop_settings`; the list must equal the rejected settings, the confirmation token of `production-safe` covers it as part of the call, and the custom code gate still refuses every CSS class and custom CSS the list does not name.
+- **The setting is a policy, not a hint.** Hiding the tools is a convenience; every reuse ability and insert operation reads the live option when it runs and fails with `stonewright_section_reuse_off`. A change of the option is audited and needs `manage_options` and the nonce of the Setup form.
+- **Notices carry no secrets.** The fifteen-minute line is a fixed sentence that names the setting value.
+
+### Values that reach generated CSS
+
+Elementor prints colour, typography, unit and spacing values into the generated stylesheet without escaping them, so a value such as `red;}body{display:none}` would hide a page and would carry CSS past the custom-CSS approval gate, which guards only `custom_css` keys. Stonewright accepts these values only in their real forms:
+
+- **Colour controls**: hex with 3, 4, 6 or 8 digits; `rgb()`, `rgba()`, `hsl()` and `hsla()` with numeric arguments; a CSS colour name; `transparent`; `currentColor`; an Elementor global colour variable (`var(--e-global-color-<id>)`); or an empty string, which clears the colour. A `__globals__` binding is the stored `globals/<type>?id=<id>` form or an empty string.
+- **Typography**: font families are plain names (letters, digits, spaces and `. , + & -`); weight is `normal`, `bold`, `bolder`, `lighter` or 1 to 1000; text transform, font style and text decoration come from fixed lists.
+- **Slider, dimension and shadow values**: numeric parts and a unit from a fixed list; shadow colours follow the colour rule.
+- **Anything else** is refused with `stonewright_elementor_settings_invalid` and the key. The check runs in every Elementor element write, in `elementor-v3-update-kit-colors`, `elementor-v3-update-kit-typography`, `elementor-v3-kit-batch-mutate` and `elementor-v3-update-page-settings`.
+- **Before generation**, `elementor-css-regenerate` scans the stored settings of the post (and its page or kit settings) for `;`, braces, `<`, `>`, `url(`, `expression(`, `@import`, comment markers and backslashes under colour, typography, unit and numeric-side keys. A match is refused with `stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock or generation. Custom CSS keys are not scanned there; they stay under the custom-code approval gate.
+
+Atomic (`e-*`) widgets keep structure-only validation, as before.
+
+### Design mirror export
+
+`stonewright-design-mirror-export` returns the Elementor JSON of the posts the caller can edit in the ability result; it writes no file. Nothing is published under `wp-content/uploads`, so a private or draft page is never readable without authentication. The JSON per call is capped at 1.5 MB; a post that would pass the cap is reported with `response_too_large`.
+
+Earlier versions wrote `uploads/stonewright-mirror/<slug>.json`. On plugin update, and on each export call, that folder gets `index.php`, `.htaccess` and `web.config` deny rules (existing guard files are kept), and the regular `.json` files directly inside it that carry the export format (`post_id` and `elementor` keys) are deleted. Symbolic links, subfolders and every other file stay. The outcome is logged as counts only. An export can be run again at any time to recreate the JSON.
+
+### Elementor knowledge store
+
+`elementor-knowledge-refresh` stores articles in `uploads/stonewright-private/knowledge/elementor/<hub>/<slug>.md`, and `elementor-knowledge-search`, `elementor-explain-editor` and `elementor-describe-widget` read only that folder. The plugin package ships no articles, so the readers return nothing, with a hint that names the refresh ability, until the first refresh.
+
+- **Guarded folders.** Every folder level the store creates (`stonewright-private`, `knowledge`, `elementor` and the hub folder) gets `index.php`, `.htaccess` and `web.config` deny rules; existing guard files are kept. If the folder cannot be created or guarded, the refresh writes nothing and reports `stonewright_store_unavailable`.
+- **Hosts.** The URL host must be `elementor.com` or end in `.elementor.com`. A host such as `evilelementor.com` or `elementor.com.example.test` is refused before anything is fetched.
+- **Hubs and names.** `hub` must be one of `widgets`, `editor`, `theme`, `developer`, `custom-widget` and `help-root`, checked in code before a path is built. The file name comes from the last URL segment reduced to letters, digits, dot, dash and underscore, and it starts with a letter or digit. A path that is a link, or that resolves outside the store, is refused.
+- **Permissions.** The refresh needs `manage_options` and is audited; the three readers need only the read permission.
+- **Older files.** Articles that an earlier version wrote next to the plugins directory are not read, moved or deleted.
+
+### Confirmation token details
+
+A token is issued by `security-issue-confirmation-token` for one ability and its exact arguments (every argument except `confirmation_token`), works once, and lives 60 to 3600 seconds (`ttl_seconds`, default 300; a value outside that range is refused by the input schema, and the lifetime is never shorter than 60 seconds). `expires_at` in the answer is the real expiry. `elementor-create-custom-widget` follows the same rule: its token covers the full argument object.
+
+A dry run of an Elementor write ability needs no token in `production-safe` mode because it writes nothing: no snapshot, no post meta and no write lock. This holds for `elementor-v3-update-element`, `elementor-v3-batch-mutate` and `elementor-v3-build-page-from-spec`. The write itself still needs a token bound to its arguments, and a token issued for a dry run does not authorize the write (`dry_run` is one of the bound arguments).
+
 ### Supply chain
 
 Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
 `wordpress/php-mcp-schema`, `wordpress/abilities-api`,
-`automattic/jetpack-autoloader` ^5.0, and `opis/json-schema`. Check these
-dependencies for security advisories on each update. The Composer
-`composer.lock` file pins exact versions; review it when updating.
+`automattic/jetpack-autoloader` ^5.0, `defuse/php-encryption` ^2.4, and
+`opis/json-schema`. Check these dependencies for security advisories on each
+update. The Composer `composer.lock` file pins exact versions; review it when
+updating.
 
 `wordpress/abilities-api` is kept as a compatibility package for WordPress
 versions that do not yet ship the Abilities API in core. Packagist marks the
@@ -101,15 +282,55 @@ the same canonical identity rather than the alias. Audit-lock recovery checks
 boot/process-start ownership and quarantines a stale lock atomically before
 removing it, so PID reuse and replacement-lock races fail closed.
 
+### Plugin data when the plugin is deleted
+
+Deleting the plugin keeps its data: OAuth grants and keys, memory, skills, audit
+history, and settings stay in the database. Defining
+`STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
+table, every `stonewright_` option (the OAuth signing and encryption keys
+included), every `stonewright_` and `sw_cc_` transient, and the scheduled
+events, on every site of a network, and the change journal files in
+`uploads/stonewright-state/` (a file in that folder that Stonewright did not write
+stays). See
+[Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
+Leave the constant undefined unless the data is meant to go.
+
+The rescue helper is not data. It is the file `wp-content/mu-plugins/stonewright-rescue.php`,
+which the plugin installed, and deleting the plugin always removes it. Deactivating the
+plugin leaves it in place, where it does nothing until the plugin is active again.
+
+## Stored secrets on the Setup page
+
+The Setup page never writes a stored API key (Unsplash, Pexels) or the bridge
+token into the page. The fields stay empty and show that a value is stored; the
+bridge launch values use a placeholder until a new token is generated in the
+browser. Saving with an empty field keeps the stored value, typing a value
+replaces it, and the **Remove the stored value when saving** checkbox clears
+it. The values are plain options in the database, readable by anyone with
+database or `manage_options` access; keep the site database private and prefer
+short-lived keys.
+
+## Sandbox draft storage
+
+Sandbox drafts and their backups are stored without a PHP extension, the folder
+denies web requests on Apache, IIS and servers that ignore `.htaccess`
+(nothing in it can run as PHP), and activation writes the only executable copy
+with an `ABSPATH` guard as its first statement. See [Sandbox](admin/sandbox.md).
+
 ## php-execute runtime guards
 
 `stonewright/php-execute` is on the **full** MCP profile only. During a snippet
-the plugin wraps the live `$wpdb` handle with a real `wpdb` subclass
-(`ProtectedWpdbProxy extends wpdb` via `ProtectedWpdbWriteGuard`):
+the plugin wraps the live `$wpdb` handle with `ProtectedWpdbProxy`, installed
+by `ProtectedWpdbWriteGuard`:
 
-- The proxy copies the live connection and table prefix, intercepts `query()`
-  as the write choke point, and restores the original global in `finally`.
-  Type compatibility does not weaken the guard.
+- The proxy is a `wpdb` only for type checks. Every method and every property
+  read or write is forwarded to the live handle, so a driver subclass (for
+  example the SQLite integration) keeps its own escaping, query code and state
+  and `esc_sql()`, `wp_count_posts()` and `get_posts()` behave as outside
+  php-execute. The write policy runs before a call is forwarded: `query()`,
+  `get_var()`, `get_row()`, `get_col()` and `get_results()` check the SQL they
+  run, and `insert()`, `replace()`, `update()` and `delete()` check the table
+  and payload. The original global is restored in `finally`.
 - `read_only:true` rejects any WordPress state mutation.
 - Direct `$wpdb` `insert` / `update` / `replace` / `delete` / write `query` calls
   against core tables (`posts`, `postmeta`, `options`, `users`, `usermeta`) are
@@ -123,7 +344,11 @@ the plugin wraps the live `$wpdb` handle with a real `wpdb` subclass
   PHP. Route those writes through the approval-gated custom-code provider.
 
 These guards do not make php-execute a sandbox. Prefer typed abilities for
-Elementor, FSE, options, and post writes.
+Elementor, FSE, options, and post writes. A successful call whose snippet uses
+post meta, option, Elementor data, or menu patterns returns a `routing_hint`
+that names the typed tool. The hint is advice built from fixed text after the
+guards and the snippet have run; it does not block, change, or repeat the
+snippet.
 
 Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct
@@ -141,7 +366,9 @@ archives exclude Direct sites config, memory, and audit state.
 - [ ] `COMPANION_BEARER_TOKEN` set to a strong random value.
 - [ ] `COMPANION_ALLOWED_ORIGINS` restricted to known request origins.
 - [ ] Companion running on a private network only.
+- [ ] `stonewright_mcp_allowed_origins` lists only browser-based MCP tools that are in use; command-line and desktop clients need no entry.
 - [ ] Audit log monitored or exported to a centralized logging system.
+- [ ] `STONEWRIGHT_REMOVE_ALL_DATA` not defined, unless the plugin's data is meant to be removed when the plugin is deleted.
 - [ ] `WP_DEBUG` off in production (prevents diagnostic information leakage).
 
 ## Reporting

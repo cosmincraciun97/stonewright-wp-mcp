@@ -17,7 +17,10 @@ For every Elementor document mutation in Plugin mode:
 4. Prefer one dry-run and one consolidated
    `stonewright-elementor-v3-batch-mutate` call per post. Include
    `expected_tree_hash` where supported. Do not issue parallel writes to the
-   same document.
+   same document. In `production-safe` mode the apply needs a confirmation token
+   issued for exactly that call and the dry run needs none. When another writer holds
+   the page, the call returns the retryable `stonewright_elementor_write_busy` with
+   `retry_after` seconds: wait, then repeat that one call.
 5. Apply the typed write. Stonewright snapshots first, verifies serialized
    readback, then invalidates only the target post's element/HTML cache and
    WordPress object cache. It does not delete CSS metadata or clear Elementor's
@@ -25,8 +28,9 @@ For every Elementor document mutation in Plugin mode:
 6. Call `stonewright-elementor-css-regenerate` when the write affects generated
    CSS. It snapshots the post, inventories the direct CSS directory, probes
    existing protected URLs, regenerates only the resolved post or loop target
-   through Elementor's official `update_file()` API, and restores its bounded
-   asset snapshot if another file changes or a probe fails. Restore runs only
+   through Elementor's official `update()` API (the file and the stored CSS
+   metadata), and restores its bounded asset snapshot if another file changes
+   or a probe fails. Restore runs only
    while the CSS directory lease still identifies this writer, including an
    expired-but-ours lease. A vacant lease after another writer committed and
    released is a successor fence: skip restore (`not_attempted_lock_lost` /
@@ -71,15 +75,46 @@ compatible versions) and cleans the WordPress post cache. It preserves
 `_elementor_css`, never calls Elementor's global files-manager clear, and never
 emits a site-wide atomic-style clear for one post.
 
+`stonewright-elementor-css-regenerate` first scans the stored settings of the
+post, and its page or kit settings, for CSS control characters under colour,
+typography, unit and numeric-side keys. A match fails with
+`stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock
+or generation.
+
 `stonewright-elementor-css-regenerate` reports:
 
 - target kind and filename (never raw path or URL);
 - hashed path/URL and before/after direct-file manifest hashes;
 - distinct `generation_status`, `delivery_status`, and
-  `frontend_verification_status` (`verified|blocked|failed|not_checked`);
+  `frontend_verification_status` (`verified|blocked|failed|not_checked`;
+  `delivery_status` also reports `not_applicable` when the page has no CSS
+  file);
+- `css_file_status` (`present|not_produced`): a page whose styles are empty,
+  for example a page built only from Atomic elements that keep their styles in
+  the markup, produces no post CSS file. The call then succeeds with
+  `css_file_status: not_produced` and `css_file_reason: empty_css`, only when
+  Elementor itself reports an empty stylesheet and no other CSS asset changed.
+  A missing file without that evidence, or under the internal CSS print method
+  (`stonewright_elementor_css_inline_print_method`), is still refused and
+  rolled back;
+- `css_version` and `css_version_before`, the `?ver=` of the page's
+  stylesheet link before and after, and `css_version_changed`. A written file
+  always moves the version forward, whatever the anonymous probe answers, so
+  browsers and page caches fetch the new file;
 - HTTP probes for the target CSS and any existing
-  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets
-  (a login 302 is delivery blocked, not a generation failure);
+  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets.
+  Probes are anonymous and same-origin. A redirect chain of at most two
+  same-origin hops (same scheme, host and port, never a login page) that ends
+  in HTTP 200 `text/css` with the written bytes is `verified`, and the probe
+  records `redirect_hops`. A cross-origin, downgraded or looping redirect fails
+  with `stonewright_elementor_css_probe_unsafe_redirect` before any write. A
+  redirect to a login page or to any page that is not the CSS, a 401 or a 403,
+  is access control in front of the file: `delivery_status` is `blocked`, the
+  call answers `ok: true` with `warnings`
+  (`stonewright_elementor_css_delivery_protected`) and a `repair` text, and the
+  layout must not be rebuilt because of it. A file that was delivered before the
+  write and is not after it fails with `stonewright_elementor_css_probe_failed`
+  and is rolled back;
 - collateral-change and rollback status;
 - backup snapshot id and `effect_verified` only when the requested effect
   actually closed.

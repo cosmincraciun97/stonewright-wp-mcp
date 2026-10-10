@@ -88,6 +88,14 @@ final class V3MutationCompiler {
 			);
 		}
 
+		if ( 'inner-section' === $widget_type ) {
+			return self::error(
+				'inner_section_is_layout',
+				__( 'An inner section is a layout element, not a widget. Add a container with a container parent instead.', 'stonewright' ),
+				[ 'status' => 400, 'widget_type' => $widget_type ]
+			);
+		}
+
 		$parent_id = trim( (string) ( $operation['parent_id'] ?? '' ) );
 		$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
 		if ( '' === $parent_id && 'mixed' === $architecture ) {
@@ -106,6 +114,17 @@ final class V3MutationCompiler {
 					'parent_not_found',
 					__( 'Parent element not found.', 'stonewright' ),
 					[ 'parent_id' => $parent_id ]
+				);
+			}
+			if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+				return self::error(
+					'parent_not_container',
+					__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+					[
+						'status'         => 400,
+						'parent_id'      => $parent_id,
+						'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+					]
 				);
 			}
 			$subtree = AtomicTreeInspector::subtree_architecture( $tree, $parent_id );

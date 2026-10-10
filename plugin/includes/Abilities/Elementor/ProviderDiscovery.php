@@ -25,7 +25,7 @@ final class ProviderDiscovery extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Reports live Elementor provider ownership, schema provenance, trust, and native-preferred certification without changing site data.', 'stonewright' );
+		return __( 'Reports live Elementor provider ownership, schema provenance, trust, native-preferred certification, and the native Elementor MCP status without changing site data.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -50,6 +50,7 @@ final class ProviderDiscovery extends AbilityKernel {
 			'properties'           => [
 				'providers'        => [ 'type' => 'array' ],
 				'native_preferred' => [ 'type' => 'object' ],
+				'native_elementor' => [ 'type' => 'object' ],
 				'writes_enabled'   => [ 'type' => 'boolean' ],
 			],
 		];
@@ -58,7 +59,14 @@ final class ProviderDiscovery extends AbilityKernel {
 	public function meta(): array {
 		return [
 			'annotations' => [ 'readonly' => true, 'destructive' => false, 'idempotent' => true ],
-			'provider_policy' => [ 'elementor/manage-default-styles' => 'native-preferred-when-certified' ],
+			'provider_policy' => [
+				'elementor/manage-default-styles' => 'native-preferred-when-certified',
+				'elementor/manage-classes'        => 'certified-native-write-refused',
+				'elementor/manage-global-variable' => 'certified-native-write-refused',
+				'elementor/get-page-structure'    => 'native-readback-when-certified',
+				'elementor/manage-elements'       => 'unsupported',
+				'elementor/build-composition'     => 'native-preferred-when-certified',
+			],
 		];
 	}
 

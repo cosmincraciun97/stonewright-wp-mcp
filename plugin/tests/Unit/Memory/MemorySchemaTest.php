@@ -213,6 +213,96 @@ final class MemorySchemaTest extends TestCase {
 		self::assertNotContains( $id, array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' ) );
 	}
 
+	public function test_approved_error_pattern_lesson_is_offered_to_agents_like_any_active_reference(): void {
+		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
+		$approved        = Memory::put_typed(
+			'reference',
+			'audit',
+			'draft-lesson-approved',
+			'Draft lesson',
+			[
+				'source'               => 'error-pattern-draft',
+				'proposed_remediation' => 'Read the exact schema.',
+				'approval'             => [ 'approved_at' => '2026-10-01 10:00:00', 'approved_by' => 7 ],
+			],
+			1.0,
+			[ 'status' => 'active', 'precedence' => 0 ]
+		);
+		$unapproved      = Memory::put_typed(
+			'reference',
+			'audit',
+			'draft-lesson-unapproved',
+			'Draft lesson',
+			[ 'source' => 'error-pattern-draft', 'proposed_remediation' => 'Read the exact schema.' ],
+			1.0,
+			[ 'status' => 'active', 'precedence' => 0 ]
+		);
+		$plain           = Memory::put_typed(
+			'reference',
+			'audit',
+			'site-reference',
+			'Site reference',
+			[ 'note' => 'Plain active reference.' ],
+			1.0,
+			[ 'status' => 'active', 'precedence' => 0 ]
+		);
+
+		$entry = Memory::get_by_id( $approved );
+		self::assertIsArray( $entry );
+		self::assertTrue( Memory::is_task_start_eligible( $entry ) );
+		$offered = array_column( Memory::list_active_for_matching( 'audit', 500 ), 'id' );
+		self::assertContains( $approved, $offered );
+		self::assertContains( $plain, $offered );
+		self::assertNotContains( $unapproved, $offered );
+	}
+
+	/**
+	 * @dataProvider approved_lesson_entries
+	 * @param array<string, mixed> $entry
+	 */
+	public function test_error_pattern_lesson_with_an_approval_record_is_task_start_eligible( array $entry ): void {
+		self::assertTrue( Memory::is_task_start_eligible( $entry ) );
+	}
+
+	/**
+	 * @dataProvider unapproved_lesson_entries
+	 * @param array<string, mixed> $entry
+	 */
+	public function test_error_pattern_lesson_stays_hidden_until_it_is_active_and_approved( array $entry ): void {
+		self::assertFalse( Memory::is_task_start_eligible( $entry ) );
+	}
+
+	/** @return array<string, array{0: array<string, mixed>}> */
+	public static function approved_lesson_entries(): array {
+		$approval = [ 'approved_at' => '2026-10-01 10:00:00', 'approved_by' => 7 ];
+
+		return [
+			'draft key and draft source' => [ self::lesson_entry( 'active', 'draft-lesson-a', [ 'source' => 'error-pattern-draft', 'approval' => $approval ] ) ],
+			'draft key only'             => [ self::lesson_entry( 'active', 'draft-lesson-b', [ 'proposed_remediation' => 'Read the schema.', 'approval' => $approval ] ) ],
+			'draft source only'          => [ self::lesson_entry( 'active', 'site-note', [ 'source' => 'error-pattern-draft', 'approval' => $approval ] ) ],
+		];
+	}
+
+	/** @return array<string, array{0: array<string, mixed>}> */
+	public static function unapproved_lesson_entries(): array {
+		$approval = [ 'approved_at' => '2026-10-01 10:00:00', 'approved_by' => 7 ];
+		$draft    = [ 'source' => 'error-pattern-draft' ];
+
+		return [
+			'active, no approval record'               => [ self::lesson_entry( 'active', 'draft-lesson-a', $draft ) ],
+			'active, draft key only, no approval'      => [ self::lesson_entry( 'active', 'draft-lesson-b', [ 'proposed_remediation' => 'Read the schema.' ] ) ],
+			'active, draft source only, no approval'   => [ self::lesson_entry( 'active', 'site-note', $draft ) ],
+			'active, empty approval record'            => [ self::lesson_entry( 'active', 'draft-lesson-c', $draft + [ 'approval' => [] ] ) ],
+			'active, approval flag, not a record'      => [ self::lesson_entry( 'active', 'draft-lesson-d', $draft + [ 'approval' => true ] ) ],
+			'active, approval record without a time'   => [ self::lesson_entry( 'active', 'draft-lesson-e', $draft + [ 'approval' => [ 'approved_by' => 7 ] ] ) ],
+			'draft status, approval record present'    => [ self::lesson_entry( 'draft', 'draft-lesson-f', $draft + [ 'approval' => $approval ] ) ],
+			'stale after approval'                     => [ self::lesson_entry( 'stale', 'draft-lesson-g', $draft + [ 'approval' => $approval ] ) ],
+			'approved but flagged dangerous'           => [ self::lesson_entry( 'active', 'draft-lesson-h', $draft + [ 'approval' => $approval, 'dangerous' => true ] ) ],
+			'approved but an unverified workaround'    => [ self::lesson_entry( 'active', 'draft-lesson-i', $draft + [ 'approval' => $approval, 'unverified' => true, 'workaround' => 'Skip validation.' ] ) ],
+			'approved but claims a product rule'       => [ self::lesson_entry( 'active', 'draft-lesson-j', $draft + [ 'approval' => $approval, 'product_rule' => true ] ) ],
+		];
+	}
+
 	public function test_put_typed_rejects_payload_self_declaring_permanent_product_rule(): void {
 		$GLOBALS['wpdb'] = $this->make_crud_wpdb();
 		$id = Memory::put_typed(
@@ -547,6 +637,20 @@ final class MemorySchemaTest extends TestCase {
 				return array_slice( $rows, $offset, $limit );
 			}
 		};
+	}
+
+	/**
+	 * @param array<string, mixed> $value
+	 * @return array<string, mixed>
+	 */
+	private static function lesson_entry( string $status, string $key, array $value ): array {
+		return [
+			'type'       => 'reference',
+			'scope'      => 'audit',
+			'memory_key' => $key,
+			'status'     => $status,
+			'value'      => $value,
+		];
 	}
 
 	/**

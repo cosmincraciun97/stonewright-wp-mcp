@@ -8,7 +8,6 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
-use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -62,6 +61,19 @@ final class CreateCustomWidget extends AbilityKernel {
 
 	public function category(): string {
 		return 'elementor-widget';
+	}
+
+	/**
+	 * Writes the widget file under its slug without looking for an earlier one, so a repeat replaces the earlier widget.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'destructive' => true,
+			],
+		];
 	}
 
 	public function input_schema(): array {
@@ -136,7 +148,7 @@ final class CreateCustomWidget extends AbilityKernel {
 				],
 				'confirmation_token' => [
 					'type'        => 'string',
-					'description' => 'Required only in production-safe mode (Permissions::is_production_safe()).',
+					'description' => 'Required only in production-safe mode. Issue it with stonewright/security-issue-confirmation-token for this ability and the full argument object: the token is bound to every other argument, so any change to the arguments needs a new token.',
 				],
 			],
 		];
@@ -203,17 +215,9 @@ final class CreateCustomWidget extends AbilityKernel {
 					);
 				}
 
-				// 2. Production-safe token check. Verify the slug + template
-				// pair so the token can't be reused with a swapped template.
-				$token_error = $this->production_safe_token_error(
-					$a,
-					[
-						'slug'     => $slug,
-						'title'    => $title,
-						'template' => $template,
-						'activate' => $activate,
-					]
-				);
+				// 2. Production-safe token check. The token is bound to every
+				// argument except confirmation_token itself.
+				$token_error = $this->production_safe_token_error( $a, $a );
 				if ( null !== $token_error ) {
 					return $token_error;
 				}
@@ -259,11 +263,7 @@ final class CreateCustomWidget extends AbilityKernel {
 				// 5. StaticGuard — reject obvious payloads.
 				$findings = StaticGuard::scan( $source );
 				if ( ! empty( $findings ) ) {
-					AuditLog::record(
-						self::ABILITY,
-						[ 'slug' => $slug, 'static_guard' => 'rejected' ],
-						'error'
-					);
+					// The audit wrapper records this rejection once, with its error code.
 					return new \WP_Error(
 						'stonewright_static_guard_rejected',
 						__( 'StaticGuard rejected the compiled widget source.', 'stonewright' ),
@@ -271,13 +271,12 @@ final class CreateCustomWidget extends AbilityKernel {
 					);
 				}
 
-				// 6. Write the file. If activating, write directly as .php so
-				// the WidgetLoader picks it up; otherwise stage .pending.php
-				// for review.
-				$dir       = SandboxFiles::draft_dir();
+				// 6. Write the file. If activating, store it under the active
+				// widget name so the WidgetLoader picks it up; otherwise stage
+				// the pending name for review. Both are stored as .draft files.
 				$ext       = $activate ? '.php' : '.pending.php';
 				$filename  = 'widget-' . $slug . $ext;
-				$abs_path  = $dir . '/' . $filename;
+				$abs_path  = SandboxFiles::stored_path( $filename );
 				$bytes     = file_put_contents( $abs_path, $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 				if ( false === $bytes ) {
 					return new \WP_Error(

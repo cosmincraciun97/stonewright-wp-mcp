@@ -567,7 +567,12 @@ final class AuditEventIncidentTest extends TestCase {
 			self::assertSame( $case['expected']['outcome'], $event['outcome'], (string) $case['case'] );
 			$candidate = in_array( $event['outcome'], [ AuditEvent::OUTCOME_FAILED, AuditEvent::OUTCOME_RETRYABLE ], true );
 			self::assertSame( $case['expected']['incident_candidate'], $candidate, (string) $case['case'] );
-			self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $event['incident_id'] );
+			if ( AuditEvent::OUTCOME_SUCCESS === $event['outcome'] ) {
+				// A successful row belongs to no incident.
+				self::assertSame( '', $event['incident_id'], (string) $case['case'] );
+			} else {
+				self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $event['incident_id'] );
+			}
 			$case_names[] = (string) $case['case'];
 		}
 		self::assertCount( 22, array_unique( $case_names ) );

@@ -2,10 +2,64 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.14] - 2026-10-10
+
+### Added
+
+- Accept `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`, the read-only profile of
+  discovery, read, and verify tools. It registers the permanent gateways and the
+  local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools, and
+  no `stonewright-php-execute`, WP-CLI run, batch, job, or install tool, and no
+  command tool, even when the site's saved surface is `full`. Setup output
+  names no runtime or WP-CLI run tool for it and does not ask a client to
+  refresh for `php-execute`. In Direct (pluginless) mode the profile maps to the
+  Direct bootstrap surface. Auto and unknown profile values never select it.
+- `stonewright rescue status|rollback <incident>` runs the plugin's
+  `wp stonewright rescue` command on a site with a local WordPress root, with
+  every active plugin but Stonewright skipped (`--skip-plugins=<list>`) and the
+  theme skipped (`--skip-themes`), so a rescue rollback still works when
+  another plugin or the theme stops WordPress from loading. It starts every
+  process through the tokenized WP-CLI runner (`execFile`, argv tokens only, no
+  shell, eval, `--exec` or `--require`), validates the incident id, the user,
+  the plugin names and the token before anything runs, passes the confirmation
+  token through the child's environment instead of its arguments, and writes
+  one audit row without arguments, token or output. Exit code 2 means a
+  confirmation token is required.
+
+### Changed
+
+- Retry a token refresh once when no response arrived at all (a timeout or a
+  reset connection). The retry sends the same refresh credential while the
+  cross-process refresh lock is still held, starts at most 30 seconds after the
+  first request, and is aborted 50 seconds after it, inside the server's
+  60-second duplicate window. A received HTTP response is never retried. When
+  the retry fails too, or the server answers `invalid_grant`, the connection
+  asks for authorization again as before.
+- Say why authorization is required again. The `user_action` for
+  `invalid_client`, `refresh_token_expired`, `refresh_token_revoked`,
+  `refresh_outcome_unknown`, and a bare `invalid_grant` starts with one fixed
+  sentence, followed by the client-specific action. For `invalid_client` the
+  action is to remove the Stonewright server from the AI client and add it again
+  from **Stonewright > Setup**, because a sign-in alone cannot restore a
+  registration the site no longer has. `reason_code` is unchanged.
+- Update `smol-toml` to 1.9.0 and the locked `proxy-addr` to 2.0.8.
+- Test runs on Windows remove their OAuth fixture folders at the drive root
+  when the run ends, and remove folders of earlier runs that are older than 24
+  hours.
+
 ### Fixed
 
+- Correct the documented retry behaviour of the companion: it sends each
+  WordPress MCP request once and does not repeat it after a timeout or network
+  error; on OAuth connections an HTTP 401 refreshes the access token and sends
+  that request once more, a tool call included.
 - Refresh runtime dependency floors and security overrides, and use a patched
   test-runner version.
+- Wait up to one second, instead of a quarter of a second, for a Windows OAuth
+  token file that another program holds open for a moment, such as a virus
+  scanner or an indexer, before the privacy check gives up. Privacy is still
+  rechecked before every attempt, and permission, ownership and other errors
+  still fail closed at once.
 
 ## [1.0.0-beta.13.3] - 2026-09-17
 

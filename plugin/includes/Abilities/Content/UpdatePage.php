@@ -89,6 +89,11 @@ final class UpdatePage extends AbilityKernel {
 			);
 		}
 
+		$refusal = self::refuse_revision( $post );
+		if ( null !== $refusal ) {
+			return $refusal;
+		}
+
 		if ( ! Permissions::edit_post( $id ) ) {
 			return new \WP_Error(
 				'stonewright_forbidden',
@@ -117,9 +122,14 @@ final class UpdatePage extends AbilityKernel {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$id = (int) $args['id'];
-				if ( ! get_post( $id ) ) {
+				$id   = (int) $args['id'];
+				$post = get_post( $id );
+				if ( ! $post ) {
 					return $this->error( 'not_found', __( 'Page not found.', 'stonewright' ) );
+				}
+				$refusal = self::refuse_revision( $post );
+				if ( null !== $refusal ) {
+					return $refusal;
 				}
 
 				$snapshot_id = Backup::snapshot_post( $id );
@@ -138,7 +148,7 @@ final class UpdatePage extends AbilityKernel {
 					$payload['post_status'] = (string) $args['status'];
 				}
 
-				$result = wp_update_post( $payload, true );
+				$result = wp_update_post( wp_slash( $payload ), true );
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}
@@ -173,6 +183,21 @@ final class UpdatePage extends AbilityKernel {
 					'meta_skipped' => $meta_skipped,
 				];
 			}
+		);
+	}
+
+	/**
+	 * A revision is a saved copy of a page, not a page. Writing to one changes nothing a visitor can see
+	 * and leaves a change that cannot be checked, so the id of the page itself is required.
+	 */
+	private static function refuse_revision( object $post ): ?\WP_Error {
+		if ( 'revision' !== (string) ( $post->post_type ?? '' ) ) {
+			return null;
+		}
+		return new \WP_Error(
+			'stonewright_invalid_post_type',
+			__( 'This id is a revision, not a page. Pass the id of the page itself.', 'stonewright' ),
+			[ 'status' => 400 ]
 		);
 	}
 }

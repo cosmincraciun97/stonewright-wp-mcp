@@ -11,7 +11,9 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
+use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
+use Stonewright\WpMcp\Support\ClientSchema;
 use Stonewright\WpMcp\Support\Utf8;
 
 /**
@@ -22,6 +24,23 @@ use Stonewright\WpMcp\Support\Utf8;
  * the REST layer skips the duplicate row via request-scoped deduplication.
  */
 final class RestRoutes {
+
+	/**
+	 * Block finalizer routes the browser polls continuously, with the operation class their
+	 * refusals are audited under.
+	 *
+	 * @var array<string, string>
+	 */
+	private const FINALIZER_POLL_ROUTES = [
+		'/stonewright/v1/block-finalizer/heartbeat' => 'finalizer_heartbeat_security',
+		'/stonewright/v1/block-finalizer/claim'     => 'finalizer_claim_security',
+	];
+
+	/** Longest string, in bytes, an audit row keeps verbatim from a REST parameter. */
+	private const AUDIT_STRING_LIMIT = 512;
+
+	/** Longest parameter name, in bytes, an audit row keeps verbatim. */
+	private const AUDIT_NAME_LIMIT = 96;
 
 	public static function register(): void {
 		// Central mutation audit for Stonewright-owned REST routes only.
@@ -82,7 +101,13 @@ final class RestRoutes {
 				'methods'             => 'GET',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
-					return rest_ensure_response( AbilityRegistry::all_abilities() );
+					$rows = [];
+					foreach ( AbilityRegistry::all_abilities() as $row ) {
+						// The schema leaves WordPress here, so it takes the form clients receive from core.
+						$row['input_schema'] = ClientSchema::prepare( $row['input_schema'] );
+						$rows[]              = $row;
+					}
+					return rest_ensure_response( $rows );
 				},
 			]
 		);
@@ -974,13 +999,12 @@ final class RestRoutes {
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$enabled_only = (bool) $request->get_param( 'enabled_only' );
 						$mode         = (string) $request->get_param( 'mode' );
+						$library      = SkillLibraryService::open( WordPressBoundary::REST );
 
-						if ( 'agentic' === $mode ) {
-							$skills = Skills::list_agentic();
-						} elseif ( 'prompt' === $mode ) {
-							$skills = Skills::list_prompt();
+						if ( in_array( $mode, [ 'agentic', 'prompt' ], true ) ) {
+							$skills = $library->exposed( $mode );
 						} else {
-							$skills = Skills::list( $enabled_only );
+							$skills = $library->records( $enabled_only );
 							$mode   = 'all';
 						}
 
@@ -1002,10 +1026,11 @@ final class RestRoutes {
 						'enabled'        => [ 'type' => 'boolean', 'default' => true ],
 						'enable_agentic' => [ 'type' => 'boolean' ],
 						'enable_prompt'  => [ 'type' => 'boolean' ],
+						'revision'       => [ 'type' => 'integer', 'minimum' => 1 ],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
-						$enabled = (bool) $request->get_param( 'enabled' );
-						$id      = Skills::save( [
+						$enabled = null === $request->get_param( 'enabled' ) || (bool) $request->get_param( 'enabled' );
+						$input   = [
 							'slug'           => (string) $request->get_param( 'slug' ),
 							'title'          => (string) $request->get_param( 'title' ),
 							'description'    => (string) $request->get_param( 'description' ),
@@ -1017,10 +1042,14 @@ final class RestRoutes {
 							'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
 								? (bool) $request->get_param( 'enable_prompt' )
 								: $enabled,
-							'source'         => 'user',
-						] );
-						if ( 0 === $id ) {
-							return new \WP_Error( 'stonewright_skills_save_failed', __( 'Failed to save skill.', 'stonewright' ), [ 'status' => 500 ] );
+						];
+						// A caller that read the skill first sends the revision it read, so a newer change is never overwritten.
+						if ( null !== $request->get_param( 'revision' ) ) {
+							$input['revision'] = (int) $request->get_param( 'revision' );
+						}
+						$id = SkillLibraryService::open( WordPressBoundary::REST )->save_skill( $input );
+						if ( is_wp_error( $id ) ) {
+							return $id;
 						}
 						return rest_ensure_response( [ 'id' => $id ] );
 					},
@@ -1041,7 +1070,10 @@ final class RestRoutes {
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$id      = absint( $request->get_param( 'id' ) );
 					$enabled = (bool) $request->get_param( 'enabled' );
-					Skills::toggle( $id, $enabled );
+					$result  = SkillLibraryService::open( WordPressBoundary::REST )->set_enabled( $id, $enabled );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
 					return rest_ensure_response( [ 'id' => $id, 'enabled' => $enabled ] );
 				},
 			]
@@ -1058,15 +1090,26 @@ final class RestRoutes {
 				],
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$id      = absint( $request->get_param( 'id' ) );
-					$skill   = Skills::get_by_id( $id );
+					$library = SkillLibraryService::open( WordPressBoundary::REST );
+					$skill   = $library->record_for_id( $id );
 					if ( null === $skill ) {
 						return new \WP_Error( 'stonewright_skill_not_found', __( 'Skill not found.', 'stonewright' ), [ 'status' => 404 ] );
 					}
-					if ( 'builtin' === $skill['source'] ) {
+					if ( in_array( $skill['source'], [ 'builtin', 'playbook' ], true ) ) {
 						return new \WP_Error( 'stonewright_skill_builtin', __( 'Built-in skills cannot be deleted. Disable them instead.', 'stonewright' ), [ 'status' => 403 ] );
 					}
-					Skills::delete( $id );
-					return rest_ensure_response( [ 'deleted' => true, 'id' => $id ] );
+					// Deleting moves the skill to the trash; the skills screen restores it or erases it for good.
+					$result = $library->move_to_trash( $id );
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
+					return rest_ensure_response(
+						[
+							'deleted' => true,
+							'id'      => $id,
+							'status'  => 'trashed',
+						]
+					);
 				},
 			]
 		);
@@ -1081,7 +1124,7 @@ final class RestRoutes {
 	 * @return mixed
 	 */
 	public static function audit_pre_dispatch( $result, $server, $request ) {
-		if ( self::is_finalizer_heartbeat( $request ) ) {
+		if ( self::is_finalizer_poll( $request ) ) {
 			AuditLog::begin_request();
 			return $result;
 		}
@@ -1102,14 +1145,17 @@ final class RestRoutes {
 	 * @return mixed
 	 */
 	public static function audit_post_dispatch( $response, $server, $request ) {
-		// OAuth endpoints get their own recorder: their failures are protocol
-		// refusals rather than agent mistakes, and their payloads are credentials
-		// that must never be summarized into the generic mutation row.
+		// The OAuth routes are audited by the OAuth recorder (HttpSurface) and by nothing
+		// here: their failures are protocol refusals rather than agent mistakes, their
+		// payloads are credentials that must never be summarized into the generic mutation
+		// row, and only that recorder knows which client identifiers the site knows. A
+		// second recorder reading the request would name identifiers a caller made up and
+		// count every refusal twice.
 		if ( self::is_oauth_endpoint( $request ) ) {
-			return self::audit_oauth_dispatch( $response, $request );
+			return $response;
 		}
-		if ( self::is_finalizer_heartbeat( $request ) ) {
-			return self::audit_finalizer_heartbeat_denial( $response, $request );
+		if ( self::is_finalizer_poll( $request ) ) {
+			return self::audit_finalizer_poll_denial( $response, $request );
 		}
 		if ( ! self::is_stonewright_mutation( $request ) ) {
 			return $response;
@@ -1596,76 +1642,6 @@ final class RestRoutes {
 		return str_starts_with( (string) $request->get_route(), '/stonewright/v1/oauth/' );
 	}
 
-	/**
-	 * Persist one auth row for an OAuth endpoint outcome.
-	 *
-	 * Successful GETs on the auth surface (the authorize redirect, discovery) are
-	 * not recorded: they would bury the failures this row exists to surface. Every
-	 * 4xx/5xx is recorded regardless of method.
-	 *
-	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
-	 * @return mixed
-	 */
-	private static function audit_oauth_dispatch( $response, \WP_REST_Request $request ) {
-		if ( AuditLog::was_audited() ) {
-			return $response;
-		}
-
-		if ( $response instanceof \WP_Error ) {
-			$data      = $response->get_error_data();
-			$http      = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
-			$http      = $http > 0 ? $http : 500;
-			$carrier   = new \WP_REST_Response(
-				[
-					'error'             => (string) $response->get_error_code(),
-					'error_description' => (string) $response->get_error_message(),
-				],
-				$http
-			);
-		} elseif ( is_object( $response ) && method_exists( $response, 'get_status' ) ) {
-			// Duck-typed rather than instanceof: the OAuth bridge hands back
-			// whatever response object the transport produced.
-			$carrier = $response;
-			$http    = (int) $response->get_status();
-		} else {
-			return $response;
-		}
-
-		$method = strtoupper( (string) $request->get_method() );
-		if ( $http < 400 && 'POST' !== $method ) {
-			return $response;
-		}
-
-		$route    = (string) $request->get_route();
-		$endpoint = 'oauth/' . ltrim( substr( $route, strlen( '/stonewright/v1/oauth/' ) ), '/' );
-		$body     = $request->get_body_params();
-		$body     = is_array( $body ) ? $body : [];
-		$sensitive_values = [];
-		foreach ( [ 'client_secret', 'code', 'refresh_token', 'access_token', 'id_token', 'device_code', 'user_code', 'assertion' ] as $key ) {
-			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) ) {
-				$sensitive_values[] = (string) $body[ $key ];
-			}
-		}
-		$authorization = $request->get_header( 'authorization' );
-		if ( is_string( $authorization ) && '' !== trim( $authorization ) ) {
-			$sensitive_values[] = $authorization;
-			if ( preg_match( '/^\S+\s+(.+)$/', trim( $authorization ), $authorization_parts ) ) {
-				$sensitive_values[] = $authorization_parts[1];
-			}
-		}
-
-		AuditLog::record_auth_event(
-			$endpoint,
-			$carrier,
-			[
-				'client_id'        => $body['client_id'] ?? $request->get_param( 'client_id' ) ?? '',
-				'sensitive_values' => $sensitive_values,
-			]
-		);
-
-		return $response;
-	}
-
 	private static function is_stonewright_mutation( \WP_REST_Request $request ): bool {
 		$route  = (string) $request->get_route();
 		$method = strtoupper( (string) $request->get_method() );
@@ -1675,25 +1651,28 @@ final class RestRoutes {
 		if ( '/stonewright/v1/direct/task-start' === $route ) {
 			return false;
 		}
-		if ( '/stonewright/v1/block-finalizer/heartbeat' === $route ) {
+		// The block finalizer browser polls these every second. A poll only takes or renews a
+		// short lease on queue records; the outcomes that matter are audited by the result route
+		// and by the finalize ability.
+		if ( isset( self::FINALIZER_POLL_ROUTES[ $route ] ) ) {
 			return false;
 		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
 	}
 
-	private static function is_finalizer_heartbeat( \WP_REST_Request $request ): bool {
-		return '/stonewright/v1/block-finalizer/heartbeat' === (string) $request->get_route()
+	private static function is_finalizer_poll( \WP_REST_Request $request ): bool {
+		return isset( self::FINALIZER_POLL_ROUTES[ (string) $request->get_route() ] )
 			&& 'POST' === strtoupper( (string) $request->get_method() );
 	}
 
 	/**
-	 * Persist terminal heartbeat token/capability denials without logging routine
-	 * successful liveness traffic.
+	 * Persist terminal token/capability denials of a finalizer poll without logging routine
+	 * successful polling traffic. The row carries no request parameters.
 	 *
 	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
 	 * @return mixed
 	 */
-	private static function audit_finalizer_heartbeat_denial( $response, \WP_REST_Request $request ) {
+	private static function audit_finalizer_poll_denial( $response, \WP_REST_Request $request ) {
 		if ( AuditLog::was_audited() ) {
 			return $response;
 		}
@@ -1714,9 +1693,9 @@ final class RestRoutes {
 					'public_message'  => $envelope['public_message'],
 					'error_message'   => $envelope['public_message'],
 					'http_status'     => $envelope['http_status'],
-					'operation_class' => 'finalizer_heartbeat_security',
+					'operation_class' => self::FINALIZER_POLL_ROUTES[ $envelope['route'] ] ?? 'finalizer_poll_security',
 					'resource_type'   => 'finalizer_session',
-					'resource_ref'    => 'block-finalizer/heartbeat',
+					'resource_ref'    => substr( $envelope['route'], strlen( '/stonewright/v1/' ) ),
 					'retryable'       => false,
 					'correlation_id'  => AuditLog::request_id(),
 				],
@@ -1729,7 +1708,9 @@ final class RestRoutes {
 	/**
 	 * Replace free-form mutation bodies with compact, irreversible summaries.
 	 * This prevents credentials embedded in PHP, skills, instructions, or
-	 * memory text from being copied into the audit table.
+	 * memory text from being copied into the audit table. Whatever a request
+	 * names its parameters, a string longer than AUDIT_STRING_LIMIT bytes is
+	 * summarized at any depth, so a caller cannot grow an audit row at will.
 	 *
 	 * @param array<string, mixed> $params
 	 * @return array<string, mixed>
@@ -1742,6 +1723,7 @@ final class RestRoutes {
 			'contents',
 			'correction',
 			'evidence',
+			'html',
 			'instructions',
 			'new_string',
 			'old_string',
@@ -1751,18 +1733,34 @@ final class RestRoutes {
 		];
 		$summary   = [];
 		foreach ( $params as $key => $value ) {
-			$key = (string) $key;
+			$key   = (string) $key;
+			$shown = self::audit_name( $key );
 			if ( in_array( strtolower( $key ), $body_keys, true ) ) {
-				$summary[ $key ] = self::audit_body_summary( $value );
+				$summary[ $shown ] = self::audit_body_summary( $value );
 				continue;
 			}
 			if ( is_array( $value ) ) {
-				$summary[ $key ] = self::compact_audit_params( $value );
+				$summary[ $shown ] = self::compact_audit_params( $value );
 				continue;
 			}
-			$summary[ $key ] = $value;
+			if ( is_string( $value ) && strlen( $value ) > self::AUDIT_STRING_LIMIT ) {
+				$summary[ $shown ] = self::audit_body_summary( $value );
+				continue;
+			}
+			$summary[ $shown ] = $value;
 		}
 		return $summary;
+	}
+
+	/**
+	 * A parameter name past AUDIT_NAME_LIMIT bytes is cut and given a short digest of the whole
+	 * name, so a caller cannot hide a payload in names and different long names stay different.
+	 */
+	private static function audit_name( string $name ): string {
+		if ( strlen( $name ) <= self::AUDIT_NAME_LIMIT ) {
+			return $name;
+		}
+		return mb_strcut( $name, 0, 64, 'UTF-8' ) . '~' . substr( hash( 'sha256', $name ), 0, 16 );
 	}
 
 	/**
@@ -1788,7 +1786,8 @@ final class RestRoutes {
 	private static function resource_from_params( array $params ): string {
 		foreach ( [ 'id', 'post_id', 'name', 'slug', 'ability' ] as $key ) {
 			if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) ) {
-				return $key . '=' . (string) $params[ $key ];
+				// Bounded like the resource column that is computed from it.
+				return mb_substr( $key . '=' . (string) $params[ $key ], 0, 255 );
 			}
 		}
 		return '';

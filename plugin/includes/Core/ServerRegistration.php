@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Authorization\WordPress\ProtectedResource;
 use Stonewright\WpMcp\Support\Logger;
 use Throwable;
 use WP_Error;
@@ -50,12 +51,14 @@ final class ServerRegistration {
 		$tools            = AbilityRegistry::mcp_server_ability_names();
 
 		self::create_server( $adapter, self::SERVER_ID, self::ROUTE, $description, $tools, $meta );
-		self::create_server( $adapter, self::OAUTH_SERVER_ID, self::OAUTH_ROUTE, $description, $tools, $meta );
+		// The OAuth server admits only requests whose bearer credential ProtectedResource accepted.
+		self::create_server( $adapter, self::OAUTH_SERVER_ID, self::OAUTH_ROUTE, $description, $tools, $meta, [ ProtectedResource::class, 'permit' ] );
 	}
 
 	/**
 	 * @param array<string,string> $meta
-	 * @param list<string>         $tools Ability names.
+	 * @param list<string>         $tools      Ability names.
+	 * @param callable|null        $permission Transport permission callback; null keeps the adapter default.
 	 */
 	private static function create_server(
 		object $adapter,
@@ -63,7 +66,8 @@ final class ServerRegistration {
 		string $route,
 		string $description,
 		array $tools,
-		array $meta
+		array $meta,
+		?callable $permission = null
 	): void {
 		try {
 			if ( method_exists( $adapter, 'get_server' ) ) {
@@ -108,7 +112,8 @@ final class ServerRegistration {
 				NullMcpObservabilityHandler::class,
 				$tools,
 				[],
-				[]
+				[],
+				$permission
 			);
 
 			if ( $result instanceof WP_Error ) {

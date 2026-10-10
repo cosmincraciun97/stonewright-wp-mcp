@@ -32,6 +32,21 @@ final class ContextBootstrap extends AbilityKernel {
 		return 'system';
 	}
 
+	/**
+	 * Issues the short-lived context token and marks the session as started, so a client must not treat the call as read-only.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',
@@ -108,6 +123,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'design_implementation_contract' => [ 'type' => 'object' ],
 				'required_followups'             => [ 'type' => 'array' ],
 				'design_direction_ref'           => [ 'type' => 'object' ],
+				'agent_preferences'              => [ 'type' => 'object' ],
 				'response_mode'                  => [ 'type' => 'string' ],
 				'payload_hashes'                 => [ 'type' => 'object' ],
 				'changed_keys'                   => [ 'type' => 'array' ],

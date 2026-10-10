@@ -7,9 +7,11 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
 use Stonewright\WpMcp\Elementor\CssTargetResolver;
+use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * Regenerates one Elementor post or loop CSS file inside a guarded transaction.
@@ -17,6 +19,10 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class CssRegenerate extends AbilityKernel {
+
+	private const PROTECTED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. If the page still looks unstyled, purge the host or page cache and check the stylesheet URL in a logged-out browser; an access-control or redirect rule in front of the uploads folder is a hosting setting, not an Elementor change.';
+
+	private const UNCHECKED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version changed, but the anonymous HTTP check got no usable answer. Do not rebuild the layout. Check the stylesheet URL in a logged-out browser, and call this ability again once if the page still looks unstyled.';
 
 	public function name(): string {
 		return 'stonewright/elementor-css-regenerate';
@@ -27,7 +33,7 @@ final class CssRegenerate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates one Elementor post or loop CSS file through the official update_file API inside a guarded asset transaction, then returns hashed health evidence. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
+		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away from the CSS, the write still counts: delivery_status is blocked with a warning, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -70,7 +76,15 @@ final class CssRegenerate extends AbilityKernel {
 				],
 				'delivery_status'              => [
 					'type' => 'string',
-					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
+					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ],
+				],
+				'css_file_status'              => [
+					'type' => 'string',
+					'enum' => [ 'present', 'not_produced' ],
+				],
+				'css_file_reason'              => [
+					'type' => 'string',
+					'enum' => [ 'empty_css' ],
 				],
 				'frontend_verification_status' => [
 					'type' => 'string',
@@ -79,6 +93,11 @@ final class CssRegenerate extends AbilityKernel {
 				'root_error_code'              => [ 'type' => 'string' ],
 				'failed_check'                 => [ 'type' => 'string' ],
 				'retryable'                    => [ 'type' => 'boolean' ],
+				'css_version'                  => [ 'type' => 'integer' ],
+				'css_version_before'           => [ 'type' => 'integer' ],
+				'css_version_changed'          => [ 'type' => 'boolean' ],
+				'warnings'                     => [ 'type' => 'array' ],
+				'repair'                       => [ 'type' => 'string' ],
 				'before_manifest_sha256'       => [ 'type' => 'string' ],
 				'after_manifest_sha256'   => [ 'type' => 'string' ],
 				'probes'                  => [ 'type' => 'array' ],
@@ -110,6 +129,33 @@ final class CssRegenerate extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
 				}
 
+				// Elementor prints stored colour, typography and unit values into the
+				// stylesheet unescaped, so a page that stores a value carrying CSS
+				// control characters is never handed to the generator.
+				$unsafe = CssValueGuard::unsafe_values_in_tree( ElementorData::read( $post_id ) );
+				$page   = get_post_meta( $post_id, '_elementor_page_settings', true );
+				if ( is_array( $page ) ) {
+					$unsafe = array_merge( $unsafe, CssValueGuard::unsafe_values_in_settings( $page, 'page_settings' ) );
+				}
+				if ( [] !== $unsafe ) {
+					$paths = array_slice( array_column( $unsafe, 'path' ), 0, 10 );
+					return $this->error(
+						'elementor_css_unsafe_value',
+						sprintf(
+							/* translators: %s: setting path */
+							__( 'CSS regeneration refused: %s stores a value with CSS control characters.', 'stonewright' ),
+							(string) $paths[0]
+						),
+						[
+							'status'    => 422,
+							'retryable' => true,
+							'paths'     => $paths,
+							'count'     => count( $unsafe ),
+							'repair'    => 'Replace the listed settings with a real colour, font family or numeric value through elementor-v3-update-element, then regenerate again.',
+						]
+					);
+				}
+
 				$resolved = ( new CssTargetResolver() )->resolve( $post_id, $asset_kind );
 				if ( $resolved instanceof \WP_Error ) {
 					return $resolved;
@@ -137,7 +183,7 @@ final class CssRegenerate extends AbilityKernel {
 					$transaction = CssAssetTransaction::run(
 						$resolved,
 						static function () use ( $resolved ): array {
-							self::trace( 'update_file' );
+							self::trace( 'update_css' );
 							return CssRegenerator::regenerate( $resolved );
 						}
 					);
@@ -151,12 +197,17 @@ final class CssRegenerate extends AbilityKernel {
 					$probes    = is_array( $evidence['protected_probes_after'] ?? null ) ? $evidence['protected_probes_after'] : [];
 					$generation = self::status_token( $evidence['generation_status'] ?? '' );
 					$delivery   = self::status_token( $evidence['delivery_status'] ?? '' );
+					$file_status = 'not_produced' === ( $evidence['css_file_status'] ?? '' ) ? 'not_produced' : 'present';
 					if ( 'not_checked' === $generation ) {
 						$generation = (bool) ( $operation['ok'] ?? false ) ? 'verified' : 'failed';
 					}
-					$complete = 'verified' === $generation && 'verified' === $delivery;
-					$root     = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
-					$failed   = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
+					$no_file_ok = 'not_produced' === $file_status && 'not_applicable' === $delivery;
+					$root       = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
+					$failed     = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
+					// Anonymous requests that are redirected or refused are access control in front of the
+					// file, not a failed write: the file is written and the page version has moved on.
+					$delivery_unverified = 'blocked' === $delivery && 'stonewright_elementor_css_delivery_protected' === $root;
+					$complete            = 'verified' === $generation && ( 'verified' === $delivery || $no_file_ok || $delivery_unverified );
 					if ( ! $complete ) {
 						if ( '' === $root ) {
 							$root = 'blocked' === $delivery
@@ -176,6 +227,7 @@ final class CssRegenerate extends AbilityKernel {
 							$receipt['root_error_code'] = $root;
 						}
 					}
+					$css_version = self::css_version_evidence( $operation );
 
 					self::trace( 'audit' );
 					$result = [
@@ -188,6 +240,7 @@ final class CssRegenerate extends AbilityKernel {
 						'effect_verified'              => $complete,
 						'generation_status'            => $generation,
 						'delivery_status'              => $delivery,
+						'css_file_status'              => $file_status,
 						'frontend_verification_status' => 'not_checked',
 						'before_manifest_sha256'       => (string) ( $evidence['before_manifest_sha256'] ?? '' ),
 						'after_manifest_sha256'        => (string) ( $evidence['after_manifest_sha256'] ?? '' ),
@@ -197,9 +250,24 @@ final class CssRegenerate extends AbilityKernel {
 						'write_receipt'                => $receipt,
 						'retryable'                    => false,
 					];
-					if ( ! $complete ) {
+					if ( 'not_produced' === $file_status ) {
+						$result['css_file_reason'] = (string) ( $evidence['css_file_reason'] ?? 'empty_css' );
+					}
+					$result = array_merge( $result, $css_version );
+					if ( $delivery_unverified ) {
+						$result['warnings'] = [
+							[
+								'code'    => 'stonewright_elementor_css_delivery_protected',
+								'message' => 'The stylesheet was written and its page version changed, but an anonymous request to its URL does not end in the CSS file, so public delivery was not verified. An access-control layer or the host may sit in front of the uploads folder.',
+							],
+						];
+						$result['repair'] = self::PROTECTED_DELIVERY_REPAIR;
+					} elseif ( ! $complete ) {
 						$result['root_error_code'] = $root;
 						$result['failed_check']    = $failed;
+						if ( 'delivery' === $failed && 'verified' === $generation && 'not_checked' === $delivery ) {
+							$result['repair'] = self::UNCHECKED_DELIVERY_REPAIR;
+						}
 					}
 					return $result;
 				} finally {
@@ -207,6 +275,21 @@ final class CssRegenerate extends AbilityKernel {
 				}
 			}
 		);
+	}
+
+	/**
+	 * @param array<string,mixed> $operation
+	 * @return array<string,mixed>
+	 */
+	private static function css_version_evidence( array $operation ): array {
+		if ( ! isset( $operation['css_version'] ) || ! is_numeric( $operation['css_version'] ) ) {
+			return [];
+		}
+		return [
+			'css_version'         => max( 0, (int) $operation['css_version'] ),
+			'css_version_before'  => max( 0, (int) ( $operation['css_version_before'] ?? 0 ) ),
+			'css_version_changed' => (bool) ( $operation['css_version_changed'] ?? false ),
+		];
 	}
 
 	/**
@@ -238,7 +321,7 @@ final class CssRegenerate extends AbilityKernel {
 
 	private static function status_token( string $status ): string {
 		$status = sanitize_key( $status );
-		return in_array( $status, [ 'verified', 'blocked', 'failed', 'not_checked' ], true ) ? $status : 'not_checked';
+		return in_array( $status, [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ], true ) ? $status : 'not_checked';
 	}
 
 	private static function trace( string $event ): void {

@@ -46,6 +46,11 @@ final class WriteTemplatePart extends AbstractTemplateWriter {
 		return $schema;
 	}
 
+	protected function area_term( array $args ): string {
+		$area = (string) ( $args['area'] ?? 'uncategorized' );
+		return in_array( $area, [ 'header', 'footer', 'sidebar', 'uncategorized' ], true ) ? $area : 'uncategorized';
+	}
+
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,

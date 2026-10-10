@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* The status panel shown inside a native editor. The console page itself is built from the shared admin UI layer. */
+.sw-queue-native-status button { background: var(--sw-brand-fill); border: 1px solid var(--sw-brand-fill); border-radius: .2rem; padding: .65rem 1rem; color: var(--sw-on-brand); cursor: pointer; }
+.sw-queue-native-status button:focus-visible { outline: .2rem solid var(--sw-focus-ring); outline-offset: .2rem; }
+.sw-queue-native-status { position: fixed; z-index: 100001; inset-block-end: 1rem; inset-inline-end: 1rem; max-width: 24rem; padding: .75rem; border: 1px solid var(--sw-border); border-radius: .3rem; background: var(--sw-surface); color: var(--sw-text); box-shadow: var(--sw-shadow-1); }
+@media (prefers-reduced-motion: reduce) { .sw-queue-native-status * { transition: none; animation: none; } }

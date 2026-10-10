@@ -115,6 +115,11 @@ final class BuildTree extends AbilityKernel {
 				}
 
 				if ( $dry_run ) {
+					// The same checks the write runs against the stored document, so the dry run reports what the apply would.
+					$preflight = ElementorData::preflight( ElementorData::read( $post_id ), $normalized, [ 'force_destructive' => true ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
 					return [
 						'ok'              => true,
 						'post_id'         => $post_id,
@@ -212,7 +217,7 @@ final class BuildTree extends AbilityKernel {
 			}
 
 			$settings = isset( $node['settings'] ) && is_array( $node['settings'] ) ? $node['settings'] : [];
-			$norm     = SettingsKeyAliases::normalize( $settings );
+			$norm     = SettingsKeyAliases::normalize_for_element( $settings, $el_type, (string) ( $node['widgetType'] ?? '' ) );
 			$settings = $norm['settings'];
 			$aliases_applied += count( $norm['applied'] );
 
@@ -239,6 +244,11 @@ final class BuildTree extends AbilityKernel {
 					$settings = $validated['settings'];
 				}
 			} elseif ( in_array( $el_type, [ 'container', 'section', 'column' ], true ) ) {
+				if ( 'column' === $el_type && ! array_key_exists( '_column_size', $settings ) ) {
+					// Elementor reads the column width class from `_column_size`; give a
+					// column that has none an even share of its section.
+					$settings['_column_size'] = self::even_column_size( $nodes );
+				}
 				$validated = SettingsValidator::validate_container( $settings, $el_type, false );
 				if ( is_array( $validated ) && isset( $validated['settings'] ) && is_array( $validated['settings'] ) ) {
 					$settings = $validated['settings'];
@@ -261,6 +271,21 @@ final class BuildTree extends AbilityKernel {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Even share of 100 for each column among its siblings, as a whole number.
+	 *
+	 * @param array<int, mixed> $siblings
+	 */
+	private static function even_column_size( array $siblings ): int {
+		$columns = 0;
+		foreach ( $siblings as $sibling ) {
+			if ( is_array( $sibling ) && 'column' === (string) ( $sibling['elType'] ?? '' ) ) {
+				++$columns;
+			}
+		}
+		return max( 1, (int) floor( 100 / max( 1, $columns ) ) );
 	}
 
 	/**

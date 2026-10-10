@@ -1,7 +1,7 @@
 <?php
 /**
  * Generated Elementor widget schema artifact.
- * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 // phpcs:ignoreFile -- generated catalog artifact.
 declare( strict_types=1 );

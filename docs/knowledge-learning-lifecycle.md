@@ -18,7 +18,9 @@ of automatic task context until it passes a promotion gate.
 
 Candidate states are `candidate`, `verified`, `approved`, `stale`, and
 `rejected`. Creation may generate a site skill, but that skill is a disabled
-draft. Research never creates an active skill directly.
+draft. Research never creates an active skill directly. Promotion runs the
+candidate skill's lint first and withdraws the skills it replaces only after it
+passes, so a candidate that fails lint leaves them in service.
 
 ## Required evidence
 
@@ -45,9 +47,9 @@ untouched.
 
 Every site skill update snapshots the previous revision. Use the
 `skill_rollback` action of `stonewright/knowledge-candidate-record` to restore a
-known revision. Lint blocks unclear triggers, missing Elementor version ranges,
-stale references, unresolved conflicts, and references to unavailable
-Stonewright tools.
+known revision. Lint blocks a missing trigger, missing Elementor version
+constraints, stale or retired records, unresolved conflicts, and references to
+unavailable Stonewright tools. The trigger check accepts text in any language.
 
 ## Memory retrieval
 

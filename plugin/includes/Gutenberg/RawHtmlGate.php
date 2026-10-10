@@ -6,16 +6,42 @@ namespace Stonewright\WpMcp\Gutenberg;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
 
 /**
- * Native-first Gutenberg gate for raw HTML trees and embedded CSS.
+ * Native-first Gutenberg gate for raw HTML trees and embedded custom code.
  *
- * Named core/html (and any innerHTML payload) containing {@see <style>} requires
- * allow_raw_html and a consumed custom_code_grant. All-raw-HTML trees are
- * refused without the flag. Content is never silently stripped.
+ * A payload string that carries custom code (a style, script or iframe element, an inline event
+ * handler, or a javascript: URL; see {@see self::custom_code_kinds()}) requires allow_raw_html
+ * and a consumed custom_code_grant, wherever it sits in a spec: block attributes of any key and
+ * depth, innerHTML, or a named core/html block. All-raw-HTML trees are refused without the flag.
+ * Content is never silently stripped.
+ *
+ * The same detector judges the markup a browser serializes for a queued change, so the code that
+ * was approved with the spec is the only code the stored result may carry.
  */
 final class RawHtmlGate {
 
 	public const ERROR_APPROVAL = 'stonewright_custom_code_approval_required';
 	public const ERROR_RAW_TREE = 'stonewright_raw_html_refused';
+
+	/**
+	 * Kinds of custom code, in the order they are reported. `unscannable` marks markup the detector
+	 * could not process within its regex limits: it is never assumed to be clean.
+	 *
+	 * @var list<string>
+	 */
+	public const CODE_KINDS = [ 'style', 'script', 'iframe', 'event_handler', 'javascript_url', 'unscannable' ];
+
+	/** An element: its name, then the attribute text with quoted values kept whole. */
+	private const TAG_PATTERN = '/<([a-z][a-z0-9:-]*)((?:"[^"]*"|\'[^\']*\'|[^\'">])*)>/i';
+
+	/**
+	 * An element start read without regard to quoting, up to the next "<" or ">". Markup inside a
+	 * quoted value can still become an element when a browser parses it in another context (a
+	 * quoted value can hold the end tag of a raw-text element), so it is scanned as well.
+	 */
+	private const LOOSE_TAG_PATTERN = '/<[a-z][a-z0-9:-]*([^<>]*)/i';
+
+	/** One attribute: name, then an optional double-quoted, single-quoted or bare value. */
+	private const ATTRIBUTE_PATTERN = '/([^\s"\'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'<>=`]+)))?/';
 
 	/** @var list<string> */
 	private const RAW_BLOCKS = [ 'core/html', 'core/freeform' ];
@@ -107,20 +133,133 @@ final class RawHtmlGate {
 	}
 
 	/**
+	 * Kinds of custom code a spec carries, across the same payload strings the gate inspects.
+	 *
 	 * @param array<string, mixed> $spec
-	 * @return list<array{path:string,name:string,content:string}>
+	 * @return list<string> Values of {@see self::CODE_KINDS}, in that order.
+	 */
+	public static function spec_custom_code_kinds( array $spec ): array {
+		$found = [];
+		foreach ( self::style_hits( $spec, '' ) as $hit ) {
+			foreach ( $hit['kinds'] as $kind ) {
+				$found[ $kind ] = true;
+			}
+		}
+		return self::ordered_kinds( $found );
+	}
+
+	/**
+	 * Kinds of custom code present in a markup string: `style`, `script` and `iframe` elements,
+	 * `event_handler` for an inline on* attribute, `javascript_url` for an attribute value that
+	 * navigates to a javascript: URL (entity-encoded, spaced or mixed-case forms included), and
+	 * `unscannable` when the markup could not be scanned. Text that merely mentions code is not
+	 * code: escaped markup, prose such as "online=1", and quoted attribute text are ignored.
+	 *
+	 * @return list<string> Values of {@see self::CODE_KINDS}, in that order.
+	 */
+	public static function custom_code_kinds( string $markup ): array {
+		$found  = [];
+		$named  = self::scan( '/<(style|script|iframe)\b/i', $markup, 1 );
+		// A tag left open at the end of a fragment borrows the next ">" of the document it lands in.
+		$tagged = self::scan( self::TAG_PATTERN, $markup . '>', 2 );
+		$loose  = self::scan( self::LOOSE_TAG_PATTERN, $markup, 1 );
+		if ( null === $named || null === $tagged || null === $loose ) {
+			$found['unscannable'] = true;
+		}
+		foreach ( $named ?? [] as $element ) {
+			$found[ strtolower( $element ) ] = true;
+		}
+		foreach ( array_merge( $tagged ?? [], $loose ?? [] ) as $body ) {
+			$pairs = self::attribute_pairs( $body );
+			if ( null === $pairs ) {
+				$found['unscannable'] = true;
+				continue;
+			}
+			foreach ( $pairs as [ $name, $value ] ) {
+				if ( 1 === preg_match( '/^on[a-z0-9_:.-]+$/i', $name ) ) {
+					$found['event_handler'] = true;
+				}
+				if ( self::is_script_url( $value ) ) {
+					$found['javascript_url'] = true;
+				}
+			}
+		}
+		return self::ordered_kinds( $found );
+	}
+
+	/**
+	 * Every match of one capture group, or null when the scan fails (pattern limits reached), which
+	 * the caller must not read as "nothing found".
+	 *
+	 * @return list<string>|null
+	 */
+	private static function scan( string $pattern, string $subject, int $group ): ?array {
+		if ( false === preg_match_all( $pattern, $subject, $found ) ) {
+			return null;
+		}
+		return array_values( array_map( 'strval', $found[ $group ] ) );
+	}
+
+	/**
+	 * @return list<array{0:string,1:string}>|null Attribute name and decoded-as-written value; null when the scan fails.
+	 */
+	private static function attribute_pairs( string $attribute_text ): ?array {
+		if ( false === preg_match_all( self::ATTRIBUTE_PATTERN, $attribute_text, $found, PREG_SET_ORDER ) ) {
+			return null;
+		}
+		$pairs = [];
+		foreach ( $found as $set ) {
+			$value = '';
+			foreach ( [ 2, 3, 4 ] as $group ) {
+				if ( isset( $set[ $group ] ) && '' !== $set[ $group ] ) {
+					$value = $set[ $group ];
+					break;
+				}
+			}
+			$pairs[] = [ $set[1], $value ];
+		}
+		return $pairs;
+	}
+
+	/**
+	 * Whether an attribute value navigates to a javascript: URL once a browser has decoded its
+	 * entities and dropped the whitespace and control characters it ignores in a scheme.
+	 */
+	private static function is_script_url( string $value ): bool {
+		if ( '' === $value ) {
+			return false;
+		}
+		$value   = (string) preg_replace( '/&#(x[0-9a-f]+|[0-9]+);?/i', '&#$1;', $value );
+		$decoded = html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$compact = (string) preg_replace( '/[\x00-\x20]+/', '', $decoded );
+		return 0 === stripos( $compact, 'javascript:' );
+	}
+
+	/**
+	 * @param array<string, true> $found
+	 * @return list<string>
+	 */
+	private static function ordered_kinds( array $found ): array {
+		return array_values( array_filter( self::CODE_KINDS, static fn( string $kind ): bool => isset( $found[ $kind ] ) ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $spec
+	 * @return list<array{path:string,name:string,content:string,kinds:list<string>}>
 	 */
 	private static function style_hits( array $spec, string $path ): array {
 		$hits = [];
 		$name = self::node_name( $spec );
 		foreach ( self::payloads( $spec ) as $slot => $content ) {
-			if ( ! self::contains_style( $content ) ) {
+			$kinds = self::custom_code_kinds( $content );
+			if ( [] === $kinds ) {
 				continue;
 			}
 			$hits[] = [
 				'path'    => '' === $path ? $slot : $path . '.' . $slot,
 				'name'    => $name,
 				'content' => $content,
+				'kinds'   => $kinds,
 			];
 		}
 		$children = self::children( $spec );
@@ -165,20 +304,37 @@ final class RawHtmlGate {
 	}
 
 	/**
+	 * Every string a block could render as markup: attribute strings of any key at any depth
+	 * (rich-text attributes such as content, text, caption and values all end up in the saved
+	 * markup), plus the spec's own innerHTML and html.
+	 *
 	 * @param array<string, mixed> $spec
 	 * @return array<string, string>
 	 */
 	private static function payloads( array $spec ): array {
-		$out        = [];
-		$attributes = self::attributes( $spec );
-		foreach ( [ 'content', 'html' ] as $key ) {
-			if ( isset( $attributes[ $key ] ) && is_string( $attributes[ $key ] ) && '' !== $attributes[ $key ] ) {
-				$out[ 'attributes.' . $key ] = $attributes[ $key ];
-			}
-		}
+		$out = self::attribute_strings( self::attributes( $spec ), 'attributes' );
 		foreach ( [ 'innerHTML', 'html' ] as $key ) {
 			if ( isset( $spec[ $key ] ) && is_string( $spec[ $key ] ) && '' !== $spec[ $key ] ) {
 				$out[ $key ] = $spec[ $key ];
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<array-key, mixed> $values
+	 * @return array<string, string> Non-empty string leaves keyed by their dotted path.
+	 */
+	private static function attribute_strings( array $values, string $prefix ): array {
+		$out = [];
+		foreach ( $values as $key => $value ) {
+			$slot = $prefix . '.' . $key;
+			if ( is_string( $value ) ) {
+				if ( '' !== $value ) {
+					$out[ $slot ] = $value;
+				}
+			} elseif ( is_array( $value ) ) {
+				$out = array_merge( $out, self::attribute_strings( $value, $slot ) );
 			}
 		}
 		return $out;
@@ -217,7 +373,7 @@ final class RawHtmlGate {
 	}
 
 	/**
-	 * @param list<array{path:string,name:string,content:string}> $hits
+	 * @param list<array{path:string,name:string,content:string,kinds:list<string>}> $hits
 	 */
 	private static function style_error( array $hits, bool $allow_raw_html, string $grant, int $post_id, bool $consume ): ?\WP_Error {
 		$paths = array_values( array_unique( array_map( static fn( array $hit ): string => (string) $hit['path'], $hits ) ) );
@@ -259,7 +415,7 @@ final class RawHtmlGate {
 
 		return new \WP_Error(
 			self::ERROR_APPROVAL,
-			__( 'Raw CSS in a Gutenberg HTML payload requires allow_raw_html:true and a human-issued custom_code_grant. Prefer block supports and theme preset slugs. Do not strip the CSS.', 'stonewright' ),
+			__( 'Custom code in a Gutenberg HTML payload (CSS, script, frames, inline event handlers, or javascript: URLs) requires allow_raw_html:true and a human-issued custom_code_grant. Prefer block supports and theme preset slugs. Do not strip the code.', 'stonewright' ),
 			array_merge(
 				[
 					'status'                     => 400,

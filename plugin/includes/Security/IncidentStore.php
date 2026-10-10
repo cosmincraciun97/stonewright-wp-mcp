@@ -35,6 +35,8 @@ final class IncidentStore {
 	public const OPTION_KEY = 'stonewright_incident_fallback';
 	public const OBSERVING_THRESHOLD = 2;
 	public const RETRYABLE_THRESHOLD = 3;
+	/** Days without a new occurrence after which a non-write incident closes. */
+	public const QUIET_DAYS = 7;
 	private const CAS_ATTEMPTS = 8;
 	private const SCHEMA_VERSION = 2;
 	private const SCHEMA_OPTION = 'stonewright_incident_schema_version';
@@ -228,6 +230,12 @@ final class IncidentStore {
 			$state   = self::state_for( $event, $count, (string) ( $existing['state'] ?? '' ) );
 			$row     = self::row_from_event( $event, $incident_id, $existing, $count, $state, $now );
 
+			// A recurrence after a quiet period reopens a non-write incident even
+			// when the daily sweep has not closed it yet.
+			if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'open', 'observing' ], true ) && self::quiet_closable( $existing, time() ) ) {
+				$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
+			}
+
 			if ( null !== $existing && in_array( (string) ( $existing['state'] ?? '' ), [ 'resolved', 'suppressed' ], true ) ) {
 				$row['reopened_count'] = (int) ( $existing['reopened_count'] ?? 0 ) + 1;
 				$row['resolved_at']     = null;
@@ -388,6 +396,78 @@ final class IncidentStore {
 		return self::persist_cas( $row, $token );
 	}
 
+	/**
+	 * Resolve the incidents a verified repair fixes.
+	 *
+	 * The event is the audit event of a write that passed `repair_of`. An incident
+	 * resolves only when that write verified, the incident's last change set is the
+	 * one it repairs, and both concern the same resource. A rollback incident and
+	 * an incident whose rollback failed stay open for an operator, and an incident
+	 * that names an expected verifier waits for that verifier.
+	 *
+	 * @param array<string, mixed> $event Normalized audit event (see AuditEvent::normalize()).
+	 * @return int Number of incidents resolved.
+	 */
+	public static function resolve_repaired( array $event ): int {
+		if ( AuditEvent::OUTCOME_SUCCESS !== (string) ( $event['outcome'] ?? '' ) ) {
+			return 0;
+		}
+		$repair_of  = self::safe_text( $event['repair_of'] ?? '', 96 );
+		$change_set = self::safe_text( $event['change_set_id'] ?? '', 96 );
+		$resource   = self::safe_hash( $event['resource_key_hash'] ?? '' );
+		$event_id   = self::safe_text( $event['event_id'] ?? '', 36 );
+		if ( '' === $repair_of || '' === $change_set || '' === $resource || '' === $event_id
+			|| ! in_array( strtolower( (string) ( $event['verification_status'] ?? '' ) ), [ 'verified', 'passed' ], true ) ) {
+			return 0;
+		}
+
+		$resolved = 0;
+		foreach ( array_merge( self::recent( 500, [ 'state' => 'open' ] ), self::recent( 500, [ 'state' => 'observing' ] ) ) as $listed ) {
+			// Only incidents whose last change set is the repaired one are read again.
+			if ( ! is_array( $listed ) || ! hash_equals( (string) ( $listed['last_change_set_id'] ?? '' ), $repair_of ) ) {
+				continue;
+			}
+			$incident_id = self::safe_hash( $listed['incident_id'] ?? '' );
+			$row         = '' === $incident_id ? null : self::find( $incident_id );
+			if ( null === $row
+				|| ! in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true )
+				|| ! hash_equals( (string) ( $row['last_change_set_id'] ?? '' ), $repair_of )
+				|| ! hash_equals( self::safe_hash( $row['resource_key_hash'] ?? '' ), $resource ) ) {
+				continue;
+			}
+			$expected_verifier = (string) ( $row['expected_verifier'] ?? '' );
+			if ( '' !== $expected_verifier && $expected_verifier !== (string) ( $event['ability'] ?? '' ) ) {
+				continue;
+			}
+			$evidence = json_decode( (string) ( $row['evidence_json'] ?? '' ), true );
+			if ( AuditEvent::CATEGORY_ROLLBACK === (string) ( $row['category'] ?? '' )
+				|| ( is_array( $evidence ) && 'failed' === strtolower( (string) ( $evidence['rollback_status'] ?? '' ) ) ) ) {
+				continue;
+			}
+
+			$after_hash                 = self::safe_hash( $event['after_sha256'] ?? '' );
+			$token                      = self::version_token_from_row( $row );
+			$row['state']               = 'resolved';
+			$row['resolved_at']         = gmdate( 'Y-m-d H:i:s' );
+			$row['resolution_event_id'] = $event_id;
+			$row['repair_phase']        = 'verified';
+			$row['repair_receipt_id']   = hash( 'sha256', implode( '|', [ $incident_id, $change_set, $repair_of, $after_hash ] ) );
+			$row['resolution_json']     = Json::encode( [
+				'verification_status' => 'verified',
+				'event_id'            => $event_id,
+				'change_set_id'       => $change_set,
+				'repair_of'           => $repair_of,
+				'after_sha256'        => $after_hash,
+			] );
+			$row['generation'] = (int) ( $row['generation'] ?? 1 ) + 1;
+			$row['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+			if ( self::persist_cas( $row, $token ) ) {
+				++$resolved;
+			}
+		}
+		return $resolved;
+	}
+
 	/** @return list<array<string, mixed>> */
 	public static function recent( int $limit = 50, array $filters = [] ): array {
 		$limit = max( 1, min( 500, $limit ) );
@@ -426,11 +506,101 @@ final class IncidentStore {
 		} ) ), 0, $limit );
 	}
 
-	/** @return array<string, int> */
+	/**
+	 * Delete every incident, in every state. Used when the whole audit log is deleted: an incident points at audit
+	 * events, so once they are gone the incident has nothing left to show.
+	 *
+	 * @return int Number of incidents that existed before.
+	 */
+	public static function purge_all(): int {
+		global $wpdb;
+		$removed = array_sum( self::counts() );
+		if ( self::db_available() ) {
+			$table = self::table_name();
+			$wpdb->query( "DELETE FROM {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table, no input.
+			return $removed;
+		}
+		self::$fallback = [];
+		if ( function_exists( 'delete_option' ) ) {
+			delete_option( self::OPTION_KEY );
+		}
+		return $removed;
+	}
+
+	/**
+	 * Close non-write incidents that have had no new occurrence for QUIET_DAYS.
+	 * Write, verification and rollback incidents still need a verified repair.
+	 * The resolution time is the end of the quiet period, not the sweep time.
+	 *
+	 * @return int Number of incidents closed.
+	 */
+	public static function close_quiet( ?int $now = null ): int {
+		$now    = $now ?? time();
+		$closed = 0;
+		foreach ( self::recent( 500 ) as $listed ) {
+			$incident_id = (string) ( $listed['incident_id'] ?? '' );
+			$existing    = '' === $incident_id ? null : self::find( $incident_id );
+			if ( null === $existing
+				|| ! in_array( (string) ( $existing['state'] ?? '' ), [ 'open', 'observing' ], true )
+				|| ! self::quiet_closable( $existing, $now ) ) {
+				continue;
+			}
+			$last_seen = strtotime( (string) $existing['last_seen'] . ' UTC' );
+			$row       = $existing;
+			unset( $row['id'] );
+			$row['state']           = 'resolved';
+			$row['resolved_at']     = gmdate( 'Y-m-d H:i:s', (int) $last_seen + self::QUIET_DAYS * DAY_IN_SECONDS );
+			$row['resolution_json'] = Json::encode( [ 'reason' => 'quiet', 'quiet_days' => self::QUIET_DAYS ] );
+			$row['generation']      = (int) ( $existing['generation'] ?? 1 ) + 1;
+			$row['updated_at']      = gmdate( 'Y-m-d H:i:s', $now );
+			$row['id']              = (int) ( $existing['id'] ?? 0 );
+			if ( self::persist_cas( $row, self::version_token_from_row( $existing ) ) ) {
+				++$closed;
+			}
+		}
+		return $closed;
+	}
+
+	/**
+	 * Whether an incident is a non-write incident whose last occurrence is older
+	 * than the quiet period.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function quiet_closable( array $row, int $now ): bool {
+		$category = strtoupper( (string) ( $row['category'] ?? '' ) );
+		if ( in_array( $category, [ AuditEvent::CATEGORY_WRITE, AuditEvent::CATEGORY_VERIFY, AuditEvent::CATEGORY_ROLLBACK ], true ) ) {
+			return false;
+		}
+		$last_seen = strtotime( (string) ( $row['last_seen'] ?? '' ) . ' UTC' );
+		return false !== $last_seen && $last_seen <= $now - self::QUIET_DAYS * DAY_IN_SECONDS;
+	}
+
+	/**
+	 * Totals per state over every incident, not only the most recent page.
+	 *
+	 * @return array<string, int>
+	 */
 	public static function counts(): array {
 		$counts = [ 'open' => 0, 'observing' => 0, 'resolved' => 0, 'suppressed' => 0 ];
-		foreach ( self::recent( 500 ) as $row ) {
-			$state = (string) ( $row['state'] ?? '' );
+		global $wpdb;
+		if ( self::db_available() ) {
+			$rows = $wpdb->get_results( 'SELECT state, COUNT(*) AS total FROM ' . self::table_name() . ' GROUP BY state', ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- internal table, no input.
+			foreach ( is_array( $rows ) ? $rows : [] as $row ) {
+				$state = (string) ( $row['state'] ?? '' );
+				if ( isset( $counts[ $state ] ) ) {
+					$counts[ $state ] += isset( $row['total'] ) ? (int) $row['total'] : 1;
+				}
+			}
+			return $counts;
+		}
+		$stored = self::$fallback;
+		if ( [] === $stored && function_exists( 'get_option' ) ) {
+			$option = get_option( self::OPTION_KEY, [] );
+			$stored = is_array( $option ) ? $option : [];
+		}
+		foreach ( $stored as $row ) {
+			$state = is_array( $row ) ? (string) ( $row['state'] ?? '' ) : '';
 			if ( isset( $counts[ $state ] ) ) {
 				++$counts[ $state ];
 			}

@@ -46,7 +46,7 @@ Stonewright\WpMcp\Security\Backup::restore( $post_id, $snapshot_id );
 
 ### Confirmation tokens for destructive operations
 
-Abilities that permanently delete or overwrite data issue a short-lived token via `Stonewright\WpMcp\Security\ConfirmationToken::issue()`. The token is tied to the ability name, a hash of the original arguments, and the user ID. The caller must echo the token back within five minutes. This prevents an MCP client from blindly retrying a delete operation after a network interruption.
+Abilities that permanently delete or overwrite data issue a short-lived token via `Stonewright\WpMcp\Security\ConfirmationToken::issue()`. The token is tied to the ability name, a hash of the original arguments, and the user ID. The caller must echo the token back before it expires (five minutes by default). This prevents an MCP client from blindly retrying a delete operation after a network interruption.
 
 Tokens are stored as WordPress transients, so they expire automatically and are not persisted to the database permanently.
 
@@ -80,9 +80,11 @@ metadata may advertise `offline_access` for refresh grants.
 
 Refresh tokens rotate after every successful use. Reuse of a revoked token
 revokes its complete refresh-token family and all access tokens associated with
-that grant. Authorization and token endpoints have atomic, trusted-proxy-aware
-rate limits. OAuth secrets and bearer values are never returned by diagnostics
-or written to the audit log.
+that grant. Authorization and token endpoints have atomic rate limits per
+connection address (the authorization page per signed-in user); forwarding
+headers are never read, and an IPv6 address counts as its /64 prefix. OAuth
+secrets and bearer values are never returned by diagnostics or written to the
+audit log.
 
 ### Runtime execution and environment assertion
 
@@ -107,6 +109,12 @@ The Application Password MCP endpoint (`/wp-json/mcp/stonewright`) and the
 dedicated OAuth resource (`/wp-json/mcp/stonewright-oauth`) use WordPress REST
 routing. Use HTTPS in all non-local environments.
 
+Both routes validate the `Origin` header before anything else runs: a request
+without one passes, the site's own origin (home URL and site URL: scheme, host,
+and port) and the origins listed through the `stonewright_mcp_allowed_origins`
+filter pass, and any other origin is refused with 403 and a JSON-RPC error body.
+See [Security](../docs/security.md#web-pages-calling-the-mcp-routes).
+
 The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress through tokenized WP-CLI execution. It uses `execFile` with argv tokens. Use `stonewright/php-execute` for PHP runtime snippets; WP-CLI PHP and shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require` remain blocked.
 
 ## Threat model
@@ -115,7 +123,7 @@ The companion HTTP server enforces bearer token authentication (`COMPANION_BEARE
 
 **MCP client issues a delete command against a production site.** Blocked by `production-safe` mode. Enable it on any site where delete operations must not be reachable.
 
-**Replay attack against a destructive ability.** Blocked by confirmation tokens. Each token is single-use and expires in five minutes.
+**Replay attack against a destructive ability.** Blocked by confirmation tokens. Each token is single-use and expires after five minutes by default (`ttl_seconds` accepts 60 to 3600).
 
 **Replay of a rotated OAuth refresh token.** Revokes the full refresh family
 and all access tokens for the grant, forcing explicit reauthorization.

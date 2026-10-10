@@ -2,16 +2,19 @@
  * Fake-clock proof that OAuth access refresh sustains seven-day continuity
  * without a second browser authorization, and that explicit revoke forces reauth.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 import {
 	OAuthReauthRequiredError,
 	OAuthTokenManager,
 	OAuthTokenStore,
 	type OAuthTokenSetV2,
 } from '../src/oauth-token-manager.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -138,6 +141,7 @@ describe('OAuth seven-day continuity (fake clock)', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	},
-		20_000,
+		// 169 refresh windows each write the token store; on Windows every write also verifies its ACL through PowerShell.
+		120_000,
 	);
 });

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\Pages\DesignStudioPage;
 
 /**
@@ -63,7 +64,7 @@ final class DesignStudioPageTest extends TestCase {
 	}
 
 	public function test_design_library_group_is_removed_from_shell(): void {
-		$ids = array_column( AdminShell::menu_groups(), 'id' );
+		$ids = array_column( MenuRegistry::hubs(), 'id' );
 		self::assertNotContains( 'design-library', $ids );
 	}
 

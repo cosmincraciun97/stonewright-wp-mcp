@@ -27,7 +27,7 @@ return false;
 return $parent>0 ? Permissions::edit_post($parent) : Permissions::edit_posts();
 	}
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit($args, static function ( array $args ) {
+		return $this->audit_read($args, static function ( array $args ) {
 			$rev=get_post( (int) $args['revision_id']);
 			if ( !$rev || 'revision'!==$rev->post_type ) {
 return new \WP_Error('stonewright_revision_not_found', 'Revision not found.');

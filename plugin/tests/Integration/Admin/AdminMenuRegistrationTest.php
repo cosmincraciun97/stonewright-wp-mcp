@@ -6,7 +6,8 @@ namespace Stonewright\WpMcp\Tests\Integration\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
-use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\MenuOrder;
+use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
@@ -18,7 +19,7 @@ use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Admin\SkillsPage;
-use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
+use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 
 /**
  * Verifies that AdminBootstrap wires the expected hooks and that the new
@@ -164,8 +165,10 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertCount( $data['count'], $data['files'], '"count" must equal the number of items in "files"' );
 	}
 
-	public function test_sidebar_menu_titles_match_shell_tab_labels(): void {
+	public function test_the_sidebar_is_ordered_and_named_from_the_registry(): void {
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		$GLOBALS['stonewright_test_actions']       = [];
+		MenuRegistry::reset_for_tests();
 
 		ConfigurationPage::register();
 		StatusPage::register();
@@ -174,34 +177,24 @@ final class AdminMenuRegistrationTest extends TestCase {
 		MemoryInstructionsPage::register();
 		SkillsPage::register();
 		CustomCodeApprovalPage::register();
+		MenuOrder::register();
 		do_action( 'admin_menu' );
 
-		$shell_labels = AdminShell::pages();
-		$submenus     = $GLOBALS['stonewright_test_submenu_pages'];
-
-		$aligned = [
-			StatusPage::SLUG              => $shell_labels[ StatusPage::SLUG ],
-			'stonewright-abilities'       => $shell_labels['stonewright-abilities'],
-			ConfigurationPage::SLUG       => $shell_labels[ ConfigurationPage::SLUG ],
-			AuditLogPage::SLUG            => $shell_labels[ AuditLogPage::SLUG ],
-			MemoryInstructionsPage::SLUG    => $shell_labels[ MemoryInstructionsPage::SLUG ],
-			SkillsPage::SLUG              => $shell_labels[ SkillsPage::SLUG ],
-		];
-
-		foreach ( $aligned as $slug => $label ) {
+		$submenus = $GLOBALS['stonewright_test_submenu_pages'];
+		foreach ( [ StatusPage::SLUG, 'stonewright-abilities', ConfigurationPage::SLUG, AuditLogPage::SLUG, MemoryInstructionsPage::SLUG, SkillsPage::SLUG, CustomCodeApprovalPage::SLUG ] as $slug ) {
 			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
-			$this->assertSame( $label, $submenus[ $slug ]['menu_title'], "Sidebar label for {$slug}" );
+			$this->assertSame( 'stonewright', $submenus[ $slug ]['parent'] ?? ConfigurationPage::SLUG, $slug ) ;
 		}
-
+		$this->assertSame( 'Overview', $submenus[ StatusPage::SLUG ]['menu_title'] );
 		$this->assertSame( 'Code approval', $submenus[ CustomCodeApprovalPage::SLUG ]['menu_title'] );
+		$this->assertSame( 'Audit log', $submenus[ AuditLogPage::SLUG ]['page_title'] );
 	}
 
-	public function test_experimental_sidebar_titles_use_inline_marker(): void {
+	public function test_experimental_pages_register_a_plain_title_and_the_beta_word_is_added_by_the_order_pass(): void {
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
 		TroubleshootPage::register();
 		ContextPage::register();
 		DesignPage::register();
-		FinalizerPage::register();
 		do_action( 'admin_menu' );
 
 		$submenus = $GLOBALS['stonewright_test_submenu_pages'];
@@ -209,54 +202,46 @@ final class AdminMenuRegistrationTest extends TestCase {
 			TroubleshootPage::SLUG => 'Troubleshoot',
 			ContextPage::SLUG      => 'Context',
 			DesignPage::SLUG       => 'Design',
-			FinalizerPage::SLUG    => 'Block Editor Queue',
 		];
 		foreach ( $marked as $slug => $label ) {
 			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
 			$this->assertSame( $label, $submenus[ $slug ]['page_title'] );
-			$this->assertSame( AdminShell::experimental_menu_title( $label ), $submenus[ $slug ]['menu_title'] );
-			$this->assertStringContainsString( 'class="sw-menu-exp"', $submenus[ $slug ]['menu_title'] );
+			$this->assertSame( $label, $submenus[ $slug ]['menu_title'] );
+			$this->assertTrue( MenuRegistry::entry( $slug )['beta'] ?? false, $slug . ' is a beta page in the registry.' );
 		}
 	}
 
-	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {
+	public function test_block_change_queue_console_is_hidden_and_is_a_tab_of_the_activity_hub(): void {
 		$GLOBALS['stonewright_test_submenu_pages'] = [];
-		FinalizerPage::register();
-		do_action( 'admin_menu' );
+		MenuRegistry::reset_for_tests();
+		QueueConsole::attach_page();
 
-		$slug       = FinalizerPage::SLUG;
+		$slug       = QueueConsole::PAGE;
 		$registered = $GLOBALS['stonewright_test_submenu_pages'][ $slug ] ?? null;
+		$this->assertSame( 'stonewright-block-finalizer', $slug );
 		$this->assertIsArray( $registered );
-		$this->assertSame( 'stonewright', $registered['parent'] );
-		$this->assertSame( 'Block Editor Queue', $registered['page_title'] );
-		$this->assertSame( AdminShell::experimental_menu_title( 'Block Editor Queue' ), $registered['menu_title'] );
+		$this->assertSame( 'options.php', $registered['parent'], 'Reachable by URL, never listed in the sidebar.' );
+		$this->assertSame( 'Block queue', $registered['page_title'] );
+		$this->assertSame( 'Block queue', $registered['menu_title'] );
 		$this->assertSame( 'edit_posts', $registered['capability'] );
+		$this->assertSame( [ QueueConsole::class, 'render' ], $registered['callback'] );
 
-		$workflows = [];
-		$safety    = [];
-		foreach ( AdminShell::menu_groups() as $group ) {
-			if ( 'workflows' === $group['id'] ) {
-				$workflows = $group['pages'];
-			}
-			if ( 'safety-diagnostics' === $group['id'] ) {
-				$safety = $group['pages'];
-			}
-		}
-		$this->assertSame(
-			[
-				'stonewright-context',
-				'stonewright-skills',
-				'stonewright-memory',
-				'stonewright-design',
-				'stonewright-sandbox',
-				'stonewright-block-finalizer',
-				'stonewright-prompts',
-			],
-			array_keys( $workflows )
-		);
-		$this->assertArrayHasKey( 'stonewright-sandbox', $workflows );
-		$this->assertSame( 'Sandbox', $workflows['stonewright-sandbox'] );
-		$this->assertSame( 'Block Editor Queue', $workflows[ $slug ] ?? null );
-		$this->assertSame( [ 'stonewright-audit-log' => 'Audit Log' ], $safety );
+		// The console registers its tab through the menu registry on init, after it is attached.
+		$GLOBALS['stonewright_test_actions'] = [];
+		$GLOBALS['stonewright_test_actions']['admin_menu'] = [];
+		$rc = new \ReflectionProperty( QueueConsole::class, 'attached' );
+		$rc->setValue( null, false );
+		QueueConsole::attach_hooks();
+		$this->assertNull( MenuRegistry::entry( $slug ), 'The tab is registered on init, where labels can be translated.' );
+		do_action( 'init' );
+
+		$entry = MenuRegistry::entry( $slug );
+		$this->assertIsArray( $entry );
+		$this->assertSame( 'activity', $entry['hub'] );
+		$this->assertFalse( $entry['in_menu'], 'Not listed in the sidebar.' );
+		$this->assertTrue( $entry['beta'] );
+		$this->assertSame( 'edit_posts', $entry['capability'] );
+		$this->assertSame( [ 'stonewright-audit-log', 'stonewright-block-finalizer' ], array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ) );
+		$this->assertArrayNotHasKey( $slug, array_column( MenuRegistry::menu_entries(), null, 'slug' ) );
 	}
 }

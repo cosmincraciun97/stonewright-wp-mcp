@@ -74,28 +74,61 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringNotContainsString( '.sw-button:hover {', $css );
 	}
 
-	public function test_sandbox_primary_actions_keep_white_text_on_brand_background(): void {
-		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .button.button-primary' );
+	public function test_the_sandbox_stylesheet_restyles_no_core_button_badge_or_tab(): void {
+		$css = self::asset( 'sandbox.css' );
 
-		self::assertStringContainsString( 'color: var(--sw-on-brand)', $body );
+		// Primary buttons, badges and the filter control come from the shared layer, so this file never paints them.
+		foreach ( [ '.button', '.nav-tab', '.sw-badge', '.sw-btn', '.stonewright-sandbox-page', '.tablenav', 'widefat' ] as $legacy ) {
+			self::assertStringNotContainsString( $legacy, $css, $legacy );
+		}
 	}
 
-	public function test_sandbox_category_badge_has_explicit_readable_colors(): void {
-		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .sw-badge--category' );
+	public function test_overview_stylesheet_only_places_things_and_uses_tokens(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
 
-		self::assertStringContainsString( 'background: var(--sw-info-soft)', $body );
-		self::assertStringContainsString( 'color: var(--sw-info-text)', $body );
-		self::assertStringContainsString( 'min-height: 22px', $body );
+		self::assertStringNotContainsString( '!important', $css );
+		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}|rgba?\(/', $css, 'Colours come from tokens.' );
+		self::assertStringContainsString( 'var(--sw-card-pad)', $css );
+		// Components come from the shared layer, so this file defines none of them.
+		foreach ( [ '.sw-ui-card', '.sw-ui-stat', '.sw-ui-badge', '.sw-ui-btn', '.sw-ui-table' ] as $component ) {
+			self::assertStringNotContainsString( $component, $css, $component );
+		}
 	}
 
-	public function test_dashboard_metrics_are_grouped_in_one_summary_band(): void {
-		$grid = self::rule_body( 'dashboard.css', '.sw-stat-grid' );
-		$cell = self::rule_body( 'dashboard.css', '.sw-stat-card' );
+	public function test_setup_stylesheet_only_places_things_and_uses_tokens(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/setup.css' );
 
-		self::assertStringContainsString( 'gap: 1px', $grid );
-		self::assertStringContainsString( 'border-radius: var(--sw-radius-lg)', $grid );
-		self::assertStringNotContainsString( 'box-shadow', $cell );
-		self::assertStringNotContainsString( 'border:', $cell );
+		self::assertLessThan( 3 * 1024, strlen( $css ), 'A page stylesheet stays under 3 KB.' );
+		self::assertStringNotContainsString( '!important', $css );
+		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}|rgba?\(/', $css, 'Colours come from tokens.' );
+		self::assertDoesNotMatchRegularExpression( '/font-size:\s*[0-9.]+(px|rem|em)/', $css, 'Sizes come from tokens.' );
+		foreach ( [ '.sw-ui-card', '.sw-ui-badge', '.sw-ui-btn', '.sw-ui-table', '.sw-ui-tabs', '.sw-ui-choice' ] as $component ) {
+			self::assertStringNotContainsString( $component . ' {', $css, $component );
+			self::assertStringNotContainsString( $component . ',', $css, $component );
+		}
+	}
+
+	public function test_the_retired_dashboard_stylesheet_is_gone(): void {
+		self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/dashboard.css' );
+		self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/pages/overview.css' );
+	}
+
+	public function test_the_stylesheets_no_page_maps_any_more_are_gone(): void {
+		// Setup and Troubleshoot have their own files in pages/, Knowledge pages theirs, and no page maps Blueprints.
+		foreach ( [ 'setup.css', 'skills-memory.css', 'blueprints.css' ] as $retired ) {
+			self::assertFileDoesNotExist( dirname( __DIR__, 3 ) . '/assets/admin/' . $retired, $retired );
+		}
+		foreach ( [ 'pages/setup.css', 'pages/troubleshoot.css', 'pages/skills.css', 'pages/memory.css' ] as $page_file ) {
+			self::assertFileExists( dirname( __DIR__, 3 ) . '/assets/admin/' . $page_file, $page_file );
+		}
+	}
+
+	public function test_the_copy_fallback_dialog_that_the_page_script_builds_has_styles_in_a_stylesheet_every_page_loads(): void {
+		$css = self::asset( 'admin.css' );
+
+		foreach ( [ '.sw-copy-modal {', '.sw-copy-modal[hidden] {', '.sw-copy-modal__dialog {', '.sw-copy-modal__dialog textarea {' ] as $rule ) {
+			self::assertStringContainsString( $rule, $css, $rule );
+		}
 	}
 
 	public function test_domain_lock_status_centers_its_complete_control_group(): void {
@@ -106,12 +139,21 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( 'flex-wrap: wrap', $body );
 	}
 
-	public function test_audit_payload_becomes_full_width_in_responsive_rows(): void {
-		$css = self::asset( 'audit.css' );
+	/** @dataProvider noticeStatusProvider */
+	public function test_stonewright_notices_carry_their_status_colour( string $class, string $text, string $soft ): void {
+		$body = self::rule_body( 'shell.css', '.sw-shell .sw-notice.' . $class );
 
-		self::assertStringContainsString( '.sw-audit-table-scroll {', $css );
-		self::assertStringContainsString( 'grid-column: 1 / -1', $css );
-		self::assertStringContainsString( 'content: attr(data-label)', $css );
-		self::assertStringContainsString( 'overflow-wrap: anywhere', $css );
+		self::assertStringContainsString( 'background: var(--' . $soft . ')', $body );
+		self::assertStringContainsString( 'border-color: var(--' . $text . ')', $body );
+	}
+
+	/** @return array<string, array{0:string,1:string,2:string}> */
+	public static function noticeStatusProvider(): array {
+		return [
+			'success' => [ 'notice-success', 'sw-ok-text', 'sw-ok-soft' ],
+			'error'   => [ 'notice-error', 'sw-danger-text', 'sw-danger-soft' ],
+			'warning' => [ 'notice-warning', 'sw-warn-text', 'sw-warn-soft' ],
+			'info'    => [ 'notice-info', 'sw-info-text', 'sw-info-soft' ],
+		];
 	}
 }

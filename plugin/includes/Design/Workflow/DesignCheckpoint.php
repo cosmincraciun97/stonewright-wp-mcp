@@ -287,7 +287,7 @@ final class DesignCheckpoint {
 	}
 
 	/**
-	 * Verifies a checkpoint against the state a builder derived from live data.
+	 * Verifies a checkpoint against the state a builder computed from live data.
 	 *
 	 * @param string               $token      Token returned by {@see self::issue()}.
 	 * @param array<string, mixed> $bound_args Current post_id, section_id, direction_hash, render_hash.
