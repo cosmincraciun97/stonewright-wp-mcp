@@ -16,6 +16,7 @@ workflows with operator controls.
 - [Admin Troubleshoot](admin/troubleshoot.md)
 - [Admin Context](admin/context.md)
 - [Admin Design](admin/design.md)
+- [Admin Changes](admin/changes.md)
 - [Admin navigation and page layout](admin/navigation.md)
 - [Admin Overview](admin/overview.md)
 - [Verified client versions and support tiers](verified-client-versions.md)

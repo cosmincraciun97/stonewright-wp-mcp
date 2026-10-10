@@ -30,6 +30,15 @@
   100 MB by default (options and filters change the limits) and never deletes
   an open change. Removing all plugin data also drops the table, the event and
   the blobs.
+- Add the Changes page (**Stonewright > Activity > Changes**, marked EXP). It lists
+  the changes recorded in the change history, newest first, with filters for
+  family, resource, ability, user, date range and result, and a "restorable
+  only" switch. **View diff** opens one change in a drawer: the content before
+  against after as lines with line numbers, block changes, Elementor elements or
+  changed fields, a note when the diff was cut or values were masked, the reason
+  a change cannot be restored, and the rollbacks and redos that follow it.
+  Passwords, keys and tokens show as `[redacted]`. Rescue links to the page and,
+  for a change that has a history record, to its diff.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the

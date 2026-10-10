@@ -90,7 +90,7 @@ If the recipe fails, the change becomes `rollback_failed`, an open incident, lik
 A write that mutates a post takes a snapshot of the post first. When the snapshot cannot be stored and read back, the write does not run: the ability returns `stonewright_backup_failed` before it changes anything, and releases the write lock it took. This holds for the Elementor V3 abilities that add, move, remove or update elements, build a page from a spec, change page settings, kit colors or kit typography, for the per-widget `elementor-add-*` abilities, for `design-spec-to-elementor-v3` and for `elementor-v4-migrate`. `change-restore` takes a snapshot of the current state before it restores, returns it as `pre_restore_snapshot_id`, and refuses with `stonewright_backup_failed` when it cannot be stored. The history limit (10 snapshots per post) never drops the snapshot being restored.
 ## Change history (ledger)
 
-This section describes the storage layer under change history. The pages and abilities that record, show and undo changes build on it and are documented with them.
+This section describes the storage layer under change history. The [Changes page](admin/changes.md) lists the recorded changes and shows each one as a diff; the abilities that record and undo changes build on the same storage and are documented with them.
 
 The ledger is separate from the journal above. The journal is the short record Rescue needs to check and undo a change that has just been made. The ledger keeps history for longer, with the content that came before and after each change.
 
