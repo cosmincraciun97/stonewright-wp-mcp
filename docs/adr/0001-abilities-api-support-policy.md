@@ -11,7 +11,7 @@ implementations exist in the wild:
 
 1. **WordPress core 6.9+** ships Abilities API under `wp-includes/abilities-api/`
    and fires `wp_abilities_api_categories_init` + `wp_abilities_api_init`.
-2. **Composer package `wordpress/abilities-api` (≤ 0.1.0)** is vendored for
+2. **Composer package `wordpress/abilities-api` (0.1.x)** is vendored for
    pre-6.9 cores. It fires the un-prefixed `abilities_api_init` action and has
    no separate categories init.
 

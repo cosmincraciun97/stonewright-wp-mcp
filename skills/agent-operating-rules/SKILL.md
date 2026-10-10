@@ -98,7 +98,7 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   surfaces.
 - Generic content create, update, duplicate, and bulk tools reject
   executable-code post types (`stonewright_custom_code_provider_required`).
-  Use `stonewright-custom-code-provider-ops`. Never skip KSES to preserve PHP.
+  Use `stonewright-custom-code-provider`. Never skip KSES to preserve PHP.
 - Never write theme/plugin/core code files through `php-execute`.
 - Use the approval-gated typed tool with full validation, atomic write, smoke,
   and rollback. Direct mode may inspect custom CSS but must not write it because

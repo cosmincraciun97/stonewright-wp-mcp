@@ -93,8 +93,13 @@ A received HTTP response is never retried, and a second failure reports
 Authorization, token exchange, refresh, and bearer validation carry or verify
 the exact canonical MCP resource. Protected Resource Metadata advertises only
 the minimal `mcp` resource scope. Refresh tokens share a one-way grant-family
-identifier: reuse of a revoked token revokes the complete family and every
-access token issued from it.
+identifier: reuse of a consumed token revokes the complete family and every
+access token issued from it. The one exception is the immediate predecessor
+presented again within 60 seconds of its use: it receives the grant's current
+refresh credential with a new access credential, and nothing else changes. The
+window is filterable with `stonewright_oauth_refresh_reuse_window` (0 to 300
+seconds; 0 is strict single use). A refresh credential expires after 30 days
+without use, and a grant ends at most 90 days after authorization.
 
 Transient HTTP responses and network failures use bounded exponential backoff,
 `Retry-After` when present, jitter, and a circuit breaker. OAuth responses use

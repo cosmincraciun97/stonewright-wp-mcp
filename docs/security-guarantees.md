@@ -119,7 +119,7 @@ UI exposes the toggle and permission gates read the option.
 Enforced by:
 
 - `plugin/includes/Security/Permissions.php`
-- `plugin/includes/Admin/SettingsSanitizer.php`
+- `plugin/includes/Admin/ConfigurationPage.php`
 
 Verify:
 
@@ -218,9 +218,11 @@ vendor/bin/phpunit tests/Unit/Security/ChangeSetRepairTest.php
 
 OAuth refresh rotation is single-flight. Terminal grant/client failures clear
 local token state and stop retrying; transient failures honor bounded retry and
-`Retry-After` behavior. Server throttles never read forwarded headers: a
-request counts under the connection address the web server reports, and an
-IPv6 address counts as its /64 prefix.
+`Retry-After` behavior. Server throttles read a forwarded header only when the
+connection comes from a proxy the site lists in `STONEWRIGHT_TRUSTED_PROXIES`
+or the `stonewright_trusted_proxies` filter (none by default). Otherwise a
+request counts under the connection address the web server reports. An IPv6
+address counts as its /64 prefix.
 
 Enforced by:
 

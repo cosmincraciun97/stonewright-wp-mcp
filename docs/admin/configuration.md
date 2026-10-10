@@ -186,6 +186,10 @@ The info callout under the switch follows the switch as you toggle it, before yo
 
 Turning it off removes `stonewright-section-reuse-find` and `stonewright-section-reuse-extract` from the tool lists (over MCP they cannot be called at all) and from the profiles, stops `stonewright-task-start` from offering the section reuse skill, makes an insert operation refuse, and tells agents so: the value is in `agent_preferences.section_reuse` of `stonewright-task-start`, and for fifteen minutes after the change every response carries one `notices` line. A client that keeps an old tool list is still safe, because each reuse ability and insert operation checks the live option; the refusal is not retried and does not appear under recurring errors. The row stacks label above control at narrow widths.
 
+### Safe mode on the MCP route
+
+The `stonewright_rescue_mcp_safe_boot` option is a checkbox on **Settings > General** in WordPress, under **Stonewright rescue**, and not on the Setup page. It is off by default. While a rescue incident is open and the checkbox is on, a request to the Stonewright MCP routes that carries credentials loads with only Stonewright active and the default theme, so an agent can connect and roll the change back while the rest of the site is down. Other plugins, security plugins included, do not run on those requests. Stonewright still authenticates the request and every ability checks its permissions. WordPress saves the field with its own nonce and the `manage_options` check, and a change is written to the Audit Log (`stonewright/rescue-setting`). See [Rescue](../rescue.md).
+
 ---
 
 ## Card 2 - Authentication
@@ -193,7 +197,7 @@ Turning it off removes `stonewright-section-reuse-find` and `stonewright-section
 OAuth is the default on HTTPS and explicit local environments. Select OAuth,
 pick the AI client, and follow the generated instructions. WordPress opens a
 consent screen, and the client then appears in the **Connected OAuth clients**
-card below the connection steps; no WordPress password is copied into the
+list on the **Connections** view; no WordPress password is copied into the
 client.
 
 That list shows each client's approvers, connection date, and last use.

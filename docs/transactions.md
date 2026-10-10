@@ -21,14 +21,16 @@ readback, and rolls back both resources on failure.
 |---|---|
 | `post_id` | Target Elementor document |
 | `operations` | Ordered mutation ops (same family as batch-mutate) |
-| `precondition_hash` / structure hash | Optional: refuse to write if live data diverged |
+| `precondition_hash` / structure hash | Optional: refuse to write if live data diverged (`stonewright_transaction_precondition`) |
+| `stop_on_error`, `rollback_on_error` | Both default to `true`: stop at the first failed operation, and restore the snapshot when apply or readback fails |
+| `expected_readback` | Optional checks after the write: `tree_hash`, `min_elements`, `max_elements`, `contains_widget_types` |
 | `dry_run` | Validate + plan without committing |
-| `confirmation_token` | Required for destructive runs when `stonewright_mode=production-safe` |
+| `confirmation_token` | Required for every run, a dry run included, when `stonewright_mode=production-safe`; bound to the call's arguments |
 
 Runtime behavior (plugin):
 
 1. **Permission** — `Permissions::edit_post( $post_id )`.
-2. **Snapshot** — `Backup::snapshot_post` before mutating Elementor data.
+2. **Snapshot** — `Backup::snapshot_post` before mutating Elementor data. A snapshot that cannot be stored and read back stops the run before anything changes (`stonewright_transaction_snapshot_failed`).
 3. **Apply operations** — via the Elementor transaction runner.
 4. **Readback** — structural hash / element count after write.
 5. **Post cache** — invalidate only the target document's Elementor HTML cache
@@ -48,9 +50,9 @@ The envelope verifies the document it wrote. Rescue verifies the site. Any write
 | The site fails | The recorded rollback runs, the site is probed again, and the result becomes the error `stonewright_rescue_write_rolled_back` (or `stonewright_rescue_rollback_failed` when the rollback fails) with `change_set_id`, `rollback_status`, and `site_status` |
 | The probe cannot reach the site | The change set stays `armed` and a notice tells the agent that recent changes are not verified |
 
-The site is also asked before the write, and a check that answered then and cannot be reached afterwards counts as failed. A theme-file write keeps its receipt and adds `site_probe` (`passed`, `failed`, `unavailable`, or `skipped`). It reports `verification_status` `verified` and `effect_verified` true only when the check after the write passed; otherwise `unverified`.
+The site is also asked before the write, and a check that answered then and cannot be reached afterwards counts as failed, but only after it is asked once more with the longest wait a probe request may have (15 seconds, inside the 30 second probe budget). A server error, the critical error page, and a PHP fatal fail at once. A theme-file write keeps its receipt and adds `site_probe` (`passed`, `failed`, `unavailable`, or `skipped`). It reports `verification_status` `verified` and `effect_verified` true only when the check after the write passed; otherwise `unverified`.
 
-After `stonewright_rescue_write_rolled_back` the change is gone. Read `site_status` before trying again. Call `stonewright-rescue-status` to see open incidents and `stonewright-rescue-rollback` to finish one. See [Rescue](rescue.md).
+After `stonewright_rescue_write_rolled_back` the change is gone. Read `site_status` before trying again. Call `stonewright-rescue-status` to see open incidents and `stonewright-rescue-rollback` to finish one. A verified change can also be undone later, from the Rescue page or the same ability. See [Rescue](rescue.md).
 
 ## Agent workflow
 
@@ -128,6 +130,7 @@ sizes and `verification.evidence.truncated` names a list that was cut.
 | `stonewright/theme-custom-css` | `custom_code` / Customizer CSS path / `update` | `post_snapshot` |
 | `stonewright/custom-code-provider` (`dry-run`, `apply`, `rollback`) | `custom_code` / `provider:target` / `apply` or `rollback` | `provider_snapshot` (apply only) |
 | `stonewright/theme-chrome-update` | `theme_option` / `bucket.key` / `set` | `option_snapshot` |
+| `stonewright/elementor-native-execute` (writes; the structure read returns none) | `default_style` / tag / `update` or `delete`, or `element` / parent id or `document` / `insert_composition` or `replace_children` | `post_snapshot` (none for a kit-level write) |
 | `stonewright/elementor-post-write-verify` | `element` or `content` / checked element id or marker hash / `render` | taken from the given change set |
 
 A batch that copies a section (`insert_section`) adds `reuse_source` to its change set; see [Extending the shape](#extending-the-shape).

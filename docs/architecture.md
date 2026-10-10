@@ -222,9 +222,11 @@ candidate and assembled runtime when that contract is available, rebuilds the
 provider cache, and rolls back on verification failure. Inactive drafts must
 not appear in the execution cache.
 
-Setup uses one client tablist shared by OAuth and Application Password.
-Changing authentication updates instructions inside the same selected-client
-panel; unsupported combinations stay visible but disabled. **Grok Build / CLI**
+Setup step 2 chooses OAuth or an Application Password, and step 3 shows the
+panel of the chosen method. The OAuth panel has one guide per AI client, with
+its commands, configuration entries, and how sign-in starts. The Application
+Password panel has one client tablist with that client's snippets; a client that
+does not support an Application Password stays visible but disabled. **Grok Build / CLI**
 (`grok-build`, with `grok-cli` / `grok` aliases) is one catalog entry. OAuth
 uses native HTTP to `~/.grok/config.toml`; Application Password uses the local
 companion over stdio so the secret is not stored in TOML. Until a dated runtime
@@ -300,11 +302,12 @@ guard. See [php-execute runtime guards](security.md#php-execute-runtime-guards).
 
 Risky writes run inside a frame. `AbilityKernel` opens a `RescueGuard` frame around every audited ability and closes it before the audit row is written, so the row records the final outcome.
 
-1. A write site arms a change set in `ChangeJournal` before it changes anything. Post and option snapshots arm themselves in `Backup`, and the plugin, sandbox, custom-code, and theme-file writes make one call each. A write made outside an ability call is not journaled, because nothing would settle it.
-2. When the ability returns, the guard checks whether the call changed what it guarded and runs one `HealthProbe` for everything the call changed. The probe's `admin` leg loads the Rescue page through `ProbeToken`, a single-use internal header token that signs the loopback request in for that request only.
+1. A write site arms a change set in `ChangeJournal` before it changes anything. Post and option snapshots arm themselves in `Backup`, and the plugin, sandbox, custom-code, and theme-file writes make one call each. A write made outside an ability call is not journaled, because nothing would settle it. A write whose post snapshot cannot be stored and read back stops before it changes anything.
+2. When the ability returns, the guard checks whether the call changed what it guarded and runs one `HealthProbe` for everything the call changed. The probe's `admin` leg loads the Rescue page through `ProbeToken`, a single-use internal header token that signs the loopback request in for that request only. The post leg of a draft carries that login token. The post leg of a published post, which is requested as a visitor, carries a mark-only token that logs nobody in. Elementor does not print or download Google fonts while it renders a request marked by a valid token, so a slow first font download cannot fail the probe. A leg that answered before the write and gets no answer after it (a timeout or a refused connection) is asked once more, with the longest wait a probe request may have (15 seconds, inside the 30 second probe budget). A server error, the critical error page, and a PHP fatal fail at once.
 3. Each entry settles as `verified`, stays `armed` when the probe is unavailable, or is rolled back through `RollbackRecipes`, probed again, and marked `rolled_back` (or `rollback_failed`, which is an open incident).
 4. A failed check turns the result into a `WP_Error` (`stonewright_rescue_write_rolled_back` or `stonewright_rescue_rollback_failed`) whose message and data carry the compact evidence, because a client that only reads the message must still see it.
 5. `ChangeJournal` keeps two copies in step under one critical section: a compact file in `uploads/stonewright-state/` that the rescue MU-plugin and WP-CLI read without the plugin, and a database option with the detail the file never holds. `AgentNotices` carries the open incident to agents as `pending_incident` on every ability response, and `AbilityRegistry` adds the two Rescue abilities to the tool list while one is open.
+6. A verified change can be undone later, from the Rescue page or with `stonewright/rescue-rollback`, for any of the last 50 changes the journal keeps. The undo saves the current state first and probes the site before and after. When the undo makes a site that worked fail to load, the saved state is put back, the change stays verified with the note `undo_reverted`, and the call answers `stonewright_rescue_undo_reverted`. When the current state cannot be saved, the undo is refused with `stonewright_rescue_undo_capture_failed` before anything changes. A verified change to a theme file, custom code, a sandbox file, or the Customizer CSS is undone only from the Rescue page, by an administrator: the ability answers `stonewright_rescue_approval_required` with the approval URL and stops.
 
 See [Rescue](rescue.md) for the journal format, the probe, and the limits.
 

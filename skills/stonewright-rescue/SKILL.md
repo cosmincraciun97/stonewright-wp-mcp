@@ -19,7 +19,7 @@ sandbox, and custom-code writes made through Stonewright abilities.
 Call `stonewright-rescue-status`. It is read-only, runs no probe, and changes
 nothing. It lists `open_incidents` (a rollback that failed, or a PHP fatal
 recorded after a change), `unconfirmed` changes (made, but no health check
-reported back), and the latest changes, each with the rollback it would run.
+reported back), each with the rollback it would run, and the `recent` changes.
 
 ## Read the signal
 
@@ -32,6 +32,7 @@ reported back), and the latest changes, each with the rollback it would run.
 | `stonewright_rescue_in_progress` | Another caller is already rolling this change set back | Wait a minute, then call `stonewright-rescue-status`; do not start a second rollback |
 | `stonewright_rescue_undo_reverted` | The undo of a verified change would have broken the site, so it was put back and the change is still in effect | Report it to the user with the evidence in the message. Do not retry the undo; the older state fails on this site |
 | `stonewright_rescue_undo_capture_failed` | The current state could not be saved first, so the undo was refused and nothing changed | Report it to the user. Do not work around it |
+| `stonewright_rescue_undo_revert_failed` | The undo broke the site and the earlier state could not be put back, so the site may be failing and an incident is open | Report it to the user with the evidence in the message. Point to safe mode at **Stonewright > Activity > Rescue**. Do not retry |
 | `stonewright_rescue_approval_required` | A verified change to code (theme file, custom code, sandbox file, Customizer CSS) can be undone only by an administrator | Show the user the change and `approval_url`, ask them to use **Stonewright > Activity > Rescue**, then stop. Do not retry |
 
 ## Roll back
@@ -52,8 +53,8 @@ reported back), and the latest changes, each with the rollback it would run.
 ## Undo a verified change
 
 `stonewright-rescue-rollback` also rolls back a change that passed its health
-check, when the user asks for it (the journal keeps the last 50). Use the
-`incident_id` or `change_set_id` of the earlier write and follow the steps
+check, when the user asks for it (the journal keeps the last 50). Pass the
+`change_set_id` of the earlier write as `incident_id` and follow the steps
 above, dry run first. A verified change to code is the exception: the ability
 answers `stonewright_rescue_approval_required`, and only the administrator can
 roll it back, on the Rescue page. An undo of a verified change saves the current

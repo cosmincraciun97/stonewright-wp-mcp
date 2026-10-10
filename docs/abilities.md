@@ -356,7 +356,7 @@ for debugging and operational tasks.
   contract repeatedly.
 - `stonewright/design-direction-save` validates the contract allowlist-only and
   rejects unknown fields instead of stripping them. It creates a new revision
-  only when the contract hash changed, and returns the hash before and after.
+  only when the contract hash changed, and returns the hash before and after. When the saved direction is the active one and the new revision is not ready, the direction is switched off and the result reports `active_cleared`; `design-direction-capture` and `design-direction-restore` report it the same way.
 - `stonewright/design-direction-capture` turns compact Elementor kit evidence,
   as returned by `stonewright/elementor-v3-get-kit-globals`, into a draft
   contract with provenance for every mapped token. It previews by default and
