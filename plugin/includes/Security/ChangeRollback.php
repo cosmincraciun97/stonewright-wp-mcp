@@ -457,6 +457,9 @@ final class ChangeRollback {
 				'restorable_again'   => false,
 			];
 		}
+		if ( 'reverted' === $status && $own ) {
+			return self::reverted_by_handler( $restore );
+		}
 		if ( 'succeeded' !== $status ) {
 			return self::failed_attempt( $context, $state, $options, $restore, $own );
 		}
@@ -538,6 +541,31 @@ final class ChangeRollback {
 				'detail'             => (string) ( $restore['detail'] ?? '' ),
 				'rollback_change_id' => $child_id,
 				'reverted'           => $reverted,
+			]
+		);
+	}
+
+	/**
+	 * The handler checked the site itself, found it failing after the restore and put the earlier state back, with its own
+	 * row for the attempt. The answer is the one of the engine's own revert. The engine restores nothing a second time, and
+	 * writes no row: the handler's row and its journal entry already say the restore was taken back.
+	 *
+	 * @param array<string, mixed> $restore What the handler returned.
+	 */
+	private static function reverted_by_handler( array $restore ): \WP_Error {
+		$child_id = isset( $restore['rollback_change_id'] ) && is_string( $restore['rollback_change_id'] ) ? $restore['rollback_change_id'] : '';
+		return self::error(
+			'stonewright_change_rollback_reverted',
+			__( 'The rollback made the site fail its health check, so the earlier state was put back. The change is still in effect.', 'stonewright' ),
+			500,
+			[
+				'rollback_status'    => 'reverted',
+				'site_status'        => 'still_failing',
+				'probe'              => is_array( $restore['probe'] ?? null ) ? $restore['probe'] : [],
+				'rollback_change_id' => $child_id,
+				'reverted'           => true,
+				'revert_change_id'   => '',
+				'site_after_revert'  => (string) ( $restore['site_after_revert'] ?? 'unknown' ),
 			]
 		);
 	}

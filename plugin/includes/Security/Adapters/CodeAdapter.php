@@ -289,8 +289,10 @@ final class CodeAdapter {
 	 * Restore a change from its before image, by the family of its row.
 	 *
 	 * @param array<string, mixed> $options expected_current_sha256, and skip_smoke for a theme file (tests).
-	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string}
-	 *         status is succeeded, noop (already as it was), failed, or not_available (not a code family).
+	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string,site_after_revert?:string,probe?:array<string, mixed>}
+	 *         status is succeeded, noop (already as it was), reverted (a theme file was written and the site failed
+	 *         afterwards, so the transaction put the earlier file back and recorded the attempt; probe is the failing
+	 *         check and site_after_revert how the site was judged once the file was back), failed, or not_available (not a code family).
 	 */
 	public static function restore( string $change_id, array $options = [] ): array {
 		$row = ChangeLedger::get( $change_id );
@@ -317,7 +319,7 @@ final class CodeAdapter {
 	 * Write a theme file back as it was, or delete the file the change created, through ThemeWriteTransaction.
 	 *
 	 * @param array<string, mixed> $options
-	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string}
+	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string,site_after_revert?:string,probe?:array<string, mixed>}
 	 */
 	public static function restore_theme_file( string $change_id, array $options = [] ): array {
 		$recipe = 'ledger_theme_file';
@@ -384,9 +386,30 @@ final class CodeAdapter {
 			self::kind_of( $options )
 		);
 		if ( $outcome instanceof \WP_Error ) {
+			$taken_back = self::taken_back( $outcome );
+			if ( null !== $taken_back ) {
+				return self::result( 'reverted', self::short_code( $outcome ), $change_id, $recipe, $child, $taken_back );
+			}
 			return self::result( 'failed', self::short_code( $outcome ), $change_id, $recipe, $child );
 		}
 		return self::result( 'succeeded', '', $change_id, $recipe, $child );
+	}
+
+	/**
+	 * What the site check saw, when the transaction wrote the file, found the site failing, and put the earlier file
+	 * back. Null for any other failure, so that only a restore the transaction took back for the site's sake is told apart.
+	 *
+	 * @return array{site_after_revert:string,probe:array<string, mixed>}|null
+	 */
+	private static function taken_back( \WP_Error $error ): ?array {
+		$data = $error->get_error_data();
+		if ( 'stonewright_theme_write_smoke_failed' !== $error->get_error_code() || ! is_array( $data ) || 'succeeded' !== ( $data['rollback_status'] ?? '' ) ) {
+			return null;
+		}
+		return [
+			'site_after_revert' => (string) ( $data['site_status'] ?? 'unknown' ),
+			'probe'             => is_array( $data['probe'] ?? null ) ? $data['probe'] : [],
+		];
 	}
 
 	/**
@@ -721,16 +744,20 @@ final class CodeAdapter {
 	}
 
 	/**
+	 * @param array<string, mixed> $extra Keys to add to the result, for example what the site check saw.
 	 * @return array{status:string,detail:string,recipe:string,change_id:string,rollback_change_id:?string}
 	 */
-	private static function result( string $status, string $detail, string $change_id, string $recipe, ?string $child = null ): array {
-		return [
-			'status'             => $status,
-			'detail'             => $detail,
-			'recipe'             => $recipe,
-			'change_id'          => $change_id,
-			'rollback_change_id' => $child,
-		];
+	private static function result( string $status, string $detail, string $change_id, string $recipe, ?string $child = null, array $extra = [] ): array {
+		return array_merge(
+			$extra,
+			[
+				'status'             => $status,
+				'detail'             => $detail,
+				'recipe'             => $recipe,
+				'change_id'          => $change_id,
+				'rollback_change_id' => $child,
+			]
+		);
 	}
 
 	private static function short_code( \WP_Error $error ): string {

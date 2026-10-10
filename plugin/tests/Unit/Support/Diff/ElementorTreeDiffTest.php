@@ -207,6 +207,25 @@ final class ElementorTreeDiffTest extends TestCase {
 		$this->assertSame( 2, $r['masked'] );
 	}
 
+	public function test_a_secret_key_nested_in_a_setting_value_is_counted_as_masked(): void {
+		$old = [ $this->widget( 'w1', 'form', [ 'title' => 'a' ] ) ];
+		$new = [ $this->widget( 'w1', 'form', [ 'title' => 'a', 'mailer' => [ 'host' => 'smtp.example.com', 'servers' => [ [ 'pass' . 'word' => 'zz-leak-10' ] ] ] ] ) ];
+
+		$r    = ElementorTreeDiff::diff( $old, $new );
+		$json = (string) json_encode( $r );
+
+		$this->assertStringNotContainsString( 'zz-leak-10', $json );
+		$this->assertStringContainsString( 'smtp.example.com', $json );
+		$this->assertSame( 1, $r['masked'] );
+	}
+
+	public function test_a_setting_value_with_nested_keys_that_are_not_secrets_is_not_counted_as_masked(): void {
+		$old = [ $this->widget( 'w1', 'form', [ 'title' => 'a' ] ) ];
+		$new = [ $this->widget( 'w1', 'form', [ 'title' => 'a', 'mailer' => [ 'host' => 'smtp.example.com', 'servers' => [ [ 'name' => 'one' ] ] ] ] ) ];
+
+		$this->assertSame( 0, ElementorTreeDiff::diff( $old, $new )['masked'] );
+	}
+
 	public function test_accepts_stored_meta_strings(): void {
 		$old = (string) json_encode( [ $this->widget( 'w1', 'heading', [ 'title' => 'A' ] ) ] );
 		$new = (string) json_encode( [ $this->widget( 'w1', 'heading', [ 'title' => 'B' ] ) ] );

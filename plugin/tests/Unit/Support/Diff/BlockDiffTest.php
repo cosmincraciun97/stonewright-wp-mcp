@@ -179,6 +179,29 @@ final class BlockDiffTest extends TestCase {
 		$this->assertTrue( $r['items'][0]['attrs'][0]['redacted'] );
 	}
 
+	public function test_a_secret_key_nested_in_an_attribute_object_is_counted_as_masked(): void {
+		$old = "<!-- wp:html {\"label\":\"a\"} -->\n<p>x</p>\n<!-- /wp:html -->\n";
+		$new = "<!-- wp:html {\"label\":\"a\",\"config\":{\"host\":\"smtp.example.com\",\"smtp\":{\"api_token\":\"zz-leak-9\"}}} -->\n<p>x</p>\n<!-- /wp:html -->\n";
+
+		$r = $this->diff( $old, $new );
+
+		$this->assertStringNotContainsString( 'zz-leak-9', (string) json_encode( $r ) );
+		$this->assertStringContainsString( 'smtp.example.com', (string) json_encode( $r ) );
+		$this->assertSame( 'config', $r['items'][0]['attrs'][0]['path'] );
+		$this->assertTrue( $r['items'][0]['attrs'][0]['redacted'] );
+		$this->assertSame( 1, $r['masked'] );
+	}
+
+	public function test_an_attribute_object_without_a_secret_is_not_counted_as_masked(): void {
+		$old = "<!-- wp:html {\"label\":\"a\"} -->\n<p>x</p>\n<!-- /wp:html -->\n";
+		$new = "<!-- wp:html {\"label\":\"a\",\"config\":{\"host\":\"smtp.example.com\",\"tags\":[\"a\",\"b\"]}} -->\n<p>x</p>\n<!-- /wp:html -->\n";
+
+		$r = $this->diff( $old, $new );
+
+		$this->assertFalse( $r['items'][0]['attrs'][0]['redacted'] );
+		$this->assertSame( 0, $r['masked'] );
+	}
+
 	public function test_item_cap_cuts_and_counts_but_the_summary_is_exact(): void {
 		$old = '';
 		$new = '';

@@ -288,11 +288,111 @@ final class ChangeRollbackCodeTest extends RollbackTestCase {
 		$error = ChangeRollback::run( $id, [ 'human_approved' => true ] );
 
 		self::assertInstanceOf( \WP_Error::class, $error );
-		self::assertSame( 'stonewright_change_rollback_failed', $error->get_error_code(), 'The code transaction takes the restore back itself.' );
+		self::assertSame( 'stonewright_change_rollback_reverted', $error->get_error_code(), 'The code transaction takes the restore back itself, and the answer says so.' );
 		self::assertSame( self::V2, (string) file_get_contents( $path ), 'The file that worked is back.' );
-		self::assertSame( 'theme_write_smoke_failed', $error->get_error_data()['detail'] );
 		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
 		self::assertSame( 'verified', $this->row( $id )['status'] );
+	}
+
+	/**
+	 * A theme file restore breaks the site: the theme file transaction probes it, takes the restore back and records the
+	 * attempt. The engine answers as it does for its own revert, and writes nothing more.
+	 */
+	public function test_a_theme_file_restore_that_the_transaction_took_back_answers_reverted_with_the_probe_evidence(): void {
+		$id   = $this->theme_change();
+		$path = $this->theme . '/functions.php';
+		$this->site( fn (): string => str_contains( (string) file_get_contents( $this->theme . '/functions.php' ), 'version one' ) ? 'broken' : 'healthy' );
+		$rows_before = $this->ledger_count();
+
+		$error = $this->assert_refused( ChangeRollback::run( $id, [ 'human_approved' => true, 'by' => 'admin-page' ] ), 'stonewright_change_rollback_reverted' );
+
+		$data = $error->get_error_data();
+		self::assertSame( self::V2, (string) file_get_contents( $path ), 'The change that worked is back.' );
+		self::assertSame( 'reverted', $data['rollback_status'] );
+		self::assertTrue( $data['reverted'] );
+		self::assertSame( 'still_failing', $data['site_status'] );
+		self::assertSame( 'healthy', $data['site_after_revert'], 'The site loads again after the restore was taken back.' );
+		self::assertIsArray( $data['probe'], 'The evidence of the failing probe.' );
+		self::assertArrayHasKey( 'status', $data['probe'] );
+		self::assertSame( 'verified', $this->row( $id )['status'], 'The change is still in effect.' );
+
+		// One row for the attempt, the one the transaction wrote, and nothing else.
+		self::assertSame( $rows_before + 1, $this->ledger_count(), 'Only the row the transaction wrote is new.' );
+		$attempt = $this->row( $data['rollback_change_id'] );
+		self::assertSame( 'rollback', $attempt['kind'] );
+		self::assertSame( $id, $attempt['parent_id'] );
+		self::assertSame( 'rolled_back', $attempt['status'], 'The row follows the journal entry of the same id.' );
+		self::assertSame( [], array_values( array_filter( $this->ledger_rows(), static fn ( array $row ): bool => 'redo' === $row['kind'] ) ), 'The restore is not taken back a second time.' );
+		self::assertSame( 'rolled_back', ChangeJournal::get( $attempt['change_id'] )['state'] ?? 'missing', 'The journal and the ledger agree on the attempt.' );
+
+		// The fatal of the attempt is not an open incident, and nothing is left on.
+		self::assertSame( [], ChangeJournal::open_incidents() );
+		self::assertSame( '', get_option( ChangeJournal::OPEN_OPTION, '' ) );
+	}
+
+	public function test_a_theme_file_redo_that_breaks_the_site_is_answered_and_recorded_the_same_way(): void {
+		$id   = $this->theme_change();
+		$path = $this->theme . '/functions.php';
+		$undo = $this->ok( ChangeRollback::run( $id, [ 'human_approved' => true ] ) );
+		self::assertSame( self::V1, (string) file_get_contents( $path ) );
+		$this->site( fn (): string => str_contains( (string) file_get_contents( $this->theme . '/functions.php' ), 'version two' ) ? 'broken' : 'healthy' );
+
+		$error = $this->assert_refused( ChangeRollback::run( $undo['rollback_change_id'], [ 'human_approved' => true ] ), 'stonewright_change_rollback_reverted' );
+
+		self::assertSame( self::V1, (string) file_get_contents( $path ), 'The state before the redo is back.' );
+		$attempt = $this->row( $error->get_error_data()['rollback_change_id'] );
+		self::assertSame( 'redo', $attempt['kind'] );
+		self::assertSame( $undo['rollback_change_id'], $attempt['parent_id'] );
+		self::assertSame( 'rolled_back', $attempt['status'] );
+		self::assertSame( 'rolled_back_by', $this->row( $id )['status'], 'The change stays undone.' );
+		self::assertSame( [], ChangeJournal::open_incidents() );
+	}
+
+	public function test_a_theme_file_restore_that_failed_for_another_reason_still_answers_failed(): void {
+		$path = $this->theme . '/functions.php';
+		$bad  = "<?php\nfunction broken( {\n";
+		file_put_contents( $path, $bad );
+		$result = ThemeWriteTransaction::apply( [ 'absolute' => $path, 'relative' => 'functions.php', 'before' => $bad, 'after' => self::V2, 'language' => 'php', 'skip_smoke' => true ] );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$id = (string) $this->only_row_of( 'theme_file' )['change_id'];
+		$this->forget_journal();
+
+		$error = $this->assert_refused( ChangeRollback::run( $id, [ 'human_approved' => true ] ), 'stonewright_change_rollback_failed' );
+
+		self::assertSame( 'failed', $error->get_error_data()['rollback_status'] );
+		self::assertNotSame( 'reverted', $error->get_error_data()['rollback_status'] );
+		self::assertSame( self::V2, (string) file_get_contents( $path ), 'The file was not touched.' );
+	}
+
+	/**
+	 * The other code families have no transaction of their own that probes: the engine probes and takes the restore back, and
+	 * writes the rollback row as taken back and a redo row for the revert.
+	 *
+	 * @dataProvider engine_probed_families
+	 */
+	public function test_an_engine_revert_of_a_code_family_answers_reverted_and_keeps_both_rows( string $method, string $before ): void {
+		$id = $this->{$method}();
+		$this->site( fn (): string => $this->live( $method ) === $before ? 'broken' : 'healthy' );
+
+		$error = $this->assert_refused( ChangeRollback::run( $id, [ 'human_approved' => true ] ), 'stonewright_change_rollback_reverted' );
+
+		$data = $error->get_error_data();
+		self::assertNotSame( $before, $this->live( $method ), 'The change that worked is back.' );
+		self::assertSame( 'verified', $this->row( $id )['status'] );
+		self::assertSame( 'rolled_back_by', $this->row( $data['rollback_change_id'] )['status'] );
+		$children = ChangeLedger::children( $data['rollback_change_id'] );
+		self::assertCount( 1, $children );
+		self::assertSame( 'redo', $children[0]['kind'] );
+		self::assertSame( $data['revert_change_id'], $children[0]['change_id'] );
+	}
+
+	/** @return array<string, array{0:string,1:string}> */
+	public static function engine_probed_families(): array {
+		return [
+			'snippet'       => [ 'snippet_change', self::V1 ],
+			'sandbox draft' => [ 'sandbox_change', self::V1 ],
+			'customizer css' => [ 'css_change', ".a{color:red;}\n" ],
+		];
 	}
 
 	public function test_in_production_safe_mode_code_needs_the_token_and_the_person(): void {

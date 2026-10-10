@@ -83,7 +83,74 @@ final class DiffMaskTest extends TestCase {
 		$this->assertStringContainsString( 'smtp.example.com', $text );
 		$this->assertStringNotContainsString( 'hunter2', $text );
 		$this->assertStringContainsString( '[redacted]', $text );
+		$this->assertTrue( $redacted, 'A value that had something redacted inside it counts as masked.' );
+	}
+
+	/**
+	 * @dataProvider nested_secrets
+	 *
+	 * @param mixed $value
+	 */
+	public function test_value_reports_a_secret_key_nested_at_any_depth_or_inside_lists( mixed $value, string $leaked ): void {
+		[ $text, $redacted ] = DiffMask::value( $value, '' );
+
+		$this->assertTrue( $redacted );
+		$this->assertStringContainsString( '[redacted]', $text );
+		$this->assertStringNotContainsString( $leaked, $text );
+	}
+
+	/**
+	 * @return array<string, array{mixed, string}>
+	 */
+	public static function nested_secrets(): array {
+		return [
+			'one level'            => [ [ 'memory_key' => 'rh2-note', 'v' => 1 ], 'rh2-note' ],
+			'three levels'         => [ [ 'a' => [ 'b' => [ 'api_token' => 'zz-leak-1', 'c' => 1 ] ] ], 'zz-leak-1' ],
+			'eleven levels'        => [ self::nest( 10, [ 'secret' => 'zz-leak-2' ] ), 'zz-leak-2' ],
+			'inside a list'        => [ [ [ 'label' => 'a' ], [ 'label' => 'b', 'password' => 'zz-leak-3' ] ], 'zz-leak-3' ],
+			'list inside a map'    => [ [ 'items' => [ [ 'x' => [ 'auth' => 'zz-leak-4' ] ] ] ], 'zz-leak-4' ],
+			'an object'            => [ (object) [ 'inner' => (object) [ 'cookie' => 'zz-leak-5' ] ], 'zz-leak-5' ],
+			'a typed prop content' => [ [ '$$type' => 'map', 'value' => [ 'bearer' => 'zz-leak-6' ] ], 'zz-leak-6' ],
+		];
+	}
+
+	/**
+	 * @dataProvider values_without_a_secret
+	 *
+	 * @param mixed $value
+	 */
+	public function test_value_does_not_report_nested_keys_that_are_not_secrets( mixed $value ): void {
+		[ $text, $redacted ] = DiffMask::value( $value, '' );
+
 		$this->assertFalse( $redacted );
+		$this->assertStringNotContainsString( '[redacted]', $text );
+	}
+
+	/**
+	 * @return array<string, array{mixed}>
+	 */
+	public static function values_without_a_secret(): array {
+		return [
+			'plain nested keys'        => [ [ 'title' => 'A', 'meta' => [ 'author_name' => 'B', 'passage_title' => 'C' ] ] ],
+			'a list of maps'           => [ [ [ 'label' => 'a' ], [ 'label' => 'b' ] ] ],
+			'a list of scalars'        => [ [ 'a', 'b', 3 ] ],
+			'an empty array'           => [ [] ],
+			'a scalar'                 => [ 'plain text' ],
+			'a value that says secret' => [ [ 'note' => 'keep this secret place' ] ],
+			'too deep to read'         => [ self::nest( 20, [ 'label' => 'x' ] ) ],
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $leaf
+	 * @return array<string, mixed>
+	 */
+	private static function nest( int $levels, array $leaf ): array {
+		$value = $leaf;
+		for ( $i = 0; $i < $levels; $i++ ) {
+			$value = [ 'level' . $i => $value ];
+		}
+		return $value;
 	}
 
 	public function test_value_truncates_long_text_with_the_size(): void {

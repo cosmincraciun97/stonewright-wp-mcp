@@ -124,6 +124,24 @@ final class ChangeDiffTest extends TestCase {
 		self::assertStringContainsString( 'Launch note', (string) wp_json_encode( $diff ) );
 	}
 
+	public function test_a_deleted_record_with_a_secret_named_key_inside_it_is_counted_as_masked(): void {
+		$row  = $this->seed_change( [ 'family' => 'memory', 'resource_type' => 'memory', 'resource_id' => 'rh2-note', 'summary' => 'Deleted the note.' ], [ 'entry' => [ 'memory_key' => 'rh2-note', 'title' => 'Launch note' ], 'v' => 1 ], null );
+		$diff = ChangeDiff::for_row( $row );
+
+		self::assertTrue( $diff['deleted'] );
+		self::assertSame( 1, $diff['masked'] );
+		self::assertFalse( $diff['image_masked'] );
+		self::assertStringContainsString( 'Launch note', (string) wp_json_encode( $diff ) );
+		self::assertStringContainsString( '[redacted]', (string) wp_json_encode( $diff ) );
+		self::assertStringNotContainsString( '"rh2-note"', (string) wp_json_encode( $diff['sections'] ) );
+	}
+
+	public function test_a_deleted_record_without_a_secret_key_is_not_counted_as_masked(): void {
+		$row  = $this->seed_change( [ 'family' => 'memory', 'resource_type' => 'memory', 'resource_id' => 'note-b', 'summary' => 'Deleted the note.' ], [ 'entry' => [ 'title' => 'Launch note', 'tags' => [ 'a', 'b' ] ], 'v' => 1 ], null );
+
+		self::assertSame( 0, ChangeDiff::for_row( $row )['masked'] );
+	}
+
 	public function test_a_value_that_was_masked_when_it_was_stored_is_counted_as_masked(): void {
 		$row  = $this->seed_change(
 			[ 'family' => 'option', 'resource_type' => 'option', 'resource_id' => 'blogname' ],
@@ -144,6 +162,16 @@ final class ChangeDiffTest extends TestCase {
 		self::assertSame( 'before_only', $diff['status'] );
 		self::assertSame( [], $diff['sections'] );
 		self::assertNotSame( '', $diff['message'] );
+	}
+
+	public function test_a_write_that_was_taken_back_is_not_shown_as_a_deletion(): void {
+		$row  = $this->seed_change( [ 'family' => 'theme_file', 'resource_type' => 'theme_file', 'resource_id' => 'example-theme/functions.php' ], "<?php\n// version one\n", null, 'rolled_back' );
+		$diff = ChangeDiff::for_row( $row );
+
+		self::assertSame( 'before_only', $diff['status'] );
+		self::assertFalse( $diff['deleted'] );
+		self::assertSame( [], $diff['sections'] );
+		self::assertStringContainsString( 'taken back', $diff['message'] );
 	}
 
 	public function test_a_change_without_any_image_says_so(): void {

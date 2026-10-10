@@ -22,9 +22,12 @@ namespace Stonewright\WpMcp\Security\Rollback;
  * with the code LIVE_UNSUPPORTED: the engine then has no diff and cannot tell drift, and says so.
  *
  * The method restore() puts the resource into the state of $image (null: remove what the change created) and returns
- * { status: succeeded | noop | failed | not_available, detail: short code, resource_id?: the id of the resource
- * when the restore gave it a new one, limits?: list of short sentences about what was not restored,
- * rollback_change_id?: the row the handler wrote itself }. A handler that writes its own rollback row says so in
+ * { status: succeeded | noop | reverted | failed | not_available, detail: short code, resource_id?: the id of the
+ * resource when the restore gave it a new one, limits?: list of short sentences about what was not restored,
+ * rollback_change_id?: the row the handler wrote itself, probe?: the failing site check, site_after_revert?: how the
+ * site was judged afterwards }. The status `reverted` is for a handler that checks the site itself: it wrote the
+ * state, found the site failing, put the earlier state back and recorded that on its own row. The engine then answers
+ * `stonewright_change_rollback_reverted` and writes and restores nothing more. A handler that writes its own rollback row says so in
  * records_own_row(); the engine then writes none and settles the row the handler returned. Options: kind
  * (rollback or redo; the kind of the row a handler writes), expected_current_sha256 (the live hash the engine
  * checked, or ''), permanent (the caller asked for a permanent removal where the family has the choice) and actor.
@@ -47,7 +50,7 @@ interface RollbackFamilyHandler {
 	 * @param array<string, mixed>     $row
 	 * @param string|array<mixed>|null $image
 	 * @param array<string, mixed>     $options
-	 * @return array{status:string,detail?:string,resource_id?:string,limits?:list<string>,rollback_change_id?:string|null}
+	 * @return array{status:string,detail?:string,resource_id?:string,limits?:list<string>,rollback_change_id?:string|null,probe?:array<string, mixed>,site_after_revert?:string}
 	 */
 	public function restore( array $row, string|array|null $image, array $options ): array;
 

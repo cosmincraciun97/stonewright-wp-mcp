@@ -83,8 +83,11 @@ development builds were never stable releases.
   be restored. A change that deleted a menu or a memory entry shows the removed
   content under a **Deleted** label. The History tab lists the rollbacks and
   redos that follow a change, the redo of a rollback under that rollback, to a
-  fixed depth. Passwords, keys and tokens show as `[redacted]`. Rescue links to
-  the page and, for a change that has a history record, to its diff.
+  fixed depth. Passwords, keys and tokens show as `[redacted]`, also when they
+  sit inside a value shown as one piece, and every such value counts as masked
+  in the note above the diff. A write that was taken back shows a note instead
+  of a diff. Rescue links to the page and, for a change that has a history
+  record, to its diff.
 - Add **Undo** and **Redo** to the Changes page. **Undo this change** opens a
   dialog with the diff of what the undo would change, warnings for a newer
   change to the same item and for an item that was edited since the change
@@ -92,7 +95,11 @@ development builds were never stable releases.
   check and production-safe confirmation token as Rescue. The undo restores the
   item as it was, probes the site, puts the earlier state back if the site
   stops loading, and records a rollback row that links back to the change; a
-  rolled-back change offers **Redo**. It covers posts and their kinds, options,
+  rolled-back change offers **Redo**. When the site fails after a restore the
+  answer is the same for every kind, `stonewright_change_rollback_reverted`
+  with the probe evidence, and the page says the earlier state was put back; a
+  theme file restore is taken back by the theme file write itself, which keeps
+  its one row and journal entry as rolled back, and nothing is restored twice. It covers posts and their kinds, options,
   theme switches, menus, widgets, theme files, snippets, the Customizer CSS,
   sandbox files, users (fields and roles, never a password), comments, media,
   WooCommerce items, site memory, skills and design directions; the redo of a

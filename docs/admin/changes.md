@@ -69,12 +69,13 @@ The drawer has three tabs, which are links:
     and after.
 
   A change that deleted something (a menu, a memory entry) has no content after it: the diff
-  shows what was removed against nothing, under a **Deleted** label. A change that never settled
-  has nothing to compare and says so.
+  shows what was removed against nothing, under a **Deleted** label. A change that never settled,
+  or a write that was taken back because the site failed after it, has nothing to compare and says so.
 
   A callout above the diff says when it was cut to keep the page small (**Not everything is
   shown**), and when values were masked (**Values were masked**), including values that were
-  already masked when the change was stored. A change that cannot be restored says so here too.
+  already masked when the change was stored and values that held a secret inside them (a key named
+  like a password or a token nested in a record shown as one piece). A change that cannot be restored says so here too.
 - **Details** lists the change id, kind, family, resource, ability, user, client, status, the times
   it was recorded and settled, the size and the first 12 characters of the hash of the content before
   and after, whether it can be restored, its change set, and a link to its audit events.
@@ -107,8 +108,10 @@ Pressing the confirm button posts the form to `admin-post.php` with a nonce. Onl
 
 - the change was undone (or redone) and the site loads;
 - it was done, but the health check could not run, or the site was already failing and still is;
-- the site failed its health check, so the earlier state was put back (both rows stay in the
-  history), or the earlier state could not be put back and the site needs checking now;
+- the site failed its health check, so the earlier state was put back (the rows of the attempt stay
+  in the history: for a theme file the one row the file write recorded, marked rolled back; for the
+  other kinds the rollback and the revert), or the earlier state could not be put back and the site
+  needs checking now;
 - nothing was changed, with the reason: the item was edited since, it changed while the dialog was
   open, the item already is as it was before the change, another rollback of the item is running,
   the confirmation is missing or expired, or the change cannot be undone.

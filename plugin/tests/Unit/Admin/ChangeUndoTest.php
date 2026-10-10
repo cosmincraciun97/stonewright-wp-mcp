@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ChangeRollback;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
+use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 use Stonewright\WpMcp\Tests\Unit\Security\Rollback\FakeFamilyHandler;
 use Stonewright\WpMcp\Tests\Unit\Security\Rollback\RollbackTestCase;
 
@@ -497,6 +498,29 @@ final class ChangeUndoTest extends RollbackTestCase {
 		$html = $this->html( [ 'change' => $id, 'undone' => 'reverted', 'from' => $id ] );
 		self::assertMatchesRegularExpression( '#sw-ui-notice--danger#', $html );
 		self::assertStringContainsString( 'was put back', $html );
+	}
+
+	public function test_a_theme_file_undo_that_the_site_check_took_back_is_reported_as_put_back_not_as_failed(): void {
+		$path = $this->theme . '/functions.php';
+		$one  = "<?php\n// version one\n";
+		$two  = "<?php\n// version two\n";
+		file_put_contents( $path, $one );
+		$applied = ThemeWriteTransaction::apply( [ 'absolute' => $path, 'relative' => 'functions.php', 'before' => $one, 'after' => $two, 'language' => 'php' ] );
+		self::assertIsArray( $applied, $applied instanceof \WP_Error ? $applied->get_error_message() : '' );
+		$id = (string) $this->only_row_of( 'theme_file' )['change_id'];
+		$this->site( fn (): string => str_contains( (string) file_get_contents( $this->theme . '/functions.php' ), 'version one' ) ? 'broken' : 'healthy' );
+
+		$outcome = $this->post_request( $this->posted( $id ) );
+
+		self::assertSame( 'reverted', $outcome['code'] );
+		self::assertSame( $two, (string) file_get_contents( $path ), 'The change that worked is back.' );
+		self::assertSame( 'rolled_back', $this->row( $outcome['new_id'] )['status'] );
+		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => $outcome['code'], 'from' => $outcome['change_id'] ] );
+		self::assertMatchesRegularExpression( '#sw-ui-notice--danger#', $html );
+		self::assertStringContainsString( 'the earlier state was put back', $html );
+		self::assertStringNotContainsString( 'The rollback did not complete', $html );
+		self::assertStringNotContainsString( 'The two rows', $html );
+		self::assertStringNotContainsString( 'Deleted. This is the content', $this->html( [ 'change' => $outcome['new_id'] ] ), 'The attempt is not shown as a deletion.' );
 	}
 
 	// ---- assets ---------------------------------------------------------------------------------------------

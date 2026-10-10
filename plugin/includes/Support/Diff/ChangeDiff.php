@@ -65,6 +65,10 @@ final class ChangeDiff {
 		if ( '' === $before_ref && '' === $after_ref ) {
 			return self::empty_result( 'no_images', __( 'No content is kept for this change. Either Stonewright does not store content for this kind of resource, or the content could not be stored.', 'stonewright' ), $image_masked );
 		}
+		// A write that was taken back (rolled_back) is not in effect: with no after image it removed nothing.
+		if ( '' === $after_ref && '' === (string) ( $row['after_sha256'] ?? '' ) && 'rolled_back' === (string) ( $row['status'] ?? '' ) ) {
+			return self::empty_result( 'before_only', __( 'This write was taken back, so nothing of it is in effect and there is nothing to compare. The content before it is kept.', 'stonewright' ), $image_masked );
+		}
 		// A settled change with a before image and no after image at all removed the resource.
 		$deleted = '' === $after_ref && '' === (string) ( $row['after_sha256'] ?? '' ) && ! in_array( (string) ( $row['status'] ?? 'armed' ), self::UNFINISHED, true );
 		if ( '' === $after_ref && ! $deleted ) {

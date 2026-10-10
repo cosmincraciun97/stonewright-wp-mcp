@@ -316,7 +316,7 @@ final class ChangeUndo {
 			'undone_still_failing'  => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The site was failing before and still fails to load, so the fault may not come from this change.', 'stonewright' ) ],
 			'redone_still_failing'  => [ 'warn', __( 'The change was redone', 'stonewright' ), __( 'The site was failing before and still fails to load, so the fault may not come from this change.', 'stonewright' ) ],
 			'unchanged'             => [ 'info', __( 'Nothing was changed', 'stonewright' ), __( 'The item already was in that state.', 'stonewright' ) ],
-			'reverted'              => [ 'danger', __( 'The site failed its health check, so the earlier state was put back', 'stonewright' ), __( 'The earlier state was put back. The change is still in effect. The two rows are in the history.', 'stonewright' ) ],
+			'reverted'              => [ 'danger', __( 'The site failed its health check, so the earlier state was put back', 'stonewright' ), __( 'The earlier state was put back. The change is still in effect. The attempt is in the history.', 'stonewright' ) ],
 			'revert_failed'         => [ 'danger', __( 'The site failed its health check and the earlier state could not be put back', 'stonewright' ), __( 'Check the site now. Safe mode on the Rescue page can help.', 'stonewright' ) ],
 			'failed'                => [ 'danger', __( 'The rollback did not complete', 'stonewright' ), __( 'The change is still in effect unless the history says otherwise.', 'stonewright' ) ],
 			'drift'                 => [ 'warn', __( 'Nothing was changed', 'stonewright' ), __( 'The item has changed since the recorded change. Open the change again, review the diff, and tick the box to overwrite those edits.', 'stonewright' ) ],

@@ -128,17 +128,19 @@ final class DiffMask {
 	 * @param mixed  $value     Any scalar, array or object.
 	 * @param string $key       Last key of the value; a secret key redacts it entirely.
 	 * @param int    $max_chars Longest string kept, before the size marker.
-	 * @return array{0: string, 1: bool} The text and whether it was redacted as a whole.
+	 * @return array{0: string, 1: bool} The text and whether anything in it was redacted: the whole value, or a secret
+	 *                                   key nested at any depth or inside a list.
 	 */
 	public static function value( mixed $value, string $key = '', int $max_chars = 500 ): array {
 		if ( '' !== $key && self::is_secret_key( $key ) ) {
 			return [ self::REDACTED, true ];
 		}
-		$text = self::display( self::sanitize( $value, 0 ) );
+		$nested = false;
+		$text   = self::display( self::sanitize( $value, 0, $nested ) );
 		if ( self::sensitive( $text ) ) {
 			return [ self::REDACTED, true ];
 		}
-		return [ self::clip( $text, $max_chars ), false ];
+		return [ self::clip( $text, $max_chars ), $nested ];
 	}
 
 	/**
@@ -212,8 +214,10 @@ final class DiffMask {
 
 	/**
 	 * Replaces the value of every secret key inside an array by the redaction marker.
+	 *
+	 * @param bool $redacted Set to true when a value was replaced, at any depth.
 	 */
-	private static function sanitize( mixed $value, int $depth ): mixed {
+	private static function sanitize( mixed $value, int $depth, bool &$redacted ): mixed {
 		if ( is_object( $value ) ) {
 			$value = get_object_vars( $value );
 		}
@@ -227,9 +231,10 @@ final class DiffMask {
 		foreach ( $value as $key => $item ) {
 			if ( is_string( $key ) && self::is_secret_key( $key ) ) {
 				$out[ $key ] = self::REDACTED;
+				$redacted    = true;
 				continue;
 			}
-			$out[ $key ] = self::sanitize( $item, $depth + 1 );
+			$out[ $key ] = self::sanitize( $item, $depth + 1, $redacted );
 		}
 		return $out;
 	}

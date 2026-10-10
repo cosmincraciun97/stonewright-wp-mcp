@@ -16,6 +16,10 @@ use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
  * Restores go through CodeAdapter::restore(), which writes through the path the original write used, so the path
  * allowlist, the PHP syntax check, the byte budget and the readback of that path still apply. The adapter writes its
  * own rollback row. Code needs a person: the engine requires human approval for every row of these families.
+ *
+ * A theme file is written by ThemeWriteTransaction, which probes the site itself. When the site fails after a
+ * restore, the transaction puts the earlier file back and records the attempt as the rollback row (and the journal
+ * entry of the same id) ending `rolled_back`; the result then has the status `reverted`, and the engine adds nothing.
  */
 final class CodeRollbackFamily implements RollbackFamilyHandler {
 
@@ -36,11 +40,16 @@ final class CodeRollbackFamily implements RollbackFamilyHandler {
 				'kind'                   => 'redo' === ( $options['kind'] ?? '' ) ? 'redo' : 'rollback',
 			]
 		);
-		return [
+		$out = [
 			'status'             => 'not_available' === $result['status'] ? 'failed' : $result['status'],
 			'detail'             => $result['detail'],
 			'rollback_change_id' => $result['rollback_change_id'],
 		];
+		if ( 'reverted' === $result['status'] ) {
+			$out['site_after_revert'] = (string) ( $result['site_after_revert'] ?? 'unknown' );
+			$out['probe']             = is_array( $result['probe'] ?? null ) ? $result['probe'] : [];
+		}
+		return $out;
 	}
 
 	public function describe( array $row, string|array|null $image ): string {

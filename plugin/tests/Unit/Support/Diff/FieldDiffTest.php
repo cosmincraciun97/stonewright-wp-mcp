@@ -106,6 +106,45 @@ final class FieldDiffTest extends TestCase {
 		$this->assertStringContainsString( 'smtp.example.com', (string) json_encode( $r ) );
 	}
 
+	public function test_a_secret_key_inside_a_removed_or_added_record_is_counted_as_masked(): void {
+		$r = FieldDiff::diff(
+			[ 'entry' => [ 'memory_key' => 'rh2-note', 'title' => 'Launch' ] ],
+			[ 'other' => [ 'deep' => [ 'list' => [ [ 'label' => 'a' ], [ 'api_token' => 'zz-leak-7' ] ] ] ] ]
+		);
+
+		$json = (string) json_encode( $r );
+		$this->assertStringNotContainsString( 'rh2-note', $json );
+		$this->assertStringNotContainsString( 'zz-leak-7', $json );
+		$this->assertStringContainsString( 'Launch', $json );
+		$fields = $this->by_path( $r );
+		$this->assertTrue( $fields['entry']['redacted'] );
+		$this->assertTrue( $fields['other']['redacted'] );
+		$this->assertSame( 2, $r['masked'] );
+	}
+
+	public function test_a_secret_key_inside_a_value_below_the_depth_limit_is_counted_as_masked(): void {
+		$r = FieldDiff::diff(
+			[ 'a' => [ 'b' => [ 'c' => 'old' ] ] ],
+			[ 'a' => [ 'b' => [ 'c' => 'new', 'cookie' => 'zz-leak-8' ] ] ],
+			[ 'max_depth' => 1 ]
+		);
+
+		$this->assertStringNotContainsString( 'zz-leak-8', (string) json_encode( $r ) );
+		$this->assertSame( 1, $r['masked'] );
+	}
+
+	public function test_nested_keys_that_are_not_secrets_are_not_counted_as_masked(): void {
+		$r = FieldDiff::diff(
+			[ 'entry' => [ 'title' => 'Old', 'meta' => [ 'author_name' => 'A', 'passage_title' => 'B' ] ] ],
+			[ 'entry' => 'gone', 'list' => [ [ 'label' => 'a' ], [ 'label' => 'b' ] ] ]
+		);
+
+		$this->assertSame( 0, $r['masked'] );
+		foreach ( $r['fields'] as $field ) {
+			$this->assertFalse( $field['redacted'], $field['path'] );
+		}
+	}
+
 	public function test_a_credential_inside_an_innocent_value_is_masked(): void {
 		$r = FieldDiff::diff( [ 'note' => 'a' ], [ 'note' => 'password: hunter2hunter2' ] );
 
