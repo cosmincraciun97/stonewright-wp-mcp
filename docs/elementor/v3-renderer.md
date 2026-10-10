@@ -106,7 +106,7 @@ site-wide files-manager clear. After the typed write, call
 `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then
 `stonewright-elementor-post-write-verify`. The regenerator updates only the
 resolved target through Elementor's official `update()` API inside a
-bounded asset transaction, and moves the stylesheet version (`?ver=`) forward. The verifier is observation-only and never
+bounded asset transaction, moves the stylesheet version (`?ver=`) forward, and purges that post in the page cache plugins it finds (`cache_purge` in the answer). The verifier is observation-only and never
 regenerates CSS. Never pass `regenerate_css`.
 
 ### Step 7 — Audit log

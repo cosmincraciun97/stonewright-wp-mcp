@@ -220,7 +220,10 @@ Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
 `stonewright/elementor-post-write-verify` with all touched element IDs. A result
 with `ok:true`, `delivery_status:blocked` and a warning means the CSS file was
 written and its `?ver=` changed but the anonymous check was redirected: do not
-rebuild the layout for it. Never
+rebuild the layout for it. The same call purges that post in the page cache
+plugins it finds (`cache_purge.ran` lists them); its `repair` text names what
+was purged before it asks for a manual purge of any other host, CDN or page
+cache. Never
 pass `regenerate_css`; that input does not exist. The verifier is
 observation-only: it warms the official frontend builder renderer with CSS
 generation disabled and asserts the IDs without returning page HTML,

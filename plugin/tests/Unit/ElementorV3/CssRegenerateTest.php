@@ -34,7 +34,8 @@ final class CssRegenerateTest extends TestCase {
 		$GLOBALS['stonewright_test_options']          = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_asset_responses']     = [];
 		$GLOBALS['stonewright_test_wp_update_post_calls'] = [];
-		$uploads       = wp_upload_dir();
+		$GLOBALS['stonewright_test_actions']              = [];
+		$uploads      = wp_upload_dir();
 		$this->css_dir = rtrim( (string) $uploads['basedir'], '/\\' ) . '/elementor/css';
 		wp_mkdir_p( $this->css_dir );
 		$this->remove_css_assets();
@@ -42,6 +43,8 @@ final class CssRegenerateTest extends TestCase {
 
 	protected function tearDown(): void {
 		unset( $GLOBALS['stonewright_test_css_new_time'] );
+		$GLOBALS['stonewright_test_actions'] = [];
+		unset( $GLOBALS['stonewright_test_filters']['stonewright_css_regenerate_purge'] );
 		Post::$factory = null;
 		unset( $GLOBALS['stonewright_test_posts'][ 301 ], $GLOBALS['stonewright_test_posts'][ 202 ] );
 		$GLOBALS['stonewright_test_user_caps']      = [];
@@ -315,6 +318,234 @@ final class CssRegenerateTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'present', $result['css_file_status'] ?? null );
 		self::assertArrayNotHasKey( 'css_file_reason', $result );
+	}
+
+	public function test_without_a_page_cache_plugin_only_core_is_purged_and_the_result_says_so(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [ 'wordpress_post_cache' ], $result['cache_purge']['ran'] ?? null );
+		self::assertSame( 'no_page_cache_plugin', $result['cache_purge']['skipped_reason'] ?? null );
+		self::assertArrayNotHasKey( 'repair', $result );
+		self::assertArrayNotHasKey( 'warnings', $result );
+	}
+
+	public function test_a_present_page_cache_is_purged_once_after_the_file_and_version_changed(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$GLOBALS['stonewright_test_css_new_time'] = 500;
+		$seen                                     = [];
+		add_action(
+			'litespeed_purge_post',
+			function ( ...$args ) use ( &$seen ): void {
+				$seen[] = [
+					'args' => $args,
+					'css'  => $this->read_css( 'post-301.css' ),
+					'time' => get_post_meta( 301, '_elementor_css', true )['time'] ?? null,
+				];
+			}
+		);
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [ [ 'args' => [ 301 ], 'css' => 'post-css', 'time' => 1700000500 ] ], $seen );
+		self::assertSame( [ 'litespeed_cache', 'wordpress_post_cache' ], $result['cache_purge']['ran'] ?? null );
+		self::assertArrayNotHasKey( 'skipped_reason', $result['cache_purge'] );
+	}
+
+	public function test_the_purge_filter_turns_the_purge_off_without_touching_the_write(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$calls = 0;
+		add_action(
+			'litespeed_purge_post',
+			static function () use ( &$calls ): void {
+				++$calls;
+			}
+		);
+		$GLOBALS['stonewright_test_filters']['stonewright_css_regenerate_purge'] = '__return_false';
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 0, $calls );
+		self::assertSame( [], $result['cache_purge']['ran'] ?? null );
+		self::assertSame( 'disabled_by_filter', $result['cache_purge']['skipped_reason'] ?? null );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+	}
+
+	public function test_a_rolled_back_write_never_purges(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$calls = 0;
+		add_action(
+			'litespeed_purge_post',
+			static function () use ( &$calls ): void {
+				++$calls;
+			}
+		);
+		Post::$factory = function ( int $post_id ): object {
+			return new class( $post_id, $this->css_dir ) {
+				public function __construct( private int $post_id, private string $css_dir ) {
+				}
+
+				public function update_file(): void {
+					file_put_contents( $this->get_path(), '' );
+				}
+
+				public function get_path(): string {
+					return $this->css_dir . '/post-' . $this->post_id . '.css';
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+				}
+			};
+		};
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'old-post', $this->read_css( 'post-301.css' ) );
+		self::assertSame( 0, $calls );
+	}
+
+	public function test_a_result_without_a_moved_version_does_not_purge(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$calls = 0;
+		add_action(
+			'litespeed_purge_post',
+			static function () use ( &$calls ): void {
+				++$calls;
+			}
+		);
+		Post::$factory = function ( int $post_id ): object {
+			return new class( $post_id, $this->css_dir ) {
+				public function __construct( private int $post_id, private string $css_dir ) {
+				}
+
+				public function update_file(): void {
+					file_put_contents( $this->get_path(), 'post-css' );
+				}
+
+				public function get_path(): string {
+					return $this->css_dir . '/post-' . $this->post_id . '.css';
+				}
+
+				public function get_url(): string {
+					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+				}
+			};
+		};
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'css_version_changed', $result );
+		self::assertSame( 0, $calls );
+		self::assertSame( [], $result['cache_purge']['ran'] ?? null );
+		self::assertSame( 'css_version_not_changed', $result['cache_purge']['skipped_reason'] ?? null );
+	}
+
+	public function test_a_failing_purger_is_a_warning_and_the_write_still_counts(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		add_action(
+			'litespeed_purge_post',
+			static function (): void {
+				throw new \RuntimeException( 'Purge socket /var/run/secret.sock refused' );
+			}
+		);
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+		self::assertSame( [ 'wordpress_post_cache' ], $result['cache_purge']['ran'] ?? null );
+		self::assertSame( [ [ 'purger' => 'litespeed_cache', 'error_class' => 'RuntimeException' ] ], $result['cache_purge']['failed'] ?? null );
+		self::assertSame( 'stonewright_css_cache_purge_failed', $result['warnings'][0]['code'] ?? null );
+		self::assertStringContainsString( 'LiteSpeed Cache', (string) ( $result['warnings'][0]['message'] ?? '' ) );
+		self::assertStringContainsString( 'by hand', (string) ( $result['warnings'][0]['message'] ?? '' ) );
+		self::assertStringNotContainsString( 'secret.sock', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_a_blocked_delivery_repair_says_what_was_purged_before_asking_for_a_manual_purge(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		add_action(
+			'litespeed_purge_post',
+			static function (): void {
+			}
+		);
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-301.css'] = static fn(): array => [
+			'response' => [ 'code' => 302 ],
+			'headers'  => [ 'location' => 'https://example.test/wp-login.php' ],
+			'body'     => '',
+		];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		$repair = (string) ( $result['repair'] ?? '' );
+		self::assertStringContainsString( 'Do not rebuild', $repair );
+		self::assertStringContainsString( 'already purged', $repair );
+		self::assertStringContainsString( 'LiteSpeed Cache', $repair );
+		self::assertStringNotContainsString( 'WordPress post cache', $repair );
+		self::assertGreaterThan( strpos( $repair, 'already purged' ), strpos( $repair, 'by hand' ) );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['warnings'][0]['code'] ?? null );
+	}
+
+	public function test_a_blocked_delivery_repair_keeps_the_manual_purge_advice_when_nothing_was_purged(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-301.css'] = static fn(): array => [
+			'response' => [ 'code' => 302 ],
+			'headers'  => [ 'location' => 'https://example.test/wp-login.php' ],
+			'body'     => '',
+		];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		$repair = (string) ( $result['repair'] ?? '' );
+		self::assertStringContainsString( 'Do not rebuild', $repair );
+		self::assertStringContainsString( 'purge the host or page cache', $repair );
+		self::assertStringNotContainsString( 'already purged', $repair );
+	}
+
+	public function test_an_unchecked_delivery_still_purges_and_the_repair_names_what_ran(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		add_action(
+			'litespeed_purge_post',
+			static function (): void {
+			}
+		);
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-301.css'] = static fn(): array => [ 'response' => [ 'code' => 503 ], 'headers' => [], 'body' => '' ];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['ok'] );
+		self::assertSame( [ 'litespeed_cache', 'wordpress_post_cache' ], $result['cache_purge']['ran'] ?? null );
+		self::assertStringContainsString( 'LiteSpeed Cache', (string) ( $result['repair'] ?? '' ) );
+	}
+
+	public function test_output_schema_declares_the_cache_purge_report(): void {
+		$schema = ( new CssRegenerate() )->output_schema()['properties']['cache_purge'] ?? [];
+		self::assertSame( 'object', $schema['type'] ?? null );
+		self::assertSame( 'array', $schema['properties']['ran']['type'] ?? null );
+		self::assertSame( 'string', $schema['properties']['skipped_reason']['type'] ?? null );
+		self::assertSame( 'array', $schema['properties']['failed']['type'] ?? null );
+		self::assertSame( [ 'ran' ], $schema['required'] ?? null );
 	}
 
 	public function test_output_schema_declares_generation_and_delivery_status(): void {

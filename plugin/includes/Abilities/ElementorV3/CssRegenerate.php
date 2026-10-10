@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\CssAssetTransaction;
 use Stonewright\WpMcp\Elementor\CssRegenerator;
 use Stonewright\WpMcp\Elementor\CssTargetResolver;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
@@ -20,9 +21,13 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class CssRegenerate extends AbilityKernel {
 
-	private const PROTECTED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. If the page still looks unstyled, purge the host or page cache and check the stylesheet URL in a logged-out browser; an access-control or redirect rule in front of the uploads folder is a hosting setting, not an Elementor change.';
+	private const PROTECTED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. ';
 
-	private const UNCHECKED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version changed, but the anonymous HTTP check got no usable answer. Do not rebuild the layout. Check the stylesheet URL in a logged-out browser, and call this ability again once if the page still looks unstyled.';
+	private const PROTECTED_DELIVERY_REPAIR_TAIL = ' and check the stylesheet URL in a logged-out browser; an access-control or redirect rule in front of the uploads folder is a hosting setting, not an Elementor change.';
+
+	private const UNCHECKED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and the page stylesheet version changed, but the anonymous HTTP check got no usable answer. Do not rebuild the layout. ';
+
+	private const UNCHECKED_DELIVERY_REPAIR_TAIL = 'Check the stylesheet URL in a logged-out browser, and call this ability again once if the page still looks unstyled.';
 
 	public function name(): string {
 		return 'stonewright/elementor-css-regenerate';
@@ -33,7 +38,7 @@ final class CssRegenerate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away from the CSS, the write still counts: delivery_status is blocked with a warning, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
+		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), purges the cached page HTML of that one post in the page cache plugins it finds (cache_purge reports which ran), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away from the CSS, the write still counts: delivery_status is blocked with a warning, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -97,6 +102,17 @@ final class CssRegenerate extends AbilityKernel {
 				'css_version_before'           => [ 'type' => 'integer' ],
 				'css_version_changed'          => [ 'type' => 'boolean' ],
 				'warnings'                     => [ 'type' => 'array' ],
+				'cache_purge'                  => [
+					'type'                 => 'object',
+					'additionalProperties' => true,
+					'properties'           => [
+						'ran'            => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+						'skipped_reason' => [ 'type' => 'string' ],
+						'failed'         => [ 'type' => 'array' ],
+						'skipped'        => [ 'type' => 'object' ],
+					],
+					'required'             => [ 'ran' ],
+				],
 				'repair'                       => [ 'type' => 'string' ],
 				'before_manifest_sha256'       => [ 'type' => 'string' ],
 				'after_manifest_sha256'   => [ 'type' => 'string' ],
@@ -254,19 +270,33 @@ final class CssRegenerate extends AbilityKernel {
 						$result['css_file_reason'] = (string) ( $evidence['css_file_reason'] ?? 'empty_css' );
 					}
 					$result = array_merge( $result, $css_version );
+					$purge  = self::purge_page_caches( $post_id, $operation, $evidence );
+					$result['cache_purge'] = $purge;
+					if ( [] !== ( $purge['failed'] ?? [] ) ) {
+						$result['warnings'] = self::purge_failure_warnings( $purge['failed'] );
+					}
 					if ( $delivery_unverified ) {
-						$result['warnings'] = [
+						$result['warnings'] = array_merge(
 							[
-								'code'    => 'stonewright_elementor_css_delivery_protected',
-								'message' => 'The stylesheet was written and its page version changed, but an anonymous request to its URL does not end in the CSS file, so public delivery was not verified. An access-control layer or the host may sit in front of the uploads folder.',
+								[
+									'code'    => 'stonewright_elementor_css_delivery_protected',
+									'message' => 'The stylesheet was written and its page version changed, but an anonymous request to its URL does not end in the CSS file, so public delivery was not verified. An access-control layer or the host may sit in front of the uploads folder.',
+								],
 							],
-						];
-						$result['repair'] = self::PROTECTED_DELIVERY_REPAIR;
+							$result['warnings'] ?? []
+						);
+						$purged             = self::purged_sentence( $purge );
+						$result['repair']   = self::PROTECTED_DELIVERY_REPAIR_HEAD . $purged
+							. ( '' === $purged ? 'If the page still looks unstyled, purge the host or page cache' : 'If the page still looks unstyled, purge any other host, CDN or page cache by hand' )
+							. self::PROTECTED_DELIVERY_REPAIR_TAIL;
 					} elseif ( ! $complete ) {
 						$result['root_error_code'] = $root;
 						$result['failed_check']    = $failed;
 						if ( 'delivery' === $failed && 'verified' === $generation && 'not_checked' === $delivery ) {
-							$result['repair'] = self::UNCHECKED_DELIVERY_REPAIR;
+							$purged           = self::purged_sentence( $purge );
+							$result['repair'] = self::UNCHECKED_DELIVERY_REPAIR_HEAD . $purged
+								. ( '' === $purged ? '' : 'If the page still looks unstyled, purge any other host, CDN or page cache by hand. ' )
+								. self::UNCHECKED_DELIVERY_REPAIR_TAIL;
 						}
 					}
 					return $result;
@@ -275,6 +305,73 @@ final class CssRegenerate extends AbilityKernel {
 				}
 			}
 		);
+	}
+
+	/**
+	 * Purges the cached page HTML of this post once the CSS file is written and its version moved.
+	 * Never fails the write: every error becomes a report entry.
+	 *
+	 * @param array<string,mixed> $operation
+	 * @param array<string,mixed> $evidence
+	 * @return array<string,mixed>
+	 */
+	private static function purge_page_caches( int $post_id, array $operation, array $evidence ): array {
+		if ( ! (bool) ( $operation['ok'] ?? false ) || 'not_needed' !== (string) ( $evidence['rollback_status'] ?? 'not_needed' ) ) {
+			return [ 'ran' => [], 'skipped_reason' => 'css_not_regenerated' ];
+		}
+		if ( true !== ( $operation['css_version_changed'] ?? null ) ) {
+			return [ 'ran' => [], 'skipped_reason' => 'css_version_not_changed' ];
+		}
+		try {
+			return PageCachePurger::purge( $post_id );
+		} catch ( \Throwable $error ) {
+			return [
+				'ran'    => [],
+				'failed' => [ [ 'purger' => 'page_cache', 'error_class' => get_class( $error ) ] ],
+			];
+		}
+	}
+
+	/**
+	 * @param array<int,mixed> $failed
+	 * @return list<array{code:string,message:string}>
+	 */
+	private static function purge_failure_warnings( array $failed ): array {
+		$warnings = [];
+		foreach ( $failed as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$id         = sanitize_key( (string) ( $entry['purger'] ?? '' ) );
+			$warnings[] = [
+				'code'    => 'stonewright_css_cache_purge_failed',
+				'message' => sprintf(
+					'The page cache purge of %s failed (%s). The CSS file was written and the page version changed; purge that cache by hand.',
+					PageCachePurger::label( $id ),
+					preg_replace( '/[^A-Za-z0-9_\\\\]/', '', (string) ( $entry['error_class'] ?? '' ) )
+				),
+			];
+		}
+		return $warnings;
+	}
+
+	/**
+	 * The repair sentence that says which page caches Stonewright already purged, or an empty string
+	 * when none was purged.
+	 *
+	 * @param array<string,mixed> $purge
+	 */
+	private static function purged_sentence( array $purge ): string {
+		if ( ! PageCachePurger::page_cache_ran( $purge ) ) {
+			return '';
+		}
+		$names = [];
+		foreach ( (array) ( $purge['ran'] ?? [] ) as $id ) {
+			if ( PageCachePurger::CORE !== $id ) {
+				$names[] = PageCachePurger::label( (string) $id );
+			}
+		}
+		return 'Stonewright already purged the cached page of this post in ' . implode( ', ', $names ) . '. ';
 	}
 
 	/**

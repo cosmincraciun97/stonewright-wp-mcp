@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Purge the cached page of a post after `stonewright-elementor-css-regenerate`
+  moved its stylesheet version. When the CSS file is written and the transaction
+  is not rolled back, the ability calls the purge function or hook of the page
+  cache plugins it finds, for that one post only: LiteSpeed Cache, WP Rocket,
+  W3 Total Cache, WP Super Cache, WP Fastest Cache, SiteGround Optimizer and the
+  Cloudflare plugin, then WordPress core's `clean_post_cache`. The answer lists
+  the purgers that ran in `cache_purge.ran` (`skipped_reason` says why none did,
+  `failed` and a warning name one that threw). A purge never fails the write.
+  The `stonewright_css_regenerate_purge` filter turns it off or adds a site
+  purger. The `repair` text now says which caches were already purged before it
+  asks for a manual purge of any other host, CDN or page cache.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added
