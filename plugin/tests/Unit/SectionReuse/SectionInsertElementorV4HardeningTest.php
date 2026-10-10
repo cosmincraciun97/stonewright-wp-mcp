@@ -249,4 +249,33 @@ final class SectionInsertElementorV4HardeningTest extends TestCase {
 		}
 		self::assertSame( 0, self::target_writes() );
 	}
+
+	public function test_a_nested_v4_container_is_inserted_with_fresh_ids_local_styles_and_css_id(): void {
+		$source                                      = SectionFixtures::v4_features( 'v', 3 );
+		$source['elements'][1]['settings']['_cssid'] = [ '$$type' => 'string', 'value' => 'cards' ];
+		self::seed( self::SOURCE, [ $source ] );
+		$target               = self::root();
+		$target['elements'][] = [ 'id' => 'taken01', 'version' => '0.0', 'elType' => 'e-div-block', 'isInner' => true, 'settings' => [ '_cssid' => [ '$$type' => 'string', 'value' => 'cards' ] ], 'editor_settings' => [], 'interactions' => [], 'styles' => [], 'elements' => [] ];
+		self::seed( self::TARGET, [ $target ] );
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn( string $cap, mixed ...$args ): bool => in_array( $cap, [ 'edit_posts', 'read_post', 'edit_post' ], true );
+		$extracted = ( new SectionReuseExtract() )->execute( [ 'post_id' => self::SOURCE, 'locator' => [ 'kind' => 'element', 'id' => 'v000003' ] ] );
+		$GLOBALS['stonewright_test_user_can_callback'] = null;
+		self::assertIsArray( $extracted, $extracted instanceof \WP_Error ? $extracted->get_error_message() : '' );
+
+		$result = self::batch( [ self::insert_op( $extracted['section'] ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() . ' ' . wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( 7, $result['items'][0]['placeholders'], 'The row, three cards and three headings.' );
+		$elements = ElementorData::flatten( ElementorData::read( self::TARGET ) );
+		$row      = $elements[ $result['refs']['feat'] ];
+		self::assertSame( 'cards-2', $row['settings']['_cssid']['value'] );
+		self::assertTrue( $row['isInner'] );
+		self::assertNotSame( [], $row['styles'] );
+		foreach ( $row['styles'] as $style_id => $style ) {
+			self::assertStringStartsWith( 'e-' . $row['id'] . '-', $style_id, 'A local style id names its new element.' );
+			self::assertContains( $style_id, $row['settings']['classes']['value'] );
+		}
+		self::assertStringNotContainsString( 'v000003', (string) wp_json_encode( ElementorData::read( self::TARGET ) ), 'No source id reaches the target.' );
+		self::assertSame( 'anchors_renamed', $result['items'][0]['warnings'][0]['code'] );
+	}
 }

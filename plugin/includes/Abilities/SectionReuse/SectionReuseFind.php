@@ -26,9 +26,12 @@ use Stonewright\WpMcp\Security\Permissions;
 /**
  * Candidates for reusing an existing section, for the roles a new page needs. Read-only: it changes nothing.
  *
- * Candidates come only from posts the current user may read and edit. Each carries its source, where the
- * section sits, a role guess, a layout summary, a layout-only similarity score, a short outline and reuse
- * warnings. While the site setting is off, the answer is only the instruction not to offer reuse.
+ * Candidates come only from posts the current user may read and edit, whatever their status: a private,
+ * pending or scheduled post is listed to someone who may edit it and to no one else, and its status is marked.
+ * Each carries its source, where the section sits, a role guess, a layout summary, a layout-only similarity
+ * score, a short outline, reuse warnings and, for an Elementor section, the containers nested inside it (a
+ * bounded list; any container is also extracted by its element id). While the site setting is off, the answer
+ * is only the instruction not to offer reuse.
  *
  * @stonewright-status stable
  */
@@ -50,7 +53,7 @@ final class SectionReuseFind extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Lists sections already on this site that could be reused for the sections a new page needs, from pages, posts, Elementor saved templates and Gutenberg patterns the current user can read and edit. Call it before asking the user anything about reuse. Candidates carry the source, the section locator, a role guess, a layout summary, a layout-only similarity score, a short outline and reuse warnings. When the site setting is off the answer is only enabled:false with an instruction; build normally and do not mention reuse.', 'stonewright' );
+		return __( 'Lists sections already on this site that could be reused for the sections a new page needs, from pages, posts, Elementor saved templates and Gutenberg patterns the current user can read and edit, whether they are published, draft, pending, scheduled or private (the status is marked; never change a status to reuse a section). Call it before asking the user anything about reuse. Candidates carry the source, the section locator, a role guess, a layout summary, a layout-only similarity score, a short outline, reuse warnings and, for Elementor, the containers nested inside the section under inner (each with a locator to pass to extract; inner_truncated says more exist). When the site setting is off the answer is only enabled:false with an instruction; build normally and do not mention reuse.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -260,17 +263,22 @@ final class SectionReuseFind extends AbilityKernel {
 		];
 		$layout = $section['layout'];
 		unset( $layout['capped'] );
+		$inner = is_array( $section['inner'] ?? null ) ? array_values( $section['inner'] ) : [];
 
-		return [
-			'source'     => $source,
-			'locator'    => $locator,
-			'builder'    => $section['builder'],
-			'role'       => $section['role'],
-			'layout'     => $layout,
-			'capped'     => ! empty( $section['layout']['capped'] ),
-			'similarity' => $score,
-			'outline'    => $section['outline'],
-			'warnings'   => array_merge( ReuseWarnings::from( $references ), SourceWarnings::for_post( $post ) ),
-		];
+		return array_merge(
+			[
+				'source'     => $source,
+				'locator'    => $locator,
+				'builder'    => $section['builder'],
+				'role'       => $section['role'],
+				'layout'     => $layout,
+				'capped'     => ! empty( $section['layout']['capped'] ),
+				'similarity' => $score,
+				'outline'    => $section['outline'],
+				'warnings'   => array_merge( ReuseWarnings::from( $references ), SourceWarnings::for_post( $post ) ),
+			],
+			[] === $inner ? [] : [ 'inner' => $inner ],
+			empty( $section['inner_more'] ) ? [] : [ 'inner_truncated' => true ]
+		);
 	}
 }

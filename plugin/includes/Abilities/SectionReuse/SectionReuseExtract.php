@@ -19,11 +19,12 @@ use Stonewright\WpMcp\SectionReuse\ReferenceCatalog;
 use Stonewright\WpMcp\SectionReuse\ReuseWarnings;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\SectionReuse\SectionSource;
+use Stonewright\WpMcp\SectionReuse\SourceScanner;
 use Stonewright\WpMcp\SectionReuse\SourceWarnings;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Returns the chosen section in its own builder's format with nothing that ties it to its source, the full
+ * Returns the chosen section, a top-level one or an Elementor container nested inside one, in its own builder's format with nothing that ties it to its source, the full
  * list of references it carries (global colors and fonts, global classes and variables, dynamic tags, media,
  * forms, synced patterns, nested templates, global widgets, third-party widgets) and its layout summary.
  * Read-only: neither the source nor any other post is changed.
@@ -41,7 +42,7 @@ final class SectionReuseExtract extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns one section of a saved page, post, Elementor template or Gutenberg pattern as a portable payload in its own builder format: Elementor element ids and V4 local style ids are replaced by placeholders, Gutenberg anchors are listed, and every reference (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, templates) is reported with whether it exists here. Changes nothing. Pass the payload as the section of an insert_section operation in the same batch as your adaptations.', 'stonewright' );
+		return __( 'Returns one section of a saved page, post, Elementor template or Gutenberg pattern as a portable payload in its own builder format: Elementor element ids and V4 local style ids are replaced by placeholders, Gutenberg anchors are listed, and every reference (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, templates) is reported with whether it exists here. The source may be published, draft, pending, scheduled or private when the current user can edit it; never change the status of a post to extract from it. For Elementor, the locator is the id of a top-level element or of a container nested at any depth (a V3 container or section, or a V4 div block or flexbox, with its children). Changes nothing. Pass the payload as the section of an insert_section operation in the same batch as your adaptations.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -57,7 +58,7 @@ final class SectionReuseExtract extends AbilityKernel {
 				'locator' => [
 					'type'                 => 'object',
 					'additionalProperties' => false,
-					'description'          => 'The candidate locator: {kind:"element", id} for Elementor, {kind:"block", path} or {anchor} for Gutenberg, {kind:"pattern"} for a pattern.',
+					'description'          => 'The candidate locator: {kind:"element", id} for Elementor (a top-level element or a nested container, by its element id), {kind:"block", path} or {anchor} for Gutenberg, {kind:"pattern"} for a pattern.',
 					'properties'           => [
 						'kind'   => [ 'type' => 'string', 'enum' => [ 'element', 'block', 'pattern' ] ],
 						'id'     => [ 'type' => 'string', 'maxLength' => 64 ],
@@ -108,13 +109,15 @@ final class SectionReuseExtract extends AbilityKernel {
 				}
 				$post_id = (int) ( $args['post_id'] ?? 0 );
 				$post    = get_post( $post_id );
-				if ( ! is_object( $post ) || ! in_array( (string) $post->post_status, [ 'publish', 'draft' ], true ) || in_array( (string) $post->post_type, [ 'revision', 'attachment' ], true ) ) {
-					return $this->error( 'not_found', __( 'The source post was not found, or it is not a published or draft page, post, template or pattern.', 'stonewright' ), [ 'status' => 404 ] );
+				// A post that exists but may not be edited answers like one that does not exist.
+				if ( ! SectionSource::is_source( $post ) || ! SourceScanner::may_use( $post_id ) ) {
+					return $this->error( 'not_found', self::source_not_found(), [ 'status' => 404, 'repair' => self::source_repair() ] );
 				}
 				$locator = $this->locator( is_array( $args['locator'] ?? null ) ? $args['locator'] : [], $post );
-				$section = SectionSource::find( $post, $locator );
+				$found   = SectionSource::resolve( $post, $locator );
+				$section = $found['section'];
 				if ( null === $section ) {
-					return $this->error( 'section_not_found', __( 'No section of that source matches the locator. Use a locator from stonewright-section-reuse-find.', 'stonewright' ), [ 'status' => 404, 'locator' => $locator ] );
+					return $this->locator_error( $found['problem'] ?? [ 'code' => 'not_found', 'reason' => 'no_match' ], $locator );
 				}
 				$requested = (string) ( $args['builder'] ?? '' );
 				if ( '' !== $requested && $requested !== $section['builder'] ) {
@@ -162,6 +165,72 @@ final class SectionReuseExtract extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	private static function source_not_found(): string {
+		return __( 'The source post was not found, or you may not edit it. A source is a page, post, Elementor template or Gutenberg pattern that you can edit, with the status publish, draft, pending, future or private. Trashed posts, revisions and attachments are not sources.', 'stonewright' );
+	}
+
+	private static function source_repair(): string {
+		return __( 'Use a post_id from stonewright-section-reuse-find. A private, pending or scheduled post is extracted as it is: never change the status of a post to extract from it.', 'stonewright' );
+	}
+
+	private static function locator_repair(): string {
+		return __( 'A locator is {kind:"element", id} with the id of a top-level element or of a container nested at any depth (a V3 container or section, or a V4 div block or flexbox, with its children), {kind:"block", path} or {anchor} for Gutenberg, or {kind:"pattern"}.', 'stonewright' );
+	}
+
+	/**
+	 * The error for a locator that matched no section, saying what is wrong and what a locator may be.
+	 *
+	 * Only the message reaches a client that flattens errors, so it carries the whole repair.
+	 *
+	 * @param array<string, string> $problem From {@see SectionSource::resolve()}.
+	 * @param array<string, mixed>  $locator
+	 */
+	private function locator_error( array $problem, array $locator ): \WP_Error {
+		$reason = (string) ( $problem['reason'] ?? '' );
+		$data   = [ 'reason' => $reason, 'locator' => $locator ];
+		if ( 'no_document' === $problem['code'] ) {
+			return $this->error( 'no_elementor_document', self::no_document_text( $reason ), $data + [ 'status' => 422 ] );
+		}
+		if ( 'not_copyable' === $problem['code'] ) {
+			return $this->error(
+				'section_not_copyable',
+				sprintf( self::not_copyable_text( $reason ), (string) ( $problem['element_id'] ?? '' ), (string) ( $problem['element_type'] ?? '' ) ),
+				$data + [ 'status' => 422, 'repair' => self::locator_repair() ]
+			);
+		}
+		if ( 'template_type' === $reason ) {
+			return $this->error( 'section_not_found', __( 'This Elementor template is not a section or container template, so it holds no section to copy. Only saved templates of the type section or container are sources; pick another source.', 'stonewright' ), $data + [ 'status' => 404 ] );
+		}
+
+		return $this->error(
+			'section_not_found',
+			__( 'No section of that source matches the locator.', 'stonewright' ) . ' ' . self::locator_repair() . ' ' . __( 'Candidates of stonewright-section-reuse-find list their nested containers under inner; other ids come from the element tree of the page.', 'stonewright' ),
+			$data + [ 'status' => 404, 'repair' => self::locator_repair() ]
+		);
+	}
+
+	private static function no_document_text( string $reason ): string {
+		$lead = __( 'The source has no valid Elementor document', 'stonewright' );
+
+		return match ( $reason ) {
+			'elementor_mode_missing'       => $lead . __( ': it holds Elementor data but is not marked as built with Elementor, so it is not read as an Elementor page. Open it in Elementor and save it again, or pick another source. Do not change the status of a post to work around this.', 'stonewright' ),
+			'document_empty_or_unreadable' => $lead . __( ': its Elementor data is empty or cannot be read. Pick another source, or repair the page in Elementor first.', 'stonewright' ),
+			default                        => $lead . __( ': the post is not built with Elementor. Use a Gutenberg locator ({kind:"block", path or anchor}, or {kind:"pattern"}), or pick a source built with Elementor.', 'stonewright' ),
+		};
+	}
+
+	/** @return string A format string taking the element id and its type. */
+	private static function not_copyable_text( string $reason ): string {
+		$tail = ' ' . self::locator_repair();
+
+		return match ( $reason ) {
+			'widget'         => __( 'Element %1$s (%2$s) is a widget, which is not copied on its own: a section is a container with its children.', 'stonewright' ) . $tail,
+			'column'         => __( 'Element %1$s (%2$s) is a legacy column, which is not copied on its own: a section is a container or section with its children.', 'stonewright' ) . $tail,
+			'mixed_builders' => __( 'Element %1$s (%2$s) holds both V3 and V4 elements, and reuse never converts between them. Copy a container that holds only one kind.', 'stonewright' ) . $tail,
+			default          => __( 'Element %1$s (%2$s) is not a container, so it is not a section.', 'stonewright' ) . $tail,
+		};
 	}
 
 	/**

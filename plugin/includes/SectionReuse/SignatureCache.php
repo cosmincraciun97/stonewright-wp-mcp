@@ -23,7 +23,7 @@ final class SignatureCache {
 	public const MAX_ENTRIES = 200;
 
 	/** Changes whenever what a signature holds, or how its role is guessed, changes; older entries are analyzed again. */
-	private const RULES = 'r2';
+	private const RULES = 'r3';
 
 	/** @var array<string, array{m:string,v:string,s:int,sections:list<array<string,mixed>>}>|null */
 	private static ?array $entries = null;

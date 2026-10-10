@@ -71,6 +71,21 @@
   `style.typography.textAlign` so a section saved by an older WordPress is not
   refused whole. The insert stays strict and names any other attribute the
   block does not declare.
+- Add private, pending and scheduled pages, posts, Elementor templates and
+  Gutenberg patterns to the sources of `section-reuse-find` and
+  `section-reuse-extract`, besides published and draft ones, for users who may
+  read and edit them. `source.status` marks the status, and the warnings
+  `private_source`, `pending_source` and `scheduled_source` say the text is not
+  public. A post the user may not edit answers `stonewright_not_found`, the same
+  answer as a post that does not exist, and a source the user may not use does
+  not count towards the 200-source limit.
+- Add nested Elementor containers as sections. `section-reuse-extract` takes the
+  element id of a container nested at any depth: a V3 container or section, or
+  a V4 div block or flexbox, with its children and with everything under it in
+  one builder family. `section-reuse-find` lists up to six nested containers of
+  each Elementor candidate under `inner`, with `inner_truncated` when more
+  exist. A nested container is inserted like any section, with placeholders,
+  fresh ids, id attribute renaming and the element cap.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -592,6 +607,12 @@
 
 ### Fixed
 
+- Fix the errors of `section-reuse-extract`. A source without a valid Elementor
+  document answers `stonewright_no_elementor_document` with a `reason`; an
+  element that is not a container, or that mixes V3 and V4, answers
+  `stonewright_section_not_copyable`; the messages of `stonewright_not_found`
+  and `stonewright_section_not_found` say which statuses and locators are
+  allowed.
 - Fix Rescue rolling back a healthy write when the first render of a page
   that uses Google fonts is slow. Elementor downloads every font file the
   first time a page uses a font, which can take minutes, longer than a probe
