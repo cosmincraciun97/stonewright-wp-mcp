@@ -20,6 +20,16 @@ namespace Stonewright\WpMcp\Security;
  * in as the user for that request alone: a session that expires after two minutes is created,
  * its cookies exist only in the request's own $_COOKIE and never leave the process, and the
  * session is destroyed when the request ends.
+ *
+ * A second kind, the mark-only token, is issued for nobody (user 0) for a leg that is requested as an
+ * anonymous visitor, such as the page of a published post. It is checked and used up exactly like the
+ * login token and marks the request as a probe request, but it never logs anyone in and never changes
+ * who the request is.
+ *
+ * A probe request is marked only by a token that passed that check. Elementor is told not to print
+ * (and so not to download) Google fonts while a request is marked. A header, a query parameter or a
+ * cookie that is not a valid token must never do that on its own: anyone can send those, and a page
+ * cache could store the render without fonts and serve it to visitors.
  */
 final class ProbeToken {
 
@@ -33,6 +43,9 @@ final class ProbeToken {
 	private const SESSION_TTL = 120;
 
 	private const KEY_PREFIX = 'stonewright_probe_';
+
+	/** Elementor's switch for printing, and so downloading, Google fonts on a page. */
+	private const FONT_FILTER = 'elementor/frontend/print_google_fonts';
 
 	/** @var callable(int):void|null */
 	private static $login_handler = null;
@@ -53,21 +66,20 @@ final class ProbeToken {
 	 * @return string|null The token, or null when it cannot be stored.
 	 */
 	public static function issue( int $user_id, string $path, string $nonce ): ?string {
-		if ( $user_id < 1 || '' === $path || 1 !== preg_match( '/^[A-Za-z0-9]{8,32}$/D', $nonce ) ) {
+		if ( $user_id < 1 ) {
 			return null;
 		}
-		$token = bin2hex( random_bytes( 24 ) );
-		$stored = set_transient(
-			self::key( $token ),
-			[
-				'user'    => $user_id,
-				'path'    => self::normalize_path( $path ),
-				'nonce'   => $nonce,
-				'expires' => time() + self::TTL,
-			],
-			self::TTL
-		);
-		return $stored ? $token : null;
+		return self::store( $user_id, false, $path, $nonce );
+	}
+
+	/**
+	 * Issue a mark-only token for one request: it marks the request as a probe request and names
+	 * nobody. The request stays anonymous, so it renders what a visitor sees.
+	 *
+	 * @return string|null The token, or null when it cannot be stored.
+	 */
+	public static function issue_mark( string $path, string $nonce ): ?string {
+		return self::store( 0, true, $path, $nonce );
 	}
 
 	/**
@@ -76,11 +88,23 @@ final class ProbeToken {
 	 * @return int The user the token was issued for, or 0.
 	 */
 	public static function consume( string $token, string $path, string $nonce ): int {
-		$result = self::redeem( $token, $path, $nonce );
+		$result = self::redeem( $token, $path, $nonce, false );
 		if ( null !== $result['accepted'] ) {
 			self::audit( $result['accepted'] );
 		}
 		return $result['user'];
+	}
+
+	/**
+	 * Check a mark-only token against the request that carries it and use it up, and record the outcome.
+	 * A login token is not a mark-only token: it is neither accepted nor used up here.
+	 */
+	public static function consume_mark( string $token, string $path, string $nonce ): bool {
+		$result = self::redeem( $token, $path, $nonce, true );
+		if ( null !== $result['accepted'] ) {
+			self::audit( $result['accepted'] );
+		}
+		return true === $result['accepted'];
 	}
 
 	/**
@@ -97,12 +121,15 @@ final class ProbeToken {
 		// The audit row names the current user, and WordPress keeps the first answer for the rest of the
 		// request. So the token is checked without recording anything, the request takes on the token's
 		// identity, and only then is the outcome recorded.
-		$result = self::redeem( $token, $path, $nonce );
+		$result = self::redeem( $token, $path, $nonce, null );
 		$user   = $result['user'];
 		if ( $user >= 1 ) {
-			self::$probe_request = true;
-			$handler             = self::$login_handler ?? [ self::class, 'login_for_this_request' ];
+			self::mark_request();
+			$handler = self::$login_handler ?? [ self::class, 'login_for_this_request' ];
 			$handler( $user );
+		} elseif ( true === $result['accepted'] && $result['mark'] ) {
+			// A mark-only token: the request is a probe request and nothing more. Nobody is logged in.
+			self::mark_request();
 		}
 		if ( null !== $result['accepted'] ) {
 			self::audit( $result['accepted'] );
@@ -178,6 +205,7 @@ final class ProbeToken {
 
 	/** Forget everything this request did. For tests. */
 	public static function reset_for_tests(): void {
+		remove_filter( self::FONT_FILTER, '__return_false', PHP_INT_MAX );
 		self::$open_sessions  = [];
 		self::$probe_request  = false;
 		self::$probe_user     = 0;
@@ -185,13 +213,45 @@ final class ProbeToken {
 	}
 
 	/**
+	 * Mark this request as a probe request. Called only once a token has been checked and used up.
+	 * Elementor prints Google fonts by downloading every font file the first time a page uses one, which
+	 * can take minutes, so none are printed while a probe request is rendered.
+	 */
+	private static function mark_request(): void {
+		self::$probe_request = true;
+		add_filter( self::FONT_FILTER, '__return_false', PHP_INT_MAX );
+	}
+
+	/**
+	 * Store a token record and return the token.
+	 */
+	private static function store( int $user_id, bool $mark, string $path, string $nonce ): ?string {
+		if ( '' === $path || 1 !== preg_match( '/^[A-Za-z0-9]{8,32}$/D', $nonce ) ) {
+			return null;
+		}
+		$token  = bin2hex( random_bytes( 24 ) );
+		$record = [
+			'user'    => $user_id,
+			'path'    => self::normalize_path( $path ),
+			'nonce'   => $nonce,
+			'expires' => time() + self::TTL,
+		];
+		if ( $mark ) {
+			$record['mark'] = true;
+		}
+		return set_transient( self::key( $token ), $record, self::TTL ) ? $token : null;
+	}
+
+	/**
 	 * Validate a token and use it up, without recording the outcome.
 	 *
-	 * @return array{user:int,accepted:bool|null} `accepted` is null for a token that does not exist.
+	 * @param bool|null $mark True accepts only a mark-only token, false only a login token, null either.
+	 * @return array{user:int,accepted:bool|null,mark:bool} `accepted` is null for a token that does not exist
+	 *                                                      or is not of the kind asked for.
 	 */
-	private static function redeem( string $token, string $path, string $nonce ): array {
+	private static function redeem( string $token, string $path, string $nonce, ?bool $mark ): array {
 		if ( 1 !== preg_match( '/^[a-f0-9]{48}$/D', $token ) ) {
-			return [ 'user' => 0, 'accepted' => null ];
+			return [ 'user' => 0, 'accepted' => null, 'mark' => false ];
 		}
 		$key     = self::key( $token );
 		$payload = get_transient( $key );
@@ -199,7 +259,17 @@ final class ProbeToken {
 			// Anyone can send the header. A token that does not exist (never issued, used up, expired and
 			// cleaned away) writes no audit row and touches no coalescing transient, so a stream of
 			// guesses costs the site one read each. Only a token that exists is accepted or refused on the record.
-			return [ 'user' => 0, 'accepted' => null ];
+			return [ 'user' => 0, 'accepted' => null, 'mark' => false ];
+		}
+		$is_mark = true === ( $payload['mark'] ?? false );
+		if ( null !== $mark && $mark !== $is_mark ) {
+			// The other kind of token: not this check's to accept, refuse or use up.
+			return [ 'user' => 0, 'accepted' => null, 'mark' => false ];
+		}
+		$user = max( 0, (int) ( $payload['user'] ?? 0 ) );
+		if ( $is_mark ? 0 !== $user : $user < 1 ) {
+			// A record that is neither a login token for somebody nor a mark-only token for nobody.
+			return [ 'user' => 0, 'accepted' => false, 'mark' => false ];
 		}
 		$method = isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( $_SERVER['REQUEST_METHOD'] ) : 'GET';
 		if ( 'GET' !== $method
@@ -207,13 +277,13 @@ final class ProbeToken {
 			|| ! hash_equals( (string) ( $payload['path'] ?? '' ), self::normalize_path( $path ) )
 			|| ! hash_equals( (string) ( $payload['nonce'] ?? '' ), $nonce )
 		) {
-			return [ 'user' => 0, 'accepted' => false ];
+			return [ 'user' => 0, 'accepted' => false, 'mark' => false ];
 		}
 		// Single use: only the request that deletes the stored token proceeds.
 		if ( true !== delete_transient( $key ) ) {
-			return [ 'user' => 0, 'accepted' => false ];
+			return [ 'user' => 0, 'accepted' => false, 'mark' => false ];
 		}
-		return [ 'user' => max( 0, (int) ( $payload['user'] ?? 0 ) ), 'accepted' => true ];
+		return [ 'user' => $user, 'accepted' => true, 'mark' => $is_mark ];
 	}
 
 	private static function key( string $token ): string {

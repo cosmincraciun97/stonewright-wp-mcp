@@ -25,6 +25,16 @@ development builds were never stable releases.
   undone only from the Rescue page: the ability, the REST route and WP-CLI
   answer `stonewright_rescue_approval_required` with the approval URL and stop.
   An incident or an unverified change to code is rolled back as before.
+- Guard the undo of a verified change. It saves the current state first (a
+  snapshot of the post, an options restore point, a backup of the theme file,
+  the snapshot of the custom-code snippet, a copy of the active sandbox file, the
+  activation state of the plugin) and probes the site before and after. When the
+  undo makes a site that worked fail to load, the saved state is put back, the
+  change stays verified with the note `undo_reverted`, and the call answers
+  `stonewright_rescue_undo_reverted` with the probe that failed; the Rescue page
+  shows the same message. When the current state cannot be saved, the undo is
+  refused with `stonewright_rescue_undo_capture_failed` before anything changes.
+  An incident or an unverified change is rolled back as before.
 - Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
   of the state before the restore, which undoes it.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
@@ -603,6 +613,21 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Fix Rescue rolling back a healthy write when the first render of a page
+  that uses Google fonts is slow. Elementor downloads every font file the
+  first time a page uses a font, which can take minutes, longer than a probe
+  request waits. A probe request is now marked by a single-use token on every
+  leg that needs it, and Elementor does not print or download Google fonts
+  while it renders a marked request. The page of a draft carries the login
+  token; the page of a published post or a kit write, which is requested as
+  an anonymous visitor, carries a new mark-only token that is single use,
+  bound to its path and nonce, short-lived, validated like the login token
+  and never logs anyone in. A header, parameter or cookie that is not a valid
+  token never marks a request, and normal visits print Google fonts as
+  before. Outbound HTTP is not blocked in a probe request. The page leg of a
+  published post follows a redirect on the site's own origin (same scheme,
+  host and port), at most twice, with a new mark-only token bound to each new
+  path; a redirect to another host, scheme or port is not followed.
 - Fix Rescue rolling back a healthy write when the first render of a freshly
   written page is slow. A leg that passed before the write and gets no answer
   at all after it (a timeout or a refused connection) is probed once more,
