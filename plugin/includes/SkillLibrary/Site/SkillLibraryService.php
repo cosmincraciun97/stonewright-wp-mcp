@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\SkillLibrary\Site;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
+use Stonewright\WpMcp\Security\Adapters\RevisionLinkAdapter;
 use Stonewright\WpMcp\SkillLibrary\ImportReview;
 use Stonewright\WpMcp\SkillLibrary\LifecycleDecisions;
 use Stonewright\WpMcp\SkillLibrary\MutationBoundary;
@@ -294,6 +295,16 @@ final class SkillLibraryService {
 	 * @param array<string, mixed> $input
 	 */
 	public function save_skill( array $input, string $token = '' ): int|\WP_Error {
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, is_string( $input['slug'] ?? null ) ? RecordRules::identity( $input['slug'] ) : '' );
+		$result = $this->store_skill( $input, $token );
+		RevisionLinkAdapter::skill_after( 'save', $held, $this->repository, $result );
+		return $result;
+	}
+
+	/**
+	 * @param array<string, mixed> $input
+	 */
+	private function store_skill( array $input, string $token ): int|\WP_Error {
 		$slug     = is_string( $input['slug'] ?? null ) ? RecordRules::identity( $input['slug'] ) : '';
 		$previous = '' === $slug ? null : $this->repository->find_slug( $slug );
 		$changes  = array_intersect_key( $input, array_flip( self::EDITABLE ) );
@@ -329,23 +340,38 @@ final class SkillLibraryService {
 	}
 
 	public function set_enabled( int $id, bool $enabled ): bool|\WP_Error {
-		return self::settled( $this->writer()->set_exposure( $id, $enabled ) );
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, $id );
+		$result = self::settled( $this->writer()->set_exposure( $id, $enabled ) );
+		RevisionLinkAdapter::skill_after( 'toggle', $held, $this->repository, $result );
+		return $result;
 	}
 
 	public function move_to_trash( int $id ): bool|\WP_Error {
-		return self::settled( $this->writer()->put_in_trash( $id ) );
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, $id );
+		$result = self::settled( $this->writer()->put_in_trash( $id ) );
+		RevisionLinkAdapter::skill_after( 'trash', $held, $this->repository, $result );
+		return $result;
 	}
 
 	public function bring_back( int $id ): bool|\WP_Error {
-		return self::settled( $this->writer()->recover( $id ) );
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, $id );
+		$result = self::settled( $this->writer()->recover( $id ) );
+		RevisionLinkAdapter::skill_after( 'restore', $held, $this->repository, $result );
+		return $result;
 	}
 
 	public function erase_skill( int $id, string $token = '' ): bool|\WP_Error {
-		return self::settled( $this->writer()->erase( $id, $token ) );
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, $id );
+		$result = self::settled( $this->writer()->erase( $id, $token ) );
+		RevisionLinkAdapter::skill_after( 'destroy', $held, $this->repository, $result );
+		return $result;
 	}
 
 	public function roll_back_skill( string $slug, int $revision, string $token = '' ): bool|\WP_Error {
-		return self::settled( $this->writer()->restore_revision( RecordRules::identity( $slug ), $revision, $token ) );
+		$held   = RevisionLinkAdapter::skill_before( $this->repository, RecordRules::identity( $slug ) );
+		$result = self::settled( $this->writer()->restore_revision( RecordRules::identity( $slug ), $revision, $token ) );
+		RevisionLinkAdapter::skill_after( 'rollback', $held, $this->repository, $result );
+		return $result;
 	}
 
 	/**

@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Security\Adapters\FamilyRecorder;
+use Stonewright\WpMcp\Security\Adapters\OtherFamilies;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\Logger;
@@ -41,6 +42,9 @@ use Stonewright\WpMcp\Support\Logger;
  * note_menu_created(), note_menu_location()). leave() reads the images again and writes one row for each
  * resource that changed, with the status the journal reached when it watched the same write.
  *
+ * Users, comments, media, the catalog, theme switches, plugin deletes and php-execute are recorded by
+ * OtherFamilies: enter() hands it the ability name and arguments, and leave() hands it the result.
+ *
  * Nothing here ever throws into the ability: a failure inside the guard leaves the write and
  * the result as they were.
  *
@@ -48,7 +52,7 @@ use Stonewright\WpMcp\Support\Logger;
  */
 final class RescueGuard {
 
-	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>,family:array<string,Entry>}> */
+	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>,family:array<string,Entry>,other:array<string,mixed>|null}> */
 	private static array $frames = [];
 
 	/**
@@ -67,6 +71,8 @@ final class RescueGuard {
 			'meta_keys' => [],
 			// The options, widgets, menus and menu locations the call is about to write, with their images.
 			'family'    => [],
+			// What OtherFamilies watches in this call: the images taken now, and the values it needs at the end.
+			'other'     => self::other_begin( $ability, $args ),
 		];
 		$index = array_key_last( self::$frames );
 		try {
@@ -120,6 +126,7 @@ final class RescueGuard {
 		}
 		self::ledger_settle( $frame, $after, $result );
 		self::settle_entries( $frame, $family_after, $result );
+		self::other_finish( $frame['other'] ?? null, $result );
 		return $result;
 	}
 
@@ -672,6 +679,31 @@ final class RescueGuard {
 			} catch ( \Throwable $failure ) {
 				Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
 			}
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|null
+	 */
+	private static function other_begin( string $ability, array $args ): ?array {
+		try {
+			return OtherFamilies::begin( $ability, $args );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			return null;
+		}
+	}
+
+	/**
+	 * @param array<string, mixed>|null $pending
+	 * @param mixed                     $result
+	 */
+	private static function other_finish( ?array $pending, mixed $result ): void {
+		try {
+			OtherFamilies::finish( $pending, $result );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
 		}
 	}
 
