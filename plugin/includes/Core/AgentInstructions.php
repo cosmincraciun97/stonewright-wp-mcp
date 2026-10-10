@@ -20,6 +20,7 @@ final class AgentInstructions {
 			'- First call stonewright-task-start; it returns the context token and fast path.',
 			'- stonewright-context-bootstrap and stonewright-workflow-preflight are compatibility tools.',
 			'- Prefer fast_path.tool_profile over a separate stonewright-tool-profile call.',
+			'- ' . AgentHints::LEARNING_TRIGGER,
 			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and ask the user to reload or fix the Stonewright MCP config.',
 			'- ' . McpUsePolicy::compact_bypass_ban_rule(),
 			'- Use MCP tool stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',

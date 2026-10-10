@@ -358,7 +358,7 @@ final class UpdateNode extends AbilityKernel {
 		if ( $failed > 0 ) {
 			return $this->error(
 				'batch_operation_failed',
-				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ),
+				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ) . SectionReuseSetting::refusal_note( (string) ( $items[ $first ]['error']['code'] ?? '' ) ),
 				array_merge(
 					[
 						'status'        => 400,

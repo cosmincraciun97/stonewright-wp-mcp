@@ -589,6 +589,16 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Tell agents to record corrections without asking for the full response: the
+  MCP connect-time instructions and the default compact `stonewright-task-start`
+  (`context.learning`) now say to call `stonewright-learning-record` when the
+  user corrects the agent or a mistake repeats, and that a lesson counts only
+  with `verified:true`. The compact task-start byte cap grows from 3600 to 3750
+  so its visual quality floor keeps the same rules.
+- Fix the refusal of `insert_section` while section reuse is `off`: the failure
+  message of `elementor-v3-batch-mutate` (dry run too), `elementor-v4-update-node`
+  and `blocks-batch-mutate` now says that section reuse is off, and an MCP client
+  also reads `retryable: false` and `execution_status: blocked` in it.
 - Fix `detach_patterns` on a `blocks-batch-mutate` `insert_section`: the input
   schema accepts `true`, `false`, or a list of pattern ids.
 - Fix section reuse while the setting is `off`: `stonewright-task-start` no

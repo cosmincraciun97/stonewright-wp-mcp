@@ -153,6 +153,14 @@ final class SectionReuseSetting {
 	}
 
 	/**
+	 * The sentence a batch writer appends to its failure message when the operation that failed was the off
+	 * refusal, so a client that reads only the message learns the reason. Any other code adds nothing.
+	 */
+	public static function refusal_note( string $code ): string {
+		return self::OFF_CODE === $code ? ' ' . self::OFF_INSTRUCTION : '';
+	}
+
+	/**
 	 * `update_option_{option}` action: an existing value was replaced.
 	 *
 	 * @param mixed $old_value Value before.

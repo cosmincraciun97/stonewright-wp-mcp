@@ -406,7 +406,7 @@ final class BatchMutate extends AbilityKernel {
 					$cause_code = (string) ( $first_failed['error']['code'] ?? '' );
 					return $this->error(
 						'batch_operation_failed',
-						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ),
+						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ),
 						self::batch_failure_data(
 							$items,
 							$applied,

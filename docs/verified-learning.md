@@ -6,7 +6,7 @@ Stonewright separates a repeated failure from a reusable lesson. An audit error 
 
 Stonewright accepts two evidence classes:
 
-1. **Explicit user corrections** may be recorded immediately with `stonewright-learning-record`. The source and scope remain visible so user direction outranks inferred guidance.
+1. **Explicit user corrections** may be recorded immediately with `stonewright-learning-record`. The source and scope remain visible so user direction outranks inferred guidance. The MCP connect-time instructions and the default compact `stonewright-task-start` (`context.learning`) both tell the agent to call it when the user corrects it or a mistake repeats; a lesson counts only when the receipt carries `verified:true`.
 2. **Audit-derived repairs** become active learning only after a persisted failure and a later independent verifier are strictly correlated through the same resource and change set. Record that closure with `stonewright-incident-repair-record`.
 
 Generic success, an agent-supplied `verified` flag, an unrelated read, or a recipe without persisted proof does not close the incident.
