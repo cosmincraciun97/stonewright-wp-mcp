@@ -616,6 +616,27 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Move the page's stylesheet version when `stonewright-elementor-css-regenerate`
+  writes a file. It regenerates through Elementor's `update()`, which stores the
+  CSS metadata with the file, and moves the version (the `?ver=` of the page's
+  stylesheet link, the `time` of `_elementor_css`) past its previous value, also
+  within the same second, so browsers and page caches fetch the new file
+  whatever the anonymous probe answers. The result reports `css_version`,
+  `css_version_before` and `css_version_changed`; if the version cannot be moved
+  the regeneration is rolled back as a failed operation.
+- Follow a short same-origin redirect in the Elementor CSS delivery probe. A
+  chain of at most two redirects that keeps the scheme, host and port, never
+  reaches a login page and ends in HTTP 200 `text/css` with the written bytes
+  (at most 8192 bytes are read, without cookies or credentials) is `verified`,
+  and the probe records `redirect_hops`. A repeated URL, another origin or a
+  downgrade to http still stops before any write. A redirect to a login page or
+  to a page that is not the CSS (an access-control layer in front of uploads) no
+  longer fails `stonewright-elementor-css-regenerate`: the file is written,
+  `delivery_status` is `blocked`, the answer is `ok:true` with a `warnings`
+  entry and a `repair` text, and the layout must not be rebuilt for it.
+  `stonewright_elementor_css_probe_failed` and its rollback stay for a file that
+  was delivered before the write and is not after it. The repair hints for the
+  three CSS delivery error codes say not to rebuild the layout.
 - Fix Rescue rolling back a healthy write when the first render of a page
   that uses Google fonts is slow. Elementor downloads every font file the
   first time a page uses a font, which can take minutes, longer than a probe

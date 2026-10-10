@@ -510,11 +510,21 @@ identical plan is a verified no-op without a snapshot or write.
 generated Elementor CSS. It snapshots the post, acquires the post lock and CSS
 directory lease, inventories direct Elementor CSS assets, probes existing
 protected URLs, updates only the resolved post or loop target through
-`update_file()`, and restores the bounded asset snapshot if collateral changes
-or probes fail. Local generation, HTTP delivery, and frontend verification are
-separate statuses. A private page that 302s to login can still have verified
-generation with blocked delivery; that is not CSS health from a login HTML
-body.
+Elementor's `update()` (the file plus the stored CSS metadata), advances the
+stylesheet version, and restores the bounded asset snapshot if collateral
+changes or probes fail. The version is the `time` of `_elementor_css`, which
+Elementor prints as the `?ver=` of the page's stylesheet link, so it always
+moves past its previous value when a file is written. Local generation, HTTP
+delivery, and frontend verification are separate statuses. The delivery probe
+is anonymous, same-origin and bounded: it follows at most two same-origin
+redirects (same scheme, host and port, never a login page) and counts delivery
+as verified only when the chain ends in HTTP 200 `text/css` whose leading
+bytes equal the written file. A cross-origin, downgraded or looping redirect
+is refused before any write. A page whose anonymous request is redirected to a
+login page or to another page that is not the CSS can still have verified
+generation with `delivery_status: blocked`; the ability then answers `ok: true`
+with a warning, because the file is written and the version changed. That is
+not CSS health from a login or home page HTML body.
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-observation
 ability. It calls `get_builder_content_for_display( $post_id, false )` so the

@@ -28,8 +28,9 @@ For every Elementor document mutation in Plugin mode:
 6. Call `stonewright-elementor-css-regenerate` when the write affects generated
    CSS. It snapshots the post, inventories the direct CSS directory, probes
    existing protected URLs, regenerates only the resolved post or loop target
-   through Elementor's official `update_file()` API, and restores its bounded
-   asset snapshot if another file changes or a probe fails. Restore runs only
+   through Elementor's official `update()` API (the file and the stored CSS
+   metadata), and restores its bounded asset snapshot if another file changes
+   or a probe fails. Restore runs only
    while the CSS directory lease still identifies this writer, including an
    expired-but-ours lease. A vacant lease after another writer committed and
    released is a successor fence: skip restore (`not_attempted_lock_lost` /
@@ -96,9 +97,24 @@ or generation.
   A missing file without that evidence, or under the internal CSS print method
   (`stonewright_elementor_css_inline_print_method`), is still refused and
   rolled back;
+- `css_version` and `css_version_before`, the `?ver=` of the page's
+  stylesheet link before and after, and `css_version_changed`. A written file
+  always moves the version forward, whatever the anonymous probe answers, so
+  browsers and page caches fetch the new file;
 - HTTP probes for the target CSS and any existing
-  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets
-  (a login 302 is delivery blocked, not a generation failure);
+  `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets.
+  Probes are anonymous and same-origin. A redirect chain of at most two
+  same-origin hops (same scheme, host and port, never a login page) that ends
+  in HTTP 200 `text/css` with the written bytes is `verified`, and the probe
+  records `redirect_hops`. A cross-origin, downgraded or looping redirect fails
+  with `stonewright_elementor_css_probe_unsafe_redirect` before any write. A
+  redirect to a login page or to any page that is not the CSS, a 401 or a 403,
+  is access control in front of the file: `delivery_status` is `blocked`, the
+  call answers `ok: true` with `warnings`
+  (`stonewright_elementor_css_delivery_protected`) and a `repair` text, and the
+  layout must not be rebuilt because of it. A file that was delivered before the
+  write and is not after it fails with `stonewright_elementor_css_probe_failed`
+  and is rolled back;
 - collateral-change and rollback status;
 - backup snapshot id and `effect_verified` only when the requested effect
   actually closed.
