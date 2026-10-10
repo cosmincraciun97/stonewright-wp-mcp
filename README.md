@@ -602,8 +602,8 @@ npm run build
 | Plugin | `plugin/` | [GPL-2.0-or-later](LICENSE) |
 | Visual workspace | `visual/` | [GPL-2.0-or-later](LICENSE) |
 | Companion | `companion/` | [MIT](companion/LICENSE) |
-| Skill packs | `skills/` | MIT |
-| Documentation | `docs/` | CC BY 4.0 |
+| Skill packs (shipped inside the plugin) | `skills/` | [GPL-2.0-or-later](LICENSE) |
+| Documentation | `docs/` | [GPL-2.0-or-later](LICENSE) |
 
 See [component licensing](LICENSING.md) for scope and third-party terms.
 
