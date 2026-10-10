@@ -93,12 +93,12 @@ test('release workflow publishes exactly zip, companion tgz, and SHA256SUMS', ()
 test('README exposes one validated supported public beta path', () => {
 	assert.match(readme, /<!-- supported-release:start -->/);
 	assert.match(readme, /<!-- supported-release:end -->/);
-	assert.match(readme, /Current release: 1\.0\.0-beta\.13\.3 — Public Beta/);
-	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.13\.3/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/stonewright-1\.0\.0-beta\.13\.3\.zip/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/stonewright-companion-1\.0\.0-beta\.13\.3\.tgz/);
-	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.13\.3\/SHA256SUMS\.txt/);
-	assert.doesNotMatch(readme, /1\.0\.0-beta\.13\.3.*not released/i);
+	assert.match(readme, /Current release: 1\.0\.0-beta\.14 — Public Beta/);
+	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.14/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.14\/stonewright-1\.0\.0-beta\.14\.zip/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.14\/stonewright-companion-1\.0\.0-beta\.14\.tgz/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.14\/SHA256SUMS\.txt/);
+	assert.doesNotMatch(readme, /1\.0\.0-beta\.14.*not released/i);
 	assert.match(readme, /docs\/installation\.md/);
 	assert.match(docsFreshness, /supported-release:start/);
 });

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.14] - 2026-10-10
+
 ### Added
 
 - Accept `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`, the read-only profile of
