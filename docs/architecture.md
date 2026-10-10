@@ -941,8 +941,9 @@ The bundle is built from `visual/` and staged into `plugin/assets/visual/` at
 packaging time; it is not committed. `scripts/package-verify.mjs` warns about a
 missing bundle in a source checkout and fails on it under
 `--require-visual-bundle`, which CI and the release workflow pass after staging.
-The same check rejects Node build inputs from the archive, and the release job
-asserts the built zip actually contains the bundle.
+The same check rejects Node build inputs and `.github` folders from the archive,
+and the release job asserts the built zip actually contains the bundle and no
+`.github` folder.
 
 Plugin dependencies are also rebuilt from an empty `vendor/` with
 `composer install --no-dev --classmap-authoritative`. Jetpack Autoloader is a
