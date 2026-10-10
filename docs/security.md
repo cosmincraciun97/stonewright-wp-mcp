@@ -196,6 +196,7 @@ A change that leaves the site failing is recorded in the change journal and roll
 - Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
 - `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
 - A verified change can be rolled back, but a verified change to code (a theme file, a custom-code snippet, a sandbox file or the Customizer CSS) is rolled back only by an administrator at the Rescue page. The ability, the REST route and WP-CLI refuse it with `stonewright_rescue_approval_required`, and a confirmation token does not lift the refusal.
+- The undo of a verified change saves the current state first and refuses with `stonewright_rescue_undo_capture_failed` when it cannot, probes the site before and after, and puts the saved state back with `stonewright_rescue_undo_reverted` when the undo made a working site fail. An incident or an unverified change is rolled back as before.
 - The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
 
 See [Rescue](rescue.md).

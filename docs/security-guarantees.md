@@ -269,6 +269,8 @@ reported as unavailable, never as healthy, except that a check which answered be
 cannot be reached after it counts as failed. The journal file never creates a change set or a recipe.
 A verified change can be rolled back, but a verified change to code is rolled back only by an
 administrator on the Rescue page; an agent's call is refused with `stonewright_rescue_approval_required`.
+The undo of a verified change saves the current state first and puts it back when the undo makes a
+site that worked fail to load.
 
 Enforced by:
 

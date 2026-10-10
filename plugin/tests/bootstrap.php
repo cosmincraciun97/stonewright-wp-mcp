@@ -1139,6 +1139,10 @@ if ( ! function_exists( 'get_plugins' ) ) {
 
 if ( ! function_exists( 'is_plugin_active' ) ) {
 	function is_plugin_active( string $plugin ): bool {
+		// A test that wants is_plugin_active() to follow the activation map opts in with stonewright_test_plugin_state_visible.
+		if ( ! empty( $GLOBALS['stonewright_test_plugin_state_visible'] ) && ! empty( $GLOBALS['stonewright_test_active_plugins'][ $plugin ] ) ) {
+			return true;
+		}
 		return 'stonewright/stonewright.php' === $plugin;
 	}
 }

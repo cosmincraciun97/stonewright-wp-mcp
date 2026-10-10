@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
+use Stonewright\WpMcp\CustomCode\ProviderSupport;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 
 /**
@@ -43,6 +44,7 @@ final class RollbackRecipes {
 				'theme_backup'   => self::theme_backup( $entry ),
 				'plugin_state'   => self::plugin_state( $entry ),
 				'sandbox_file'   => self::sandbox_file( $entry ),
+				'sandbox_restore' => self::sandbox_restore( $entry ),
 				default          => self::provider_snapshot( $entry ),
 			};
 		} catch ( \Throwable $failure ) {
@@ -54,6 +56,31 @@ final class RollbackRecipes {
 			'recipe' => $type,
 			'detail' => $outcome['detail'],
 		];
+	}
+
+	/**
+	 * Save what the recipe of an entry is about to overwrite, so that the recipe can be undone.
+	 *
+	 * The result's `restore` is shaped like a journal entry: running it with run() puts the state saved
+	 * here back, the way a recipe puts the older state back. Nothing is written to the journal.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	public static function capture( array $entry ): array {
+		try {
+			return match ( self::type( $entry ) ) {
+				'post_snapshot'  => self::capture_post( $entry ),
+				'option_restore' => self::capture_options( $entry ),
+				'theme_backup'   => self::capture_theme( $entry ),
+				'plugin_state'   => self::capture_plugin( $entry ),
+				'sandbox_file'   => self::capture_sandbox( $entry ),
+				default          => self::capture_provider( $entry ),
+			};
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return [ 'status' => 'failed', 'detail' => 'exception' ];
+		}
 	}
 
 	/**
@@ -183,7 +210,7 @@ final class RollbackRecipes {
 	 */
 	private static function plugin_state( array $entry ): array {
 		$plugin = self::ref( $entry );
-		if ( 1 !== preg_match( '#^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*\.php$#D', $plugin ) || str_contains( strtolower( $plugin ), 'stonewright' ) ) {
+		if ( ! self::is_plugin_file( $plugin ) ) {
 			return [ 'status' => 'failed', 'detail' => 'invalid_plugin' ];
 		}
 		if ( ! function_exists( 'activate_plugin' ) ) {
@@ -205,7 +232,7 @@ final class RollbackRecipes {
 	 */
 	private static function sandbox_file( array $entry ): array {
 		$name = self::ref( $entry );
-		if ( $name !== basename( $name ) || ! SandboxFiles::valid_name( $name ) || in_array( $name, SandboxFiles::RESERVED_NAMES, true ) ) {
+		if ( ! self::is_sandbox_name( $name ) ) {
 			return [ 'status' => 'failed', 'detail' => 'invalid_name' ];
 		}
 		$twin = SandboxFiles::mu_dir() . '/' . SandboxFiles::active_prefix() . $name;
@@ -215,6 +242,42 @@ final class RollbackRecipes {
 		return is_wp_error( SandboxFiles::disable( $name ) )
 			? [ 'status' => 'failed', 'detail' => 'disable_failed' ]
 			: [ 'status' => 'succeeded', 'detail' => '' ];
+	}
+
+	/**
+	 * Put the active copy of a sandbox file back as it was saved. It only puts back what a recipe
+	 * overwrote; a journal entry never names it.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string}
+	 */
+	private static function sandbox_restore( array $entry ): array {
+		$detail = self::detail( $entry );
+		$name   = (string) ( $detail['name'] ?? '' );
+		if ( ! self::is_sandbox_name( $name ) ) {
+			return [ 'status' => 'failed', 'detail' => 'invalid_name' ];
+		}
+		if ( empty( $detail['active'] ) ) {
+			return [ 'status' => 'noop', 'detail' => '' ];
+		}
+		$bytes = (string) ( $detail['bytes'] ?? '' );
+		$hash  = hash( 'sha256', $bytes );
+		$twin  = SandboxFiles::mu_dir() . '/' . SandboxFiles::active_prefix() . $name;
+		clearstatcache( true, $twin );
+		if ( is_file( $twin ) && hash_equals( $hash, hash( 'sha256', (string) file_get_contents( $twin ) ) ) ) {
+			return [ 'status' => 'noop', 'detail' => '' ];
+		}
+		if ( false === file_put_contents( $twin, $bytes, LOCK_EX ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			return [ 'status' => 'failed', 'detail' => 'restore_failed' ];
+		}
+		clearstatcache( true, $twin );
+		if ( ! hash_equals( $hash, hash( 'sha256', (string) file_get_contents( $twin ) ) ) ) {
+			return [ 'status' => 'failed', 'detail' => 'readback_mismatch' ];
+		}
+		if ( is_file( $twin . '.disabled' ) ) {
+			@unlink( $twin . '.disabled' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink, WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+		return [ 'status' => 'succeeded', 'detail' => '' ];
 	}
 
 	/**
@@ -228,9 +291,8 @@ final class RollbackRecipes {
 		if ( null === $detail ) {
 			return [ 'status' => 'not_available', 'detail' => 'no_recipe' ];
 		}
-		$resolver = self::$provider_resolver ?? static fn ( string $id ): ?object => ProviderRegistry::get( $id );
-		$provider = $resolver( $detail['provider'] );
-		if ( ! is_object( $provider ) || ! method_exists( $provider, 'rollback' ) ) {
+		$provider = self::provider( $detail['provider'] );
+		if ( null === $provider || ! method_exists( $provider, 'rollback' ) ) {
 			return [ 'status' => 'failed', 'detail' => 'provider_missing' ];
 		}
 		$args = [ 'snapshot_id' => $detail['snapshot_id'] ];
@@ -244,6 +306,174 @@ final class RollbackRecipes {
 		return is_array( $result ) && true === ( $result['effect_verified'] ?? false )
 			? [ 'status' => 'succeeded', 'detail' => '' ]
 			: [ 'status' => 'failed', 'detail' => 'restore_not_verified' ];
+	}
+
+	// -----------------------------------------------------------------------
+	// Capture: the state a recipe is about to overwrite.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_post( array $entry ): array {
+		$detail      = self::detail( $entry );
+		$post_id     = (int) ( $detail['post_id'] ?? $entry['resource_key'] ?? 0 );
+		$snapshot_id = '' !== self::ref( $entry ) ? self::ref( $entry ) : (string) ( $detail['snapshot_id'] ?? '' );
+		if ( $post_id < 1 || ! get_post( $post_id ) ) {
+			return [ 'status' => 'failed', 'detail' => 'post_missing' ];
+		}
+		// The snapshot the recipe restores must outlive the one that is saved now.
+		$saved = Backup::snapshot_post( $post_id, '' !== $snapshot_id ? [ $snapshot_id ] : [], false );
+		if ( '' === $saved ) {
+			return [ 'status' => 'failed', 'detail' => 'snapshot_failed' ];
+		}
+		return self::captured( 'post_snapshot', $saved, [ 'post_id' => $post_id, 'snapshot_id' => $saved ], 'post', (string) $post_id );
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_options( array $entry ): array {
+		$restore_id = self::ref( $entry );
+		$store      = get_option( Backup::OPTION_SNAPSHOTS, [] );
+		$row        = is_array( $store ) && isset( $store[ $restore_id ] ) && is_array( $store[ $restore_id ] ) ? $store[ $restore_id ] : null;
+		if ( '' === $restore_id || null === $row ) {
+			return [ 'status' => 'failed', 'detail' => 'snapshot_missing' ];
+		}
+		$options    = array_map( 'strval', array_keys( (array) ( $row['options'] ?? [] ) ) );
+		$theme_mods = array_map( 'strval', array_keys( (array) ( $row['theme_mods'] ?? [] ) ) );
+		$saved      = Backup::snapshot_options( $options, $theme_mods, false, [ $restore_id ] );
+		$after      = get_option( Backup::OPTION_SNAPSHOTS, [] );
+		if ( '' === $saved || ! is_array( $after ) || ! isset( $after[ $saved ] ) ) {
+			return [ 'status' => 'failed', 'detail' => 'snapshot_failed' ];
+		}
+		return self::captured( 'option_restore', $saved, [ 'restore_id' => $saved ], 'option', implode( ',', array_slice( $options, 0, 8 ) ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_theme( array $entry ): array {
+		$saved = ThemeWriteTransaction::capture_for_rescue( self::ref( $entry ), (string) ( self::detail( $entry )['absolute'] ?? '' ) );
+		if ( 'ok' !== $saved['status'] ) {
+			return [ 'status' => 'failed', 'detail' => $saved['detail'] ];
+		}
+		return self::captured( 'theme_backup', (string) $saved['ref'], [ 'absolute' => (string) $saved['absolute'] ], 'theme_file', (string) ( $entry['resource_key'] ?? '' ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_plugin( array $entry ): array {
+		$plugin = self::ref( $entry );
+		if ( ! self::is_plugin_file( $plugin ) ) {
+			return [ 'status' => 'failed', 'detail' => 'invalid_plugin' ];
+		}
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		return self::captured( 'plugin_state', $plugin, [ 'plugin' => $plugin, 'was_active' => (bool) is_plugin_active( $plugin ) ], 'plugin', $plugin );
+	}
+
+	/**
+	 * The active copy of a sandbox file, byte for byte: the recipe renames it away.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_sandbox( array $entry ): array {
+		$name = self::ref( $entry );
+		if ( ! self::is_sandbox_name( $name ) ) {
+			return [ 'status' => 'failed', 'detail' => 'invalid_name' ];
+		}
+		$twin = SandboxFiles::mu_dir() . '/' . SandboxFiles::active_prefix() . $name;
+		clearstatcache( true, $twin );
+		if ( ! file_exists( $twin ) ) {
+			// Nothing is active, so the recipe changes nothing and there is nothing to put back.
+			return self::captured( 'sandbox_restore', $name, [ 'name' => $name, 'active' => false ], 'sandbox', $name );
+		}
+		$bytes = is_file( $twin ) ? file_get_contents( $twin ) : false;
+		if ( false === $bytes ) {
+			return [ 'status' => 'failed', 'detail' => 'unreadable' ];
+		}
+		return self::captured( 'sandbox_restore', $name, [ 'name' => $name, 'active' => true, 'bytes' => $bytes ], 'sandbox', $name );
+	}
+
+	/**
+	 * The snippet as its provider holds it now, saved as a provider snapshot.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array{status:string,detail:string,restore?:array<string,mixed>}
+	 */
+	private static function capture_provider( array $entry ): array {
+		$detail = self::provider_detail( $entry );
+		if ( null === $detail ) {
+			return [ 'status' => 'failed', 'detail' => 'no_recipe' ];
+		}
+		$provider = self::provider( $detail['provider'] );
+		if ( null === $provider || ! method_exists( $provider, 'read' ) ) {
+			return [ 'status' => 'failed', 'detail' => 'provider_missing' ];
+		}
+		$read = $provider->read( $detail['target_id'] );
+		if ( is_wp_error( $read ) ) {
+			return [ 'status' => 'failed', 'detail' => substr( sanitize_key( (string) $read->get_error_code() ), 0, 64 ) ];
+		}
+		if ( ! is_array( $read ) || ! isset( $read['code'] ) || ! is_string( $read['code'] ) ) {
+			return [ 'status' => 'failed', 'detail' => 'read_failed' ];
+		}
+		$extra    = array_key_exists( 'active', $read ) ? [ 'active' => (bool) $read['active'] ] : [];
+		$snapshot = ProviderSupport::snapshot_record( $detail['provider'], $detail['target_id'], is_string( $read['path'] ?? null ) ? $read['path'] : '', $read['code'], $extra );
+		if ( null === ProviderSupport::load_snapshot( $snapshot['snapshot_id'] ) ) {
+			return [ 'status' => 'failed', 'detail' => 'snapshot_not_stored' ];
+		}
+		return [
+			'status'  => 'ok',
+			'detail'  => '',
+			'restore' => [
+				'resource_type' => 'custom_code',
+				'resource_key'  => $detail['provider'] . ':' . $detail['target_id'],
+				'recipe'        => [ 'type' => 'none', 'ref' => $snapshot['snapshot_id'] ],
+				'recipe_detail' => [ 'provider' => $detail['provider'], 'snapshot_id' => $snapshot['snapshot_id'], 'target_id' => $detail['target_id'] ],
+			],
+		];
+	}
+
+	/**
+	 * An entry-shaped recipe that puts the saved state back.
+	 *
+	 * @param array<string, bool|int|string> $detail
+	 * @return array{status:string,detail:string,restore:array<string,mixed>}
+	 */
+	private static function captured( string $type, string $ref, array $detail, string $resource_type, string $resource_key ): array {
+		return [
+			'status'  => 'ok',
+			'detail'  => '',
+			'restore' => [
+				'resource_type' => $resource_type,
+				'resource_key'  => $resource_key,
+				'recipe'        => [ 'type' => $type, 'ref' => $ref ],
+				'recipe_detail' => $detail,
+			],
+		];
+	}
+
+	private static function is_plugin_file( string $plugin ): bool {
+		return 1 === preg_match( '#^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*\.php$#D', $plugin ) && ! str_contains( strtolower( $plugin ), 'stonewright' );
+	}
+
+	private static function is_sandbox_name( string $name ): bool {
+		return $name === basename( $name ) && SandboxFiles::valid_name( $name ) && ! in_array( $name, SandboxFiles::RESERVED_NAMES, true );
+	}
+
+	/** The custom-code provider with this id, or null. */
+	private static function provider( string $id ): ?object {
+		$resolver = self::$provider_resolver ?? static fn ( string $provider_id ): ?object => ProviderRegistry::get( $provider_id );
+		$provider = $resolver( $id );
+		return is_object( $provider ) ? $provider : null;
 	}
 
 	// -----------------------------------------------------------------------
