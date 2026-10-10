@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Design\Evidence\Validator as DesignEvidenceValidator;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\SpecSectionRecord;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
@@ -58,7 +59,11 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'spec'               => [ 'type' => 'object' ],
 				'design_evidence'    => [ 'type' => 'object', 'description' => 'Required when spec style_policy is strict.' ],
 				'replace'            => [ 'type' => 'boolean', 'default' => true ],
-				'mode'               => [ 'type' => 'string', 'enum' => [ 'replace', 'append', 'replace_section' ] ],
+				'mode'               => [
+					'type'        => 'string',
+					'enum'        => [ 'replace', 'append', 'replace_section' ],
+					'description' => 'replace rebuilds the page; append adds the sections after the existing ones; replace_section replaces the container recorded for each spec section id and needs an id on every section. replace_section writes nothing and returns an error when the page has no section record, or when an id matches no container or more than one.',
+				],
 				'expected_tree_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
 				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run, in every mode. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
@@ -185,7 +190,11 @@ final class BuildPageFromSpec extends AbilityKernel {
 				if ( '' !== $expected_hash && ! hash_equals( $expected_hash, $before_hash ) ) {
 					return $this->error( 'tree_conflict', __( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ), [ 'status' => 409, 'expected_tree_hash' => $expected_hash, 'current_tree_hash' => $before_hash ] );
 				}
-				$tree       = self::merge_tree( $existing, $rendered, $mode );
+				$plan = $this->plan_merge( $post_id, $existing, $rendered, $mode, self::explicit_section_ids( (array) $args['spec'] ) );
+				if ( $plan instanceof \WP_Error ) {
+					return $plan;
+				}
+				$tree       = $plan['tree'];
 				$after_hash = TreeHasher::hash( $tree );
 
 				// The write runs these checks too; running them here gives a dry run
@@ -226,6 +235,9 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 				// Backup before any mutation (AGENTS.md hard rule #3).
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
 				$write_started_at = microtime( true );
 				// Full-page builds can legitimately shrink the previous document after snapshot.
@@ -247,6 +259,14 @@ final class BuildPageFromSpec extends AbilityKernel {
 				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 					$restored = Backup::restore( $post_id, $snapshot_id );
 					return $this->error( 'readback_mismatch', __( 'Elementor write readback differed from the compiled tree; the snapshot was restored.', 'stonewright' ), [ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ] );
+				}
+
+				// The write is stored and read back; only now is the section record updated.
+				if ( null !== $plan['record'] && ! SpecSectionRecord::store( $post_id, $plan['record'] ) ) {
+					$diagnostics[] = [
+						'code'    => 'spec_section_record_not_stored',
+						'message' => 'The page was written, but the record of which container belongs to which spec section could not be stored; replace_section will not find these sections until the page is rebuilt with mode replace.',
+					];
 				}
 
 				$element_count = count( ElementorData::flatten( $tree ) );
@@ -352,40 +372,139 @@ final class BuildPageFromSpec extends AbilityKernel {
 	}
 
 	/**
-	 * @param array<int, array<string, mixed>> $existing
-	 * @param array<int, array<string, mixed>> $rendered
-	 * @return array<int, array<string, mixed>>
+	 * The ids the caller gave the spec sections, by position; null where a section has no id of its own.
+	 * The default id the validator assigns (`section_N`) names a position, not a section, so it never counts.
+	 *
+	 * @param array<string, mixed> $spec Spec as the caller sent it.
+	 * @return array<int, string|null>
 	 */
-	private static function merge_tree( array $existing, array $rendered, string $mode ): array {
+	private static function explicit_section_ids( array $spec ): array {
+		$ids = [];
+		foreach ( array_values( isset( $spec['sections'] ) && is_array( $spec['sections'] ) ? $spec['sections'] : [] ) as $section ) {
+			$id    = is_array( $section ) && isset( $section['id'] ) && is_scalar( $section['id'] ) ? trim( (string) $section['id'] ) : '';
+			$ids[] = '' === $id ? null : $id;
+		}
+		return $ids;
+	}
+
+	/**
+	 * Merges the rendered sections into the stored document and works out the section record to store after the write.
+	 *
+	 * `replace_section` replaces the container recorded for the section id and no other. It refuses, before anything
+	 * is written, when a section has no id, when the page has no record, or when a section matches no container or
+	 * more than one. It never falls back to the element id or to the position.
+	 *
+	 * @param array<int, array<string, mixed>> $existing
+	 * @param array<int, array<string, mixed>> $rendered One container per spec section, in spec order.
+	 * @param array<int, string|null>          $section_ids Explicit section ids by position.
+	 * @return array{tree:array<int, array<string, mixed>>,record:array<string, list<string>>|null}|\WP_Error Record null: leave it as it is.
+	 */
+	private function plan_merge( int $post_id, array $existing, array $rendered, string $mode, array $section_ids ): array|\WP_Error {
+		$record = SpecSectionRecord::read( $post_id );
+
 		if ( 'append' === $mode ) {
-			return array_merge( $existing, self::with_unused_ids( $rendered, $existing ) );
+			$tree   = array_merge( $existing, self::with_unused_ids( $rendered, $existing ) );
+			$record = SpecSectionRecord::pruned( $record, $existing );
+			foreach ( array_values( $rendered ) as $position => $_container ) {
+				$section_id = $section_ids[ $position ] ?? null;
+				if ( null !== $section_id ) {
+					$record[ $section_id ][] = (string) $tree[ count( $existing ) + $position ]['id'];
+				}
+			}
+			return [ 'tree' => $tree, 'record' => $record ];
 		}
 
 		if ( 'replace_section' !== $mode ) {
-			return $rendered;
-		}
-
-		$rendered_by_id = [];
-		foreach ( $rendered as $section ) {
-			$id = isset( $section['id'] ) ? (string) $section['id'] : '';
-			if ( '' !== $id ) {
-				$rendered_by_id[ $id ] = $section;
+			$record = [];
+			foreach ( array_values( $rendered ) as $position => $container ) {
+				$section_id = $section_ids[ $position ] ?? null;
+				if ( null !== $section_id ) {
+					$record[ $section_id ][] = (string) ( $container['id'] ?? '' );
+				}
 			}
+			return [ 'tree' => $rendered, 'record' => $record ];
 		}
 
-		if ( [] === $rendered_by_id ) {
-			return $existing;
+		if ( [] === $rendered ) {
+			return [ 'tree' => $existing, 'record' => null ];
 		}
 
-		foreach ( $existing as $index => $section ) {
-			$id = isset( $section['id'] ) ? (string) $section['id'] : '';
-			if ( '' !== $id && isset( $rendered_by_id[ $id ] ) ) {
-				$existing[ $index ] = $rendered_by_id[ $id ];
-				unset( $rendered_by_id[ $id ] );
+		$seen = [];
+		foreach ( array_values( $rendered ) as $position => $_container ) {
+			$section_id = $section_ids[ $position ] ?? null;
+			if ( null === $section_id ) {
+				return $this->error(
+					'replace_section_id_required',
+					__( 'replace_section needs an id on every spec section: the id names the section to replace. A section without an id is never matched by its position.', 'stonewright' ),
+					[ 'status' => 400, 'section_index' => $position ]
+				);
 			}
+			if ( isset( $seen[ $section_id ] ) ) {
+				return $this->error(
+					'replace_section_target_ambiguous',
+					/* translators: %s: spec section id */
+					sprintf( __( 'The spec lists section "%s" more than once, so there is no single section to replace.', 'stonewright' ), $section_id ),
+					[ 'status' => 400, 'section_id' => $section_id, 'element_ids' => [] ]
+				);
+			}
+			$seen[ $section_id ] = true;
 		}
 
-		return $existing;
+		if ( [] === $record ) {
+			return $this->error(
+				'replace_section_unrecorded',
+				__( 'This page has no record of which container was built from which spec section: it was built before sections were recorded, or by another tool. replace_section never guesses a container from its position or element id, so nothing was changed.', 'stonewright' ),
+				[
+					'status' => 409,
+					'repair' => 'Rebuild the page once with mode "replace" (sections that have an id are recorded from then on), or change the existing container with stonewright/elementor-v3-batch-mutate.',
+				]
+			);
+		}
+
+		$targets = [];
+		foreach ( array_values( $rendered ) as $position => $_container ) {
+			$section_id = (string) $section_ids[ $position ];
+			$found      = SpecSectionRecord::containers( $record, $existing, $section_id );
+			if ( [] === $found ) {
+				return $this->error(
+					'replace_section_target_missing',
+					/* translators: %s: spec section id */
+					sprintf( __( 'No container on this page is recorded as built from section "%s", so nothing was replaced.', 'stonewright' ), $section_id ),
+					[
+						'status'     => 409,
+						'section_id' => $section_id,
+						'repair'     => 'Add the section with mode "append", or rebuild the page with mode "replace".',
+					]
+				);
+			}
+			if ( count( $found ) > 1 ) {
+				return $this->error(
+					'replace_section_target_ambiguous',
+					/* translators: %s: spec section id */
+					sprintf( __( 'More than one container on this page was built from section "%s"; replace_section does not choose between them, so nothing was replaced.', 'stonewright' ), $section_id ),
+					[
+						'status'      => 409,
+						'section_id'  => $section_id,
+						'element_ids' => array_values( $found ),
+						'repair'      => 'Remove the extra container, or rebuild the page with mode "replace".',
+					]
+				);
+			}
+			$targets[ $position ] = (int) array_key_first( $found );
+		}
+
+		// The replacement takes the id of the container it replaces. Its other elements keep the ids the
+		// renderer derived unless another part of the page already uses them.
+		$tree = $existing;
+		foreach ( $targets as $position => $index ) {
+			$replacement       = array_values( $rendered )[ $position ];
+			$replacement['id'] = (string) $tree[ $index ]['id'];
+			$others            = $tree;
+			unset( $others[ $index ] );
+			$tree[ $index ] = self::with_unused_ids( [ $replacement ], array_values( $others ) )[0];
+		}
+
+		return [ 'tree' => $tree, 'record' => null ];
 	}
 
 	/**

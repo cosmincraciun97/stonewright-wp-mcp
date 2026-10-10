@@ -65,7 +65,7 @@ Copy-paste Option B: [install-prompts.md](../install-prompts.md).
 
 1. Install and activate the Stonewright WordPress plugin (release ZIP or source
    under `wp-content/plugins`).
-2. Open **Stonewright > Configuration**, enable abilities, choose operating
+2. Open **Stonewright > Setup**, enable abilities, choose operating
    mode, and generate an Application Password.
 3. Register an alias-specific Plugin connection:
 

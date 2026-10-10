@@ -8,6 +8,9 @@
  * Hooks
  *   [data-sw-ui-copy="#id"]            copy the text or value of #id (or data-sw-ui-copy-text) and say so
  *   [data-sw-ui-reveal="#id"]          show or hide a masked value (aria-pressed)
+ *   input[data-sw-ui-live-fill="#region"] with data-sw-ui-live-fill-from="#template": while the checkbox is checked
+ *                                      the region holds a copy of the template's content, otherwise it is empty
+ *                                      (give the region aria-live so the change is announced)
  *   [data-sw-ui-tabs]                  an ARIA tab list: roving tabindex, Arrow, Home and End keys
  *   details[data-sw-ui-remember="k"]   remember open or closed per browser
  *   [data-sw-ui-dialog-open="#id"]     open a <dialog class="sw-ui-dialog">; [data-sw-ui-dialog-close] closes it
@@ -312,6 +315,21 @@
 			if ( text ) {
 				text.textContent = label;
 			}
+		}
+	}
+
+	/** Fills the live region of a checkbox with the content of its template while it is checked, and empties it otherwise. */
+	function onLiveFillChange( box ) {
+		var region = targetOf( box.getAttribute( 'data-sw-ui-live-fill' ) );
+		var template = targetOf( box.getAttribute( 'data-sw-ui-live-fill-from' ) );
+		if ( ! region || ! template || ! template.content ) {
+			return;
+		}
+		while ( region.firstChild ) {
+			region.removeChild( region.firstChild );
+		}
+		if ( box.checked ) {
+			region.appendChild( template.content.cloneNode( true ) );
 		}
 	}
 
@@ -684,6 +702,12 @@
 		document.addEventListener( 'input', function ( event ) {
 			if ( event.target && event.target.hasAttribute && event.target.hasAttribute( 'data-sw-ui-confirm-phrase' ) ) {
 				onConfirmInput( event.target );
+			}
+		} );
+
+		document.addEventListener( 'change', function ( event ) {
+			if ( event.target && event.target.hasAttribute && event.target.hasAttribute( 'data-sw-ui-live-fill' ) ) {
+				onLiveFillChange( event.target );
 			}
 		} );
 

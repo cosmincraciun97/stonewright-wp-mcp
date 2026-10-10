@@ -262,7 +262,7 @@ final class ContextUserContextTest extends TestCase {
 		if ( count( $floor ) < count( $expected ) ) {
 			self::assertSame( count( $expected ), $contract['floor_count'] ?? null );
 		}
-		self::assertLessThan( 3600, strlen( wp_json_encode( $start ) ?: '' ) );
+		self::assertLessThan( 3750, strlen( wp_json_encode( $start ) ?: '' ) );
 	}
 
 	public function test_context_bootstrap_output_schema_lists_design_direction_ref(): void {

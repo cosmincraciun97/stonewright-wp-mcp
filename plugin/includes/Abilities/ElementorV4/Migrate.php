@@ -74,6 +74,9 @@ return $this->error( 'stonewright_v4_migration_confirmation_required', 'Set conf
 			if ( ! $plan['write_ready'] ) {
 return $this->error( 'stonewright_v4_migration_has_loss', 'Migration is blocked because at least one element lacks a lossless V4 mapping.', [ 'loss_report' => $plan['loss_report'] ] ); }
 			$snapshot_id = Backup::snapshot_post( $post_id );
+			if ( '' === $snapshot_id ) {
+				return $this->backup_failed_error();
+			}
 			$tree = (array) $plan['converted_tree'];
 			if ( ! ElementorData::write( $post_id, $tree ) ) {
 Backup::restore( $post_id, $snapshot_id );

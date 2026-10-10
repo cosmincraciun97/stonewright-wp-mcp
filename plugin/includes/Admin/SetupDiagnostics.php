@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Diagnostics\AbilitiesState;
+use Stonewright\WpMcp\Admin\Diagnostics\ApplicationPasswordsState;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticGraph;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
@@ -14,6 +16,7 @@ use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
@@ -36,9 +39,10 @@ final class SetupDiagnostics {
 	 */
 	public static function report( array $args = [] ): array {
 		$method = self::resolve_method( $args );
-		$enabled       = (bool) get_option( 'stonewright_enabled', false );
+		$ability_state = AbilitiesState::current();
 		$https         = is_ssl() || str_starts_with( (string) get_site_url(), 'https://' );
-		$app_passwords = self::application_passwords_available();
+		$app_state     = ApplicationPasswordsState::inspect();
+		$app_passwords = $app_state['available'];
 		$endpoint      = is_string( $args['endpoint'] ?? null ) && '' !== (string) $args['endpoint']
 			? (string) $args['endpoint']
 			: ConnectClientConfig::mcp_endpoint_url();
@@ -58,12 +62,6 @@ final class SetupDiagnostics {
 			? __( 'HTTPS active.', 'stonewright' )
 			: __( 'Running over HTTP. Fine for local and LAN sites; HTTPS is recommended when connecting from outside your network.', 'stonewright' );
 
-		$app_password_summary = $app_passwords
-			? __( 'Available for the current user.', 'stonewright' )
-			: ( $https
-				? __( 'Unavailable; check the user profile or Application Passwords settings.', 'stonewright' )
-				: __( 'Unavailable on this HTTP site. For local setups add define( \'WP_ENVIRONMENT_TYPE\', \'local\' ); to wp-config.php so Application Passwords work without HTTPS.', 'stonewright' ) );
-
 		$surface_ok    = in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true );
 		$surface_view  = AbilityRegistry::surface_session_view();
 		$surface_summary = $surface_view['widened']
@@ -82,17 +80,36 @@ final class SetupDiagnostics {
 				$tool_count
 			);
 
+		// The registration outcome is read once, after the REST server has been started in this request.
+		$registration        = null;
+		$registration_report = static function () use ( &$registration, $args ): array {
+			if ( null === $registration ) {
+				self::boot_rest_server( $args );
+				$registration = isset( $args['registration'] ) && is_array( $args['registration'] ) ? $args['registration'] : McpRegistrationState::report();
+			}
+
+			return $registration;
+		};
+
 		$graph = new DiagnosticGraph();
 		$graph->add(
-			'plugin',
+			'domain_lock',
 			[],
+			static fn() => self::domain_lock_check( $scope ),
+			__( 'Domain lock', 'stonewright' )
+		);
+		$graph->add(
+			'plugin',
+			[ 'domain_lock' ],
 			static fn() => self::pass_or_problem(
 				'plugin',
-				$enabled,
+				$ability_state['effective'],
 				__( 'Stonewright abilities', 'stonewright' ),
-				$enabled ? __( 'Enabled.', 'stonewright' ) : __( 'Enable Stonewright in step 1.', 'stonewright' ),
-				$scope
-			)
+				$ability_state['summary'],
+				$scope,
+				$ability_state['remedy']
+			),
+			__( 'Stonewright abilities', 'stonewright' )
 		);
 		$graph->add(
 			'endpoint',
@@ -103,32 +120,38 @@ final class SetupDiagnostics {
 				'' !== $endpoint ? $endpoint : __( 'No MCP endpoint URL is configured.', 'stonewright' ),
 				[],
 				$scope
-			)
+			),
+			__( 'MCP endpoint configured', 'stonewright' )
 		);
 		$graph->add(
 			'mcp_runtime',
 			[ 'plugin' ],
-			static fn() => self::mcp_runtime_check( $scope )
+			static fn() => self::mcp_runtime_check( $scope ),
+			__( 'MCP runtime', 'stonewright' )
 		);
 		$graph->add(
 			'mcp_server_registration',
 			[ 'mcp_runtime' ],
-			static fn() => self::mcp_registration_check( ServerRegistration::SERVER_ID, $scope )
+			static fn() => self::mcp_registration_check( ServerRegistration::SERVER_ID, $scope, $registration_report() ),
+			__( 'MCP server registration', 'stonewright' )
 		);
 		$graph->add(
 			'mcp_oauth_registration',
 			[ 'mcp_runtime' ],
-			static fn() => self::mcp_registration_check( ServerRegistration::OAUTH_SERVER_ID, $scope )
+			static fn() => self::mcp_registration_check( ServerRegistration::OAUTH_SERVER_ID, $scope, $registration_report() ),
+			__( 'OAuth MCP server registration', 'stonewright' )
 		);
 		$graph->add(
 			'mcp_route',
 			[ 'endpoint', 'mcp_server_registration' ],
-			static fn() => self::mcp_route_check( '/mcp/stonewright', $endpoint, $scope, $args )
+			static fn() => self::mcp_route_check( '/mcp/stonewright', $endpoint, $scope, $args ),
+			__( 'Canonical MCP route', 'stonewright' )
 		);
 		$graph->add(
 			'mcp_route_oauth',
 			[ 'endpoint', 'mcp_oauth_registration' ],
-			static fn() => self::mcp_route_check( '/mcp/stonewright-oauth', $endpoint, $scope, $args )
+			static fn() => self::mcp_route_check( '/mcp/stonewright-oauth', $endpoint, $scope, $args ),
+			__( 'OAuth MCP route', 'stonewright' )
 		);
 		$graph->add(
 			'connection',
@@ -139,14 +162,16 @@ final class SetupDiagnostics {
 				__( 'Configuration was verified; the connection has not been tested.', 'stonewright' ),
 				[],
 				$scope
-			)
+			),
+			__( 'Connection', 'stonewright' )
 		);
 		$graph->add(
 			'transport',
 			[],
 			static fn() => $https
 				? DiagnosticCheck::ok( 'transport', __( 'Connection transport', 'stonewright' ), $transport_summary, [], $scope )
-				: DiagnosticCheck::info( 'transport', __( 'Connection transport', 'stonewright' ), $transport_summary, [], $scope )
+				: DiagnosticCheck::info( 'transport', __( 'Connection transport', 'stonewright' ), $transport_summary, [], $scope ),
+			__( 'Connection transport', 'stonewright' )
 		);
 		$graph->add(
 			'application_passwords',
@@ -155,9 +180,11 @@ final class SetupDiagnostics {
 				'application_passwords',
 				$app_passwords,
 				__( 'Application Passwords', 'stonewright' ),
-				$app_password_summary,
-				$scope
-			)
+				$app_state['summary'],
+				$scope,
+				$app_state['remedy']
+			),
+			__( 'Application Passwords', 'stonewright' )
 		);
 		$graph->add(
 			'tool_surface',
@@ -167,13 +194,16 @@ final class SetupDiagnostics {
 				$surface_ok,
 				__( 'Tool surface', 'stonewright' ),
 				$surface_summary,
-				$scope
-			)
+				$scope,
+				__( 'Choose Essential or Full as the MCP tool surface in Setup, under Settings.', 'stonewright' )
+			),
+			__( 'Tool surface', 'stonewright' )
 		);
 		$graph->add(
 			'tool_budget',
 			[ 'plugin' ],
-			static fn() => self::compact_tool_surface_check( $surface, $tool_count, $scope )
+			static fn() => self::compact_tool_surface_check( $surface, $tool_count, $scope ),
+			__( 'Compact tool surface', 'stonewright' )
 		);
 		$graph->add(
 			'oauth_transport',
@@ -185,8 +215,10 @@ final class SetupDiagnostics {
 				$oauth_allowed
 					? __( 'HTTPS or an explicit local WordPress environment is active.', 'stonewright' )
 					: __( 'OAuth is disabled on public plain HTTP sites.', 'stonewright' ),
-				$scope
-			)
+				$scope,
+				__( 'Serve the site over HTTPS, or mark a local site with WP_ENVIRONMENT_TYPE set to local.', 'stonewright' )
+			),
+			__( 'OAuth transport', 'stonewright' )
 		);
 		$graph->add(
 			'oauth_endpoint',
@@ -195,9 +227,11 @@ final class SetupDiagnostics {
 				'oauth_endpoint',
 				'' !== $oauth_endpoint,
 				__( 'OAuth MCP endpoint', 'stonewright' ),
-				$oauth_endpoint,
-				$scope
-			)
+				'' !== $oauth_endpoint ? $oauth_endpoint : __( 'The OAuth MCP endpoint could not be resolved.', 'stonewright' ),
+				$scope,
+				__( 'Check that WordPress REST is reachable and the site URL is set.', 'stonewright' )
+			),
+			__( 'OAuth MCP endpoint', 'stonewright' )
 		);
 		$graph->add(
 			'oauth_discovery',
@@ -206,9 +240,11 @@ final class SetupDiagnostics {
 				'oauth_discovery',
 				'' !== $oauth_discovery,
 				__( 'OAuth discovery', 'stonewright' ),
-				$oauth_discovery,
-				$scope
-			)
+				'' !== $oauth_discovery ? $oauth_discovery : __( 'The OAuth discovery address could not be resolved.', 'stonewright' ),
+				$scope,
+				__( 'Check that WordPress REST is reachable and the site URL is set.', 'stonewright' )
+			),
+			__( 'OAuth discovery', 'stonewright' )
 		);
 
 		$probe_holder = [ 'result' => null ];
@@ -241,11 +277,12 @@ final class SetupDiagnostics {
 						'connection_probe',
 						__( 'MCP connection probe', 'stonewright' ),
 						$summary,
-						$summary,
+						self::probe_remedy( $probe_result ),
 						$scope,
 						[ 'checked_at' => $checked_at, 'handshake' => 'failed' ]
 					);
-				}
+				},
+				__( 'MCP connection probe', 'stonewright' )
 			);
 			$graph->add(
 				'waf',
@@ -256,23 +293,27 @@ final class SetupDiagnostics {
 					$summary      = $waf_hit
 						? __( 'The MCP endpoint returned HTTP 403 or 406, which often means a firewall or WAF blocked the loopback.', 'stonewright' )
 						: __( 'No 403/406 block observed on the MCP loopback.', 'stonewright' );
-					return self::pass_or_problem( 'waf', ! $waf_hit, __( 'WAF-ish blocks', 'stonewright' ), $summary, $scope );
-				}
+					return self::pass_or_problem( 'waf', ! $waf_hit, __( 'WAF-ish blocks', 'stonewright' ), $summary, $scope, __( 'Ask the host to allow requests to the /wp-json/mcp/ path, then run diagnostics again.', 'stonewright' ) );
+				},
+				__( 'WAF-ish blocks', 'stonewright' )
 			);
 			$graph->add(
 				'bot_filter',
 				[ 'endpoint' ],
-				static fn() => self::bot_filter_check( $args, $endpoint, $scope )
+				static fn() => self::bot_filter_check( $args, $endpoint, $scope ),
+				__( 'Bot / WAF user-agent filter', 'stonewright' )
 			);
 			$graph->add(
 				'oauth_challenge',
-				[ 'oauth_endpoint' ],
-				static fn() => self::oauth_challenge_check( $args, $oauth_endpoint, $scope )
+				[ 'oauth_endpoint', 'plugin' ],
+				static fn() => self::oauth_challenge_check( $args, $oauth_endpoint, $scope ),
+				__( 'OAuth challenge', 'stonewright' )
 			);
 			$graph->add(
 				'oauth_registration',
-				[ 'oauth_discovery' ],
-				static fn() => self::oauth_registration_check( $args, $scope )
+				[ 'oauth_discovery', 'plugin' ],
+				static fn() => self::oauth_registration_check( $args, $scope ),
+				__( 'OAuth dynamic registration', 'stonewright' )
 			);
 		} elseif ( $probe && $stdio ) {
 			$reason = __( 'Skipped: remote HTTP probes are not used for this connection method.', 'stonewright' );
@@ -345,11 +386,12 @@ final class SetupDiagnostics {
 			);
 		} else {
 			$pending = __( 'Not run yet — click Run diagnostics', 'stonewright' );
-			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::info( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), $pending, [], $scope ) );
-			$graph->add( 'waf', [], static fn() => DiagnosticCheck::info( 'waf', __( 'WAF-ish blocks', 'stonewright' ), $pending, [], $scope ) );
-			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::info( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), $pending, [], $scope ) );
-			$graph->add( 'oauth_challenge', [], static fn() => DiagnosticCheck::info( 'oauth_challenge', __( 'OAuth challenge', 'stonewright' ), $pending, [], $scope ) );
-			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::info( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), $pending, [], $scope ) );
+			$not_run = [ 'state' => 'not_run' ];
+			$graph->add( 'connection_probe', [], static fn() => DiagnosticCheck::info( 'connection_probe', __( 'MCP connection probe', 'stonewright' ), $pending, $not_run, $scope ) );
+			$graph->add( 'waf', [], static fn() => DiagnosticCheck::info( 'waf', __( 'WAF-ish blocks', 'stonewright' ), $pending, $not_run, $scope ) );
+			$graph->add( 'bot_filter', [], static fn() => DiagnosticCheck::info( 'bot_filter', __( 'Bot / WAF user-agent filter', 'stonewright' ), $pending, $not_run, $scope ) );
+			$graph->add( 'oauth_challenge', [], static fn() => DiagnosticCheck::info( 'oauth_challenge', __( 'OAuth challenge', 'stonewright' ), $pending, $not_run, $scope ) );
+			$graph->add( 'oauth_registration', [], static fn() => DiagnosticCheck::info( 'oauth_registration', __( 'OAuth dynamic registration', 'stonewright' ), $pending, $not_run, $scope ) );
 		}
 
 		$result = $graph->run();
@@ -506,7 +548,8 @@ final class SetupDiagnostics {
 				__( '%d tools exposed in the current profile.', 'stonewright' ),
 				$tool_count
 			),
-			$scope
+			$scope,
+			__( 'Switch to a compact MCP surface (Essential) or disable abilities you do not need.', 'stonewright' )
 		);
 	}
 
@@ -884,8 +927,10 @@ final class SetupDiagnostics {
 		return DiagnosticCheck::problem( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $remedy, $scope, $evidence );
 	}
 
-	private static function mcp_registration_check( string $server_id, string $scope ): DiagnosticCheck {
-		$report = McpRegistrationState::report();
+	/**
+	 * @param array<string,mixed> $report The registration outcomes, read after the REST server was started.
+	 */
+	private static function mcp_registration_check( string $server_id, string $scope, array $report ): DiagnosticCheck {
 		$servers = is_array( $report['servers'] ?? null ) ? $report['servers'] : [];
 		$row = [];
 		foreach ( $servers as $server ) {
@@ -920,10 +965,19 @@ final class SetupDiagnostics {
 			);
 		}
 		if ( 'not_checked' === $state ) {
+			$evidence['state'] = 'not_checkable';
+			$route_label       = ServerRegistration::OAUTH_SERVER_ID === $server_id
+				? __( 'OAuth MCP route', 'stonewright' )
+				: __( 'Canonical MCP route', 'stonewright' );
+
 			return DiagnosticCheck::info(
 				$check_id,
 				$label,
-				__( 'REST routes have not been initialized in this request.', 'stonewright' ),
+				sprintf(
+					/* translators: %s: name of the route check that covers this registration */
+					__( 'This registration could not be checked from this request, because the REST routes could not be started here. The %s check and the MCP connection probe cover it.', 'stonewright' ),
+					$route_label
+				),
 				$evidence,
 				$scope
 			);
@@ -1063,24 +1117,101 @@ final class SetupDiagnostics {
 		return new \WP_Error( 'http_unavailable', __( 'HTTP POST is unavailable in this environment.', 'stonewright' ) );
 	}
 
-	private static function pass_or_problem( string $id, bool $passes, string $label, string $summary, string $scope ): DiagnosticCheck {
+	/**
+	 * A pass, or a problem whose cause (the summary) and remedy are two different sentences. A problem without a
+	 * remedy of its own shows the cause alone, never the same sentence twice.
+	 */
+	private static function pass_or_problem( string $id, bool $passes, string $label, string $summary, string $scope, string $remedy = '' ): DiagnosticCheck {
 		if ( $passes ) {
 			return DiagnosticCheck::ok( $id, $label, $summary, [], $scope );
 		}
 
-		return DiagnosticCheck::problem( $id, $label, $summary, $summary, $scope );
+		return DiagnosticCheck::problem( $id, $label, $summary, $remedy === $summary ? '' : $remedy, $scope );
 	}
 
-	private static function application_passwords_available(): bool {
-		if ( ! class_exists( '\\WP_Application_Passwords' ) ) {
-			return false;
+	/**
+	 * What to do about a failed loopback: the advice of the step that failed, or a general one.
+	 *
+	 * @param array<string, mixed> $probe
+	 */
+	private static function probe_remedy( array $probe ): string {
+		$steps = is_array( $probe['steps'] ?? null ) ? $probe['steps'] : [];
+		foreach ( $steps as $step ) {
+			if ( is_array( $step ) && 'failed' === ( $step['status'] ?? '' ) && '' !== trim( (string) ( $step['fix'] ?? '' ) ) ) {
+				return trim( (string) $step['fix'] );
+			}
 		}
 
-		if ( function_exists( 'wp_is_application_passwords_available' ) && ! wp_is_application_passwords_available() ) {
-			return false;
+		return __( 'Check the MCP endpoint and the connection method, then run the diagnostics again.', 'stonewright' );
+	}
+
+	/**
+	 * The domain lock: which address the site is locked to, which it has now, and what to do about a mismatch.
+	 */
+	private static function domain_lock_check( string $scope ): DiagnosticCheck {
+		$label  = __( 'Domain lock', 'stonewright' );
+		$status = DomainLock::status();
+		$locked = (string) $status['locked'];
+
+		if ( ! $status['matches'] ) {
+			return DiagnosticCheck::problem(
+				'domain_lock',
+				$label,
+				AbilitiesState::lock_summary(),
+				AbilitiesState::lock_remedy(),
+				$scope,
+				[
+					'locked'  => $locked,
+					'current' => (string) $status['current'],
+				]
+			)->with_action(
+				[
+					'type'   => 'link',
+					'label'  => __( 'Open domain lock', 'stonewright' ),
+					'target' => AbilitiesState::lock_url(),
+				]
+			);
 		}
 
-		return ! function_exists( 'wp_is_application_passwords_available_for_user' )
-			|| (bool) wp_is_application_passwords_available_for_user( wp_get_current_user() );
+		if ( '' === $locked ) {
+			return DiagnosticCheck::info(
+				'domain_lock',
+				$label,
+				__( 'No domain lock is set yet. Stonewright records the address of this site when AI abilities are turned on.', 'stonewright' ),
+				[],
+				$scope
+			);
+		}
+
+		return DiagnosticCheck::ok(
+			'domain_lock',
+			$label,
+			sprintf(
+				/* translators: %s: the address the site is locked to */
+				__( 'Locked to %s, which is the current address of this site.', 'stonewright' ),
+				$locked
+			),
+			[ 'locked' => $locked ],
+			$scope
+		);
+	}
+
+	/**
+	 * Starts the REST server in this request, so the MCP servers register and record their outcome. Registration
+	 * runs on rest_api_init, which an admin request does not reach on its own. Starting the server is what the
+	 * route catalog check does anyway.
+	 *
+	 * @param array{rest_boot?:callable} $args
+	 */
+	private static function boot_rest_server( array $args ): void {
+		try {
+			if ( isset( $args['rest_boot'] ) && is_callable( $args['rest_boot'] ) ) {
+				$args['rest_boot']();
+			} elseif ( function_exists( 'rest_get_server' ) ) {
+				rest_get_server();
+			}
+		} catch ( \Throwable $e ) {
+			unset( $e ); // The registration rows then report that they could not be checked.
+		}
 	}
 }

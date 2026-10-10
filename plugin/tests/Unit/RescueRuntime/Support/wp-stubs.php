@@ -18,6 +18,13 @@ if ( ! function_exists( 'get_site_option' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_validate_redirect' ) ) {
+	/** Same host only, like core's default for a site without allowed redirect hosts. */
+	function wp_validate_redirect( string $location, string $fallback_url = '' ): string {
+		return str_starts_with( $location, 'https://example.test/' ) ? $location : $fallback_url;
+	}
+}
+
 if ( ! function_exists( '__return_false' ) ) {
 	function __return_false(): bool {
 		return false;

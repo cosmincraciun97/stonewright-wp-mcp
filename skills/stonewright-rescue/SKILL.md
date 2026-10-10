@@ -30,6 +30,7 @@ reported back), and the latest changes, each with the rollback it would run.
 | `pending_incident` on any response | An incident is open | Call `stonewright-rescue-status`, then roll it back before any other write |
 | A `notices` line saying the probe is unavailable | The host cannot call itself, so changes are recorded but not verified | Check the page, wp-admin, and the REST index by other means, then `recheck` |
 | `stonewright_rescue_in_progress` | Another caller is already rolling this change set back | Wait a minute, then call `stonewright-rescue-status`; do not start a second rollback |
+| `stonewright_rescue_approval_required` | A verified change to code (theme file, custom code, sandbox file, Customizer CSS) can be undone only by an administrator | Show the user the change and `approval_url`, ask them to use **Stonewright > Activity > Rescue**, then stop. Do not retry |
 
 ## Roll back
 
@@ -46,6 +47,15 @@ reported back), and the latest changes, each with the rollback it would run.
    records the outcome on the change set and in the Audit Log.
 4. The result must say `site_status` `healthy`. Anything else: stop and report.
 
+## Undo a verified change
+
+`stonewright-rescue-rollback` also rolls back a change that passed its health
+check, when the user asks for it (the journal keeps the last 50). Use the
+`incident_id` or `change_set_id` of the earlier write and follow the steps
+above, dry run first. A verified change to code is the exception: the ability
+answers `stonewright_rescue_approval_required`, and only the administrator can
+roll it back, on the Rescue page.
+
 ## After a fix by hand
 
 When a person undid the change, call `stonewright-rescue-rollback` with
@@ -61,11 +71,11 @@ token, even with `dry_run`, because it can close the incident.
   leaves the incident open.
 - Do not skip the confirmation token in production-safe mode.
 - When `recipe.available` is false, no automatic rollback exists. Tell the user
-  and point to **Stonewright > Rescue** in wp-admin; do not improvise one.
+  and point to **Stonewright > Activity > Rescue** in wp-admin; do not improvise one.
 
 ## When the site is down
 
 The abilities need the site to answer. When wp-admin does not load, the user can
 open the Stonewright rescue link from the WordPress recovery mode email, sign in
-as usual, and use Stonewright > Rescue in safe mode; or run
+as usual, and use Stonewright > Activity > Rescue in safe mode; or run
 `wp stonewright rescue status` on the server.

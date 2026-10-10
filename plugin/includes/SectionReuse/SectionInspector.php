@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\SectionReuse;
 
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
+use Stonewright\WpMcp\Elementor\V4\AtomicTextProp;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
@@ -63,7 +64,7 @@ final class SectionInspector {
 			'forms'      => 0,
 			'refs'       => [],
 			'anchors'    => [],
-			'signals'    => [ 'testimonial' => 0, 'pricing' => 0, 'faq' => 0, 'gallery' => 0, 'cta' => 0, 'currency' => 0 ],
+			'signals'    => [ 'testimonial' => 0, 'pricing' => 0, 'faq' => 0, 'gallery' => 0, 'cta' => 0, 'currency' => 0, 'h1' => 0 ],
 		];
 		self::visit( $node, 1, [ max( 0, $root_index ) ], $state );
 
@@ -155,6 +156,10 @@ final class SectionInspector {
 		$lower    = strtolower( $type );
 		if ( in_array( $type, [ 'heading', 'e-heading' ], true ) ) {
 			++$state['headings'];
+			$level = 'e-heading' === $type ? $settings['tag'] ?? '' : $settings['header_size'] ?? '';
+			if ( 'h1' === strtolower( is_array( $level ) ? (string) ( $level['value'] ?? '' ) : (string) ( is_scalar( $level ) ? $level : '' ) ) ) {
+				++$state['signals']['h1'];
+			}
 			self::note_heading( self::atomic_or_plain_text( $settings['title'] ?? '' ), $state );
 		}
 		if ( in_array( $lower, [ 'image', 'e-image', 'image-box', 'image-carousel', 'image-gallery', 'gallery', 'testimonial', 'testimonial-carousel' ], true ) ) {
@@ -306,17 +311,13 @@ final class SectionInspector {
 		}
 	}
 
-	/** The text of a heading setting: a plain string, or the content of an Atomic html-v3 envelope. */
+	/** The text of a heading setting: a plain string, or the text of an Atomic text envelope of any of its types. */
 	private static function atomic_or_plain_text( mixed $title ): string {
 		if ( is_string( $title ) ) {
 			return $title;
 		}
-		if ( is_array( $title ) && is_array( $title['value'] ?? null ) ) {
-			$content = $title['value']['content'] ?? null;
-			return is_array( $content ) && is_string( $content['value'] ?? null ) ? $content['value'] : '';
-		}
 
-		return '';
+		return AtomicTextProp::text_of( $title ) ?? '';
 	}
 
 	// ---------------------------------------------------------------- Gutenberg
@@ -365,6 +366,9 @@ final class SectionInspector {
 		$html = (string) ( $block['innerHTML'] ?? '' );
 		if ( 'core/heading' === $name ) {
 			++$state['headings'];
+			if ( 1 === (int) ( $attrs['level'] ?? 0 ) || 1 === preg_match( '/<h1[\s>]/i', $html ) ) {
+				++$state['signals']['h1'];
+			}
 			self::note_heading( $html, $state );
 		}
 		if ( in_array( $name, [ 'core/image', 'core/gallery', 'core/cover', 'core/media-text' ], true ) ) {

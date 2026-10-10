@@ -10,8 +10,10 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\SectionReuse;
 
+use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
+use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -23,6 +25,10 @@ use Stonewright\WpMcp\Support\ElementorData;
  * - keeps global colors, fonts, classes and variables that exist on this site, and fails with the exact
  *   reference when one does not;
  * - keeps dynamic tags and reports them;
+ * - gives an id attribute (`_element_id` in V3, `_cssid` in V4) that the document already uses, or that the copy
+ *   uses twice, the next free `name-2`, `name-3`, and points the links of the copy at the renamed one;
+ * - fails with the exact widget when the section holds a placeholder that Elementor registers for a plugin that is
+ *   not active, or a widget that is not registered at all;
  * - fails with the exact missing feature when a V4 element type is not available on this site;
  * - never changes a widget type and never removes a setting it does not know.
  *
@@ -68,6 +74,12 @@ final class ElementorSectionInserter {
 				[ 'status' => 409, 'missing_types' => [ $unavailable ], 'missing_feature' => 'atomic_type:' . $unavailable ]
 			);
 		}
+		if ( Builder::ELEMENTOR_V3 === $builder ) {
+			$widget_error = self::unavailable_widget( $element );
+			if ( null !== $widget_error ) {
+				return $widget_error;
+			}
+		}
 		$missing = self::missing_references( $builder, $inspection['references'] );
 		if ( [] !== $missing ) {
 			return new \WP_Error(
@@ -82,6 +94,8 @@ final class ElementorSectionInserter {
 		$id_map    = [];
 		$copy      = self::copy( $element, $builder, $used, $generator, $id_map );
 		$copy['isInner'] = [] !== $parent_path;
+		$renamed         = [];
+		$copy            = self::rename_dom_ids( $copy, self::dom_ids( $tree ), $renamed );
 		if ( Builder::ELEMENTOR_V3 === $builder ) {
 			$unwritable = self::unwritable_settings( $copy, array_flip( $id_map ) );
 			if ( null !== $unwritable ) {
@@ -90,6 +104,9 @@ final class ElementorSectionInserter {
 		}
 
 		$warnings = [];
+		if ( [] !== $renamed ) {
+			$warnings[] = [ 'code' => 'anchors_renamed', 'count' => count( $renamed ), 'items' => array_slice( array_map( static fn( array $pair ): string => $pair[0] . ' -> ' . $pair[1], $renamed ), 0, 5 ) ];
+		}
 		$tags     = array_values( array_map( static fn( array $reference ): string => (string) $reference['id'], array_filter( $inspection['references'], static fn( array $reference ): bool => 'dynamic_tag' === $reference['type'] ) ) );
 		if ( [] !== $tags ) {
 			$warnings[] = [ 'code' => 'dynamic_tags_kept', 'count' => count( $tags ), 'items' => array_slice( $tags, 0, 5 ) ];
@@ -145,6 +162,249 @@ final class ElementorSectionInserter {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Most elements one batch of insert operations may add: the element cap of an Elementor write.
+	 */
+	public static function max_batch_elements(): int {
+		return (int) ProviderRouter::element_limits()['max_elements'];
+	}
+
+	/**
+	 * Refuses an insert that would bring the elements added by one batch over the element cap. A section is checked
+	 * on its own when it is validated; a batch of several may not add up to more than one write may hold.
+	 *
+	 * @param int                  $already Elements the earlier insert operations of the batch add.
+	 * @param array<string, mixed> $payload A payload from {@see PortableSection::validate()}.
+	 */
+	public static function within_batch_budget( int $already, array $payload ): ?\WP_Error {
+		$adding = is_array( $payload['element'] ?? null ) ? self::count_elements( $payload['element'] ) : 0;
+		$limit  = self::max_batch_elements();
+		if ( $already + $adding <= $limit ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'stonewright_section_batch_too_large',
+			sprintf( 'This batch would add %1$d elements (%2$d already planned and %3$d in this section); one write may add at most %4$d. Split the work into several batches. Nothing was written.', $already + $adding, $already, $adding, $limit ),
+			[ 'status' => 413, 'limit' => $limit, 'inserted' => $already, 'adding' => $adding, 'limit_kind' => 'batch_elements', 'retryable' => true, 'write_blocked' => true ]
+		);
+	}
+
+	/** @param array<string, mixed> $element */
+	private static function count_elements( array $element ): int {
+		$count = 1;
+		foreach ( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] as $child ) {
+			if ( is_array( $child ) ) {
+				$count += self::count_elements( $child );
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * The error for the first widget of the section that cannot render here: a placeholder that Elementor registers
+	 * for a plugin that is not active, or a widget that is not registered. A V3 write validates only the settings a
+	 * widget is given, so a widget without settings would otherwise pass until the page is saved.
+	 *
+	 * @param array<string, mixed> $element
+	 */
+	private static function unavailable_widget( array $element ): ?\WP_Error {
+		$widget = 'widget' === ( $element['elType'] ?? '' ) ? (string) ( $element['widgetType'] ?? '' ) : '';
+		if ( '' !== $widget && ! str_starts_with( $widget, 'e-' ) ) {
+			$registration = WidgetAvailability::registration( $widget );
+			$name         = (string) ( $element['id'] ?? '' );
+			if ( 'placeholder' === $registration ) {
+				$requires = WidgetAvailability::placeholder_requirement( $widget );
+				return new \WP_Error(
+					'stonewright_section_placeholder_widget',
+					sprintf( 'The section uses the "%1$s" widget (element %2$s), which is provided by a plugin that is not active on this site (%3$s). Elementor shows a placeholder in its place, so the copy would render empty. Nothing was written.', $widget, $name, 'elementor-pro' === $requires ? 'Elementor Pro' : $requires ),
+					[ 'status' => 409, 'widget_type' => $widget, 'element' => $name, 'requires' => $requires, 'repair' => 'Activate the plugin that provides the widget, or choose another section.' ]
+				);
+			}
+			if ( 'unregistered' === $registration ) {
+				return new \WP_Error(
+					'stonewright_section_widget_unregistered',
+					sprintf( 'The section uses the "%1$s" widget (element %2$s), which is not registered on this site. Nothing was written.', $widget, $name ),
+					[ 'status' => 409, 'widget_type' => $widget, 'element' => $name, 'repair' => 'Activate the plugin that provides the widget, or choose another section.' ]
+				);
+			}
+		}
+		foreach ( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] as $child ) {
+			if ( is_array( $child ) ) {
+				$found = self::unavailable_widget( $child );
+				if ( null !== $found ) {
+					return $found;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	// ---------------------------------------------------------------- id attributes
+
+	/**
+	 * The id attribute an element sets: `_element_id` in V3, `_cssid` (a string prop) in V4.
+	 *
+	 * @param array<string, mixed> $element
+	 * @return array{key:string,value:string}|null
+	 */
+	private static function dom_id( array $element ): ?array {
+		$settings = is_array( $element['settings'] ?? null ) ? $element['settings'] : [];
+		$v3       = $settings['_element_id'] ?? null;
+		if ( is_string( $v3 ) && '' !== trim( $v3 ) ) {
+			return [ 'key' => '_element_id', 'value' => trim( $v3 ) ];
+		}
+		$v4 = is_array( $settings['_cssid'] ?? null ) ? ( $settings['_cssid']['value'] ?? null ) : null;
+		if ( is_string( $v4 ) && '' !== trim( $v4 ) ) {
+			return [ 'key' => '_cssid', 'value' => trim( $v4 ) ];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Every id attribute the document uses.
+	 *
+	 * @param array<int, mixed> $tree
+	 * @return array<string, true>
+	 */
+	private static function dom_ids( array $tree ): array {
+		$used = [];
+		foreach ( $tree as $element ) {
+			if ( ! is_array( $element ) ) {
+				continue;
+			}
+			$dom = self::dom_id( $element );
+			if ( null !== $dom ) {
+				$used[ $dom['value'] ] = true;
+			}
+			$used += self::dom_ids( is_array( $element['elements'] ?? null ) ? $element['elements'] : [] );
+		}
+
+		return $used;
+	}
+
+	/**
+	 * Gives every id attribute of the copy that the document already uses, or that an earlier element of the copy
+	 * uses, the next free `name-2`, `name-3`, and points the `#name` links of the copy at the renamed id.
+	 *
+	 * @param array<string, mixed>           $copy
+	 * @param array<string, true>            $used    Id attributes taken in the document.
+	 * @param list<array{0:string,1:string}> $renamed Old and new id of every rename, filled as it goes.
+	 * @return array<string, mixed>
+	 */
+	private static function rename_dom_ids( array $copy, array $used, array &$renamed ): array {
+		$seen  = [];
+		$links = [];
+		$copy  = self::rename_dom_ids_in( $copy, $used, $seen, $links, $renamed );
+		if ( [] !== $links ) {
+			$copy = self::rewrite_links( $copy, $links );
+		}
+
+		return $copy;
+	}
+
+	/**
+	 * @param array<string, mixed>           $element
+	 * @param array<string, true>            $used
+	 * @param array<string, true>            $seen    Id attributes met in the copy so far.
+	 * @param array<string, string>          $links   Old to new id, for the first element of the copy that carries an id when that one was renamed.
+	 * @param list<array{0:string,1:string}> $renamed
+	 * @return array<string, mixed>
+	 */
+	private static function rename_dom_ids_in( array $element, array &$used, array &$seen, array &$links, array &$renamed ): array {
+		$dom = self::dom_id( $element );
+		if ( null !== $dom ) {
+			$old = $dom['value'];
+			$new = $old;
+			if ( isset( $used[ $old ] ) ) {
+				$new = self::free_dom_id( $old, $used );
+				if ( '_element_id' === $dom['key'] ) {
+					$element['settings']['_element_id'] = $new;
+				} else {
+					$element['settings']['_cssid']['value'] = $new;
+				}
+				if ( ! isset( $seen[ $old ] ) ) {
+					$links[ $old ] = $new;
+				}
+				$renamed[] = [ $old, $new ];
+			}
+			$used[ $new ] = true;
+			$seen[ $old ] = true;
+		}
+		if ( is_array( $element['elements'] ?? null ) ) {
+			$children = [];
+			foreach ( $element['elements'] as $child ) {
+				$children[] = is_array( $child ) ? self::rename_dom_ids_in( $child, $used, $seen, $links, $renamed ) : $child;
+			}
+			$element['elements'] = $children;
+		}
+
+		return $element;
+	}
+
+	/** @param array<string, true> $used */
+	private static function free_dom_id( string $id, array $used ): string {
+		for ( $n = 2; $n < 10000; ++$n ) {
+			if ( ! isset( $used[ $id . '-' . $n ] ) ) {
+				return $id . '-' . $n;
+			}
+		}
+
+		return $id . '-' . bin2hex( random_bytes( 3 ) );
+	}
+
+	/**
+	 * Points the `#name` links in the settings of the copy at the renamed ids. A link is a string that is exactly
+	 * `#name`, or an `href="#name"` inside HTML; styles and the id attributes themselves are left as they are.
+	 *
+	 * @param array<string, mixed>  $element
+	 * @param array<string, string> $links   Old to new id.
+	 * @return array<string, mixed>
+	 */
+	private static function rewrite_links( array $element, array $links ): array {
+		if ( is_array( $element['settings'] ?? null ) ) {
+			$element['settings'] = self::rewrite_link_values( $element['settings'], $links, 0 );
+		}
+		if ( is_array( $element['elements'] ?? null ) ) {
+			$element['elements'] = array_map( static fn( mixed $child ): mixed => is_array( $child ) ? self::rewrite_links( $child, $links ) : $child, $element['elements'] );
+		}
+
+		return $element;
+	}
+
+	/**
+	 * @param array<mixed>          $value
+	 * @param array<string, string> $links
+	 * @return array<mixed>
+	 */
+	private static function rewrite_link_values( array $value, array $links, int $depth ): array {
+		if ( $depth > 12 ) {
+			return $value;
+		}
+		foreach ( $value as $key => $member ) {
+			if ( in_array( $key, [ '_element_id', '_cssid' ], true ) ) {
+				continue;
+			}
+			if ( is_array( $member ) ) {
+				$value[ $key ] = self::rewrite_link_values( $member, $links, $depth + 1 );
+			} elseif ( is_string( $member ) ) {
+				foreach ( $links as $old => $new ) {
+					if ( '#' . $old === $member ) {
+						$member = '#' . $new;
+						continue;
+					}
+					$member = str_replace( [ 'href="#' . $old . '"', "href='#" . $old . "'" ], [ 'href="#' . $new . '"', "href='#" . $new . "'" ], $member );
+				}
+				$value[ $key ] = $member;
+			}
+		}
+
+		return $value;
 	}
 
 	/**

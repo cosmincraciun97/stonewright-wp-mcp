@@ -43,6 +43,13 @@ final class AgentHints {
 	/** Longest text value kept, in characters. */
 	public const MAX_PREFERENCE_VALUE_CHARS = 48;
 
+	/**
+	 * When an agent records a correction. The connect-time instructions and the compact
+	 * task-start carry this one sentence; the receipt rule is that only `verified:true`
+	 * counts.
+	 */
+	public const LEARNING_TRIGGER = 'If the user corrects you or a mistake repeats, call stonewright-learning-record; it counts only with verified:true.';
+
 	private const MAX_DIRECTION_NAME_CHARS = 40;
 	private const DIRECTION_BRIEF_TOOL     = 'stonewright-design-direction-brief';
 	private const HASH_PREFIX_CHARS        = 12;

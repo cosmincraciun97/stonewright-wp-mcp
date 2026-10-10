@@ -12,15 +12,19 @@ use Stonewright\WpMcp\Support\ElementorData;
  * The stored tree is compared recursively with the tree that was written, every node and child
  * included; a dropped child, a changed node or an extra node is an error, never a success. On a
  * mismatch the pre-write snapshot is restored and the rollback state is reported.
+ *
+ * A text that is stored but that the live widget would render empty (its prop type is not the one the widget
+ * declares) is a mismatch too: a write never reports verified for text that does not show.
  */
 final class AtomicWriteReadback {
 
 	/**
 	 * @param array<int, mixed> $expected    The tree handed to the writer.
 	 * @param string            $snapshot_id Snapshot taken before the write; empty when none exists.
+	 * @param array{ids:list<string>,before?:array<int, mixed>}|null $text_scope The elements whose text is checked for rendering, and the document before the write; null skips the check.
 	 * @return array{verified: bool, method: string, checked: int, context: string}|\WP_Error
 	 */
-	public static function verify_tree( int $post_id, array $expected, string $snapshot_id, string $context ): array|\WP_Error {
+	public static function verify_tree( int $post_id, array $expected, string $snapshot_id, string $context, ?array $text_scope = null ): array|\WP_Error {
 		$stored = ElementorData::read( $post_id );
 		$report = AtomicReadbackVerifier::verify( $expected, $stored, [ 'exact_children' => true, 'root_parent' => '' ] );
 		$wanted = self::root_ids( $expected );
@@ -28,6 +32,18 @@ final class AtomicWriteReadback {
 			$report['ok']         = false;
 			$report['problems'][] = [ 'code' => 'unexpected_child', 'id' => (string) $extra, 'path' => '/' . $extra ];
 			++$report['problems_count'];
+		}
+		if ( $report['ok'] && null !== $text_scope ) {
+			$unrendered = AtomicTextProp::problems( $stored, $text_scope['ids'], $text_scope['before'] ?? [] );
+			if ( [] !== $unrendered ) {
+				$rolled_back = '' !== $snapshot_id && Backup::restore( $post_id, $snapshot_id );
+				$error       = AtomicTextProp::error( $unrendered );
+				$data        = (array) $error->get_error_data();
+				$data['rollback_status']  = $rolled_back ? 'succeeded' : 'failed';
+				$data['snapshot_id']      = $snapshot_id;
+				$data['readback_context'] = $context;
+				return new \WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
+			}
 		}
 		if ( $report['ok'] ) {
 			return [ 'verified' => true, 'method' => 'document_tree', 'checked' => $report['checked'], 'context' => $context ];

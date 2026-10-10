@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\SectionReuse;
 use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Support\AgentNotices;
 
 /**
@@ -46,6 +47,12 @@ final class SectionReuseSetting {
 		'stonewright/section-reuse-find',
 		'stonewright/section-reuse-extract',
 	];
+
+	/** Error code of the refusal an ability or an insert operation returns while the setting is off. */
+	public const OFF_CODE = 'stonewright_section_reuse_off';
+
+	/** Identity of the bundled skill that tells agents how to reuse sections. */
+	public const SKILL_SLUG = 'stonewright-section-reuse';
 
 	/** Text an ability returns to an agent that calls it while the setting is off. */
 	public const OFF_INSTRUCTION = 'Section reuse is off. Do not ask the user about reusing sections.';
@@ -116,17 +123,41 @@ final class SectionReuseSetting {
 			: 'section_reuse: ask - offer reuse of saved sections when building a page';
 	}
 
-	/** The error an ability returns to a caller that reaches it while the setting is off. */
+	/**
+	 * The error an ability returns to a caller that reaches it while the setting is off. It is a refusal the
+	 * site chose, so it is blocked and never retryable.
+	 */
 	public static function off_error(): \WP_Error {
 		return new \WP_Error(
-			'stonewright_section_reuse_off',
+			self::OFF_CODE,
 			self::OFF_INSTRUCTION,
-			[
-				'status'      => 409,
-				'enabled'     => false,
-				'instruction' => self::OFF_INSTRUCTION,
-			]
+			array_merge(
+				[
+					'status'      => 409,
+					'enabled'     => false,
+					'instruction' => self::OFF_INSTRUCTION,
+				],
+				self::refusal_flags( self::OFF_CODE )
+			)
 		);
+	}
+
+	/**
+	 * What a batch writer adds to the failure it reports when the operation that failed was the off
+	 * refusal: nothing to retry, and a blocked outcome instead of an error. Any other code adds nothing.
+	 *
+	 * @return array{retryable?:bool,execution_status?:string}
+	 */
+	public static function refusal_flags( string $code ): array {
+		return self::OFF_CODE === $code ? [ 'retryable' => false, 'execution_status' => 'blocked' ] : [];
+	}
+
+	/**
+	 * The sentence a batch writer appends to its failure message when the operation that failed was the off
+	 * refusal, so a client that reads only the message learns the reason. Any other code adds nothing.
+	 */
+	public static function refusal_note( string $code ): string {
+		return self::OFF_CODE === $code ? ' ' . self::OFF_INSTRUCTION : '';
 	}
 
 	/**
@@ -179,6 +210,12 @@ final class SectionReuseSetting {
 				],
 				'ok'
 			);
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+		}
+		try {
+			// A refusal recorded while the setting was off says nothing about the new value.
+			ErrorPatterns::forget_code( self::OFF_CODE );
 		} catch ( \Throwable $failure ) {
 			unset( $failure );
 		}

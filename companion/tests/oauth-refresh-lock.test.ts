@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 import { OAuthRefreshLock, oauthRefreshLockPathFor } from '../src/oauth-refresh-lock.js';
 import { OAuthTokenManager, OAuthTokenStore, type OAuthTokenSet } from '../src/oauth-token-manager.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 function expiredTokens(): OAuthTokenSet {
 	return { accessToken: 'old-access', refreshToken: 'old-refresh', expiresAt: 0, tokenType: 'Bearer' };

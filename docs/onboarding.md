@@ -39,7 +39,7 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    [install-prompts.md](install-prompts.md) Option A). If the alias already
    exists, use `connect repair <alias> --client <client> --mode plugin-only` so
    the saved credential is reused instead of registering a duplicate.
-5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
+5. In wp-admin, open **Stonewright > Setup**, enable Stonewright, and
    choose the operating mode (`development`, `staging`, or `production-safe`).
 6. Perform a **client-specific restart or MCP session reload** (not only a chat
    refresh) and confirm the tool list includes `stonewright-task-start`.
@@ -220,8 +220,8 @@ Plugin and Direct writes reject high-confidence credential material. Do not put
 site URLs, usernames, Application Passwords, tokens, private project names, or
 client configuration into memory or skills.
 
-If the user explicitly asks Stonewright to remember a correction, call
-`stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
+When the user corrects the agent, a mistake repeats, or the user explicitly asks
+Stonewright to remember a correction, call `stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
 legacy Direct `text`). Success requires `verified:true` after readback; report
 `memory_id`, `scope`, and `storage_ref`. Never claim memory was stored without
 that receipt.

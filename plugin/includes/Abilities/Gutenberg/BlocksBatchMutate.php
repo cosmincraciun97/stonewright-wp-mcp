@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Gutenberg\AttributeValidator;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
 use Stonewright\WpMcp\SectionReuse\Builder;
 use Stonewright\WpMcp\SectionReuse\GutenbergSectionInserter;
 use Stonewright\WpMcp\SectionReuse\MarkupSkeleton;
@@ -94,7 +95,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 							'path'        => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ] ],
 							'op_id'       => [ 'type' => 'string', 'maxLength' => 64, 'description' => 'insert_section: a name later update operations use as section_ref.' ],
 							'section'     => [ 'type' => 'object', 'description' => 'insert_section: the SectionPortableV1 payload returned by stonewright-section-reuse-extract for a gutenberg section. Inserted at path (the parent, empty for the post root) and position, or before_path or after_path.' ],
-							'detach_patterns' => [ 'description' => 'insert_section: true, or a list of pattern ids, to replace a synced pattern the section refers to with a local copy of its blocks. Without it a synced pattern stays a reference.', 'oneOf' => [ [ 'type' => 'boolean' ], [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 1 ] ] ] ],
+							'detach_patterns' => [ 'description' => 'insert_section: true, or a list of pattern ids, to replace a synced pattern the section refers to with a local copy of its blocks. Without it a synced pattern stays a reference.', 'type' => [ 'boolean', 'array' ], 'items' => [ 'type' => 'integer', 'minimum' => 1 ] ],
 							'section_ref' => [ 'type' => 'string', 'maxLength' => 64, 'description' => 'update: the op_id of an insert_section of this batch. With relative_path it addresses a block of the new section, wherever earlier operations moved it.' ],
 							'relative_path' => [ 'type' => 'array', 'items' => [ 'type' => 'integer', 'minimum' => 0 ], 'description' => 'update with section_ref: the path inside the inserted section, starting with the index among the blocks of the payload.' ],
 							'position'    => [ 'type' => 'integer', 'minimum' => 0 ],
@@ -157,6 +158,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? array_values( $args['operations'] ) : [];
 				if ( [] === $operations ) {
 					return $this->error( 'missing_operations', __( 'At least one block operation is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				$duplicate = BatchOperationIds::duplicate( $operations );
+				if ( null !== $duplicate ) {
+					return $duplicate;
 				}
 
 				$dry_run      = ! empty( $args['dry_run'] );
@@ -294,15 +299,18 @@ final class BlocksBatchMutate extends AbilityKernel {
 						];
 						return $this->error(
 							'batch_operation_failed',
-							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ),
-							[
-								'status'          => 400,
-								'items'           => $items,
-								'failed_index'    => $index,
-								'retryable'       => true,
-								'before_sha256'   => $before_hash,
-								'root_error_code' => $result->get_error_code(),
-							]
+							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ) . SectionReuseSetting::refusal_note( (string) $result->get_error_code() ),
+							array_merge(
+								[
+									'status'          => 400,
+									'items'           => $items,
+									'failed_index'    => $index,
+									'retryable'       => true,
+									'before_sha256'   => $before_hash,
+									'root_error_code' => $result->get_error_code(),
+								],
+								SectionReuseSetting::refusal_flags( (string) $result->get_error_code() )
+							)
 						);
 					}
 					$items[] = array_merge(

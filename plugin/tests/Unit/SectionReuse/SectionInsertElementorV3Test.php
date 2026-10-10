@@ -19,6 +19,7 @@ use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Support\ErrorEnvelope;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
 
 require_once __DIR__ . '/SectionFixtures.php';
@@ -214,6 +215,21 @@ final class SectionInsertElementorV3Test extends TestCase {
 		self::assertSame( 0, self::target_writes() );
 	}
 
+	public function test_the_off_refusal_tells_an_mcp_client_the_reason_and_that_it_is_final_in_a_dry_run_and_an_apply(): void {
+		$section = self::section();
+		$GLOBALS['stonewright_test_options'][ SectionReuseSetting::OPTION ] = 'off';
+
+		foreach ( [ true, false ] as $dry_run ) {
+			$result = ( new BatchMutate() )->execute( [ 'post_id' => self::TARGET, 'dry_run' => $dry_run, 'operations' => [ self::insert_op( $section ) ] ] );
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			$message = ErrorEnvelope::with_agent_visible_payload( $result )->get_error_message();
+			self::assertStringContainsString( SectionReuseSetting::OFF_INSTRUCTION, $message, $dry_run ? 'dry run' : 'apply' );
+			self::assertStringContainsString( '"retryable":false', $message );
+			self::assertStringContainsString( '"execution_status":"blocked"', $message );
+		}
+	}
+
 	public function test_a_section_of_another_builder_is_refused(): void {
 		$section            = self::section();
 		$section['builder'] = 'elementor-v4';
@@ -221,7 +237,7 @@ final class SectionInsertElementorV3Test extends TestCase {
 		$result = ( new BatchMutate() )->execute( [ 'post_id' => self::TARGET, 'operations' => [ self::insert_op( $section ) ] ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_data()['items'][0]['error']['code'] );
+		self::assertSame( 'stonewright_section_builder_mismatch', $result->get_error_code() );
 		self::assertSame( 0, self::target_writes() );
 	}
 

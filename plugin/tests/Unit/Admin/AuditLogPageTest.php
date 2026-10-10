@@ -428,6 +428,7 @@ final class AuditLogPageTest extends TestCase {
 		self::assertSame( 1, substr_count( $html, 'sw-ui-btn--primary' ), 'One primary action on the page: Filter.' );
 		self::assertMatchesRegularExpression( '/sw-ui-btn--danger"[^>]*data-sw-ui-dialog-open="#sw-audit-purge-dialog"|sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm"[^>]*data-sw-ui-dialog-open/', $html, 'Delete is a danger button, never primary.' );
 		self::assertMatchesRegularExpression( '/<button[^>]*data-sw-ui-dialog-open="#sw-audit-purge-dialog"[^>]*>Delete all logs/', $html );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--primary"[^>]*data-sw-audit-filter[^>]*>Filter<\/button><a class="sw-ui-btn sw-ui-btn--tertiary"[^>]*>Reset filters<\/a>/', $html, 'Filter and Reset filters are as tall as the fields beside them.' );
 		self::assertMatchesRegularExpression( '/<dialog id="sw-audit-purge-dialog" class="sw-ui-dialog"[^>]*aria-labelledby="sw-audit-purge-title"/', $html );
 		self::assertStringContainsString( 'Type DELETE to confirm', $html );
 		self::assertStringContainsString( 'data-sw-ui-confirm-phrase="DELETE"', $html );

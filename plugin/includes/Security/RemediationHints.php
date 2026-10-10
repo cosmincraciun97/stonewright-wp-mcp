@@ -56,6 +56,7 @@ final class RemediationHints {
 		'stonewright_non_atomic_target'              => 'The target id is not an Atomic node. Re-read with stonewright/elementor-v4-read-atomic-tree and pick an e-* id, or use stonewright/elementor-v3-update-element for classic widgets/containers.',
 		'stonewright_unknown_widget'         => 'Widget type is not registered on this site. List live widgets / read schema before writing controls.',
 		'stonewright_parent_missing'         => 'Parent container id is missing. Create or locate the parent first, then attach children.',
+		'stonewright_section_reuse_off'      => 'Section reuse is turned off in the Stonewright settings. Do not offer it and do not retry; build the page without reusing sections.',
 		'sw_test_boom'                       => 'Test-only error: fix the fixture cause before retrying.',
 	];
 

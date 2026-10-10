@@ -76,9 +76,11 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 
 ### Verified learning
 
-- When the user explicitly asks Stonewright to remember a correction or stable
-  preference, call `stonewright-learning-record` in the active mode.
-- Read it back and report `memory_id`, `scope`, and `verified:true`.
+- When the user corrects you, a mistake repeats, or the user explicitly asks
+  Stonewright to remember a correction or stable preference, call
+  `stonewright-learning-record` in the active mode.
+- Read it back and report `memory_id`, `scope`, and `verified:true`; a lesson
+  counts only with `verified:true`.
 - Never claim it was remembered without verification.
 
 ### Custom code operator grant

@@ -38,7 +38,8 @@ final class GutenbergSectionInserter {
 	public static function instantiate( array $payload, array $document_blocks, bool|array $detach = false ): array|\WP_Error {
 		$blocks   = array_values( (array) ( $payload['blocks'] ?? [] ) );
 		$detached = [];
-		$expanded = self::expand_patterns( $blocks, $detach, $detached, 1 );
+		$migrated = [];
+		$expanded = self::expand_patterns( $blocks, $detach, $detached, $migrated, 1 );
 		if ( $expanded instanceof \WP_Error ) {
 			return $expanded;
 		}
@@ -50,7 +51,7 @@ final class GutenbergSectionInserter {
 			$expanded = self::rewrite_links( $expanded, $renamed );
 		}
 
-		$warnings = [];
+		$warnings = LegacyBlockAttributes::warnings( $migrated );
 		if ( [] !== $renamed ) {
 			$warnings[] = [ 'code' => 'anchors_renamed', 'count' => count( $renamed ), 'items' => array_slice( array_map( static fn( string $old, string $new ): string => $old . ' -> ' . $new, array_keys( $renamed ), array_values( $renamed ) ), 0, 5 ) ];
 		}
@@ -62,10 +63,11 @@ final class GutenbergSectionInserter {
 	 * @param list<array<string, mixed>> $blocks
 	 * @param bool|list<int>             $detach
 	 * @param list<int>                  $detached
+	 * @param list<array{block:string,key:string,to:string}> $migrated Attributes moved in the copies of detached patterns.
 	 * @param list<int>                  $counts   Filled with how many blocks each input block became.
 	 * @return list<array<string, mixed>>|\WP_Error
 	 */
-	private static function expand_patterns( array $blocks, bool|array $detach, array &$detached, int $depth, array &$counts = [] ): array|\WP_Error {
+	private static function expand_patterns( array $blocks, bool|array $detach, array &$detached, array &$migrated, int $depth, array &$counts = [] ): array|\WP_Error {
 		$out    = [];
 		$counts = [];
 		foreach ( $blocks as $block ) {
@@ -83,7 +85,9 @@ final class GutenbergSectionInserter {
 					if ( $depth > self::MAX_DETACH_DEPTH ) {
 						return new \WP_Error( 'stonewright_section_too_large', 'Synced patterns are nested too deeply to detach.', [ 'status' => 413, 'limit_kind' => 'depth', 'limit' => self::MAX_DETACH_DEPTH ] );
 					}
-					$copy = self::expand_patterns( BlockTree::parse( (string) $pattern->post_content ), $detach, $detached, $depth + 1 );
+					$moved = LegacyBlockAttributes::migrate( BlockTree::parse( (string) $pattern->post_content ) );
+					$copy  = self::expand_patterns( $moved['blocks'], $detach, $detached, $migrated, $depth + 1 );
+					array_push( $migrated, ...$moved['migrated'] );
 					if ( $copy instanceof \WP_Error ) {
 						return $copy;
 					}
@@ -99,7 +103,7 @@ final class GutenbergSectionInserter {
 			$children = array_values( (array) ( $block['innerBlocks'] ?? [] ) );
 			if ( [] !== $children ) {
 				$child_counts = [];
-				$expanded     = self::expand_patterns( $children, $detach, $detached, $depth, $child_counts );
+				$expanded     = self::expand_patterns( $children, $detach, $detached, $migrated, $depth, $child_counts );
 				if ( $expanded instanceof \WP_Error ) {
 					return $expanded;
 				}

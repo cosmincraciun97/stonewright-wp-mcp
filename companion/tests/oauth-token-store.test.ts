@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OAuthTokenStore } from '../src/oauth-token-manager.js';
-import { createOAuthTestDirectory, setSyntheticOAuthAcl } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, setSyntheticOAuthAcl, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 const initial = { accessToken: 'fixture-access', refreshToken: 'fixture-refresh', expiresAt: 0 };
 const rotated = { accessToken: 'fixture-next-access', refreshToken: 'fixture-next-refresh', expiresAt: 120_000 };

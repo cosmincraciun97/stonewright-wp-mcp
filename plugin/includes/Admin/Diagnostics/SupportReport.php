@@ -30,6 +30,24 @@ final class SupportReport {
 	private const COUNT_KEYS = [ 'problem', 'warning', 'info', 'ok', 'skipped' ];
 
 	/**
+	 * Credential shapes removed from free text, as pattern => replacement.
+	 *
+	 * @var array<string, string>
+	 */
+	private const SECRET_PATTERNS = [
+		// Bearer and Basic values (they carry a digit or a symbol, or are long), but not the words in "a Bearer challenge".
+		'#\b(Bearer|Basic)\s+(?=[A-Za-z0-9._~+/=-]*[0-9=+/_~-]|[A-Za-z0-9]{16,})[A-Za-z0-9._~+/=-]{6,}#i' => '$1 [redacted]',
+		// Passwords in an address.
+		'#(https?://)[^/\s:@]+:[^/\s@]*@#i'             => '$1[redacted]@',
+		// A named secret with a value, as a header or a query argument.
+		'#\b(authorization|set-cookie|cookie|passwd|password|client_secret|secret|api[_-]?key|access_token|refresh_token|token)\s*[:=]\s*[^\s,;&]+#i' => '$1=[redacted]',
+		// An Application Password: six groups of four.
+		'#\b(?:[A-Za-z0-9]{4}\s){5}[A-Za-z0-9]{4}\b#'   => '[redacted]',
+		// Any long opaque token. Lowercase names with underscores, such as hook names, are words and stay.
+		'#\b(?=[A-Za-z0-9_-]*[0-9A-Z])[A-Za-z0-9_-]{32,}\b#' => '[redacted]',
+	];
+
+	/**
 	 * @param array<string, mixed> $envelope Graph envelope plus optional correlation id.
 	 */
 	public static function render( array $envelope ): string {
@@ -74,12 +92,21 @@ final class SupportReport {
 				continue;
 			}
 			$lines[] = self::bound_line( '[' . $status . '] ' . $id );
+			$summary = trim( (string) ( $check['summary'] ?? '' ) );
+			if ( '' !== $summary ) {
+				$label   = trim( (string) ( $check['label'] ?? '' ) );
+				$lines[] = self::bound_line( '  ' . ( '' !== $label ? self::redact( $label ) . ': ' : '' ) . self::redact( $summary ) );
+			}
+			$remedy = trim( (string) ( $check['remedy'] ?? '' ) );
+			if ( '' !== $remedy && $remedy !== $summary && in_array( $status, [ 'problem', 'warning' ], true ) ) {
+				$lines[] = self::bound_line( '  Fix: ' . self::redact( $remedy ) );
+			}
 			$evidence = is_array( $check['evidence'] ?? null ) ? $check['evidence'] : [];
 			foreach ( self::EVIDENCE_KEYS as $key ) {
-				if ( ! array_key_exists( $key, $evidence ) || ! is_scalar( $evidence[ $key ] ) ) {
+				if ( ! array_key_exists( $key, $evidence ) || ! is_scalar( $evidence[ $key ] ) || '' === (string) $evidence[ $key ] ) {
 					continue;
 				}
-				$lines[] = self::bound_line( $key . ': ' . (string) $evidence[ $key ] );
+				$lines[] = self::bound_line( $key . ': ' . self::redact( (string) $evidence[ $key ] ) );
 			}
 			$duration = (int) ( $check['duration_ms'] ?? 0 );
 			if ( $duration > 0 ) {
@@ -91,6 +118,27 @@ final class SupportReport {
 		$text  = implode( "\n", $lines );
 		if ( strlen( $text ) > self::MAX_BYTES ) {
 			$text = substr( $text, 0, self::MAX_BYTES );
+		}
+
+		return $text;
+	}
+
+	/**
+	 * Removes what looks like a credential from free text: Bearer and Basic values, assigned secrets, passwords in
+	 * addresses, Application Password groups, long opaque tokens and the install path. Words and addresses a person
+	 * needs to read the report stay.
+	 */
+	public static function redact( string $text ): string {
+		foreach ( self::SECRET_PATTERNS as $pattern => $replacement ) {
+			$text = (string) preg_replace( $pattern, $replacement, $text );
+		}
+		foreach ( [
+			'ABSPATH'        => '[wp]',
+			'WP_CONTENT_DIR' => '[wp-content]',
+		] as $name => $mask ) {
+			if ( defined( $name ) && '' !== (string) constant( $name ) ) {
+				$text = str_replace( rtrim( (string) constant( $name ), '/\\' ), $mask, $text );
+			}
 		}
 
 		return $text;

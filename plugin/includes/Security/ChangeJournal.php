@@ -50,8 +50,8 @@ final class ChangeJournal {
 	/** Seconds a claim on an entry holds before it is taken to be left over from a rollback that died. */
 	public const CLAIM_TTL = 300;
 
-	/** States in which an entry can still be rolled back, and so claimed. */
-	private const CLAIMABLE_STATES = [ 'armed', 'incident', 'rollback_failed' ];
+	/** States in which an entry can still be rolled back, and so claimed. A verified change can be undone too. */
+	private const CLAIMABLE_STATES = [ 'armed', 'incident', 'rollback_failed', 'verified' ];
 
 	private const SCOPES = [ 'site', 'post', 'light' ];
 
@@ -519,7 +519,10 @@ final class ChangeJournal {
 		$toggled  = false;
 		$ran      = false;
 		$run      = static function ( array $document, bool $file_backed, bool $rewrite ) use ( $change, &$imported, &$toggled, &$ran ): ?array {
-			$ran   = true;
+			$ran = true;
+			// Another request (the probe's own, the helper's import) may have written since this one first read
+			// the journal or the flag: decide from what is stored now, not from this request's cached copy.
+			self::forget_cached_options();
 			$store = self::load_store();
 			self::merge_file( $store, $document, $imported );
 			$changed = $change( $store );
@@ -708,6 +711,17 @@ final class ChangeJournal {
 		return $was !== ( null !== $open );
 	}
 
+	/** Drop this request's cached copy of the journal option and the open flag, so the next read goes to the database. */
+	private static function forget_cached_options(): void {
+		if ( ! function_exists( 'wp_cache_delete' ) ) {
+			return;
+		}
+		wp_cache_delete( self::DB_OPTION, 'options' );
+		wp_cache_delete( self::OPEN_OPTION, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+	}
+
 	private static function bump_tool_surface(): void {
 		if ( class_exists( AbilityRegistry::class ) ) {
 			AbilityRegistry::bump_surface_revision();
@@ -846,13 +860,19 @@ final class ChangeJournal {
 			if ( ! is_array( $leg ) ) {
 				continue;
 			}
-			$legs[] = [
+			$entry = [
 				'leg'    => self::short_text( $leg['leg'] ?? '', 16 ),
 				'status' => self::short_text( $leg['status'] ?? '', 16 ),
 				'http'   => isset( $leg['http'] ) && is_numeric( $leg['http'] ) ? (int) $leg['http'] : 0,
 				'reason' => self::short_text( $leg['reason'] ?? '', 48 ),
 				'ms'     => isset( $leg['ms'] ) && is_numeric( $leg['ms'] ) ? max( 0, (int) $leg['ms'] ) : 0,
 			];
+			if ( ! empty( $leg['retried'] ) ) {
+				// A leg that got no answer and was asked once more: the reason of the first attempt is kept.
+				$entry['retried']      = true;
+				$entry['first_reason'] = self::short_text( $leg['first_reason'] ?? '', 48 );
+			}
+			$legs[] = $entry;
 		}
 		$status = isset( $probe['status'] ) && is_scalar( $probe['status'] ) ? (string) $probe['status'] : '';
 		return [
@@ -873,6 +893,7 @@ final class ChangeJournal {
 			'status' => self::short_text( $rollback['status'] ?? '', 24 ),
 			'at'     => isset( $rollback['at'] ) && is_numeric( $rollback['at'] ) ? max( 0, (int) $rollback['at'] ) : 0,
 			'by'     => self::short_text( $rollback['by'] ?? '', 24 ),
+			'user'   => isset( $rollback['user'] ) && is_numeric( $rollback['user'] ) ? max( 0, (int) $rollback['user'] ) : 0,
 			'recipe' => self::short_text( $rollback['recipe'] ?? '', 24 ),
 			'detail' => self::short_text( $rollback['detail'] ?? '', 200 ),
 			'site'   => self::short_text( $rollback['site'] ?? '', 16 ),

@@ -362,23 +362,11 @@
 		return 'problem';
 	}
 
-	function diagnosticCssStatus( status ) {
-		if ( status === 'ok' ) {
-			return 'ok';
-		}
-		if ( status === 'warning' ) {
-			return 'warn';
-		}
-		if ( status === 'info' || status === 'skipped' ) {
-			return 'info';
-		}
-		return 'error';
-	}
-
 	function humanizeStepId( id ) {
 		var labels = {
 			mint_credential: 'Mint credential',
 			initialize: 'Initialize',
+			initialized: 'Initialized notification',
 			tools_list: 'tools/list',
 			task_start: 'task-start',
 			cleanup: 'Cleanup',
@@ -387,36 +375,54 @@
 		return labels[ id ] || id || '';
 	}
 
+	function connectionIcon( name ) {
+		var svg = document.createElementNS( 'http://www.w3.org/2000/svg', 'svg' );
+		var use = document.createElementNS( 'http://www.w3.org/2000/svg', 'use' );
+		svg.setAttribute( 'class', 'sw-ui-icon' );
+		svg.setAttribute( 'aria-hidden', 'true' );
+		use.setAttribute( 'href', '#sw-ui-icon-' + name );
+		svg.appendChild( use );
+		return svg;
+	}
+
+	/** One row per check: status, name and detail in their own columns, a next step under the detail. */
 	function renderConnectionResults( list, checks ) {
 		list.innerHTML = '';
 		list.hidden = false;
 		( checks || [] ).forEach( function ( check ) {
 			var status = normalizeChecklistStatus( check.status || 'error' );
-			var cssStatus = diagnosticCssStatus( status );
-			var badgeFor = { ok: [ 'sw-ui-badge--ok', 'OK' ], warn: [ 'sw-ui-badge--warn', 'Warning' ], info: [ 'sw-ui-badge--info', 'Info' ], error: [ 'sw-ui-badge--danger', 'Problem' ] };
-			var badgeSpec = badgeFor[ cssStatus ] || badgeFor.error;
+			var badgeFor = {
+				ok: [ 'sw-ui-badge--ok', 'OK', 'check' ],
+				warning: [ 'sw-ui-badge--warn', 'Warning', 'alert' ],
+				info: [ 'sw-ui-badge--info', 'Info', 'info' ],
+				skipped: [ '', 'Skipped', '' ],
+				problem: [ 'sw-ui-badge--danger', 'Problem', 'x' ]
+			};
+			var badgeSpec = badgeFor[ status ] || badgeFor.problem;
 			var li = document.createElement( 'li' );
+			li.className = 'sw-ui-checks__item' + ( status === 'problem' ? ' sw-ui-checks__item--danger' : '' );
 			li.setAttribute( 'data-status', status );
-			var node = document.createElement( 'div' );
-			node.className = 'sw-ui-lineage__node';
 			var badge = document.createElement( 'span' );
 			badge.className = 'sw-ui-badge ' + badgeSpec[ 0 ];
-			badge.textContent = status === 'skipped' ? 'Skipped' : badgeSpec[ 1 ];
-			var label = document.createElement( 'strong' );
-			label.textContent = check.label || humanizeStepId( check.id ) || '';
-			var detailText = check.detail || '';
-			if ( check.fix ) {
-				detailText = detailText ? ( detailText + ' — ' + check.fix ) : check.fix;
+			if ( badgeSpec[ 2 ] ) {
+				badge.appendChild( connectionIcon( badgeSpec[ 2 ] ) );
 			}
+			badge.appendChild( document.createTextNode( badgeSpec[ 1 ] ) );
+			var label = document.createElement( 'strong' );
+			label.className = 'sw-ui-checks__label';
+			label.textContent = check.label || humanizeStepId( check.id ) || '';
 			var detail = document.createElement( 'span' );
-			detail.className = 'sw-ui-field__help';
-			detail.textContent = detailText;
-			node.appendChild( badge );
-			node.appendChild( document.createTextNode( ' ' ) );
-			node.appendChild( label );
-			node.appendChild( document.createTextNode( ' ' ) );
-			node.appendChild( detail );
-			li.appendChild( node );
+			detail.className = 'sw-ui-checks__detail';
+			detail.textContent = check.detail || '';
+			if ( check.fix ) {
+				var fix = document.createElement( 'span' );
+				fix.className = 'sw-ui-checks__fix';
+				fix.textContent = check.fix;
+				detail.appendChild( fix );
+			}
+			li.appendChild( badge );
+			li.appendChild( label );
+			li.appendChild( detail );
 			list.appendChild( li );
 		} );
 	}

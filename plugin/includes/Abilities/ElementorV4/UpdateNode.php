@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Provider\NativeRoute;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
+use Stonewright\WpMcp\Elementor\V4\AtomicTextProp;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\V4\AtomicWriteReadback;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
@@ -17,6 +18,7 @@ use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
 use Stonewright\WpMcp\SectionReuse\Builder;
 use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
 use Stonewright\WpMcp\SectionReuse\PortableSection;
@@ -266,7 +268,7 @@ final class UpdateNode extends AbilityKernel {
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return ElementorData::write_error_for_ability();
 				}
-				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'update_node' );
+				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'update_node', [ 'ids' => [ $element_id ], 'before' => $tree ] );
 				if ( $readback instanceof \WP_Error ) {
 					return $readback;
 				}
@@ -304,10 +306,19 @@ final class UpdateNode extends AbilityKernel {
 		if ( [] === $operations || count( $operations ) > 50 ) {
 			return $this->error( 'missing_operations', __( 'Send one to fifty operations.', 'stonewright' ), [ 'status' => 400 ] );
 		}
+		$duplicate = BatchOperationIds::duplicate( $operations );
+		if ( null !== $duplicate ) {
+			return $duplicate;
+		}
+		// A section of the other builder is a mistake of the caller; it is reported as such before the custom CSS gate reads it.
+		$mismatch = SectionReuseSetting::is_enabled() ? PortableSection::operations_builder_mismatch( $operations, Builder::ELEMENTOR_V4 ) : null;
+		if ( null !== $mismatch ) {
+			return $mismatch;
+		}
 		// Custom CSS or HTML in a copied section needs the same approval as when it is written by hand. An
 		// Atomic style variant always carries a `custom_css` key, null when it has none, so only a key that
 		// holds something is custom CSS.
-		$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => self::without_empty_css_keys( $operations ) ], $args );
+		$css_gate = ElementorCustomCssGate::assert_incoming( [ 'operations' => ElementorCustomCssGate::without_empty_css_keys( $operations ) ], $args );
 		if ( $css_gate instanceof \WP_Error ) {
 			return $css_gate;
 		}
@@ -320,11 +331,12 @@ final class UpdateNode extends AbilityKernel {
 		$failed      = 0;
 		$first       = -1;
 		$route       = null;
+		$inserted    = 0;
 		foreach ( $operations as $index => $operation ) {
 			$operation = is_array( $operation ) ? $operation : [];
 			$action    = (string) ( $operation['action'] ?? '' );
 			$result    = match ( $action ) {
-				'insert_section' => $this->batch_insert_section( $tree, $operation, $refs, $route ),
+				'insert_section' => $this->batch_insert_section( $tree, $operation, $refs, $route, $inserted ),
 				'update_node'    => $this->batch_update_node( $tree, $operation, $refs ),
 				default          => $this->error( 'invalid_action', __( 'Use insert_section or update_node.', 'stonewright' ), [ 'status' => 400, 'action' => $action ] ),
 			};
@@ -346,17 +358,20 @@ final class UpdateNode extends AbilityKernel {
 		if ( $failed > 0 ) {
 			return $this->error(
 				'batch_operation_failed',
-				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ),
-				[
-					'status'        => 400,
-					'items'         => $items,
-					'failed'        => $failed,
-					'failed_index'  => $first,
-					'write_blocked' => true,
-					'retryable'     => true,
-					'before_hash'   => $before_hash,
-					'repair'        => 'Fix the reported operation and rerun the dry run. No partial batch is persisted.',
-				]
+				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ) . SectionReuseSetting::refusal_note( (string) ( $items[ $first ]['error']['code'] ?? '' ) ),
+				array_merge(
+					[
+						'status'        => 400,
+						'items'         => $items,
+						'failed'        => $failed,
+						'failed_index'  => $first,
+						'write_blocked' => true,
+						'retryable'     => true,
+						'before_hash'   => $before_hash,
+						'repair'        => 'Fix the reported operation and rerun the dry run. No partial batch is persisted.',
+					],
+					SectionReuseSetting::refusal_flags( (string) ( $items[ $first ]['error']['code'] ?? '' ) )
+				)
 			);
 		}
 
@@ -371,6 +386,11 @@ final class UpdateNode extends AbilityKernel {
 			}
 		}
 		$touched      = array_values( array_unique( $touched ) );
+		// Text that the live widget would render empty is refused here, in the dry run too, not reported verified afterwards.
+		$unrendered = AtomicTextProp::problems( $tree, $touched, $original );
+		if ( [] !== $unrendered ) {
+			return AtomicTextProp::error( $unrendered );
+		}
 		$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
 		$response     = [
 			'post_id'      => $post_id,
@@ -412,7 +432,7 @@ final class UpdateNode extends AbilityKernel {
 			if ( ! ElementorData::write( $post_id, $tree, [ 'touched_ids' => $touched, 'lock_owner' => $owner ] ) ) {
 				return ElementorData::write_error_for_ability();
 			}
-			$readback = AtomicWriteReadback::verify_tree( $post_id, $tree, $snapshot_id, 'section_batch' );
+			$readback = AtomicWriteReadback::verify_tree( $post_id, $tree, $snapshot_id, 'section_batch', [ 'ids' => $touched, 'before' => $original ] );
 			if ( $readback instanceof \WP_Error ) {
 				return $readback;
 			}
@@ -446,33 +466,16 @@ final class UpdateNode extends AbilityKernel {
 	}
 
 	/**
-	 * The operations as the custom CSS gate should see them: a CSS key whose value is empty is dropped.
-	 *
-	 * @param array<mixed> $value
-	 * @return array<mixed>
-	 */
-	private static function without_empty_css_keys( array $value ): array {
-		$out = [];
-		foreach ( $value as $key => $member ) {
-			if ( is_string( $key ) && ElementorCustomCssGate::is_css_key( $key ) && ( null === $member || '' === $member || [] === $member ) ) {
-				continue;
-			}
-			$out[ $key ] = is_array( $member ) ? self::without_empty_css_keys( $member ) : $member;
-		}
-
-		return $out;
-	}
-
-	/**
 	 * Copies a portable section into the document in memory.
 	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<string, mixed>             $operation
 	 * @param array<string, string>            $refs
 	 * @param array<string, mixed>|null        $route
+	 * @param int                              $inserted Elements the earlier insert_section operations of the batch added.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function batch_insert_section( array &$tree, array $operation, array &$refs, ?array &$route ): array|\WP_Error {
+	private function batch_insert_section( array &$tree, array $operation, array &$refs, ?array &$route, int &$inserted ): array|\WP_Error {
 		// The live option, not the tool list: a client may keep a stale list.
 		if ( ! SectionReuseSetting::is_enabled() ) {
 			return SectionReuseSetting::off_error();
@@ -480,6 +483,10 @@ final class UpdateNode extends AbilityKernel {
 		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::ELEMENTOR_V4 );
 		if ( $payload instanceof \WP_Error ) {
 			return $payload;
+		}
+		$budget = ElementorSectionInserter::within_batch_budget( $inserted, $payload );
+		if ( $budget instanceof \WP_Error ) {
+			return $budget;
 		}
 		$source = ReuseSource::of_payload( $payload );
 		if ( null !== $source ) {
@@ -521,6 +528,7 @@ final class UpdateNode extends AbilityKernel {
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $built['element'] );
+		$inserted += count( $built['id_map'] );
 		$root_id  = (string) $built['element']['id'];
 		if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
 			$refs[ $operation['op_id'] ] = $root_id;
@@ -776,6 +784,24 @@ final class UpdateNode extends AbilityKernel {
 							'settings_key'  => $key,
 							'expected_type' => $expected_type,
 							'actual_type'   => (string) $value['$$type'],
+						]
+					);
+				}
+				// A text of the right type whose value is not the shape of that type is stored and read back, and renders empty.
+				if ( AtomicTextProp::is_text_type( $expected_type ) && ! AtomicTextProp::shape_valid( $value ) ) {
+					return $this->error(
+						'invalid_settings_envelope_value',
+						sprintf(
+							/* translators: 1: settings key, 2: $$type */
+							__( 'Atomic setting "%1$s" is a "%2$s" text, but its value is not the shape of that type, so it would render empty.', 'stonewright' ),
+							$key,
+							$expected_type
+						),
+						[
+							'status'        => 400,
+							'settings_key'  => $key,
+							'expected_type' => $expected_type,
+							'example'       => AtomicTextProp::envelope( $expected_type, 'Text' ),
 						]
 					);
 				}

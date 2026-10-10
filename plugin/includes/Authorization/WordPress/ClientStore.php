@@ -32,8 +32,11 @@ final class ClientStore implements ClientDirectory {
 	public const DOCUMENT_PURPOSE = 'metadata_document';
 	public const SELF_TEST_PURPOSE = 'self_test';
 
-	/** Dynamically registered clients unused this long, without a live family, are removed. */
+	/** A dynamically registered client that never completed a grant is removed this long after it registered. */
 	public const UNUSED_LIFETIME = 2592000;
+
+	/** A dynamically registered client that completed a grant is removed this long after its last use (180 days). */
+	public const USED_LIFETIME = 15552000;
 
 	private const ID_ATTEMPTS = 5;
 	private const NAME_LENGTH = 191;
@@ -179,11 +182,13 @@ final class ClientStore implements ClientDirectory {
 	}
 
 	/**
-	 * Remove dynamically registered clients unused for UNUSED_LIFETIME that have no
-	 * active family before its deadline, and self-test registrations past their end.
-	 * Administrator-created clients stay. Unused clients are worked through in batches
-	 * of PRUNE_BATCH until none are left, or PRUNE_BATCHES batches have run, so one run
-	 * keeps up with a day of registrations without growing without bound.
+	 * Remove dynamically registered clients that have no active family before its
+	 * deadline and either never completed a grant and registered more than
+	 * UNUSED_LIFETIME ago, or last completed one more than USED_LIFETIME ago, and
+	 * self-test registrations past their end. Administrator-created clients stay.
+	 * Eligible clients are worked through in batches of PRUNE_BATCH until none are
+	 * left, or PRUNE_BATCHES batches have run, so one run keeps up with a day of
+	 * registrations without growing without bound.
 	 */
 	public function prune( int $now ): int {
 		$expired_self_tests = $this->db->execute( 'DELETE FROM ' . $this->table() . ' WHERE registration_purpose = %s AND registration_expires_at < %s AND admin_created = 0', [ self::SELF_TEST_PURPOSE, Database::datetime( $now ) ] );
@@ -191,13 +196,14 @@ final class ClientStore implements ClientDirectory {
 	}
 
 	private function prune_unused( int $now ): int {
-		$cutoff = Database::datetime( $now - self::UNUSED_LIFETIME );
+		$never_used_cutoff = Database::datetime( $now - self::UNUSED_LIFETIME );
+		$used_cutoff = Database::datetime( $now - self::USED_LIFETIME );
 		$unused = '(last_used_at IS NULL AND created_at < %s) OR last_used_at < %s';
 		$removed = 0;
 		$after = 0;
 		for ( $batch = 0; $batch < self::PRUNE_BATCHES; ++$batch ) {
 			// Each batch starts after the last row of the one before, so a client that stays does not hold up the ones behind it.
-			$candidates = $this->db->rows( 'SELECT id, client_id FROM ' . $this->table() . " WHERE admin_created = 0 AND id > %d AND ({$unused}) ORDER BY id LIMIT " . self::PRUNE_BATCH, [ $after, $cutoff, $cutoff ] );
+			$candidates = $this->db->rows( 'SELECT id, client_id FROM ' . $this->table() . " WHERE admin_created = 0 AND id > %d AND ({$unused}) ORDER BY id LIMIT " . self::PRUNE_BATCH, [ $after, $never_used_cutoff, $used_cutoff ] );
 			foreach ( $candidates as $candidate ) {
 				$after = max( $after, (int) $candidate['id'] );
 				$client_id = (string) $candidate['client_id'];
@@ -205,7 +211,7 @@ final class ClientStore implements ClientDirectory {
 				if ( (int) $live > 0 ) {
 					continue;
 				}
-				$removed += $this->db->execute( 'DELETE FROM ' . $this->table() . " WHERE client_id = %s AND admin_created = 0 AND ({$unused})", [ $client_id, $cutoff, $cutoff ] );
+				$removed += $this->db->execute( 'DELETE FROM ' . $this->table() . " WHERE client_id = %s AND admin_created = 0 AND ({$unused})", [ $client_id, $never_used_cutoff, $used_cutoff ] );
 			}
 			if ( count( $candidates ) < self::PRUNE_BATCH ) {
 				break;

@@ -22,6 +22,9 @@ use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
  */
 final class WidgetAvailability {
 
+	/** The class Elementor registers in place of a widget whose plugin is not active. */
+	private const PLACEHOLDER_CLASS = 'Elementor\Modules\Promotions\Widgets\Pro_Widget_Promotion';
+
 	private static ?bool $pro_override         = null;
 	private static ?bool $woocommerce_override = null;
 
@@ -41,6 +44,51 @@ final class WidgetAvailability {
 
 	public static function has_woocommerce(): bool {
 		return self::$woocommerce_override ?? ( class_exists( '\\WooCommerce' ) || defined( 'WC_VERSION' ) );
+	}
+
+	/**
+	 * How the live widget registry holds a widget: `registered` (a widget that can render, or no live registry to ask),
+	 * `placeholder` (Elementor registered a stand-in because the plugin that provides the widget is not active; it
+	 * renders nothing) or `unregistered` (no such widget).
+	 *
+	 * @return 'registered'|'placeholder'|'unregistered'
+	 */
+	public static function registration( string $widget_type ): string {
+		if ( ! class_exists( '\Elementor\Plugin' ) || ! isset( \Elementor\Plugin::$instance ) ) {
+			return 'registered';
+		}
+		$manager = \Elementor\Plugin::$instance->widgets_manager ?? null;
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'get_widget_types' ) ) {
+			return 'registered';
+		}
+		$widget = $manager->get_widget_types( $widget_type );
+		if ( ! is_object( $widget ) ) {
+			return 'unregistered';
+		}
+
+		return self::is_placeholder( $widget ) ? 'placeholder' : 'registered';
+	}
+
+	/** The plugin whose widget a placeholder stands in for. */
+	public static function placeholder_requirement( string $widget_type ): string {
+		$requires = self::requirement( $widget_type );
+
+		return '' !== $requires ? $requires : 'elementor-pro';
+	}
+
+	/**
+	 * Elementor's placeholder for a Pro widget is an instance of its promotion class; the flags that make it one (it
+	 * is hidden from the panel and from search and sits in the Pro category) identify the same stand-in.
+	 */
+	private static function is_placeholder( object $widget ): bool {
+		if ( is_a( $widget, self::PLACEHOLDER_CLASS ) ) {
+			return true;
+		}
+		if ( ! method_exists( $widget, 'show_in_panel' ) || ! method_exists( $widget, 'hide_on_search' ) || ! method_exists( $widget, 'get_categories' ) ) {
+			return false;
+		}
+
+		return false === $widget->show_in_panel() && true === $widget->hide_on_search() && in_array( 'pro-elements', (array) $widget->get_categories(), true );
 	}
 
 	/**

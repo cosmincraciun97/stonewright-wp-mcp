@@ -3,7 +3,7 @@
     "elType": "widget",
     "widgetType": "icon",
     "settings": {
-        "icon": {
+        "selected_icon": {
             "value": "fas fa-check",
             "library": "fa-solid"
         }

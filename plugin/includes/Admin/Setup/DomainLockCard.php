@@ -68,17 +68,19 @@ final class DomainLockCard {
 			);
 		}
 
-		$actions = self::rebind_form( $mismatch ) . self::rollback_form() . self::clear_form( $mismatch );
-		if ( '' !== $actions ) {
-			$body .= Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $actions );
+		if ( $mismatch ) {
+			$body .= self::rebind_form();
 		}
+		$body   = Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $body );
+		$footer = self::rollback_form() . self::clear_form( $mismatch );
 
 		return Card::render(
 			__( 'Domain lock', 'stonewright' ),
 			$body,
 			[
-				'id'   => self::ID,
-				'desc' => __( 'Stonewright records the address of this site when AI abilities are first turned on and blocks them if the address later changes, for example on a cloned copy.', 'stonewright' ),
+				'id'          => self::ID,
+				'desc'        => __( 'Stonewright records the address of this site when AI abilities are first turned on and blocks them if the address later changes, for example on a cloned copy.', 'stonewright' ),
+				'footer_html' => '' !== $footer ? Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $footer ) : '',
 			]
 		);
 	}
@@ -113,10 +115,7 @@ final class DomainLockCard {
 		return '';
 	}
 
-	private static function rebind_form( bool $mismatch ): string {
-		if ( ! $mismatch ) {
-			return '';
-		}
+	private static function rebind_form(): string {
 		$confirm_id = 'stonewright_rebind_confirm';
 
 		return Html::element(
@@ -144,7 +143,7 @@ final class DomainLockCard {
 			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ) ],
 			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_rollback_domain_lock' ] )
 			. Nonce::field( 'stonewright_rollback_domain_lock' )
-			. Button::group( [ Button::render( __( 'Restore prior domain binding', 'stonewright' ), [ 'type' => 'submit' ] ) ] )
+			. Button::render( __( 'Restore prior domain binding', 'stonewright' ), [ 'type' => 'submit' ] )
 		);
 	}
 
@@ -163,7 +162,6 @@ final class DomainLockCard {
 			__( 'Clear domain lock', 'stonewright' ),
 			[
 				'type'     => 'submit',
-				'variant'  => 'danger',
 				'disabled' => $held,
 				'attrs'    => $held ? [ 'aria-describedby' => $hint_id ] : [],
 			]
@@ -174,10 +172,10 @@ final class DomainLockCard {
 
 		return Html::element(
 			'form',
-			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ) ],
+			[ 'method' => 'post', 'action' => admin_url( 'admin-post.php' ), 'class' => 'sw-ui-actions' ],
 			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'action', 'value' => 'stonewright_reset_domain_lock' ] )
 			. Nonce::field( 'stonewright_reset_domain_lock' )
-			. Button::group( [ $button ] )
+			. $button
 			. $hint
 		);
 	}

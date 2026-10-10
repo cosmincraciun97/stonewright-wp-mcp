@@ -17,6 +17,13 @@ On every release:
 6. Run tier-1 client smoke using
    [client-acceptance-template.md](client-acceptance-template.md).
 
+The notes of each release declare exactly one channel on a line of its own, for example
+``Release channel: `supported` ``. `supported` (a supported public beta) and `stable` are
+published as a normal GitHub release marked `Latest`; `preview` is published as a
+GitHub prerelease and is never `Latest`. A `supported` or `preview` release carries a
+prerelease SemVer, and a `stable` release a stable one. The release workflow rejects any
+other combination.
+
 Component licensing is described in `docs/licensing.md`. Public history may be
 rewritten only for a maintainer-approved privacy or credential incident, with
 fresh release artifacts and verification afterward.

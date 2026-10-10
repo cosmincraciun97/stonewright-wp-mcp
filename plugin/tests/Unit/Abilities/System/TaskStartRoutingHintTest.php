@@ -86,13 +86,13 @@ final class TaskStartRoutingHintTest extends TestCase {
 		$matches = ToolRouting::for_task( $task );
 		self::assertCount( 4, $matches );
 		$hint_bytes = strlen( (string) wp_json_encode( ToolRouting::hint( $matches, false ) ) );
-		// Precondition: this task is close enough to the 3600 byte compact cap that the hint cannot fit.
-		self::assertGreaterThanOrEqual( 3600, $base_bytes + $hint_bytes );
+		// Precondition: this task is close enough to the 3750 byte compact cap that the hint cannot fit.
+		self::assertGreaterThanOrEqual( 3750, $base_bytes + $hint_bytes );
 
 		$start = $this->start( $task, 'elementor', 'write' );
 
 		self::assertArrayNotHasKey( 'routing_hint', $start['fast_path'] );
-		self::assertLessThan( 3600, strlen( (string) wp_json_encode( $start ) ) );
+		self::assertLessThan( 3750, strlen( (string) wp_json_encode( $start ) ) );
 		// No contract field was trimmed to make room.
 		self::assertSame( $base['context']['visual_quality_contract'], $start['context']['visual_quality_contract'] );
 	}

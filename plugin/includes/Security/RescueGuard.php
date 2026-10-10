@@ -309,7 +309,7 @@ final class RescueGuard {
 			$context['legs'][] = 'custom';
 			$context['url']    = $options['url'];
 		}
-		$probe = RescueRollback::judge( HealthProbe::run( $context ), [ $entry ], $context );
+		$probe = self::probe_after_write( $context, [ $entry ] );
 		if ( 'passed' === $probe['status'] ) {
 			ChangeJournal::settle( $id, 'verified', [ 'probe' => $probe ] );
 			return array_merge( $none, [ 'status' => 'verified', 'probe' => $probe, 'site_status' => 'healthy' ] );
@@ -368,7 +368,7 @@ final class RescueGuard {
 		}
 
 		$context = self::context_for( $changed, $frame['user'] );
-		$probe   = RescueRollback::judge( HealthProbe::run( $context ), $changed, $context );
+		$probe   = self::probe_after_write( $context, $changed );
 
 		if ( 'passed' === $probe['status'] ) {
 			foreach ( $changed as $entry ) {
@@ -393,6 +393,21 @@ final class RescueGuard {
 			RescueRollback::conclude( $entry['id'], $rollbacks[ $entry['id'] ], $probe, $after );
 		}
 		return self::failure_error( $changed, $rollbacks, $probe, $after, $result );
+	}
+
+	/**
+	 * The probe taken right after a write, judged against the baselines. A leg that passed before and
+	 * gets no answer is asked once more (a freshly written page may only be slow to render), unless
+	 * the host is already known not to answer its own requests: then the probe is one short request
+	 * and a write must not wait for a second one.
+	 *
+	 * @param array<string, mixed>       $context
+	 * @param list<array<string, mixed>> $entries
+	 * @return array<string, mixed>
+	 */
+	private static function probe_after_write( array $context, array $entries ): array {
+		$quick = HealthProbe::loopback_cooling_down();
+		return RescueRollback::judge( HealthProbe::run( $context ), $entries, $context, ! $quick );
 	}
 
 	/**
@@ -497,7 +512,7 @@ final class RescueGuard {
 	private static function note_unavailable( array $probe ): void {
 		$reason = (string) ( $probe['unavailable_reason'] ?? 'no_evidence' );
 		AgentNotices::push(
-			'rescue_probe',
+			HealthProbe::NOTICE_KEY,
 			sprintf( 'rescue: health probe unavailable on this host (%s); recent changes are armed but not verified.', preg_replace( '/[^a-z0-9_]/', '', strtolower( $reason ) ) ),
 			900
 		);

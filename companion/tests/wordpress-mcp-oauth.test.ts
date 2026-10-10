@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOAuthTestDirectory } from './helpers/windows-oauth-acl.js';
+import { createOAuthTestDirectory, OAUTH_WARMUP_TIMEOUT_MS, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 import { OAuthReauthRequiredError, OAuthTokenStore } from '../src/oauth-token-manager.js';
 import { WordPressMcpClient, type WordPressMcpConfig } from '../src/wordpress-mcp.js';
+
+// Windows: build and start the native ACL helper before the first test, not inside it.
+beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 function fixtureConfig(tokenStorePath: string): WordPressMcpConfig {
 	return {

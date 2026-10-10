@@ -41,6 +41,23 @@ final class PromptCatalogGuardTest extends TestCase {
 		'/stonewright[-\/](?:context-bootstrap|workflow-preflight)/' => 'The canonical first call is stonewright-task-start; the others are compatibility paths.',
 	];
 
+	/**
+	 * Writes that refuse to run in production-safe mode without a confirmation token. A prompt that names one says
+	 * how the token is issued, and that a dry run needs none where that is so.
+	 */
+	private const TOKEN_GATED_WRITES = [
+		'stonewright-elementor-v3-batch-mutate',
+		'stonewright-elementor-v3-build-page-from-spec',
+		'stonewright-elementor-v3-apply-bundle',
+		'stonewright-elementor-v3-transaction-run',
+		'stonewright-blocks-finalize-batch',
+		'stonewright-fse-write-template',
+		'stonewright-fse-write-template-part',
+		'stonewright-design-normalize-assets',
+		'stonewright-change-restore',
+		'stonewright-rescue-rollback',
+	];
+
 	protected function setUp(): void {
 		MenuRegistry::reset_for_tests();
 		// The two pages that register themselves when WordPress initialises.
@@ -96,6 +113,14 @@ final class PromptCatalogGuardTest extends TestCase {
 		}
 	}
 
+	public function test_a_prompt_that_names_a_token_gated_write_says_how_the_token_is_issued(): void {
+		self::assertSame( [], self::token_problems( PromptCatalog::all() ) );
+	}
+
+	public function test_every_token_gated_write_the_guard_knows_is_a_plugin_tool(): void {
+		self::assertSame( [], array_values( array_diff( self::TOKEN_GATED_WRITES, self::plugin_tool_names() ) ) );
+	}
+
 	/**
 	 * A prompt for a feature of this release exists, so the library cannot fall behind it silently.
 	 */
@@ -118,8 +143,11 @@ final class PromptCatalogGuardTest extends TestCase {
 				'stonewright-elementor-native-execute',
 				'stonewright-design-direction-brief',
 				'repair_of',
-				'Stonewright > Rescue',
-				'Stonewright > Audit log',
+				'stonewright-elementor-knowledge-refresh',
+				'stonewright-design-normalize-assets',
+				'Stonewright > Activity > Rescue',
+				'Stonewright > Activity > Audit log',
+				'Stonewright > Activity > Block queue',
 				'profile=inspect',
 			] as $feature
 		) {
@@ -147,6 +175,8 @@ final class PromptCatalogGuardTest extends TestCase {
 			self::row( 'unknown-option', [ 'plugin' ], 'Call stonewright-task-start. Set stonewright_no_such_option to on.' ),
 			self::row( 'removed', [ 'plugin' ], 'Call stonewright-task-start. Open the Design Library, migrate the Elementor page to Gutenberg with a brand kit, coming soon in PRO.' ),
 			self::row( 'site-data', [ 'plugin' ], 'Call stonewright-task-start. Open https://shop.example.net/wp-admin.' ),
+			self::row( 'no-token-advice', [ 'plugin' ], 'Call stonewright-task-start, then apply with stonewright-elementor-v3-batch-mutate.' ),
+			self::row( 'hidden-page', [ 'plugin' ], 'Call stonewright-task-start. Open Stonewright > Block queue.' ),
 		];
 
 		$tools = implode( "\n", self::tool_problems( $bad ) );
@@ -160,6 +190,9 @@ final class PromptCatalogGuardTest extends TestCase {
 		$pages = implode( "\n", self::page_problems( $bad ) );
 		self::assertStringContainsString( 'unknown-page: Stonewright > Marketplace', $pages );
 		self::assertStringContainsString( 'unknown-subpage: Stonewright > Rescue > Nowhere', $pages );
+		self::assertStringContainsString( 'hidden-page: Stonewright > Block queue', $pages );
+		self::assertStringContainsString( 'no-token-advice: stonewright-elementor-v3-batch-mutate', implode( "
+", self::token_problems( $bad ) ) );
 
 		self::assertStringContainsString( 'unknown-slug: stonewright-design-studio', implode( "\n", self::tool_problems( $bad ) ) );
 		self::assertStringContainsString( 'unknown-option: stonewright_no_such_option', implode( "\n", self::option_problems( $bad ) ) );
@@ -180,6 +213,11 @@ final class PromptCatalogGuardTest extends TestCase {
 				'Call stonewright-task-start and stonewright/site-snapshot. Open Stonewright > Rescue, Stonewright > Setup > Settings, '
 				. 'Stonewright > Activity > Block queue, Stonewright > Troubleshoot or Stonewright > Audit log.'
 			),
+			self::row(
+				'good-token',
+				[ 'plugin' ],
+				'Call stonewright-task-start. Apply with stonewright-elementor-v3-batch-mutate; in production-safe mode pass a confirmation_token from stonewright-security-issue-confirmation-token for exactly that call.'
+			),
 			self::row( 'good-direct', [ 'direct' ], 'Call stonewright-task-start, stonewright-site-discover and stonewright-wc-products.' ),
 			self::row( 'good-both', [ 'plugin', 'direct' ], 'Call stonewright-task-start, stonewright-wp-cli-status and stonewright-setup-profile.' ),
 		];
@@ -187,6 +225,7 @@ final class PromptCatalogGuardTest extends TestCase {
 		self::assertSame( [], self::tool_problems( $good ) );
 		self::assertSame( [], self::page_problems( $good ) );
 		self::assertSame( [], self::bare_name_problems( $good ) );
+		self::assertSame( [], self::token_problems( $good ) );
 	}
 
 	// ---------------------------------------------------------------------
@@ -264,6 +303,28 @@ final class PromptCatalogGuardTest extends TestCase {
 				foreach ( array_unique( $found[1] ) as $short ) {
 					$problems[] = $prompt['id'] . ': ' . $short . ' (write stonewright-' . $short . ')';
 				}
+			}
+		}
+
+		return $problems;
+	}
+
+	/**
+	 * A prompt that names a token-gated write must name the `confirmation_token` and the tool that issues it.
+	 *
+	 * @param list<array<string, mixed>> $prompts
+	 * @return list<string>
+	 */
+	private static function token_problems( array $prompts ): array {
+		$problems = [];
+		foreach ( $prompts as $prompt ) {
+			$text  = self::prompt_text( $prompt );
+			$named = array_values( array_intersect( self::tokens( $text ), self::TOKEN_GATED_WRITES ) );
+			if ( [] === $named ) {
+				continue;
+			}
+			if ( ! str_contains( $text, 'confirmation_token' ) || ! str_contains( $text, 'stonewright-security-issue-confirmation-token' ) ) {
+				$problems[] = $prompt['id'] . ': ' . $named[0] . ' (name the confirmation_token and stonewright-security-issue-confirmation-token)';
 			}
 		}
 
@@ -435,6 +496,9 @@ final class PromptCatalogGuardTest extends TestCase {
 			return $rest;
 		}
 		$after = ltrim( substr( $rest, strlen( $first ) ) );
+		if ( '' === $after && self::is_listed_in_no_menu( $first ) ) {
+			return $first . ' (no sidebar entry: write the hub first)';
+		}
 		if ( '' === $after || ! preg_match( '/^(?:>|\x{2192})\s*(.+)$/su', $after, $next ) ) {
 			return null;
 		}
@@ -445,6 +509,22 @@ final class PromptCatalogGuardTest extends TestCase {
 		}
 
 		return null;
+	}
+
+	/** A page the sidebar does not list, such as the Block queue, is reached through its hub in the band. */
+	private static function is_listed_in_no_menu( string $label ): bool {
+		$found = false;
+		foreach ( MenuRegistry::entries() as $entry ) {
+			if ( 0 !== strcasecmp( $entry['label'], $label ) && 0 !== strcasecmp( $entry['title'], $label ) && 0 !== strcasecmp( $entry['menu_label'], $label ) ) {
+				continue;
+			}
+			if ( $entry['in_menu'] ) {
+				return false;
+			}
+			$found = true;
+		}
+
+		return $found;
 	}
 
 	/**

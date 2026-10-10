@@ -115,6 +115,16 @@ final class RescueAbilitiesTest extends TestCase {
 		self::assertLessThan( 600, strlen( (string) wp_json_encode( $result ) ) );
 	}
 
+	public function test_status_reports_the_state_of_the_rescue_helper_when_it_is_healthy_too(): void {
+		$result = ( new RescueStatus() )->execute( [] );
+
+		self::assertSame( [ 'state', 'safe_mode' ], array_keys( $result['helper'] ) );
+		self::assertSame( 'missing', $result['helper']['state'], 'No helper is installed in the unit environment.' );
+		self::assertFalse( $result['helper']['safe_mode'] );
+		self::assertStringNotContainsString( 'mu-plugins', (string) wp_json_encode( $result ), 'No path is reported.' );
+		self::assertArrayHasKey( 'helper', ( new RescueStatus() )->output_schema()['properties'] );
+	}
+
 	public function test_status_lists_an_open_incident_with_its_plan(): void {
 		$id = $this->open_post_incident();
 
@@ -258,8 +268,8 @@ final class RescueAbilitiesTest extends TestCase {
 		self::assertSame( 404, $result->get_error_data()['status'] );
 	}
 
-	public function test_a_change_that_is_already_settled_has_nothing_to_roll_back(): void {
-		$id = $this->open_post_incident( 'verified' );
+	public function test_a_change_that_is_already_rolled_back_has_nothing_to_roll_back(): void {
+		$id = $this->open_post_incident( 'rolled_back' );
 
 		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
 
@@ -463,6 +473,294 @@ final class RescueAbilitiesTest extends TestCase {
 
 		self::assertTrue( $result['ok'] );
 	}
+
+	// -- Undo of a verified change -----------------------------------------------------------------
+
+	/**
+	 * A settled change of the kind that is code, with a recipe that runs without touching a file.
+	 *
+	 * @return string The entry id.
+	 */
+	private function code_change( string $kind, string $state = 'verified' ): string {
+		if ( 'css' === $kind ) {
+			// The Customizer CSS is a post; its way back is a snapshot of it.
+			$this->post( 44, 'body { color: red; }' );
+			$snapshot = Backup::snapshot_post( 44 );
+			$entry    = ChangeJournal::arm(
+				[
+					'ability'       => 'stonewright/theme-custom-css',
+					'resource_type' => 'post',
+					'resource_key'  => '44',
+					'recipe'        => [ 'type' => 'post_snapshot', 'ref' => $snapshot ],
+					'recipe_detail' => [ 'post_id' => 44, 'snapshot_id' => $snapshot ],
+					'scope'         => 'post',
+				]
+			);
+			$GLOBALS['stonewright_test_posts'][44]->post_content = 'body { color: blue; }';
+			if ( 'armed' !== $state ) {
+				ChangeJournal::settle( $entry['id'], $state );
+			}
+			return $entry['id'];
+		}
+		$spec = match ( $kind ) {
+			'sandbox'    => [ 'ability' => 'stonewright/sandbox-activate', 'resource_type' => 'sandbox', 'resource_key' => 'example-snippet.php', 'recipe' => [ 'type' => 'sandbox_file', 'ref' => 'example-snippet.php' ] ],
+			'theme_file' => [ 'ability' => 'stonewright/theme-file-patch', 'resource_type' => 'theme_file', 'resource_key' => 'wp-content/themes/site-a/style.css', 'recipe' => [ 'type' => 'theme_backup', 'ref' => 'absent:style.css' ], 'recipe_detail' => [ 'absolute' => '/nonexistent/site-a/style.css' ] ],
+			'snippet'    => [ 'ability' => 'stonewright/custom-code-provider', 'resource_type' => 'custom_code', 'resource_key' => 'wpcode:9', 'recipe' => [ 'type' => 'none', 'ref' => '' ], 'recipe_detail' => [ 'provider' => 'wpcode', 'snapshot_id' => 'snap-1', 'target_id' => '9' ] ],
+			default      => throw new \InvalidArgumentException( $kind ),
+		};
+		$entry = ChangeJournal::arm( $spec );
+		if ( 'armed' !== $state ) {
+			ChangeJournal::settle( $entry['id'], $state );
+		}
+		return $entry['id'];
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function code_kinds(): iterable {
+		yield 'theme file'     => [ 'theme_file' ];
+		yield 'custom code'    => [ 'snippet' ];
+		yield 'sandbox file'   => [ 'sandbox' ];
+		yield 'Customizer CSS' => [ 'css' ];
+	}
+
+	public function test_a_verified_change_can_be_rolled_back_through_the_ability(): void {
+		$id = $this->open_post_incident( 'verified' );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'succeeded', $result['rollback_status'] );
+		self::assertSame( 'rolled_back', $result['state'] );
+		self::assertSame( 'healthy', $result['site_status'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		$entry = ChangeJournal::get( $id );
+		self::assertSame( 'rolled_back', $entry['state'] );
+		self::assertSame( 'ability', $entry['rollback']['by'] );
+		self::assertSame( 7, $entry['rollback']['user'], 'The change records who undid it.' );
+		self::assertSame( 'undone_after_verified', $entry['note'] );
+		self::assertSame( 0, $entry['claim_at'] );
+		$rows = array_values(
+			array_filter(
+				array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ),
+				static fn ( array $row ): bool => 'stonewright/rescue-rollback' === ( $row['ability_name'] ?? '' )
+			)
+		);
+		self::assertCount( 1, $rows, 'The receipt is the audit row.' );
+		self::assertSame( 'succeeded', $rows[0]['rollback_status'] );
+		self::assertSame( $id, $rows[0]['change_set_id'] );
+	}
+
+	public function test_a_rolled_back_verified_change_cannot_be_rolled_back_twice(): void {
+		$id = $this->open_post_incident( 'verified' );
+		( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+		$GLOBALS['stonewright_test_posts'][31]->post_content = 'edited later';
+
+		$second = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertInstanceOf( \WP_Error::class, $second );
+		self::assertSame( 'stonewright_rescue_not_open', $second->get_error_code() );
+		self::assertSame( 'edited later', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_a_dry_run_of_a_verified_change_shows_the_plan_and_changes_nothing(): void {
+		$id = $this->open_post_incident( 'verified' );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'dry_run' => true ] );
+
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['dry_run'] );
+		self::assertSame( 'verified', $result['state'] );
+		self::assertStringContainsString( 'post 31', $result['recipe']['plan'] );
+		self::assertArrayNotHasKey( 'approval_required', $result, 'Content is undone without a human.' );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+	}
+
+	public function test_a_verified_change_keeps_the_token_and_the_newer_change_warning(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$id    = $this->open_post_incident( 'verified' );
+		$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $newer['id'], 'verified' );
+
+		$plan    = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'dry_run' => true ] );
+		$blocked = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertSame( [ $newer['id'] ], array_column( $plan['newer_changes'], 'incident_id' ) );
+		self::assertStringContainsString( 'newer change', $plan['warnings'][0] );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+	}
+
+	public function test_a_failed_undo_of_a_verified_change_is_an_open_incident_like_any_failed_rollback(): void {
+		$id = $this->open_post_incident( 'verified' );
+		// The recipe is on offer, but the snapshot it names is gone.
+		delete_post_meta( 31, '_stonewright_backups' );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_rollback_failed', $result->get_error_code() );
+		$after = ChangeJournal::get( $id );
+		self::assertSame( 'rollback_failed', $after['state'] );
+		self::assertSame( 0, $after['claim_at'] );
+		self::assertSame( $id, ChangeJournal::banner()['id'] );
+	}
+
+	/** @dataProvider code_kinds */
+	public function test_an_agent_cannot_undo_a_verified_code_change( string $kind ): void {
+		$id = $this->code_change( $kind );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_approval_required', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertTrue( $data['approval_required'] );
+		self::assertTrue( $data['agent_must_stop'] );
+		self::assertSame( 'custom_code', $data['operation_class'] );
+		self::assertStringContainsString( 'page=stonewright-rescue', $data['approval_url'] );
+		self::assertSame( $id, $data['incident_id'] );
+		self::assertStringContainsString( 'Stonewright > Activity > Rescue', $result->get_error_message() );
+		$entry = ChangeJournal::get( $id );
+		self::assertSame( 'verified', $entry['state'], 'Nothing ran.' );
+		self::assertSame( 0, $entry['claim_at'] );
+		self::assertNull( $entry['rollback'] );
+	}
+
+	/** @dataProvider code_kinds */
+	public function test_the_approval_stop_holds_in_production_safe_mode_even_with_a_token( string $kind ): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$id                         = $this->code_change( $kind );
+		$args                       = [ 'incident_id' => $id ];
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/rescue-rollback', $args );
+
+		$result = ( new RescueRollback() )->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_approval_required', $result->get_error_code(), 'A token is no approval.' );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+	}
+
+	public function test_the_approval_stop_comes_before_the_request_for_a_token(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$id = $this->code_change( 'sandbox' );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_approval_required', $result->get_error_code(), 'No token is worth issuing for a call that cannot run.' );
+	}
+
+	/** @dataProvider code_kinds */
+	public function test_a_dry_run_of_a_verified_code_change_shows_the_plan_and_the_approval_stop( string $kind ): void {
+		$id = $this->code_change( $kind );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'dry_run' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['dry_run'] );
+		self::assertTrue( $result['approval_required'] );
+		self::assertStringContainsString( 'page=stonewright-rescue', $result['approval_url'] );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+	}
+
+	/** @dataProvider code_kinds */
+	public function test_a_code_change_that_is_not_verified_is_still_an_incident_the_ability_can_handle( string $kind ): void {
+		foreach ( [ 'rollback_failed', 'armed' ] as $state ) {
+			ChangeJournal::reset_for_tests();
+			$id     = $this->code_change( $kind, $state );
+			$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'dry_run' => true ] );
+
+			self::assertIsArray( $result, $state );
+			self::assertArrayNotHasKey( 'approval_required', $result, $state . ' is an incident, not an undo.' );
+		}
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function runnable_code_kinds(): iterable {
+		yield 'sandbox file'   => [ 'sandbox' ];
+		yield 'Customizer CSS' => [ 'css' ];
+	}
+
+	/** @dataProvider runnable_code_kinds */
+	public function test_an_incident_rollback_of_code_still_runs_through_the_ability( string $kind ): void {
+		foreach ( [ 'rollback_failed', 'armed' ] as $state ) {
+			ChangeJournal::reset_for_tests();
+			$id     = $this->code_change( $kind, $state );
+			$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+			self::assertIsArray( $result, $state );
+			self::assertTrue( $result['ok'], $state );
+			self::assertSame( 'rolled_back', ChangeJournal::get( $id )['state'], $state );
+		}
+	}
+
+	public function test_an_incident_recorded_by_the_helper_is_rolled_back_by_an_agent_as_before(): void {
+		$id = $this->code_change( 'sandbox', 'armed' );
+		$this->flip_to_incident( $id );
+		self::assertSame( 'incident', ChangeJournal::get( $id )['state'] );
+
+		$result = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'rolled_back', ChangeJournal::get( $id )['state'] );
+	}
+
+	private function flip_to_incident( string $id ): void {
+		$file = new \Stonewright\WpMcp\Security\ChangeJournalFile( $this->uploads . '/stonewright-state/' . (string) get_option( ChangeJournal::FILE_OPTION, '' ) );
+		$file->transaction(
+			static function ( array $document ) use ( $id ): array {
+				foreach ( $document['entries'] as $index => $entry ) {
+					if ( $entry['id'] === $id ) {
+						$document['entries'][ $index ]['state']    = 'incident';
+						$document['entries'][ $index ]['incident'] = [
+							'recorded_at'    => time(),
+							'file'           => 'wp-content/mu-plugins/example-snippet.php',
+							'line'           => 3,
+							'type'           => 1,
+							'message_sha256' => str_repeat( 'c', 64 ),
+							'source'         => 'shutdown',
+						];
+					}
+				}
+				return $document;
+			}
+		);
+		clearstatcache();
+		ChangeJournal::sync_from_file();
+	}
+
+	public function test_a_verified_change_that_is_being_rolled_back_is_not_started_again(): void {
+		$id = $this->open_post_incident( 'verified' );
+		self::assertNotNull( ChangeJournal::claim( $id, 'admin-page' ), 'A verified change can be claimed.' );
+		self::assertNull( ChangeJournal::claim( $id, 'ability' ), 'Only one caller gets the claim.' );
+
+		$second = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+
+		self::assertInstanceOf( \WP_Error::class, $second );
+		self::assertSame( 'stonewright_rescue_in_progress', $second->get_error_code() );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The recipe ran once, not twice.' );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+	}
+
+	public function test_the_service_never_undoes_verified_code_unless_an_administrator_approved_it(): void {
+		$id = $this->code_change( 'sandbox' );
+
+		$refused = \Stonewright\WpMcp\Security\RescueRollback::run( $id, [ 'by' => 'wp-cli' ] );
+		$allowed = \Stonewright\WpMcp\Security\RescueRollback::run( $id, [ 'by' => 'admin-page', 'human_approved' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_rescue_approval_required', $refused->get_error_code() );
+		self::assertIsArray( $allowed );
+		self::assertTrue( $allowed['ok'] );
+		self::assertSame( 'rolled_back', ChangeJournal::get( $id )['state'] );
+	}
+
 	private static function remove_tree( string $dir ): void {
 		if ( ! is_dir( $dir ) ) {
 			return;

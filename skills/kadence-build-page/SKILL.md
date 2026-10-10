@@ -57,7 +57,7 @@ session is stale the moment plugins change.
 ## Pending-change pipeline
 
 Kadence (and every other static / third-party block) is serialized by the
-live block editor, not by PHP. Queue a spec, keep the Block Editor Queue
+live block editor, not by PHP. Queue a spec, keep the block queue console
 tab online, then persist hashed HTML.
 
 1. `stonewright-blocks-parse` the target post so you know `path`, `position`,
@@ -69,8 +69,8 @@ tab online, then persist hashed HTML.
 3. Call `stonewright-blocks-finalizer-runtime`. You need `online: true`, a
    `finalizer_url` / `url`, `pending_count`, and per-target
    `editor_frame_url`. `keep_open` is true on purpose.
-4. If `online` is false, tell the operator to open **Stonewright → Block
-   Editor Queue** and leave that tab open. The page copy is: keep it open
+4. If `online` is false, tell the operator to open **Stonewright → Activity →
+   Block queue** and leave that tab open. The page copy is: keep it open
    while an agent session runs. Do not finalize while the heartbeat is dead.
    `stonewright-blocks-finalizer-url` is the same URL if you only need the
    link.
@@ -80,7 +80,7 @@ tab online, then persist hashed HTML.
 6. Persist with `stonewright-blocks-finalize-batch` (`change_ids`, `post_id`).
    That path snapshots, confirms in production-safe, audits, and readbacks.
 7. Verify the front end in a **separate** browser tab at desktop, tablet,
-   and mobile. Do not resize the editor or the Queue tab to fake a
+   and mobile. Do not resize the editor or the console tab to fake a
    breakpoint.
 
 One section per batch unless two sections are trivial and tightly coupled.
@@ -281,9 +281,9 @@ the live attachment. Do not invent media ids.
 | Name not in the live list | `block_not_registered` / `stonewright_block_not_registered` | Re-run `list-blocks`. Stop inventing names. |
 | Queue rejected unknown keys on PHP insert | `unknown_block_attributes` | You used the server path. Re-queue on the finalizer. |
 | Warning only, queue accepted | `likely_partial_schema` | Expected for `kadence/`. Leave the keys. Let the editor save. |
-| Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Queue tab is offline or the iframe never serialized. Open Block Editor Queue. Wait. Retry. |
+| Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Console tab is offline or the iframe never serialized. Open the block queue console (Stonewright → Activity → Block queue). Wait. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Queue again with a fresh `expected_content_hash`. |
-| Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize Kadence. Ask the operator to keep the Queue tab open. |
+| Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize Kadence. Ask the operator to keep the console tab open. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard that serialized blob. Re-queue. Never persist unverified HTML. |
 | `check-setup.active` false | `status: unavailable` | This pack does not apply. Use `gutenberg-fse-builder` with core blocks, or install Kadence Blocks. |
 

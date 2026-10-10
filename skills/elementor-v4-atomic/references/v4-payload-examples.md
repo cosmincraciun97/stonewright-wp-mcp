@@ -90,6 +90,8 @@ overrides live in `variants`.
 }
 ```
 
+The `html-v3` object above is the text type of older Elementor versions. The text type is the one the live widget declares: on a current Elementor the `title` of `e-heading`, the `paragraph` of `e-paragraph` and the `text` of `e-button` are `{ "$$type": "escaped-html", "value": "Test heading" }`, and a value of the other type is stored but renders empty. Read the type with `stonewright/elementor-v4-describe-atomic-widget` and use the same type when you adapt copied text with `update_node`.
+
 ## Variable references
 
 Atomic props reference variables through typed envelopes defined by the live

@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\RescueInstaller;
+
 /**
  * Runs a journal entry's rollback recipe, probes the site afterwards, and records the outcome
  * on the entry. The automatic rollback after a failed probe (RescueGuard) and the manual one
@@ -18,8 +20,20 @@ namespace Stonewright\WpMcp\Security;
  */
 final class RescueRollback {
 
-	/** States in which an entry can still be rolled back or re-checked. */
+	/** States in which an entry can still be re-checked. */
 	public const OPEN_STATES = [ 'incident', 'rollback_failed', 'armed' ];
+
+	/** States in which an entry can be rolled back: the open ones, and a verified change that is undone on request. */
+	public const ROLLBACK_STATES = [ 'incident', 'rollback_failed', 'armed', 'verified' ];
+
+	/** Resource types that are code: undoing a verified change to one needs an administrator, not an agent. */
+	private const CODE_RESOURCE_TYPES = [ 'theme_file', 'custom_code', 'sandbox' ];
+
+	/** Abilities whose changes are code although the item they touch is a post (the Customizer CSS post). */
+	private const CODE_ABILITIES = [ 'stonewright/theme-custom-css' ];
+
+	/** The wp-admin page where an administrator rolls a change back. */
+	private const RESCUE_PAGE = 'stonewright-rescue';
 
 	/** The rescue helper's way to run code with the stored plugin and theme selection in place. */
 	private const SELECTION_RUNNER = [ '\Stonewright\WpMcp\Security\RescueSafeBoot', 'with_stored_selection' ];
@@ -91,9 +105,10 @@ final class RescueRollback {
 	 * @param array<string, mixed> $rollback    From apply_recipe().
 	 * @param array<string, mixed> $probe_before The failing probe that caused the rollback, or [].
 	 * @param array<string, mixed> $probe_after  The probe run after the rollback.
+	 * @param string               $note         A short note kept on the entry, for example that a verified change was undone.
 	 * @return array<string, mixed>|null The updated entry.
 	 */
-	public static function conclude( string $id, array $rollback, array $probe_before, array $probe_after ): ?array {
+	public static function conclude( string $id, array $rollback, array $probe_before, array $probe_after, string $note = '' ): ?array {
 		$ok   = self::succeeded( $rollback );
 		$site = self::site_status( $probe_after );
 		$extra = [
@@ -101,12 +116,16 @@ final class RescueRollback {
 				'status' => $rollback['status'],
 				'at'     => $rollback['at'],
 				'by'     => $rollback['by'],
+				'user'   => (int) ( $rollback['user'] ?? 0 ),
 				'recipe' => $rollback['recipe'],
 				'detail' => $rollback['detail'],
 				'site'   => $site,
 			],
 			'residual' => $ok && 'still_failing' === $site,
 		];
+		if ( '' !== $note ) {
+			$extra['note'] = $note;
+		}
 		if ( [] !== $probe_before ) {
 			$extra['probe'] = $probe_before;
 		} elseif ( [] !== $probe_after ) {
@@ -122,14 +141,17 @@ final class RescueRollback {
 
 	/**
 	 * Judge a probe against the baselines the entries took before their writes: a leg that passed
-	 * then and cannot be reached now counts as failed (see HealthProbe::compare()).
+	 * then and cannot be reached now counts as failed (see HealthProbe::compare()). For the probe taken
+	 * right after a write, $retry asks such a leg once more first, in case it was only slow (see
+	 * HealthProbe::retry_silent_legs()).
 	 *
 	 * @param array<string, mixed>       $probe   A probe taken after the change.
 	 * @param list<array<string, mixed>> $entries The entries the probe covers.
 	 * @param array<string, mixed>       $context The context the probe was run with.
+	 * @param bool                       $retry   Ask a leg that got no answer once more before judging it.
 	 * @return array<string, mixed>
 	 */
-	public static function judge( array $probe, array $entries, array $context ): array {
+	public static function judge( array $probe, array $entries, array $context, bool $retry = false ): array {
 		$passed  = [];
 		$post_id = (int) ( $context['post_id'] ?? 0 );
 		foreach ( $entries as $entry ) {
@@ -146,7 +168,11 @@ final class RescueRollback {
 				$passed[ $name ] = true;
 			}
 		}
-		return HealthProbe::compare( $probe, array_keys( $passed ) );
+		$passed = array_keys( $passed );
+		if ( $retry ) {
+			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
+		}
+		return HealthProbe::compare( $probe, $passed );
 	}
 
 	/**
@@ -191,12 +217,16 @@ final class RescueRollback {
 			if ( ! is_array( $leg ) ) {
 				continue;
 			}
-			$legs[] = [
+			$entry = [
 				'leg'    => (string) ( $leg['leg'] ?? '' ),
 				'status' => (string) ( $leg['status'] ?? '' ),
 				'http'   => (int) ( $leg['http'] ?? 0 ),
 				'reason' => (string) ( $leg['reason'] ?? '' ),
 			];
+			if ( ! empty( $leg['retried'] ) ) {
+				$entry['retried'] = true;
+			}
+			$legs[] = $entry;
 		}
 		$out = [
 			'status'   => (string) ( $probe['status'] ?? 'unavailable' ),
@@ -228,6 +258,10 @@ final class RescueRollback {
 			],
 			$newer
 		);
+		if ( self::needs_human_approval( $entry ) ) {
+			$plan['approval_required'] = true;
+			$plan['approval_url']      = self::approval_url();
+		}
 		if ( [] !== $newer ) {
 			$ids = implode( ', ', array_map( static fn ( array $other ): string => (string) $other['id'], array_slice( $newer, 0, 3 ) ) );
 			$plan['warnings'] = [
@@ -241,11 +275,87 @@ final class RescueRollback {
 		return $plan;
 	}
 
+	private static function not_open_error( string $id, string $state ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_rescue_not_open',
+			__( 'That change is already rolled back. Nothing is left to roll back.', 'stonewright' ),
+			[ 'status' => 409, 'incident_id' => $id, 'state' => $state ]
+		);
+	}
+
 	private static function in_progress_error( string $id ): \WP_Error {
 		return new \WP_Error(
 			'stonewright_rescue_in_progress',
 			__( 'A rollback of this change set is already running. Check again in a minute.', 'stonewright' ),
 			[ 'status' => 409, 'incident_id' => $id ]
+		);
+	}
+
+	/**
+	 * Whether an entry is a change to code: a theme file, a custom-code snippet, a sandbox file or
+	 * the Customizer CSS.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	public static function is_code_change( array $entry ): bool {
+		return in_array( (string) ( $entry['resource_type'] ?? '' ), self::CODE_RESOURCE_TYPES, true )
+			|| in_array( (string) ( $entry['ability'] ?? '' ), self::CODE_ABILITIES, true );
+	}
+
+	/**
+	 * Whether undoing this entry needs an administrator in wp-admin. A verified change to code is not
+	 * undone on an agent's call; an open incident of code still is, because the site is failing.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	public static function needs_human_approval( array $entry ): bool {
+		return 'verified' === (string) ( $entry['state'] ?? '' ) && self::is_code_change( $entry );
+	}
+
+	/** The Rescue page, where an administrator approves the undo of a code change. */
+	public static function approval_url(): string {
+		return admin_url( 'admin.php?page=' . self::RESCUE_PAGE );
+	}
+
+	/**
+	 * What a caller that is not an administrator at the Rescue page is told about an entry, or null
+	 * when it may go on. For callers that want to answer before they ask for anything else.
+	 */
+	public static function approval_refusal( string $incident_id ): ?\WP_Error {
+		$entry = ChangeJournal::get( $incident_id );
+		return null !== $entry && self::needs_human_approval( $entry ) ? self::approval_required_error( $entry ) : null;
+	}
+
+	/**
+	 * The answer to a call that would undo a verified code change without an administrator. It
+	 * carries the same approval envelope as the custom-code gate: the agent shows it and stops.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function approval_required_error( array $entry ): \WP_Error {
+		$message  = __( 'Undoing a verified change to code needs an administrator. Ask the administrator to open Stonewright > Activity > Rescue and press Roll back for this change, then stop. Do not retry the call.', 'stonewright' );
+		$proposal = CustomCodeGrant::missing_grant_proposal(
+			[
+				'error_code'          => 'stonewright_rescue_approval_required',
+				'message'             => $message,
+				'approval_url'        => self::approval_url(),
+				'recommended_next'    => 'show the change and the approval URL, then stop for the administrator',
+				'operator_action'     => 'An administrator opens Stonewright > Activity > Rescue and presses Roll back for this change.',
+				'incident_id'         => (string) $entry['id'],
+				'change_set_id'       => (string) $entry['id'],
+				'ability'             => (string) $entry['ability'],
+				'execution_status'    => 'blocked',
+				'verification_status' => 'blocked',
+				'rollback_status'     => 'not_needed',
+				'effect_verified'     => false,
+				'resource_type'       => (string) $entry['resource_type'],
+				'resource_ref'        => (string) $entry['resource_key'],
+			]
+		);
+		return new \WP_Error(
+			'stonewright_rescue_approval_required',
+			$message,
+			array_merge( [ 'status' => 400, 'retryable' => false ], $proposal )
 		);
 	}
 
@@ -295,13 +405,17 @@ final class RescueRollback {
 				ChangeJournal::recent( 5 )
 			),
 			'journal'        => ChangeJournal::storage_status(),
+			'helper'         => RescueInstaller::summary(),
 		];
 	}
 
 	/**
-	 * Roll an open change back by hand, then probe.
+	 * Roll a change back by hand, then probe. An open change (an incident, or one never verified) can
+	 * always be rolled back; a verified change can be undone on request, except a verified change to
+	 * code, which needs `human_approved`: only the Rescue page, where an administrator presses the
+	 * button, passes it.
 	 *
-	 * @param array{by?:string,dry_run?:bool,user_id?:int} $options
+	 * @param array{by?:string,dry_run?:bool,user_id?:int,human_approved?:bool} $options
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function run( string $incident_id, array $options = [] ): array|\WP_Error {
@@ -313,16 +427,15 @@ final class RescueRollback {
 				[ 'status' => 404 ]
 			);
 		}
-		if ( ! in_array( $entry['state'], self::OPEN_STATES, true ) ) {
-			return new \WP_Error(
-				'stonewright_rescue_not_open',
-				__( 'That change is already verified or rolled back. Nothing is left to roll back.', 'stonewright' ),
-				[ 'status' => 409, 'incident_id' => $entry['id'], 'state' => $entry['state'] ]
-			);
+		if ( ! in_array( $entry['state'], self::ROLLBACK_STATES, true ) ) {
+			return self::not_open_error( $entry['id'], (string) $entry['state'] );
 		}
 		$plan = self::plan( $entry );
 		if ( ! empty( $options['dry_run'] ) ) {
 			return array_merge( [ 'ok' => true, 'dry_run' => true ], $plan );
+		}
+		if ( self::needs_human_approval( $entry ) && empty( $options['human_approved'] ) ) {
+			return self::approval_required_error( $entry );
 		}
 		if ( ! RollbackRecipes::available( $entry ) ) {
 			return new \WP_Error(
@@ -336,17 +449,18 @@ final class RescueRollback {
 		$by = (string) ( $options['by'] ?? 'ability' );
 		if ( null === ChangeJournal::claim( $entry['id'], $by ) ) {
 			$fresh = ChangeJournal::get( $entry['id'] );
-			return null !== $fresh && ! in_array( $fresh['state'], self::OPEN_STATES, true )
-				? new \WP_Error( 'stonewright_rescue_not_open', __( 'That change is already verified or rolled back. Nothing is left to roll back.', 'stonewright' ), [ 'status' => 409, 'incident_id' => $entry['id'], 'state' => $fresh['state'] ] )
+			return null !== $fresh && ! in_array( $fresh['state'], self::ROLLBACK_STATES, true )
+				? self::not_open_error( $entry['id'], (string) $fresh['state'] )
 				: self::in_progress_error( $entry['id'] );
 		}
 
 		try {
 			$user      = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
-			$rollback  = self::apply_recipe( $entry, $by );
-			$context   = self::probe_context( $entry, $user );
-			$after     = self::judge( HealthProbe::run( $context ), [ $entry ], $context );
-			$concluded = self::conclude( $entry['id'], $rollback, [], $after );
+			$rollback         = self::apply_recipe( $entry, $by );
+			$rollback['user'] = $user;
+			$context          = self::probe_context( $entry, $user );
+			$after            = self::judge( HealthProbe::run( $context ), [ $entry ], $context );
+			$concluded        = self::conclude( $entry['id'], $rollback, [], $after, 'verified' === $entry['state'] ? 'undone_after_verified' : '' );
 		} finally {
 			// conclude() settles the entry and clears the claim; this covers anything that threw before it.
 			ChangeJournal::release_claim( $entry['id'] );
@@ -484,11 +598,15 @@ final class RescueRollback {
 		$legs = [];
 		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
 			if ( is_array( $leg ) && 'passed' !== ( $leg['status'] ?? '' ) ) {
-				$legs[] = [
+				$entry = [
 					'leg'    => (string) ( $leg['leg'] ?? '' ),
 					'http'   => (int) ( $leg['http'] ?? 0 ),
 					'reason' => (string) ( $leg['reason'] ?? '' ),
 				];
+				if ( ! empty( $leg['retried'] ) ) {
+					$entry['retried'] = true;
+				}
+				$legs[] = $entry;
 			}
 		}
 		return [

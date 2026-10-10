@@ -275,6 +275,12 @@ $GLOBALS['stonewright_test_current_user_id'] ??= 0;
 
 if ( ! function_exists( 'get_current_user_id' ) ) {
 	function get_current_user_id(): int {
+		// With the flag set, behave like WordPress: the first lookup fixes the user for the request until
+		// wp_set_current_user() replaces it.
+		if ( ! empty( $GLOBALS['stonewright_test_cache_current_user'] ) ) {
+			$GLOBALS['stonewright_test_current_user_cache'] ??= (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 );
+			return (int) $GLOBALS['stonewright_test_current_user_cache'];
+		}
 		return (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 );
 	}
 }
@@ -323,6 +329,9 @@ if ( ! function_exists( 'wp_set_current_user' ) ) {
 	function wp_set_current_user( int $id, string $name = '' ): object {
 		$GLOBALS['stonewright_test_set_current_user'] = $id;
 		$GLOBALS['stonewright_test_current_user_id']  = $id;
+		if ( ! empty( $GLOBALS['stonewright_test_cache_current_user'] ) ) {
+			$GLOBALS['stonewright_test_current_user_cache'] = $id;
+		}
 		return (object) [ 'ID' => $id ];
 	}
 }
@@ -412,6 +421,17 @@ $GLOBALS['stonewright_test_options'] ??= [];
 
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( string $option, mixed $default = false ): mixed {
+		// With the flag set, behave like WordPress's per-request option cache: the first read of an option is
+		// kept until it is written here or its cache entry is deleted, whatever another request stores meanwhile.
+		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) ) {
+			if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_option_cache'] ?? [] ) ) {
+				$GLOBALS['stonewright_test_option_cache'][ $option ] = array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					? [ 'value' => $GLOBALS['stonewright_test_options'][ $option ] ]
+					: null;
+			}
+			$cached = $GLOBALS['stonewright_test_option_cache'][ $option ];
+			return null === $cached ? $default : $cached['value'];
+		}
 		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
 			return $GLOBALS['stonewright_test_options'][ $option ];
 		}
@@ -422,6 +442,14 @@ if ( ! function_exists( 'get_option' ) ) {
 if ( ! function_exists( 'update_option' ) ) {
 	function update_option( string $option, mixed $value, bool|string $autoload = true ): bool {
 		$old   = $GLOBALS['stonewright_test_options'][ $option ] ?? false;
+		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) ) {
+			// Like WordPress, an update that matches the cached value writes nothing.
+			$old = get_option( $option, false );
+			if ( $value === $old ) {
+				return false;
+			}
+			$GLOBALS['stonewright_test_option_cache'][ $option ] = [ 'value' => $value ];
+		}
 		$value = apply_filters( 'pre_update_option', $value, $option, $old );
 		if ( ! empty( $GLOBALS['stonewright_test_update_option_failures'][ $option ] ) ) {
 			return false;
@@ -469,6 +497,13 @@ if ( ! function_exists( 'maybe_serialize' ) ) {
 
 if ( ! function_exists( 'wp_cache_delete' ) ) {
 	function wp_cache_delete( string $key, string $group = '' ): bool {
+		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) && 'options' === $group ) {
+			if ( 'alloptions' === $key ) {
+				$GLOBALS['stonewright_test_option_cache'] = [];
+			} else {
+				unset( $GLOBALS['stonewright_test_option_cache'][ $key ] );
+			}
+		}
 		return true;
 	}
 }
@@ -1053,6 +1088,25 @@ if ( ! function_exists( 'wp_get_environment_type' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_is_application_passwords_supported' ) ) {
+	function wp_is_application_passwords_supported(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_app_passwords_supported'] ?? ( is_ssl() || 'local' === wp_get_environment_type() ) );
+	}
+}
+
+if ( ! function_exists( 'wp_is_application_passwords_available' ) ) {
+	function wp_is_application_passwords_available(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_app_passwords_available'] ?? wp_is_application_passwords_supported() );
+	}
+}
+
+if ( ! function_exists( 'wp_is_application_passwords_available_for_user' ) ) {
+	function wp_is_application_passwords_available_for_user( mixed $user ): bool {
+		unset( $user );
+		return wp_is_application_passwords_available() && (bool) ( $GLOBALS['stonewright_test_app_passwords_available_for_user'] ?? true );
+	}
+}
+
 if ( ! function_exists( 'is_admin' ) ) {
 	function is_admin(): bool {
 		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
@@ -1067,7 +1121,7 @@ if ( ! function_exists( 'current_theme_supports' ) ) {
 
 if ( ! function_exists( 'wp_is_block_theme' ) ) {
 	function wp_is_block_theme(): bool {
-		return true;
+		return $GLOBALS['stonewright_test_is_block_theme'] ?? true;
 	}
 }
 
@@ -1203,6 +1257,13 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 
 if ( ! function_exists( 'sanitize_textarea_field' ) ) {
 	function sanitize_textarea_field( string $text ): string {
+		// Like core, a stray "<" that does not open a tag is turned into &lt; before the tags are stripped.
+		$text = preg_replace_callback(
+			'%<[^>]*?((?=<)|>|$)%',
+			static fn ( array $match ): string => str_contains( $match[0], '>' ) ? $match[0] : htmlspecialchars( $match[0], ENT_QUOTES ),
+			$text
+		) ?? $text;
+
 		return trim( strip_tags( $text ) );
 	}
 }
@@ -2174,6 +2235,19 @@ if ( ! function_exists( 'get_posts' ) ) {
 				array_filter(
 					$posts,
 					static fn( object $post ): bool => in_array( (string) ( $post->post_type ?? '' ), $post_types, true )
+				)
+			);
+		}
+
+		// A simple taxonomy filter: a post carries the terms it belongs to in $post->stonewright_test_terms[ taxonomy ].
+		foreach ( (array) ( $args['tax_query'] ?? [] ) as $clause ) {
+			if ( ! is_array( $clause ) || ! isset( $clause['taxonomy'] ) ) {
+				continue;
+			}
+			$posts = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => [] !== array_intersect( (array) ( $clause['terms'] ?? [] ), (array) ( $post->stonewright_test_terms[ $clause['taxonomy'] ] ?? [] ) )
 				)
 			);
 		}

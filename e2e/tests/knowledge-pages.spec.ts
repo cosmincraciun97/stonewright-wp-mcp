@@ -182,15 +182,15 @@ test.describe('Knowledge pages: behaviour', () => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => undefined);
 		await open(page, 'stonewright-prompts');
 		const cards = page.locator('[data-sw-prompt-card]');
-		await expect(cards).toHaveCount(29);
-		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText('Showing 29 of 29 prompts');
+		await expect(cards).toHaveCount(31);
+		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText('Showing 31 of 31 prompts');
 
 		await page.getByLabel('Search prompts').fill('figma');
 		await expect(page.locator('[data-sw-prompt-card]:visible').first()).toBeVisible();
 		const visible = await page.locator('[data-sw-prompt-card]:not([hidden])').count();
 		expect(visible).toBeGreaterThan(0);
-		expect(visible).toBeLessThan(29);
-		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText(`Showing ${visible} of 29 prompts`);
+		expect(visible).toBeLessThan(31);
+		await expect(page.locator('[data-sw-ui-filter-count]')).toHaveText(`Showing ${visible} of 31 prompts`);
 
 		await page.getByLabel('Search prompts').fill('zzzz-no-such-prompt');
 		await expect(page.getByText('No prompt matches')).toBeVisible();
@@ -200,6 +200,151 @@ test.describe('Knowledge pages: behaviour', () => {
 		const copy = page.getByRole('button', { name: /^Copy prompt/ }).first();
 		await copy.click();
 		await expect(copy.locator('xpath=following-sibling::*[@role="status"]')).toHaveText('Copied');
+	});
+});
+
+test.describe('Prompt library layout', () => {
+	test.beforeEach(async ({ page }) => {
+		await login(page);
+	});
+
+	test('each outcome is a full-width section; its cards sit in aligned rows of equal height with no holes, and every card has the same parts', async ({ page }) => {
+		await open(page, 'stonewright-prompts');
+		await expect(page.locator('[data-sw-prompt-card]')).toHaveCount(31);
+
+		const problems = await page.evaluate(() => {
+			const found: string[] = [];
+			const near = (a: number, b: number, slack = 1) => Math.abs(a - b) <= slack;
+			const box = (element: Element) => element.getBoundingClientRect();
+			const list = document.querySelector('.sw-prompts__groups') as HTMLElement;
+			const listBox = box(list);
+			let previousBottom = -Infinity;
+
+			for (const section of Array.from(list.querySelectorAll(':scope > section'))) {
+				const name = section.getAttribute('data-sw-prompt-outcome') ?? '?';
+				const sectionBox = box(section);
+				if (!near(sectionBox.left, listBox.left) || !near(sectionBox.width, listBox.width)) {
+					found.push(`${name}: the section is not as wide as the list`);
+				}
+				if (sectionBox.top < previousBottom - 1) {
+					found.push(`${name}: the section starts above the end of the one before it (side by side)`);
+				}
+				previousBottom = sectionBox.bottom;
+
+				const grid = section.querySelector('.sw-prompts__grid') as HTMLElement;
+				const gridBox = box(grid);
+				const gridStyle = getComputedStyle(grid);
+				const rowGap = parseFloat(gridStyle.rowGap);
+				const columnGap = parseFloat(gridStyle.columnGap);
+				const cards = Array.from(grid.querySelectorAll(':scope > article'));
+				const rows: Element[][] = [];
+				for (const card of cards) {
+					const top = box(card).top;
+					const row = rows.find((existing) => near(box(existing[0]).top, top));
+					if (row) {
+						row.push(card);
+					} else {
+						rows.push([card]);
+					}
+				}
+
+				let rowBottom: number | null = null;
+				for (const row of rows) {
+					const first = box(row[0]);
+					// The first row starts at the top of the grid; each next row starts one gap under the one before.
+					if (rowBottom === null ? !near(first.top, gridBox.top) : !near(first.top - rowBottom, rowGap)) {
+						found.push(`${name}: a row starts ${rowBottom === null ? first.top - gridBox.top : first.top - rowBottom}px from what is above it (${rowBottom === null ? 0 : rowGap}px expected)`);
+					}
+					rowBottom = Math.max(...row.map((card) => box(card).bottom));
+					if (!near(first.left, gridBox.left)) {
+						found.push(`${name}: a row does not start at the left edge of the grid`);
+					}
+
+					const parts = (card: Element) => ({
+						header: card.querySelector(':scope > .sw-ui-card__header'),
+						body: card.querySelector(':scope > .sw-ui-card__body'),
+						footer: card.querySelector(':scope > .sw-ui-card__footer'),
+					});
+					const reference = parts(row[0]);
+					row.forEach((card, index) => {
+						const own = parts(card);
+						const title = card.querySelector('.sw-ui-card__title')?.textContent ?? '?';
+						if (!own.header || !own.body || !own.footer || card.children.length !== 3) {
+							found.push(`${title}: the card is not a header, a body and a footer`);
+							return;
+						}
+						if (own.header.querySelector('[aria-label="Available modes"]') || !own.footer.querySelector('[aria-label="Available modes"]')) {
+							found.push(`${title}: the modes are not in the footer`);
+						}
+						const cardBox = box(card);
+						const footerBox = box(own.footer);
+						if (!near(cardBox.height, first.height)) {
+							found.push(`${title}: ${cardBox.height}px tall in a row of ${first.height}px`);
+						}
+						if (reference.body && reference.footer && (!near(box(own.body).top, box(reference.body).top) || !near(footerBox.top, box(reference.footer).top))) {
+							found.push(`${title}: its body or footer is not on the line of the first card of the row`);
+						}
+						if (cardBox.bottom - footerBox.bottom > 2) {
+							found.push(`${title}: the footer is not at the bottom of the card`);
+						}
+						if (index > 0 && !near(cardBox.left - box(row[index - 1]).right, columnGap)) {
+							found.push(`${title}: ${cardBox.left - box(row[index - 1]).right}px between columns (${columnGap}px expected)`);
+						}
+					});
+				}
+			}
+			return found;
+		});
+
+		expect(problems).toEqual([]);
+	});
+});
+
+test.describe('Skills import: the file field', () => {
+	test.beforeEach(async ({ page }) => {
+		await login(page);
+	});
+
+	test('is a layer control inside the drop zone: the secondary button at its size, the file name beside it, still labelled, a keyboard ring and none after a click', async ({ page }) => {
+		await open(page, 'stonewright-skills', '&view=import');
+		const zone = page.locator('.sw-ui-dropzone');
+		const input = zone.getByLabel('Skill file');
+		await expect(input).toBeVisible();
+		await expect(input).toHaveAttribute('type', 'file');
+		await expect(input).toHaveClass(/sw-ui-file/);
+
+		const look = await input.evaluate((element) => {
+			const field = getComputedStyle(element);
+			const button = getComputedStyle(element, '::file-selector-button');
+			return {
+				fieldBorder: field.borderTopWidth,
+				fieldBackground: field.backgroundColor,
+				fieldHeight: element.getBoundingClientRect().height,
+				button: { height: button.minHeight, padding: `${button.paddingLeft} ${button.paddingRight}`, border: button.borderTopWidth, edge: button.borderTopColor, radius: button.borderTopLeftRadius, background: button.backgroundColor, color: button.color, size: button.fontSize },
+				phone: window.matchMedia('(max-width: 782px)').matches,
+			};
+		});
+		expect(look.fieldBorder, 'no box around the field: the drop zone is the box').toBe('0px');
+		expect(look.fieldBackground).toBe('rgba(0, 0, 0, 0)');
+		expect(look.button).toMatchObject({ height: look.phone ? '44px' : '40px', padding: '16px 16px', border: '1px', edge: 'rgb(128, 132, 138)', radius: '2px', background: 'rgb(255, 255, 255)', color: 'rgb(29, 35, 39)', size: '13px' });
+		expect(look.fieldHeight).toBeGreaterThanOrEqual(look.phone ? 44 : 40);
+
+		// A keyboard reaches it and sees a ring of at least 2px.
+		await page.keyboard.press('Tab');
+		await input.focus();
+		const keyboard = await input.evaluate((element) => ({ visible: element.matches(':focus-visible'), width: parseFloat(getComputedStyle(element).outlineWidth), style: getComputedStyle(element).outlineStyle }));
+		expect(keyboard.visible).toBe(true);
+		expect(keyboard.style).not.toBe('none');
+		expect(keyboard.width).toBeGreaterThanOrEqual(2);
+
+		// A mouse click leaves no ring (the click is held back so the file dialog does not open).
+		await page.evaluate(() => document.addEventListener('click', (event) => event.preventDefault(), true));
+		await zone.locator('p').first().click();
+		await input.click();
+		const pointer = await input.evaluate((element) => ({ keyboard: element.matches(':focus-visible'), style: getComputedStyle(element).outlineStyle, shadow: getComputedStyle(element).boxShadow }));
+		expect(pointer.keyboard).toBe(false);
+		expect(pointer.style).toBe('none');
+		expect(pointer.shadow).toBe('none');
 	});
 });
 

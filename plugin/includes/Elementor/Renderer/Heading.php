@@ -92,7 +92,7 @@ final class Heading {
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
 			'widgetType' => 'heading',
-			'settings'   => $settings,
+			'settings'   => StyleMapper::activate_groups( $settings ),
 			'elements'   => [],
 		];
 	}

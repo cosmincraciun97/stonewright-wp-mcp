@@ -126,6 +126,21 @@ final class AdminBarIndicatorTest extends TestCase {
 		return (string) ob_get_clean();
 	}
 
+	public function test_the_pill_is_centred_by_the_layout_so_the_bar_height_does_not_matter(): void {
+		$css = self::badge_css();
+
+		self::assertSame( 1, preg_match( '/#wpadminbar #wp-admin-bar-stonewright-on > \.ab-item \{([^}]*)\}/', $css, $item ), 'The item of the bar centres its content.' );
+		self::assertStringContainsString( 'display: flex', $item[1] );
+		self::assertStringContainsString( 'align-items: center', $item[1] );
+
+		self::assertSame( 1, preg_match( '/#wpadminbar \.stonewright-ab-badge \{([^}]*)\}/', $css, $badge ) );
+		self::assertStringContainsString( 'display: inline-flex', $badge[1] );
+		self::assertStringContainsString( 'align-items: center', $badge[1] );
+		self::assertMatchesRegularExpression( '/min-height:\s*20px/', $badge[1], 'A pill of its own height, not the height of a text line.' );
+		self::assertMatchesRegularExpression( '/line-height:\s*1;/', $badge[1] );
+		self::assertDoesNotMatchRegularExpression( '/padding:\s*[1-9]\d*px/', $badge[1], 'No vertical padding to drift out of balance; the height comes from min-height.' );
+	}
+
 	public function test_the_on_badge_is_green_with_a_dot_and_red_is_kept_for_error(): void {
 		$css = self::badge_css();
 

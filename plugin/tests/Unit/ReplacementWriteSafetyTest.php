@@ -35,7 +35,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'], $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_posts']   = [];
 	}
@@ -67,8 +67,9 @@ final class ReplacementWriteSafetyTest extends TestCase {
 	}
 
 	public function test_elementor_write_failure_returns_wp_error(): void {
-		$GLOBALS['stonewright_test_options']                 = [];
-		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+		$GLOBALS['stonewright_test_options']                  = [];
+		// The document cannot be stored; the snapshot of the post still can.
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_data' => false ];
 
 		$result = ( new SpecToElementorV3() )->execute(
 			[

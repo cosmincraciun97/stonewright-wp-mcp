@@ -126,28 +126,11 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 		self::assertSame( Section::stable_id( 's0' ), $tree[1]['id'] );
 	}
 
-	public function test_replace_section_mode_replaces_matching_sections_only(): void {
+	public function test_replace_section_mode_replaces_only_the_container_built_from_the_section(): void {
 		$section_id = Section::stable_id( 's0' );
-		$GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'] = wp_json_encode(
-			[
-				[ 'id' => 'keep', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
-				[
-					'id'       => $section_id,
-					'elType'   => 'container',
-					'settings' => [],
-					'elements' => [
-						[
-							'id'         => 'old',
-							'elType'     => 'widget',
-							'widgetType' => 'heading',
-							'settings'   => [ 'title' => 'Old' ],
-							'elements'   => [],
-						],
-					],
-				],
-			],
-			JSON_UNESCAPED_SLASHES
-		);
+		$GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'] = '[]';
+		self::assertIsArray( ( new BuildPageFromSpec() )->execute( [ 'post_id' => 777, 'mode' => 'replace', 'spec' => self::spec( 'Old' ) ] ) );
+		self::assertIsArray( ( new BuildPageFromSpec() )->execute( [ 'post_id' => 777, 'mode' => 'append', 'spec' => self::spec( 'Other', 'other' ) ] ) );
 
 		$result = ( new BuildPageFromSpec() )->execute(
 			[
@@ -161,9 +144,28 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 
 		$post = $GLOBALS['stonewright_test_posts'][777];
 		$tree = json_decode( stripslashes( (string) $post->meta['_elementor_data'] ), true );
-		self::assertSame( 'keep', $tree[0]['id'] );
-		self::assertSame( $section_id, $tree[1]['id'] );
-		self::assertSame( 'New', $tree[1]['elements'][0]['settings']['title'] );
+		self::assertCount( 2, $tree );
+		self::assertSame( $section_id, $tree[0]['id'] );
+		self::assertSame( 'New', $tree[0]['elements'][0]['settings']['title'] );
+		self::assertSame( 'Other', $tree[1]['elements'][0]['settings']['title'] );
+	}
+
+	public function test_replace_section_mode_refuses_a_page_without_a_section_record(): void {
+		// An element id that equals the renderer's positional id is not a match.
+		$GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'] = wp_json_encode(
+			[
+				[ 'id' => 'keep', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+				[ 'id' => Section::stable_id( 's0' ), 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+			],
+			JSON_UNESCAPED_SLASHES
+		);
+		$before = $GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'];
+
+		$result = ( new BuildPageFromSpec() )->execute( [ 'post_id' => 777, 'mode' => 'replace_section', 'spec' => self::spec( 'New' ) ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_replace_section_unrecorded', $result->get_error_code() );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'] );
 	}
 
 	public function test_new_direction_may_write_its_first_section_without_approval(): void {
@@ -326,13 +328,13 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 	/**
 	 * @return array<string, mixed>
 	 */
-	private static function spec( string $title ): array {
+	private static function spec( string $title, string $section_id = 'hero' ): array {
 		return [
 			'version'  => '1.0.0',
 			'page'     => [ 'title' => 'Fast Path' ],
 			'sections' => [
 				[
-					'id'     => 'hero',
+					'id'     => $section_id,
 					'blocks' => [
 						[ 'type' => 'heading', 'text' => $title, 'level' => 1 ],
 					],

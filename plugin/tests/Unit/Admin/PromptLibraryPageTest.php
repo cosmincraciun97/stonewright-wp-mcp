@@ -61,6 +61,19 @@ final class PromptLibraryPageTest extends TestCase {
 		self::assertMatchesRegularExpression( '/<article[^>]*aria-labelledby="([^"]+)"[^>]*>.*?<h3 class="sw-ui-card__title" id="\1">/s', $html );
 	}
 
+	public function test_every_card_has_the_same_three_parts_and_the_modes_sit_in_the_footer(): void {
+		$html = $this->render();
+
+		preg_match_all( '/<article class="sw-ui-card".*?<\/article>/s', $html, $cards );
+		self::assertGreaterThan( 20, count( $cards[0] ) );
+		foreach ( $cards[0] as $card ) {
+			self::assertSame( 1, preg_match( '/^<article[^>]*><div class="sw-ui-card__header">(.*?)<\/div><div class="sw-ui-card__body">.*<div class="sw-ui-card__footer">(.*)<\/div><\/article>$/s', $card, $parts ), 'header, body, footer in that order' );
+			self::assertStringNotContainsString( 'Available modes', $parts[1], 'The header holds the title and the description only.' );
+			self::assertSame( 1, substr_count( $parts[2], 'aria-label="Available modes"' ), 'The footer holds the copy action and the modes.' );
+			self::assertLessThan( strpos( $parts[2], 'aria-label="Available modes"' ), strpos( $parts[2], 'Copy prompt' ), 'The copy action comes first.' );
+		}
+	}
+
 	public function test_outcome_groups_are_sections_named_by_a_heading_with_their_count(): void {
 		$html = $this->render();
 

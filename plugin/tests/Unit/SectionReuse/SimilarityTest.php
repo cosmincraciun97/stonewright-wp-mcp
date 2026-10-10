@@ -83,7 +83,7 @@ final class SimilarityTest extends TestCase {
 		}
 	}
 
-	public function test_the_hero_needs_the_first_position(): void {
+	public function test_without_an_h1_the_hero_needs_the_first_position(): void {
 		$summary = LayoutSummary::of( Builder::ELEMENTOR_V3, SectionFixtures::v3_hero() );
 		$outline = SectionInspector::inspect( Builder::ELEMENTOR_V3, SectionFixtures::v3_hero() );
 

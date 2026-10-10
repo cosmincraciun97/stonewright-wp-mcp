@@ -60,6 +60,17 @@ final class ErrorPatterns {
 	];
 
 	/**
+	 * Refusals that report a site setting, not a mistake of the agent. They are never counted as a pattern,
+	 * never listed as a recurring error and never wrapped in repeat-failure advice, and a row recorded
+	 * earlier is hidden.
+	 *
+	 * @var list<string>
+	 */
+	private const SETTING_REFUSAL_CODES = [
+		'stonewright_section_reuse_off',
+	];
+
+	/**
 	 * RFC 6749 / RFC 8628 protocol error codes.
 	 *
 	 * These belong to the OAuth wire format, not to Stonewright, so they keep
@@ -168,6 +179,9 @@ final class ErrorPatterns {
 		}
 
 		$code = self::error_code( $sanitized_args, $ability, $status );
+		if ( self::is_setting_refusal( $code ) ) {
+			return;
+		}
 		// Expected safety blocks: track count for hard-stop, never promote active learning.
 		$expected_block = 'blocked' === $status || self::is_expected_safety_code( $code );
 
@@ -264,6 +278,33 @@ final class ErrorPatterns {
 		IncidentStore::record_verified_repair( $receipt );
 	}
 
+	/** Whether a code reports a site setting rather than an agent mistake. */
+	public static function is_setting_refusal( string $code ): bool {
+		return in_array( strtolower( sanitize_key( $code ) ), self::SETTING_REFUSAL_CODES, true );
+	}
+
+	/**
+	 * Removes every recorded pattern with an error code, whatever its signature.
+	 *
+	 * @return int How many patterns were removed.
+	 */
+	public static function forget_code( string $code ): int {
+		$code    = strtolower( sanitize_key( $code ) );
+		$store   = self::load();
+		$removed = 0;
+		foreach ( $store as $signature => $row ) {
+			if ( is_array( $row ) && strtolower( sanitize_key( (string) ( $row['error_code'] ?? '' ) ) ) === $code ) {
+				unset( $store[ $signature ] );
+				++$removed;
+			}
+		}
+		if ( $removed > 0 ) {
+			self::save( $store );
+		}
+
+		return $removed;
+	}
+
 	public static function is_expected_safety_code( string $code ): bool {
 		$code = strtolower( sanitize_key( $code ) );
 		foreach ( self::EXPECTED_SAFETY_CODES as $known ) {
@@ -286,7 +327,7 @@ final class ErrorPatterns {
 			if ( (int) ( $row['count'] ?? 0 ) < 2 ) {
 				continue;
 			}
-			if ( ! empty( $row['dismissed'] ) ) {
+			if ( ! empty( $row['dismissed'] ) || self::is_setting_refusal( (string) ( $row['error_code'] ?? '' ) ) ) {
 				continue;
 			}
 			// A pattern that has not occurred for STALE_DAYS is no longer recurring.
@@ -395,6 +436,9 @@ final class ErrorPatterns {
 	 *                                             error_code/message from $error.
 	 */
 	public static function escalate_error( string $ability, \WP_Error $error, array $sanitized_args = [] ): \WP_Error {
+		if ( self::is_setting_refusal( (string) $error->get_error_code() ) ) {
+			return $error;
+		}
 		// Build lookup from the error itself so signature matches observe() storage
 		// which uses error_code + message from the ability result.
 		$lookup = array_merge(

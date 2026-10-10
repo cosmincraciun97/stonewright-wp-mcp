@@ -86,6 +86,11 @@ final class SettingsValidator {
 			}
 
 			$control = (array) $controls[ $control_key ];
+			if ( 'column' === $subject && '_inline_size' === $control_key && ( null === $value || '' === $value ) ) {
+				// Elementor stores a column without a custom width as an empty `_inline_size`.
+				$normalized[ $key ] = $value;
+				continue;
+			}
 			if ( 'boxed_width' === $control_key && [] === (array) ( $control['condition'] ?? [] ) ) {
 				$control['condition'] = [ 'content_width' => 'boxed' ];
 			}
@@ -94,9 +99,25 @@ final class SettingsValidator {
 				$violations[] = $error;
 				continue;
 			}
-			if ( $enforce_conditions && ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $condition_context, $controls ) ) {
-				$violations[] = self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, array_keys( (array) ( $control['condition'] ?? [] ) ) );
-				continue;
+			if ( $enforce_conditions ) {
+				$condition   = (array) ( $control['condition'] ?? [] );
+				$unsupported = [];
+				if ( ! self::condition_is_active( $condition, $condition_context, $controls, $unsupported ) ) {
+					$names        = self::condition_names( $condition );
+					$violations[] = [] === $unsupported
+						? self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, $names )
+						: self::violation(
+							'settings.' . $key,
+							'unsupported_condition_operator',
+							'a condition with a supported operator; the control stays inactive because the operator ' . implode( ', ', $unsupported ) . ' on ' . implode( ', ', $names ) . ' is not supported',
+							$value,
+							$names
+						);
+					continue;
+				}
+				foreach ( $unsupported as $operator ) {
+					$warnings[] = self::violation( 'settings.' . $key, 'unsupported_condition_operator', 'a supported condition operator; ' . $operator . ' was not evaluated', $value );
+				}
 			}
 			$normalized[ $key ] = $value;
 		}
@@ -308,7 +329,9 @@ final class SettingsValidator {
 		$type = strtolower( (string) ( $control['type'] ?? '' ) );
 		if ( in_array( $type, [ 'select', 'choose', 'select2' ], true ) && is_scalar( $value ) && isset( $control['options'] ) && is_array( $control['options'] ) ) {
 			$options = array_map( 'strval', array_keys( $control['options'] ) );
-			if ( ! in_array( (string) $value, $options, true ) ) {
+			// A value the control no longer lists but still maps (its `selectors_dictionary`) renders as it did when it was stored.
+			$mapped = isset( $control['selectors_dictionary'] ) && is_array( $control['selectors_dictionary'] ) && array_key_exists( (string) $value, $control['selectors_dictionary'] );
+			if ( ! $mapped && ! in_array( (string) $value, $options, true ) ) {
 				return self::violation( $path, 'invalid_option', 'one of the live control options', $value, array_slice( $options, 0, 10 ) );
 			}
 		}
@@ -389,7 +412,10 @@ final class SettingsValidator {
 	 * @param array<string, mixed>                $settings Candidate settings.
 	 * @param array<string, array<string, mixed>> $controls Live controls.
 	 */
-	private static function condition_is_active( array $condition, array $settings, array $controls ): bool {
+	private static function condition_is_active( array $condition, array $settings, array $controls, array &$unsupported = [] ): bool {
+		if ( self::is_terms_condition( $condition ) ) {
+			return self::terms_are_satisfied( $condition, $settings, $controls, $unsupported );
+		}
 		foreach ( $condition as $raw_key => $expected ) {
 			if ( ! is_string( $raw_key ) ) {
 				continue;
@@ -400,14 +426,147 @@ final class SettingsValidator {
 			$negated = str_ends_with( $raw_key, '!' );
 			$key     = $negated ? substr( $raw_key, 0, -1 ) : $raw_key;
 			$actual  = $settings[ $key ] ?? ( $controls[ $key ]['default'] ?? null );
-			$matches = is_array( $expected )
-				? in_array( $actual, $expected, true )
-				: $actual === $expected || ( is_scalar( $actual ) && is_scalar( $expected ) && (string) $actual === (string) $expected );
+			if ( is_array( $expected ) ) {
+				$matches = in_array( $actual, $expected, true );
+			} elseif ( is_array( $actual ) && [] !== $actual ) {
+				// A multiple-value control (select2) is met when its value list contains the expected one.
+				$matches = in_array( $expected, $actual, true );
+			} else {
+				$matches = $actual === $expected || ( is_scalar( $actual ) && is_scalar( $expected ) && (string) $actual === (string) $expected );
+			}
 			if ( $negated ? $matches : ! $matches ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Whether a condition is the `relation` / `terms` form rather than the flat `{control: value}` map.
+	 *
+	 * @param array<string, mixed> $condition Elementor condition.
+	 */
+	private static function is_terms_condition( array $condition ): bool {
+		if ( ! isset( $condition['terms'] ) || ! is_array( $condition['terms'] ) || ! array_is_list( $condition['terms'] ) ) {
+			return false;
+		}
+		foreach ( $condition['terms'] as $term ) {
+			if ( ! is_array( $term ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Evaluates a `relation` / `terms` group: `and` (the default) needs every term, `or`
+	 * needs one, and a term may itself be a nested group. A term with an operator that is
+	 * not defined counts as not satisfied and is listed in $unsupported.
+	 *
+	 * @param array<string, mixed>                $group Condition group with `terms`.
+	 * @param array<string, mixed>                $settings Candidate settings.
+	 * @param array<string, array<string, mixed>> $controls Live controls.
+	 * @param list<string>                        $unsupported Collects unsupported operators.
+	 */
+	private static function terms_are_satisfied( array $group, array $settings, array $controls, array &$unsupported ): bool {
+		$is_or     = 'or' === ( $group['relation'] ?? null );
+		$satisfied = ! $is_or;
+		foreach ( (array) $group['terms'] as $term ) {
+			$term = (array) $term;
+			if ( ! empty( $term['terms'] ) && is_array( $term['terms'] ) ) {
+				$result = self::terms_are_satisfied( $term, $settings, $controls, $unsupported );
+			} else {
+				$result = self::term_is_satisfied( $term, $settings, $controls, $unsupported );
+			}
+			if ( $is_or && $result ) {
+				$satisfied = true;
+			} elseif ( ! $is_or && ! $result ) {
+				$satisfied = false;
+			}
+		}
+		return $satisfied;
+	}
+
+	/**
+	 * @param array<string, mixed>                $term One `{name, operator, value}` term.
+	 * @param array<string, mixed>                $settings Candidate settings.
+	 * @param array<string, array<string, mixed>> $controls Live controls.
+	 * @param list<string>                        $unsupported Collects unsupported operators.
+	 */
+	private static function term_is_satisfied( array $term, array $settings, array $controls, array &$unsupported ): bool {
+		$name = is_string( $term['name'] ?? null ) ? $term['name'] : '';
+		if ( 1 !== preg_match( '/(\w+)(?:\[(\w+)])?/', $name, $parts ) ) {
+			return false;
+		}
+		if ( array_key_exists( $parts[1], $settings ) ) {
+			$actual = $settings[ $parts[1] ];
+		} elseif ( isset( $controls[ $parts[1] ] ) ) {
+			// A control that is not sent has its default; data controls without one default to ''.
+			$actual = $controls[ $parts[1] ]['default'] ?? '';
+		} else {
+			$actual = null;
+		}
+		if ( isset( $parts[2] ) && '' !== $parts[2] ) {
+			$actual = is_array( $actual ) ? ( $actual[ $parts[2] ] ?? null ) : null;
+		}
+		$expected = $term['value'] ?? null;
+		$operator = isset( $term['operator'] ) && is_string( $term['operator'] ) ? $term['operator'] : '';
+
+		// phpcs:disable Universal.Operators.StrictComparisons.LooseEqual, Universal.Operators.StrictComparisons.LooseNotEqual -- the `==` and `!=` operators compare loosely.
+		switch ( $operator ) {
+			case '':
+			case '===':
+				return $actual === $expected;
+			case '!==':
+				return $actual !== $expected;
+			case '==':
+				return $actual == $expected;
+			case '!=':
+				return $actual != $expected;
+			case 'in':
+				return is_array( $expected ) && in_array( $actual, $expected, true );
+			case '!in':
+				return ! is_array( $expected ) || ! in_array( $actual, $expected, true );
+			case 'contains':
+				return is_array( $actual ) && in_array( $expected, $actual, true );
+			case '!contains':
+				return ! is_array( $actual ) || ! in_array( $expected, $actual, true );
+			case '<':
+				return $actual < $expected;
+			case '<=':
+				return $actual <= $expected;
+			case '>':
+				return $actual > $expected;
+			case '>=':
+				return $actual >= $expected;
+		}
+		// phpcs:enable
+		if ( ! in_array( $operator, $unsupported, true ) ) {
+			$unsupported[] = $operator;
+		}
+		return false;
+	}
+
+	/**
+	 * Control names a condition refers to, for repair hints.
+	 *
+	 * @param array<string, mixed> $condition Elementor condition.
+	 * @return list<string>
+	 */
+	private static function condition_names( array $condition ): array {
+		if ( ! self::is_terms_condition( $condition ) ) {
+			return array_values( array_map( 'strval', array_keys( $condition ) ) );
+		}
+		$names = [];
+		foreach ( (array) $condition['terms'] as $term ) {
+			$term = (array) $term;
+			if ( ! empty( $term['terms'] ) && is_array( $term['terms'] ) ) {
+				$names = array_merge( $names, self::condition_names( $term ) );
+			} elseif ( is_string( $term['name'] ?? null ) ) {
+				$names[] = $term['name'];
+			}
+		}
+		return array_values( array_unique( $names ) );
 	}
 
 	private static function valid_url_value( mixed $value ): bool {

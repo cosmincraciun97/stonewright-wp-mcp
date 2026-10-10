@@ -135,7 +135,7 @@ form action=options.php method=post class="stonewright-settings-form sw-ui-stack
   input type=hidden name=stonewright_elementor_v4_atomic value=0
   input type=checkbox name=stonewright_elementor_v4_atomic id=stonewright_elementor_v4_atomic value=1
   input type=hidden name=stonewright_section_reuse value=off
-  input type=checkbox name=stonewright_section_reuse id=stonewright_section_reuse value=ask checked
+  input type=checkbox name=stonewright_section_reuse id=stonewright_section_reuse value=ask checked data-sw-ui-live-fill=#stonewright_section_reuse_callout_region data-sw-ui-live-fill-from=#stonewright_section_reuse_callout_template
   input type=password name=stonewright_unsplash_access_key id=stonewright_unsplash_access_key value= autocomplete=new-password class=sw-ui-input
   input type=password name=stonewright_pexels_api_key id=stonewright_pexels_api_key value= autocomplete=new-password class=sw-ui-input
   input type=url name=stonewright_companion_url id=stonewright_companion_url value= placeholder=http://127.0.0.1:8765 autocomplete=off class=sw-ui-input
@@ -145,10 +145,10 @@ form action=options.php method=post class="stonewright-settings-form sw-ui-stack
   button type=button class=sw-ui-btn data-stonewright-generate-token=stonewright_companion_token text="Generate token"
   button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#stonewright-companion-bridge-env data-sw-ui-copy-status=#stonewright-companion-bridge-env-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy bridge launch values"
   button type=submit class=sw-ui-btn sw-ui-btn--primary text="Save settings"
-form action=https://example.test/wp-admin/admin-post.php method=post class=""
+form action=https://example.test/wp-admin/admin-post.php method=post class="sw-ui-actions"
   input type=hidden name=action value=stonewright_reset_domain_lock
   input type=hidden name=_wpnonce value=test-nonce-stonewright_reset_domain_lock
-  button type=submit class=sw-ui-btn sw-ui-btn--danger disabled text="Clear domain lock"
+  button type=submit class=sw-ui-btn disabled text="Clear domain lock"
 # links
 #sw-main => Skip to Stonewright content
 https://example.test/wp-admin/admin.php?page=stonewright-status => Overview
@@ -474,6 +474,8 @@ div data-sw-ui-tabs-param=tab x1
 div data-sw-ui-tabs= x1
 form data-stonewright-app-password-form= x1
 header data-sw-ui-band= x1
+input data-sw-ui-live-fill-from=#stonewright_section_reuse_callout_template x1
+input data-sw-ui-live-fill=#stonewright_section_reuse_callout_region x1
 ol data-stonewright-connection-results= x1
 ol data-stonewright-connection-verify-results= x1
 ol data-stonewright-runtime-verification-flow= x1
@@ -545,8 +547,8 @@ div id= class="sw-method-snippet sw-ui-stack"
 div id=sw-client-panel-zed class="sw-client-panel sw-ui-stack"
 div id= class="sw-method-snippet sw-ui-stack"
 button id= class="sw-ui-btn sw-ui-btn--xs"
-ol id= class="sw-ui-lineage sw-connection-test-results"
-ol id= class="sw-ui-lineage sw-connection-verify-results"
+ol id= class="sw-ui-checks sw-connection-test-results"
+ol id= class="sw-ui-checks sw-connection-verify-results"
 div id=sw-setup-panel-settings class="sw-ui-tabs__panel"
 div id=sw-setup-panel-connections class="sw-ui-tabs__panel"
 div id=sw-setup-panel-updates class="sw-ui-tabs__panel"
@@ -586,6 +588,8 @@ stonewright_pexels_api_key
 stonewright_pexels_api_key_help
 stonewright_section_reuse
 stonewright_section_reuse_callout
+stonewright_section_reuse_callout_region
+stonewright_section_reuse_callout_template
 stonewright_section_reuse_help
 stonewright_unsplash_access_key
 stonewright_unsplash_access_key_help

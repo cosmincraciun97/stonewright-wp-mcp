@@ -13,6 +13,20 @@ development builds were never stable releases.
 
 ### Added
 
+- Add undo of a verified change. A change that passed its health check can be
+  rolled back from **Stonewright > Activity > Rescue**, which lists every change
+  the journal keeps (the last 50) with a **Roll back** button, and through
+  `stonewright-rescue-rollback`. The rollback keeps the claim that stops a double
+  run, the health check afterwards, the warning about newer changes to the same
+  item, the confirmation token in production-safe mode, the audit row and the
+  receipt. The change is recorded as rolled back, with the user who undid it
+  and the way (page, ability or WP-CLI). A dry run shows the plan. A verified
+  change to a theme file, custom code, a sandbox file or the Customizer CSS is
+  undone only from the Rescue page: the ability, the REST route and WP-CLI
+  answer `stonewright_rescue_approval_required` with the approval URL and stop.
+  An incident or an unverified change to code is rolled back as before.
+- Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
+  of the state before the restore, which undoes it.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
@@ -44,6 +58,16 @@ development builds were never stable releases.
 - Add the `reuse_source` field to ChangeSetV1 (the first declared extension)
   and the `stonewright-section-reuse` skill, with a one-line pointer in the
   Elementor V3, Elementor V4, and Gutenberg skills.
+- Add customized `wp_template` and `wp_template_part` posts of the active
+  block theme to the sources of `section-reuse-find` (marked with their post
+  type and the kind `site-template`) for users who may edit them; a template
+  that exists only as a theme file is not a source. Add the warnings
+  `draft_source` and `password_protected_source` to candidates and extract
+  results, and `legacy_attributes` to extract: for the blocks whose WordPress
+  deprecations do so, the older `textAlign` attribute is moved to
+  `style.typography.textAlign` so a section saved by an older WordPress is not
+  refused whole. The insert stays strict and names any other attribute the
+  block does not declare.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -287,11 +311,54 @@ development builds were never stable releases.
 
 ### Changed
 
+- Mark Rescue as experimental with the EXP marker in the band and the sidebar,
+  like Troubleshoot, Context, Design and Block queue.
+- Lay the Prompt library out as one full-width section per outcome with a grid
+  of equal cards. Cards in a row share one height, and their descriptions,
+  requirement lists, tool lists and copy buttons sit on the same lines. Every
+  card shows its modes in the footer beside the copy action.
+- Show the Setup verification results as a checklist with the status, the name
+  and the detail in their own columns, a next step under the detail and a
+  tinted row for a failure. The two verification buttons share one height.
+- Move the domain lock action to the footer of its card as a secondary button
+  of the default size, with the reason it is disabled beside it.
+- Give the older Rescue buttons the height, text size and corner of the
+  layer's buttons, and make the Filter and Reset filters buttons of the Audit
+  log as tall as the fields beside them.
+- Style the file field of the Skills import as a layer control: a button of the
+  default size and the name of the chosen file beside it. The field stays the
+  labelled, keyboard-operable native input.
+- Centre the "Stonewright ON" pill of the admin bar with equal space above and
+  below in the 32px and the 46px bar.
+- Keep a dynamically registered OAuth client that completed a grant for 180
+  days after its last use. The daily clean-up removes such a client only when
+  its last use is more than 180 days old and it has no live grant. A
+  registration that never completed a grant is removed 30 days after it
+  registered, and clients an administrator created stay. A refresh credential
+  expires after 30 days without use and a grant ends at most 90 days after
+  authorization, so an AI client that returns after a lapse signs in again with
+  its stored client identifier.
 - Update the Prompt library: every starter names only tools and admin pages that
   exist in the mode it is tagged for, and eight new starters cover Rescue and
   rollback, snapshot restore, repair lineage, section reuse, the native Elementor
   V4 bridge, the inspect profile and the Design Direction. A test fails when a
   prompt names something that does not exist or a removed feature.
+- Add two Prompt library starters, one for looking up Elementor documentation in
+  the site's knowledge store (and filling it with `elementor-knowledge-refresh`)
+  and one for bringing a design's images into the media library with
+  `design-normalize-assets`. Every starter that names a write which needs a
+  confirmation token in production-safe mode (`elementor-v3-batch-mutate`,
+  `elementor-v3-build-page-from-spec`, `elementor-v3-transaction-run`,
+  `blocks-finalize-batch`, the template writers and others) says how the token
+  is issued, and the Elementor starters that write name the retryable
+  `stonewright_elementor_write_busy` error. Page paths follow the hubs, for
+  example Stonewright > Activity > Rescue and Stonewright > Setup > Troubleshoot.
+  The guard test checks the token wording, and that the Block queue, which has
+  no sidebar entry, is written with its hub.
+- The help text of **Reuse saved sections** in production-safe mode says that an
+  Elementor V3 copy needs a confirmation token like any other write, that a
+  Gutenberg copy needs one only when the same change removes a block, and that
+  Elementor V4 copies stay blocked.
 - Build the Knowledge pages (Skills, Memory, Context, Design, Prompt library)
   from the shared admin UI layer. Memory lists the entries first, in a table
   that stacks at 782px, with the add form and the entry editor as native
@@ -453,8 +520,9 @@ development builds were never stable releases.
   one page header (title, a line of explanation, status and the page's main
   action). The Stonewright consent screen has no band. The sidebar says
   Overview, Custom code (was Workflows), Knowledge (the Skills landing page),
-  Prompt library (was Prompts), Block queue (was Block Editor Queue) and
-  Activity (the Audit log landing page); the page addresses did not change.
+  Prompt library (was Prompts) and Activity (the Audit log landing page); the
+  Block queue (was Block Editor Queue) is a link in the band and has no sidebar
+  entry; the page addresses did not change.
 - Read the small **EXP** marker of a page that is still changing as "This
   feature is experimental." in the band and the sidebar: the marker is hidden
   from screen readers and the words are hidden text on the link and the
@@ -534,6 +602,151 @@ development builds were never stable releases.
   `lcobucci/clock` and `league/uri` are gone.
 
 ### Fixed
+
+- Fix Rescue rolling back a healthy write when the first render of a freshly
+  written page is slow. A leg that passed before the write and gets no answer
+  at all after it (a timeout or a refused connection) is probed once more,
+  with the longest wait a probe request may have (15 seconds, inside the
+  30 second probe budget) and a fresh token, before the write counts as failed.
+  A server error, the critical error page and a PHP fatal are still failures
+  at once, with no second attempt. The probe evidence marks a leg asked twice.
+- Tell agents to record corrections without asking for the full response: the
+  MCP connect-time instructions and the default compact `stonewright-task-start`
+  (`context.learning`) now say to call `stonewright-learning-record` when the
+  user corrects the agent or a mistake repeats, and that a lesson counts only
+  with `verified:true`. The compact task-start byte cap grows from 3600 to 3750
+  so its visual quality floor keeps the same rules.
+- Fix the refusal of `insert_section` while section reuse is `off`: the failure
+  message of `elementor-v3-batch-mutate` (dry run too), `elementor-v4-update-node`
+  and `blocks-batch-mutate` now says that section reuse is off, and an MCP client
+  also reads `retryable: false` and `execution_status: blocked` in it.
+- `change-restore` no longer drops the snapshot it is restoring when the
+  history of 10 is full: the snapshot of the current state is stored without
+  evicting its target, and a restore whose snapshot cannot be stored is refused
+  with `stonewright_backup_failed`.
+- Twelve Elementor write abilities (`elementor-v3-add-container`,
+  `elementor-v3-add-widget`, `elementor-v3-move-element`,
+  `elementor-v3-remove-element`, `elementor-v3-update-element`,
+  `elementor-v3-build-page-from-spec`, `elementor-v3-update-page-settings`,
+  `elementor-v3-update-kit-colors`, `elementor-v3-update-kit-typography`, the
+  per-widget `elementor-add-*` abilities, `design-spec-to-elementor-v3` and
+  `elementor-v4-migrate`) refuse with `stonewright_backup_failed`, before writing
+  anything and without leaving a write lock held, when the snapshot of the post
+  could not be stored.
+- `blueprint-apply` on an existing page returns the snapshot taken before the
+  title, the status and the content change, so restoring it brings back the page
+  as it was. It takes that snapshot for the FSE engine too.
+- Fix `detach_patterns` on a `blocks-batch-mutate` `insert_section`: the input
+  schema accepts `true`, `false`, or a list of pattern ids.
+- Fix section reuse while the setting is `off`: `stonewright-task-start` no
+  longer offers the section reuse skill, and the bundled skill is stored as
+  `stonewright-section-reuse` instead of a doubled prefix (a bundled skill
+  directory that already starts with `stonewright-` keeps its own name). The
+  `stonewright_section_reuse_off` refusal is blocked and not retryable, is not
+  counted as a recurring error or wrapped in repeat-failure advice, and a
+  recorded entry is hidden and removed when the setting changes.
+- Fix the role guess of a section: a section with an h1, a heading and a button
+  or image among the first three sections of its page is a hero, not only the
+  first one. Cached section signatures are analyzed again.
+- Fix the Setup callout of **Reuse saved sections**: it follows the switch
+  before saving and is announced politely; the setting still changes only when
+  the form is saved.
+- Write Elementor V4 text (the title of `e-heading`, the paragraph of
+  `e-paragraph`, the text of `e-button`) with the prop type the live widget
+  declares in its props schema (`escaped-html`, `html-v3`, `html-v2` or
+  `html`), in `elementor-v4-update-node`, `elementor-v4-render-from-spec` and
+  every other V4 text write. The bundled `html-v3` map applies only when no
+  live schema is available. An envelope of another type, or one whose value is
+  not the shape of its type, is refused; the readback of a write refuses text
+  the live widget would render empty, and restores the snapshot, instead of
+  reporting it verified.
+- Report a section of the wrong builder sent to `elementor-v3-batch-mutate` or
+  `elementor-v4-update-node` as `stonewright_section_builder_mismatch` before
+  the custom CSS gate reads it.
+- Accept in a copied V3 section a stored select or choose value that the live
+  control still maps through its `selectors_dictionary` (for example a heading
+  `align` of `left`). Any other value the control does not list is still
+  refused, naming the setting.
+- Rename an element id attribute that a copied section shares with the page or
+  with another copy in the same batch (`_element_id` in V3, `_cssid` in V4) to
+  `name-2`, `name-3`, point the `#name` links of the copy at it, and return an
+  `anchors_renamed` warning.
+- Warn at `section-reuse-extract` about what the insert will refuse: CSS
+  classes not in `stonewright_approved_css_classes` (named), custom CSS that
+  needs a custom-code grant, HTML widgets, and placeholder widgets. The refusal
+  of unapproved CSS classes names the classes and how a site approves them.
+- Refuse, in the dry run and the apply, a V3 section that holds a placeholder
+  Elementor registers for a plugin that is not active
+  (`stonewright_section_placeholder_widget`) or a widget that is not registered
+  (`stonewright_section_widget_unregistered`), with or without settings.
+- Refuse a batch with a duplicate `op_id` (`stonewright_duplicate_op_id`) in
+  `elementor-v3-batch-mutate`, `elementor-v4-update-node` and
+  `blocks-batch-mutate`, and refuse a batch whose `insert_section` operations
+  add more elements than the element cap of one write
+  (`stonewright_section_batch_too_large`).
+
+- Design: saving, importing or capturing a revision that is not ready for the
+  active design direction switches the direction off, as restoring one already
+  did, so agents stop receiving it. `design-direction-save`,
+  `design-direction-capture` and `design-direction-restore` return
+  `active_cleared` (declared in their output schemas), and the Design page says
+  the direction was switched off. A refused DESIGN.md import shows the
+  validator's reason, or a short list of reasons, escaped, instead of one fixed
+  sentence. The active direction card shows spacing, typography, radii,
+  elevation, motion tokens and components next to the colors, dials and rules.
+- Troubleshoot and Setup: a domain lock mismatch is its own check. It names the
+  locked and the current address and the Setup actions that resolve it (Review
+  and rebind this site, Restore prior domain binding). The Stonewright
+  abilities row, the Setup preflight and the Verify connection advice use the
+  effective state of the abilities instead of the stored switch, so a blocked
+  site is never reported as enabled. With Stonewright off or blocked, the OAuth
+  challenge and OAuth dynamic registration checks are skipped like the other
+  dependent checks, and a skipped check shows its own name and says which
+  checks it needed in words instead of check ids. A failing check no longer
+  prints the same sentence as cause and remedy, and the Application Passwords
+  check names the real cause (no support in this WordPress, plain HTTP without a
+  local environment type, a filter or setting, or one user). The MCP and OAuth
+  MCP server registration checks start the REST server in the request and read
+  the recorded outcome; when they cannot be checked they say why and name the
+  checks that cover them.
+- Troubleshoot: a finished run with no problem or warning says "No problems or
+  warnings."; "so far" is shown only while checks have not run. **Copy report
+  for support** swaps its icon for a check and shows **Copied**, and the report
+  lists each check's name and summary and the remedy of a problem or warning,
+  with credentials, passwords and the install path removed.
+- Context: the user context is stored and sent as plain text, with tags removed
+  and no HTML entities, so `5 < 6` and quotes stay as typed, and saving the form
+  again changes nothing. A value stored earlier with entities is read as the
+  text it stands for; reading does not rewrite it. The page says that compact
+  task start carries the first 400 characters and full task start and
+  context-bootstrap the first 1,200, and the saved notice gives the stored
+  character count and how much each mode receives.
+- Log the Rescue health probe's own requests in as the user a probe token was
+  issued for before anything about the request is recorded, so the admin leg
+  and the preview of a draft, private or pending page are answered as that
+  user and a write to them is verified. The identity is kept for that one
+  request only, is removed when it ends, and a token that is expired, used or
+  bound to another path or nonce still logs nobody in.
+- Clear the pending rescue incident when the automatic rollback of a change
+  succeeds after the rescue helper recorded a fatal for it. A rollback that
+  fails keeps the incident open.
+- Include `code`, `change_set_id`, `incident_id`, `rollback_status`,
+  `site_status` and `original_error_code` in the error message an MCP client
+  receives for `stonewright_rescue_write_rolled_back` and
+  `stonewright_rescue_rollback_failed`. Other error data is not copied.
+- Send an administrator who opens a rescue link while already signed in as the
+  administrator it was issued for on to the page named in the link (the Rescue
+  page by default) instead of showing the sign-in form. Only a plain GET visit
+  of the sign-in page is sent on, only to an address on the site, and only
+  when the signed-in user is the session's administrator.
+- Remove the notice that the health probe is unavailable as soon as a probe
+  passes.
+- Show the state of the rescue helper on **Stonewright > Rescue** and as
+  `helper` (`state`, `safe_mode`) in `rescue-status`, and offer **Open in safe
+  mode** only while the helper is installed and loaded.
+- Refuse a revision id in `content-update-page` with
+  `stonewright_invalid_post_type` before any capability check, snapshot or
+  write.
 
 - Make `elementor-v3-update-page-settings` take the per-post write lease before
   it snapshots or writes, and release it on every path. A page another writer
@@ -891,6 +1104,49 @@ development builds were never stable releases.
 - State the real range of `ttl_seconds` on `security-issue-confirmation-token`:
   60 to 3600 seconds (the schema minimum was 1 while the lifetime was never
   shorter than 60). `expires_at` reports the actual expiry.
+- Make `elementor-v3-build-page-from-spec` with `mode: "replace_section"`
+  replace the container built from the spec section with the same section `id`,
+  and no other. A build that names its sections records the section id next to
+  the container id in post meta (`_stonewright_spec_sections`); the document
+  itself gains no key. The replaced container keeps its element id and every
+  other container is left as it is. Every spec section needs an `id`. The call
+  writes nothing and returns `stonewright_replace_section_id_required`,
+  `stonewright_replace_section_unrecorded` (a page built before sections were
+  recorded, or by another tool: rebuild it once with `mode: "replace"`),
+  `stonewright_replace_section_target_missing` or
+  `stonewright_replace_section_target_ambiguous`; it never matches by position
+  or element id. A dry run returns the same answer as the write.
+- Render the spec `icon` block into the icon widget's `selected_icon` control,
+  a value and a library, instead of an `icon` key the schema does not define.
+  Make every other block renderer emit only settings the write validation
+  accepts: set the typography toggle with a directly given `font_size` on
+  heading, paragraph, text editor and button blocks and on the labels of
+  `chip-list`, put the button block's padding in `text_padding`, add
+  `image_spacing: "custom"` with an image gallery's spacing, use the video
+  widget's `poster` (hosted video) or image overlay (embedded video), add the
+  `message` and `redirect` expire actions a countdown's message and redirect
+  need, drop the unsupported `striped` progress setting and the image box's
+  `link_to`, and add the call-to-action `border_radius` only when the live
+  widget defines it. A spec test now renders each block type and runs it
+  through the write validation against the bundled schemas.
+- Evaluate control conditions written as `relation` (`and` or `or`) and
+  `terms`, including nested groups, the operators `==`, `!=`, `===`, `!==`,
+  `in`, `!in`, `contains`, `!contains`, `<`, `<=`, `>` and `>=`, and a
+  `name[key]` sub-value, when a setting is checked against its control. Text
+  Editor `column_gap` is accepted when `text_columns` is empty or above 1. A
+  condition with an operator that is not defined keeps the control inactive and
+  the error names the operator. A flat condition is also met by a
+  multiple-value control that contains the expected value.
+- Refuse a widget as the parent in `elementor-v3-add-container`,
+  `elementor-v3-move-element` and the `add_container` and `move_element`
+  operations of `elementor-v3-batch-mutate`, with `parent_not_container`, as
+  the widget add paths already do.
+- Accept a column whose `_inline_size` is empty (`null` or `""`), which is how
+  Elementor stores a column without a custom width. Make the dry run of
+  `elementor-build-tree` run the checks the write runs against the stored
+  document, and compare the validated settings with the written ones without
+  regard to key order, so a rebuilt column that lists `_column_size` and
+  `_inline_size` in another order no longer fails at the write.
 
 ### Security
 

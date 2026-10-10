@@ -195,6 +195,7 @@ final class ChipList {
 						'title'       => $text,
 						'header_size' => 'span',
 						'title_color' => $chip_color,
+						'typography_typography' => 'custom',
 						'typography_font_size' => [
 							'unit' => 'px',
 							'size' => 14,

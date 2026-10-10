@@ -41,7 +41,7 @@ final class PortableSection {
 	 * Builds the portable form of a section of a source post.
 	 *
 	 * @param array{builder:string,index:int,locator:array<string,mixed>,node:array<string,mixed>} $section One entry of {@see SectionSource::sections()}.
-	 * @return array{section:array<string,mixed>,inspection:array<string,mixed>,layout:array<string,mixed>,stats:array<string,int>}|\WP_Error
+	 * @return array{section:array<string,mixed>,inspection:array<string,mixed>,layout:array<string,mixed>,stats:array<string,int>,migrated:list<array{block:string,key:string,to:string}>}|\WP_Error
 	 */
 	public static function extract( object $post, array $section ): array|\WP_Error {
 		$limits  = ProviderRouter::element_limits();
@@ -52,9 +52,12 @@ final class PortableSection {
 			'source'  => [ 'post_id' => (int) $post->ID, 'locator' => self::source_locator( $section['locator'] ) ],
 		];
 		$placeholders = 0;
+		$migrated     = [];
 
 		if ( Builder::GUTENBERG === $builder ) {
-			$blocks = self::gutenberg_blocks( $post, $section );
+			$moved             = LegacyBlockAttributes::migrate( self::gutenberg_blocks( $post, $section ) );
+			$blocks            = $moved['blocks'];
+			$migrated          = $moved['migrated'];
 			$payload['blocks'] = $blocks;
 			$inspection        = self::inspect_blocks( $blocks, $limits );
 			$payload['anchors'] = $inspection['anchors'];
@@ -81,6 +84,7 @@ final class PortableSection {
 			'inspection' => $inspection,
 			'layout'     => $layout,
 			'stats'      => [ 'elements' => Builder::GUTENBERG === $builder ? 0 : $layout['elements'], 'blocks' => Builder::GUTENBERG === $builder ? $layout['elements'] : 0, 'placeholders' => $placeholders, 'bytes' => $bytes ],
+			'migrated'   => $migrated,
 		];
 	}
 
@@ -266,12 +270,9 @@ final class PortableSection {
 		if ( ! is_array( $payload ) || self::SCHEMA !== ( $payload['schema'] ?? null ) ) {
 			return self::invalid( 'The section must be a ' . self::SCHEMA . ' payload returned by stonewright-section-reuse-extract.' );
 		}
-		if ( ( $payload['builder'] ?? null ) !== $builder ) {
-			return new \WP_Error(
-				'stonewright_section_builder_mismatch',
-				'This section belongs to a different builder; reuse never converts between builders.',
-				[ 'status' => 409, 'section_builder' => is_string( $payload['builder'] ?? null ) ? $payload['builder'] : '', 'target_builder' => $builder ]
-			);
+		$mismatch = self::builder_mismatch( $payload, $builder );
+		if ( null !== $mismatch ) {
+			return $mismatch;
 		}
 		if ( strlen( (string) wp_json_encode( $payload ) ) > self::MAX_BYTES ) {
 			return self::too_large( 'bytes', strlen( (string) wp_json_encode( $payload ) ), self::MAX_BYTES );
@@ -301,6 +302,40 @@ final class PortableSection {
 		$out['element'] = $element;
 
 		return $out;
+	}
+
+	/**
+	 * The error for a payload that belongs to another builder, or null. Only the schema and the builder are read, so a
+	 * writer can refuse a section of the wrong builder before it looks at anything else in the request.
+	 */
+	public static function builder_mismatch( mixed $payload, string $builder ): ?\WP_Error {
+		if ( ! is_array( $payload ) || self::SCHEMA !== ( $payload['schema'] ?? null ) || ( $payload['builder'] ?? null ) === $builder ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'stonewright_section_builder_mismatch',
+			'This section belongs to a different builder; reuse never converts between builders.',
+			[ 'status' => 409, 'section_builder' => is_string( $payload['builder'] ?? null ) ? $payload['builder'] : '', 'target_builder' => $builder ]
+		);
+	}
+
+	/**
+	 * The builder mismatch of the first insert_section operation of a batch whose section belongs to another builder.
+	 *
+	 * @param array<int|string, mixed> $operations
+	 */
+	public static function operations_builder_mismatch( array $operations, string $builder ): ?\WP_Error {
+		foreach ( $operations as $operation ) {
+			if ( is_array( $operation ) && 'insert_section' === ( $operation['action'] ?? null ) ) {
+				$mismatch = self::builder_mismatch( $operation['section'] ?? null, $builder );
+				if ( null !== $mismatch ) {
+					return $mismatch;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**

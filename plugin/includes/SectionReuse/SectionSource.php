@@ -25,18 +25,24 @@ final class SectionSource {
 	public const KIND_PAGE     = 'page';
 	public const KIND_TEMPLATE = 'template';
 	public const KIND_PATTERN  = 'pattern';
+	/** A customized template or template part of a block theme. */
+	public const KIND_SITE_TEMPLATE = 'site-template';
 
 	public const TEMPLATE_POST_TYPE = 'elementor_library';
 	public const PATTERN_POST_TYPE  = 'wp_block';
 
+	/** Post types a block theme's Site Editor saves a customized template or template part in. */
+	public const SITE_TEMPLATE_POST_TYPES = [ 'wp_template', 'wp_template_part' ];
+
 	/** Elementor saved-template types that hold a section. */
 	private const SECTION_TEMPLATE_TYPES = [ 'section', 'container' ];
 
-	/** @return 'page'|'template'|'pattern' */
+	/** @return 'page'|'template'|'pattern'|'site-template' */
 	public static function kind( object $post ): string {
 		return match ( self::field( $post, 'post_type' ) ) {
 			self::TEMPLATE_POST_TYPE => self::KIND_TEMPLATE,
 			self::PATTERN_POST_TYPE  => self::KIND_PATTERN,
+			'wp_template', 'wp_template_part' => self::KIND_SITE_TEMPLATE,
 			default                  => self::KIND_PAGE,
 		};
 	}

@@ -128,6 +128,7 @@ final class DirectionCapture extends AbilityKernel {
 				'operation_class'     => [ 'type' => 'string' ],
 				'resource_type'       => [ 'type' => 'string' ],
 				'effect_verified'     => [ 'type' => 'boolean' ],
+				'active_cleared'      => [ 'type' => 'boolean' ],
 			],
 			'required'   => [ 'ok', 'saved', 'id', 'contract', 'contract_hash', 'issues', 'conflicts', 'unmapped', 'effect_verified' ],
 		];
@@ -225,6 +226,7 @@ final class DirectionCapture extends AbilityKernel {
 							'status'              => (string) $result['status'],
 							'revision'            => (int) $result['revision'],
 							'after_sha256'        => $hash,
+							'active_cleared'      => (bool) $result['active_cleared'],
 							'verification_status' => 'verified',
 							'operation_class'     => 'design_direction.capture',
 							'resource_type'       => 'design_direction',

@@ -240,6 +240,9 @@ final class UpdateElement extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				if ( ! ElementorData::write( $post_id, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ], 'lock_owner' => $lock_owner ] ) ) {
 					return ElementorData::write_error_for_ability();
 				}

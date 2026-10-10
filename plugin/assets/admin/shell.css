@@ -506,10 +506,10 @@ html.sw-has-shell {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sw-space-2);
-	height: 36px;
+	min-height: 40px;
 	padding: 0 var(--sw-space-4);
-	border-radius: var(--sw-radius-sm);
-	font-size: var(--sw-text-xs);
+	border-radius: 2px;
+	font-size: var(--sw-text-sm);
 	font-weight: 600;
 	line-height: 1;
 	cursor: pointer;
@@ -598,9 +598,9 @@ html.sw-has-shell {
 }
 
 .sw-btn--sm {
-	height: 32px;
+	min-height: 32px;
 	padding: 0 var(--sw-space-3);
-	font-size: var(--sw-text-xs);
+	font-size: var(--sw-text-sm);
 }
 
 .sw-btn[disabled] {

@@ -17,7 +17,7 @@ use Stonewright\WpMcp\SkillLibrary\Repository;
 
 /**
  * A skill directory `<name>/SKILL.md` is stored as `stonewright-<name>` with
- * source `builtin`; `playbooks/<name>.md` is stored as `playbook-<name>` with
+ * source `builtin` (a name that already starts with `stonewright-` is stored as it is); `playbooks/<name>.md` is stored as `playbook-<name>` with
  * source `playbook`.
  *
  * A refresh inserts entries that are missing, updates the text and constraints
@@ -39,9 +39,12 @@ final class BundledPack {
 	}
 
 	public static function identity( string $pack_key ): string {
-		return str_starts_with( $pack_key, 'playbooks/' )
-			? self::PLAYBOOK_PREFIX . substr( $pack_key, strlen( 'playbooks/' ) )
-			: self::SKILL_PREFIX . $pack_key;
+		if ( str_starts_with( $pack_key, 'playbooks/' ) ) {
+			return self::PLAYBOOK_PREFIX . substr( $pack_key, strlen( 'playbooks/' ) );
+		}
+
+		// A skill directory that already starts with the product prefix is stored under its own name.
+		return str_starts_with( $pack_key, self::SKILL_PREFIX ) ? $pack_key : self::SKILL_PREFIX . $pack_key;
 	}
 
 	/**

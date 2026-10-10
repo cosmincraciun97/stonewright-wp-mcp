@@ -198,6 +198,22 @@ final class RescueGuardTest extends TestCase {
 		self::assertStringNotContainsString( 'example.test', $message );
 	}
 
+	public function test_the_code_of_a_rolled_back_write_survives_the_message_only_view_of_an_mcp_client(): void {
+		$this->site( static fn (): string => self::post_is_changed() );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		$message = \Stonewright\WpMcp\Support\ErrorEnvelope::with_agent_visible_payload( $result )->get_error_message();
+
+		$data = $result->get_error_data();
+		self::assertStringContainsString( '"code":"stonewright_rescue_write_rolled_back"', $message );
+		self::assertStringContainsString( '"site_status":"healthy"', $message );
+		self::assertStringContainsString( '"change_set_id":"' . $data['change_set_id'] . '"', $message );
+		self::assertStringNotContainsString( 'example.test', $message );
+		self::assertStringNotContainsString( 'resource_type', $message );
+	}
+
 	public function test_a_site_that_still_fails_after_the_rollback_is_reported_as_such(): void {
 		$this->site( static fn (): string => 'broken' );
 		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
@@ -244,6 +260,39 @@ final class RescueGuardTest extends TestCase {
 		self::assertCount( 1, $notices );
 		self::assertStringContainsString( 'not verified', $notices[0] );
 		self::assertSame( 'changed body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_the_unavailable_notice_is_cleared_as_soon_as_a_probe_passes(): void {
+		$state = 'unavailable';
+		$this->site( static function () use ( &$state ): string {
+			return $state;
+		} );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		RescueGuard::leave( [ 'ok' => true ] );
+		self::assertCount( 1, AgentNotices::fields()['notices'] ?? [], 'The host could not call itself.' );
+
+		$state = 'healthy';
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change( 32 );
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertSame( [ 'ok' => true ], $result );
+		$states = array_column( ChangeJournal::recent(), 'state', 'resource_key' );
+		self::assertSame( 'verified', $states['32'] );
+		self::assertArrayNotHasKey( 'notices', AgentNotices::fields(), 'The notice does not outlive the recovery.' );
+	}
+
+	public function test_a_probe_that_fails_or_cannot_run_keeps_the_unavailable_notice(): void {
+		$this->site( static fn (): string => 'unavailable' );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		RescueGuard::leave( [ 'ok' => true ] );
+
+		$this->site( static fn (): string => 'timeout' );
+		HealthProbe::run( [ 'legs' => [ 'home' ] ] );
+
+		self::assertCount( 1, AgentNotices::fields()['notices'] ?? [] );
 	}
 
 	public function test_a_call_that_changed_nothing_is_not_probed(): void {
@@ -563,6 +612,122 @@ final class RescueGuardTest extends TestCase {
 			'a timeout'            => [ 'timeout' ],
 			'a gateway error'      => [ 'gateway' ],
 		];
+	}
+
+	/**
+	 * A site that answers 'timeout' to the first request after the write and 'healthy' to the rest.
+	 *
+	 * @return callable():string
+	 */
+	private function slow_first_render( int &$asked_after_write, string $first_reply = 'timeout', string $then = 'healthy' ): callable {
+		return static function () use ( &$asked_after_write, $first_reply, $then ): string {
+			if ( 'broken' !== self::post_is_changed() ) {
+				return 'healthy';
+			}
+			return 1 === ++$asked_after_write ? $first_reply : $then;
+		};
+	}
+
+	public function test_a_post_leg_that_passed_before_and_is_slow_to_answer_after_the_write_is_asked_once_more_and_kept(): void {
+		$asked = 0;
+		$this->site( $this->slow_first_render( $asked ) );
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$this->armed_post_change();
+
+		$result = RescueGuard::leave( [ 'ok' => true, 'applied' => 1 ] );
+
+		self::assertSame( [ 'ok' => true, 'applied' => 1 ], $result, 'A first render that is slow is not a crash: the healthy write stays.' );
+		self::assertSame( 2, $asked, 'One request, then one more.' );
+		self::assertSame( 'changed body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		$entry = ChangeJournal::recent()[0];
+		self::assertSame( 'verified', $entry['state'] );
+		self::assertSame( 'passed', $entry['probe']['status'] );
+		self::assertTrue( $entry['probe']['legs'][0]['retried'] );
+		self::assertSame( 'http_request_failed', $entry['probe']['legs'][0]['first_reason'] );
+		self::assertSame( 15, end( $this->requests )['args']['timeout'] );
+	}
+
+	public function test_a_post_leg_that_gets_no_answer_twice_is_rolled_back_as_before(): void {
+		$asked = 0;
+		$this->site( $this->slow_first_render( $asked, 'timeout', 'timeout' ) );
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$this->armed_post_change();
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_write_rolled_back', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 2, $asked, 'One more attempt, no more.' );
+		self::assertSame( 'failed', $data['probe']['status'] );
+		self::assertStringStartsWith( 'degraded_', $data['probe']['legs'][0]['reason'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		self::assertSame( 'healthy', $data['site_status'] );
+	}
+
+	public function test_a_server_error_after_the_write_rolls_it_back_at_once_with_one_request(): void {
+		$asked = 0;
+		$this->site( $this->slow_first_render( $asked, 'broken', 'healthy' ) );
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$this->armed_post_change();
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_write_rolled_back', $result->get_error_code() );
+		self::assertSame( 1, $asked, 'A crash is not asked about twice.' );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_a_leg_that_did_not_pass_before_and_gets_no_answer_is_neither_asked_again_nor_rolled_back(): void {
+		$this->site( static fn (): string => 'timeout' );
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$this->armed_post_change();
+		$before = count( $this->requests );
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertSame( [ 'ok' => true ], $result );
+		self::assertSame( 1, count( $this->requests ) - $before, 'Just the one request after the write.' );
+		self::assertSame( 'armed', ChangeJournal::recent()[0]['state'] );
+		self::assertSame( 'changed body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_a_draft_page_that_is_slow_to_render_is_asked_again_with_a_fresh_token(): void {
+		$asked = 0;
+		$this->site( $this->slow_first_render( $asked ) );
+		$this->post( 31, 'original body' );
+		$GLOBALS['stonewright_test_posts'][31]->post_status = 'draft';
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$snapshot = Backup::snapshot_post( 31 );
+		RescueGuard::arm_post_write( 31, $snapshot );
+		$GLOBALS['stonewright_test_posts'][31]->post_content = 'changed body';
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertSame( [ 'ok' => true ], $result );
+		$after = array_slice( $this->requests, -2 );
+		self::assertCount( 2, $after );
+		$first  = (string) ( $after[0]['args']['headers'][ \Stonewright\WpMcp\Security\ProbeToken::HEADER ] ?? '' );
+		$second = (string) ( $after[1]['args']['headers'][ \Stonewright\WpMcp\Security\ProbeToken::HEADER ] ?? '' );
+		self::assertNotSame( '', $first );
+		self::assertNotSame( '', $second );
+		self::assertNotSame( $first, $second );
+		self::assertSame( 'verified', ChangeJournal::recent()[0]['state'] );
+	}
+
+	public function test_a_probe_in_quick_mode_is_not_asked_again(): void {
+		$GLOBALS['stonewright_test_transients'][ HealthProbe::COOLDOWN_KEY ] = 1;
+		$asked = 0;
+		$this->site( $this->slow_first_render( $asked, 'timeout', 'timeout' ) );
+		RescueGuard::enter( 'stonewright/elementor-build-tree' );
+		$this->armed_post_change();
+		$GLOBALS['stonewright_test_transients'][ HealthProbe::COOLDOWN_KEY ] = 1;
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 1, $asked, 'A host that cannot call itself is not made to wait twice.' );
 	}
 
 	public function test_a_site_that_still_cannot_be_reached_after_the_rollback_is_reported_as_failing(): void {

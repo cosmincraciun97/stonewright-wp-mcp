@@ -164,8 +164,8 @@ return $image; }
 
 	/** @return array<string, mixed>|\WP_Error */
 	private static function typed_value( string $type, mixed $value, array $path ): array|\WP_Error {
-		if ( 'html-v3' === $type ) {
-			return [ '$$type' => 'html-v3', 'value' => [ 'content' => [ '$$type' => 'string', 'value' => (string) $value ], 'children' => [] ] ];
+		if ( AtomicTextProp::is_text_type( $type ) ) {
+			return (array) AtomicTextProp::envelope( $type, (string) $value );
 		}
 		if ( 'heading-level' === $type ) {
 			$level = (int) $value;
@@ -245,7 +245,7 @@ return $image; }
 			return [ '$$type' => 'link', 'value' => [ 'destination' => [ '$$type' => 'url', 'value' => $href ], 'isTargetBlank' => [ '$$type' => 'boolean', 'value' => (bool) ( is_array( $value ) ? ( $value['isTargetBlank'] ?? false ) : false ) ], 'tag' => [ '$$type' => 'string', 'value' => 'a' ] ] ];
 		}
 		if ( ! in_array( $type, [ 'string' ], true ) ) {
-			return self::error( 'stonewright_v4_unknown_prop_type', $path, $type, [ 'string', 'html-v3', 'svg-src', 'size', 'link', 'heading-level' ], 'Refresh the runtime schema adapter.' );
+			return self::error( 'stonewright_v4_unknown_prop_type', $path, $type, [ 'string', 'html-v3', 'html-v2', 'escaped-html', 'html', 'svg-src', 'size', 'link', 'heading-level' ], 'Refresh the runtime schema adapter.' );
 		}
 		return [ '$$type' => $type, 'value' => (string) $value ];
 	}

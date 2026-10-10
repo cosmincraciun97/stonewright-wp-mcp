@@ -32,6 +32,17 @@ final class AdminShellCssTest extends TestCase {
 		return CssSource::read( 'admin/shell.css' );
 	}
 
+	public function test_the_older_button_has_the_height_text_size_and_corners_of_the_layer_button(): void {
+		$shell = self::shell();
+
+		self::assertSame( '40px', self::value( $shell, '.sw-btn', 'min-height' ), 'The default button of the layer is 40px.' );
+		self::assertNull( self::value( $shell, '.sw-btn', 'height' ), 'A fixed height would stop the 44px touch size.' );
+		self::assertSame( 'var(--sw-text-sm)', self::value( $shell, '.sw-btn', 'font-size' ), 'Controls are 13px.' );
+		self::assertSame( '2px', self::value( $shell, '.sw-btn', 'border-radius' ), 'Controls have the 2px corner of core.' );
+		self::assertSame( '32px', self::value( $shell, '.sw-btn--sm', 'min-height' ), 'The small button of the layer is 32px.' );
+		self::assertNull( self::value( $shell, '.sw-btn--sm', 'height' ) );
+	}
+
 	/** Declarations of the one rule with exactly this selector list. @return list<array{name: string, value: string, important: bool}> */
 	private static function rule( string $css, string $selector, string $context = '' ): array {
 		return CssSource::rule_declarations( $css, $selector, $context );

@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
 use Stonewright\WpMcp\Abilities\ElementorWidgets\AddArchivePosts;
 use Stonewright\WpMcp\Abilities\ElementorWidgets\AddHeading;
 use Stonewright\WpMcp\Abilities\ElementorWidgets\AddInnerSection;
@@ -208,6 +209,71 @@ final class WidgetStructureGuardsTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( [], $this->document_writes() );
 		self::assertStringContainsString( 'parent_not_container', (string) wp_json_encode( $result->get_error_data() ) . $result->get_error_code() );
+	}
+
+	public function test_add_container_cannot_target_a_widget_parent(): void {
+		$result = ( new AddContainer() )->execute( [ 'post_id' => 321, 'parent_id' => 'w1', 'settings' => [] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_parent_not_container', $result->get_error_code() );
+		self::assertSame( 'w1', $result->get_error_data()['parent_id'] );
+		self::assertSame( 'widget', $result->get_error_data()['parent_el_type'] );
+		self::assertSame( [], $this->document_writes() );
+	}
+
+	public function test_move_element_cannot_target_a_widget_parent(): void {
+		$result = ( new MoveElement() )->execute( [ 'post_id' => 321, 'element_id' => 'col1', 'new_parent_id' => 'w1' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_parent_not_container', $result->get_error_code() );
+		self::assertSame( 'w1', $result->get_error_data()['parent_id'] );
+		self::assertSame( [], $this->document_writes() );
+	}
+
+	public function test_batch_add_container_cannot_target_a_widget_parent(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 321,
+				'operations' => [ [ 'action' => 'add_container', 'parent_id' => 'w1', 'settings' => [] ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( [], $this->document_writes() );
+		self::assertStringContainsString( 'parent_not_container', (string) wp_json_encode( $result->get_error_data() ) . $result->get_error_code() );
+	}
+
+	public function test_batch_move_element_cannot_target_a_widget_parent(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 321,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'col1', 'new_parent_id' => 'w1' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( [], $this->document_writes() );
+		self::assertStringContainsString( 'parent_not_container', (string) wp_json_encode( $result->get_error_data() ) . $result->get_error_code() );
+	}
+
+	public function test_containers_and_moves_are_still_accepted_by_containers_columns_and_sections(): void {
+		$added = ( new AddContainer() )->execute( [ 'post_id' => 321, 'parent_id' => 'root', 'settings' => [] ] );
+		self::assertIsArray( $added );
+
+		$moved = ( new MoveElement() )->execute( [ 'post_id' => 321, 'element_id' => 'w1', 'new_parent_id' => 'col1' ] );
+		self::assertIsArray( $moved );
+		self::assertSame( 'w1', $this->stored_tree()[1]['elements'][0]['elements'][0]['id'] );
+
+		$batch = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 321,
+				'operations' => [
+					[ 'action' => 'add_container', 'parent_id' => 'root', 'settings' => [] ],
+					[ 'action' => 'move_element', 'element_id' => 'w1', 'new_parent_id' => 'root' ],
+				],
+			]
+		);
+		self::assertIsArray( $batch, is_wp_error( $batch ) ? $batch->get_error_message() : '' );
 	}
 
 	public function test_widgets_are_still_accepted_by_containers_columns_and_sections(): void {

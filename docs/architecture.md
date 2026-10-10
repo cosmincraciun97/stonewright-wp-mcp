@@ -534,14 +534,16 @@ See [Elementor write verification](elementor-write-verification.md).
 
 Section reuse copies a section from a saved page into the page being built. It is a small layer over the write engines that already exist; it adds no write path of its own.
 
-1. **Setting.** `SectionReuse\SectionReuseSetting` owns the option `stonewright_section_reuse` (`ask` or `off`). A change is audited (`stonewright/section-reuse-setting`), bumps the tool-surface revision so a client that honors `tools/list_changed` lists the tools again, and pushes one `AgentNotices` line for fifteen minutes. `AbilityRegistry` leaves `section-reuse-find` and `section-reuse-extract` out of the MCP tool lists and `ToolProfile` out of its profiles while the value is `off`; because a client may keep an old list, every reuse ability and every insert operation reads the live option again when it runs.
-2. **Find.** `SourceScanner` takes published and draft pages and posts of public post types, Elementor saved section and container templates, and Gutenberg patterns (never trash, autosaves, or revisions), keeps only posts the current user may read and edit, and looks at the 200 most recent. `SectionSource` reads the top-level sections of each source in the builder's own format; an Elementor section that mixes V3 and V4 nodes belongs to neither family and is left out. `LayoutSummary` reads node types, nesting, column and grid counts, and repeated children, ignores text, media, and style values except layout-defining settings, and gives a deterministic signature. `SignatureCache` keeps one compact entry per source in a non-autoloaded option, keyed by the post's modification time and the builder version; it never writes to a source post. Element and depth caps are the ones `ProviderRouter::element_limits()` reports for every Elementor route. `Similarity` scores a layout from 0 to 1 against the layout the caller asked for, or the role's profile.
-3. **Extract.** `PortableSection` builds `SectionPortableV1`: the section in its own format with element ids (and V4 local style ids) replaced by placeholders, Gutenberg anchors listed, and `references` reported by `SectionInspector` and resolved by `ReferenceCatalog` (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, nested templates, global widgets, third-party widgets). A synced pattern stays a `core/block` reference.
-4. **Insert.** An `insert_section` operation of `elementor-v3-batch-mutate`, `elementor-v4-update-node` (`operations`), or `blocks-batch-mutate` validates the payload (shape and size only; it is untrusted), and `ElementorSectionInserter` or `GutenbergSectionInserter` builds the copy: fresh unique element ids, V4 local style ids that name their new element with every class list rewritten, existing global references kept and a missing one reported as the exact reference, dynamic tags kept and flagged, widget types never changed, settings never stripped, duplicate Gutenberg anchors renamed with their `#links`, synced patterns kept as references unless `detach_patterns` asks for a local copy. The copy and the adaptations are applied to the document in memory, so one dry run and one apply cover them: one snapshot, one write lock, one write, the batch's readback (a recursive nested comparison for V4), post-scoped CSS only through `elementor-css-regenerate`, a ChangeSetV1 whose `reuse_source` names the source post and section locator, and the audit row. The custom CSS gate, the HTML widget policy, and the raw HTML gate see the copied content as they see content written by hand.
+1. **Setting.** `SectionReuse\SectionReuseSetting` owns the option `stonewright_section_reuse` (`ask` or `off`). A change is audited (`stonewright/section-reuse-setting`), bumps the tool-surface revision so a client that honors `tools/list_changed` lists the tools again, and pushes one `AgentNotices` line for fifteen minutes. `AbilityRegistry` leaves `section-reuse-find` and `section-reuse-extract` out of the MCP tool lists and `ToolProfile` out of its profiles while the value is `off`; because a client may keep an old list, every reuse ability and every insert operation reads the live option again when it runs. The refusal (`stonewright_section_reuse_off`) is a blocked, not retryable outcome: `ErrorPatterns` never counts it, never lists it as a recurring error (a row recorded earlier is hidden and removed when the setting changes) and never wraps it in repeat-failure advice, and the batch writers report it with `retryable: false` and `execution_status: blocked`; their failure message also says that section reuse is off, because an MCP client reads only the message. While the value is `off`, `ContextBuilder` does not match the bundled `stonewright-section-reuse` skill for `stonewright-task-start`.
+2. **Find.** `SourceScanner` takes published and draft pages and posts of public post types, Elementor saved section and container templates, Gutenberg patterns, and, for Gutenberg on a block theme, the customized `wp_template` and `wp_template_part` posts of the active theme (never trash, autosaves, or revisions; a template that exists only as a theme file has no post and is not a source), keeps only posts the current user may read and edit, and looks at the 200 most recent. `SectionSource` reads the top-level sections of each source in the builder's own format; an Elementor section that mixes V3 and V4 nodes belongs to neither family and is left out. `LayoutSummary` reads node types, nesting, column and grid counts, and repeated children, ignores text, media, and style values except layout-defining settings, and gives a deterministic signature. `SignatureCache` keeps one compact entry per source in a non-autoloaded option, keyed by the post's modification time and the builder version; it never writes to a source post. Element and depth caps are the ones `ProviderRouter::element_limits()` reports for every Elementor route. `Similarity` scores a layout from 0 to 1 against the layout the caller asked for, or the role's profile.
+3. **Extract.** `PortableSection` builds `SectionPortableV1`: the section in its own format with element ids (and V4 local style ids) replaced by placeholders, Gutenberg anchors listed, and `references` reported by `SectionInspector` and resolved by `ReferenceCatalog` (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, nested templates, global widgets, third-party widgets). A synced pattern stays a `core/block` reference. For Gutenberg, `LegacyBlockAttributes` first moves the `textAlign` attribute of the blocks whose core deprecations move it to `style.typography.textAlign` (only where the site registers the block with that support and no `textAlign` attribute), so a section saved by an older WordPress is not refused by the strict attribute check of the insert, and reports it as a `legacy_attributes` warning; `SourceWarnings` adds `draft_source` and `password_protected_source` when the source is not public.
+4. **Insert.** An `insert_section` operation of `elementor-v3-batch-mutate`, `elementor-v4-update-node` (`operations`), or `blocks-batch-mutate` validates the payload (shape and size only; it is untrusted), and `ElementorSectionInserter` or `GutenbergSectionInserter` builds the copy: fresh unique element ids, V4 local style ids that name their new element with every class list rewritten, existing global references kept and a missing one reported as the exact reference, dynamic tags kept and flagged, widget types never changed, settings never stripped, duplicate Gutenberg anchors renamed with their `#links`, synced patterns kept as references unless `detach_patterns` (`true`, `false`, or a list of pattern ids) asks for a local copy, which gets the same legacy attribute move. The copy and the adaptations are applied to the document in memory, so one dry run and one apply cover them: one snapshot, one write lock, one write, the batch's readback (a recursive nested comparison for V4), post-scoped CSS only through `elementor-css-regenerate`, a ChangeSetV1 whose `reuse_source` names the source post and section locator, and the audit row. The custom CSS gate, the HTML widget policy, and the raw HTML gate see the copied content as they see content written by hand.
 
-A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. V3 and Gutenberg inserts remove nothing, so they need no confirmation token in `production-safe`.
+A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. An `elementor-v3-batch-mutate` insert needs a confirmation token in `production-safe` like every write of that ability that is not a dry run; a `blocks-batch-mutate` insert needs one only when the same batch removes a block.
 
-Limits: a V3 section holding a setting the live Elementor schema does not list is refused in the dry run with the exact setting, because the document write refuses an unknown setting on a new element and Stonewright never strips one. A Gutenberg change to a copied static block may change its text, links, and images but not its tags (`markup_structure_changed`); structural changes use the browser finalizer. A scan beyond 200 sources is reported as truncated.
+What an Elementor copy is checked for, in the dry run as in the apply: a V3 section holding a setting the live Elementor schema does not list is refused with the exact setting, because the document write refuses an unknown setting on a new element and Stonewright never strips one. A stored select or choose value the live control no longer lists but still maps through its `selectors_dictionary` (a heading `align` of `left`) is accepted and kept as stored; any other unlisted value is refused naming the setting. A widget that Elementor registers as a placeholder because its plugin is not active (`WidgetAvailability::registration()` reads the live registry) is refused with `stonewright_section_placeholder_widget`, and a widget that is not registered with `stonewright_section_widget_unregistered`, with or without settings. CSS classes that are not in `stonewright_approved_css_classes`, custom CSS, and HTML widgets are refused as they are for a hand-written write, and `section-reuse-extract` warns about each (`ElementorInsertWarnings`) so the dead end shows before the question is asked. An id attribute the copy shares with the page or with another copy (`_element_id` in V3, `_cssid` in V4) is renamed `name-2`, `name-3` with the `#name` links of the copy and an `anchors_renamed` warning. A batch with a duplicate `op_id` is refused in the three batch writers, and the `insert_section` operations of one Elementor batch may add no more elements than the element cap of one write (`stonewright_section_batch_too_large`). V4 text (the title, paragraph and button text of the Atomic widgets) is written with the text prop type the live widget declares in its props schema; the bundled `html-v3` map applies only without a live schema, and the readback refuses text the live widget would render empty.
+
+Other limits: A Gutenberg change to a copied static block may change its text, links, and images but not its tags (`markup_structure_changed`); structural changes use the browser finalizer. A scan beyond 200 sources is reported as truncated.
 
 ## Agent Context
 
@@ -550,7 +552,10 @@ Stonewright task. It issues the same write context token while returning a
 compact, task-aware response that includes:
 
 - current instructions, including **truncated site Context / custom
-  instructions text** (up to 400 characters) when those are enabled
+  instructions text** when those are enabled: the first 400 characters of the
+  Context text followed by the custom instructions (`responseMode=full` and
+  `stonewright-context-bootstrap` carry the first 1,200 characters of the Context
+  text and up to 2,400 of the combined text)
 - a **Design Direction pointer** (`context.design_direction_ref`) when a
   direction is active, plus `required_actions: read_design_direction_brief`
 - **agent preferences** (`context.agent_preferences`), a compact object of
@@ -559,6 +564,9 @@ compact, task-aware response that includes:
 - matched skill playbooks
 - relevant memory
 - required followups
+- a **learning trigger** (`context.learning`): call `stonewright-learning-record`
+  when the user corrects the agent or a mistake repeats; a lesson counts only
+  with `verified:true`
 - MCP tool naming hints
 - a **typed-tool hint** (`fast_path.routing_hint`) naming the typed ability for
   the post meta, option, Elementor data, or menu work the task mentions
@@ -587,8 +595,10 @@ The MCP server instructions that every client reads on connect carry the same
 Design Direction pointer on one line (name, slug, id, a 12-character prefix of
 the contract hash, and the brief tool) while a direction is active, so agents
 read it before visual work. When providers add agent preferences, one more line
-lists them. The instructions are built on each request, so they follow the
-active direction. Providers add preferences through the
+lists them. A fixed line tells the agent to call `stonewright-learning-record`
+when the user corrects it or a mistake repeats, with the same wording as
+`context.learning`. The instructions are built on each request, so they follow
+the active direction. Providers add preferences through the
 `stonewright_agent_preferences` filter, which receives and returns
 `key => scalar` pairs; keys are lower snake case, values are booleans, integers,
 or text of at most 48 characters, and at most eight entries are kept. The
@@ -710,9 +720,11 @@ active direction with no second source of truth for the same fact. Compact
 the `stonewright-design-direction-brief` tool). The full contract stays
 behind that brief.
 
-Two invariants follow: only a contract whose `readiness.ready` is true can be
-activated, and the active direction cannot be archived — another direction must
-be activated first.
+Three invariants follow: only a contract whose `readiness.ready` is true can be
+activated, the active direction cannot be archived — another direction must
+be activated first — and a saved or restored revision that is not ready clears
+the active pointer, so the active direction is always ready. The save, capture
+and restore abilities and the Design page report that as `active_cleared`.
 
 ### Raw source versus trusted contract
 
@@ -751,7 +763,7 @@ the `design` category:
 |---|---|---|
 | `stonewright/design-direction-list` | Read | `Permissions::read()` |
 | `stonewright/design-direction-get` | Read | `Permissions::read()` |
-| `stonewright/design-direction-brief` | Read | `Permissions::read()` |
+| `stonewright/design-direction-brief` | Read | `Permissions::read()`, context token (list and get need none) |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |

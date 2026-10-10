@@ -125,6 +125,9 @@ final class SpecToElementorV3 extends AbilityKernel {
 				$tree        = Renderer::render( $validated, $diagnostics );
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				$existing    = ElementorData::read( $post_id );
 				$next_tree   = $replace ? $tree : array_merge( $existing, $tree );
 
