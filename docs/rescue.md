@@ -62,7 +62,7 @@ The database copy is the authority, and the file is input. The file can add a fa
 | State | Meaning |
 |---|---|
 | `armed` | Recorded and the change made, not yet verified |
-| `verified` | A passing check followed the change, or the call changed nothing. It can still be rolled back while the journal keeps it (the last 50 changes) |
+| `verified` | A passing check followed the change, or the call changed nothing. It can still be rolled back while the journal keeps it (the last 50 changes). An undo that broke the site and was put back leaves it `verified` with the note `undo_reverted` |
 | `rolled_back` | The recipe ran after a failed check, or on request. The outcome is stored on the change set, with the way it ran (`admin-page`, `ability`, `wp-cli` or `auto`) and the user who ran it. A verified change that was undone also carries the note `undone_after_verified` |
 | `rollback_failed` | The recipe failed or could not run. This is an open incident |
 | `incident` | A PHP fatal was recorded against the change set. This is an open incident |
@@ -76,12 +76,22 @@ A change that passed its health check is not final. Until the journal drops it (
 The rollback of a verified change runs the same steps as any other rollback:
 
 - it claims the change set first, so a double click, or the page and an agent together, run it once;
-- it runs the recorded recipe, then probes the site;
+- it saves the current state of what the recipe overwrites, and probes the site before the recipe runs (see below);
+- it runs the recorded recipe, then probes the site, once more after a slow first answer;
 - it warns when a newer change to the same item exists, because the rollback overwrites it;
 - in production-safe mode it needs a confirmation token;
 - the outcome is written to the change set and to the audit log, and the change becomes `rolled_back`.
 
 If the recipe fails, the change becomes `rollback_failed`, an open incident, like any rollback that fails. A change that has been rolled back cannot be rolled back again, and a change the journal has dropped cannot be rolled back from Rescue.
+
+**An undo that breaks the site is put back.** The undo of a verified change replaces a state that works with an older one, and the older one can fail (an earlier `functions.php` that fatals, a plugin the site now depends on). So the undo is guarded the way a protected write is:
+
+1. The current state is saved first, by recipe: a snapshot of the post, a restore point of the options, a backup of the theme file (or the marker for a file that is empty or absent), the provider snapshot of the snippet, a byte-for-byte copy of the active sandbox file, the activation state of the plugin. If it cannot be saved, the undo is refused with `stonewright_rescue_undo_capture_failed` before anything changes, and the probe does not run.
+2. The site is probed (the baseline), the recipe runs, and the site is probed again.
+3. If the baseline passed and the probe afterwards fails, the saved state is put back and the site is probed once more. The change stays `verified`, with the note `undo_reverted`, the audit row is written, and the call returns `stonewright_rescue_undo_reverted` with the probe that failed. The Rescue page shows that the undo was put back. The change can be undone again.
+4. If the saved state cannot be put back either, the change becomes `rollback_failed`, an open incident, and the call returns `stonewright_rescue_undo_revert_failed`.
+
+The guard applies only to an undo of a verified change. An incident, a change that was never verified and a `rollback_failed` change are rolled back as before, with no state saved and nothing put back: the site is already failing and the rollback is the cure. When the baseline of a verified undo already fails, the rollback is kept and the result says so (`undo_guard` is `site_already_failing`). When no probe can run, the undo is kept and `undo_guard` is `unchecked`. A kept undo reports `undo_guard` `kept`. The saved state is a way back, not a new change: it does not add an entry to the journal.
 
 **Code needs the page.** A verified change to a theme file, a custom-code snippet (WPCode or Code Snippets), a sandbox file or the Customizer CSS is rolled back only by an administrator pressing **Roll back** on the Rescue page. The ability, the REST route and `wp stonewright rescue rollback` refuse it with `stonewright_rescue_approval_required`, which carries the approval URL and tells the agent to ask the administrator to use **Stonewright > Activity > Rescue**; a confirmation token does not change that. A `dry_run` still returns the plan, with `approval_required` true. This applies only to a verified change: an incident, or a change that was never verified, is rolled back by an agent as before, because the site is failing.
 

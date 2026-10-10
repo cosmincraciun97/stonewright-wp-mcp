@@ -25,6 +25,16 @@ development builds were never stable releases.
   undone only from the Rescue page: the ability, the REST route and WP-CLI
   answer `stonewright_rescue_approval_required` with the approval URL and stop.
   An incident or an unverified change to code is rolled back as before.
+- Guard the undo of a verified change. It saves the current state first (a
+  snapshot of the post, an options restore point, a backup of the theme file,
+  the snapshot of the custom-code snippet, a copy of the active sandbox file, the
+  activation state of the plugin) and probes the site before and after. When the
+  undo makes a site that worked fail to load, the saved state is put back, the
+  change stays verified with the note `undo_reverted`, and the call answers
+  `stonewright_rescue_undo_reverted` with the probe that failed; the Rescue page
+  shows the same message. When the current state cannot be saved, the undo is
+  refused with `stonewright_rescue_undo_capture_failed` before anything changes.
+  An incident or an unverified change is rolled back as before.
 - Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
   of the state before the restore, which undoes it.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the

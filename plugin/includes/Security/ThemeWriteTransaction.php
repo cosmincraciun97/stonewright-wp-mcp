@@ -484,6 +484,53 @@ final class ThemeWriteTransaction {
 	}
 
 	/**
+	 * Save what a rescue rollback is about to overwrite, so the rollback can be undone: the current bytes
+	 * of the file in a Stonewright-owned backup, or the marker for a file that is empty or absent now.
+	 * The returned reference is one RollbackRecipes can run again to put the file back.
+	 *
+	 * @param string $backup_ref The reference the rollback will restore, or an absent: / empty: marker.
+	 * @param string $absolute   The path the marker names (a restore from a backup takes its path from the backup).
+	 * @return array{status:string,detail:string,ref?:string,absolute?:string}
+	 */
+	public static function capture_for_rescue( string $backup_ref, string $absolute ): array {
+		$relative = '';
+		if ( str_starts_with( $backup_ref, 'sw-theme-backup-' ) ) {
+			$entry = self::backup_entry( $backup_ref );
+			if ( $entry instanceof \WP_Error ) {
+				return [ 'status' => 'failed', 'detail' => 'backup_not_found' ];
+			}
+			$absolute = (string) ( $entry['absolute'] ?? '' );
+			$relative = (string) ( $entry['relative'] ?? '' );
+		}
+		$absolute = wp_normalize_path( $absolute );
+		if ( ! self::inside_theme_root( $absolute ) ) {
+			return [ 'status' => 'failed', 'detail' => 'path_outside_theme' ];
+		}
+		$relative = '' !== $relative ? $relative : basename( $absolute );
+		clearstatcache( true, $absolute );
+		if ( ! file_exists( $absolute ) ) {
+			return [ 'status' => 'ok', 'detail' => '', 'ref' => 'absent:' . $relative, 'absolute' => $absolute ];
+		}
+		$bytes = is_file( $absolute ) ? file_get_contents( $absolute ) : false;
+		if ( false === $bytes ) {
+			return [ 'status' => 'failed', 'detail' => 'unreadable' ];
+		}
+		if ( '' === $bytes ) {
+			return [ 'status' => 'ok', 'detail' => '', 'ref' => 'empty:' . $relative, 'absolute' => $absolute ];
+		}
+		$ref = self::write_backup( $absolute, $relative, $bytes );
+		if ( ! is_string( $ref ) ) {
+			return [ 'status' => 'failed', 'detail' => 'backup_failed' ];
+		}
+		// The backup must read back as the bytes it was made from before it counts as a way back.
+		$stored = self::backup_entry( $ref );
+		$copy   = ! $stored instanceof \WP_Error && is_file( (string) ( $stored['backup_path'] ?? '' ) ) ? file_get_contents( (string) $stored['backup_path'] ) : false;
+		if ( false === $copy || ! hash_equals( hash( 'sha256', $bytes ), hash( 'sha256', $copy ) ) ) {
+			return [ 'status' => 'failed', 'detail' => 'backup_unreadable' ];
+		}
+		return [ 'status' => 'ok', 'detail' => '', 'ref' => $ref, 'absolute' => $absolute ];
+	}
+	/**
 	 * Remove a file a write created. Only a file inside a theme directory is ever removed.
 	 *
 	 * @return array{status:string,detail:string}
@@ -603,7 +650,8 @@ final class ThemeWriteTransaction {
 			return $protection;
 		}
 		$basename = basename( $absolute );
-		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . $basename . '.swbak';
+		// The random part keeps two backups of one file made in the same second apart.
+		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . bin2hex( random_bytes( 3 ) ) . '-' . $basename . '.swbak';
 		if ( false === file_put_contents( $target, $before, LOCK_EX ) ) {
 			return self::err( 'theme_file_backup_failed', __( 'Could not write theme backup file.', 'stonewright' ) );
 		}

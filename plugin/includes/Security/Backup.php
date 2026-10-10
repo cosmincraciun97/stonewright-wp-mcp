@@ -21,8 +21,10 @@ final class Backup {
 	 *
 	 * @param list<string> $option_keys
 	 * @param list<string> $theme_mod_keys
+	 * @param bool         $arm            Whether the restore point arms a rescue entry for the write that follows. False for a restore point that only saves the current state.
+	 * @param list<string> $keep           Restore point ids the history limit must not drop, for a caller that is about to restore one of them.
 	 */
-	public static function snapshot_options( array $option_keys, array $theme_mod_keys = [] ): string {
+	public static function snapshot_options( array $option_keys, array $theme_mod_keys = [], bool $arm = true, array $keep = [] ): string {
 		$restore_id = self::new_snapshot_id();
 		$options    = [];
 		foreach ( $option_keys as $key ) {
@@ -65,9 +67,11 @@ final class Backup {
 			'options'    => $options,
 			'theme_mods' => $theme_mods,
 		];
-		$store = self::trim( $store );
+		$store = self::trim( $store, $keep );
 		update_option( self::OPTION_SNAPSHOTS, $store, false );
-		RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id );
+		if ( $arm ) {
+			RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id );
+		}
 
 		return $restore_id;
 	}
@@ -117,9 +121,10 @@ final class Backup {
 	 * Snapshot a post before a write. The history keeps the newest snapshots up to the limit.
 	 *
 	 * @param list<string> $keep Snapshot ids the history limit must not drop, for a caller that is about to restore one of them.
+	 * @param bool         $arm  Whether the snapshot arms a rescue entry for the write that follows. False for a snapshot that only saves the current state.
 	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
 	 */
-	public static function snapshot_post( int $post_id, array $keep = [] ): string {
+	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return '';
@@ -150,7 +155,9 @@ final class Backup {
 		if ( post_type_supports( $post->post_type, 'revisions' ) ) {
 			wp_save_post_revision( $post_id );
 		}
-		RescueGuard::arm_post_write( $post_id, $snapshot_id );
+		if ( $arm ) {
+			RescueGuard::arm_post_write( $post_id, $snapshot_id );
+		}
 
 		return $snapshot_id;
 	}
