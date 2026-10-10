@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -121,6 +122,7 @@ final class CreatePost extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				if ( ! empty( $args['categories'] ) ) {
 					wp_set_post_categories( (int) $id, array_map( 'absint', (array) $args['categories'] ) );

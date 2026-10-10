@@ -1794,7 +1794,22 @@ if ( ! function_exists( 'wp_set_post_tags' ) ) {
 
 if ( ! function_exists( 'wp_set_object_terms' ) ) {
 	function wp_set_object_terms( int $object_id, string|int|array $terms, string $taxonomy, bool $append = false ): array|\WP_Error {
-		$terms = array_values( array_map( 'strval', (array) $terms ) );
+		$terms = array_values(
+			array_map(
+				static function ( $term ) use ( $taxonomy ): string {
+					// An integer is a term id: keep the slug of the registered term that has it.
+					if ( is_int( $term ) ) {
+						foreach ( $GLOBALS['stonewright_test_terms'][ $taxonomy ] ?? [] as $slug => $known ) {
+							if ( (int) ( $known->term_id ?? 0 ) === $term ) {
+								return (string) $slug;
+							}
+						}
+					}
+					return (string) $term;
+				},
+				(array) $terms
+			)
+		);
 		$store = $GLOBALS['stonewright_test_object_terms'] ?? [];
 		if ( $append && isset( $store[ $object_id ][ $taxonomy ] ) && is_array( $store[ $object_id ][ $taxonomy ] ) ) {
 			$terms = array_values( array_unique( array_merge( $store[ $object_id ][ $taxonomy ], $terms ) ) );
@@ -1802,6 +1817,9 @@ if ( ! function_exists( 'wp_set_object_terms' ) ) {
 		$store[ $object_id ][ $taxonomy ] = $terms;
 		$GLOBALS['stonewright_test_object_terms'] = $store;
 		foreach ( $terms as $term ) {
+			if ( isset( $GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $term ] ) ) {
+				continue;
+			}
 			$GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $term ] = (object) [
 				'term_id' => crc32( $taxonomy . ':' . $term ),
 				'name'    => (string) $term,

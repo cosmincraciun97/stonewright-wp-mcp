@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\ThemeBuilder;
 
+use Stonewright\WpMcp\Security\RescueGuard;
+
 /**
  * Thin facade over Elementor Theme Builder storage.
  *
@@ -126,6 +128,7 @@ final class TemplateStore {
 		if ( is_wp_error( $id ) ) {
 			return $id;
 		}
+		RescueGuard::note_post_created( (int) $id );
 
 		update_post_meta( (int) $id, '_elementor_template_type', $type );
 		update_post_meta( (int) $id, '_elementor_edit_mode', 'builder' );

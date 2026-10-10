@@ -30,6 +30,12 @@
   100 MB by default (options and filters change the limits) and never deletes
   an open change. Removing all plugin data also drops the table, the event and
   the blobs.
+- Record the changes that abilities make to posts in the change ledger, with the
+  post as it was before and after the write: fields, slug, parent, featured
+  image, terms, Elementor keys, page template, SEO keys and ACF values. Abilities
+  that create posts, and `content-bulk-upsert-posts`, which overwrote posts
+  without a snapshot, are recorded too. Internal groundwork: no page or ability
+  shows or undoes these records yet, and a ledger failure never changes a write.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the

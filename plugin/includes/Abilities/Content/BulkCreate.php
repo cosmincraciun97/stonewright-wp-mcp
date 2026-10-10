@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -146,6 +147,7 @@ final class BulkCreate extends AbilityKernel {
 						];
 						continue;
 					}
+					RescueGuard::note_post_created( (int) $id );
 					$created[] = (int) $id;
 				}
 				return [ 'created' => $created, 'errors' => $errors ];

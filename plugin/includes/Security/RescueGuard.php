@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -25,12 +26,18 @@ use Stonewright\WpMcp\Support\Logger;
  * it before the audit row is written, so the row shows the real outcome. A write made outside
  * any frame (an admin screen, a test) is not journaled: nothing would settle it.
  *
+ * The same points feed the change ledger for posts. arm_post_write() records the post as it is before
+ * the write, note_post_overwrite() does the same for a write that takes no snapshot, and
+ * note_post_created() records a post the call has just created. leave() reads the image each of them
+ * left behind and settles the ledger row with it and the outcome. A ledger that cannot record changes
+ * nothing about the write.
+ *
  * Nothing here ever throws into the ability: a failure inside the guard leaves the write and
  * the result as they were.
  */
 final class RescueGuard {
 
-	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>}> */
+	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>}> */
 	private static array $frames = [];
 
 	public static function enter( string $ability ): void {
@@ -41,6 +48,9 @@ final class RescueGuard {
 			'posts'    => [],
 			// What each leg did before the first write of the call, so one call probes each leg once.
 			'baseline' => [],
+			// The ledger row of each post this call recorded, and the custom fields a write named for it.
+			'ledger'    => [],
+			'meta_keys' => [],
 		];
 	}
 
@@ -52,15 +62,20 @@ final class RescueGuard {
 	 */
 	public static function leave( mixed $result ): mixed {
 		$frame = array_pop( self::$frames );
-		if ( null === $frame || [] === $frame['ids'] ) {
+		if ( null === $frame ) {
 			return $result;
 		}
-		try {
-			return self::settle_frame( $frame, $result );
-		} catch ( \Throwable $failure ) {
-			Logger::warning( 'rescue_guard_settle_failed', [ 'error' => $failure::class ] );
-			return $result;
+		// What the writes produced, before a rollback can undo it.
+		$after = self::ledger_images( $frame );
+		if ( [] !== $frame['ids'] ) {
+			try {
+				$result = self::settle_frame( $frame, $result );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'rescue_guard_settle_failed', [ 'error' => $failure::class ] );
+			}
 		}
+		self::ledger_settle( $frame, $after, $result );
+		return $result;
 	}
 
 	/**
@@ -87,8 +102,75 @@ final class RescueGuard {
 		);
 		if ( null !== $id ) {
 			self::$frames[ $index ]['posts'][ $post_id ] = $id;
+			self::ledger_before( $index, $post_id, $id );
 		}
 		return $id;
+	}
+
+	/**
+	 * A post is about to be overwritten by a write that takes no snapshot: record it in the change
+	 * ledger with the image it has now. Nothing is armed in the journal and nothing is probed.
+	 *
+	 * @param list<string> $meta_keys Custom fields the write names.
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	public static function note_post_overwrite( int $post_id, array $meta_keys = [] ): ?string {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 ) {
+			return null;
+		}
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			return self::$frames[ $index ]['ledger'][ $post_id ]['id'];
+		}
+		self::note_post_meta_keys( $post_id, $meta_keys );
+		$keys = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+		$id   = PostAdapter::record_before( self::$frames[ $index ]['ability'], $post_id, '', $keys );
+		if ( '' === $id ) {
+			return null;
+		}
+		self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => '', 'created' => false, 'keys' => $keys ];
+		return $id;
+	}
+
+	/**
+	 * A post has just been created by this call: record it in the change ledger. It has no before image,
+	 * and its undo is the trash.
+	 *
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	public static function note_post_created( int $post_id ): ?string {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 ) {
+			return null;
+		}
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			return self::$frames[ $index ]['ledger'][ $post_id ]['id'];
+		}
+		$id = PostAdapter::record_create( self::$frames[ $index ]['ability'], $post_id );
+		if ( '' === $id ) {
+			return null;
+		}
+		self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => '', 'created' => true, 'keys' => [] ];
+		return $id;
+	}
+
+	/**
+	 * The custom fields a write is about to set on a post, named before its snapshot so that the change
+	 * ledger images them. A field the write may not touch is left out.
+	 *
+	 * @param list<string> $keys
+	 */
+	public static function note_post_meta_keys( int $post_id, array $keys ): void {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 || [] === $keys ) {
+			return;
+		}
+		try {
+			$known = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+			self::$frames[ $index ]['meta_keys'][ $post_id ] = array_values( array_unique( array_merge( $known, PostAdapter::writable_meta_keys( $post_id, $keys ) ) ) );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_note_failed', [ 'error' => $failure::class ] );
+		}
 	}
 
 	/**
@@ -334,6 +416,86 @@ final class RescueGuard {
 
 	public static function reset_for_tests(): void {
 		self::$frames = [];
+	}
+
+	// -----------------------------------------------------------------------
+	// Change ledger.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Record the post of a journal entry in the change ledger, under the journal's id. A post this call
+	 * created, or already recorded, keeps the row it has: the journal entry then only gains its link.
+	 */
+	private static function ledger_before( int $index, int $post_id, string $journal_id ): void {
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			self::$frames[ $index ]['ledger'][ $post_id ]['journal'] = $journal_id;
+			return;
+		}
+		$keys = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+		$id   = PostAdapter::record_before( self::$frames[ $index ]['ability'], $post_id, $journal_id, $keys );
+		if ( '' !== $id ) {
+			self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => $journal_id, 'created' => false, 'keys' => $keys ];
+		}
+	}
+
+	/**
+	 * The image of every post this call recorded, as the writes left it.
+	 *
+	 * @param array{ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>} $frame
+	 * @return array<int, array<string, mixed>|null>
+	 */
+	private static function ledger_images( array $frame ): array {
+		$images = [];
+		foreach ( $frame['ledger'] as $post_id => $row ) {
+			$images[ $post_id ] = PostAdapter::capture_after( $post_id, $row['keys'] );
+		}
+		return $images;
+	}
+
+	/**
+	 * Close the ledger rows of a frame, with the image each write produced and the outcome the journal
+	 * reached for it.
+	 *
+	 * @param array{ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>} $frame
+	 * @param array<int, array<string, mixed>|null>                                                  $images
+	 * @param mixed                                                                                  $result The ability's result as the call ends.
+	 */
+	private static function ledger_settle( array $frame, array $images, mixed $result ): void {
+		foreach ( $frame['ledger'] as $post_id => $row ) {
+			try {
+				$state  = '' === $row['journal'] ? '' : (string) ( ChangeJournal::get( $row['journal'] )['state'] ?? '' );
+				$after  = $images[ $post_id ] ?? null;
+				$status = self::ledger_status( $state, '' !== $row['journal'], $result, $row['created'] || PostAdapter::changed( $row['id'], $after ) );
+				PostAdapter::settle( $row['id'], $after, $status );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			}
+		}
+	}
+
+	/**
+	 * The ledger status of a post write. A rollback keeps the name the journal gave it. A write the
+	 * journal watched is failed when the call failed, and probe_unavailable when the site could not be
+	 * checked. A write only the ledger watched is failed when the call raised an error, or reported a
+	 * failure and left this post as it was.
+	 *
+	 * @param mixed $result
+	 */
+	private static function ledger_status( string $state, bool $linked, mixed $result, bool $changed ): string {
+		if ( in_array( $state, [ 'rolled_back', 'rollback_failed', 'incident' ], true ) ) {
+			return $state;
+		}
+		$reported = is_array( $result ) && false === ( $result['ok'] ?? true );
+		if ( $result instanceof \WP_Error ) {
+			return 'failed';
+		}
+		if ( $linked ) {
+			if ( $reported ) {
+				return 'failed';
+			}
+			return 'verified' === $state ? 'verified' : 'probe_unavailable';
+		}
+		return $reported && ! $changed ? 'failed' : 'verified';
 	}
 
 	// -----------------------------------------------------------------------

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -132,6 +133,9 @@ final class UpdatePage extends AbilityKernel {
 					return $refusal;
 				}
 
+				if ( ! empty( $args['meta'] ) && is_array( $args['meta'] ) ) {
+					RescueGuard::note_post_meta_keys( $id, array_map( 'sanitize_key', array_map( 'strval', array_keys( $args['meta'] ) ) ) );
+				}
 				$snapshot_id = Backup::snapshot_post( $id );
 
 				$payload = [ 'ID' => $id ];
