@@ -113,6 +113,30 @@ final class ChangeDiffTest extends TestCase {
 		self::assertSame( 'added', $diff['sections'][1]['result']['fields'][0]['op'] );
 	}
 
+	public function test_a_deleted_resource_shows_what_was_removed_against_nothing_and_says_it_was_deleted(): void {
+		$row  = $this->seed_change( [ 'family' => 'memory', 'resource_type' => 'memory', 'resource_id' => 'note-a', 'summary' => 'Deleted the note.' ], [ 'title' => 'Launch note', 'body' => 'Remove me' ], null );
+		$diff = ChangeDiff::for_row( $row );
+
+		self::assertSame( 'ok', $diff['status'] );
+		self::assertTrue( $diff['deleted'] );
+		self::assertTrue( $diff['changed'] );
+		self::assertSame( 'removed', $diff['sections'][0]['result']['fields'][0]['op'] );
+		self::assertStringContainsString( 'Launch note', (string) wp_json_encode( $diff ) );
+	}
+
+	public function test_a_value_that_was_masked_when_it_was_stored_is_counted_as_masked(): void {
+		$row  = $this->seed_change(
+			[ 'family' => 'option', 'resource_type' => 'option', 'resource_id' => 'blogname' ],
+			[ 'value' => 'Old name' ],
+			[ 'value' => 'Authorization: Bearer abcdefghijklmnop1234' ]
+		);
+		$diff = ChangeDiff::for_row( $row );
+
+		self::assertSame( 1, $diff['masked'] );
+		self::assertTrue( $diff['image_masked'], 'A masked after image makes the row not restorable, and the diff says so.' );
+		self::assertStringNotContainsString( 'abcdefghijklmnop', (string) wp_json_encode( $diff ) );
+	}
+
 	public function test_a_change_that_has_no_after_image_yet_has_nothing_to_compare(): void {
 		$row  = $this->seed_change( [], [ 'post_title' => 'Only before' ], null, 'armed' );
 		$diff = ChangeDiff::for_row( $row );

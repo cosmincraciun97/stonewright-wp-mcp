@@ -63,13 +63,18 @@ The drawer has three views, as tabs that are links:
   - **Options, settings and other fields**: a table of the changed key paths with the value before
     and after.
 
+  A change that deleted something (a menu, a memory entry) has no content after it: the diff
+  shows what was removed against nothing, under a **Deleted** label.
+
   A callout above the diff says when it was cut to keep the page small, and when values were
-  masked. A change that cannot be restored says so here too.
+  masked, including values that were already masked when the change was stored. A change that
+  cannot be restored says so here too.
 - **Details** lists the change id, kind, family, resource, ability, user, client, status, the times
   it was recorded and settled, the size and the first characters of the hash of the content before
   and after, whether it can be restored, its change set, and a link to its audit events.
 - **History** shows the change's parent, if it is a rollback or a redo, and the rollbacks and redos
-  of the change. Each relative links to its own diff.
+  of the change, with the redo of a rollback listed under that rollback, down to five levels and
+  forty rows (a note says when more exist). Each relative links to its own diff.
 
 If the content of a change was removed by retention, or was never stored, the drawer says so
 instead of showing a diff.

@@ -515,6 +515,32 @@ final class ChangesPageTest extends TestCase {
 		self::assertStringContainsString( 'No content is kept for this change', $html );
 	}
 
+	public function test_a_delete_with_no_after_image_shows_the_removed_content_with_a_deleted_label(): void {
+		$row  = $this->seed_change( [ 'family' => 'memory', 'resource_type' => 'memory', 'resource_id' => 'note-a', 'summary' => 'Deleted the note.' ], [ 'title' => 'Launch note', 'body' => 'Removed body' ], null );
+		$html = $this->html( [ 'change' => (string) $row['change_id'] ] );
+
+		self::assertStringContainsString( 'data-sw-ui-diff="fields"', $html );
+		self::assertStringContainsString( 'Removed body', $html );
+		self::assertMatchesRegularExpression( '#sw-changes-diff">[^<]*<p[^>]*class="sw-changes-deleted"[^>]*>[^<]*Deleted#', $html );
+		self::assertStringNotContainsString( 'There is no diff to show', $html );
+	}
+
+	public function test_a_change_that_never_settled_still_says_there_is_nothing_to_compare(): void {
+		$row  = $this->seed_change( [], [ 'a' => '1' ], null, 'armed' );
+		$html = $this->html( [ 'change' => (string) $row['change_id'] ] );
+
+		self::assertStringContainsString( 'There is no diff to show', $html );
+		self::assertStringNotContainsString( 'sw-changes-deleted', $html );
+	}
+
+	public function test_a_masked_value_in_the_diff_shows_the_masked_callout(): void {
+		$row  = $this->seed_change( [ 'family' => 'option', 'resource_type' => 'option', 'resource_id' => 'blogname' ], [ 'value' => 'Old name' ], [ 'value' => 'Authorization: Bearer abcdefghijklmnop1234' ] );
+		$html = $this->html( [ 'change' => (string) $row['change_id'] ] );
+
+		self::assertStringContainsString( 'Values were masked', $html );
+		self::assertStringNotContainsString( 'abcdefghijklmnop', $html );
+	}
+
 	public function test_a_change_that_is_not_in_the_ledger_is_a_notice_and_opens_no_drawer(): void {
 		$this->seed_change( [], [ 'a' => '1' ], [ 'a' => '2' ] );
 
@@ -576,6 +602,38 @@ final class ChangesPageTest extends TestCase {
 		self::assertMatchesRegularExpression( '#href="[^"]*change=' . $change['change_id'] . '[^"]*">View diff#', $middle, 'Each relative links to its own diff.' );
 		self::assertStringContainsString( 'Redo', $middle );
 		self::assertStringContainsString( 'Rollback of', $middle );
+	}
+
+	public function test_history_shows_the_redo_of_a_rollback_under_the_rollback_in_the_history_of_the_change(): void {
+		$change   = $this->seed_change( [ 'summary' => 'The original change.' ], [ 'a' => '1' ], [ 'a' => '2' ], 'rolled_back_by' );
+		$rollback = $this->seed_change( [ 'kind' => 'rollback', 'parent_id' => $change['change_id'], 'summary' => 'Rolled it back.' ], [ 'a' => '2' ], [ 'a' => '1' ], 'rolled_back_by' );
+		$redo     = $this->seed_change( [ 'kind' => 'redo', 'parent_id' => $rollback['change_id'], 'summary' => 'Did it again.' ], [ 'a' => '1' ], [ 'a' => '2' ], 'rolled_back_by' );
+		$again    = $this->seed_change( [ 'kind' => 'rollback', 'parent_id' => $redo['change_id'], 'summary' => 'Back again.' ], [ 'a' => '2' ], [ 'a' => '1' ] );
+
+		$html = $this->html( [ 'change' => (string) $change['change_id'], 'view' => 'history' ] );
+
+		foreach ( [ $rollback, $redo, $again ] as $row ) {
+			self::assertMatchesRegularExpression( '#data-sw-changes-node="' . $row['change_id'] . '"#', $html, 'Every descendant is listed.' );
+		}
+		// Each one sits inside the item of its parent.
+		self::assertMatchesRegularExpression( '#data-sw-changes-node="' . $rollback['change_id'] . '".*?<ol>\s*<li[^>]*data-sw-changes-node="' . $redo['change_id'] . '"#s', $html );
+		self::assertMatchesRegularExpression( '#data-sw-changes-node="' . $redo['change_id'] . '".*?<ol>\s*<li[^>]*data-sw-changes-node="' . $again['change_id'] . '"#s', $html );
+	}
+
+	public function test_the_history_of_a_long_chain_of_redos_is_bounded(): void {
+		$parent = $this->seed_change( [], [ 'a' => '1' ], [ 'a' => '2' ], 'rolled_back_by' );
+		$first  = (string) $parent['change_id'];
+		$ids    = [];
+		for ( $depth = 1; $depth <= 12; ++$depth ) {
+			$parent = $this->seed_change( [ 'kind' => 0 === $depth % 2 ? 'redo' : 'rollback', 'parent_id' => $parent['change_id'] ], [ 'a' => '1' ], [ 'a' => '2' ], 'rolled_back_by' );
+			$ids[]  = (string) $parent['change_id'];
+		}
+
+		$html = $this->html( [ 'change' => $first, 'view' => 'history' ] );
+
+		self::assertStringContainsString( 'data-sw-changes-node="' . $ids[0] . '"', $html );
+		self::assertStringNotContainsString( 'data-sw-changes-node="' . $ids[11] . '"', $html, 'The list stops at a fixed depth.' );
+		self::assertStringContainsString( 'More rollbacks and redos exist', $html );
 	}
 
 	public function test_a_change_with_no_relatives_says_so(): void {

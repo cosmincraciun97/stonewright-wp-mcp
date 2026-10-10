@@ -39,6 +39,12 @@ final class ChangeDetail {
 
 	public const VIEWS = [ 'diff', 'details', 'history' ];
 
+	/** How many levels of rollbacks and redos under a change the History tab lists. */
+	private const HISTORY_DEPTH = 5;
+
+	/** How many rollbacks and redos the History tab lists in all. */
+	private const HISTORY_NODES = 40;
+
 	/**
 	 * @param array<string, mixed>  $row   A row of ChangeLedger.
 	 * @param array<string, string> $carry The filters of the list, kept in every link so closing the drawer returns to the same list.
@@ -124,6 +130,9 @@ final class ChangeDetail {
 
 			return Html::element( 'div', [ 'class' => 'sw-changes-diff' ], $html );
 		}
+		if ( $diff['deleted'] ) {
+			$html .= Html::element( 'p', [ 'class' => 'sw-changes-deleted' ], Html::text( __( 'Deleted. This is the content the change removed.', 'stonewright' ) ) );
+		}
 		foreach ( $diff['sections'] as $section ) {
 			$html .= DiffView::render( $section['result'], [ 'title' => $section['title'] ] );
 		}
@@ -177,36 +186,35 @@ final class ChangeDetail {
 	// -----------------------------------------------------------------------------------------------
 
 	/**
-	 * The parent chain down to this change, then the rollbacks and redos of it, as one nested list.
+	 * The parent chain down to this change, then the rollbacks and redos of it and of each of them in turn, as one nested list.
 	 *
 	 * @param array<string, mixed>  $row
 	 * @param array<string, string> $carry
 	 */
 	private static function history_panel( array $row, array $carry ): string {
-		$id       = (string) $row['change_id'];
-		$chain    = ChangeLedger::chain( $id );
-		$children = ChangeLedger::children( $id );
+		$id    = (string) $row['change_id'];
+		$chain = ChangeLedger::chain( $id );
 		if ( [] === $chain || (string) $chain[ count( $chain ) - 1 ]['change_id'] !== $id ) {
 			$chain = [ $row ];
 		}
+
+		// The rollbacks and redos under this change, and the redo of a rollback under that rollback, to a fixed depth.
+		$budget = self::HISTORY_NODES;
+		$cut    = false;
+		$inner  = self::descendants( $id, $id, $carry, 1, $budget, $cut );
 
 		$notes = '';
 		if ( 1 === count( $chain ) ) {
 			$notes .= Html::element( 'p', [ 'class' => 'sw-ui-diff__where' ], Html::text( __( 'This change has no parent.', 'stonewright' ) ) );
 		}
-		if ( [] === $children ) {
+		if ( '' === $inner ) {
 			$notes .= Html::element( 'p', [ 'class' => 'sw-ui-diff__where' ], Html::text( __( 'Nothing has rolled this change back or redone it.', 'stonewright' ) ) );
 		}
-
-		// The list is built from the inside out: the children sit under this change, and each ancestor wraps the next.
-		$inner = '';
-		if ( [] !== $children ) {
-			$items = '';
-			foreach ( $children as $child ) {
-				$items .= self::node( $child, $id, $carry, '' );
-			}
-			$inner = Html::element( 'ol', [], $items );
+		if ( $cut ) {
+			$notes .= Html::element( 'p', [ 'class' => 'sw-ui-diff__where' ], Html::text( __( 'More rollbacks and redos exist than are shown here. Open the last one listed to see the rest.', 'stonewright' ) ) );
 		}
+
+		// The list is built from the inside out: the descendants sit under this change, and each ancestor wraps the next.
 		$html = '';
 		for ( $depth = count( $chain ) - 1; $depth >= 0; --$depth ) {
 			$html  = self::node( $chain[ $depth ], $id, $carry, $inner );
@@ -214,6 +222,33 @@ final class ChangeDetail {
 		}
 
 		return $notes . Html::element( 'ol', [ 'class' => 'sw-ui-lineage', 'aria-label' => __( 'Rollbacks and redos of this change', 'stonewright' ) ], $html );
+	}
+
+	/**
+	 * The rollbacks and redos that act on a change, each with those that act on it in turn, as a nested list. Bounded by
+	 * depth and by the number of rows listed in all; $cut is set when something was left out.
+	 *
+	 * @param array<string, string> $carry
+	 */
+	private static function descendants( string $parent, string $current, array $carry, int $depth, int &$budget, bool &$cut ): string {
+		$children = ChangeLedger::children( $parent, max( 1, $budget + 1 ) );
+		$items    = '';
+		foreach ( $children as $child ) {
+			if ( $budget < 1 ) {
+				$cut = true;
+				break;
+			}
+			--$budget;
+			$nested = '';
+			if ( $depth < self::HISTORY_DEPTH ) {
+				$nested = self::descendants( (string) $child['change_id'], $current, $carry, $depth + 1, $budget, $cut );
+			} elseif ( [] !== ChangeLedger::children( (string) $child['change_id'], 1 ) ) {
+				$cut = true;
+			}
+			$items .= self::node( $child, $current, $carry, $nested );
+		}
+
+		return '' === $items ? '' : Html::element( 'ol', [], $items );
 	}
 
 	/**

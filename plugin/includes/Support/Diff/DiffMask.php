@@ -17,7 +17,8 @@ use Stonewright\WpMcp\Security\SensitiveContent;
  *
  * A value is replaced by `[redacted]` when its key names a secret, when
  * {@see SensitiveContent} matches it, when it looks like a well-known token
- * format, or when the matcher could not finish. Text that is too long is
+ * format, when the ledger masked it before it stored it, or when the matcher
+ * could not finish. Text that is too long is
  * clipped with its size, and text that is not valid UTF-8 is replaced by a size
  * marker so every result can be encoded as JSON.
  */
@@ -33,6 +34,9 @@ final class DiffMask {
 
 	/** Words that mark a key as holding a secret. */
 	private const SECRET_WORD = '/^(?:pass(?:word|wd|phrase|code)?s?|pwd|secrets?|tokens?|salts?|nonces?|credentials?|oauth\d*|licen[sc]es?|auth|authentication|authorization|authorisation|cookies?|bearer|apikeys?|privatekeys?|keys?)$/';
+
+	/** What the ledger leaves in an image in place of a credential it masked before storing it. */
+	private const STORED_MASK = '/\[masked (?:line \d+|private key)\]/';
 
 	/** Formats of credentials that carry no label a line scan could find. */
 	private const TOKEN_FORMATS = [
@@ -75,6 +79,10 @@ final class DiffMask {
 	public static function sensitive( string $text ): bool {
 		if ( '' === $text ) {
 			return false;
+		}
+		// A value the ledger masked when it stored it is a masked value, whatever it was.
+		if ( self::REDACTED === $text || 1 === preg_match( self::STORED_MASK, $text ) ) {
+			return true;
 		}
 		if ( SensitiveContent::contains( $text ) ) {
 			return true;

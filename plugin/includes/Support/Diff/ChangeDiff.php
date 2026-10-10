@@ -26,6 +26,8 @@ use Stonewright\WpMcp\Security\ChangeLedger;
  *     truncated    bool, whether any engine left something out
  *     masked       int, values the engines replaced by [redacted]
  *     image_masked bool, whether the ledger masked the image before it stored it
+ *     deleted      bool, whether the change removed the resource: there is no after image and the diff is the content
+ *                  before against nothing
  *
  * The image of a file (the text of a theme file, a snippet, a stylesheet) is one text section named after the
  * resource. The image of anything else is an array of fields: `post_content` is compared as block markup when
@@ -39,6 +41,9 @@ final class ChangeDiff {
 	/** Where a key of a post image may sit, besides the top. */
 	private const CONTAINERS = [ 'post', 'fields', 'meta', 'post_meta' ];
 
+	/** Statuses of a change that did not finish, or did not happen: no after image is expected, and none means nothing yet. */
+	private const UNFINISHED = [ 'armed', 'failed', 'incident', 'rollback_failed' ];
+
 	/** Families whose text image is a file: the section is named after the path. */
 	private const FILE_FAMILIES = [ 'theme_file', 'custom_code', 'sandbox' ];
 
@@ -46,7 +51,7 @@ final class ChangeDiff {
 	 * @param array<string, mixed> $row     A row of ChangeLedger.
 	 * @param array<string, mixed> $options `text`, `blocks`, `elementor` and `fields` hold the options of each engine
 	 *                                      (they can lower its caps); `parser` replaces the block parser.
-	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool, deleted: bool}
 	 */
 	public static function for_row( array $row, array $options = [] ): array {
 		$id           = (string) ( $row['change_id'] ?? '' );
@@ -60,7 +65,9 @@ final class ChangeDiff {
 		if ( '' === $before_ref && '' === $after_ref ) {
 			return self::empty_result( 'no_images', __( 'No content is kept for this change. Either Stonewright does not store content for this kind of resource, or the content could not be stored.', 'stonewright' ), $image_masked );
 		}
-		if ( '' === $after_ref ) {
+		// A settled change with a before image and no after image at all removed the resource.
+		$deleted = '' === $after_ref && '' === (string) ( $row['after_sha256'] ?? '' ) && ! in_array( (string) ( $row['status'] ?? 'armed' ), self::UNFINISHED, true );
+		if ( '' === $after_ref && ! $deleted ) {
 			return self::empty_result( 'before_only', __( 'Only the content before the change was recorded, so there is nothing to compare. The change may not have finished.', 'stonewright' ), $image_masked );
 		}
 
@@ -71,12 +78,12 @@ final class ChangeDiff {
 				return self::empty_result( 'unreadable', self::unreadable_message(), $image_masked );
 			}
 		}
-		$after = ChangeLedger::read_image( $id, 'after' );
+		$after = $deleted ? null : ChangeLedger::read_image( $id, 'after' );
 		if ( $after instanceof \WP_Error ) {
 			return self::empty_result( 'unreadable', self::unreadable_message(), $image_masked );
 		}
 
-		return self::compare( $row, $before, $after, $options, $image_masked );
+		return self::compare( $row, $before, $after, $options, $image_masked, $deleted );
 	}
 
 	/**
@@ -88,7 +95,7 @@ final class ChangeDiff {
 	 * @param array<mixed>|string|null $from    The image on the left (what is there now); null reads as empty.
 	 * @param array<mixed>|string|null $to      The image on the right (what it would become); null reads as empty.
 	 * @param array<string, mixed>     $options As for_row().
-	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool, deleted: bool}
 	 */
 	public static function for_images( array $row, array|string|null $from, array|string|null $to, array $options = [] ): array {
 		$image_masked = 'masked_secret' === (string) ( $row['restorable_reason'] ?? '' );
@@ -104,9 +111,9 @@ final class ChangeDiff {
 	 * @param array<mixed>|string|null $before
 	 * @param array<mixed>|string|null $after
 	 * @param array<string, mixed>     $options
-	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool, deleted: bool}
 	 */
-	private static function compare( array $row, array|string|null $before, array|string|null $after, array $options, bool $image_masked ): array {
+	private static function compare( array $row, array|string|null $before, array|string|null $after, array $options, bool $image_masked, bool $deleted = false ): array {
 		if ( null === $before ) {
 			$before = is_array( $after ) ? [] : '';
 		}
@@ -140,11 +147,12 @@ final class ChangeDiff {
 			'truncated'    => $truncated,
 			'masked'       => $masked,
 			'image_masked' => $image_masked,
+			'deleted'      => $deleted,
 		];
 	}
 
 	/**
-	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool, deleted: bool}
 	 */
 	private static function empty_result( string $status, string $message, bool $image_masked ): array {
 		return [
@@ -155,6 +163,7 @@ final class ChangeDiff {
 			'truncated'    => false,
 			'masked'       => 0,
 			'image_masked' => $image_masked,
+			'deleted'      => false,
 		];
 	}
 

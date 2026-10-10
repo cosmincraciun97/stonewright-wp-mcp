@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T11:05:39+00:00",
+    "generated_at": "2026-10-10T12:00:02+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -643,7 +643,7 @@
             "mcp_name": "stonewright-change-diff-get",
             "kind": "Read",
             "input_schema_hash": "bcd21a7cf81b6957220da3c5034c971b0ba336592014ea97a05af39aab5a9a73",
-            "output_schema_hash": "ae55e1dc786d2160f42f1d67a018c072aeddf06b7d49c062ed0ee909b2ac6a9d",
+            "output_schema_hash": "2f588d08f27b1d6001b0c1c1e4f1cdad4080af91d5cf7f36c9ec146265bafddc",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

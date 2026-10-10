@@ -56,6 +56,14 @@ final class DiffMaskTest extends TestCase {
 		$this->assertFalse( DiffMask::sensitive( 'password: <your-password>' ) );
 	}
 
+	public function test_a_value_the_ledger_masked_when_it_stored_it_counts_as_masked(): void {
+		$this->assertTrue( DiffMask::sensitive( '[masked line 3]' ) );
+		$this->assertTrue( DiffMask::sensitive( "a\n[masked private key]\nb" ) );
+		$this->assertTrue( DiffMask::sensitive( '[redacted]' ) );
+		$this->assertSame( [ '[redacted]', true ], DiffMask::value( '[masked line 1]', 'value' ) );
+		$this->assertFalse( DiffMask::sensitive( 'a note about [masked] things' ) );
+	}
+
 	public function test_pem_block_lines_are_flagged_between_markers(): void {
 		$lines = [ 'ok', '-----BEGIN ' . 'PRIVATE KEY-----', 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC', 'abc', '-----END PRIVATE KEY-----', 'after' ];
 		$flags = DiffMask::pem_lines( $lines );

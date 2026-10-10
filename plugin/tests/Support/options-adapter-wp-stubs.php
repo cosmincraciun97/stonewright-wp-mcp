@@ -27,6 +27,7 @@ if ( ! function_exists( 'wp_get_nav_menu_items' ) ) {
 		$order = 0;
 		foreach ( (array) $term->items as $item_id => $item ) {
 			$data   = (array) ( $item['data'] ?? [] );
+			$custom = 'custom' === (string) ( $data['menu-item-type'] ?? 'custom' );
 			$rows[] = [
 				// Core appends an item saved with no position.
 				'order'  => (int) ( $data['menu-item-position'] ?? 0 ) > 0 ? (int) $data['menu-item-position'] : PHP_INT_MAX,
@@ -39,8 +40,9 @@ if ( ! function_exists( 'wp_get_nav_menu_items' ) ) {
 					'title'            => (string) ( $data['menu-item-title'] ?? '' ),
 					'url'              => (string) ( $data['menu-item-url'] ?? '' ),
 					'type'             => (string) ( $data['menu-item-type'] ?? 'custom' ),
-					'object'           => (string) ( $data['menu-item-object'] ?? 'custom' ),
-					'object_id'        => (string) (int) ( $data['menu-item-object-id'] ?? 0 ),
+					'object'           => $custom ? 'custom' : (string) ( $data['menu-item-object'] ?? 'custom' ),
+					// Core keeps the item's own id as the object id of a custom link.
+					'object_id'        => $custom ? (string) (int) $item_id : (string) (int) ( $data['menu-item-object-id'] ?? 0 ),
 					'target'           => (string) ( $data['menu-item-target'] ?? '' ),
 					'attr_title'       => (string) ( $data['menu-item-attr-title'] ?? '' ),
 					'description'      => (string) ( $data['menu-item-description'] ?? '' ),

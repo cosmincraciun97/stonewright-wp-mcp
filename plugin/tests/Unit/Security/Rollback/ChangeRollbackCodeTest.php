@@ -271,6 +271,30 @@ final class ChangeRollbackCodeTest extends RollbackTestCase {
 		self::assertSame( self::V2, $this->live( 'sandbox_change' ) );
 	}
 
+	public function test_a_verified_code_change_that_the_journal_still_knows_is_taken_back_when_the_probe_fails_after_the_restore(): void {
+		$path = $this->theme . '/functions.php';
+		file_put_contents( $path, self::V1 );
+		ThemeWriteTransaction::apply( [ 'absolute' => $path, 'relative' => 'functions.php', 'before' => self::V1, 'after' => self::V2, 'language' => 'php' ] );
+		$id = (string) $this->only_row_of( 'theme_file' )['change_id'];
+		$entry = ChangeJournal::get( $id );
+		self::assertNotNull( $entry, 'The write armed the journal.' );
+		if ( 'verified' !== $entry['state'] ) {
+			ChangeJournal::settle( $id, 'verified' );
+		}
+		self::assertTrue( RollbackRecipes::available( ChangeJournal::get( $id ) ?? [] ), 'The journal has a recipe that can still run.' );
+		// Version one of the file is the one that breaks the site.
+		$this->site( fn (): string => str_contains( (string) file_get_contents( $this->theme . '/functions.php' ), 'version one' ) ? 'broken' : 'healthy' );
+
+		$error = ChangeRollback::run( $id, [ 'human_approved' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_rollback_failed', $error->get_error_code(), 'The code transaction takes the restore back itself.' );
+		self::assertSame( self::V2, (string) file_get_contents( $path ), 'The file that worked is back.' );
+		self::assertSame( 'theme_write_smoke_failed', $error->get_error_data()['detail'] );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+		self::assertSame( 'verified', $this->row( $id )['status'] );
+	}
+
 	public function test_in_production_safe_mode_code_needs_the_token_and_the_person(): void {
 		$id = $this->theme_change();
 		$this->production_safe();
