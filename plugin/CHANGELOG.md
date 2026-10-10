@@ -46,6 +46,23 @@
   before image back through the path the original write used, so its checks
   still apply, and record the restore under the change. A history that cannot
   record never stops or changes the write.
+- Record changes to users, comments, media, WooCommerce, themes, plugins, site
+  memory, skills, design directions, `php-execute` and some settings writes in the
+  change history, with no page or ability reading them yet. A user change keeps
+  the account fields, roles and capabilities before and after, and never a
+  password, session token, application password or other secret user data; a
+  changed password and a created or revoked application password are recorded
+  as events with no content. Media keeps the fields, alt text and metadata (an
+  upload is a create, undone by deleting the attachment), comments and
+  WooCommerce products, variations, terms and attributes keep the full content
+  of what a delete removes, a theme switch keeps the previous theme, and a
+  memory delete keeps the whole row so that it can be put back. Skills and
+  design directions link to the revision their own stores keep and keep no
+  second copy. A plugin delete, a `php-execute` run (only the hash of its code)
+  and a settings write from an admin screen or route are recorded and marked
+  not restorable, with the reason. Restore functions write the before image back
+  through the functions the ability used. A history that cannot record never
+  stops or changes the write.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the

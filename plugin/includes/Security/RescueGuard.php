@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Security\Adapters\OtherFamilies;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\Logger;
@@ -32,15 +33,23 @@ use Stonewright\WpMcp\Support\Logger;
  * left behind and settles the ledger row with it and the outcome. A ledger that cannot record changes
  * nothing about the write.
  *
+ * Users, comments, media, the catalog, theme switches, plugin deletes and php-execute are recorded by
+ * OtherFamilies: enter() hands it the ability name and arguments, and leave() hands it the result.
+ *
  * Nothing here ever throws into the ability: a failure inside the guard leaves the write and
  * the result as they were.
  */
 final class RescueGuard {
 
-	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>}> */
+	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>,other:array<string,mixed>|null}> */
 	private static array $frames = [];
 
-	public static function enter( string $ability ): void {
+	/**
+	 * Open a frame for an ability call.
+	 *
+	 * @param array<string, mixed> $args The arguments of the call. The change ledger reads them once and keeps none.
+	 */
+	public static function enter( string $ability, array $args = [] ): void {
 		self::$frames[] = [
 			'ability' => $ability,
 			'user'    => function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0,
@@ -51,6 +60,8 @@ final class RescueGuard {
 			// The ledger row of each post this call recorded, and the custom fields a write named for it.
 			'ledger'    => [],
 			'meta_keys' => [],
+			// What OtherFamilies watches in this call: the images taken now, and the values it needs at the end.
+			'other'     => self::other_begin( $ability, $args ),
 		];
 	}
 
@@ -75,6 +86,7 @@ final class RescueGuard {
 			}
 		}
 		self::ledger_settle( $frame, $after, $result );
+		self::other_finish( $frame['other'], $result );
 		return $result;
 	}
 
@@ -521,6 +533,31 @@ final class RescueGuard {
 			return 'verified' === $state ? 'verified' : 'probe_unavailable';
 		}
 		return $reported && ! $changed ? 'failed' : 'verified';
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|null
+	 */
+	private static function other_begin( string $ability, array $args ): ?array {
+		try {
+			return OtherFamilies::begin( $ability, $args );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			return null;
+		}
+	}
+
+	/**
+	 * @param array<string, mixed>|null $pending
+	 * @param mixed                     $result
+	 */
+	private static function other_finish( ?array $pending, mixed $result ): void {
+		try {
+			OtherFamilies::finish( $pending, $result );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+		}
 	}
 
 	// -----------------------------------------------------------------------

@@ -212,6 +212,11 @@ final class ChangeImage {
 		return '';
 	}
 
+	/** Whether the name of a field or a meta key names a credential, so that its value is masked. */
+	public static function is_secret_field( string $name ): bool {
+		return 1 === preg_match( self::SECRET_FIELD_PATTERN, $name );
+	}
+
 	/** Whether an option name is on the secret list. */
 	public static function is_secret_name( string $name ): bool {
 		$name = strtolower( trim( $name ) );

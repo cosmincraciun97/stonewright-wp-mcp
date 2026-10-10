@@ -35,6 +35,15 @@ final class ChangeImageTest extends TestCase {
 		self::assertSame( $text, ChangeImage::decode( $result['bytes'] ) );
 	}
 
+	public function test_a_field_name_that_names_a_credential_is_known(): void {
+		foreach ( [ 'user_pass', 'user_activation_key', 'session_tokens', 'api_token', 'client_secret', 'application_password' ] as $name ) {
+			self::assertTrue( ChangeImage::is_secret_field( $name ), $name );
+		}
+		foreach ( [ 'display_name', 'user_email', 'first_name', 'description', 'locale', 'post_title' ] as $name ) {
+			self::assertFalse( ChangeImage::is_secret_field( $name ), $name );
+		}
+	}
+
 	public function test_an_array_image_decodes_back_and_its_hash_does_not_depend_on_key_order(): void {
 		$one = ChangeImage::prepare( [ 'post_title' => 'Home', 'meta' => [ 'b' => 2, 'a' => 1 ], 'tags' => [ 'x', 'y' ] ], 'post', '42' );
 		$two = ChangeImage::prepare( [ 'tags' => [ 'x', 'y' ], 'meta' => [ 'a' => 1, 'b' => 2 ], 'post_title' => 'Home' ], 'post', '42' );

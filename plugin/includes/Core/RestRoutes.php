@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
+use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
@@ -261,7 +262,8 @@ final class RestRoutes {
 						return $token_error;
 					}
 
-					$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
+					$disabled     = (array) get_option( 'stonewright_disabled_abilities', [] );
+					$was_disabled = in_array( $name, $disabled, true );
 
 					if ( $enabled ) {
 						$disabled = array_values( array_diff( $disabled, [ $name ] ) );
@@ -270,6 +272,9 @@ final class RestRoutes {
 					}
 
 					update_option( 'stonewright_disabled_abilities', $disabled );
+					if ( $enabled === $was_disabled ) {
+						SiteAdapter::note_admin_write( 'rest', 'stonewright_disabled_abilities', ( $enabled ? 'Turned on ability ' : 'Turned off ability ' ) . $name );
+					}
 
 					return rest_ensure_response( [
 						'name'    => $name,
@@ -434,10 +439,13 @@ final class RestRoutes {
 
 						if ( null !== $text ) {
 							update_option( 'stonewright_custom_instructions', $text );
+							// The text can say anything: only its length and a hash of it are recorded.
+							SiteAdapter::note_admin_write( 'rest', 'stonewright_custom_instructions', 'Custom instructions changed (' . strlen( (string) $text ) . ' bytes, sha256 ' . substr( hash( 'sha256', (string) $text ), 0, 12 ) . ')' );
 						}
 
 						if ( null !== $enabled ) {
 							update_option( 'stonewright_custom_instructions_enabled', (bool) $enabled );
+							SiteAdapter::note_admin_write( 'rest', 'stonewright_custom_instructions_enabled', 'Custom instructions ' . ( $enabled ? 'turned on' : 'turned off' ) );
 						}
 
 						return rest_ensure_response( [
@@ -951,17 +959,24 @@ final class RestRoutes {
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$mode = $request->get_param( 'mode' );
 						if ( $mode ) {
+							$previous_mode = (string) get_option( 'stonewright_mode', 'development' );
 							update_option( 'stonewright_mode', $mode );
+							if ( (string) $mode !== $previous_mode ) {
+								SiteAdapter::note_admin_write( 'rest', 'stonewright_mode', 'Mode changed from ' . $previous_mode . ' to ' . sanitize_key( (string) $mode ) );
+							}
 						}
 
 						$essential_tools_mode = $request->get_param( 'essential_tools_mode' );
 						if ( null !== $essential_tools_mode ) {
 							update_option( 'stonewright_essential_tools_mode', (bool) $essential_tools_mode );
+							SiteAdapter::note_admin_write( 'rest', 'stonewright_essential_tools_mode', 'Essential tools mode turned ' . ( $essential_tools_mode ? 'on' : 'off' ) );
 						}
 
 						$flags = $request->get_param( 'feature_flags' );
 						if ( is_array( $flags ) ) {
 							update_option( 'stonewright_feature_flags', $flags );
+							// Names of the flags only, never their values.
+							SiteAdapter::note_admin_write( 'rest', 'stonewright_feature_flags', 'Feature flags set: ' . implode( ', ', array_slice( array_map( 'sanitize_key', array_map( 'strval', array_keys( $flags ) ) ), 0, 8 ) ) );
 						}
 
 						return rest_ensure_response( [

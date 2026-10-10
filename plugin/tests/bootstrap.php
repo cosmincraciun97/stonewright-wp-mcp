@@ -3712,6 +3712,11 @@ if ( ! function_exists( 'wp_insert_user' ) ) {
 			'display_name' => (string) ( $userdata['display_name'] ?? $userdata['user_login'] ?? '' ),
 			'roles'        => [ (string) ( $userdata['role'] ?? 'subscriber' ) ],
 		];
+		foreach ( [ 'user_pass', 'user_nicename', 'user_url', 'user_registered' ] as $kept ) {
+			if ( isset( $userdata[ $kept ] ) ) {
+				$row[ $kept ] = (string) $userdata[ $kept ];
+			}
+		}
 		$GLOBALS['stonewright_test_users'][ $id ] = $row;
 		return $id;
 	}
@@ -3726,7 +3731,12 @@ if ( ! function_exists( 'wp_update_user' ) ) {
 		$users[ $id ] = [ 'ID' => $id, 'user_login' => 'user-' . $id, 'user_email' => 'u@example.com', 'display_name' => 'User', 'roles' => [ 'subscriber' ] ];
 	}
 		$row = is_array( $users[ $id ] ) ? $users[ $id ] : (array) $users[ $id ];
-		$GLOBALS['stonewright_test_users'][ $id ] = array_merge( $row, (array) $userdata, [ 'ID' => $id ] );
+		$update = (array) $userdata;
+		if ( isset( $update['role'] ) ) {
+			// Like WordPress, a role in the data replaces the roles of the user.
+			$update['roles'] = '' === $update['role'] ? [] : [ (string) $update['role'] ];
+		}
+		$GLOBALS['stonewright_test_users'][ $id ] = array_merge( $row, $update, [ 'ID' => $id ] );
 		return $id;
 	}
 }
