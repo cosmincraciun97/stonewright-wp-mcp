@@ -288,9 +288,9 @@ history, and settings stay in the database. Defining
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
 table, every `stonewright_` option (the OAuth signing and encryption keys
 included), every `stonewright_` and `sw_cc_` transient, and the scheduled
-events, on every site of a network, and the change journal files in
-`uploads/stonewright-state/` (a file in that folder that Stonewright did not write
-stays). See
+events, on every site of a network, and the change journal files and change
+history blobs in `uploads/stonewright-state/` (a file in those folders that
+Stonewright did not write stays). See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
 

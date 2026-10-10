@@ -130,6 +130,9 @@ final class UninstallFileTest extends TestCase {
 		file_put_contents( $journal, '{"version":1,"updated_at":0,"entries":[]}' );
 		file_put_contents( $journal . '.lock', '' );
 		file_put_contents( $uploads . '/stonewright-state/.htaccess', 'Require all denied' );
+		mkdir( $uploads . '/stonewright-state/blobs', 0777, true );
+		file_put_contents( $uploads . '/stonewright-state/blobs/' . hash( 'sha256', 'synthetic image' ) . '.gz', (string) gzencode( 'synthetic image' ) );
+		file_put_contents( $uploads . '/stonewright-state/blobs/index.php', "<?php\n// Silence is golden.\n" );
 		return [ $site, $content, $uploads ];
 	}
 
@@ -176,6 +179,8 @@ final class UninstallFileTest extends TestCase {
 			self::assertSame( 0, $run['loaded']['autoloaders'] ?? -1, 'no autoloader was there to help' );
 			self::assertTrue( $run['loaded']['installer'] ?? false );
 			self::assertFalse( $run['loaded']['journal'] ?? true, 'the default path loads no data removal code' );
+			self::assertFalse( $run['loaded']['blob_store'] ?? true, 'nor the blob store' );
+			self::assertCount( 1, glob( $uploads . '/stonewright-state/blobs/*.gz' ) ?: [], 'the change history blobs are data and stay' );
 		} finally {
 			self::remove_folder( $site );
 		}
@@ -194,6 +199,7 @@ final class UninstallFileTest extends TestCase {
 			self::assertSame( 0, $run['loaded']['autoloaders'] ?? -1, 'no autoloader was there to help' );
 			self::assertTrue( $run['loaded']['journal'] ?? false );
 			self::assertTrue( $run['loaded']['journal_file'] ?? false );
+			self::assertTrue( $run['loaded']['blob_store'] ?? false, 'the blob store is loaded by uninstall.php, which has no autoloader' );
 		} finally {
 			self::remove_folder( $site );
 		}

@@ -13,7 +13,7 @@
  * example in wp-config.php) before deleting the plugin. Stonewright\WpMcp\Core\Uninstaller
  * then drops every plugin table and deletes every plugin option (the OAuth signing and
  * encryption keys included), plugin transient and scheduled event, and the change journal
- * files in uploads/stonewright-state/, on every site of a multisite network. The list of what
+ * files and change history blobs in uploads/stonewright-state/, on every site of a multisite network. The list of what
  * goes is kept in that class.
  *
  * @package Stonewright\WpMcp
@@ -32,8 +32,10 @@ if ( ! defined( 'STONEWRIGHT_REMOVE_ALL_DATA' ) || true !== STONEWRIGHT_REMOVE_A
 	return;
 }
 
-// The change journal files live outside the database, so the data removal needs the journal classes.
+// The change journal files and the change history blobs live outside the database, so the data removal
+// needs the journal classes and the blob store.
 require_once __DIR__ . '/includes/Security/ChangeJournalFile.php';
 require_once __DIR__ . '/includes/Security/ChangeJournal.php';
+require_once __DIR__ . '/includes/Security/BlobStore.php';
 
 \Stonewright\WpMcp\Core\Uninstaller::run();

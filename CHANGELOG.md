@@ -27,6 +27,18 @@ development builds were never stable releases.
   An incident or an unverified change to code is rolled back as before.
 - Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
   of the state before the restore, which undoes it.
+- Add the storage layer for change history, with no ability or page using it
+  yet. A `stonewright_changes` table (created and upgraded with the other
+  tables) records each change with its ability, user, resource, status and the
+  hash and size of the content before and after it. The content is kept as
+  gzip blobs in `uploads/stonewright-state/blobs/`, named by sha256, with deny
+  files on every folder, size limits per blob and in total, and an integrity
+  check on read. Passwords, keys and salts, OAuth tokens, `wp-config.php` and
+  options on a list of secret names are never stored, and other credentials
+  found in content are masked. A daily event keeps 90 days, 500 changes and
+  100 MB by default (options and filters change the limits) and never deletes
+  an open change. Removing all plugin data also drops the table, the event and
+  the blobs.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the

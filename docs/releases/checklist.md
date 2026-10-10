@@ -211,7 +211,7 @@ SemVer and is marked `Latest`. The native updater stays on the installed channel
 With `STONEWRIGHT_REMOVE_ALL_DATA` defined as `true`, deleting the plugin
 removes every plugin table, every option whose name starts with `stonewright_`
 (the OAuth signing and encryption keys included), every `stonewright_` and
-`sw_cc_` transient, and the scheduled events `stonewright_oauth_gc` and
-`stonewright_audit_retention`, on every site of a network, and every connected
+`sw_cc_` transient, and the scheduled events `stonewright_oauth_gc`,
+`stonewright_audit_retention` and `stonewright_change_ledger_prune`, on every site of a network, and every connected
 OAuth client has to sign in again. Use it only to remove Stonewright for good.
 See [Updating Stonewright](../updates.md#roll-back-reinstall-or-remove-the-plugin).

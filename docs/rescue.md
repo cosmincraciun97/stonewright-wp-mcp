@@ -88,6 +88,36 @@ If the recipe fails, the change becomes `rollback_failed`, an open incident, lik
 ## A failed backup stops the write
 
 A write that mutates a post takes a snapshot of the post first. When the snapshot cannot be stored and read back, the write does not run: the ability returns `stonewright_backup_failed` before it changes anything, and releases the write lock it took. This holds for the Elementor V3 abilities that add, move, remove or update elements, build a page from a spec, change page settings, kit colors or kit typography, for the per-widget `elementor-add-*` abilities, for `design-spec-to-elementor-v3` and for `elementor-v4-migrate`. `change-restore` takes a snapshot of the current state before it restores, returns it as `pre_restore_snapshot_id`, and refuses with `stonewright_backup_failed` when it cannot be stored. The history limit (10 snapshots per post) never drops the snapshot being restored.
+## Change history (ledger)
+
+This section describes the storage layer under change history. The pages and abilities that record, show and undo changes build on it and are documented with them.
+
+The ledger is separate from the journal above. The journal is the short record Rescue needs to check and undo a change that has just been made. The ledger keeps history for longer, with the content that came before and after each change.
+
+### What it stores
+
+- One row per change in the table `stonewright_changes` (with the site prefix). A row holds a change id, the id of the change it follows (a rollback or a redo points at the change it acts on), the ability, the user, the label of the client when one is known, the time, the resource type and id, the family (post, Elementor, theme file, custom code, sandbox, option, menu, widget, user, media, WooCommerce and others), the status, the size and sha256 of the before and after content, whether the change can be restored and why not, a short summary and the id of the change set.
+- The before and after content, as gzip blobs in `wp-content/uploads/stonewright-state/blobs/`. A blob is named by the sha256 of its content, so content that appears twice is stored once. Every folder the ledger creates, and the one it sits in, has `.htaccess`, `web.config` and `index.php` deny rules. A blob is read back only after its content is checked against its name, and the ledger refuses links and any path outside that folder.
+- Limits on storage: one image of at most 4 MB (1 MB compressed), and 100 MB of blobs in total. A change whose image is over a limit is still recorded, without the image, and marked not restorable with the reason.
+
+### How long it keeps it
+
+By default 90 days, 500 changes and 100 MB of blobs, whichever is reached first. A daily event deletes the oldest changes first. It never deletes an open change (`armed`, `incident` or `rollback_failed`), a change that a kept change follows, or a blob that another change still uses. Each run that deletes something writes one short audit row and leaves a receipt in the `stonewright_change_ledger_prune_receipt` option.
+
+An administrator can change the limits with the options `stonewright_change_ledger_days`, `stonewright_change_ledger_max_changes` and `stonewright_change_ledger_max_bytes`, or with the filters `stonewright_change_ledger_retention_days`, `stonewright_change_ledger_retention_max_changes` and `stonewright_change_ledger_retention_max_bytes`. A value that is not a positive number goes back to the default, and each limit has an upper bound.
+
+### What it never stores
+
+- `wp-config.php` and files that hold credentials (`.env` files, private keys, `.htpasswd`).
+- Keys and salts, and options on a list of secret names (names that contain key, secret, token, password, salt, auth, license, credential or oauth), including Stonewright's own signing, encryption and confirmation secrets.
+- User passwords, application passwords, session tokens and OAuth tokens and keys, as resources and as values inside any other content.
+- Any other credential found in content: private key blocks, bearer and basic authorization values, passwords and tokens written as `name: value`, URLs with credentials, and Stonewright tokens. These are replaced by a mask before anything is written, and content that was masked is marked not restorable.
+
+For a refused resource the ledger keeps the row but no content and no hash of it.
+
+### Removal
+
+With `STONEWRIGHT_REMOVE_ALL_DATA` defined as `true`, deleting the plugin drops the table, unschedules the daily event and deletes the blobs with their deny files, on every site of a network. A file in the blob folder that the ledger did not write stays.
 
 ## The health probe
 

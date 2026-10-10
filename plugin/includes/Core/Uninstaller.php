@@ -21,7 +21,8 @@ namespace Stonewright\WpMcp\Core;
  * The removal list is the constants below: every table the plugin creates, the name
  * prefixes of its options (this covers the OAuth signing and encryption keys) and of its
  * transients, and the events it schedules. A site is cleaned in this order: events,
- * tables, options and transients, then the change journal files in uploads/stonewright-state/.
+ * tables, options and transients, then the change history blobs and the change journal files in
+ * uploads/stonewright-state/.
  * On a multisite network every site is cleaned, because deleting the plugin removes it for all
  * of them. The object cache is flushed once at the end; transients that live only in an
  * external object cache expire on their own.
@@ -44,6 +45,7 @@ final class Uninstaller {
 	 */
 	public const TABLES = [
 		'stonewright_audit_log',
+		'stonewright_changes',
 		'stonewright_design_direction_versions',
 		'stonewright_design_directions',
 		'stonewright_expertise_packs',
@@ -80,11 +82,11 @@ final class Uninstaller {
 	public const TRANSIENT_PREFIXES = [ 'stonewright_', 'sw_cc_' ];
 
 	/**
-	 * Events the plugin schedules: the OAuth clean-up and the audit retention.
+	 * Events the plugin schedules: the OAuth clean-up, the audit retention and the change history retention.
 	 *
 	 * @var list<string>
 	 */
-	public const SCHEDULED_HOOKS = [ 'stonewright_oauth_gc', 'stonewright_audit_retention' ];
+	public const SCHEDULED_HOOKS = [ 'stonewright_oauth_gc', 'stonewright_audit_retention', 'stonewright_change_ledger_prune' ];
 
 	/** Sites read from a network per get_sites() call. */
 	private const SITE_PAGE = 100;
@@ -165,11 +167,15 @@ final class Uninstaller {
 	}
 
 	/**
-	 * Deletes the change journal file of the current site, with its lock and the files that close the
-	 * folder to the web (uploads/stonewright-state/). Files in that folder that the journal did not
-	 * write stay, and so does the folder then. uninstall.php loads the journal classes for this.
+	 * Deletes the change history blobs of the current site (uploads/stonewright-state/blobs/), then the
+	 * change journal file with its lock and the files that close the state folder to the web
+	 * (uploads/stonewright-state/). A file in either folder that the plugin did not write stays, and so
+	 * does the folder then. uninstall.php loads the blob store and journal classes for this.
 	 */
 	private function erase_state_files(): void {
+		if ( class_exists( \Stonewright\WpMcp\Security\BlobStore::class ) ) {
+			\Stonewright\WpMcp\Security\BlobStore::erase_default();
+		}
 		if ( class_exists( \Stonewright\WpMcp\Security\ChangeJournal::class ) ) {
 			\Stonewright\WpMcp\Security\ChangeJournal::erase_state_files();
 		}
