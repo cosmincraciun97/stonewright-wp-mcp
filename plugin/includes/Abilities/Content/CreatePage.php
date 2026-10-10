@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -112,6 +113,7 @@ final class CreatePage extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				$meta_skipped = [];
 

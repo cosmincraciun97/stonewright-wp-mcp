@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\FSE;
 
+use Stonewright\WpMcp\Security\RescueGuard;
+
 /**
  * Storage conventions for user-edited templates and template parts.
  *
@@ -62,6 +64,7 @@ final class TemplateStore {
 		if ( is_wp_error( $post_id ) ) {
 			return $post_id;
 		}
+		RescueGuard::note_post_created( (int) $post_id );
 
 		self::assign_terms( (int) $post_id, $theme, $area );
 		return (int) $post_id;
