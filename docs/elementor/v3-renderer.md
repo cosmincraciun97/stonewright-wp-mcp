@@ -103,8 +103,8 @@ WordPress post cache. It preserves `_elementor_css` and never calls Elementor's
 site-wide files-manager clear. After the typed write, call
 `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then
 `stonewright-elementor-post-write-verify`. The regenerator updates only the
-resolved target through Elementor's official `update_file()` API inside a
-bounded asset transaction. The verifier is observation-only and never
+resolved target through Elementor's official `update()` API inside a
+bounded asset transaction, and moves the stylesheet version (`?ver=`) forward. The verifier is observation-only and never
 regenerates CSS. Never pass `regenerate_css`.
 
 ### Step 7 — Audit log

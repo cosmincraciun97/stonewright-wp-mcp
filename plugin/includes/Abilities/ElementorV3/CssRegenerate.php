@@ -20,6 +20,10 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class CssRegenerate extends AbilityKernel {
 
+	private const PROTECTED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. If the page still looks unstyled, purge the host or page cache and check the stylesheet URL in a logged-out browser; an access-control or redirect rule in front of the uploads folder is a hosting setting, not an Elementor change.';
+
+	private const UNCHECKED_DELIVERY_REPAIR = 'The CSS file was written and the page stylesheet version changed, but the anonymous HTTP check got no usable answer. Do not rebuild the layout. Check the stylesheet URL in a logged-out browser, and call this ability again once if the page still looks unstyled.';
+
 	public function name(): string {
 		return 'stonewright/elementor-css-regenerate';
 	}
@@ -29,7 +33,7 @@ final class CssRegenerate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates one Elementor post or loop CSS file through the official update_file API inside a guarded asset transaction, then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
+		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away from the CSS, the write still counts: delivery_status is blocked with a warning, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -89,6 +93,11 @@ final class CssRegenerate extends AbilityKernel {
 				'root_error_code'              => [ 'type' => 'string' ],
 				'failed_check'                 => [ 'type' => 'string' ],
 				'retryable'                    => [ 'type' => 'boolean' ],
+				'css_version'                  => [ 'type' => 'integer' ],
+				'css_version_before'           => [ 'type' => 'integer' ],
+				'css_version_changed'          => [ 'type' => 'boolean' ],
+				'warnings'                     => [ 'type' => 'array' ],
+				'repair'                       => [ 'type' => 'string' ],
 				'before_manifest_sha256'       => [ 'type' => 'string' ],
 				'after_manifest_sha256'   => [ 'type' => 'string' ],
 				'probes'                  => [ 'type' => 'array' ],
@@ -174,7 +183,7 @@ final class CssRegenerate extends AbilityKernel {
 					$transaction = CssAssetTransaction::run(
 						$resolved,
 						static function () use ( $resolved ): array {
-							self::trace( 'update_file' );
+							self::trace( 'update_css' );
 							return CssRegenerator::regenerate( $resolved );
 						}
 					);
@@ -193,9 +202,12 @@ final class CssRegenerate extends AbilityKernel {
 						$generation = (bool) ( $operation['ok'] ?? false ) ? 'verified' : 'failed';
 					}
 					$no_file_ok = 'not_produced' === $file_status && 'not_applicable' === $delivery;
-					$complete   = 'verified' === $generation && ( 'verified' === $delivery || $no_file_ok );
-					$root     = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
-					$failed   = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
+					$root       = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
+					$failed     = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
+					// Anonymous requests that are redirected or refused are access control in front of the
+					// file, not a failed write: the file is written and the page version has moved on.
+					$delivery_unverified = 'blocked' === $delivery && 'stonewright_elementor_css_delivery_protected' === $root;
+					$complete            = 'verified' === $generation && ( 'verified' === $delivery || $no_file_ok || $delivery_unverified );
 					if ( ! $complete ) {
 						if ( '' === $root ) {
 							$root = 'blocked' === $delivery
@@ -215,6 +227,7 @@ final class CssRegenerate extends AbilityKernel {
 							$receipt['root_error_code'] = $root;
 						}
 					}
+					$css_version = self::css_version_evidence( $operation );
 
 					self::trace( 'audit' );
 					$result = [
@@ -240,9 +253,21 @@ final class CssRegenerate extends AbilityKernel {
 					if ( 'not_produced' === $file_status ) {
 						$result['css_file_reason'] = (string) ( $evidence['css_file_reason'] ?? 'empty_css' );
 					}
-					if ( ! $complete ) {
+					$result = array_merge( $result, $css_version );
+					if ( $delivery_unverified ) {
+						$result['warnings'] = [
+							[
+								'code'    => 'stonewright_elementor_css_delivery_protected',
+								'message' => 'The stylesheet was written and its page version changed, but an anonymous request to its URL does not end in the CSS file, so public delivery was not verified. An access-control layer or the host may sit in front of the uploads folder.',
+							],
+						];
+						$result['repair'] = self::PROTECTED_DELIVERY_REPAIR;
+					} elseif ( ! $complete ) {
 						$result['root_error_code'] = $root;
 						$result['failed_check']    = $failed;
+						if ( 'delivery' === $failed && 'verified' === $generation && 'not_checked' === $delivery ) {
+							$result['repair'] = self::UNCHECKED_DELIVERY_REPAIR;
+						}
 					}
 					return $result;
 				} finally {
@@ -250,6 +275,21 @@ final class CssRegenerate extends AbilityKernel {
 				}
 			}
 		);
+	}
+
+	/**
+	 * @param array<string,mixed> $operation
+	 * @return array<string,mixed>
+	 */
+	private static function css_version_evidence( array $operation ): array {
+		if ( ! isset( $operation['css_version'] ) || ! is_numeric( $operation['css_version'] ) ) {
+			return [];
+		}
+		return [
+			'css_version'         => max( 0, (int) $operation['css_version'] ),
+			'css_version_before'  => max( 0, (int) ( $operation['css_version_before'] ?? 0 ) ),
+			'css_version_changed' => (bool) ( $operation['css_version_changed'] ?? false ),
+		];
 	}
 
 	/**

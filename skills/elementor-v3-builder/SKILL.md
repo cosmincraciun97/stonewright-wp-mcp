@@ -215,7 +215,10 @@ the consolidated dry run passes against `expected_tree_hash`.
 Every successful apply returns a cache-closure receipt and a required next step.
 Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
 (resolved post or loop target), then
-`stonewright/elementor-post-write-verify` with all touched element IDs. Never
+`stonewright/elementor-post-write-verify` with all touched element IDs. A result
+with `ok:true`, `delivery_status:blocked` and a warning means the CSS file was
+written and its `?ver=` changed but the anonymous check was redirected: do not
+rebuild the layout for it. Never
 pass `regenerate_css`; that input does not exist. The verifier is
 observation-only: it warms the official frontend builder renderer with CSS
 generation disabled and asserts the IDs without returning page HTML,
