@@ -10,6 +10,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Security\Adapters\FamilyRecorder;
+use Stonewright\WpMcp\Security\Adapters\OtherFamilies;
+use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -25,15 +28,37 @@ use Stonewright\WpMcp\Support\Logger;
  * it before the audit row is written, so the row shows the real outcome. A write made outside
  * any frame (an admin screen, a test) is not journaled: nothing would settle it.
  *
+ * The same points feed the change ledger for posts. arm_post_write() records the post as it is before
+ * the write, note_post_overwrite() does the same for a write that takes no snapshot, and
+ * note_post_created() records a post the call has just created. leave() reads the image each of them
+ * left behind and settles the ledger row with it and the outcome. A ledger that cannot record changes
+ * nothing about the write.
+ *
+ * Options, theme mods, menus and widgets are recorded the same way, but their rows are written when the call
+ * ends. enter() takes the image of what the ability may write from its name and arguments (settings, front
+ * page, custom instructions, custom post types, taxonomies, ACF field groups, tool profile, widgets),
+ * arm_option_write() takes it for a write that makes an option restore point (theme chrome, brand kit), and
+ * the menu store reports a menu, or a theme location, before it writes one (note_menu_write(),
+ * note_menu_created(), note_menu_location()). leave() reads the images again and writes one row for each
+ * resource that changed, with the status the journal reached when it watched the same write.
+ *
+ * Users, comments, media, the catalog, theme switches, plugin deletes and php-execute are recorded by
+ * OtherFamilies: enter() hands it the ability name and arguments, and leave() hands it the result.
+ *
  * Nothing here ever throws into the ability: a failure inside the guard leaves the write and
  * the result as they were.
+ *
+ * @phpstan-import-type Entry from FamilyRecorder
  */
 final class RescueGuard {
 
-	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>}> */
+	/** @var list<array{ability:string,user:int,ids:list<string>,posts:array<int,string>,baseline:array<string,array<string,mixed>>,ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>,meta_keys:array<int,list<string>>,family:array<string,Entry>,other:array<string,mixed>|null}> */
 	private static array $frames = [];
 
-	public static function enter( string $ability ): void {
+	/**
+	 * @param array<string, mixed> $args The arguments of the ability call, which say what its write may touch. They are read, never kept.
+	 */
+	public static function enter( string $ability, array $args = [] ): void {
 		self::$frames[] = [
 			'ability' => $ability,
 			'user'    => function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0,
@@ -41,7 +66,41 @@ final class RescueGuard {
 			'posts'    => [],
 			// What each leg did before the first write of the call, so one call probes each leg once.
 			'baseline' => [],
+			// The ledger row of each post this call recorded, and the custom fields a write named for it.
+			'ledger'    => [],
+			'meta_keys' => [],
+			// The options, widgets, menus and menu locations the call is about to write, with their images.
+			'family'    => [],
+			// What OtherFamilies watches in this call: the images taken now, and the values it needs at the end.
+			'other'     => self::other_begin( $ability, $args ),
 		];
+		$index = array_key_last( self::$frames );
+		try {
+			foreach ( FamilyRecorder::begin( $ability, $args ) as $key => $entry ) {
+				self::$frames[ $index ]['family'][ $key ] = $entry;
+			}
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_family_failed', [ 'error' => $failure::class ] );
+		}
+	}
+
+	/**
+	 * Run a write that no audit frame wraps inside a frame of its own, so that it is recorded like any other.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable():mixed     $write
+	 * @return mixed What the write returns, as leave() passes it on.
+	 * @throws \Throwable What the write throws, after the frame is closed.
+	 */
+	public static function within( string $ability, array $args, callable $write ): mixed {
+		self::enter( $ability, $args );
+		try {
+			$result = $write();
+		} catch ( \Throwable $failure ) {
+			self::leave( new \WP_Error( 'stonewright_ability_throwable', 'The write failed unexpectedly.' ) );
+			throw $failure;
+		}
+		return self::leave( $result );
 	}
 
 	/**
@@ -52,15 +111,23 @@ final class RescueGuard {
 	 */
 	public static function leave( mixed $result ): mixed {
 		$frame = array_pop( self::$frames );
-		if ( null === $frame || [] === $frame['ids'] ) {
+		if ( null === $frame ) {
 			return $result;
 		}
-		try {
-			return self::settle_frame( $frame, $result );
-		} catch ( \Throwable $failure ) {
-			Logger::warning( 'rescue_guard_settle_failed', [ 'error' => $failure::class ] );
-			return $result;
+		// What the writes produced, before a rollback can undo it.
+		$after        = self::ledger_images( $frame );
+		$family_after = self::entry_images( $frame );
+		if ( [] !== $frame['ids'] ) {
+			try {
+				$result = self::settle_frame( $frame, $result );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'rescue_guard_settle_failed', [ 'error' => $failure::class ] );
+			}
 		}
+		self::ledger_settle( $frame, $after, $result );
+		self::settle_entries( $frame, $family_after, $result );
+		self::other_finish( $frame['other'] ?? null, $result );
+		return $result;
 	}
 
 	/**
@@ -87,8 +154,75 @@ final class RescueGuard {
 		);
 		if ( null !== $id ) {
 			self::$frames[ $index ]['posts'][ $post_id ] = $id;
+			self::ledger_before( $index, $post_id, $id );
 		}
 		return $id;
+	}
+
+	/**
+	 * A post is about to be overwritten by a write that takes no snapshot: record it in the change
+	 * ledger with the image it has now. Nothing is armed in the journal and nothing is probed.
+	 *
+	 * @param list<string> $meta_keys Custom fields the write names.
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	public static function note_post_overwrite( int $post_id, array $meta_keys = [] ): ?string {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 ) {
+			return null;
+		}
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			return self::$frames[ $index ]['ledger'][ $post_id ]['id'];
+		}
+		self::note_post_meta_keys( $post_id, $meta_keys );
+		$keys = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+		$id   = PostAdapter::record_before( self::$frames[ $index ]['ability'], $post_id, '', $keys );
+		if ( '' === $id ) {
+			return null;
+		}
+		self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => '', 'created' => false, 'keys' => $keys ];
+		return $id;
+	}
+
+	/**
+	 * A post has just been created by this call: record it in the change ledger. It has no before image,
+	 * and its undo is the trash.
+	 *
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	public static function note_post_created( int $post_id ): ?string {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 ) {
+			return null;
+		}
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			return self::$frames[ $index ]['ledger'][ $post_id ]['id'];
+		}
+		$id = PostAdapter::record_create( self::$frames[ $index ]['ability'], $post_id );
+		if ( '' === $id ) {
+			return null;
+		}
+		self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => '', 'created' => true, 'keys' => [] ];
+		return $id;
+	}
+
+	/**
+	 * The custom fields a write is about to set on a post, named before its snapshot so that the change
+	 * ledger images them. A field the write may not touch is left out.
+	 *
+	 * @param list<string> $keys
+	 */
+	public static function note_post_meta_keys( int $post_id, array $keys ): void {
+		$index = self::top();
+		if ( null === $index || $post_id < 1 || [] === $keys ) {
+			return;
+		}
+		try {
+			$known = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+			self::$frames[ $index ]['meta_keys'][ $post_id ] = array_values( array_unique( array_merge( $known, PostAdapter::writable_meta_keys( $post_id, $keys ) ) ) );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_note_failed', [ 'error' => $failure::class ] );
+		}
 	}
 
 	/**
@@ -96,13 +230,14 @@ final class RescueGuard {
 	 * Called by Backup::snapshot_options.
 	 *
 	 * @param list<string> $option_keys
+	 * @param list<string> $theme_mod_keys
 	 */
-	public static function arm_option_write( array $option_keys, string $restore_id ): ?string {
+	public static function arm_option_write( array $option_keys, string $restore_id, array $theme_mod_keys = [] ): ?string {
 		$index = self::top();
 		if ( null === $index || '' === $restore_id ) {
 			return null;
 		}
-		return self::arm_in_frame(
+		$id = self::arm_in_frame(
 			$index,
 			[
 				'resource_type' => 'option',
@@ -112,6 +247,47 @@ final class RescueGuard {
 				'scope'         => 'light',
 			]
 		);
+		self::keep_entry(
+			$index,
+			'options:' . $restore_id,
+			static fn (): ?array => FamilyRecorder::options_entry( self::$frames[ $index ]['ability'], $option_keys, $theme_mod_keys, $id ?? '' )
+		);
+		return $id;
+	}
+
+	/**
+	 * A menu is about to be changed: keep its image as it is now. Called by MenuStore before it adds an item to
+	 * a menu or deletes it. Only the first call for a menu in an ability call counts, so the image is the state
+	 * before the call touched the menu.
+	 */
+	public static function note_menu_write( int $menu_id ): void {
+		$index = self::top();
+		if ( null === $index || $menu_id < 1 ) {
+			return;
+		}
+		self::keep_entry( $index, 'menu:' . $menu_id, static fn (): ?array => FamilyRecorder::menu_entry( $menu_id ) );
+	}
+
+	/**
+	 * A menu has just been created by this call. It has no before image, and its undo deletes it.
+	 */
+	public static function note_menu_created( int $menu_id ): void {
+		$index = self::top();
+		if ( null === $index || $menu_id < 1 ) {
+			return;
+		}
+		self::keep_entry( $index, 'menu:' . $menu_id, static fn (): array => FamilyRecorder::created_menu_entry( $menu_id ) );
+	}
+
+	/**
+	 * A theme location is about to be assigned a menu: keep the menu it holds now.
+	 */
+	public static function note_menu_location( string $location ): void {
+		$index = self::top();
+		if ( null === $index || '' === $location ) {
+			return;
+		}
+		self::keep_entry( $index, 'location:' . $location, static fn (): array => FamilyRecorder::location_entry( $location ) );
 	}
 
 	/**
@@ -216,6 +392,31 @@ final class RescueGuard {
 		} catch ( \Throwable $failure ) {
 			Logger::warning( 'rescue_guard_note_failed', [ 'error' => $failure::class ] );
 		}
+	}
+
+	/**
+	 * The id of the entry this call armed for a resource and has not settled yet, so that the change
+	 * history can use the same id as the journal. Null outside a call, and when nothing matches.
+	 *
+	 * @param string $resource_type The journal resource type, for example sandbox or custom_code.
+	 * @param string $resource_key  The key the entry was armed with.
+	 */
+	public static function armed_id_for( string $resource_type, string $resource_key ): ?string {
+		$index = self::top();
+		if ( null === $index ) {
+			return null;
+		}
+		try {
+			foreach ( array_reverse( self::$frames[ $index ]['ids'] ) as $id ) {
+				$entry = ChangeJournal::get( $id );
+				if ( null !== $entry && 'armed' === $entry['state'] && $resource_type === $entry['resource_type'] && $resource_key === (string) $entry['resource_key'] ) {
+					return $id;
+				}
+			}
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_lookup_failed', [ 'error' => $failure::class ] );
+		}
+		return null;
 	}
 
 	/**
@@ -334,6 +535,176 @@ final class RescueGuard {
 
 	public static function reset_for_tests(): void {
 		self::$frames = [];
+	}
+
+	// -----------------------------------------------------------------------
+	// Change ledger.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Record the post of a journal entry in the change ledger, under the journal's id. A post this call
+	 * created, or already recorded, keeps the row it has: the journal entry then only gains its link.
+	 */
+	private static function ledger_before( int $index, int $post_id, string $journal_id ): void {
+		if ( isset( self::$frames[ $index ]['ledger'][ $post_id ] ) ) {
+			self::$frames[ $index ]['ledger'][ $post_id ]['journal'] = $journal_id;
+			return;
+		}
+		$keys = self::$frames[ $index ]['meta_keys'][ $post_id ] ?? [];
+		$id   = PostAdapter::record_before( self::$frames[ $index ]['ability'], $post_id, $journal_id, $keys );
+		if ( '' !== $id ) {
+			self::$frames[ $index ]['ledger'][ $post_id ] = [ 'id' => $id, 'journal' => $journal_id, 'created' => false, 'keys' => $keys ];
+		}
+	}
+
+	/**
+	 * The image of every post this call recorded, as the writes left it.
+	 *
+	 * @param array{ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>} $frame
+	 * @return array<int, array<string, mixed>|null>
+	 */
+	private static function ledger_images( array $frame ): array {
+		$images = [];
+		foreach ( $frame['ledger'] as $post_id => $row ) {
+			$images[ $post_id ] = PostAdapter::capture_after( $post_id, $row['keys'] );
+		}
+		return $images;
+	}
+
+	/**
+	 * Close the ledger rows of a frame, with the image each write produced and the outcome the journal
+	 * reached for it.
+	 *
+	 * @param array{ledger:array<int,array{id:string,journal:string,created:bool,keys:list<string>}>} $frame
+	 * @param array<int, array<string, mixed>|null>                                                  $images
+	 * @param mixed                                                                                  $result The ability's result as the call ends.
+	 */
+	private static function ledger_settle( array $frame, array $images, mixed $result ): void {
+		foreach ( $frame['ledger'] as $post_id => $row ) {
+			try {
+				$state  = '' === $row['journal'] ? '' : (string) ( ChangeJournal::get( $row['journal'] )['state'] ?? '' );
+				$after  = $images[ $post_id ] ?? null;
+				$status = self::ledger_status( $state, '' !== $row['journal'], $result, $row['created'] || PostAdapter::changed( $row['id'], $after ) );
+				PostAdapter::settle( $row['id'], $after, $status );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			}
+		}
+	}
+
+	/**
+	 * The ledger status of a post write. A rollback keeps the name the journal gave it. A write the
+	 * journal watched is failed when the call failed, and probe_unavailable when the site could not be
+	 * checked. A write only the ledger watched is failed when the call raised an error, or reported a
+	 * failure and left this post as it was.
+	 *
+	 * @param mixed $result
+	 */
+	private static function ledger_status( string $state, bool $linked, mixed $result, bool $changed ): string {
+		if ( in_array( $state, [ 'rolled_back', 'rollback_failed', 'incident' ], true ) ) {
+			return $state;
+		}
+		$reported = is_array( $result ) && false === ( $result['ok'] ?? true );
+		if ( $result instanceof \WP_Error ) {
+			return 'failed';
+		}
+		if ( $linked ) {
+			if ( $reported ) {
+				return 'failed';
+			}
+			return 'verified' === $state ? 'verified' : 'probe_unavailable';
+		}
+		return $reported && ! $changed ? 'failed' : 'verified';
+	}
+
+	/**
+	 * Keep the entry that a factory makes, unless the frame already has one under this key.
+	 *
+	 * @param callable():(array<string,mixed>|null) $make
+	 */
+	private static function keep_entry( int $index, string $key, callable $make ): void {
+		if ( isset( self::$frames[ $index ]['family'][ $key ] ) ) {
+			return;
+		}
+		try {
+			$entry = $make();
+			if ( null !== $entry ) {
+				/** @var Entry $entry */
+				self::$frames[ $index ]['family'][ $key ] = $entry;
+			}
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_family_failed', [ 'error' => $failure::class ] );
+		}
+	}
+
+	/**
+	 * The image of every option, widget, menu and location entry of a frame, as the writes left it.
+	 *
+	 * @param array{family:array<string,Entry>} $frame
+	 * @return array<string, array<string, mixed>|null>
+	 */
+	private static function entry_images( array $frame ): array {
+		$images = [];
+		foreach ( $frame['family'] as $key => $entry ) {
+			try {
+				$images[ $key ] = FamilyRecorder::capture( $entry );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'change_ledger_capture_failed', [ 'error' => $failure::class ] );
+			}
+		}
+		return $images;
+	}
+
+	/**
+	 * Write the rows of a frame's option, widget, menu and location entries, each with the image its write
+	 * produced and the outcome. An entry whose resource did not change has no row.
+	 *
+	 * @param array{ability:string,family:array<string,Entry>} $frame
+	 * @param array<string, array<string, mixed>|null>         $images
+	 * @param mixed                                            $result The ability's result as the call ends.
+	 */
+	private static function settle_entries( array $frame, array $images, mixed $result ): void {
+		foreach ( $frame['family'] as $key => $entry ) {
+			try {
+				if ( ! array_key_exists( $key, $images ) ) {
+					continue;
+				}
+				$after = $images[ $key ];
+				if ( ! FamilyRecorder::changed( $entry, $after ) ) {
+					continue;
+				}
+				$journal = '' === $entry['journal'] ? null : ChangeJournal::get( $entry['journal'] );
+				$state   = null === $journal ? '' : (string) ( $journal['state'] ?? '' );
+				FamilyRecorder::record( $frame['ability'], $entry, $after, self::ledger_status( $state, null !== $journal, $result, true ) );
+			} catch ( \Throwable $failure ) {
+				Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			}
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|null
+	 */
+	private static function other_begin( string $ability, array $args ): ?array {
+		try {
+			return OtherFamilies::begin( $ability, $args );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+			return null;
+		}
+	}
+
+	/**
+	 * @param array<string, mixed>|null $pending
+	 * @param mixed                     $result
+	 */
+	private static function other_finish( ?array $pending, mixed $result ): void {
+		try {
+			OtherFamilies::finish( $pending, $result );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
+		}
 	}
 
 	// -----------------------------------------------------------------------

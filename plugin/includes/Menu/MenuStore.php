@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Menu;
 
+use Stonewright\WpMcp\Security\RescueGuard;
+
 /**
  * Thin facade over WordPress' native nav-menu API.
  *
@@ -46,6 +48,7 @@ final class MenuStore {
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
+		RescueGuard::note_menu_created( (int) $result );
 		return (int) $result;
 	}
 
@@ -88,6 +91,7 @@ final class MenuStore {
 			$item
 		);
 
+		RescueGuard::note_menu_write( $menu_id );
 		$result = wp_update_nav_menu_item( $menu_id, 0, $item );
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -138,6 +142,7 @@ final class MenuStore {
 	 *   - WP_Error on permission / invalid-term-id failures
 	 */
 	public static function delete( int $menu_id ): bool|\WP_Error {
+		RescueGuard::note_menu_write( $menu_id );
 		$result = wp_delete_nav_menu( $menu_id );
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -165,6 +170,7 @@ final class MenuStore {
 	 * the abstraction matches the other write methods.
 	 */
 	public static function assign_location( string $location, int $menu_id ): bool {
+		RescueGuard::note_menu_location( $location );
 		$locations = get_theme_mod( 'nav_menu_locations', [] );
 		if ( ! is_array( $locations ) ) {
 			$locations = [];

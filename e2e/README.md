@@ -7,7 +7,7 @@ and the `e2e:admin-ui` CI job.
 
 For each Stonewright admin page in `tests/helpers/admin-pages.ts` (Overview, Setup,
 Troubleshoot, AI Abilities, Skills, Memory, Context, Design, Prompt library, Custom
-code, Custom code approval, Audit log, Block queue, Rescue):
+code, Custom code approval, Audit log, Block queue, Rescue, Changes):
 
 - HTTP status &lt; 400
 - No horizontal overflow (`scrollWidth - clientWidth <= 0`)

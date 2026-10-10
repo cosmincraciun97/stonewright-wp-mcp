@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
@@ -104,6 +105,7 @@ final class CreateTemplatePart extends AbilityKernel {
 				if ( is_wp_error( $post_id ) ) {
 					return $post_id;
 				}
+				RescueGuard::note_post_created( (int) $post_id );
 
 				wp_set_object_terms( (int) $post_id, get_stylesheet(), 'wp_theme', false );
 				wp_set_object_terms( (int) $post_id, $area, 'wp_template_part_area', false );

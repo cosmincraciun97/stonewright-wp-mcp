@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\Admin;
 use Stonewright\WpMcp\Core\RescueInstaller;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
+use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ProbeToken;
@@ -131,6 +132,7 @@ final class RescuePage {
 		$guarded     = Permissions::is_production_safe() && ! ProbeToken::is_probe_request();
 
 		ob_start();
+		self::render_changes_link();
 		self::render_safe_mode_action();
 		AdminShell::open(
 			self::SLUG,
@@ -158,6 +160,32 @@ final class RescuePage {
 		return __( 'Roll back a change that stopped the site from loading, or check that it loads again.', 'stonewright' );
 	}
 
+	/** History and diffs of every change live on the Changes page; Rescue stays the page for incidents. */
+	private static function render_changes_link(): void {
+		echo '<a class="sw-btn sw-btn--secondary" href="' . esc_url( ChangesPage::url() ) . '">' . esc_html__( 'View changes', 'stonewright' ) . '</a>';
+	}
+
+	/**
+	 * A link to the diff of a change when the change ledger has a row for it. The ledger is read only through its
+	 * public API, and a ledger that cannot be read leaves the link out: Rescue must keep working without it.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function render_diff_link( array $entry ): void {
+		$id = (string) $entry['id'];
+		try {
+			$known = null !== ChangeLedger::get( $id );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			$known = false;
+		}
+		if ( ! $known ) {
+			return;
+		}
+		/* translators: %s: short change set id */
+		$name = sprintf( __( 'View diff of change set %s', 'stonewright' ), self::short_id( $id ) );
+		echo '<a class="sw-btn sw-btn--secondary sw-btn--sm" href="' . esc_url( ChangesPage::diff_url( $id ) ) . '" aria-label="' . esc_attr( $name ) . '">' . esc_html__( 'View diff', 'stonewright' ) . '</a>';
+	}
 	private static function render_safe_mode_action(): void {
 		if ( ! self::safe_mode_available() ) {
 			return;
@@ -355,6 +383,7 @@ final class RescuePage {
 		if ( $actionable ) {
 			echo '<td data-label="' . esc_attr( __( 'Actions', 'stonewright' ) ) . '">';
 			self::render_actions( $entry, $guarded );
+			self::render_diff_link( $entry );
 			echo '</td>';
 		}
 		echo '</tr>';

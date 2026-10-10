@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 
 /**
  * The single writer of the `stonewright_disabled_abilities` option for the AI Abilities page.
@@ -50,6 +51,9 @@ final class AbilityToggles {
 		update_option( self::OPTION, $disabled, false );
 
 		$changed = $enable ? $was_disabled : ! $was_disabled;
+		if ( $changed ) {
+			SiteAdapter::note_admin_write( 'admin', self::OPTION, ( $enable ? 'Turned on ability ' : 'Turned off ability ' ) . $name );
+		}
 
 		return self::outcome( true, $enable ? 'enabled' : 'disabled', $enable, [ $name ], $changed ? 1 : 0 );
 	}
@@ -98,6 +102,9 @@ final class AbilityToggles {
 		$changed = $enable
 			? count( array_intersect( $targets, $was ) )
 			: count( array_diff( $targets, $was ) );
+		if ( $changed > 0 ) {
+			SiteAdapter::note_admin_write( 'admin', self::OPTION, ( $enable ? 'Turned on ' : 'Turned off ' ) . $changed . ' abilities: ' . implode( ', ', array_slice( $targets, 0, 5 ) ) . ( count( $targets ) > 5 ? ', and more' : '' ) );
+		}
 
 		return self::outcome( true, $enable ? 'bulk-enabled' : 'bulk-disabled', $enable, $targets, $changed );
 	}

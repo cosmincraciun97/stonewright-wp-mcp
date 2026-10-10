@@ -332,7 +332,23 @@ final class RollbackRecipesTest extends TestCase {
 
 		self::assertSame( 'succeeded', $result['status'] );
 		self::assertSame( [ [ 'wpcode', [ 'snapshot_id' => 'snap-9', 'target_id' => '12' ] ] ], $calls );
+		self::assertFalse( RollbackRecipes::available( self::entry( 'none', 'snap-9', [ 'provider' => 'wpcode', 'snapshot_id' => 'snap-9' ] ) ), 'No snapshot is stored under that id: the entry is not available.' );
+
+		$GLOBALS['stonewright_test_transients']['sw_cc_snap_snap-9'] = [ 'snapshot_id' => 'snap-9', 'provider' => 'wpcode', 'target_id' => '12', 'body' => 'x' ];
 		self::assertTrue( RollbackRecipes::available( self::entry( 'none', 'snap-9', [ 'provider' => 'wpcode', 'snapshot_id' => 'snap-9' ] ) ) );
+		unset( $GLOBALS['stonewright_test_transients']['sw_cc_snap_snap-9'] );
+	}
+
+	public function test_a_snapshot_that_has_expired_reads_as_not_available_in_the_plan_and_the_check(): void {
+		$entry = self::entry( 'none', 'snap-9', [ 'provider' => 'wpcode', 'snapshot_id' => 'snap-9', 'target_id' => '12' ], [ 'resource_type' => 'custom_code' ] );
+
+		self::assertFalse( RollbackRecipes::available( $entry ) );
+		self::assertStringContainsString( 'expired', RollbackRecipes::describe( $entry ) );
+
+		$GLOBALS['stonewright_test_transients']['sw_cc_snap_snap-9'] = [ 'snapshot_id' => 'snap-9', 'provider' => 'wpcode', 'target_id' => '12', 'body' => 'x' ];
+		self::assertTrue( RollbackRecipes::available( $entry ) );
+		self::assertStringContainsString( 'provider snapshot taken before', RollbackRecipes::describe( $entry ) );
+		unset( $GLOBALS['stonewright_test_transients']['sw_cc_snap_snap-9'] );
 	}
 
 	public function test_a_provider_that_cannot_verify_the_restore_is_a_failure(): void {

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
+
 /**
  * Atomic theme-file write with backup, readback, journal, health probe, and rollback.
  */
@@ -10,6 +12,9 @@ final class ThemeWriteTransaction {
 
 	public const DEFAULT_MAX_CHANGED_BYTES = 65536;
 	private const BACKUP_INDEX_OPTION       = 'stonewright_theme_backup_index';
+
+	/** Age a backup file needs before the prune may remove it. */
+	public const ORPHAN_GRACE_SECONDS = 3600;
 
 	/**
 	 * Apply a verified candidate to an allowlisted theme path.
@@ -84,6 +89,7 @@ final class ThemeWriteTransaction {
 		// the write is judged against). A write that changes nothing needs neither. A write the journal cannot
 		// describe is still checked from memory: it is never made unchecked.
 		$rescue = null;
+		$change = null;
 		if ( $before_hash !== $after_hash ) {
 			$rescue_spec    = self::rescue_spec( $absolute, $relative, $language, $backup, $target_exists );
 			$rescue_options = [
@@ -91,18 +97,31 @@ final class ThemeWriteTransaction {
 				'url'      => isset( $plan['smoke_url'] ) ? (string) $plan['smoke_url'] : '',
 			];
 			$rescue         = RescueGuard::arm_standalone( $rescue_spec, $rescue_options ) ?? RescueGuard::memory_entry( $rescue_spec, $rescue_options );
+
+			// The change history records the file as it is, under the id the journal uses. A history that
+			// cannot record never stops the write.
+			$change = CodeAdapter::begin_theme_file(
+				$absolute,
+				$relative,
+				$before,
+				$target_exists,
+				sprintf( '%s: %d to %d bytes', $relative, strlen( $before ), strlen( $after ) ),
+				(string) ( $rescue['id'] ?? '' )
+			);
 		}
 
 		$temp = $absolute . '.sw-tmp-' . bin2hex( random_bytes( 4 ) );
 		$written = file_put_contents( $temp, $after, LOCK_EX );
 		if ( false === $written ) {
 			@unlink( $temp );
+			CodeAdapter::finish( $change, 'failed' );
 			return self::err( 'theme_file_write_failed', __( 'Failed to write temporary theme file.', 'stonewright' ) );
 		}
 		@chmod( $temp, 0644 );
 
 		if ( ! @rename( $temp, $absolute ) ) {
 			@unlink( $temp );
+			CodeAdapter::finish( $change, 'failed' );
 			return self::err(
 				'theme_file_atomic_replace_failed',
 				__( 'Atomic theme file replacement failed; the original target was left untouched.', 'stonewright' ),
@@ -120,6 +139,7 @@ final class ThemeWriteTransaction {
 		$read_hash = hash( 'sha256', $readback );
 		if ( ! hash_equals( $after_hash, $read_hash ) ) {
 			$rollback = self::restore_original( $absolute, $before, $before_hash, $target_exists );
+			CodeAdapter::finish( $change, 'succeeded' === $rollback['status'] ? 'rolled_back' : 'rollback_failed' );
 			return self::err(
 				'theme_write_readback_mismatch',
 				__( 'Theme file readback did not match the candidate. Rollback attempted.', 'stonewright' ),
@@ -162,6 +182,7 @@ final class ThemeWriteTransaction {
 			$smoke      = HealthProbe::smoke_summary( $verdict['probe'] );
 			$site_probe = 'verified' === $verdict['status'] ? 'passed' : ( 'unavailable' === $verdict['status'] ? 'unavailable' : 'failed' );
 			if ( in_array( $verdict['status'], [ 'rolled_back', 'rollback_failed' ], true ) ) {
+				CodeAdapter::finish( $change, (string) $verdict['status'] );
 				$failure = [
 					'execution_status'    => 'ok',
 					'verification_status' => 'failed',
@@ -202,6 +223,9 @@ final class ThemeWriteTransaction {
 		// nothing has no effect to check.
 		$changed  = $before_hash !== $after_hash;
 		$verified = ! $changed || 'passed' === $site_probe;
+		if ( $changed ) {
+			CodeAdapter::finish( $change, $verified ? 'verified' : 'probe_unavailable', $after );
+		}
 		$result   = [
 			'ok'                  => true,
 			'changed'             => $changed,
@@ -238,12 +262,13 @@ final class ThemeWriteTransaction {
 		$path = ChangeJournal::relative_path( $absolute );
 		$name = '' !== $path ? $path : $relative;
 		$ref  = null !== $backup ? $backup : ( $existed ? 'empty:' . $name : 'absent:' . $name );
+		$file = self::backup_file_name( $backup );
 		return [
 			'ability'       => RescueGuard::current_ability( 'stonewright/theme-file-patch' ),
 			'resource_type' => 'theme_file',
 			'resource_key'  => $relative,
 			'recipe'        => [ 'type' => 'theme_backup', 'ref' => $ref ],
-			'recipe_detail' => [ 'absolute' => $absolute, 'absent_before' => ! $existed ],
+			'recipe_detail' => array_merge( [ 'absolute' => $absolute, 'absent_before' => ! $existed ], '' !== $file ? [ 'backup_file' => $file ] : [] ),
 			'paths'         => '' !== $path ? [ $path ] : [],
 			'scope'         => 'php' === $language ? 'site' : 'light',
 		];
@@ -650,9 +675,25 @@ final class ThemeWriteTransaction {
 			return $protection;
 		}
 		$basename = basename( $absolute );
-		// The random part keeps two backups of one file made in the same second apart.
-		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . bin2hex( random_bytes( 3 ) ) . '-' . $basename . '.swbak';
-		if ( false === file_put_contents( $target, $before, LOCK_EX ) ) {
+		$stamp    = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute );
+		$target   = $stamp . '-' . $basename . '.swbak';
+		// The name is created exclusively: a second write to the same file in the same second gets a name
+		// of its own, so it never replaces the backup of the first.
+		$handle = false;
+		for ( $n = 2; $n < 1000; ++$n ) {
+			$handle = @fopen( $target, 'xb' );
+			if ( false !== $handle || ! file_exists( $target ) ) {
+				break;
+			}
+			$target = $stamp . '-' . $n . '-' . $basename . '.swbak';
+		}
+		if ( false === $handle ) {
+			return self::err( 'theme_file_backup_failed', __( 'Could not write theme backup file.', 'stonewright' ) );
+		}
+		$written = fwrite( $handle, $before );
+		fclose( $handle );
+		if ( strlen( $before ) !== $written ) {
+			@unlink( $target );
 			return self::err( 'theme_file_backup_failed', __( 'Could not write theme backup file.', 'stonewright' ) );
 		}
 		@chmod( $target, 0600 );
@@ -666,10 +707,19 @@ final class ThemeWriteTransaction {
 			'sha256'      => hash( 'sha256', $before ),
 			'created_at'  => current_time( 'mysql', true ),
 		];
-		if ( count( $index ) > 100 ) {
+		$trimmed = count( $index ) > 100;
+		if ( $trimmed ) {
 			$index = array_slice( $index, -100, null, true );
 		}
 		update_option( self::BACKUP_INDEX_OPTION, $index, false );
+		if ( $trimmed ) {
+			// The entries that fell out leave files nothing refers to: remove those.
+			try {
+				self::prune_orphan_backups();
+			} catch ( \Throwable $failure ) {
+				unset( $failure );
+			}
+		}
 		return $backup_ref;
 	}
 
@@ -692,6 +742,155 @@ final class ThemeWriteTransaction {
 		}
 		@chmod( $dir, 0700 );
 		return true;
+	}
+
+	/**
+	 * Remove backup files that nothing refers to: no entry of the backup index, and no entry of the change
+	 * journal. A file younger than the grace period is kept, because its index entry is written a moment
+	 * after it. Only files with a backup file name are looked at. When the references cannot be listed,
+	 * nothing is removed.
+	 *
+	 * @param int $min_age_seconds Age a file needs before it may be removed.
+	 * @return array{removed:int,kept:int}
+	 */
+	public static function prune_orphan_backups( int $min_age_seconds = self::ORPHAN_GRACE_SECONDS ): array {
+		$out    = [ 'removed' => 0, 'kept' => 0 ];
+		$upload = wp_upload_dir();
+		if ( ! empty( $upload['error'] ) ) {
+			return $out;
+		}
+		$dir = trailingslashit( (string) $upload['basedir'] ) . 'stonewright-theme-backups';
+		if ( ! is_dir( $dir ) ) {
+			return $out;
+		}
+		$referenced = self::referenced_backup_files();
+		if ( null === $referenced ) {
+			return $out;
+		}
+		$names = scandir( $dir );
+		foreach ( false === $names ? [] : $names as $name ) {
+			if ( 1 !== preg_match( '/^\d{8}-\d{6}-[a-f0-9]{64}-.+\.swbak$/D', $name ) ) {
+				continue;
+			}
+			$path = $dir . '/' . $name;
+			if ( is_link( $path ) || ! is_file( $path ) ) {
+				continue;
+			}
+			$modified = filemtime( $path );
+			if ( isset( $referenced[ $name ] ) || false === $modified || time() - $modified < $min_age_seconds ) {
+				++$out['kept'];
+				continue;
+			}
+			if ( @unlink( $path ) ) {
+				++$out['removed'];
+			} else {
+				++$out['kept'];
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Names of the backup files that the index and the change journal refer to, or null when they cannot be read.
+	 *
+	 * @return array<string, true>|null
+	 */
+	private static function referenced_backup_files(): ?array {
+		$names = [];
+		try {
+			$index = get_option( self::BACKUP_INDEX_OPTION, [] );
+			foreach ( is_array( $index ) ? $index : [] as $entry ) {
+				if ( is_array( $entry ) && isset( $entry['backup_path'] ) && is_string( $entry['backup_path'] ) && '' !== $entry['backup_path'] ) {
+					$names[ basename( $entry['backup_path'] ) ] = true;
+				}
+			}
+			foreach ( ChangeJournal::recent( ChangeJournalFile::MAX_ENTRIES ) as $entry ) {
+				$file = $entry['recipe_detail']['backup_file'] ?? '';
+				if ( is_string( $file ) && '' !== $file ) {
+					$names[ basename( $file ) ] = true;
+				}
+			}
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return null;
+		}
+		return $names;
+	}
+
+	/** The file name of the backup a reference names, or ''. */
+	private static function backup_file_name( ?string $backup_ref ): string {
+		if ( null === $backup_ref ) {
+			return '';
+		}
+		$entry = self::backup_entry( $backup_ref );
+		return $entry instanceof \WP_Error ? '' : basename( (string) ( $entry['backup_path'] ?? '' ) );
+	}
+
+	/**
+	 * Delete a theme file through the transaction's gates: the path must lie inside a theme folder, the file
+	 * must still hold the bytes the caller saw, and the bytes are kept in a backup first. The undo of a write
+	 * that created a file. It does not check the site afterwards; the caller does.
+	 *
+	 * @param array<string, mixed> $plan absolute, relative and before (the bytes the file must still hold).
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function delete_file( array $plan ) {
+		$absolute = wp_normalize_path( (string) ( $plan['absolute'] ?? '' ) );
+		$relative = (string) ( $plan['relative'] ?? '' );
+		if ( '' === $absolute || '' === $relative ) {
+			return self::err( 'theme_write_path_required', __( 'Theme write path is required.', 'stonewright' ) );
+		}
+		if ( ! self::inside_theme_root( $absolute ) ) {
+			return self::err( 'theme_delete_outside_theme', __( 'Only a file inside a theme folder can be deleted.', 'stonewright' ) );
+		}
+		if ( ! file_exists( $absolute ) ) {
+			return [
+				'ok'                  => true,
+				'changed'             => false,
+				'path'                => $relative,
+				'execution_status'    => 'ok',
+				'verification_status' => 'verified',
+				'rollback_status'     => 'not_needed',
+			];
+		}
+		$current = is_file( $absolute ) ? file_get_contents( $absolute ) : false;
+		if ( false === $current ) {
+			return self::err( 'theme_file_delete_failed', __( 'The theme file could not be read before it was deleted.', 'stonewright' ) );
+		}
+		$before_hash = hash( 'sha256', (string) ( $plan['before'] ?? '' ) );
+		if ( ! hash_equals( $before_hash, hash( 'sha256', $current ) ) ) {
+			return self::err(
+				'theme_write_precondition_failed',
+				__( 'Theme file changed after the candidate was prepared. Run dry_run again and request a new operator grant.', 'stonewright' ),
+				[
+					'execution_status'    => 'blocked',
+					'verification_status' => 'stale_candidate',
+					'before_sha256'       => $before_hash,
+					'current_sha256'      => hash( 'sha256', $current ),
+				]
+			);
+		}
+		$backup = self::write_backup( $absolute, $relative, $current );
+		if ( $backup instanceof \WP_Error ) {
+			return $backup;
+		}
+		$change  = CodeAdapter::begin_theme_file( $absolute, $relative, $current, true, sprintf( '%s: deleted, %d bytes', $relative, strlen( $current ) ) );
+		$removed = self::remove_created_file( $absolute );
+		if ( 'failed' === $removed['status'] ) {
+			CodeAdapter::finish( $change, 'failed' );
+			return self::err( 'theme_file_delete_failed', __( 'The theme file could not be deleted.', 'stonewright' ), [ 'backup_ref' => $backup ] );
+		}
+		CodeAdapter::applied( $change );
+		return [
+			'ok'                  => true,
+			'changed'             => true,
+			'path'                => $relative,
+			'before_sha256'       => $before_hash,
+			'backup_ref'          => $backup,
+			'execution_status'    => 'ok',
+			'verification_status' => 'verified',
+			'rollback_status'     => 'not_needed',
+		];
 	}
 
 	/**

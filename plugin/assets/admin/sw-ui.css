@@ -77,6 +77,16 @@
 	--sw-neutral-soft: #f0f0f1;
 	--sw-neutral-border: #c3c4c7;
 
+	/* Diff view: the dark surface the lines sit on, and the tint, marker and number colour of each kind of line. */
+	--sw-diff-bg: var(--sw-inverse-bg);
+	--sw-diff-fg: var(--sw-inverse-fg);
+	--sw-diff-muted: #a9aeb4;
+	--sw-diff-add-bg: #14452c;
+	--sw-diff-add-mark: #86efac;
+	--sw-diff-del-bg: #5a2420;
+	--sw-diff-del-mark: #fca5a5;
+	--sw-diff-hunk-bg: #2a323b;
+
 	/* Type: sizes are --sw-fs-* so they cannot be mistaken for the --sw-text-* colours. */
 	--sw-font-sans: inherit;
 	--sw-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
@@ -1534,6 +1544,205 @@
 }
 
 /* ====================================================================== */
+/* 12a. Diff view (Ui\DiffView)                                             */
+/* ====================================================================== */
+/*
+ * Text diffs sit on the dark surface of the code block, so they read the same on every WordPress colour scheme:
+ * a line is tinted, carries a + or - marker and has words for assistive technology. The lines scroll inside
+ * the block; block, element and field diffs are lists and tables that wrap.
+ */
+.sw-ui .sw-ui-diff-view {
+	display: grid;
+	gap: var(--sw-space-3);
+	min-width: 0;
+}
+
+.sw-ui .sw-ui-diff {
+	min-width: 0;
+	max-width: 100%;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+	overflow: hidden;
+}
+
+.sw-ui .sw-ui-diff--text {
+	--sw-focus-ring: var(--sw-diff-fg);
+	border-color: var(--sw-inverse-border);
+	background: var(--sw-diff-bg);
+	color: var(--sw-diff-fg);
+}
+
+.sw-ui .sw-ui-diff__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sw-space-1) var(--sw-space-3);
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-bottom: 1px solid var(--sw-border);
+	font-size: var(--sw-fs-xs);
+}
+
+:where(.sw-ui .sw-ui-diff--text) .sw-ui-diff__head {
+	border-color: var(--sw-inverse-border);
+	color: var(--sw-inverse-muted);
+}
+
+.sw-ui .sw-ui-diff__title {
+	min-width: 0;
+	font-weight: var(--sw-weight-semibold);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-diff__stats {
+	display: flex;
+	gap: var(--sw-space-2);
+	font-family: var(--sw-font-mono);
+}
+
+.sw-ui .sw-ui-diff__stat--add {
+	color: var(--sw-diff-add-mark);
+}
+
+.sw-ui .sw-ui-diff__stat--del {
+	color: var(--sw-diff-del-mark);
+}
+
+.sw-ui .sw-ui-diff__body {
+	max-height: min(70vh, 44rem);
+	overflow: auto;
+}
+
+.sw-ui .sw-ui-diff__table {
+	width: max-content;
+	min-width: 100%;
+	border-collapse: collapse;
+	font: var(--sw-fs-xs) / 1.6 var(--sw-font-mono);
+}
+
+.sw-ui .sw-ui-diff__line {
+	background: transparent;
+}
+
+.sw-ui .sw-ui-diff__line--add {
+	--sw-diff-mark: var(--sw-diff-add-mark);
+	background: var(--sw-diff-add-bg);
+}
+
+.sw-ui .sw-ui-diff__line--del {
+	--sw-diff-mark: var(--sw-diff-del-mark);
+	background: var(--sw-diff-del-bg);
+}
+
+.sw-ui .sw-ui-diff__num {
+	min-width: 3.5ch;
+	padding: 0 var(--sw-space-2);
+	color: var(--sw-diff-muted);
+	text-align: end;
+	vertical-align: top;
+	user-select: none;
+}
+
+.sw-ui .sw-ui-diff__mark {
+	width: 2ch;
+	padding: 0 var(--sw-space-1);
+	color: var(--sw-diff-mark, var(--sw-diff-muted));
+	text-align: center;
+	vertical-align: top;
+	user-select: none;
+}
+
+.sw-ui .sw-ui-diff__text {
+	padding: 0 var(--sw-space-3) 0 var(--sw-space-1);
+	color: var(--sw-diff-fg);
+	font-weight: var(--sw-weight-regular);
+	vertical-align: top;
+}
+
+.sw-ui .sw-ui-diff__code {
+	display: block;
+	min-height: 1.6em;
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	white-space: pre;
+}
+
+.sw-ui .sw-ui-diff__eol {
+	display: block;
+	color: var(--sw-diff-muted);
+	font-style: italic;
+}
+
+.sw-ui .sw-ui-diff__hunk-cell {
+	padding: var(--sw-space-1) var(--sw-space-3);
+	background: var(--sw-diff-hunk-bg);
+	color: var(--sw-inverse-muted);
+}
+
+.sw-ui .sw-ui-diff__items {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.sw-ui .sw-ui-diff__item {
+	display: grid;
+	gap: var(--sw-space-2);
+	margin: 0;
+	padding: var(--sw-space-2) var(--sw-space-3);
+}
+
+:where(.sw-ui) .sw-ui-diff__item + .sw-ui-diff__item {
+	border-top: 1px solid var(--sw-border);
+}
+
+.sw-ui .sw-ui-diff__summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	min-height: var(--sw-control-h-sm);
+	overflow-wrap: anywhere;
+}
+
+.sw-ui .sw-ui-diff__where {
+	margin: 0;
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
+.sw-ui .sw-ui-diff__value {
+	padding: 0;
+	background: transparent;
+	font: var(--sw-fs-xs) / 1.6 var(--sw-font-mono);
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.sw-ui .sw-ui-diff__none {
+	color: var(--sw-text-muted);
+}
+
+.sw-ui .sw-ui-diff__empty {
+	margin: 0;
+	color: var(--sw-text-secondary);
+}
+
+@media (forced-colors: active) {
+	:where(.sw-ui) .sw-ui-diff__line--add {
+		border-inline-start: 4px solid CanvasText;
+	}
+
+	:where(.sw-ui) .sw-ui-diff__line--del {
+		border-inline-start: 4px dashed CanvasText;
+	}
+}
+
+/* ====================================================================== */
 /* 13. Tables and toolbars                                                  */
 /* ====================================================================== */
 .sw-ui .sw-ui-table {
@@ -2224,6 +2433,16 @@
 
 	.sw-ui .sw-ui-drawer {
 		width: 100%;
+	}
+
+	/* A diff gives its line numbers less room and scrolls inside its own block. */
+	.sw-ui .sw-ui-diff__num {
+		min-width: 3ch;
+		padding: 0 var(--sw-space-1);
+	}
+
+	.sw-ui .sw-ui-diff__body {
+		max-height: min(60vh, 36rem);
 	}
 }
 

@@ -267,6 +267,8 @@ function detect_token( string $source ): string {
 		|| strpos( $source, 'production_safe_token_error(' ) !== false
 		|| strpos( $source, 'audit_write(' ) !== false
 		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
+		// The rollback engine verifies the token itself.
+		|| strpos( $source, 'ChangeRollback::run(' ) !== false
 	) {
 		return 'Yes';
 	}
@@ -348,6 +350,9 @@ function find_test_file( string $class ): string {
 		'CancelFinalizerChanges' => 'tests/Unit/Gutenberg/CancelFinalizerChangesTest.php',
 		'RescueStatus'           => 'tests/Unit/Security/RescueAbilitiesTest.php',
 		'RescueRollback'         => 'tests/Unit/Security/RescueAbilitiesTest.php',
+		'ChangeHistoryList'      => 'tests/Unit/Abilities/Security/ChangeHistoryListTest.php',
+		'ChangeDiffGet'          => 'tests/Unit/Abilities/Security/ChangeDiffGetTest.php',
+		'ChangeRollback'         => 'tests/Unit/Abilities/Security/ChangeRollbackAbilityTest.php',
 	];
 	if ( isset( $class_tests[ $short ] ) ) {
 		return $class_tests[ $short ];

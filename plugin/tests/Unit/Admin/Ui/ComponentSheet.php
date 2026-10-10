@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\Ui\Band;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
+use Stonewright\WpMcp\Admin\Ui\DiffView;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\HubNav;
@@ -17,6 +18,8 @@ use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\PageHeader;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Admin\Ui\Table;
+use Stonewright\WpMcp\Support\Diff\FieldDiff;
+use Stonewright\WpMcp\Support\Diff\TextDiff;
 use Stonewright\WpMcp\Tests\Unit\Assets\CoreAdminSchemes;
 
 /**
@@ -135,7 +138,7 @@ final class ComponentSheet {
 	}
 
 	private static function sections(): string {
-		return self::overview() . self::hub() . self::buttons() . self::forms() . self::copy_and_code()
+		return self::overview() . self::hub() . self::buttons() . self::forms() . self::copy_and_code() . self::diff_view()
 			. self::badges() . self::notices() . self::states() . self::tables() . self::disclosure_tabs_lineage() . self::overlays();
 	}
 
@@ -255,6 +258,18 @@ final class ComponentSheet {
 			. CopyField::render( 'https://example.test/wp-json/mcp/stonewright-oauth', [ 'label' => 'MCP server URL' ] )
 			. CopyField::render( 'tok_example_0123456789', [ 'secret' => true, 'label' => 'Bridge token' ] )
 			. $code . '</div>';
+	}
+
+	private static function diff_view(): string {
+		$text   = TextDiff::diff(
+			"<?php\n// Example theme file\nfunction example_setup() {\n\tadd_theme_support( 'title-tag' );\n}\n",
+			"<?php\n// Example theme file\nfunction example_setup() {\n\tadd_theme_support( 'title-tag' );\n\tadd_theme_support( 'post-thumbnails' );\n}\n"
+		);
+		$fields = FieldDiff::diff( [ 'blogname' => 'Example site', 'posts_per_page' => '10' ], [ 'blogname' => 'Example site, renamed', 'posts_per_page' => '12', 'blogdescription' => 'Just another example' ] );
+
+		return self::label( 'Diff view' ) . '<div class="sw-ui-stack">'
+			. DiffView::render( $text, [ 'title' => 'functions.php' ] )
+			. DiffView::render( $fields, [ 'title' => 'Site settings' ] ) . '</div>';
 	}
 
 	private static function badges(): string {

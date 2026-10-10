@@ -1649,6 +1649,13 @@ if ( ! function_exists( 'wp_delete_post' ) ) {
 	 * @return \WP_Post|false|null
 	 */
 	function wp_delete_post( int $post_id, bool $force_delete = false ): mixed {
+		// A nav menu item is a post of a menu: deleting it takes it out of the menu.
+		foreach ( (array) ( $GLOBALS['stonewright_test_nav_menus'] ?? [] ) as $menu ) {
+			if ( isset( $menu->items[ $post_id ] ) ) {
+				unset( $menu->items[ $post_id ] );
+				return (object) [ 'ID' => $post_id, 'post_type' => 'nav_menu_item' ];
+			}
+		}
 		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
 		if ( null === $post ) {
 			return false;
@@ -1804,7 +1811,22 @@ if ( ! function_exists( 'wp_set_post_tags' ) ) {
 
 if ( ! function_exists( 'wp_set_object_terms' ) ) {
 	function wp_set_object_terms( int $object_id, string|int|array $terms, string $taxonomy, bool $append = false ): array|\WP_Error {
-		$terms = array_values( array_map( 'strval', (array) $terms ) );
+		$terms = array_values(
+			array_map(
+				static function ( $term ) use ( $taxonomy ): string {
+					// An integer is a term id: keep the slug of the registered term that has it.
+					if ( is_int( $term ) ) {
+						foreach ( $GLOBALS['stonewright_test_terms'][ $taxonomy ] ?? [] as $slug => $known ) {
+							if ( (int) ( $known->term_id ?? 0 ) === $term ) {
+								return (string) $slug;
+							}
+						}
+					}
+					return (string) $term;
+				},
+				(array) $terms
+			)
+		);
 		$store = $GLOBALS['stonewright_test_object_terms'] ?? [];
 		if ( $append && isset( $store[ $object_id ][ $taxonomy ] ) && is_array( $store[ $object_id ][ $taxonomy ] ) ) {
 			$terms = array_values( array_unique( array_merge( $store[ $object_id ][ $taxonomy ], $terms ) ) );
@@ -1812,6 +1834,9 @@ if ( ! function_exists( 'wp_set_object_terms' ) ) {
 		$store[ $object_id ][ $taxonomy ] = $terms;
 		$GLOBALS['stonewright_test_object_terms'] = $store;
 		foreach ( $terms as $term ) {
+			if ( isset( $GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $term ] ) ) {
+				continue;
+			}
 			$GLOBALS['stonewright_test_terms'][ $taxonomy ][ (string) $term ] = (object) [
 				'term_id' => crc32( $taxonomy . ':' . $term ),
 				'name'    => (string) $term,
@@ -3704,6 +3729,11 @@ if ( ! function_exists( 'wp_insert_user' ) ) {
 			'display_name' => (string) ( $userdata['display_name'] ?? $userdata['user_login'] ?? '' ),
 			'roles'        => [ (string) ( $userdata['role'] ?? 'subscriber' ) ],
 		];
+		foreach ( [ 'user_pass', 'user_nicename', 'user_url', 'user_registered' ] as $kept ) {
+			if ( isset( $userdata[ $kept ] ) ) {
+				$row[ $kept ] = (string) $userdata[ $kept ];
+			}
+		}
 		$GLOBALS['stonewright_test_users'][ $id ] = $row;
 		return $id;
 	}
@@ -3718,7 +3748,12 @@ if ( ! function_exists( 'wp_update_user' ) ) {
 		$users[ $id ] = [ 'ID' => $id, 'user_login' => 'user-' . $id, 'user_email' => 'u@example.com', 'display_name' => 'User', 'roles' => [ 'subscriber' ] ];
 	}
 		$row = is_array( $users[ $id ] ) ? $users[ $id ] : (array) $users[ $id ];
-		$GLOBALS['stonewright_test_users'][ $id ] = array_merge( $row, (array) $userdata, [ 'ID' => $id ] );
+		$update = (array) $userdata;
+		if ( isset( $update['role'] ) ) {
+			// Like WordPress, a role in the data replaces the roles of the user.
+			$update['roles'] = '' === $update['role'] ? [] : [ (string) $update['role'] ];
+		}
+		$GLOBALS['stonewright_test_users'][ $id ] = array_merge( $row, $update, [ 'ID' => $id ] );
 		return $id;
 	}
 }

@@ -17,6 +17,7 @@ workflows with operator controls.
 - [Admin Troubleshoot](admin/troubleshoot.md)
 - [Admin Context](admin/context.md)
 - [Admin Design](admin/design.md)
+- [Admin Changes](admin/changes.md)
 - [Admin navigation and page layout](admin/navigation.md)
 - [Admin Overview](admin/overview.md)
 - [Verified client versions and support tiers](verified-client-versions.md)
@@ -57,7 +58,7 @@ workflows with operator controls.
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
-| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, and its limits |
+| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, the change history with undo and redo, and its limits |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

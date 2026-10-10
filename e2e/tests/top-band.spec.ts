@@ -181,7 +181,7 @@ test.describe('The band', () => {
 		expect(h1.y - band.bottom).toBeLessThanOrEqual(60);
 	});
 
-	test('puts the EXP marker at the top right of the five links that are still changing, and nowhere else', async ({ page }) => {
+	test('puts the EXP marker at the top right of the six links that are still changing, and nowhere else', async ({ page }) => {
 		await open(page);
 		const width = page.viewportSize()?.width ?? 1440;
 
@@ -388,16 +388,16 @@ test.describe('The sidebar EXP marker', () => {
 		await expect(page.locator('#toplevel_page_stonewright .wp-submenu')).toBeVisible();
 	}
 
-	test('has the EXP marker after the label of the four entries that are still changing, with the words as hidden text', async ({ page }) => {
+	test('has the EXP marker after the label of the five entries that are still changing, with the words as hidden text', async ({ page }) => {
 		await open(page, SETUP);
 		await showSubmenu(page);
 		const entries = page.locator('#toplevel_page_stonewright .wp-submenu li:not(.wp-submenu-head) a', { has: page.locator('.sw-menu-exp') });
 
-		await expect(entries).toHaveCount(4);
-		await expect(entries.locator('.sw-menu-label')).toHaveText(['Troubleshoot', 'Context', 'Design', 'Rescue']);
-		await expect(entries.locator('.sw-menu-exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP']);
-		expect(await entries.locator('.sw-menu-exp').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-hidden')))).toEqual(['true', 'true', 'true', 'true']);
-		await expect(entries.locator('.screen-reader-text')).toHaveText([EXP_HINT, EXP_HINT, EXP_HINT, EXP_HINT]);
+		await expect(entries).toHaveCount(5);
+		await expect(entries.locator('.sw-menu-label')).toHaveText(['Troubleshoot', 'Context', 'Design', 'Rescue', 'Changes']);
+		await expect(entries.locator('.sw-menu-exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP', 'EXP']);
+		expect(await entries.locator('.sw-menu-exp').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-hidden')))).toEqual(['true', 'true', 'true', 'true', 'true']);
+		await expect(entries.locator('.screen-reader-text')).toHaveText([EXP_HINT, EXP_HINT, EXP_HINT, EXP_HINT, EXP_HINT]);
 		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(0);
 
 		const marker = page.locator('#toplevel_page_stonewright .sw-menu-exp').first();

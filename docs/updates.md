@@ -184,9 +184,11 @@ Deleting the plugin then removes:
   versions, locks, snapshots, and the OAuth signing and encryption keys, so
   every connected client has to sign in again after a reinstall;
 - every transient whose name starts with `stonewright_` or `sw_cc_`;
-- the scheduled events `stonewright_oauth_gc` and `stonewright_audit_retention`;
-- the change journal files in `uploads/stonewright-state/` (a file in that
-  folder that Stonewright did not write stays);
+- the scheduled events `stonewright_oauth_gc`, `stonewright_audit_retention`
+  and `stonewright_change_ledger_prune`;
+- the change journal files and the change history blobs in
+  `uploads/stonewright-state/` (a file in those folders that Stonewright did
+  not write stays);
 - all of the above on every site of a multisite network, because deleting the
   plugin removes it for all of them.
 

@@ -70,7 +70,7 @@ final class Backup {
 		$store = self::trim( $store, $keep );
 		update_option( self::OPTION_SNAPSHOTS, $store, false );
 		if ( $arm ) {
-			RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id );
+			RescueGuard::arm_option_write( array_values( array_filter( $option_keys, 'is_string' ) ), $restore_id, array_values( array_filter( $theme_mod_keys, 'is_string' ) ) );
 		}
 
 		return $restore_id;

@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\ActivationRedirect;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\ChangesPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
@@ -36,6 +37,8 @@ use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\BasicAuthCredentials;
+use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -119,6 +122,9 @@ final class PluginRegistration {
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ], 25, 0 );
 		add_action( AuditLog::RETENTION_HOOK, [ AuditLog::class, 'run_scheduled_retention' ] );
+		add_action( 'init', [ ChangeLedger::class, 'maybe_install_table' ] );
+		add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ], 25, 0 );
+		add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
 		// Idempotent: supersede legacy unresolved audit lessons into incident history.
 		// Void wrapper — WP action callbacks must not return values (PHPStan).
@@ -170,6 +176,7 @@ final class PluginRegistration {
 		SkillsPage::register();
 		MemoryInstructionsPage::register();
 		AuditLogPage::register();
+		ChangesPage::register();
 		AdminBarIndicator::register();
 		McpbBundle::register();
 		AdminBootstrap::register();
@@ -198,6 +205,7 @@ final class PluginRegistration {
 	public function on_activate(): void {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
+		ChangeLedger::maybe_install_table();
 		IncidentStore::maybe_install_table();
 		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
 		AuthorizationLifecycle::activate();
@@ -313,6 +321,7 @@ final class PluginRegistration {
 	public function on_deactivate(): void {
 		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
+		ChangeLedgerRetention::unschedule();
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 
