@@ -96,7 +96,7 @@ test.describe('Changes page fixture', () => {
 
 	test('the diff names every line change in words and shows a script tag in a line as text', async ({ page }) => {
 		await openFixture(page);
-		const diff = page.locator('[data-sw-ui-diff="text"]');
+		const diff = page.locator('[data-sw-changes-drawer] [data-sw-ui-diff="text"]');
 
 		await expect(diff.locator('.sw-ui-diff__line--add').first()).toContainText('Added line');
 		await expect(diff.locator('.sw-ui-diff__line--del').first()).toContainText('Removed line');
@@ -109,7 +109,7 @@ test.describe('Changes page fixture', () => {
 
 	test('the lines scroll inside their own block, which the keyboard can reach, and the page never scrolls sideways', async ({ page }) => {
 		await openFixture(page);
-		const body = page.locator('[data-sw-ui-diff="text"] .sw-ui-diff__body');
+		const body = page.locator('[data-sw-changes-drawer] [data-sw-ui-diff="text"] .sw-ui-diff__body');
 
 		await expect(body).toHaveAttribute('tabindex', '0');
 		await expect(body).toHaveAttribute('role', 'region');
