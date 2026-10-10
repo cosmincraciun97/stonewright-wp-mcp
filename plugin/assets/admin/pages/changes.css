@@ -61,6 +61,12 @@
 	margin: 0;
 }
 
+.sw-changes-page .sw-changes-deleted {
+	margin: 0;
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-fs-xs);
+}
+
 .sw-changes-page .sw-changes-diff {
 	display: grid;
 	gap: var(--sw-space-3);
