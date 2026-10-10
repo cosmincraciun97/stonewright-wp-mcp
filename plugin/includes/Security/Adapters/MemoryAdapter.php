@@ -111,7 +111,8 @@ final class MemoryAdapter extends FamilyAdapter {
 
 	protected static function write( string $type, string $id, ?array $target, array $row, array $options, ?array $live ): array {
 		if ( null === $target ) {
-			return self::refused( 'not_restorable' );
+			// The row to undo is the restore of a deleted entry: the entry exists again, and removing it redoes the delete.
+			return Memory::delete_by_id( (int) $id ) ? self::applied( true, 'removed', $id ) : self::refused( 'delete_failed' );
 		}
 		$entry = is_array( $target['entry'] ?? null ) ? $target['entry'] : [];
 		if ( null !== $live ) {

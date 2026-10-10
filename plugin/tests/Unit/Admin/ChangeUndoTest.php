@@ -209,7 +209,7 @@ final class ChangeUndoTest extends RollbackTestCase {
 	}
 
 	public function test_a_family_without_a_handler_has_no_undo(): void {
-		$row = ChangeLedger::record( [ 'ability' => 'stonewright/woocommerce-update-product', 'family' => 'woocommerce', 'resource_type' => 'product', 'resource_id' => '9', 'before' => [ 'price' => '5' ] ] );
+		$row = ChangeLedger::record( [ 'ability' => 'stonewright/settings-admin-write', 'family' => 'other', 'resource_type' => 'admin_setting', 'resource_id' => 'mode', 'before' => [ 'price' => '5' ] ] );
 		self::assertIsArray( $row );
 		ChangeLedger::settle( $row['change_id'], [ 'status' => 'verified', 'after' => [ 'price' => '6' ] ] );
 

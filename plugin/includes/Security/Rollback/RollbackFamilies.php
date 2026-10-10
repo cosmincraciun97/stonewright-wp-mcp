@@ -13,8 +13,9 @@ namespace Stonewright\WpMcp\Security\Rollback;
 use Stonewright\WpMcp\Security\ChangeLedger;
 
 /**
- * A registry from ledger family to handler. The built-in handlers (posts and their kinds, options, menus, widgets
- * and the code families) are there from the first lookup. Another family joins by calling register() with a handler
+ * A registry from ledger family to handler. The built-in handlers (posts and their kinds, options with theme switches,
+ * menus, widgets, the code families, and users, comments, media, WooCommerce, plugins, skills, design directions and
+ * memory through OtherRollbackFamilies) are there from the first lookup. Another family joins by calling register() with a handler
  * (or a CallableRollbackFamily around a restore function); the engine does not change. A later registration for a
  * family replaces the earlier one. A family with no handler is refused by the engine, never guessed.
  */
@@ -61,7 +62,7 @@ final class RollbackFamilies {
 			return;
 		}
 		self::$handlers = [];
-		foreach ( [ new PostRollbackFamily(), new OptionsRollbackFamily(), new MenuRollbackFamily(), new WidgetRollbackFamily(), new CodeRollbackFamily() ] as $handler ) {
+		foreach ( array_merge( [ new PostRollbackFamily(), new OptionsRollbackFamily( OtherRollbackFamilies::theme() ), new MenuRollbackFamily(), new WidgetRollbackFamily(), new CodeRollbackFamily() ], OtherRollbackFamilies::handlers() ) as $handler ) {
 			self::add( $handler );
 		}
 	}

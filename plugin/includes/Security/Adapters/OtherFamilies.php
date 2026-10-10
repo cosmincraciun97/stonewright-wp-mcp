@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\Security\Adapters;
 
 use Stonewright\WpMcp\Security\ChangeImage;
 use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -31,7 +32,8 @@ use Stonewright\WpMcp\Support\Logger;
  * Skills, design directions and memory are recorded where their own services write (RevisionLinkAdapter,
  * MemoryAdapter), and the settings of admin screens through SiteAdapter::note_admin_write().
  *
- * restore() sends a row to the adapter of its resource type.
+ * restore() sends a row to the adapter of its resource type, and live_image() reads the resource of a row as it is now.
+ * Rollback\OtherRollbackFamilies registers both with the rollback engine.
  */
 final class OtherFamilies {
 
@@ -53,6 +55,22 @@ final class OtherFamilies {
 		SiteAdapter::class,
 		MemoryAdapter::class,
 		RevisionLinkAdapter::class,
+	];
+
+	/** Resource types whose live state an adapter reads, so that a plan can show a diff and tell drift. */
+	private const READABLE = [
+		'user',
+		'attachment',
+		'comment',
+		'wc_product',
+		'wc_variation',
+		'wc_term',
+		'wc_attribute',
+		'theme_switch',
+		'memory',
+		'skill',
+		'design_direction',
+		'design_direction_pointer',
 	];
 
 	public static function reset_for_tests(): void {
@@ -153,6 +171,27 @@ final class OtherFamilies {
 		}
 		$adapter = self::adapter_of( (string) $row['resource_type'] );
 		return null === $adapter ? null : $adapter::live_sha256( $change_id );
+	}
+
+	/**
+	 * The resource of a row as it is now, in the shape of the images the adapter stores, unmasked (the rollback engine
+	 * masks before it compares or shows anything). Null when the resource does not exist.
+	 *
+	 * @param array<string, mixed> $row A ledger row.
+	 * @return array<string, mixed>|\WP_Error|null A WP_Error with the code LIVE_UNSUPPORTED when no adapter here reads the resource type.
+	 */
+	public static function live_image( array $row ): array|\WP_Error|null {
+		$type    = (string) ( $row['resource_type'] ?? '' );
+		$adapter = self::adapter_of( $type );
+		if ( null === $adapter || ! in_array( $type, self::READABLE, true ) ) {
+			return new \WP_Error( RollbackFamilyHandler::LIVE_UNSUPPORTED, 'The live state of this resource cannot be read.' );
+		}
+		try {
+			return $adapter::image( $type, (string) ( $row['resource_id'] ?? '' ) );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'change_ledger_live_failed', [ 'error' => $failure::class ] );
+			return new \WP_Error( 'stonewright_change_live_unreadable', 'The current state of this resource cannot be read.' );
+		}
 	}
 
 	/**
