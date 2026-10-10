@@ -105,6 +105,21 @@ development builds were never stable releases.
   carries `drop_settings` is refused with
   `stonewright_section_drop_settings_unsupported`, which says the option applies
   only to Elementor V3 sections, and nothing is written.
+- Add private, pending and scheduled pages, posts, Elementor templates and
+  Gutenberg patterns to the sources of `section-reuse-find` and
+  `section-reuse-extract`, besides published and draft ones, for users who may
+  read and edit them. `source.status` marks the status, and the warnings
+  `private_source`, `pending_source` and `scheduled_source` say the text is not
+  public. A post the user may not edit answers `stonewright_not_found`, the same
+  answer as a post that does not exist, and a source the user may not use does
+  not count towards the 200-source limit.
+- Add nested Elementor containers as sections. `section-reuse-extract` takes the
+  element id of a container nested at any depth: a V3 container or section, or
+  a V4 div block or flexbox, with its children and with everything under it in
+  one builder family. `section-reuse-find` lists up to six nested containers of
+  each Elementor candidate under `inner`, with `inner_truncated` when more
+  exist. A nested container is inserted like any section, with placeholders,
+  fresh ids, id attribute renaming and the element cap.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -651,6 +666,33 @@ development builds were never stable releases.
   and then refused.
 - Give the repeated-failure advice of a failed batch the guidance of its cause
   instead of the generic batch text.
+- Move the page's stylesheet version when `stonewright-elementor-css-regenerate`
+  writes a file. It regenerates through Elementor's `update()`, which stores the
+  CSS metadata with the file, and moves the version (the `?ver=` of the page's
+  stylesheet link, the `time` of `_elementor_css`) past its previous value, also
+  within the same second, so browsers and page caches fetch the new file
+  whatever the anonymous probe answers. The result reports `css_version`,
+  `css_version_before` and `css_version_changed`; if the version cannot be moved
+  the regeneration is rolled back as a failed operation.
+- Follow a short same-origin redirect in the Elementor CSS delivery probe. A
+  chain of at most two redirects that keeps the scheme, host and port, never
+  reaches a login page and ends in HTTP 200 `text/css` with the written bytes
+  (at most 8192 bytes are read, without cookies or credentials) is `verified`,
+  and the probe records `redirect_hops`. A repeated URL, another origin or a
+  downgrade to http still stops before any write. A redirect to a login page or
+  to a page that is not the CSS (an access-control layer in front of uploads) no
+  longer fails `stonewright-elementor-css-regenerate`: the file is written,
+  `delivery_status` is `blocked`, the answer is `ok:true` with a `warnings`
+  entry and a `repair` text, and the layout must not be rebuilt for it.
+  `stonewright_elementor_css_probe_failed` and its rollback stay for a file that
+  was delivered before the write and is not after it. The repair hints for the
+  three CSS delivery error codes say not to rebuild the layout.
+- Fix the errors of `section-reuse-extract`. A source without a valid Elementor
+  document answers `stonewright_no_elementor_document` with a `reason`; an
+  element that is not a container, or that mixes V3 and V4, answers
+  `stonewright_section_not_copyable`; the messages of `stonewright_not_found`
+  and `stonewright_section_not_found` say which statuses and locators are
+  allowed.
 - Fix Rescue rolling back a healthy write when the first render of a page
   that uses Google fonts is slow. Elementor downloads every font file the
   first time a page uses a font, which can take minutes, longer than a probe

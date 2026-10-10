@@ -56,6 +56,20 @@ to 1 (text, media and style values never count), a short `outline`, and
 `warnings`. `scan.truncated` is true when the site has more than 200 sources and
 only the most recent were looked at.
 
+Sources may be published, draft, pending, scheduled or private; `source.status`
+says which. A private, pending or scheduled page is listed only to a user who
+may edit it, and it is extracted as it is. **Never change the status of a page
+to extract from it**, and never ask the user to: if a page you expected is not
+listed, or extract answers `stonewright_not_found`, the current user may not
+edit it, or the page is in the trash.
+
+For Elementor, a candidate can also carry `inner`: the containers nested inside
+the section, up to six, the shallower ones first (each with a `locator`, its
+`depth`, `type`, number of `children` and `elements`, a `repeated` group such as
+a row of cards, and its first `heading`). `inner_truncated` says more exist.
+Offer one when the user wants a part of a section, for example one group of
+cards, instead of the whole section.
+
 If no role has a candidate, build the page normally and do not mention reuse.
 
 On a block theme the candidates also include the customized templates and
@@ -81,7 +95,7 @@ Warnings to say out loud:
 | `synced_patterns` | It uses a synced pattern; the copy keeps pointing at the pattern unless the user wants to change it. |
 | `global_widgets`, `nested_templates` | It uses a global widget or template; it stays linked. |
 | `third_party_widgets` | It needs a plugin's widget or block. |
-| `draft_source`, `password_protected_source` | It comes from a draft or a password-protected page, so its text is not public yet; the copy would put it on a page visitors can read. Say so and let the user decide. |
+| `draft_source`, `pending_source`, `scheduled_source`, `private_source`, `password_protected_source` | It comes from a draft, pending, scheduled, private or password-protected page, so its text is not public yet; the copy would put it on a page visitors can read. Say so and let the user decide. |
 | `legacy_attributes` (extract) | An older block setting was moved to its current form, for example a heading's `textAlign` to `style.typography.textAlign`; nothing else changed. Mention it only when it matters. |
 | `css_classes_not_approved` | It uses CSS classes this site has not approved (the warning names them), so the copy is refused until a site administrator adds them to the `stonewright_approved_css_classes` option. Offer another candidate, or copy it without them if the user agrees (see "When the copy is refused for its settings"). |
 | `custom_css_needs_approval` | It carries custom CSS, which needs a human-issued custom-code grant. Do not apply one yourself; offer another candidate, or copy it without the CSS if the user agrees (see "When the copy is refused for its settings"). |
@@ -93,7 +107,14 @@ Warnings to say out loud:
 ## 3. Extract
 
 For each pick, call `stonewright-section-reuse-extract` with the `post_id` and
-`locator` of the candidate. It changes nothing. It returns:
+`locator` of the candidate (or of one of its `inner` containers). It changes
+nothing. The locator `{ "kind": "element", "id": "<id>" }` takes the id of a
+top-level element or of a container nested at any depth: a V3 container or
+section, or a V4 div block or flexbox, with its children. A widget, a legacy
+column or a part of a composite element is refused with
+`stonewright_section_not_copyable`; copy the container that holds it. A nested
+container is inserted the same way as a section, with the same placeholders,
+fresh ids, id attribute renaming and element cap. It returns:
 
 - `section`: the portable payload in the builder's own format. Elementor
   element ids and V4 local style ids are placeholders (`ph-1`, `ls-1`);
@@ -106,6 +127,16 @@ For each pick, call `stonewright-section-reuse-extract` with the `post_id` and
 
 Read the Design Direction (`stonewright-design-direction-brief`) before you
 decide what to change, then plan every change to the copy.
+
+When extract fails, the message says what is allowed; read it and fix the
+call, and do not change the page:
+
+| Code | Meaning |
+|---|---|
+| `stonewright_not_found` | The post is not there, is in the trash, or the user may not edit it. Statuses allowed: publish, draft, pending, future, private. |
+| `stonewright_section_not_found` | No top-level element or nested container has that id, or the saved template is not a section or container template. |
+| `stonewright_section_not_copyable` | The id is a widget, a column or a mixed V3 and V4 subtree. Use the container that holds it. |
+| `stonewright_no_elementor_document` | The post has no valid Elementor document (`reason`: not built with Elementor, Elementor data without the Elementor mode, or empty or unreadable data). Pick another source. |
 
 ## 4. Insert and adapt in one batch
 
@@ -205,7 +236,7 @@ After the apply:
 
 ## Never
 
-- Never edit or delete the source page.
+- Never edit or delete the source page, and never change its status, to extract from it.
 - Never copy between builders, or hand-convert a section.
 - Never offer reuse when the setting is off, and never retry a
   `stonewright_section_reuse_off` refusal.

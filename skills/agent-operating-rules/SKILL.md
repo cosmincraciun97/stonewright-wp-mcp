@@ -113,6 +113,8 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - After apply, call `stonewright-elementor-css-regenerate` when generated CSS
   must be rebuilt (post or loop target), then
   `stonewright-elementor-post-write-verify` with every touched element id.
+  An `ok:true` result with `delivery_status:blocked` and a warning means the
+  CSS was written and its version changed; never rebuild the layout for it.
   Never pass `regenerate_css`; that input does not exist. The verifier is
   observation-only: it checks those ids without regenerating CSS, invalidating
   caches, rolling back files, or returning content.

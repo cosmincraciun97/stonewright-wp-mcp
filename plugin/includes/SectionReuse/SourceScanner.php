@@ -15,12 +15,13 @@ use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 /**
  * Finds the sections of one builder family on the site, newest sources first.
  *
- * Sources are published and draft pages and posts of public post types, Elementor saved section and
- * container templates, Gutenberg patterns and, for Gutenberg on a block theme, the customized templates and
- * template parts of the active theme (a template that exists only as a theme file has no post and is not a
- * source); never trashed posts, autosaves or revisions. Only a post the
- * current user may both read and edit is considered. The scan looks at the 200 most recent sources and says
- * when there were more. Each source is summarized once per modification time and builder version
+ * Sources are pages and posts of public post types, Elementor saved section and container templates,
+ * Gutenberg patterns and, for Gutenberg on a block theme, the customized templates and template parts of the
+ * active theme (a template that exists only as a theme file has no post and is not a source), in the status
+ * publish, draft, pending, future or private; never trashed posts, autosaves or revisions. Only a post the
+ * current user may both read and edit is considered, so a private source is only ever listed to someone who may
+ * edit it, and one the user may not use does not count towards the limit. The scan looks at the 200 most recent
+ * sources and says when there were more. Each source is summarized once per modification time and builder version
  * ({@see SignatureCache}); the summary is layout-only and deterministic.
  *
  * A section is walked up to the element and depth caps every Elementor route applies; a section over a cap is
@@ -47,9 +48,6 @@ final class SourceScanner {
 		$cache_base = SignatureCache::stats();
 
 		foreach ( $fetched['posts'] as $post ) {
-			if ( ! self::may_use( (int) $post->ID ) ) {
-				continue;
-			}
 			++$scanned;
 			$modified = SectionSource::modified( $post );
 			$version  = SectionSource::builder_version( $post );
@@ -107,7 +105,7 @@ final class SourceScanner {
 		$types[] = Builder::is_elementor( $builder ) ? SectionSource::TEMPLATE_POST_TYPE : SectionSource::PATTERN_POST_TYPE;
 		$args    = [
 			'post_type'        => array_values( array_unique( $types ) ),
-			'post_status'      => [ 'publish', 'draft' ],
+			'post_status'      => SectionSource::SOURCE_STATUSES,
 			'posts_per_page'   => self::MAX_SOURCES + 1,
 			'orderby'          => 'modified',
 			'order'            => 'DESC',
@@ -138,10 +136,9 @@ final class SourceScanner {
 		$posts = array_values(
 			array_filter(
 				$found,
-				static fn( mixed $post ): bool => is_object( $post )
+				static fn( mixed $post ): bool => SectionSource::is_source( $post )
 					&& (int) $post->ID !== $exclude_post_id
-					&& in_array( SectionSource::field( $post, 'post_status' ), [ 'publish', 'draft' ], true )
-					&& ! in_array( SectionSource::field( $post, 'post_type' ), [ 'revision', 'attachment', 'auto-draft' ], true )
+					&& self::may_use( (int) $post->ID )
 			)
 		);
 		usort(
@@ -182,6 +179,7 @@ final class SourceScanner {
 		}
 		$layout['types']    = array_slice( $layout['types'], 0, self::MAX_TYPES, true );
 		$layout['capped']   = $layout['capped'] || $inspection['capped'];
+		$nested             = NestedContainers::of( $section['builder'], $section['node'] );
 		$entry              = [
 			'builder'    => $section['builder'],
 			'index'      => $section['index'],
@@ -191,6 +189,8 @@ final class SourceScanner {
 			'outline'    => $inspection['outline'],
 			'references' => $references,
 			'flags'      => $inspection['flags'],
+			'inner'      => $nested['items'],
+			'inner_more' => $nested['truncated'],
 		];
 
 		return $entry;

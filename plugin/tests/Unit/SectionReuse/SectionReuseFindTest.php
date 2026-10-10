@@ -153,7 +153,7 @@ final class SectionReuseFindTest extends TestCase {
 		self::assertSame( 10, $result['target_post_id'] );
 	}
 
-	public function test_only_published_and_draft_sources_and_never_trash_autosaves_or_revisions(): void {
+	public function test_only_unpublished_and_published_sources_and_never_trash_autosaves_or_revisions(): void {
 		self::add_elementor_page( 10, [ SectionFixtures::v3_features( 'a' ) ], '2026-01-05 00:00:00', 'publish' );
 		self::add_elementor_page( 11, [ SectionFixtures::v3_features( 'b' ) ], '2026-01-04 00:00:00', 'draft' );
 		self::add_elementor_page( 12, [ SectionFixtures::v3_features( 'c' ) ], '2026-01-03 00:00:00', 'trash' );
@@ -163,7 +163,7 @@ final class SectionReuseFindTest extends TestCase {
 
 		$result = self::find( [ 'builder' => 'elementor-v3', 'roles' => [ 'features' ] ] );
 
-		self::assertSame( [ 10, 11 ], self::source_ids( $result ), 'Newest first.' );
+		self::assertSame( [ 10, 11, 15 ], self::source_ids( $result ), 'Newest first; a private source is listed to a user who may edit it.' );
 	}
 
 	public function test_saved_section_templates_count_but_other_template_types_do_not(): void {
