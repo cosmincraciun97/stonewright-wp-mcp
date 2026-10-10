@@ -305,7 +305,7 @@ final class WidgetSchemaRepository {
 	 * @return array<string, array<string, mixed>>
 	 */
 	private static function controls( object $widget ): array {
-		$raw = method_exists( $widget, 'get_controls' ) ? (array) $widget->get_controls() : [];
+		$raw = LiveControls::of( $widget );
 		$out = [];
 		foreach ( $raw as $key => $control ) {
 			if ( ! is_array( $control ) ) {

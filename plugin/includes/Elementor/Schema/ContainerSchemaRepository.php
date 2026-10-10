@@ -20,7 +20,7 @@ final class ContainerSchemaRepository {
 		$element      = self::live_element( $element_type );
 
 		if ( is_object( $element ) ) {
-			$controls = self::normalize_controls( method_exists( $element, 'get_controls' ) ? (array) $element->get_controls() : [] );
+			$controls = self::normalize_controls( LiveControls::of( $element ) );
 			$source   = 'elementor_live_controls';
 		} elseif ( self::live_structural_runtime_booted() ) {
 			return new \WP_Error(

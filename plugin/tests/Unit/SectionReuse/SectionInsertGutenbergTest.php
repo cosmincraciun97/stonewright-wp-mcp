@@ -326,4 +326,28 @@ final class SectionInsertGutenbergTest extends TestCase {
 		self::assertArrayNotHasKey( 'queued', $result );
 		self::assertSame( 1, count( $GLOBALS['stonewright_test_wp_update_post_calls'] ) );
 	}
+
+	public function test_drop_settings_is_refused_for_a_gutenberg_section_and_nothing_is_written(): void {
+		$section = self::section();
+
+		foreach ( [ [ [ 'element' => 'ph-2', 'setting' => 'title' ] ], 'title', [] ] as $drop ) {
+			$result = ( new BlocksBatchMutate() )->execute( [ 'post_id' => self::TARGET, 'dry_run' => true, 'operations' => [ self::insert_op( $section, [ 'drop_settings' => $drop ] ) ] ] );
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_section_drop_settings_unsupported', $result->get_error_data()['items'][0]['error']['code'] );
+			self::assertStringContainsString( 'drop_settings applies only to Elementor V3 sections', $result->get_error_message(), 'The message an MCP client reads says so.' );
+			self::assertStringContainsString( 'Gutenberg section', $result->get_error_message() );
+		}
+		$applied = self::apply( [ self::insert_op( $section, [ 'drop_settings' => [ [ 'element' => 'ph-2', 'setting' => 'title' ] ] ] ) ] );
+		self::assertInstanceOf( \WP_Error::class, $applied );
+		self::assertSame( self::INTRO, self::content() );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_update_post_calls'] );
+	}
+
+	public function test_an_absent_or_null_drop_settings_does_not_change_a_gutenberg_insert(): void {
+		$result = self::apply( [ self::insert_op( self::section(), [ 'drop_settings' => null ] ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 1, count( $GLOBALS['stonewright_test_wp_update_post_calls'] ) );
+	}
 }

@@ -87,13 +87,17 @@ final class SettingsKeyAliases {
 	}
 
 	/**
-	 * Normalize the settings of one element: widgets keep every key their live
-	 * schema defines, containers, sections and columns take the full alias map.
+	 * Normalize the settings of one element: widgets, containers, sections and columns keep every key their
+	 * live schema defines, and take the alias only for a name the element does not define.
 	 *
 	 * @param array<string, mixed> $settings
 	 * @return array{settings: array<string, mixed>, applied: list<array{alias:string,canonical:string}>}
 	 */
 	public static function normalize_for_element( array $settings, string $element_type, string $widget_type = '' ): array {
+		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+			$schema = ContainerSchemaRepository::get( $element_type );
+			return self::normalize( $settings, is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : null );
+		}
 		if ( 'widget' !== $element_type || '' === $widget_type ) {
 			return self::normalize( $settings );
 		}

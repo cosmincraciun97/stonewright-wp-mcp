@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
 use Stonewright\WpMcp\Gutenberg\RawHtmlGate;
 use Stonewright\WpMcp\SectionReuse\BatchOperationIds;
 use Stonewright\WpMcp\SectionReuse\Builder;
+use Stonewright\WpMcp\SectionReuse\ElementorSectionInserter;
 use Stonewright\WpMcp\SectionReuse\GutenbergSectionInserter;
 use Stonewright\WpMcp\SectionReuse\MarkupSkeleton;
 use Stonewright\WpMcp\SectionReuse\PortableSection;
@@ -299,7 +300,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 						];
 						return $this->error(
 							'batch_operation_failed',
-							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ) . SectionReuseSetting::refusal_note( (string) $result->get_error_code() ),
+							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ) . SectionReuseSetting::refusal_note( (string) $result->get_error_code() ) . ( ElementorSectionInserter::UNSUPPORTED_DROP_CODE === (string) $result->get_error_code() ? ' ' . $result->get_error_message() : '' ),
 							array_merge(
 								[
 									'status'          => 400,
@@ -541,6 +542,10 @@ final class BlocksBatchMutate extends AbilityKernel {
 		// The live option, not the tool list: a client may keep a stale list.
 		if ( ! SectionReuseSetting::is_enabled() ) {
 			return SectionReuseSetting::off_error();
+		}
+		$unsupported = ElementorSectionInserter::unsupported_drop_settings( $operation, 'a Gutenberg section' );
+		if ( null !== $unsupported ) {
+			return $unsupported;
 		}
 		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::GUTENBERG );
 		if ( $payload instanceof \WP_Error ) {
