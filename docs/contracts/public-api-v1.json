@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T12:02:46+00:00",
+    "generated_at": "2026-10-10T17:16:08+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -6222,7 +6222,7 @@
             "ability_name": "stonewright/section-reuse-extract",
             "mcp_name": "stonewright-section-reuse-extract",
             "kind": "Read",
-            "input_schema_hash": "af47153758e6df48da008c7cbaf5fbe8639399ddda3f08ddbef9d316d1f1ec17",
+            "input_schema_hash": "35d476d42a9d397a6cd7b3054d2085b533f2e9069483fb386e718f3f4af4049c",
             "output_schema_hash": "62a30c775de8c5840c6b58f4b0bca6d14c30db136461b7fcf0d77f0afb9db444",
             "permission_class": "Permissions::edit_post( $post_id )",
             "gates": {

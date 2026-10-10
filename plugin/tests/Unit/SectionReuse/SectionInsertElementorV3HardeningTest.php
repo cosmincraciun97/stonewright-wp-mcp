@@ -382,4 +382,97 @@ final class SectionInsertElementorV3HardeningTest extends TestCase {
 		}
 		self::assertSame( 0, self::target_writes() );
 	}
+
+	// ---------------------------------------------------------------- a nested container as the section
+
+	/** @return array<string, mixed> A features section whose row of cards is an anchored, nested container. */
+	private static function section_with_nested_containers(): array {
+		$section = SectionFixtures::v3_features( 'f', 3 );
+		$section['elements'][1]['settings']['_element_id'] = 'cards';
+		$section['elements'][1]['elements'][0]['elements'][0]['settings']['link'] = [ 'url' => '#cards', 'is_external' => '', 'nofollow' => '' ];
+
+		return $section;
+	}
+
+	public function test_a_nested_container_is_inserted_like_a_top_level_section_with_placeholders_fresh_ids_and_refs(): void {
+		self::seed( self::SOURCE, [ SectionFixtures::v3_hero(), self::section_with_nested_containers() ] );
+		$extracted = self::section( 'f000003' );
+		$ops       = [
+			self::insert_op( $extracted['section'] ),
+			[ 'action' => 'update_element', 'element_ref' => 'feat.ph-3', 'settings' => [ 'title_text' => 'Quality' ] ],
+		];
+
+		$plan   = self::batch( $ops, true );
+		$result = self::batch( $ops );
+
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? wp_json_encode( $plan->get_error_data() ) : '' );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( 7, $result['items'][0]['placeholders'], 'The row, three cards and three icon boxes.' );
+		$elements = ElementorData::flatten( ElementorData::read( self::TARGET ) );
+		self::assertCount( 8, $elements, 'The root and the seven copied elements.' );
+		self::assertSame( 'Quality', $elements[ $result['refs']['feat.ph-3'] ]['settings']['title_text'], 'A placeholder is addressed in the same batch.' );
+		$ids = array_keys( $elements );
+		self::assertSame( [], array_intersect( $ids, [ 'f000003', 'fc1', 'fc2', 'fc3', 'fi1', 'fi2', 'fi3' ] ), 'No source id reaches the target.' );
+		self::assertSame( $ids, array_values( array_unique( $ids ) ) );
+		self::assertTrue( $elements[ $result['refs']['feat'] ]['isInner'], 'Inside the root container it is an inner container.' );
+	}
+
+	public function test_a_nested_container_inserted_at_the_document_root_is_a_top_level_element(): void {
+		self::seed( self::SOURCE, [ self::section_with_nested_containers() ] );
+		$section = self::section( 'f000003' )['section'];
+		$op      = self::insert_op( $section );
+		unset( $op['parent_id'] );
+
+		$result = self::batch( [ $op ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? wp_json_encode( $result->get_error_data() ) : '' );
+		$tree = ElementorData::read( self::TARGET );
+		self::assertSame( [ 'root', $result['refs']['feat'] ], array_column( $tree, 'id' ) );
+		self::assertFalse( $tree[1]['isInner'] );
+	}
+
+	public function test_the_anchor_of_a_nested_container_is_renamed_when_the_page_already_uses_it(): void {
+		self::seed( self::SOURCE, [ self::section_with_nested_containers() ] );
+		$target               = self::root();
+		$target['elements'][] = [ 'id' => 'taken01', 'elType' => 'container', 'isInner' => true, 'settings' => [ '_element_id' => 'cards' ], 'elements' => [] ];
+		self::seed( self::TARGET, [ $target ] );
+		$section = self::section( 'f000003' )['section'];
+
+		$result = self::batch( [ self::insert_op( $section ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? wp_json_encode( $result->get_error_data() ) : '' );
+		$elements = ElementorData::flatten( ElementorData::read( self::TARGET ) );
+		self::assertSame( 'cards', $elements['taken01']['settings']['_element_id'] );
+		self::assertSame( 'cards-2', $elements[ $result['refs']['feat'] ]['settings']['_element_id'] );
+		self::assertSame( '#cards-2', $elements[ $result['refs']['feat.ph-3'] ]['settings']['link']['url'], 'Links of the copy follow the renamed id.' );
+		self::assertSame( 'anchors_renamed', $result['items'][0]['warnings'][0]['code'] );
+	}
+
+	public function test_a_nested_container_counts_against_the_element_cap_like_any_section(): void {
+		$wide            = self::wide_section( 1000 );
+		$wide['isInner'] = true;
+		self::seed( self::SOURCE, [ [ 'id' => 'outer', 'elType' => 'container', 'isInner' => false, 'settings' => [], 'elements' => [ $wide ] ] ] );
+		$section = self::section( 'wide' )['section'];
+
+		$two = self::batch( [ self::insert_op( $section ), self::insert_op( $section, [ 'op_id' => 'again' ] ) ] );
+
+		self::assertSame( 'stonewright_section_batch_too_large', self::error_code( $two ) );
+		self::assertSame( 1001, self::error_data( $two )['adding'] );
+		self::assertSame( 0, self::target_writes() );
+	}
+
+	public function test_a_private_nested_source_is_recorded_and_the_insert_checks_the_source_again(): void {
+		self::seed( self::SOURCE, [ self::section_with_nested_containers() ] );
+		$GLOBALS['stonewright_test_posts'][ self::SOURCE ]->post_status = 'private';
+		$section = self::section( 'f000003' )['section'];
+
+		$result = self::batch( [ self::insert_op( $section ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( self::SOURCE, $result['items'][0]['reuse_source']['post_id'] );
+		self::assertSame( 'f000003', $result['items'][0]['reuse_source']['locator']['id'] );
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn( string $cap, mixed ...$args ): bool => 'edit_posts' === $cap || ( 'edit_post' === $cap && self::TARGET === (int) ( $args[0] ?? 0 ) );
+		$refused = self::batch( [ self::insert_op( $section, [ 'op_id' => 'again' ] ) ] );
+		self::assertSame( 'stonewright_section_source_not_permitted', self::error_code( $refused ), 'A payload never grants access to a private post.' );
+	}
 }
