@@ -603,6 +603,21 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Fix Rescue rolling back a healthy write when the first render of a page
+  that uses Google fonts is slow. Elementor downloads every font file the
+  first time a page uses a font, which can take minutes, longer than a probe
+  request waits. A probe request is now marked by a single-use token on every
+  leg that needs it, and Elementor does not print or download Google fonts
+  while it renders a marked request. The page of a draft carries the login
+  token; the page of a published post or a kit write, which is requested as
+  an anonymous visitor, carries a new mark-only token that is single use,
+  bound to its path and nonce, short-lived, validated like the login token
+  and never logs anyone in. A header, parameter or cookie that is not a valid
+  token never marks a request, and normal visits print Google fonts as
+  before. Outbound HTTP is not blocked in a probe request. The page leg of a
+  published post follows a redirect on the site's own origin (same scheme,
+  host and port), at most twice, with a new mark-only token bound to each new
+  path; a redirect to another host, scheme or port is not followed.
 - Fix Rescue rolling back a healthy write when the first render of a freshly
   written page is slow. A leg that passed before the write and gets no answer
   at all after it (a timeout or a refused connection) is probed once more,

@@ -20,7 +20,7 @@ final class ProbeRequestIdentityTest extends TestCase {
 	private const ADMIN_OK = '<html><body class="wp-admin"><div data-sw-rescue-probe="ok"></div></body></html>';
 	private const REST_OK  = '{"name":"Site","namespaces":["wp/v2"]}';
 
-	/** @var list<array{url:string,user:int}> */
+	/** @var list<array{url:string,user:int,marked:bool,fonts_off:bool}> */
 	private array $served = [];
 
 	protected function setUp(): void {
@@ -82,7 +82,12 @@ final class ProbeRequestIdentityTest extends TestCase {
 
 		ProbeToken::authenticate_request();
 		$user           = get_current_user_id();
-		$this->served[] = [ 'url' => $url, 'user' => $user ];
+		$this->served[] = [
+			'url'       => $url,
+			'user'      => $user,
+			'marked'    => ProbeToken::is_probe_request(),
+			'fonts_off' => false === apply_filters( 'elementor/frontend/print_google_fonts', true ),
+		];
 
 		if ( str_contains( $url, '/wp-admin/' ) ) {
 			$reply = user_can( $user, 'manage_options' )
@@ -128,6 +133,35 @@ final class ProbeRequestIdentityTest extends TestCase {
 
 		self::assertSame( 'passed', $probe['status'], 'The preview answers 404 to a request that is not logged in.' );
 		self::assertSame( 7, $this->served[0]['user'] );
+	}
+
+	public function test_a_published_page_is_probed_as_a_visitor_and_still_marked_as_a_probe_request(): void {
+		$GLOBALS['stonewright_test_posts'][12] = (object) [ 'ID' => 12, 'post_status' => 'publish', 'post_type' => 'page' ];
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] );
+
+		self::assertSame( 'passed', $probe['status'] );
+		self::assertSame( 0, $this->served[0]['user'], 'The render is what an anonymous visitor sees.' );
+		self::assertTrue( $this->served[0]['marked'] );
+		self::assertTrue( $this->served[0]['fonts_off'], 'Elementor is told not to load Google fonts for the probe request.' );
+		self::assertSame( [], \WP_Session_Tokens::$created, 'Nobody is logged in.' );
+	}
+
+	public function test_a_draft_is_probed_as_its_editor_and_marked_as_a_probe_request(): void {
+		$GLOBALS['stonewright_test_posts'][13] = (object) [ 'ID' => 13, 'post_status' => 'draft', 'post_type' => 'page' ];
+
+		HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 13, 'user_id' => 7 ] );
+
+		self::assertSame( 7, $this->served[0]['user'] );
+		self::assertTrue( $this->served[0]['marked'] );
+		self::assertTrue( $this->served[0]['fonts_off'] );
+	}
+
+	public function test_a_visitor_request_that_carries_no_token_is_not_marked(): void {
+		$this->serve( 'https://example.test/?p=12&sw_probe=0123456789abcdef', [ 'headers' => [] ] );
+
+		self::assertFalse( $this->served[0]['marked'] );
+		self::assertFalse( $this->served[0]['fonts_off'] );
 	}
 
 	public function test_the_probe_identity_is_gone_when_the_probe_request_ends(): void {
