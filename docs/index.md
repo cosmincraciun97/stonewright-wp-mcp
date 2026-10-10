@@ -9,6 +9,7 @@ workflows with operator controls.
 
 - [Getting started with Claude Code](getting-started/claude-code.md)
 - [Getting started with Codex](getting-started/codex.md)
+- [Getting started with Cursor](getting-started/cursor.md)
 - [Getting started with Antigravity](getting-started/antigravity.md)
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
@@ -45,7 +46,7 @@ workflows with operator controls.
 
 | Section | What is in it |
 |---|---|
-| `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, and Antigravity |
+| `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, Cursor, and Antigravity |
 | `admin/` | Navigation, Overview, Configuration, Troubleshoot, Context, Design, client connection, abilities, and admin surface guides |
 | `elementor/` | Elementor widget registry data and related references |
 | `releases/` | Release notes, tagging checklist, client certification and acceptance templates |

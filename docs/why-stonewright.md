@@ -11,7 +11,7 @@ A generic WordPress API bridge can expose endpoints to an agent. Stonewright MCP
 | Destructive production work | Client-defined confirmation | Scoped confirmation tokens in `production-safe` mode |
 | Verification | A successful response may be treated as completion | Typed readback and effect-verification evidence are separate from execution success |
 | Repeated failures | Usually remain log entries | Classified incidents, ranked task-start actions, correlated repair receipts, and stale-on-recurrence learning |
-| Recovery | External backup or manual reversal | Audit-linked restore and rollback paths for supported surfaces |
+| Recovery | External backup or manual reversal | Audit-linked restore and rollback paths for supported surfaces, plus Rescue: a health check after risky writes and an automatic rollback when the site stops loading |
 | Tool surface | One large static catalog | Compact startup surface plus task-aware working profiles |
 | Pluginless mode | Often the default | Explicit Direct capability boundary; Plugin-only controls are not claimed when unavailable |
 

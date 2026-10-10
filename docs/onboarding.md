@@ -19,9 +19,9 @@ edit WordPress sites through MCP.
   entering Direct mode when the wrong site entry or endpoint is selected.
 
 Copy-paste client setup for both modes lives in
-[install-prompts.md](install-prompts.md). Codex in ChatGPT Desktop
-(`--client chatgpt-desktop`) and Codex CLI (`--client codex-cli`) are separate
-clients; see [getting-started/codex.md](getting-started/codex.md). Capability
+[install-prompts.md](install-prompts.md). Codex CLI (`--client codex-cli`) and
+the compatibility alias `--client chatgpt-desktop` use the same Codex TOML
+entry; see [getting-started/codex.md](getting-started/codex.md). Capability
 detail for Direct mode is
 in [direct-mode-e2e.md](direct-mode-e2e.md). Plugin ability inventory is the
 generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
@@ -39,7 +39,7 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    [install-prompts.md](install-prompts.md) Option A). If the alias already
    exists, use `connect repair <alias> --client <client> --mode plugin-only` so
    the saved credential is reused instead of registering a duplicate.
-5. In wp-admin, open **Stonewright > Setup**, enable Stonewright, and
+5. In wp-admin, open **Stonewright > Setup > Settings**, turn on AI abilities, and
    choose the operating mode (`development`, `staging`, or `production-safe`).
 6. Perform a **client-specific restart or MCP session reload** (not only a chat
    refresh) and confirm the tool list includes `stonewright-task-start`.
