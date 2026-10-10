@@ -28,6 +28,7 @@ final class ProbeTokenTest extends TestCase {
 		$GLOBALS['stonewright_test_cache_current_user'] = true;
 		$_SERVER['REQUEST_METHOD'] = 'GET';
 		unset( $_SERVER['HTTP_X_STONEWRIGHT_PROBE'], $_SERVER['REQUEST_URI'], $_GET['sw_probe'] );
+		$GLOBALS['stonewright_test_filters'] = [];
 		ProbeToken::reset_for_tests();
 		if ( class_exists( 'WP_Session_Tokens', false ) ) {
 			\WP_Session_Tokens::reset();
@@ -41,6 +42,7 @@ final class ProbeTokenTest extends TestCase {
 			unset( $_COOKIE[ $cookie ] );
 		}
 		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_filters']    = [];
 		unset(
 			$GLOBALS['stonewright_test_cache_current_user'],
 			$GLOBALS['stonewright_test_current_user_cache'],
@@ -372,5 +374,195 @@ final class ProbeTokenTest extends TestCase {
 		$refusals = count( $rows );
 		self::assertSame( 7, ProbeToken::consume( $token, self::PATH, self::NONCE ), 'A refused attempt does not use the token up.' );
 		self::assertCount( $refusals + 1, $this->token_audit_rows(), 'The acceptance is recorded too.' );
+	}
+
+	// -- A verified probe request keeps Elementor from downloading Google fonts --------------------------
+
+	private const FONT_FILTER = 'elementor/frontend/print_google_fonts';
+
+	/** Whether Elementor, asked on this request, would still print Google fonts. */
+	private function elementor_prints_google_fonts(): bool {
+		return (bool) apply_filters( self::FONT_FILTER, true );
+	}
+
+	public function test_a_verified_login_token_request_switches_the_google_font_filter_on(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$this->present_token( (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) );
+
+		ProbeToken::authenticate_request();
+
+		self::assertTrue( ProbeToken::is_probe_request() );
+		self::assertFalse( $this->elementor_prints_google_fonts() );
+	}
+
+	public function test_a_verified_mark_token_request_switches_the_google_font_filter_on(): void {
+		$this->present_token( (string) ProbeToken::issue_mark( self::PATH, self::NONCE ) );
+
+		ProbeToken::authenticate_request();
+
+		self::assertTrue( ProbeToken::is_probe_request() );
+		self::assertFalse( $this->elementor_prints_google_fonts() );
+	}
+
+	public function test_a_normal_request_leaves_the_google_font_filter_off(): void {
+		ProbeToken::authenticate_request();
+
+		self::assertFalse( ProbeToken::is_probe_request() );
+		self::assertTrue( $this->elementor_prints_google_fonts() );
+		self::assertFalse( has_filter( self::FONT_FILTER ) );
+	}
+
+	/** @return array<string, array{0:string,1:string}> */
+	public static function refused_probe_requests(): array {
+		return [
+			'login token, forged'     => [ 'login', 'forged' ],
+			'login token, used'       => [ 'login', 'used' ],
+			'login token, expired'    => [ 'login', 'expired' ],
+			'mark token, forged'      => [ 'mark', 'forged' ],
+			'mark token, used'        => [ 'mark', 'used' ],
+			'mark token, expired'     => [ 'mark', 'expired' ],
+			'mark token, wrong path'  => [ 'mark', 'path' ],
+			'mark token, wrong nonce' => [ 'mark', 'nonce' ],
+		];
+	}
+
+	/**
+	 * @dataProvider refused_probe_requests
+	 */
+	public function test_a_forged_used_or_expired_token_does_not_switch_the_google_font_filter_on( string $kind, string $case ): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$token = 'login' === $kind ? (string) ProbeToken::issue( 7, self::PATH, self::NONCE ) : (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+		$path  = self::PATH;
+		if ( 'forged' === $case ) {
+			$token = str_repeat( 'c', 48 );
+		} elseif ( 'expired' === $case ) {
+			$key = array_key_first( $GLOBALS['stonewright_test_transients'] );
+			$GLOBALS['stonewright_test_transients'][ $key ]['expires'] = time() - 1;
+		} elseif ( 'used' === $case ) {
+			if ( 'login' === $kind ) {
+				self::assertSame( 7, ProbeToken::consume( $token, self::PATH, self::NONCE ) );
+			} else {
+				self::assertTrue( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ) );
+			}
+			unset( $GLOBALS['stonewright_test_current_user_cache'] );
+		} elseif ( 'path' === $case ) {
+			$path = '/somewhere-else/';
+		}
+		$this->present_token( $token, $path );
+		if ( 'nonce' === $case ) {
+			$_GET['sw_probe'] = 'ffffffffffffffff';
+		}
+
+		ProbeToken::authenticate_request();
+
+		self::assertFalse( ProbeToken::is_probe_request() );
+		self::assertTrue( $this->elementor_prints_google_fonts() );
+		self::assertFalse( has_filter( self::FONT_FILTER ) );
+	}
+
+	public function test_an_unauthenticated_header_parameter_or_cookie_never_switches_the_filter_on(): void {
+		$_SERVER['REQUEST_URI']                   = self::PATH . '?sw_probe=' . self::NONCE . '&probe=1';
+		$_GET['sw_probe']                         = self::NONCE;
+		$_GET['probe']                            = '1';
+		$_COOKIE['sw_probe']                      = self::NONCE;
+		$_SERVER['HTTP_X_STONEWRIGHT_PROBE_MARK'] = '1';
+		$_SERVER['HTTP_X_STONEWRIGHT_PROBE']      = 'true';
+
+		ProbeToken::authenticate_request();
+		unset( $_GET['probe'], $_COOKIE['sw_probe'], $_SERVER['HTTP_X_STONEWRIGHT_PROBE_MARK'] );
+
+		self::assertFalse( ProbeToken::is_probe_request() );
+		self::assertTrue( $this->elementor_prints_google_fonts() );
+		self::assertFalse( has_filter( self::FONT_FILTER ) );
+	}
+
+	// -- The mark-only token: it marks a probe request and logs nobody in -----------------------------
+
+	public function test_a_mark_token_logs_nobody_in_and_the_current_user_stays_zero(): void {
+		require_once dirname( __DIR__, 2 ) . '/fixtures/rescue/session-stubs.php';
+		$logged = [];
+		ProbeToken::set_login_handler(
+			static function ( int $user_id ) use ( &$logged ): void {
+				$logged[] = $user_id;
+			}
+		);
+		$this->present_token( (string) ProbeToken::issue_mark( self::PATH, self::NONCE ) );
+
+		ProbeToken::authenticate_request();
+
+		self::assertSame( [], $logged );
+		self::assertSame( 0, get_current_user_id() );
+		self::assertArrayNotHasKey( 'stonewright_test_set_current_user', $GLOBALS );
+		self::assertSame( [], \WP_Session_Tokens::$created );
+		self::assertArrayNotHasKey( 'wordpress_logged_in_test', $_COOKIE );
+		self::assertTrue( ProbeToken::is_probe_request() );
+	}
+
+	public function test_a_mark_token_works_once_and_is_bound_to_path_nonce_and_method(): void {
+		$token = (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', $token );
+
+		self::assertFalse( ProbeToken::consume_mark( $token, '/elsewhere/', self::NONCE ), 'Another path.' );
+		self::assertFalse( ProbeToken::consume_mark( $token, self::PATH, 'ffffffffffffffff' ), 'Another probe request.' );
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		self::assertFalse( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ), 'Only GET is honoured.' );
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		self::assertTrue( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ) );
+		self::assertFalse( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ), 'Used up by the first request.' );
+	}
+
+	public function test_a_mark_token_cannot_be_used_as_a_login_token(): void {
+		$token = (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+
+		self::assertSame( 0, ProbeToken::consume( $token, self::PATH, self::NONCE ), 'It names no user.' );
+		self::assertTrue( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ), 'And the login check did not use it up.' );
+	}
+
+	public function test_a_login_token_is_not_a_mark_token(): void {
+		$token = (string) ProbeToken::issue( 7, self::PATH, self::NONCE );
+
+		self::assertFalse( ProbeToken::consume_mark( $token, self::PATH, self::NONCE ), 'A mark check never accepts a login token.' );
+		self::assertSame( 7, ProbeToken::consume( $token, self::PATH, self::NONCE ), 'And it does not use it up.' );
+	}
+
+	public function test_a_stored_record_with_no_user_and_no_mark_flag_never_marks_a_request(): void {
+		$token = (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+		$key   = array_key_first( $GLOBALS['stonewright_test_transients'] );
+		unset( $GLOBALS['stonewright_test_transients'][ $key ]['mark'] );
+		$this->present_token( $token );
+
+		ProbeToken::authenticate_request();
+
+		self::assertFalse( ProbeToken::is_probe_request() );
+		self::assertSame( 0, get_current_user_id() );
+		self::assertFalse( has_filter( self::FONT_FILTER ) );
+	}
+
+	public function test_a_mark_token_lives_for_minutes_and_only_a_hash_is_stored(): void {
+		$token = (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+
+		$ttls = array_values( $GLOBALS['stonewright_test_transient_ttls'] );
+		self::assertGreaterThanOrEqual( 60, max( $ttls ) );
+		self::assertLessThanOrEqual( 600, max( $ttls ) );
+		self::assertStringNotContainsString( $token, (string) wp_json_encode( $GLOBALS['stonewright_test_transients'] ) );
+	}
+
+	public function test_no_mark_token_can_be_issued_without_a_path_or_a_valid_nonce(): void {
+		self::assertNull( ProbeToken::issue_mark( '', self::NONCE ) );
+		self::assertNull( ProbeToken::issue_mark( self::PATH, '' ) );
+		self::assertNull( ProbeToken::issue_mark( self::PATH, 'bad nonce!' ) );
+		self::assertSame( [], $GLOBALS['stonewright_test_transients'] );
+	}
+
+	public function test_an_accepted_mark_token_is_recorded_without_the_token(): void {
+		$token = (string) ProbeToken::issue_mark( self::PATH, self::NONCE );
+		$this->present_token( $token );
+
+		ProbeToken::authenticate_request();
+
+		$rows = $this->token_audit_rows();
+		self::assertCount( 1, $rows );
+		self::assertSame( 'ok', $rows[0]['data']['result_status'] );
+		self::assertStringNotContainsString( $token, (string) wp_json_encode( $rows ) );
 	}
 }

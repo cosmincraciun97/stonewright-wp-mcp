@@ -1203,6 +1203,12 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	}
 }
 
+if ( ! function_exists( '__return_false' ) ) {
+	function __return_false(): bool {
+		return false;
+	}
+}
+
 if ( ! function_exists( 'add_filter' ) ) {
 	function add_filter( string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1 ): bool {
 		$GLOBALS['stonewright_test_filters'][ $hook_name ] = $callback;
