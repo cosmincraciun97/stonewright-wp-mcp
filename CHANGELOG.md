@@ -64,6 +64,14 @@ development builds were never stable releases.
   a change cannot be restored, and the rollbacks and redos that follow it.
   Passwords, keys and tokens show as `[redacted]`. Rescue links to the page and,
   for a change that has a history record, to its diff.
+- Record the changes that abilities make to options, menus and widgets in the
+  change ledger: site settings, the front page, custom instructions, custom post
+  types, taxonomies, ACF field groups, the tool profile, theme chrome and the
+  brand kit; menus with their items in order, parents and locations (a deleted
+  menu keeps its full image); and sidebars with their widgets. Each ability has
+  a list of the options it may write, and names on the secret list are never
+  read or stored. Internal groundwork: no page or ability shows or undoes these
+  records yet, and a ledger failure never changes a write.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
