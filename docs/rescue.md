@@ -115,6 +115,12 @@ An administrator can change the limits with the options `stonewright_change_ledg
 
 For a refused resource the ledger keeps the row but no content and no hash of it.
 
+### Code families
+
+Changes to code are recorded in the families `theme_file` (theme file patch, `theme.json` and backup restore), `custom_code` (the Customizer CSS, WPCode and Code Snippets snippets) and `sandbox` (draft write, edit and delete, and activate and deactivate of the active copy). A row keeps the content before and after the change, and for a snippet its title, language, active state and scope. A file the change created has no before image, and undoing it deletes the file; the first save of the Customizer CSS has an empty before image. The record is made before the write, under the id the journal uses when it has an entry for the write, and a ledger that cannot record never stops or changes the write. The restore function of each family writes the before image back through the path the original write used (the theme file transaction, the snippet provider, the sandbox files, the Customizer CSS post), so the checks of that path still apply, and records the restore as a rollback row under the change. They do not ask for the approval that code needs: whoever calls them holds it.
+
+The provider snapshot of a snippet is kept for 24 hours; after that the Rescue entry reads as not available, and the ledger keeps the snippet body. Theme file backups (`uploads/stonewright-theme-backups/*.swbak`) stay the journal's rollback of a theme file write; when their index of 100 entries trims, the files that no index entry and no journal entry refers to, and that are older than an hour, are deleted.
+
 ### Removal
 
 With `STONEWRIGHT_REMOVE_ALL_DATA` defined as `true`, deleting the plugin drops the table, unschedules the daily event and deletes the blobs with their deny files, on every site of a network. A file in the blob folder that the ledger did not write stays.
@@ -207,7 +213,7 @@ On a site with a local WordPress root, `stonewright rescue status` and `stonewri
 - Only writes made inside an ability call are journaled. A write made from an admin screen or by WP-CLI is not.
 - A call that writes several posts checks the page of the first one, and takes the baseline for it only.
 - Each risky write costs one more probe, taken before it. On a host that cannot call itself the first one waits for its timeouts; later ones are quick for ten minutes.
-- A custom-code snippet without a provider snapshot has no rollback. It is listed so it can be undone by hand and checked again.
+- A custom-code snippet without a provider snapshot, or whose snapshot has expired (it is kept for 24 hours), has no rollback from Rescue. It is listed as not available, so it can be undone by hand and checked again.
 - The journal keeps the last 50 changes. A verified change older than that cannot be rolled back from Rescue.
 - Rolling back an older verified change restores the item as it was before that change, so a later change to the same item is overwritten. The confirmation and the dry run name the later changes.
 - Safe mode cannot skip other must-use plugins, because WordPress offers no way to skip them. A fatal error in one of them, an active Stonewright sandbox file included, stops the requests that load it, safe mode and WP-CLI included. The health check that follows the write rolls the change back in the usual case; otherwise remove the file over SFTP.

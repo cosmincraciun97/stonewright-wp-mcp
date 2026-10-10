@@ -219,6 +219,31 @@ final class RescueGuard {
 	}
 
 	/**
+	 * The id of the entry this call armed for a resource and has not settled yet, so that the change
+	 * history can use the same id as the journal. Null outside a call, and when nothing matches.
+	 *
+	 * @param string $resource_type The journal resource type, for example sandbox or custom_code.
+	 * @param string $resource_key  The key the entry was armed with.
+	 */
+	public static function armed_id_for( string $resource_type, string $resource_key ): ?string {
+		$index = self::top();
+		if ( null === $index ) {
+			return null;
+		}
+		try {
+			foreach ( array_reverse( self::$frames[ $index ]['ids'] ) as $id ) {
+				$entry = ChangeJournal::get( $id );
+				if ( null !== $entry && 'armed' === $entry['state'] && $resource_type === $entry['resource_type'] && $resource_key === (string) $entry['resource_key'] ) {
+					return $id;
+				}
+			}
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'rescue_guard_lookup_failed', [ 'error' => $failure::class ] );
+		}
+		return null;
+	}
+
+	/**
 	 * Arm a write that settles itself (the theme file transaction), and take the baseline the site
 	 * gives before it. Works with or without a frame.
 	 *
