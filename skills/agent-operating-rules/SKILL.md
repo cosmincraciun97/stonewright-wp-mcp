@@ -115,6 +115,9 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   `stonewright-elementor-post-write-verify` with every touched element id.
   An `ok:true` result with `delivery_status:blocked` and a warning means the
   CSS was written and its version changed; never rebuild the layout for it.
+  The call also purges that post in the page cache plugins it finds
+  (`cache_purge.ran`); purge any other host or CDN cache by hand only when the
+  page still looks unstyled.
   Never pass `regenerate_css`; that input does not exist. The verifier is
   observation-only: it checks those ids without regenerating CSS, invalidating
   caches, rolling back files, or returning content.
