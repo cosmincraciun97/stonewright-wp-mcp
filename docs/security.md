@@ -38,7 +38,7 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   ability names or unusual argument patterns. Coverage is **Stonewright-owned
   mutations only**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
-  dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
+  dedupe). Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
   stream. Repeated identical permission and safety denials are scoped by site,
   ability, and error: the first blocked event and bounded count summaries retain
@@ -189,7 +189,8 @@ transaction and smoke gates. Do not expose or accept absolute backup paths.
 A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:
 
 - The health probe signs in to wp-admin with an internal token, never with the administrator's cookie or an Application Password. A token is stored as a hash, bound to one path, one probe request, and one user. It works for GET only, lasts three minutes, and is used up by its first valid request. The login it creates exists only for that request and is destroyed when the request ends.
-- A request that carries the token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port.
+- The page of a published post, and the front page after a kit write, is requested as an anonymous visitor and carries a mark-only token instead. It is issued for nobody, bound to one path and one nonce, single use, lasts three minutes, and is checked like the login token. It never logs anyone in. Only a valid token marks a request as a probe request, which stops Elementor from printing Google fonts for it. A header, parameter or cookie that is not a valid token marks nothing.
+- A request that carries the login token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port. The one exception is a request that carries a mark-only token: the probe follows a redirect that has exactly the home URL's scheme, host and port, at most twice, with a new mark-only token for each path. A redirect to another host, scheme or port is not followed.
 - Anyone can send the token header. Only a token that exists is audited, when it is accepted or refused. A guess leaves no audit row and touches no transient.
 - The journal file is input, not a source of entries: it can add a fatal to a change set the database already holds, and nothing else. It cannot create a change set or a recipe, so planting an entry in it does not put a rollback on the Rescue page. A file over 1 MB is not read.
 - A rollback claims its change set under the journal lock before the recipe runs, so a double click, or the page and an ability together, run it once.
@@ -247,8 +248,8 @@ A dry run of an Elementor write ability needs no token in `production-safe` mode
 
 ### Supply chain
 
-Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
-`wordpress/php-mcp-schema`, `wordpress/abilities-api`,
+Stonewright depends on `wordpress/mcp-adapter` ^0.6.1 (which brings
+`wordpress/php-mcp-schema`), `wordpress/abilities-api`,
 `automattic/jetpack-autoloader` ^5.0, `defuse/php-encryption` ^2.4, and
 `opis/json-schema`. Check these dependencies for security advisories on each
 update. The Composer `composer.lock` file pins exact versions; review it when

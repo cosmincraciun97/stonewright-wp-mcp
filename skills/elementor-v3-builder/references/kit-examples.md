@@ -1,8 +1,8 @@
 # Kit Color and Typography Examples
 
 Kit mutations are global. Always confirm with the user before writing.
-Call MCP tool `stonewright-elementor-v3-backup-page` on the kit post before mutating
-if you need a rollback point.
+Each kit mutation takes its own snapshot and returns `snapshot_id`. In
+`production-safe` mode it also needs a `confirmation_token` issued for the exact call.
 
 ## Update kit colors
 
@@ -27,20 +27,20 @@ if you need a rollback point.
 {
   "ability": "stonewright/elementor-v3-update-kit-typography",
   "args": {
-    "typography": [
+    "fonts": [
       {
         "id": "primary",
         "title": "Primary",
-        "typography_font_family": "Inter",
-        "typography_font_size": { "size": 16, "unit": "px" },
-        "typography_font_weight": "400"
+        "font_family": "Inter",
+        "font_size": { "size": 16, "unit": "px" },
+        "font_weight": "400"
       },
       {
         "id": "h1",
         "title": "Heading 1",
-        "typography_font_family": "Inter",
-        "typography_font_size": { "size": 56, "unit": "px" },
-        "typography_font_weight": "700"
+        "font_family": "Inter",
+        "font_size": { "size": 56, "unit": "px" },
+        "font_weight": "700"
       }
     ]
   }

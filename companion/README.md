@@ -23,9 +23,11 @@ endpoint (or tokenized WP-CLI). In **Direct mode**, the companion talks to core
 WordPress REST with Application Passwords. WP-CLI always uses `execFile` argv
 tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
-Direct mode may inspect Customizer CSS when core exposes it, but it never writes
-custom PHP/CSS/JS/HTML because pluginless mode has no authenticated wp-admin
-one-time-grant boundary.
+Direct mode may inspect Customizer CSS when core exposes it, and
+`stonewright-custom-css` refuses updates because pluginless mode has no
+authenticated wp-admin one-time-grant boundary. Direct has no custom-code gate:
+its other write tools (content, templates, global styles, Elementor data) send
+what they are given and do not screen it for scripts, styles, or HTML.
 
 MIT License.
 
@@ -133,7 +135,9 @@ site-hosted state.
 | Audit | local redacted JSONL; no server UI | server-side UI |
 
 Destructive Direct writes on remote sites require `confirm: true` when
-`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts).
+`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Only tools
+flagged destructive ask for it; content, template, and media updates do not.
+Direct takes no snapshot before a write; an Elementor data update saves a file backup that no tool restores.
 
 Local WP-CLI Elementor updates invalidate only the post-scoped
 `_elementor_element_cache` after verified readback and preserve `_elementor_css`
@@ -446,7 +450,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs normally use `essential`; `bootstrap`, `full`, `low-tools`, the read-only `inspect`, and specialist profiles remain explicit overrides. `full` and `inspect` are never selected implicitly. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). Generated known-client configs also set `essential-static` and save `essential` as the WordPress surface; `bootstrap`, `full`, `low-tools`, the read-only `inspect`, and specialist profiles remain explicit overrides. `full` and `inspect` are never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_MAX_TOOLS` | optional | Maximum proxied tools registered for the client. Use `50` for capped clients so Stonewright trims deterministically after write-critical ordering. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |

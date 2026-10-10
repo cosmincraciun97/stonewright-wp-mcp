@@ -18,7 +18,7 @@ when changing versions.
 ## Default Plugin path
 
 1. Install and activate the current Plugin ZIP.
-2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
+2. Open **Stonewright > Setup**, turn on AI abilities in the **Settings** view, and connect through the guided client flow. If the client cannot connect, use **Stonewright > Troubleshoot**.
 3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first. Honor `context.custom_instructions.text` and `context.design_direction_ref` when present. Use `essential` for normal work; `bootstrap` is diagnostics only.
 5. The **Design** and **Context** pages (**Stonewright > Knowledge**) hold operator-facing design direction and site memory; task-start returns compact refs — load full bodies through MCP when a prompt needs them.
@@ -81,8 +81,10 @@ Open /mcps, authenticate, restart if needed, and call stonewright-task-start fir
 Keep Grok compatible until a dated runtime smoke report exists.
 ```
 
-Application Password uses the local companion installer with `--client grok-build`
-so the secret is not stored in TOML.
+An Application Password connection uses local companion stdio. The installer has no
+Grok Build adapter, so `--client grok-build` is not accepted: register the alias
+with `stonewright connect add` (without `--client`) and add the named entry to
+the Grok config by hand, so the secret is not stored in TOML.
 
 ## Option A — With the Stonewright plugin (full surface)
 
@@ -95,7 +97,8 @@ OAuth HTTP under the same server name.
 For local stdio, use the versioned installer with a unique alias, a
 collision-safe named server, and --mode plugin-only. For automatic Direct
 fallback use `--mode auto` instead. Working stdio client ids: cursor,
-claude-desktop, vscode-copilot, codex, grok-build, generic-mcp. ChatGPT Desktop / Claude.ai
+claude-desktop, vscode-copilot, codex (aliases codex-cli and chatgpt-desktop),
+generic-mcp. The ChatGPT app and Claude.ai
 connect via the OAuth HTTP method, not the local installer. Grok Build / CLI
 uses native HTTP for OAuth (`~/.grok/config.toml`) and local companion stdio
 for Application Password. Ask for the
@@ -106,7 +109,7 @@ on argv.
 
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode plugin-only --client <client> --profile essential-static --wp-surface essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --elementor-v4 <yes|no>
 
-`--profile discover-execute` exposes a minimal 3-tool protocol surface.
+`--profile discover-execute` exposes the three protocol tools plus the startup and confirmation-token tools.
 
 I will replace private placeholders locally. Do not create or overwrite a
 generic server named stonewright. If the alias already exists, reuse its saved
@@ -221,8 +224,9 @@ before scanning and before installing/configuring a provider, save those
 choices for this site/client, and never infer consent. After restart, run
 `stonewright connect verify <alias> --client <client>`; require the spawned
 companion version, active alias, task-start, status, and required tool surface.
-For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so every Direct
-mutation still needs the explicit per-call confirmation.
+For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so destructive
+Direct tools still need `confirm: true` on each call. Content, template, and
+media writes do not ask for confirmation yet in Direct mode.
 
 Use this versioned installer shape and let it create the alias-specific named
 entry. Do not build a second generic server entry:
@@ -282,8 +286,8 @@ For stale, disabled, or truncated tools, follow the [tool surface recovery runbo
 
 ## Codex aliases
 
-Codex CLI is the canonical local adapter. `--client codex` and the compatibility
-alias `--client chatgpt-desktop` resolve to the same Codex TOML entry:
+Codex CLI is the canonical local client. `--client codex-cli`, `--client codex`, and the
+compatibility alias `--client chatgpt-desktop` resolve to the same Codex TOML entry:
 
 | Surface | Flag | Config |
 |---|---|---|

@@ -84,7 +84,9 @@ evidence hash, section manifest, and live schema summaries.
    perform one consolidated typed write for the post. Writes to one Elementor
    document are sequential; never race them in parallel. The ability
    snapshots first, preserves unknown settings, reads the effect back, and
-   refuses V3 writes into V4/mixed documents.
+   refuses V3 writes into V4 Atomic nodes. `build-page-from-spec` refuses a V4
+   or mixed document outright; `batch-mutate` writes into a mixed document only
+   inside a returned V3 safe root.
 7. Call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt,
    then `stonewright-elementor-post-write-verify` with the touched IDs. The
    verifier is observation-only: it warms the public Elementor frontend renderer

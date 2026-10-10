@@ -1,13 +1,13 @@
 # Getting Started With Codex
 
-Stonewright uses one canonical Codex local adapter. `--client codex-cli` is the
-canonical slug; `--client codex` and the compatibility slug
+Stonewright uses one Codex local adapter. `--client codex-cli` is the
+documented slug; `--client codex` and the compatibility slug
 `--client chatgpt-desktop` resolve to the same Codex TOML entry.
 
 ## Codex CLI
 
 Codex CLI uses `~/.codex/config.toml` (or `.codex/config.toml` in a trusted
-project) plus `codex mcp add` / `codex mcp login` for OAuth HTTP.
+project, written with `--client-config <path>`) plus `codex mcp add` / `codex mcp login` for OAuth HTTP.
 
 Installer flag: `--client codex-cli`.
 
@@ -15,7 +15,7 @@ Installer flag: `--client codex-cli`.
 
 For Stonewright local stdio, `--client chatgpt-desktop` is a compatibility alias
 for the Codex adapter above. It reads and writes `~/.codex/config.toml` (or the
-trusted project TOML), not a second Desktop JSON file.
+trusted project TOML given with `--client-config`), not a second Desktop JSON file.
 
 ## Add Stonewright
 

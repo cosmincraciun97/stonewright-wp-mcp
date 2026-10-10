@@ -17,9 +17,9 @@ Agent / Ability
       ▼
   Ability::execute()
       │
-      ├─ 1. permission_callback()   ← Permissions::edit_post() + Permissions::manage_options()
+      ├─ 1. permission_callback()   ← Permissions::edit_post() (current_user_can edit_post)
       │
-      ├─ 2. Backup::snapshot_post() ← creates a wp_post revision; ABORTS on failure
+      ├─ 2. Backup::snapshot_post() ← post-meta snapshot (+ revision); ABORTS on failure
       │
       ├─ 3. Validator::validate()   ← JSON Schema check; returns WP_Error on invalid spec
       │
@@ -61,15 +61,17 @@ Agent / Ability
 
 ### Step 2 — Backup::snapshot_post()
 
-Called before any mutation. Creates a `wp_post` revision keyed by a UUID snapshot ID.
-If the backup fails (e.g. `wp_insert_post` returns a `WP_Error`), the write is
-**aborted** and the ability returns a `stonewright_backup_failed` error. The post is
+Runs inside the transaction runner, after Steps 3 and 4 and just before the tree is
+written. Saves a post-meta snapshot keyed by a UUID snapshot ID, plus a WordPress
+revision when the post type supports revisions. If the snapshot fails, the write is
+**aborted** and the ability returns `stonewright_transaction_snapshot_failed`. A post
+that does not exist returns `stonewright_backup_failed` before validation. The post is
 never mutated without a successful snapshot.
 
 ### Step 3 — Validator::validate()
 
 Validates the raw spec array against the DesignSpec JSON Schema
-(`plugin/schemas/design-spec.schema.json`). Returns the normalized spec on success,
+(`plugin/schemas/stonewright.schema.json`). Returns the normalized spec on success,
 or a `WP_Error` with code `stonewright_spec_invalid` on failure. The renderer never
 receives an invalid spec.
 
@@ -84,7 +86,7 @@ possible.
 
 For unsupported types the renderer appends a diagnostic object and continues rendering
 the rest of the spec. Pro-gated types (`form`, `slides`) produce a distinct
-`unsupported_node_pro_required` code.
+`elementor_pro_required` code.
 
 ### Step 5 — Post meta writes
 
@@ -129,7 +131,7 @@ whatever its `mode` (`replace`, `append` or `replace_section`). A call with
   "snapshot_id": "abc123",
   "diagnostics": [
     {
-      "code": "unsupported_node_pro_required",
+      "code": "elementor_pro_required",
       "type": "form",
       "path": "s0.b2",
       "renderer": "elementor_v3",
@@ -144,7 +146,7 @@ whatever its `mode` (`replace`, `append` or `replace_section`). A call with
 Primary test file: `plugin/tests/Integration/ElementorWriterTest.php`
 
 The integration test suite covers:
-- Backup abort when `Backup::snapshot_post()` returns empty.
+- Abort with `stonewright_backup_failed` when the post does not exist.
 - Validator rejection with `stonewright_spec_invalid`.
 - Snapshot and write round-trip for a valid spec.
 - Per-widget render snapshots (one per supported type).

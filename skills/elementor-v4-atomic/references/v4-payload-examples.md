@@ -105,13 +105,13 @@ envelope type.
 
 ```json
 {
-  "ability": "stonewright/site-capabilities",
+  "ability": "stonewright/elementor-v4-status",
   "args": {}
 }
 ```
 
 Inspect:
-- `integrations.elementor_v4` must be `true`
-- `feature_flags.elementor_v4_atomic` must be `true`
+- `v4_available` must be `true`
+- `atomic_flag` must be `true`
 
 If either is false, do not call the V4 renderer.

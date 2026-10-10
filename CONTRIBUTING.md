@@ -21,14 +21,14 @@ cd plugin && composer test
 cd ../companion && npm test
 ```
 
-PHPStan level 8, PHPCS WordPress-Extra, PHPUnit, and Vitest for companion.
+PHPStan level 5, PHPCS WordPress-Extra, PHPUnit, and Vitest for companion.
 
 ## Commit style
 
 Use conventional commits without scopes that leak automated authorship.
 
 ```text
-feat(abilities): add stonewright.wp-cli.run
+feat(abilities): add stonewright/wp-cli-run
 fix(elementor): backup post meta before write
 docs(security): clarify confirmation token TTL
 ```
@@ -40,4 +40,4 @@ Each PR must:
 - pass CI
 - include or update tests
 - update docs if behavior changes
-- pass `bin/check-docs-tone.sh`
+- pass `node scripts/check-docs-freshness.mjs`

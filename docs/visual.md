@@ -32,6 +32,9 @@ headless package remains built and tested because typed MCP design workflows
 still use its adapter, transaction, confirmation, and verification contracts.
 Persistent design data is preserved; disabling the library is not a data
 deletion or a claim that the underlying render engines were removed.
+The sections below describe the page code and browser bundle kept in the
+source. No registered admin page loads them in this release, and the Design
+Studio REST route that the Evidence section reads is not registered either.
 
 ### Adapter detection
 

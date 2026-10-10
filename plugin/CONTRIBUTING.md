@@ -29,7 +29,7 @@ stonewright-wp-mcp/
 |   |-- package.json
 |   `-- tsconfig.json
 |-- skills/                     Skill packs for AI coding agents
-`-- docs/                       Documentation (CC BY 4.0)
+`-- docs/                       Documentation
 ```
 
 ## Development workflow
@@ -106,11 +106,11 @@ The plugin follows WordPress Coding Standards (`WordPress-Extra` +
 All PHP files declare `strict_types=1` and use the `Stonewright\WpMcp`
 namespace.
 
-PHPStan runs at level 8 with `szepeviktor/phpstan-wordpress` stubs. New code
+PHPStan runs at level 5 with `szepeviktor/phpstan-wordpress` stubs. New code
 should not introduce PHPStan errors.
 
 ## License
 
-By contributing to the plugin you agree that your contribution is licensed
-under GPL-2.0-or-later. By contributing to the companion or skills you agree
-that your contribution is licensed under MIT.
+By contributing to the plugin, the skills or the documentation you agree that
+your contribution is licensed under GPL-2.0-or-later. By contributing to the
+companion you agree that your contribution is licensed under MIT.

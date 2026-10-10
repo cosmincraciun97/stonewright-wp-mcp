@@ -331,7 +331,6 @@ const historicalMarkdown = (relativePath) =>
 	relativePath === 'plugin/CHANGELOG.md' ||
 	relativePath.startsWith('docs/releases/') ||
 	relativePath.startsWith('docs/plans/') ||
-	relativePath.startsWith('docs/superpowers/') ||
 	relativePath.startsWith('research/') ||
 	[
 		'docs/premium-corrections-handoff-report.md',
