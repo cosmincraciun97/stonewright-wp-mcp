@@ -483,7 +483,7 @@ final class RescuePage {
 		echo '</dl>';
 		echo '<p>' . esc_html__( 'This puts the item back as it was before the change (anything saved to it since is overwritten), then checks that the site loads.', 'stonewright' ) . '</p>';
 		if ( 'verified' === (string) $entry['state'] ) {
-			echo '<p>' . esc_html__( 'This change passed its health check. Rolling it back undoes a change that worked.', 'stonewright' ) . '</p>';
+			echo '<p>' . esc_html__( 'This change passed its health check. Rolling it back undoes a change that worked. The current state is saved first; if the site stops loading after the undo, it is put back.', 'stonewright' ) . '</p>';
 		}
 		self::render_newer_warning( $entry );
 		self::hidden( 'action', 'stonewright_rescue_rollback' );
@@ -678,6 +678,8 @@ final class RescuePage {
 					'stonewright_rescue_not_open'           => 'not_open',
 					'stonewright_rescue_no_recipe'          => 'no_recipe',
 					'stonewright_rescue_in_progress'        => 'in_progress',
+					'stonewright_rescue_undo_capture_failed' => 'undo_refused',
+					'stonewright_rescue_undo_reverted'      => 'healthy' === (string) ( $result->get_error_data()['site_status'] ?? '' ) ? 'undo_reverted' : 'undo_reverted_still_failing',
 					default                                 => 'rollback_failed',
 				},
 				'incident_id' => $id,
@@ -850,6 +852,9 @@ final class RescuePage {
 	 * @param array<string, mixed> $entry
 	 */
 	private static function rollback_origin( array $entry ): string {
+		if ( 'verified' === (string) $entry['state'] && 'undo_reverted' === (string) ( $entry['note'] ?? '' ) ) {
+			return __( 'An undo was tried and put back because the site stopped loading', 'stonewright' );
+		}
 		if ( 'rolled_back' !== (string) $entry['state'] || ! is_array( $entry['rollback'] ?? null ) ) {
 			return '';
 		}
@@ -927,6 +932,9 @@ final class RescuePage {
 			'rolled_back_still_failing' => [ 'warn', __( 'The change was rolled back, but the site still fails to load. The fault may not come from this change.', 'stonewright' ), true ],
 			'rolled_back_unverified'    => [ 'warn', __( 'The change was rolled back. The health check afterwards was unavailable, so recovery is not confirmed.', 'stonewright' ), true ],
 			'rollback_failed'           => [ 'danger', __( 'The rollback did not complete. Try safe mode, or undo the change by hand and check the site again.', 'stonewright' ), true ],
+			'undo_reverted'             => [ 'warn', __( 'The undo would have broken the site, so it was put back. The change is still in effect and the site loads.', 'stonewright' ), true ],
+			'undo_reverted_still_failing' => [ 'danger', __( 'The undo made the site stop loading and was put back, but the site still fails to load. The fault may not come from the undo. Try safe mode, or check the site.', 'stonewright' ), true ],
+			'undo_refused'              => [ 'warn', __( 'The undo was refused: the current state could not be saved first, so there would be no way back. Nothing was changed.', 'stonewright' ), true ],
 			'rechecked_resolved'        => [ 'ok', __( 'The site loads. The incident is closed.', 'stonewright' ), true ],
 			'rechecked_open'            => [ 'warn', __( 'The site still does not pass the health check, so the incident stays open.', 'stonewright' ), true ],
 			'confirmation_required'     => [ 'danger', __( 'Production-safe mode needs the confirmation on the form. Reload the page and try again.', 'stonewright' ), false ],

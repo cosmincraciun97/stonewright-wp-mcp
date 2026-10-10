@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T12:00:02+00:00",
+    "generated_at": "2026-10-10T13:13:35+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -6043,7 +6043,7 @@
             "mcp_name": "stonewright-rescue-rollback",
             "kind": "Write",
             "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
-            "output_schema_hash": "6badfc81687f06b1d1eec077a9b671482c69ab059a640112135715e7dbcb664e",
+            "output_schema_hash": "24cb95dd9b842466c34f910691322c18054472ae547b14da52f7c8c1fd755556",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

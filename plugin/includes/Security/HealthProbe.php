@@ -18,7 +18,8 @@ use Stonewright\WpMcp\Support\AgentNotices;
  * A probe is a few short requests, called legs: the home page, a wp-admin screen (reached with
  * the internal ProbeToken, never the user's cookie or an Application Password), the REST index
  * and, after a post write, the post itself (for a kit, the public front page, which shows the kit's
- * styles). Each leg is judged on what it returns. A fatal is
+ * styles). The post leg always carries a ProbeToken: the login token for a draft, the mark-only token
+ * for a public page, so that the site knows it is being probed. Each leg is judged on what it returns. A fatal is
  * a failure: HTTP 500, the WordPress critical-error page, or PHP's own fatal text in the body.
  * A host that blocks loopback requests, a login wall, a gateway error or a timeout is not a
  * failure and not a success: the leg is "unavailable", and a probe with no passing leg is
@@ -51,6 +52,9 @@ final class HealthProbe {
 	public const NOTICE_KEY = 'rescue_probe';
 
 	private const LEGS = [ 'home', 'admin', 'rest', 'post', 'custom' ];
+
+	/** How many redirects on the site's own origin a leg that carries a mark-only token follows. */
+	private const MAX_HOPS = 2;
 
 	/** @var callable(string,array<string,mixed>):mixed|null */
 	private static $transport = null;
@@ -379,6 +383,8 @@ final class HealthProbe {
 			'Pragma'        => 'no-cache',
 		];
 		$marker = '';
+		// Whether the request carries a mark-only token, which may follow a redirect on the site's own origin.
+		$mark_only = false;
 
 		switch ( $leg ) {
 			case 'rest':
@@ -408,13 +414,16 @@ final class HealthProbe {
 					return self::leg_result( $leg, 'skipped', 0, 'not_viewable', 0 );
 				}
 				$url = add_query_arg( ProbeToken::PARAM, $nonce, $target['url'] );
-				if ( $target['needs_login'] ) {
-					$token = ProbeToken::issue( $user_id, (string) wp_parse_url( $url, PHP_URL_PATH ), $nonce );
-					if ( null === $token ) {
-						return self::leg_result( $leg, 'unavailable', 0, 'token_unavailable', 0 );
-					}
-					$headers[ ProbeToken::HEADER ] = $token;
+				// A draft is shown to the user who may edit it, so its leg carries the login token. A public page is
+				// requested as a visitor, so its leg carries the mark-only token: it marks a probe request and
+				// logs nobody in.
+				$path      = (string) wp_parse_url( $url, PHP_URL_PATH );
+				$mark_only = ! $target['needs_login'];
+				$token     = $mark_only ? ProbeToken::issue_mark( $path, $nonce ) : ProbeToken::issue( $user_id, $path, $nonce );
+				if ( null === $token ) {
+					return self::leg_result( $leg, 'unavailable', 0, 'token_unavailable', 0 );
 				}
+				$headers[ ProbeToken::HEADER ] = $token;
 				break;
 			case 'custom':
 				$target = isset( $context['url'] ) && is_string( $context['url'] ) ? self::same_site_url( $context['url'] ) : null;
@@ -427,8 +436,9 @@ final class HealthProbe {
 				$url = add_query_arg( ProbeToken::PARAM, $nonce, home_url( '/' ) );
 		}
 
-		// A request that carries the probe token never follows a redirect, so the token cannot be sent to
-		// wherever a redirect points. A caller-chosen URL is not followed either.
+		// The HTTP client never follows a redirect of a request that carries a probe token, so the token cannot be
+		// sent to wherever a redirect points. A caller-chosen URL is not followed either. A leg that carries a
+		// mark-only token follows a redirect itself (see below), and only on the site's own origin.
 		$redirects = isset( $headers[ ProbeToken::HEADER ] ) || 'custom' === $leg ? 0 : 2;
 		$args      = [
 			'timeout'             => isset( $context['timeout'] ) ? max( 1, min( self::MAX_TIMEOUT, (int) $context['timeout'] ) ) : self::TIMEOUT,
@@ -439,9 +449,31 @@ final class HealthProbe {
 		];
 		$args = apply_filters( 'stonewright_rescue_probe_args', $args, $leg );
 
-		$begun    = hrtime( true );
-		$response = ( self::$transport ?? 'wp_remote_get' )( $url, $args );
-		$ms       = (int) ( ( hrtime( true ) - $begun ) / 1_000_000 );
+		$begun     = hrtime( true );
+		$transport = self::$transport ?? 'wp_remote_get';
+		$response  = $transport( $url, $args );
+		$hops      = 0;
+		// A mark-only token names nobody and is bound to one path, so a redirect on exactly the home URL's scheme,
+		// host and port is followed here, at most twice, with a new token bound to the new path for every hop. The
+		// token of one request is never sent twice, and never to another origin.
+		while ( $mark_only && $hops < self::MAX_HOPS && ! is_wp_error( $response ) && is_array( $args['headers'] ?? null ) ) {
+			$next      = self::same_origin_redirect( $response, $url );
+			$remaining = (int) ( $args['timeout'] ?? self::TIMEOUT ) - (int) floor( ( hrtime( true ) - $begun ) / 1_000_000_000 );
+			if ( null === $next || $remaining < 1 ) {
+				break;
+			}
+			++$hops;
+			$nonce = bin2hex( random_bytes( 8 ) );
+			$url   = add_query_arg( ProbeToken::PARAM, $nonce, $next );
+			$token = ProbeToken::issue_mark( (string) wp_parse_url( $url, PHP_URL_PATH ), $nonce );
+			if ( null === $token ) {
+				return self::leg_result( $leg, 'unavailable', 0, 'token_unavailable', (int) ( ( hrtime( true ) - $begun ) / 1_000_000 ) );
+			}
+			$args['headers'][ ProbeToken::HEADER ] = $token;
+			$args['timeout']                       = $remaining;
+			$response                              = $transport( $url, $args );
+		}
+		$ms = (int) ( ( hrtime( true ) - $begun ) / 1_000_000 );
 
 		if ( is_wp_error( $response ) ) {
 			return self::leg_result( $leg, 'unavailable', 0, self::error_reason( $response ), $ms );
@@ -449,6 +481,35 @@ final class HealthProbe {
 		$http  = (int) wp_remote_retrieve_response_code( $response );
 		$judge = self::classify( $http, (string) wp_remote_retrieve_body( $response ), $leg, $marker );
 		return self::leg_result( $leg, $judge['status'], $http, $judge['reason'], $ms );
+	}
+
+	/**
+	 * Where a redirect response points, only when that is on exactly the home URL's scheme, host and port.
+	 *
+	 * @param array<string, mixed> $response
+	 * @return string|null An absolute URL on this site's own origin, or null.
+	 */
+	private static function same_origin_redirect( array $response, string $current ): ?string {
+		if ( ! in_array( (int) wp_remote_retrieve_response_code( $response ), [ 301, 302, 303, 307, 308 ], true ) ) {
+			return null;
+		}
+		$location = wp_remote_retrieve_header( $response, 'location' );
+		$location = is_array( $location ) ? ( $location[0] ?? '' ) : $location;
+		$location = is_string( $location ) ? trim( $location ) : '';
+		if ( '' === $location || 1 === preg_match( '/[\x00-\x20\x7f]/', $location ) ) {
+			return null;
+		}
+		$from = wp_parse_url( $current );
+		if ( ! is_array( $from ) || empty( $from['scheme'] ) || empty( $from['host'] ) ) {
+			return null;
+		}
+		$origin = $from['scheme'] . '://' . $from['host'] . ( isset( $from['port'] ) ? ':' . $from['port'] : '' );
+		if ( str_starts_with( $location, '//' ) ) {
+			$location = $from['scheme'] . ':' . $location;
+		} elseif ( str_starts_with( $location, '/' ) ) {
+			$location = $origin . $location;
+		}
+		return self::same_site_url( $location );
 	}
 
 	/**

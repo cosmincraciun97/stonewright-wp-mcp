@@ -455,13 +455,32 @@ final class RescueRollback {
 				: self::in_progress_error( $entry['id'] );
 		}
 
+		$undo = 'verified' === (string) $entry['state'];
 		try {
-			$user      = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+			$user     = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+			$context  = self::probe_context( $entry, $user );
+			$restore  = [];
+			$baseline = [];
+			if ( $undo ) {
+				// The site works and the recipe is about to replace what works with something older. Save what it
+				// replaces first, and ask the site how it is now: without both there is no way back to judge by.
+				$saved = self::save_current_state( $entry );
+				if ( $saved instanceof \WP_Error ) {
+					return $saved;
+				}
+				$restore  = $saved;
+				$baseline = HealthProbe::run( $context );
+			}
 			$rollback         = self::apply_recipe( $entry, $by );
 			$rollback['user'] = $user;
-			$context          = self::probe_context( $entry, $user );
-			$after            = self::judge( HealthProbe::run( $context ), [ $entry ], $context );
-			$concluded        = self::conclude( $entry['id'], $rollback, [], $after, 'verified' === $entry['state'] ? 'undone_after_verified' : '' );
+			// An undo is judged against the probe taken just before it, not the one from when the change was made.
+			$judged = $undo ? [ [ 'baseline' => $baseline, 'resource_key' => $entry['resource_key'] ] ] : [ $entry ];
+			$after  = self::judge( HealthProbe::run( $context ), $judged, $context, $undo );
+			$guard  = $undo ? self::undo_guard( $baseline, $after ) : '';
+			if ( 'reverted' === $guard ) {
+				return self::put_back( $entry, $restore, $rollback, $after, $judged, $context, $plan );
+			}
+			$concluded = self::conclude( $entry['id'], $rollback, [], $after, $undo ? 'undone_after_verified' : '' );
 		} finally {
 			// conclude() settles the entry and clears the claim; this covers anything that threw before it.
 			ChangeJournal::release_claim( $entry['id'] );
@@ -485,6 +504,12 @@ final class RescueRollback {
 		if ( isset( $plan['warnings'] ) ) {
 			$result['warnings'] = $plan['warnings'];
 		}
+		if ( $ok && '' !== $guard ) {
+			$result['undo_guard'] = $guard;
+			if ( 'site_already_failing' === $guard ) {
+				$result['warnings'][] = __( 'The site was already failing before this undo, so the undo was kept and not put back.', 'stonewright' );
+			}
+		}
 		if ( ! $ok ) {
 			return new \WP_Error(
 				'stonewright_rescue_rollback_failed',
@@ -497,6 +522,149 @@ final class RescueRollback {
 			);
 		}
 		return $result;
+	}
+
+	/**
+	 * What an undo of a verified change did to a site that worked, judged from the probes either side of it.
+	 *
+	 * @param array<string, mixed> $baseline The probe taken before the recipe ran.
+	 * @param array<string, mixed> $after    The probe taken after it, judged against the baseline.
+	 * @return string reverted (the undo broke a working site), site_already_failing, unchecked (a probe could not say) or kept.
+	 */
+	private static function undo_guard( array $baseline, array $after ): string {
+		$before = (string) ( $baseline['status'] ?? '' );
+		if ( 'failed' === $before ) {
+			return 'site_already_failing';
+		}
+		if ( 'passed' !== $before ) {
+			return 'unchecked';
+		}
+		return match ( (string) ( $after['status'] ?? '' ) ) {
+			'failed' => 'reverted',
+			'passed' => 'kept',
+			default  => 'unchecked',
+		};
+	}
+
+	/**
+	 * Save what the recipe of a verified change is about to overwrite, with the way to put it back.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array<string, mixed>|\WP_Error The entry-shaped recipe that restores the saved state, or the refusal.
+	 */
+	private static function save_current_state( array $entry ): array|\WP_Error {
+		$saved = [ 'status' => 'failed', 'detail' => 'exception' ];
+		self::with_stored_selection(
+			static function () use ( $entry, &$saved ): array {
+				$saved = RollbackRecipes::capture( $entry );
+				return [];
+			}
+		);
+		if ( 'ok' === ( $saved['status'] ?? '' ) && is_array( $saved['restore'] ?? null ) ) {
+			return $saved['restore'];
+		}
+		return new \WP_Error(
+			'stonewright_rescue_undo_capture_failed',
+			__( 'The undo was refused. The current state could not be saved first, so there would be no way back. Nothing was changed.', 'stonewright' ),
+			[
+				'status'              => 409,
+				'retryable'           => false,
+				'incident_id'         => (string) $entry['id'],
+				'change_set_id'       => (string) $entry['id'],
+				'execution_status'    => 'blocked',
+				'verification_status' => 'not_applied',
+				'rollback_status'     => 'not_attempted',
+				'detail'              => substr( sanitize_key( (string) ( $saved['detail'] ?? '' ) ), 0, 64 ),
+				'resource_type'       => (string) $entry['resource_type'],
+			]
+		);
+	}
+
+	/**
+	 * An undo made a working site fail: put the saved state back, probe once more, and say so. The change
+	 * stays verified, because it is still in effect. When the saved state cannot be put back either, the site
+	 * is failing with nothing to cure it, which is an open incident.
+	 *
+	 * @param array<string, mixed>       $entry
+	 * @param array<string, mixed>       $restore The entry-shaped recipe that puts the saved state back.
+	 * @param array<string, mixed>       $applied The undo, as apply_recipe() reported it.
+	 * @param array<string, mixed>       $failed  The probe that failed after the undo.
+	 * @param list<array<string, mixed>> $judged
+	 * @param array<string, mixed>       $context
+	 * @param array<string, mixed>       $plan
+	 */
+	private static function put_back( array $entry, array $restore, array $applied, array $failed, array $judged, array $context, array $plan ): \WP_Error {
+		$put_back = self::with_stored_selection( static fn (): array => RollbackRecipes::run( $restore ) );
+		$final    = self::judge( HealthProbe::run( $context ), $judged, $context, true );
+		$site     = self::site_status( $final );
+		$restored = self::succeeded( $put_back );
+		$result   = [
+			'incident_id'         => (string) $entry['id'],
+			'change_set_id'       => (string) $entry['id'],
+			'rollback_status'     => $restored ? 'reverted' : 'failed',
+			'undo_guard'          => 'reverted',
+			'state'               => $restored ? 'verified' : 'rollback_failed',
+			'site_status'         => $site,
+			'verification_status' => 'failed',
+			'recipe'              => (string) $applied['recipe'],
+			'detail'              => (string) $put_back['detail'],
+			'probe'               => self::compact_probe( $failed ),
+			'resource_type'       => (string) $entry['resource_type'],
+		];
+		if ( isset( $plan['warnings'] ) ) {
+			$result['warnings'] = $plan['warnings'];
+		}
+		if ( $restored ) {
+			ChangeJournal::settle(
+				(string) $entry['id'],
+				'verified',
+				[
+					'note'     => 'undo_reverted',
+					'probe'    => $failed,
+					'residual' => false,
+					'rollback' => [
+						'status' => 'reverted',
+						'at'     => time(),
+						'by'     => (string) $applied['by'],
+						'user'   => (int) ( $applied['user'] ?? 0 ),
+						'recipe' => (string) $applied['recipe'],
+						'detail' => 'site_failed_after_undo',
+						'site'   => $site,
+					],
+				]
+			);
+			$message = 'healthy' === $site
+				? __( 'The undo would have broken the site, so it was put back. The change is still in effect and the site loads.', 'stonewright' )
+				: __( 'The undo made the site stop loading and was put back, but the site still fails to load, so the fault may not come from the undo. Check the site, then call stonewright-rescue-status.', 'stonewright' );
+			return new \WP_Error(
+				'stonewright_rescue_undo_reverted',
+				$message . ' ' . self::evidence_json( $result ),
+				array_merge( $result, [ 'status' => 409, 'retryable' => false, 'execution_status' => 'ok' ] )
+			);
+		}
+		self::conclude(
+			(string) $entry['id'],
+			[
+				'status' => 'failed',
+				'recipe' => (string) $put_back['recipe'],
+				'detail' => (string) $put_back['detail'],
+				'at'     => time(),
+				'by'     => (string) $applied['by'],
+				'user'   => (int) ( $applied['user'] ?? 0 ),
+			],
+			$failed,
+			$final,
+			'undo_revert_failed'
+		);
+		return new \WP_Error(
+			'stonewright_rescue_undo_revert_failed',
+			sprintf(
+				/* translators: %s: compact JSON evidence. */
+				__( 'The undo broke the site and the earlier state could not be put back. The site may be failing. Use safe mode at Stonewright > Activity > Rescue, or undo the change by hand and check the site again. %s', 'stonewright' ),
+				self::evidence_json( $result )
+			),
+			array_merge( $result, [ 'status' => 500, 'retryable' => false, 'execution_status' => 'failed' ] )
+		);
 	}
 
 	/**

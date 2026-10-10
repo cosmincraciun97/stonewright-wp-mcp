@@ -251,7 +251,7 @@ final class HealthProbeTest extends TestCase {
 		self::assertCount( 1, $this->requests );
 	}
 
-	public function test_a_published_post_is_probed_at_its_permalink_without_credentials(): void {
+	public function test_a_published_post_is_probed_at_its_permalink_with_a_mark_only_token_and_no_credentials(): void {
 		$GLOBALS['stonewright_test_posts'][12] = (object) [ 'ID' => 12, 'post_status' => 'publish', 'post_type' => 'page' ];
 		$this->transport( [ 'post' => [ 200, '<html>page</html>' ] ] );
 
@@ -259,7 +259,19 @@ final class HealthProbeTest extends TestCase {
 
 		self::assertSame( 'passed', $probe['status'] );
 		self::assertStringContainsString( '?p=12', $this->requests[0]['url'] );
-		self::assertArrayNotHasKey( ProbeToken::HEADER, $this->requests[0]['args']['headers'] );
+		$request = $this->requests[0];
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', (string) ( $request['args']['headers'][ ProbeToken::HEADER ] ?? '' ) );
+		self::assertArrayNotHasKey( 'cookies', $request['args'] );
+		self::assertArrayNotHasKey( 'Authorization', $request['args']['headers'] );
+		self::assertSame( 0, $request['args']['redirection'], 'A request that carries a probe token follows no redirect.' );
+		parse_str( (string) parse_url( $request['url'], PHP_URL_QUERY ), $query );
+		$path                      = (string) parse_url( $request['url'], PHP_URL_PATH );
+		$token                     = (string) $request['args']['headers'][ ProbeToken::HEADER ];
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		self::assertSame( 0, ProbeToken::consume( $token, $path, (string) $query['sw_probe'] ), 'It is not a login token: it names no user.' );
+		self::assertTrue( ProbeToken::consume_mark( $token, $path, (string) $query['sw_probe'] ), 'It is a mark-only token, bound to that path and nonce.' );
+		self::assertFalse( ProbeToken::consume_mark( $token, $path, (string) $query['sw_probe'] ), 'It works once.' );
+		unset( $_SERVER['REQUEST_METHOD'] );
 	}
 
 	public function test_a_draft_post_is_probed_through_its_preview_with_the_internal_token(): void {
@@ -269,7 +281,14 @@ final class HealthProbeTest extends TestCase {
 		HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 13, 'user_id' => 7 ] );
 
 		self::assertStringContainsString( 'preview=true', $this->requests[0]['url'] );
-		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', (string) $this->requests[0]['args']['headers'][ ProbeToken::HEADER ] );
+		$token = (string) $this->requests[0]['args']['headers'][ ProbeToken::HEADER ];
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', $token );
+		parse_str( (string) parse_url( $this->requests[0]['url'], PHP_URL_QUERY ), $query );
+		$path                      = (string) parse_url( $this->requests[0]['url'], PHP_URL_PATH );
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		self::assertFalse( ProbeToken::consume_mark( $token, $path, (string) $query['sw_probe'] ), 'A draft carries the login token, not the mark-only one.' );
+		self::assertSame( 7, ProbeToken::consume( $token, $path, (string) $query['sw_probe'] ) );
+		unset( $_SERVER['REQUEST_METHOD'] );
 	}
 
 	/** @return array<string, array{0:string}> */
@@ -278,7 +297,7 @@ final class HealthProbeTest extends TestCase {
 	}
 
 	/** @dataProvider kitStatusProvider */
-	public function test_a_kit_write_is_probed_at_the_front_page_without_credentials( string $status ): void {
+	public function test_a_kit_write_is_probed_at_the_front_page_with_a_mark_only_token_and_no_credentials( string $status ): void {
 		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 44;
 		$GLOBALS['stonewright_test_posts'][44]                      = (object) [ 'ID' => 44, 'post_status' => $status, 'post_type' => 'elementor_library' ];
 		$this->transport( [ 'home' => [ 200, '<html>front page</html>' ] ] );
@@ -292,7 +311,7 @@ final class HealthProbeTest extends TestCase {
 		self::assertStringStartsWith( 'https://example.test/?' . ProbeToken::PARAM . '=', $this->requests[0]['url'] );
 		self::assertStringNotContainsString( '?p=44', $this->requests[0]['url'] );
 		self::assertStringNotContainsString( 'preview', $this->requests[0]['url'] );
-		self::assertArrayNotHasKey( ProbeToken::HEADER, $this->requests[0]['args']['headers'], 'A public page needs no probe token.' );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{48}$/', (string) ( $this->requests[0]['args']['headers'][ ProbeToken::HEADER ] ?? '' ), 'A public page carries only the mark-only token.' );
 	}
 
 	public function test_a_kit_is_also_recognised_by_its_template_type_when_it_is_not_the_active_kit(): void {
@@ -321,6 +340,154 @@ final class HealthProbeTest extends TestCase {
 		HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 46, 'user_id' => 7 ] );
 
 		self::assertStringContainsString( '?p=46', $this->requests[0]['url'] );
+	}
+
+	// -- A published page's leg follows a redirect on the site's own origin, with a fresh token per hop ------
+
+	/**
+	 * Answer the leg's requests in turn: each reply is [ code, Location ] or [ code, '' ] for a final page.
+	 *
+	 * @param list<array{0:int,1:string}> $replies The last one repeats.
+	 */
+	private function redirecting_transport( array $replies ): void {
+		HealthProbe::set_transport(
+			function ( string $url, array $args ) use ( $replies ) {
+				$this->requests[] = [ 'url' => $url, 'args' => $args ];
+				$reply            = $replies[ min( count( $this->requests ) - 1, count( $replies ) - 1 ) ];
+				return [
+					'response' => [ 'code' => $reply[0] ],
+					'body'     => $reply[0] >= 300 && $reply[0] < 400 ? '' : '<html>page</html>',
+					'headers'  => '' !== $reply[1] ? [ 'location' => $reply[1] ] : [],
+				];
+			}
+		);
+	}
+
+	/** @return array{token:string,path:string,nonce:string,host:string} */
+	private function sent( int $index ): array {
+		$request = $this->requests[ $index ];
+		parse_str( (string) parse_url( $request['url'], PHP_URL_QUERY ), $query );
+		return [
+			'token' => (string) ( $request['args']['headers'][ ProbeToken::HEADER ] ?? '' ),
+			'path'  => (string) parse_url( $request['url'], PHP_URL_PATH ),
+			'nonce' => (string) ( is_array( $query['sw_probe'] ?? null ) ? end( $query['sw_probe'] ) : ( $query['sw_probe'] ?? '' ) ),
+			'host'  => (string) parse_url( $request['url'], PHP_URL_HOST ),
+		];
+	}
+
+	public function test_a_same_origin_redirect_is_followed_with_a_fresh_token_bound_to_the_new_path(): void {
+		$this->published_post();
+		$this->redirecting_transport( [ [ 301, 'https://example.test/about/' ], [ 200, '' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] );
+
+		self::assertSame( 'passed', $probe['status'] );
+		self::assertSame( 'passed', $probe['legs'][0]['status'] );
+		self::assertSame( 200, $probe['legs'][0]['http'] );
+		self::assertCount( 2, $this->requests );
+		self::assertStringStartsWith( 'https://example.test/about/', $this->requests[1]['url'] );
+		foreach ( $this->requests as $request ) {
+			self::assertSame( 0, $request['args']['redirection'], 'Every hop is followed by the probe, never by the HTTP client.' );
+		}
+		$first  = $this->sent( 0 );
+		$second = $this->sent( 1 );
+		self::assertNotSame( $first['token'], $second['token'], 'A token is never reused.' );
+		self::assertNotSame( $first['nonce'], $second['nonce'] );
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		self::assertFalse( ProbeToken::consume_mark( $first['token'], $second['path'], $second['nonce'] ), 'The first token does not fit the new path.' );
+		self::assertFalse( ProbeToken::consume_mark( $second['token'], $first['path'], $first['nonce'] ), 'Nor the second the old one.' );
+		self::assertTrue( ProbeToken::consume_mark( $second['token'], $second['path'], $second['nonce'] ), 'The second token is bound to the new path and nonce.' );
+		self::assertSame( 0, ProbeToken::consume( $second['token'], $second['path'], $second['nonce'] ), 'And it logs nobody in.' );
+		unset( $_SERVER['REQUEST_METHOD'] );
+	}
+
+	public function test_a_relative_location_on_the_same_origin_is_followed(): void {
+		$this->published_post();
+		$this->redirecting_transport( [ [ 302, '/about/?x=1' ], [ 200, '' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] );
+
+		self::assertSame( 'passed', $probe['legs'][0]['status'] );
+		self::assertCount( 2, $this->requests );
+		self::assertStringStartsWith( 'https://example.test/about/?x=1', $this->requests[1]['url'] );
+	}
+
+	/** @return array<string, array{0:string}> */
+	public static function foreign_locations(): array {
+		return [
+			'other host'                   => [ 'https://other.example.net/about/' ],
+			'other scheme'                 => [ 'http://example.test/about/' ],
+			'other port'                   => [ 'https://example.test:8443/about/' ],
+			'credentials in the location'  => [ 'https://user:secret@example.test/about/' ],
+			'scheme-relative other host'   => [ '//other.example.net/about/' ],
+			'a host that only starts alike' => [ 'https://example.test.other.example.net/' ],
+			'not an http url'              => [ 'ftp://example.test/about/' ],
+			'a relative path without slash' => [ 'about/' ],
+		];
+	}
+
+	/**
+	 * @dataProvider foreign_locations
+	 */
+	public function test_a_redirect_that_leaves_the_origin_is_not_followed_and_no_token_follows_it( string $location ): void {
+		$this->published_post();
+		$this->redirecting_transport( [ [ 301, $location ], [ 200, '' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] );
+
+		self::assertCount( 1, $this->requests, 'Nothing is requested at the other place.' );
+		self::assertSame( 'unavailable', $probe['legs'][0]['status'] );
+		self::assertSame( 'redirect', $probe['legs'][0]['reason'] );
+		self::assertSame( 301, $probe['legs'][0]['http'] );
+	}
+
+	public function test_a_redirect_chain_is_followed_for_two_hops_at_most(): void {
+		$this->published_post();
+		$this->redirecting_transport( [ [ 301, 'https://example.test/a/' ], [ 301, 'https://example.test/b/' ], [ 301, 'https://example.test/c/' ], [ 200, '' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] );
+
+		self::assertCount( 3, $this->requests, 'The first request and two hops.' );
+		self::assertSame( 'unavailable', $probe['legs'][0]['status'] );
+		self::assertSame( 'redirect', $probe['legs'][0]['reason'] );
+		$tokens = array_map( static fn ( array $r ): string => (string) $r['args']['headers'][ ProbeToken::HEADER ], $this->requests );
+		self::assertCount( 3, array_unique( $tokens ), 'Every hop has its own token.' );
+		foreach ( $this->requests as $request ) {
+			self::assertSame( 'example.test', parse_url( $request['url'], PHP_URL_HOST ) );
+		}
+	}
+
+	public function test_a_failing_page_after_a_followed_redirect_still_fails_the_probe(): void {
+		$this->published_post();
+		$this->redirecting_transport( [ [ 301, 'https://example.test/about/' ], [ 500, '' ] ] );
+
+		self::assertSame( 'failed', HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 12, 'user_id' => 7 ] )['status'] );
+	}
+
+	public function test_a_draft_preview_leg_follows_no_redirect(): void {
+		$GLOBALS['stonewright_test_posts'][13] = (object) [ 'ID' => 13, 'post_status' => 'draft', 'post_type' => 'page' ];
+		$this->redirecting_transport( [ [ 301, 'https://example.test/about/' ], [ 200, '' ] ] );
+
+		$probe = HealthProbe::run( [ 'legs' => [ 'post' ], 'post_id' => 13, 'user_id' => 7 ] );
+
+		self::assertCount( 1, $this->requests, 'The login token is never sent to a redirect target.' );
+		self::assertSame( 'redirect', $probe['legs'][0]['reason'] );
+	}
+
+	public function test_the_admin_leg_and_a_caller_chosen_url_follow_no_redirect(): void {
+		$this->redirecting_transport( [ [ 301, 'https://example.test/elsewhere/' ], [ 200, '' ] ] );
+
+		HealthProbe::run( [ 'legs' => [ 'admin', 'custom' ], 'user_id' => 7, 'url' => 'https://example.test/landing/' ] );
+
+		self::assertCount( 2, $this->requests, 'One request for each leg, none for a redirect target.' );
+	}
+
+	public function test_a_tokenless_leg_still_lets_the_http_client_follow_its_own_redirects(): void {
+		$this->redirecting_transport( [ [ 200, '' ] ] );
+
+		HealthProbe::run( [ 'legs' => [ 'home' ], 'user_id' => 7 ] );
+
+		self::assertSame( 2, $this->requests[0]['args']['redirection'] );
 	}
 
 	public function test_a_failure_on_the_post_page_fails_the_probe(): void {
@@ -407,7 +574,7 @@ final class HealthProbeTest extends TestCase {
 				self::assertSame( 0, $request['args']['redirection'], $request['url'] . ': the token must not be sent to wherever a redirect points; a caller-chosen URL is not followed either.' );
 			}
 		}
-		self::assertSame( 2, $with_token, 'The admin leg and the draft preview carry the token.' );
+		self::assertSame( 2, $with_token, 'The admin leg and the draft preview carry the token; the home and custom legs carry none.' );
 		self::assertSame( 2, $this->requests[0]['args']['redirection'], 'The plain home page may follow its own canonical redirect.' );
 	}
 

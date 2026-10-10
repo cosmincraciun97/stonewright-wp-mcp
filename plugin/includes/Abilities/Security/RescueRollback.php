@@ -38,7 +38,7 @@ final class RescueRollback extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" only probes again and closes the incident when the site loads, after a manual fix; dry_run returns the plan, which says how old the change is and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. A verified change to code (theme file, custom code, sandbox file, Customizer CSS) is not undone on a call: the answer is stonewright_rescue_approval_required with approval_url, and the administrator rolls it back at Stonewright > Activity > Rescue. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
+		return __( 'Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" only probes again and closes the incident when the site loads, after a manual fix; dry_run returns the plan, which says how old the change is and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. An undo of a verified change saves the current state first and probes the site before and after: when the undo makes a working site fail, it is put back and the answer is stonewright_rescue_undo_reverted; when the current state cannot be saved, the answer is stonewright_rescue_undo_capture_failed and nothing changes. A verified change to code (theme file, custom code, sandbox file, Customizer CSS) is not undone on a call: the answer is stonewright_rescue_approval_required with approval_url, and the administrator rolls it back at Stonewright > Activity > Rescue. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -96,6 +96,7 @@ final class RescueRollback extends AbilityKernel {
 				'recipe'              => [ 'type' => [ 'string', 'object' ] ],
 				'probe'               => [ 'type' => [ 'object', 'null' ] ],
 				'age_seconds'         => [ 'type' => 'integer' ],
+				'undo_guard'          => [ 'type' => 'string' ],
 				'approval_required'   => [ 'type' => 'boolean' ],
 				'approval_url'        => [ 'type' => 'string' ],
 				'newer_changes'       => [

@@ -782,6 +782,50 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 'succeeded', $rows[0]['rollback_status'] );
 	}
 
+	public function test_an_undo_that_breaks_the_site_is_put_back_and_the_page_says_so(): void {
+		$entry = $this->incident( 'verified' );
+		// The older state is the one that fails.
+		$this->site( static fn (): string => 'original body' === $GLOBALS['stonewright_test_posts'][31]->post_content ? 'broken' : 'healthy' );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		$result = RescuePage::process_rollback_request();
+		$_POST  = [];
+
+		self::assertSame( 'undo_reverted', $result['code'] );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The state from before the undo is back.' );
+		$after = ChangeJournal::get( $entry['id'] );
+		self::assertSame( 'verified', $after['state'] );
+		self::assertSame( 'undo_reverted', $after['note'] );
+		$rows = array_values(
+			array_filter(
+				array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ),
+				static fn ( array $row ): bool => 'stonewright/rescue-rollback' === ( $row['ability_name'] ?? '' )
+			)
+		);
+		self::assertCount( 1, $rows, 'The receipt is written.' );
+		self::assertSame( 'reverted', $rows[0]['rollback_status'] );
+		self::assertSame( 'stonewright_rescue_undo_reverted', $rows[0]['error_code'] );
+		$_GET = [ 'rescue' => 'undo_reverted', 'incident' => $entry['id'] ];
+		$html = $this->html();
+		self::assertStringContainsString( 'The undo would have broken the site, so it was put back.', $html );
+		self::assertStringContainsString( 'An undo was tried and put back because the site stopped loading', $html );
+		self::assertStringContainsString( 'data-sw-rescue-open', $html, 'The change is still verified and can be undone again.' );
+	}
+
+	public function test_an_undo_that_cannot_save_the_current_state_first_is_refused_on_the_page(): void {
+		$entry = $this->incident( 'verified' );
+		unset( $GLOBALS['stonewright_test_posts'][31] );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		$result = RescuePage::process_rollback_request();
+		$_POST  = [];
+
+		self::assertSame( 'undo_refused', $result['code'] );
+		self::assertSame( 'verified', ChangeJournal::get( $entry['id'] )['state'] );
+		$_GET = [ 'rescue' => 'undo_refused', 'incident' => $entry['id'] ];
+		self::assertStringContainsString( 'no way back', $this->html() );
+	}
+
 	public function test_a_verified_code_change_is_rolled_back_from_the_page_because_an_administrator_asked(): void {
 		$entry = $this->verified_code_change();
 		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];

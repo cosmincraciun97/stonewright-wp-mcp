@@ -31,6 +31,8 @@ reported back), and the latest changes, each with the rollback it would run.
 | `pending_incident` on any response | An incident is open | Call `stonewright-rescue-status`, then roll it back before any other write |
 | A `notices` line saying the probe is unavailable | The host cannot call itself, so changes are recorded but not verified | Check the page, wp-admin, and the REST index by other means, then `recheck` |
 | `stonewright_rescue_in_progress` | Another caller is already rolling this change set back | Wait a minute, then call `stonewright-rescue-status`; do not start a second rollback |
+| `stonewright_rescue_undo_reverted` | The undo of a verified change would have broken the site, so it was put back and the change is still in effect | Report it to the user with the evidence in the message. Do not retry the undo; the older state fails on this site |
+| `stonewright_rescue_undo_capture_failed` | The current state could not be saved first, so the undo was refused and nothing changed | Report it to the user. Do not work around it |
 | `stonewright_rescue_approval_required` | A verified change to code (theme file, custom code, sandbox file, Customizer CSS) can be undone only by an administrator | Show the user the change and `approval_url`, ask them to use **Stonewright > Activity > Rescue**, then stop. Do not retry |
 
 ## Roll back
@@ -55,7 +57,9 @@ check, when the user asks for it (the journal keeps the last 50). Use the
 `incident_id` or `change_set_id` of the earlier write and follow the steps
 above, dry run first. A verified change to code is the exception: the ability
 answers `stonewright_rescue_approval_required`, and only the administrator can
-roll it back, on the Rescue page.
+roll it back, on the Rescue page. An undo of a verified change saves the current
+state and probes the site before and after; when the undo makes a working site
+fail, it is put back and the answer is `stonewright_rescue_undo_reverted`.
 
 ## Find and undo a change from the history
 
