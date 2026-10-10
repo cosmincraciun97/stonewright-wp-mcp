@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Compact MCP tool profiles for low-token, tool-cap aware clients.
@@ -414,19 +415,32 @@ final class ToolProfile extends AbilityKernel {
 			return $token_error;
 		}
 
-		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
-		if ( $extras_result instanceof \WP_Error ) {
-			return $extras_result;
-		}
+		// The options this writes are recorded in the change ledger; the call has no audit frame of its own.
+		$extras_result = [];
+		$tools_changed = false;
+		$write_error   = RescueGuard::within(
+			$this->name(),
+			$args,
+			function () use ( $args, $profile, &$extras_result, &$tools_changed ): ?\WP_Error {
+				$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
+				if ( $extras_result instanceof \WP_Error ) {
+					return $extras_result;
+				}
 
-		$tools_changed = (bool) ( $extras_result['changed'] ?? false )
-			|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
-		if ( $tools_changed ) {
-			update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
-			update_option( 'stonewright_last_tool_profile', $profile, false );
-			// Progressive discovery: activating a non-bootstrap profile must expand
-			// the public tools/list surface so recommended tools become visible.
-			self::expand_mcp_surface_for_profile( $profile );
+				$tools_changed = (bool) ( $extras_result['changed'] ?? false )
+					|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
+				if ( $tools_changed ) {
+					update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
+					update_option( 'stonewright_last_tool_profile', $profile, false );
+					// Progressive discovery: activating a non-bootstrap profile must expand
+					// the public tools/list surface so recommended tools become visible.
+					self::expand_mcp_surface_for_profile( $profile );
+				}
+				return null;
+			}
+		);
+		if ( $write_error instanceof \WP_Error ) {
+			return $write_error;
 		}
 
 		// Activation must change what this session can call. The option surface

@@ -1639,6 +1639,13 @@ if ( ! function_exists( 'wp_delete_post' ) ) {
 	 * @return \WP_Post|false|null
 	 */
 	function wp_delete_post( int $post_id, bool $force_delete = false ): mixed {
+		// A nav menu item is a post of a menu: deleting it takes it out of the menu.
+		foreach ( (array) ( $GLOBALS['stonewright_test_nav_menus'] ?? [] ) as $menu ) {
+			if ( isset( $menu->items[ $post_id ] ) ) {
+				unset( $menu->items[ $post_id ] );
+				return (object) [ 'ID' => $post_id, 'post_type' => 'nav_menu_item' ];
+			}
+		}
 		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
 		if ( null === $post ) {
 			return false;
