@@ -353,6 +353,7 @@ Risky writes are recorded before they run and checked after they finish.
 - `HealthProbe` asks the site over HTTP whether it still loads (the home page, a wp-admin screen, the REST index, the written post, an optional same-site URL). `RollbackRecipes` undoes the change when it does not.
 - The journal is `wp-content/uploads/stonewright-state/journal-<random>.json` (at most 50 entries) and the `stonewright_change_journal` option.
 - Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Activity → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
+- Change history: `stonewright/change-history-list` and `stonewright/change-diff-get` (read) and `stonewright/change-rollback` (write; the rollback engine verifies the confirmation token in production-safe mode; code is undone only by an administrator on **Stonewright → Activity → Changes**). WP-CLI: `wp stonewright changes list`, `diff` and `rollback`.
 - Filters: `stonewright_rescue_probe_enabled`, `stonewright_rescue_probe_args`, and `https_local_ssl_verify`.
 
 See [docs/rescue.md](../docs/rescue.md).
