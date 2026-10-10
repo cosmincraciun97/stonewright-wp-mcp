@@ -37,99 +37,96 @@ development builds were never stable releases.
   An incident or an unverified change is rolled back as before.
 - Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
   of the state before the restore, which undoes it.
-- Add the storage layer for change history. A `stonewright_changes` table (created and upgraded with the other
-  tables) records each change with its ability, user, resource, status and the
-  hash and size of the content before and after it. The content is kept as
-  gzip blobs in `uploads/stonewright-state/blobs/`, named by sha256, with deny
-  files on every folder, size limits per blob and in total, and an integrity
-  check on read. Passwords, keys and salts, OAuth tokens, `wp-config.php` and
-  options on a list of secret names are never stored, and other credentials
-  found in content are masked. A daily event keeps 90 days, 500 changes and
-  100 MB by default (options and filters change the limits) and never deletes
-  an open change. Removing all plugin data also drops the table, the event and
-  the blobs.
-- Record the changes that abilities make to posts in the change ledger, with the
-  post as it was before and after the write: fields, slug, parent, featured
-  image, terms, Elementor keys, page template, SEO keys and ACF values. Abilities
-  that create posts, and `content-bulk-upsert-posts`, which overwrote posts
-  without a snapshot, are recorded too. A ledger failure never changes a write.
-- Record changes to code in the change history. Theme file writes (patch, `theme.json` and backup restore),
-  Customizer CSS updates (the first save included), WPCode and Code Snippets
-  saves, and sandbox write, edit, delete, activate and deactivate each leave a
-  row with the content before and after, and for a snippet its title, language,
-  active state and scope. A file the change created has no before image, and
-  undoing it deletes the file. Restore functions for each of these write the
-  before image back through the path the original write used, so its checks
-  still apply, and record the restore under the change. A history that cannot
-  record never stops or changes the write.
+- Add the change history. A `stonewright_changes` table (created and upgraded
+  with the other tables) records each change with its ability, user, resource,
+  status and the hash and size of the content before and after it. The content
+  is kept as gzip blobs in `uploads/stonewright-state/blobs/`, named by sha256,
+  with deny files on every folder, size limits per blob and in total, and an
+  integrity check on read. Passwords, keys and salts, OAuth tokens,
+  `wp-config.php` and options on a list of secret names are never stored, and
+  other credentials found in content are masked; a change whose content before
+  or after was masked is not restorable. A daily event keeps 90 days, 500
+  changes and 100 MB by default (options and filters change the limits) and
+  never deletes an open change. Removing all plugin data also drops the table,
+  the event and the blobs. A history that cannot record is logged and never
+  stops or changes the write or its result.
+- Record what abilities change in the change history, with the content before
+  and after: posts (fields, slug, parent, featured image, terms, Elementor keys,
+  page template, SEO keys and ACF values), for the abilities that write or
+  create posts and for `content-bulk-upsert-posts`, which overwrote posts
+  without a snapshot; code (theme file writes through patch, `theme.json` and
+  backup restore, Customizer CSS updates with the first save, WPCode and Code
+  Snippets saves with the title, language, active state and scope of a snippet,
+  and sandbox write, edit, delete, activate and deactivate); options (site
+  settings, the front page, custom instructions, custom post types, taxonomies,
+  ACF field groups, the tool profile, theme chrome and the brand kit, each
+  ability limited to a list of the options it may write, with names on the
+  secret list never read or stored); menus with their items in order, parents
+  and locations (a deleted menu keeps its full image) and sidebars with their
+  widgets; users (account fields, roles and capabilities, never a password,
+  session token, application password or other secret user data); comments;
+  media (fields, alt text and metadata; an upload is a create); WooCommerce
+  products, variations, terms and attributes, with the full content of what a
+  delete removes; theme switches; memory deletes (the whole row); and skills
+  and design directions as a link to the revision their own stores keep, with
+  no second copy. A changed password, a created or revoked application
+  password, a plugin delete, a `php-execute` run (only the hash of its code) and
+  a settings write from an admin screen or route are recorded as events and
+  marked not restorable, with the reason.
 - Add the Changes page (**Stonewright > Activity > Changes**, marked EXP). It lists
   the changes recorded in the change history, newest first, with filters for
   family, resource, ability, user, date range and result, and a "restorable
   only" switch. **View diff** opens one change in a drawer: the content before
   against after as lines with line numbers, block changes, Elementor elements or
-  changed fields, a note when the diff was cut or values were masked, the reason
-  a change cannot be restored, and the rollbacks and redos that follow it.
-  Passwords, keys and tokens show as `[redacted]`. Rescue links to the page and,
-  for a change that has a history record, to its diff.
+  changed fields, a note when the diff was cut or values were masked (values
+  masked when the change was stored included), and the reason a change cannot
+  be restored. A change that deleted a menu or a memory entry shows the removed
+  content under a **Deleted** label. The History tab lists the rollbacks and
+  redos that follow a change, the redo of a rollback under that rollback, to a
+  fixed depth. Passwords, keys and tokens show as `[redacted]`. Rescue links to
+  the page and, for a change that has a history record, to its diff.
 - Add **Undo** and **Redo** to the Changes page. **Undo this change** opens a
   dialog with the diff of what the undo would change, warnings for a newer
   change to the same item and for an item that was edited since the change
   (which needs a ticked box to overwrite), and the same nonce, administrator
   check and production-safe confirmation token as Rescue. The undo restores the
-  item as it was, probes the site and puts the earlier state back if the site
+  item as it was, probes the site, puts the earlier state back if the site
   stops loading, and records a rollback row that links back to the change; a
   rolled-back change offers **Redo**. It covers posts and their kinds, options,
-  menus, widgets, theme files, snippets, the Customizer CSS and sandbox files.
+  theme switches, menus, widgets, theme files, snippets, the Customizer CSS,
+  sandbox files, users (fields and roles, never a password), comments, media,
+  WooCommerce items, site memory, skills and design directions; the redo of a
+  restored memory entry deletes it again. Each undo writes the content back
+  through the functions or the path the original write used, so its checks
+  still apply; the undo of a created post moves it to the trash, of an upload
+  deletes the attachment, and of a created theme file deletes the file. A
+  rebuilt menu is checked by what identifies each item, not by item ids, which
+  a rebuilt menu does not keep.
   Undoing or redoing code needs an administrator at the page: an agent or
-  WP-CLI call gets the approval-required answer. A rollback of a change that
-  Rescue also lists goes through the Rescue path, so incidents are rolled back
-  as before.
-- Record the changes that abilities make to options, menus and widgets in the
-  change ledger: site settings, the front page, custom instructions, custom post
-  types, taxonomies, ACF field groups, the tool profile, theme chrome and the
-  brand kit; menus with their items in order, parents and locations (a deleted
-  menu keeps its full image); and sidebars with their widgets. Each ability has
-  a list of the options it may write, and names on the secret list are never
-  read or stored. A ledger failure never changes a write.
-- Record changes to users, comments, media, WooCommerce, themes, plugins, site
-  memory, skills, design directions, `php-execute` and some settings writes in the
-  change history. A user change keeps
-  the account fields, roles and capabilities before and after, and never a
-  password, session token, application password or other secret user data; a
-  changed password and a created or revoked application password are recorded
-  as events with no content. Media keeps the fields, alt text and metadata (an
-  upload is a create, undone by deleting the attachment), comments and
-  WooCommerce products, variations, terms and attributes keep the full content
-  of what a delete removes, a theme switch keeps the previous theme, and a
-  memory delete keeps the whole row so that it can be put back. Skills and
-  design directions link to the revision their own stores keep and keep no
-  second copy. A plugin delete, a `php-execute` run (only the hash of its code)
-  and a settings write from an admin screen or route are recorded and marked
-  not restorable, with the reason. Restore functions write the before image back
-  through the functions the ability used. A history that cannot record never
-  stops or changes the write.
+  WP-CLI call gets the approval-required answer. Only a change whose Rescue
+  entry is still open (armed, incident or rollback failed) is rolled back
+  through Rescue, so incidents are rolled back as before; a verified change that
+  Rescue still lists is settled there as rolled back once the undo is kept, and
+  stays verified when the undo is taken back. A plugin delete, a password change
+  and a `php-execute` run stay not restorable, with the reason.
 - Add the change history to agents and to WP-CLI. `stonewright-change-history-list`
   lists changes newest first as short rows (id, time, family, resource, ability,
   user, status, summary, whether it can be restored and why not, the change a
   rollback follows and how many follow it), with the filters of the Changes page
   and paging. `stonewright-change-diff-get` returns the diff of one change, with
-  secrets masked and the size capped, and a summary of its undo: drift, newer
-  changes, whether it can be restored and whether an administrator is needed.
+  secrets masked, the size capped and `deleted` for a change that removed its
+  resource, and a summary of its undo: drift, newer changes, whether it can be
+  restored and whether an administrator is needed.
   `stonewright-change-rollback` undoes a change or redoes a rollback, with
   `dry_run`, `force_drift`, `expected_current_sha256`, `permanent` and the
   confirmation token of production-safe mode (a dry run returns the arguments to
   issue it for); an undo of code is not run on a call and answers
-  `stonewright_rescue_approval_required` with the address of the Changes page.
-  None of the three returns stored content. `wp stonewright changes list`,
-  `diff <change>` and `rollback <change>` (`--dry-run`, `--force-drift`,
+  `stonewright_rescue_approval_required` with the address of the Changes page,
+  and the text of the error an MCP client receives carries that code and the
+  address. None of the three returns stored content. `wp stonewright changes
+  list`, `diff <change>` and `rollback <change>` (`--dry-run`, `--force-drift`,
   `--yes`, `--issue-token`) do the same from the command line, with the same
   rules; the command line is not an administrator, so it cannot approve code.
-- Undo and redo of users (fields and roles, never a password), comments, media,
-  WooCommerce items, theme switches, site memory, skills and design directions,
-  from the Changes page, the ability and WP-CLI. The plan shows the diff of the
-  undo and tells when the item was edited since, as for posts. A redo of a
-  restored memory entry deletes it again. A plugin delete, a password change and
-  a `php-execute` run stay not restorable, with the reason.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
@@ -706,28 +703,6 @@ development builds were never stable releases.
 
 ### Fixed
 
-- Compare a rebuilt menu item by what identifies it. The undo of a menu delete,
-  and of an item that was added, reported failure although the menu was back,
-  because a custom link holds its own item id as its object id and a rebuilt
-  menu has new ids. The row now succeeds, the change reads as rolled back and
-  offers Redo, and a second undo is refused instead of creating another menu.
-- Undo a verified change from the Changes page through the family handler, which
-  probes the site after the restore and puts the earlier state back when the
-  site stops loading. Only an open journal entry (armed, incident or
-  rollback failed) goes through the Rescue journal. A verified change that the
-  journal still lists is settled as rolled back once the restore is kept, and
-  stays verified when the restore is taken back.
-- Show what a delete removed. A change that deleted a menu or a memory entry has
-  no content after it, and its diff is now the content before against nothing,
-  with a **Deleted** label, instead of "There is no diff to show".
-- Count values that were masked when they were stored as masked in a diff, so
-  the "Values were masked" callout shows. A change whose result was masked is
-  marked not restorable (`masked_secret`), as one whose content before was masked.
-- Put the code `stonewright_rescue_approval_required` and the approval URL in the
-  text of the error that an MCP client receives when an undo of code needs an
-  administrator, as WP-CLI prints them.
-- List the redo of a rollback in the History tab of a change, under the rollback
-  it redoes, to a fixed depth.
 - Show a custom-code snippet rollback as not available once its provider
   snapshot has expired. Rescue read it as available for as long as the entry
   existed and the rollback then failed with `snapshot_missing`; the snapshot is
