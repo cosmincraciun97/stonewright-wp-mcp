@@ -125,8 +125,12 @@ test.describe('Changes page fixture', () => {
 
 		await body.focus();
 		await expect(body).toBeFocused();
-		await page.keyboard.press('End');
-		expect(await body.evaluate((node) => node.scrollLeft + node.clientWidth >= node.scrollWidth - 1)).toBe(true);
+		// The arrow keys scroll a focused block sideways; End scrolls it to the bottom, not to the right.
+		for (let press = 0; press < 5; press++) {
+			await page.keyboard.press('ArrowRight');
+		}
+		await expect.poll(() => body.evaluate((node) => node.scrollLeft), { message: 'the keyboard scrolls the block sideways' }).toBeGreaterThan(0);
+		expect(await horizontalOverflow(page), 'the page still does not scroll sideways').toBeLessThanOrEqual(0);
 	});
 
 	test('the tabs are links with the view in their address, and Details and History switch in place', async ({ page }) => {
