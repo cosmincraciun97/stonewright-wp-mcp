@@ -406,6 +406,25 @@ final class ChangeLedger {
 		return self::get( $change_id ) ?? self::invalid( 'stonewright_change_not_found', 'The change is not recorded.' );
 	}
 
+	/**
+	 * Move a row to the outcome the change journal reached for the same id. For a caller that cannot
+	 * report a failure: a row that does not exist, a status the row already has, and a ledger that cannot
+	 * be reached are all ignored.
+	 */
+	public static function sync_status( string $change_id, string $status ): void {
+		if ( ! self::is_valid_id( $change_id ) || ! in_array( $status, self::STATUSES, true ) ) {
+			return;
+		}
+		try {
+			$row = self::get( $change_id );
+			if ( null !== $row && $status !== $row['status'] ) {
+				self::settle( $change_id, [ 'status' => $status ] );
+			}
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+		}
+	}
+
 	// -----------------------------------------------------------------------
 	// Read.
 	// -----------------------------------------------------------------------

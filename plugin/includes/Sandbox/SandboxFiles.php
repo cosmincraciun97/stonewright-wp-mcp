@@ -3,14 +3,16 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Sandbox;
 
+use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
 
 /**
  * Manages sandbox draft files and their mu-plugins twins.
  *
  * Draft files live in wp-content/stonewright-sandbox/ and are NEVER auto-loaded.
- * They are stored as `<name>.draft` and their backups as `<name>.<time>.bak`:
- * neither name can be run as PHP by a web server, whatever it does with
+ * They are stored as `<name>.draft` and their backups as `<name>.<time>.bak`
+ * (backups of the active copy as `<name>.active.<time>.bak`): none of these
+ * names can be run as PHP by a web server, whatever it does with
  * .htaccess. Activation runs StaticGuard::scan() and then writes the only
  * executable copy, to mu-plugins, with a first statement that stops the file at
  * once when it is loaded outside WordPress.
@@ -227,17 +229,97 @@ final class SandboxFiles {
 			return;
 		}
 
-		$backup_path = self::draft_dir() . '/' . self::stem( $basename ) . '.' . time() . '.' . self::BACKUP_EXTENSION;
-		@copy( $path, $backup_path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_copy
+		self::copy_to_backup( $path, $basename, '' );
+		self::prune_backups( self::backup_versions( $basename ) );
+	}
 
-		// Prune backups beyond the limit.
-		$versions = self::backup_versions( $basename );
-		if ( count( $versions ) > self::MAX_BACKUPS ) {
-			$to_prune = array_slice( $versions, self::MAX_BACKUPS );
-			foreach ( $to_prune as $old ) {
-				if ( file_exists( $old['path'] ) ) {
-					@unlink( $old['path'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+	/**
+	 * Returns the backup versions of the active (mu-plugins) copy of a sandbox file, newest first. They are
+	 * named <stem>.active.<unix_ts>.bak and are kept apart from the draft backups: backup_versions() does
+	 * not list them.
+	 *
+	 * @param string $basename PHP basename (e.g. "my-snippet.php").
+	 * @return array<int, array{timestamp: int, path: string}>
+	 */
+	public static function active_backup_versions( string $basename ): array {
+		$draft_dir = self::draft_dir();
+		$stem      = self::stem( $basename );
+		$escaped   = preg_quote( $stem, '/' );
+
+		$files = glob( $draft_dir . '/' . $stem . '.active.*.' . self::BACKUP_EXTENSION );
+		if ( false === $files ) {
+			return [];
+		}
+
+		$versions = [];
+		foreach ( $files as $path ) {
+			if ( 1 === preg_match( '/^' . $escaped . '\.active\.(\d+)\.' . self::BACKUP_EXTENSION . '$/D', basename( $path ), $m ) ) {
+				$versions[] = [
+					'timestamp' => (int) $m[1],
+					'path'      => $path,
+				];
+			}
+		}
+
+		usort( $versions, static fn( array $a, array $b ): int => $b['timestamp'] - $a['timestamp'] );
+
+		return $versions;
+	}
+
+	/**
+	 * Copies a file to a new backup <stem>.<infix><time>.bak. The time moves past the newest backup of the
+	 * same kind and the name is created exclusively, so two backups made in the same second never share a
+	 * name and a backup is never overwritten.
+	 *
+	 * @param string $source   File to copy.
+	 * @param string $basename PHP basename of the sandbox file.
+	 * @param string $infix    '' for a draft backup, 'active.' for a backup of the active copy.
+	 * @return string|null Path of the backup, or null when it could not be written.
+	 */
+	private static function copy_to_backup( string $source, string $basename, string $infix ): ?string {
+		$bytes = file_get_contents( $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( false === $bytes ) {
+			return null;
+		}
+
+		$stem     = self::stem( $basename );
+		$dir      = self::draft_dir();
+		$versions = '' === $infix ? self::backup_versions( $basename ) : self::active_backup_versions( $basename );
+		$time     = max( time(), ( $versions[0]['timestamp'] ?? 0 ) + 1 );
+
+		for ( $tries = 0; $tries < 50; ++$tries, ++$time ) {
+			$path   = $dir . '/' . $stem . '.' . $infix . $time . '.' . self::BACKUP_EXTENSION;
+			$handle = @fopen( $path, 'xb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+			if ( false === $handle ) {
+				if ( file_exists( $path ) ) {
+					continue;
 				}
+				return null;
+			}
+			$written = fwrite( $handle, $bytes ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			if ( strlen( $bytes ) !== $written ) {
+				@unlink( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				return null;
+			}
+			return $path;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Removes the backups beyond MAX_BACKUPS.
+	 *
+	 * @param array<int, array{timestamp: int, path: string}> $versions Backups of one kind, newest first.
+	 */
+	private static function prune_backups( array $versions ): void {
+		if ( count( $versions ) <= self::MAX_BACKUPS ) {
+			return;
+		}
+		foreach ( array_slice( $versions, self::MAX_BACKUPS ) as $old ) {
+			if ( file_exists( $old['path'] ) ) {
+				@unlink( $old['path'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			}
 		}
 	}
@@ -295,14 +377,18 @@ final class SandboxFiles {
 			);
 		}
 
+		$path   = self::stored_path( $name );
+		$change = self::begin_draft( 'write', $name, $path, sprintf( 'Wrote draft %s (%d bytes).', $name, strlen( $contents ) ) );
+
 		// Backup existing content before overwriting.
 		self::backup_before_write( $name );
 
-		$path   = self::stored_path( $name );
 		$result = file_put_contents( $path, $contents ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		if ( false === $result ) {
+			CodeAdapter::finish( $change, 'failed' );
 			return new \WP_Error( 'stonewright_sandbox_write_error', "Could not write sandbox file: {$name}" );
 		}
+		CodeAdapter::applied( $change, $contents );
 
 		AuditLog::record(
 			'sandbox.write',
@@ -360,14 +446,18 @@ final class SandboxFiles {
 			);
 		}
 
+		$path   = self::stored_path( $name );
+		$change = self::begin_draft( 'edit', $name, $path, sprintf( 'Edited draft %s (%d bytes).', $name, strlen( $new_contents ) ) );
+
 		// Backup existing content before overwriting.
 		self::backup_before_write( $name );
 
-		$path   = self::stored_path( $name );
 		$result = file_put_contents( $path, $new_contents ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		if ( false === $result ) {
+			CodeAdapter::finish( $change, 'failed' );
 			return new \WP_Error( 'stonewright_sandbox_write_error', "Could not write sandbox file: {$name}" );
 		}
+		CodeAdapter::applied( $change, $new_contents );
 
 		AuditLog::record( 'sandbox.write', [ 'name' => $name ] );
 		return true;
@@ -395,13 +485,19 @@ final class SandboxFiles {
 			return new \WP_Error( 'stonewright_sandbox_not_found', "Sandbox file not found: {$name}" );
 		}
 
+		// The history keeps the draft, and the active copy that goes with it.
+		$draft_change  = file_exists( $path ) ? self::begin_draft( 'delete', $name, $path, sprintf( 'Deleted draft %s.', $name ) ) : null;
+		$active_change = self::begin_active_removal( 'delete', $name );
+
 		// Remove draft.
 		if ( file_exists( $path ) && ! unlink( $path ) ) {
+			CodeAdapter::finish( $draft_change, 'failed' );
+			CodeAdapter::finish( $active_change, 'failed' );
 			return new \WP_Error( 'stonewright_sandbox_delete_error', "Could not delete sandbox file: {$name}" );
 		}
 
-		// Remove every backup of the draft, including ones that outlived it.
-		foreach ( $backups as $backup ) {
+		// Remove every backup of the draft and of its active copy, including ones that outlived it.
+		foreach ( array_merge( $backups, self::active_backup_versions( $name ) ) as $backup ) {
 			if ( file_exists( $backup['path'] ) ) {
 				@unlink( $backup['path'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			}
@@ -409,6 +505,8 @@ final class SandboxFiles {
 
 		// Remove any mu-plugins twin (all suffixes).
 		self::remove_mu_twins( $name );
+		CodeAdapter::applied( $draft_change );
+		CodeAdapter::applied( $active_change );
 
 		AuditLog::record( 'sandbox.delete', [ 'name' => $name ] );
 		return true;
@@ -450,18 +548,91 @@ final class SandboxFiles {
 			return $guarded;
 		}
 
-		$mu_path = self::mu_dir() . '/' . self::active_prefix() . $name;
+		$installed = self::install_active( $name, $guarded );
+		if ( is_wp_error( $installed ) ) {
+			return $installed;
+		}
+
+		AuditLog::record( 'sandbox.activate', [ 'name' => $name ] );
+		return true;
+	}
+
+	/**
+	 * Puts bytes back as the active copy of a draft, for a restore from the change history: the bytes go
+	 * through StaticGuard like an activation, and the copy they replace is backed up.
+	 *
+	 * @param string $name     Basename.
+	 * @param string $contents The active copy as it was, with its loader guard.
+	 * @return bool|\WP_Error
+	 */
+	public static function restore_active( string $name, string $contents ): bool|\WP_Error {
+		$guard = self::guard_name( $name );
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		$errors = StaticGuard::scan( $contents );
+		if ( ! empty( $errors ) ) {
+			return new \WP_Error(
+				'stonewright_sandbox_static_guard',
+				'Static guard blocked the restore: ' . implode( '; ', $errors ),
+				[ 'violations' => $errors ]
+			);
+		}
+
+		$installed = self::install_active( $name, $contents );
+		if ( is_wp_error( $installed ) ) {
+			return $installed;
+		}
+
+		AuditLog::record( 'sandbox.activate', [ 'name' => $name, 'restored' => true ] );
+		return true;
+	}
+
+	/**
+	 * Writes the active copy of a draft to mu-plugins. A copy that is already there is backed up first, as
+	 * <stem>.active.<time>.bak; when it cannot be backed up it is left as it is.
+	 *
+	 * @param string $name  Basename.
+	 * @param string $bytes What the active copy holds, loader guard included.
+	 * @return bool|\WP_Error
+	 */
+	private static function install_active( string $name, string $bytes ): bool|\WP_Error {
+		$mu_path  = self::mu_dir() . '/' . self::active_prefix() . $name;
+		$previous = null;
+
+		if ( file_exists( $mu_path ) ) {
+			$previous = file_get_contents( $mu_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false === $previous || null === self::copy_to_backup( $mu_path, $name, 'active.' ) ) {
+				return new \WP_Error( 'stonewright_sandbox_backup_error', "Could not back up the active copy of {$name}; it was left as it is." );
+			}
+			self::prune_backups( self::active_backup_versions( $name ) );
+		}
+
+		$change = CodeAdapter::begin(
+			[
+				'ability_fallback' => 'stonewright/sandbox-activate',
+				'family'           => 'sandbox',
+				'resource_type'    => 'sandbox_active',
+				'resource_id'      => $name,
+				'before'           => $previous,
+				'created'          => null === $previous,
+				'journal'          => [ 'sandbox', $name ],
+				'summary'          => sprintf( 'Activated %s (%d bytes).', $name, strlen( $bytes ) ),
+			]
+		);
 
 		// Ensure mu-plugins directory exists.
 		if ( ! is_dir( self::mu_dir() ) ) {
 			wp_mkdir_p( self::mu_dir() );
 		}
 
-		if ( false === file_put_contents( $mu_path, $guarded ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( false === file_put_contents( $mu_path, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			CodeAdapter::finish( $change, 'failed' );
 			return new \WP_Error( 'stonewright_sandbox_activate_error', "Could not copy to mu-plugins: {$name}" );
 		}
+		CodeAdapter::applied( $change, $bytes );
 
-		AuditLog::record( 'sandbox.activate', [ 'name' => $name ] );
 		return true;
 	}
 
@@ -482,9 +653,12 @@ final class SandboxFiles {
 			return new \WP_Error( 'stonewright_sandbox_not_active', "File is not active in mu-plugins: {$name}" );
 		}
 
+		$change = self::begin_active_removal( 'deactivate', $name );
 		if ( ! unlink( $mu_path ) ) {
+			CodeAdapter::finish( $change, 'failed' );
 			return new \WP_Error( 'stonewright_sandbox_deactivate_error', "Could not remove mu-plugins twin: {$name}" );
 		}
+		CodeAdapter::applied( $change );
 
 		AuditLog::record( 'sandbox.deactivate', [ 'name' => $name ] );
 		return true;
@@ -599,6 +773,57 @@ final class SandboxFiles {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Records in the change history that a draft is about to be written or deleted, with the draft as it is.
+	 *
+	 * @param string $operation write, edit or delete: the ability name outside an ability call.
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	private static function begin_draft( string $operation, string $name, string $path, string $summary ): ?string {
+		$existed = is_file( $path );
+		$before  = $existed ? file_get_contents( $path ) : null; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		return CodeAdapter::begin(
+			[
+				'ability_fallback'  => 'stonewright/sandbox-' . $operation,
+				'family'            => 'sandbox',
+				'resource_type'     => 'sandbox_draft',
+				'resource_id'       => $name,
+				'before'            => false === $before ? null : $before,
+				'created'           => ! $existed,
+				'restorable'        => false === $before ? false : null,
+				'restorable_reason' => 'unreadable',
+				'summary'           => $summary,
+			]
+		);
+	}
+
+	/**
+	 * Records in the change history that the active copy of a draft is about to be removed, with the copy
+	 * as it is. Nothing is recorded when there is no active copy.
+	 *
+	 * @param string $operation deactivate or delete: the ability name outside an ability call.
+	 * @return string|null The change id, or null when nothing was recorded.
+	 */
+	private static function begin_active_removal( string $operation, string $name ): ?string {
+		$mu_path = self::mu_dir() . '/' . self::active_prefix() . $name;
+		if ( ! is_file( $mu_path ) ) {
+			return null;
+		}
+		$before = file_get_contents( $mu_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		return CodeAdapter::begin(
+			[
+				'ability_fallback'  => 'stonewright/sandbox-' . $operation,
+				'family'            => 'sandbox',
+				'resource_type'     => 'sandbox_active',
+				'resource_id'       => $name,
+				'before'            => false === $before ? null : $before,
+				'restorable'        => false === $before ? false : null,
+				'restorable_reason' => 'unreadable',
+				'summary'           => sprintf( 'Removed the active copy of %s.', $name ),
+			]
+		);
 	}
 
 	/**

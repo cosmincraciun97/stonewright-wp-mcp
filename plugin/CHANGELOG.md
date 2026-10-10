@@ -36,6 +36,16 @@
   that create posts, and `content-bulk-upsert-posts`, which overwrote posts
   without a snapshot, are recorded too. Internal groundwork: no page or ability
   shows or undoes these records yet, and a ledger failure never changes a write.
+- Record changes to code in the change history, with no page or ability reading
+  them yet. Theme file writes (patch, `theme.json` and backup restore),
+  Customizer CSS updates (the first save included), WPCode and Code Snippets
+  saves, and sandbox write, edit, delete, activate and deactivate each leave a
+  row with the content before and after, and for a snippet its title, language,
+  active state and scope. A file the change created has no before image, and
+  undoing it deletes the file. Restore functions for each of these write the
+  before image back through the path the original write used, so its checks
+  still apply, and record the restore under the change. A history that cannot
+  record never stops or changes the write.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
@@ -597,6 +607,20 @@
 
 ### Fixed
 
+- Show a custom-code snippet rollback as not available once its provider
+  snapshot has expired. Rescue read it as available for as long as the entry
+  existed and the rollback then failed with `snapshot_missing`; the snapshot is
+  kept for 24 hours, and the change history keeps the snippet body longer.
+- Back up the active copy of a sandbox file before an activation replaces it
+  (`<name>.active.<time>.bak` in the sandbox folder, ten kept per file). When
+  that copy cannot be written, the activation stops and the active copy stays
+  as it is.
+- Give two backups made in the same second different names, so the second no
+  longer replaces the first: sandbox draft backups and theme file backups
+  (`.swbak`).
+- Delete theme file backups that no entry of the backup index and no entry of
+  the change journal refers to, once the index of 100 entries trims and the
+  file is over an hour old. They were never removed before.
 - Fix Rescue rolling back a healthy write when the first render of a freshly
   written page is slow. A leg that passed before the write and gets no answer
   at all after it (a timeout or a refused connection) is probed once more,

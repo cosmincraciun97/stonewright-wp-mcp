@@ -66,8 +66,14 @@ terminal `.php`, and path separators are all rejected. Maximum file size is
 
 - Drafts are stored as `<name>.draft` and backups as `<name>.<unix time>.bak`.
   A backup is made before every write, edit, and rollback; the last ten are
-  kept. **Delete** removes the draft, all of its backups, and its `mu-plugins/`
-  copies.
+  kept. Two backups made in the same second never share a name: the time of
+  the later one moves on by a second. **Delete** removes the draft, all of its
+  backups, and its `mu-plugins/` copies.
+- Activation replaces the active copy in `mu-plugins/`. An active copy that is
+  already there is first copied to `<name>.active.<unix time>.bak` in the
+  sandbox folder (the last ten are kept, and **Delete** removes them with the
+  draft); when that copy cannot be written the activation stops and the active
+  copy stays as it is. These backups are not listed with the draft versions.
 - The folder carries an `.htaccess` that denies every request on Apache 2.4
   (`Require all denied`) and 2.2 (`Order deny,allow` / `Deny from all`), a
   `web.config` that denies every request on IIS, and an `index.php` whose first
