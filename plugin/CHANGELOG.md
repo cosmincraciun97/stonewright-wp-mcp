@@ -55,6 +55,19 @@
   a change cannot be restored, and the rollbacks and redos that follow it.
   Passwords, keys and tokens show as `[redacted]`. Rescue links to the page and,
   for a change that has a history record, to its diff.
+- Add **Undo** and **Redo** to the Changes page. **Undo this change** opens a
+  dialog with the diff of what the undo would change, warnings for a newer
+  change to the same item and for an item that was edited since the change
+  (which needs a ticked box to overwrite), and the same nonce, administrator
+  check and production-safe confirmation token as Rescue. The undo restores the
+  item as it was, probes the site and puts the earlier state back if the site
+  stops loading, and records a rollback row that links back to the change; a
+  rolled-back change offers **Redo**. It covers posts and their kinds, options,
+  menus, widgets, theme files, snippets, the Customizer CSS and sandbox files.
+  Undoing or redoing code needs an administrator at the page: an agent or
+  WP-CLI call gets the approval-required answer. A rollback of a change that
+  Rescue also lists goes through the Rescue path, so incidents are rolled back
+  as before.
 - Record the changes that abilities make to options, menus and widgets in the
   change ledger: site settings, the front page, custom instructions, custom post
   types, taxonomies, ACF field groups, the tool profile, theme chrome and the

@@ -330,17 +330,18 @@ final class RescueRollback {
 	 * The answer to a call that would undo a verified code change without an administrator. It
 	 * carries the same approval envelope as the custom-code gate: the agent shows it and stops.
 	 *
-	 * @param array<string, mixed> $entry
+	 * @param array<string, mixed>       $entry
+	 * @param array{message?:string,url?:string,operator_action?:string} $where Another page than Rescue where the administrator presses the button.
 	 */
-	private static function approval_required_error( array $entry ): \WP_Error {
-		$message  = __( 'Undoing a verified change to code needs an administrator. Ask the administrator to open Stonewright > Activity > Rescue and press Roll back for this change, then stop. Do not retry the call.', 'stonewright' );
+	public static function approval_required_error( array $entry, array $where = [] ): \WP_Error {
+		$message  = $where['message'] ?? __( 'Undoing a verified change to code needs an administrator. Ask the administrator to open Stonewright > Activity > Rescue and press Roll back for this change, then stop. Do not retry the call.', 'stonewright' );
 		$proposal = CustomCodeGrant::missing_grant_proposal(
 			[
 				'error_code'          => 'stonewright_rescue_approval_required',
 				'message'             => $message,
-				'approval_url'        => self::approval_url(),
+				'approval_url'        => $where['url'] ?? self::approval_url(),
 				'recommended_next'    => 'show the change and the approval URL, then stop for the administrator',
-				'operator_action'     => 'An administrator opens Stonewright > Activity > Rescue and presses Roll back for this change.',
+				'operator_action'     => $where['operator_action'] ?? 'An administrator opens Stonewright > Activity > Rescue and presses Roll back for this change.',
 				'incident_id'         => (string) $entry['id'],
 				'change_set_id'       => (string) $entry['id'],
 				'ability'             => (string) $entry['ability'],

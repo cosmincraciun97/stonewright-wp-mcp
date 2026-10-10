@@ -55,6 +55,9 @@ final class CodeAdapter {
 	/** @var string|null First row recorded while a restore runs. */
 	private static ?string $rollback_child = null;
 
+	/** @var string Kind of the rows recorded while a restore runs: rollback, or redo when the restore acts on a rollback row. */
+	private static string $rollback_kind = 'rollback';
+
 	// -----------------------------------------------------------------------
 	// Recording.
 	// -----------------------------------------------------------------------
@@ -87,7 +90,7 @@ final class CodeAdapter {
 				'summary'       => $spec['summary'] ?? '',
 			];
 			if ( null !== self::$rollback_parent ) {
-				$record['kind']      = 'rollback';
+				$record['kind']      = self::$rollback_kind;
 				$record['parent_id'] = self::$rollback_parent;
 			}
 			if ( false === ( $spec['restorable'] ?? null ) ) {
@@ -173,19 +176,23 @@ final class CodeAdapter {
 	 *
 	 * @param string      $parent The change the restore undoes.
 	 * @param string|null $child  Set to the first row recorded inside, or null when none was.
+	 * @param string      $kind   rollback, or redo for the restore of a rollback row.
 	 * @return mixed What $run returned.
 	 */
-	public static function as_rollback( string $parent, callable $run, ?string &$child = null ): mixed {
+	public static function as_rollback( string $parent, callable $run, ?string &$child = null, string $kind = 'rollback' ): mixed {
 		$previous_parent       = self::$rollback_parent;
 		$previous_child        = self::$rollback_child;
+		$previous_kind         = self::$rollback_kind;
 		self::$rollback_parent = $parent;
 		self::$rollback_child  = null;
+		self::$rollback_kind   = 'redo' === $kind ? 'redo' : 'rollback';
 		try {
 			return $run();
 		} finally {
 			$child                 = self::$rollback_child;
 			self::$rollback_parent = $previous_parent;
 			self::$rollback_child  = $previous_child;
+			self::$rollback_kind   = $previous_kind;
 		}
 	}
 
@@ -373,7 +380,8 @@ final class CodeAdapter {
 					]
 				);
 			},
-			$child
+			$child,
+			self::kind_of( $options )
 		);
 		if ( $outcome instanceof \WP_Error ) {
 			return self::result( 'failed', self::short_code( $outcome ), $change_id, $recipe, $child );
@@ -437,7 +445,8 @@ final class CodeAdapter {
 				self::applied( $record, $before );
 				return null;
 			},
-			$child
+			$child,
+			self::kind_of( $options )
 		);
 		return null === $outcome
 			? self::result( 'succeeded', '', $change_id, $recipe, $child )
@@ -502,7 +511,8 @@ final class CodeAdapter {
 				self::applied( $record, self::snippet_image( $provider_id, $target, $path, array_merge( $live, [ 'code' => $body ] ) ) );
 				return null;
 			},
-			$child
+			$child,
+			self::kind_of( $options )
 		);
 		return null === $outcome
 			? self::result( 'succeeded', '', $change_id, $recipe, $child )
@@ -561,7 +571,8 @@ final class CodeAdapter {
 				}
 				return $active ? SandboxFiles::restore_active( $name, $before ) : SandboxFiles::write( $name, $before );
 			},
-			$child
+			$child,
+			self::kind_of( $options )
 		);
 		if ( $written instanceof \WP_Error ) {
 			return self::result( 'failed', self::short_code( $written ), $change_id, $recipe, $child );
@@ -577,9 +588,24 @@ final class CodeAdapter {
 	 * @return string|null Null when the resource cannot be read or the row is not a code row.
 	 */
 	public static function live_sha256( string $change_id ): ?string {
+		$row = ChangeLedger::get( $change_id );
+		if ( null === $row ) {
+			return null;
+		}
+		$live = self::live_image( $row );
+		return null === $live ? null : ChangeImage::hash_of( $live['image'], (string) $row['resource_type'], (string) $row['resource_id'] );
+	}
+
+	/**
+	 * The resource of a code row as it is now, in the shape of its stored images: the text of a file, or the
+	 * fields of a snippet.
+	 *
+	 * @param array<string, mixed> $row A row of ChangeLedger.
+	 * @return array{image:string|array<mixed>|null}|null Null when the resource cannot be read or the row is not a code row. The image is null when the resource does not exist.
+	 */
+	public static function live_image( array $row ): ?array {
 		try {
-			$row = ChangeLedger::get( $change_id );
-			if ( null === $row || ! in_array( $row['family'], self::FAMILIES, true ) ) {
+			if ( ! in_array( $row['family'] ?? '', self::FAMILIES, true ) ) {
 				return null;
 			}
 			$type = (string) $row['resource_type'];
@@ -590,29 +616,37 @@ final class CodeAdapter {
 					return null;
 				}
 				$text = is_file( $target['absolute'] ) ? file_get_contents( $target['absolute'] ) : null;
-				return false === $text ? null : ChangeImage::hash_of( $text, $type, $id );
+				return false === $text ? null : [ 'image' => $text ];
 			}
 			if ( 'customizer_css' === $type ) {
-				return function_exists( 'wp_get_custom_css' ) ? ChangeImage::hash_of( (string) wp_get_custom_css( $id ), $type, $id ) : null;
+				return function_exists( 'wp_get_custom_css' ) ? [ 'image' => (string) wp_get_custom_css( $id ) ] : null;
 			}
 			if ( str_starts_with( $type, self::SNIPPET_PREFIX ) ) {
 				$provider_id = self::snippet_provider( $type );
 				$provider    = '' === $provider_id ? null : ProviderRegistry::get( $provider_id );
 				$live        = null !== $provider ? $provider->read( $id ) : null;
-				return is_array( $live ) ? ChangeImage::hash_of( self::snippet_image( $provider_id, $id, (string) ( $live['path'] ?? '' ), $live ), $type, $id ) : null;
+				return is_array( $live ) ? [ 'image' => self::snippet_image( $provider_id, $id, (string) ( $live['path'] ?? '' ), $live ) ] : null;
 			}
 			if ( in_array( $type, [ 'sandbox_draft', 'sandbox_active' ], true ) && SandboxFiles::valid_name( $id ) ) {
-				return ChangeImage::hash_of( self::sandbox_text( $id, 'sandbox_active' === $type ), $type, $id );
+				return [ 'image' => self::sandbox_text( $id, 'sandbox_active' === $type ) ];
 			}
 		} catch ( \Throwable $failure ) {
 			Logger::warning( 'change_ledger_live_hash_failed', [ 'error' => $failure::class ] );
 		}
 		return null;
 	}
-
 	// -----------------------------------------------------------------------
 	// Helpers.
 	// -----------------------------------------------------------------------
+
+	/**
+	 * Whether a restore acts on a rollback row, so that its rows are redos.
+	 *
+	 * @param array<string, mixed> $options
+	 */
+	private static function kind_of( array $options ): string {
+		return isset( $options['kind'] ) && 'redo' === $options['kind'] ? 'redo' : 'rollback';
+	}
 
 	/** The provider id of a snippet resource type, or '' when the type is not a known snippet provider. */
 	private static function snippet_provider( string $type ): string {

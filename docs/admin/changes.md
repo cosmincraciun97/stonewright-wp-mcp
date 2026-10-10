@@ -6,9 +6,10 @@ like the other pages that are still changing. Rescue stays the page for a change
 site from loading and for safe mode; its header links to Changes (**View changes**) and each change
 it lists that has a history record links to that change's diff (**View diff**).
 
-The page needs the `manage_options` capability. It only reads: it has no form that saves, no
-button that changes the site and no background request. The change history itself, what it stores
-and for how long, is described in [Rescue](../rescue.md#change-history-ledger).
+The page needs the `manage_options` capability. The list and the drawer only read, with no
+background request. The one thing that writes is **Undo** and **Redo** (below). The change history
+itself, what it stores and for how long, and how a change is rolled back, is described in
+[Rescue](../rescue.md#change-history-ledger).
 
 ## The list
 
@@ -73,7 +74,35 @@ The drawer has three views, as tabs that are links:
 If the content of a change was removed by retention, or was never stored, the drawer says so
 instead of showing a diff.
 
-**Undo this change** is shown disabled with the reason "Undo arrives with the rollback engine".
+## Undo and Redo
+
+The footer of the drawer has **Undo this change**. It opens a dialog with the dry run of the undo before anything is written:
+
+- **The diff** goes from what is on the site now to what the change recorded before it, so the lines that disappear are the ones the undo removes.
+- **Warnings**: a newer change to the same item that the undo also overwrites, and drift (below).
+- **What it does**, in one sentence, for the kind of item.
+
+**Cancel** has the first focus, **Escape** closes the dialog and focus goes back to the Undo button. The dialog fits a 400 px screen, and the confirm button names the action. Without script, **Undo this change** is a link to the same page with the dialog printed open, and the form posts as it is.
+
+Pressing the confirm button posts the form to `admin-post.php` with a nonce. Only an administrator (`manage_options`) can send it. The result is shown at the top of the page: whether the change was undone and the site loads, or that the health check could not run, or that it failed and the earlier state was put back. It links to the **new change**, the rollback row, which has its own diff and sits in the History of the change, and shows the receipt with a link to the audit event.
+
+A change that was rolled back shows **Redo this change**, which undoes the rollback and puts the change back in effect. A rollback row shows it too. A redo can be undone again. A change that was rolled back and not redone cannot be rolled back a second time.
+
+In **production-safe** mode the dialog also asks you to type `ROLL BACK`, and the form carries a confirmation token bound to this change and to the state you saw. A token that is for another change, or that was issued without the overwrite choice, is refused.
+
+### Drift
+
+If someone, or another tool, changed the item after Stonewright's change, the dialog says it has **changed since** and the diff shows the edit that the undo would overwrite. The confirm button then needs a box ticked: **I understand that this overwrites changes made since.** Without it nothing is written. The overwritten state is kept in the rollback row, so **Redo** brings it back. If the item changes while the dialog is open, the run is refused and asks you to open the change again.
+
+### Code needs you
+
+For a theme file, a snippet, the Customizer CSS or a sandbox file, an undo or a redo is a change to code. An agent, WP-CLI or the REST route cannot do it: they get the approval-required answer with the address of this page and stop. Pressing the button here as an administrator is the approval. The code is written through the same checks as any code change (the path rules, the PHP syntax check, the read-back), and the site is probed afterwards.
+
+### What can be undone
+
+Posts and their kinds (pages, Elementor documents, Gutenberg content, templates, global styles), settings and other options, menus, widgets, theme files, snippets, the Customizer CSS and sandbox files. A change that is not restorable has no button; the drawer says why. A kind of item that has no restore yet shows **Undo is not available for this change**.
+
+An incident that Rescue lists is still rolled back from Rescue, as before. When Changes undoes a change that Rescue also lists, it uses the same path, so both pages tell the same story.
 
 ## What the page never shows
 
@@ -87,5 +116,7 @@ instead of showing a diff.
 Sources:
 - `plugin/includes/Admin/ChangesPage.php` (the list, the filters and the address)
 - `plugin/includes/Admin/ChangeDetail.php` (the drawer)
+- `plugin/includes/Admin/ChangeUndo.php` (the Undo and Redo dialog, its post action and the result)
+- `plugin/includes/Security/ChangeRollback.php` (the rollback engine)
 - `plugin/includes/Admin/Ui/DiffView.php` (the diff component)
 - `plugin/includes/Support/Diff/ChangeDiff.php` (which diff reads which kind of content)
