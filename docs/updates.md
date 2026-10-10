@@ -153,8 +153,9 @@ extra columns.
 Deleting the plugin keeps its data. A reinstall, or a rollback to an earlier
 release, finds OAuth grants and keys, memory, user-created skills, audit
 history, and settings as they were. The rescue helper is not data: deleting
-the plugin always removes `wp-content/mu-plugins/stonewright-rescue.php`, the
-must-use file the plugin installed. Deactivating the plugin leaves it in
+the plugin from **Plugins**, or with `wp plugin uninstall`, also removes
+`wp-content/mu-plugins/stonewright-rescue.php`, the must-use file the plugin
+installed. `wp plugin delete` skips the uninstall step and leaves it. Deactivating the plugin leaves it in
 place, where it does nothing until the plugin is active again. To roll back:
 
 1. Make sure `STONEWRIGHT_REMOVE_ALL_DATA` is not defined as `true` (see

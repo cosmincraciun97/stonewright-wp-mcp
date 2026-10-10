@@ -118,8 +118,10 @@ stonewright-wp-mcp/
 |   |   |-- Memory/          Site memory store
 |   |   `-- Support/         Logger, JSON helpers
 |   |-- blocks/              Dynamic Gutenberg blocks
+|   |-- mu/                  Must-use rescue helper
 |   `-- tests/
 |-- companion/               Node bridge: WP-CLI, health, optional proxy
+|-- visual/                  Stonewright Visual workspace
 |-- skills/                  Skill packs for AI coding agents
 `-- docs/
 ```
@@ -184,8 +186,6 @@ npm run build
 - Release notes must declare exactly one channel: `supported`, `preview`, or
   `stable`. Release automation must validate the declaration against SemVer and
   fail closed for missing, unknown, or incompatible combinations.
-- The updater contract in Hard rule 9 is a release blocker. A supported
-  public beta that WordPress cannot discover is not shippable.
 - The updater contract in Hard rule 9 is a release blocker. A supported
   public beta that WordPress cannot discover is not shippable.
 

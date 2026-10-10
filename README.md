@@ -71,7 +71,7 @@ Not every operation needs every gate. Stonewright selects the controls required 
 ## Start in four steps
 
 1. Download the current Plugin ZIP and install it in **Plugins → Add New → Upload Plugin**.
-2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow. If the client still cannot connect, open **Stonewright → Troubleshoot** and run diagnostics (the page stays put and shows a loading state).
+2. Open **Stonewright → Setup**, turn on AI abilities in the **Settings** view, then connect your client using the guided OAuth or Application Password flow. If the client still cannot connect, open **Stonewright → Troubleshoot** and run diagnostics (the page stays put and shows a loading state).
 3. Fully restart the client and run the generated connection verification. A saved or parseable config is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first with the real task. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
 
@@ -79,7 +79,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 ## Common workflows
 
-- **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then run observation-only `stonewright-elementor-post-write-verify` and complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
+- **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, call `stonewright-elementor-css-regenerate` when generated CSS must be rebuilt, then run observation-only `stonewright-elementor-post-write-verify` and complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-and-gutenberg-writes)
 - **Change custom code:** discover the provider, dry-run the exact target, stop for human approval, apply the approved bytes, read back, and retain rollback evidence. [Custom-code recovery contract](docs/security.md#custom-code-and-theme-file-recovery)
 - **Run repeatable local maintenance safely:** save a parameterized WP-CLI recipe once, plan it, approve writes with a one-use hash, and get verified readback on every run. [Command recipes](companion/README.md#command-recipes-local-wp-cli)
 - **Stop repeating a failure:** classify the recurrence, surface a ranked incident action, verify the repair against correlated audit events, then promote one reusable lesson. [Verified learning](docs/verified-learning.md)
@@ -101,7 +101,8 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Elementor widget builder | 4 | Custom widget project helpers |
 | Elementor V3 | 35 | Structure edit, batch-mutate, CSS regenerate, observation-only post-write verification, performance audit, legacy-debt report, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
-| Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
+| Design | 33 | DesignSpec validate/render, native plan, intent, versioned Design Directions, motion plans, manifests, comparison, guarded kit sync, rendered quality checks |
+| Elementor native | 2 | Provider discovery and certified native execution inside the snapshot, lock, readback, and rollback closure |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
 | Gutenberg | 13 | Parse, insert, update, batch-mutate, query-loop, render/apply |
 | Finalizer abilities | 6 | Queue, runtime, pending, finalize, cancel, and finalizer URL for static/third-party blocks |
@@ -189,7 +190,7 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 The four-step Plugin path above is the default. The sections below are for local WP-CLI, explicit Application Password configuration, Direct mode, multiple sites, and clients that need manual profile control.
 
-MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. Opt-in **`inspect`** is a read-only profile of discovery, read, and verify tools with no `php-execute` and no write tool; auto routing never selects it either, and activating it never widens the saved surface. `stonewright-php-execute` is **full-profile only**. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `low-tools` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. Opt-in **`inspect`** is a read-only profile of discovery, read, and verify tools with no `php-execute` and no write tool; auto routing never selects it either, and activating it never widens the saved surface. `stonewright-php-execute` is **full-profile only**. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -200,8 +201,8 @@ Because this flow starts from an installed plugin, choose `plugin-only`; it
 fails closed instead of silently falling back to Direct mode.
 
 Codex CLI is the canonical local client and uses `~/.codex/config.toml`.
-`--client codex` and the compatibility alias `--client chatgpt-desktop` both
-resolve to that same Codex TOML adapter. See
+`--client codex-cli`, `--client codex`, and the compatibility alias
+`--client chatgpt-desktop` all resolve to that same Codex TOML adapter. See
 [getting-started/codex.md](docs/getting-started/codex.md).
 
 ```bash
@@ -315,6 +316,7 @@ Typed mutation paths may use combinations of:
 - Readback verification on selected write paths
 - Audit logging
 - Rollback or restore workflows where supported
+- Change sets: one `change_set` shape for what a write planned, applied, and missed, with before and after hashes and a rollback reference ([Change set](docs/transactions.md#change-set-changesetv1))
 - Rescue: a change journal, a health probe after risky writes, and an automatic rollback when the site stops loading
 
 Not every surface uses every gate. Prefer typed abilities over unrestricted PHP when a typed path exists. Read [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
@@ -404,6 +406,14 @@ flowchart TD
     Audit["Coalesced audit with actor attribution"]
     Incidents["Incident lifecycle"]
     Memory["Verified repair promotion to memory"]
+    Sets["Change set: planned, applied, missing, hashes, rollback recipe"]
+    Sections["Section reuse: find, extract, insert_section copy"]
+    Journal["Rescue journal armed before a risky write"]
+    Probe["Health probe after the write, one retry on a silent leg"]
+    Rollback["Automatic rollback from the recorded recipe"]
+    RescueIncident["Rescue incident: rollback failed or PHP fatal recorded"]
+    Helper["Must-use rescue helper: fatal capture and safe mode"]
+    Undo["Undo of the last 50 verified changes, code only by an administrator in wp-admin"]
   end
 
   WordPress["WordPress core, REST, Gutenberg/FSE, content, WooCommerce"]
@@ -423,9 +433,25 @@ flowchart TD
   Step1 --> Surface --> Session --> Plugin
   Step1 --> Revision -. "re-list / restart contract" .-> Client
   Plugin --> WordPress
-  Plugin --> Code --> Approval --> WordPress
-  Plugin --> Elementor --> Closure --> WordPress
+  Plugin --> Code --> Approval --> Journal
+  Plugin --> Elementor --> Closure --> Journal
   Plugin --> Audit --> Incidents --> Memory
+  Plugin -->|"write receipt"| Sets
+  Sets -->|"change_set_id, repair_of"| Audit
+  Plugin --> Sections
+  Sections -->|"insert_section, V3 and V4"| Elementor
+  Sections -->|"insert_section, blocks"| Journal
+  Journal -->|"write runs"| WordPress
+  Journal --> Probe
+  Probe -. "loopback requests" .-> WordPress
+  Probe -->|"site fails"| Rollback
+  Rollback -->|"restore"| WordPress
+  Rollback -->|"error result"| Audit
+  Rollback -->|"rollback failed"| RescueIncident
+  Helper -->|"fatal after a change"| RescueIncident
+  RescueIncident -->|"audit row"| Audit
+  Journal -. "last 50 changes" .-> Undo
+  Undo -->|"same recipe"| Rollback
   Client -. "provider choice plus scan/install consent" .-> Browser
   Browser -. "rendered verification or approved dashboard action" .-> WordPress
 ```

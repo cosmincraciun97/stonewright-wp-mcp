@@ -29,6 +29,7 @@ acceptance report can support a certified claim.
 | Claude Code | `claude-code` | tier-1 | CLI | `claude mcp add` | 2026-07-16 | pending | Prefer CLI add; restart Claude Code after config change |
 | Claude Desktop | `claude-desktop` | tier-1 | JSON | — | 2026-07-16 | pending | Restart Desktop after config change |
 | Codex | `codex` | tier-1 | TOML | `codex mcp add` | 2026-07-16 | pending | Use `/mcp` after reload |
+| Codex CLI | `codex-cli` | tier-1 | TOML | `codex mcp add` | 2026-08-20 | pending | Same Codex TOML entry as `codex`; see [Codex](getting-started/codex.md) |
 | Cursor | `cursor` | tier-1 | JSON | — | 2026-07-16 | pending | Prefer user-level `~/.cursor/mcp.json` for secrets |
 | VS Code (Copilot) | `vscode-copilot` | tier-1 | JSON | — | 2026-07-16 | pending | Prefer user MCP settings for secrets |
 | GitHub Copilot | `github-copilot` | tier-1 | JSON | — | 2026-07-16 | pending | Same family as VS Code MCP settings |
@@ -37,7 +38,15 @@ acceptance report can support a certified claim.
 | Zed | `zed` | compatible | JSON (`context_servers`) | — | 2026-07-16 | pending | |
 | OpenCode | `opencode` | compatible | JSON | — | 2026-07-16 | pending | |
 | Generic MCP | `generic-mcp` | compatible | JSON HTTP/stdio | — | 2026-07-16 | pending | Streamable HTTP or companion stdio |
-| Grok Build / CLI | `grok-build` | compatible | TOML | `grok mcp add --transport http` | 2026-08-25 | pending | One catalog entry; `grok-cli` / `grok` aliases. OAuth uses native HTTP and `~/.grok/config.toml`. Application Password uses local companion stdio. Keep `compatible` until a dated runtime smoke report exists. |
+| Grok Build / CLI | `grok-build` | tier-2 | TOML | `grok mcp add --transport http` | 2026-08-25 | pending | One catalog entry; `grok-cli` / `grok` aliases. OAuth uses native HTTP and `~/.grok/config.toml`. Application Password uses local companion stdio. Keep the `compatible` support tier until a dated runtime smoke report exists. |
+| Amazon Q | `amazon-q` | compatible | JSON | — | 2026-07-16 | pending | Stdio entry under `mcpServers` |
+| Antigravity | `antigravity` | compatible | JSON | — | 2026-07-16 | pending | See [Antigravity](getting-started/antigravity.md) |
+| Antigravity CLI | `antigravity-cli` | compatible | JSON | — | 2026-08-20 | pending | See [Antigravity](getting-started/antigravity.md) |
+| ChatGPT | `chatgpt` | compatible | JSON | — | 2026-08-20 | pending | Server URL; prefer OAuth over HTTP |
+| Claude.ai | `claude-ai` | compatible | JSON | — | 2026-08-20 | pending | Custom connector; prefer OAuth over HTTP |
+| Cline | `cline` | compatible | JSON | — | 2026-07-16 | pending | |
+| Kilo Code | `kilo-code` | compatible | JSON | — | 2026-07-16 | pending | |
+| Roo Code | `roo-code` | compatible | JSON | — | 2026-07-16 | pending | |
 
 ## Secret storage policy
 
