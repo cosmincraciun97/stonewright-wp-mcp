@@ -224,8 +224,9 @@ before scanning and before installing/configuring a provider, save those
 choices for this site/client, and never infer consent. After restart, run
 `stonewright connect verify <alias> --client <client>`; require the spawned
 companion version, active alias, task-start, status, and required tool surface.
-For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so every Direct
-mutation still needs the explicit per-call confirmation.
+For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so destructive
+Direct tools still need `confirm: true` on each call. Content, template, and
+media writes do not ask for confirmation yet in Direct mode.
 
 Use this versioned installer shape and let it create the alias-specific named
 entry. Do not build a second generic server entry:

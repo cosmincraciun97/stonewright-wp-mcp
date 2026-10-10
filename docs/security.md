@@ -248,8 +248,8 @@ A dry run of an Elementor write ability needs no token in `production-safe` mode
 
 ### Supply chain
 
-Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
-`wordpress/php-mcp-schema`, `wordpress/abilities-api`,
+Stonewright depends on `wordpress/mcp-adapter` ^0.6.1 (which brings
+`wordpress/php-mcp-schema`), `wordpress/abilities-api`,
 `automattic/jetpack-autoloader` ^5.0, `defuse/php-encryption` ^2.4, and
 `opis/json-schema`. Check these dependencies for security advisories on each
 update. The Composer `composer.lock` file pins exact versions; review it when

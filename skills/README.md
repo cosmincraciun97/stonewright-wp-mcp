@@ -18,6 +18,17 @@ workflow against the `stonewright/*` ability surface.
 | `stonewright-review` | Review generated page structure against Design Spec and site state |
 | `stonewright-rescue` | Recover from a change that left the site failing: rescue status, rollback plan and run, and re-check |
 | `stonewright-section-reuse` | Offer sections the site already has for a new page, copy the picked ones and adapt them in the same batch (Gutenberg, Elementor V3, Elementor V4) |
+| `agent-operating-rules` | Permanent operating rules for every agent: native-first styling, separate verification tabs, custom-code grants, write closure, verified learning |
+| `acf-build-fields` | ACF field groups, custom fields, repeaters, flexible content, options pages, and ACF values on posts |
+| `elementor-site-clone` | Clone or rebuild an Elementor page or section into a new draft with typed tools |
+| `forms-inventory` | List contact forms, find their shortcodes or blocks, and embed an existing form (read and embed only) |
+| `seo-optimize` | SEO titles, descriptions, canonicals, robots, and focus keywords with Yoast, Rank Math, or All in One SEO |
+| `visual-direction` | Brand palette, typography scale, spacing, imagery, and motion: direction capture, reviewed kit sync, and rendered evidence |
+| `blocksy-build-page` | Blocksy pages with live block schemas, theme chrome tokens, and the Gutenberg finalizer |
+| `generateblocks-build-page` | GenerateBlocks pages with live `generateblocks/*` schemas, and GeneratePress chrome when that theme is active |
+| `kadence-build-page` | Kadence Blocks pages with live `kadence/*` schemas, and Kadence Theme chrome when that theme is active |
+| `spectra-build-page` | Spectra (`uagb/*`) pages with live schemas and the Gutenberg finalizer |
+| `how-to-write-skills` | Write, review, import, or test a site skill: trigger descriptions, body size, version constraints, and the checks a skill must pass |
 
 ## Install for Claude Code
 
