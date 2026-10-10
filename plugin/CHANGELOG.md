@@ -46,6 +46,15 @@
   before image back through the path the original write used, so its checks
   still apply, and record the restore under the change. A history that cannot
   record never stops or changes the write.
+- Add the Changes page (**Stonewright > Activity > Changes**, marked EXP). It lists
+  the changes recorded in the change history, newest first, with filters for
+  family, resource, ability, user, date range and result, and a "restorable
+  only" switch. **View diff** opens one change in a drawer: the content before
+  against after as lines with line numbers, block changes, Elementor elements or
+  changed fields, a note when the diff was cut or values were masked, the reason
+  a change cannot be restored, and the rollbacks and redos that follow it.
+  Passwords, keys and tokens show as `[redacted]`. Rescue links to the page and,
+  for a change that has a history record, to its diff.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the

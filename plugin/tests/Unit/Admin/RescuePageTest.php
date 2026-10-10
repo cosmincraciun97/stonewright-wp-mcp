@@ -13,9 +13,11 @@ use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
+use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\HealthProbe;
 use Stonewright\WpMcp\Security\ProbeToken;
+use Stonewright\WpMcp\Tests\Unit\Security\Fixtures\LedgerWpdb;
 
 /**
  * Stonewright > Rescue: the page that still works when the site does not.
@@ -26,10 +28,13 @@ final class RescuePageTest extends TestCase {
 
 	private string $uploads;
 
+	private mixed $original_wpdb = null;
+
 	/** @var callable():string */
 	private $site_state;
 
 	protected function setUp(): void {
+		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$this->uploads = sys_get_temp_dir() . '/sw-page-' . bin2hex( random_bytes( 5 ) );
 		mkdir( $this->uploads, 0700, true );
 		$GLOBALS['stonewright_test_upload_dir']      = [ 'basedir' => $this->uploads, 'baseurl' => 'https://example.test/uploads', 'error' => false ];
@@ -53,6 +58,12 @@ final class RescuePageTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		if ( null === $this->original_wpdb ) {
+			unset( $GLOBALS['wpdb'] );
+		} else {
+			$GLOBALS['wpdb'] = $this->original_wpdb;
+		}
+		ChangeLedger::reset_schema_health_cache_for_tests();
 		HealthProbe::set_transport( null );
 		RescuePage::set_safe_mode_resolver( null );
 		ProbeToken::reset_for_tests();
@@ -1085,6 +1096,45 @@ final class RescuePageTest extends TestCase {
 		foreach ( [ 'eval(', 'innerHTML', 'setInterval', 'setTimeout( poll', 'window.confirm', 'window.alert', 'XMLHttpRequest', 'fetch(' ] as $forbidden ) {
 			self::assertStringNotContainsString( $forbidden, $js, $forbidden );
 		}
+	}
+
+	// -- Links to the Changes page -----------------------------------------------
+
+	/** A ledger row with the id of a journal entry, as the writer of a change records it. */
+	private function ledger_row_for( string $change_id ): void {
+		$db = new LedgerWpdb();
+		$db->unique[ $db->prefix . 'stonewright_changes' ] = [ 'change_id' ];
+		$GLOBALS['wpdb'] = $db;
+		ChangeLedger::reset_schema_health_cache_for_tests();
+		$row = ChangeLedger::record( [ 'change_id' => $change_id, 'ability' => 'stonewright/elementor-v3-batch-mutate', 'family' => 'elementor', 'resource_type' => 'post', 'resource_id' => '31' ] );
+		self::assertIsArray( $row, is_wp_error( $row ) ? $row->get_error_message() : '' );
+	}
+
+	public function test_the_header_links_to_the_changes_page_for_history(): void {
+		self::assertMatchesRegularExpression( '/<a class="sw-btn sw-btn--secondary" href="[^"]*page=stonewright-changes">View changes<\/a>/', $this->html() );
+	}
+
+	public function test_a_journal_row_with_a_ledger_row_links_to_its_diff_and_a_row_without_one_does_not(): void {
+		$with    = $this->incident( 'incident', 31 );
+		$without = $this->incident( 'rollback_failed', 32 );
+		$this->ledger_row_for( (string) $with['id'] );
+
+		$html = $this->html();
+
+		self::assertSame( 1, substr_count( $html, '>View diff</a>' ), 'Only the row that has a ledger row links.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-btn sw-btn--secondary sw-btn--sm" href="[^"]*page=stonewright-changes&change=' . preg_quote( (string) $with['id'], '/' ) . '" aria-label="View diff of change set ' . self::short( (string) $with['id'] ) . '">View diff<\/a>/', $html );
+		self::assertStringNotContainsString( 'change=' . $without['id'], $html );
+	}
+
+	public function test_the_rescue_page_still_renders_when_the_ledger_cannot_be_read(): void {
+		$this->incident( 'incident', 31 );
+		$GLOBALS['wpdb'] = new \stdClass();
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'Roll back', $html );
+		self::assertStringNotContainsString( '>View diff</a>', $html );
+		self::assertStringContainsString( 'View changes', $html );
 	}
 
 	private static function remove_tree( string $dir ): void {

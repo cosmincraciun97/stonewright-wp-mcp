@@ -17,6 +17,7 @@ final class MigratedPageCssTest extends TestCase {
 	private const PAGES = [
 		'admin/abilities.css' => 'sw-abilities',
 		'admin/sandbox.css'   => 'sw-code',
+		'admin/pages/changes.css' => 'sw-changes',
 	];
 
 	private const LIMIT = 3072;
