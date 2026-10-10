@@ -87,6 +87,9 @@ final class UpdatePageSettings extends AbilityKernel {
 
 				try {
 					$snapshot_id = Backup::snapshot_post( $post_id );
+					if ( '' === $snapshot_id ) {
+						return $this->backup_failed_error();
+					}
 
 					$existing = get_post_meta( $post_id, '_elementor_page_settings', true );
 					if ( ! is_array( $existing ) ) {

@@ -641,4 +641,12 @@ abstract class AbilityKernel implements Ability {
 	protected function error( string $code, string $message, array $data = [] ): \WP_Error {
 		return new \WP_Error( 'stonewright_' . $code, $message, $data );
 	}
+
+	/**
+	 * The refusal for a write whose snapshot could not be stored (Backup::snapshot_post() returned an
+	 * empty id). A write without a way back does not run.
+	 */
+	protected function backup_failed_error(): \WP_Error {
+		return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ), [ 'status' => 500 ] );
+	}
 }

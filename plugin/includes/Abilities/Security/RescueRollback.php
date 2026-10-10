@@ -38,7 +38,7 @@ final class RescueRollback extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Rolls back a rescue incident or an armed change by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" only probes again and closes the incident when the site loads, after a manual fix; dry_run returns the plan, which says how old the change is and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
+		return __( 'Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" only probes again and closes the incident when the site loads, after a manual fix; dry_run returns the plan, which says how old the change is and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. A verified change to code (theme file, custom code, sandbox file, Customizer CSS) is not undone on a call: the answer is stonewright_rescue_approval_required with approval_url, and the administrator rolls it back at Stonewright > Activity > Rescue. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -96,6 +96,8 @@ final class RescueRollback extends AbilityKernel {
 				'recipe'              => [ 'type' => [ 'string', 'object' ] ],
 				'probe'               => [ 'type' => [ 'object', 'null' ] ],
 				'age_seconds'         => [ 'type' => 'integer' ],
+				'approval_required'   => [ 'type' => 'boolean' ],
+				'approval_url'        => [ 'type' => 'string' ],
 				'newer_changes'       => [
 					'type'  => 'array',
 					'items' => [
@@ -123,7 +125,16 @@ final class RescueRollback extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $a ): array|\WP_Error {
-				$action = (string) ( $a['action'] ?? 'rollback' );
+				$action      = (string) ( $a['action'] ?? 'rollback' );
+				$incident_id = (string) ( $a['incident_id'] ?? '' );
+				// A verified change to code is undone by an administrator at the Rescue page. Say so before
+				// asking for a token that would not change that.
+				if ( 'rollback' === $action && empty( $a['dry_run'] ) ) {
+					$approval = RescueRollbackService::approval_refusal( $incident_id );
+					if ( $approval instanceof \WP_Error ) {
+						return $approval;
+					}
+				}
 				// Only the plan of a rollback is free. A recheck changes the incident (it can close it), so
 				// "dry_run" does not take the confirmation away from it.
 				if ( empty( $a['dry_run'] ) || 'rollback' !== $action ) {
@@ -135,7 +146,6 @@ final class RescueRollback extends AbilityKernel {
 					}
 				}
 
-				$incident_id = (string) ( $a['incident_id'] ?? '' );
 				if ( 'recheck' === $action ) {
 					return RescueRollbackService::recheck( $incident_id );
 				}

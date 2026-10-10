@@ -17,6 +17,8 @@ Rescue works on changes Stonewright makes through its abilities. It does not wat
 
 A call that changes several of these is checked once and rolled back in reverse order when the check fails.
 
+A change that passed its check can be rolled back later too: see [Undoing a verified change](#undoing-a-verified-change).
+
 `content-update-page` refuses the id of a revision (`stonewright_invalid_post_type`) before it snapshots or writes: a revision is a saved copy of a page, so there is no page to check.
 
 ## How a protected write runs
@@ -60,12 +62,32 @@ The database copy is the authority, and the file is input. The file can add a fa
 | State | Meaning |
 |---|---|
 | `armed` | Recorded and the change made, not yet verified |
-| `verified` | A passing check followed the change, or the call changed nothing |
-| `rolled_back` | The recipe ran after a failed check, or on request. The outcome is stored on the change set |
+| `verified` | A passing check followed the change, or the call changed nothing. It can still be rolled back while the journal keeps it (the last 50 changes) |
+| `rolled_back` | The recipe ran after a failed check, or on request. The outcome is stored on the change set, with the way it ran (`admin-page`, `ability`, `wp-cli` or `auto`) and the user who ran it. A verified change that was undone also carries the note `undone_after_verified` |
 | `rollback_failed` | The recipe failed or could not run. This is an open incident |
 | `incident` | A PHP fatal was recorded against the change set. This is an open incident |
 
 While an incident is open, every ability response carries a banner (below) and the tool list includes `stonewright-rescue-status` and `stonewright-rescue-rollback`.
+
+## Undoing a verified change
+
+A change that passed its health check is not final. Until the journal drops it (it keeps the last 50 changes, oldest settled first), an administrator can roll it back from **Stonewright > Activity > Rescue**, where **Recent changes** lists every change the journal holds with a **Roll back** button, and `stonewright-rescue-rollback` can roll it back with its `incident_id`.
+
+The rollback of a verified change runs the same steps as any other rollback:
+
+- it claims the change set first, so a double click, or the page and an agent together, run it once;
+- it runs the recorded recipe, then probes the site;
+- it warns when a newer change to the same item exists, because the rollback overwrites it;
+- in production-safe mode it needs a confirmation token;
+- the outcome is written to the change set and to the audit log, and the change becomes `rolled_back`.
+
+If the recipe fails, the change becomes `rollback_failed`, an open incident, like any rollback that fails. A change that has been rolled back cannot be rolled back again, and a change the journal has dropped cannot be rolled back from Rescue.
+
+**Code needs the page.** A verified change to a theme file, a custom-code snippet (WPCode or Code Snippets), a sandbox file or the Customizer CSS is rolled back only by an administrator pressing **Roll back** on the Rescue page. The ability, the REST route and `wp stonewright rescue rollback` refuse it with `stonewright_rescue_approval_required`, which carries the approval URL and tells the agent to ask the administrator to use **Stonewright > Activity > Rescue**; a confirmation token does not change that. A `dry_run` still returns the plan, with `approval_required` true. This applies only to a verified change: an incident, or a change that was never verified, is rolled back by an agent as before, because the site is failing.
+
+## A failed backup stops the write
+
+A write that mutates a post takes a snapshot of the post first. When the snapshot cannot be stored and read back, the write does not run: the ability returns `stonewright_backup_failed` before it changes anything, and releases the write lock it took. This holds for the Elementor V3 abilities that add, move, remove or update elements, build a page from a spec, change page settings, kit colors or kit typography, for the per-widget `elementor-add-*` abilities, for `design-spec-to-elementor-v3` and for `elementor-v4-migrate`. `change-restore` takes a snapshot of the current state before it restores, returns it as `pre_restore_snapshot_id`, and refuses with `stonewright_backup_failed` when it cannot be stored. The history limit (10 snapshots per post) never drops the snapshot being restored.
 
 ## The health probe
 
@@ -96,15 +118,15 @@ Three filters adjust the probe: `stonewright_rescue_probe_enabled` (return `fals
 | Ability | Kind | Notes |
 |---|---|---|
 | `stonewright/rescue-status` (`stonewright-rescue-status`) | Read | Needs `manage_options`. Lists open incidents, changes that were never verified and the latest changes, each with the rollback it would run, and `helper` (`state` and `safe_mode`): whether the rescue helper is in place and a safe mode link can be issued. Changes nothing and runs no probe |
-| `stonewright/rescue-rollback` (`stonewright-rescue-rollback`) | Write | Needs `manage_options`. Input `incident_id`, `action` (`rollback`, the default, or `recheck`), `dry_run` and, in production-safe mode, a `confirmation_token`. `rollback` runs the recorded recipe and probes the site afterwards. `recheck` only probes again and closes the incident when the site loads, for a change someone undid by hand. A `dry_run` of the rollback returns the plan, which says how old the change is and warns when a newer change to the same item exists (the rollback would overwrite it), and needs no token. A `recheck` changes the incident, so it needs the token even with `dry_run`. The rollback claims the change set first, so a double click, or the page and an agent together, run it once: the second caller gets `stonewright_rescue_in_progress` (a claim older than five minutes is ignored). The outcome is written to the change set and to the audit log |
+| `stonewright/rescue-rollback` (`stonewright-rescue-rollback`) | Write | Needs `manage_options`. Input `incident_id`, `action` (`rollback`, the default, or `recheck`), `dry_run` and, in production-safe mode, a `confirmation_token`. `rollback` runs the recorded recipe and probes the site afterwards. It works on an incident, on a change that was never verified and on a verified change, except that a verified change to code answers `stonewright_rescue_approval_required` (see above). `recheck` only probes again and closes the incident when the site loads, for a change someone undid by hand. A `dry_run` of the rollback returns the plan, which says how old the change is and warns when a newer change to the same item exists (the rollback would overwrite it), and needs no token. A `recheck` changes the incident, so it needs the token even with `dry_run`. The rollback claims the change set first, so a double click, or the page and an agent together, run it once: the second caller gets `stonewright_rescue_in_progress` (a claim older than five minutes is ignored). The outcome is written to the change set and to the audit log |
 
 The rollback restores a state Stonewright recorded itself, and only for a change set in the journal. It is not a way around the permission model.
 
 ## The Rescue page
 
-**Stonewright > Activity > Rescue** (administrators only) lists the change sets that need attention in one table: the short id, when, what changed and who changed it, the health check evidence, the rollback that would run, the state and the actions.
+**Stonewright > Activity > Rescue** (administrators only) lists the change sets that need attention in one table: the short id, when, what changed and who changed it, the health check evidence, the rollback that would run, the state and the actions. **Recent changes** below it lists the other changes the journal keeps, up to 50. A verified change has **Roll back**; a change that was rolled back says how, and by whom.
 
-- **Roll back** opens a confirmation that names the change set, shows what changed and what is restored, and puts Cancel first. In production-safe mode the confirmation also asks for the words ROLL BACK and carries a confirmation token that was issued for that one change set and expires after ten minutes.
+- **Roll back** opens a confirmation that names the change set, shows what changed and what is restored, and puts Cancel first. It works for a verified change too, code included: the administrator who presses it is the approval that a change to code needs. In production-safe mode the confirmation also asks for the words ROLL BACK and carries a confirmation token that was issued for that one change set and expires after ten minutes.
 - **Check again** probes the site again and closes the incident when it loads.
 - Each row says how long ago the change was made. The confirmation warns when a newer change to the same item exists, because the rollback would overwrite it. While a rollback of a change set is running, its row says so instead of offering the buttons.
 - **Prompt for your agent** holds the words to hand an agent that should finish the job.
@@ -156,6 +178,8 @@ On a site with a local WordPress root, `stonewright rescue status` and `stonewri
 - A call that writes several posts checks the page of the first one, and takes the baseline for it only.
 - Each risky write costs one more probe, taken before it. On a host that cannot call itself the first one waits for its timeouts; later ones are quick for ten minutes.
 - A custom-code snippet without a provider snapshot has no rollback. It is listed so it can be undone by hand and checked again.
+- The journal keeps the last 50 changes. A verified change older than that cannot be rolled back from Rescue.
+- Rolling back an older verified change restores the item as it was before that change, so a later change to the same item is overwritten. The confirmation and the dry run name the later changes.
 - Safe mode cannot skip other must-use plugins, because WordPress offers no way to skip them. A fatal error in one of them, an active Stonewright sandbox file included, stops the requests that load it, safe mode and WP-CLI included. The health check that follows the write rolls the change back in the usual case; otherwise remove the file over SFTP.
 - An incident is recorded only when the file of the fatal error is, or lies inside, a path the change touched, and the error is still the last PHP error at shutdown. A fatal error in an included file that the write did not list, a memory or time limit hit in unrelated code, and a change without paths are not recorded by the shutdown handler.
 - Signing in always uses the site's normal sign-in page with all its plugins, so safe mode cannot start while that page fails to load. Use WordPress recovery mode (its link is in the same email), WP-CLI or the companion then.

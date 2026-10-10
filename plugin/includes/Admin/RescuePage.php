@@ -120,15 +120,11 @@ final class RescuePage {
 		$unconfirmed = ChangeJournal::unconfirmed();
 		$attention   = array_merge( $open, $unconfirmed );
 		$listed      = array_column( $attention, 'id' );
-		$recent      = array_slice(
-			array_values(
-				array_filter(
-					ChangeJournal::recent( ChangeJournalFile::MAX_ENTRIES ),
-					static fn ( array $entry ): bool => ! in_array( $entry['id'], $listed, true )
-				)
-			),
-			0,
-			12
+		$recent      = array_values(
+			array_filter(
+				ChangeJournal::recent( ChangeJournalFile::MAX_ENTRIES ),
+				static fn ( array $entry ): bool => ! in_array( $entry['id'], $listed, true )
+			)
 		);
 		// The health probe loads this page to see that wp-admin renders. Nobody reads that response,
 		// so it gets no confirmation tokens.
@@ -152,7 +148,7 @@ final class RescuePage {
 		self::render_callouts( $guarded );
 		self::render_stats( count( $open ), count( $unconfirmed ), RescueInstaller::summary() );
 		self::render_attention( $attention, $guarded, count( $unconfirmed ) );
-		self::render_recent( $recent );
+		self::render_recent( $recent, $guarded );
 		echo '<p class="screen-reader-text" role="status" aria-live="polite" data-sw-rescue-live></p>';
 		echo '</div>';
 		AdminShell::close();
@@ -279,20 +275,23 @@ final class RescuePage {
 	}
 
 	/**
+	 * The changes the journal keeps (the last 50), each with the way to roll it back when it can be.
+	 *
 	 * @param list<array<string, mixed>> $recent
 	 */
-	private static function render_recent( array $recent ): void {
+	private static function render_recent( array $recent, bool $guarded ): void {
 		echo '<section aria-labelledby="sw-rescue-recent-title">';
 		echo '<h2 id="sw-rescue-recent-title">' . esc_html__( 'Recent changes', 'stonewright' ) . '</h2>';
 		if ( [] === $recent ) {
 			echo '<p class="sw-rescue-note">' . esc_html__( 'No other risky change has been journaled yet.', 'stonewright' ) . '</p></section>';
 			return;
 		}
+		echo '<p class="sw-rescue-note">' . esc_html__( 'A change that passed its health check can still be rolled back. The journal keeps the last 50 changes.', 'stonewright' ) . '</p>';
 		echo '<table class="sw-rescue-table" data-sw-rescue-table="recent">';
-		self::table_head( false, __( 'Recent changes', 'stonewright' ) );
+		self::table_head( true, __( 'Recent changes', 'stonewright' ) );
 		echo '<tbody>';
 		foreach ( $recent as $entry ) {
-			self::render_row( $entry, false, false );
+			self::render_row( $entry, true, $guarded, false );
 		}
 		echo '</tbody></table></section>';
 	}
@@ -313,8 +312,10 @@ final class RescuePage {
 	 * One change set. Each cell repeats its heading so a row still reads on its own at 400px.
 	 *
 	 * @param array<string, mixed> $entry
+	 * @param bool                 $actionable Whether the row has the actions column.
+	 * @param bool                 $attention  Whether the row is one that needs attention: it shows the health check, the recipe and the agent prompt.
 	 */
-	private static function render_row( array $entry, bool $actionable, bool $guarded ): void {
+	private static function render_row( array $entry, bool $actionable, bool $guarded, bool $attention = true ): void {
 		$id    = (string) $entry['id'];
 		$short = self::short_id( $id );
 		$state = (string) $entry['state'];
@@ -336,7 +337,11 @@ final class RescuePage {
 			$line = sprintf( esc_html__( 'Changed by %s', 'stonewright' ), $by );
 		}
 		echo '<span class="sw-rescue-sub">' . $line . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped parts.
-		if ( $actionable ) {
+		$origin = self::rollback_origin( $entry );
+		if ( '' !== $origin ) {
+			echo '<span class="sw-rescue-sub">' . esc_html( $origin ) . '</span>';
+		}
+		if ( $attention ) {
 			echo '<span class="sw-rescue-sub">' . esc_html__( 'Health check:', 'stonewright' ) . ' ' . self::evidence_html( $entry ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- evidence_html() escapes.
 			echo '<span class="sw-rescue-sub">' . esc_html__( 'Rollback:', 'stonewright' ) . ' ' . esc_html( RollbackRecipes::describe( $entry ) ) . self::rollback_note( $entry ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rollback_note() escapes.
 			if ( in_array( $state, [ 'incident', 'rollback_failed' ], true ) ) {
@@ -380,7 +385,15 @@ final class RescuePage {
 		$hash      = md5( $id );
 		$available = RollbackRecipes::available( $entry );
 		$retry     = 'rollback_failed' === (string) $entry['state'];
+		$state     = (string) $entry['state'];
 
+		if ( 'rolled_back' === $state ) {
+			echo '<p class="sw-rescue-note">' . esc_html__( 'Already rolled back.', 'stonewright' ) . '</p>';
+			return;
+		}
+		if ( ! in_array( $state, RescueRollback::ROLLBACK_STATES, true ) ) {
+			return;
+		}
 		if ( ChangeJournal::is_claimed( $entry ) ) {
 			echo '<p class="sw-rescue-note">' . esc_html__( 'A rollback of this change set is running.', 'stonewright' ) . '</p>';
 			return;
@@ -390,10 +403,14 @@ final class RescuePage {
 			/* translators: %s: short change set id */
 			$name = $retry ? __( 'Roll back change set %s again', 'stonewright' ) : __( 'Roll back change set %s', 'stonewright' );
 			echo '<button type="submit" form="sw-rescue-form-' . esc_attr( $hash ) . '" class="sw-btn sw-btn--danger sw-btn--sm" data-sw-rescue-open="sw-rescue-dlg-' . esc_attr( $hash ) . '" aria-label="' . esc_attr( sprintf( $name, $short ) ) . '">' . esc_html( $retry ? __( 'Try again', 'stonewright' ) : __( 'Roll back', 'stonewright' ) ) . '</button>';
+		} elseif ( 'verified' === $state ) {
+			echo '<p class="sw-rescue-note">' . esc_html__( 'No automatic rollback is available for this change.', 'stonewright' ) . '</p>';
 		} else {
 			echo '<p class="sw-rescue-note">' . esc_html__( 'No automatic rollback is available for this change. Undo it by hand, then check the site again.', 'stonewright' ) . '</p>';
 		}
-		self::render_recheck_form( $id, $short, $guarded );
+		if ( 'verified' !== $state ) {
+			self::render_recheck_form( $id, $short, $guarded );
+		}
 		echo '</div>';
 		if ( $available ) {
 			self::render_dialog( $entry, $guarded );
@@ -436,6 +453,9 @@ final class RescuePage {
 		self::kv( __( 'Restores', 'stonewright' ), esc_html( RollbackRecipes::describe( $entry ) ) );
 		echo '</dl>';
 		echo '<p>' . esc_html__( 'This puts the item back as it was before the change (anything saved to it since is overwritten), then checks that the site loads.', 'stonewright' ) . '</p>';
+		if ( 'verified' === (string) $entry['state'] ) {
+			echo '<p>' . esc_html__( 'This change passed its health check. Rolling it back undoes a change that worked.', 'stonewright' ) . '</p>';
+		}
 		self::render_newer_warning( $entry );
 		self::hidden( 'action', 'stonewright_rescue_rollback' );
 		self::hidden( 'incident_id', $id );
@@ -618,7 +638,8 @@ final class RescuePage {
 		if ( null !== $refused ) {
 			return [ 'code' => $refused, 'incident_id' => $id ];
 		}
-		$result = RescueRollback::run( $id, [ 'by' => 'admin-page', 'user_id' => (int) get_current_user_id() ] );
+		// The administrator who pressed the button is the approval that undoing a verified change to code needs.
+		$result = RescueRollback::run( $id, [ 'by' => 'admin-page', 'user_id' => (int) get_current_user_id(), 'human_approved' => true ] );
 		RescueRollback::audit_outcome( $id, $result, 'admin-page', 'rollback' );
 
 		if ( $result instanceof \WP_Error ) {
@@ -792,6 +813,36 @@ final class RescuePage {
 			return (int) $incident['recorded_at'];
 		}
 		return (int) ( $entry['settled_at'] ?? 0 ) > 0 ? (int) $entry['settled_at'] : (int) $entry['armed_at'];
+	}
+
+	/**
+	 * One line about how a rolled-back change was undone, and by whom.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function rollback_origin( array $entry ): string {
+		if ( 'rolled_back' !== (string) $entry['state'] || ! is_array( $entry['rollback'] ?? null ) ) {
+			return '';
+		}
+		$user = (int) ( $entry['rollback']['user'] ?? 0 );
+		$who  = '';
+		if ( $user > 0 ) {
+			$account = function_exists( 'get_user_by' ) ? get_user_by( 'id', $user ) : false;
+			$who     = is_object( $account ) && '' !== (string) ( $account->display_name ?? '' ) ? (string) $account->display_name : sprintf( /* translators: %d: user ID */ __( 'user %d', 'stonewright' ), $user );
+		}
+		return match ( (string) ( $entry['rollback']['by'] ?? '' ) ) {
+			'admin-page' => '' !== $who
+				? sprintf( /* translators: %s: user name */ __( 'Rolled back from this page by %s', 'stonewright' ), $who )
+				: __( 'Rolled back from this page', 'stonewright' ),
+			'ability'    => '' !== $who
+				? sprintf( /* translators: %s: user name */ __( 'Rolled back through an agent call as %s', 'stonewright' ), $who )
+				: __( 'Rolled back through an agent call', 'stonewright' ),
+			'wp-cli'     => '' !== $who
+				? sprintf( /* translators: %s: user name */ __( 'Rolled back with WP-CLI as %s', 'stonewright' ), $who )
+				: __( 'Rolled back with WP-CLI', 'stonewright' ),
+			'auto'       => __( 'Rolled back automatically after a failed health check', 'stonewright' ),
+			default      => '',
+		};
 	}
 
 	/** When the most recent rollback finished, or null when none has. */

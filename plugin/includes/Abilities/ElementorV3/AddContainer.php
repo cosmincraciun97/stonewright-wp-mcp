@@ -122,6 +122,9 @@ final class AddContainer extends AbilityKernel {
 
 				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $element );
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return ElementorData::write_error_for_ability();
 				}

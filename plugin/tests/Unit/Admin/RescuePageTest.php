@@ -345,7 +345,7 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( 'blocks requests from the site to itself', $html, 'Why a change can stay unverified.' );
 	}
 
-	public function test_recent_changes_are_listed_with_their_states_and_without_actions(): void {
+	public function test_recent_changes_are_listed_with_their_states(): void {
 		$entry = $this->incident( 'verified' );
 
 		$html = $this->html();
@@ -354,9 +354,6 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 1, preg_match( '/<table class="sw-rescue-table"[^>]*data-sw-rescue-table="recent"[^>]*>(.*?)<\/table>/s', $html, $table ) );
 		self::assertStringContainsString( self::short( $entry['id'] ), $table[1] );
 		self::assertStringContainsString( 'Verified', $table[1] );
-		self::assertStringNotContainsString( '<form', $table[1], 'The history only reports.' );
-		self::assertStringNotContainsString( 'name="action"', $html, 'Nothing to act on.' );
-		self::assertStringNotContainsString( '<dialog', $html );
 	}
 
 	public function test_a_change_is_never_listed_twice(): void {
@@ -674,6 +671,166 @@ final class RescuePageTest extends TestCase {
 		$_GET = [ 'rescue' => 'in_progress', 'incident' => $entry['id'] ];
 		self::assertStringContainsString( 'already running', $this->html() );
 	}
+
+	// -- Undo of a verified change -----------------------------------------------------------------
+
+	/** A settled change to a sandbox file, whose way back runs without touching a file. */
+	private function verified_code_change(): array {
+		$entry = ChangeJournal::arm(
+			[
+				'ability'       => 'stonewright/sandbox-activate',
+				'resource_type' => 'sandbox',
+				'resource_key'  => 'example-snippet.php',
+				'recipe'        => [ 'type' => 'sandbox_file', 'ref' => 'example-snippet.php' ],
+			]
+		);
+		ChangeJournal::settle( $entry['id'], 'verified' );
+		return (array) ChangeJournal::get( $entry['id'] );
+	}
+
+	public function test_a_verified_change_in_the_history_can_be_rolled_back_from_the_page(): void {
+		$entry = $this->incident( 'verified' );
+
+		$html = $this->html();
+
+		self::assertSame( 1, preg_match( '/<table class="sw-rescue-table"[^>]*data-sw-rescue-table="recent"[^>]*>(.*?)<\/table>/s', $html, $table ) );
+		self::assertStringContainsString( self::short( $entry['id'] ), $table[1] );
+		self::assertStringContainsString( 'name="action" value="stonewright_rescue_rollback"', $table[1] );
+		self::assertStringContainsString( 'name="incident_id" value="' . $entry['id'] . '"', $table[1] );
+		self::assertStringContainsString( 'aria-label="Roll back change set ' . self::short( $entry['id'] ) . '"', $table[1] );
+		self::assertStringContainsString( '<dialog', $table[1] );
+		self::assertStringNotContainsString( 'stonewright_rescue_recheck', $table[1], 'A verified change has nothing to check again.' );
+		self::assertSame( 1, substr_count( $html, 'data-sw-rescue-dialog' ), 'One dialog per change.' );
+	}
+
+	public function test_every_change_the_journal_keeps_is_in_the_history(): void {
+		for ( $number = 1; $number <= 14; ++$number ) {
+			$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => (string) ( 700 + $number ), 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+			ChangeJournal::settle( $entry['id'], 'verified' );
+		}
+
+		$html = $this->html();
+
+		self::assertSame( 14, substr_count( $html, '<tr data-sw-rescue-row=' ), 'The history is not cut at twelve; it holds what the journal holds.' );
+	}
+
+	public function test_a_verified_change_without_a_recipe_says_so_and_offers_no_button(): void {
+		$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '9', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $entry['id'], 'verified' );
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'No automatic rollback is available for this change.', $html );
+		self::assertStringNotContainsString( 'data-sw-rescue-open', $html );
+	}
+
+	public function test_a_change_that_was_rolled_back_says_by_whom_and_offers_no_second_rollback(): void {
+		$entry = $this->incident( 'verified' );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		RescuePage::process_rollback_request();
+		$_POST = [];
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'Rolled back', $html );
+		self::assertStringContainsString( 'Rolled back from this page by User 7', $html );
+		self::assertStringNotContainsString( 'data-sw-rescue-open', $html );
+		self::assertStringNotContainsString( '<dialog', $html );
+	}
+
+	public function test_the_dialog_of_a_verified_change_says_it_worked_and_names_what_is_restored(): void {
+		$this->incident( 'verified' );
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'This change passed its health check.', $html );
+		self::assertStringContainsString( 'Restore post 31 from the snapshot taken before the change.', $html );
+	}
+
+	public function test_a_verified_change_is_rolled_back_from_the_page_and_the_page_keeps_the_receipt(): void {
+		$entry = $this->incident( 'verified' );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		$result = RescuePage::process_rollback_request();
+
+		self::assertSame( 'rolled_back', $result['code'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		$after = ChangeJournal::get( $entry['id'] );
+		self::assertSame( 'rolled_back', $after['state'] );
+		self::assertSame( 'admin-page', $after['rollback']['by'] );
+		self::assertSame( 7, $after['rollback']['user'] );
+		self::assertSame( 'healthy', $after['rollback']['site'], 'The site is probed afterwards.' );
+		$rows = array_values(
+			array_filter(
+				array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ),
+				static fn ( array $row ): bool => 'stonewright/rescue-rollback' === ( $row['ability_name'] ?? '' )
+			)
+		);
+		self::assertCount( 1, $rows );
+		self::assertSame( $entry['id'], $rows[0]['change_set_id'] );
+		self::assertSame( 'succeeded', $rows[0]['rollback_status'] );
+	}
+
+	public function test_a_verified_code_change_is_rolled_back_from_the_page_because_an_administrator_asked(): void {
+		$entry = $this->verified_code_change();
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		$result = RescuePage::process_rollback_request();
+
+		self::assertSame( 'rolled_back', $result['code'] );
+		$after = ChangeJournal::get( $entry['id'] );
+		self::assertSame( 'rolled_back', $after['state'] );
+		self::assertSame( 'admin-page', $after['rollback']['by'] );
+	}
+
+	public function test_a_second_roll_back_of_a_verified_change_does_not_run_again(): void {
+		$entry = $this->incident( 'verified' );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		self::assertSame( 'rolled_back', RescuePage::process_rollback_request()['code'] );
+		$GLOBALS['stonewright_test_posts'][31]->post_content = 'edited after the undo';
+
+		$again = RescuePage::process_rollback_request();
+
+		self::assertSame( 'not_open', $again['code'] );
+		self::assertSame( 'edited after the undo', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_a_verified_change_that_is_being_rolled_back_offers_no_second_click(): void {
+		$entry = $this->incident( 'verified' );
+		ChangeJournal::claim( $entry['id'], 'ability' );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		self::assertStringContainsString( 'A rollback of this change set is running.', $this->html() );
+		self::assertSame( 'in_progress', RescuePage::process_rollback_request()['code'] );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_production_safe_mode_binds_a_token_to_a_verified_change_and_refuses_without_it(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$entry = $this->incident( 'verified' );
+
+		$html = $this->html();
+		self::assertStringContainsString( 'data-sw-rescue-phrase="ROLL BACK"', $html );
+		self::assertStringContainsString( 'name="confirmation_token"', $html );
+
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		self::assertSame( 'confirmation_required', RescuePage::process_rollback_request()['code'] );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		self::assertSame( 'verified', ChangeJournal::get( $entry['id'] )['state'] );
+	}
+
+	public function test_the_confirmation_of_a_verified_change_warns_about_a_newer_change_to_the_same_item(): void {
+		$entry = $this->incident( 'verified' );
+		$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $newer['id'], 'verified' );
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'sw-rescue-warning', $html );
+		self::assertStringContainsString( self::short( $newer['id'] ), $html );
+		self::assertNotSame( '', $entry['id'] );
+	}
+
 	// -- Safe mode ---------------------------------------------------------------
 
 	public function test_the_safe_mode_button_appears_only_when_a_safe_mode_exists(): void {
