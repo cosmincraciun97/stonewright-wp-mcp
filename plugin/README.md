@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.13.3
+Version: 1.0.0-beta.14
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: [GPL-2.0-or-later](../LICENSE)
