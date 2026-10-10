@@ -76,8 +76,42 @@ final class ChangeDiff {
 			return self::empty_result( 'unreadable', self::unreadable_message(), $image_masked );
 		}
 
+		return self::compare( $row, $before, $after, $options, $image_masked );
+	}
+
+	/**
+	 * The diff between two images that are not the stored ones of the row, for example the live state and the before
+	 * image, which is what an undo would change. Both sides are read as the images the ledger would store: a caller
+	 * passes images that were masked already (ChangeImage). The row only says which engine fits.
+	 *
+	 * @param array<string, mixed>     $row
+	 * @param array<mixed>|string|null $from    The image on the left (what is there now); null reads as empty.
+	 * @param array<mixed>|string|null $to      The image on the right (what it would become); null reads as empty.
+	 * @param array<string, mixed>     $options As for_row().
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 */
+	public static function for_images( array $row, array|string|null $from, array|string|null $to, array $options = [] ): array {
+		$image_masked = 'masked_secret' === (string) ( $row['restorable_reason'] ?? '' );
+		if ( null === $from && null === $to ) {
+			return self::empty_result( 'no_images', __( 'There is nothing to compare.', 'stonewright' ), $image_masked );
+		}
+
+		return self::compare( $row, $from, $to, $options, $image_masked );
+	}
+
+	/**
+	 * @param array<string, mixed>     $row
+	 * @param array<mixed>|string|null $before
+	 * @param array<mixed>|string|null $after
+	 * @param array<string, mixed>     $options
+	 * @return array{status: string, message: string, sections: list<array{id: string, title: string, result: array<string, mixed>}>, changed: bool, truncated: bool, masked: int, image_masked: bool}
+	 */
+	private static function compare( array $row, array|string|null $before, array|string|null $after, array $options, bool $image_masked ): array {
 		if ( null === $before ) {
 			$before = is_array( $after ) ? [] : '';
+		}
+		if ( null === $after ) {
+			$after = is_array( $before ) ? [] : '';
 		}
 		if ( is_array( $before ) !== is_array( $after ) ) {
 			$before = self::as_text( $before );

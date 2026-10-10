@@ -117,6 +117,7 @@ final class SwUiCssContractTest extends TestCase {
 		// stylesheet that only places things.
 		'includes/Admin/ChangesPage.php',
 		'includes/Admin/ChangeDetail.php',
+		'includes/Admin/ChangeUndo.php',
 		'includes/Admin/ChangeLabels.php',
 		'assets/admin/pages/changes.css',
 		'assets/admin/pages/changes.js',

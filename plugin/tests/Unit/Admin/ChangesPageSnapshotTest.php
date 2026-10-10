@@ -17,6 +17,9 @@ use Stonewright\WpMcp\Admin\ChangesPage;
 use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
 use Stonewright\WpMcp\Tests\Unit\Admin\Fixtures\LedgerFixture;
 use Stonewright\WpMcp\Tests\Unit\Assets\CssSource;
 
@@ -45,9 +48,38 @@ final class ChangesPageSnapshotTest extends TestCase {
 		MenuRegistry::reset_for_tests();
 		Html::reset_ids();
 		Icon::reset_for_tests();
+		// The fixture's theme files are not on this machine: this handler reads the stored after image as the live state.
+		RollbackFamilies::register(
+			new class() implements RollbackFamilyHandler {
+				public function families(): array {
+					return [ 'theme_file' ];
+				}
+
+				public function live_image( array $row ): string|array|\WP_Error|null {
+					return ChangeLedger::read_image( (string) $row['change_id'], 'after' );
+				}
+
+				public function restore( array $row, string|array|null $image, array $options ): array {
+					return [ 'status' => 'failed', 'detail' => 'fixture' ];
+				}
+
+				public function describe( array $row, string|array|null $image ): string {
+					return 'Writes the file back as it was.';
+				}
+
+				public function records_own_row( array $row ): bool {
+					return true;
+				}
+
+				public function requires_human( array $row ): bool {
+					return true;
+				}
+			}
+		);
 	}
 
 	protected function tearDown(): void {
+		RollbackFamilies::reset_for_tests();
 		$this->ledger_down();
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_users']     = [];

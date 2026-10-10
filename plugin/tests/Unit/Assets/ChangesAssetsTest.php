@@ -58,8 +58,8 @@ final class ChangesAssetsTest extends TestCase {
 		self::assertStringContainsString( 'data-sw-changes-open', $js );
 		self::assertStringContainsString( 'openDialog', $js, 'The layer opens the dialog, traps focus and gives it back to the opener.' );
 		self::assertStringContainsString( "removeAttribute( 'open' )", $js, 'The server prints the dialog open; showModal() needs it closed.' );
-		self::assertStringContainsString( "searchParams.delete( 'change' )", $js );
-		self::assertStringContainsString( "searchParams.delete( 'view' )", $js );
+		self::assertStringContainsString( "[ 'change', 'view', 'undo', 'undone', 'from' ]", $js );
+		self::assertStringContainsString( 'searchParams.delete( name )', $js );
 		self::assertStringContainsString( 'replaceState', $js );
 		self::assertStringNotContainsString( 'opener.focus', $js, 'The layer gives focus back.' );
 	}

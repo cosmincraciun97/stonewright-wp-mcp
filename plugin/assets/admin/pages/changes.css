@@ -74,3 +74,20 @@
 	inset-inline-end: 0;
 	z-index: var(--sw-z-modal);
 }
+
+/* The Undo dialog: wide enough for a diff, never wider than a 400px screen. */
+.sw-changes-page .sw-ui-dialog.sw-changes-undo {
+	box-sizing: border-box;
+	width: min(44rem, calc(100vw - var(--sw-space-5)));
+	max-width: calc(100vw - var(--sw-space-5));
+	max-height: calc(100dvh - var(--sw-space-5));
+	overflow: auto;
+}
+
+/* Without script the dialog is printed open: centred over the page. */
+.sw-changes-page .sw-changes-undo:not(:modal)[open] {
+	position: fixed;
+	inset: 0;
+	margin: auto;
+	z-index: var(--sw-z-modal);
+}

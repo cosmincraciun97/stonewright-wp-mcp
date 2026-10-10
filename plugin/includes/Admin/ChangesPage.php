@@ -23,14 +23,15 @@ use Stonewright\WpMcp\Security\ChangeLedger;
 /**
  * Lists the change ledger, newest first, and shows one change as a diff.
  *
- * Read-only: the page has no form that posts and registers no admin-post or AJAX action. The filters are a GET
- * form, each row's "View diff" is a link, and the diff is rendered on the server for the one change the address
- * names (`change`), so no request computes or prints more than one diff and no script fetches anything. Every
- * request needs manage_options, checked before the ledger is read. The page reads the ledger through its public
+ * The list and the drawer read only. The filters are a GET form, each row's "View diff" is a link, and the diff is
+ * rendered on the server for the one change the address names (`change`), so no request computes or prints more than
+ * one diff and no script fetches anything. The one action is Undo and Redo (ChangeUndo): a form in a dialog that posts
+ * to admin-post.php with a nonce. Every request needs manage_options, checked before the ledger is read. The page reads the ledger through its public
  * API only and prints diffs through ChangeDiff and DiffView, which mask secrets and never print an image.
  *
  * Query arguments: the filters (family, resource, ability, user, from, to, status, restorable), `paged`,
- * `change` (a change id) and `view` (diff, details or history).
+ * `change` (a change id), `view` (diff, details or history), `undo` (print the Undo dialog open) and, after an Undo,
+ * `undone` (the outcome) and `from` (the change it acted on).
  */
 final class ChangesPage {
 
@@ -51,6 +52,7 @@ final class ChangesPage {
 		add_action( 'init', [ self::class, 'add_to_menu_registry' ] );
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
+		ChangeUndo::register();
 	}
 
 	public static function add_submenu(): void {
@@ -146,7 +148,7 @@ final class ChangesPage {
 			$carry['paged'] = (string) $page;
 		}
 
-		$html  = '';
+		$html  = ChangeUndo::outcome_notice( $source );
 		$panel = '';
 		$asked = isset( $source['change'] ) && is_scalar( $source['change'] ) ? trim( (string) wp_unslash( (string) $source['change'] ) ) : '';
 		if ( '' !== $asked ) {
@@ -155,7 +157,8 @@ final class ChangesPage {
 				$html .= Notice::render( 'warn', __( 'That change is not in the history', 'stonewright' ), __( 'Its record may have been removed by retention, or the address is not a change id.', 'stonewright' ) );
 			} else {
 				$view  = isset( $source['view'] ) && is_scalar( $source['view'] ) ? sanitize_key( (string) wp_unslash( (string) $source['view'] ) ) : 'diff';
-				$panel = ChangeDetail::render( $row, $view, $carry );
+				$undo  = isset( $source['undo'] ) && is_scalar( $source['undo'] ) && '1' === (string) $source['undo'];
+				$panel = ChangeDetail::render( $row, $view, $carry, $undo );
 			}
 		}
 

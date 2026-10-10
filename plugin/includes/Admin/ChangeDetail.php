@@ -29,7 +29,7 @@ use Stonewright\WpMcp\Support\Diff\ChangeDiff;
  * The three views (Diff, Details, History) are all in the dialog. The tabs are links, so without script a tab
  * loads the page with that view shown; with script sw-ui.js switches in place and keeps the choice in the address.
  *
- * Undo is a disabled control until a rollback engine exists.
+ * Undo and Redo are in the footer, with the confirmation dialog that ChangeUndo builds beside the drawer.
  */
 final class ChangeDetail {
 
@@ -42,8 +42,9 @@ final class ChangeDetail {
 	/**
 	 * @param array<string, mixed>  $row   A row of ChangeLedger.
 	 * @param array<string, string> $carry The filters of the list, kept in every link so closing the drawer returns to the same list.
+	 * @param bool                  $undo_open Whether the address asked for the Undo dialog, which is then printed open.
 	 */
-	public static function render( array $row, string $view, array $carry ): string {
+	public static function render( array $row, string $view, array $carry, bool $undo_open = false ): string {
 		$id   = (string) $row['change_id'];
 		$view = in_array( $view, self::VIEWS, true ) ? $view : 'diff';
 
@@ -78,7 +79,8 @@ final class ChangeDetail {
 			)
 		);
 		$body   = Html::element( 'div', [ 'class' => 'sw-ui-dialog__body' ], self::summary( $row ) . $tabs . $panels );
-		$footer = Html::element( 'div', [ 'class' => 'sw-ui-dialog__footer' ], self::undo() );
+		$undo   = ChangeUndo::parts( $row, $carry, $undo_open );
+		$footer = Html::element( 'div', [ 'class' => 'sw-ui-dialog__footer' ], $undo['control'] );
 
 		return Html::element(
 			'dialog',
@@ -92,17 +94,7 @@ final class ChangeDetail {
 				'open'                     => true,
 			],
 			$header . $body . $footer
-		);
-	}
-
-	/**
-	 * The disabled Undo control and the reason, tied together for assistive technology.
-	 */
-	private static function undo(): string {
-		$why = self::PREFIX . '-undo-why';
-
-		return Html::element( 'p', [ 'class' => 'sw-ui-hint', 'id' => $why ], Html::text( __( 'Undo arrives with the rollback engine', 'stonewright' ) ) )
-			. Button::render( __( 'Undo this change', 'stonewright' ), [ 'disabled' => true, 'attrs' => [ 'aria-describedby' => $why ] ] );
+		) . $undo['dialog'];
 	}
 
 	/** @param array<string, mixed> $row */

@@ -148,14 +148,74 @@ test.describe('Changes page fixture', () => {
 		await expect(drawer.locator('#sw-changes-panel-details dt')).toContainText(['Change ID', 'Ability', 'Restorable']);
 	});
 
-	test('Undo is a disabled control that says why, and the page has no form that posts', async ({ page }) => {
+	test('Redo opens the confirmation dialog over the drawer: Cancel has the focus, Escape closes it and focus goes back', async ({ page }) => {
 		await openFixture(page);
-		const undo = page.getByRole('button', { name: 'Undo this change' });
+		const redo = page.getByRole('link', { name: 'Redo this change' });
+		const dialog = page.locator('#sw-changes-undo-dialog');
 
-		await expect(undo).toBeDisabled();
-		await expect(undo).toHaveAttribute('aria-describedby', 'sw-changes-undo-why');
-		await expect(page.locator('#sw-changes-undo-why')).toHaveText('Undo arrives with the rollback engine');
-		await expect(page.locator('form[method="post" i]')).toHaveCount(0);
+		await expect(dialog).toBeHidden();
+		await redo.click();
+
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+		await expect(dialog.getByRole('heading', { level: 2 })).toContainText('Redo change');
+		await expect(dialog).toContainText('This puts code back');
+		await expect(dialog.locator('form[method="post" i]')).toHaveCount(1);
+		await expect(dialog.locator('input[name="_stonewright_nonce"]')).toHaveCount(1);
+		await expect(dialog.locator('.sw-ui-diff')).not.toHaveCount(0);
+
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeHidden();
+		await expect(redo).toBeFocused();
+		await expect(page.locator('[data-sw-changes-drawer]')).toBeVisible();
+	});
+
+	test('the Undo dialog keeps focus inside while it is open and has no axe finding', async ({ page }, testInfo) => {
+		await openFixture(page);
+		await page.getByRole('link', { name: 'Redo this change' }).click();
+		const dialog = page.locator('#sw-changes-undo-dialog');
+		await expect(dialog).toBeVisible();
+
+		for (let press = 0; press < 12; press++) {
+			await page.keyboard.press('Tab');
+			expect(await page.evaluate(() => Boolean(document.activeElement?.closest('#sw-changes-undo-dialog'))), `focus left the dialog at tab ${press}`).toBe(true);
+		}
+		await expectNoAxeViolations(page, testInfo, 'changes-undo-dialog', '#sw-changes-undo-dialog');
+	});
+
+	test('at 400px the Undo dialog fits the screen, scrolls inside itself and nothing scrolls sideways', async ({ page }) => {
+		await page.setViewportSize({ width: 400, height: 800 });
+		await openFixture(page);
+		await page.getByRole('link', { name: 'Redo this change' }).click();
+		const dialog = page.locator('#sw-changes-undo-dialog');
+		await expect(dialog).toBeVisible();
+		const box = await dialog.boundingBox();
+
+		expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+		expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(400);
+		expect(box?.height ?? 0).toBeLessThanOrEqual(800);
+		expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+		for (const target of await dialog.locator('a, button, input').all()) {
+			const size = await target.boundingBox();
+			if (size && size.width > 0) {
+				expect(size.height, 'a target under 24px').toBeGreaterThanOrEqual(24);
+			}
+		}
+	});
+
+	test('without script the Undo link prints the dialog open and the form posts without it', async ({ browser }) => {
+		const context = await browser.newContext({ javaScriptEnabled: false });
+		const page = await context.newPage();
+		await page.route(`${ORIGIN}/**`, async (route) => {
+			const name = new URL(route.request().url()).pathname.replace(/^\//, '');
+			const relative = FILES[name];
+			await route.fulfill(relative ? { status: 200, contentType: MIME[path.extname(relative)] ?? 'application/octet-stream', body: fs.readFileSync(path.join(repository, relative)) } : { status: 404, body: 'not part of the fixture' });
+		});
+		await page.goto(`${ORIGIN}/changes-page.html?change=${OPEN}`, { waitUntil: 'load' });
+
+		await expect(page.locator('#sw-changes-undo-dialog')).toBeHidden();
+		await expect(page.getByRole('link', { name: 'Redo this change' })).toHaveAttribute('href', /undo=1/);
+		await context.close();
 	});
 
 	test('the list lists newest first with a View diff link per row, named after its change', async ({ page }) => {

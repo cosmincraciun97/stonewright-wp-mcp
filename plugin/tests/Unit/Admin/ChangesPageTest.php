@@ -80,7 +80,7 @@ final class ChangesPageTest extends TestCase {
 
 	// ---- Registration and menu --------------------------------------------------------------------
 
-	public function test_it_registers_the_menu_page_its_hooks_and_nothing_that_writes(): void {
+	public function test_it_registers_the_menu_page_its_hooks_and_only_the_undo_action_that_writes(): void {
 		ChangesPage::register();
 		do_action( 'admin_menu' );
 
@@ -95,7 +95,7 @@ final class ChangesPageTest extends TestCase {
 			self::assertArrayHasKey( $hook, $GLOBALS['stonewright_test_actions'], $hook . ' must be registered.' );
 		}
 		foreach ( array_keys( $GLOBALS['stonewright_test_actions'] ) as $hook ) {
-			self::assertStringStartsNotWith( 'admin_post_', (string) $hook, 'The page has no state-changing action.' );
+			self::assertTrue( ! str_starts_with( (string) $hook, 'admin_post_' ) || 'admin_post_stonewright_change_rollback' === $hook, 'The one state-changing action is Undo and Redo.' );
 			self::assertStringStartsNotWith( 'wp_ajax_', (string) $hook );
 		}
 	}
@@ -588,15 +588,15 @@ final class ChangesPageTest extends TestCase {
 
 	// ---- Undo --------------------------------------------------------------------------------------
 
-	public function test_undo_is_a_disabled_control_with_its_reason_and_the_page_has_no_post_form(): void {
+	public function test_the_list_has_no_post_form_and_the_drawer_has_the_undo_dialog_instead_of_the_placeholder(): void {
 		$row  = $this->seed_change( [], [ 'a' => '1' ], [ 'a' => '2' ] );
-		$html = $this->html( [ 'change' => (string) $row['change_id'] ] ) . $this->html();
+		$list = $this->html();
+		$html = $this->html( [ 'change' => (string) $row['change_id'] ] );
 
-		self::assertMatchesRegularExpression( '#<button type="button" class="sw-ui-btn" disabled aria-describedby="sw-changes-undo-why">Undo this change</button>#', $html );
-		self::assertMatchesRegularExpression( '#<p class="sw-ui-hint" id="sw-changes-undo-why">Undo arrives with the rollback engine</p>#', $html );
-		self::assertStringNotContainsString( 'method="post"', $html );
-		self::assertStringNotContainsString( 'admin-post.php', $html );
-		self::assertStringNotContainsString( 'confirmation_token', $html );
+		self::assertStringNotContainsString( 'method="post"', $list, 'The list posts nothing.' );
+		self::assertStringNotContainsString( 'Undo arrives with the rollback engine', $html );
+		self::assertStringNotContainsString( 'disabled aria-describedby="sw-changes-undo-why"', $html );
+		self::assertStringContainsString( 'data-sw-ui-dialog-open="#sw-changes-undo-dialog"', $html );
 	}
 
 	public function test_the_page_wraps_everything_in_the_layer_scope(): void {
