@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-09T22:24:17+00:00",
+    "generated_at": "2026-10-10T08:03:36+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -663,7 +663,7 @@
             "mcp_name": "stonewright-change-restore",
             "kind": "Write",
             "input_schema_hash": "659ac95d31837e95301b56e08c3e7822b91eb61eb2fc4351eb497e1be915ac20",
-            "output_schema_hash": "4cbce3a1bbfd0eee9314ed4daa226e2c5936e3b922e1bf37446f95003fa31ff9",
+            "output_schema_hash": "94be09194562c563837193c53f65ea661b733d9051a690e0bfb85b180b24c4c3",
             "permission_class": "Permissions::edit_post( $post_id ) (compound)",
             "gates": {
                 "backup": true,
@@ -5983,7 +5983,7 @@
             "mcp_name": "stonewright-rescue-rollback",
             "kind": "Write",
             "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
-            "output_schema_hash": "a2b14b69865cc50d5e5c1b1f7759aaf65b7d4c7243fb315eac71491ed9e39c2d",
+            "output_schema_hash": "6badfc81687f06b1d1eec077a9b671482c69ab059a640112135715e7dbcb664e",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

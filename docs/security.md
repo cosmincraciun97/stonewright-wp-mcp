@@ -195,6 +195,7 @@ A change that leaves the site failing is recorded in the change journal and roll
 - A rollback claims its change set under the journal lock before the recipe runs, so a double click, or the page and an ability together, run it once.
 - Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
 - `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
+- A verified change can be rolled back, but a verified change to code (a theme file, a custom-code snippet, a sandbox file or the Customizer CSS) is rolled back only by an administrator at the Rescue page. The ability, the REST route and WP-CLI refuse it with `stonewright_rescue_approval_required`, and a confirmation token does not lift the refusal.
 - The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
 
 See [Rescue](rescue.md).

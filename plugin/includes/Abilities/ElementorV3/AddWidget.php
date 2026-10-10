@@ -146,6 +146,9 @@ final class AddWidget extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				$tree        = ElementorData::read( $post_id );
 				$parent_path = ElementorData::find_path( $tree, (string) $args['parent_id'] );
 				if ( null === $parent_path ) {

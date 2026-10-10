@@ -235,6 +235,9 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 				// Backup before any mutation (AGENTS.md hard rule #3).
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
 				$write_started_at = microtime( true );
 				// Full-page builds can legitimately shrink the previous document after snapshot.

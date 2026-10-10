@@ -50,8 +50,8 @@ final class ChangeJournal {
 	/** Seconds a claim on an entry holds before it is taken to be left over from a rollback that died. */
 	public const CLAIM_TTL = 300;
 
-	/** States in which an entry can still be rolled back, and so claimed. */
-	private const CLAIMABLE_STATES = [ 'armed', 'incident', 'rollback_failed' ];
+	/** States in which an entry can still be rolled back, and so claimed. A verified change can be undone too. */
+	private const CLAIMABLE_STATES = [ 'armed', 'incident', 'rollback_failed', 'verified' ];
 
 	private const SCOPES = [ 'site', 'post', 'light' ];
 
@@ -887,6 +887,7 @@ final class ChangeJournal {
 			'status' => self::short_text( $rollback['status'] ?? '', 24 ),
 			'at'     => isset( $rollback['at'] ) && is_numeric( $rollback['at'] ) ? max( 0, (int) $rollback['at'] ) : 0,
 			'by'     => self::short_text( $rollback['by'] ?? '', 24 ),
+			'user'   => isset( $rollback['user'] ) && is_numeric( $rollback['user'] ) ? max( 0, (int) $rollback['user'] ) : 0,
 			'recipe' => self::short_text( $rollback['recipe'] ?? '', 24 ),
 			'detail' => self::short_text( $rollback['detail'] ?? '', 200 ),
 			'site'   => self::short_text( $rollback['site'] ?? '', 16 ),

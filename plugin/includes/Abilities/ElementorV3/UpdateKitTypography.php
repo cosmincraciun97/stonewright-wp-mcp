@@ -147,6 +147,9 @@ final class UpdateKitTypography extends AbilityKernel {
 				$settings['custom_typography'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 
 				$snapshot_id = Backup::snapshot_post( $kit_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $settings ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
 				}

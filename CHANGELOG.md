@@ -13,6 +13,20 @@ development builds were never stable releases.
 
 ### Added
 
+- Add undo of a verified change. A change that passed its health check can be
+  rolled back from **Stonewright > Activity > Rescue**, which lists every change
+  the journal keeps (the last 50) with a **Roll back** button, and through
+  `stonewright-rescue-rollback`. The rollback keeps the claim that stops a double
+  run, the health check afterwards, the warning about newer changes to the same
+  item, the confirmation token in production-safe mode, the audit row and the
+  receipt. The change is recorded as rolled back, with the user who undid it
+  and the way (page, ability or WP-CLI). A dry run shows the plan. A verified
+  change to a theme file, custom code, a sandbox file or the Customizer CSS is
+  undone only from the Rescue page: the ability, the REST route and WP-CLI
+  answer `stonewright_rescue_approval_required` with the approval URL and stop.
+  An incident or an unverified change to code is rolled back as before.
+- Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
+  of the state before the restore, which undoes it.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
@@ -589,6 +603,22 @@ development builds were never stable releases.
 
 ### Fixed
 
+- `change-restore` no longer drops the snapshot it is restoring when the
+  history of 10 is full: the snapshot of the current state is stored without
+  evicting its target, and a restore whose snapshot cannot be stored is refused
+  with `stonewright_backup_failed`.
+- Twelve Elementor write abilities (`elementor-v3-add-container`,
+  `elementor-v3-add-widget`, `elementor-v3-move-element`,
+  `elementor-v3-remove-element`, `elementor-v3-update-element`,
+  `elementor-v3-build-page-from-spec`, `elementor-v3-update-page-settings`,
+  `elementor-v3-update-kit-colors`, `elementor-v3-update-kit-typography`, the
+  per-widget `elementor-add-*` abilities, `design-spec-to-elementor-v3` and
+  `elementor-v4-migrate`) refuse with `stonewright_backup_failed`, before writing
+  anything and without leaving a write lock held, when the snapshot of the post
+  could not be stored.
+- `blueprint-apply` on an existing page returns the snapshot taken before the
+  title, the status and the content change, so restoring it brings back the page
+  as it was. It takes that snapshot for the FSE engine too.
 - Fix `detach_patterns` on a `blocks-batch-mutate` `insert_section`: the input
   schema accepts `true`, `false`, or a list of pattern ids.
 - Fix section reuse while the setting is `off`: `stonewright-task-start` no

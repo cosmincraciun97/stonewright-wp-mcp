@@ -113,7 +113,13 @@ final class Backup {
 		return true;
 	}
 
-	public static function snapshot_post( int $post_id ): string {
+	/**
+	 * Snapshot a post before a write. The history keeps the newest snapshots up to the limit.
+	 *
+	 * @param list<string> $keep Snapshot ids the history limit must not drop, for a caller that is about to restore one of them.
+	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
+	 */
+	public static function snapshot_post( int $post_id, array $keep = [] ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return '';
@@ -134,7 +140,7 @@ final class Backup {
 		$snapshots                 = get_post_meta( $post_id, self::META_KEY, true );
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
 		$snapshots[ $snapshot_id ] = $payload;
-		$snapshots                 = self::trim( $snapshots );
+		$snapshots                 = self::trim( $snapshots, $keep );
 		self::update_meta( $post_id, self::META_KEY, $snapshots );
 		$readback = self::get_snapshot( $post_id, $snapshot_id );
 		if ( ! is_array( $readback ) || ! self::values_match( $readback, $payload ) || ! hash_equals( Json::hash( $payload ), Json::hash( $readback ) ) ) {
@@ -512,13 +518,28 @@ final class Backup {
 
 	/**
 	 * @param array<string, array<string, mixed>> $snapshots
+	 * @param list<string>                        $keep      Snapshot ids that stay however old they are.
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function trim( array $snapshots ): array {
+	private static function trim( array $snapshots, array $keep = [] ): array {
 		$limit = (int) apply_filters( 'stonewright_backup_history_limit', 10 );
 		if ( count( $snapshots ) <= $limit ) {
 			return $snapshots;
 		}
-		return array_slice( $snapshots, -$limit, null, true );
+		if ( [] === $keep ) {
+			return array_slice( $snapshots, -$limit, null, true );
+		}
+		$excess = count( $snapshots ) - $limit;
+		foreach ( array_keys( $snapshots ) as $id ) {
+			if ( $excess <= 0 ) {
+				break;
+			}
+			if ( in_array( (string) $id, $keep, true ) ) {
+				continue;
+			}
+			unset( $snapshots[ $id ] );
+			--$excess;
+		}
+		return $snapshots;
 	}
 }

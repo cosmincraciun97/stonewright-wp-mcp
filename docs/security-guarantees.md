@@ -267,6 +267,8 @@ open incident with a way back: an ability, an admin page, and a WP-CLI command, 
 the same permission and confirmation rules. A health probe that cannot reach the site is
 reported as unavailable, never as healthy, except that a check which answered before the write and
 cannot be reached after it counts as failed. The journal file never creates a change set or a recipe.
+A verified change can be rolled back, but a verified change to code is rolled back only by an
+administrator on the Rescue page; an agent's call is refused with `stonewright_rescue_approval_required`.
 
 Enforced by:
 

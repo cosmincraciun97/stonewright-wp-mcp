@@ -560,10 +560,33 @@ final class ChangeJournalTest extends TestCase {
 
 	public function test_only_a_known_entry_that_can_still_be_rolled_back_can_be_claimed(): void {
 		self::assertNull( ChangeJournal::claim( 'cs-unknown', 'page' ) );
+		$undone = ChangeJournal::arm( self::spec() );
+		ChangeJournal::settle( $undone['id'], 'rolled_back' );
+
+		self::assertNull( ChangeJournal::claim( $undone['id'], 'page' ), 'A change that was rolled back has nothing left to roll back.' );
+	}
+
+	public function test_a_verified_entry_can_be_claimed_for_an_undo_by_one_caller_only(): void {
 		$verified = ChangeJournal::arm( self::spec() );
 		ChangeJournal::settle( $verified['id'], 'verified' );
 
-		self::assertNull( ChangeJournal::claim( $verified['id'], 'page' ) );
+		$first = ChangeJournal::claim( $verified['id'], 'page' );
+
+		self::assertNotNull( $first );
+		self::assertSame( 'verified', $first['state'], 'Claiming does not change the state.' );
+		self::assertNull( ChangeJournal::claim( $verified['id'], 'ability' ), 'The second caller loses.' );
+		ChangeJournal::release_claim( $verified['id'] );
+		self::assertSame( 'verified', ChangeJournal::get( $verified['id'] )['state'], 'A released claim leaves the change verified.' );
+	}
+
+	public function test_a_rollback_record_keeps_who_ran_it(): void {
+		$entry = ChangeJournal::arm( self::spec() );
+		ChangeJournal::settle( $entry['id'], 'rolled_back', [ 'rollback' => [ 'status' => 'succeeded', 'at' => 5, 'by' => 'admin-page', 'user' => 7, 'recipe' => 'post_snapshot', 'detail' => '', 'site' => 'healthy' ] ] );
+
+		$stored = ChangeJournal::get( $entry['id'] )['rollback'];
+
+		self::assertSame( 7, $stored['user'] );
+		self::assertSame( 'admin-page', $stored['by'] );
 	}
 
 	// -- Newer changes on the same resource ------------------------------------------------------

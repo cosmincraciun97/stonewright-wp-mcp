@@ -79,6 +79,9 @@ final class RemoveElement extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				$tree        = ElementorData::read( $post_id );
 
 				$path = ElementorData::find_path( $tree, (string) $args['element_id'] );
