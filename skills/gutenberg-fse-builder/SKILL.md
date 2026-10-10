@@ -108,6 +108,10 @@ were `is_dynamic: true` **and** are actually server-rendered:
 reported `is_dynamic: true` because they have render callbacks. Still queue
 those. PHP serialize will drop editor-owned HTML.
 
+When the registered type needs the finalizer, `stonewright-blocks-insert` and
+`stonewright-blocks-update` queue the change themselves. They return
+`queued: true` and a `change_id` instead of writing the post.
+
 ## Native-first styling (both builders)
 
 Climb this ladder. Do not skip rungs:
@@ -245,8 +249,8 @@ Do not use `textAlign` as a top-level attribute. Heading alignment is
 ## Theme chrome vs theme.json
 
 Block theme: `stonewright-fse-get-theme-json` is the design contract. Write
-user global styles with `stonewright-fse-update-global-styles` after a
-snapshot and an explicit confirm.
+user global styles with `stonewright-fse-update-global-styles` after an
+explicit confirm. The write snapshots the existing global styles first.
 
 Classic theme with a chrome adapter (Blocksy, Kadence Theme, GeneratePress):
 `stonewright-theme-chrome-get`. On the introspection site all three returned
@@ -392,8 +396,8 @@ the live attachment. Do not invent media ids.
 ## theme.json / global styles
 
 `stonewright/fse-update-global-styles` writes to the active theme's user-level
-theme.json. This is a global change. Always confirm with the user and snapshot
-before calling.
+theme.json. This is a global change. Always confirm with the user before
+calling. The write snapshots the existing global styles first.
 
 `stonewright/fse-get-theme-json` reads the merged theme.json (theme + user).
 Use it to inspect current values before writing.
@@ -423,9 +427,9 @@ Templates are identified by ID in the format `theme//slug` (e.g. `twentytwentyfo
 
 Template parts use `type: "wp_template_part"`. Prefer
 `stonewright/fse-create-template-part` for new parts, then
-`stonewright/fse-write-template-part` for updates. Snapshot with
-`stonewright-site-backup-page` first — these abilities do not snapshot
-internally.
+`stonewright/fse-write-template-part` for updates. Updating an existing
+template or template part snapshots it first. A template that exists only as a
+theme file has no post to snapshot.
 
 `stonewright/fse-write-template` and `stonewright/fse-write-template-part` store
 the template the way WordPress does (post name = slug, `wp_theme` term = theme),
@@ -453,8 +457,8 @@ blocks still go through the finalizer when you write the `wp_block` post.
 `stonewright/blocks-remove` call `Backup::snapshot_post` internally when they
 persist immediately. `stonewright-blocks-finalize-batch` snapshots before
 persist. `stonewright/fse-update-global-styles` and
-`stonewright/fse-update-template` do not; call MCP tool
-`stonewright-site-backup-page` before these.
+`stonewright/fse-update-template` snapshot the existing record before they
+write, so `stonewright-site-backup-page` is not needed before them.
 
 ## Failure modes
 

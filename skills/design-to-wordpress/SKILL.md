@@ -73,7 +73,7 @@ For every supplied Figma node:
 
 ## Required task start
 
-1. `stonewright-task-start` with request, surface, intent.
+1. `stonewright-task-start` with `task`, `surface` and `intent`.
 2. Ask once whether to use Playwright (recommended), another connected browser,
    or none. Ask permission before scanning client tools/private config. If the
    selected provider is missing, ask separate permission before installation or
@@ -256,7 +256,8 @@ For each breakpoint frame in DesignEvidence:
 | Plan has `native_gap` + user approval | Scoped CSS via approval-gated tools + `custom_code_grant` |
 | CSS without gap | Hard fail (`stonewright_spec_invalid`) |
 | Raw CSS/HTML without grant | Hard fail (`stonewright_custom_code_approval_required`) — show `approval_url`, stop, do not strip |
-| HTML widget | Only with explicit `allow_html_widget` / `allow_raw_html` |
+| Elementor HTML widget | Only when the site option `stonewright_allow_html_widgets` is on and the call has `allow_html_widget: true` |
+| Gutenberg raw HTML | Only with `allow_raw_html` (plus `custom_code_grant` for CSS) |
 
 ## Related tools
 

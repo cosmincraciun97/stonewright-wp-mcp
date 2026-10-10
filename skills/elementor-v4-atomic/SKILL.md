@@ -23,15 +23,16 @@ of `stonewright-elementor-v4-update-node` (skip it when
 Before doing anything, verify the feature is enabled:
 
 ```json
-{ "ability": "stonewright/site-capabilities", "args": {} }
+{ "ability": "stonewright/elementor-v4-status", "args": {} }
 ```
 
-Check `feature_flags.elementor_v4_atomic`. If false or absent, stop. Do not
+Check `atomic_flag` (and `v4_available`). If `atomic_flag` is false, stop. Do not
 attempt to enable the flag from this skill; ask the user to toggle it in
 wp-options (`stonewright_elementor_v4_atomic = 1`).
 
-Also check `integrations.elementor_v4`. It reports Elementor >= 4.0.0; the
-Atomic Widgets module gate itself accepts Elementor 3.31+ builds that ship it.
+Also check `integrations.elementor_v4` in `stonewright/site-capabilities`. It
+reports Elementor >= 4.0.0; the Atomic Widgets module gate itself accepts
+Elementor 3.31+ builds that ship it.
 
 ## Native Elementor status
 
@@ -149,7 +150,8 @@ readback, editor reopen, and frontend CSS parity are all proven.
 | `stonewright/design-spec-to-elementor-v4` | Render spec to V4 atomic JSON |
 | `stonewright/design-validate-spec` | Validate spec before render |
 | `stonewright/design-build-spec` | Assemble spec |
-| `stonewright/site-capabilities` | Check gate + integrations |
+| `stonewright/elementor-v4-status` | Check the V4 flag and write readiness |
+| `stonewright/site-capabilities` | Check integrations and native Elementor state |
 | `stonewright/site-backup-page` | Snapshot before an authorized typed write |
 | `stonewright/design-motion-capabilities` | Read live V4 interaction schema and write readiness |
 | `stonewright/elementor-v4-list-classes` | Read Atomic global classes |

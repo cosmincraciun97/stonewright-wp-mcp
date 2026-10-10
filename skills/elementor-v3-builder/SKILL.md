@@ -96,7 +96,7 @@ refs match the current task.
 
 Every write ability that touches post meta calls
 `Backup::snapshot_post( $post_id )` internally and returns a `snapshot_id`.
-If the ability does NOT call it internally (e.g. `update-kit-colors`), call
+If an ability returns no `snapshot_id`, call
 `stonewright/elementor-v3-backup-page` explicitly first.
 
 Never write raw `_elementor_data` with `update_post_meta()` or create revision
@@ -433,7 +433,8 @@ arguments with `stonewright-security-issue-confirmation-token`: every
 `batch-mutate` write that is not a dry run (an `insert_section` copy included),
 `apply-bundle` (one token for the whole call, passed at the top level; there is
 no per-write token), and every `build-page-from-spec` write that is not a dry
-run, in every `mode` (`append` too). Dry runs of `batch-mutate` and
+run, in every `mode` (`append` too). The kit writes `update-kit-colors` and
+`update-kit-typography` need one too. Dry runs of `batch-mutate` and
 `build-page-from-spec` need no token, and a token issued for a dry run does not
 authorize the write. Before calling any of them, emit:
 

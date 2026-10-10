@@ -10,8 +10,8 @@ Returns the merged theme.json object (theme defaults + user overrides).
 
 ## Update global styles (colors + typography)
 
-Always call MCP tool `stonewright-site-backup-page` on a representative page before
-this, and confirm with the user. Changes are site-wide.
+Confirm with the user first. Changes are site-wide. The write snapshots the
+existing global styles before it changes them.
 
 ```json
 {
@@ -56,7 +56,9 @@ this, and confirm with the user. Changes are site-wide.
 { "ability": "stonewright/fse-list-templates", "args": {} }
 ```
 
-Returns an array of `{ "id": "theme//slug", "slug": "...", "title": "...", "type": "wp_template" }`.
+Returns `{ "templates": [...], "template_parts": [...] }`. Each row has `id`
+(`theme//slug`), `slug`, `theme`, `title`, `description`, `source`, `origin`,
+`area` and `type`.
 
 ## Update a template
 

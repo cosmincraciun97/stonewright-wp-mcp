@@ -2,8 +2,9 @@
 
 # @stonewright/visual
 
-Headless workspace foundation for WordPress editors, plus the browser bundle
-that the Stonewright plugin hosts under **Stonewright → Visual Workspace**.
+Headless workspace foundation for WordPress editors, plus a browser bundle.
+The **Stonewright → Visual Workspace** admin page that hosted the bundle is
+not registered in this release.
 
 This package is GPL-2.0-or-later. See [LICENSING.md](../LICENSING.md) for the
 license of each Stonewright component.
@@ -24,12 +25,12 @@ machine before execution, and the dispatcher exposes no JavaScript eval method.
 
 | Path | Contents |
 |---|---|
-| `src/index.ts` | Node entry: dispatcher, discovery, confirmations, guidance |
-| `src/workspace-browser.ts` | Browser entry, built as an IIFE for the admin page |
+| `src/index.ts` | Node entry: the `stonewright-workspace-request` tool |
+| `src/workspace-browser.ts` | Browser entry, built as an IIFE |
 | `src/workspace-ui/` | Workspace controller, adapter status, confirmation panel, evidence panel |
-| `src/gutenberg/`, `src/elementor-v3/`, `src/elementor-v4/` | Editor adapters |
-| `src/page-tool-registry.ts` | Nested tool registry and argument checks |
-| `src/skills/` | Workspace skill definitions |
+| `src/native-blocks/`, `src/elementor-v3/`, `src/elementor-v4/` | Editor adapters (Gutenberg, Elementor V3, Elementor V4) |
+| `src/editor-tools/` | Declared nested tool set and schema checks |
+| `src/session/` | Request router, protocol, backend policy, confirmations and guidance |
 
 ## Build
 
@@ -47,10 +48,8 @@ npm run build
 ## Staging the browser bundle
 
 The plugin loads the bundle from `plugin/assets/visual/workspace-browser.js`.
-That directory is generated and is not committed. Build this package, copy
-`dist/workspace-browser.js` into it, and the admin page picks it up; without it
-the page states that the bundle is missing and prints the build command instead
-of rendering an empty frame.
+That directory is generated and is not committed. Build this package and copy
+`dist/workspace-browser.js` into it before packaging.
 
 `node scripts/package-verify.mjs` warns about a missing bundle in a source
 checkout and fails under `--require-visual-bundle`, which CI and the release

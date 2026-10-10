@@ -49,8 +49,8 @@ Catalog saves and deletes:
 2. Require the task context token.
 3. Preview by default. Apply only with `dry_run: false`.
 4. Use native WooCommerce product objects or allowlisted product taxonomies.
-5. Require a confirmation token for destructive operations in
-   `production-safe` mode.
+5. Require a confirmation token for every applied save or delete in
+   `production-safe` mode. A dry run needs none.
 6. Record an audit entry and return applied-state readback.
 
 Product deletion moves to trash unless `force: true` explicitly requests
@@ -87,11 +87,12 @@ Catalog data and presentation are different mutations:
   discovery is required before writing.
 - `unavailable`: integration was not detected.
 
-Typed adapters currently cover Elementor, Elementor Pro, WooCommerce, and ACF.
+Typed adapters currently cover Elementor, Elementor Pro, WooCommerce, ACF,
+and the GeneratePress, Kadence, and Blocksy themes.
 Discovery-only inventory covers:
 
 - Builders: Bricks, Divi 5, Beaver Builder, Breakdance, WPBakery, Etch, Mosaic.
-- Themes: GeneratePress, Astra, Kadence, Avada, OceanWP, Spectra One.
+- Themes: Astra, Avada, OceanWP, Spectra One.
 - Blocks: GenerateBlocks, Kadence Blocks, Spectra.
 - Forms: WPForms, Contact Form 7, Gravity Forms, Fluent Forms, Ninja Forms,
   Formidable Forms.

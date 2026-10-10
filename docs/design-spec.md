@@ -36,6 +36,10 @@ JSON Schema draft: 2020-12
 | `page` | object | Page-level metadata (title, slug, template, status). May be left out or empty; every field in it is optional. |
 | `tokens` | object | Design tokens: colors, typography, spacing, radius, shadow. |
 | `responsive` | object | Breakpoint pixel values for mobile, tablet, and desktop. |
+| `style_policy` | string | `default`, `strict`, `pixel`, or `pixel-perfect`. With `strict`, decorative styles such as borders, radius, shadows, and filters need measured design provenance. |
+| `assets` | array | Asset records. Each has `id` and `url`, and may have `attachment_id`, `altText`, `width`, `height` and `mimeType`. |
+| `breakpoints` | array | Named breakpoints. Each has `id`, and may have `label` and `maxWidth`. |
+| `meta` | object | Free-form metadata. |
 
 ---
 
@@ -53,7 +57,7 @@ Traceability metadata. Not required but recommended when the spec was generated 
 
 | Field | Type | Values |
 |---|---|---|
-| `type` | string | `image`, `html`, `manual` |
+| `type` | string | `figma`, `image`, `html`, `manual` |
 | `url` | string (URI) | Source URL |
 | `node_id` | string | Optional external source node ID |
 | `captured_at` | string (date-time) | ISO 8601 timestamp |
@@ -159,6 +163,7 @@ An array of section objects. Sections map to Elementor V3 sections/containers or
 |---|---|---|---|
 | `id` | string | required | Unique identifier within the spec. Used for renderer mapping. |
 | `name` | string | — | Human-readable label for debugging. |
+| `role` | string | — | Section role: `hero`, `content`, `cta`, `footer`, `pricing`, `features`, `testimonials`, `gallery`, `contact` or `faq`. |
 | `width` | string | `"boxed"` | `full`, `boxed`, or `narrow`. |
 | `layout` | string or object | `"stack"` | `stack`, `row`, `grid`, legacy `horizontal`/`vertical`, or a non-empty `desktop`/`tablet`/`mobile` map of those values. |
 | `direction` | string or object | taken from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
@@ -223,6 +228,8 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 | `card` | `blocks` | Card container with nested blocks. |
 | `row` | `blocks` | Horizontal flex container with nested blocks. |
 | `column` | `blocks` | Vertical column for nesting inside a `row`. |
+
+The Elementor V3 renderer also accepts `image-box`, `icon-box`, `divider`, `container`, `text-editor`, `image-gallery` (`gallery`), `countdown`, `nav-menu`, `icon-list`, `social-icons`, `tabs`, `accordion`, `toggle`, `progress-bar`, `counter`, `testimonial`, `slides`, `form` and `form-placeholder`. The Gutenberg renderer supports `heading`, `paragraph`, `image`, `button`, `spacer`, `separator`, `row`, `column` and `card`. It reports any other type as an `unsupported_node` diagnostic.
 
 The Elementor V4 renderer supports the `heading`, `paragraph`, `image`,
 `button`, `separator`, `icon`, `row`, `column`, and `card` block types. A block
