@@ -90,6 +90,18 @@ Three modes are stored in the `stonewright_mode` option:
 | `staging` | Same as development; useful for labelling deployments. |
 | `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
 
+A site that has no stored mode gets one from the WordPress environment type
+(`WP_ENVIRONMENT_TYPE` or `wp_get_environment_type()`): `production` gives
+`production-safe`, `staging` gives `staging`, and anything else (`development`,
+`local`) gives `development`. This happens on activation, on the first request
+of a site that the plugin was not activated on individually (a sub-site after a
+network activation), when a site is created on a network where the plugin is
+network-active, and when the plugin version changes on a site that has no mode.
+A stored mode is never replaced. On a network activation WordPress runs the
+activation once, on the main site, so every other site gets its own mode and its
+own tables and keys on its first request; each site still turns **AI abilities**
+on in its own settings.
+
 ### MCP tool surface
 
 `stonewright_mcp_surface` controls how many abilities appear on the public MCP

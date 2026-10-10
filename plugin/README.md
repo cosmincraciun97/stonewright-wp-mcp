@@ -117,6 +117,10 @@ npm test
 | `staging` | All enabled abilities are available with extra operational caution. |
 | `production-safe` | Destructive abilities require confirmation tokens. |
 
+A site with no stored mode starts in the mode of its environment type: `production` gives
+`production-safe`, `staging` gives `staging`, anything else gives `development`. This includes
+every site of a network activation, on its first request.
+
 ### `stonewright_companion_url`
 
 Internal URL of the companion Node server. Required for WP-CLI abilities:

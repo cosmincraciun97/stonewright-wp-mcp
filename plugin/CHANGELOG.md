@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Give every site of a multisite network the mode its environment type calls
+  for. After a network activation only the main site got an initial mode; every
+  other site read `development` until an administrator saved one, so a sub-site
+  of a production network ran without confirmation tokens. A site now gets the
+  mode and, if the plugin never ran there, the `essential` tool surface on its
+  first request, when a site is created on a network where the plugin is
+  network-active, and on the first request after an update. A stored value is
+  never replaced; the same function now sets them on activation. This changes
+  behavior on production networks: a sub-site that has no stored mode, which ran
+  as `development`, runs as `production-safe` after the update when the
+  environment type is `production` (as `staging` for `staging`). Destructive
+  abilities there then require a confirmation token. To keep the old behavior
+  on a site, save `development` as its mode in **Setup > Settings**.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added
