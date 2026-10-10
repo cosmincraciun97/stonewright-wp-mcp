@@ -180,6 +180,18 @@ final class ErrorEnvelopeTest extends TestCase {
 		self::assertSame( 'Busy.', ErrorEnvelope::with_agent_visible_payload( $negative )->get_error_message() );
 	}
 
+	public function test_a_blocked_failure_that_must_not_be_retried_says_so_in_the_message(): void {
+		$final = new \WP_Error( 'x', 'Refused.', [ 'retryable' => false, 'execution_status' => 'blocked' ] );
+		self::assertSame( 'Refused. {"retryable":false,"execution_status":"blocked"}', ErrorEnvelope::with_agent_visible_payload( $final )->get_error_message() );
+
+		// A blocked input-shape failure that can be fixed and retried keeps its message as it was.
+		$fixable = new \WP_Error( 'x', 'Fix it.', [ 'retryable' => true, 'execution_status' => 'blocked' ] );
+		self::assertSame( 'Fix it. {"retryable":true}', ErrorEnvelope::with_agent_visible_payload( $fixable )->get_error_message() );
+
+		$failed = new \WP_Error( 'x', 'Failed.', [ 'retryable' => false, 'execution_status' => 'failed' ] );
+		self::assertSame( 'Failed. {"retryable":false}', ErrorEnvelope::with_agent_visible_payload( $failed )->get_error_message() );
+	}
+
 	/** @return array<string, array{0:string}> */
 	public static function rescue_error_codes(): array {
 		return [

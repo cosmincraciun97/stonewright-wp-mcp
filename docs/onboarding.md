@@ -220,8 +220,8 @@ Plugin and Direct writes reject high-confidence credential material. Do not put
 site URLs, usernames, Application Passwords, tokens, private project names, or
 client configuration into memory or skills.
 
-If the user explicitly asks Stonewright to remember a correction, call
-`stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
+When the user corrects the agent, a mistake repeats, or the user explicitly asks
+Stonewright to remember a correction, call `stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
 legacy Direct `text`). Success requires `verified:true` after readback; report
 `memory_id`, `scope`, and `storage_ref`. Never claim memory was stored without
 that receipt.

@@ -299,7 +299,7 @@ final class BlocksBatchMutate extends AbilityKernel {
 						];
 						return $this->error(
 							'batch_operation_failed',
-							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ),
+							__( 'Gutenberg batch validation failed. No post content was written.', 'stonewright' ) . SectionReuseSetting::refusal_note( (string) $result->get_error_code() ),
 							array_merge(
 								[
 									'status'          => 400,

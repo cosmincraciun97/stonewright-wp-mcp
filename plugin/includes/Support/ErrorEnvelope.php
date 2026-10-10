@@ -114,6 +114,10 @@ final class ErrorEnvelope {
 		if ( array_key_exists( 'retryable', $data ) ) {
 			$payload['retryable'] = (bool) $data['retryable'];
 		}
+		// A refusal the caller must not retry says it was blocked, not failed.
+		if ( false === ( $data['retryable'] ?? null ) && 'blocked' === ( $data['execution_status'] ?? null ) ) {
+			$payload['execution_status'] = 'blocked';
+		}
 		$retry_after = self::retry_after( $data );
 		if ( null !== $retry_after ) {
 			$payload['retry_after'] = $retry_after;

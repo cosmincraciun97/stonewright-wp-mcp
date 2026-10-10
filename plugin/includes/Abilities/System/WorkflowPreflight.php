@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
@@ -41,7 +42,7 @@ final class WorkflowPreflight extends AbilityKernel {
 	/**
 	 * Compact JSON byte budget for task-start / workflow-preflight.
 	 */
-	private const COMPACT_PAYLOAD_MAX_BYTES = 3600;
+	private const COMPACT_PAYLOAD_MAX_BYTES = 3750;
 
 	/**
 	 * Compact anti-slop summaries stay short so visual task-start fits the budget.
@@ -526,6 +527,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				(bool) ( $profile['is_write'] ?? false ) ? 'pass_context_token_to_writes' : null,
 			] ) ),
 			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
+			'learning'         => AgentHints::LEARNING_TRIGGER,
 		];
 		if ( [] !== $compact_context['expertise_refs'] ) {
 			// The body tool is the same for every ref, so it is named once here
