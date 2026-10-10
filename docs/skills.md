@@ -30,6 +30,11 @@ The companion package ships `companion/skills-builtin/` and seeds them into
 | `elementor-direct-editing` | Local WP-CLI Elementor data edit protocol |
 | `gutenberg-authoring` | Compose + validate block content |
 | `no-hallucination-protocol` | Read before write; fix errors; never invent schemas |
+| `content-model-additive` | Add or edit one content type at a time; never full-import CPT UI options on a live site |
+| `http-first-admin` | Automate wp-admin through REST and form POST with nonces; browser clicks are the last resort |
+| `no-ad-hoc-plugins` | Never scaffold, zip, upload, or activate a custom plugin as a workaround |
+| `remote-direct-tool-path` | For remote or live Direct work, use remote REST and admin HTTP only, never local WP-CLI or MySQL |
+| `single-environment-scope` | Change only the site or environment the user named |
 
 User edits to a seeded skill file are **never overwritten** on upgrade. Deleting
 a builtin file restores it on the next seed.
@@ -43,9 +48,15 @@ Each skill has a master active toggle and two exposure flags:
 
 | Skill | Directory | Description |
 |---|---|---|
+| `stonewright` | `skills/stonewright/` | Entrypoint: first calls, site policy from task start, profile switching, and routing to the other skills |
+| `agent-operating-rules` | `skills/agent-operating-rules/` | Permanent operating rules for every agent: native-first styling, custom-code grants, write closure, verified learning |
 | `design-to-wordpress` | `skills/design-to-wordpress/` | Build pages from design references, images, briefs, or manual specs |
 | `content-model-integrations` | `skills/content-model-integrations/` | Work with ACF, ACPT, Meta Box, ASE, Pods, custom fields, CPTs, taxonomies, and option pages |
+| `acf-build-fields` | `skills/acf-build-fields/` | Build ACF field groups, repeaters, flexible content, options pages, and field values |
+| `forms-inventory` | `skills/forms-inventory/` | List the forms a form plugin holds, find their embed tags or blocks, and embed one; read and embed only |
+| `seo-optimize` | `skills/seo-optimize/` | Edit SEO titles, descriptions, canonicals, robots, and focus keywords with Yoast, Rank Math, or All in One SEO |
 | `elementor-v3-builder` | `skills/elementor-v3-builder/` | Build and edit Elementor V3 pages |
+| `elementor-site-clone` | `skills/elementor-site-clone/` | Clone an Elementor page or section into a new draft with typed tools |
 | `elementor-v4-atomic` | `skills/elementor-v4-atomic/` | Experimental Elementor V4 atomic workflow |
 | `gutenberg-fse-builder` | `skills/gutenberg-fse-builder/` | Build Gutenberg/FSE output from a Design Spec |
 | `blocksy-build-page` | `skills/blocksy-build-page/` | Build Blocksy pages from live block schemas and theme chrome |
@@ -103,7 +114,9 @@ Markdown with provenance and a content hash.
 
 Packaged industry landing-page playbooks (`Landing page — Agency`, SaaS, Law
 firm, Healthcare, Nonprofit, Real estate, Restaurant) are no longer shipped.
-Already-seeded playbook rows for those slugs are retired on seed. Presence-gated
+Already-seeded playbook rows for those slugs are retired on seed. The task
+playbooks in `skills/playbooks/<name>.md` (for example `playbook-about-page`)
+ship with source `playbook`. Presence-gated
 Blocksy, Kadence, GenerateBlocks, and Spectra build-page skills remain.
 
 **Editor.** Creating and editing a skill is a nonce-checked form that works

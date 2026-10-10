@@ -84,9 +84,9 @@ count.
 - Free-text redaction masks a value written after a credential word ("the token
   is ...") but keeps ordinary prose readable, so "The refresh token is no longer
   valid." stays as written.
-- The view links (**All**, **Errors**, **Retryable**, **Blocked / Safety**,
+- The view links (**All**, **Errors**, **Retryable**, **Blocked or safety**,
   **Auth**, **Resolved**) show the number of rows each one lists. **Errors**,
-  **Retryable**, **Blocked / Safety**, and **Auth** list problems only, so a
+  **Retryable**, **Blocked or safety**, and **Auth** list problems only, so a
   successful sign-in appears under **All** but not under **Auth**.
 - Incident totals count every incident, not only the most recent page.
 - The **Recurring errors** panel lists patterns that failed more than once. A

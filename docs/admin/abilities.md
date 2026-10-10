@@ -26,26 +26,23 @@ abilities that are currently enabled and not blocked by the master toggle.
 
 | Category | Example abilities |
 |---|---|
-| `security` | confirmation token, audit log |
-| `site` | settings read/write |
+| `security` | confirmation token, audit log, Rescue status and rollback |
+| `site` | site information and health, change log and restore, section reuse |
+| `settings` | settings read/write |
 | `content` | post and page CRUD |
 | `media` | upload, read metadata |
-| `gutenberg` | block operations |
-| `gutenberg` finalizer | `blocks-queue-change`, `blocks-finalize-batch`, `blocks-finalizer-runtime` |
+| `gutenberg` | block operations, `blocks-queue-change`, `blocks-finalize-batch`, `blocks-finalizer-runtime`, GenerateBlocks / Kadence / Spectra library introspection |
 | `patterns` | pattern library |
 | `fse` | full-site editing templates |
 | `elementor` | element CRUD, page structures |
 | `theme-builder` | Elementor templates and display conditions |
 | `content-model` | CPT/ACF-backed Loop Grid workflow |
-| `blocks` | GenerateBlocks / Kadence / Spectra library introspection |
 | `design` | spec validate, renderer selection |
 | `wp-cli` | status, discovery, command run |
 | `memory` | memory CRUD |
-| `system` | abilities list, instructions get |
-| `system` discover-execute | `discover-abilities`, `get-ability-info`, `execute-ability` |
-| `skills` | skill list, read, and save |
+| `system` | abilities list, instructions get, `discover-abilities`, `get-ability-info`, `execute-ability`, skill list, read, and save |
 | `runtime` | direct WordPress PHP snippets (`full` profile only) |
-| `themes` chrome | `theme-chrome-get`, `theme-chrome-update` |
+| `themes` | `theme-chrome-get`, `theme-chrome-update` |
 | `sandbox` | sandbox file lifecycle |
 
 ---
@@ -109,11 +106,12 @@ required, description). A failed request says so and offers **Try again**.
 When `stonewright_enabled` is `false`, a warning banner replaces normal
 interaction at the top of the page:
 
-> **Master toggle is OFF** — these abilities are registered but the MCP server
-> rejects calls. Enable it in **Stonewright → Setup → Settings**.
+> **AI abilities are switched off** — You can still set up abilities here, but
+> calls from AI clients are refused until you switch them on. Only ping answers.
 
-Individual toggles still work (you can pre-configure the disabled list) but
-no AI calls will go through until the master toggle is turned back on.
+The callout has an **Open Setup** button. Individual toggles still work (you can
+pre-configure the disabled list) but no AI calls will go through until the
+master toggle is turned back on.
 
 The `AbilityRegistry::enabled_abilities()` method returns the currently public
 set after essential tools mode and per-ability disables are applied. The MCP
@@ -138,9 +136,8 @@ the toolbar says "12 of 397 abilities". When nothing matches, an empty state nam
 the search and offers **Clear search**. Press `/` to focus the field and Escape to
 clear it.
 
-### Read-only mode
+### Who can open the page
 
-If the current user lacks `manage_options`, the toggle checkboxes are replaced
-with plain text labels. No form is rendered. This applies when a lower-privilege
-user can view the page but not change settings (e.g. an Editor role with a
-custom cap grant).
+The page needs `manage_options`. A user without it gets "You do not have
+permission to access this page." and sees no switches. The toggle and bulk
+routes and the form handlers check the same capability.

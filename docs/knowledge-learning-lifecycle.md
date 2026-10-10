@@ -62,9 +62,10 @@ disagreement is reported as a conflict instead of being silently merged.
 Runtime knowledge lives in versioned WordPress tables, not in the plugin
 directory, so plugin updates do not erase site learning.
 
-The Memory admin page separates User Rules, Project Rules, Verified Repairs,
-Unresolved Incidents, Audit Feedback, and Reference entries. It shows backend,
-origin, visibility, lifecycle state, verification state, and last retrieval.
+The Memory admin page has views for User, Project, Verified repairs, Unresolved
+incidents, Incident lifecycle, Audit feedback, and Reference entries. An entry
+shows backend, origin, visibility, lifecycle state, verification state, and last
+retrieval.
 Legacy audit feedback is reclassified only through the explicit migration
 action after the operator confirms an export; migration preserves historical
 rows and never invents an active rule.
