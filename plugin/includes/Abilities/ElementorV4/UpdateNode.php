@@ -358,7 +358,7 @@ final class UpdateNode extends AbilityKernel {
 		if ( $failed > 0 ) {
 			return $this->error(
 				'batch_operation_failed',
-				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ) . SectionReuseSetting::refusal_note( (string) ( $items[ $first ]['error']['code'] ?? '' ) ),
+				sprintf( /* translators: 1: operation index, 2: action */ __( 'Elementor V4 batch operation %1$d (%2$s) failed. No page data was written.', 'stonewright' ), $first, (string) ( $operations[ $first ]['action'] ?? '' ) ) . SectionReuseSetting::refusal_note( (string) ( $items[ $first ]['error']['code'] ?? '' ) ) . ( ElementorSectionInserter::UNSUPPORTED_DROP_CODE === (string) ( $items[ $first ]['error']['code'] ?? '' ) ? ' ' . (string) $items[ $first ]['error']['message'] : '' ),
 				array_merge(
 					[
 						'status'        => 400,
@@ -479,6 +479,10 @@ final class UpdateNode extends AbilityKernel {
 		// The live option, not the tool list: a client may keep a stale list.
 		if ( ! SectionReuseSetting::is_enabled() ) {
 			return SectionReuseSetting::off_error();
+		}
+		$unsupported = ElementorSectionInserter::unsupported_drop_settings( $operation, 'an Elementor V4 section' );
+		if ( null !== $unsupported ) {
+			return $unsupported;
 		}
 		$payload = PortableSection::validate( $operation['section'] ?? null, Builder::ELEMENTOR_V4 );
 		if ( $payload instanceof \WP_Error ) {

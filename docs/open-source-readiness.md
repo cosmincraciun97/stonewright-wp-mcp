@@ -53,6 +53,7 @@ npm run build
 Pop-Location
 
 node scripts/check-docs-freshness.mjs
+node scripts/check-license-metadata.mjs
 node scripts/check-public-hygiene.mjs --require-private-terms
 node scripts/package-verify.mjs --strict-vendor
 ```

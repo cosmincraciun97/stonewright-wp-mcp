@@ -9,6 +9,7 @@ workflows with operator controls.
 
 - [Getting started with Claude Code](getting-started/claude-code.md)
 - [Getting started with Codex](getting-started/codex.md)
+- [Getting started with Cursor](getting-started/cursor.md)
 - [Getting started with Antigravity](getting-started/antigravity.md)
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
@@ -46,7 +47,7 @@ workflows with operator controls.
 
 | Section | What is in it |
 |---|---|
-| `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, and Antigravity |
+| `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, Cursor, and Antigravity |
 | `admin/` | Navigation, Overview, Configuration, Troubleshoot, Context, Design, client connection, abilities, and admin surface guides |
 | `elementor/` | Elementor widget registry data and related references |
 | `releases/` | Release notes, tagging checklist, client certification and acceptance templates |
@@ -57,7 +58,7 @@ workflows with operator controls.
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
-| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, and its limits |
+| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, the change history with undo and redo, and its limits |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

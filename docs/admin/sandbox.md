@@ -127,11 +127,13 @@ confirmation token.
 
 ### Confirmation token in production-safe mode
 
-When `stonewright_mode` is `production-safe`, the Activate, Delete, and
-Enable actions require a `confirmation_token` obtained from the
-`stonewright/security-issue-confirmation-token` MCP ability. Attempting the
-action without a valid token returns an error. This forces a deliberate
-decision rather than an accidental click.
+When `stonewright_mode` is `production-safe`, the sandbox MCP abilities that
+change files (write, edit, activate, deactivate, disable or enable, and delete)
+require a `confirmation_token` obtained from the
+`stonewright/security-issue-confirmation-token` ability. Attempting the
+call without a valid token returns an error. This forces a deliberate decision
+rather than an accidental call. The buttons on this page are a person's own
+action: they need `manage_options` and the page nonce, not a token.
 
 ---
 
@@ -167,8 +169,8 @@ handler calls `SandboxFiles::write()` which enforces size and name rules.
 
 ### Creating a new file
 
-The **+ New File** button reveals a hidden form. Enter a filename (e.g.
-`my-hook.php`) and initial contents, then click **Create File**. The new
+The **New file** button opens the form (`?tab=drafts&new=1`). Enter a filename (e.g.
+`my-hook.php`) and initial contents, then click **Create file**. The new
 draft appears in the table with status **Draft**.
 
 ---
@@ -194,5 +196,5 @@ analysis before copying back to `mu-plugins/`).
 Some plugins auto-load every file placed in a designated directory. Stonewright
 deliberately does not. A file in `wp-content/stonewright-sandbox/` never
 executes until an admin explicitly clicks **Activate**, the static analysis
-gate passes, and (in production-safe mode) a confirmation token is provided.
+gate passes, and (for an agent in production-safe mode) a confirmation token is provided.
 This separation between "draft storage" and "execution" is intentional.

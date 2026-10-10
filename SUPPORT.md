@@ -20,7 +20,7 @@ Use the **Feature request** issue form. Describe the problem, proposed behavior,
 
 ## Usage questions
 
-Prefer GitHub Issues with a clear question label, or Discussions if the maintainer enables them. For security-sensitive questions, use the private channel in [SECURITY.md](SECURITY.md).
+Use the **Compatibility or integration report** issue form for questions about a client, host, or stack, or Discussions if the maintainer enables them. The issue forms do not allow a blank issue. For security-sensitive questions, use the private channel in [SECURITY.md](SECURITY.md).
 
 ## Security vulnerabilities
 

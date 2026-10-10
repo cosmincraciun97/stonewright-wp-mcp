@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T13:13:35+00:00",
+    "generated_at": "2026-10-10T21:59:32+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -3723,7 +3723,7 @@
             "mcp_name": "stonewright-elementor-css-regenerate",
             "kind": "Write",
             "input_schema_hash": "eb7718421af5102b2b5ed009e4f750b8bfee85935aefcde10d188f481f774e09",
-            "output_schema_hash": "6f32b895a9c3fb7560cae4afa8d4794866f88d0d1c6f9b22036f1630e25b9cd8",
+            "output_schema_hash": "22398ba0a6935a83e2f465cfb294f2e1bf14b7bc4a62c50c44b96b3e4be87a37",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -4042,8 +4042,8 @@
             "ability_name": "stonewright/elementor-v3-batch-mutate",
             "mcp_name": "stonewright-elementor-v3-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "87a7fbdf29d6d16fd7c0658372f1f3abff78fcb082174b81ec39113271a0e495",
-            "output_schema_hash": "3b6b3c9a48ef233da50587bfa5b9ed5c721f41ecaaf326ddd28a9b110ca42c3e",
+            "input_schema_hash": "cbb9f38496b575bfeef64a6fb98b2a5347d4b36c39bc2ee1b6e13821940b2a56",
+            "output_schema_hash": "633fe2cd1bff03cc39bf63f0833dd3b6c5eba117f081e3ec159b065f9893c851",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": true,
@@ -6282,7 +6282,7 @@
             "ability_name": "stonewright/section-reuse-extract",
             "mcp_name": "stonewright-section-reuse-extract",
             "kind": "Read",
-            "input_schema_hash": "af47153758e6df48da008c7cbaf5fbe8639399ddda3f08ddbef9d316d1f1ec17",
+            "input_schema_hash": "35d476d42a9d397a6cd7b3054d2085b533f2e9069483fb386e718f3f4af4049c",
             "output_schema_hash": "62a30c775de8c5840c6b58f4b0bca6d14c30db136461b7fcf0d77f0afb9db444",
             "permission_class": "Permissions::edit_post( $post_id )",
             "gates": {

@@ -9,8 +9,8 @@ they read nearby Gemini config paths.
 Antigravity and other strict MCP clients work best when startup exposes a small,
 stable tool surface. Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` first. It keeps
 Stonewright under the strict startup budget while preserving the tools agents
-need for setup, diagnostics, composite WordPress writes, php-execute, tokenized
-WP-CLI, and long-running jobs.
+need for setup, diagnostics, composite WordPress writes, tokenized WP-CLI batches,
+and long-running jobs.
 
 Switch to a specialist profile such as `elementor`, `acf`, `cpt-ui`, `fse`, or
 `wp cli` only when a task needs a narrower advanced surface. Use `full` only for
@@ -101,7 +101,6 @@ stonewright-setup-profile
 stonewright-wordpress-mcp-status
 stonewright-task-start
 stonewright-wp-cli-status
-stonewright-wp-cli-run
 stonewright-wp-cli-batch-run
 stonewright-wp-cli-job-start
 stonewright-wp-cli-job-status
@@ -129,9 +128,9 @@ For real work:
 Use Stonewright for this WordPress task. Start with
 stonewright-task-start. Keep
 STONEWRIGHT_MCP_TOOL_PROFILE=low-tools unless the preflight response says a
-specialist profile is required. Use stonewright-php-execute for short runtime
-snippets, batch or composite tools before many small calls, and tokenized
-stonewright-wp-cli-* tools for WP-CLI work.
+specialist profile is required. Use batch or composite tools before many small
+calls, and tokenized stonewright-wp-cli-* tools for WP-CLI work.
+stonewright-php-execute is available on the full profile only.
 ```
 
 ## Troubleshooting
@@ -139,10 +138,10 @@ stonewright-wp-cli-* tools for WP-CLI work.
 | Symptom | Fix |
 |---|---|
 | `stonewright` does not appear in `/mcp` | Confirm the server is in `~/.gemini/config/mcp_config.json`, save, then refresh installed MCP servers. |
-| Server appears but WordPress tools are missing | Call `stonewright-wordpress-mcp-status` and check `STONEWRIGHT_WP_URL`, username, and Application Password. |
+| Server appears but WordPress tools are missing | Call `stonewright-wordpress-mcp-status`, then run `stonewright connect verify site-a` and check the alias with `stonewright connect list`. |
 | Too many tools or startup failure | Confirm `STONEWRIGHT_MCP_TOOL_PROFILE` is `low-tools`, not `essential` or `full`. |
 | WP-CLI helpers missing a local site | Add `STONEWRIGHT_WP_ROOT` pointing at the WordPress root with `wp-config.php`. |
-| Agent tries shell `wp ...` commands | Restart the task and tell it to use `stonewright-wp-cli-status`, `stonewright-wp-cli-run`, or `stonewright-wp-cli-batch-run` instead. |
+| Agent tries shell `wp ...` commands | Restart the task and tell it to use `stonewright-wp-cli-status` or `stonewright-wp-cli-batch-run` instead. |
 
 ## Skill Search Duplicates In Codex
 

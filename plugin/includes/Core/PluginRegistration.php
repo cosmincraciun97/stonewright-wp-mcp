@@ -258,6 +258,8 @@ final class PluginRegistration {
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
 		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
 		LegacyMirrorCleanup::run();
+		// A schema captured by an earlier version may lack controls the new one reads.
+		WidgetSchemaRepository::invalidate();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 

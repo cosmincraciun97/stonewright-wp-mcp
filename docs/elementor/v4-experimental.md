@@ -150,9 +150,10 @@ wp option update stonewright_elementor_v4_atomic 1
 
 Primary test files:
 
-- `plugin/tests/Integration/ElementorWriterTest.php`: feature-flag gate,
-  class and variable round-trips, backup assertion before each write, and the
-  `RenderFromSpec` validation rejection path.
+- `plugin/tests/Unit/Elementor/V4FeatureGateTest.php`: the feature-flag gate and
+  the missing Atomic Widgets module.
+- `plugin/tests/Unit/Elementor/V4UpdateNodeTest.php`: dry run, snapshot and write,
+  and the structured errors of `elementor-v4-update-node`.
 - `plugin/tests/Unit/ElementorV4/RenderFromSpecTest.php`: a failed backup
   snapshot aborts before any Elementor write.
 - `plugin/tests/Unit/Elementor/V4/AtomicRendererTest.php`: typed-envelope

@@ -198,43 +198,46 @@ if (requirePrivateTerms && privateTerms.length === 0) {
 
 walk(scanRoot);
 
+// Git lists every object of the repository on one stream; a long history is far larger than the default
+// 1 MB buffer of a child process, so the scan raises the limit instead of failing on a large repository.
+const GIT_OUTPUT_LIMIT = 512 * 1024 * 1024;
+
+function gitOutput(args, purpose) {
+	const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: GIT_OUTPUT_LIMIT });
+	if (result.status !== 0) {
+		const reason = result.error ? result.error.code || 'spawn error' : `exit code ${result.status}`;
+		process.stderr.write(`Unable to scan Git history for private terms: could not ${purpose} (${reason}).\n`);
+		process.exit(2);
+	}
+	return result.stdout;
+}
+
 if (scanHistory) {
 	if (scanRoot !== repoRoot) {
 		process.stderr.write('--history can only scan the repository root.\n');
 		process.exit(2);
 	}
 	requireCompleteHistory();
+	const objects = gitOutput(['rev-list', '--objects', '--all'], 'list the objects of every ref')
+		.split(/\r?\n/)
+		.filter((line) => line.includes(' '))
+		.map((line) => line.slice(line.indexOf(' ') + 1).toLocaleLowerCase('en-US'));
+	const refs = gitOutput(['for-each-ref', '--format=%(refname)'], 'list the refs')
+		.split(/\r?\n/)
+		.filter(Boolean)
+		.map((ref) => ref.toLocaleLowerCase('en-US'));
 	for (const [index, term] of privateTerms.entries()) {
 		const escaped = escapeRegex(term);
-		const contentResult = spawnSync(
-			'git',
+		const content = gitOutput(
 			['log', '--all', '--regexp-ignore-case', `-G${escaped}`, '--format=%H', '--'],
-			{ cwd: repoRoot, encoding: 'utf8' },
+			`search the history for private term #${index + 1}`,
 		);
-		const messageResult = spawnSync(
-			'git',
+		const messages = gitOutput(
 			['log', '--all', '--regexp-ignore-case', '--fixed-strings', `--grep=${term}`, '--format=%H'],
-			{ cwd: repoRoot, encoding: 'utf8' },
+			`search the commit messages for private term #${index + 1}`,
 		);
-		const objectResult = spawnSync('git', ['rev-list', '--objects', '--all'], {
-			cwd: repoRoot,
-			encoding: 'utf8',
-		});
-		const refResult = spawnSync('git', ['for-each-ref', '--format=%(refname)'], {
-			cwd: repoRoot,
-			encoding: 'utf8',
-		});
-		if (
-			contentResult.status !== 0 ||
-			messageResult.status !== 0 ||
-			objectResult.status !== 0 ||
-			refResult.status !== 0
-		) {
-			process.stderr.write('Unable to scan Git history for private terms.\n');
-			process.exit(2);
-		}
 		const commitMatches = new Set(
-			`${contentResult.stdout}\n${messageResult.stdout}`
+			`${content}\n${messages}`
 				.trim()
 				.split(/\r?\n/)
 				.filter(Boolean),
@@ -243,16 +246,11 @@ if (scanHistory) {
 			fail(`Git history contains private term #${index + 1} in ${commitMatches.size} commit(s)`);
 		}
 		const lowerTerm = term.toLocaleLowerCase('en-US');
-		const pathMatches = objectResult.stdout
-			.split(/\r?\n/)
-			.filter((line) => line.includes(' '))
-			.filter((line) => line.slice(line.indexOf(' ') + 1).toLocaleLowerCase('en-US').includes(lowerTerm));
+		const pathMatches = objects.filter((path) => path.includes(lowerTerm));
 		if (pathMatches.length > 0) {
 			fail(`Git history contains private term #${index + 1} in ${pathMatches.length} path(s)`);
 		}
-		const refMatches = refResult.stdout
-			.split(/\r?\n/)
-			.filter((ref) => ref.toLocaleLowerCase('en-US').includes(lowerTerm));
+		const refMatches = refs.filter((ref) => ref.includes(lowerTerm));
 		if (refMatches.length > 0) {
 			fail(`Git references contain private term #${index + 1} in ${refMatches.length} ref(s)`);
 		}

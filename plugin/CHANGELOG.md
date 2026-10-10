@@ -4,30 +4,6 @@
 
 ### Added
 
-- Add undo of a verified change. A change that passed its health check can be
-  rolled back from **Stonewright > Activity > Rescue**, which lists every change
-  the journal keeps (the last 50) with a **Roll back** button, and through
-  `stonewright-rescue-rollback`. The rollback keeps the claim that stops a double
-  run, the health check afterwards, the warning about newer changes to the same
-  item, the confirmation token in production-safe mode, the audit row and the
-  receipt. The change is recorded as rolled back, with the user who undid it
-  and the way (page, ability or WP-CLI). A dry run shows the plan. A verified
-  change to a theme file, custom code, a sandbox file or the Customizer CSS is
-  undone only from the Rescue page: the ability, the REST route and WP-CLI
-  answer `stonewright_rescue_approval_required` with the approval URL and stop.
-  An incident or an unverified change to code is rolled back as before.
-- Guard the undo of a verified change. It saves the current state first (a
-  snapshot of the post, an options restore point, a backup of the theme file,
-  the snapshot of the custom-code snippet, a copy of the active sandbox file, the
-  activation state of the plugin) and probes the site before and after. When the
-  undo makes a site that worked fail to load, the saved state is put back, the
-  change stays verified with the note `undo_reverted`, and the call answers
-  `stonewright_rescue_undo_reverted` with the probe that failed; the Rescue page
-  shows the same message. When the current state cannot be saved, the undo is
-  refused with `stonewright_rescue_undo_capture_failed` before anything changes.
-  An incident or an unverified change is rolled back as before.
-- Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
-  of the state before the restore, which undoes it.
 - Add the change history. A `stonewright_changes` table (created and upgraded
   with the other tables) records each change with its ability, user, resource,
   status and the hash and size of the content before and after it. The content
@@ -90,8 +66,8 @@
   answer is the same for every kind, `stonewright_change_rollback_reverted`
   with the probe evidence, and the page says the earlier state was put back; a
   theme file restore is taken back by the theme file write itself, which keeps
-  its one row and journal entry as rolled back, and nothing is restored twice. It covers posts and their kinds, options,
-  theme switches, menus, widgets, theme files, snippets, the Customizer CSS,
+  its one row and journal entry as rolled back, and nothing is restored
+  twice. It covers posts and their kinds, options, theme switches, menus, widgets, theme files, snippets, the Customizer CSS,
   sandbox files, users (fields and roles, never a password), comments, media,
   WooCommerce items, site memory, skills and design directions; the redo of a
   restored memory entry deletes it again. Each undo writes the content back
@@ -125,6 +101,52 @@
   list`, `diff <change>` and `rollback <change>` (`--dry-run`, `--force-drift`,
   `--yes`, `--issue-token`) do the same from the command line, with the same
   rules; the command line is not an administrator, so it cannot approve code.
+
+### Fixed
+
+- Show a custom-code snippet rollback as not available once its provider
+  snapshot has expired. Rescue read it as available for as long as the entry
+  existed and the rollback then failed with `snapshot_missing`; the snapshot is
+  kept for 24 hours, and the change history keeps the snippet body longer.
+- Back up the active copy of a sandbox file before an activation replaces it
+  (`<name>.active.<time>.bak` in the sandbox folder, ten kept per file). When
+  that copy cannot be written, the activation stops and the active copy stays
+  as it is.
+- Give two backups made in the same second different names, so the second no
+  longer replaces the first: sandbox draft backups and theme file backups
+  (`.swbak`).
+- Delete theme file backups that no entry of the backup index and no entry of
+  the change journal refers to, once the index of 100 entries trims and the
+  file is over an hour old. They were never removed before.
+
+## [1.0.0-beta.14] - 2026-10-10
+
+### Added
+
+- Add undo of a verified change. A change that passed its health check can be
+  rolled back from **Stonewright > Activity > Rescue**, which lists every change
+  the journal keeps (the last 50) with a **Roll back** button, and through
+  `stonewright-rescue-rollback`. The rollback keeps the claim that stops a double
+  run, the health check afterwards, the warning about newer changes to the same
+  item, the confirmation token in production-safe mode, the audit row and the
+  receipt. The change is recorded as rolled back, with the user who undid it
+  and the way (page, ability or WP-CLI). A dry run shows the plan. A verified
+  change to a theme file, custom code, a sandbox file or the Customizer CSS is
+  undone only from the Rescue page: the ability, the REST route and WP-CLI
+  answer `stonewright_rescue_approval_required` with the approval URL and stop.
+  An incident or an unverified change to code is rolled back as before.
+- Guard the undo of a verified change. It saves the current state first (a
+  snapshot of the post, an options restore point, a backup of the theme file,
+  the snapshot of the custom-code snippet, a copy of the active sandbox file, the
+  activation state of the plugin) and probes the site before and after. When the
+  undo makes a site that worked fail to load, the saved state is put back, the
+  change stays verified with the note `undo_reverted`, and the call answers
+  `stonewright_rescue_undo_reverted` with the probe that failed; the Rescue page
+  shows the same message. When the current state cannot be saved, the undo is
+  refused with `stonewright_rescue_undo_capture_failed` before anything changes.
+  An incident or an unverified change is rolled back as before.
+- Add `pre_restore_snapshot_id` to the result of `change-restore`: the snapshot
+  of the state before the restore, which undoes it.
 - Add section reuse. `stonewright/section-reuse-find` lists sections the
   current user can read and edit (published and draft pages and posts,
   Elementor saved section and container templates, Gutenberg patterns) for the
@@ -166,6 +188,46 @@
   `style.typography.textAlign` so a section saved by an older WordPress is not
   refused whole. The insert stays strict and names any other attribute the
   block does not declare.
+- Name the rejected settings when an `insert_section` copy in
+  `elementor-v3-batch-mutate` is refused with
+  `stonewright_section_settings_not_reusable`. The message lists up to five key
+  paths with the element placeholder and type (names only, never values), the
+  data lists every rejection (up to 25, each with the path, the violation code
+  and the control type when the key is a control), the batch answer repeats it
+  as `rejected_settings` so a client that reads only the message receives it,
+  and the audit row keeps the key paths. A repeated identical call answers with
+  the same detail. The repair text names three ways out (choose another
+  section, activate the plugin that provides the settings, or copy without them
+  with the user's agreement) and no longer sends the agent to re-read element
+  ids.
+- Add `drop_settings` to the `insert_section` operation of
+  `elementor-v3-batch-mutate`: the user's explicit approval to copy a section
+  without exactly the settings the live schema rejects. The list must equal the
+  rejected settings; a missing or an extra entry is refused with
+  `stonewright_section_drop_settings_mismatch` and removes nothing, and without
+  the option nothing is removed. A CSS class the site has not approved and
+  custom CSS count as rejected settings and are dropped only when listed. The
+  removed settings are listed in the answer, the write receipt and the audit
+  row, and in production-safe mode the confirmation token covers the list. An
+  `insert_section` of `elementor-v4-update-node` or `blocks-batch-mutate` that
+  carries `drop_settings` is refused with
+  `stonewright_section_drop_settings_unsupported`, which says the option applies
+  only to Elementor V3 sections, and nothing is written.
+- Add private, pending and scheduled pages, posts, Elementor templates and
+  Gutenberg patterns to the sources of `section-reuse-find` and
+  `section-reuse-extract`, besides published and draft ones, for users who may
+  read and edit them. `source.status` marks the status, and the warnings
+  `private_source`, `pending_source` and `scheduled_source` say the text is not
+  public. A post the user may not edit answers `stonewright_not_found`, the same
+  answer as a post that does not exist, and a source the user may not use does
+  not count towards the 200-source limit.
+- Add nested Elementor containers as sections. `section-reuse-extract` takes the
+  element id of a container nested at any depth: a V3 container or section, or
+  a V4 div block or flexbox, with its children and with everything under it in
+  one builder family. `section-reuse-find` lists up to six nested containers of
+  each Elementor candidate under `inner`, with `inner_truncated` when more
+  exist. A nested container is inserted like any section, with placeholders,
+  fresh ids, id attribute renaming and the element cap.
 
 - Add an OAuth sign-in panel to Setup. It shows whether OAuth sign-in is on,
   the transport, the MCP server URL, and a suggested server name; every reason
@@ -687,20 +749,43 @@
 
 ### Fixed
 
-- Show a custom-code snippet rollback as not available once its provider
-  snapshot has expired. Rescue read it as available for as long as the entry
-  existed and the rollback then failed with `snapshot_missing`; the snapshot is
-  kept for 24 hours, and the change history keeps the snippet body longer.
-- Back up the active copy of a sandbox file before an activation replaces it
-  (`<name>.active.<time>.bak` in the sandbox folder, ten kept per file). When
-  that copy cannot be written, the activation stops and the active copy stays
-  as it is.
-- Give two backups made in the same second different names, so the second no
-  longer replaces the first: sandbox draft backups and theme file backups
-  (`.swbak`).
-- Delete theme file backups that no entry of the backup index and no entry of
-  the change journal refers to, once the index of 100 entries trims and the
-  file is over an hour old. They were never removed before.
+- Read the style controls that Elementor keeps apart from its other controls
+  into the live schema of widgets, containers, sections and columns. A standard
+  style setting, such as the `title_color` or `align` of a heading, is no longer
+  refused as unknown, `elementor-schema` lists those controls, and the cached
+  schemas are dropped when the plugin version changes.
+- Keep a control that a legacy section or column defines under its own name: the
+  `gap` of a section is no longer renamed to the container control `flex_gap`
+  and then refused.
+- Give the repeated-failure advice of a failed batch the guidance of its cause
+  instead of the generic batch text.
+- Move the page's stylesheet version when `stonewright-elementor-css-regenerate`
+  writes a file. It regenerates through Elementor's `update()`, which stores the
+  CSS metadata with the file, and moves the version (the `?ver=` of the page's
+  stylesheet link, the `time` of `_elementor_css`) past its previous value, also
+  within the same second, so browsers and page caches fetch the new file
+  whatever the anonymous probe answers. The result reports `css_version`,
+  `css_version_before` and `css_version_changed`; if the version cannot be moved
+  the regeneration is rolled back as a failed operation.
+- Follow a short same-origin redirect in the Elementor CSS delivery probe. A
+  chain of at most two redirects that keeps the scheme, host and port, never
+  reaches a login page and ends in HTTP 200 `text/css` with the written bytes
+  (at most 8192 bytes are read, without cookies or credentials) is `verified`,
+  and the probe records `redirect_hops`. A repeated URL, another origin or a
+  downgrade to http still stops before any write. A redirect to a login page or
+  to a page that is not the CSS (an access-control layer in front of uploads) no
+  longer fails `stonewright-elementor-css-regenerate`: the file is written,
+  `delivery_status` is `blocked`, the answer is `ok:true` with a `warnings`
+  entry and a `repair` text, and the layout must not be rebuilt for it.
+  `stonewright_elementor_css_probe_failed` and its rollback stay for a file that
+  was delivered before the write and is not after it. The repair hints for the
+  three CSS delivery error codes say not to rebuild the layout.
+- Fix the errors of `section-reuse-extract`. A source without a valid Elementor
+  document answers `stonewright_no_elementor_document` with a `reason`; an
+  element that is not a container, or that mixes V3 and V4, answers
+  `stonewright_section_not_copyable`; the messages of `stonewright_not_found`
+  and `stonewright_section_not_found` say which statuses and locators are
+  allowed.
 - Fix Rescue rolling back a healthy write when the first render of a page
   that uses Google fonts is slow. Elementor downloads every font file the
   first time a page uses a font, which can take minutes, longer than a probe
@@ -1455,164 +1540,9 @@
 - Install php-execute write guards as a real `wpdb` subclass around the live
   handle.
 
-## [1.0.0-beta.12] - 2026-08-24
-
-
-
-### Added
-
-- Add read-only Elementor provider discovery with ownership, trust, compatibility,
-  certification, Status and Troubleshoot visibility, and certified
-  native-preferred metadata for Elementor default styles; expose it in the
-  normal Elementor design profile and resulting MCP tool catalog.
-
-### Changed
-
-- Show formatted, sanitized GitHub release notes in the WordPress Plugins
-  View details modal.
-- Disable automatic audit retention by default and run deletion only through
-  an explicitly configured daily policy.
-- Coalesce successful authentication polling and omit finalizer heartbeats from
-  the mutation audit stream.
-
-### Fixed
-
-- Retry Elementor post-lock renew when WordPress options compare-and-swap
-  reports no row change while this writer still owns a live lease, instead of
-  aborting a verified document write.
-- Retry Elementor CSS directory lease renew when WordPress options
-  compare-and-swap reports no row change while this writer still owns a live
-  lease, instead of aborting CSS closure after a verified document write.
-- Prevent single-post Elementor writes from clearing the global generated CSS
-  directory. Normal writes now invalidate HTML cache only; post-write closure
-  uses Elementor's official Post CSS API inside a bounded asset transaction
-  with file-count/hash evidence, same-origin HTTP probes, collateral detection,
-  and byte-for-byte rollback. Restore runs only while this writer still owns
-  the CSS directory lease, including an expired-but-ours row. A vacant lease
-  after another writer committed and released is skipped rather than reclaimed.
-  Same-directory restore temps are ignored by capture and unlinked after
-  restore. Post-lock renew failure after a successful CSS commit is
-  non-fatal evidence (`lost_after_commit`), not a false write failure.
-  Post CSS location
-  checks accept Elementor 3.30 `?ver=` URLs and scheme-prefixed filesystem
-  paths. The former `regenerate_css` input is removed;
-  Direct mode now preserves CSS metadata and refuses global `flush-css`.
-- Mark upstream `elementor/manage-elements` non-routable while its implementation
-  clears Elementor's global files cache.
-- Recognize Jetpack classmap manifests used by WooCommerce 10.9 during MCP
-  compatibility preflight, while requiring their classmap or PSR-4 entry to
-  resolve to the canonical adapter target.
-- Normalize two-component WordPress core versions such as 6.9 so guarded
-  Abilities API fallbacks cannot falsely block the MCP server.
-- Accept WordPress `init` hook arguments in audit retention scheduling so an
-  empty string from `WP_Hook::do_action()` cannot TypeError the admin screen.
-- Skip audit and incident table `dbDelta` after a healthy schema is installed,
-  so admin requests do not re-reconcile unique indexes on every `init`.
-- Persist canonical audit lifecycle identity and bind terminal idempotency to
-  the operation, resource, payload, status, and ability.
-- Stop the browser finalizer on terminal HTTP responses and page shutdown,
-  retry only transient failures, and count only accepted result submissions.
-- Persist exactly one blocked security event for terminal finalizer heartbeat
-  denials while keeping successful heartbeats outside the mutation stream.
-- Treat incident-retention delete failures as failed audit retention runs so
-  the daily success transient cannot suppress a retry.
-- Stop finalizer retries for malformed successful responses and unexpected
-  runtime failures; keep queued `ok:false` receipts pending without counting
-  them as applied or failed.
-- Record thrown ability callbacks and structured `ok:false` results as one
-  failed audit event and incident, never as `SUCCESS`.
-- Reject oversized serialized finalizer results only after validating the
-  active lease and before changing persistent queue state.
-- Retry incident observation against the latest generation when a concurrent
-  failure lands, and refuse automatic resolution that would close over that
-  failure.
-- Mark verified-repair learning stale when linking it to the incident fails.
-- Resolve and promote incident repairs only while their generation,
-  update-time, and occurrence token remains unchanged; install the added
-  incident schema columns during normal version upgrades.
-- Preserve the authoritative terminal audit receipt when incident persistence
-  fails and expose that failure only as bounded secondary receipt metadata.
-- Require explicit `retryable:false` on terminal browser-finalizer receipts.
-- Leave wordpress.org and other non-Stonewright plugin downloads unchanged at
-  the pre-download gate. Fail closed only for official Stonewright packages or
-  the Stonewright plugin basename.
-- Add schema-v2 authoritative saved/effective WordPress mode fields to full
-  and compact WorkflowPreflight/task-start responses.
-- Show one authoritative four-step post-update verification flow in Setup and
-  the copied update prompt: task start, profile setup, status, then a
-  process-bound client surface check.
-- Require complete authenticated configured-package evidence in companion
-  health responses and include `stonewright-client-surface-check` in the
-  post-update verification prompt.
-- Keep ChatGPT Desktop aligned with the Codex TOML catalog alias and replace the
-  admin OAuth browser test's stale client count with tab/panel parity checks.
-- Match Elementor's `elementor/manage-default-styles` contract at commit
-  `3afafe33b7499b4e8fcb4c684e55111721bb0c96`, including non-idempotent write
-  annotations, exact input/output schemas, CSS/tag/mode semantics, runtime
-  constants, and an exact 20-operation runtime limit; reject added schema
-  keywords and every annotation or contract mismatch.
-- Treat PHP `self` and `parent` return types as the declaring class so MCP ABI
-  preflight accepts adapters on PHP 8.1–8.4, not only 8.5.
-- Keep MCP adapter boot when two active plugins vendor the same
-  `wordpress/mcp-adapter` version, so WooCommerce 10.9 can sit beside Stonewright
-  without dropping `/mcp/stonewright`.
-- Isolate Elementor provider discovery failures so Status and Troubleshoot
-  retain surviving providers and expose at most 20 diagnostics with full
-  blocker and warning counts, per-severity truncation, and reserved visibility
-  for critical blockers.
-- Bound provider discovery to 50 providers and 200 capabilities, report full
-  totals and truncation state, and replace rejected or untrusted schemas with
-  depth/key/byte summaries; canonicalize schema fingerprints and cap rejected
-  default-style actions with truthful totals.
-- Keep third-party `pro-elements/*` runtimes distinct from official Elementor
-  Pro and read-only without exact Stonewright-owned certification.
-- Abort Elementor V4 spec rendering before mutation when the required backup
-  snapshot cannot be verified.
-- Resolve runtime ownership from active plugin main files and safe plugin
-  headers even when the main filename differs from its folder in REST/MCP
-  requests.
-
-### Security
-
-- Block MCP startup before adapter creation when required MCP Adapter or
-  Abilities API symbols are missing, conflicting, or ABI-incompatible, repeat
-  that preflight against the exact runtime adapter class at registration, and
-  keep the canonical Ability and Registry targets plus discovered ownership
-  candidates immutable so filters cannot authorize compatible decoys or hide
-  an active owner.
-- Treat WordPress 6.9 core Abilities plus Stonewright's guarded compatibility
-  fallback as one compatible owner, ignore inactive plugin manifests, validate
-  the exact loaded ABI before invocation, and report every blocked symbol with
-  its owner, version, reason, and safe remediation.
-- Keep third-party Atomic schemas discoverable but read-only, and admit only
-  schemas identical to Stonewright's immutable bundled or verified-official
-  authority into renderers and mutators.
-- Derive upstream Elementor provider identity from the registered callback's
-  verified class and active-plugin file boundary, never self-declared metadata.
-- Fetch a bounded `SHA256SUMS.txt` manifest and verify the exact release ZIP at
-  WordPress's pre-download install/update gate. Missing, malformed, forged,
-  unavailable, empty, and mismatched checksums now fail closed with typed
-  errors.
-- Persist the exact release/version/manifest binding when WordPress queues a
-  Stonewright ZIP, and refuse pre-install when that binding is unavailable or
-  mismatched instead of returning an unverified prior downloader result.
-- Resolve official Stonewright ZIP identity and release binding before trusting
-  upgrader plugin context, and stop with a typed error when that context names
-  a foreign plugin.
-- Require an exact `SHA256SUMS.txt` release asset before accepting updater
-  metadata or injecting an update transient, with a typed
-  `missing_checksum_asset` recovery reason.
-- Redact nested private keys, PEM certificates, and credential blobs from audit
-  payloads without removing surrounding safe text, and keep encoded output bounded.
-- Redact credential assignments, authorization carriers, Application Password
-  shapes, credentialed URLs, and private-key bodies recursively from every
-  free-text audit value before persistence.
-- Coalesce identical permission and safety denials by site, ability, and error,
-  retaining the first event plus bounded count summaries and severity under a
-  stale-recoverable option mutex with compare-and-delete ownership.
-
 ## Older releases
 
+- [1.0.0-beta.12](../docs/releases/1.0.0-beta.12.md)
 - [1.0.0-beta.11.1](../docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](../docs/releases/1.0.0-beta.11.md)
 - [1.0.0-beta.10](../docs/releases/1.0.0-beta.10.md)

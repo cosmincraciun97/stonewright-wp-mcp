@@ -98,7 +98,7 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   surfaces.
 - Generic content create, update, duplicate, and bulk tools reject
   executable-code post types (`stonewright_custom_code_provider_required`).
-  Use `stonewright-custom-code-provider-ops`. Never skip KSES to preserve PHP.
+  Use `stonewright-custom-code-provider`. Never skip KSES to preserve PHP.
 - Never write theme/plugin/core code files through `php-execute`.
 - Use the approval-gated typed tool with full validation, atomic write, smoke,
   and rollback. Direct mode may inspect custom CSS but must not write it because
@@ -113,6 +113,8 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - After apply, call `stonewright-elementor-css-regenerate` when generated CSS
   must be rebuilt (post or loop target), then
   `stonewright-elementor-post-write-verify` with every touched element id.
+  An `ok:true` result with `delivery_status:blocked` and a warning means the
+  CSS was written and its version changed; never rebuild the layout for it.
   Never pass `regenerate_css`; that input does not exist. The verifier is
   observation-only: it checks those ids without regenerating CSS, invalidating
   caches, rolling back files, or returning content.

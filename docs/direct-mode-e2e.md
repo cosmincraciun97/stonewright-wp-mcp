@@ -34,7 +34,7 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
-| Audit log / backups / tokens | Direct JSONL with aligned effect/incident fields; plugin-backed operations use plugin controls | Yes |
+| Audit log / backups / tokens | Direct JSONL with aligned effect/incident fields. **No snapshots, no confirmation tokens, no custom-code gate.** Only destructive tools ask for `confirm:true` (in `confirm` write mode); an Elementor data update saves a file backup that no tool restores | Yes |
 | WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin) | Yes |
 
 ## Live run log

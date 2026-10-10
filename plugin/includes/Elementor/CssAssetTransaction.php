@@ -12,6 +12,8 @@ final class CssAssetTransaction {
 	private const MAX_FILES = 2000;
 	private const MAX_BYTES = 67108864;
 	private const LEASE_TTL = 120;
+	private const MAX_REDIRECT_HOPS = 2;
+	private const PROBE_BODY_BYTES = 8192;
 
 	/**
 	 * @param callable():(array<string,mixed>|\WP_Error) $operation
@@ -426,7 +428,7 @@ final class CssAssetTransaction {
 		return [ 'files' => $files, 'file_count' => count( $files ), 'total_bytes' => $total ];
 	}
 
-	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string,classification:string}>|\WP_Error */
+	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string,classification:string,redirect_hops?:int}>|\WP_Error */
 	private static function probe_protected_assets( string $filename, array $manifest, array $location, array &$lease ): array|\WP_Error {
 		$valid = self::revalidate_location( $location );
 		if ( $valid instanceof \WP_Error ) {
@@ -447,7 +449,7 @@ final class CssAssetTransaction {
 			if ( ! self::same_origin( home_url( '/' ), $url ) ) {
 				return self::error( 'stonewright_elementor_css_probe_unsafe_origin', 'A protected Elementor CSS URL is not same-origin.' );
 			}
-			$probe = self::probe_url( $url );
+			$probe = self::probe_url( $url, (string) $manifest['files'][ $asset ]['bytes'] );
 			if ( 'unsafe_redirect' === $probe['classification'] ) {
 				// Name the HTTP status and only the scheme and host of the target, never its path or query.
 				$origin = (string) ( $probe['redirect_origin'] ?? '' );
@@ -465,23 +467,101 @@ final class CssAssetTransaction {
 					]
 				);
 			}
-			$probes[] = [
+			$row = [
 				'asset'          => $asset,
 				'status'         => $probe['status'],
 				'url_sha256'     => hash( 'sha256', $url ),
 				'classification' => $probe['classification'],
 			];
+			if ( ! empty( $probe['redirect_hops'] ) ) {
+				$row['redirect_hops'] = (int) $probe['redirect_hops'];
+			}
+			$probes[] = $row;
 		}
 		return $probes;
 	}
 
 	/**
-	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string}
+	 * Probes one URL anonymously. A same-origin redirect chain of at most MAX_REDIRECT_HOPS hops
+	 * counts as delivered only when it ends in HTTP 200 text/css whose leading bytes equal the
+	 * written file. Every hop is classified before it is requested, so a cross-origin, downgraded,
+	 * login or repeated location is never fetched.
+	 *
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string,redirect_hops?:int}
 	 */
-	private static function probe_url( string $url ): array {
+	private static function probe_url( string $url, string $expected_bytes ): array {
+		$probe = self::probe_first_request( $url );
+		if ( 'redirect' !== $probe['classification'] ) {
+			return $probe;
+		}
+
+		$first_status = $probe['status'];
+		$mime         = $probe['content_type_kind'];
+		$current      = $url;
+		$seen         = [ self::url_key( $url ) ];
+		$hops         = 0;
+		$response     = null;
+		while ( 'redirect' === $probe['classification'] ) {
+			$location = (string) ( $probe['location'] ?? '' );
+			$next     = self::resolve_redirect_url( $current, $location );
+			if ( in_array( self::url_key( $next ), $seen, true ) ) {
+				return [
+					'status'            => $probe['status'],
+					'classification'    => 'unsafe_redirect',
+					'content_type_kind' => $probe['content_type_kind'],
+					'redirect_kind'     => 'loop',
+					'redirect_origin'   => self::redirect_origin( $current, $location ),
+				];
+			}
+			if ( $hops >= self::MAX_REDIRECT_HOPS ) {
+				return self::unverified_redirect( $first_status, $mime, $hops );
+			}
+			++$hops;
+			$seen[]   = self::url_key( $next );
+			$current  = $next;
+			$response = wp_safe_remote_get( $current, self::probe_request_args( 'GET', self::PROBE_BODY_BYTES ) );
+			$probe    = self::classify_response( $current, $response, true );
+		}
+
+		if ( 'unsafe_redirect' === $probe['classification'] || 'unavailable' === $probe['classification'] ) {
+			return $probe;
+		}
+		if ( 'available' === $probe['classification'] && is_array( $response ) ) {
+			$want = substr( $expected_bytes, 0, self::PROBE_BODY_BYTES );
+			$got  = substr( (string) wp_remote_retrieve_body( $response ), 0, self::PROBE_BODY_BYTES );
+			if ( '' !== $want && hash_equals( $want, $got ) ) {
+				return [
+					'status'            => 200,
+					'classification'    => 'available',
+					'content_type_kind' => 'css',
+					'redirect_hops'     => $hops,
+				];
+			}
+		}
+		return self::unverified_redirect( $first_status, $mime, $hops );
+	}
+
+	/**
+	 * A redirect chain that does not end in the written CSS: public delivery is not verified.
+	 *
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_hops:int}
+	 */
+	private static function unverified_redirect( int $status, string $mime, int $hops ): array {
+		return [
+			'status'            => $status,
+			'classification'    => 'protected',
+			'content_type_kind' => $mime,
+			'redirect_hops'     => $hops,
+		];
+	}
+
+	/**
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string,location?:string}
+	 */
+	private static function probe_first_request( string $url ): array {
 		$head = wp_safe_remote_request( $url, self::probe_request_args( 'HEAD', 1 ) );
 		$head_probe = self::classify_response( $url, $head, false );
-		if ( in_array( $head_probe['classification'], [ 'protected', 'unsafe_redirect' ], true ) ) {
+		if ( in_array( $head_probe['classification'], [ 'protected', 'unsafe_redirect', 'redirect' ], true ) ) {
 			return $head_probe;
 		}
 		$head_css = 200 === $head_probe['status']
@@ -516,8 +596,11 @@ final class CssAssetTransaction {
 	}
 
 	/**
+	 * A same-origin redirect that is not a login page is reported as `redirect` with its raw
+	 * location, so the caller can follow it under the hop limits.
+	 *
 	 * @param array<string,mixed>|\WP_Error $response
-	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string}
+	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string,location?:string}
 	 */
 	private static function classify_response( string $request_url, array|\WP_Error $response, bool $inspect_body ): array {
 		if ( $response instanceof \WP_Error ) {
@@ -533,13 +616,20 @@ final class CssAssetTransaction {
 		$mime        = self::mime_kind( $content_type );
 		if ( '' !== $redirect ) {
 			$redirect_kind = self::classify_redirect( $request_url, $redirect );
-			// A login page or another page on the same site in front of the file
-			// means the CSS is delivered behind access control, not a failure.
-			if ( in_array( $redirect_kind, [ 'login', 'unexpected' ], true ) ) {
+			// A login page in front of the file means the CSS is delivered behind access control.
+			if ( 'login' === $redirect_kind ) {
 				return [
 					'status'            => $status,
 					'classification'    => 'protected',
 					'content_type_kind' => $mime,
+				];
+			}
+			if ( 'unexpected' === $redirect_kind ) {
+				return [
+					'status'            => $status,
+					'classification'    => 'redirect',
+					'content_type_kind' => $mime,
+					'location'          => $redirect,
 				];
 			}
 			return [
@@ -694,14 +784,27 @@ final class CssAssetTransaction {
 		if ( ! self::same_origin( home_url( '/' ), $resolved ) || ! self::same_origin( $request_url, $resolved ) ) {
 			return 'cross_origin';
 		}
-		$request_path = strtolower( (string) ( $request_parts['path'] ?? '' ) );
-		if ( $host === strtolower( (string) ( $request_parts['host'] ?? '' ) ) && $path === $request_path ) {
+		if ( self::url_key( $resolved ) === self::url_key( $request_url ) ) {
 			return 'loop';
 		}
 		if ( str_contains( $path, 'wp-login.php' ) || 1 === preg_match( '#/login/?$#', $path ) ) {
 			return 'login';
 		}
 		return 'unexpected';
+	}
+
+	/**
+	 * Comparable form of an absolute URL: scheme, host, port, path and query without the fragment.
+	 */
+	private static function url_key( string $url ): string {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) ) {
+			return $url;
+		}
+		$scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+		$port   = (int) ( $parts['port'] ?? ( 'https' === $scheme ? 443 : 80 ) );
+		return $scheme . '://' . strtolower( (string) ( $parts['host'] ?? '' ) ) . ':' . $port
+			. (string) ( $parts['path'] ?? '/' ) . ( isset( $parts['query'] ) ? '?' . $parts['query'] : '' );
 	}
 
 	/**

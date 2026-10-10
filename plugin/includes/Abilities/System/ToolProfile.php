@@ -1105,7 +1105,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
-			'stonewright/elementor-css-regenerate' => 'Regenerate one Elementor post or loop CSS file through update_file inside a guarded asset transaction after apply, then return hashed health evidence.',
+			'stonewright/elementor-css-regenerate' => 'Regenerate one Elementor post or loop CSS file through the Elementor update API inside a guarded asset transaction after apply, advance the stylesheet version, then return hashed health evidence.',
 			'stonewright/elementor-post-write-verify' => 'Observe an Elementor frontend render with CSS generation disabled and assert touched element ids before browser QA. Does not regenerate CSS or invalidate caches.',
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',

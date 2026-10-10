@@ -31,12 +31,13 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true, bool $preserve_unknown = false, ?array $condition_settings = null ): array|\WP_Error {
-		$aliases  = SettingsKeyAliases::normalize( $settings );
-		$settings = $aliases['settings'];
-		$schema   = ContainerSchemaRepository::get( $element_type );
+		$schema = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
+		// A key that is a control of this element is never renamed: a legacy section has its own `gap`.
+		$aliases  = SettingsKeyAliases::normalize( $settings, (array) ( $schema['controls'] ?? [] ) );
+		$settings = $aliases['settings'];
 		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'], $preserve_unknown, self::normalize_condition_settings( $condition_settings ) );
 	}
 

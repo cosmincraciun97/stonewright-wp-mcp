@@ -5,6 +5,8 @@ Stonewright ships:
 - WordPress plugin: `GPL-2.0-or-later`
 - Node companion (`@stonewright/companion`): `MIT`
 - Stonewright Visual package: `GPL-2.0-or-later`
+- Skill packs (`skills/`, shipped inside the plugin): `GPL-2.0-or-later`
+- Documentation (`docs/`): `GPL-2.0-or-later`
 
 ## Third-party code
 

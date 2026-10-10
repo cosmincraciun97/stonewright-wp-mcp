@@ -19,7 +19,9 @@ For a new native Loop Grid or Loop Carousel, prefer
 idempotent request after reviewing the resolved live controls and query probe.
 When building a page, load `stonewright-section-reuse` first: the site may
 already have a matching section to copy with an `insert_section` operation of
-the same batch (skip it when `agent_preferences.section_reuse` is `off`).
+the same batch (skip it when `agent_preferences.section_reuse` is `off`). When
+such a copy is refused for settings the live schema rejects, stop and follow
+that skill: tell the user, and send `drop_settings` only with their agreement.
 
 ## Pre-flight
 
@@ -94,7 +96,7 @@ refs match the current task.
 
 Every write ability that touches post meta calls
 `Backup::snapshot_post( $post_id )` internally and returns a `snapshot_id`.
-If the ability does NOT call it internally (e.g. `update-kit-colors`), call
+If an ability returns no `snapshot_id`, call
 `stonewright/elementor-v3-backup-page` explicitly first.
 
 Never write raw `_elementor_data` with `update_post_meta()` or create revision
@@ -215,7 +217,10 @@ the consolidated dry run passes against `expected_tree_hash`.
 Every successful apply returns a cache-closure receipt and a required next step.
 Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
 (resolved post or loop target), then
-`stonewright/elementor-post-write-verify` with all touched element IDs. Never
+`stonewright/elementor-post-write-verify` with all touched element IDs. A result
+with `ok:true`, `delivery_status:blocked` and a warning means the CSS file was
+written and its `?ver=` changed but the anonymous check was redirected: do not
+rebuild the layout for it. Never
 pass `regenerate_css`; that input does not exist. The verifier is
 observation-only: it warms the official frontend builder renderer with CSS
 generation disabled and asserts the IDs without returning page HTML,
@@ -428,7 +433,8 @@ arguments with `stonewright-security-issue-confirmation-token`: every
 `batch-mutate` write that is not a dry run (an `insert_section` copy included),
 `apply-bundle` (one token for the whole call, passed at the top level; there is
 no per-write token), and every `build-page-from-spec` write that is not a dry
-run, in every `mode` (`append` too). Dry runs of `batch-mutate` and
+run, in every `mode` (`append` too). The kit writes `update-kit-colors` and
+`update-kit-typography` need one too. Dry runs of `batch-mutate` and
 `build-page-from-spec` need no token, and a token issued for a dry run does not
 authorize the write. Before calling any of them, emit:
 

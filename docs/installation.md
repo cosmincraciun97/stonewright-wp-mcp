@@ -4,7 +4,7 @@ Stonewright has two parts:
 
 - WordPress plugin: registers the `stonewright/*` abilities.
 - Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
-  MCP endpoint, exposes php-execute (**full** profile only), and runs tokenized WP-CLI.
+  MCP endpoint, proxies php-execute (**full** profile only), and runs tokenized WP-CLI.
 
 **Local stdio** means the AI client starts the companion on the user's computer
 and exchanges MCP messages with that local process through standard
@@ -39,7 +39,7 @@ HTTPS and does not run or require a local companion.
 ## Default Plugin setup
 
 1. Download the current `stonewright-<version>.zip`, upload it in **Plugins > Add New > Upload Plugin**, and activate Stonewright.
-2. Open **Stonewright → Setup**, enable AI Abilities, and connect the client through the guided setup.
+2. Open **Stonewright → Setup**, turn on AI abilities in the **Settings** view, and connect the client through the guided setup.
 3. Fully restart the client and run the generated connection verification. A parseable config file is not runtime proof.
 4. Confirm `stonewright-task-start` is visible and call it first with the real task. Keep `essential` for normal work; `bootstrap` is startup diagnostics only.
 
@@ -71,9 +71,11 @@ MCP tools for WordPress work instead of shelling out to `wp ...`.
 
 Deleting the plugin from **Plugins** keeps its data: OAuth grants and keys,
 memory, skills, audit history, and settings stay in the database for a
-reinstall or a rollback. Deleting the plugin always removes the rescue helper it
-installed in `wp-content/mu-plugins/`; deactivating it leaves the helper in
-place, where it does nothing. To remove all of it, define
+reinstall or a rollback. Deleting the plugin from **Plugins**, or with
+`wp plugin uninstall`, also removes the rescue helper it installed in
+`wp-content/mu-plugins/`. `wp plugin delete` skips the uninstall step and leaves
+the helper. Deactivating the plugin leaves the helper in place, where it does
+nothing. To remove all of it, define
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin. What that
 removes, and how to roll back, is in
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
@@ -91,13 +93,14 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- HTTP 404 → Direct mode (101 tools in the current full surface)
+- the route is reported as missing by WordPress → Direct mode (101 tools in the current full surface); an unclear answer keeps Plugin mode
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
 `--mode plugin-only`; `auto` is appropriate only when intentional Direct
 fallback is part of the connection policy. Working stdio client ids: cursor,
-claude-desktop, vscode-copilot, codex, grok-build, generic-mcp.
+claude-desktop, vscode-copilot, codex (aliases `codex-cli` and
+`chatgpt-desktop`), generic-mcp. The installer has no Grok Build adapter.
 
 ```json
 {
@@ -125,7 +128,8 @@ For a guided Direct setup, run:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
 ```
 
-`init` is a compatibility alias for `connect add`. For multi-site installs:
+`init` is an older interactive command. It sets mode `auto` and shows the password
+as you type it, so prefer `connect add --mode direct-only`. For multi-site installs:
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
@@ -149,9 +153,10 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 Prefer interactive password entry or `--password-env VAR` (avoid `--password` on
 argv). Schema v2 stores only metadata and a `credential_ref` in
 `~/.stonewright/sites.json`; secrets live in the OS credential store (or
-`env://VAR`). Client config sets `STONEWRIGHT_SITE_ALIAS` only — the companion
-resolves URL and credentials for that alias at startup. The alias is
-authoritative and replaces stale inherited `STONEWRIGHT_WP_*` values.
+`env://VAR`). Client config holds the alias and non-secret mode, profile, and
+surface values, never a secret — the companion resolves URL and credentials for
+that alias at startup. The alias is authoritative and replaces stale inherited
+`STONEWRIGHT_WP_*` values.
 
 If the alias already exists, reuse its saved credential and change the mode or
 client binding without creating a duplicate:
@@ -208,11 +213,12 @@ Remote destructive Direct tools require `confirm: true` by default
 writes on production aliases.
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
-Copy the **Remote HTTP** snippet from **Stonewright > Setup**; it points
+Copy the **Remote Streamable HTTP** snippet from **Stonewright > Setup**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
 WordPress Application Password. The Setup preflight (step 4 of **Get started**) blocks a green
-status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing. **Stonewright → Setup → Troubleshoot** runs a dependency-ordered graph for
+status when abilities are off, the domain lock does not match, the endpoint does
+not resolve, Application Passwords are unavailable, or no tools are exposed.
+Troubleshoot checks HTTPS and the compact tool budget of 30 tools. **Stonewright → Setup → Troubleshoot** runs a dependency-ordered graph for
 OAuth, Application Password, local companion, or **Not sure**, in place with a
 loading state; see [Troubleshoot](admin/troubleshoot.md).
 
@@ -446,7 +452,7 @@ archive layout that can be filtered by taxonomy.
 
 ## Privacy Boundary
 
-Release ZIPs and the npm companion contain public Stonewright code, docs, and
+Release ZIPs and the companion package contain public Stonewright code, docs, and
 built-in skills only. Site-specific memory, site skills, and custom
 instructions live in that WordPress install and are returned only to authorized
 MCP clients. Keep credentials and private site memory out of public issues,
@@ -483,7 +489,8 @@ The complete command list is generated in
 ## First Smoke Test
 
 1. Call `stonewright-ping`.
-2. Confirm the MCP tool list includes `stonewright-context-bootstrap`. If it is
+2. Confirm the MCP tool list includes `stonewright-task-start` (or compatibility
+   `stonewright-context-bootstrap`). If it is
    missing, restart or reload the AI client and fix the Stonewright MCP config
    before WordPress work. Do not inspect private client config files, create
    scratch scripts, create helper JSON argument files, launch the companion

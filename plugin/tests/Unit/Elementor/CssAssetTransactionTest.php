@@ -1188,6 +1188,291 @@ final class CssAssetTransactionTest extends TestCase {
 		}
 	}
 
+	public function test_same_origin_redirect_to_the_written_css_is_verified_delivery(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css' => 'css',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'verified', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertArrayNotHasKey( 'root_error_code', $result['css_evidence'] );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
+		$probe = $result['css_evidence']['protected_probes_after'][0];
+		self::assertSame( 'available', $probe['classification'] );
+		self::assertSame( 200, $probe['status'] );
+		self::assertSame( 1, $probe['redirect_hops'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+	}
+
+	public function test_two_hop_same_origin_redirect_chain_is_verified_delivery(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                         => [ 301, '/a/post-701.css' ],
+				'https://example.test/a/post-701.css' => [ 302, 'https://example.test/b/post-701.css' ],
+				'https://example.test/b/post-701.css' => 'css',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'verified', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 2, $result['css_evidence']['protected_probes_after'][0]['redirect_hops'] );
+		self::assertContains( 'https://example.test/b/post-701.css', $seen );
+	}
+
+	public function test_redirect_from_the_bare_url_to_the_same_path_with_a_query_is_followed(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL            => [ 301, self::CSS_URL . '?ver=1' ],
+				self::CSS_URL . '?ver=1' => 'css',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'verified', $result['css_evidence']['delivery_status'] ?? null );
+	}
+
+	public function test_redirect_chain_follows_with_bounded_credential_free_requests(): void {
+		$this->write( 'post-701.css', str_repeat( 'a', 20000 ) );
+		$seen      = [];
+		$args_seen = [];
+		$this->route(
+			[
+				self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css' => static function ( string $url, array $args ) use ( &$args_seen ): array {
+					$args_seen[] = $args;
+					return [
+						'response' => [ 'code' => 200 ],
+						'headers'  => [ 'content-type' => 'text/css' ],
+						'body'     => substr( str_repeat( 'b', 20000 ), 0, (int) $args['limit_response_size'] ),
+					];
+				},
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function (): array {
+				$this->write( 'post-701.css', str_repeat( 'b', 20000 ) );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'verified', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertNotSame( [], $args_seen );
+		foreach ( $args_seen as $args ) {
+			self::assertSame( 0, (int) ( $args['redirection'] ?? -1 ) );
+			self::assertSame( [], $args['cookies'] ?? null );
+			self::assertSame( [], $args['headers'] ?? null );
+			self::assertLessThanOrEqual( 8192, (int) ( $args['limit_response_size'] ?? 0 ) );
+			self::assertGreaterThan( 0, (int) ( $args['limit_response_size'] ?? 0 ) );
+		}
+	}
+
+	public function test_redirect_to_a_page_that_is_not_css_keeps_the_write_and_blocks_delivery(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL           => [ 301, 'https://example.test/' ],
+				'https://example.test/' => 'html',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['css_evidence']['root_error_code'] ?? null );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
+		self::assertStringNotContainsString( 'Home page', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_redirect_to_css_with_other_content_is_not_verified_delivery(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css' => [ 200, 'text/css', 'stale-copy' ],
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'protected', $result['css_evidence']['protected_probes_after'][0]['classification'] ?? null );
+	}
+
+	public function test_a_login_redirect_further_along_the_chain_is_never_requested(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                                    => [ 302, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css'          => [ 302, 'https://example.test/wp-login.php?redirect_to=x' ],
+				'https://example.test/wp-login.php?redirect_to=x' => 'html',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertNotContains( 'https://example.test/wp-login.php?redirect_to=x', $seen );
+	}
+
+	public function test_a_later_cross_origin_hop_is_refused_before_the_write(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css' => [ 301, 'https://other.test/post-701.css' ],
+				'https://other.test/post-701.css'       => 'css',
+			],
+			$seen
+		);
+		$called = false;
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			static function () use ( &$called ): array {
+				$called = true;
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code() );
+		self::assertSame( 'cross_origin', ( (array) $result->get_error_data() )['redirect_kind'] ?? null );
+		self::assertFalse( $called );
+		self::assertNotContains( 'https://other.test/post-701.css', $seen );
+	}
+
+	public function test_a_later_http_downgrade_or_port_change_is_refused(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$cases = [
+			'http_downgrade' => 'http://example.test/cdn/post-701.css',
+			'cross_origin'   => 'https://example.test:8443/cdn/post-701.css',
+		];
+		foreach ( $cases as $kind => $location ) {
+			$seen = [];
+			$this->route(
+				[
+					self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+					'https://example.test/cdn/post-701.css' => [ 301, $location ],
+					$location                               => 'css',
+				],
+				$seen
+			);
+
+			$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+			self::assertInstanceOf( \WP_Error::class, $result, $kind );
+			self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code(), $kind );
+			self::assertSame( $kind, ( (array) $result->get_error_data() )['redirect_kind'] ?? null, $kind );
+			self::assertNotContains( $location, $seen, $kind );
+			self::assertSame( 'old-post', $this->read( 'post-701.css' ), $kind );
+		}
+	}
+
+	public function test_a_redirect_loop_through_another_url_is_refused(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                           => [ 301, 'https://example.test/cdn/post-701.css' ],
+				'https://example.test/cdn/post-701.css' => [ 301, self::CSS_URL ],
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code() );
+		self::assertSame( 'loop', ( (array) $result->get_error_data() )['redirect_kind'] ?? null );
+	}
+
+	public function test_more_than_two_redirects_are_not_followed_and_not_verified(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$seen = [];
+		$this->route(
+			[
+				self::CSS_URL                         => [ 301, 'https://example.test/a/post-701.css' ],
+				'https://example.test/a/post-701.css' => [ 301, 'https://example.test/b/post-701.css' ],
+				'https://example.test/b/post-701.css' => [ 301, 'https://example.test/c/post-701.css' ],
+				'https://example.test/c/post-701.css' => 'css',
+			],
+			$seen
+		);
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'blocked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertNotContains( 'https://example.test/c/post-701.css', $seen );
+	}
+
+	public function test_delivery_that_was_available_before_and_redirects_away_after_still_rolls_back(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$redirect = false;
+		$this->route(
+			[
+				self::CSS_URL           => static function () use ( &$redirect ): array {
+					if ( $redirect ) {
+						return [ 'response' => [ 'code' => 301 ], 'headers' => [ 'location' => 'https://example.test/' ], 'body' => '' ];
+					}
+					return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => '' ];
+				},
+				'https://example.test/' => 'html',
+			]
+		);
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function () use ( &$redirect ): array {
+				$redirect = true;
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
+		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+	}
+
 	public function test_restores_collateral_file_bytes_and_modes(): void {
 		$this->write( 'post-701.css', 'old-post' );
 		$this->write( 'post-999.css', 'sibling' );
@@ -1209,6 +1494,44 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
 		self::assertSame( 'sibling', $this->read( 'post-999.css' ) );
 		self::assertSame( $mode, fileperms( $this->css_dir . '/post-999.css' ) & 0777 );
+	}
+
+	private const CSS_URL = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
+
+	/**
+	 * Registers probe answers by URL. A route is [ status, location ] for a redirect,
+	 * [ status, content-type, body ] for a direct answer, a callable, 'css' for the
+	 * current bytes of the target file as text/css, or 'html' for an HTML page.
+	 *
+	 * @param array<string,mixed> $routes
+	 * @param list<string>        $seen
+	 */
+	private function route( array $routes, array &$seen = [] ): void {
+		foreach ( $routes as $url => $route ) {
+			$GLOBALS['stonewright_test_asset_responses'][ (string) $url ] = function ( string $request_url, array $args = [] ) use ( $route, &$seen ): array {
+				$seen[] = $request_url;
+				if ( is_callable( $route ) ) {
+					return $route( $request_url, $args );
+				}
+				if ( 'css' === $route ) {
+					return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css; charset=UTF-8' ], 'body' => $this->read( 'post-701.css' ) ];
+				}
+				if ( 'html' === $route ) {
+					return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/html' ], 'body' => '<html><body>Home page</body></html>' ];
+				}
+				if ( isset( $route[2] ) ) {
+					return [ 'response' => [ 'code' => $route[0] ], 'headers' => [ 'content-type' => $route[1] ], 'body' => $route[2] ];
+				}
+				return [ 'response' => [ 'code' => $route[0] ], 'headers' => [ 'location' => $route[1] ], 'body' => '' ];
+			};
+		}
+	}
+
+	private function write_target( string $bytes ): callable {
+		return function () use ( $bytes ): array {
+			$this->write( 'post-701.css', $bytes );
+			return [ 'ok' => true ];
+		};
 	}
 
 	private function expire_css_leases(): void {

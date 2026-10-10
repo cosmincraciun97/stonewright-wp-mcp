@@ -8,8 +8,8 @@ AI output never becomes raw Elementor settings.
 ## Contract
 
 `stonewright/design-native-plan` accepts `action: validate|plan`, a target
-(`elementor` / `elementor-v3` / `gutenberg` / `fse` / `wordpress`), and
-DesignEvidence 1.0:
+(`elementor` / `elementor-v3` / `elementor-v4` / `gutenberg` / `fse` /
+`wordpress`), and DesignEvidence 1.0:
 
 - `sources`: unique source IDs with type, reference, hash/date where available;
 - `viewports`: measured width and height (breakpoint frames);
@@ -62,6 +62,8 @@ Allowed provenance types are `design`, `live_schema`, `official_docs`, `user`,
 - Images need an attachment/source and alt text or explicit alt policy.
 - Unknown roles fail; they are never converted from raw Figma node names.
 - Elementor V4 is a separate target and never falls back to V3 structures.
+  A plan for `elementor-v4` returns `status: blocked` with the blocker
+  `elementor_v4_native_planner_not_promoted`.
 
 Errors use `stonewright_design_evidence_invalid` and return compact diagnostics
 with exact path, code, blocking status, and one repair action.

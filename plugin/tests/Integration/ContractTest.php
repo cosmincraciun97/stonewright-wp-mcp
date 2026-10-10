@@ -498,7 +498,13 @@ final class ContractTest extends TestCase {
 			$this->seed_open_rescue_incident();
 		}
 
+		$caps_before = $GLOBALS['stonewright_test_user_caps'] ?? [];
+		if ( 'stonewright/section-reuse-extract' === $ability->name() ) {
+			// The source must be one the user may read and edit, checked again when the ability runs.
+			$GLOBALS['stonewright_test_user_caps'] = array_merge( $caps_before, [ 'read_post' => true, 'edit_post' => true ] );
+		}
 		$result = $ability->execute( $args );
+		$GLOBALS['stonewright_test_user_caps'] = $caps_before;
 
 		$failure = $ability->name();
 		if ( $result instanceof \WP_Error ) {

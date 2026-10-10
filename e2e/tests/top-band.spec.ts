@@ -181,7 +181,7 @@ test.describe('The band', () => {
 		expect(h1.y - band.bottom).toBeLessThanOrEqual(60);
 	});
 
-	test('puts the EXP marker at the top right of the five links that are still changing, and nowhere else', async ({ page }) => {
+	test('puts the EXP marker at the top right of the six links that are still changing, and nowhere else', async ({ page }) => {
 		await open(page);
 		const width = page.viewportSize()?.width ?? 1440;
 

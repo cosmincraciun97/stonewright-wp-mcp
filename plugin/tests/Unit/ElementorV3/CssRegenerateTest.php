@@ -41,6 +41,7 @@ final class CssRegenerateTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_css_new_time'] );
 		Post::$factory = null;
 		unset( $GLOBALS['stonewright_test_posts'][ 301 ], $GLOBALS['stonewright_test_posts'][ 202 ] );
 		$GLOBALS['stonewright_test_user_caps']      = [];
@@ -96,7 +97,7 @@ final class CssRegenerateTest extends TestCase {
 
 		$events = $GLOBALS['stonewright_test_css_regenerate_events'];
 		self::assertSame(
-			[ 'permission', 'confirmation', 'backup', 'post_lock', 'css_lease', 'update_file', 'health', 'audit' ],
+			[ 'permission', 'confirmation', 'backup', 'post_lock', 'css_lease', 'update_css', 'health', 'audit' ],
 			$events
 		);
 		self::assertNotContains( 'render', $events );
@@ -172,7 +173,7 @@ final class CssRegenerateTest extends TestCase {
 		}
 	}
 
-	public function test_login_protected_delivery_returns_structured_false_without_rollback(): void {
+	public function test_login_protected_delivery_keeps_the_write_and_warns_without_rollback(): void {
 		$this->write_css( 'post-301.css', 'old-post' );
 		$this->write_css( 'post-999.css', 'sibling' );
 		$this->configure_update_file( 301 );
@@ -188,18 +189,82 @@ final class CssRegenerateTest extends TestCase {
 		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
 
 		self::assertIsArray( $result );
-		self::assertFalse( $result['ok'] );
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['effect_verified'] );
 		self::assertSame( 'verified', $result['generation_status'] ?? null );
 		self::assertSame( 'blocked', $result['delivery_status'] ?? null );
 		self::assertSame( 'not_checked', $result['frontend_verification_status'] ?? null );
-		self::assertFalse( $result['effect_verified'] );
-		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['root_error_code'] ?? null );
-		self::assertSame( 'delivery', $result['failed_check'] ?? null );
+		self::assertArrayNotHasKey( 'root_error_code', $result );
+		self::assertArrayNotHasKey( 'failed_check', $result );
 		self::assertFalse( $result['retryable'] );
 		self::assertSame( 'not_needed', $result['rollback_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_protected', $result['warnings'][0]['code'] ?? null );
+		self::assertStringContainsString( 'Do not rebuild', (string) ( $result['repair'] ?? '' ) );
+		self::assertStringContainsString( 'version', (string) ( $result['repair'] ?? '' ) );
 		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
 		self::assertSame( 'sibling', $this->read_css( 'post-999.css' ) );
 		self::assertStringNotContainsString( 'Secret private page title XYZ', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_redirect_to_a_page_that_is_not_css_is_a_written_file_with_a_changed_version(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$GLOBALS['stonewright_test_css_new_time'] = 500;
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-301.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static fn(): array => [
+			'response' => [ 'code' => 301 ],
+			'headers'  => [ 'location' => 'https://example.test/' ],
+			'body'     => '',
+		];
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'headers'  => [ 'content-type' => 'text/html' ],
+			'body'     => '<html><body>Home page</body></html>',
+		];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'blocked', $result['delivery_status'] ?? null );
+		self::assertSame( 'not_needed', $result['rollback_status'] ?? null );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+		self::assertSame( 1700000500, $result['css_version'] ?? null );
+		self::assertSame( 1, $result['css_version_before'] ?? null );
+		self::assertTrue( $result['css_version_changed'] ?? null );
+		self::assertSame( 1700000500, get_post_meta( 301, '_elementor_css', true )['time'] ?? null );
+		self::assertStringNotContainsString( 'Home page', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_verified_delivery_reports_the_changed_css_version(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$GLOBALS['stonewright_test_css_new_time'] = 800;
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'verified', $result['delivery_status'] ?? null );
+		self::assertSame( 1700000800, $result['css_version'] ?? null );
+		self::assertTrue( $result['css_version_changed'] ?? null );
+		self::assertArrayNotHasKey( 'warnings', $result );
+		self::assertArrayNotHasKey( 'repair', $result );
+	}
+
+	public function test_a_failed_delivery_check_that_is_not_access_control_keeps_the_probe_failed_code(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$url = 'https://example.test/wp-content/uploads/elementor/css/post-301.css';
+		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static fn(): array => [ 'response' => [ 'code' => 503 ], 'headers' => [], 'body' => '' ];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['ok'] );
+		self::assertSame( 'not_checked', $result['delivery_status'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_probe_failed', $result['root_error_code'] ?? null );
+		self::assertStringContainsString( 'Do not rebuild', (string) ( $result['repair'] ?? '' ) );
 	}
 
 	public function test_page_without_post_css_regenerates_with_a_truthful_result(): void {
@@ -254,6 +319,10 @@ final class CssRegenerateTest extends TestCase {
 
 	public function test_output_schema_declares_generation_and_delivery_status(): void {
 		$properties = ( new CssRegenerate() )->output_schema()['properties'];
+		self::assertSame( 'integer', $properties['css_version']['type'] );
+		self::assertSame( 'boolean', $properties['css_version_changed']['type'] );
+		self::assertSame( 'array', $properties['warnings']['type'] );
+		self::assertSame( 'string', $properties['repair']['type'] );
 		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked' ], $properties['generation_status']['enum'] );
 		self::assertSame( [ 'verified', 'blocked', 'failed', 'not_checked', 'not_applicable' ], $properties['delivery_status']['enum'] );
 		self::assertSame( [ 'present', 'not_produced' ], $properties['css_file_status']['enum'] );
@@ -274,7 +343,17 @@ final class CssRegenerateTest extends TestCase {
 				}
 
 				public function update(): void {
-					throw new \RuntimeException( 'update() must not run' );
+					$this->update_file();
+					$meta         = (array) get_post_meta( $this->post_id, '_elementor_css', true );
+					$meta['time'] = 1700000000 + (int) ( $GLOBALS['stonewright_test_css_new_time'] ?? 0 );
+					$meta['status'] = 'file';
+					update_post_meta( $this->post_id, '_elementor_css', $meta );
+				}
+
+				/** @return mixed */
+				public function get_meta( ?string $property = null ) {
+					$meta = (array) get_post_meta( $this->post_id, '_elementor_css', true );
+					return null === $property ? $meta : ( $meta[ $property ] ?? null );
 				}
 
 				public function get_path(): string {

@@ -38,7 +38,7 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   ability names or unusual argument patterns. Coverage is **Stonewright-owned
   mutations only**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
-  dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
+  dedupe). Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
   stream. Repeated identical permission and safety denials are scoped by site,
   ability, and error: the first blocked event and bounded count summaries retain
@@ -189,7 +189,8 @@ transaction and smoke gates. Do not expose or accept absolute backup paths.
 A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:
 
 - The health probe signs in to wp-admin with an internal token, never with the administrator's cookie or an Application Password. A token is stored as a hash, bound to one path, one probe request, and one user. It works for GET only, lasts three minutes, and is used up by its first valid request. The login it creates exists only for that request and is destroyed when the request ends.
-- A request that carries the token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port.
+- The page of a published post, and the front page after a kit write, is requested as an anonymous visitor and carries a mark-only token instead. It is issued for nobody, bound to one path and one nonce, single use, lasts three minutes, and is checked like the login token. It never logs anyone in. Only a valid token marks a request as a probe request, which stops Elementor from printing Google fonts for it. A header, parameter or cookie that is not a valid token marks nothing.
+- A request that carries the login token never follows a redirect. A custom URL to check must have exactly the home URL's scheme, host and port, and is not followed either, so the server is never made to request another host or port. The one exception is a request that carries a mark-only token: the probe follows a redirect that has exactly the home URL's scheme, host and port, at most twice, with a new mark-only token for each path. A redirect to another host, scheme or port is not followed.
 - Anyone can send the token header. Only a token that exists is audited, when it is accepted or refused. A guess leaves no audit row and touches no transient.
 - The journal file is input, not a source of entries: it can add a fatal to a change set the database already holds, and nothing else. It cannot create a change set or a recipe, so planting an entry in it does not put a rollback on the Rescue page. A file over 1 MB is not read.
 - A rollback claims its change set under the journal lock before the recipe runs, so a double click, or the page and an ability together, run it once.
@@ -206,9 +207,9 @@ See [Rescue](rescue.md).
 
 Section reuse copies content between posts, so its checks are about who may read what and what a copy may carry.
 
-- **Reading.** `section-reuse-find` lists a source only when the current user holds both `read_post` and `edit_post` for it, and does not count the posts it skipped. `section-reuse-extract` requires the same two capabilities for the source post. The page being built is never offered. An insert is refused (`stonewright_section_source_not_permitted`) when the user cannot read and edit the source its payload names, and `reuse_source` records only sources the user may read and edit.
+- **Reading.** `section-reuse-find` lists a source only when the current user holds both `read_post` and `edit_post` for it, whatever its status (publish, draft, pending, future or private), and does not count the posts it skipped, so the scan limit and `scan.truncated` do not depend on posts the user may not use. `section-reuse-extract` requires the same two capabilities for the source post, in the permission callback and again when it runs, and answers a post the user may not edit exactly as it answers one that does not exist (`stonewright_not_found`), so a private post is neither readable nor confirmed to exist. Nothing of a source is stored apart from the signature cache, and the cache is read only for a source the current user may use. The page being built is never offered. An insert is refused (`stonewright_section_source_not_permitted`) when the user cannot read and edit the source its payload names, and `reuse_source` records only sources the user may read and edit.
 - **The payload is untrusted.** An insert checks the payload's shape, builder, size, and depth, regenerates every element id, and never takes an id, a style id, or a post id from it as given. A payload for another builder, or one that mixes V3 and V4 nodes, is refused: sections are never converted.
-- **Nothing is relaxed.** A copy goes through the same write closure as any write of its family: permission, mode, confirmation token where the family requires one, `Backup::snapshot_post()`, write lock, readback, post-scoped CSS only through `elementor-css-regenerate`, ChangeSetV1, audit. Custom CSS, HTML widgets, and raw HTML or script in a copied section need the same approvals as when they are written by hand, and CSS classes must be in the `stonewright_approved_css_classes` option of the site; `section-reuse-extract` warns about each before the copy. A placeholder widget (a plugin widget whose plugin is not active) is never inserted. V4 writes stay blocked in `production-safe`. A copy never writes to the source post or its meta; the signature cache is one non-autoloaded option.
+- **Nothing is relaxed.** A copy goes through the same write closure as any write of its family: permission, mode, confirmation token where the family requires one, `Backup::snapshot_post()`, write lock, readback, post-scoped CSS only through `elementor-css-regenerate`, ChangeSetV1, audit. Custom CSS, HTML widgets, and raw HTML or script in a copied section need the same approvals as when they are written by hand, and CSS classes must be in the `stonewright_approved_css_classes` option of the site; `section-reuse-extract` warns about each before the copy. A placeholder widget (a plugin widget whose plugin is not active) is never inserted. V4 writes stay blocked in `production-safe`. A copy never writes to the source post or its meta; the signature cache is one non-autoloaded option. Settings of an Elementor V3 copy that the live schema rejects are removed only when the operation lists exactly those settings in `drop_settings`; the list must equal the rejected settings, the confirmation token of `production-safe` covers it as part of the call, and the custom code gate still refuses every CSS class and custom CSS the list does not name.
 - **The setting is a policy, not a hint.** Hiding the tools is a convenience; every reuse ability and insert operation reads the live option when it runs and fails with `stonewright_section_reuse_off`. A change of the option is audited and needs `manage_options` and the nonce of the Setup form.
 - **Notices carry no secrets.** The fifteen-minute line is a fixed sentence that names the setting value.
 
@@ -248,8 +249,8 @@ A dry run of an Elementor write ability needs no token in `production-safe` mode
 
 ### Supply chain
 
-Stonewright depends on `wordpress/mcp-adapter` ^0.6.1,
-`wordpress/php-mcp-schema`, `wordpress/abilities-api`,
+Stonewright depends on `wordpress/mcp-adapter` ^0.6.1 (which brings
+`wordpress/php-mcp-schema`), `wordpress/abilities-api`,
 `automattic/jetpack-autoloader` ^5.0, `defuse/php-encryption` ^2.4, and
 `opis/json-schema`. Check these dependencies for security advisories on each
 update. The Composer `composer.lock` file pins exact versions; review it when

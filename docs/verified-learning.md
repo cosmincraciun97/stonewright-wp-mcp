@@ -43,7 +43,7 @@ When the same error repeats ten times, Stonewright adds a proposed lesson to Mem
   "next_tool": "stonewright-content-get",
   "required_verifier": "stonewright-content-get",
   "retry_policy": "repair_then_retry_once",
-  "learning_policy": "record_only_after_verified_repair"
+  "learning_policy": "promote_only_after_verified_repair"
 }
 ```
 

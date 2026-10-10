@@ -33,7 +33,7 @@ It routes the agent to the right specialized skill and MCP tools.
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed. Status uses
    schema version 3. If it reports `reauthentication_required`, relay
    `user_action` and stop WordPress work until the operator reauthenticates.
-   Ask the operator to run **Stonewright → Troubleshoot** (OAuth, Application
+   Ask the operator to run **Stonewright → Setup → Troubleshoot** (OAuth, Application
    Password, local companion, or Not sure) when the client never sees tools,
    fails auth, or cannot reach the site. Degraded task-start reconnects once.
 

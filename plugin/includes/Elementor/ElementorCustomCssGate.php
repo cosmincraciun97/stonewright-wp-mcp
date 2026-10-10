@@ -168,6 +168,28 @@ final class ElementorCustomCssGate {
 	}
 
 	/**
+	 * The top-level settings the gate would refuse right now, by key, each with the reason: a CSS class the site has
+	 * not approved, or custom CSS (or an HTML style tag) that needs a human-issued grant while none is consumed.
+	 * It reads the settings and the site's allowlist only; it records nothing and asks for no grant.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return array<string, string> Key to `css_classes_not_approved` or `custom_css_needs_approval`.
+	 */
+	public static function refused_settings( array $settings ): array {
+		$refused = [];
+		foreach ( $settings as $key => $value ) {
+			$findings = self::collect( [ (string) $key => $value ], '' );
+			if ( [] !== self::rejected_classes( $findings['classes'] ) ) {
+				$refused[ (string) $key ] = 'css_classes_not_approved';
+			} elseif ( ! self::$grant_active && ( [] !== $findings['css_keys'] || [] !== $findings['html_style'] ) ) {
+				$refused[ (string) $key ] = 'custom_css_needs_approval';
+			}
+		}
+
+		return $refused;
+	}
+
+	/**
 	 * The value with every custom CSS key that holds nothing removed, so a key that is only a placeholder is not
 	 * mistaken for custom CSS. An Atomic style variant always has a `custom_css` key, null when it has none.
 	 *
