@@ -42,7 +42,7 @@ folder or site URL.
 | `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*` |
 | `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
 | `STONEWRIGHT_CONFIGURED_PACKAGE` | Optional exact official package source used for authenticated `/health` configured-package evidence; invalid values are omitted |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs use `essential`. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs also set `essential-static` and save `essential` as the WordPress surface. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
@@ -95,9 +95,13 @@ before persistence.
 Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
 token pairs atomically with mode `0600`. Status reports use schema version 3.
 Terminal grant/client failures clear the local state and return
-`reauthentication_required` with a model-visible `user_action`; transient HTTP
-or network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
-breaker. Access tokens last one hour. Seven-day continuity is a refresh SLO
+`reauthentication_required` with a model-visible `user_action` that opens with
+one fixed sentence for the reason when it is one of `invalid_client`, `refresh_token_expired`,
+`refresh_token_revoked`, `refresh_outcome_unknown`, or `invalid_grant`;
+transient HTTP or network failures honor bounded backoff, jitter,
+`Retry-After`, and a circuit breaker. A refresh that got no response at all is
+sent once more with the same refresh token; a second silence reports
+`refresh_outcome_unknown`. Access tokens last one hour. Seven-day continuity is a refresh SLO
 within a grant that ends at most 90 days after authorization, where each
 refresh token expires after 30 days without use. Each WordPress MCP
 request is sent once and is not repeated after a timeout or network error; on
@@ -205,8 +209,9 @@ profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
 For new stdio sessions, an unknown client defaults to
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential-static`; generated known-client configs
-normally use `essential`. Both provide useful bounded startup tools without
-depending on live relisting. Bootstrap remains available as an explicit
+set the same value and save `essential` as the WordPress surface. Both
+profiles provide useful bounded startup tools without depending on live
+relisting. Bootstrap remains available as an explicit
 transport/profile diagnostic. When a profile does change,
 `stonewright-task-start` sets `tools_changed` + `re_list_instruction`, updates
 or enables the corresponding callable handles before it emits
@@ -223,7 +228,7 @@ other strict tool-cap clients. It keeps the total client-visible surface under
 remain local, including batch runs and background jobs.
 Common aliases normalize before filtering, so `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` select the closest
-compact canonical profile instead of silently falling back to `essential`.
+compact canonical profile instead of silently falling back to `essential-static`.
 
 ## Persistent Application Passwords
 

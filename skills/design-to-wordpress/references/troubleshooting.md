@@ -4,9 +4,9 @@
 
 `design-build-spec` or `design-validate-spec` returned errors.
 
-- Read the `errors` array carefully; each entry has `field` and `message`.
-- Common causes: missing required `sections` items, unknown section `type`,
-  token color values not hex/rgba.
+- Read the `errors` array carefully; each entry has `path_string`, `keyword` and `message`.
+- Common causes: missing required `sections` items, an unsupported block
+  `type`, token colors that do not start with `#`, `rgb`, `hsl` or `var(`.
 - Fix the spec argument and retry `design-build-spec`. Do not pass an invalid
   spec downstream.
 

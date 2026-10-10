@@ -60,4 +60,4 @@ editing operations.
 Do not pass V4 atomic JSON to `elementor-v3-build-page-from-spec` or
 `elementor-v3-add-container`. The data structures are incompatible and will
 corrupt the page's Elementor meta. Write V4 data only through the V4 write
-path (companion layer or approved WP-CLI command).
+abilities that SKILL.md names: the native composition path or the Fallback writers.

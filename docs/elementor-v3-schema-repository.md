@@ -22,6 +22,10 @@ add-ons, locale, and feature/experiment flags. Plugin activation, deactivation,
 upgrade, active-plugin changes, and tracked Elementor experiment changes clear
 all cached schema shards.
 
+`stonewright-elementor-schema` covers widgets only. A request for `container`,
+`section` or `column` fails with `stonewright_elementor_use_container_schema`; read
+those with `stonewright-elementor-v3-container-schema`.
+
 ## Bundled catalog
 
 The former 5.85 MB JSON+PHP duplicate manifest is gone. The generated catalog
@@ -52,7 +56,8 @@ widget is blocked with `capture_required=true` instead of being written raw.
 `PlainLlmSchemaConverter` before returning them. That converter unwraps
 `{$$type, value}` envelopes, collapses duplicate union branches, enriches enums
 from control options, and omits Elementor Pro controls when Pro is inactive.
-`mode=summary` returns type/description only. Compatibility
+`mode=summary` returns the key, type, label, section and responsive flag of each
+control, paginated, with `required_for_render`. Compatibility
 `stonewright-elementor-v3-get-widget-schema` defaults to compact Content/Style/
 Advanced groups (`defaults_omitted: true`); use `responseMode=full` only when
 defaults are required for the next write.
@@ -95,5 +100,6 @@ key. See [Security](security.md#values-that-reach-generated-css).
 same repository. New clients should use `stonewright-elementor-schema`.
 
 Editor-JavaScript schema comparison and page-resident mutation tools belong to
-the separate V3 editor adapter in PR5; this repository does not pretend that
-server-side and active-editor schemas have already been reconciled.
+the separate [V3 editor adapter](elementor-v3-editor-adapter.md); this
+repository does not claim that server-side and active-editor schemas have been
+reconciled.
