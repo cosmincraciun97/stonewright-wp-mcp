@@ -109,7 +109,8 @@ jobs:
             --exclude phpstan.neon \
             --exclude phpcs.xml \
             --exclude phpunit.xml \
-            --exclude phpunit.xml.dist
+            --exclude phpunit.xml.dist \
+            --exclude .github
           rsync -a skills/ dist/stonewright/skills/
           cp LICENSE dist/stonewright/LICENSE
           php plugin/bin/verify-jetpack-manifests.php dist/stonewright
@@ -128,6 +129,10 @@ jobs:
           rm -f dist/stonewright-visual-*.tgz
           if unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$' >/dev/null; then
             echo "Plugin archive contains development-only files" >&2
+            exit 1
+          fi
+          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/\.github(/|$)' >/dev/null; then
+            echo "Plugin archive contains a .github folder" >&2
             exit 1
           fi
           if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/LICENSE$' >/dev/null; then

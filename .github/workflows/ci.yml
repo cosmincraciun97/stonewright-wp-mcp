@@ -29,7 +29,7 @@ jobs:
           node-version: "22"
       - run: node scripts/check-docs-freshness.mjs
       - run: node scripts/check-license-metadata.mjs
-      - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs
+      - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/package-verify.test.mjs
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
@@ -116,7 +116,8 @@ jobs:
             --exclude phpstan.neon \
             --exclude phpcs.xml \
             --exclude phpunit.xml \
-            --exclude phpunit.xml.dist
+            --exclude phpunit.xml.dist \
+            --exclude .github
           php plugin/bin/verify-jetpack-manifests.php package-scan/stonewright
           cp LICENSE package-scan/stonewright/LICENSE
           rsync -a skills/ package-scan/stonewright/skills/
@@ -328,7 +329,8 @@ jobs:
             --exclude phpstan.neon \
             --exclude phpcs.xml \
             --exclude phpunit.xml \
-            --exclude phpunit.xml.dist
+            --exclude phpunit.xml.dist \
+            --exclude .github
           php plugin/bin/verify-jetpack-manifests.php dist/e2e/stonewright
           (cd dist/e2e && zip -qr stonewright.zip stonewright)
           unzip -q dist/e2e/stonewright.zip -d dist/e2e-unpacked
