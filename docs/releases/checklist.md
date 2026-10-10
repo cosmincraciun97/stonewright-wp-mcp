@@ -38,7 +38,8 @@ Run from `plugin/` unless noted.
       packaged plugin, including the Setup no-refresh flow and admin spacing.
 - [ ] Build the exact plugin ZIP and companion TGZ through the
       release workflow recipe; unpack and scan each archive for secrets,
-      private terms, runtime state, development junk, and missing dependencies.
+      private terms, runtime state, development junk (including a `.github`
+      folder), and missing dependencies.
       Published assets are only those two archives plus `SHA256SUMS.txt`.
 - [ ] `git diff --check` - zero whitespace errors.
 

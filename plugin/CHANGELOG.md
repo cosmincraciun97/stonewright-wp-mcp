@@ -683,6 +683,7 @@
   seals the OAuth credentials, is now a direct requirement of the plugin at the
   same version, and the `conflict` entries for `lcobucci/jwt`,
   `lcobucci/clock` and `league/uri` are gone.
+- Remove the `.github` folder from the plugin ZIP.
 
 ### Fixed
 
