@@ -46,11 +46,12 @@ use Stonewright\WpMcp\Support\Logger;
  *    back and reports it.
  *
  * The journal link: when the Rescue journal has an entry with the same id and the entry is open (armed, incident,
- * rollback_failed), or is verified and its recipe can still run, the rollback goes through RescueRollback::run(), the
- * path the Rescue page and ability use, so the journal and the ledger stay one story: the journal entry settles as it
- * always did, and the ledger gets its rollback row. An open incident needs neither force nor an approval, because the
- * site is failing. Anything else goes through the handler of the family; if the journal still lists the change as
- * verified it is settled as rolled back.
+ * rollback_failed), the rollback goes through RescueRollback::run(), the path the Rescue page and ability use, so the
+ * journal and the ledger stay one story: the journal entry settles as it always did, and the ledger gets its rollback
+ * row. An open incident needs neither force nor an approval, because the site is failing. Anything else, a verified
+ * change included, goes through the handler of the family, which probes the site after the restore and puts the earlier
+ * state back when the probe fails; if the journal lists the change as verified it is settled as rolled back once the
+ * restore is kept, and stays verified when the restore is taken back.
  *
  * Every call writes one audit row, a dry run and a refusal included, and its result carries a receipt.
  */
@@ -202,7 +203,7 @@ final class ChangeRollback {
 					return self::error( 'stonewright_change_changed_since_preview', __( 'The item changed while this run was waiting to start. Review the plan again.', 'stonewright' ), 409, [ 'current_sha256' => $hash ] );
 				}
 			}
-			return $state['journal'] && null !== $state['entry']
+			return $state['open'] && null !== $state['entry']
 				? self::run_journal( $context, $state, $options )
 				: self::run_handler( $context, $state, $options );
 		} finally {
@@ -259,7 +260,6 @@ final class ChangeRollback {
 
 		$entry   = ChangeJournal::get( (string) $row['change_id'] );
 		$open    = null !== $entry && in_array( (string) $entry['state'], [ 'armed', 'incident', 'rollback_failed' ], true );
-		$journal = null !== $entry && ( $open || ( 'verified' === (string) $entry['state'] && RollbackRecipes::available( $entry ) ) );
 
 		$live      = $handler->live_image( $row );
 		$supported = ! ( $live instanceof \WP_Error && RollbackFamilyHandler::LIVE_UNSUPPORTED === $live->get_error_code() );
@@ -296,7 +296,7 @@ final class ChangeRollback {
 			}
 		}
 
-		$strict   = ! ( $journal && $open );
+		$strict   = ! $open;
 		$drift    = $supported && $current !== (string) $row['after_sha256'];
 		$restored = $supported && $current === (string) $row['before_sha256'];
 		$newer    = self::newer_changes( $row );
@@ -322,7 +322,7 @@ final class ChangeRollback {
 			'resource_id'           => $id,
 			'summary'               => (string) $row['summary'],
 			'status'                => (string) $row['status'],
-			'path'                  => $journal ? 'journal' : 'ledger',
+			'path'                  => $open ? 'journal' : 'ledger',
 			'restorable'            => true,
 			'diff'                  => $diff,
 			'drift'                 => $drift,
@@ -355,7 +355,6 @@ final class ChangeRollback {
 			'target_ok' => $target_ok,
 			'supported' => $supported,
 			'entry'     => $entry,
-			'journal'   => $journal,
 			'open'      => $open,
 			'strict'    => $strict,
 		];
@@ -802,7 +801,7 @@ final class ChangeRollback {
 	 * @return array<string, mixed>
 	 */
 	private static function no_diff( string $status, string $message ): array {
-		return [ 'status' => $status, 'message' => $message, 'sections' => [], 'changed' => false, 'truncated' => false, 'masked' => 0, 'image_masked' => false ];
+		return [ 'status' => $status, 'message' => $message, 'sections' => [], 'changed' => false, 'truncated' => false, 'masked' => 0, 'image_masked' => false, 'deleted' => false ];
 	}
 
 	/**

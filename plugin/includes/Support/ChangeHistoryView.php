@@ -293,6 +293,7 @@ final class ChangeHistoryView {
 			'truncated'    => ! empty( $diff['truncated'] ),
 			'masked'       => (int) ( $diff['masked'] ?? 0 ),
 			'image_masked' => ! empty( $diff['image_masked'] ),
+			'deleted'      => ! empty( $diff['deleted'] ),
 			'sections'     => $sections,
 		];
 	}

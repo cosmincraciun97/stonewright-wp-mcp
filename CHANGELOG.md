@@ -696,6 +696,28 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Compare a rebuilt menu item by what identifies it. The undo of a menu delete,
+  and of an item that was added, reported failure although the menu was back,
+  because a custom link holds its own item id as its object id and a rebuilt
+  menu has new ids. The row now succeeds, the change reads as rolled back and
+  offers Redo, and a second undo is refused instead of creating another menu.
+- Undo a verified change from the Changes page through the family handler, which
+  probes the site after the restore and puts the earlier state back when the
+  site stops loading. Only an open journal entry (armed, incident or
+  rollback failed) goes through the Rescue journal. A verified change that the
+  journal still lists is settled as rolled back once the restore is kept, and
+  stays verified when the restore is taken back.
+- Show what a delete removed. A change that deleted a menu or a memory entry has
+  no content after it, and its diff is now the content before against nothing,
+  with a **Deleted** label, instead of "There is no diff to show".
+- Count values that were masked when they were stored as masked in a diff, so
+  the "Values were masked" callout shows. A change whose result was masked is
+  marked not restorable (`masked_secret`), as one whose content before was masked.
+- Put the code `stonewright_rescue_approval_required` and the approval URL in the
+  text of the error that an MCP client receives when an undo of code needs an
+  administrator, as WP-CLI prints them.
+- List the redo of a rollback in the History tab of a change, under the rollback
+  it redoes, to a fixed depth.
 - Show a custom-code snippet rollback as not available once its provider
   snapshot has expired. Rescue read it as available for as long as the entry
   existed and the rollback then failed with `snapshot_missing`; the snapshot is

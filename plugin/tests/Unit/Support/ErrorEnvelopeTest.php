@@ -238,6 +238,41 @@ final class ErrorEnvelopeTest extends TestCase {
 		self::assertSame( 'must-not-leak', $visible->get_error_data()['token'], 'The PHP error data is untouched.' );
 	}
 
+	public function test_a_refused_code_undo_carries_its_code_and_the_approval_url_in_the_agent_message(): void {
+		$error = \Stonewright\WpMcp\Security\RescueRollback::approval_required_error(
+			[
+				'id'            => 'cs-abc123',
+				'ability'       => 'stonewright/theme-file-patch',
+				'resource_type' => 'theme_file',
+				'resource_key'  => 'example-theme/functions.php',
+			],
+			[ 'url' => 'https://example.test/wp-admin/admin.php?page=stonewright-changes&change=cs-abc123' ]
+		);
+
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+
+		$message = $visible->get_error_message();
+		self::assertSame( 'stonewright_rescue_approval_required', $visible->get_error_code() );
+		self::assertStringContainsString( '"code":"stonewright_rescue_approval_required"', $message );
+		self::assertStringContainsString( '"approval_url":"https:\/\/example.test\/wp-admin\/admin.php?page=stonewright-changes&change=cs-abc123"', $message );
+		self::assertStringContainsString( '"change_set_id":"cs-abc123"', $message );
+		self::assertStringContainsString( '"retryable":false', $message );
+		foreach ( [ 'resource_ref', 'theme-file-patch', 'functions.php', 'operator_action', 'recommended_next' ] as $internal ) {
+			self::assertStringNotContainsString( $internal, $message, $internal );
+		}
+	}
+
+	public function test_the_approval_url_in_a_message_is_a_bounded_http_address_and_nothing_else(): void {
+		$error = new \WP_Error( 'stonewright_rescue_approval_required', 'Needs an administrator.', [ 'approval_url' => 'javascript:alert(1)', 'incident_id' => 'cs-abc123' ] );
+		self::assertStringNotContainsString( 'approval_url', ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message() );
+
+		$long = new \WP_Error( 'stonewright_rescue_approval_required', 'Needs an administrator.', [ 'approval_url' => 'https://example.test/' . str_repeat( 'a', 600 ) ] );
+		self::assertStringNotContainsString( 'approval_url', ErrorEnvelope::with_agent_visible_payload( $long )->get_error_message() );
+
+		$other = new \WP_Error( 'stonewright_elementor_write_busy', 'Busy.', [ 'approval_url' => 'https://example.test/x', 'retryable' => true ] );
+		self::assertSame( 'Busy. {"retryable":true}', ErrorEnvelope::with_agent_visible_payload( $other )->get_error_message() );
+	}
+
 	public function test_only_a_rescue_error_gets_a_code_in_its_message(): void {
 		$error = new \WP_Error( 'stonewright_elementor_write_busy', 'Busy.', [ 'retryable' => true, 'site_status' => 'healthy', 'rollback_status' => 'succeeded' ] );
 

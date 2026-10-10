@@ -423,6 +423,10 @@ final class MenuAdapter {
 				continue;
 			}
 			foreach ( [ 'title', 'url', 'type', 'object', 'object_id', 'target', 'attr_title', 'description', 'classes', 'xfn', 'status' ] as $field ) {
+				// A custom link holds its own item id as its object id, which a rebuilt menu does not keep.
+				if ( 'object_id' === $field && 'custom' === (string) ( $item['type'] ?? '' ) ) {
+					continue;
+				}
 				if ( ! AdapterSupport::same( $item[ $field ] ?? null, $other[ $field ] ?? null ) ) {
 					$out[] = 'items.' . $index . '.' . $field;
 				}

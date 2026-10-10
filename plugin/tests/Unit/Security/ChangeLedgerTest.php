@@ -351,6 +351,28 @@ final class ChangeLedgerTest extends TestCase {
 		self::assertIsArray( ChangeLedger::read_image( $row['change_id'], 'before' ) );
 	}
 
+	public function test_an_after_image_that_was_masked_makes_the_row_not_restorable(): void {
+		$row = $this->record( [ 'family' => 'option', 'resource_type' => 'option', 'resource_id' => 'blogname', 'before' => [ 'value' => 'Old name' ] ] );
+		self::assertTrue( $row['restorable'] );
+
+		$settled = ChangeLedger::settle( $row['change_id'], [ 'status' => 'verified', 'after' => [ 'value' => 'Authorization: Bearer ' . self::MARKER . '1234567890' ] ] );
+
+		self::assertIsArray( $settled );
+		self::assertFalse( $settled['restorable'] );
+		self::assertSame( 'masked_secret', $settled['restorable_reason'] );
+		self::assertNotSame( '', $settled['after_ref'], 'The masked image is still kept.' );
+		self::assertStringNotContainsString( self::MARKER, json_encode( $this->read_all_blobs() ) );
+	}
+
+	public function test_a_masked_after_image_keeps_the_reason_a_row_already_had(): void {
+		$row = $this->record( [ 'restorable' => false, 'restorable_reason' => 'too_large' ] );
+
+		$settled = ChangeLedger::settle( $row['change_id'], [ 'status' => 'verified', 'after' => [ 'post_title' => 'Authorization: Bearer ' . self::MARKER . '1234567890' ] ] );
+
+		self::assertIsArray( $settled );
+		self::assertSame( 'too_large', $settled['restorable_reason'] );
+	}
+
 	/** @return list<string> */
 	private function read_all_blobs(): array {
 		$out = [];

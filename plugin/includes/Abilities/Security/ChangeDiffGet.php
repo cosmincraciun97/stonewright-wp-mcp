@@ -73,7 +73,7 @@ final class ChangeDiffGet extends AbilityKernel {
 				'change' => $row,
 				'diff'   => [
 					'type'        => 'object',
-					'description' => 'status ok, before_only, no_images or unreadable; message when there is nothing to compare; sections of text hunks, block items, element changes or field changes; changed, truncated, masked (values replaced by [redacted]) and image_masked.',
+					'description' => 'status ok, before_only, no_images or unreadable; message when there is nothing to compare; sections of text hunks, block items, element changes or field changes; changed, truncated, masked (values replaced by [redacted], including values the ledger masked when it stored them), image_masked, and deleted (the change removed the resource: the diff is the content before against nothing).',
 					'properties'  => [
 						'status'       => [ 'type' => 'string' ],
 						'message'      => [ 'type' => 'string' ],
@@ -82,6 +82,7 @@ final class ChangeDiffGet extends AbilityKernel {
 						'truncated'    => [ 'type' => 'boolean' ],
 						'masked'       => [ 'type' => 'integer' ],
 						'image_masked' => [ 'type' => 'boolean' ],
+						'deleted'      => [ 'type' => 'boolean' ],
 					],
 				],
 				'plan'   => [

@@ -187,6 +187,36 @@ final class ChangeRollbackFamiliesTest extends RollbackTestCase {
 		self::assertFalse( wp_get_nav_menu_object( $new_id ), 'The redo deletes the menu again.' );
 	}
 
+	public function test_undo_and_redo_of_a_menu_delete_succeed_with_custom_items_and_leave_no_orphan_menu(): void {
+		// A custom link keeps its own id as its object id, and a recreated menu has new item ids.
+		$menu = $this->make_menu(
+			'Main',
+			[
+				[ 'home', 'Home', 'https://example.test/', '' ],
+				[ 'about', 'About', 'https://example.test/about/', '' ],
+			]
+		);
+		( new MenuDelete() )->execute( [ 'menu_id' => $menu['menu'] ] );
+		$id = (string) $this->only_row_of( 'menu' )['change_id'];
+		$this->forget_journal();
+
+		$undo = ChangeRollback::run( $id );
+
+		self::assertIsArray( $undo, $undo instanceof \WP_Error ? $undo->get_error_code() . ': ' . $undo->get_error_message() : '' );
+		self::assertTrue( $undo['ok'] );
+		self::assertSame( 'verified', $this->row( $undo['rollback_change_id'] )['status'], 'The rollback row succeeded.' );
+		self::assertSame( 'rolled_back_by', $this->row( $id )['status'], 'The delete row is rolled back, so a redo is offered.' );
+		self::assertSame( $undo['rollback_change_id'], ChangeRollback::redo_target( $this->row( $id ) )['change_id'] ?? '' );
+		self::assertCount( 1, wp_get_nav_menus(), 'The menu exists once.' );
+
+		$again = ChangeRollback::run( $id );
+		$this->assert_refused( $again, 'stonewright_change_already_rolled_back' );
+		self::assertCount( 1, wp_get_nav_menus(), 'A second undo leaves no orphan menu.' );
+
+		$this->ok( ChangeRollback::run( $undo['rollback_change_id'] ) );
+		self::assertCount( 0, wp_get_nav_menus(), 'The redo deletes the recreated menu.' );
+	}
+
 	public function test_a_menu_item_added_is_removed_by_the_rollback_and_added_again_by_the_redo(): void {
 		$menu = $this->make_menu( 'Main', [ [ 'home', 'Home', 'https://example.test/', '' ] ] );
 		( new MenuAddItem() )->execute( [ 'menu_id' => $menu['menu'], 'title' => 'Two', 'url' => 'https://example.test/2/' ] );

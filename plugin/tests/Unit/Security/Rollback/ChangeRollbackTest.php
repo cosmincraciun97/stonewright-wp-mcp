@@ -506,8 +506,8 @@ final class ChangeRollbackTest extends RollbackTestCase {
 	 *
 	 * @return array{0:string,1:string} The change id, and the id of the snapshot.
 	 */
-	private function journaled_change( string $state ): array {
-		$this->make_post( self::POST, [ 'post_content' => 'Original body' ] );
+	private function journaled_change( string $state, string $original = 'Original body' ): array {
+		$this->make_post( self::POST, [ 'post_content' => $original ] );
 		$id       = PostAdapter::record_before( 'stonewright/content-update-page', self::POST );
 		$snapshot = Backup::snapshot_post( self::POST );
 		ChangeJournal::arm(
@@ -548,14 +548,36 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		self::assertSame( $children[0]['change_id'], $result['rollback_change_id'] );
 	}
 
-	public function test_a_recent_verified_change_with_a_recipe_also_goes_through_the_journal_path(): void {
+	public function test_a_verified_change_with_a_recipe_goes_through_the_handler_path_and_settles_the_journal_as_rolled_back(): void {
 		[ $id ] = $this->journaled_change( 'verified' );
 
 		$result = ChangeRollback::run( $id );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
-		self::assertSame( 'journal', $result['path'] );
+		self::assertSame( 'ledger', $result['path'], 'Only an open entry goes through the journal.' );
+		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
 		self::assertSame( 'rolled_back', ChangeJournal::get( $id )['state'] );
+		self::assertSame( 'rolled_back_by', $this->row( $id )['status'] );
+		self::assertSame( 'verified', $this->row( $result['rollback_change_id'] )['status'] );
+	}
+
+	public function test_a_verified_change_whose_probe_fails_after_the_restore_is_reverted_and_the_journal_keeps_it_verified(): void {
+		[ $id ] = $this->journaled_change( 'verified', 'FATAL original layout' );
+		$this->site( fn (): string => str_contains( $this->post_field( 'post_content' ), 'FATAL' ) ? 'broken' : 'healthy' );
+
+		$error = ChangeRollback::run( $id );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_rollback_reverted', $error->get_error_code() );
+		self::assertSame( 'Changed body', $this->post_field( 'post_content' ), 'The change that worked is back.' );
+		$data = $error->get_error_data();
+		self::assertSame( 'reverted', $data['rollback_status'] );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'], 'The change is still in effect, so the journal still lists it as verified.' );
+		self::assertSame( 'verified', $this->row( $id )['status'] );
+		self::assertSame( 'rolled_back_by', $this->row( $data['rollback_change_id'] )['status'], 'The rollback row says it was taken back.' );
+		$children = ChangeLedger::children( $data['rollback_change_id'] );
+		self::assertCount( 1, $children );
+		self::assertSame( 'redo', $children[0]['kind'] );
 	}
 
 	public function test_a_verified_change_the_journal_cannot_undo_uses_the_adapter_path_and_settles_the_journal_too(): void {

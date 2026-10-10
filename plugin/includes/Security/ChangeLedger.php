@@ -358,7 +358,8 @@ final class ChangeLedger {
 	/**
 	 * Settle a recorded change after the write: set its status and, when the write produced one, the
 	 * after image. The after image is written once. A later call can still move the status, for example
-	 * to rolled_back_by.
+	 * to rolled_back_by. An after image that had a credential masked out of it makes a restorable row not
+	 * restorable (masked_secret), as a masked before image does at record().
 	 *
 	 * @param array<string, mixed> $result status (required); after (an image); summary.
 	 * @return array<string, mixed>|\WP_Error The row as get() returns it.
@@ -395,6 +396,11 @@ final class ChangeLedger {
 			$data['after_ref']    = $image['ref'];
 			$data['after_sha256'] = $image['sha256'];
 			$data['after_bytes']  = $image['bytes'];
+			// An image that had credentials masked out of it cannot be written back, so a change whose result was masked is not restorable.
+			if ( $prepared['masked'] && $row['restorable'] ) {
+				$data['restorable']        = 0;
+				$data['restorable_reason'] = 'masked_secret';
+			}
 		}
 
 		global $wpdb;
