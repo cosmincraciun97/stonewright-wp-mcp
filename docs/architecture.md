@@ -1088,7 +1088,9 @@ Profile and surface switching is transport-specific. Agents should treat
 - **`discover-execute`**: opt-in profile with `discover-abilities`,
   `get-ability-info`, and `execute-ability`. Auto routing never selects it.
   `execute-ability` uses the same permission, confirmation, backup, and audit
-  gates as a direct MCP call and does not bypass php-execute read-only guards.
+  gates as a direct MCP call, validates the arguments against the target's
+  input schema, and runs an ability that runs or writes code (php-execute, the
+  sandbox writers, the WP-CLI runners) only when the current profile lists it.
 - **`inspect`**: opt-in read-only profile: the startup set plus discovery,
   read, and verify tools, within the 30-tool essential cap. It carries no `php-execute`,
   `execute-ability`, blueprint, direction-write, or other write tool, and auto

@@ -561,10 +561,25 @@ Alias names (`companion_wp_cli_*`) are also registered for backward compatibilit
 
 Batch aliases (`stonewright-wp-cli-batch-run` and
 `companion_wp_cli_batch_run`) run multiple tokenized WP-CLI commands in one
-UTF-8 JSON request. Use them for repeated post/meta/term/media/option writes
-instead of large inline PowerShell/Node scripts. Use background jobs only for
-long imports, cache rebuilds, plugin operations, or large batches where a
-single MCP request would otherwise block.
+UTF-8 JSON request. They accept read-oriented commands only (`post`, `term`,
+`option`, `plugin`, `theme` and `user` reads, `db check`, cron lists, cache and
+rewrite flushes); a command off that list refuses the whole batch before any
+command runs. Use them for repeated reads instead of large inline
+PowerShell/Node scripts. Use background jobs for long imports, cache rebuilds,
+batches of writes, or any work where a single MCP request would otherwise block.
+
+Every runner reads the argv the way WP-CLI does: a leading `@alias`, global flags
+before or between the command words, quotes, case, and a whole command in one
+token do not hide the command. The agent-facing runners (run, batch, jobs and
+their HTTP routes) refuse `eval`, `eval-file`, `shell`, `package`, `config`,
+`scaffold`, plugin and theme `install`/`update`/`delete`/`activate`, `db` (except
+read-only subcommands), `user` changes, role and capability changes,
+`core download`/`update`/`install`, `cron event run`, `cli update`,
+`search-replace` without `--dry-run`, option writes to sensitive options, and the
+`--exec`, `--require`, `--prompt`, `--config`, `--ssh` and `--http` flags.
+Commands the companion builds for its own setup, rescue and approved command
+recipes use a narrower list that refuses only the entry points that run
+arbitrary code.
 
 ### HTTP endpoints (when `STONEWRIGHT_HTTP_ENABLE=1` and `PORT` are set)
 

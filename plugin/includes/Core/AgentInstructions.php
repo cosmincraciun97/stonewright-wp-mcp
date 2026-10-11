@@ -28,7 +28,7 @@ final class AgentInstructions {
 			'- If elementor-v3-batch-mutate is missing, refresh the client surface; never use php-execute or raw meta instead.',
 			'- Design: read the direction brief, normalize DesignEvidence, plan natively, then write live schemas in small verified batches.',
 			'- Blueprints: ask for the builder. Elementor fails if missing; Gutenberg/blocks/FSE uses engine=gutenberg; auto reports engine_used.',
-			'- Repeated rows: prefer content-bulk-upsert-posts or wp-cli-batch-run.',
+			'- Repeated rows: prefer content-bulk-upsert-posts. wp-cli-batch-run runs read-oriented commands only.',
 			'- Woo: wc-status first; use typed product, variation, term, attribute, and audit tools. Direct mode reads only.',
 			'- Woo layouts require live Elementor widget or registered woocommerce/* block schemas; never invent controls or attributes.',
 			'- WP-CLI stays tokenized. PHP snippets use stonewright-php-execute (full profile only), never WP-CLI eval, shell, package, --exec, or --require.',

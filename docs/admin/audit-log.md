@@ -171,12 +171,15 @@ migrations preserve existing audit rows; the update that adds `repair_of` adds
 the column and its index in place. A genuinely fresh installation starts
 with zero rows; the first real operation may add one.
 
-Administrative cleanup uses only
+Cleanup of memory, incidents, and recurring-error state uses only
 `stonewright/security-runtime-data-purge`. Review its count-only dry run, then
 apply the exact returned state and plan hashes with the explicit destructive
 acknowledgement. `production-safe` also requires a confirmation token. The
-purge never deletes rows created above the reviewed numeric watermarks and
-retains one redacted cleanup receipt when audit history is selected.
+purge never deletes rows created above the reviewed numeric watermarks. The
+ability does not take the audit log as a scope: a call that names `audit` is
+refused with `stonewright_runtime_data_purge_audit_requires_administrator`,
+whatever the token or acknowledgement, because the log is the record of what
+agents did. Erasing it is an administrator's task outside the agent tools.
 
 Retryable OAuth/provider bursts are sampled: the first event, threshold
 crossings, and the first event after a quiet period remain visible, while the

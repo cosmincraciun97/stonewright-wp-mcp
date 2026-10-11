@@ -123,7 +123,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.',
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
 				'For Loop Grid or repeated dynamic cards backed by CPT/meta, write rows with stonewright/content-bulk-upsert-posts before the Elementor tree write.',
-				'For repeated CPT UI, ACF, option, term, plugin, and cache commands, use stonewright-wp-cli-batch-run with responseMode=summary.',
+				'For repeated read-oriented WP-CLI commands and cache flushes, use stonewright-wp-cli-batch-run with responseMode=summary; WP-CLI writes go through a typed ability or stonewright-wp-cli-run.',
 				'For long WP-CLI imports, cache rebuilds, plugin operations, or media/content batches, start a background job with stonewright-wp-cli-job-start and poll with stonewright-wp-cli-job-status.',
 				'For design-derived pages, implement at most two sections per write-and-verify batch; prefer one dense section per batch.',
 				'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.',

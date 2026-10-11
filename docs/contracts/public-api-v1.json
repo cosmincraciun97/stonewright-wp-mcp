@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T08:13:45+00:00",
+    "generated_at": "2026-10-11T10:25:28+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -3682,7 +3682,7 @@
             "ability_name": "stonewright/elementor-build-tree",
             "mcp_name": "stonewright-elementor-build-tree",
             "kind": "Write",
-            "input_schema_hash": "8dd7acda3219d467f2b8c29e0b3708a8aaa777fc1451024e3d405d8bea32388c",
+            "input_schema_hash": "1f56b1358f3318a9a60ea1dce2ec10615060e7d7a4ec5fac428937cffe3eddfa",
             "output_schema_hash": "585842dbfaeee760dc38f36b909f56e501d7f4fa30144e7bb86282f718905e54",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
@@ -4382,7 +4382,7 @@
             "ability_name": "stonewright/elementor-v3-transaction-run",
             "mcp_name": "stonewright-elementor-v3-transaction-run",
             "kind": "Write",
-            "input_schema_hash": "bdaf41eb68533403f7b826bd79ffdf066260e021125d6691bc5b590e926e4c97",
+            "input_schema_hash": "ff769728c3ddc3467196a489aa50022c283a3cfec5aa5ed37a2791a347697948",
             "output_schema_hash": "2a82ccf6afb939ef441c6dd34131cd5837e665df69d0ad74b903cb6f9086d9a2",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -5884,7 +5884,7 @@
             "kind": "Write",
             "input_schema_hash": "00bee7c4d92c8841e1c15b9d778b8543923aff4c0c9dc4f1fb5908ecc54f95dc",
             "output_schema_hash": "37e04b943aaeb949b69ae3795b27337ba567a5f7d96660c1cbb3cc048ac064b4",
-            "permission_class": "Permissions::manage_options()",
+            "permission_class": "Permissions::can_run_code()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -6382,7 +6382,7 @@
             "ability_name": "stonewright/security-runtime-data-purge",
             "mcp_name": "stonewright-security-runtime-data-purge",
             "kind": "Write",
-            "input_schema_hash": "ddf971e6fd83bb2ae968311a9ea288f674e4c923d45c3b2216e40ffb3b441c33",
+            "input_schema_hash": "85f9b5f9af141de86e7bbe9737ae1a3392128d15d34ae077d142e6f60b123ace",
             "output_schema_hash": "2e76c9ad2cc98399ed008ca511ecb8b0f14371bd08ac38ad10299d7731a2957f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -7262,7 +7262,7 @@
             "ability_name": "stonewright/tool-profile",
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
-            "input_schema_hash": "0665e256823aa45492da915efd0d4dd84c687bffbf654ef91d3029422f2ab7cc",
+            "input_schema_hash": "1e852841e63f3ccbe1914a4da16f910f42d67d2f6de54f9fdebfdd844c8656b8",
             "output_schema_hash": "bc1c02e14a635233e37c132a04f4acd0b900015d7d112daee68dfac60d3cb09a",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -7862,9 +7862,9 @@
             "ability_name": "stonewright/wp-cli-batch-run",
             "mcp_name": "stonewright-wp-cli-batch-run",
             "kind": "Write",
-            "input_schema_hash": "85f0362c11d664dbd9d8812c4f556085be1f58a305783bc5bff1f2a138eeff6b",
+            "input_schema_hash": "328dcd6d622645bfb3d89f42400087fa5fd7ad6a8eab57433d938ac7a3119aa7",
             "output_schema_hash": "8cb47f0a037aa905eeb3cf6a35bfab57b02c883b1b41716d8789c5d45e9030b6",
-            "permission_class": "Permissions::manage_options()",
+            "permission_class": "Permissions::can_run_code()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -7904,7 +7904,7 @@
             "kind": "Write",
             "input_schema_hash": "c495192ab7ca82e7600fee7eaca920c39f812308ce2b2e32c1d41e47588e49e9",
             "output_schema_hash": "d10612a3f90aa056cacbe8bc01f76dbeb1089a7a23ee483fd03fad87caef38b8",
-            "permission_class": "Permissions::manage_options()",
+            "permission_class": "Permissions::can_run_code()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -7944,7 +7944,7 @@
             "kind": "Write",
             "input_schema_hash": "216177836baaf6445f9526d84f3a0047b55f8e00abde9066031e3fc6a69962c8",
             "output_schema_hash": "8bcaf51f7d7105922ea71c71883771c3fc09216e8c744e70fbbd5c1b31413b9d",
-            "permission_class": "Permissions::manage_options()",
+            "permission_class": "Permissions::can_run_code()",
             "gates": {
                 "backup": false,
                 "token": true,

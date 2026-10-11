@@ -18,7 +18,7 @@ import { defaultSitesPath, findSiteByAlias, loadRegistry } from './connect/regis
 import type { SiteRecordV2 } from './connect/types.js';
 import { requireValidLocalWpRoot } from '../commands/store.js';
 import { appendDirectAudit } from '../direct/audit.js';
-import { runWpCli, type ExecFileRunner, type WpCliResult } from '../wp-cli.js';
+import { runWpCliOperator, type ExecFileRunner, type WpCliResult } from '../wp-cli.js';
 
 /** The same pattern the plugin applies to an incident id. */
 const INCIDENT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/;
@@ -117,7 +117,7 @@ function pluginSlug(basename: string): string {
 }
 
 async function readActivePlugins(wpRoot: string, runner: ExecFileRunner | undefined, env: NodeJS.ProcessEnv): Promise<string[]> {
-	const active = (await runWpCli(
+	const active = (await runWpCliOperator(
 		{
 			command: ['option', 'get', 'active_plugins', '--format=json', '--skip-plugins', '--skip-themes'],
 			path: wpRoot,
@@ -137,7 +137,7 @@ async function readActivePlugins(wpRoot: string, runner: ExecFileRunner | undefi
 	const plugins: string[] = [...listed];
 
 	// Plugins active for a whole multisite network; the command fails on a single site, which is fine.
-	const network = (await runWpCli(
+	const network = (await runWpCliOperator(
 		{
 			command: ['network', 'meta', 'get', '1', 'active_sitewide_plugins', '--format=json', '--skip-plugins', '--skip-themes'],
 			path: wpRoot,
@@ -260,7 +260,7 @@ export async function runRescueCli(
 
 		const skipPlugins = skipPluginsValue(await readActivePlugins(wpRoot, runner, env));
 		const childEnv: NodeJS.ProcessEnv = run.token === undefined ? env : { ...env, [TOKEN_ENV]: run.token };
-		const result = (await runWpCli(
+		const result = (await runWpCliOperator(
 			{
 				command: rescueArgv(run, skipPlugins),
 				path: wpRoot,

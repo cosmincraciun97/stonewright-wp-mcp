@@ -1039,7 +1039,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			self::batching_rule_body(),
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
-			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
+			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated read-oriented WP-CLI commands (post, term, option, plugin reads and cache flushes); write through typed abilities or stonewright-wp-cli-run.',
 			'Use stonewright-wp-cli-job-start plus stonewright-wp-cli-job-status for long WP-CLI work so MCP requests do not block.',
 			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
 			'After each Elementor apply, call stonewright/elementor-css-regenerate when generated CSS must be rebuilt, then stonewright/elementor-post-write-verify with touched ids before browser acceptance. The verifier is observation-only and never regenerates CSS.',

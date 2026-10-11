@@ -285,6 +285,38 @@ final class ApplyTemplate extends AbilityKernel {
 	}
 
 	/**
+	 * Whether the URL is http or https, carries no credentials, and points at the host (and port, when it names
+	 * one) of home_url() or site_url().
+	 */
+	private static function is_own_site_url( string $url ): bool {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+			return false;
+		}
+		$scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+		$host   = strtolower( (string) ( $parts['host'] ?? '' ) );
+		if ( ! in_array( $scheme, [ 'http', 'https' ], true ) || '' === $host ) {
+			return false;
+		}
+
+		foreach ( [ home_url( '/' ), site_url( '/' ) ] as $own_url ) {
+			$own = wp_parse_url( $own_url );
+			if ( ! is_array( $own ) || strtolower( (string) ( $own['host'] ?? '' ) ) !== $host ) {
+				continue;
+			}
+			if ( ! isset( $parts['port'] ) ) {
+				return true;
+			}
+			$own_port = isset( $own['port'] ) ? (int) $own['port'] : ( 'https' === strtolower( (string) ( $own['scheme'] ?? '' ) ) ? 443 : 80 );
+			if ( (int) $parts['port'] === $own_port ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	private static function verify_payload( string $url, int $template_id ): array {
@@ -299,7 +331,24 @@ final class ApplyTemplate extends AbilityKernel {
 			];
 		}
 
-		$response = wp_remote_get( $url, [ 'timeout' => 10 ] );
+		// Only the site's own host is requested; an address or host of anything else is never contacted, and no status is reported for it.
+		if ( ! self::is_own_site_url( $url ) ) {
+			return [
+				'requested'   => true,
+				'url'         => $url,
+				'http_status' => 0,
+				'ok'          => false,
+				'error'       => 'verify_url must be an http or https URL on this site\'s own host.',
+			];
+		}
+
+		$response = wp_safe_remote_get(
+			$url,
+			[
+				'timeout'     => 10,
+				'redirection' => 0,
+			]
+		);
 		if ( is_wp_error( $response ) ) {
 			return [
 				'requested'   => true,

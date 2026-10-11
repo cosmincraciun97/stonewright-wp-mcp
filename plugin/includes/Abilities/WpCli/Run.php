@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\WpCli;
 
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * Runs tokenized WP-CLI commands through the local companion.
@@ -22,7 +23,7 @@ final class Run extends WpCliAbility {
 	}
 
 	public function description(): string {
-		return __( 'Runs a tokenized WP-CLI command through the companion. Supports WordPress write/debug commands for posts, options, plugins, Elementor, Gutenberg, ACF, CPT UI, cache, rewrite rules, and installed plugin commands. Use stonewright/php-execute for PHP runtime snippets.', 'stonewright' );
+		return __( 'Runs a tokenized WP-CLI command through the companion. Supports WordPress content, option, cache, rewrite and installed plugin commands. Refuses eval, shell, package, config, plugin and theme install/update/delete/activate, db, user and role changes, core download/update, cron event run, and search-replace without --dry-run. Requires edit_plugins and manage_options (a super admin on multisite). Use stonewright/php-execute for PHP runtime snippets.', 'stonewright' );
 	}
 
 	/**
@@ -70,6 +71,9 @@ final class Run extends WpCliAbility {
 		return $this->wp_cli_output_schema();
 	}
 
+	public function permission_callback( array $args ): bool|\WP_Error {
+		return Permissions::can_run_code();
+	}
 	public function execute( array $args ): array|\WP_Error {
 		if ( empty( $args['command'] ) || ! is_array( $args['command'] ) ) {
 			return $this->error( 'wp_cli_invalid_command', __( 'A non-empty command argv array is required.', 'stonewright' ), [ 'status' => 400 ] );
@@ -88,6 +92,11 @@ final class Run extends WpCliAbility {
 					static fn( string $key ): bool => 'confirmation_token' !== $key,
 					ARRAY_FILTER_USE_KEY
 				);
+				$policy_error = $this->command_policy_error( [ $a['command'] ] );
+				if ( null !== $policy_error ) {
+					return $policy_error;
+				}
+
 				$token_error = $this->confirmation_token_error( $a, $request_args );
 				if ( null !== $token_error ) {
 					return $token_error;

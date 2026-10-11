@@ -895,7 +895,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands; never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points.',
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress content and cache commands; refuses eval, shell, package, config, plugin and theme install/update/delete/activate, db, user and role changes, core download/update, cron event run, and search-replace without --dry-run.',
 				inputSchema: {
 					...commonInput,
 					command: z.array(z.string()).min(1),
@@ -911,7 +911,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts.',
+				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Read-oriented commands only (post, term, option, plugin, theme, user, db check, cron lists, cache and rewrite flush); the whole batch is refused before any command runs when one is not. Use the single-command runner or a typed ability for writes.',
 				inputSchema: {
 					...commonInput,
 					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),

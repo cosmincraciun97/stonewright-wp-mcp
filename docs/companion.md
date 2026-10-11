@@ -158,13 +158,27 @@ Do not recover by running `wp cli info`, `wp plugin activate`,
 Stonewright MCP tools above so the companion can apply path checks, command
 guards, and tokenized argv execution.
 
-Use `stonewright-wp-cli-batch-run` for repeated post/meta/term/media/option
-operations, especially when values contain non-ASCII text. It accepts JSON
-arrays of argv tokens, preserves UTF-8, and avoids large inline PowerShell or
-Node scripts where shell encoding can corrupt diacritics.
-Use `stonewright-wp-cli-job-start` plus `stonewright-wp-cli-job-status` only
-for long imports, cache rebuilds, plugin operations, or large batches that
-should not block a single MCP request.
+Use `stonewright-wp-cli-batch-run` for repeated read-oriented commands
+(`post`, `term`, `option`, `plugin`, `theme`, `user` reads, `db check`, cron
+lists, cache and rewrite flushes), especially when values contain non-ASCII
+text. It accepts JSON arrays of argv tokens, preserves UTF-8, and avoids large
+inline PowerShell or Node scripts where shell encoding can corrupt diacritics.
+A command off that list refuses the whole batch before any command runs.
+Use `stonewright-wp-cli-job-start` plus `stonewright-wp-cli-job-status` for
+long imports, cache rebuilds, or batches of writes that should not block a
+single MCP request.
+
+Every runner reads the argv the way WP-CLI does: a leading `@alias`, global flags
+before or between the command words, quotes, case, and a whole command in one
+token do not hide the command. The agent-facing runners (run, batch, jobs, and
+their HTTP routes) refuse `eval`, `eval-file`, `shell`, `package`, `config`,
+`scaffold`, plugin and theme `install`/`update`/`delete`/`activate`, `db`
+(except read-only subcommands), `user` changes, role and capability changes,
+`core download`/`update`/`install`, `cron event run`, `cli update`,
+`search-replace` without `--dry-run`, option writes to sensitive options, and
+the `--exec`, `--require`, `--prompt`, `--config`, `--ssh` and `--http` flags.
+Commands the companion builds for its own setup, rescue and approved recipes
+use a narrower list that refuses only the entry points that run arbitrary code.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
 `tool_visibility_checks` fields show the compact startup path: task-start,

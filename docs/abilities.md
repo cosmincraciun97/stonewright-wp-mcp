@@ -254,8 +254,14 @@ The three protocol tools are:
 | `stonewright/get-ability-info` | `stonewright-get-ability-info` | Bounded input/output schema plus permission and mode notes for one ability. |
 | `stonewright/execute-ability` | `stonewright-execute-ability` | Runs that named ability through the same permission, confirmation, backup, audit, and context gates as a direct MCP call. |
 
-`execute-ability` cannot invoke itself. Disabled abilities stay disabled.
-`stonewright/php-execute` is not on this profile; it remains on `full`.
+`execute-ability` cannot invoke itself. Disabled abilities stay disabled. It checks
+the arguments against the input schema of the ability it runs (bounds, enums,
+patterns, unknown properties) before that ability's permission and execute
+callbacks, refuses an ability the tool surface hides, and runs an ability that
+runs or writes code (`php-execute`, the sandbox writers, the WP-CLI runners,
+`custom-code-provider`, the custom widget definers) only when the configured
+surface or the session profile lists it. `stonewright/php-execute` is not on
+this profile; it remains on `full`.
 
 ## Inspect
 
@@ -311,9 +317,9 @@ The WP-CLI tools are:
 |---|---|
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns compact `wp cli cmd-dump` command paths by default; use `responseMode=full` only when the raw command tree is required. |
-| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports writes; WP-CLI eval and shell entry points are blocked, and PHP snippets belong to `stonewright/php-execute` on the `full` profile only. |
-| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
-| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. |
+| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports content, option, cache and rewrite commands. `eval`, `eval-file`, `shell`, `package`, `config`, plugin and theme `install`/`update`/`delete`/`activate`, `db` (except `check`, `size`, `tables`, `columns`, `prefix`, `search`), `user` changes, role and capability changes, `core download`/`update`, `cron event run`, and `search-replace` without `--dry-run` are refused, however a leading `@alias`, global flags, quotes or case spell them. PHP snippets belong to `stonewright/php-execute` on the `full` profile only. Needs `edit_plugins` and `manage_options` (a super admin on multisite); commands that write files are refused while `DISALLOW_FILE_MODS` is set. |
+| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request. Read-oriented commands only: `post`, `term`, `option`, `plugin`, `theme` and `user` reads, `db check`, cron lists, and cache and rewrite flushes. One command off that list refuses the whole batch before any command runs. Same capability and deny-list as `wp-cli-run`. |
+| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. Same capability and deny-list as `wp-cli-run`; a batch of writes runs here. |
 | `stonewright/wp-cli-job-status` (`stonewright-wp-cli-job-status`) | Polls a WP-CLI background job and returns the compact result when complete. |
 
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
@@ -322,8 +328,8 @@ In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 `stonewright-wp-cli-job-status` are direct companion aliases. They do not
 require the WordPress-side HTTP bridge explicitly enabled with
 `STONEWRIGHT_HTTP_ENABLE=1` plus `PORT`. Use batch run for
-repeated commands or Unicode-heavy values so agents do not need large inline
-shell scripts. Use background jobs for long WP-CLI work that should not block
+repeated read commands or Unicode-heavy values so agents do not need large
+inline shell scripts; write batches go through a background job. Use background jobs for long WP-CLI work that should not block
 one MCP request.
 The companion also exposes `stonewright-wp-cli-install`, which downloads the
 official `wp-cli.phar` into the Stonewright cache for users who do not have

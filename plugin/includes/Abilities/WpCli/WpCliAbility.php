@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\WpCli;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\WpCliCommandPolicy;
 use Stonewright\WpMcp\Support\CompanionClient;
 
 abstract class WpCliAbility extends AbilityKernel {
@@ -15,6 +16,36 @@ abstract class WpCliAbility extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		return Permissions::manage_options();
+	}
+
+	/**
+	 * Refuse commands the policy denies, and the ones that write files while DISALLOW_FILE_MODS is set,
+	 * before anything is sent to the companion.
+	 *
+	 * @param array<int, mixed> $commands      Argv arrays.
+	 * @param bool              $read_oriented The batch runner's allowlist applies on top of the deny-list.
+	 */
+	protected function command_policy_error( array $commands, bool $read_oriented = false ): ?\WP_Error {
+		foreach ( $commands as $command ) {
+			$argv   = is_array( $command ) ? $command : [];
+			$reason = $read_oriented ? WpCliCommandPolicy::batch_reason( $argv ) : WpCliCommandPolicy::deny_reason( $argv );
+			if ( null !== $reason ) {
+				return $this->error( 'wp_cli_command_blocked', $reason, [ 'status' => 403 ] );
+			}
+		}
+		if ( ! Permissions::file_mods_allowed() ) {
+			foreach ( $commands as $command ) {
+				if ( is_array( $command ) && WpCliCommandPolicy::writes_files( $command ) ) {
+					return $this->error(
+						'wp_cli_file_mods_disabled',
+						__( 'This WP-CLI command writes files and is refused because DISALLOW_FILE_MODS is set in wp-config.php.', 'stonewright' ),
+						[ 'status' => 403 ]
+					);
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**

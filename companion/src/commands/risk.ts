@@ -14,6 +14,7 @@ import {
 	MAX_TOKEN_CHARS,
 } from './limits.js';
 import type { CommandRisk } from './types.js';
+import { wpCliDenyReason } from '../wp-cli-policy.js';
 
 export class CommandError extends Error {
 	readonly code: string;
@@ -108,6 +109,11 @@ export function validateRecipeWpCliCommand(argv: string[]): string[] {
 		}
 	}
 
+	// The same reading of the argv as the runner: an alias, flags, quotes or case do not hide the group.
+	const denied = wpCliDenyReason(argv, 'operator');
+	if (denied !== undefined) {
+		throw new CommandError('command_blocked_group', denied);
+	}
 	const group = commandPathTokens(argv)[0] ?? '';
 	if (BLOCKED_COMMAND_GROUPS.has(group)) {
 		throw new CommandError('command_blocked_group', `Blocked WP-CLI command group: ${group}`);

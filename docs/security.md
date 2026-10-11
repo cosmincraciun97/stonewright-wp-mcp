@@ -159,7 +159,10 @@ permission filters run twice for one MCP tool call.
 Two paths run an ability without its registered object and so without these
 filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
 and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
-gates and the list of disabled abilities. To block an ability on every path,
+gates and the list of disabled abilities. `execute-ability` also validates the
+arguments against the input schema of the target before its permission callback,
+and refuses abilities the surface hides and abilities that run or write code
+unless the current profile lists them. To block an ability on every path,
 disable it (`stonewright_disabled_abilities`).
 
 ### Tool annotations are hints
@@ -344,6 +347,21 @@ by `ProtectedWpdbWriteGuard`:
 - Generic content abilities reject provider-owned executable-code post types
   (`stonewright_custom_code_provider_required`) and never skip KSES to preserve
   PHP. Route those writes through the approval-gated custom-code provider.
+
+The scan of the source is a best-effort guard, not a runtime barrier: a snippet
+that reaches a write through an indirect call can pass it. `php-execute` and the
+WP-CLI runners (`wp-cli-run`, `wp-cli-batch-run`, `wp-cli-job-start`) need
+`edit_plugins` and `manage_options`, the sandbox capability pair, and a super
+admin on multisite. While `DISALLOW_FILE_MODS` is set, php-execute also refuses
+snippets that call the plugin, theme and core installers and updaters, and the
+WP-CLI abilities refuse commands that write files.
+
+`stonewright-tool-profile` `extras` cannot add these abilities to a surface: an entry
+that names `php-execute`, a sandbox writer, a WP-CLI runner, `custom-code-provider`
+or a custom widget definer is refused with
+`stonewright_tool_profile_extras_restricted`, and a stored extra that names one is
+ignored. They come only from the profile that lists them (`full` for
+`php-execute`).
 
 These guards do not make php-execute a sandbox. Prefer typed abilities for
 Elementor, FSE, options, and post writes. A successful call whose snippet uses

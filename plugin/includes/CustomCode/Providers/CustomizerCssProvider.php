@@ -5,12 +5,13 @@ namespace Stonewright\WpMcp\CustomCode\Providers;
 
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
+use Stonewright\WpMcp\CustomCode\VerifiedApplyInterface;
 use Stonewright\WpMcp\Security\ChangeSet;
 
 /**
  * Adapter that delegates Customizer CSS work to the existing typed ability.
  */
-final class CustomizerCssProvider implements ProviderInterface {
+final class CustomizerCssProvider implements ProviderInterface, VerifiedApplyInterface {
 
 	public function id(): string {
 		return 'customizer-css';
@@ -81,6 +82,16 @@ final class CustomizerCssProvider implements ProviderInterface {
 
 	/** @param array<string, mixed> $args */
 	public function dry_run( array $args ) {
+		return $this->run_dry_run( $args, false );
+	}
+
+	/** @param array<string, mixed> $args */
+	public function dry_run_verified( array $args ) {
+		return $this->run_dry_run( $args, true );
+	}
+
+	/** @param array<string, mixed> $args */
+	private function run_dry_run( array $args, bool $token_verified ) {
 		$ability = new ThemeCustomCss();
 		$input   = [
 			'action'            => 'update',
@@ -92,7 +103,7 @@ final class CustomizerCssProvider implements ProviderInterface {
 			],
 			'max_changed_bytes' => (int) ( $args['max_changed_bytes'] ?? 65536 ),
 		] + ChangeSet::lineage_input( $args );
-		$result = $ability->execute( $input );
+		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
 		}
@@ -103,6 +114,16 @@ final class CustomizerCssProvider implements ProviderInterface {
 
 	/** @param array<string, mixed> $args */
 	public function apply( array $args ) {
+		return $this->run_apply( $args, false );
+	}
+
+	/** @param array<string, mixed> $args */
+	public function apply_verified( array $args ) {
+		return $this->run_apply( $args, true );
+	}
+
+	/** @param array<string, mixed> $args */
+	private function run_apply( array $args, bool $token_verified ) {
 		$ability = new ThemeCustomCss();
 		$input   = [
 			'action'            => 'update',
@@ -112,7 +133,7 @@ final class CustomizerCssProvider implements ProviderInterface {
 			'max_changed_bytes' => (int) ( $args['max_changed_bytes'] ?? 65536 ),
 			'confirmation_token'=> (string) ( $args['confirmation_token'] ?? '' ),
 		] + ChangeSet::lineage_input( $args );
-		$result = $ability->execute( $input );
+		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
 		}

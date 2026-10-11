@@ -4,6 +4,25 @@
 
 ### Changed
 
+- Refuse more WP-CLI commands in the agent-facing runners (`stonewright-wp-cli-run`,
+  `-batch-run`, `-job-start` and their HTTP routes): `config`, `scaffold`, plugin
+  and theme `install`, `update`, `delete`, `activate` (and plugin `uninstall`), `db`
+  except its read-only subcommands, `user` changes, role and capability changes,
+  `core download`, `update` and `install`, `cron event run`, `cli update`,
+  `search-replace` without `--dry-run`, writes to sensitive options, and the
+  `--config`, `--ssh` and `--http` flags, in addition to `eval`, `eval-file`,
+  `shell`, `package`, `--exec`, `--require` and `--prompt`. The command is found
+  the way WP-CLI reads it, so a leading `@alias`, global flags before or between
+  the command words, a flag with a separate value, quotes, upper case, padding and
+  a whole command in one token no longer hide it. Behavior change:
+  `stonewright-wp-cli-batch-run` (and `companion_wp_cli_batch_run`) refuses those
+  command groups and runs read-oriented commands only: reads of `post`, `term`,
+  `option`, `plugin`, `theme`, `user`, `db check`, cron lists, and cache and
+  rewrite flushes. A batch with one command off that list is refused before any
+  command runs; a batch of writes runs through `stonewright-wp-cli-job-start`.
+  Commands the companion builds for its own setup, rescue and approved command
+  recipes keep a narrower list that refuses only the entry points that run
+  arbitrary code.
 - Keep `stonewright-php-execute` on the `full` profile only, as in the plugin. This changes behavior: the offline profile lists of every other profile (bootstrap, essential-static, essential, low-tools, elementor-design, content-model, gutenberg, wp-cli, site-admin) no longer include it, and those profiles and `discover-execute` no longer keep it registered when the site lists it. A client on one of those profiles no longer sees it; switch to `full` to use it. The setup profile (notes, agent tool list, refresh list, inventory notes), the MCP instructions and the WP-CLI tool descriptions of those profiles no longer tell the agent to call it.
 - `stonewright-client-surface-check` without `expected_tool` checks `stonewright-php-execute` on the `full` profile and `stonewright-task-start` on every other profile, so a profile without php-execute is no longer reported as missing it.
 

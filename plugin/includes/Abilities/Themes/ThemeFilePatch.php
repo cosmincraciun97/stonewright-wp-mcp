@@ -23,6 +23,8 @@ use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 final class ThemeFilePatch extends AbilityKernel {
 	use ConfirmationGuard;
 
+	private bool $token_already_verified = false;
+
 	public function name(): string {
 		return 'stonewright/theme-file-patch';
 	}
@@ -150,6 +152,23 @@ final class ThemeFilePatch extends AbilityKernel {
 		return Permissions::edit_theme_options() || Permissions::edit_css();
 	}
 
+	/**
+	 * Runs the ability for a caller that has already verified the confirmation token for the exact request
+	 * (the custom-code provider pipeline checks it once, for custom-code-provider and its arguments). The
+	 * token is not read again, and every other gate of the ability, the human grant included, still runs.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
 	public function execute( array $args ): array|\WP_Error {
 		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
 		if ( $args instanceof \WP_Error ) {
@@ -159,11 +178,13 @@ final class ThemeFilePatch extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $runtime_args ): array|\WP_Error {
-				$verify = $runtime_args;
-				unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
-				$token_error = $this->confirmation_token_error( $runtime_args, $verify );
-				if ( $token_error instanceof \WP_Error ) {
-					return $token_error;
+				if ( ! $this->token_already_verified ) {
+					$verify = $runtime_args;
+					unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
+					$token_error = $this->confirmation_token_error( $runtime_args, $verify );
+					if ( $token_error instanceof \WP_Error ) {
+						return $token_error;
+					}
 				}
 
 				$resolved = ThemeFilePaths::resolve(
