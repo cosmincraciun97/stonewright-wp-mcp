@@ -42,6 +42,7 @@ folder or site URL.
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
 | `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*`. Direct tools then act on this site only and refuse a `site` argument that names another |
 | `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE` | Recovery only. `1` lets a Direct write run on a site where the Stonewright plugin is active, when the call also passes `confirm: true`; each use is audited. Direct otherwise refuses writes on a plugin site |
+| `STONEWRIGHT_DIRECT_CONFIRM_LEGACY` | `on` accepts a plain `confirm: true` as the confirmation for a destructive Direct call on any site; `off` refuses it everywhere, local sites included. Unset, it counts on localhost, `.local` and `.test` only; elsewhere the refused call returns a `confirmation_id` to repeat the call with |
 | `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
 | `STONEWRIGHT_CONFIGURED_PACKAGE` | Optional exact official package source used for authenticated `/health` configured-package evidence; invalid values are omitted |
 | `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs also set `essential-static` and save `essential` as the WordPress surface. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
@@ -145,13 +146,21 @@ backup yet.
 
 Direct never writes custom code. `global-styles-update` refuses theme.json
 `styles.css` and per-block `css`; `elementor-data-update` refuses Elementor
-custom CSS setting keys and HTML-type widgets; content, template, and blueprint
+custom CSS setting keys and HTML-type widgets, and replaces the whole tree only after its
+checks: `expected_hash` (the `hash` that `elementor-data-get` returns) must match the stored tree,
+ids must be unique, the root holds containers or sections, `settings` are objects, the tree is within
+the size caps, and an Atomic (V4) or mixed document is not rewritten without `allow_atomic_raw`;
+`force_destructive`, `allow_widget_type_remap` and `allow_atomic_raw` need a confirmation, are audited and
+are listed in the result as `overrides_used`; content, template, and blueprint
 writes refuse `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta http-equiv>`, inline `on*=` event handlers,
 and `javascript:` URLs (case-insensitive, entity-encoded and JSON-escaped forms
 included). A refusal is a normal result with `approval_required` and
 `agent_must_stop`, and nothing is written. `template-update`,
 `template-part-update`, and `blueprint-apply` over an existing page need
-`confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote.
+a confirmation when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote: the refused call returns a
+`confirmation_id` (an HMAC over the tool, the site and the exact arguments, kept in memory for
+10 minutes, one use) and the same call is repeated with it. A plain `confirm: true` counts only on
+a local site or with `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`.
 `acf-fields-update`, `media-upload`, `media-update`, menu and menu-item,
 comment, taxonomy-term, settings, user and Application Password writes refuse the
 same markup, `javascript:` URLs and custom CSS keys in the text they send (ACF
@@ -173,14 +182,14 @@ address or administrator email) and `default_role` only for `subscriber`,
 
 In a Direct session `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
 treat a command that is not read-oriented as a Direct write: task-start for the
-site, `confirm: true` in `confirm` mode, a local WordPress that is the Direct
+site, `confirm: true` in `confirm` mode (a local run keeps the plain flag), a local WordPress that is the Direct
 site, and an audit row. Commands the shared command policy refuses stay refused,
 and `stonewright-wp-cli-batch-run` is read-oriented only.
 
 Direct mode lists and restores its saved copies (`stonewright-direct-backup-list`,
 `stonewright-direct-backup-restore`), reads every typed write back, and can probe the
 public page after a page, post or template write (rolling back only when asked),
-but it has no change sets or confirmation tokens. In Plugin
+but it has no change sets or plugin confirmation tokens (its `confirmation_id` lives in the companion's memory). In Plugin
 mode the companion does not call WordPress REST write endpoints; Direct mode is
 the exception, through its typed tools only. See
 [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) for the

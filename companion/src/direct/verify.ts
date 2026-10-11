@@ -384,7 +384,7 @@ function attachUntyped(
 		message: `The write was accepted, but reading it back shows the stored resource differs from what was sent (${fields}). The site changed or did not keep it. Do not report this as done: read the resource, then correct it${backupId ? ' or restore the saved copy' : ''}.`,
 		verification: shown,
 		...(backupId
-			? { restore_with: { tool: 'stonewright-direct-backup-restore', backup_id: backupId, needs: 'confirm:true' } }
+			? { restore_with: { tool: 'stonewright-direct-backup-restore', backup_id: backupId, needs: 'confirmation' } }
 			: {}),
 	};
 }

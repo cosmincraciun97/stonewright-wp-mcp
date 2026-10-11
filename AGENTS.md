@@ -59,8 +59,12 @@ override default behavior.
    audited); a recent
    `stonewright-task-start` for the same site and canonical URL; the
    `STONEWRIGHT_DIRECT_WRITES` mode (`confirm` is the default for non-local
-   hosts and asks for `confirm: true` on destructive tools, template and
-   template-part updates, and a blueprint applied over a page); a refusal of
+   hosts and asks for a confirmation on destructive tools, template and
+   template-part updates, and a blueprint applied over a page; a refused call
+   returns a `confirmation_id` bound to its tool, site and exact arguments,
+   valid for 10 minutes and one use, and the same call is repeated with it; a
+   plain `confirm: true` counts only on a local host or with
+   `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`); a refusal of
    custom code (CSS, script, style, iframe, object, embed, link, meta
    http-equiv, inline event handlers, `javascript:` URLs, HTML widgets) in
    global styles, Elementor data, content, template, blueprint, and widget
@@ -72,17 +76,21 @@ override default behavior.
    pre-image saved under `~/.stonewright/backups` before template,
    template-part, global-styles, content, and blueprint-over-page writes, with
    the write refused when it cannot be saved (Elementor data keeps its own file
-   backup); the Elementor integrity gate and a check that a local WP-CLI install
-   is the target site; the same latch, `confirm`, target check, and audit row for
+   backup); the Elementor checks for a whole-tree write (a tree `hash` from
+   `elementor-data-get` that `expected_hash` must match, unique ids, containers
+   or sections at the root, a size cap, no raw write onto an Atomic V4 or mixed
+   document, and `force_destructive`, `allow_widget_type_remap` and
+   `allow_atomic_raw` each needing a confirmation and being audited) and a check
+   that a local WP-CLI install is the target site; the same latch, `confirm`, target check, and audit row for
    a local WP-CLI command that changes the site in a Direct session; limits on
    `stonewright-media-upload` sources, types, size, and connection address; and
    a redacted local audit log; every typed write read back and compared, with
    the result reporting a mismatch as `ok:false`; the saved copies listed and
-   restored only with `confirm:true` (`stonewright-direct-backup-list` and
+   restored only after a confirmation (`stonewright-direct-backup-list` and
    `-restore`); and, after a page, post, or template write, a public-page check
    that rolls back only when the call asks for it. Direct mode has no change
-   sets or confirmation tokens; `docs/direct-mode-e2e.md` lists what it does not
-   do yet.
+   sets or plugin confirmation tokens (its `confirmation_id` is local to the
+   companion); `docs/direct-mode-e2e.md` lists what it does not do yet.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,
    WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
    typed dry-run first. Return `approval_url`, exact target path, byte counts,

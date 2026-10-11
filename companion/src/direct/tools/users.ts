@@ -142,17 +142,6 @@ async function assertAccountMayBeRemoved(
   }
 }
 
-function requireConfirm(confirm: boolean | undefined, tool: string, site: string): void {
-  if (confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      `confirm:true is required for this tool (${tool})`,
-      tool,
-      site,
-    );
-  }
-}
-
 export async function userCreate(
   ctx: DirectToolContext,
   input: {
@@ -272,8 +261,9 @@ export async function userDelete(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-user-delete",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  requireConfirm(input.confirm, "stonewright-user-delete", ctx.site.alias);
   await assertAccountMayBeRemoved(ctx, input.id, "stonewright-user-delete", "deleting it");
   const result = await ctx.client.del(`/wp/v2/users/${input.id}`, {
     query: { force: true, reassign: input.reassign },
@@ -334,8 +324,9 @@ export async function appPasswordCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-app-password-create",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  requireConfirm(input.confirm, "stonewright-app-password-create", ctx.site.alias);
   const refusal = refuseCustomCode(
     ctx.site,
     "stonewright-app-password-create",
@@ -383,8 +374,9 @@ export async function appPasswordRevoke(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-app-password-revoke",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  requireConfirm(input.confirm, "stonewright-app-password-revoke", ctx.site.alias);
   const result = await ctx.client.del(
     `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(input.uuid)}`,
   );

@@ -1,4 +1,4 @@
-import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
+import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -61,15 +61,9 @@ export async function themeActivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-theme-activate",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  if (input.confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      "confirm:true is required for this tool (stonewright-theme-activate)",
-      "stonewright-theme-activate",
-      ctx.site.alias,
-    );
-  }
   const result = await ctx.client.post<WpTheme>(
     `/wp/v2/themes/${encodeURIComponent(input.stylesheet)}`,
     { body: { status: "active" } },

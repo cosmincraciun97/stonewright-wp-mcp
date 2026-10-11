@@ -190,7 +190,7 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    `not_checked`) from a read of the resource after the write; a mismatch is
    `ok:false`, `error:"verification_mismatch"`. Direct lists and restores its saved
    copies with `stonewright-direct-backup-list` and
-   `stonewright-direct-backup-restore` (`confirm:true`, hash-checked, undoable); the
+   `stonewright-direct-backup-restore` (confirmation, hash-checked, undoable); the
    names differ from the Plugin abilities. A page, post or template write may be
    followed by a public-page probe and, only on `rollback_on_probe_failure:true`,
    an automatic restore.

@@ -314,12 +314,21 @@ write protections are the companion's own and narrower than Plugin mode's:
 - It saves a pre-image before template, template-part, global-styles, content
   and blueprint-over-page writes and refuses the write when that fails.
   `stonewright-direct-backup-restore` puts a saved copy (or an Elementor file
-  backup) back only with `confirm:true`, after checking the hash stored in the
+  backup) back only after a confirmation, after checking the hash stored in the
   file and that the resource still exists, and after saving the current state so
   the restore can be undone.
-- It asks for `confirm: true` on destructive tools in `confirm` write mode. That
-  flag is supplied by the caller and is not bound to the call's arguments; Direct
-  has no confirmation tokens.
+- It asks for a confirmation on destructive tools in `confirm` write mode, and
+  for theme activation, plugin and user deletes, Application Password create and
+  revoke and backup restore in every mode. The refused call returns a
+  `confirmation_id`: an HMAC over the tool, the site and the exact arguments, kept
+  in the companion's memory for 10 minutes, usable once, and refused for other
+  arguments, another site or another tool. A plain `confirm: true` counts only on
+  a local site or with `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`. This is local to the
+  companion; Direct has no plugin confirmation tokens.
+- `elementor-data-update` replaces a whole tree only after structure checks, an
+  optional `expected_hash` match and a refusal to rewrite Atomic (V4) documents;
+  `force_destructive`, `allow_widget_type_remap` and `allow_atomic_raw` need a
+  confirmation and are audited.
 - `stonewright-media-upload` limits local paths, URL addresses, file types and
   size, and connects to the address it checked for each hop.
 - In a Direct session `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`

@@ -218,7 +218,7 @@ describe('attachVerification', () => {
 		const out = attachVerification({ id: 4, backup_id: 'tool/res/ts.json' }, { ...verified, status: 'mismatch', mismatched_fields: ['content'] }) as Row;
 		expect(out).toMatchObject({ ok: false, error: 'verification_mismatch', written: true, id: 4 });
 		expect(String(out['message'])).toContain('content');
-		expect(out['restore_with']).toEqual({ tool: 'stonewright-direct-backup-restore', backup_id: 'tool/res/ts.json', needs: 'confirm:true' });
+		expect(out['restore_with']).toEqual({ tool: 'stonewright-direct-backup-restore', backup_id: 'tool/res/ts.json', needs: 'confirmation' });
 		expect((out['verification'] as Row)['status']).toBe('mismatch');
 	});
 

@@ -240,7 +240,8 @@ export function skillDelete(
   assertWriteAllowed({
     site: site ?? resolved.siteAlias ?? "_global",
     mode: resolveDirectWriteMode(ctx.env, site?.url),
-    destructive: true,
+    // A skill is a local file, so the site's confirmation does not apply: the check below asks for confirm:true in every mode.
+    destructive: false,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-skill-delete",
     env: ctx.env,
@@ -697,7 +698,7 @@ export function taskStart(
 
   const guidance = [
     "Direct mode: core WordPress REST via Application Passwords; no plugin required.",
-    "Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.",
+    "Destructive tools need a confirmation (a refused call returns confirmation_id: repeat the same call with it); writes honor STONEWRIGHT_DIRECT_WRITES.",
     ...permanentRulesGuidance(),
     'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
     "If the user explicitly asks to remember a correction, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope.",

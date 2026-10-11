@@ -21,7 +21,7 @@ export function agentsMdTemplate(): string {
 		'   persist it with `stonewright-learning-record`.',
 		'4. Never guess schemas, IDs, or endpoints: read before writing, research official docs',
 		'   for unknowns, verify after writes, and fix recurring_errors from task-start first.',
-		'5. Destructive tools need confirm:true; never work around write gating.',
+		'5. Destructive tools need a confirmation: repeat the refused call with its confirmation_id (confirm:true counts on a local site only); never work around write gating.',
 		'6. Change ONLY the environment the user named — no parallel local/staging edits unless asked.',
 		'7. Remote Direct work uses that site\'s REST/admin-HTTP only — never local WP-CLI/MySQL for a remote task.',
 		'8. Never scaffold/install ad-hoc plugins as a workaround; registration of new models needs server PHP or existing admin tools.',

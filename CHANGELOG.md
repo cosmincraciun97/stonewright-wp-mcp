@@ -13,6 +13,13 @@ development builds were never stable releases.
 
 ### Added
 
+- Direct mode checks Elementor whole-tree writes: `elementor-data-get` returns a
+  tree `hash` and `architecture`, `elementor-data-update` takes `expected_hash` and
+  refuses duplicate ids, a widget at the root or inside a widget, settings that are
+  not objects, CSS in a colour setting, oversized trees and raw writes onto Atomic
+  (V4) or mixed documents (`allow_atomic_raw` overrides). Destructive Direct calls
+  are confirmed with a `confirmation_id` bound to the tool, site and exact
+  arguments (10 minutes, one use). See the companion changelog.
 - Direct mode lists and restores the copies it saves before it overwrites
   something (`stonewright-direct-backup-list`, `stonewright-direct-backup-restore`;
   hash-checked, `confirm:true`, undoable), reads every typed write back and
@@ -193,6 +200,12 @@ development builds were never stable releases.
 
 ### Changed
 
+- On a site that is not local, a plain `confirm: true` no longer confirms a
+  destructive Direct call; the refused call returns a `confirmation_id` to repeat
+  it with (`STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on` restores the old behavior).
+  `force_destructive` and `allow_widget_type_remap` on
+  `stonewright-elementor-data-update` need a confirmation in every write mode and
+  are audited. See the companion changelog.
 - Say in the Elementor V3 migration guide and the editor adapter notes that the
   deprecated `elementor-add-*` abilities are removed in 2.0.0, the sunset
   version their metadata reports, and that the changelog announces the removal

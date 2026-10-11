@@ -31,13 +31,13 @@ refused before a request is made unless `STONEWRIGHT_DIRECT_ALLOW_HTTP=on`.
 | Taxonomy terms | Yes | Yes |
 | Settings read / update | Yes; update takes an allowlist of keys and a limited `default_role` | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
-| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
+| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need a confirmation in `confirm` mode, and theme.json custom CSS is refused | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
-| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields, before and after hashes and a `direct_verifier` row for each typed write; a pre-image file before five whole-document writes; Elementor data keeps its own file backup; `stonewright-direct-backup-list` and `-restore` list and restore both. **No Rescue snapshots, change sets, or confirmation tokens.** `confirm:true` is a flag the caller sets for destructive tools. Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
+| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields, before and after hashes and a `direct_verifier` row for each typed write; a pre-image file before five whole-document writes; Elementor data keeps its own file backup; `stonewright-direct-backup-list` and `-restore` list and restore both. **No Rescue snapshots, change sets, or plugin confirmation tokens.** A destructive tool needs a `confirmation_id` bound to the call's arguments (a plain `confirm:true` only on a local site). Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
 | WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin); a command that changes the site is a Direct write with task-start, `confirm` and an audit row | Yes |
 
 ## What Direct mode protects
@@ -65,13 +65,28 @@ site, so its protections are the companion's own:
   (`STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off` opts out).
 - **Write mode.** `STONEWRIGHT_DIRECT_WRITES=off` blocks all writes. `confirm`
   (the default for hosts other than localhost, `.local` and `.test`) needs
-  `confirm: true` on destructive tools: plugin, theme, settings, user, comment
+  a confirmation on destructive tools: plugin, theme, settings, user, comment
   and widget writes, template and template-part creates, updates and deletes,
   `global-styles-update`, `elementor-data-update`, most other deletes, and
   `blueprint-apply` with `post_id`. `elementor-data-update` resolves its mode from
   the site URL like the other tools. Content, media, ACF, menu and
-  taxonomy writes need no confirmation. `confirm: true` is a flag the caller
-  sets; it is not bound to the call's arguments.
+  taxonomy writes need no confirmation.
+- **Confirmation bound to the call.** A destructive call without a valid
+  confirmation returns `confirmation_required`, a `confirmation_id` and a short
+  `summary` of what it will do; the agent repeats the same call, unchanged, with
+  `confirmation_id`. The id is an HMAC (a secret that exists only in the
+  companion process) over the tool name, the site and the canonical arguments, is
+  kept in memory for 10 minutes and works once. Other arguments, another site,
+  another tool, an expired or a used id are refused with `confirmation_invalid`
+  (the reason is in `reason`, and a fresh id for the call comes back). A plain
+  `confirm: true` still counts on a local site (localhost, `.local`, `.test`) and
+  with `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`; on any other site it is refused with
+  a message that says so; `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=off` refuses it on
+  local sites too. Theme activation, plugin and user deletes, Application
+  Password create and revoke, and a backup restore ask for a confirmation in
+  every write mode. Local WP-CLI commands that change the site keep the plain
+  `confirm: true` (they run on this machine against a checked install). A
+  restart of the companion drops pending ids.
 - **Custom-code refusal.** `global-styles-update`, `elementor-data-update`,
   content create, update and autosave, template and template-part create and
   update, `blueprint-apply`, `widget-manage`, `acf-fields-update`, `media-upload`,
@@ -103,7 +118,7 @@ site, so its protections are the companion's own:
   `backup_id`, `backup_path` and `backup_sha256`.
 - **List and restore.** `stonewright-direct-backup-list` shows the saved copies
   with an integrity check. `stonewright-direct-backup-restore` needs
-  `confirm:true` (`dry_run:true` previews), refuses a file whose stored hash does
+  a confirmation (`dry_run:true` previews), refuses a file whose stored hash does
   not match, refuses a resource that no longer exists, saves the current state
   first so the restore can be undone, writes the stored fields back through the
   same REST route (Elementor backups through the Elementor update path), reads
@@ -124,10 +139,24 @@ site, so its protections are the companion's own:
   local site, off for a remote one (`probe:true` or `STONEWRIGHT_DIRECT_PROBE=on`
   turns it on). A failure is returned with a `rollback_offer`; the saved copy is
   restored automatically only when the call has `rollback_on_probe_failure:true`.
-- **Elementor.** The integrity gate blocks double-encoded data, malformed nodes,
-  a tree under 85 percent of the previous size (when that is over 2 KiB), and
-  `widgetType` remaps; `force_destructive` and `allow_widget_type_remap` bypass
-  the size and remap checks. WP-CLI is used only after the local install's `home` or `siteurl` matches the alias URL;
+- **Elementor.** `elementor-data-get` returns `hash` (SHA-256 of the tree with
+  object keys sorted; not equal to the plugin's tree hash) and `architecture`
+  (`v3`, `v4`, `mixed`, `empty`). `elementor-data-update` replaces the whole
+  tree. With `expected_hash` (optional, recommended) a tree that changed since the
+  read is refused with `revision_conflict` and `current_hash`. The integrity gate
+  blocks double-encoded data, malformed nodes, a tree under 85 percent of the
+  previous size (when that is over 2 KiB), and `widgetType` remaps. The structure
+  checks refuse duplicate ids, a widget or column at the document root (a widget
+  the stored document already keeps there stays editable), a widget directly inside
+  a widget, `inner-section` as an element type, `settings` that are not an object (an
+  empty list is fine), CSS characters in a colour setting, and a tree over 4 MiB,
+  5000 elements or 32 levels. A document with Atomic (V4) elements or `$$type`
+  settings, or a tree that has them, is not rewritten: Plugin mode types V4
+  writes. `force_destructive` (size), `allow_widget_type_remap` and
+  `allow_atomic_raw` each skip one check, need a confirmation in every write
+  mode, are audited before the write, and are listed in `overrides_used`. The
+  result returns `previous_hash` and `hash`. A restore is not held to the
+  structure checks. WP-CLI is used only after the local install's `home` or `siteurl` matches the alias URL;
   otherwise the tool uses REST and returns `wp_cli_refused`.
 - **Media upload.** Local paths, URLs, types, size, content and file names are
   limited as described in the matrix above. Each URL hop resolves the host once,
@@ -148,10 +177,12 @@ site, so its protections are the companion's own:
   undo them. A backup written by an older version has no stored hash; restoring
   it needs `expected_sha256` (the `backup_sha256` its write returned, which an
   older Elementor write did not).
-- **Elementor raw writes are unchecked beyond the gate above.** There is no
-  schema validation, unique-id check, element or depth cap, or per-post lease or
-  base hash (a concurrent edit is overwritten). The write is read back and the
-  stored tree is compared with the written one.
+- **Elementor raw writes have no schema and no lock.** The checks above are
+  structural: there is no control schema, no value validation beyond colour
+  settings, and no per-post lock, so two writers can race between the hash check
+  and the write (`expected_hash` is optional). Atomic (V4) content is refused,
+  not typed. The write is read back and the stored tree is compared with the
+  written one.
 - **WP-CLI in Plugin mode.** `stonewright-wp-cli-run` and `-job-start` apply the
   shared command policy only; the companion adds no task-start latch,
   confirmation or audit row there.

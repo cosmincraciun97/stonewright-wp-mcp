@@ -445,7 +445,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 	if (blocked) {
 		return {
 			isError: true as const,
-			content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: errorCode, message: message.slice(0, 500), blocked: true }, null, 2) }],
+			content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: errorCode, message: message.slice(0, 500), blocked: true, ...err.details }, null, 2) }],
 		};
 	}
 	const count = noteDirectErrorOccurrence(tool, errorCode, message.slice(0, 200));
@@ -510,7 +510,9 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
  */
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
-	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
+	const confirmArg = z.boolean().optional().describe('Destructive call: true confirms it on a local dev site. Elsewhere repeat the call with confirmation_id.');
+	// Added to every tool that takes confirmArg (see registerTool): the id a refused destructive call returns.
+	const confirmationIdArg = z.string().optional().describe('From a confirmation_required reply: repeat the same call with it (10 min, one use).');
 	const probeArg = z.boolean().optional().describe('Fetch the public page after the write and check it. Default on for a local site, off for a remote one.');
 	const rollbackArg = z.boolean().optional().describe('Restore the saved copy automatically if that check fails. Implies probe.');
 	const recoveryConfirmArg = z.boolean().optional().describe('Recovery override on a plugin site only; normally omit');
@@ -539,19 +541,27 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			toolHandles.set(name, noop);
 			return noop;
 		}
-		const [description, paramsSchema, callback] = rest as unknown as [
+		const [description, declaredSchema, callback] = rest as unknown as [
 			string,
 			Record<string, z.ZodTypeAny>,
 			RegisteredTool['handler'],
 		];
+		// A destructive tool (one that takes confirmArg) also takes the id that its refusal returns.
+		const paramsSchema = declaredSchema['confirm'] === confirmArg
+			? { ...declaredSchema, confirmation_id: confirmationIdArg }
+			: declaredSchema;
 		const wrappedCallback = ((input: unknown, ...args: unknown[]) => {
 			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
 				? String((input as { site: string }).site)
 				: sessionSiteAlias(ctx.env) ?? '_global';
 			const confirm = Boolean(input && typeof input === 'object' && (input as { confirm?: unknown }).confirm === true);
+			const callArgs = input && typeof input === 'object' ? { ...(input as Record<string, unknown>) } : {};
+			const presentedId = typeof callArgs['confirmation_id'] === 'string' && callArgs['confirmation_id'] !== ''
+				? callArgs['confirmation_id']
+				: undefined;
 			return withDirectAuditReceiptContext(() => directDispatchContext.run(
 				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
-				() => runWithDirectCallContext({ tool: name, confirm }, async () => {
+				() => runWithDirectCallContext({ tool: name, confirm, args: callArgs, confirmationId: presentedId, env: ctx.env }, async () => {
 					let target: ResolvedSite | null = null;
 					try {
 						const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
@@ -1887,13 +1897,18 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-get',
-		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
+		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). Returns hash (pass it back as expected_hash on write) and architecture (v3, v4, mixed). root_id limits to one element; include_content adds bounded settings; knownHash answers unchanged:true. WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			responseMode: z.enum(['summary', 'full']).default('summary').optional(),
+			response_mode: z.enum(['summary', 'full']).optional().describe('Alias of responseMode'),
 			maxElements: z.number().int().min(1).max(500).default(200).optional(),
+			max_nodes: z.number().int().min(1).max(500).optional().describe('Alias of maxElements'),
+			knownHash: z.string().optional(),
+			root_id: z.string().optional(),
+			include_content: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
@@ -1902,15 +1917,17 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Refuses custom CSS setting keys, HTML-type widgets, and script/style/iframe markup in settings with an approval_required envelope (needs Plugin mode and its custom-code approval). Prefer plugin batch-mutate on production.',
+		'Replace the whole _elementor_data tree without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. Pass expected_hash (the hash from stonewright-elementor-data-get) so a tree changed since your read is refused with revision_conflict; recommended. Refuses double-encoding, size collapse, widgetType remaps, duplicate ids, widgets at the root or inside widgets, non-object settings, CSS in colour values, trees over 4 MiB, and Atomic (V4) or mixed documents (Plugin mode types V4). force_destructive, allow_widget_type_remap and allow_atomic_raw skip one check each: they need confirm, are audited and are listed in overrides_used. Refuses custom CSS setting keys, HTML-type widgets, and script/style/iframe markup in settings with an approval_required envelope (needs Plugin mode and its custom-code approval). Prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
+			expected_hash: z.string().optional(),
 			confirm: confirmArg,
 			force_destructive: z.boolean().optional(),
 			allow_widget_type_remap: z.boolean().optional(),
+			allow_atomic_raw: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},

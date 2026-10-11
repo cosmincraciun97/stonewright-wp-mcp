@@ -157,7 +157,7 @@ describe('front-end probe', () => {
 			const out = (await contentUpdate(ctx(wp), { id: 4, content: '<p>new</p>' })) as Row;
 			expect(out).toMatchObject({ ok: false, error: 'frontend_probe_failed', written: true, site_status: 'probe_failed' });
 			expect((out['probe'] as Row)['reasons']).toContain(reason);
-			expect(out['rollback_offer']).toEqual({ tool: 'stonewright-direct-backup-restore', args: { backup_id: out['backup_id'] }, needs: 'confirm:true' });
+			expect(out['rollback_offer']).toEqual({ tool: 'stonewright-direct-backup-restore', args: { backup_id: out['backup_id'] }, needs: 'confirmation' });
 			expect(out['rolled_back']).toBeUndefined();
 			// Nothing was rolled back: the new content is still stored.
 			expect(wp.store.get('/wp/v2/pages/4')).toMatchObject({ content: { raw: '<p>new</p>' } });

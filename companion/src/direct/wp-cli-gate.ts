@@ -121,6 +121,9 @@ export async function gateDirectWpCli(input: DirectWpCliGateInput): Promise<Dire
       tool: input.tool,
       env: input.env,
       site,
+      // The run happens on this machine, against a WordPress that is checked to be the Direct site, and these
+      // tools have no confirmation_id argument: a plain confirm:true stays the confirmation here.
+      allowBareConfirm: true,
     });
   } catch (error) {
     if (error instanceof DirectSafetyBlockedError) {
