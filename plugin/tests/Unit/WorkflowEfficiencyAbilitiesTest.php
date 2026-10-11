@@ -532,7 +532,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
 		self::assertNotContains( 'stonewright/php-execute', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['fast_path']['recommended_mcp_tools'] );
-		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
+		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated read-oriented WP-CLI commands (post, term, option, plugin reads and cache flushes); write through typed abilities or stonewright-wp-cli-run.', $result['fast_path']['batching_rules'] );
 	}
 
 	public function test_workflow_preflight_omits_elementor_summary_for_content_model_tasks(): void {

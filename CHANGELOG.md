@@ -183,6 +183,14 @@ development builds were never stable releases.
 - Delete theme file backups that no entry of the backup index and no entry of
   the change journal refers to, once the index of 100 entries trims and the
   file is over an hour old. They were never removed before.
+- Let `stonewright-custom-code-provider` apply the `theme-file` and `customizer-css`
+  providers in `production-safe` mode. The confirmation token is verified once,
+  for `custom-code-provider` and the exact request, and the delegated ability no
+  longer reads the same single-use token again (it failed with
+  `stonewright_confirmation_replayed`). A replayed token, a token for other
+  arguments or another ability, and a missing token are still refused, the human
+  `custom_code_grant` is still checked and single-use, and a dry run of these
+  providers needs no token because it writes nothing.
 
 ### Security
 
@@ -247,6 +255,75 @@ development builds were never stable releases.
   Stonewright self-protection compares the plugin basename instead of looking
   for "stonewright" anywhere in the name. These checks run before a
   confirmation token is used.
+
+- Stop `stonewright-tool-profile` `extras` from enabling code-running abilities.
+  An extras list that names `php-execute`, a sandbox writer (`sandbox-write`,
+  `-edit`, `-delete`, `-activate`, `-deactivate`, `-toggle`), a WP-CLI runner
+  (`wp-cli-run`, `wp-cli-batch-run`, `wp-cli-job-start`), `custom-code-provider`
+  or a custom widget definer is refused with
+  `stonewright_tool_profile_extras_restricted`, and a stored extra that names one
+  is ignored. Behavior change: an agent can no longer put `php-execute` on the
+  essential surface through extras; it is on the `full` profile only.
+- Make `stonewright-execute-ability` validate the arguments against the input
+  schema of the ability it runs, with the REST schema validator, before that
+  ability's permission and execute callbacks run, so bounds, enums, patterns and
+  unknown properties count as they do on a direct call
+  (`stonewright_ability_invalid_input`; the missing task context token still gets
+  its own error). It refuses an ability the tool surface hides, and it runs an
+  ability that runs or writes code (`php-execute`, the sandbox writers, the
+  WP-CLI runners, `custom-code-provider`, the custom widget definers) only when
+  the configured surface or the session profile lists it
+  (`stonewright_ability_not_on_surface`). Behavior change: a `discover-execute`
+  session can no longer run `php-execute` or the sandbox writers.
+- Require `edit_plugins` and `manage_options` for `php-execute`, `wp-cli-run`,
+  `wp-cli-batch-run` and `wp-cli-job-start`, the pair the sandbox needs, and a
+  super admin on multisite. While `DISALLOW_FILE_MODS` is set, `php-execute`
+  refuses snippets that call the plugin, theme and core installers and updaters
+  (`stonewright_php_file_mods_disabled`) and the WP-CLI abilities refuse commands
+  that write files (`stonewright_wp_cli_file_mods_disabled`). The `php-execute`
+  description now says that its file-write guard is a best-effort scan of the
+  source, not a sandbox.
+- Refuse more WP-CLI commands. The companion's runners (run, batch, jobs and their
+  HTTP routes) and the WP-CLI abilities now refuse `config`, `scaffold`, plugin
+  and theme `install`, `update`, `delete`, `activate` (and plugin `uninstall`),
+  `db` except its read-only subcommands, `user` changes (create, update, delete,
+  `add-role`, `set-role`, `meta`, and the rest), role and capability changes,
+  `core download`, `update` and `install`, `cron event run`, `cli update`,
+  `search-replace` without `--dry-run`, writes to sensitive options (`default_role`,
+  `users_can_register`, the user roles, `active_plugins`, `siteurl`, `home`,
+  `admin_email`, any `stonewright_` option), and the `--config`, `--ssh` and
+  `--http` flags, in addition to `eval`, `eval-file`, `shell`, `package`, `--exec`,
+  `--require` and `--prompt`. The command is found the way WP-CLI reads it: a
+  leading `@alias`, global flags before or between the command words (`--path=`,
+  `--url=`, `--user=`, or a flag with a separate value), quotes, upper case,
+  padding, and a whole command in one token no longer hide it. Behavior change:
+  `wp-cli-batch-run` refuses those command groups and runs read-oriented commands
+  only (reads of `post`, `term`, `option`, `plugin`, `theme`, `user`, `db check`,
+  cron lists, plus cache and rewrite flushes); a batch with one command off that
+  list is refused before any command runs. Writes go through the typed
+  abilities, `wp-cli-run`, or a `wp-cli-job-start` batch. Commands the companion
+  builds for its own setup, rescue and approved recipes keep a narrower list.
+- Apply the HTML widget policy and the custom code gate to the whole tree in
+  `stonewright-elementor-build-tree` and in `stonewright-elementor-v3-transaction-run`
+  with `replace_tree`, as `add-widget` and `batch-mutate` already do per
+  operation. An HTML widget needs the site option and an explicit
+  `allow_html_widget`; custom CSS, a style tag in an HTML widget and unapproved
+  CSS classes need what the custom code gate asks for, including a human-issued
+  `custom_code_grant` (both abilities accept `allow_html_widget` and
+  `custom_code_grant`). A dry run reports the refusal and leaves a grant unused.
+- Make `stonewright-theme-builder-apply-template` request `verify_url` with
+  `wp_safe_remote_get`, without following redirects, and only when the URL is on
+  the site's own host (`home_url` or `site_url`, no credentials, same port when
+  one is named). Any other URL is not requested and reports no status.
+- Keep the confirmation token of `stonewright-sandbox-edit` out of the audit log
+  and read its `old_string` and `new_string` through the code payload
+  canonicalizer the way `sandbox-write` does (line endings only, so a fragment
+  still matches its file exactly).
+- Remove the audit log from the scopes of `stonewright-security-runtime-data-purge`.
+  A call that names `audit` is refused with
+  `stonewright_runtime_data_purge_audit_requires_administrator`, whatever the
+  confirmation token or acknowledgement, and the default scopes are memory,
+  incidents and error patterns. Erasing the audit log is left to an administrator.
 
 ### Documentation
 

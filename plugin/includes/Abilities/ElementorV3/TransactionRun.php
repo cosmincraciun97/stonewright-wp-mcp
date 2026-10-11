@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
+use Stonewright\WpMcp\Elementor\ElementorTreeCodeGate;
 use Stonewright\WpMcp\Elementor\TransactionEnvelope;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -43,6 +44,15 @@ final class TransactionRun extends AbilityKernel {
 				[
 					'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
 					'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+					'allow_html_widget'  => [
+						'type'        => 'boolean',
+						'default'     => false,
+						'description' => 'Explicit approval for HTML widgets in a replace_tree tree. Ignored unless the site allows HTML widgets in Stonewright settings.',
+					],
+					'custom_code_grant'  => [
+						'type'        => 'string',
+						'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in a replace_tree tree, bound to the exact candidate code.',
+					],
 					'confirmation_token' => [ 'type' => 'string' ],
 					// Allow envelope nested under "envelope" or flattened at root.
 					'envelope'           => $envelope,
@@ -93,6 +103,15 @@ final class TransactionRun extends AbilityKernel {
 				$raw     = isset( $args['envelope'] ) && is_array( $args['envelope'] )
 					? $args['envelope']
 					: $args;
+
+				// A replace_tree writes a whole document, so its tree passes the HTML widget policy and the custom code gate here.
+				$tree = ElementorTreeCodeGate::replace_tree_of( $raw );
+				if ( null !== $tree ) {
+					$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $args, $dry_run );
+					if ( $code_gate instanceof \WP_Error ) {
+						return $code_gate;
+					}
+				}
 
 				return ElementorTransactionRunner::run( $post_id, $raw, $dry_run );
 			}

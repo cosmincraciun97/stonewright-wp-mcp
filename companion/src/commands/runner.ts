@@ -13,7 +13,7 @@ import {
 } from '../direct/sensitive-content.js';
 import { appendDirectAudit, redactDirectAuditText } from '../direct/audit.js';
 import type { SiteRecordV2 } from '../cli/connect/types.js';
-import { runWpCli, type ExecFileRunner, type WpCliCommandResult } from '../wp-cli.js';
+import { runWpCliOperator, type ExecFileRunner, type WpCliCommandResult } from '../wp-cli.js';
 import { markPlanConsumed, requireValidLocalWpRoot } from './store.js';
 import { CommandError, validateRecipeWpCliCommand } from './risk.js';
 import { resolveSteps, verifyPlanReference } from './planner.js';
@@ -148,7 +148,7 @@ export async function runCommand(input: RunCommandInput): Promise<CommandRunRece
 		try {
 			// Always fetch the full result so expectations evaluate against real
 			// stdout; bounding to summary happens in our own summarize below.
-			const result = await runWpCli(
+			const result = await runWpCliOperator(
 				{
 					command: step.argv,
 					path: wpRoot,

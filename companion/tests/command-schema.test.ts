@@ -124,6 +124,12 @@ describe('wp-cli risk classification', () => {
 		}
 	});
 
+	it('finds a code-running group behind an alias, a flag, quotes, case or padding', () => {
+		for (const argv of [['@prod', 'eval', '1'], ['--skip-themes', 'eval-file', 'x.php'], ["'eval'", 'echo 1;'], ['EVAL', 'echo 1;'], [' shell '], ['--quiet', 'package', 'install'], ['eval echo 1;']]) {
+			expect(() => validateRecipeWpCliCommand(argv)).toThrow(CommandError);
+		}
+	});
+
 	it('refuses target overrides in both forms and config explicitly', () => {
 		for (const override of ['--path', '--url', '--user', '--context', '--ssh', '--http']) {
 			expect(() => validateRecipeWpCliCommand([override, '/tmp'])).toThrow(CommandError);

@@ -53,6 +53,9 @@ final class CodePayloadCanonicalizer {
 			case 'stonewright/sandbox-write':
 				return self::canonicalize_field( $args, 'contents', 'php', $decode, $ability );
 
+			case 'stonewright/sandbox-edit':
+				return self::canonicalize_fragments( $args, [ 'old_string', 'new_string' ], $ability );
+
 			case 'stonewright/theme-custom-css':
 				return self::canonicalize_field( $args, 'css', 'css', $decode, $ability );
 		}
@@ -68,6 +71,7 @@ final class CodePayloadCanonicalizer {
 			'stonewright/php-execute',
 			'stonewright/theme-file-patch',
 			'stonewright/sandbox-write',
+			'stonewright/sandbox-edit',
 			'stonewright/theme-custom-css',
 		];
 	}
@@ -168,6 +172,36 @@ final class CodePayloadCanonicalizer {
 			$language,
 			$decode
 		);
+		return $args;
+	}
+
+	/**
+	 * A fragment is matched against a stored file byte for byte, so it only gets line endings normalized
+	 * (the stored file has them normalized); nothing is trimmed and no newline is added.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param list<string>         $fields
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function canonicalize_fragments( array $args, array $fields, string $ability ): array|\WP_Error {
+		foreach ( $fields as $field ) {
+			if ( ! array_key_exists( $field, $args ) ) {
+				continue;
+			}
+			if ( ! is_string( $args[ $field ] ) ) {
+				return self::invalid_payload(
+					$ability,
+					$field,
+					sprintf(
+						/* translators: %s: input field name. */
+						__( '%s must be a string.', 'stonewright' ),
+						$field
+					)
+				);
+			}
+			$args[ $field ] = str_replace( [ "\r\n", "\r" ], "\n", $args[ $field ] );
+		}
+
 		return $args;
 	}
 

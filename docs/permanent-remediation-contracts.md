@@ -63,13 +63,14 @@ correlation and independent verification. Missing proof returns
 `guidance_only: true`, leaves the incident open, and creates no lesson. See
 [Verified learning](verified-learning.md).
 
-`stonewright/security-runtime-data-purge` is the only supported runtime-history
-reset. Its dry run returns counts, hashes, and numeric watermarks without row
-bodies. Apply requires the exact reviewed state and plan hashes, an explicit
-acknowledgement, and a confirmation token in `production-safe` mode. Database
-deletes stop at the reviewed watermarks, so concurrently created rows survive
-and force a visible partial-failure result. A successful audit purge retains
-one redacted cleanup receipt.
+`stonewright/security-runtime-data-purge` is the only supported agent-side reset
+of memory, incident, and recurring-error history. Its dry run returns counts,
+hashes, and numeric watermarks without row bodies. Apply requires the exact
+reviewed state and plan hashes, an explicit acknowledgement, and a confirmation
+token in `production-safe` mode. Database deletes stop at the reviewed
+watermarks, so concurrently created rows survive and force a visible
+partial-failure result. The audit log is not a scope of the ability; a call
+that names it is refused, and erasing the log is left to an administrator.
 
 ## OAuth failure and rate-limit contract
 

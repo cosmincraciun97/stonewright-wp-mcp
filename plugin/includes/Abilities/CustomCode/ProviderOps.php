@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\CustomCode;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
+use Stonewright\WpMcp\CustomCode\VerifiedApplyInterface;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
@@ -222,11 +223,16 @@ final class ProviderOps extends AbilityKernel {
 					RescueGuard::arm_custom_code_write( $provider_id, sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) ) );
 				}
 
+				// The token of an apply was verified above, once, for this ability and these arguments. A provider that
+				// delegates to a typed ability that checks a token too gets the verified entry points, so the single-use
+				// token is not consumed a second time; the human grant is still checked by the delegated ability.
+				$verified = $provider instanceof VerifiedApplyInterface;
+
 				return match ( $action ) {
 					'list' => $provider->list( $args ),
 					'read' => $provider->read( (string) ( $args['target_id'] ?? $args['path'] ?? '' ) ),
-					'dry-run' => $provider->dry_run( $args ),
-					'apply' => $provider->apply( $args ),
+					'dry-run' => $verified ? $provider->dry_run_verified( $args ) : $provider->dry_run( $args ),
+					'apply' => $verified ? $provider->apply_verified( $args ) : $provider->apply( $args ),
 					'verify' => $provider->verify( $args ),
 					'rollback' => $provider->rollback( $args ),
 					default => new \WP_Error(

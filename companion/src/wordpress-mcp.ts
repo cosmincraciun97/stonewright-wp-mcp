@@ -23,7 +23,7 @@ export {
 	readBoundedBody,
 } from './wordpress-mcp-http.js';
 import { OAuthTokenManager, OAuthTokenStore, OAuthReauthRequiredError, OAuthTransientError } from './oauth-token-manager.js';
-import { runWpCli, type ExecFileRunner } from './wp-cli.js';
+import { runWpCliOperator, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
 
 export interface WordPressMcpOAuthConfig {
@@ -805,7 +805,7 @@ async function generateAndStoreCredential(
 }
 
 async function discoverAdminUsername(env: NodeJS.ProcessEnv, runner?: ExecFileRunner): Promise<string | null> {
-	const result = await runWpCli(
+	const result = await runWpCliOperator(
 		{
 			command: ['user', 'list', '--role=administrator', '--field=user_login', '--number=1'],
 			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),
@@ -824,7 +824,7 @@ async function createApplicationPassword(
 	env: NodeJS.ProcessEnv,
 	runner?: ExecFileRunner,
 ): Promise<string | null> {
-	const result = await runWpCli(
+	const result = await runWpCliOperator(
 		{
 			command: ['user', 'application-password', 'create', username, appPasswordName(env), '--porcelain'],
 			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),

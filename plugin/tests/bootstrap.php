@@ -957,6 +957,13 @@ if ( ! function_exists( 'home_url' ) ) {
 	}
 }
 
+if ( ! function_exists( 'site_url' ) ) {
+	function site_url( string $path = '' ): string {
+		$base = $GLOBALS['stonewright_test_site_url'] ?? $GLOBALS['stonewright_test_home_url'] ?? 'https://example.test/';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
+	}
+}
+
 if ( ! function_exists( 'admin_url' ) ) {
 	function admin_url( string $path = '' ): string {
 		return 'https://example.test/wp-admin/' . ltrim( $path, '/' );
@@ -989,6 +996,12 @@ if ( ! function_exists( 'wp_timezone_string' ) ) {
 if ( ! function_exists( 'is_multisite' ) ) {
 	function is_multisite(): bool {
 		return (bool) ( $GLOBALS['stonewright_test_is_multisite'] ?? false );
+	}
+}
+
+if ( ! function_exists( 'is_super_admin' ) ) {
+	function is_super_admin( int|false|null $user_id = null ): bool {
+		return (bool) ( $GLOBALS['stonewright_test_is_super_admin'] ?? false );
 	}
 }
 

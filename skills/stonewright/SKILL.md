@@ -125,9 +125,10 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
 - On the `full` profile only, use `stonewright/php-execute` when a direct
   WordPress/plugin API snippet is faster than many typed calls.
 - Use `stonewright-wp-cli-run` only with argv tokens.
-- For repeated WP-CLI writes or non-ASCII values, use
+- For repeated read-oriented WP-CLI commands or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
-  PowerShell/Node scripts.
+  PowerShell/Node scripts; it refuses writes, which go through typed abilities,
+  `stonewright-wp-cli-run`, or a background job.
 - For long WP-CLI imports, plugin operations, cache rebuilds, or large content
   batches, use `stonewright-wp-cli-job-start` and poll with
   `stonewright-wp-cli-job-status` instead of blocking one MCP request.

@@ -18,6 +18,7 @@ final class PhpExecuteTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps'] = [
 			'read'           => true,
 			'manage_options' => true,
+			'edit_plugins'   => true,
 		];
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 17;
@@ -63,6 +64,11 @@ final class PhpExecuteTest extends TestCase {
 		self::assertTrue( $ability->permission_callback( [] ) );
 
 		$GLOBALS['stonewright_test_user_caps']['manage_options'] = false;
+
+		self::assertFalse( $ability->permission_callback( [] ) );
+
+		$GLOBALS['stonewright_test_user_caps']['manage_options'] = true;
+		$GLOBALS['stonewright_test_user_caps']['edit_plugins']   = false;
 
 		self::assertFalse( $ability->permission_callback( [] ) );
 	}

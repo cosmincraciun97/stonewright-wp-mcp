@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Sandbox;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -71,10 +72,15 @@ final class SandboxEdit extends AbilityKernel {
 	}
 
 	protected function audit_redacted_keys(): array {
-		return [ 'old_string', 'new_string' ];
+		return array_merge( parent::audit_redacted_keys(), [ 'old_string', 'new_string' ] );
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
+		if ( $args instanceof \WP_Error ) {
+			return $args;
+		}
+
 		return $this->audit(
 			$args,
 			function ( array $a ): array|\WP_Error {

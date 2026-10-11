@@ -64,6 +64,20 @@ final class Permissions {
 	}
 
 	/**
+	 * Permission gate for abilities that run code on the server: runtime PHP and the WP-CLI runners.
+	 *
+	 * The sandbox capability pair, and on multisite a super admin: code run there reaches every site
+	 * of the network, which a site administrator may not.
+	 */
+	public static function can_run_code(): bool {
+		if ( ! self::can_manage_sandbox() ) {
+			return false;
+		}
+
+		return ! is_multisite() || is_super_admin();
+	}
+
+	/**
 	 * Read-only gate for sandbox/widget listing. Requires manage_options so that
 	 * subscriber/editor-level users cannot enumerate staged PHP files.
 	 */

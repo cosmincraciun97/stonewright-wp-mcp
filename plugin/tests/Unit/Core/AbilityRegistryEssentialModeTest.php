@@ -120,11 +120,11 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 	public function test_essential_mode_keeps_explicit_extras_visible(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
-		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [ 'stonewright/sandbox-write' ];
+		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [ 'stonewright/media-get' ];
 
 		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
-		self::assertContains( 'stonewright/sandbox-write', $names );
+		self::assertContains( 'stonewright/media-get', $names );
 	}
 
 	public function test_v4_mutators_keep_envelope_metadata_when_flag_hides_mcp_tools(): void {

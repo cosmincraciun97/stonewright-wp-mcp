@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\WpCli;
 
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * Starts a tokenized WP-CLI background job through the local companion.
@@ -22,7 +23,7 @@ final class JobStart extends WpCliAbility {
 	}
 
 	public function description(): string {
-		return __( 'Starts a tokenized WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request.', 'stonewright' );
+		return __( 'Starts a tokenized WP-CLI command or batch in the companion background queue so long import, cache, media, or content operations do not block the MCP request. The command deny-list of wp-cli-run applies. Requires edit_plugins and manage_options (a super admin on multisite).', 'stonewright' );
 	}
 
 	/**
@@ -91,6 +92,9 @@ final class JobStart extends WpCliAbility {
 		return self::job_output_schema();
 	}
 
+	public function permission_callback( array $args ): bool|\WP_Error {
+		return Permissions::can_run_code();
+	}
 	public function execute( array $args ): array|\WP_Error {
 		if ( empty( $args['command'] ) && empty( $args['commands'] ) ) {
 			return $this->error( 'wp_cli_invalid_job', __( 'A command or commands array is required.', 'stonewright' ), [ 'status' => 400 ] );
@@ -109,6 +113,15 @@ final class JobStart extends WpCliAbility {
 					static fn( string $key ): bool => 'confirmation_token' !== $key,
 					ARRAY_FILTER_USE_KEY
 				);
+
+				$commands = isset( $a['commands'] ) && is_array( $a['commands'] ) ? $a['commands'] : [];
+				if ( isset( $a['command'] ) && is_array( $a['command'] ) ) {
+					$commands[] = $a['command'];
+				}
+				$policy_error = $this->command_policy_error( $commands );
+				if ( null !== $policy_error ) {
+					return $policy_error;
+				}
 
 				$token_error = $this->confirmation_token_error( $a, $request_args );
 				if ( null !== $token_error ) {

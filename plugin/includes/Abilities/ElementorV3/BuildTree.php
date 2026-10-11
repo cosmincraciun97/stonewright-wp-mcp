@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\ElementorTreeCodeGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
@@ -48,6 +49,15 @@ final class BuildTree extends AbilityKernel {
 					'description' => 'Elementor elements array (top-level sections/containers).',
 				],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+				'allow_html_widget'  => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Explicit approval for HTML widgets in the tree. Ignored unless the site allows HTML widgets in Stonewright settings.',
+				],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in the tree, bound to the exact candidate code.',
+				],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
 		];
@@ -112,6 +122,12 @@ final class BuildTree extends AbilityKernel {
 						'invalid_tree_structure',
 						__( 'Elementor tree failed structural validation (ids, elType nesting).', 'stonewright' )
 					);
+				}
+
+				// HTML widgets and custom code are gated over the whole tree, as add-widget and batch-mutate gate each operation.
+				$code_gate = ElementorTreeCodeGate::assert_tree( $normalized, $args, $dry_run );
+				if ( $code_gate instanceof \WP_Error ) {
+					return $code_gate;
 				}
 
 				if ( $dry_run ) {

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\FullProfileOnlyAbilities;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -200,7 +201,7 @@ final class ToolProfile extends AbilityKernel {
 					'type'        => 'array',
 					'items'       => [ 'type' => 'string' ],
 					'default'     => [],
-					'description' => 'Extra stonewright/* ability names to pin into the essential surface for this site.',
+					'description' => 'Extra stonewright/* ability names to pin into the essential surface for this site. Abilities that run or write code (php-execute, the sandbox writers, the WP-CLI runners, custom-code-provider) are refused; they come only from the profile that lists them.',
 				],
 			],
 		];
@@ -622,6 +623,17 @@ final class ToolProfile extends AbilityKernel {
 						$name
 					),
 					[ 'status' => 400, 'ability' => $name ]
+				);
+			}
+			if ( FullProfileOnlyAbilities::is_restricted( $name ) ) {
+				return new \WP_Error(
+					'stonewright_tool_profile_extras_restricted',
+					sprintf(
+						/* translators: %s: ability name */
+						__( 'Extra ability "%s" runs or writes code and cannot be added through extras. Use the profile that lists it (full for php-execute).', 'stonewright' ),
+						$name
+					),
+					[ 'status' => 403, 'ability' => $name ]
 				);
 			}
 			if ( ! isset( $registered[ $name ] ) ) {
@@ -1075,7 +1087,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/security-audit-reconcile' => 'Preview count-only legacy audit reconciliation, then apply it explicitly with production-safe confirmation and verification.',
-			'stonewright/security-runtime-data-purge' => 'Preview count-only audit, memory, incident, and recurring-error state; purge only an exactly reviewed state and retain one cleanup receipt.',
+			'stonewright/security-runtime-data-purge' => 'Preview count-only memory, incident, and recurring-error state; purge only an exactly reviewed state. The audit log cannot be purged from here.',
 			'stonewright/incident-repair-record' => 'Resolve an incident and promote one reusable lesson only after persisted failure and verifier events prove the repair.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/design-native-plan' => 'Validate compact DesignEvidence and map semantic nodes to live native schemas without writing.',
@@ -1110,7 +1122,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',
-			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
+			'stonewright/wp-cli-batch-run' => 'Run repeated read-oriented tokenized WP-CLI argv commands (reads and cache flushes) with compact output.',
 			'stonewright/wp-cli-job-start' => 'Start long WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
 			'stonewright/comment-update' => 'Moderate comments via status enum (approve/hold/spam/trash) without separate tools.',

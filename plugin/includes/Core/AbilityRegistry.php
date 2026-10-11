@@ -910,6 +910,25 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Whether execute-ability may run this ability in the current session.
+	 *
+	 * An ability the surface hides (an experimental family that is off, section reuse while off) is
+	 * refused. One that runs or writes code is refused unless the configured surface or the session
+	 * profile lists it; every other ability is reachable by name, which is what discovery is for.
+	 */
+	public static function session_may_execute( Ability $ability ): bool {
+		$class = $ability::class;
+		if ( [] === self::filter_hidden_abilities( [ $class ] ) ) {
+			return false;
+		}
+		if ( ! FullProfileOnlyAbilities::is_restricted( $ability->name() ) ) {
+			return true;
+		}
+
+		return in_array( $class, self::public_classes(), true );
+	}
+
+	/**
 	 * Execute an ability after enforcing Stonewright's task context bootstrap.
 	 *
 	 * Read-only discovery abilities remain callable without a token so an agent
@@ -1145,7 +1164,7 @@ final class AbilityRegistry {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private static function input_schema_for_ability( Ability $ability ): array {
+	public static function input_schema_for_ability( Ability $ability ): array {
 		$schema = $ability->input_schema();
 
 		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
@@ -1851,7 +1870,7 @@ final class AbilityRegistry {
 		return array_values(
 			array_filter(
 				array_map( 'strval', $extra ),
-				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' )
+				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' ) && ! FullProfileOnlyAbilities::is_restricted( $name )
 			)
 		);
 	}
