@@ -124,6 +124,11 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Make **Dashboard > Updates > Check again** find a release published in the
+  last 12 hours. For an administrator who can update plugins, Check again now
+  reads the release list from GitHub instead of the 12-hour cache, once per
+  request. A lookup that fails (network error, rate limit, unexpected answer)
+  keeps the release found earlier and the update stays offered.
 - Give every site of a multisite network the mode its environment type calls
   for. After a network activation only the main site got an initial mode; every
   other site read `development` until an administrator saved one, so a sub-site
