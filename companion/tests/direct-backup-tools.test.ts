@@ -152,9 +152,11 @@ describe('Direct backup tools through the MCP server', () => {
 	it('rejects an id that is not a backup before any request', async () => {
 		const wp = makeFakeWp({});
 		const tools = await connect(wp.fetchImpl as never);
+		// Starting the server makes its own request to the site; only what the call sends counts.
+		const atStart = wp.calls.length;
 		const out = await call(tools, RESTORE, { backup_id: '../../audit-direct.jsonl', confirm: true });
 		expect(out.isError).toBe(true);
 		expect(out.body).toMatchObject({ error: 'backup_not_found' });
-		expect(wp.calls).toHaveLength(0);
+		expect(wp.calls.slice(atStart)).toEqual([]);
 	});
 });
