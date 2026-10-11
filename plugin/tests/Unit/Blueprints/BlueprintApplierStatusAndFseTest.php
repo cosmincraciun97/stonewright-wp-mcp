@@ -6,6 +6,9 @@ namespace Stonewright\WpMcp\Tests\Unit\Blueprints;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Blueprints\ApplyBlueprint;
 use Stonewright\WpMcp\Blueprints\BlueprintApplier;
+use Stonewright\WpMcp\Tests\Support\McpToolCall;
+
+require_once dirname( __DIR__, 2 ) . '/Support/McpToolCall.php';
 
 /**
  * What a blueprint apply does to the status of a page, to a page it created when the apply fails, and
@@ -190,6 +193,32 @@ final class BlueprintApplierStatusAndFseTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']['publish_pages'] = true;
 		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish' ] ) );
 		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish', 'post_id' => self::POST_ID ] ) );
+	}
+
+	public function test_the_live_qa_role_that_edits_pages_but_cannot_publish_them_is_refused_publish_mode(): void {
+		// Exactly the capabilities of the custom role the live check used, with no stub for the page post type.
+		$GLOBALS['stonewright_test_user_caps'] = [
+			'read'         => true,
+			'edit_posts'   => true,
+			'edit_pages'   => true,
+			'upload_files' => true,
+		];
+		$ability = new ApplyBlueprint();
+
+		$refused = $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish' ] );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_forbidden', $refused->get_error_code() );
+		self::assertSame( 403, $refused->get_error_data()['status'] );
+
+		// Through the MCP layer the same call is an error result and nothing is created.
+		$reply = McpToolCall::call( $ability, [ 'blueprint_id' => 'dental', 'mode' => 'publish' ] );
+		self::assertTrue( $reply['is_error'] );
+		self::assertStringContainsString( 'publish', $reply['text'] );
+		self::assertSame( [ self::POST_ID ], array_keys( $GLOBALS['stonewright_test_posts'] ), 'No page was created.' );
+		self::assertSame( [], $GLOBALS['stonewright_test_wp_insert_post_calls'] );
+
+		// The same role may still build a draft.
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'draft' ] ) );
 	}
 
 	public function test_mode_has_no_default_in_the_input_schema_so_that_an_absent_mode_is_detectable(): void {

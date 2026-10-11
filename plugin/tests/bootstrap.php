@@ -3100,6 +3100,8 @@ if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
 
 if ( ! function_exists( 'wp_die' ) ) {
 	function wp_die( string $message = '', string $title = '', array|int $args = [] ): never {
+		// The HTTP status the call asks for. WordPress answers 500 when no response is given.
+		$GLOBALS['stonewright_test_last_wp_die_response'] = is_int( $args ) ? $args : (int) ( $args['response'] ?? 500 );
 		throw new \RuntimeException( "wp_die: {$message}" );
 	}
 }

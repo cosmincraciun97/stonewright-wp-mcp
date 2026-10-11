@@ -206,6 +206,29 @@ abstract class WpCliAbility extends AbilityKernel {
 			];
 		}
 
+		// A batch answers with the counters its output schema requires; nothing ran, so none succeeded or failed.
+		if ( '/wp-cli/batch' === $endpoint ) {
+			$commands = isset( $body['commands'] ) && is_array( $body['commands'] ) ? $body['commands'] : [];
+			return [
+				'ok'                    => false,
+				'available'             => false,
+				'count'                 => count( $commands ),
+				'succeeded'             => 0,
+				'failed'                => 0,
+				'stopped'               => false,
+				'results'               => [],
+				'error'                 => $error->get_error_message(),
+				'companion_url'         => $base,
+				'recommended_fallbacks' => [
+					'companion_wp_cli_status',
+					'companion_wp_cli_run',
+					'If the MCP client exposes companion_wp_cli_status / companion_wp_cli_run, use those direct companion tools.',
+					'If direct companion WP-CLI tools are unavailable, use normal Stonewright REST abilities for page/content/template writes.',
+				],
+				'setup_hint'            => 'Start the companion HTTP bridge with STONEWRIGHT_HTTP_ENABLE=1, PORT=8765, and matching COMPANION_BEARER_TOKEN, or set stonewright_companion_url to the actual companion port.',
+			];
+		}
+
 		$command = [];
 		if ( isset( $body['command'] ) && is_array( $body['command'] ) ) {
 			$command = array_values( array_map( 'strval', $body['command'] ) );

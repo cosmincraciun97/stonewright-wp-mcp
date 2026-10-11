@@ -718,6 +718,21 @@
   through a shared writer as backed up.
 - Annotate `elementor-v3-save-template` as additive, since every call creates a
   new template.
+- An error that waits for a person now carries its approval link to the MCP client.
+  The promotion of a skill to guidance, a custom-code grant, a snippet rollback, an
+  undo of code and a request for the full profile put their `code`,
+  `approval_required`, `agent_must_stop` and `approval_url` into the error text the
+  client receives; before, the link was only in error data that the MCP transport
+  does not forward. The REST error envelope keeps the same fields.
+- The error for changing the role of the last administrator says the administrator
+  cannot be demoted; deleting the last administrator still says deleted.
+- A user who may not approve gets HTTP 403, not 500, from the Skills page, its form
+  handlers and the custom-code approval page.
+- `wp-cli-batch-run` answers in the shape of its output schema (`count`,
+  `succeeded`, `failed`, `stopped`, `results`) when the companion cannot be reached,
+  instead of failing the schema check.
+- Every admin page and handler that refuses a user (no permission, a failed security
+  check) answers HTTP 403, not the default 500, with the same message as before.
 
 ### Security
 
@@ -902,6 +917,24 @@
 - Reject URLs with control characters, spaces or quote characters in
   `stonewright-elementor-knowledge-refresh`.
 - Run the static guard again when a disabled sandbox file is enabled.
+- Choosing the `full` tool profile, which lists `php-execute` and the other abilities
+  that run or write code, is now only possible for an administrator in wp-admin,
+  under Stonewright > Setup > Settings > MCP tool surface. `stonewright-tool-profile`
+  no longer activates it, in development, staging or production-safe mode and with
+  or without a confirmation token: a request for `full` returns
+  `stonewright_tool_profile_full_requires_admin` with `approval_required`,
+  `agent_must_stop` and the settings link, and writes no session profile. The other
+  profiles switch as before, `action=resolve` still describes `full`, and a site
+  whose administrator already chose the Full surface has nothing to switch. The
+  tool descriptions, AGENTS.md and the docs say the same.
+- `POST /stonewright/v1/settings` with `essential_tools_mode:false`, which puts the Full
+  tool surface in effect, is accepted only from a cookie-authenticated wp-admin request
+  with a valid REST nonce. An Application Password, an OAuth bearer or any other sign-in
+  gets `stonewright_full_surface_requires_admin` (403, `approval_required`,
+  `agent_must_stop`, the settings link) and nothing in the request is written; the other
+  settings keep working with an Application Password. Writing the Full surface back from
+  the change ledger (an undo or redo of a tool-profile row) needs an admin screen and is
+  refused for an ability call or a REST request.
 
 ### Documentation
 

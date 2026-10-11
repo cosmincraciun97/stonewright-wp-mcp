@@ -1124,8 +1124,8 @@ Profile and surface switching is transport-specific. Agents should treat
   token; the hint never blocks discovery tools.
 - **Bootstrap surface** includes confirmation token, content/Elementor reads,
   and `theme-file-read` — not only four startup tools. `php-execute` is
-  **full-profile only**; expand with `stonewright-tool-profile` `full` when a
-  snippet is required.
+  **full-profile only**; an administrator chooses the Full surface in wp-admin
+  (`stonewright-tool-profile` refuses `full` with `approval_required`).
 - **`discover-execute`**: opt-in profile with `discover-abilities`,
   `get-ability-info`, and `execute-ability`. Auto routing never selects it.
   `execute-ability` uses the same permission, confirmation, backup, and audit

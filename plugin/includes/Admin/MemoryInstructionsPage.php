@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Admin\Ui\UtcTime;
 use Stonewright\WpMcp\Knowledge\KnowledgeBundle;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
@@ -108,7 +109,7 @@ final class MemoryInstructionsPage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
 		}
 
 		$instructions = (string) get_option( 'stonewright_custom_instructions', '' );
@@ -695,7 +696,7 @@ final class MemoryInstructionsPage {
 
 	public static function handle_create(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_memory', '_stonewright_nonce' );
@@ -738,7 +739,7 @@ final class MemoryInstructionsPage {
 
 	public static function handle_update(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_memory', '_stonewright_nonce' );
@@ -795,7 +796,7 @@ final class MemoryInstructionsPage {
 
 	public static function handle_delete(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_memory', '_stonewright_nonce' );
@@ -879,7 +880,7 @@ final class MemoryInstructionsPage {
 
 	private static function handle_draft_review( string $decision ): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_memory_draft', '_stonewright_nonce' );
@@ -893,7 +894,7 @@ final class MemoryInstructionsPage {
 	 */
 	public static function handle_learning_disable(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_learning_disable', '_stonewright_nonce' );
@@ -923,7 +924,7 @@ final class MemoryInstructionsPage {
 	 */
 	public static function handle_migrate_feedback(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_memory_migrate_feedback', '_stonewright_nonce' );
 		if ( '1' !== (string) ( $_POST['export_confirmed'] ?? '' ) ) {
@@ -1121,7 +1122,7 @@ final class MemoryInstructionsPage {
 
 	public static function handle_export(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_knowledge_bundle', '_stonewright_nonce' );
@@ -1139,7 +1140,7 @@ final class MemoryInstructionsPage {
 
 	public static function handle_import(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_knowledge_bundle', '_stonewright_nonce' );

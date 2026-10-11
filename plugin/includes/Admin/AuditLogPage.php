@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Authorization\WordPress\ClientNames;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -171,7 +172,7 @@ final class AuditLogPage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to view the Stonewright audit log.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to view the Stonewright audit log.', 'stonewright' ) );
 		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only GET filters.

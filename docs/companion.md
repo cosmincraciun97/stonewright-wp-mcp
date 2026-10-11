@@ -45,7 +45,7 @@ folder or site URL.
 | `STONEWRIGHT_DIRECT_CONFIRM_LEGACY` | `on` accepts a plain `confirm: true` as the confirmation for a destructive Direct call on any site; `off` refuses it everywhere, local sites included. Unset, it counts on localhost, `.local` and `.test` only; elsewhere the refused call returns a `confirmation_id` to repeat the call with |
 | `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
 | `STONEWRIGHT_CONFIGURED_PACKAGE` | Optional exact official package source used for authenticated `/health` configured-package evidence; invalid values are omitted |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs also set `essential-static` and save `essential` as the WordPress surface. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs also set `essential-static` and save `essential` as the WordPress surface. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. It is the choice of the person who runs the companion; no tool switches to it, and `stonewright-tool-profile` refuses a request for `full` (a profile hint in a tool result cannot move the companion onto `full` unless the site surface is Full). |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
@@ -434,7 +434,8 @@ other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools
 remain local, including batch runs and background jobs. It registers no
 `stonewright-php-execute`, even when the site's saved surface is `full`; that
-tool is on the full profile only, as in the plugin.
+tool is on the full profile only, as in the plugin. An administrator chooses the
+Full surface in wp-admin, and no agent can switch to it with `stonewright-tool-profile`.
 Common aliases normalize before filtering, so `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` select the closest
 compact canonical profile instead of silently falling back to `essential-static`.

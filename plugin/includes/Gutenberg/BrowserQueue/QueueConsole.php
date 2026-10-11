@@ -19,6 +19,7 @@ use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\Permissions;
 
 /** Hidden admin journal that prepares queued block changes in native editors; saving stays with the finalize ability. */
@@ -124,7 +125,7 @@ final class QueueConsole {
 
 	public static function render(): void {
 		if ( ! Permissions::edit_posts() ) {
-			wp_die( esc_html__( 'Queue access is unavailable.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Queue access is unavailable.', 'stonewright' ) );
 		}
 		self::add_to_menu_registry();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only: the token is verified before it shows anything.

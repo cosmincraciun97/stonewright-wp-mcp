@@ -111,9 +111,9 @@ final class UserGuard {
 	}
 
 	/**
-	 * The refusal for deleting the only administrator that is left.
+	 * The refusal for deleting, or with $demoting for changing the role of, the only administrator that is left.
 	 */
-	public static function last_administrator_error( int $user_id ): ?\WP_Error {
+	public static function last_administrator_error( int $user_id, bool $demoting = false ): ?\WP_Error {
 		$user = get_user_by( 'id', $user_id );
 		if ( false === $user || ! in_array( 'administrator', (array) $user->roles, true ) ) {
 			return null;
@@ -131,7 +131,9 @@ final class UserGuard {
 		}
 		return new \WP_Error(
 			'stonewright_user_last_administrator',
-			__( 'The last administrator cannot be deleted.', 'stonewright' ),
+			$demoting
+				? __( 'The last administrator cannot be demoted.', 'stonewright' )
+				: __( 'The last administrator cannot be deleted.', 'stonewright' ),
 			[ 'status' => 409 ]
 		);
 	}
@@ -148,7 +150,7 @@ final class UserGuard {
 		if ( is_multisite() && ( is_super_admin( $user_id ) || is_super_admin() ) ) {
 			return null;
 		}
-		return self::last_administrator_error( $user_id );
+		return self::last_administrator_error( $user_id, true );
 	}
 
 	/**

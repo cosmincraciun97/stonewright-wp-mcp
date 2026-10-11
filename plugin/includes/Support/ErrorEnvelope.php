@@ -42,6 +42,9 @@ final class ErrorEnvelope {
 		'gated_mcp_tool',
 		'approval_flow',
 		'reason',
+		'approval_required',
+		'agent_must_stop',
+		'approval_url',
 	];
 
 	/**
@@ -143,6 +146,10 @@ final class ErrorEnvelope {
 
 		if ( in_array( (string) $error->get_error_code(), self::RESCUE_ERROR_CODES, true ) ) {
 			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::rescue_fields( $data ) );
+		} elseif ( [] !== self::approval_fields( $data ) ) {
+			// A refusal that waits for a person (a promotion, a custom-code grant, a snippet rollback, the full
+			// profile) names its code and the page where the person decides, so the client can show it and stop.
+			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::approval_fields( $data ) );
 		}
 
 		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
@@ -234,6 +241,19 @@ final class ErrorEnvelope {
 				continue;
 			}
 
+			if ( in_array( $key, [ 'approval_required', 'agent_must_stop' ], true ) ) {
+				$out[ $key ] = true === $value;
+				continue;
+			}
+
+			if ( 'approval_url' === $key ) {
+				$url = self::approval_url( $data );
+				if ( '' !== $url ) {
+					$out[ $key ] = $url;
+				}
+				continue;
+			}
+
 			$out[ $key ] = $value;
 		}
 		$retry_after = self::retry_after( $data );
@@ -261,6 +281,29 @@ final class ErrorEnvelope {
 			}
 		}
 		$url = self::approval_url( $data );
+		if ( '' !== $url ) {
+			$fields['approval_url'] = $url;
+		}
+		return $fields;
+	}
+
+	/**
+	 * The fields of an error that waits for a person to decide: the flags that say so and the address of the page.
+	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, bool|string>
+	 */
+	private static function approval_fields( array $data ): array {
+		$required = true === ( $data['approval_required'] ?? null );
+		$stop     = true === ( $data['agent_must_stop'] ?? null );
+		if ( ! $required && ! $stop ) {
+			return [];
+		}
+		$fields = [
+			'approval_required' => $required,
+			'agent_must_stop'   => $stop,
+		];
+		$url    = self::approval_url( $data );
 		if ( '' !== $url ) {
 			$fields['approval_url'] = $url;
 		}

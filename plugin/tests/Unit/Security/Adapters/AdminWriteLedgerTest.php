@@ -48,9 +48,15 @@ final class AdminWriteLedgerTest extends OtherFamilyLedgerTestCase {
 	public function test_the_settings_route_records_a_changed_mode_and_the_names_of_the_flags_only(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
 
-		$this->route_callback( '/settings', 'POST' )(
-			new \WP_REST_Request( 'POST', '/stonewright/v1/settings', [ 'mode' => 'staging', 'essential_tools_mode' => false, 'feature_flags' => [ 'new_dashboard' => true, 'beta_token' => 'sentinel-flag-value-4f2a' ] ] )
-		);
+		// Turning the essential surface off reaches the Full surface, which only an administrator signed in to wp-admin may do.
+		$GLOBALS['wp_rest_auth_cookie'] = true;
+		$request                        = new \WP_REST_Request( 'POST', '/stonewright/v1/settings', [ 'mode' => 'staging', 'essential_tools_mode' => false, 'feature_flags' => [ 'new_dashboard' => true, 'beta_token' => 'sentinel-flag-value-4f2a' ] ] );
+		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+		try {
+			$this->route_callback( '/settings', 'POST' )( $request );
+		} finally {
+			unset( $GLOBALS['wp_rest_auth_cookie'] );
+		}
 
 		$rows = $this->ledger_rows();
 		self::assertSame( [ 'stonewright_mode', 'stonewright_essential_tools_mode', 'stonewright_feature_flags' ], array_column( $rows, 'resource_id' ) );

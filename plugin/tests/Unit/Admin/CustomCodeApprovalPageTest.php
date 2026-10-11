@@ -25,6 +25,21 @@ final class CustomCodeApprovalPageTest extends TestCase {
 		$_GET = [];
 	}
 
+	public function test_a_user_who_cannot_approve_gets_403_on_the_page_and_the_handler(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_posts' => true ];
+
+		foreach ( [ 'render', 'handle_approve' ] as $handler ) {
+			$GLOBALS['stonewright_test_last_wp_die_response'] = null;
+			try {
+				CustomCodeApprovalPage::$handler();
+				self::fail( 'Expected wp_die from ' . $handler . '.' );
+			} catch ( \RuntimeException $denied ) {
+				self::assertStringContainsString( 'wp_die', $denied->getMessage() );
+			}
+			self::assertSame( 403, $GLOBALS['stonewright_test_last_wp_die_response'], $handler );
+		}
+	}
+
 	private static function html(): string {
 		ob_start();
 		CustomCodeApprovalPage::render();

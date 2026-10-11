@@ -25,8 +25,15 @@ export interface WriteVerification {
 	after_sha256: string | null;
 	change_set_id: string;
 	reason?: string;
+	/** Set when WordPress stored the slug with a numeric suffix because the one that was sent is taken. */
+	slug_adjusted?: SlugAdjusted;
 	/** False when the audit rows could not be written; the check itself still ran. */
 	audit_written?: boolean;
+}
+
+export interface SlugAdjusted {
+	requested: string;
+	stored: string;
 }
 
 export interface VerifyClient {
@@ -159,10 +166,29 @@ export interface CompareOutcome {
 	checked: string[];
 	mismatched: string[];
 	skipped: string[];
+	/** The slug WordPress stored when it added a numeric suffix to the one that was sent (allowSlugSuffix only). */
+	slugAdjusted?: SlugAdjusted;
+}
+
+export interface CompareOptions {
+	/**
+	 * Accept the slug WordPress stores when the one that was sent is taken: the sent slug with `-2`, `-3` and so on.
+	 * A write check wants this; a comparison of a stored copy with the current resource does not.
+	 */
+	allowSlugSuffix?: boolean;
+}
+
+/** Whether `stored` is `requested` with the numeric suffix (from 2 up) that WordPress adds to a slug that is taken. */
+function isUniqueSuffix(requested: unknown, stored: unknown): boolean {
+	const base = slugForm(requested);
+	const kept = slugForm(stored);
+	if (typeof base !== 'string' || typeof kept !== 'string' || base === '') return false;
+	const match = /^(.+)-([1-9]\d*)$/.exec(kept);
+	return match !== null && match[1] === base && Number(match[2]) >= 2;
 }
 
 /** Compare the fields of a request body with the resource WordPress returns. */
-export function compareSent(sent: Record<string, unknown>, actual: unknown): CompareOutcome {
+export function compareSent(sent: Record<string, unknown>, actual: unknown, options: CompareOptions = {}): CompareOutcome {
 	const out: CompareOutcome = { checked: [], mismatched: [], skipped: [] };
 	const body = isPlainObject(actual) ? actual : {};
 	for (const [field, value] of Object.entries(sent)) {
@@ -200,6 +226,10 @@ export function compareSent(sent: Record<string, unknown>, actual: unknown): Com
 				: field === 'name'
 					? looseEqual(nameForm(value), nameForm(stored))
 					: looseEqual(value, stored);
+		if (!same && field === 'slug' && options.allowSlugSuffix === true && isUniqueSuffix(value, stored)) {
+			out.slugAdjusted = { requested: String(value), stored: String(stored) };
+			continue;
+		}
 		if (!same) out.mismatched.push(field);
 	}
 	return out;
@@ -256,9 +286,10 @@ export function recordVerification(
 	const auditPath = defaultAuditPath(env);
 	const verified = result.status === 'verified';
 	const mismatch = result.status === 'mismatch';
+	const adjusted = result.slug_adjusted ? `; slug adjusted by WordPress: ${result.slug_adjusted.requested} -> ${result.slug_adjusted.stored}` : '';
 	const outcome = mismatch
 		? `fields differ after the write: ${result.mismatched_fields.join(', ')}`
-		: result.reason ?? `fields compared: ${result.checked_fields.join(', ')}`;
+		: `${result.reason ?? `fields compared: ${result.checked_fields.join(', ')}`}${adjusted}`;
 	const summary = (args.note ? `${args.note}; ${outcome}` : outcome).slice(0, 300);
 	const common = {
 		tool: args.tool,
@@ -317,10 +348,11 @@ export async function verifyWrite(args: VerifyWriteArgs): Promise<WriteVerificat
 			result.mismatched_fields = ['resource_still_present'];
 			result.after_sha256 = stateHash(actual);
 		} else {
-			const compared = compareSent(args.sent ?? {}, actual);
+			const compared = compareSent(args.sent ?? {}, actual, { allowSlugSuffix: true });
 			result.checked_fields = compared.checked;
 			result.mismatched_fields = compared.mismatched;
 			result.skipped_fields = compared.skipped;
+			if (compared.slugAdjusted) result.slug_adjusted = compared.slugAdjusted;
 			result.after_sha256 = stateHash(actual);
 			if (compared.mismatched.length > 0) {
 				result.status = 'mismatch';
@@ -372,6 +404,7 @@ function attachUntyped(
 		after_sha256: verification.after_sha256,
 		change_set_id: verification.change_set_id,
 		...(verification.reason !== undefined ? { reason: verification.reason } : {}),
+		...(verification.slug_adjusted !== undefined ? { slug_adjusted: verification.slug_adjusted } : {}),
 		...(verification.audit_written === false ? { audit_written: false } : {}),
 	};
 	if (verification.status !== 'mismatch') return { ...base, verification: shown };

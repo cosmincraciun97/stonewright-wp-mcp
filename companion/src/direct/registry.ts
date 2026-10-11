@@ -1340,7 +1340,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-settings-get',
-		'Get site settings via core REST (Direct mode). The settings come under the REST names (title, description) and also under the option names (blogname, blogdescription); keys narrows the result.',
+		'Get site settings via core REST (Direct mode). The settings come under the REST names (title, description) and also under the option names (blogname, blogdescription); keys narrows the result. default_role and users_can_register are not exposed by core REST: they are named in not_available_in_direct (read them in wp-admin or Plugin mode).',
 		{ site: siteArg, keys: z.array(z.string()).optional() },
 		async (input) => {
 			try {
@@ -1456,7 +1456,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-user-list',
-		'List users via core REST (Direct mode).',
+		'List users via core REST (Direct mode). Each user carries its roles when the account may list users; otherwise roles_available is false and roles are left out.',
 		{
 			site: siteArg,
 			search: z.string().optional(),

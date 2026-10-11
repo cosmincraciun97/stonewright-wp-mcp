@@ -37,6 +37,39 @@ final class SkillsPageTest extends TestCase {
 		$_GET                                        = [];
 	}
 
+	/**
+	 * @return array<string, array{string}>
+	 */
+	public static function post_handlers(): array {
+		return [
+			'save'               => [ 'handle_save' ],
+			'toggle'             => [ 'handle_toggle' ],
+			'promotion decision' => [ 'handle_promotion_decision' ],
+			'page'               => [ 'render' ],
+		];
+	}
+
+	/**
+	 * @dataProvider post_handlers
+	 */
+	public function test_a_user_who_is_not_an_administrator_gets_403_not_500( string $handler ): void {
+		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true ];
+		$GLOBALS['stonewright_test_current_user_id'] = 5;
+		$GLOBALS['stonewright_test_last_wp_die_response'] = null;
+		$_POST = [ 'request_id' => 'r1', 'decision' => 'approve' ];
+
+		try {
+			SkillsPage::$handler();
+			self::fail( 'Expected wp_die.' );
+		} catch ( \RuntimeException $denied ) {
+			self::assertStringContainsString( 'wp_die', $denied->getMessage() );
+		} finally {
+			$_POST = [];
+		}
+
+		self::assertSame( 403, $GLOBALS['stonewright_test_last_wp_die_response'] );
+	}
+
 	public function test_catalog_renders_skills_as_text_with_provenance_and_counts(): void {
 		$this->tables->seed_skill( [ 'slug' => 'stonewright-alpha', 'title' => 'Alpha', 'description' => 'Use when testing alpha.', 'content' => '# Alpha', 'source' => 'builtin' ] );
 		$this->tables->seed_skill( [ 'slug' => 'site-note', 'title' => '<img src=x onerror=alert(1)>', 'description' => '<script>alert(2)</script>', 'content' => '# Note', 'status' => 'draft', 'enabled' => 0 ] );

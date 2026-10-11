@@ -52,6 +52,10 @@ final class ToolProfileOutputSchemaTest extends TestCase {
 	 * @dataProvider actions_and_profiles
 	 */
 	public function test_the_result_satisfies_the_declared_output_schema( string $action, string $profile ): void {
+		if ( 'activate' === $action && 'full' === $profile ) {
+			// Only a site whose administrator chose the Full surface answers an activation of full.
+			update_option( 'stonewright_mcp_surface', 'full', false );
+		}
 		$ability = new ToolProfile();
 		$result  = $ability->execute( [ 'action' => $action, 'profile' => $profile ] );
 

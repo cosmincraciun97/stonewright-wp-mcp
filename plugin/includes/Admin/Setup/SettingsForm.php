@@ -195,7 +195,7 @@ final class SettingsForm {
 		$updated = isset( $_GET['settings-updated'] ) ? sanitize_key( (string) wp_unslash( $_GET['settings-updated'] ) ) : '';
 		$status  = in_array( $updated, [ 'true', '1' ], true )
 			? ConfigurationPage::surface_saved_notice()
-			: __( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Changes here apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' );
+			: __( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface, including php-execute, and is slow and high-context; only an administrator can choose it here, and an agent cannot switch to it. Changes here apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' );
 
 		$controls = Html::element(
 			'div',

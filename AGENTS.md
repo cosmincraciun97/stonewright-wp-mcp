@@ -19,8 +19,17 @@ override default behavior.
 1. **Full PHP runtime access is first-class on the `full` profile.** Use
    `stonewright/php-execute` for direct PHP snippets inside the loaded
    WordPress runtime; it is on the `full` profile only and no other profile
-   lists it. Do not replace it with another MCP adapter, direct REST
-   runner calls, shell scripts, or private client-config workarounds.
+   lists it. An administrator chooses the `full` profile (the Full tool
+   surface) in wp-admin under Stonewright > Setup > Settings; an agent never
+   switches to it. `stonewright-tool-profile` refuses a request for `full` in
+   every mode with `approval_required` and `agent_must_stop` and the settings
+   link: show the link to the user and stop. The person who runs the
+   companion may set `STONEWRIGHT_MCP_TOOL_PROFILE=full`; no tool changes it.
+   Nor does a REST call with an Application Password or an OAuth bearer
+   (`POST /stonewright/v1/settings` with `essential_tools_mode:false` needs a
+   cookie sign-in and a REST nonce) or an undo from the change ledger.
+   Do not replace it with another MCP adapter, direct REST runner calls, shell
+   scripts, or private client-config workarounds.
 2. **No `__return_true` for writes.** Every ability that writes, updates, or
    deletes state must use a real permission callback that calls into
    `Stonewright\WpMcp\Security\Permissions`. Read-only abilities may use simple
@@ -328,9 +337,11 @@ Recommend against stable 1.0 while any required gate is missing:
   Stonewright MCP config. Do not work around a missing Stonewright MCP server.
 - If status is connected and the site surface is full/essential but a needed
   tool (`stonewright-php-execute` only on the `full` profile) is missing from
-  the client list, call `stonewright-client-surface-check`, then `stonewright-task-start` /
-  `stonewright-tool-profile` activate and re-list tools, or restart the MCP
-  client. Do **not** invent `/abilities/run` or other REST workarounds.
+  the client list, call `stonewright-client-surface-check`, then `stonewright-task-start`
+  and re-list tools, or restart the MCP client. Do **not** invent
+  `/abilities/run` or other REST workarounds. `stonewright-tool-profile` does
+  not switch to `full`; if the site surface is not Full, tell the user an
+  administrator chooses it in wp-admin.
 - Do not inspect private AI-client config files, parse repository files as a
   substitute for the live MCP tool list, hand-roll JSON-RPC calls, create
   scratch scripts such as `query-mcp.js` or `run-ability.js`, helper JSON
@@ -381,9 +392,10 @@ Recommend against stable 1.0 while any required gate is missing:
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,
   cache, rewrite, plugin, option, post, media, menu, and taxonomy work when it
   speeds up implementation or debugging.
-- On the `full` profile only, use `stonewright/php-execute` for direct
-  WordPress runtime inspection, plugin API calls, and short PHP snippets when
-  that is faster than many typed calls.
+- On the `full` profile only (an administrator's choice in wp-admin, never an
+  agent's), use `stonewright/php-execute` for direct WordPress runtime
+  inspection, plugin API calls, and short PHP snippets when that is faster than
+  many typed calls.
 
 ## Context discipline
 

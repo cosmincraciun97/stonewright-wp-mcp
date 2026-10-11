@@ -519,7 +519,7 @@ export async function runDoctor(argv: string[] = []): Promise<number> {
 		writeOut('Use MCP tool stonewright-client-surface-check inside the AI client for live companion state.');
 		writeOut('Typical mismatch: WP Setup=Full but companion env profile=bootstrap → full-profile tools such as php-execute stay filtered.');
 		writeOut('Fix order:');
-		writeOut('  1. stonewright-task-start (or stonewright-tool-profile action=activate profile=full)');
+		writeOut('  1. The person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full and an administrator chooses the Full surface in wp-admin (an agent cannot switch to full), then stonewright-task-start');
 		writeOut('  2. Re-list tools (honor tools/list_changed or re_list_instruction)');
 		writeOut('  3. If still missing: restart MCP client');
 		writeOut('  4. Never call /wp-json/stonewright/v1/abilities/run as a workaround');

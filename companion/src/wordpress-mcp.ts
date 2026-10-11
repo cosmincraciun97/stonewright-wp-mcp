@@ -986,7 +986,7 @@ export async function registerWordPressMcpTools(
 		// transports only return JSON in content[].text without structuredContent).
 		const structured = asRecord(response.structuredContent)
 			?? parseStructuredFromContent(response.content);
-		const hintedProfile = profileHintFromStructured(structured);
+		const hintedProfile = adoptableProfileHint(structured, activeProfile);
 		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
 		const revisionChanged = structuredIndicatesToolsChanged(structured, lastSeenSurfaceRevision);
 		const responseRevision = surfaceRevisionFromStructured(structured);
@@ -1191,11 +1191,27 @@ export function effectiveInitialProxyProfile(
 	return configuredSurface;
 }
 
-function profileHintFromStructured(structured: Record<string, unknown> | null | undefined): string | null {
+const PROFILE_HINT_KEYS = ['session_tool_profile', 'tool_profile', 'profile', 'configured_mcp_surface', 'requested_profile'] as const;
+
+/**
+ * The profile a tool result asks the companion to move to, or null. The full profile lists php-execute and the other
+ * code-running tools, so it is chosen by a person: the one who runs the companion (STONEWRIGHT_MCP_TOOL_PROFILE, which
+ * is the profile the companion already has) or an administrator who sets the site's tool surface to Full in wp-admin.
+ * A result that only asks for full, as the answer to a tool call can, does not move the companion there.
+ */
+export function adoptableProfileHint(
+	structured: Record<string, unknown> | null | undefined,
+	currentProfile: ProxyToolProfile,
+): string | null {
 	if (!structured) return null;
-	for (const key of ['session_tool_profile', 'tool_profile', 'profile', 'configured_mcp_surface', 'requested_profile']) {
+	const siteSurface = [structured['configured_mcp_surface'], structured['mcp_surface']]
+		.find((value): value is string => typeof value === 'string' && value.trim() !== '');
+	const siteIsFull = siteSurface !== undefined && coerceProxyToolProfile(siteSurface) === 'full';
+	for (const key of PROFILE_HINT_KEYS) {
 		const value = structured[key];
-		if (typeof value === 'string' && value.trim() !== '') return value;
+		if (typeof value !== 'string' || value.trim() === '') continue;
+		if (coerceProxyToolProfile(value) === 'full' && currentProfile !== 'full' && !siteIsFull) continue;
+		return value;
 	}
 	return null;
 }
@@ -1354,7 +1370,7 @@ export async function handleToolsChangedResponse(options: {
 	} = options;
 
 	let activeProfile = options.activeProfile;
-	const profileHint = profileHintFromStructured(structured);
+	const profileHint = adoptableProfileHint(structured, activeProfile);
 	if (profileHint) {
 		activeProfile = coerceProxyToolProfile(profileHint);
 	}

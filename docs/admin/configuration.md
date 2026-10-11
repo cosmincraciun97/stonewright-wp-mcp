@@ -146,6 +146,10 @@ expansion inside the companion.
 
 Agents should call `stonewright-tool-profile` only for an explicit manual
 override or recovery; normal Bootstrap tasks expand from `task-start`.
+The `full` profile, which lists `php-execute` and the other abilities that run
+or write code, is not one of them: choose **Full** under **MCP tool surface**
+here. A request for `full` through `stonewright-tool-profile` is refused with a
+link to this setting.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
 tasks on a compact set of batch-first tools. If a profile expects a disabled or
 gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,

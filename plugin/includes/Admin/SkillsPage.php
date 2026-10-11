@@ -67,7 +67,7 @@ final class SkillsPage {
 
 	public static function handle_save(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 		check_admin_referer( 'stonewright_skill_save' );
 
@@ -78,7 +78,7 @@ final class SkillsPage {
 
 	public static function handle_toggle(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 		check_admin_referer( 'stonewright_skill_toggle' );
 
@@ -89,7 +89,7 @@ final class SkillsPage {
 
 	public static function handle_promotion_decision(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 		check_admin_referer( 'stonewright_promotion_decide' );
 
@@ -211,7 +211,7 @@ final class SkillsPage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to view this page.', 'stonewright' ) );
+			wp_die( esc_html__( 'You do not have permission to view this page.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 
 		$current = self::current_view();

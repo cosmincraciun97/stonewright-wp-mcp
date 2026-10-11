@@ -12,6 +12,9 @@ use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
+use Stonewright\WpMcp\Tests\Support\McpToolCall;
+
+require_once dirname( __DIR__, 2 ) . '/Support/McpToolCall.php';
 
 /**
  * @covers \Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository
@@ -203,6 +206,22 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertSame( 'stonewright_promotion_approval_required', $result->get_error_code() );
 		self::assertSame( 'candidate', CandidateRepository::get( (int) $created['id'] )['status'] );
 		self::assertSame( 'draft', SkillLibraryService::open()->find( (string) $created['skill_slug'] )['status'] );
+	}
+
+	public function test_the_approval_link_reaches_the_mcp_client_in_the_error(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+
+		$reply = McpToolCall::call( new KnowledgeCandidateRecord(), [ 'action' => 'promote', 'id' => (int) $created['id'] ] );
+
+		self::assertTrue( $reply['is_error'] );
+		self::assertSame( 1, preg_match( '/(\{.*\})\s*$/', $reply['text'], $match ), $reply['text'] );
+		$payload = json_decode( $match[1], true );
+		self::assertSame( 'stonewright_promotion_approval_required', $payload['code'] );
+		self::assertTrue( $payload['approval_required'] );
+		self::assertTrue( $payload['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-skills', $payload['approval_url'] );
+		self::assertStringContainsString( 'promotion=', $payload['approval_url'] );
 	}
 
 	public function test_the_ability_promotes_once_an_administrator_approved_the_request(): void {

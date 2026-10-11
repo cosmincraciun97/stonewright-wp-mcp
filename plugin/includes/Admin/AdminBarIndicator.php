@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Admin;
 use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Core\VendorGuard;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
@@ -148,7 +149,7 @@ final class AdminBarIndicator {
 	 */
 	public static function apply_toggle( string $target ): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You are not allowed to toggle Stonewright abilities.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You are not allowed to toggle Stonewright abilities.', 'stonewright' ) );
 		}
 
 		$target = sanitize_key( $target );
@@ -167,7 +168,7 @@ final class AdminBarIndicator {
 	 */
 	public static function handle_toggle(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You are not allowed to toggle Stonewright abilities.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You are not allowed to toggle Stonewright abilities.', 'stonewright' ) );
 		}
 
 		check_admin_referer( self::TOGGLE_ACTION );

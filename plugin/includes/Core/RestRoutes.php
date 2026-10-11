@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Security\FullSurfaceGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
@@ -974,6 +975,19 @@ final class RestRoutes {
 						],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
+						// Turning the essential tools mode off puts the Full tool surface in effect, which only a person in
+						// wp-admin chooses: a cookie sign-in with a valid REST nonce. An Application Password, an OAuth bearer
+						// or any other sign-in is refused before anything in the request is written.
+						$tools_mode = $request->get_param( 'essential_tools_mode' );
+						if (
+							null !== $tools_mode
+							&& FullSurfaceGuard::puts_full_in_effect( 'stonewright_essential_tools_mode', (bool) $tools_mode )
+							&& 'full' !== AbilityRegistry::mcp_surface()
+							&& ! FullSurfaceGuard::human_in_wp_admin( $request )
+						) {
+							return FullSurfaceGuard::refusal();
+						}
+
 						$mode = $request->get_param( 'mode' );
 						if ( $mode ) {
 							$previous_mode = (string) get_option( 'stonewright_mode', 'development' );

@@ -120,23 +120,48 @@ function assertSettingsAllowed(settings: Record<string, unknown>, site: string):
   }
 }
 
+/**
+ * Settings the plugin reads that core REST does not expose (no `show_in_rest`). Direct cannot read them; it can
+ * still write them, and the answer to a write says when the site kept a key.
+ */
+const NOT_READABLE_IN_DIRECT = ["default_role", "users_can_register"] as const;
+
+const NOT_AVAILABLE_NOTE =
+  "Core REST does not expose these settings, so Direct cannot read them. Read them in wp-admin (Settings > General) or in Plugin mode.";
+
 export async function settingsGet(
   ctx: DirectToolContext,
   input: { keys?: string[] | undefined } = {},
-) {
+): Promise<{
+  settings: Record<string, unknown>;
+  unknown_keys?: string[];
+  not_available_in_direct?: string[];
+  not_available_note?: string;
+}> {
   assertToolEnabled(ctx.site, "stonewright-settings-get");
   const settings = withOptionNames(
     (await ctx.client.get<Record<string, unknown>>("/wp/v2/settings")) ?? {},
   );
   const keys = (input.keys ?? []).map((key) => key.trim()).filter(Boolean);
-  if (keys.length === 0) return { settings };
+  const notReadable = (names: readonly string[]): string[] =>
+    names.filter((name) => (NOT_READABLE_IN_DIRECT as readonly string[]).includes(name) && !(name in settings));
+  const notAvailable = (names: readonly string[]) => {
+    const list = notReadable(names);
+    return list.length > 0 ? { not_available_in_direct: list, not_available_note: NOT_AVAILABLE_NOTE } : {};
+  };
+  if (keys.length === 0) return { settings, ...notAvailable(NOT_READABLE_IN_DIRECT) };
   const narrowed: Record<string, unknown> = {};
   const unknown: string[] = [];
+  const unavailable = new Set(notReadable(keys));
   for (const key of keys) {
     if (key in settings) narrowed[key] = settings[key];
-    else unknown.push(key);
+    else if (!unavailable.has(key)) unknown.push(key);
   }
-  return { settings: narrowed, ...(unknown.length > 0 ? { unknown_keys: unknown } : {}) };
+  return {
+    settings: narrowed,
+    ...(unknown.length > 0 ? { unknown_keys: unknown } : {}),
+    ...notAvailable(keys),
+  };
 }
 
 export async function settingsUpdate(

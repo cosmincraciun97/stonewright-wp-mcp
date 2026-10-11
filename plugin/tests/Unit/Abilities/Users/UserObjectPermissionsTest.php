@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Abilities\Users\UserCreate;
 use Stonewright\WpMcp\Abilities\Users\UserDelete;
 use Stonewright\WpMcp\Abilities\Users\UserList;
 use Stonewright\WpMcp\Abilities\Users\UserUpdate;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Users\UserUpdate
@@ -42,6 +43,7 @@ final class UserObjectPermissionsTest extends TestCase {
 	private const NEW_SECRET = 'a-brand-new-passphrase';
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = self::ACTOR;
 		$GLOBALS['stonewright_test_user_caps']       = [];
@@ -70,6 +72,8 @@ final class UserObjectPermissionsTest extends TestCase {
 		$GLOBALS['stonewright_test_is_multisite']     = false;
 		$GLOBALS['stonewright_test_current_user_id']  = 0;
 		$GLOBALS['stonewright_test_options']          = [];
+		// The failed calls above record incidents in a static fallback that a later test would count.
+		IncidentStore::reset_for_tests();
 	}
 
 	/**
@@ -205,6 +209,7 @@ final class UserObjectPermissionsTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_user_last_administrator', $result->get_error_code() );
+		$this->assertSame( 'The last administrator cannot be demoted.', $result->get_error_message(), 'A role change says demoted, not deleted.' );
 		$this->assertSame( [ 'administrator' ], $GLOBALS['stonewright_test_users'][ self::ADMIN ]['roles'] );
 	}
 
@@ -348,6 +353,7 @@ final class UserObjectPermissionsTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_user_last_administrator', $result->get_error_code() );
+		$this->assertSame( 'The last administrator cannot be deleted.', $result->get_error_message() );
 		$this->assertArrayHasKey( self::ADMIN, $GLOBALS['stonewright_test_users'] );
 	}
 

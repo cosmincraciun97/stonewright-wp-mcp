@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Security\AccessDenied;
+
 /**
  * Generates a Claude Desktop .mcpb bundle for one-click Stonewright setup.
  *
@@ -112,7 +114,7 @@ final class McpbBundle {
 
 	public static function handle_download(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to download this bundle.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You are not allowed to download this bundle.', 'stonewright' ) );
 		}
 
 		check_admin_referer( self::NONCE_ACTION );
