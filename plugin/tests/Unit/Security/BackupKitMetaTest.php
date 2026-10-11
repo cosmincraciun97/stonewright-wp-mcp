@@ -5,7 +5,9 @@ namespace Stonewright\WpMcp\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
 use Elementor\Modules\GlobalClasses\Global_Classes_Repository;
+use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
+use Stonewright\WpMcp\Tests\Unit\Elementor\V4\DefaultStylesRepositoryFixture;
 use Stonewright\WpMcp\Security\Backup;
 
 /**
@@ -43,6 +45,7 @@ final class BackupKitMetaTest extends TestCase {
 
 	protected function tearDown(): void {
 		GlobalClassesState::use_factory_for_tests( null );
+		DefaultStylesState::use_factory_for_tests( null );
 		Global_Classes_Repository::reset();
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
@@ -74,6 +77,40 @@ final class BackupKitMetaTest extends TestCase {
 		self::assertTrue( Backup::restore( self::KIT, $id ) );
 		self::assertTrue( GlobalClassesState::same( (array) $before, (array) GlobalClassesState::capture() ) );
 		self::assertFalse( Backup::differs_from_snapshot( self::KIT, $id ) );
+	}
+
+	public function test_a_snapshot_with_the_default_style_state_restores_a_default_style_change_the_kit_meta_never_shows(): void {
+		$repository = new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [ 'one' ] ] ] );
+		DefaultStylesState::use_factory_for_tests( static fn(): object => $repository );
+		$before = DefaultStylesState::capture();
+		$id     = Backup::snapshot_post( self::KIT, [], true, [], false, true );
+		self::assertNotSame( '', $id );
+		self::assertArrayHasKey( 'default_styles', Backup::get_snapshot( self::KIT, $id ) );
+
+		$repository->put( 'h1', [ 'type' => 'class', 'variants' => [ 'two' ] ] );
+		$repository->put( 'h3', [ 'type' => 'class', 'variants' => [] ] );
+		self::assertTrue( Backup::differs_from_snapshot( self::KIT, $id ), 'a change in the repository is a change of the snapshot' );
+
+		self::assertTrue( Backup::restore( self::KIT, $id ) );
+		self::assertTrue( DefaultStylesState::same( (array) $before, (array) DefaultStylesState::capture() ) );
+		self::assertFalse( Backup::differs_from_snapshot( self::KIT, $id ) );
+	}
+
+	public function test_a_default_style_restore_that_the_repository_does_not_confirm_fails(): void {
+		DefaultStylesState::use_factory_for_tests( static fn(): object => new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [ 'one' ] ] ] ) );
+		$id = Backup::snapshot_post( self::KIT, [], true, [], false, true );
+		self::assertNotSame( '', $id );
+		DefaultStylesState::use_factory_for_tests( static fn(): ?object => null );
+
+		self::assertFalse( Backup::restore( self::KIT, $id ), 'a snapshot that holds default style state is not restored without the repository' );
+	}
+
+	public function test_without_the_flag_or_the_repository_a_snapshot_holds_no_default_style_state(): void {
+		DefaultStylesState::use_factory_for_tests( static fn(): object => new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [] ] ] ) );
+		self::assertArrayNotHasKey( 'default_styles', Backup::get_snapshot( self::KIT, Backup::snapshot_post( self::KIT ) ) );
+
+		DefaultStylesState::use_factory_for_tests( static fn(): ?object => null );
+		self::assertArrayNotHasKey( 'default_styles', Backup::get_snapshot( self::KIT, Backup::snapshot_post( self::KIT, [], true, [], false, true ) ) );
 	}
 
 	public function test_a_restore_that_the_repository_does_not_confirm_fails(): void {

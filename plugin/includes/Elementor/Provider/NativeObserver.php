@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Provider;
 
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\AutosaveTree;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -25,6 +26,12 @@ use Stonewright\WpMcp\Support\Logger;
  * blocks, refuses, rewrites or retries the call, never throws into it, and opens no Rescue frame
  * (the after action does not fire when the call fails, so a frame could never be closed).
  *
+ * The snapshot goes to a pool of its own ({@see Backup::snapshot_observed()}), so a call that fails never pushes a
+ * snapshot of a real Stonewright write out of the history, and it is dropped when the call failed or changed nothing.
+ * What it compares is the post's image, which for the active kit holds the global classes and the default styles as
+ * Elementor's repositories return them and the global variables from the kit meta. A published document is edited in
+ * an autosave: an edit that only reached the autosave is reported as staged_in_autosave, not as unchanged.
+ *
  * A call that comes through stonewright-elementor-native-execute is recorded by that tool, so it carries a
  * mark ({@see self::mark_native_execute()}) and is skipped here.
  */
@@ -43,7 +50,7 @@ final class NativeObserver {
 	/** @var int Calls of stonewright-elementor-native-execute in progress. */
 	private static int $inside = 0;
 
-	/** @var list<array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string}> Calls seen before and not yet closed. */
+	/** @var list<array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string,autosave_before:string}> Calls seen before and not yet closed. */
 	private static array $pending = [];
 
 	/** @var (callable():int)|null */
@@ -95,12 +102,14 @@ final class NativeObserver {
 				'snapshot_id' => '',
 				'before'      => null,
 				'before_hash' => '',
+				'autosave_before' => '',
 			];
 			if ( $post_id > 0 ) {
-				// The snapshot arms nothing: no rescue frame is open around a call Stonewright does not run.
-				$entry['snapshot_id'] = Backup::snapshot_post( $post_id, [], false );
-				$entry['before']      = PostAdapter::image( $post_id );
-				$entry['before_hash'] = TreeHasher::hash( ElementorData::read( $post_id ) );
+				// The snapshot arms nothing (no rescue frame is open around a call Stonewright does not run) and keeps to a pool of its own.
+				$entry['snapshot_id']     = Backup::snapshot_observed( $post_id, self::is_active_kit( $post_id ) );
+				$entry['before']          = PostAdapter::image( $post_id );
+				$entry['before_hash']     = TreeHasher::hash( ElementorData::read( $post_id ) );
+				$entry['autosave_before'] = self::autosave_hash( $post_id );
 			}
 			self::$pending[] = $entry;
 			if ( count( self::$pending ) > self::MAX_PENDING ) {
@@ -143,7 +152,14 @@ final class NativeObserver {
 			if ( $changed && $post_id > 0 && ! $failed ) {
 				$change_id = PostAdapter::record_observed( $name, $post_id, $created ? null : $entry['before'], $after_image );
 			}
-			self::audit( $name, $input, $entry, $post_id, $failed ? 'error' : 'ok', $failed ? 'failed' : ( $changed ? 'observed' : 'unchanged' ), $change_id, $after_hash );
+			// Elementor stages an edit of a published document in an autosave and leaves the document alone.
+			$staged = ! $failed && ! $changed && $post_id > 0 && self::autosave_hash( $post_id ) !== $entry['autosave_before'];
+			if ( ( $failed || ! $changed ) && '' !== $entry['snapshot_id'] ) {
+				// A call that failed, or changed nothing, leaves no state worth restoring.
+				Backup::discard_observed( $entry['post_id'], $entry['snapshot_id'] );
+				$entry['snapshot_id'] = '';
+			}
+			self::audit( $name, $input, $entry, $post_id, $failed ? 'error' : 'ok', $failed ? 'failed' : ( $changed ? 'observed' : ( $staged ? 'staged_in_autosave' : 'unchanged' ) ), $change_id, $after_hash );
 		} catch ( \Throwable $failure ) {
 			Logger::warning( 'native_observer_after_failed', [ 'error' => $failure::class ] );
 		}
@@ -202,6 +218,18 @@ final class NativeObserver {
 		return 0;
 	}
 
+	/** Whether the post is the active kit, which keeps its classes and default styles outside its own meta. */
+	private static function is_active_kit( int $post_id ): bool {
+		$post = get_post( $post_id );
+		return is_object( $post ) && 'elementor_library' === (string) $post->post_type && (int) get_option( 'elementor_active_kit', 0 ) === $post_id;
+	}
+
+	/** Hash of the current user's autosave tree of a post, or '' when there is none. */
+	private static function autosave_hash( int $post_id ): string {
+		$tree = AutosaveTree::of( $post_id );
+		return null === $tree ? '' : TreeHasher::hash( $tree );
+	}
+
 	private static function key( string $name, array $input ): string {
 		return $name . '|' . hash( 'sha256', (string) wp_json_encode( $input ) );
 	}
@@ -210,7 +238,7 @@ final class NativeObserver {
 	 * The oldest-first list holds calls that never closed; the call that did is the newest with its key,
 	 * and everything after it is dropped with it.
 	 *
-	 * @return array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string}|null
+	 * @return array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string,autosave_before:string}|null
 	 */
 	private static function take( string $key ): ?array {
 		for ( $index = count( self::$pending ) - 1; $index >= 0; --$index ) {
@@ -235,7 +263,7 @@ final class NativeObserver {
 	 * One audit row for the observed call. It names the ability, the document, the outcome and the hashes, not the content of the input.
 	 *
 	 * @param array<string,mixed>                                                                                  $input
-	 * @param array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string} $entry
+	 * @param array{key:string,ability:string,post_id:int,snapshot_id:string,before:array<string,mixed>|null,before_hash:string,autosave_before:string} $entry
 	 */
 	private static function audit( string $name, array $input, array $entry, int $post_id, string $status, string $outcome, string $change_id, string $after_hash ): void {
 		$meta = [

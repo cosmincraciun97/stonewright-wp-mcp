@@ -342,6 +342,51 @@
 
 ### Fixed
 
+- An undo or restore of an Elementor page no longer makes the next Elementor save
+  of that page fail with `stonewright_elementor_stale_editor` when no editor is
+  open. A restore from a backup, a `change-rollback` and a rescue rollback bring
+  the saved editor baseline of every user up to the restored document. A call that
+  is refused, or fails and leaves the page as it was, no longer adds a restorable
+  row to the change history: the row says there is nothing to undo.
+- Undoing a native default-style write works. Elementor 4.3 keeps default styles
+  in posts of their own, which a kit snapshot never covered, so the history said
+  "restorable" and the undo changed nothing. A kit snapshot and the kit's change
+  image now take the default styles through Elementor's repository, and an undo
+  writes them back and reads them back. `stonewright-elementor-native-execute`
+  and the change history now agree: a default-style write names its kit snapshot
+  as the rollback recipe (`rollback_available: true`) only when that snapshot
+  holds the default styles.
+- Calls to Elementor's own write abilities that Stonewright only watches no longer
+  push real snapshots out of a page's backup history. The watcher keeps its
+  snapshots in a pool of its own (the newest three per page), drops one when the
+  call failed or changed nothing, and no longer leaves a snapshot id in the audit
+  row of such a call.
+- The watcher now sees kit-level edits (default styles, global classes through
+  Elementor's repository, global variables) instead of logging them as
+  `unchanged`, and records an edit of a published page that Elementor keeps in an
+  autosave as `staged_in_autosave`.
+- Elementor writes by a user without `unfiltered_html`, or on a site that sets
+  `DISALLOW_UNFILTERED_HTML`, no longer fail with
+  `stonewright_elementor_readback_failed_restored`. The tree is filtered the way
+  Elementor's own editor filters it for that user before it is written, stored,
+  read back and verified, and the write receipt carries `content_filtered: true`.
+- `stonewright-elementor-v3-get-kit-globals` and
+  `stonewright-elementor-v3-kit-batch-mutate` use the kit keys Elementor has:
+  `system_colors`, `custom_colors`, `system_typography` and `custom_typography`.
+  The `global` bucket, which pointed at keys Elementor does not use, is gone from
+  the read and from the `bucket` values of the batch (a `global` bucket is
+  refused). A kit that was never saved reports the default system colors and
+  fonts Elementor reports, and a system colors or fonts merge on such a kit keeps
+  the rows it does not name.
+- On the default tool surface, `stonewright-elementor-native-execute` is
+  registered with the Abilities API whatever the live Elementor state is at that
+  moment, so the MCP server no longer logs that the ability does not exist or
+  raises a notice from the adapter on every in-process call. It is still listed
+  as a tool only when native Elementor is available.
+- `stonewright-elementor-provider-discovery` explains a group of
+  `descriptor_unavailable` (and `schema_unavailable`, `schema_invalid`) issues:
+  each group carries an `effect` of `inventory_only` and a `note` saying the
+  types are listed without a native write and nothing else is affected.
 - `stonewright-custom-code-provider` accepts the arguments the theme-file
   provider reads: `start_marker`, `end_marker`, `marker`, `create_if_missing`,
   `theme`, `smoke_url`, `id` and `expected_active`, each typed and bounded, and

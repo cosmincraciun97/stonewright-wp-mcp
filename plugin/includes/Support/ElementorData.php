@@ -174,12 +174,20 @@ final class ElementorData {
 	 * @param array<string, mixed>             $options
 	 */
 	private static function write_locked( int $post_id, array $tree, array $options ): bool {
+		// For a user without unfiltered_html Elementor filters the tree on every save, in its editor and again in the sanitize callback of the
+		// meta. Writing the unfiltered tree would read back as something else, so the tree is filtered first, the way the editor does it.
+		$filtered         = self::filter_for_current_user( $tree );
+		$content_filtered = $filtered !== $tree;
+		$tree             = $filtered;
 		$previous            = self::read( $post_id );
 		$previous_meta_state = self::capture_document_meta_state( $post_id );
 		$before_status        = get_post_status( $post_id );
 		$before_hash          = TreeHasher::hash( $previous );
 		$planned_hash         = TreeHasher::hash( $tree );
 		$receipt              = self::new_write_receipt( $post_id, $tree, $options, $previous, $before_hash, $planned_hash );
+		if ( $content_filtered ) {
+			$receipt->set( 'content_filtered', true )->set( 'content_filtered_reason', 'user_cannot_unfiltered_html' );
+		}
 		self::$last_elementor_write_receipt = $receipt->to_array();
 
 		$failure = self::preflight_failure( $previous, $tree, $options );
@@ -290,6 +298,33 @@ final class ElementorData {
 		}
 
 		return false;
+	}
+
+	/**
+	 * The tree as Elementor stores it for the current user: every string run through kses when the user lacks the
+	 * `unfiltered_html` capability (a role without it, or DISALLOW_UNFILTERED_HTML), unchanged otherwise.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function filter_for_current_user( array $tree ): array {
+		if ( ! function_exists( 'current_user_can' ) || current_user_can( 'unfiltered_html' ) ) {
+			return $tree;
+		}
+		$filtered = self::kses_deep( $tree );
+		return is_array( $filtered ) ? $filtered : $tree;
+	}
+
+	private static function kses_deep( mixed $value ): mixed {
+		if ( is_string( $value ) ) {
+			return wp_kses_post( $value );
+		}
+		if ( is_array( $value ) ) {
+			foreach ( $value as $key => $item ) {
+				$value[ $key ] = self::kses_deep( $item );
+			}
+		}
+		return $value;
 	}
 
 	/**

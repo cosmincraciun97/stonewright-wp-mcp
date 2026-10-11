@@ -11,7 +11,9 @@ use Stonewright\WpMcp\Elementor\Provider\NativeInputSchema;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Elementor\Provider\UpstreamAbilityDiscovery;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
+use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
@@ -52,6 +54,7 @@ final class NativeExecuteAbilityTest extends TestCase {
 
 	protected function tearDown(): void {
 		V4FeatureGate::set_atomic_module_present_for_tests( null );
+		DefaultStylesState::use_factory_for_tests( null );
 		AtomicSchemaRepository::invalidate();
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_posts']           = [];
@@ -133,10 +136,47 @@ final class NativeExecuteAbilityTest extends TestCase {
 		self::assertSame( 'verified', $change_set['verification']['status'] );
 		self::assertSame( $result['write_receipt']['before_hash'], $change_set['before_hash'] );
 		self::assertSame( $result['write_receipt']['readback_hash'], $change_set['after_hash'] );
-		self::assertFalse( $change_set['rollback_available'], 'a kit snapshot does not cover the default style posts' );
+		self::assertFalse( $change_set['rollback_available'], 'the kit snapshot holds no default style state here, so no undo is claimed' );
 		self::assertNull( $change_set['rollback_recipe_ref'] );
 		self::assertSame( 'mode_policy', $change_set['approval_reason'] );
 		self::assertSame( $change_set['change_set_id'], end( $GLOBALS['stonewright_test_wpdb_inserts'] )['data']['change_set_id'] );
+	}
+
+	public function test_a_default_styles_write_names_its_kit_snapshot_as_the_undo_when_the_snapshot_covers_default_styles(): void {
+		$this->cover_default_styles();
+		$before                  = $this->runtime->styles;
+		$this->runtime->executor = static function ( string $name, array $input, FakeNativeRuntime $runtime ): array {
+			$runtime->styles['h2'] = [ 'type' => 'class', 'variants' => [ [ 'props' => [ 'css' => 'font-size: 2rem' ] ] ] ];
+			return [ 'status' => 'ok', 'results' => [ [ 'index' => 0, 'action' => 'update', 'status' => 'ok', 'tag' => 'h2' ] ] ];
+		};
+
+		$result = $this->ability()->execute( [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$change_set = $result['change_set'];
+		self::assertValidChangeSet( $change_set );
+		self::assertTrue( $change_set['rollback_available'], 'the ability and the change history agree that this write can be undone' );
+		self::assertSame( [ 'kind' => 'post_snapshot', 'ref' => $result['kit_snapshot_id'], 'target' => (string) self::KIT ], $change_set['rollback_recipe_ref'] );
+		self::assertSame( $result['kit_snapshot_id'], $result['write_receipt']['snapshot_id'] );
+
+		self::assertTrue( Backup::restore( self::KIT, $result['kit_snapshot_id'] ), 'the named snapshot really brings the default styles back' );
+		self::assertSame( $before, $this->runtime->styles );
+	}
+
+	public function test_a_failed_default_styles_write_whose_rollback_failed_points_at_the_covering_snapshot(): void {
+		$this->cover_default_styles();
+		$this->runtime->restore_styles_succeeds = false;
+		$this->runtime->executor = static function ( string $name, array $input, FakeNativeRuntime $runtime ): array {
+			$runtime->styles['h2'] = [ 'type' => 'class', 'variants' => [] ];
+			return [ 'status' => 'partial_error', 'results' => [ [ 'index' => 0, 'action' => 'update', 'status' => 'error', 'code' => 'invalid_tag' ] ] ];
+		};
+
+		$result = $this->ability()->execute( [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$change_set = $result->get_error_data()['change_set'];
+		self::assertTrue( $change_set['rollback_available'], 'the styles are not back, so the snapshot is the way back' );
+		self::assertSame( (string) self::KIT, $change_set['rollback_recipe_ref']['target'] );
 	}
 
 	public function test_a_staged_composition_is_a_queued_change_set_with_nothing_applied(): void {
@@ -353,6 +393,30 @@ final class NativeExecuteAbilityTest extends TestCase {
 	 * @param list<array<string,mixed>>|null $abilities Registered abilities; the recorded 4.3.4 set when null.
 	 * @param array<string,mixed>            $facts     Environment facts that replace the healthy ones.
 	 */
+	/** Elementor's default styles repository, as the state class reaches it, over the styles the fake runtime holds. */
+	private function cover_default_styles(): void {
+		$runtime = $this->runtime;
+		DefaultStylesState::use_factory_for_tests(
+			static fn(): object => new class( $runtime ) {
+				public function __construct( private FakeNativeRuntime $runtime ) {}
+
+				/** @return array<string,mixed> */
+				public function all( bool $force = false ): array {
+					return $this->runtime->styles;
+				}
+
+				/** @param array<string,mixed> $data */
+				public function put( string $tag, array $data ): bool {
+					$this->runtime->styles[ $tag ] = $data;
+					return true;
+				}
+
+				public function delete( string $tag ): void {
+					unset( $this->runtime->styles[ $tag ] );
+				}
+			}
+		);
+	}
 	private function ability( ?array $abilities = null, array $facts = [] ): NativeExecute {
 		$decoded = json_decode( (string) file_get_contents( dirname( __DIR__, 3 ) . '/fixtures/elementor-native/elementor-4.3.4-abilities.json' ), true );
 		$all     = $abilities ?? array_values( (array) $decoded['abilities'] );

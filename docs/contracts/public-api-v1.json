@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T16:48:53+00:00",
+    "generated_at": "2026-10-11T17:48:06+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -4253,7 +4253,7 @@
             "ability_name": "stonewright/elementor-v3-kit-batch-mutate",
             "mcp_name": "stonewright-elementor-v3-kit-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "94f108ca53c076727e5fbafd74e5ec044de5f8565c6ecda232d790d9f3e108cc",
+            "input_schema_hash": "f20bb5d9dd2a1dc8765156c8acf38aef1ea771e8f71b4b87a82b7c7d731ba708",
             "output_schema_hash": "9f7400d0987f9aa70b218f8fcf554127e2ebacf0998ca7f829a7f2b6ca03e1ea",
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {

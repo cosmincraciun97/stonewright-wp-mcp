@@ -42,6 +42,31 @@ final class NativeSurfaceReachabilityTest extends TestCase {
 		self::assertSame( $names, array_values( array_unique( $names ) ) );
 	}
 
+	public function test_the_ability_is_registered_before_native_elementor_is_known_to_be_available_and_listed_only_when_it_is(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		// Registration runs inside wp_abilities_api_init, where the live report is not available yet; the server lists its tools later.
+		NativeAvailability::use_report_for_tests( [ 'state' => 'no_abilities_registered', 'certified' => [] ] );
+		$registered = AbilityRegistry::registration_ability_names_for_test();
+		self::assertContains( self::NATIVE, $registered, 'it is registered whether or not native Elementor is available yet' );
+		self::assertNotContains( self::NATIVE, AbilityRegistry::mcp_server_ability_names(), 'but the server does not list a tool that cannot run' );
+
+		NativeAvailability::use_report_for_tests( [ 'state' => 'available', 'certified' => [ 'elementor/build-composition' ] ] );
+		self::assertContains( self::NATIVE, AbilityRegistry::mcp_server_ability_names() );
+		self::assertSame( [], array_values( array_diff( AbilityRegistry::mcp_server_ability_names(), AbilityRegistry::registration_ability_names_for_test() ) ), 'the server never lists a tool that was not registered' );
+	}
+
+	public function test_the_registered_set_is_never_narrower_than_the_listed_set_on_any_surface(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		foreach ( [ 'essential', 'bootstrap', 'full' ] as $surface ) {
+			foreach ( [ [ 'state' => 'not_installed', 'certified' => [] ], [ 'state' => 'available', 'certified' => [ 'elementor/build-composition' ] ] ] as $report ) {
+				NativeAvailability::use_report_for_tests( $report );
+				$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = $surface;
+
+				self::assertSame( [], array_values( array_diff( AbilityRegistry::mcp_server_ability_names(), AbilityRegistry::registration_ability_names_for_test() ) ), $surface . ' / ' . $report['state'] );
+			}
+		}
+	}
+
 	public function test_available_state_without_a_certified_ability_does_not_count_as_available(): void {
 		NativeAvailability::use_report_for_tests( [ 'state' => 'available', 'certified' => [] ] );
 

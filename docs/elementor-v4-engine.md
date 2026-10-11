@@ -177,8 +177,10 @@ A write runs in this order and stops at the first failure:
 3. **Exposure.** Every Atomic type in the composition must be registered on the
    site; a missing one fails with `stonewright_atomic_type_unavailable`,
    `missing_feature: atomic_type:<type>`, and the types the site has.
-4. **Snapshot and lock.** `Backup::snapshot_post()` of the page (or the active kit)
-   and the per-post write lock, released afterwards.
+4. **Snapshot and lock.** `Backup::snapshot_post()` of the page (or the active kit;
+   a kit snapshot of a default-styles write also takes the default styles through
+   Elementor's repository, because they are posts of their own) and the per-post
+   write lock, released afterwards.
 5. **Execute** the Elementor ability.
 6. **Independent readback.** Default styles are read back from Elementor's
    repository; a composition is read back from `_elementor_data` (or from the
@@ -197,8 +199,10 @@ A write runs in this order and stops at the first failure:
 9. **ChangeSetV1 and audit.** The result carries `change_set`: planned and applied
    changes, before and after hashes, the verification outcome, and `repair_of` and
    `supersedes` lineage. A staged edit is `queued` with nothing applied. A
-   default-styles write reports no rollback recipe, because a kit snapshot does not
-   cover the default style posts; its automatic rollback happens inside the call.
+   default-styles write names its kit snapshot as the rollback recipe when that
+   snapshot holds the default styles (the change history marks the same row
+   restorable); without them it names none, and its automatic rollback happens
+   inside the call.
 
 Where the tool is listed: on the essential surface and right after provider
 discovery in the `elementor-design` profile when native Elementor is available.
@@ -215,13 +219,18 @@ server) cannot be gated, but it is observed. Stonewright hooks core's
 (name, input, result, ability); core fires the first after the input and permission
 checks and the second only when the call succeeded. Before the call, the post the
 input names (or the active kit for default styles, classes and variables) is
-snapshotted. After it, a change-history row (family `elementor`, status "Not
+snapshotted, into a pool of its own (the newest three per post) that never pushes a
+real backup out; the snapshot is dropped when the call failed or changed nothing.
+The change it looks for is a change of the post's image, which for the active kit
+holds the global classes and the default styles as Elementor's repositories return
+them, and the global variables. After the call, a change-history row (family `elementor`, status "Not
 verified", with the content before so it can be undone) is written when the
 document changed, and an audit row marked `observed_native` is always written. The
 observer never blocks, refuses or rewrites the call, opens no rescue frame, and a
 failure of its own recording is logged only. A page the call created is recorded
 from `post_id` in the result. A change staged in an autosave leaves the live
-document unchanged, so it has an audit row and no history row.
+document unchanged, so it has an audit row (outcome `staged_in_autosave`, not
+`unchanged`) and no history row.
 
 Statuses are `planned`, `applied`, `unchanged`, `staged_in_autosave`, and `read`.
 The structure read returns Elementor's structure and flags a pending autosave,

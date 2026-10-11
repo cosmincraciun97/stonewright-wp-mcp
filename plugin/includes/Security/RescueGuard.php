@@ -584,8 +584,10 @@ final class RescueGuard {
 			try {
 				$state  = '' === $row['journal'] ? '' : (string) ( ChangeJournal::get( $row['journal'] )['state'] ?? '' );
 				$after  = $images[ $post_id ] ?? null;
-				$status = self::ledger_status( $state, '' !== $row['journal'], $result, $row['created'] || PostAdapter::changed( $row['id'], $after ) );
-				PostAdapter::settle( $row['id'], $after, $status );
+				$changed = $row['created'] || PostAdapter::changed( $row['id'], $after );
+				$status  = self::ledger_status( $state, '' !== $row['journal'], $result, $changed );
+				// A call that failed and left the post as it was has nothing to undo: its row is history, not an undo.
+				PostAdapter::settle( $row['id'], $after, $status, 'failed' === $status && ! $changed );
 			} catch ( \Throwable $failure ) {
 				Logger::warning( 'rescue_guard_ledger_failed', [ 'error' => $failure::class ] );
 			}

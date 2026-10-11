@@ -152,7 +152,8 @@ final class NativeElementorProvider {
 		if ( $before instanceof \WP_Error ) {
 			return $before;
 		}
-		$snapshot = Backup::snapshot_post( $kit_id );
+		// The default styles are posts of their own, so the snapshot takes them through Elementor's repository as well.
+		$snapshot = Backup::snapshot_post( $kit_id, [], true, [], false, true );
 		if ( '' === $snapshot ) {
 			return self::error( 'stonewright_backup_failed', 'The active Elementor kit could not be snapshotted; refusing the default styles write.', 500 );
 		}
@@ -180,11 +181,11 @@ final class NativeElementorProvider {
 		$after  = $this->runtime->default_styles( $kit_id );
 		if ( $after instanceof \WP_Error ) {
 			$rollback = $this->rollback_styles( $kit_id, $before, null );
-			return $this->style_failure( 'stonewright_native_readback_unavailable', 'The default styles could not be read back after the write.', 502, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot );
+			return $this->style_failure( 'stonewright_native_readback_unavailable', 'The default styles could not be read back after the write.', 502, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, $kit_id );
 		}
 		if ( $native instanceof \WP_Error ) {
 			$rollback = $this->rollback_styles( $kit_id, $before, $after );
-			return $this->style_failure( $native->get_error_code(), $native->get_error_message(), self::status_of( $native, 500 ), $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, is_array( $native->get_error_data() ) ? $native->get_error_data() : [] );
+			return $this->style_failure( $native->get_error_code(), $native->get_error_message(), self::status_of( $native, 500 ), $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, $kit_id, is_array( $native->get_error_data() ) ? $native->get_error_data() : [] );
 		}
 		$results = is_array( $native ) && is_array( $native['results'] ?? null ) ? array_values( $native['results'] ) : null;
 		if ( null === $results || 'ok' !== ( $native['status'] ?? '' ) || count( $results ) !== count( $operations ) || ! self::all_operations_ok( $results, $operations ) ) {
@@ -197,6 +198,7 @@ final class NativeElementorProvider {
 				$this->runtime->default_styles( $kit_id ),
 				$rollback,
 				$snapshot,
+				$kit_id,
 				[ 'operations' => self::bounded_results( $results ?? [] ) ]
 			);
 		}
@@ -205,7 +207,7 @@ final class NativeElementorProvider {
 		$unexpected   = array_values( array_diff( $changed, $planned_tags ) );
 		if ( [] !== $unexpected ) {
 			$rollback = $this->rollback_styles( $kit_id, $before, $after );
-			return $this->style_failure( 'stonewright_native_unexpected_change', 'Elementor changed a default style that the request did not name; the write was rolled back.', 409, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, [ 'unexpected_refs' => array_slice( $unexpected, 0, 20 ) ] );
+			return $this->style_failure( 'stonewright_native_unexpected_change', 'Elementor changed a default style that the request did not name; the write was rolled back.', 409, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, $kit_id, [ 'unexpected_refs' => array_slice( $unexpected, 0, 20 ) ] );
 		}
 		$problems = [];
 		foreach ( $operations as $operation ) {
@@ -219,7 +221,7 @@ final class NativeElementorProvider {
 		}
 		if ( [] !== $problems ) {
 			$rollback = $this->rollback_styles( $kit_id, $before, $after );
-			return $this->style_failure( 'stonewright_native_readback_mismatch', 'The stored default styles do not match what Elementor reported; the write was rolled back.', 409, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, [ 'problems' => array_slice( $problems, 0, 20 ) ] );
+			return $this->style_failure( 'stonewright_native_readback_mismatch', 'The stored default styles do not match what Elementor reported; the write was rolled back.', 409, $before, $this->runtime->default_styles( $kit_id ), $rollback, $snapshot, $kit_id, [ 'problems' => array_slice( $problems, 0, 20 ) ] );
 		}
 		$status = [] === $changed ? 'unchanged' : 'applied';
 		return $this->envelope(
@@ -237,6 +239,8 @@ final class NativeElementorProvider {
 				'css'             => [ 'status' => 'not_applicable', 'note' => 'Default styles are served from Elementor\'s own scoped style cache, which its update hook invalidates; no page CSS is regenerated.' ],
 				'write_receipt'   => [
 					'post_id'             => $kit_id,
+					// The snapshot is the undo only when it holds the default styles; the change history is told the same.
+					'snapshot_id'         => self::covering_snapshot( $kit_id, $snapshot ),
 					'before_hash'         => TreeHasher::hash( $before ),
 					'readback_hash'       => TreeHasher::hash( $after ),
 					'verification_status' => 'unchanged' === $status ? 'unchanged' : 'verified',
@@ -266,7 +270,7 @@ final class NativeElementorProvider {
 	 * @param array<string,mixed>|\WP_Error  $after
 	 * @param array<string,mixed>            $extra
 	 */
-	private function style_failure( string $code, string $message, int $status, array $before, array|\WP_Error $after, string $rollback, string $snapshot, array $extra = [] ): \WP_Error {
+	private function style_failure( string $code, string $message, int $status, array $before, array|\WP_Error $after, string $rollback, string $snapshot, int $kit_id, array $extra = [] ): \WP_Error {
 		$hash = $after instanceof \WP_Error ? '' : TreeHasher::hash( $after );
 		return self::error(
 			$code,
@@ -278,6 +282,8 @@ final class NativeElementorProvider {
 					'rollback_status' => $rollback,
 					'kit_snapshot_id' => $snapshot,
 					'write_receipt'   => [
+						'post_id'             => $kit_id,
+						'snapshot_id'         => self::covering_snapshot( $kit_id, $snapshot ),
 						'before_hash'         => TreeHasher::hash( $before ),
 						'readback_hash'       => $hash,
 						'verification_status' => 'failed',
@@ -288,6 +294,12 @@ final class NativeElementorProvider {
 				]
 			)
 		);
+	}
+
+	/** The kit snapshot id when the snapshot holds the default styles, else '': a snapshot without them is no way back for a default style write. */
+	private static function covering_snapshot( int $kit_id, string $snapshot ): string {
+		$stored = '' === $snapshot ? null : Backup::get_snapshot( $kit_id, $snapshot );
+		return is_array( $stored ) && is_array( $stored['default_styles'] ?? null ) ? $snapshot : '';
 	}
 
 	/**

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+use Stonewright\WpMcp\Elementor\KitLiveSettings;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
@@ -72,7 +73,7 @@ final class KitBatchMutate extends AbilityKernel {
 								'enum' => [ 'colors', 'typography', 'layout', 'settings' ],
 							],
 							'mode'     => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
-							'bucket'   => [ 'type' => 'string', 'enum' => [ 'system', 'custom', 'global' ], 'default' => 'custom' ],
+							'bucket'   => [ 'type' => 'string', 'enum' => [ 'system', 'custom' ], 'default' => 'custom', 'description' => 'system writes system_colors or system_typography, custom writes custom_colors or custom_typography; Elementor has no other global color or typography key.' ],
 							'colors'   => [ 'type' => 'array' ],
 							'fonts'    => [ 'type' => 'array' ],
 							'setting'  => [ 'type' => 'string' ],
@@ -354,12 +355,15 @@ final class KitBatchMutate extends AbilityKernel {
 	/**
 	 * @param array<string, mixed> $settings
 	 * @param array<string, mixed> $operation
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|\WP_Error
 	 */
-	private static function apply_colors( array $settings, array $operation ): array {
+	private static function apply_colors( array $settings, array $operation ): array|\WP_Error {
 		$bucket = self::color_bucket( (string) ( $operation['bucket'] ?? 'custom' ) );
-		$mode   = (string) ( $operation['mode'] ?? 'merge' );
-		$existing = isset( $settings[ $bucket ] ) && is_array( $settings[ $bucket ] ) ? $settings[ $bucket ] : [];
+		if ( null === $bucket ) {
+			return self::unknown_bucket( $operation );
+		}
+		$mode     = (string) ( $operation['mode'] ?? 'merge' );
+		$existing = self::existing_rows( $settings, $bucket );
 		$incoming = [];
 		foreach ( (array) ( $operation['colors'] ?? [] ) as $c ) {
 			if ( ! is_array( $c ) ) {
@@ -378,12 +382,15 @@ final class KitBatchMutate extends AbilityKernel {
 	/**
 	 * @param array<string, mixed> $settings
 	 * @param array<string, mixed> $operation
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|\WP_Error
 	 */
-	private static function apply_typography( array $settings, array $operation ): array {
-		$bucket   = self::typography_bucket( (string) ( $operation['bucket'] ?? 'custom' ) );
+	private static function apply_typography( array $settings, array $operation ): array|\WP_Error {
+		$bucket = self::typography_bucket( (string) ( $operation['bucket'] ?? 'custom' ) );
+		if ( null === $bucket ) {
+			return self::unknown_bucket( $operation );
+		}
 		$mode     = (string) ( $operation['mode'] ?? 'merge' );
-		$existing = isset( $settings[ $bucket ] ) && is_array( $settings[ $bucket ] ) ? $settings[ $bucket ] : [];
+		$existing = self::existing_rows( $settings, $bucket );
 		$incoming = [];
 		foreach ( (array) ( $operation['fonts'] ?? [] ) as $f ) {
 			if ( ! is_array( $f ) ) {
@@ -514,20 +521,43 @@ final class KitBatchMutate extends AbilityKernel {
 		return array_values( $by_id );
 	}
 
-	private static function color_bucket( string $bucket ): string {
+	/** The kit key of a color bucket; Elementor has the system and the custom list and no other. */
+	private static function color_bucket( string $bucket ): ?string {
 		return match ( $bucket ) {
 			'system' => 'system_colors',
-			'global' => 'global_colors',
-			default  => 'custom_colors',
+			'custom' => 'custom_colors',
+			default  => null,
 		};
 	}
 
-	private static function typography_bucket( string $bucket ): string {
+	/** The kit key of a typography bucket; Elementor has the system and the custom list and no other. */
+	private static function typography_bucket( string $bucket ): ?string {
 		return match ( $bucket ) {
 			'system' => 'system_typography',
-			'global' => 'global_typography',
-			default  => 'custom_typography',
+			'custom' => 'custom_typography',
+			default  => null,
 		};
+	}
+
+	/**
+	 * The rows a bucket holds now: the stored list, or what Elementor reports for a kit that never stored it (its default
+	 * system colors and fonts), so a merge keeps the rows it does not name.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return list<array<string, mixed>>
+	 */
+	private static function existing_rows( array $settings, string $key ): array {
+		$rows = isset( $settings[ $key ] ) && is_array( $settings[ $key ] ) ? $settings[ $key ] : KitLiveSettings::get( $key );
+		return is_array( $rows ) ? array_values( $rows ) : [];
+	}
+
+	/** @param array<string, mixed> $operation */
+	private static function unknown_bucket( array $operation ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_kit_operation_invalid',
+			__( 'Unknown kit bucket. Elementor keeps its global colors and fonts in the system and custom lists only.', 'stonewright' ),
+			[ 'status' => 400, 'group' => (string) ( $operation['group'] ?? '' ), 'bucket' => (string) ( $operation['bucket'] ?? '' ), 'allowed' => [ 'system', 'custom' ] ]
+		);
 	}
 
 	/**
