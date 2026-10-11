@@ -182,7 +182,12 @@ final class GitHubUpdater {
 			$transient->no_update = [];
 		}
 
-		$remote  = self::fetch_latest_release( self::wordpress_requested_fresh_release_lookup() );
+		$forced  = self::wordpress_requested_fresh_release_lookup();
+		$remote  = self::fetch_latest_release( $forced );
+		if ( null === $remote && $forced ) {
+			// A failed refresh keeps the release found earlier instead of dropping the offered update.
+			$remote = self::cached_release();
+		}
 		$plugin  = self::plugin_basename();
 		$current = self::installed_version();
 
@@ -456,9 +461,9 @@ final class GitHubUpdater {
 	}
 
 	/**
-	 * WordPress Dashboard → Updates → Check again and the twice-daily
-	 * wp_update_plugins cron must not reuse a cached "you are current" release.
-	 * Ordinary Plugins-screen reads keep CACHE_TTL to avoid GitHub rate limits.
+	 * Dashboard > Updates > Check again and the twice-daily wp_update_plugins cron
+	 * must not reuse a cached "you are current" release. Ordinary page loads keep
+	 * CACHE_TTL to avoid GitHub rate limits.
 	 *
 	 * Only the first forced lookup in a request hits GitHub. Later inject_update
 	 * calls (get then set of the same transient during wp_update_plugins) reuse
@@ -468,25 +473,48 @@ final class GitHubUpdater {
 		if ( self::$forced_release_lookup_used ) {
 			return false;
 		}
-		if ( function_exists( 'doing_action' ) && doing_action( 'wp_update_plugins' ) ) {
+		if (
+			( function_exists( 'doing_action' ) && doing_action( 'wp_update_plugins' ) )
+			|| ( function_exists( 'did_action' ) && did_action( 'wp_update_plugins' ) > 0 )
+			|| self::is_administrator_force_check()
+		) {
 			self::$forced_release_lookup_used = true;
 			return true;
 		}
-		if ( function_exists( 'did_action' ) && did_action( 'wp_update_plugins' ) > 0 ) {
-			self::$forced_release_lookup_used = true;
-			return true;
+		return false;
+	}
+
+	/**
+	 * True only for an administrator's Check again request: an admin screen
+	 * request to update-core.php carrying force-check, from a user who can update
+	 * plugins. Core sends this link without a nonce, so the capability check is
+	 * the gate; the request can only make one extra read-only GitHub lookup.
+	 */
+	private static function is_administrator_force_check(): bool {
+		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
+			return false;
 		}
-		// WordPress core exposes force-check as an unauthenticated GET flag on update-core.php; capability is checked below.
+		$page = isset( $GLOBALS['pagenow'] ) && is_string( $GLOBALS['pagenow'] ) ? $GLOBALS['pagenow'] : '';
+		if ( 'update-core.php' !== $page ) {
+			return false;
+		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- matches core update-core.php force-check.
 		$force_check = isset( $_GET['force-check'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['force-check'] ) ) : '';
 		if ( '' === $force_check || '0' === $force_check ) {
 			return false;
 		}
-		if ( function_exists( 'current_user_can' ) && ! current_user_can( 'update_plugins' ) ) {
-			return false;
-		}
-		self::$forced_release_lookup_used = true;
-		return true;
+		return function_exists( 'current_user_can' ) && current_user_can( 'update_plugins' );
+	}
+
+	/**
+	 * The release held in the cache for the installed channel, if any.
+	 *
+	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
+	 */
+	private static function cached_release(): ?array {
+		$channel = self::installed_channel( self::installed_version() );
+		$cached  = self::cached_lookup( self::cache_key( $channel ), $channel );
+		return null !== $cached && is_array( $cached['release'] ) ? $cached['release'] : null;
 	}
 
 	/**
@@ -525,31 +553,9 @@ final class GitHubUpdater {
 		$channel              = self::installed_channel( $installed_version );
 		$cache_key            = self::cache_key( $channel );
 
-		if ( ! $force_refresh ) {
-			$cached = get_transient( $cache_key );
-			if (
-				is_array( $cached ) &&
-				self::CACHE_SCHEMA_VERSION === ( $cached['schema_version'] ?? null ) &&
-				$channel === ( $cached['channel'] ?? null ) &&
-				is_array( $cached['release'] ?? null ) &&
-				isset( $cached['release']['version'], $cached['release']['package'], $cached['release']['companion_package'], $cached['release']['url'] )
-				&& is_string( $cached['release']['checksums'] ?? null )
-				&& '' !== $cached['release']['checksums']
-			) {
-				/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $release */
-				$release = $cached['release'];
-				return self::lookup_available( $release );
-			}
-			if (
-				is_array( $cached ) &&
-				self::CACHE_SCHEMA_VERSION === ( $cached['schema_version'] ?? null ) &&
-				$channel === ( $cached['channel'] ?? null ) &&
-				self::is_lookup_result( $cached['result'] ?? null )
-			) {
-				/** @var array{ok: bool, status: 'available'|'disabled'|'not_available'|'unavailable', release: array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null, reason: array{code: string, message: string, action: string, http_status?: int}|null} $result */
-				$result = $cached['result'];
-				return $result;
-			}
+		$cached = self::cached_lookup( $cache_key, $channel );
+		if ( ! $force_refresh && null !== $cached ) {
+			return $cached;
 		}
 
 		$response = wp_remote_get(
@@ -576,7 +582,7 @@ final class GitHubUpdater {
 					__( 'Stonewright could not reach GitHub Releases.', 'stonewright' ),
 					__( 'Check outbound HTTPS and DNS, then try again.', 'stonewright' )
 				);
-			self::cache_lookup_result( $cache_key, $channel, $result, HOUR_IN_SECONDS );
+			self::cache_failed_lookup( $cache_key, $channel, $result, null !== $cached );
 			return $result;
 		}
 
@@ -595,7 +601,7 @@ final class GitHubUpdater {
 					__( 'Try again later. If it persists, check GitHub service status and outbound proxy rules.', 'stonewright' ),
 					$http_status
 				);
-			self::cache_lookup_result( $cache_key, $channel, $result, HOUR_IN_SECONDS );
+			self::cache_failed_lookup( $cache_key, $channel, $result, null !== $cached );
 			return $result;
 		}
 
@@ -607,7 +613,7 @@ final class GitHubUpdater {
 				__( 'GitHub Releases returned invalid release metadata.', 'stonewright' ),
 				__( 'Try again. If it persists, verify the release API response schema.', 'stonewright' )
 			);
-			self::cache_lookup_result( $cache_key, $channel, $result, HOUR_IN_SECONDS );
+			self::cache_failed_lookup( $cache_key, $channel, $result, null !== $cached );
 			return $result;
 		}
 
@@ -730,6 +736,53 @@ final class GitHubUpdater {
 			&& in_array( $result['status'] ?? null, [ 'available', 'disabled', 'not_available', 'unavailable' ], true )
 			&& array_key_exists( 'release', $result )
 			&& array_key_exists( 'reason', $result );
+	}
+
+	/**
+	 * Read the cached lookup for a channel, or null when it is missing, expired,
+	 * from another schema or channel, or malformed.
+	 *
+	 * @return array{ok: bool, status: 'available'|'disabled'|'not_available'|'unavailable', release: array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null, reason: array{code: string, message: string, action: string, http_status?: int}|null}|null
+	 */
+	private static function cached_lookup( string $cache_key, string $channel ): ?array {
+		$cached = get_transient( $cache_key );
+		if (
+			! is_array( $cached ) ||
+			self::CACHE_SCHEMA_VERSION !== ( $cached['schema_version'] ?? null ) ||
+			$channel !== ( $cached['channel'] ?? null )
+		) {
+			return null;
+		}
+		if (
+			is_array( $cached['release'] ?? null ) &&
+			isset( $cached['release']['version'], $cached['release']['package'], $cached['release']['companion_package'], $cached['release']['url'] )
+			&& is_string( $cached['release']['checksums'] ?? null )
+			&& '' !== $cached['release']['checksums']
+		) {
+			/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $release */
+			$release = $cached['release'];
+			return self::lookup_available( $release );
+		}
+		if ( self::is_lookup_result( $cached['result'] ?? null ) ) {
+			/** @var array{ok: bool, status: 'available'|'disabled'|'not_available'|'unavailable', release: array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null, reason: array{code: string, message: string, action: string, http_status?: int}|null} $result */
+			$result = $cached['result'];
+			return $result;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Cache a failed GitHub lookup briefly. A failed refresh never replaces an
+	 * existing cached answer: the older data stays until it expires.
+	 *
+	 * @param array{ok: bool, status: 'available'|'disabled'|'not_available'|'unavailable', release: array<string, mixed>|null, reason: array<string, mixed>|null} $result
+	 */
+	private static function cache_failed_lookup( string $cache_key, string $channel, array $result, bool $has_cached_answer ): void {
+		if ( $has_cached_answer ) {
+			return;
+		}
+		self::cache_lookup_result( $cache_key, $channel, $result, HOUR_IN_SECONDS );
 	}
 
 	/**

@@ -22,6 +22,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_did_actions']          = [];
 		$GLOBALS['stonewright_test_doing_action']         = [];
 		$_GET = [];
+		unset( $GLOBALS['pagenow'], $GLOBALS['stonewright_test_is_admin'], $GLOBALS['stonewright_test_user_caps']['update_plugins'] );
 		GitHubUpdater::reset_request_lookup_state();
 	}
 
@@ -36,6 +37,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_did_actions']          = [];
 		$GLOBALS['stonewright_test_doing_action']         = [];
 		$_GET = [];
+		unset( $GLOBALS['pagenow'], $GLOBALS['stonewright_test_is_admin'], $GLOBALS['stonewright_test_user_caps']['update_plugins'] );
 		GitHubUpdater::reset_request_lookup_state();
 	}
 
@@ -492,14 +494,118 @@ final class GitHubUpdaterTest extends TestCase {
 			'response' => [ 'code' => 200 ],
 			'body'     => (string) wp_json_encode( [ $supported_beta ] ),
 		];
-		$GLOBALS['stonewright_test_user_caps']['update_plugins'] = true;
-		$_GET['force-check'] = '1';
+		$this->arrange_administrator_force_check();
 
 		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [ GitHubUpdater::plugin_basename() => (object) [ 'new_version' => '1.0.0-beta.12' ] ] ] );
 		$plugin = GitHubUpdater::plugin_basename();
 
 		self::assertSame( '1.3.0-beta.30', $result->response[ $plugin ]->new_version );
 		self::assertArrayNotHasKey( $plugin, $result->no_update );
+	}
+
+	public function test_inject_update_uses_the_cache_on_an_ordinary_page_load(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$GLOBALS['pagenow'] = 'update-core.php';
+		$GLOBALS['stonewright_test_user_caps']['update_plugins'] = true;
+
+		$this->assert_cached_release_is_kept_without_a_github_request();
+	}
+
+	public function test_inject_update_does_not_bypass_the_cache_for_a_user_without_update_plugins(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$this->arrange_administrator_force_check();
+		$GLOBALS['stonewright_test_user_caps']['update_plugins'] = false;
+
+		$this->assert_cached_release_is_kept_without_a_github_request();
+	}
+
+	public function test_inject_update_does_not_bypass_the_cache_outside_the_admin(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$this->arrange_administrator_force_check();
+		$GLOBALS['stonewright_test_is_admin'] = false;
+
+		$this->assert_cached_release_is_kept_without_a_github_request();
+	}
+
+	public function test_inject_update_does_not_bypass_the_cache_on_another_admin_screen(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$this->arrange_administrator_force_check();
+		$GLOBALS['pagenow'] = 'plugins.php';
+
+		$this->assert_cached_release_is_kept_without_a_github_request();
+	}
+
+	public function test_inject_update_does_not_bypass_the_cache_when_force_check_is_zero(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$this->arrange_administrator_force_check();
+		$_GET['force-check'] = '0';
+
+		$this->assert_cached_release_is_kept_without_a_github_request();
+	}
+
+	public function test_failed_forced_refresh_keeps_the_cached_release_and_the_offered_update(): void {
+		$cached = $this->parsed_beta_release();
+		$this->cache_parsed_release( $cached, '1.0.0-beta.12' );
+		$before  = get_transient( GitHubUpdater::cache_key( 'beta' ) );
+		$plugin  = GitHubUpdater::plugin_basename();
+		$answers = [
+			'rate limit' => [ 'response' => [ 'code' => 403 ], 'body' => '{"message":"API rate limit exceeded"}' ],
+			'not found'  => [ 'response' => [ 'code' => 404 ], 'body' => '{}' ],
+			'bad json'   => [ 'response' => [ 'code' => 200 ], 'body' => 'not json' ],
+			'transport'  => new \WP_Error( 'http_request_failed', 'offline' ),
+		];
+
+		foreach ( $answers as $label => $answer ) {
+			$GLOBALS['stonewright_test_wp_remote_get']       = static fn(): array|\WP_Error => $answer;
+			$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
+			GitHubUpdater::reset_request_lookup_state();
+			$this->arrange_administrator_force_check();
+
+			$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+
+			self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'], $label );
+			self::assertSame( $cached['version'], $result->response[ $plugin ]->new_version ?? null, $label );
+			self::assertSame( $before, get_transient( GitHubUpdater::cache_key( 'beta' ) ), $label );
+		}
+	}
+
+	public function test_failed_forced_refresh_reports_the_failure_but_keeps_the_cache(): void {
+		$cached = $this->parsed_beta_release();
+		$this->cache_parsed_release( $cached, '1.0.0-beta.12' );
+		$before = get_transient( GitHubUpdater::cache_key( 'beta' ) );
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [ 'response' => [ 'code' => 503 ], 'body' => '' ];
+
+		$lookup = GitHubUpdater::release_metadata( true, '1.0.0-beta.12' );
+
+		self::assertSame( 'unavailable', $lookup['status'] );
+		self::assertSame( $before, get_transient( GitHubUpdater::cache_key( 'beta' ) ) );
+		$again = GitHubUpdater::release_metadata( false, '1.0.0-beta.12' );
+		self::assertSame( 'available', $again['status'] );
+		self::assertSame( $cached['version'], $again['release']['version'] ?? null );
+	}
+
+	public function test_failed_refresh_without_a_cache_still_caches_the_failure_briefly(): void {
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [ 'response' => [ 'code' => 503 ], 'body' => '' ];
+
+		$lookup = GitHubUpdater::release_metadata( true, '1.0.0-beta.12' );
+
+		self::assertSame( 'unavailable', $lookup['status'] );
+		self::assertIsArray( get_transient( GitHubUpdater::cache_key( 'beta' ) ) );
+		self::assertSame( HOUR_IN_SECONDS, $GLOBALS['stonewright_test_transient_ttls'][ GitHubUpdater::cache_key( 'beta' ) ] );
+	}
+
+	public function test_a_force_check_fetches_github_once_across_every_update_plugins_filter_call(): void {
+		$this->arrange_stale_cache_and_fresh_feed();
+		$this->arrange_administrator_force_check();
+		$plugin = GitHubUpdater::plugin_basename();
+
+		$transient = (object) [ 'response' => [], 'no_update' => [] ];
+		for ( $call = 0; $call < 3; ++$call ) {
+			$transient = GitHubUpdater::inject_update( $transient );
+		}
+
+		self::assertSame( '1.3.0-beta.30', $transient->response[ $plugin ]->new_version );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
 	public function test_inject_update_force_refreshes_github_only_once_per_request(): void {
@@ -1128,6 +1234,38 @@ final class GitHubUpdaterTest extends TestCase {
 		$valid_then_malformed = $releases[2];
 		$valid_then_malformed['body'] = "Release channel: `preview`\nRelease channel: preview\n";
 		yield 'valid declaration followed by malformed declaration' => [ $valid_then_malformed, 'beta', 'malformed_release_channel' ];
+	}
+
+	private function arrange_administrator_force_check(): void {
+		$GLOBALS['pagenow']                                      = 'update-core.php';
+		$GLOBALS['stonewright_test_is_admin']                    = true;
+		$GLOBALS['stonewright_test_user_caps']['update_plugins'] = true;
+		$_GET['force-check']                                     = '1';
+	}
+
+	/** A cached "current" beta.12 answer while GitHub already lists a newer release. */
+	private function arrange_stale_cache_and_fresh_feed(): void {
+		$stale                      = $this->parsed_beta_release();
+		$stale['version']           = '1.0.0-beta.12';
+		$stale['package']           = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-1.0.0-beta.12.zip';
+		$stale['companion_package'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/stonewright-companion-1.0.0-beta.12.tgz';
+		$stale['checksums']         = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.12/SHA256SUMS.txt';
+		$stale['url']               = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.12';
+		$this->cache_parsed_release( $stale, '1.0.0-beta.12' );
+		$supported_beta                            = $this->releases_fixture()[6];
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( [ $supported_beta ] ),
+		];
+	}
+
+	private function assert_cached_release_is_kept_without_a_github_request(): void {
+		$plugin = GitHubUpdater::plugin_basename();
+		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+
+		self::assertArrayNotHasKey( $plugin, $result->response );
+		self::assertArrayHasKey( $plugin, $result->no_update );
+		self::assertCount( 0, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
 	private function set_installed_version( string $version ): void {

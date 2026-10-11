@@ -356,6 +356,16 @@ packages only from this repository's versioned release path, and shows the
 installed plugin, latest release, and optional configured HTTP bridge version.
 An explicit click bypasses the background 12-hour release cache and browser
 caches; automatic update checks stay cached.
+
+The WordPress update screen keeps the same 12-hour release cache, with two
+exceptions. **Dashboard > Updates > Check again** (`update-core.php?force-check=1`,
+for a user who can update plugins) and the twice-daily `wp_update_plugins` cron
+event read the release list from GitHub once per request, so a release published
+in the last 12 hours is offered at once. Other page loads, the Plugins screen and
+front-end requests use the cache. WP-CLI has no force flag for plugin checks;
+`wp cron event run wp_update_plugins` runs the same refresh. When GitHub cannot
+be reached, the refresh keeps the release found earlier and the update stays
+offered.
 The panel links the exact companion package and SHA-256 manifest and creates a
 credential-free **Copy update prompt** handoff.
 
