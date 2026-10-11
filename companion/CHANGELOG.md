@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.15] - 2026-10-12
+
 ### Added
 
 - Check Elementor whole-tree writes in Direct mode before they are sent.
@@ -384,8 +386,8 @@
   the README table). Direct lists and restores its saved copies, reads every typed
   write back and can check the public page after a page, post or template write.
 - `stonewright-tool-profile` in the companion does not switch to the `full` profile.
-  `action=activate` with `profile=full` returns the plugin's refusal (`approval_required`,
-  `agent_must_stop`, the settings link) as an error, or its own when no plugin answers,
+  `action=activate` with `profile=full` returns a refusal (`approval_required`,
+  `agent_must_stop`, the settings link) as an error, whether or not a plugin answers,
   and no longer falls back to a local catalog that reports success. A profile hint in
   a tool result moves the companion onto `full` only when the site's tool surface is
   Full. `STONEWRIGHT_MCP_TOOL_PROFILE=full`, set by the person who runs the companion,

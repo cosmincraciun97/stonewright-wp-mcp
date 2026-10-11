@@ -11,6 +11,8 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.15] - 2026-10-12
+
 ### Added
 
 - Direct mode checks Elementor whole-tree writes: `elementor-data-get` returns a
@@ -487,8 +489,8 @@ development builds were never stable releases.
   status in Direct `stonewright-blueprint-apply`. The Direct `full` budget is 105
   tools. See the companion changelog.
 - `stonewright-tool-profile` in the companion does not switch to the `full` profile.
-  `action=activate` with `profile=full` returns the plugin's refusal (`approval_required`,
-  `agent_must_stop`, the settings link) as an error, or its own when no plugin answers,
+  `action=activate` with `profile=full` returns a refusal (`approval_required`,
+  `agent_must_stop`, the settings link) as an error, whether or not a plugin answers,
   and no longer falls back to a local catalog that reports success. A profile hint in
   a tool result moves the companion onto `full` only when the site's tool surface is
   Full. `STONEWRIGHT_MCP_TOOL_PROFILE=full`, set by the person who runs the companion,
@@ -2578,56 +2580,9 @@ development builds were never stable releases.
 - Force at most one uncached GitHub lookup per request during an update cycle
   so a later transient write cannot rate-limit or wipe a successful discovery.
 
-## [1.0.0-beta.13] - 2026-08-25
-
-### Added
-
-- Add `stonewright-elementor-css-regenerate` to rebuild one post or loop CSS
-  file after an Elementor write; post-write verification is observation-only.
-- Add one shared Setup client tablist for OAuth and Application Password,
-  including a Grok Build / CLI catalog entry.
-- Add dependency-aware Troubleshoot diagnostics that skip dependents when a
-  prerequisite fails.
-- Add connection status schema version 3 with truthful authentication state,
-  including `reauth_required` and a model-visible `user_action`.
-
-### Changed
-
-- Close Elementor generated CSS only through the dedicated regenerator, then
-  observation-only verify, then the browser recipe.
-- Route provider-owned executable-code post types through the custom-code
-  approval pipeline instead of generic content writers.
-- Reconnect a degraded session once from `stonewright-task-start`, preserve the
-  last good catalog, and never silently enable Direct writes from a plugin
-  transport failure.
-- Restrict automatic retry to handshake and allowlisted read-only bootstrap;
-  mutations are never retried.
-- Expose the generated **389**-ability Plugin and **101**-tool Direct contracts.
-
-### Fixed
-
-- Surface terminal OAuth reauthorization to clients instead of generic
-  transport errors.
-- Make Elementor CSS recovery target-aware for post and loop assets.
-- Preserve OAuth session continuity across refresh rotation and recover
-  degraded plugin sessions without dropping transport failure evidence.
-- Normalize Elementor atomic runtime descriptors and keep php-execute `wpdb`
-  guards type-compatible with the live handle.
-- Verify custom-code provider runtime cache after save and roll back on
-  verification failure.
-- Group Elementor provider diagnostics so Status and Troubleshoot stay
-  readable.
-
-### Security
-
-- Harden OAuth grant-family rotation and replay revocation.
-- Reject generic content writes to executable-code surfaces; WPCode active PHP
-  uses the provider save and cache path.
-- Install php-execute write guards as a real `wpdb` subclass around the live
-  handle.
-
 ## Older releases
 
+- [1.0.0-beta.13](docs/releases/1.0.0-beta.13.md)
 - [1.0.0-beta.12](docs/releases/1.0.0-beta.12.md)
 - [1.0.0-beta.11.1](docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](docs/releases/1.0.0-beta.11.md)

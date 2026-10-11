@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.15] - 2026-10-12
+
 ### Added
 
 - Purge the cached page of a post after `stonewright-elementor-css-regenerate`
@@ -2345,47 +2347,9 @@
 - Force at most one uncached GitHub lookup per request during an update cycle
   so a later transient write cannot rate-limit or wipe a successful discovery.
 
-## [1.0.0-beta.13] - 2026-08-25
-
-### Added
-
-- Add `stonewright/elementor-css-regenerate` to rebuild one post or loop CSS
-  file through Elementor's official update API inside a guarded asset
-  transaction; `stonewright/elementor-post-write-verify` is observation-only.
-- Add one shared Setup client tablist for OAuth and Application Password,
-  including a Grok Build / CLI catalog entry.
-- Add dependency-aware Troubleshoot diagnostics that skip dependents when a
-  prerequisite fails.
-
-### Changed
-
-- Close Elementor generated CSS only through the dedicated regenerator, then
-  observation-only verify, then the browser recipe.
-- Route provider-owned executable-code post types through the custom-code
-  approval pipeline instead of generic content writers.
-- Expose the generated **389**-ability Plugin contract.
-
-### Fixed
-
-- Make Elementor CSS recovery target-aware for post and loop assets.
-- Normalize Elementor atomic runtime descriptors and keep php-execute `wpdb`
-  guards type-compatible with the live handle.
-- Verify custom-code provider runtime cache after save and roll back on
-  verification failure.
-- Group Elementor provider diagnostics so Status and Troubleshoot stay
-  readable.
-- Recover degraded plugin sessions without dropping transport failure evidence.
-
-### Security
-
-- Harden OAuth grant-family rotation and replay revocation.
-- Reject generic content writes to executable-code surfaces; WPCode active PHP
-  uses the provider save and cache path.
-- Install php-execute write guards as a real `wpdb` subclass around the live
-  handle.
-
 ## Older releases
 
+- [1.0.0-beta.13](../docs/releases/1.0.0-beta.13.md)
 - [1.0.0-beta.12](../docs/releases/1.0.0-beta.12.md)
 - [1.0.0-beta.11.1](../docs/releases/1.0.0-beta.11.1.md)
 - [1.0.0-beta.11](../docs/releases/1.0.0-beta.11.md)
