@@ -3,11 +3,18 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Expertise;
 
-/** Enforces evidence thresholds for candidate, verified, stable, stale, and retired states. */
+use Stonewright\WpMcp\Security\PromotionGrant;
+
+/**
+ * Enforces evidence thresholds for candidate, verified, stable, stale, and retired states.
+ *
+ * A pack that becomes verified or stable is served to agents as settled guidance, so those two promotions
+ * also need a grant that an administrator issued in wp-admin for exactly that pack, content and target.
+ */
 final class ExpertisePromotion {
 
 	/** @return array<string, mixed>|\WP_Error */
-	public static function promote( string $pack_id, string $target, bool $maintainer_approved, string $approval_note ): array|\WP_Error {
+	public static function promote( string $pack_id, string $target ): array|\WP_Error {
 		$pack = ExpertiseRegistry::get( $pack_id );
 		if ( null === $pack ) {
 			return new \WP_Error( 'stonewright_expertise_not_found', 'Expertise pack not found.' );
@@ -37,11 +44,34 @@ final class ExpertisePromotion {
 			$pack['verified_runtime_fingerprints'] = $eligible_fingerprints;
 		}
 		if ( 'stable' === $target ) {
-			$approval_note = sanitize_textarea_field( $approval_note );
-			if ( count( $eligible_fingerprints ) < 2 && ( ! $maintainer_approved || '' === $approval_note ) ) {
-				return new \WP_Error( 'stonewright_expertise_stability_gate', 'Stable requires two runtime fingerprints or explicit maintainer approval with a note.' );
-			}
 			$pack['verified_runtime_fingerprints'] = $eligible_fingerprints;
+		}
+
+		// A candidate pack is advisory only. Verified and stable packs are served as settled guidance, so a person approves those.
+		// Stable on a single runtime needs the approver to say why; the evidence alone is thin.
+		$approval_note = '';
+		if ( in_array( $target, [ 'verified', 'stable' ], true ) ) {
+			$grant = PromotionGrant::require_grant(
+				PromotionGrant::KIND_EXPERTISE,
+				$pack_id,
+				(string) $pack['hash'],
+				$target,
+				[
+					'title'   => 'Expertise pack ' . $pack_id,
+					'details' => [
+						'Pack'              => $pack_id,
+						'From'              => $current,
+						'To'                => $target,
+						'Runtimes verified' => (string) count( $eligible_fingerprints ),
+						'Best score'        => (string) max( array_merge( [ 0.0 ], array_map( static fn( array $row ): float => (float) ( $row['curriculum_score'] ?? $row['score'] ?? 0 ), $eligible ) ) ),
+					],
+				],
+				'stable' === $target && count( $eligible_fingerprints ) < 2
+			);
+			if ( $grant instanceof \WP_Error ) {
+				return $grant;
+			}
+			$approval_note = (string) ( $grant['note'] ?? '' );
 		}
 		$pack['status']           = $target;
 		$pack['last_verified_at'] = gmdate( DATE_ATOM );

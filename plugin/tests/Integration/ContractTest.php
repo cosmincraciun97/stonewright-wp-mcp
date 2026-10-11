@@ -64,6 +64,7 @@ final class ContractTest extends TestCase {
 				'publish_posts',
 				'publish_pages',
 				'read_post',
+				'edit_comment',
 				'delete_post',
 				'edit_user',
 				'delete_user',

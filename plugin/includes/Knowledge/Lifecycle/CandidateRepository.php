@@ -4,6 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Knowledge\Lifecycle;
 
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
+use Stonewright\WpMcp\Security\AuditEvent;
+use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 use Stonewright\WpMcp\Support\Json;
@@ -14,6 +17,12 @@ final class CandidateRepository {
 	private const STATUSES = [ 'candidate', 'verified', 'approved', 'stale', 'rejected' ];
 
 	private const EVIDENCE_TYPES = [ 'official_docs', 'live_schema', 'fixture', 'user', 'design' ];
+
+	/** Calls that manage knowledge cannot be the evidence for knowledge. */
+	private const NON_EVIDENCE_PREFIXES = [ 'stonewright/knowledge-', 'stonewright/expertise-', 'stonewright/memory-', 'stonewright/learning-', 'stonewright/skills-', 'stonewright/feedback-' ];
+
+	/** How old an audit event may be and still count as a verified success. */
+	private const EVIDENCE_MAX_AGE = 30 * DAY_IN_SECONDS;
 
 	/**
 	 * @param array<string, mixed> $input
@@ -192,9 +201,111 @@ final class CandidateRepository {
 	}
 
 	/**
+	 * Count one verified success from a record the plugin wrote.
+	 *
+	 * A success counts only when it is a stored audit event of a real ability call that succeeded with its effect
+	 * verified. The caller names the event; the task id and the runtime fingerprint that are stored come from the
+	 * event and the live site, never from the caller.
+	 *
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function promote( int $id, bool $user_approved, string $approval_note, string $conflict_resolution = 'reject' ): array|\WP_Error {
+	public static function verify_from_event( int $id, string $event_id ): array|\WP_Error {
+		$event = AuditLog::find_event( $event_id );
+		if ( null === $event ) {
+			return self::unproven( 'No stored audit event has that id. Pass the event_id of a verified write the plugin recorded.' );
+		}
+
+		$ability = (string) ( $event['ability_name'] ?? '' );
+		foreach ( self::NON_EVIDENCE_PREFIXES as $prefix ) {
+			if ( str_starts_with( $ability, $prefix ) ) {
+				return self::unproven( 'Knowledge, expertise, memory and skill calls cannot verify themselves.' );
+			}
+		}
+		if (
+			! str_starts_with( $ability, 'stonewright/' )
+			|| AuditEvent::OUTCOME_SUCCESS !== strtoupper( (string) ( $event['outcome'] ?? '' ) )
+			|| 1 !== (int) ( $event['effect_verified'] ?? 0 )
+			|| ! in_array( strtolower( (string) ( $event['verification_status'] ?? '' ) ), [ 'verified', 'passed' ], true )
+		) {
+			return self::unproven( 'That audit event is not a successful call whose effect was verified.' );
+		}
+		$recorded = strtotime( (string) ( $event['created_at'] ?? '' ) . ' UTC' );
+		if ( false === $recorded || $recorded < time() - self::EVIDENCE_MAX_AGE ) {
+			return self::unproven( 'That audit event is too old to count as evidence.' );
+		}
+
+		return self::verify( $id, (string) $event['event_id'], (string) ( RuntimeFingerprint::describe()['hash'] ?? '' ), true );
+	}
+
+	/**
+	 * Stage the request that an administrator approves or rejects on the Skills screen.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function request_promotion( int $id, string $conflict_resolution = 'reject' ): array|\WP_Error {
+		$plan = self::promotion_plan( $id, $conflict_resolution );
+		if ( $plan instanceof \WP_Error ) {
+			return $plan;
+		}
+
+		return PromotionGrant::request( PromotionGrant::KIND_KNOWLEDGE, (string) $id, $plan['hash'], $plan['target'], $plan['summary'], $plan['requires_note'] );
+	}
+
+	/**
+	 * Activate a candidate as a site skill. Needs a grant that an administrator issued for this exact candidate;
+	 * without one the call stages the request and stops.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function promote( int $id, string $conflict_resolution = 'reject' ): array|\WP_Error {
+		$plan = self::promotion_plan( $id, $conflict_resolution );
+		if ( $plan instanceof \WP_Error ) {
+			return $plan;
+		}
+		$candidate = $plan['candidate'];
+		$conflicts = $plan['conflicts'];
+
+		$skills  = self::skills();
+		$payload = self::skill_payload( $candidate, $plan['slug'], 'active', (int) $candidate['verification_count'] );
+		$lint    = $skills->review_record( $payload );
+		if ( [] !== $lint['errors'] ) {
+			return new \WP_Error( 'stonewright_skill_lint_failed', 'The candidate skill failed promotion lint.', [ 'lint' => $lint ] );
+		}
+
+		$grant = PromotionGrant::require_grant( PromotionGrant::KIND_KNOWLEDGE, (string) $id, $plan['hash'], $plan['target'], $plan['summary'], $plan['requires_note'] );
+		if ( $grant instanceof \WP_Error ) {
+			return $grant;
+		}
+
+		// Skills this candidate replaces are withdrawn only after it has passed lint and a person approved it; a candidate that fails lint leaves them in service.
+		foreach ( $conflicts as $conflict ) {
+			$skills->withdraw_skill( (string) $conflict['slug'], (string) $candidate['semantic_fingerprint'] );
+		}
+		$skill_id = $skills->record_evidence( $payload );
+		if ( is_wp_error( $skill_id ) ) {
+			return new \WP_Error( 'stonewright_skill_promotion_failed', 'The candidate skill could not be activated.', [ 'root_error_code' => (string) $skill_id->get_error_code() ] );
+		}
+
+		self::update( $id, [ 'status' => 'approved', 'skill_slug' => $plan['slug'] ] );
+		return [
+			'candidate'          => self::get( $id ),
+			'skill_id'           => $skill_id,
+			'skill_slug'         => $plan['slug'],
+			'promotion_gate'     => 'administrator_approval',
+			'verification_count' => (int) $candidate['verification_count'],
+			'approval_note'      => (string) ( $grant['note'] ?? '' ),
+			'approved_by'        => (int) ( $grant['decided_by'] ?? 0 ),
+			'lint'               => $lint,
+			'replaced'           => array_values( array_map( static fn( array $row ): string => (string) $row['slug'], $conflicts ) ),
+		];
+	}
+
+	/**
+	 * What a promotion would do: the checks that need no approval, the exact binding of the grant and what the approver sees.
+	 *
+	 * @return array{candidate: array<string, mixed>, conflicts: list<array<string, mixed>>, slug: string, hash: string, target: string, requires_note: bool, summary: array{title: string, details: array<string, string>}}|\WP_Error
+	 */
+	private static function promotion_plan( int $id, string $conflict_resolution ): array|\WP_Error {
 		$candidate = self::get( $id );
 		if ( null === $candidate ) {
 			return new \WP_Error( 'stonewright_knowledge_candidate_not_found', 'Knowledge candidate not found.' );
@@ -202,15 +313,10 @@ final class CandidateRepository {
 		if ( in_array( (string) $candidate['status'], [ 'stale', 'rejected' ], true ) ) {
 			return new \WP_Error( 'stonewright_knowledge_candidate_not_promotable', 'Stale or rejected candidates must be researched again.' );
 		}
-		$approval_note = sanitize_textarea_field( $approval_note );
-		if ( (int) $candidate['verification_count'] < 2 && ( ! $user_approved || '' === $approval_note ) ) {
-			return new \WP_Error( 'stonewright_knowledge_promotion_gate', 'Promotion needs two verified successes or explicit user approval with a note.' );
-		}
 
-		$skills    = self::skills();
 		$conflicts = array_values(
 			array_filter(
-				$skills->topic_holders( (string) $candidate['topic'] ),
+				self::skills()->topic_holders( (string) $candidate['topic'] ),
 				static fn( array $skill ): bool => (string) ( $skill['semantic_fingerprint'] ?? '' ) !== (string) $candidate['semantic_fingerprint']
 			)
 		);
@@ -223,32 +329,37 @@ final class CandidateRepository {
 		}
 
 		$slug    = '' !== (string) $candidate['skill_slug'] ? (string) $candidate['skill_slug'] : 'learned-' . self::slugify( (string) $candidate['topic'] );
-		$payload = self::skill_payload( $candidate, $slug, 'active', (int) $candidate['verification_count'] );
-		$lint    = $skills->review_record( $payload );
-		if ( [] !== $lint['errors'] ) {
-			return new \WP_Error( 'stonewright_skill_lint_failed', 'The candidate skill failed promotion lint.', [ 'lint' => $lint ] );
+		$replace = [] !== $conflicts;
+		$details = [
+			'Evidence'           => (string) $candidate['evidence_type'],
+			'Verified successes' => (string) (int) $candidate['verification_count'],
+			'Failed attempts'    => (string) (int) $candidate['failure_count'],
+			'Skill'              => $slug,
+		];
+		if ( '' !== (string) $candidate['source_url'] ) {
+			$details['Source'] = (string) $candidate['source_url'];
 		}
-		// Skills this candidate replaces are withdrawn only after it has passed lint; a candidate that fails lint leaves them in service.
-		foreach ( $conflicts as $conflict ) {
-			$skills->withdraw_skill( (string) $conflict['slug'], (string) $candidate['semantic_fingerprint'] );
-		}
-		$skill_id = $skills->record_evidence( $payload );
-		if ( is_wp_error( $skill_id ) ) {
-			return new \WP_Error( 'stonewright_skill_promotion_failed', 'The candidate skill could not be activated.', [ 'root_error_code' => (string) $skill_id->get_error_code() ] );
+		if ( $replace ) {
+			$details['Replaces'] = implode( ', ', array_map( static fn( array $row ): string => (string) $row['slug'], $conflicts ) );
 		}
 
-		self::update( $id, [ 'status' => 'approved', 'skill_slug' => $slug ] );
 		return [
-			'candidate'      => self::get( $id ),
-			'skill_id'       => $skill_id,
-			'skill_slug'     => $slug,
-			'promotion_gate' => (int) $candidate['verification_count'] >= 2 ? 'verified_successes' : 'user_approval',
-			'approval_note'  => $approval_note,
-			'lint'           => $lint,
-			'replaced'       => array_values( array_map( static fn( array $row ): string => (string) $row['slug'], $conflicts ) ),
+			'candidate'     => $candidate,
+			'conflicts'     => $conflicts,
+			'slug'          => $slug,
+			'hash'          => (string) $candidate['semantic_fingerprint'],
+			'target'        => $replace ? 'activate_replace' : 'activate',
+			'requires_note' => (int) $candidate['verification_count'] < 2,
+			'summary'       => [
+				'title'   => (string) $candidate['topic'],
+				'details' => $details,
+			],
 		];
 	}
 
+	private static function unproven( string $message ): \WP_Error {
+		return new \WP_Error( 'stonewright_knowledge_verification_unproven', $message, [ 'status' => 400 ] );
+	}
 	/** @return array<string, mixed>|\WP_Error */
 	public static function set_status( int $id, string $status ): array|\WP_Error {
 		if ( ! in_array( $status, [ 'stale', 'rejected' ], true ) ) {

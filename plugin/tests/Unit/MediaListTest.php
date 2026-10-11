@@ -43,7 +43,7 @@ final class MediaListTest extends TestCase {
 				],
 			],
 		];
-		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true ];
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'read_post' => true ];
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
 	}
 

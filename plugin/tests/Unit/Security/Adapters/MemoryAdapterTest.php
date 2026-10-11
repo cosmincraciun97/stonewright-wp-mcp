@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Security\Adapters;
 
 use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
+use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\Adapters\MemoryAdapter;
 use Stonewright\WpMcp\Security\Adapters\OtherFamilies;
@@ -107,6 +108,15 @@ final class MemoryAdapterTest extends OtherFamilyLedgerTestCase {
 		self::assertCount( 1, $this->ledger_rows() );
 	}
 
+	public function test_the_ability_reports_an_entry_that_is_not_there_as_not_found(): void {
+		$result = ( new MemoryDelete() )->execute( [ 'id' => 404 ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_memory_not_found', $result->get_error_code() );
+		self::assertSame( 404, $result->get_error_data()['status'] ?? null );
+		self::assertSame( [], $this->ledger_rows() );
+	}
+
 	public function test_deleting_a_row_that_is_not_there_records_nothing(): void {
 		self::assertFalse( Memory::delete_by_id( 404 ) );
 
@@ -169,6 +179,46 @@ final class MemoryAdapterTest extends OtherFamilyLedgerTestCase {
 
 		self::assertSame( [ 'ok' => true, 'deleted' => true ], $result );
 		self::assertSame( [], $db->tables[ $db->prefix . 'stonewright_memory' ] );
+	}
+
+	public function test_a_save_that_creates_an_entry_is_recorded_and_its_undo_removes_it(): void {
+		$result = ( new MemorySave() )->execute( [ 'type' => 'project', 'scope' => 'site', 'key' => 'new-rule', 'name' => 'New rule', 'value' => [ 'a' => 1 ] ] );
+
+		self::assertTrue( $result['ok'] );
+		$id  = (string) $result['id'];
+		$row = $this->row_of( 'memory' );
+		self::assertSame( [ 'memory', $id, 'stonewright/memory-save', 'verified', true ], [ $row['resource_type'], $row['resource_id'], $row['ability'], $row['status'], $row['restorable'] ] );
+		self::assertStringStartsWith( 'Created memory entry', $row['summary'] );
+
+		$restore = OtherFamilies::restore( $row['change_id'] );
+
+		self::assertSame( 'succeeded', $restore['status'], (string) $restore['detail'] );
+		self::assertSame( [], $this->memory_rows() );
+	}
+
+	public function test_a_save_that_updates_an_entry_keeps_the_entry_it_replaced(): void {
+		$this->seed();
+
+		$result = ( new MemorySave() )->execute( [ 'type' => 'feedback', 'scope' => 'site', 'key' => 'brand-voice-9', 'name' => 'Brand voice', 'value' => [ 'tone' => 'bold' ] ] );
+
+		self::assertSame( 9, $result['id'] );
+		$row = $this->row_of( 'memory' );
+		self::assertStringStartsWith( 'Updated memory entry', $row['summary'] );
+		$before = ChangeLedger::read_image( $row['change_id'], 'before' );
+		self::assertEquals( [ 'tone' => 'plain', 'avoid' => [ 'jargon' ] ], $before['entry']['value'] );
+
+		$restore = OtherFamilies::restore( $row['change_id'] );
+
+		self::assertSame( 'succeeded', $restore['status'], (string) $restore['detail'] );
+		self::assertEquals( [ 'tone' => 'plain', 'avoid' => [ 'jargon' ] ], Memory::get_by_id( 9 )['value'] );
+	}
+
+	public function test_a_save_that_changes_nothing_records_nothing(): void {
+		$this->seed();
+
+		( new MemorySave() )->execute( [ 'type' => 'feedback', 'scope' => 'site', 'key' => 'brand-voice-9', 'name' => 'Brand voice', 'value' => [ 'tone' => 'plain', 'avoid' => [ 'jargon' ] ], 'confidence' => 0.9 ] );
+
+		self::assertSame( [], $this->ledger_rows() );
 	}
 
 	public function test_the_image_is_the_entry_without_its_id(): void {

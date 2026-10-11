@@ -831,8 +831,17 @@ final class ToolProfile extends AbilityKernel {
 			'content-model' => [
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/content-model-loop-grid-flow',
+				'stonewright/content-create-post',
+				'stonewright/content-update-post',
+				'stonewright/content-bulk-create',
+				'stonewright/content-duplicate-page',
 				'stonewright/media-list',
+				'stonewright/media-get',
+				'stonewright/media-set-alt',
+				'stonewright/media-optimize',
 				'stonewright/media-upload-batch',
+				'stonewright/seo-meta-get',
+				'stonewright/seo-meta-update',
 				'stonewright/site-capabilities',
 				'stonewright/site-plugins-list',
 				'stonewright/system-abilities-list',
@@ -843,23 +852,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
-				'stonewright/wc-status',
-				'stonewright/wc-product-list',
-				'stonewright/wc-product-get',
-				'stonewright/wc-product-save',
-				'stonewright/wc-product-delete',
-				'stonewright/wc-variation-list',
-				'stonewright/wc-variation-save',
-				'stonewright/wc-variation-delete',
-				'stonewright/wc-term-list',
-				'stonewright/wc-term-save',
-				'stonewright/wc-term-delete',
-				'stonewright/wc-attribute-list',
-				'stonewright/wc-attribute-save',
-				'stonewright/wc-attribute-delete',
-				'stonewright/wc-catalog-audit',
-				'stonewright/wc-order-list',
-				'stonewright/wc-sales-report',
 				'stonewright/acf-field-group-list',
 				'stonewright/acf-field-group-get',
 				'stonewright/acf-field-group-save',
@@ -868,11 +860,36 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/cpt-register',
 				'stonewright/cpt-list',
 				'stonewright/taxonomy-register',
+				'stonewright/wc-status',
+				'stonewright/wc-product-list',
+				'stonewright/wc-product-get',
+				'stonewright/wc-product-save',
+				'stonewright/wc-order-list',
+				'stonewright/wc-sales-report',
+				'stonewright/wc-catalog-audit',
+				// The profile lists more than 50 tools. A client cap of 50 trims from here down (WooCommerce variation, term and
+				// attribute upkeep, then the deletes) and keeps the content, custom post type, ACF and WooCommerce read and product tools.
+				'stonewright/wc-variation-list',
+				'stonewright/wc-variation-save',
+				'stonewright/wc-term-list',
+				'stonewright/wc-term-save',
+				'stonewright/wc-attribute-list',
+				'stonewright/wc-attribute-save',
+				'stonewright/wc-product-delete',
+				'stonewright/wc-variation-delete',
+				'stonewright/wc-term-delete',
+				'stonewright/wc-attribute-delete',
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/blocks-insert',
+				'stonewright/blocks-update',
+				'stonewright/blocks-remove',
 				'stonewright/section-reuse-find',
 				'stonewright/section-reuse-extract',
+				'stonewright/blocks-finalizer-runtime',
+				'stonewright/blocks-pending-batch',
+				'stonewright/blocks-finalize-batch',
 				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
@@ -886,6 +903,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/fse-read-template',
 				'stonewright/fse-write-template',
 				'stonewright/fse-write-global-styles',
+				'stonewright/patterns-list',
+				'stonewright/patterns-create',
+				'stonewright/patterns-update',
+				'stonewright/patterns-delete',
+				'stonewright/patterns-categories',
 				'stonewright/blocks-list-registered',
 				'stonewright/blocks-get-schema',
 				'stonewright/blocks-parse',
@@ -961,6 +983,10 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/security-create-one-time-link',
 					'stonewright/system-abilities-list',
 					'stonewright/menu-list',
+					'stonewright/menu-create',
+					'stonewright/menu-add-item',
+					'stonewright/menu-delete',
+					'stonewright/menu-assign-location',
 					'stonewright/wp-cli-status',
 					// Wave-3 admin ops (REST parity).
 					'stonewright/comment-list',
@@ -993,6 +1019,9 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/search-query',
 					'stonewright/oembed-resolve',
 					'stonewright/seo-status',
+					// Last: menus are routed here by task, theme chrome is rarer, and the profile is past a client cap of 50.
+					'stonewright/theme-chrome-get',
+					'stonewright/theme-chrome-update',
 				],
 			// essential and unknown aliases: compact public surface from AbilityRegistry.
 			default => ( static function () use ( $startup, $blueprints ): array {
@@ -1212,8 +1241,12 @@ final class ToolProfile extends AbilityKernel {
 			return 'site_admin';
 		}
 
-		if ( str_starts_with( $name, 'stonewright/wc-' ) ) {
+		if ( str_starts_with( $name, 'stonewright/wc-' ) || str_starts_with( $name, 'stonewright/seo-' ) ) {
 			return 'content_media';
+		}
+
+		if ( str_starts_with( $name, 'stonewright/patterns-' ) ) {
+			return 'gutenberg_fse';
 		}
 
 		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) || str_contains( $name, 'theme-builder' ) ) {

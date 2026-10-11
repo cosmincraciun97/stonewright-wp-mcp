@@ -20,9 +20,11 @@
  *                 Support\AbilitySourceFacts)
  *   - Permission: text after "Permissions::" in the full permission_callback() body
  *                 (brace-counting scanner to avoid early-return truncation)
- *   - Token     : uses ConfirmationGuard trait, ConfirmationToken::verify_or_error,
- *                 confirmation_token_error(), or production_safe_token_error()
- *   - Backup    : calls Backup::snapshot_post
+ *   - Token     : carries a production-safe confirmation gate (AbilitySourceFacts::token_gate_in),
+ *                 the same fact as gates.token in the public API contract
+ *   - Backup    : snapshots before it writes, directly or through a writer that does
+ *                 (AbilitySourceFacts::backs_up), the same fact as gates.backup in the contract
+ *   - Tests     : the test files that name the ability's class, slug or MCP tool name, or "none"
  *   - Validator : calls Validator::validate (DesignSpec or ThemeJson)
  *   - Status    : @stonewright-status docblock tag; default "stable"; "deprecated" when meta() says so
  *   - External  : calls that reach hosts outside the site (HTTP requests, downloads, oEmbed,
@@ -56,6 +58,12 @@ if ( ! file_exists( $autoload ) ) {
 require_once $autoload;
 
 define( 'TRAITS_FILE', AbilityAnnotations::traits_path() );
+
+/** A test file that names more than this many abilities is a sweep, not a test of one of them. */
+define( 'TEST_SWEEP_LIMIT', 12 );
+
+/** Most test files cited for one ability. */
+define( 'TEST_CITE_LIMIT', 2 );
 
 /**
  * Stub the minimum WordPress functions needed for autoloading.
@@ -263,29 +271,15 @@ function detect_permission( string $source ): string {
 }
 
 function detect_token( string $source ): string {
-	// Fix 2: also detect the two SandboxGuards/ConfirmationGuard helper methods.
-	if (
-		strpos( $source, 'use ConfirmationGuard' ) !== false
-		|| strpos( $source, 'ConfirmationToken::verify_or_error' ) !== false
-		|| strpos( $source, 'require_confirmation' ) !== false
-		|| strpos( $source, 'require_sandbox_confirmation' ) !== false
-		|| strpos( $source, 'confirmation_token_error(' ) !== false
-		|| strpos( $source, 'production_safe_token_error(' ) !== false
-		|| strpos( $source, 'audit_write(' ) !== false
-		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
-		// The rollback engine verifies the token itself.
-		|| strpos( $source, 'ChangeRollback::run(' ) !== false
-	) {
-		return 'Yes';
-	}
-	return 'No';
+	// The same fact the public API contract records as gates.token.
+	return AbilitySourceFacts::token_gate_in( $source ) ? 'Yes' : 'No';
 }
 
 // The public API contract reads the same detector, so the two documents never disagree.
 function detect_backup( string $source ): string {
-	return AbilitySourceFacts::has_backup_gate( $source ) ? 'Yes' : 'No';
+	// The same fact the public API contract records as gates.backup.
+	return AbilitySourceFacts::backs_up( $source ) ? 'Yes' : 'No';
 }
-
 function detect_validator( string $source ): string {
 	if ( strpos( $source, 'SettingsValidator::validate_tree' ) !== false ) {
 		return 'Yes (Elementor)';
@@ -332,57 +326,106 @@ function detect_status( string $source, bool $deprecated = false ): string {
 	return 'stable';
 }
 
-function find_test_file( string $class ): string {
-	$short   = substr( $class, strrpos( $class, '\\' ) + 1 );
-	$domain  = '';
+/**
+ * Test files that exercise each ability: the ones that name its class (Abilities\Domain\Name) or
+ * its slug or MCP tool name (stonewright/name, stonewright-name). Nothing is guessed from the
+ * domain, so an ability no test names shows "none".
+ *
+ * An ability that shares its write path with others through a base class (the generated widget
+ * abilities, for one) that no test names itself is cited with the tests that name that base class.
+ *
+ * A file that names more than TEST_SWEEP_LIMIT abilities is a sweep (profiles, registration,
+ * the matrix itself), not a test of one ability, and is cited only for an ability whose class name
+ * it carries in its file name.
+ *
+ * @param array<string, array{slug: string, class: string, base: string}> $abilities Facts by class; base is the relative name of the ability base class it extends, or ''.
+ * @return array<string, string[]> Relative test paths by ability class, best first.
+ */
+function build_test_index( array $abilities ): array {
+	$plugin_dir = PLUGIN_DIR;
+	$files      = [];
+	foreach ( [ 'tests/Unit', 'tests/Integration' ] as $dir ) {
+		if ( ! is_dir( $plugin_dir . '/' . $dir ) ) {
+			continue;
+		}
+		$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $plugin_dir . '/' . $dir, FilesystemIterator::SKIP_DOTS ) );
+		foreach ( $iterator as $file ) {
+			if ( $file->isFile() && str_ends_with( $file->getFilename(), 'Test.php' ) ) {
+				$files[] = str_replace( '\\', '/', substr( $file->getPathname(), strlen( $plugin_dir ) + 1 ) );
+			}
+		}
+	}
+	sort( $files, SORT_STRING );
 
-	// Classes whose own suite is more specific than the domain default.
-	$class_tests = [
-		'DirectionList'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
-		'DirectionGet'      => 'tests/Unit/Design/DirectionAbilitiesTest.php',
-		'DirectionSave'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
-		'DirectionCapture'  => 'tests/Unit/Design/DirectionCaptureAbilityTest.php',
-		'DirectionActivate' => 'tests/Unit/Design/DirectionAbilitiesTest.php',
-		'DirectionRestore'  => 'tests/Unit/Design/DirectionAbilitiesTest.php',
-		'DirectionSyncPlan'  => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
-		'DirectionSyncApply' => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
-		'QualityCheck'       => 'tests/Unit/Design/QualityCheckAbilityTest.php',
-		'CheckpointRecord'   => 'tests/Unit/Design/DesignCheckpointTest.php',
-		'CancelFinalizerChanges' => 'tests/Unit/Gutenberg/CancelFinalizerChangesTest.php',
-		'RescueStatus'           => 'tests/Unit/Security/RescueAbilitiesTest.php',
-		'RescueRollback'         => 'tests/Unit/Security/RescueAbilitiesTest.php',
-		'ChangeHistoryList'      => 'tests/Unit/Abilities/Security/ChangeHistoryListTest.php',
-		'ChangeDiffGet'          => 'tests/Unit/Abilities/Security/ChangeDiffGetTest.php',
-		'ChangeRollback'         => 'tests/Unit/Abilities/Security/ChangeRollbackAbilityTest.php',
-	];
-	if ( isset( $class_tests[ $short ] ) ) {
-		return $class_tests[ $short ];
+	// Per file: ability class => number of mentions, and base class => number of mentions.
+	$mentions      = [];
+	$base_mentions = [];
+	foreach ( $files as $file ) {
+		$content = (string) file_get_contents( $plugin_dir . '/' . $file );
+		foreach ( $abilities as $class => $facts ) {
+			$count  = 2 * preg_match_all( '/Abilities\\\\' . preg_quote( $facts['class'], '/' ) . '(?![A-Za-z0-9_])/', $content );
+			$bare   = preg_quote( substr( $facts['slug'], strlen( 'stonewright/' ) ), '/' );
+			$count += preg_match_all( '/stonewright[\/-]' . $bare . '(?![A-Za-z0-9_-])/', $content );
+			if ( $count > 0 ) {
+				$mentions[ $file ][ $class ] = $count;
+			}
+			if ( '' !== $facts['base'] && ! isset( $base_mentions[ $file ][ $facts['base'] ] ) ) {
+				$base_mentions[ $file ][ $facts['base'] ] = preg_match_all( '/Abilities\\\\' . preg_quote( $facts['base'], '/' ) . '(?![A-Za-z0-9_])/', $content );
+			}
+		}
 	}
 
-	if ( preg_match( '/Abilities\\\\([^\\\\]+)\\\\/', $class, $m ) ) {
-		$domain = $m[1];
+	$index = [];
+	foreach ( $abilities as $class => $facts ) {
+		$short  = substr( $facts['class'], (int) strrpos( '\\' . $facts['class'], '\\' ) );
+		$scored = [];
+		foreach ( $mentions as $file => $by_class ) {
+			if ( ! isset( $by_class[ $class ] ) ) {
+				continue;
+			}
+			$named = str_contains( basename( $file ), $short );
+			if ( count( $by_class ) > TEST_SWEEP_LIMIT && ! $named ) {
+				continue;
+			}
+			// A file named after the class first, then the file that names this ability most,
+			// and among equals the one that names the fewest other abilities.
+			$scored[ $file ] = [ $named ? 1 : 0, $by_class[ $class ], -count( $by_class ) ];
+		}
+		uasort(
+			$scored,
+			static fn( array $a, array $b ): int => $b <=> $a
+		);
+		if ( [] === $scored && '' !== $facts['base'] ) {
+			foreach ( $base_mentions as $file => $by_base ) {
+				if ( ( $by_base[ $facts['base'] ] ?? 0 ) > 0 && count( $mentions[ $file ] ?? [] ) <= TEST_SWEEP_LIMIT ) {
+					$scored[ $file ] = [ 0, $by_base[ $facts['base'] ], 0 ];
+				}
+			}
+			uasort( $scored, static fn( array $a, array $b ): int => $b <=> $a );
+		}
+		$index[ $class ] = array_slice( array_keys( $scored ), 0, TEST_CITE_LIMIT );
 	}
 
-	// Look for a well-known test file keyed to the domain.
-	$domain_tests = [
-		'ElementorV3'    => 'tests/Integration/ElementorWriterTest.php',
-		'ElementorV4'    => 'tests/Integration/ElementorWriterTest.php',
-		'ElementorWidget' => 'tests/Unit/WidgetDefineTest.php',
-		'FSE'            => 'tests/Unit/FseWriteSafetyTest.php',
-		'Gutenberg'      => 'tests/Unit/GutenbergRendererTest.php',
-		'Content'        => 'tests/Unit/ContentCapabilityTest.php',
-		'Design'         => 'tests/Integration/DesignIngestionTest.php',
-		'Runtime'        => 'tests/Unit/Runtime/PhpExecuteTest.php',
-		'WpCli'          => 'tests/Unit/WpCli/WpCliAbilitiesTest.php',
-		'Sandbox'        => 'tests/Unit/SandboxManifestTest.php',
-		'Memory'         => 'tests/Unit/AbilityKernelAuditTest.php',
-		'System'         => 'tests/Unit/AbilityKernelAuditTest.php',
-		'Site'           => 'tests/Unit/AbilityKernelAuditTest.php',
-		'Security'       => 'tests/Unit/ConfirmationTokenTest.php',
-		'Media'          => 'tests/Unit/AssetSideloaderTest.php',
-		'Patterns'       => 'tests/Unit/AbilityKernelAuditTest.php',
-	];
-	return $domain_tests[ $domain ] ?? 'tests/Unit/AbilityKernelAuditTest.php';
+	return $index;
+}
+/**
+ * The Tests cell: every cited file in backticks, or "none" when no test names the ability.
+ *
+ * @param string[] $files Relative test paths.
+ */
+function ability_base_class( string $class ): string {
+	$parent = get_parent_class( $class );
+	if ( false === $parent || \Stonewright\WpMcp\Abilities\AbilityKernel::class === $parent ) {
+		return '';
+	}
+	return short_class( $parent );
+}
+
+function format_test_files( array $files ): string {
+	if ( [] === $files ) {
+		return 'none';
+	}
+	return implode( ', ', array_map( static fn( string $file ): string => '`' . $file . '`', $files ) );
 }
 
 function short_class( string $class ): string {
@@ -438,7 +481,7 @@ function matrix_table_row( array $row ): string {
 	$line .= '| ' . $row['backup'] . ' ';
 	$line .= '| ' . $row['validator'] . ' ';
 	$line .= '| ' . $row['status'] . ' ';
-	$line .= '| `' . $row['tests'] . '` ';
+	$line .= '| ' . $row['tests'] . ' ';
 	$line .= '| ' . $row['external'] . ' ';
 	$line .= '| ' . $row['hints'] . ' |';
 	return $line;
@@ -518,6 +561,22 @@ $category_labels = [
 	'Sandbox'         => 'Sandbox',
 ];
 
+/** @var array<string, array{slug: string, class: string, base: string}> $ability_names */
+$ability_names = [];
+foreach ( get_registered_classes() as $class ) {
+	try {
+		$ability_names[ $class ] = [
+			'slug'    => ( new $class() )->name(),
+			'class'   => short_class( $class ),
+			'base'    => ability_base_class( $class ),
+		];
+	} catch ( \Throwable $e ) {
+		// Reported once more in the main loop below.
+		continue;
+	}
+}
+$test_index = build_test_index( $ability_names );
+
 foreach ( get_registered_classes() as $class ) {
 	// Fix 3: walk parent class chain and union sources.
 	$source = source_with_parents( $class );
@@ -566,7 +625,7 @@ foreach ( get_registered_classes() as $class ) {
 		'backup'    => detect_backup( $source ),
 		'validator' => detect_validator( $source ),
 		'status'    => detect_status( $source, $deprecated ),
-		'tests'     => find_test_file( $class ),
+		'tests'     => format_test_files( $test_index[ $class ] ?? [] ),
 		'external'  => $facts['external'] ? 'Yes' : 'No',
 		'hints'     => $hints,
 	];
@@ -587,11 +646,11 @@ $lines[] = '';
 $lines[] = '- **R/W**: `Read` = no WP state mutation; `Write` = mutates posts, options, meta, or files, records its call through the kernel wrapper for writes, or carries a confirmation gate.';
 $lines[] = '- **MCP Tool**: the callable MCP tool name. The WordPress MCP Adapter exposes `stonewright/foo` as `stonewright-foo`.';
 $lines[] = '- **Permission**: the `Permissions::` method called from `permission_callback()`.';
-$lines[] = '- **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.';
-$lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation.';
+$lines[] = '- **Token**: the ability carries a production-safe confirmation gate (`ConfirmationGuard`, `ConfirmationToken::verify_or_error()`, the kernel write wrapper or an engine that verifies the token for it). A gate that applies to some modes of the ability only still counts. Same fact as `gates.token` in the public API contract.';
+$lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation, directly or through a writer that does (see `Support\AbilitySourceFacts`). Same fact as `gates.backup` in the public API contract.';
 $lines[] = '- **Validator**: calls an Elementor, DesignSpec, ThemeJson, or Design Direction validator.';
 $lines[] = '- **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag), or `deprecated` for an ability whose `meta()` reports `deprecated` (it names its replacement and sunset version there).';
-$lines[] = '- **Tests**: primary test file for this ability.';
+$lines[] = '- **Tests**: the test files that name the ability\'s class, slug or MCP tool name (at most two, the most specific first); `none` when no test does. Files that name a dozen abilities or more, such as the profile and registration suites, are not cited.';
 $lines[] = '- **External**: `Yes` = the code of the ability makes HTTP requests, downloads, oEmbed lookups or sideloads (what the source shows). Abilities that run arbitrary code or commands (`php-execute`, the WP-CLI runners, `execute-ability`) are marked `open-world` in Hints by an override although this column says `No`.';
 $lines[] = '- **Hints**: the MCP tool annotations the ability registers. `read-only` abilities are also idempotent and never destructive; the others are `additive` (they only add) or `destructive`, optionally `idempotent`; `open-world` marks a tool that reaches hosts outside the site. They come from the R/W and External facts and the verb in the ability name, and an ability can override them in its `meta()`.';
 $lines[] = '';

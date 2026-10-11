@@ -34,6 +34,9 @@ final class MemoryAdapter extends FamilyAdapter {
 	/** The name a row has when the delete did not come from an ability call. */
 	public const ABILITY = 'stonewright/memory-delete';
 
+	/** The name a row has when the save did not come from an ability call. */
+	public const SAVE_ABILITY = 'stonewright/memory-save';
+
 	public static function types(): array {
 		return [ 'memory' ];
 	}
@@ -95,6 +98,58 @@ final class MemoryAdapter extends FamilyAdapter {
 				]
 			);
 			FamilyLedger::settle( $change, 'verified' );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'change_ledger_record_failed', [ 'error' => $failure::class, 'family' => self::FAMILY ] );
+		}
+	}
+
+	/**
+	 * What a save needs to remember until it has written: the entry as it is now, or null for an entry that is
+	 * about to be created. Returns null when the write is not to be recorded.
+	 *
+	 * @return array{before:array<string, mixed>|null}|null
+	 */
+	public static function before_write( int $existing_id ): ?array {
+		try {
+			if ( FamilyLedger::restoring() || ! FamilyLedger::ready() ) {
+				return null;
+			}
+			return [ 'before' => $existing_id > 0 ? self::image( 'memory', (string) $existing_id ) : null ];
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'change_ledger_capture_failed', [ 'error' => $failure::class, 'family' => self::FAMILY ] );
+			return null;
+		}
+	}
+
+	/**
+	 * Record a save that has written. An entry that is the same as before, apart from the time of the write,
+	 * leaves no row.
+	 *
+	 * @param array{before:array<string, mixed>|null}|null $held What before_write() returned.
+	 */
+	public static function after_write( int $id, ?array $held ): void {
+		if ( null === $held || $id < 1 ) {
+			return;
+		}
+		try {
+			$before = $held['before'];
+			$after  = self::image( 'memory', (string) $id );
+			if ( null === $after || ( null !== $before && [] === self::differences( $before, $after, [ 'entry.updated_at' ] ) ) ) {
+				return;
+			}
+			$ability = RescueGuard::current_ability( self::SAVE_ABILITY );
+			$spec    = [
+				'ability'       => $ability,
+				'family'        => self::FAMILY,
+				'resource_type' => 'memory',
+				'resource_id'   => (string) $id,
+				'before'        => $before,
+				'summary'       => self::summarize( $ability, 'memory', (string) $id, $before, $after ),
+			];
+			if ( null === $before ) {
+				$spec['restorable'] = true;
+			}
+			FamilyLedger::settle( FamilyLedger::record( $spec ), 'verified', $after );
 		} catch ( \Throwable $failure ) {
 			Logger::warning( 'change_ledger_record_failed', [ 'error' => $failure::class, 'family' => self::FAMILY ] );
 		}

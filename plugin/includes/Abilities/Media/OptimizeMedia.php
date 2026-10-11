@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Media;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Media\AttachmentMetaSnapshot;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -22,7 +23,7 @@ final class OptimizeMedia extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates attachment metadata and intermediate image sizes.', 'stonewright' );
+		return __( 'Regenerates attachment metadata and intermediate image sizes. The new metadata is merged into the existing metadata, which is saved first and returned as snapshot_id.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -45,8 +46,9 @@ final class OptimizeMedia extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'id'    => [ 'type' => 'integer' ],
-				'sizes' => [ 'type' => 'array' ],
+				'id'          => [ 'type' => 'integer' ],
+				'snapshot_id' => [ 'type' => 'string', 'description' => 'Id of the attachment metadata saved before the rewrite.' ],
+				'sizes'       => [ 'type' => 'array' ],
 			],
 		];
 	}
@@ -68,12 +70,23 @@ final class OptimizeMedia extends AbilityKernel {
 					return $this->error( 'file_missing', __( 'Original file is missing.', 'stonewright' ) );
 				}
 
-				$meta = wp_generate_attachment_metadata( $id, $file );
+				// The attachment metadata is rewritten, so the current metadata is kept first and the new metadata is
+				// laid over it instead of replacing it. A write without a way back does not run.
+				$existing    = wp_get_attachment_metadata( $id );
+				$existing    = is_array( $existing ) ? $existing : [];
+				$snapshot_id = AttachmentMetaSnapshot::take( $id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+
+				$generated = wp_generate_attachment_metadata( $id, $file );
+				$meta      = AttachmentMetaSnapshot::merge( $existing, is_array( $generated ) ? $generated : [] );
 				wp_update_attachment_metadata( $id, $meta );
 
 				return [
-					'id'    => $id,
-					'sizes' => isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ? array_keys( $meta['sizes'] ) : [],
+					'id'          => $id,
+					'snapshot_id' => $snapshot_id,
+					'sizes'       => isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ? array_keys( $meta['sizes'] ) : [],
 				];
 			}
 		);

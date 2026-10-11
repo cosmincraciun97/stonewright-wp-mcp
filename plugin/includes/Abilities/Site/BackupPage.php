@@ -61,11 +61,17 @@ final class BackupPage extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		$post_id = (int) $args['post_id'];
-		$id      = Backup::snapshot_post( $post_id );
-		if ( '' === $id ) {
-			return $this->error( 'snapshot_failed', __( 'Could not create snapshot.', 'stonewright' ) );
-		}
-		return [ 'snapshot_id' => $id, 'post_id' => $post_id ];
+		// A backup holds no confirmation token (it changes no live content), so it is audited without that gate.
+		return $this->audit(
+			$args,
+			function ( array $args ): array|\WP_Error {
+				$post_id = (int) $args['post_id'];
+				$id      = Backup::snapshot_post( $post_id );
+				if ( '' === $id ) {
+					return $this->error( 'snapshot_failed', __( 'Could not create snapshot.', 'stonewright' ) );
+				}
+				return [ 'snapshot_id' => $id, 'post_id' => $post_id ];
+			}
+		);
 	}
 }

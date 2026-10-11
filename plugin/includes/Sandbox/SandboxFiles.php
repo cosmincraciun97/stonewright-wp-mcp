@@ -724,6 +724,20 @@ final class SandboxFiles {
 			return new \WP_Error( 'stonewright_sandbox_not_disabled', "No disabled twin found for: {$name}" );
 		}
 
+		// The twin may have been changed while it was off: it goes through the guard again before it can load.
+		$contents = file_get_contents( $disabled_path );
+		if ( false === $contents ) {
+			return new \WP_Error( 'stonewright_sandbox_enable_error', "Could not read the disabled twin: {$name}" );
+		}
+		$errors = StaticGuard::scan( $contents );
+		if ( ! empty( $errors ) ) {
+			return new \WP_Error(
+				'stonewright_sandbox_static_guard',
+				'Static guard blocked enabling: ' . implode( '; ', $errors ),
+				[ 'violations' => $errors ]
+			);
+		}
+
 		if ( ! rename( $disabled_path, $mu_path ) ) {
 			return new \WP_Error( 'stonewright_sandbox_enable_error', "Could not re-enable mu-plugins twin: {$name}" );
 		}

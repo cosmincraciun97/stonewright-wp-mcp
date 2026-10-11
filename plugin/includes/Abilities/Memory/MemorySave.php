@@ -41,9 +41,9 @@ final class MemorySave extends AbilityKernel {
 					'type' => 'string',
 					'enum' => Memory::valid_types(),
 				],
-				'scope'      => [ 'type' => 'string' ],
-				'key'        => [ 'type' => 'string' ],
-				'name'       => [ 'type' => 'string' ],
+				'scope'      => [ 'type' => 'string', 'maxLength' => 64 ],
+				'key'        => [ 'type' => 'string', 'maxLength' => 190 ],
+				'name'       => [ 'type' => 'string', 'maxLength' => 190 ],
 				'value'      => [],
 				'confidence' => [
 					'type'    => 'number',

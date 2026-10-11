@@ -154,6 +154,10 @@ development builds were never stable releases.
   is never blocked, refused or changed, a failure of the recording is only logged,
   and a call that comes through `stonewright-elementor-native-execute` is recorded
   once, by that tool.
+- Add the Pending approvals card to the Skills screen. An administrator sees
+  each request to promote researched knowledge or an expertise pack there, with
+  the evidence and a note field, and approves or rejects it with a nonce-checked
+  form that needs `manage_options`.
 
 ### Changed
 
@@ -323,6 +327,24 @@ development builds were never stable releases.
   Elementor version is outside the certified range or could not be read.
   `stonewright-elementor-provider-discovery` derives its `provider_policy` from
   the contract files and declares every key it returns in its output schema.
+- Accept a `page` argument in `stonewright-search-query` and return `page`,
+  `per_page` and `total_pages` next to `total`.
+- Add the block insert, update and remove, finalizer and pattern tools to the
+  `gutenberg` tool profile, the content, media and SEO tools to the
+  `content-model` profile, and the menu and theme chrome tools to the
+  `site-admin` profile. The `content-model` and `site-admin` profiles list more
+  than the default client cap of 50 tools, so the cap trims the last tools of
+  those two lists.
+- Stop promoting a knowledge candidate by itself after two verified successes.
+  The plugin now stages the candidate for an administrator instead. The
+  `user_approved`, `approval_note` and `maintainer_approved` arguments of
+  `stonewright-knowledge-candidate-record` and `stonewright-expertise-promote`
+  are ignored.
+- Record the live runtime fingerprint itself when a verified success is counted
+  for a knowledge candidate, instead of taking it from the caller.
+- Write `source_url` and titles of `stonewright-elementor-knowledge-refresh` as
+  escaped frontmatter values.
+- Bound the orphan postmeta check of `stonewright-site-pulse` to 1000 rows.
 
 ### Fixed
 
@@ -537,6 +559,32 @@ development builds were never stable releases.
   `manage-global-variable` stay certified with the native write refused. This
   line corrects the 1.0.0-beta.14 notes. The `site-capabilities` description no
   longer says that no native write is routable.
+- Check the capability for the individual comment in `comment-get`,
+  `comment-update` and `comment-delete` (`edit_comment`), and list and count only
+  the comments the user may edit in `comment-list`.
+- Save the attachment metadata before `media-optimize` rewrites it, merge the
+  regenerated metadata into the existing metadata instead of replacing it, and
+  return the snapshot as `snapshot_id`.
+- Check read access for each attachment in `media-get` and `media-list`.
+- Require the task context token for `change-restore`, `knowledge-import`,
+  `elementor-knowledge-refresh`, `feedback-capture` and `site-backup-page`, as
+  for the other write abilities.
+- Record memory saves, knowledge imports, and plugin activation and
+  deactivation in the change history. A memory save can be undone from it.
+- Return "not found" from `memory-delete` for an id that does not exist, and
+  limit `scope`, `key` and `name` of `memory-save` to the stored column widths.
+- Write an audit row for `site-backup-page` and for
+  `security-issue-confirmation-token`; the token is never stored in it.
+- Say in the descriptions of `plugin-activate` and `plugin-deactivate` that a
+  confirmation token is required in production-safe mode.
+- Take the Backup, Token and read/write columns of the ability truth matrix from
+  the same source facts as the public API contract, and cite in its Tests column
+  only test files that name the ability (`none` when no test does).
+  `security-audit-reconcile` and `security-issue-confirmation-token` are listed
+  as writes, `security-audit-reconcile` as gated, and abilities that snapshot
+  through a shared writer as backed up.
+- Annotate `elementor-v3-save-template` as additive, since every call creates a
+  new template.
 
 ### Security
 
@@ -690,6 +738,15 @@ development builds were never stable releases.
 - Pass the tree of a whole-document replace (`replace_tree`) through the HTML
   widget policy and the custom code gate inside the transaction runner, so every
   caller of it is gated, not only `elementor-v3-transaction-run`.
+- Require an administrator's approval in wp-admin before researched knowledge
+  becomes an active site skill, or an expertise pack becomes verified or stable.
+  The promotion call stages a request and returns an approval link. An approval
+  works once, for that exact candidate or pack, and expires after an hour. A
+  verified success counts only when it names a stored audit event of a call that
+  succeeded with its effect verified.
+- Reject URLs with control characters, spaces or quote characters in
+  `stonewright-elementor-knowledge-refresh`.
+- Run the static guard again when a disabled sandbox file is enabled.
 
 ### Documentation
 

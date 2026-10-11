@@ -59,6 +59,7 @@ final class OptionsAdapter {
 	private const STATIC_RULES = [
 		'stonewright/site-set-front-page'     => [ 'options' => [ 'show_on_front', 'page_on_front' ], 'entries' => [], 'theme_mods' => [], 'autoload' => null ],
 		'stonewright/system-instructions-set' => [ 'options' => [ 'stonewright_custom_instructions', 'stonewright_custom_instructions_enabled' ], 'entries' => [], 'theme_mods' => [], 'autoload' => null ],
+		'stonewright/knowledge-import'        => [ 'options' => [ 'stonewright_custom_instructions', 'stonewright_custom_instructions_enabled', 'stonewright_memory_enabled' ], 'entries' => [], 'theme_mods' => [], 'autoload' => null ],
 		'stonewright/cpt-register'            => [ 'options' => [], 'entries' => [ 'cptui_post_types' ], 'theme_mods' => [], 'autoload' => false ],
 		'stonewright/taxonomy-register'       => [ 'options' => [], 'entries' => [ 'cptui_taxonomies' ], 'theme_mods' => [], 'autoload' => false ],
 		'stonewright/acf-field-group-save'    => [ 'options' => [], 'entries' => [ 'stonewright_acf_field_groups' ], 'theme_mods' => [], 'autoload' => false ],

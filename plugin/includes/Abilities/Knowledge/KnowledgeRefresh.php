@@ -128,7 +128,8 @@ final class KnowledgeRefresh extends AbilityKernel {
 			$args,
 			function ( array $a ): array|\WP_Error {
 				$url = isset( $a['url'] ) && is_string( $a['url'] ) ? trim( $a['url'] ) : '';
-				if ( $url === '' || ! preg_match( '#^https?://#', $url ) ) {
+				// Control characters, spaces and quote-like characters never belong in a URL and would break the frontmatter line it is written on.
+				if ( $url === '' || ! preg_match( '#^https?://#', $url ) || preg_match( '/[\x00-\x20\x7f"<>`\\\\]/', $url ) ) {
 					return $this->error( 'invalid_url', __( 'A valid http(s) URL is required.', 'stonewright' ), [ 'status' => 400 ] );
 				}
 
@@ -226,7 +227,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 				$fetched_at  = gmdate( 'c' );
 				$frontmatter = "---\n"
 					. "title: " . self::yaml_escape( $title ) . "\n"
-					. "source_url: " . $url . "\n"
+					. "source_url: " . self::yaml_escape( $url ) . "\n"
 					. "fetched_at: " . $fetched_at . "\n"
 					. "content_hash: " . $hash . "\n"
 					. "applies_to: [" . self::yaml_list( self::infer_applies_to( $hub, $slug ) ) . "]\n"
@@ -379,8 +380,8 @@ final class KnowledgeRefresh extends AbilityKernel {
 		if ( $v === '' ) {
 			return '""';
 		}
-		if ( preg_match( "/[:#\n\r\"']|^[-?]/", $v ) ) {
-			$v = str_replace( '"', '\"', $v );
+		if ( preg_match( "/[:#\n\r\"'\\\\]|^[-?]/", $v ) ) {
+			$v = str_replace( [ '\\', '"', "\r", "\n" ], [ '\\\\', '\\"', '\\r', '\\n' ], $v );
 			return '"' . $v . '"';
 		}
 		return $v;

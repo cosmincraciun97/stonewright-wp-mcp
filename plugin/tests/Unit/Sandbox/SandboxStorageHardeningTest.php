@@ -150,6 +150,33 @@ final class SandboxStorageHardeningTest extends TestCase {
 		self::assertSame( [], SandboxFiles::backup_versions( 'hard-note.php' ) );
 	}
 
+	public function test_enable_scans_the_disabled_twin_again_and_refuses_code_the_guard_blocks(): void {
+		SandboxFiles::write( 'hard-note.php', "<?php\n// clean\n" );
+		self::assertTrue( SandboxFiles::activate( 'hard-note.php' ) );
+		self::assertTrue( SandboxFiles::disable( 'hard-note.php' ) );
+		$disabled = $this->mu_dir . '/stonewright-sandbox-hard-note.php.disabled';
+		self::assertFileExists( $disabled );
+		// The twin was changed while it was off.
+		file_put_contents( $disabled, "<?php\ndefined( 'ABSPATH' ) || exit;\neval( \$_POST['x'] );\n" );
+
+		$result = SandboxFiles::enable( 'hard-note.php' );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_sandbox_static_guard', $result->get_error_code() );
+		self::assertFileExists( $disabled, 'The twin stays off.' );
+		self::assertFileDoesNotExist( $this->mu_dir . '/stonewright-sandbox-hard-note.php' );
+	}
+
+	public function test_enable_still_switches_on_a_twin_that_passes_the_scan(): void {
+		SandboxFiles::write( 'hard-note.php', "<?php\n// clean\n" );
+		self::assertTrue( SandboxFiles::activate( 'hard-note.php' ) );
+		self::assertTrue( SandboxFiles::disable( 'hard-note.php' ) );
+
+		self::assertTrue( SandboxFiles::enable( 'hard-note.php' ) );
+
+		self::assertFileExists( $this->mu_dir . '/stonewright-sandbox-hard-note.php' );
+	}
+
 	public function test_delete_also_clears_backups_that_outlived_their_draft(): void {
 		file_put_contents( $this->dir . '/hard-note.1700000000.bak', "<?php\n// orphan\n" );
 

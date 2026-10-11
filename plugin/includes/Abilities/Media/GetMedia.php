@@ -54,6 +54,9 @@ final class GetMedia extends AbilityKernel {
 		if ( ! $post || 'attachment' !== $post->post_type ) {
 			return $this->error( 'not_found', __( 'Attachment not found.', 'stonewright' ) );
 		}
+		if ( ! Permissions::read_post( $id ) ) {
+			return $this->error( 'forbidden', __( 'Insufficient capability to read this attachment.', 'stonewright' ), [ 'status' => 403 ] );
+		}
 
 		$meta = wp_get_attachment_metadata( $id );
 

@@ -357,11 +357,11 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_token( string $source ): bool {
-		return AbilitySourceFacts::has_token_gate( $source );
+		return AbilitySourceFacts::token_gate_in( $source );
 	}
 
 	private static function detect_backup( string $source ): bool {
-		return AbilitySourceFacts::has_backup_gate( $source );
+		return AbilitySourceFacts::backs_up( $source );
 	}
 
 	private static function detect_validator( string $source ): bool {

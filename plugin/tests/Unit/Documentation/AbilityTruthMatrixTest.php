@@ -398,6 +398,123 @@ final class AbilityTruthMatrixTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// R/W, Token and Backup columns come from the facts the contract uses
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @return array<string, array{string, string, string, string}>
+	 */
+	public static function fact_rows(): array {
+		return [
+			'audit reconcile applies a migration and verifies the token inside the migration' => [ 'stonewright/security-audit-reconcile', 'Write', 'Yes', 'No' ],
+			'issuing a token stores one but needs none'                  => [ 'stonewright/security-issue-confirmation-token', 'Write', 'No', 'No' ],
+			'a read has no gate and no backup'                           => [ 'stonewright/content-get-page', 'Read', 'No', 'No' ],
+			'wire loop snapshots through the loop transaction'           => [ 'stonewright/elementor-wire-loop', 'Write', 'Yes', 'Yes' ],
+			'the transaction runner snapshots'                           => [ 'stonewright/elementor-v3-transaction-run', 'Write', 'Yes', 'Yes' ],
+			'direction sync apply snapshots the kit'                     => [ 'stonewright/design-direction-sync-apply', 'Write', 'Yes', 'Yes' ],
+			'native execute snapshots through the provider'              => [ 'stonewright/elementor-native-execute', 'Write', 'Yes', 'Yes' ],
+			'apply to post writes through the Elementor writer'          => [ 'stonewright/design-apply-to-post', 'Write', 'Yes', 'Yes' ],
+			'motion apply for Gutenberg delegates to the batch mutate'   => [ 'stonewright/design-motion-apply-gutenberg', 'Write', 'Yes', 'Yes' ],
+			'motion apply for Elementor delegates to the batch mutate'   => [ 'stonewright/design-motion-apply-elementor-v3', 'Write', 'Yes', 'Yes' ],
+			'blueprint apply snapshots every page it touches'            => [ 'stonewright/blueprint-apply', 'Write', 'Yes', 'Yes' ],
+			'global styles writes snapshot the global styles post'       => [ 'stonewright/fse-write-global-styles', 'Write', 'Yes', 'Yes' ],
+			'direction save stores a record, not a post'                 => [ 'stonewright/design-direction-save', 'Write', 'Yes', 'No' ],
+		];
+	}
+
+	/**
+	 * @dataProvider fact_rows
+	 */
+	public function test_the_fact_columns_of_named_rows( string $slug, string $rw, string $token, string $backup ): void {
+		$row = $this->find_row( $slug );
+
+		self::assertNotNull( $row, $slug . ' is missing from the matrix. Run `composer docs:matrix`.' );
+		self::assertSame( $rw, trim( $row['columns'][4] ?? '' ), $slug . ': R/W column.' );
+		self::assertSame( $token, trim( $row['columns'][6] ?? '' ), $slug . ': Token column.' );
+		self::assertSame( $backup, trim( $row['columns'][7] ?? '' ), $slug . ': Backup column.' );
+	}
+
+	public function test_the_matrix_and_the_contract_state_the_same_facts(): void {
+		$contract = json_decode( (string) file_get_contents( dirname( __DIR__, 4 ) . '/docs/contracts/public-api-v1.json' ), true );
+		self::assertIsArray( $contract );
+
+		$by_name = [];
+		foreach ( $contract['abilities'] as $entry ) {
+			$by_name[ (string) $entry['ability_name'] ] = $entry;
+		}
+
+		$mismatches = [];
+		foreach ( self::$matrix_rows as $row ) {
+			$slug  = trim( $row['slug'], " `\t" );
+			$entry = $by_name[ $slug ] ?? null;
+			if ( ! is_array( $entry ) || ! isset( $row['columns'][7] ) ) {
+				continue;
+			}
+			$expected = [
+				4 => (string) $entry['kind'],
+				6 => ! empty( $entry['gates']['token'] ) ? 'Yes' : 'No',
+				7 => ! empty( $entry['gates']['backup'] ) ? 'Yes' : 'No',
+			];
+			foreach ( $expected as $index => $value ) {
+				if ( trim( $row['columns'][ $index ] ) !== $value ) {
+					$mismatches[] = sprintf( '%s column %d: matrix %s, contract %s', $slug, $index, trim( $row['columns'][ $index ] ), $value );
+				}
+			}
+		}
+
+		self::assertSame( [], $mismatches, "The matrix and the contract disagree:\n  " . implode( "\n  ", $mismatches ) . "\nRun `composer docs:matrix` and `composer contracts:generate`." );
+	}
+
+	public function test_a_save_template_only_adds_a_template_and_is_not_destructive(): void {
+		$row = $this->find_row( 'stonewright/elementor-v3-save-template' );
+
+		self::assertNotNull( $row );
+		self::assertSame( 'additive', trim( $row['columns'][12] ?? '' ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// Tests column cites real files that exercise the ability
+	// -------------------------------------------------------------------------
+
+	public function test_every_cited_test_file_exists_and_names_the_ability(): void {
+		$plugin_dir = dirname( __DIR__, 3 );
+		$problems   = [];
+		foreach ( self::$matrix_rows as $row ) {
+			$slug  = trim( $row['slug'], " `\t" );
+			$cell  = trim( $row['columns'][10] ?? '' );
+			$class = trim( $row['columns'][2] ?? '', " `\t" );
+			if ( 'none' === $cell ) {
+				continue;
+			}
+			foreach ( explode( ',', $cell ) as $cited ) {
+				$path = trim( $cited, " `\t" );
+				if ( ! is_file( $plugin_dir . '/' . $path ) ) {
+					$problems[] = sprintf( '%s cites %s, which does not exist', $slug, $path );
+					continue;
+				}
+				$content = (string) file_get_contents( $plugin_dir . '/' . $path );
+				$full = 'Stonewright\\WpMcp\\Abilities\\' . $class;
+				$base = class_exists( $full ) ? get_parent_class( $full ) : false;
+				$base = false === $base || 'Stonewright\\WpMcp\\Abilities\\AbilityKernel' === $base ? '' : substr( $base, strlen( 'Stonewright\\WpMcp\\Abilities\\' ) );
+				if ( ! str_contains( $content, $slug ) && ! str_contains( $content, str_replace( '/', '-', $slug ) ) && ! str_contains( $content, $class ) && ( '' === $base || ! str_contains( $content, $base ) ) ) {
+					$problems[] = sprintf( '%s cites %s, which names neither its class, its base class nor its slug', $slug, $path );
+				}
+			}
+		}
+
+		self::assertSame( [], $problems, "Tests column problems:\n  " . implode( "\n  ", $problems ) );
+	}
+
+	public function test_no_ability_cites_the_old_generic_fallbacks_without_naming_it(): void {
+		foreach ( [ 'stonewright/design-validate-spec', 'stonewright/design-import-image', 'stonewright/memory-list' ] as $slug ) {
+			$row = $this->find_row( $slug );
+			self::assertNotNull( $row, $slug );
+			self::assertStringNotContainsString( 'DesignIngestionTest', (string) $row['columns'][10], $slug );
+			self::assertStringNotContainsString( 'AbilityKernelAuditTest', (string) $row['columns'][10], $slug );
+		}
+	}
+
+	// -------------------------------------------------------------------------
 	// Stale text tests (Fix 6 and Fix 7)
 	// -------------------------------------------------------------------------
 

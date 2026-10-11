@@ -23,7 +23,7 @@ final class PluginActivate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Activates an installed plugin. Refuses a plugin that is not installed.', 'stonewright' );
+		return __( 'Activates an installed plugin. Refuses a plugin that is not installed. Requires a confirmation token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {

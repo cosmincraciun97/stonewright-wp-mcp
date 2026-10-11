@@ -63,8 +63,10 @@ final class AbilityRegistrationMetaTest extends TestCase {
 		'stonewright/design-normalize-assets'           => [ false, false, false, true ],
 		// It removes the block at an index path: the verb says remove, but a repeat removes the next block, so it is not idempotent.
 		'stonewright/blocks-remove'                     => [ false, true, false, false ],
-		// It writes, but the kernel wrapper it records through declares no nature, so its source shows no write.
+		// It rewrites stored audit rows in place, and repeating it with the same arguments changes nothing more.
 		'stonewright/security-audit-reconcile'          => [ false, true, true, false ],
+		// Every call creates a new library template; the source page and earlier templates stay as they are.
+		'stonewright/elementor-v3-save-template'        => [ false, false, false, false ],
 	];
 
 	protected function setUp(): void {
