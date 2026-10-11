@@ -125,10 +125,27 @@
 	--sw-radius-lg: 12px;
 	--sw-radius-pill: 999px;
 
-	/* Control heights: 40 is core's default, 32 the compact tier, 24 the WCAG 2.5.8 floor. */
+	/*
+	 * Control size. One tier sets the height, the side padding and the type size of every button, text and search
+	 * input and select, so controls that share a row are level whatever they are. 40 is core's default, 32 the
+	 * compact tier, 24 the WCAG 2.5.8 floor; at 782px and below the default and compact tiers become 44 and 40. Nothing outside this block
+	 * sizes a control: a page places controls and never gives one a height, a padding or a line-height of its own.
+	 */
 	--sw-control-h: 40px;
 	--sw-control-h-sm: 32px;
 	--sw-control-h-xs: 24px;
+	--sw-control-pad-x: var(--sw-space-4);
+	--sw-control-pad-x-sm: var(--sw-space-3);
+	--sw-control-pad-x-xs: var(--sw-space-2);
+	--sw-control-fs: var(--sw-fs-sm);
+	--sw-control-fs-xs: var(--sw-fs-xs);
+	--sw-control-lh: 1;
+	--sw-control-icon: 16px;
+	/* The text of a field is one step larger than the text of a button; its padding is the compact one. */
+	--sw-field-pad-x: var(--sw-space-3);
+	--sw-field-fs: var(--sw-fs-md);
+	--sw-field-lh: var(--sw-lh-ui);
+	--sw-field-label-h: calc(var(--sw-fs-sm) * var(--sw-lh-ui) + var(--sw-space-1)); /* a label line and the gap under it */
 
 	/* Elevation */
 	--sw-shadow-1: 0 1px 2px rgb(29 35 39 / .06);
@@ -386,8 +403,8 @@
 }
 
 .sw-ui .sw-ui-icon {
-	width: 16px;
-	height: 16px;
+	width: var(--sw-control-icon);
+	height: var(--sw-control-icon);
 	flex: none;
 	fill: none;
 	stroke: currentcolor;
@@ -750,15 +767,18 @@
 	align-items: center;
 	justify-content: center;
 	gap: var(--sw-space-2);
+	box-sizing: border-box;
 	min-height: var(--sw-control-h);
-	padding: 0 var(--sw-space-4);
+	margin: 0;
+	padding: 0 var(--sw-control-pad-x);
 	border: 1px solid var(--sw-border-control);
 	border-radius: var(--sw-radius-control);
 	background: var(--sw-surface);
 	color: var(--sw-text);
 	font: inherit;
+	font-size: var(--sw-control-fs);
 	font-weight: var(--sw-weight-medium);
-	line-height: 1;
+	line-height: var(--sw-control-lh);
 	text-decoration: none;
 	cursor: pointer;
 	transition: background-color var(--sw-dur-fast) var(--sw-ease), border-color var(--sw-dur-fast) var(--sw-ease), color var(--sw-dur-fast) var(--sw-ease), transform var(--sw-dur-fast) var(--sw-ease);
@@ -822,13 +842,13 @@
 
 .sw-ui .sw-ui-btn--sm {
 	min-height: var(--sw-control-h-sm);
-	padding: 0 var(--sw-space-3);
+	padding: 0 var(--sw-control-pad-x-sm);
 }
 
 .sw-ui .sw-ui-btn--xs {
 	min-height: var(--sw-control-h-xs);
-	padding: 0 var(--sw-space-2);
-	font-size: var(--sw-fs-xs);
+	padding: 0 var(--sw-control-pad-x-xs);
+	font-size: var(--sw-control-fs-xs);
 }
 
 /* An icon-only button is square at every size: its width follows the height of its size tier. */
@@ -1248,14 +1268,17 @@
 .sw-ui .sw-ui-textarea {
 	width: 100%;
 	max-width: 100%;
+	box-sizing: border-box;
 	min-height: var(--sw-control-h);
-	padding: 0 var(--sw-space-3);
+	margin: 0;
+	padding: 0 var(--sw-field-pad-x);
 	border: 1px solid var(--sw-border-control);
 	border-radius: var(--sw-radius-control);
 	background: var(--sw-surface);
 	color: var(--sw-text);
 	font: inherit;
-	font-size: var(--sw-fs-md);
+	font-size: var(--sw-field-fs);
+	line-height: var(--sw-field-lh);
 }
 
 .sw-ui .sw-ui-textarea {
@@ -1764,7 +1787,6 @@
 .sw-ui .sw-ui-table :where(td) {
 	padding: var(--sw-space-2) var(--sw-space-3);
 	border-bottom: 1px solid var(--sw-border);
-	vertical-align: middle;
 }
 
 .sw-ui .sw-ui-table--comfortable :where(td) {
@@ -1806,6 +1828,27 @@
 	overflow-x: auto;
 }
 
+/*
+ * A row of controls: fields with their label above, buttons, a checkbox. The controls share one height, so they are
+ * level on one centre line. A row with no label above anything centres its items. A row that holds a labelled field
+ * starts its fields at the top, so their inputs are level whatever sits under them (a hint of one line or of two), and
+ * lowers every other item by the height of one label so it meets the inputs. --sw-field-label-h is that height.
+ */
+.sw-ui .sw-ui-control-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2) var(--sw-space-3);
+}
+
+.sw-ui :is(.sw-ui-control-row, .sw-ui-toolbar):has(> :where(.sw-ui-field, .sw-ui-toolbar__search) :where(.sw-ui-field__label)) {
+	align-items: flex-start;
+}
+
+.sw-ui :is(.sw-ui-control-row, .sw-ui-toolbar):has(> :where(.sw-ui-field, .sw-ui-toolbar__search) :where(.sw-ui-field__label)) > :where(:not(.sw-ui-field, .sw-ui-toolbar__search, .sw-ui-toolbar__meta)) {
+	margin-block-start: var(--sw-field-label-h);
+}
+
 .sw-ui .sw-ui-toolbar {
 	display: flex;
 	flex-wrap: wrap;
@@ -1826,10 +1869,12 @@
 .sw-ui .sw-ui-toolbar__filters {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--sw-space-2);
 }
 
 .sw-ui .sw-ui-toolbar__meta {
+	align-self: center;
 	margin-inline-start: auto;
 	color: var(--sw-text-secondary);
 	font-variant-numeric: tabular-nums;

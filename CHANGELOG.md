@@ -579,6 +579,12 @@ development builds were never stable releases.
   `descriptor_unavailable` (and `schema_unavailable`, `schema_invalid`) issues:
   each group carries an `effect` of `inventory_only` and a `note` saying the
   types are listed without a native write and nothing else is affected.
+- Line up the controls of the admin pages. A button beside a field whose label sits
+  above it (the Skills search and "New skill", the Audit log and Changes filters)
+  now meets the input instead of the middle of the field, whatever hint is under
+  the field. Button, input and select sizes come from one set of control-size
+  tokens in the shared admin layer, and a layout check measures every page of the
+  admin menu in CI.
 - `stonewright-custom-code-provider` accepts the arguments the theme-file
   provider reads: `start_marker`, `end_marker`, `marker`, `create_if_missing`,
   `theme`, `smoke_url`, `id` and `expected_active`, each typed and bounded, and

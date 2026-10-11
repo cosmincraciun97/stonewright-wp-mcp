@@ -17,9 +17,6 @@
 }
 
 .sw-changes-page .sw-changes-filters__row {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: start;
 	gap: var(--sw-space-3);
 }
 
@@ -33,11 +30,6 @@
 	align-items: center;
 	gap: var(--sw-space-2);
 	min-height: var(--sw-control-h);
-	margin-block-start: var(--sw-space-5);
-}
-
-.sw-changes-page .sw-changes-filters__row > .sw-ui-actions {
-	margin-block-start: var(--sw-space-5);
 }
 
 .sw-changes-page .sw-changes-filters .sw-ui-toolbar__meta {

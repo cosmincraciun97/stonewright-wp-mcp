@@ -29,6 +29,7 @@ jobs:
           node-version: "22"
       - run: node scripts/check-docs-freshness.mjs
       - run: node scripts/check-license-metadata.mjs
+      - run: node scripts/check-admin-control-sizing.mjs
       - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/package-verify.test.mjs
       - name: Verify public repository hygiene
         env:

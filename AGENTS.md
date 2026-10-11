@@ -160,6 +160,21 @@ override default behavior.
   namespace changes, and compatibility checks. Upstream behavior is evidence,
   not proof that the port is safe in Stonewright.
 
+## Admin UI consistency
+
+- Stonewright admin pages are built from the shared `sw-ui` components and the control-size tokens in
+  `plugin/assets/admin/sw-ui.css` (token table in `DESIGN.md`, "Control size"). Use the `Ui\Button` and `Ui\FormField`
+  helpers and the `sw-ui-toolbar` / `sw-ui-control-row` rows.
+- No per-page sizing of buttons or inputs: a page stylesheet places controls and never sets their height, padding or
+  line-height. `node scripts/check-admin-control-sizing.mjs` enforces it.
+- Rows of controls are centred and level: the controls of a row share one height, and a button beside a field with a
+  label above it lines up with the input.
+- Before a PR that touches admin UI, run the layout check against a test site:
+  `cd e2e && npx playwright test admin-layout.spec.ts` (`WP_BASE_URL`, `WP_USERNAME`, `WP_PASSWORD` as in
+  `e2e/README.md`). It reads the pages from the admin menu, so a new page is covered without editing the test.
+- Attach before and after screenshots to the PR when the visible UI changes, and keep the familiar UI: do not redesign,
+  remove visible elements (the band, the EXP markers, copy) or rename things as a side effect of a sizing fix.
+
 ## Required directory layout
 
 ```text

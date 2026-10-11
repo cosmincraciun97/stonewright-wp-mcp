@@ -271,6 +271,30 @@ Every component class starts with `sw-ui-`. Components apply inside `.sw-ui` (`U
 
 Icons come from one inline sprite printed once in the page footer (`Ui\Icon`): 24px stroke drawings that use `currentColor`, shown at 16px (20px with `lg`). An icon never carries a state alone.
 
+### Control size
+
+One set of tokens sizes every button, text and search input and select, so controls that share a row are the same height and level. They are defined once, on `.sw-ui` in `sw-ui.css`; a page places controls and never gives one a height, a padding or a line-height of its own.
+
+| Token | Value | Used by |
+|---|---|---|
+| `--sw-control-h` | 40px (44px at 782px and below) | default button, input, select, tab, choice |
+| `--sw-control-h-sm` | 32px (40px at 782px and below) | `sm` button |
+| `--sw-control-h-xs` | 24px | `xs` button, inline links and disclosures (the WCAG 2.5.8 floor) |
+| `--sw-control-pad-x`, `-sm`, `-xs` | 16px, 12px, 8px | side padding of a button of each size |
+| `--sw-control-fs`, `--sw-control-fs-xs` | 13px, 12px | text size of a button |
+| `--sw-control-lh` | 1 | line height of a button |
+| `--sw-control-icon` | 16px | the icon in a button; an icon never changes the height of a control |
+| `--sw-field-pad-x`, `--sw-field-fs`, `--sw-field-lh` | 12px, 14px, 1.4 | padding, text size and line height of an input or a select |
+| `--sw-field-label-h` | one label line and its gap (about 22px) | the offset that lines a button up with an input whose label is above it |
+
+Rules of a row of controls (`sw-ui-toolbar`, `sw-ui-control-row`, `sw-ui-actions`):
+
+- Items are centred on one line. A row that holds a field with its label above starts its fields at the top, so their inputs are level whatever hint sits under them, and every other item in the row (a button, a checkbox) is lowered by `--sw-field-label-h` to meet the inputs.
+- A button, an input and a select of the same row have the same height; use the same size tier for all of them.
+- A control never runs past its box and two controls never overlap. A label too long for its button wraps inside it and the button grows; shorten the label.
+
+`e2e/tests/admin-layout.spec.ts` measures all of this on every page of the admin menu (see `e2e/README.md`), and `scripts/check-admin-control-sizing.mjs` fails the docs job when a page stylesheet sizes a button or an input.
+
 ### Buttons
 
 `Ui\Button::render( $label, [ variant, size, href, type, icon, icon_only, context, disabled, busy, new_tab, ... ] )`.
@@ -502,6 +526,7 @@ This is the release checklist for every Stonewright-owned wp-admin surface that 
 The measurable gates run in `e2e/` (see `e2e/README.md`):
 
 - **Page loop** (`admin-ui.spec.ts`): every page loads with the shared shell, no console error and no horizontal overflow at 1440, 1024, 782, 390 and 320px, and axe (WCAG 2.0, 2.1 and 2.2 A and AA) reports no serious or critical finding at 1440 and 390px beyond the page's allowance.
+- **Layout check** (`admin-layout.spec.ts`): on every page of the admin menu, in its loaded state, with each tab selected and with each dialog open, at 1440, 782 and 390px: controls that share a row have the same height and the same centre line (within 1px), no control or text runs past its box, and no two controls overlap.
 - **UI contract** (`ui-contract.spec.ts`): no visible text under 12px; no target under 24px except links inside a sentence; no plugin-owned notice in the "other WordPress notices" drawer; the first `h1` starts within 120px of the band's bottom edge at 1440 and 200px at 390; every primary button is painted with the accent fill; no duplicate id and no unnamed control or field; sticky chrome covers at most 25% of the viewport.
 - **Colour schemes:** the accent contrast table in section 2, for all nine schemes and for the brighter earlier palette.
 - **Reduced motion and forced colours:** no animation runs under reduced motion; under forced colours badges keep their borders and icons, a selection is drawn in the system highlight pair, the focus ring uses the system highlight and the switch keeps its border.

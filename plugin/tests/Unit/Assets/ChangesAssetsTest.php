@@ -45,7 +45,7 @@ final class ChangesAssetsTest extends TestCase {
 
 		self::assertDoesNotMatchRegularExpression( '/overflow-x:\s*(?:auto|scroll)/', $css );
 		self::assertDoesNotMatchRegularExpression( '/white-space:\s*nowrap/', $css );
-		self::assertMatchesRegularExpression( '/\.sw-changes-filters__row \{[^}]*flex-wrap: wrap;/', $css );
+		self::assertMatchesRegularExpression( '/\.sw-ui-control-row \{[^}]*flex-wrap: wrap;/', self::asset( 'sw-ui.css' ), 'The filter row is the control row of the layer, which wraps.' );
 		self::assertMatchesRegularExpression( '/\.sw-changes-page \{[^}]*min-width: 0;/', $css, 'The page may shrink inside the shell.' );
 	}
 
