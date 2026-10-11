@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './helpers/task-start.js';
 import { closeSync, ftruncateSync, mkdirSync, mkdtempSync, openSync, realpathSync, rmSync, symlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { join, sep } from 'node:path';
 import { mediaUpload, type MediaToolContext } from '../src/direct/tools/media.js';
 import type { ResolvedSite } from '../src/direct/sites-config.js';
 
@@ -82,14 +82,57 @@ describe('direct media-upload: local path roots', () => {
 		expect(post).toHaveBeenCalledTimes(1);
 	});
 
-	it('uploads a file inside a root named by STONEWRIGHT_DIRECT_MEDIA_ROOTS', async () => {
+	// The list is comma- or semicolon-separated on every platform (like
+	// STONEWRIGHT_WP_ALLOWED_ROOTS). path.delimiter is ':' on POSIX, which is not a
+	// separator here and would also split 'C:' on Windows.
+	function rootsEnv(list: string): NodeJS.ProcessEnv {
+		return { STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_MEDIA_ROOTS: list };
+	}
+
+	it.each([';', ','])('uploads a file inside a root named by STONEWRIGHT_DIRECT_MEDIA_ROOTS (separator %s)', async (separator) => {
 		writeFileSync(join(outside, 'ok.png'), PNG);
-		const env = {
-			STONEWRIGHT_STATE_DIR: stateDir,
-			STONEWRIGHT_DIRECT_MEDIA_ROOTS: `${join(work, 'unused')}${delimiter}${outside}`,
-		};
+		const env = rootsEnv(`${join(work, 'unused')}${separator}${outside}`);
 		await mediaUpload(ctx({ env }), { path: join(outside, 'ok.png') });
 		expect(post).toHaveBeenCalledTimes(1);
+	});
+
+	it('ignores spaces and empty entries in STONEWRIGHT_DIRECT_MEDIA_ROOTS', async () => {
+		writeFileSync(join(outside, 'ok.png'), PNG);
+		const env = rootsEnv(` ; ${outside} ;, `);
+		await mediaUpload(ctx({ env }), { path: join(outside, 'ok.png') });
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
+	it('accepts a configured root written with a trailing separator', async () => {
+		writeFileSync(join(outside, 'ok.png'), PNG);
+		await mediaUpload(ctx({ env: rootsEnv(`${outside}${sep}`) }), { path: join(outside, 'ok.png') });
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
+	it('accepts a configured root given through a symlink, and a file given through the real path', async () => {
+		writeFileSync(join(outside, 'ok.png'), PNG);
+		const alias = join(work, 'outside-alias');
+		symlinkSync(outside, alias, 'junction');
+		await mediaUpload(ctx({ env: rootsEnv(alias) }), { path: join(outside, 'ok.png') });
+		await mediaUpload(ctx({ env: rootsEnv(alias) }), { path: join(alias, 'ok.png') });
+		expect(post).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not accept a sibling folder that only shares the root name as a prefix', async () => {
+		const sibling = `${outside}-more`;
+		mkdirSync(sibling, { recursive: true });
+		writeFileSync(join(sibling, 'x.png'), PNG);
+		await expect(mediaUpload(ctx({ env: rootsEnv(outside) }), { path: join(sibling, 'x.png') }))
+			.rejects.toThrow(/media_path_outside_allowed_roots/);
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('does not treat a colon-separated list as a list of roots', async () => {
+		writeFileSync(join(outside, 'ok.png'), PNG);
+		const env = rootsEnv(`${join(work, 'unused')}:${outside}`);
+		await expect(mediaUpload(ctx({ env }), { path: join(outside, 'ok.png') }))
+			.rejects.toThrow(/media_path_outside_allowed_roots/);
+		expect(post).not.toHaveBeenCalled();
 	});
 
 	it('refuses a path outside every allowed root without confirm', async () => {
