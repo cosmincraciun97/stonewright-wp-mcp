@@ -94,7 +94,7 @@ describe('args-bound confirmation', () => {
 
 	it('the summary shortens long values and never repeats a secret', () => {
 		// Built at run time: a plain value that only has to be recognisable in the output.
-		const marker = ['marker', 'value', 'one'].join('-');
+		const marker = 'fixture-marker-value-one';
 		const error = blockedBy(() =>
 			attempt({ args: { username: 'ada', password: marker, content: 'x'.repeat(500), data: [1, 2, 3], app_token: marker } }),
 		);
