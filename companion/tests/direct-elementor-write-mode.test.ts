@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { elementorDataUpdate, type ElementorRestClient } from '../src/direct/tools/elementor-direct.js';
-import { markTaskStartSeen, resetTaskStartSeenForTests, resolveDirectWriteMode } from '../src/direct/writes.js';
+import { DirectSafetyBlockedError, markTaskStartSeen, resetTaskStartSeenForTests, resolveDirectWriteMode } from '../src/direct/writes.js';
+import { runWithDirectCallContext } from '../src/direct/plugin-presence.js';
 import type { WpCliCommandResult } from '../src/wp-cli.js';
 
 const TREE = [{ id: 'abc', elType: 'container', elements: [] }];
@@ -72,8 +73,28 @@ describe('elementor-data-update resolves its write mode from the target site', (
 			elementorDataUpdate({ STONEWRIGHT_STATE_DIR: stateDir }, { post_id: 7, data: NEXT }, unavailableCli() as never, rest),
 		).rejects.toMatchObject({ code: 'confirmation_required' });
 		expect(post).not.toHaveBeenCalled();
+		// A plain confirm:true is not a confirmation on a remote site any more; the refusal returns an id.
+		await expect(
+			elementorDataUpdate({ STONEWRIGHT_STATE_DIR: stateDir }, { post_id: 7, data: NEXT, confirm: true }, unavailableCli() as never, rest),
+		).rejects.toMatchObject({ code: 'confirmation_required' });
+		expect(post).not.toHaveBeenCalled();
+		const args = { post_id: 7, data: NEXT };
+		const refused = await runWithDirectCallContext({ tool: 'stonewright-elementor-data-update', confirm: false, args }, () =>
+			elementorDataUpdate({ STONEWRIGHT_STATE_DIR: stateDir }, args, unavailableCli() as never, rest),
+		).catch((error: unknown) => error as DirectSafetyBlockedError);
+		const id = (refused as DirectSafetyBlockedError).details['confirmation_id'] as string;
+		const confirmed = await runWithDirectCallContext({ tool: 'stonewright-elementor-data-update', confirm: false, args, confirmationId: id }, () =>
+			elementorDataUpdate({ STONEWRIGHT_STATE_DIR: stateDir }, args, unavailableCli() as never, rest),
+		);
+		expect(confirmed).toMatchObject({ ok: true });
+	});
+
+	it('the legacy switch keeps a plain confirm:true working on a remote site', async () => {
+		const target = { alias: 'remote', url: 'https://example.com' };
+		markTaskStartSeen(target);
+		const { rest } = restFor(target.url, target.alias);
 		const confirmed = await elementorDataUpdate(
-			{ STONEWRIGHT_STATE_DIR: stateDir },
+			{ STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_CONFIRM_LEGACY: 'on' },
 			{ post_id: 7, data: NEXT, confirm: true },
 			unavailableCli() as never,
 			rest,

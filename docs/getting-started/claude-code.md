@@ -62,10 +62,11 @@ connection smoke test.
 `stonewright-task-start` is the canonical first call. Expect mode Direct, local
 skills/memory hints, and write-mode guidance. Then call
 `stonewright-site-discover` before choosing REST operations. Destructive tools
-require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`. Direct mode
-refuses custom PHP/CSS/JS/HTML. It saves a copy before whole-document writes
-(`stonewright-direct-backup-restore` puts one back), reads each typed write back
-and reports a difference as `ok:false`.
+need a confirmation when `STONEWRIGHT_DIRECT_WRITES=confirm`: a refused call returns
+a `confirmation_id` to repeat the same call with (a plain `confirm:true` counts on a
+local site only). Direct mode refuses custom PHP/CSS/JS/HTML. It saves a copy before
+whole-document writes (`stonewright-direct-backup-restore` puts one back), reads each
+typed write back and reports a difference as `ok:false`.
 
 Copy-paste wording for other clients: [install-prompts.md](../install-prompts.md)
 Option B.

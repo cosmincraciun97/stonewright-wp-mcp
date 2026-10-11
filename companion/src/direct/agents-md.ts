@@ -47,7 +47,7 @@ export function agentsMdTemplate(): string {
 		'11. Memory lives in `memory/`. When the user corrects a repeatable mistake,',
 		'    persist it with `stonewright-learning-record` and report its memory_id and scope.',
 		'    When a write that failed is fixed on the same resource, the answer carries a learning_offer: ask the user first.',
-		'12. Destructive tools need `confirm: true`. Read the result back after a write;',
+		'12. Destructive tools need a confirmation: repeat the refused call with its `confirmation_id` (`confirm: true` counts on a local site only). Read the result back after a write;',
 		'    a tool keeps a pre-image only when its description says so.',
 		'13. Remote Direct work uses that site\'s REST/admin-HTTP only — never local WP-CLI/MySQL for a remote task.',
 		'14. If task-start says the plugin is active on the site, Direct writes are refused: switch the session to Plugin mode.',

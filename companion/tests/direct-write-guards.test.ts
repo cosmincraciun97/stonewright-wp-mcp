@@ -100,11 +100,12 @@ describe('direct write guards', () => {
 
 	beforeEach(() => {
 		stateDir = mkdtempSync(join(tmpdir(), 'sw-guards-'));
-		for (const key of ['STONEWRIGHT_STATE_DIR', 'STONEWRIGHT_DIRECT_WRITES', 'STONEWRIGHT_DIRECT_REQUIRE_TASK_START', 'STONEWRIGHT_DIRECT_PROBE']) saved[key] = process.env[key];
+		for (const key of ['STONEWRIGHT_STATE_DIR', 'STONEWRIGHT_DIRECT_WRITES', 'STONEWRIGHT_DIRECT_REQUIRE_TASK_START', 'STONEWRIGHT_DIRECT_PROBE', 'STONEWRIGHT_DIRECT_CONFIRM_LEGACY']) saved[key] = process.env[key];
 		process.env['STONEWRIGHT_STATE_DIR'] = stateDir;
 		// The front-end probe has its own tests; here it would add a request to every call list.
 		process.env['STONEWRIGHT_DIRECT_PROBE'] = 'off';
 		delete process.env['STONEWRIGHT_DIRECT_WRITES'];
+		delete process.env['STONEWRIGHT_DIRECT_CONFIRM_LEGACY'];
 	});
 
 	afterEach(() => {
@@ -549,10 +550,13 @@ describe('direct write guards', () => {
 		it.each([
 			['template-update', templateUpdate, { id: 'theme//home', content: 'x' }],
 			['template-part-update', templatePartUpdate, { id: 'theme//header', content: 'x' }],
-		])('%s needs confirm:true in confirm mode and sends nothing without it', async (_name, tool, input) => {
+		])('%s needs a confirmation in confirm mode and sends nothing without it', async (_name, tool, input) => {
 			const { fetchImpl, calls } = makeFetch(() => ({ id: 'a', content: { raw: 'x' } }));
 			await expect(tool(ctx(fetchImpl, 'confirm', remoteSite), input as never)).rejects.toMatchObject({ code: 'confirmation_required' });
+			// A plain confirm:true is not a confirmation on a remote site.
+			await expect(tool(ctx(fetchImpl, 'confirm', remoteSite), { ...input, confirm: true } as never)).rejects.toMatchObject({ code: 'confirmation_required' });
 			expect(calls).toHaveLength(0);
+			process.env['STONEWRIGHT_DIRECT_CONFIRM_LEGACY'] = 'on';
 			const result = (await tool(ctx(fetchImpl, 'confirm', remoteSite), { ...input, confirm: true } as never)) as Record<string, unknown>;
 			expect(result['backup_path']).toBeTruthy();
 			expect(calls.map((c) => c.method)).toEqual(['GET', 'POST', 'GET']);
@@ -577,7 +581,7 @@ describe('direct write guards', () => {
 			const first = makeEchoFetch({ id: 9, content: { raw: 'x' } });
 			await expect(applyBlueprint(new WpRestClient(site, { fetchImpl: first.fetchImpl }), { id: 'agency', post_id: 9 }, env)).rejects.toMatchObject({ code: 'confirmation_required' });
 			expect(first.calls).toHaveLength(0);
-			const ok = await applyBlueprint(new WpRestClient(site, { fetchImpl: first.fetchImpl }), { id: 'agency', post_id: 9, confirm: true }, env);
+			const ok = await applyBlueprint(new WpRestClient(site, { fetchImpl: first.fetchImpl }), { id: 'agency', post_id: 9, confirm: true }, { ...env, STONEWRIGHT_DIRECT_CONFIRM_LEGACY: 'on' });
 			expect(ok['ok']).toBe(true);
 			const created = makeEchoFetch({ id: 3 });
 			const make = await applyBlueprint(new WpRestClient(site, { fetchImpl: created.fetchImpl }), { id: 'agency' }, env);
@@ -597,7 +601,7 @@ describe('direct write guards', () => {
 			handler?: (input: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }>;
 		};
 
-		async function tools(fetchImpl: typeof fetch, writes: string) {
+		async function tools(fetchImpl: typeof fetch, writes: string, extraEnv: Record<string, string> = {}) {
 			// The template tools read the task-start rule from the process environment.
 			process.env['STONEWRIGHT_DIRECT_REQUIRE_TASK_START'] = 'off';
 			const server = await createMcpServer({
@@ -605,11 +609,14 @@ describe('direct write guards', () => {
 					STONEWRIGHT_MODE: 'direct',
 					STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 					STONEWRIGHT_STATE_DIR: stateDir,
+					// No sites file: the site comes from the variables below, never from the machine's own configuration.
+					STONEWRIGHT_SITES_FILE: join(stateDir, 'no-sites.json'),
 					STONEWRIGHT_WP_URL: 'https://example.com',
 					STONEWRIGHT_WP_USERNAME: 'editor-user',
 					STONEWRIGHT_WP_APP_PASSWORD: APP_PASSWORD,
 					STONEWRIGHT_DIRECT_WRITES: writes,
 					STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
+					...extraEnv,
 				},
 				fetchImpl,
 			});
@@ -636,7 +643,7 @@ describe('direct write guards', () => {
 
 		it('returns the refusal as a normal result on a remote site, without an error flag, and writes nothing', async () => {
 			const { fetchImpl, calls } = makeFetch(() => ({}));
-			const registered = await tools(fetchImpl, 'confirm');
+			const registered = await tools(fetchImpl, 'confirm', { STONEWRIGHT_DIRECT_CONFIRM_LEGACY: 'on' });
 			// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
 			calls.length = 0;
 			const result = await registered['stonewright-template-update']?.handler?.({ id: 'a//b', content: '<script>x()</script>', confirm: true });
@@ -648,5 +655,43 @@ describe('direct write guards', () => {
 			expect(JSON.parse(blocked?.content[0]?.text ?? '{}')).toMatchObject({ error: 'confirmation_required' });
 			expect(calls).toHaveLength(0);
 		});
+
+		it('a refused destructive call returns an id that works for that exact call, once', async () => {
+			const { fetchImpl, calls } = makeFetch(() => ({ id: 'a', content: { raw: 'x' } }));
+			const registered = await tools(fetchImpl, 'confirm');
+			calls.length = 0;
+			const call = (input: Record<string, unknown>) => registered['stonewright-template-update']?.handler?.(input);
+			expect(Object.keys(registered['stonewright-template-update']?.inputSchema?.shape ?? {})).toContain('confirmation_id');
+
+			const refused = await call({ id: 'a//b', content: 'x' });
+			expect(refused?.isError).toBe(true);
+			const body = JSON.parse(refused?.content[0]?.text ?? '{}') as Record<string, unknown>;
+			expect(body).toMatchObject({ ok: false, error: 'confirmation_required', blocked: true, expires_in_seconds: 600 });
+			expect(String(body['summary'])).toContain('stonewright-template-update');
+			const id = String(body['confirmation_id']);
+			expect(id).toMatch(/^[0-9a-f]{32}$/);
+			expect(calls).toHaveLength(0);
+
+			// Other arguments and a plain confirm:true are refused; nothing is sent.
+			for (const input of [
+				{ id: 'a//b', content: 'changed', confirmation_id: id },
+				{ id: 'a//b', content: 'x', confirm: true },
+			]) {
+				const out = await call(input);
+				expect(out?.isError, JSON.stringify(input)).toBe(true);
+				expect(JSON.parse(out?.content[0]?.text ?? '{}')).toMatchObject({ blocked: true });
+			}
+			expect(calls).toHaveLength(0);
+
+			const allowed = await call({ id: 'a//b', content: 'x', confirmation_id: id });
+			expect(allowed?.isError).toBeUndefined();
+			expect(JSON.parse(allowed?.content[0]?.text ?? '{}')).toMatchObject({ id: 'a' });
+			expect(calls.length).toBeGreaterThan(0);
+			const before = calls.length;
+			const reused = await call({ id: 'a//b', content: 'x', confirmation_id: id });
+			expect(reused?.isError).toBe(true);
+			expect(JSON.parse(reused?.content[0]?.text ?? '{}')).toMatchObject({ error: 'confirmation_invalid', reason: 'unknown' });
+			expect(calls).toHaveLength(before);
+		}, 30_000);
 	});
 });

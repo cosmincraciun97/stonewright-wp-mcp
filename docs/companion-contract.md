@@ -190,7 +190,7 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    `not_checked`) from a read of the resource after the write; a mismatch is
    `ok:false`, `error:"verification_mismatch"`. Direct lists and restores its saved
    copies with `stonewright-direct-backup-list` and
-   `stonewright-direct-backup-restore` (`confirm:true`, hash-checked, undoable); the
+   `stonewright-direct-backup-restore` (confirmation, hash-checked, undoable); the
    names differ from the Plugin abilities. A page, post or template write may be
    followed by a public-page probe and, only on `rollback_on_probe_failure:true`,
    an automatic restore.
@@ -199,7 +199,8 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    refused as `content_conflict` unless `expected_content_hash` equals the hash
    of the current raw content, checked again just before the write, and applies
    all operations or none. `stonewright-memory-delete` takes `id` and needs
-   `confirm:true`. A Direct skill is saved disabled; `enabled:true` is refused.
+   a confirmation (`confirmation_id` from a first call, or `confirm:true` on a local
+   site). In `confirm` mode a block write needs one too. A Direct skill is saved disabled; `enabled:true` is refused.
 
 ## Command Recipes v1
 

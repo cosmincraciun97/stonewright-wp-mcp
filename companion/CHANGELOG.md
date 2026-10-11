@@ -4,6 +4,33 @@
 
 ### Added
 
+- Check Elementor whole-tree writes in Direct mode before they are sent.
+  `stonewright-elementor-data-get` returns `hash` (SHA-256 of the tree with object
+  keys sorted, computed in the companion; it is not the plugin's tree hash) and
+  `architecture` (`v3`, `v4`, `mixed`, `empty`), and takes `root_id`,
+  `include_content` (bounded settings per node, no binary bodies), `knownHash`
+  (answers `unchanged:true`) and the aliases `max_nodes` and `response_mode`.
+  `stonewright-elementor-data-update` takes `expected_hash` (optional,
+  recommended): a tree that changed since the read is refused with
+  `revision_conflict` and `current_hash`, and nothing is written. It also refuses
+  duplicate element ids, a widget or column at the document root (one the stored
+  document already keeps there stays editable), a widget directly inside a widget,
+  `inner-section` as an element type, `settings` that are not an object, CSS
+  characters in a colour setting, and a tree over 4 MiB, 5000 elements or 32
+  levels. A document with Atomic (V4) elements or `$$type` settings, or a tree
+  that has them, is no longer rewritten as plain JSON: the error names Plugin mode,
+  and `allow_atomic_raw:true` replaces the tree anyway. The result returns
+  `previous_hash`, `hash` and `overrides_used`. A restore from a saved copy is not
+  held to these checks.
+- Bind confirmations to the exact call. A destructive Direct call without a valid
+  confirmation is refused with `confirmation_required`, a short-lived
+  `confirmation_id` and a plain `summary` of what the call will do; the same call
+  is repeated with `confirmation_id`. The id is an HMAC over the tool name, the
+  site and the canonical arguments, is kept in the companion's memory for 10
+  minutes and works once. Other arguments, another site, another tool, an expired
+  id and a used id are refused with `confirmation_invalid` and a `reason`. Every
+  tool that took `confirm` takes `confirmation_id`. `STONEWRIGHT_DIRECT_CONFIRM_LEGACY`
+  (`on`, `off`) sets whether a plain `confirm: true` still counts.
 - List and restore the copies Direct saves before it overwrites something.
   `stonewright-direct-backup-list` lists the pre-images (pages, posts, templates,
   template parts, global styles) and the Elementor file backups, newest first,
@@ -184,11 +211,14 @@
   the page like `content-update`. It refuses custom code that the operations add,
   a block name the site does not have (when `/wp/v2/block-types` can be read),
   block comments inside markup and a post whose block markup is already broken.
+  In `confirm` mode a write needs a confirmation bound to the exact operations and
+  hash (`confirmation_id`), a dry run none.
   There is no `move`, no `insert_section` and no browser finalizer; `attrs` alone
   are accepted only on a block that has no markup of its own. The tool is on the
   `gutenberg` and `full` profiles.
 - Delete a lesson from Direct memory. `stonewright-memory-delete` takes the `id`
-  that `memory-list` and `task-start` show and always needs `confirm:true`. It
+  that `memory-list` and `task-start` show and always needs a confirmation (a
+  `confirmation_id` from a first call, or `confirm:true` on a local site). It
   removes a local lesson only; a lesson in the plugin's site memory is removed in
   Plugin mode. It is on the `site-admin` and `full` profiles.
 - Offer to record a lesson after a write that failed is fixed. When a Direct write
@@ -218,6 +248,22 @@
 
 ### Changed
 
+- A plain `confirm: true` no longer confirms a destructive Direct call on a site
+  that is not local. On localhost, `.local` and `.test` it is accepted as before;
+  on any other site the call is refused with `confirmation_required`, a message
+  that says so, and a `confirmation_id` to repeat the call with.
+  `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on` restores the old behavior everywhere and
+  `off` refuses the plain flag on local sites too. Theme activation, plugin and
+  user deletes, Application Password create and revoke, and a backup restore ask
+  for a confirmation in every write mode, as before, and now through the same
+  mechanism. Local WP-CLI commands that change the site keep `confirm: true`.
+- `force_destructive`, `allow_widget_type_remap` and the new `allow_atomic_raw` on
+  `stonewright-elementor-data-update` now need a confirmation in every write
+  mode (they used to need none on a local site), are written to the audit log
+  before the write, and are listed in the result as `overrides_used`.
+  `overrides_requested` shows the flags the call set.
+- `stonewright-blueprint-apply` reads the write settings from the environment of
+  the server instead of the process environment.
 - Key Direct memory by the site's canonical URL instead of the alias
   (`memory/<host>-<fingerprint>.jsonl`). Two aliases for one site share its memory,
   and an alias pointed at another site no longer inherits the old site's lessons.

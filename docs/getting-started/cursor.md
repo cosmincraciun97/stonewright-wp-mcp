@@ -55,11 +55,12 @@ connection smoke test.
 ```
 
 Expect mode Direct and local skills/memory hints. Then call
-`stonewright-site-discover` before REST work. Destructive tools require
-`confirm:true` when writes are gated. Direct mode refuses custom
-PHP/CSS/JS/HTML. It saves a copy before whole-document writes
-(`stonewright-direct-backup-restore` puts one back), reads each typed write back
-and reports a difference as `ok:false`.
+`stonewright-site-discover` before REST work. Destructive tools need a
+confirmation when writes are gated: a refused call returns a `confirmation_id` to
+repeat the same call with (a plain `confirm:true` counts on a local site only).
+Direct mode refuses custom PHP/CSS/JS/HTML. It saves a copy before whole-document
+writes (`stonewright-direct-backup-restore` puts one back), reads each typed write
+back and reports a difference as `ok:false`.
 
 Copy-paste Option B: [install-prompts.md](../install-prompts.md).
 

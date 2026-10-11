@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createMcpServer } from '../src/mcp-server.js';
+import { runWithDirectCallContext } from '../src/direct/plugin-presence.js';
+import { DirectSafetyBlockedError } from '../src/direct/writes.js';
+import { resetConfirmationsForTests } from '../src/direct/confirm-token.js';
 import {
 	DIRECT_BOOTSTRAP_TOOL_NAMES,
 	DIRECT_ESSENTIAL_TOOL_NAMES,
@@ -358,6 +361,57 @@ describe('stonewright-blocks-batch-mutate', () => {
 		});
 	});
 
+	describe('confirmation in confirm mode', () => {
+		beforeEach(() => resetConfirmationsForTests());
+
+		const confirmCtx = () => ({ ...ctx(), writeMode: 'confirm' as const });
+		const edit: BlockOperation[] = [{ action: 'remove', path: [1] }];
+
+		function run(confirmationId?: string, operations: BlockOperation[] = edit) {
+			const args = { post_id: 7, operations, expected_content_hash: sha(PAGE), ...(confirmationId ? { confirmation_id: confirmationId } : {}) };
+			return runWithDirectCallContext(
+				{ tool: 'stonewright-blocks-batch-mutate', confirm: false, args, confirmationId, env: confirmCtx().env },
+				() => blocksBatchMutate(confirmCtx(), { post_id: 7, operations, expected_content_hash: sha(PAGE) }),
+			);
+		}
+
+		it('a plan needs no confirmation', async () => {
+			const out = await blocksBatchMutate(confirmCtx(), { post_id: 7, operations: edit, dry_run: true });
+			expect(out).toMatchObject({ ok: true, dry_run: true });
+		});
+
+		it('a write is refused with a confirmation_id, writes nothing, and goes through when repeated with it', async () => {
+			let refused: DirectSafetyBlockedError | undefined;
+			await run().catch((error: unknown) => {
+				refused = error as DirectSafetyBlockedError;
+			});
+			expect(refused?.code).toBe('confirmation_required');
+			const id = String(refused?.details['confirmation_id']);
+			expect(puts()).toEqual([]);
+			expect(stored()).toBe(PAGE);
+			const done = (await run(id)) as Record<string, unknown>;
+			expect(done).toMatchObject({ ok: true, written: true });
+			expect(stored()).not.toBe(PAGE);
+		});
+
+		it('an id does not fit a different edit, and a plain confirm:true does not count on a remote site', async () => {
+			let refused: DirectSafetyBlockedError | undefined;
+			await run().catch((error: unknown) => {
+				refused = error as DirectSafetyBlockedError;
+			});
+			const id = String(refused?.details['confirmation_id']);
+			await expect(run(id, [{ action: 'remove', path: [0] }])).rejects.toMatchObject({ code: 'confirmation_invalid' });
+			expect(puts()).toEqual([]);
+			await expect(
+				blocksBatchMutate({ ...confirmCtx(), site: { ...site, alias: 'remote', url: 'https://example.com' } }, { post_id: 7, operations: edit, expected_content_hash: sha(PAGE), confirm: true }),
+			).rejects.toMatchObject({ code: 'confirmation_required' });
+		});
+
+		it('a bad operation is reported before any confirmation is asked for', async () => {
+			await expect(run(undefined, [{ action: 'remove', path: [9] }])).rejects.toMatchObject({ code: 'batch_operation_failed' });
+		});
+	});
+
 	describe('after the write', () => {
 		it('reports a readback mismatch with the way back, and keeps the saved copy', async () => {
 			wp.sanitize = (_path, body) => ({ ...body, content: PAGE });
@@ -466,7 +520,7 @@ describe('stonewright-blocks-batch-mutate registration', () => {
 		const tools = await connect(wp.fetchImpl as never);
 		const tool = tools[TOOL];
 		expect(tool?.enabled).toBe(true);
-		expect(Object.keys(tool?.inputSchema?.shape ?? {}).sort()).toEqual(['dry_run', 'expected_content_hash', 'operations', 'post_id', 'probe', 'rollback_on_probe_failure', 'site', 'type']);
+		expect(Object.keys(tool?.inputSchema?.shape ?? {}).sort()).toEqual(['confirm', 'confirmation_id', 'dry_run', 'expected_content_hash', 'operations', 'post_id', 'probe', 'rollback_on_probe_failure', 'site', 'type']);
 		expect(tool?.description).toMatch(/expected_content_hash/);
 		expect(tool?.description).toMatch(/dry_run/);
 

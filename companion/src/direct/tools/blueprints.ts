@@ -144,6 +144,7 @@ export async function applyBlueprint(
       confirm: args.confirm,
       tool: "stonewright-blueprint-apply",
       site,
+      env,
     });
     const refusal = refuseCustomCode(
       site,
@@ -220,6 +221,7 @@ export async function applyBlueprint(
     confirm: args.confirm,
     tool: "stonewright-blueprint-apply",
     site,
+    env,
   });
   const createRefusal = refuseCustomCode(
     site,

@@ -31,14 +31,14 @@ refused before a request is made unless `STONEWRIGHT_DIRECT_ALLOW_HTTP=on`.
 | Taxonomy terms | Yes | Yes |
 | Settings read / update | Yes; update takes an allowlist of keys and a limited `default_role` | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
-| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
+| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need a confirmation in `confirm` mode, and theme.json custom CSS is refused | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed. Lessons carry a confidence and a last-verified time and are ranked by them; a lesson can be deleted (`stonewright-memory-delete`); a skill saved through Direct is a disabled candidate that Direct cannot activate | Yes (site-hosted Admin UI; skills are activated by an administrator's approval) |
 | Gutenberg block edits | **Yes** — `stonewright-gutenberg-validate` parses the blocks, `stonewright-blocks-batch-mutate` inserts, updates and removes blocks by path (content hash, saved copy, readback, custom-code guard). No move, no `insert_section`, no browser finalizer | Yes (block batch-mutate with a finalizer for static blocks) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
-| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields, before and after hashes and a `direct_verifier` row for each typed write; a pre-image file before five whole-document writes; Elementor data keeps its own file backup; `stonewright-direct-backup-list` and `-restore` list and restore both. **No Rescue snapshots, change sets, or confirmation tokens.** `confirm:true` is a flag the caller sets for destructive tools. Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
+| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields, before and after hashes and a `direct_verifier` row for each typed write; a pre-image file before five whole-document writes; Elementor data keeps its own file backup; `stonewright-direct-backup-list` and `-restore` list and restore both. **No Rescue snapshots, change sets, or plugin confirmation tokens.** A destructive tool needs a `confirmation_id` bound to the call's arguments (a plain `confirm:true` only on a local site). Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
 | WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin); a command that changes the site is a Direct write with task-start, `confirm` and an audit row | Yes |
 
 ## What Direct mode protects
@@ -66,13 +66,30 @@ site, so its protections are the companion's own:
   (`STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off` opts out).
 - **Write mode.** `STONEWRIGHT_DIRECT_WRITES=off` blocks all writes. `confirm`
   (the default for hosts other than localhost, `.local` and `.test`) needs
-  `confirm: true` on destructive tools: plugin, theme, settings, user, comment
+  a confirmation on destructive tools: plugin, theme, settings, user, comment
   and widget writes, template and template-part creates, updates and deletes,
-  `global-styles-update`, `elementor-data-update`, most other deletes, and
-  `blueprint-apply` with `post_id`. `elementor-data-update` resolves its mode from
+  `global-styles-update`, `elementor-data-update`, most other deletes,
+  `blueprint-apply` with `post_id` and a block write
+  (`stonewright-blocks-batch-mutate`, not its dry run). `stonewright-memory-delete`
+  needs one in every mode. `elementor-data-update` resolves its mode from
   the site URL like the other tools. Content, media, ACF, menu and
-  taxonomy writes need no confirmation. `confirm: true` is a flag the caller
-  sets; it is not bound to the call's arguments.
+  taxonomy writes need no confirmation.
+- **Confirmation bound to the call.** A destructive call without a valid
+  confirmation returns `confirmation_required`, a `confirmation_id` and a short
+  `summary` of what it will do; the agent repeats the same call, unchanged, with
+  `confirmation_id`. The id is an HMAC (a secret that exists only in the
+  companion process) over the tool name, the site and the canonical arguments, is
+  kept in memory for 10 minutes and works once. Other arguments, another site,
+  another tool, an expired or a used id are refused with `confirmation_invalid`
+  (the reason is in `reason`, and a fresh id for the call comes back). A plain
+  `confirm: true` still counts on a local site (localhost, `.local`, `.test`) and
+  with `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`; on any other site it is refused with
+  a message that says so; `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=off` refuses it on
+  local sites too. Theme activation, plugin and user deletes, Application
+  Password create and revoke, and a backup restore ask for a confirmation in
+  every write mode. Local WP-CLI commands that change the site keep the plain
+  `confirm: true` (they run on this machine against a checked install). A
+  restart of the companion drops pending ids.
 - **Custom-code refusal.** `global-styles-update`, `elementor-data-update`,
   content create, update and autosave, `stonewright-blocks-batch-mutate` (what the
   operations add; code the page already holds is left alone),
@@ -107,7 +124,7 @@ site, so its protections are the companion's own:
   `backup_id`, `backup_path` and `backup_sha256`.
 - **List and restore.** `stonewright-direct-backup-list` shows the saved copies
   with an integrity check. `stonewright-direct-backup-restore` needs
-  `confirm:true` (`dry_run:true` previews), refuses a file whose stored hash does
+  a confirmation (`dry_run:true` previews), refuses a file whose stored hash does
   not match, refuses a resource that no longer exists, saves the current state
   first so the restore can be undone, writes the stored fields back through the
   same REST route (Elementor backups through the Elementor update path), reads
@@ -151,10 +168,24 @@ site, so its protections are the companion's own:
   local site, off for a remote one (`probe:true` or `STONEWRIGHT_DIRECT_PROBE=on`
   turns it on). A failure is returned with a `rollback_offer`; the saved copy is
   restored automatically only when the call has `rollback_on_probe_failure:true`.
-- **Elementor.** The integrity gate blocks double-encoded data, malformed nodes,
-  a tree under 85 percent of the previous size (when that is over 2 KiB), and
-  `widgetType` remaps; `force_destructive` and `allow_widget_type_remap` bypass
-  the size and remap checks. WP-CLI is used only after the local install's `home` or `siteurl` matches the alias URL;
+- **Elementor.** `elementor-data-get` returns `hash` (SHA-256 of the tree with
+  object keys sorted; not equal to the plugin's tree hash) and `architecture`
+  (`v3`, `v4`, `mixed`, `empty`). `elementor-data-update` replaces the whole
+  tree. With `expected_hash` (optional, recommended) a tree that changed since the
+  read is refused with `revision_conflict` and `current_hash`. The integrity gate
+  blocks double-encoded data, malformed nodes, a tree under 85 percent of the
+  previous size (when that is over 2 KiB), and `widgetType` remaps. The structure
+  checks refuse duplicate ids, a widget or column at the document root (a widget
+  the stored document already keeps there stays editable), a widget directly inside
+  a widget, `inner-section` as an element type, `settings` that are not an object (an
+  empty list is fine), CSS characters in a colour setting, and a tree over 4 MiB,
+  5000 elements or 32 levels. A document with Atomic (V4) elements or `$$type`
+  settings, or a tree that has them, is not rewritten: Plugin mode types V4
+  writes. `force_destructive` (size), `allow_widget_type_remap` and
+  `allow_atomic_raw` each skip one check, need a confirmation in every write
+  mode, are audited before the write, and are listed in `overrides_used`. The
+  result returns `previous_hash` and `hash`. A restore is not held to the
+  structure checks. WP-CLI is used only after the local install's `home` or `siteurl` matches the alias URL;
   otherwise the tool uses REST and returns `wp_cli_refused`.
 - **Media upload.** Local paths, URLs, types, size, content and file names are
   limited as described in the matrix above. Each URL hop resolves the host once,
@@ -181,10 +212,12 @@ site, so its protections are the companion's own:
   undo them. A backup written by an older version has no stored hash; restoring
   it needs `expected_sha256` (the `backup_sha256` its write returned, which an
   older Elementor write did not).
-- **Elementor raw writes are unchecked beyond the gate above.** There is no
-  schema validation, unique-id check, element or depth cap, or per-post lease or
-  base hash (a concurrent edit is overwritten). The write is read back and the
-  stored tree is compared with the written one.
+- **Elementor raw writes have no schema and no lock.** The checks above are
+  structural: there is no control schema, no value validation beyond colour
+  settings, and no per-post lock, so two writers can race between the hash check
+  and the write (`expected_hash` is optional). Atomic (V4) content is refused,
+  not typed. The write is read back and the stored tree is compared with the
+  written one.
 - **WP-CLI in Plugin mode.** `stonewright-wp-cli-run` and `-job-start` apply the
   shared command policy only; the companion adds no task-start latch,
   confirmation or audit row there.
@@ -245,7 +278,7 @@ a row here.
 
 | Tool | Direct arguments; plugin names also accepted | Differences that remain |
 |---|---|---|
-| `stonewright-blocks-batch-mutate` | `post_id`, `operations` (`action` `insert`, `update` or `remove`, with `path`, `position`, `before_path`, `after_path`, `block`, `attrs`, `innerHTML`), `expected_content_hash`, `dry_run`; also `type`, `site`, `probe`, `rollback_on_probe_failure` | Direct has no `move`, no `insert_section` and no finalizer queue. It cannot generate the saved markup of a static block, so `attrs` alone are accepted only on a block that has no markup of its own (send `innerHTML` with them, or use `stonewright-content-update`), and `innerHTML` only on a block without inner blocks. An `attrs` value of `null` removes the attribute; the plugin stores the null. The hash is the SHA-256 of the raw content, as in the plugin. Direct saves a pre-image (`backup_id`, restore with `stonewright-direct-backup-restore`) instead of a `snapshot_id`, reads the post back (`verification`) and probes the page; there is no `change_set`. Custom code that the operations add is refused with the `approval_required` envelope (there is no `allow_raw_html` or `custom_code_grant`); code the page already holds is left alone. A block name the site does not have is refused when its block list (`/wp/v2/block-types`) can be read. `stonewright-gutenberg-validate` returns the `content_hash` to use |
+| `stonewright-blocks-batch-mutate` | `post_id`, `operations` (`action` `insert`, `update` or `remove`, with `path`, `position`, `before_path`, `after_path`, `block`, `attrs`, `innerHTML`), `expected_content_hash`, `dry_run`; also `type`, `site`, `probe`, `rollback_on_probe_failure`, `confirm`, `confirmation_id` | Direct has no `move`, no `insert_section` and no finalizer queue. It cannot generate the saved markup of a static block, so `attrs` alone are accepted only on a block that has no markup of its own (send `innerHTML` with them, or use `stonewright-content-update`), and `innerHTML` only on a block without inner blocks. An `attrs` value of `null` removes the attribute; the plugin stores the null. The hash is the SHA-256 of the raw content, as in the plugin. In `confirm` mode a write needs a confirmation (the `confirmation_id` is bound to the operations and the hash); a dry run needs none. Direct saves a pre-image (`backup_id`, restore with `stonewright-direct-backup-restore`) instead of a `snapshot_id`, reads the post back (`verification`) and probes the page; there is no `change_set`. Custom code that the operations add is refused with the `approval_required` envelope (there is no `allow_raw_html` or `custom_code_grant`); code the page already holds is left alone. A block name the site does not have is refused when its block list (`/wp/v2/block-types`) can be read. `stonewright-gutenberg-validate` returns the `content_hash` to use |
 | `stonewright-blueprint-apply` | `id` (`blueprint_id`), `title` (`page_title`), `status` (`mode`), `post_id`, `engine`, `confirm` | Direct always renders Gutenberg blocks; `engine` `auto` and `gutenberg` work, `elementor` and `fse` return `engine_requires_plugin_mode` (they need Plugin mode), any other value `invalid_engine`. `palette_override` and `brand_kit` are refused. The output key `mode` is `direct`, not the plugin's draft or publish; there is no `snapshot_id`, `spec_sha8` or `diagnostics`. Updating a page with `post_id` and no `status` keeps the page's status, as the plugin does; a new page without `status` is a draft. With `post_id` Direct saves a pre-image and needs `confirm` in `confirm` mode |
 | `stonewright-blueprint-get` | `id` (`blueprint_id`) | Direct answers `{ok, blueprint}`; the plugin's object is flat, with the spec under `spec` |
 | `stonewright-blueprint-list` | `industry`, `search` | `{ok, blueprints[], count}`; the plugin's rows carry more fields (version, palette, fonts, spec hash, sections) |
@@ -261,22 +294,22 @@ a row here.
 | `stonewright-media-get` | `id` | `url`, `mime`, `alt`, `parent`, `width` and `height` are added beside `source_url`, `mime_type`, `alt_text`. No `sizes` or `filesize`; Direct also returns `title`, `slug` and `media_details` |
 | `stonewright-media-list` | `search`, `mime_type`, `per_page`, `page` | `mime_type` takes a family (`image`) or one type (`application/pdf`). Direct lists every type unless asked; the plugin lists images unless `mime_type` is empty. Direct returns `{items, total, page, per_page, next_page}`; the plugin `{ok, count, query, items}`. Items carry `url`, `mime`, `alt` |
 | `stonewright-media-upload` | `path` or `url`, `filename`, `title`, `alt_text` (`alt`), `caption`, `parent_post_id`, `confirm` | `base64` is refused. Direct checks extension, content, size (25 MiB) and, for a `url`, the public address. Output adds `url`, `mime`, `alt` |
-| `stonewright-memory-delete` | `id`, `confirm`, `site`, `global` | Direct ids are strings (the plugin's are integers) and the tool deletes from the companion's local memory only. It always needs `confirm: true` (the plugin uses `confirmation_token` in production-safe mode). A lesson in the plugin's site memory is removed in Plugin mode |
+| `stonewright-memory-delete` | `id`, `confirm`, `confirmation_id`, `site`, `global` | Direct ids are strings (the plugin's are integers) and the tool deletes from the companion's local memory only. It always needs a confirmation (a `confirmation_id` from a first call, or `confirm: true` on a local site), bound to the exact call; the plugin uses `confirmation_token` in production-safe mode. A lesson in the plugin's site memory is removed in Plugin mode |
 | `stonewright-memory-list` | `limit` (up to 500), `offset`, `order` (`recent` or `score`), `site` | Items carry `confidence`, `last_verified` and `score`. Direct reads the companion's local files only and says so (`backend`, `memory_backend`, and `plugin_detected` with a note when the plugin is active on the site); the plugin lists the site's memory as `{entries, count}`. The plugin's `type` is refused |
 | `stonewright-menu-create` | `name`, `description`, `locations`, `confirm` | `items` is refused; add items with `stonewright-menu-items`. Output adds `menu_id` |
 | `stonewright-menu-delete` | `id` (`menu_id`), `force` (default true), `confirm` | Direct returns `{deleted, result}`; the plugin `{deleted, change_set}` |
 | `stonewright-menu-list` | `search`, `per_page`, `page` | Direct returns `items[]` with `count` and `locations`; `menus[{id, name, slug}]` is added for the plugin's key |
 | `stonewright-plugin-activate` | `plugin` as `folder/file` or `folder/file.php`, `confirm` | Direct returns the compact plugin with `active` added; the plugin `{plugin, active}`. The plugin arms a Rescue probe around the activation; Direct does not |
 | `stonewright-plugin-deactivate` | as activate | Direct refuses the `stonewright` and `mcp-adapter` folders |
-| `stonewright-plugin-delete` | as activate | As deactivate, and `confirm: true` always; core refuses an active plugin |
+| `stonewright-plugin-delete` | as activate | As deactivate, and a confirmation always (a `confirmation_id`, or `confirm: true` on a local site); core refuses an active plugin |
 | `stonewright-rules-get` | `severity`, `scope`, `knownDigest` | Same arguments and shape; Direct throws on a bad filter where the plugin returns an error code |
 | `stonewright-settings-get` | `keys` (REST or option names) | Direct returns every REST-exposed setting under REST names (`title`, `description`, `timezone`) and also under `blogname`, `blogdescription`, `timezone_string`; the plugin returns its 15-key allowlist under option names. Unknown keys are listed in `unknown_keys` |
 | `stonewright-settings-update` | `settings` with REST names or the option names `blogname`, `blogdescription`, `timezone_string`, `confirm` | Option names are mapped to the REST names; a setting under both spellings with different values is refused. Keys outside the allowlist are refused. `ignored_keys` lists an allowed key that core REST did not store (for example `users_can_register`, `default_role`). The readback (`verification`) compares the REST names that were sent and only the keys core returns, so an option name is never reported as a mismatch and an ignored key is reported once, as ignored. Direct returns the settings; the plugin `{updated}` |
 | `stonewright-task-start` | `task`, `surface`, `intent`, `site` | [Common core](#task-start-and-learning-record-answers) plus backend-specific extras. Direct adds `required_followups` (including the correction trigger) and ranks `memory_highlights` by score |
-| `stonewright-theme-activate` | `stylesheet`, `confirm` | `confirm: true` is always needed; output adds `active` |
+| `stonewright-theme-activate` | `stylesheet`, `confirm` | a confirmation is always needed (a `confirmation_id`, or `confirm: true` on a local site); output adds `active` |
 | `stonewright-theme-list` | `status` | Items add `active` |
 | `stonewright-user-create` | `username` (`user_login`), `email` (`user_email`), `password` (`user_pass`), `roles` (`role`, one role), `name` (`display_name`), `confirm` | Output is the compact user with `login` and `display_name` added; the plugin returns `{id}` |
-| `stonewright-user-delete` | `id`, `reassign`, `confirm` | Refuses the signed-in account and the last administrator; `confirm: true` always |
+| `stonewright-user-delete` | `id`, `reassign`, `confirm` | Refuses the signed-in account and the last administrator; a confirmation always (a `confirmation_id`, or `confirm: true` on a local site) |
 | `stonewright-user-get` | `id` | `login` and `display_name` are added beside `username` and `name` |
 | `stonewright-user-list` | `search`, `roles` (`role`), `per_page` (`number`, at most 50 in Direct), `page`, `offset` | Direct returns no login or email in a list; the plugin does |
 | `stonewright-user-update` | `id`, `email` (`user_email`), `name` (`display_name`), `roles` (`role`), `password` (`user_pass`), `confirm` | Refuses taking administrator from the signed-in account or the last administrator |

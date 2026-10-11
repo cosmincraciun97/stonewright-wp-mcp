@@ -318,7 +318,8 @@ export function skillDelete(
   assertWriteAllowed({
     site: site ?? resolved.siteAlias ?? "_global",
     mode: resolveDirectWriteMode(ctx.env, site?.url),
-    destructive: true,
+    // A skill is a local file, so the site's confirmation does not apply: the check below asks for confirm:true in every mode.
+    destructive: false,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-skill-delete",
     env: ctx.env,
@@ -439,8 +440,9 @@ export function memoryList(
 }
 
 /**
- * Deletes one lesson from the companion's local memory by id. It always needs `confirm:true`, in every
- * write mode: a deleted lesson cannot be brought back. Only local memory is touched; a lesson kept in the
+ * Deletes one lesson from the companion's local memory by id. It always needs a confirmation, in every
+ * write mode, bound to the call (the `confirmation_id` a refused call returns; a plain `confirm:true` counts
+ * only on a local site): a deleted lesson cannot be brought back. Only local memory is touched; a lesson kept in the
  * plugin's site memory is removed in Plugin mode (the `stonewright-memory-delete` ability).
  */
 export function memoryDelete(
@@ -455,20 +457,15 @@ export function memoryDelete(
     site: site ?? resolved.siteAlias ?? "_global",
     mode: resolveDirectWriteMode(ctx.env, site?.url),
     destructive: true,
+    // A deleted lesson cannot be brought back: ask in every write mode, with a confirmation bound to this call.
+    alwaysConfirm: true,
+    ...(site?.url !== undefined ? { siteUrl: site.url } : {}),
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-memory-delete",
     env: ctx.env,
     // A lesson is a local file; the site's plugin does not matter.
     localOnly: true,
   });
-  if (input.confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      "stonewright-memory-delete requires confirm:true",
-      "stonewright-memory-delete",
-      input.site ?? "_global",
-    );
-  }
   const store = memoryStoresFor(resolved).find(
     (candidate) => getMemory({ baseDir: resolved.baseDir, scope: candidate, id: input.id }) !== null,
   );
@@ -976,7 +973,7 @@ export function taskStart(
 
   const guidance = [
     "Direct mode: core WordPress REST via Application Passwords; no plugin required.",
-    "Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.",
+    "Destructive tools need a confirmation (a refused call returns confirmation_id: repeat the same call with it); writes honor STONEWRIGHT_DIRECT_WRITES.",
     ...permanentRulesGuidance(),
     'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
     "If the user corrects you or a repeatable mistake is detected, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope. Any skill you draft stays a disabled candidate.",

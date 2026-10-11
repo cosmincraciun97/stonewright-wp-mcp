@@ -31,8 +31,8 @@ import {
  *     global styles, written by `preimage.ts`;
  *   - Elementor file backups (`post-<id>-<timestamp>.json`), written by `stonewright-elementor-data-update`.
  *
- * A restore checks the hash stored in the file, checks that the resource still exists, needs
- * `confirm:true`, saves the current state first (so the restore can be undone), writes the stored
+ * A restore checks the hash stored in the file, checks that the resource still exists, needs a
+ * confirmation, saves the current state first (so the restore can be undone), writes the stored
  * fields back through the same REST route, reads the resource back and audits the result.
  */
 
@@ -309,6 +309,8 @@ export interface BackupRestoreInput {
 export interface BackupRestoreDeps {
 	/** Test seam for the Elementor WP-CLI path. */
 	cli?: ElementorCli | undefined;
+	/** Internal: the caller already holds the agent's confirmation (a rollback the agent asked for with rollback_on_probe_failure). */
+	confirmed?: boolean | undefined;
 }
 
 function assertTrustworthy(ctx: DirectToolContext, found: InspectedBackup, expected: string | undefined): void {
@@ -356,10 +358,10 @@ export async function backupRestore(
 			...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
 			tool: BACKUP_RESTORE_TOOL,
 			env,
+			// Restoring overwrites the current resource: a confirmation is asked for in every write mode (dry_run:true shows the change without one).
+			alwaysConfirm: true,
+			preConfirmed: deps.confirmed === true,
 		});
-		if (input.confirm !== true) {
-			throw blocked('confirmation_required', 'Restoring a backup overwrites the current resource. Call again with confirm:true (dry_run:true shows what would change).', ctx);
-		}
 	}
 
 	const found = inspect(locate(ctx, input.backup_id));

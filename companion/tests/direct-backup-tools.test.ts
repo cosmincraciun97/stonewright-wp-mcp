@@ -87,6 +87,8 @@ describe('Direct backup tools through the MCP server', () => {
 				STONEWRIGHT_MODE: 'direct',
 				STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 				STONEWRIGHT_STATE_DIR: stateDir,
+				// No sites file: the site comes from the variables below, never from the machine's own configuration.
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'no-sites.json'),
 				STONEWRIGHT_WP_URL: 'http://example.test',
 				STONEWRIGHT_WP_USERNAME: 'editor-user',
 				STONEWRIGHT_WP_APP_PASSWORD: 'fixture-app-pass-0001',
@@ -109,7 +111,7 @@ describe('Direct backup tools through the MCP server', () => {
 		const tools = await connect(wp.fetchImpl as never);
 		expect(tools[LIST]?.enabled).toBe(true);
 		expect(tools[RESTORE]?.enabled).toBe(true);
-		expect(Object.keys(tools[RESTORE]?.inputSchema?.shape ?? {}).sort()).toEqual(['backup_id', 'confirm', 'dry_run', 'expected_sha256', 'site']);
+		expect(Object.keys(tools[RESTORE]?.inputSchema?.shape ?? {}).sort()).toEqual(['backup_id', 'confirm', 'confirmation_id', 'dry_run', 'expected_sha256', 'site']);
 		expect(Object.keys(tools[LIST]?.inputSchema?.shape ?? {}).sort()).toEqual(['limit', 'resource', 'site', 'tool']);
 		expect(tools[RESTORE]?.description).toMatch(/confirm:true/);
 		expect(tools['stonewright-content-update']?.description).toMatch(/stonewright-direct-backup-restore/);
@@ -145,7 +147,7 @@ describe('Direct backup tools through the MCP server', () => {
 		const tools = await connect(wp.fetchImpl as never);
 		const written = await call(tools, 'stonewright-content-update', { id: 4, content: '<p>new</p>' });
 		expect(written.body).toMatchObject({ ok: false, error: 'verification_mismatch', written: true });
-		expect(written.body['restore_with']).toMatchObject({ tool: RESTORE, needs: 'confirm:true' });
+		expect(written.body['restore_with']).toMatchObject({ tool: RESTORE, needs: 'confirmation' });
 		expect(JSON.stringify(written.body['restore_with'])).not.toContain('"confirm":true');
 	});
 

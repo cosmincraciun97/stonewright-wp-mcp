@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { loadSitesConfig, resolveSessionSite, sessionSiteAlias, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
-import { directCallWarnings, runWithDirectCallContext } from './plugin-presence.js';
+import { currentDirectCall, directCallWarnings, runWithDirectCallContext } from './plugin-presence.js';
 import { warmPluginPresence } from './plugin-guard.js';
 import { argAliasRefusal, resolveArgAliases, withArgAliases } from './arg-aliases.js';
 import type { ResolvedSite } from './sites-config.js';
@@ -464,7 +464,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 	if (blocked) {
 		return {
 			isError: true as const,
-			content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: errorCode, message: message.slice(0, 500), blocked: true }, null, 2) }],
+			content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: errorCode, message: message.slice(0, 500), blocked: true, ...err.details }, null, 2) }],
 		};
 	}
 	const count = noteDirectErrorOccurrence(tool, errorCode, message.slice(0, 200));
@@ -537,7 +537,9 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
  */
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
-	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
+	const confirmArg = z.boolean().optional().describe('Destructive call: true confirms it on a local dev site. Elsewhere repeat the call with confirmation_id.');
+	// Added to every tool that takes confirmArg (see registerTool): the id a refused destructive call returns.
+	const confirmationIdArg = z.string().optional().describe('From a confirmation_required reply: repeat the same call with it (10 min, one use).');
 	const probeArg = z.boolean().optional().describe('Fetch the public page after the write and check it. Default on for a local site, off for a remote one.');
 	const rollbackArg = z.boolean().optional().describe('Restore the saved copy automatically if that check fails. Implies probe.');
 	const recoveryConfirmArg = z.boolean().optional().describe('Recovery override on a plugin site only; normally omit');
@@ -571,17 +573,25 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			Record<string, z.ZodTypeAny>,
 			RegisteredTool['handler'],
 		];
+		// A destructive tool (one that takes confirmArg) also takes the id that its refusal returns.
+		const confirmable = declaredSchema['confirm'] === confirmArg
+			? { ...declaredSchema, confirmation_id: confirmationIdArg }
+			: declaredSchema;
 		// Shared tool names also accept the plugin's argument names (see arg-aliases.ts).
-		const paramsSchema = withArgAliases(name, declaredSchema);
+		const paramsSchema = withArgAliases(name, confirmable);
 		const wrappedCallback = ((rawInput: unknown, ...args: unknown[]) => {
 			let input = rawInput;
 			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
 				? String((input as { site: string }).site)
 				: sessionSiteAlias(ctx.env) ?? '_global';
 			const confirm = Boolean(input && typeof input === 'object' && (input as { confirm?: unknown }).confirm === true);
+			const callArgs = input && typeof input === 'object' ? { ...(input as Record<string, unknown>) } : {};
+			const presentedId = typeof callArgs['confirmation_id'] === 'string' && callArgs['confirmation_id'] !== ''
+				? callArgs['confirmation_id']
+				: undefined;
 			return withDirectAuditReceiptContext(() => directDispatchContext.run(
 				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
-				() => runWithDirectCallContext({ tool: name, confirm }, async () => {
+				() => runWithDirectCallContext({ tool: name, confirm, args: callArgs, confirmationId: presentedId, env: ctx.env }, async () => {
 					let target: ResolvedSite | null = null;
 					try {
 						const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
@@ -595,13 +605,16 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 					// Plugin spellings of the arguments (see arg-aliases.ts). After the target is known, so a
 					// refused call is audited against the right site.
 					if (input && typeof input === 'object') {
-						const resolved = resolveArgAliases(name, input as Record<string, unknown>, declaredSchema);
+						const resolved = resolveArgAliases(name, input as Record<string, unknown>, confirmable);
 						if (!resolved.ok) {
 							return resolved.kind === 'missing'
 								? invalidArguments(resolved.message)
 								: toolError(argAliasRefusal(resolved, name, site), { tool: name, site });
 						}
 						input = resolved.input;
+						// A confirmation_id is bound to the arguments as Direct reads them, after the aliases are applied.
+						const call = currentDirectCall();
+						if (call) call.args = { ...resolved.input };
 					}
 					// Learn whether the Stonewright plugin is active before the tool runs, so a
 					// write is refused up front. One cached request per site; never blocks a read.
@@ -844,7 +857,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	const blockPathArg = z.array(z.number().int().min(0));
 	tool(
 		'stonewright-blocks-batch-mutate',
-		'Edit the blocks of a page or post by path (Direct mode): insert, update or remove blocks in the parsed block markup instead of resending the whole content. Arguments are the Plugin ability\'s (post_id, operations, expected_content_hash, dry_run); there is no move or insert_section. A path addresses a block as the editor does: [1] is the second top-level block, [1, 0] its first inner block; operations apply in order. Run dry_run:true first: it writes nothing and returns before_hash and after_hash. A write needs expected_content_hash set to that before_hash and is refused if the content changed (checked again just before the write). All operations apply or none does. insert takes block {blockName, attrs, innerHTML, innerBlocks, innerContent} at path (the parent), position or before_path/after_path; update sets innerHTML on a block without inner blocks and merges attrs (null removes one); attrs alone are accepted only on a block with no saved markup, because Direct cannot regenerate markup. The post is saved first (backup_id, restore with stonewright-direct-backup-restore), read back (verification) and probed like stonewright-content-update. Refuses custom code that the operations add (approval_required envelope), a block name the site does not have (when its block list is readable), block comments inside markup, and a post whose block markup is already broken (see stonewright-gutenberg-validate).',
+		'Edit the blocks of a page or post by path (Direct mode): insert, update or remove blocks in the parsed block markup instead of resending the whole content. Arguments are the Plugin ability\'s (post_id, operations, expected_content_hash, dry_run); there is no move or insert_section. A path addresses a block as the editor does: [1] is the second top-level block, [1, 0] its first inner block; operations apply in order. Run dry_run:true first: it writes nothing and returns before_hash and after_hash. A write needs expected_content_hash set to that before_hash and is refused if the content changed (checked again just before the write). All operations apply or none does. A write needs a confirmation in confirm mode (confirmation_id from a first call, which is bound to these exact operations and hash, or confirm:true on local sites). insert takes block {blockName, attrs, innerHTML, innerBlocks, innerContent} at path (the parent), position or before_path/after_path; update sets innerHTML on a block without inner blocks and merges attrs (null removes one); attrs alone are accepted only on a block with no saved markup, because Direct cannot regenerate markup. The post is saved first (backup_id, restore with stonewright-direct-backup-restore), read back (verification) and probed like stonewright-content-update. Refuses custom code that the operations add (approval_required envelope), a block name the site does not have (when its block list is readable), block comments inside markup, and a post whose block markup is already broken (see stonewright-gutenberg-validate).',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
@@ -868,6 +881,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			dry_run: z.boolean().optional(),
 			probe: probeArg,
 			rollback_on_probe_failure: rollbackArg,
+			confirm: confirmArg,
 		},
 		async (input) => {
 			try {
@@ -880,7 +894,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-content-delete',
-		'Delete/trash a content item via core REST (Direct mode). force:true requires confirm:true in confirm mode.',
+		'Delete/trash a content item via core REST (Direct mode). force:true needs a confirmation in confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			type: z.string().optional(),
@@ -996,7 +1010,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-taxonomy-terms',
-		'List/create/update/delete terms of ANY registered taxonomy (built-in or custom) via core REST (Direct mode). taxonomy accepts slug or rest_base (auto-resolved from /wp/v2/taxonomies). action=delete requires confirm:true in confirm mode.',
+		'List/create/update/delete terms of ANY registered taxonomy (built-in or custom) via core REST (Direct mode). taxonomy accepts slug or rest_base (auto-resolved from /wp/v2/taxonomies). action=delete needs a confirmation in confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			action: z.enum(['list', 'create', 'update', 'delete']).default('list'),
@@ -1138,7 +1152,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-menu-delete',
-		'Delete a navigation menu via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Delete a navigation menu via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			id: z.number().int().positive(),
@@ -1156,7 +1170,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-menu-items',
-		'List/create/update/delete menu items via core REST (Direct mode). action=delete requires confirm:true on remote.',
+		'List/create/update/delete menu items via core REST (Direct mode). action=delete needs a confirmation on remote (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			action: z.enum(['list', 'create', 'update', 'delete']).default('list'),
@@ -1218,7 +1232,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-template-update',
-		'Update an FSE template via core REST (Direct mode). Replaces the stored template, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The template is read back and the sent fields compared (verification; a difference returns ok:false). The home page is then fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true); rollback_on_probe_failure:true restores the saved copy if that check fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Update an FSE template via core REST (Direct mode). Replaces the stored template, so it needs a confirmation when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote (confirmation_id from a first call, or confirm:true on local sites). The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The template is read back and the sent fields compared (verification; a difference returns ok:false). The home page is then fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true); rollback_on_probe_failure:true restores the saved copy if that check fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
@@ -1271,7 +1285,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-template-part-update',
-		'Update an FSE template part via core REST (Direct mode). Replaces the stored template part, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The part is read back and the sent fields compared (verification; a difference returns ok:false). The home page is then fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true); rollback_on_probe_failure:true restores the saved copy if that check fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Update an FSE template part via core REST (Direct mode). Replaces the stored template part, so it needs a confirmation when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote (confirmation_id from a first call, or confirm:true on local sites). The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The part is read back and the sent fields compared (verification; a difference returns ok:false). The home page is then fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true); rollback_on_probe_failure:true restores the saved copy if that check fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
@@ -1307,7 +1321,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-global-styles-update',
-		'Update global styles via core REST (Direct mode). Requires confirm:true on remote/confirm mode. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The styles are read back and the sent fields compared (verification; a difference returns ok:false). Refuses theme.json custom CSS (styles.css and per-block css) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Update global styles via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites). The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource); backup_id restores it with stonewright-direct-backup-restore. The styles are read back and the sent fields compared (verification; a difference returns ok:false). Refuses theme.json custom CSS (styles.css and per-block css) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().optional(),
@@ -1339,7 +1353,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-settings-update',
-		'Update site settings via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Update site settings via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			settings: z.record(z.unknown()),
@@ -1374,7 +1388,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-plugin-activate',
-		'Activate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Activate a plugin via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			plugin: z.string().min(1).describe('Plugin file path, e.g. akismet/akismet'),
@@ -1391,7 +1405,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-plugin-deactivate',
-		'Deactivate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Deactivate a plugin via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			plugin: z.string().min(1),
@@ -1408,7 +1422,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-plugin-install',
-		'Install a plugin from wordpress.org via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Install a plugin from wordpress.org via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
 			slug: z.string().min(1),
@@ -1595,7 +1609,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-blueprint-apply',
-		'Apply a bundled blueprint as Gutenberg blocks via core REST: a new page is a draft. The elementor and fse engines need Plugin mode. With post_id it overwrites that page (which keeps its status unless status is given), so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256, backup_id for stonewright-direct-backup-restore) and the write is refused if that backup fails. The page is read back (verification) and a published page is fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true; rollback_on_probe_failure:true restores the saved copy if that check fails). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Apply a bundled blueprint as Gutenberg blocks via core REST: a new page is a draft. The elementor and fse engines need Plugin mode. With post_id it overwrites that page (which keeps its status unless status is given), so it needs a confirmation when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote (confirmation_id from a first call, or confirm:true on local sites); the current page is saved first (backup_path, backup_sha256, backup_id for stonewright-direct-backup-restore) and the write is refused if that backup fails. The page is read back (verification) and a published page is fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true; rollback_on_probe_failure:true restores the saved copy if that check fails). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
@@ -1676,16 +1690,16 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		site: siteArg, id: z.number().int().positive(), email: z.string().email().optional(), name: z.string().optional(),
 		roles: z.array(z.string()).optional(), password: z.string().min(12).optional(), confirm: confirmArg,
 	}, (input, runtime) => users.userUpdate(runtime, input as never));
-	w3('stonewright-user-delete', 'Delete a user via core REST (requires reassign + confirm:true always).', {
+	w3('stonewright-user-delete', 'Delete a user via core REST (requires reassign; always needs a confirmation: confirmation_id from a first call, or confirm:true on local sites).', {
 		site: siteArg, id: z.number().int().positive(), reassign: z.number().int().positive(), confirm: confirmArg,
 	}, (input, runtime) => users.userDelete(runtime, input as never));
 	w3('stonewright-app-password-list', 'List application passwords for a user (no secret material).', {
 		site: siteArg, user_id: z.number().int().positive(),
 	}, (input, runtime) => users.appPasswordList(runtime, input as never));
-	w3('stonewright-app-password-create', 'Create an application password (plaintext returned once; confirm:true always).', {
+	w3('stonewright-app-password-create', 'Create an application password (plaintext returned once; always needs a confirmation: confirmation_id from a first call, or confirm:true on local sites).', {
 		site: siteArg, user_id: z.number().int().positive(), name: z.string().min(1), confirm: confirmArg,
 	}, (input, runtime) => users.appPasswordCreate(runtime, input as never));
-	w3('stonewright-app-password-revoke', 'Revoke an application password (confirm:true always).', {
+	w3('stonewright-app-password-revoke', 'Revoke an application password (always needs a confirmation: confirmation_id from a first call, or confirm:true on local sites).', {
 		site: siteArg, user_id: z.number().int().positive(), uuid: z.string().min(1), confirm: confirmArg,
 	}, (input, runtime) => users.appPasswordRevoke(runtime, input as never));
 
@@ -1717,7 +1731,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		instance: z.record(z.string(), z.unknown()).optional(), confirm: confirmArg,
 	}, (input, runtime) => widgets.widgetManage(runtime, input as never));
 
-	w3('stonewright-theme-activate', 'Activate a theme via core REST (confirm:true always required).', {
+	w3('stonewright-theme-activate', 'Activate a theme via core REST (always needs a confirmation: confirmation_id from a first call, or confirm:true on local sites).', {
 		site: siteArg, stylesheet: z.string().min(1), confirm: confirmArg,
 	}, (input, runtime) => themes.themeActivate(runtime, input as never));
 	w3('stonewright-custom-css', 'Read Customizer CSS when core exposes it. Direct mode blocks updates; use the plugin approval-gated tool for writes.', {
@@ -1767,7 +1781,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	w3('stonewright-plugin-get', 'Get a plugin via core REST (Direct mode).', {
 		site: siteArg, plugin: z.string().min(1),
 	}, (input, runtime) => plugins.pluginGet(runtime, input as never));
-	w3('stonewright-plugin-delete', 'Delete an inactive plugin (confirm:true always).', {
+	w3('stonewright-plugin-delete', 'Delete an inactive plugin (always needs a confirmation: confirmation_id from a first call, or confirm:true on local sites).', {
 		site: siteArg, plugin: z.string().min(1), confirm: confirmArg,
 	}, (input, runtime) => plugins.pluginDelete(runtime, input as never));
 	w3('stonewright-menu-locations', 'List menu locations via core REST (Direct mode).', {
@@ -1886,11 +1900,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-memory-delete',
-		'Delete one lesson from the companion\'s local memory by id (ids come from stonewright-memory-list and the memory_highlights of task-start). Requires confirm:true in every write mode; a deleted lesson cannot be recovered. Local memory only: a lesson in the plugin\'s site memory is removed in Plugin mode.',
+		'Delete one lesson from the companion\'s local memory by id (ids come from stonewright-memory-list and the memory_highlights of task-start). Needs a confirmation in every write mode (confirmation_id from a first call, or confirm:true on local sites); a deleted lesson cannot be recovered. Local memory only: a lesson in the plugin\'s site memory is removed in Plugin mode.',
 		{
 			site: siteArg,
 			id: z.string().min(1).max(64),
-			confirm: z.boolean().optional().describe('Must be true; the lesson is removed for good'),
+			confirm: confirmArg,
 			global: z.boolean().optional().describe('Delete from the global memory instead of the site\'s'),
 		},
 		(input) => selfImprove.memoryDelete(selfCtx(), input as never),
@@ -2009,13 +2023,18 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-get',
-		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
+		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). Returns hash (pass it back as expected_hash on write) and architecture (v3, v4, mixed). root_id limits to one element; include_content adds bounded settings; knownHash answers unchanged:true. WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			responseMode: z.enum(['summary', 'full']).default('summary').optional(),
+			response_mode: z.enum(['summary', 'full']).optional().describe('Alias of responseMode'),
 			maxElements: z.number().int().min(1).max(500).default(200).optional(),
+			max_nodes: z.number().int().min(1).max(500).optional().describe('Alias of maxElements'),
+			knownHash: z.string().optional(),
+			root_id: z.string().optional(),
+			include_content: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
@@ -2024,15 +2043,17 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Refuses custom CSS setting keys, HTML-type widgets, and script/style/iframe markup in settings with an approval_required envelope (needs Plugin mode and its custom-code approval). Prefer plugin batch-mutate on production.',
+		'Replace the whole _elementor_data tree without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. Pass expected_hash (the hash from stonewright-elementor-data-get) so a tree changed since your read is refused with revision_conflict; recommended. Refuses double-encoding, size collapse, widgetType remaps, duplicate ids, widgets at the root or inside widgets, non-object settings, CSS in colour values, trees over 4 MiB, and Atomic (V4) or mixed documents (Plugin mode types V4). force_destructive, allow_widget_type_remap and allow_atomic_raw skip one check each: they need confirm, are audited and are listed in overrides_used. Refuses custom CSS setting keys, HTML-type widgets, and script/style/iframe markup in settings with an approval_required envelope (needs Plugin mode and its custom-code approval). Prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
+			expected_hash: z.string().optional(),
 			confirm: confirmArg,
 			force_destructive: z.boolean().optional(),
 			allow_widget_type_remap: z.boolean().optional(),
+			allow_atomic_raw: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
@@ -2070,7 +2091,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-direct-backup-restore',
-		'Put a saved copy back (Direct mode). Needs confirm:true. Checks the hash stored with the backup (a file that was edited is refused), checks the resource still exists (nothing is recreated), saves the current state first so the restore can be undone (the result returns its backup_id), writes the saved fields back through the same REST route, reads the resource back and compares (verification), and audits it. dry_run:true shows what would change and needs no confirm. expected_sha256 is the backup_sha256 the original write returned; it is required only for a backup that has no stored hash. A restore puts back what was on the site, so custom code in the saved copy is not screened again.',
+		'Put a saved copy back (Direct mode). Needs a confirmation (confirmation_id from a first call, or confirm:true on local sites). Checks the hash stored with the backup (a file that was edited is refused), checks the resource still exists (nothing is recreated), saves the current state first so the restore can be undone (the result returns its backup_id), writes the saved fields back through the same REST route, reads the resource back and compares (verification), and audits it. dry_run:true shows what would change and needs no confirm. expected_sha256 is the backup_sha256 the original write returned; it is required only for a backup that has no stored hash. A restore puts back what was on the site, so custom code in the saved copy is not screened again.',
 		{
 			site: siteArg,
 			backup_id: z.string().min(1),

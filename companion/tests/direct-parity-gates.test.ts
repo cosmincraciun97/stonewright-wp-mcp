@@ -193,7 +193,7 @@ describe('direct blueprint engine gate', () => {
 		const result = await applyBlueprint(
 			clientOk,
 			{ id: 'agency', post_id: 9, confirm: true },
-			process.env,
+			{ ...process.env, STONEWRIGHT_DIRECT_CONFIRM_LEGACY: 'on' },
 		);
 		expect(result).toMatchObject({
 			ok: true,

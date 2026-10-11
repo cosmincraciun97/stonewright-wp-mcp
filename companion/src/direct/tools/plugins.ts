@@ -289,15 +289,9 @@ export async function pluginDelete(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-delete",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  if (input.confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      "confirm:true is required for this tool (stonewright-plugin-delete)",
-      "stonewright-plugin-delete",
-      ctx.site.alias,
-    );
-  }
   const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-delete");

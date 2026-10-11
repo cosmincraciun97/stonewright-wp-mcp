@@ -19,6 +19,12 @@ import { assertWriteAllowed, resolveDirectWriteMode } from "../writes.js";
 import { refuseCustomCode, scanElementorTree } from "../custom-code-guard.js";
 import { runWpCli, type WpCliCommandResult } from "../../wp-cli.js";
 import { checkLocalWpTarget } from "../elementor-target.js";
+import {
+  assertNoAtomicRawWrite,
+  assertTreeStructure,
+  inspectArchitecture,
+  treeHash,
+} from "../elementor-structure.js";
 
 export type ElementorCli = typeof runWpCli;
 
@@ -229,6 +235,17 @@ export type ElementorDataGetInput = {
   path?: string;
   responseMode?: "summary" | "full";
   maxElements?: number;
+  /** Aliases of the plugin's argument names. */
+  response_mode?: "summary" | "full";
+  max_nodes?: number;
+  /** The hash of an earlier read: when it still matches, only `unchanged:true` and the hash come back. */
+  knownHash?: string;
+  known_hash?: string;
+  /** Limit the outline, `include_content` nodes and full data to this element's subtree. */
+  root_id?: string;
+  element_id?: string;
+  /** Add bounded per-node settings to the summary (no binary bodies). */
+  include_content?: boolean;
 };
 
 export type ElementorFullReadResult = {
@@ -573,6 +590,84 @@ async function readFullTree(
   };
 }
 
+function findElement(nodes: ElementorTreeNode[], id: string): ElementorTreeNode | null {
+  for (const node of nodes) {
+    if (node.id != null && String(node.id) === id) return node;
+    const children = Array.isArray(node.elements)
+      ? node.elements.filter(
+          (n): n is ElementorTreeNode => n !== null && typeof n === "object",
+        )
+      : [];
+    const found = findElement(children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+const BINARY_SETTING_KEYS = new Set([
+  "data",
+  "bytes",
+  "binary",
+  "blob",
+  "file_bytes",
+  "file_contents",
+]);
+
+/** Keeps a settings value readable and bounded: no binary bodies, and a data: URI is cut. */
+function boundedSettingValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.startsWith("data:") && value.length > 256
+      ? value.slice(0, 256)
+      : value;
+  }
+  if (Array.isArray(value)) return value.map(boundedSettingValue);
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (BINARY_SETTING_KEYS.has(key.toLowerCase())) continue;
+      out[key] = boundedSettingValue(item);
+    }
+    return out;
+  }
+  return value;
+}
+
+function contentNodes(nodes: ElementorTreeNode[], max: number) {
+  const out: Array<{
+    id: string;
+    elType: string;
+    widgetType: string;
+    settings: unknown;
+  }> = [];
+  const walk = (elements: ElementorTreeNode[]): void => {
+    for (const element of elements) {
+      if (out.length >= max) return;
+      const settings =
+        element.settings &&
+        typeof element.settings === "object" &&
+        !Array.isArray(element.settings)
+          ? element.settings
+          : {};
+      out.push({
+        id: element.id != null ? String(element.id) : "",
+        elType: element.elType != null ? String(element.elType) : "",
+        widgetType:
+          element.widgetType != null ? String(element.widgetType) : "",
+        settings: boundedSettingValue(settings),
+      });
+      if (Array.isArray(element.elements)) {
+        walk(
+          element.elements.filter(
+            (n): n is ElementorTreeNode => n !== null && typeof n === "object",
+          ),
+        );
+      }
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 export async function elementorDataGet(
   env: NodeJS.ProcessEnv,
   input: ElementorDataGetInput,
@@ -584,46 +679,82 @@ export async function elementorDataGet(
     return full;
   }
 
-  const responseMode = input.responseMode === "full" ? "full" : "summary";
   const tree = full.data;
-  const count = countTreeElements(asTreeArray(tree));
-
-  if (responseMode === "full") {
-    return {
-      ok: true as const,
-      post_id: full.post_id,
-      transport: full.transport,
-      ...(full.collection !== undefined ? { collection: full.collection } : {}),
-      ...(full.wp_cli_refused ? { wp_cli_refused: full.wp_cli_refused } : {}),
-      edit_mode: full.edit_mode ?? null,
-      template_type: full.template_type ?? null,
-      element_count: count,
-      response_mode: "full" as const,
-      count,
-      data: tree,
-    };
-  }
-
-  const maxElements = clampMaxElements(input.maxElements);
-  const outline = outlineElementorTree(tree, maxElements);
-
-  return {
+  const hash = treeHash(tree);
+  const architecture = inspectArchitecture(tree).architecture;
+  const common = {
     ok: true as const,
     post_id: full.post_id,
     transport: full.transport,
     ...(full.collection !== undefined ? { collection: full.collection } : {}),
     ...(full.wp_cli_refused ? { wp_cli_refused: full.wp_cli_refused } : {}),
+  };
+
+  // The caller already has this document: no outline, no tree.
+  const known = (input.knownHash ?? input.known_hash ?? "").trim().toLowerCase();
+  if (known !== "" && known === hash) {
+    return { ...common, hash, architecture, unchanged: true as const };
+  }
+
+  const rootId = (input.root_id ?? input.element_id ?? "").trim();
+  let view = asTreeArray(tree);
+  if (rootId !== "") {
+    const found = findElement(view, rootId);
+    if (!found) {
+      return {
+        ok: false as const,
+        post_id: full.post_id,
+        transport: full.transport,
+        error: `Element "${rootId}" was not found in this document.`,
+        hint: "Read the outline first (responseMode=summary) and use an id from it as root_id.",
+      };
+    }
+    view = [found];
+  }
+  const count = countTreeElements(view);
+  const rootField = rootId !== "" ? { root_id: rootId } : {};
+
+  const responseMode =
+    (input.responseMode ?? input.response_mode) === "full" ? "full" : "summary";
+  if (responseMode === "full") {
+    return {
+      ...common,
+      edit_mode: full.edit_mode ?? null,
+      template_type: full.template_type ?? null,
+      element_count: countTreeElements(asTreeArray(tree)),
+      response_mode: "full" as const,
+      hash,
+      architecture,
+      unchanged: false as const,
+      ...rootField,
+      count,
+      data: rootId !== "" ? view : tree,
+    };
+  }
+
+  const maxElements = clampMaxElements(input.maxElements ?? input.max_nodes);
+  const outline = outlineElementorTree(view, maxElements);
+  const nodes =
+    input.include_content === true ? contentNodes(view, maxElements) : undefined;
+
+  return {
+    ...common,
     edit_mode: full.edit_mode ?? null,
     template_type: full.template_type ?? null,
-    element_count: count,
+    element_count: countTreeElements(asTreeArray(tree)),
     response_mode: "summary" as const,
+    hash,
+    architecture,
+    unchanged: false as const,
+    ...rootField,
     count,
     returned_count: outline.length,
     truncated: count > outline.length,
     tree_omitted: true as const,
     outline,
+    ...(nodes ? { nodes } : {}),
     full_mode_hint:
-      "Call with responseMode=full only when raw Elementor JSON is required for the next edit.",
+      "Call with responseMode=full only when raw Elementor JSON is required for the next edit. Pass the hash back as expected_hash when you write.",
   };
 }
 
@@ -637,6 +768,10 @@ export async function elementorDataUpdate(
     confirm?: boolean;
     force_destructive?: boolean;
     allow_widget_type_remap?: boolean;
+    /** Allow a whole-tree raw write onto an Atomic (V4) or mixed document. Needs confirm. */
+    allow_atomic_raw?: boolean;
+    /** The `hash` of the last read: the write is refused when the stored tree has changed since. */
+    expected_hash?: string;
     cwd?: string;
     path?: string;
   },
@@ -652,6 +787,16 @@ export async function elementorDataUpdate(
   // The same rule as every other Direct write tool: the target site decides, then the environment.
   const writeMode = resolveDirectWriteMode(env, targetUrl);
   const auditTargetIdentity = targetUrl ?? `direct-global:${resolveScope(input.site)}`;
+  // The flags that let a write past a check. Each needs a confirmation whatever the write mode, and is audited
+  // and listed in the result. A restore puts back a document that was already on the site: the confirmation was
+  // taken for the restore, and its flags are not overrides.
+  const overridesRequested = options.restore
+    ? []
+    : [
+        input.force_destructive === true ? "force_destructive" : null,
+        input.allow_widget_type_remap === true ? "allow_widget_type_remap" : null,
+        input.allow_atomic_raw === true ? "allow_atomic_raw" : null,
+      ].filter((name): name is string => name !== null);
   assertWriteAllowed({
     mode: writeMode,
     destructive: true,
@@ -663,6 +808,9 @@ export async function elementorDataUpdate(
       : input.site !== undefined && input.site !== ""
         ? { site: input.site }
         : {}),
+    ...(targetUrl !== undefined ? { siteUrl: targetUrl } : {}),
+    alwaysConfirm: overridesRequested.length > 0,
+    preConfirmed: options.restore !== undefined,
   });
   // Both transports write: the WP-CLI path sends no REST request of its own.
   await rest?.assertWritable?.();
@@ -713,24 +861,90 @@ export async function elementorDataUpdate(
     ? (current.data as unknown[])
     : [];
 
-  const integrity = integrityAssertWrite(tree, previous, {
-    ...(input.force_destructive !== undefined
-      ? { force_destructive: input.force_destructive }
-      : {}),
-    ...(input.allow_widget_type_remap !== undefined
-      ? { allow_widget_type_remap: input.allow_widget_type_remap }
-      : {}),
-  });
-  if (!integrity.ok) {
+  // Optimistic concurrency: the caller names the tree it read; a different stored tree is a conflict.
+  const previousHash = treeHash(current.data ?? null);
+  const expectedHash = (input.expected_hash ?? "").trim().toLowerCase();
+  if (!options.restore && expectedHash !== "" && expectedHash !== previousHash) {
+    return {
+      ok: false as const,
+      error: "revision_conflict",
+      message:
+        "The stored Elementor tree changed since it was read, so nothing was written. Read it again with stonewright-elementor-data-get (responseMode=full), apply the edit to that tree, and write with the new hash as expected_hash.",
+      post_id: input.post_id,
+      expected_hash: expectedHash,
+      current_hash: previousHash,
+    };
+  }
+
+  const refuseWith = (failure: {
+    error_code: string;
+    message: string;
+    data?: Record<string, unknown> | undefined;
+  }): never => {
     throw new Error(
-      `[${integrity.error_code}] ${integrity.message}${
-        integrity.data ? ` ${JSON.stringify(integrity.data)}` : ""
+      `[${failure.error_code}] ${failure.message}${
+        failure.data ? ` ${JSON.stringify(failure.data)}` : ""
       }`,
     );
+  };
+
+  const flags = {
+    force_destructive: input.force_destructive === true,
+    allow_widget_type_remap: input.allow_widget_type_remap === true,
+  };
+  const integrity = integrityAssertWrite(tree, previous, flags);
+  if (!integrity.ok) refuseWith(integrity);
+
+  // A restore puts back what was on the site; the checks below are for a tree the agent wrote.
+  const overridesUsed: string[] = [];
+  if (!options.restore) {
+    const structure = assertTreeStructure(tree, previous);
+    if (!structure.ok) refuseWith(structure);
+    const atomic = assertNoAtomicRawWrite(tree, previous, {
+      ...(input.allow_atomic_raw === true ? { allow_atomic_raw: true } : {}),
+    });
+    if (!atomic.ok) refuseWith(atomic);
+    // A flag counts as used only when the write would have been refused without it.
+    if (
+      flags.force_destructive &&
+      !integrityAssertWrite(tree, previous, { ...flags, force_destructive: false }).ok
+    ) {
+      overridesUsed.push("force_destructive");
+    }
+    if (
+      flags.allow_widget_type_remap &&
+      !integrityAssertWrite(tree, previous, { ...flags, allow_widget_type_remap: false }).ok
+    ) {
+      overridesUsed.push("allow_widget_type_remap");
+    }
+    if (input.allow_atomic_raw === true && atomic.atomic) {
+      overridesUsed.push("allow_atomic_raw");
+    }
   }
+  const hashAfterWrite = treeHash(tree);
 
   // Encode once — never store an already-encoded JSON string as the meta value wrapper.
   const json = encodeTreeOnce(tree);
+
+  // An override is on the record before the write is sent. A failed audit write stops the write.
+  if (overridesRequested.length > 0) {
+    appendDirectAudit(
+      {
+        tool: auditTool,
+        site: resolveScope(input.site),
+        targetIdentity: auditTargetIdentity,
+        resource: `post:${input.post_id}`,
+        status: "ok",
+        code: "elementor_override_used",
+        category: "SAFETY",
+        severity: "warning",
+        eventType: "direct_elementor_override_used",
+        lifecyclePhase: "progress",
+        validatorSummary: `overrides requested: ${overridesRequested.join(", ")}; used: ${overridesUsed.length > 0 ? overridesUsed.join(", ") : "none needed"}`,
+      },
+      defaultAuditPath(env),
+    );
+  }
 
   const scope = rest?.target?.alias ?? resolveScope(input.site);
   const backupDir = join(defaultStateDir(env), "backups", safeSegment(scope));
@@ -766,7 +980,19 @@ export async function elementorDataUpdate(
     backup_id: backupId,
     backup_sha256: backupSha256,
     before_sha256: beforeSha256,
+    previous_hash: previousHash,
+    hash: hashAfterWrite,
+    overrides_used: overridesUsed,
+    ...(overridesRequested.length > 0
+      ? { overrides_requested: overridesRequested }
+      : {}),
   };
+  const overrideGuidance =
+    overridesUsed.length > 0
+      ? [
+          `Overrides used (confirmed and audited): ${overridesUsed.join(", ")}. They skipped a check that would have refused this write; read the result back before reporting it done.`,
+        ]
+      : [];
 
   /** Reads the document again and compares it with the tree that was written. */
   const verifyDocument = async (): Promise<WriteVerification> => {
@@ -935,6 +1161,7 @@ export async function elementorDataUpdate(
       verify:
         "Direct mode preserves Elementor CSS metadata and never runs a global CSS flush. Use Plugin mode stonewright-elementor-post-write-verify for guarded target-post CSS closure, then verify desktop, tablet, and mobile in a separate browser tab.",
       guidance: [
+        ...overrideGuidance,
         "Direct mode has no live Elementor control schema. Prefer plugin batch-mutate for complex widgets and production work.",
         ...(elementCacheAbsent
           ? []
@@ -1002,6 +1229,7 @@ export async function elementorDataUpdate(
     verify:
       "remote Direct REST cannot invalidate Elementor HTML/CSS caches; use Plugin mode elementor-post-write-verify before accepting the change",
     guidance: [
+      ...overrideGuidance,
       "Updated via core REST meta (no WP-CLI). Elementor HTML and CSS cache closure is unavailable remotely, so this response is not frontend verification.",
       "This path has no Elementor schema validation. For production Loop Grid / complex widgets, use plugin stonewright-elementor-v3-batch-mutate.",
     ],

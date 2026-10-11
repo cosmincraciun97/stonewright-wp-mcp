@@ -217,7 +217,7 @@ export async function probeAfterWrite<T extends object>(
 		);
 	}
 	if (step.input.rollback_on_probe_failure !== true) {
-		const offer = { tool: BACKUP_RESTORE_TOOL, args: { backup_id: step.backupId }, needs: 'confirm:true' };
+		const offer = { tool: BACKUP_RESTORE_TOOL, args: { backup_id: step.backupId }, needs: 'confirmation' };
 		return failure(
 			{ site_status: 'probe_failed', rollback_offer: offer },
 			'Restore the saved copy with rollback_offer, or fix it. Nothing was rolled back.',
@@ -225,7 +225,7 @@ export async function probeAfterWrite<T extends object>(
 	}
 
 	try {
-		const restored = await backupRestore(ctx, { backup_id: step.backupId, confirm: true });
+		const restored = await backupRestore(ctx, { backup_id: step.backupId, confirm: true }, { confirmed: true });
 		const again = await probeFrontEnd(ctx, step.target, step.sentText);
 		const recovered = again.status === 'passed';
 		return failure(

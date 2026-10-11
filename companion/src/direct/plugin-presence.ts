@@ -78,6 +78,12 @@ export type DirectCallContext = {
 	tool: string;
 	/** confirm:true was passed on this call. */
 	confirm: boolean;
+	/** The arguments of the call: a confirmation_id is bound to them. Set by the registry. */
+	args: Record<string, unknown>;
+	/** The confirmation_id the call carries, if any. */
+	confirmationId?: string | undefined;
+	/** The environment the server was started with, for settings that tools do not receive themselves. */
+	env?: NodeJS.ProcessEnv | undefined;
 	/** Warnings to show in the tool result (for example a used override). */
 	warnings: string[];
 	/** The override was already audited for this call. */
@@ -87,10 +93,16 @@ export type DirectCallContext = {
 const callContext = new AsyncLocalStorage<DirectCallContext>();
 
 export function runWithDirectCallContext<T>(
-	init: { tool: string; confirm: boolean },
+	init: {
+		tool: string;
+		confirm: boolean;
+		args?: Record<string, unknown>;
+		confirmationId?: string | undefined;
+		env?: NodeJS.ProcessEnv | undefined;
+	},
 	operation: () => T,
 ): T {
-	return callContext.run({ ...init, warnings: [], overrideAudited: false }, operation);
+	return callContext.run({ ...init, args: init.args ?? {}, warnings: [], overrideAudited: false }, operation);
 }
 
 export function currentDirectCall(): DirectCallContext | undefined {

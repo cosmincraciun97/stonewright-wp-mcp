@@ -94,6 +94,7 @@ against core WordPress REST.
 |---|---|---|
 | `STONEWRIGHT_MODE` | `auto` \| `direct` \| `plugin` | `auto` |
 | `STONEWRIGHT_DIRECT_WRITES` | `on` \| `off` \| `confirm` | `on` for localhost/`.local`/`.test`; `confirm` for remote |
+| `STONEWRIGHT_DIRECT_CONFIRM_LEGACY` | `on` accepts a plain `confirm: true` as the confirmation on any site; `off` refuses it everywhere, local sites included. Unset: it counts on localhost/`.local`/`.test` only | unset |
 | `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry; binds the session to that site | unset |
 | `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE` | `1` allows a Direct write on a plugin site when the call also passes `confirm: true`. Recovery only; every use is audited and warned about | unset |
 | Multi-site registry | `~/.stonewright/sites.json` | schema v2: metadata only; secrets in OS store / `env://` |
@@ -136,7 +137,7 @@ site-hosted state.
 | Media list/upload/update | yes; upload limited to allowed folders, public URLs, allowed types, 25 MiB | yes |
 | Taxonomy terms | yes | yes |
 | Menus + menu items | yes | yes |
-| FSE templates / template parts | yes; pre-image before update, read back after the write, `confirm: true` for updates in `confirm` mode, custom code refused | yes |
+| FSE templates / template parts | yes; pre-image before update, read back after the write, a confirmation for updates in `confirm` mode, custom code refused | yes |
 | Global styles (theme.json) | yes; pre-image before update, read back after the write, custom CSS refused | yes |
 | Settings get/update | yes; allowlisted keys only, `default_role` limited to non-administrative core roles; no before-state saved | yes |
 | Plugins list/activate/deactivate/install | yes; Stonewright and the MCP adapter are never deactivated or deleted | yes |
@@ -150,11 +151,11 @@ site-hosted state.
 | Gutenberg block edits by path | yes: `stonewright-blocks-batch-mutate` inserts, updates and removes blocks with a content hash, a saved copy and a readback; no move, no `insert_section`, no browser finalizer | yes (`stonewright-blocks-batch-mutate`, with a finalizer for static blocks) |
 | WP-CLI tokenized tools | yes (local host only; a command that changes the site needs task-start, `confirm: true` in `confirm` mode and a matching local install, and is audited) | yes (local host only; no latch, confirmation or audit row from the companion) |
 | `stonewright/php-execute` | no | yes (`full` profile only) |
-| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup restorable with `stonewright-direct-backup-restore`, read back after the write; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
+| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup restorable with `stonewright-direct-backup-restore`, read back after the write; `elementor-data-get` returns a tree `hash` and `architecture`, and `elementor-data-update` takes `expected_hash`, checks ids, root, settings and size, and does not rewrite Atomic V4 or mixed documents; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
 | Memory / skills store | yes — private local state; lessons are ranked by confidence and time since last confirmed; a skill saved through Direct is a disabled candidate | yes — site-hosted; skills are activated by an administrator's approval |
-| Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
+| Production-safe confirmation tokens | no; Direct has its own `confirmation_id`, bound to the call's tool, site and arguments and kept in the companion's memory (10 minutes, one use) | yes |
 | Change sets, Rescue | no | yes |
 | List and restore saved copies | yes: `stonewright-direct-backup-list` / `-restore` (pre-images and Elementor file backups) | yes: Plugin snapshots and the change history |
 | Front-end probe and rollback | page, post and template writes; an automatic restore only with `rollback_on_probe_failure:true` | Rescue probes and rolls back |
@@ -195,13 +196,47 @@ plus `confirm: true` on the call lets one write through. Each use writes an audi
 row (`direct_write_plugin_override`) and returns a `warnings` entry. Remove the
 switch when the recovery is done.
 
-Destructive Direct writes on remote sites require `confirm: true` when
+Destructive Direct writes on remote sites need a confirmation when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
 flagged destructive ask for it: deletes, template and template-part creates,
 `global-styles-update`, `elementor-data-update`, plugin, theme-activate, settings
 and user changes, `template-update`, `template-part-update`, and
 `blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
 and taxonomy writes do not.
+
+A destructive call without a valid confirmation is refused with
+`confirmation_required`, a `confirmation_id` and a short `summary` of what the call
+will do. Repeat the same call, unchanged, with `confirmation_id`. The id is an HMAC
+over the tool name, the site and the exact arguments, is kept in the companion's
+memory for 10 minutes and works once; it is refused for other arguments, another site
+or another tool, after it expires and when it is used again
+(`confirmation_invalid` with a `reason`, and a fresh id for the call). A plain
+`confirm: true` is still the confirmation on a local site (localhost, `.local`,
+`.test`), where it is a flag the caller sets and is not bound to the arguments. On
+any other site it is no longer accepted and the refusal says so;
+`STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on` restores it, and `=off` refuses it on local
+sites too. Local WP-CLI commands that change the site keep `confirm: true`: they run
+on this machine against an install checked to be the Direct site. Restarting the
+companion drops every pending id.
+
+`elementor-data-update` replaces the whole tree. `elementor-data-get` returns `hash`
+(SHA-256 of the tree with object keys sorted; computed in the companion, not equal to
+the plugin's hash) and `architecture` (`v3`, `v4`, `mixed`, `empty`); `knownHash`
+answers `unchanged:true`, `root_id` limits the answer to one element, `include_content`
+adds bounded settings per node, and `max_nodes` and `response_mode` are aliases of
+`maxElements` and `responseMode`. Pass that hash as `expected_hash` on the update
+(optional, recommended): a tree that changed since is refused with
+`revision_conflict` and `current_hash`, and nothing is written. The update also
+refuses duplicate ids, a widget at the document root or directly inside a widget,
+`settings` that are not an object, CSS characters in a colour setting, and a tree over
+4 MiB, with more than 5000 elements or nested deeper than 32 levels. A document that holds Atomic (V4) elements or
+`$$type` settings, or a tree that does, is not rewritten (Plugin mode types V4
+writes) unless `allow_atomic_raw:true` is passed. `force_destructive`,
+`allow_widget_type_remap` and `allow_atomic_raw` each need a confirmation in every
+write mode, write an audit row before the write, and are listed in the result as
+`overrides_used` (`overrides_requested` shows what was asked for). The result returns
+`previous_hash` and `hash`. A restore through `stonewright-direct-backup-restore` is not
+held to these checks.
 
 Before `template-update`, `template-part-update`, `global-styles-update`,
 `content-update`, `blueprint-apply` with a `post_id`, and
@@ -218,7 +253,8 @@ keeps its own file backup under `backups/<site alias>/post-<id>-<timestamp>.json
 `stonewright-direct-backup-list` lists both kinds (newest first, with a `backup_id`,
 the tool, the resource, the time, the file hash and an integrity check; it never
 returns their content). `stonewright-direct-backup-restore` puts one back. It needs
-`confirm:true` (a `dry_run:true` call shows what would change and needs none),
+a confirmation (`confirm:true` on a local site, otherwise a `confirmation_id`; a
+`dry_run:true` call shows what would change and needs none),
 checks the hash stored in the file (an edited file is refused; a file without a
 stored hash needs the `backup_sha256` the original write returned as
 `expected_sha256`), checks the resource still exists (nothing is recreated),
@@ -282,7 +318,8 @@ the editor does (`[1]` is the second top-level block, `[1, 0]` its first inner
 block) and operations apply in order. A dry run writes nothing and returns
 `before_hash` and `after_hash`; a write needs `expected_content_hash` set to the
 `before_hash` and is refused as `content_conflict` if the content changed, checked
-again just before the write. All operations apply or none does. Direct saves a
+again just before the write. In `confirm` mode a write also needs a confirmation
+bound to the exact operations and hash. All operations apply or none does. Direct saves a
 copy of the post first (`backup_id`, restorable), reads the post back
 (`verification`) and probes the page like `content-update`. Blocks that were not
 touched are written back byte for byte. `update` sets `innerHTML` on a block that
@@ -907,8 +944,10 @@ sorts last), with their `id`, and marks one `verify_before_use` when it is old o
 doubtful. `stonewright-memory-list` takes `order: "score"`. Files written by
 earlier companions have neither field and keep working: their entries get a default
 confidence and count from the time they were recorded.
-`stonewright-memory-delete` removes one local lesson by id and always needs
-`confirm:true`; a lesson in the plugin's site memory is removed in Plugin mode.
+`stonewright-memory-delete` removes one local lesson by id and always needs a
+confirmation (the `confirmation_id` a refused call returns, bound to that call; a
+plain `confirm:true` counts on a local site only); a lesson in the plugin's site
+memory is removed in Plugin mode.
 An agent cannot activate its own skill in Direct mode: `stonewright-skill-save`
 and the `draft_skill` of `learning-record` store a disabled candidate, `enabled:true`
 and any change to an active skill are refused, and activation is an

@@ -68,6 +68,8 @@ export type BlocksMutateInput = {
   operations: BlockOperation[];
   expected_content_hash?: string | undefined;
   dry_run?: boolean | undefined;
+  /** A plain confirm:true counts on a local site; elsewhere repeat the call with the confirmation_id a refusal returns. */
+  confirm?: boolean | undefined;
 } & ProbeOptions;
 
 const MAX_INSERTED_BLOCKS = 500;
@@ -459,6 +461,8 @@ export async function blocksBatchMutate(ctx: DirectToolContext, input: BlocksMut
   const dryRun = input.dry_run === true;
   const env = ctx.env ?? process.env;
   if (!dryRun) {
+    // The gates that need no plan (task-start, write mode, plugin guard) answer first; the confirmation is
+    // asked for once the plan is valid, so a bad operation does not use it up.
     assertWriteAllowed({ site: ctx.site, mode: ctx.writeMode, destructive: false, tool: BLOCKS_MUTATE_TOOL });
   }
   if (!Array.isArray(input.operations) || input.operations.length === 0) {
@@ -558,6 +562,15 @@ export async function blocksBatchMutate(ctx: DirectToolContext, input: BlocksMut
     return { ok: true as const, dry_run: false, written: false, unchanged: true, ...base };
   }
 
+  // A write changes the live content of a post: in confirm mode it needs a confirmation bound to this exact
+  // edit (the operations and the content hash), as the other destructive Direct writes do.
+  assertWriteAllowed({
+    site: ctx.site,
+    mode: ctx.writeMode,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: BLOCKS_MUTATE_TOOL,
+  });
   const preImage = await storePreImage({
     client: ctx.client,
     site: ctx.site,
