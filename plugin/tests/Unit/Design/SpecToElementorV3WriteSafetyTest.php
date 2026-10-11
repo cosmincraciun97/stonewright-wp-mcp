@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Design;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -46,7 +47,7 @@ final class SpecToElementorV3WriteSafetyTest extends TestCase {
 
 	protected function tearDown(): void {
 		ElementorTransactionRunner::set_read_override( null );
-		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'], $GLOBALS['stonewright_test_after_add_option'] );
 		$GLOBALS['stonewright_test_asset_responses'] = [];
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_options']         = [];
@@ -213,6 +214,39 @@ final class SpecToElementorV3WriteSafetyTest extends TestCase {
 		self::assertNotSame( [], ElementorData::read( self::PAGE ), 'The design itself was written.' );
 		self::assertFalse( $result['page_shell']['applied'] );
 		self::assertNotSame( '', (string) $result['page_shell']['warning'] );
+	}
+
+	public function test_the_page_shell_is_written_under_the_page_lease_and_keeps_a_setting_another_writer_saved(): void {
+		$hook = function ( string $option, mixed $value ) use ( &$hook ): void {
+			if ( str_starts_with( (string) ( is_array( $value ) ? ( $value['owner'] ?? '' ) : '' ), 'page-shell' ) ) {
+				$GLOBALS['stonewright_test_posts'][ self::PAGE ]->meta['_elementor_page_settings'] = [ 'added_by_other' => 'kept' ];
+				return;
+			}
+			// The tree write takes its own lease first; wait for the lease of the page shell step.
+			$GLOBALS['stonewright_test_after_add_option'] = $hook;
+		};
+		$GLOBALS['stonewright_test_after_add_option'] = $hook;
+
+		$result = ( new SpecToElementorV3() )->execute( [ 'post_id' => self::PAGE, 'replace' => true, 'spec' => $this->spec( false ) ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() : '' );
+		self::assertTrue( $result['page_shell']['applied'] );
+		self::assertSame( 'kept', $this->meta()['_elementor_page_settings']['added_by_other'] ?? null, 'The setting another writer saved is not lost.' );
+		self::assertSame( 'yes', $this->meta()['_elementor_page_settings']['hide_title'] ?? null );
+		self::assertIsArray( PostWriteLock::acquire( self::PAGE, 'next-writer', 30 ), 'The lease is free afterwards.' );
+	}
+
+	public function test_the_page_shell_is_not_written_and_says_so_while_another_writer_holds_the_page_lease(): void {
+		PostWriteLock::acquire( self::PAGE, 'other-writer', 30 );
+		$method = new \ReflectionMethod( SpecToElementorV3::class, 'apply_page_shell_settings' );
+
+		$result = $method->invoke( new SpecToElementorV3(), self::PAGE, true );
+
+		self::assertFalse( $result['applied'] );
+		self::assertNotSame( '', (string) $result['warning'] );
+		self::assertArrayNotHasKey( '_wp_page_template', $this->meta() );
+		self::assertArrayNotHasKey( '_elementor_page_settings', $this->meta() );
+		self::assertTrue( PostWriteLock::owned_by( self::PAGE, 'other-writer' ), 'The other writer keeps its lease.' );
 	}
 
 	public function test_the_input_schema_documents_page_shell(): void {

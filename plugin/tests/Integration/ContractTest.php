@@ -519,8 +519,18 @@ final class ContractTest extends TestCase {
 			// The source must be one the user may read and edit, checked again when the ability runs.
 			$GLOBALS['stonewright_test_user_caps'] = array_merge( $caps_before, [ 'read_post' => true, 'edit_post' => true ] );
 		}
+		$template_before = $GLOBALS['stonewright_test_template'] ?? null;
+		if ( 'stonewright/theme-json-handoff' === $ability->name() ) {
+			// The handoff writes to a child theme only, so the fixture runs with one active.
+			$GLOBALS['stonewright_test_template'] = 'contract-parent-theme';
+		}
 		$result = $ability->execute( $args );
 		$GLOBALS['stonewright_test_user_caps'] = $caps_before;
+		if ( null === $template_before ) {
+			unset( $GLOBALS['stonewright_test_template'] );
+		} else {
+			$GLOBALS['stonewright_test_template'] = $template_before;
+		}
 
 		$failure = $ability->name();
 		if ( $result instanceof \WP_Error ) {

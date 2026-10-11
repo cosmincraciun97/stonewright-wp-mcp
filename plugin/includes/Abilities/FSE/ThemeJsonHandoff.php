@@ -32,7 +32,7 @@ final class ThemeJsonHandoff extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Stages a validated child-theme theme.json candidate. Dry-run returns approval_url, path, byte counts, and summary, then stops. Apply requires a human-issued custom_code_grant. Pluginless Direct cannot write.', 'stonewright' );
+		return __( 'Stages a validated child-theme theme.json candidate. Needs a child theme to be active and refuses otherwise (the parent theme is never written). Dry-run returns approval_url, path, byte counts, and summary, then stops. Apply requires a human-issued custom_code_grant. Pluginless Direct cannot write.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -47,7 +47,7 @@ final class ThemeJsonHandoff extends AbilityKernel {
 			'properties'           => [
 				'theme_json'         => [
 					'type'        => 'object',
-					'description' => 'Full theme.json object to write to the active stylesheet.',
+					'description' => 'Full theme.json object to write to the active child theme (refused when the active theme is not a child theme).',
 				],
 				'dry_run'            => [
 					'type'        => 'boolean',
@@ -111,6 +111,16 @@ final class ThemeJsonHandoff extends AbilityKernel {
 				// wp-config.php withdrew file editing: neither a write nor a proposal for one makes sense.
 				if ( ! Permissions::theme_file_writes_allowed() ) {
 					return Permissions::theme_file_writes_refusal();
+				}
+
+				// The file goes to the active stylesheet directory. Without a child theme that is the parent theme,
+				// which an update replaces, so the handoff refuses rather than write there.
+				if ( ! \is_child_theme() ) {
+					return $this->error(
+						'child_theme_required',
+						__( 'The active theme is not a child theme, so there is no child-theme theme.json to write. Activate a child theme first; the parent theme is not edited.', 'stonewright' ),
+						[ 'status' => 409 ]
+					);
 				}
 
 				$verify = $args;

@@ -56,6 +56,7 @@ final class BlueprintApplierStatusAndFseTest extends TestCase {
 	protected function tearDown(): void {
 		BlueprintApplier::$test_elementor_available = null;
 		unset( $GLOBALS['stonewright_test_stylesheet'] );
+		$GLOBALS['stonewright_test_post_types'] = [];
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 		$GLOBALS['stonewright_test_posts']                 = [];
 		$GLOBALS['stonewright_test_options']               = [];
@@ -165,6 +166,30 @@ final class BlueprintApplierStatusAndFseTest extends TestCase {
 
 		self::assertFalse( ( new ApplyBlueprint() )->permission_callback( [ 'blueprint_id' => 'dental', 'engine' => 'fse' ] ) );
 		self::assertTrue( ( new ApplyBlueprint() )->permission_callback( [ 'blueprint_id' => 'dental', 'engine' => 'gutenberg' ] ) );
+	}
+
+	public function test_publish_mode_needs_the_publish_capability_of_the_post_type(): void {
+		$GLOBALS['stonewright_test_post_types']['page'] = (object) [ 'cap' => (object) [ 'publish_posts' => 'publish_pages' ] ];
+		// A custom role that can edit pages but not publish them.
+		$GLOBALS['stonewright_test_user_caps']['publish_pages'] = false;
+		$ability = new ApplyBlueprint();
+
+		$new_page = $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish' ] );
+		self::assertInstanceOf( \WP_Error::class, $new_page );
+		self::assertSame( 'stonewright_forbidden', $new_page->get_error_code() );
+		self::assertSame( 403, $new_page->get_error_data()['status'] );
+
+		$existing = $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish', 'post_id' => self::POST_ID ] );
+		self::assertInstanceOf( \WP_Error::class, $existing );
+
+		// A draft needs no publish capability, and neither does an apply that passes no mode.
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'draft' ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental' ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'post_id' => self::POST_ID ] ) );
+
+		$GLOBALS['stonewright_test_user_caps']['publish_pages'] = true;
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish' ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'blueprint_id' => 'dental', 'mode' => 'publish', 'post_id' => self::POST_ID ] ) );
 	}
 
 	public function test_mode_has_no_default_in_the_input_schema_so_that_an_absent_mode_is_detectable(): void {

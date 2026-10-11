@@ -495,6 +495,25 @@ development builds were never stable releases.
   the field. Button, input and select sizes come from one set of control-size
   tokens in the shared admin layer, and a layout check measures every page of the
   admin menu in CI.
+- `stonewright-custom-code-provider` accepts the arguments the theme-file
+  provider reads: `start_marker`, `end_marker`, `marker`, `create_if_missing`,
+  `theme`, `smoke_url`, `id` and `expected_active`, each typed and bounded, and
+  `mode` lists its four values. `replace_between_markers` and `create_if_missing`
+  now work through the tool instead of being refused as unknown properties.
+- `stonewright-blueprint-apply` with `mode: publish` needs the publish capability
+  of the post type (for a page, `publish_pages`), as the other content writers do;
+  a role that can only edit pages can still apply a blueprint as a draft.
+- `stonewright-comment-list` says when it stopped at its limit of 2000 checked
+  comments: the answer carries `truncated: true` and a `hint` that names the
+  filters to narrow the list with, instead of ending silently.
+- `stonewright-theme-json-handoff` refuses with `stonewright_child_theme_required`
+  when no child theme is active, so it never writes `theme.json` into a parent
+  theme that an update replaces. The description already said child theme.
+- Direct `stonewright-direct-backup-restore` lists the meta keys that were added
+  after the backup as `meta_not_in_backup` (also in a dry run). A restore writes
+  the saved meta back over the current meta and deletes no key, so
+  `matches_backup` can be false after a correct restore; the tool text, the
+  README and the Direct guide now say so.
 - Name the right tool in `next_ability` when a generic content write is refused
   for an executable-code post type: `stonewright-custom-code-provider`.
 - Show the real tool limit of the Bootstrap surface in the Setup surface menu
@@ -620,6 +639,50 @@ development builds were never stable releases.
   call answers `stonewright_elementor_write_busy` before it snapshots or writes.
   `elementor-v3-update-element`, `elementor-v3-batch-mutate` and the other
   writers already did this.
+
+- Set `isInner` from the destination when `elementor-v3-move-element` or the
+  `move_element` operation of `elementor-v3-batch-mutate` moves a container or a
+  section: one moved into another element becomes inner and one moved to the root
+  stops being inner, as `elementor-v3-add-container` already did. Widgets keep
+  their own value.
+
+- Take the write lease of the post before reading the page in
+  `elementor-v4-render-from-spec`, for an append and for a replace, so an element
+  another writer saves in the meantime is no longer overwritten. While another
+  writer holds the lease the call answers `stonewright_elementor_write_busy`
+  before it snapshots or writes.
+
+- Take the same lease before the read in the whole-tree writes behind
+  `design-apply-to-post`, `design-spec-to-elementor-v3`, `blueprint-apply` and
+  the `replace_tree` operation of `elementor-v3-transaction-run`, and check the
+  tree the caller read under it, so the snapshot, the check and the write all
+  see the same page. An operation batch run by `elementor-v3-transaction-run`
+  now refuses with `stonewright_elementor_revision_conflict` when the page
+  changed after the runner took its snapshot.
+
+- Take the write lease of the kit before reading its settings in
+  `elementor-v3-update-kit-colors` and `elementor-v3-update-kit-typography`, so a
+  row another writer saves in the meantime is no longer overwritten. A busy kit
+  answers `stonewright_elementor_write_busy` before it snapshots or writes.
+
+- Take the same kit lease before reading the kit settings in
+  `design-direction-sync-apply`, and check the plan's `base_hash` under it, so
+  the hash check, the snapshot and the write see the same kit. A busy kit answers
+  `stonewright_elementor_write_busy` before it snapshots or writes.
+
+- Take the kit lease before the kit settings are read in `brand-kit-apply`. A
+  busy kit is reported as `kit_busy` in the Elementor part of the result; the
+  options and theme mods are applied as before.
+
+- Write the page template and the hidden title of `design-spec-to-elementor-v3`
+  (`page_shell`) under the write lease of the page, so a page setting another
+  writer saves in the meantime is kept. When the page is busy the design is
+  written and the result carries a warning.
+
+- Take the kit lease before the snapshot and the write in
+  `elementor-v4-create-class`, `elementor-v4-update-class`,
+  `elementor-v4-create-variable` and `elementor-v4-update-variable`. A busy kit
+  answers `stonewright_elementor_write_busy` before it snapshots or writes.
 
 - Refuse a widget at the document root. `elementor-v3-move-element`, the
   `move_element` and `add_widget` operations of `elementor-v3-batch-mutate` and
@@ -757,6 +820,28 @@ development builds were never stable releases.
 
 ### Security
 
+- Rolling back a WPCode or Code Snippets snippet through
+  `stonewright-custom-code-provider` needs the human-issued one-time grant that an
+  apply needs, bound to the code the snapshot restores. `rollback` with
+  `dry_run: true` stages the restore for approval and writes nothing; a rollback
+  without the grant answers `stonewright_custom_code_grant_required` with
+  `approval_required`, `agent_must_stop` and the approval link, before a
+  production-safe confirmation token is read. The restore that follows a failed
+  apply is not changed.
+- Memory text is screened for instructions that tell an agent to override the
+  plugin's rules or safety gates, to disable confirmation tokens, or to send
+  credentials elsewhere, with the screen that imported skills already go
+  through. `memory-save`, `learning-record`, `memory-generalize`,
+  `knowledge-import` (the memory entries of a bundle, whatever status the bundle
+  gives them), `incident-repair-record` (the repair recipe; the incident is still
+  resolved) and `POST /stonewright/v1/memory` (and Direct `learning-record` and
+  `incident-repair-record`) store a match with the status `needs_review` and say
+  so (`needs_review: true`, `review_rules`); it is not offered at task start or as
+  site context, drafts no skill, and a later save under its key does not clear it.
+  An administrator approves or rejects it on the Memory page; in Direct it is
+  cleared by editing its status in the local memory file or deleting it. A
+  prohibition ("never ignore the system prompt") is not flagged. The entry form
+  of the Memory page is not screened, because an administrator types there.
 - Direct mode holds a local WP-CLI command that changes the site to the Direct
   write gate (task-start, `confirm`, a matching local install, an audit row),
   refuses custom code in the remaining text-sending writes (ACF, media, menu,
@@ -927,6 +1012,11 @@ development builds were never stable releases.
 
 ### Documentation
 
+- Correct the Direct Elementor write description in the write-verification guide
+  and the companion README: `elementor-data-update` refuses duplicate element
+  ids, has an optional base hash (`expected_hash`), reads `_elementor_data` back,
+  and its backup is restored by `stonewright-direct-backup-restore`. There is still
+  no per-post lock or lease.
 - Describe Client ID Metadata Documents and the `localhost` callback host in
   the OAuth part of the connect-clients guide.
 - Document in the Design Spec reference the two versions the validator accepts,

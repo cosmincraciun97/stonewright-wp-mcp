@@ -3,6 +3,7 @@ import { join, resolve, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { defaultStonewrightDir } from './skills-store.js';
 import { assertNoSensitiveMaterial } from './sensitive-content.js';
+import { memoryBlockingRules } from './instruction-screen.js';
 
 const SCOPE_RE = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 const KINDS = new Set(['correction', 'lesson', 'preference', 'fact'] as const);
@@ -19,7 +20,12 @@ export type MemoryEntry = {
 	topic?: string;
 	scope_label?: string;
 	source?: string;
-	status: 'active' | 'stale';
+	/**
+	 * `needs_review`: the text told an agent to override the plugin's rules or move credentials. The entry is kept,
+	 * is never offered at task start, and stays so until a person clears it (edits its status in the memory file, or
+	 * deletes it with stonewright-memory-delete).
+	 */
+	status: 'active' | 'stale' | 'needs_review';
 	/** How sure the lesson is, 0 to 1. Files written before scores existed have none; see effectiveConfidence. */
 	confidence?: number;
 	/** When the lesson was last recorded or confirmed. Files written before scores existed have none. */
@@ -66,6 +72,7 @@ function ageDays(entry: MemoryEntry, now: number): number {
  */
 export function memoryScore(entry: MemoryEntry, now: number = Date.now()): number {
 	const freshness = FRESHNESS_FLOOR + (1 - FRESHNESS_FLOOR) * 0.5 ** (ageDays(entry, now) / HALF_LIFE_DAYS);
+	if (entry.status === 'needs_review') return 0;
 	return effectiveConfidence(entry) * freshness * (entry.status === 'stale' ? STALE_FACTOR : 1);
 }
 
@@ -143,7 +150,7 @@ function parseLine(line: string): MemoryEntry | null {
 			kind: KINDS.has(row.kind as MemoryKind) ? (row.kind as MemoryKind) : 'fact',
 			text,
 			tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-			status: row.status === 'stale' ? 'stale' : 'active',
+			status: row.status === 'stale' || row.status === 'needs_review' ? row.status : 'active',
 			...(typeof row.topic === 'string' ? { topic: row.topic } : {}),
 			...(typeof row.scope_label === 'string' ? { scope_label: row.scope_label } : {}),
 			...(typeof row.source === 'string' ? { source: row.source } : {}),
@@ -213,6 +220,8 @@ export function recordMemory(input: {
 	if (text.length > MAX_TEXT) {
 		throw new Error(`Memory text exceeds ${MAX_TEXT} bytes`);
 	}
+	// The same screen as the plugin's memory. A match is kept, as an entry that waits for a person.
+	const reviewRules = memoryBlockingRules(text, input.topic ?? '');
 	if (input.confidence !== undefined) assertConfidence(input.confidence);
 	const kind = input.kind ?? 'correction';
 	if (!KINDS.has(kind)) {
@@ -244,7 +253,8 @@ export function recordMemory(input: {
 				kind,
 				text,
 				tags: (input.tags ?? prev.tags).map(String),
-				status: 'active',
+				// Only a person clears an entry that waits for review; recording it again does not.
+				status: reviewRules.length > 0 || prev.status === 'needs_review' ? 'needs_review' : 'active',
 				...(input.topic !== undefined ? { topic: input.topic } : {}),
 				...(input.source !== undefined ? { source: input.source } : {}),
 			};
@@ -266,7 +276,7 @@ export function recordMemory(input: {
 		kind,
 		text,
 		tags: (input.tags ?? []).map(String),
-		status: 'active',
+		status: reviewRules.length > 0 ? 'needs_review' : 'active',
 		last_verified: ts,
 		confidence: input.confidence ?? defaultConfidenceForSource(input.source),
 		...(input.topic !== undefined ? { topic: input.topic } : {}),

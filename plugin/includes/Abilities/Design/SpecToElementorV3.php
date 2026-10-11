@@ -9,6 +9,7 @@ use Stonewright\WpMcp\DesignSpec\AssetReferences;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -236,23 +237,39 @@ final class SpecToElementorV3 extends AbilityKernel {
 			];
 		}
 
-		$page_settings = get_post_meta( $post_id, '_elementor_page_settings', true );
-		if ( ! is_array( $page_settings ) ) {
-			$page_settings = [];
+		// The tree write has released its lease by now. The page settings are read, changed and written under a lease of
+		// their own, so a setting another writer saves in between is not overwritten.
+		$result = PostWriteLock::with_lease(
+			$post_id,
+			'page-shell',
+			function () use ( $post_id ): array {
+				$page_settings = get_post_meta( $post_id, '_elementor_page_settings', true );
+				if ( ! is_array( $page_settings ) ) {
+					$page_settings = [];
+				}
+				$page_settings['hide_title'] = 'yes';
+
+				update_post_meta( $post_id, '_elementor_page_settings', $page_settings );
+				update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
+
+				// update_post_meta() also returns false for a value that did not change, so the result is read back.
+				$stored = get_post_meta( $post_id, '_elementor_page_settings', true );
+				$landed = is_array( $stored ) && 'yes' === ( $stored['hide_title'] ?? '' )
+					&& 'elementor_header_footer' === (string) get_post_meta( $post_id, '_wp_page_template', true );
+
+				return [
+					'applied' => $landed,
+					'warning' => $landed ? '' : __( 'The page template and the hidden title could not be stored; the design itself was written.', 'stonewright' ),
+				];
+			}
+		);
+		if ( $result instanceof \WP_Error ) {
+			return [
+				'applied' => false,
+				'warning' => __( 'The page template and the hidden title were not stored because another write was using the page; the design itself was written.', 'stonewright' ),
+			];
 		}
-		$page_settings['hide_title'] = 'yes';
 
-		update_post_meta( $post_id, '_elementor_page_settings', $page_settings );
-		update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
-
-		// update_post_meta() also returns false for a value that did not change, so the result is read back.
-		$stored = get_post_meta( $post_id, '_elementor_page_settings', true );
-		$landed = is_array( $stored ) && 'yes' === ( $stored['hide_title'] ?? '' )
-			&& 'elementor_header_footer' === (string) get_post_meta( $post_id, '_wp_page_template', true );
-
-		return [
-			'applied' => $landed,
-			'warning' => $landed ? '' : __( 'The page template and the hidden title could not be stored; the design itself was written.', 'stonewright' ),
-		];
+		return $result;
 	}
 }

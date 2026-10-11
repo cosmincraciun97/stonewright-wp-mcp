@@ -1539,6 +1539,130 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] );
 	}
 
+	/** @param array<int, array<string, mixed>> $tree */
+	private function seed_move_page( array $tree ): void {
+		$GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] = wp_json_encode( $tree );
+	}
+
+	/** @return array<int, array<string, mixed>> */
+	private function stored_tree_501(): array {
+		$decoded = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] ), true );
+		return is_array( $decoded ) ? $decoded : [];
+	}
+
+	/** @return array<int, array<string, mixed>> */
+	private static function move_tree(): array {
+		return [
+			[
+				'id'       => 'top-a',
+				'elType'   => 'container',
+				'isInner'  => false,
+				'settings' => [ 'container_type' => 'flex' ],
+				'elements' => [
+					[
+						'id'       => 'nested',
+						'elType'   => 'container',
+						'isInner'  => true,
+						'settings' => [ 'container_type' => 'flex' ],
+						'elements' => [
+							[ 'id' => 'deep', 'elType' => 'container', 'isInner' => true, 'settings' => [ 'container_type' => 'flex' ], 'elements' => [] ],
+							[ 'id' => 'headline', 'elType' => 'widget', 'widgetType' => 'heading', 'isInner' => false, 'settings' => [ 'title' => 'Hello' ], 'elements' => [] ],
+						],
+					],
+				],
+			],
+			[ 'id' => 'top-b', 'elType' => 'container', 'isInner' => false, 'settings' => [ 'container_type' => 'flex' ], 'elements' => [] ],
+		];
+	}
+
+	public function test_moving_a_container_from_a_parent_to_the_root_clears_is_inner(): void {
+		$this->seed_move_page( self::move_tree() );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'nested' ] ],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$moved = $this->stored_tree_501()[2];
+		self::assertSame( 'nested', $moved['id'] );
+		self::assertFalse( $moved['isInner'], 'A container at the root is not an inner container.' );
+		self::assertSame( [ 'deep', 'headline' ], array_column( $moved['elements'], 'id' ), 'Its children move with it.' );
+		self::assertTrue( $moved['elements'][0]['isInner'], 'A child keeps its own flag.' );
+	}
+
+	public function test_moving_a_container_from_the_root_into_a_parent_sets_is_inner(): void {
+		$this->seed_move_page( self::move_tree() );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'top-b', 'new_parent_id' => 'top-a' ] ],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$tree = $this->stored_tree_501();
+		self::assertSame( [ 'top-a' ], array_column( $tree, 'id' ) );
+		$moved = $tree[0]['elements'][1];
+		self::assertSame( 'top-b', $moved['id'] );
+		self::assertTrue( $moved['isInner'], 'A container inside another element is an inner container.' );
+	}
+
+	public function test_moving_a_container_between_two_parents_keeps_it_inner(): void {
+		$this->seed_move_page( self::move_tree() );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'deep', 'new_parent_id' => 'top-b' ] ],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$moved = $this->stored_tree_501()[1]['elements'][0];
+		self::assertSame( 'deep', $moved['id'] );
+		self::assertTrue( $moved['isInner'] );
+	}
+
+	public function test_moving_a_widget_does_not_add_or_change_is_inner(): void {
+		$tree = self::move_tree();
+		unset( $tree[0]['elements'][0]['elements'][1]['isInner'] );
+		$this->seed_move_page( $tree );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'headline', 'new_parent_id' => 'top-b' ] ],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		$moved = $this->stored_tree_501()[1]['elements'][0];
+		self::assertSame( 'headline', $moved['id'] );
+		self::assertArrayNotHasKey( 'isInner', $moved );
+	}
+
+	public function test_moving_an_element_into_its_own_descendant_is_refused_and_writes_nothing(): void {
+		$this->seed_move_page( self::move_tree() );
+		$before = (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'];
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'move_element', 'element_id' => 'top-a', 'new_parent_id' => 'deep' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
+		self::assertSame( 'stonewright_parent_not_found', $result->get_error_data()['cause_code'] ?? '', 'The subtree is taken out first, so its own descendant no longer exists as a parent.' );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertSame( $before, (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] );
+	}
+
 	/** @return array<string, mixed> */
 	private static function box( string $size ): array {
 		return [

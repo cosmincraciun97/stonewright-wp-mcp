@@ -87,15 +87,35 @@ final class ApplyBlueprint extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * @stonewright-cap edit_pages (or edit_post for post_id) + the post type's publish cap when mode is publish
+	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
+		$post_id = (int) ( $args['post_id'] ?? 0 );
+		$allowed = $post_id > 0 ? Permissions::edit_post( $post_id ) : Permissions::edit_pages();
+		if ( ! $allowed ) {
+			return false;
+		}
+
 		// The fse engine also writes a template, which is a Site Editor write.
 		if ( 'fse' === ( $args['engine'] ?? '' ) && ! Permissions::can_manage_fse() ) {
 			return false;
 		}
-		if ( ! empty( $args['post_id'] ) ) {
-			return Permissions::edit_post( (int) $args['post_id'] );
+
+		// Publishing is a separate capability, as in every other content writer.
+		if ( 'publish' === ( $args['mode'] ?? '' ) ) {
+			$post_type   = $post_id > 0 ? (string) ( get_post( $post_id )->post_type ?? 'page' ) : 'page';
+			$publish_cap = Permissions::publish_cap_for_status( $post_type, 'publish' );
+			if ( null !== $publish_cap && ! current_user_can( $publish_cap ) ) {
+				return new \WP_Error(
+					'stonewright_forbidden',
+					__( 'Insufficient capability to publish pages.', 'stonewright' ),
+					[ 'status' => 403 ]
+				);
+			}
 		}
-		return Permissions::edit_pages();
+
+		return true;
 	}
 
 	public function execute( array $args ): array|\WP_Error {

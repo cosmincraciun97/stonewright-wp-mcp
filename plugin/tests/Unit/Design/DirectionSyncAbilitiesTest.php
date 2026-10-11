@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Design\Direction\DirectionContract;
 use Stonewright\WpMcp\Design\Direction\DirectionSyncTarget;
 use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
 use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
@@ -400,6 +401,53 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 	// -------------------------------------------------------------------------
 	// Rejections.
 	// -------------------------------------------------------------------------
+
+	public function test_apply_is_refused_as_busy_while_another_writer_holds_the_kit_lease(): void {
+		$id   = $this->store_direction();
+		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertIsArray( $plan );
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		PostWriteLock::acquire( self::KIT_ID, 'other-writer', 30 );
+
+		$result = ( new DirectionSyncApply( $this->service ) )->execute( [ 'id' => $id, 'base_hash' => (string) $plan['base_hash'] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertSame( '#C2410C', $this->live_settings()['custom_colors'][0]['color'] );
+		self::assertTrue( PostWriteLock::owned_by( self::KIT_ID, 'other-writer' ), 'The other writer keeps its lease.' );
+	}
+
+	public function test_apply_checks_the_base_hash_after_taking_the_kit_lease(): void {
+		$id   = $this->store_direction();
+		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertIsArray( $plan );
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		// Fires right after this call takes the kit lease, which is where a read taken earlier would already be stale.
+		$GLOBALS['stonewright_test_after_add_option'] = function (): void {
+			$settings                              = $this->kit_settings();
+			$settings['custom_colors'][0]['color'] = '#111111';
+			$this->write_live_settings( $settings );
+		};
+
+		$result = ( new DirectionSyncApply( $this->service ) )->execute( [ 'id' => $id, 'base_hash' => (string) $plan['base_hash'] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( ElementorKitSyncPlanner::STALE_CODE, $result->get_error_code() );
+		self::assertSame( [], $this->meta_writes(), 'The stale plan takes no snapshot and writes nothing.' );
+		self::assertSame( '#111111', $this->live_settings()['custom_colors'][0]['color'], 'The change another writer made is left as it is.' );
+	}
+
+	public function test_apply_releases_the_kit_lease(): void {
+		$id   = $this->store_direction();
+		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertIsArray( $plan );
+
+		$result = ( new DirectionSyncApply( $this->service ) )->execute( [ 'id' => $id, 'base_hash' => (string) $plan['base_hash'] ] );
+
+		self::assertIsArray( $result );
+		self::assertIsArray( PostWriteLock::acquire( self::KIT_ID, 'next-writer', 30 ), 'The lease is free afterwards.' );
+	}
 
 	public function test_apply_refuses_a_stale_base_hash(): void {
 		$id   = $this->store_direction();

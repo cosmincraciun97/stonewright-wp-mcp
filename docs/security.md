@@ -187,6 +187,16 @@ also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which
 verifies the reference, target, and backup hash before entering the same
 transaction and smoke gates. Do not expose or accept absolute backup paths.
 
+Rolling back a WPCode or Code Snippets snippet through
+`stonewright/custom-code-provider` rewrites code, so it needs the same
+human-issued one-time grant as an apply, bound to the code the snapshot restores.
+`rollback` with `dry_run: true` stages the restore at the approval page and
+writes nothing. A rollback without the grant answers
+`stonewright_custom_code_grant_required` with `approval_required`,
+`agent_must_stop` and the approval link; the agent shows it and stops, and does
+not issue or use a grant itself. The restore that runs after a failed apply, in
+the same call, does not ask again.
+
 ### Rescue after a failed change
 
 A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:

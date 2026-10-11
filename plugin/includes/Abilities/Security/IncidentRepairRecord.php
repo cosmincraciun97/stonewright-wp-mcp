@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Security;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
@@ -23,7 +24,7 @@ final class IncidentRepairRecord extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Correlates persisted failure and verifier audit events, resolves the matching incident, and promotes one scrubbed reusable repair lesson.', 'stonewright' );
+		return __( 'Correlates persisted failure and verifier audit events, resolves the matching incident, and promotes one scrubbed reusable repair lesson. A recipe that tells an agent to override the plugin rules or move credentials is stored with status needs_review (needs_review:true, learning_status needs_review): the incident is still resolved, but the lesson is not offered at task start until an administrator approves it on the Memory page.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -57,6 +58,8 @@ final class IncidentRepairRecord extends AbilityKernel {
 				'incident_state'          => [ 'type' => 'string' ],
 				'learning_status'         => [ 'type' => 'string' ],
 				'memory_key'              => [ 'type' => 'string' ],
+				'needs_review'            => [ 'type' => 'boolean', 'description' => 'Present and true when the lesson was stored for review and is not offered to agents.' ],
+				'review_rules'            => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'verified_repair_receipt' => [ 'type' => 'object' ],
 			],
 		];
@@ -120,6 +123,8 @@ final class IncidentRepairRecord extends AbilityKernel {
 				}
 
 				$memory_key  = 'verified-repair-' . substr( (string) $receipt['repair_receipt_id'], 0, 16 );
+				// The same screen as a memory save: a recipe that tells an agent to override the rules is stored for review.
+				$review_rules = MemoryScreen::blocking_rules( 'Verified repair', (string) $receipt['repair_recipe'] );
 				$fingerprint = self::scalar_fingerprint( $receipt['runtime_fingerprint'] ?? null, $incident['version_token'] ?? null );
 				$memory_id   = Memory::put_typed(
 					'feedback',
@@ -143,7 +148,7 @@ final class IncidentRepairRecord extends AbilityKernel {
 					1.0,
 					[
 						'topic'               => (string) ( $incident['root_error_code'] ?? 'verified repair' ),
-						'status'              => 'active',
+						'status'              => [] === $review_rules ? 'active' : MemoryScreen::NEEDS_REVIEW,
 						'precedence'          => 650,
 						'version_fingerprint' => $fingerprint,
 					]
@@ -160,16 +165,22 @@ final class IncidentRepairRecord extends AbilityKernel {
 					return $this->error( 'repair_learning_link_failed', __( 'Verified learning could not be linked to its incident.', 'stonewright' ), [ 'status' => 500 ] );
 				}
 
-				return [
+				$needs_review = MemoryScreen::NEEDS_REVIEW === (string) ( $readback['status'] ?? '' );
+				$answer       = [
 					'ok'                      => true,
 					'verified'                => true,
 					'incident_id'             => $incident_id,
 					'repair_receipt_id'       => (string) $receipt['repair_receipt_id'],
 					'incident_state'          => 'resolved',
-					'learning_status'         => 'promoted',
+					'learning_status'         => $needs_review ? MemoryScreen::NEEDS_REVIEW : 'promoted',
 					'memory_key'              => $memory_key,
 					'verified_repair_receipt' => $receipt,
 				];
+				if ( $needs_review ) {
+					$answer['needs_review'] = true;
+					$answer['review_rules'] = $review_rules;
+				}
+				return $answer;
 			}
 		);
 	}
