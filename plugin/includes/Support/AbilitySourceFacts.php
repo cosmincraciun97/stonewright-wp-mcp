@@ -195,6 +195,31 @@ final class AbilitySourceFacts {
 	}
 
 	/**
+	 * Whether the source takes a snapshot before it writes: it calls Backup::snapshot_post() itself, or it hands the
+	 * write to a typed writer or bridge that snapshots on its caller's behalf. The ability matrix and the public API
+	 * contract both read this, so the two never disagree.
+	 */
+	public static function has_backup_gate( string $source ): bool {
+		foreach ( [
+			'Backup::snapshot_post',
+			'SpecToGutenberg()',
+			'SpecToElementorV3()',
+			'ApplyToPost()',
+			'new BuildPageFromSpec()',
+			// The native Elementor bridge snapshots the page or kit before it runs an Elementor ability.
+			'NativeElementorProvider',
+			// Typed writers that snapshot on their caller's behalf.
+			'ElementorKitWriter::apply',
+		] as $marker ) {
+			if ( str_contains( $source, $marker ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether the code can reach hosts outside the site.
 	 */
 	public static function calls_external( string $source ): bool {

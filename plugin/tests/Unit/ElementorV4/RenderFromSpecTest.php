@@ -63,6 +63,7 @@ final class RenderFromSpecTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_backup_failed', $result->get_error_code() );
+		self::assertSame( 500, $result->get_error_data()['status'] );
 		self::assertNotContains( '_elementor_data', array_column( $GLOBALS['stonewright_test_post_meta_calls'], 'meta_key' ) );
 	}
 

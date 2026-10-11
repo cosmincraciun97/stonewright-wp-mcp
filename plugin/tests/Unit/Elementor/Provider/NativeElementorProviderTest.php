@@ -94,7 +94,7 @@ final class NativeElementorProviderTest extends TestCase {
 
 		$result = $this->provider()->run( 'elementor/manage-default-styles', self::style_input(), [ 'dry_run' => true ] );
 
-		self::assertSame( 'feature_disabled', $result->get_error_code() );
+		self::assertSame( 'stonewright_feature_disabled', $result->get_error_code() );
 	}
 
 	public function test_an_uncertified_ability_falls_back_with_the_exact_issues_and_never_executes(): void {
@@ -125,7 +125,7 @@ final class NativeElementorProviderTest extends TestCase {
 	public function test_the_experimental_flag_and_production_safe_gates_still_apply_to_native_writes(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
 		$result = $this->provider()->run( 'elementor/manage-default-styles', self::style_input() );
-		self::assertSame( 'feature_disabled', $result->get_error_code() );
+		self::assertSame( 'stonewright_feature_disabled', $result->get_error_code() );
 
 		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'production-safe', 'stonewright_elementor_v4_atomic' => true ];
 		$result = $this->provider()->run( 'elementor/manage-default-styles', self::style_input() );

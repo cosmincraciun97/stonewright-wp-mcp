@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV4;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\V4\AtomicCompiler;
+use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
 use Stonewright\WpMcp\Security\Permissions;
@@ -26,6 +28,8 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status sandboxed
  */
 final class AtomicWidgetDefine extends AbilityKernel {
+
+	use SandboxGuards;
 
 	private const ABILITY = 'stonewright/elementor-v4-atomic-widget-define';
 
@@ -57,11 +61,13 @@ final class AtomicWidgetDefine extends AbilityKernel {
 			'properties'           => [
 				'confirmation_token' => [ 'type' => 'string' ],
 				'slug'     => [
-					'type'    => 'string',
-					'pattern' => '^[a-z0-9-]+$',
+					'type'      => 'string',
+					'pattern'   => '^[a-z0-9-]+$',
+					'minLength' => 1,
+					'maxLength' => 40,
 				],
-				'title'    => [ 'type' => 'string' ],
-				'template' => [ 'type' => 'string' ],
+				'title'    => [ 'type' => 'string', 'maxLength' => 80 ],
+				'template' => [ 'type' => 'string', 'maxLength' => 32768 ],
 				'props'    => [
 					'type'  => 'array',
 					'items' => [
@@ -106,7 +112,18 @@ final class AtomicWidgetDefine extends AbilityKernel {
 		// helper is not present on Permissions; can_manage_sandbox() is the
 		// closest authoritative gate available and is what the sibling V3
 		// WidgetDefine uses for an identical write.
+		// The ability belongs to the experimental V4 surface, so it follows the same feature flag.
+		$gate = V4FeatureGate::check();
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		return Permissions::can_manage_sandbox();
+	}
+
+	/** A site that disallows file modifications refuses before a production-safe token is spent. */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		unset( $args );
+		return $this->file_mods_disabled_error();
 	}
 
 	protected function audit_redacted_keys(): array {

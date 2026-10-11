@@ -41,7 +41,7 @@ return $adapter; }
 $payload['label'] = (string) $args['label']; }
 			if ( isset( $args['type'] ) ) {
 $payload['type'] = (string) $args['type']; }
-			$snapshot_id = Backup::snapshot_post( $kit_id );
+			$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS );
 			if ( '' === $snapshot_id ) {
 return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the variable write.' ); }
 			$item = $adapter->update( (string) $args['id'], $payload );

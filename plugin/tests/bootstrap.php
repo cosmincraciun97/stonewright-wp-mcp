@@ -457,7 +457,8 @@ if ( ! function_exists( 'update_option' ) ) {
 		if ( ! empty( $GLOBALS['stonewright_test_update_option_failures'][ $option ] ) ) {
 			return false;
 		}
-		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		$GLOBALS['stonewright_test_options'][ $option ]           = $value;
+		$GLOBALS['stonewright_test_option_autoload'][ $option ] = $autoload;
 		return true;
 	}
 }

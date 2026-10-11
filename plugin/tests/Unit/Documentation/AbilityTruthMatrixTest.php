@@ -196,6 +196,56 @@ final class AbilityTruthMatrixTest extends TestCase {
 		);
 	}
 
+	public function test_a_deprecated_ability_shows_the_deprecated_status(): void {
+		$deprecated = [];
+		foreach ( AbilityRegistry::list() as $class ) {
+			$ability = new $class();
+			if ( true === ( $ability->meta()['deprecated'] ?? false ) ) {
+				$deprecated[] = $ability->name();
+			}
+		}
+		self::assertNotSame( [], $deprecated, 'the per-widget add-* abilities are deprecated' );
+
+		$wrong = [];
+		foreach ( $deprecated as $slug ) {
+			$row = $this->find_row( $slug );
+			if ( null === $row || 'deprecated' !== trim( $row['columns'][9] ?? '' ) ) {
+				$wrong[] = $slug;
+			}
+		}
+		self::assertSame( [], $wrong, 'These deprecated abilities do not show the deprecated status. Run `composer docs:matrix`.' );
+		self::assertStringNotContainsString( '| stable | `tests/Unit/AbilityKernelAuditTest.php` | No | additive |', (string) $this->find_row_line( 'stonewright/elementor-add-heading' ) );
+	}
+
+	public function test_the_backup_column_agrees_with_the_backup_gate_of_the_public_api_contract(): void {
+		$contract = \Stonewright\WpMcp\Support\PublicApiContractSnapshot::load( dirname( __DIR__, 4 ) . '/docs/contracts/public-api-v1.json' );
+		$gates    = [];
+		foreach ( $contract['abilities'] as $ability ) {
+			$gates[ (string) $ability['ability_name'] ] = true === ( $ability['gates']['backup'] ?? false );
+		}
+
+		$disagree = [];
+		foreach ( self::$matrix_rows as $row ) {
+			$slug = trim( $row['slug'], " `\t" );
+			if ( ! isset( $gates[ $slug ] ) ) {
+				continue;
+			}
+			if ( ( 'Yes' === trim( $row['columns'][7] ?? '' ) ) !== $gates[ $slug ] ) {
+				$disagree[] = $slug;
+			}
+		}
+
+		self::assertSame( [], $disagree, 'The matrix and the contract disagree on Backup for these abilities. Run `composer docs:matrix` and `composer contracts:generate`.' );
+	}
+
+	private function find_row_line( string $slug ): ?string {
+		foreach ( explode( "\n", self::$matrix_content ) as $line ) {
+			if ( str_starts_with( $line, '| `' . $slug . '` ' ) ) {
+				return $line;
+			}
+		}
+		return null;
+	}
 	public function test_status_column_contains_at_least_one_sandboxed(): void {
 		$has_sandboxed = false;
 		foreach ( self::$matrix_rows as $row ) {

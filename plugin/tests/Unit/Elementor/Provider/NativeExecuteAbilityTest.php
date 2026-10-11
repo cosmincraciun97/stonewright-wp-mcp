@@ -209,7 +209,7 @@ final class NativeExecuteAbilityTest extends TestCase {
 		self::assertTrue( $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [], 'dry_run' => false ] ) );
 
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
-		self::assertSame( 'feature_disabled', $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] )->get_error_code() );
+		self::assertSame( 'stonewright_feature_disabled', $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] )->get_error_code() );
 	}
 
 	public function test_a_production_safe_write_is_blocked_before_any_token_or_native_call(): void {

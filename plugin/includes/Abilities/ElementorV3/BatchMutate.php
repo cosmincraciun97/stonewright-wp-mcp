@@ -21,6 +21,7 @@ use Stonewright\WpMcp\Elementor\V4\ArchitectureRouter;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
+use Stonewright\WpMcp\Elementor\Write\InnerLayout;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
@@ -69,7 +70,7 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
+		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An add_inner_section operation adds an inner section to a column or a container (the replacement of stonewright-elementor-add-inner-section); a later operation can add into its column as parent_ref op_id.column. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -116,7 +117,7 @@ final class BatchMutate extends AbilityKernel {
 						'properties'           => [
 							'action'                 => [
 								'type' => 'string',
-								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
+								'enum' => [ 'add_container', 'add_inner_section', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
 							],
 							'type'                   => [
 								'type'        => 'string',
@@ -786,6 +787,7 @@ final class BatchMutate extends AbilityKernel {
 	private static function normalize_action( string $action ): string {
 		return match ( $action ) {
 			'container' => 'add_container',
+			'inner-section', 'inner_section' => 'add_inner_section',
 			'widget'    => 'add_widget',
 			'update'    => 'update_element',
 			'move'      => 'move_element',
@@ -830,6 +832,7 @@ final class BatchMutate extends AbilityKernel {
 
 		return match ( $action ) {
 			'add_container'  => $this->add_container( $tree, $operation, $refs, $require_evidence ),
+			'add_inner_section' => $this->add_inner_section( $tree, $operation, $refs ),
 			'add_widget'     => $this->add_widget( $tree, $operation, $refs, $require_evidence ),
 			'update_element' => $this->update_element( $tree, $operation, $refs, $require_evidence, $dry_run ),
 			'patch_repeater_row' => $this->patch_repeater_row( $tree, $operation, $refs, $require_evidence ),
@@ -888,6 +891,56 @@ final class BatchMutate extends AbilityKernel {
 			[ 'evidence' => $evidence, 'allowed_breakpoints' => $scope ],
 			[] !== $validated['warnings'] ? [ 'normalization_warnings' => $validated['warnings'] ] : []
 		);
+	}
+
+	/**
+	 * Adds an inner section to a column (an inner section with one column) or to a container (a nested container).
+	 * This is the replacement of the deprecated stonewright/elementor-add-inner-section.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>            $operation
+	 * @param array<string, string>           $refs
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function add_inner_section( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
+		if ( $parent_path instanceof \WP_Error ) {
+			return $parent_path;
+		}
+		if ( [] === $parent_path ) {
+			return $this->error( 'inner_section_needs_parent', __( 'An inner section goes inside a column or a container; send parent_id or parent_ref.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
+		}
+		$element = InnerLayout::element( $tree, $parent_path );
+		if ( null === $element ) {
+			$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];
+			return $this->error(
+				'parent_not_container',
+				__( 'An inner section goes inside a column or a container.', 'stonewright' ),
+				[
+					'status'         => 400,
+					'parent_id'      => (string) ( $parent['id'] ?? '' ),
+					'parent_el_type' => (string) ( $parent['elType'] ?? '' ),
+				]
+			);
+		}
+
+		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
+		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
+		$item     = $this->created_item( $operation, $refs, $element['id'], 'inner_section' );
+		$column   = $element['elements'][0]['id'] ?? null;
+		if ( is_string( $column ) ) {
+			$item['column_id'] = $column;
+			if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
+				// The column of an inner section is where its widgets go: "parent_ref": "<op_id>.column".
+				$refs[ $operation['op_id'] . '.column' ] = $column;
+			}
+		}
+
+		return $item;
 	}
 
 	/**
@@ -1889,7 +1942,7 @@ final class BatchMutate extends AbilityKernel {
 	private static function repair_hint( string $code, string $action ): string {
 		return match ( $code ) {
 			'stonewright_parent_not_found', 'stonewright_unknown_ref' => 'Read the current page structure. For an empty page, add the root container with no parent; reference later nodes by @op_id.',
-			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_widget, update_element, patch_repeater_row, move_element, or remove_element.',
+			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_inner_section, add_widget, update_element, patch_repeater_row, move_element, or remove_element.',
 			'stonewright_ambiguous_repeater_row' => 'Refresh the widget and select exactly one stable custom_id, falling back to _id only when custom_id is unavailable.',
 			'stonewright_third_party_replace_blocked' => 'Use patch_repeater_row. If a full replace is unavoidable, review one explicit high-risk dry-run and bind the apply to its preservation hash.',
 			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',

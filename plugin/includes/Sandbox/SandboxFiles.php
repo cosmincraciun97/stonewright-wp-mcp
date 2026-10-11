@@ -32,6 +32,13 @@ final class SandboxFiles {
 	/** Regex for valid sandbox file names. */
 	private const NAME_REGEX = '/^' . self::NAME_PATTERN . '$/D';
 
+	/**
+	 * A widget the widget builder has compiled and not yet registered: widget-<slug>.pending.php, stored as
+	 * widget-<slug>.pending.draft. It is a sandbox name so that its writes keep backups and ledger rows, but
+	 * it is not a snippet: the library does not list it and it cannot be activated as a must-use file.
+	 */
+	private const PENDING_WIDGET_REGEX = '/^widget-[a-z][a-z0-9_\-]{2,40}\.pending\.php$/D';
+
 	/** Maximum number of backup versions to retain per file. */
 	private const MAX_BACKUPS = 10;
 
@@ -159,12 +166,12 @@ final class SandboxFiles {
 			];
 		}
 
-		// Strip reserved names and any stored file whose name does not match the
-		// strict NAME_REGEX (e.g. a pending widget file).
+		// Strip reserved names, staged widget files (the widget abilities own those) and any
+		// stored file whose name does not match the strict NAME_REGEX.
 		$results = array_values(
 			array_filter(
 				$results,
-				static fn( array $f ) => self::valid_name( $f['name'] ) && ! in_array( $f['name'], self::RESERVED_NAMES, true )
+				static fn( array $f ) => self::valid_name( $f['name'] ) && ! self::is_pending_widget_name( $f['name'] ) && ! in_array( $f['name'], self::RESERVED_NAMES, true )
 			)
 		);
 
@@ -528,6 +535,9 @@ final class SandboxFiles {
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
 		}
+		if ( self::is_pending_widget_name( $name ) ) {
+			return new \WP_Error( 'stonewright_sandbox_invalid_name', "A staged widget is registered with stonewright/elementor-widget-register, not activated: {$name}" );
+		}
 
 		$contents = self::read( $name );
 		if ( is_wp_error( $contents ) ) {
@@ -732,7 +742,16 @@ final class SandboxFiles {
 	 * @param string $name Candidate filename.
 	 */
 	public static function valid_name( string $name ): bool {
-		return (bool) preg_match( self::NAME_REGEX, $name );
+		return (bool) preg_match( self::NAME_REGEX, $name ) || self::is_pending_widget_name( $name );
+	}
+
+	/**
+	 * Whether a name is that of a staged widget, widget-<slug>.pending.php.
+	 *
+	 * @param string $name Candidate filename.
+	 */
+	public static function is_pending_widget_name( string $name ): bool {
+		return 1 === preg_match( self::PENDING_WIDGET_REGEX, $name );
 	}
 
 	/**

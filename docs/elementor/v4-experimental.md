@@ -30,7 +30,7 @@ at runtime. If the option is falsy (the default), write calls return:
 
 ```json
 {
-  "code": "feature_disabled",
+  "code": "stonewright_feature_disabled",
   "message": "Elementor V4 atomic features are disabled."
 }
 ```

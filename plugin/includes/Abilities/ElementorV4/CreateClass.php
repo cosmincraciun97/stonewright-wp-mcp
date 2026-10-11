@@ -48,7 +48,7 @@ return $this->error( 'no_kit', 'No active Elementor kit found.' ); }
 return $adapter; }
 			$id = 'sw-' . wp_generate_uuid4();
 			$item = [ 'id' => $id, 'label' => (string) $args['label'], 'type' => 'class', 'variants' => (array) $args['variants'] ];
-			$snapshot_id = Backup::snapshot_post( $kit_id );
+			$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS, true );
 			if ( '' === $snapshot_id ) {
 return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the class write.' ); }
 			$readback = $adapter->create( $item );

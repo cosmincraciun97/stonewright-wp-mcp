@@ -138,6 +138,13 @@ version they report in their metadata, and the changelog announces the removal
 before it ships. New skills and recommendations use the live schema plus batch
 compiler.
 
+An inner section is a layout element, not a widget, so it has no schema to read.
+The replacement of `stonewright/elementor-add-inner-section` is the
+`add_inner_section` action of `stonewright/elementor-v3-batch-mutate`: it adds a
+nested container to a container, or an inner section with one column to a column,
+and a later operation in the same batch adds into that column with
+`parent_ref: "<op_id>.column"`.
+
 ## Verification coverage
 
 Automated tests cover live third-party widget discovery, compact schemas,

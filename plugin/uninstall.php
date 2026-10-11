@@ -8,6 +8,9 @@
  *
  * The rescue helper is not data. It is a must-use plugin file in wp-content/mu-plugins that the
  * plugin installed, and deleting the plugin always removes it, with or without the setting below.
+ * The same goes for the list of custom widgets the widget builder registered with Elementor
+ * (the stonewright_registered_widgets option): it says which generated widget files get loaded,
+ * so it is dropped on every uninstall, and a reinstall registers a widget again before it loads.
  *
  * To remove everything the plugin owns, define STONEWRIGHT_REMOVE_ALL_DATA as true (for
  * example in wp-config.php) before deleting the plugin. Stonewright\WpMcp\Core\Uninstaller
@@ -24,8 +27,9 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 require_once __DIR__ . '/includes/Core/RescueInstaller.php';
 require_once __DIR__ . '/includes/Core/Uninstaller.php';
 
-// Code, not data: removed before the data setting is looked at.
+// Code, not data: the rescue helper and the list of registered custom widgets go before the data setting is looked at.
 \Stonewright\WpMcp\Core\Uninstaller::remove_code();
+\Stonewright\WpMcp\Core\Uninstaller::forget_registered_widgets();
 
 // Checked here as well, so the default path runs no data removal code.
 if ( ! defined( 'STONEWRIGHT_REMOVE_ALL_DATA' ) || true !== STONEWRIGHT_REMOVE_ALL_DATA ) {

@@ -9,24 +9,21 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
  * Loads Stonewright-built Elementor widgets at runtime.
  *
  * Widget files live in SandboxFiles::draft_dir(), NOT in mu-plugins, stored
- * as widget-<slug>.draft so no web server can run them. This loader scans
- * draft_dir for those files (without the .pending suffix) on the
- * elementor/widgets/register hook and require_once's each one.
+ * as widget-<slug>.draft so no web server can run them. A file is loaded only
+ * when its slug is on the registered-widgets list (RegisteredWidgets, filled by
+ * stonewright/elementor-widget-register and by create-custom-widget with
+ * activate=true): a file that is merely present in the draft folder is not a
+ * registered widget. The loader require_once's each one on the
+ * elementor/widgets/register hook.
  *
  * The generated file's self-contained registration closure then fires
  * and adds the widget class to Elementor's widget manager.
  *
- * Skipped files:
- *  - *.pending.draft — not yet approved via widget_register.
- *  - Any filename that does not match ^widget-[a-z0-9_-]+\.draft$ exactly.
+ * Skipped:
+ *  - slugs that are not registered, and registered slugs without an active file;
+ *  - *.pending.draft: not yet approved via stonewright/elementor-widget-register.
  */
 final class Loader {
-
-	/** Pattern for active (non-pending) widget files. */
-	private const ACTIVE_PATTERN = '/^widget-[a-z0-9_-]+\.' . SandboxFiles::DRAFT_EXTENSION . '$/';
-
-	/** Suffix that identifies a pending file — must be excluded. */
-	private const PENDING_SUFFIX = '.pending.' . SandboxFiles::DRAFT_EXTENSION;
 
 	private static bool $registered = false;
 
@@ -44,7 +41,7 @@ final class Loader {
 	}
 
 	/**
-	 * Scan draft_dir and require_once every active widget file.
+	 * Require_once the active file of every registered widget.
 	 *
 	 * Called on elementor/widgets/register at priority 20.
 	 * Passes $widgets_manager directly to the file's register_with_manager()
@@ -54,28 +51,14 @@ final class Loader {
 	 * @param \Elementor\Widgets_Manager $widgets_manager The Elementor widget manager.
 	 */
 	public static function load_widgets( \Elementor\Widgets_Manager $widgets_manager ): void {
-		$draft_dir = SandboxFiles::draft_dir();
-
-		$files = glob( $draft_dir . '/widget-*.' . SandboxFiles::DRAFT_EXTENSION );
-		if ( false === $files ) {
-			return;
-		}
-
-		foreach ( $files as $file ) {
-			$base = basename( $file );
-
-			// Skip pending files — they are not yet approved.
-			if ( str_ends_with( $base, self::PENDING_SUFFIX ) ) {
-				continue;
-			}
-
-			// Enforce strict name pattern.
-			if ( ! preg_match( self::ACTIVE_PATTERN, $base ) ) {
+		foreach ( RegisteredWidgets::all() as $slug ) {
+			$file = SandboxFiles::stored_path( 'widget-' . $slug . '.php' );
+			if ( ! is_file( $file ) ) {
 				continue;
 			}
 
 			// I1 — StaticGuard re-scan before require_once.
-			// If an attacker drops a file directly into draft_dir it must be rejected.
+			// If a registered widget's file was changed on disk it must still pass the guard.
 			$content = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			$findings = \Stonewright\WpMcp\Sandbox\StaticGuard::scan( $content );
 			if ( ! empty( $findings ) ) {
@@ -94,13 +77,9 @@ final class Loader {
 			// C1 — After requiring the file, call register_with_manager() directly
 			// instead of relying on a secondary add_action hook in the generated file.
 			// The generated function is named stonewright_register_widget_<safe_slug>.
-			$slug_part = preg_replace( '/^widget-(.+)\.' . SandboxFiles::DRAFT_EXTENSION . '$/', '$1', $base );
-			if ( null !== $slug_part ) {
-				$safe_fn_slug = str_replace( '-', '_', $slug_part );
-				$fn           = 'stonewright_register_widget_' . $safe_fn_slug . '_with_manager';
-				if ( function_exists( $fn ) ) {
-					$fn( $widgets_manager );
-				}
+			$fn = 'stonewright_register_widget_' . str_replace( '-', '_', $slug ) . '_with_manager';
+			if ( function_exists( $fn ) ) {
+				$fn( $widgets_manager );
 			}
 		}
 	}

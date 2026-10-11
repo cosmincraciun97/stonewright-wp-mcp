@@ -22,7 +22,7 @@ final class V4FeatureGateTest extends TestCase {
 		$result = V4FeatureGate::check();
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'feature_disabled', $result->get_error_code() );
+		self::assertSame( 'stonewright_feature_disabled', $result->get_error_code() );
 	}
 
 	public function test_enabled_option_allows_v4_abilities(): void {

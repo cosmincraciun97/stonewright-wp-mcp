@@ -7,6 +7,8 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
+use Stonewright\WpMcp\Elementor\Write\InnerLayout;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -44,6 +46,8 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 			'deprecated'  => true,
 			'replacement' => 'stonewright/elementor-v3-batch-mutate',
 			'sunset'      => '2.0.0',
+			// Adding an element removes nothing, whatever verb the widget name ends in (add-toggle).
+			'annotations' => [ 'destructive' => false ],
 		];
 	}
 
@@ -306,97 +310,80 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					$settings = $validated['settings'];
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
+				// The page is read, changed and written under its write lock, so a write that lands in between
+				// is never overwritten. The parent is looked up before the snapshot: a call that cannot write
+				// stores none, and a refused call does not push a real snapshot out of the history.
+				$owner = 'widget-' . substr( hash( 'sha256', $post_id . '|' . $this->slug() . '|' . hrtime( true ) ), 0, 24 );
+				$lease = PostWriteLock::acquire( $post_id, $owner );
+				if ( $lease instanceof \WP_Error ) {
+					return $lease;
 				}
-				$tree        = ElementorData::read( $post_id );
-				$parent_id   = (string) ( $args['parent_id'] ?? '' );
-				$parent_path = ElementorData::find_path( $tree, $parent_id );
-				if ( null === $parent_path ) {
-					return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
+				try {
+					return $this->insert_element( $post_id, $args, $settings, $activated, $owner );
+				} finally {
+					PostWriteLock::release( $post_id, $owner );
 				}
-
-				if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
-					return $this->parent_error( $tree, $parent_path, $parent_id );
-				}
-
-				if ( $is_inner_layout ) {
-					$widget = self::inner_layout_element( $tree, $parent_path );
-					if ( null === $widget ) {
-						return $this->parent_error( $tree, $parent_path, $parent_id, __( 'An inner section goes inside a column or a container.', 'stonewright' ) );
-					}
-				} else {
-					$widget = [
-						'id'         => ElementorData::generate_id(),
-						'elType'     => 'widget',
-						'widgetType' => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
-						'settings'   => empty( $settings ) ? new \stdClass() : $settings,
-						'elements'   => [],
-					];
-				}
-
-				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
-				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
-
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return ElementorData::write_error_for_ability();
-				}
-
-				return [
-					'post_id'          => $post_id,
-					'element_id'       => $widget['id'],
-					'widget_type'      => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
-					'snapshot_id'      => $snapshot_id,
-					'activated_groups' => $activated,
-				];
 			}
 		);
 	}
 
+	/**
+	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $settings
+	 * @param list<string>         $activated
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function insert_element( int $post_id, array $args, array $settings, array $activated, string $owner ): array|\WP_Error {
+		$is_inner_layout = 'inner-section' === $this->slug();
+		$tree            = ElementorData::read( $post_id );
+		$parent_id       = (string) ( $args['parent_id'] ?? '' );
+		$parent_path     = ElementorData::find_path( $tree, $parent_id );
+		if ( null === $parent_path ) {
+			return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
+		}
+
+		if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+			return $this->parent_error( $tree, $parent_path, $parent_id );
+		}
+
+		if ( $is_inner_layout ) {
+			$widget = InnerLayout::element( $tree, $parent_path );
+			if ( null === $widget ) {
+				return $this->parent_error( $tree, $parent_path, $parent_id, __( 'An inner section goes inside a column or a container.', 'stonewright' ) );
+			}
+		} else {
+			$widget = [
+				'id'         => ElementorData::generate_id(),
+				'elType'     => 'widget',
+				'widgetType' => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
+				'settings'   => empty( $settings ) ? new \stdClass() : $settings,
+				'elements'   => [],
+			];
+		}
+
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		if ( '' === $snapshot_id ) {
+			return $this->backup_failed_error();
+		}
+
+		$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
+		$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
+
+		if ( ! ElementorData::write( $post_id, $new_tree, [ 'lock_owner' => $owner ] ) ) {
+			return ElementorData::write_error_for_ability();
+		}
+
+		return [
+			'post_id'          => $post_id,
+			'element_id'       => $widget['id'],
+			'widget_type'      => (string) ( $this->entry()['widget_type'] ?? $this->slug() ),
+			'snapshot_id'      => $snapshot_id,
+			'activated_groups' => $activated,
+		];
+	}
 	// -----------------------------------------------------------------
 	// Helpers
 	// -----------------------------------------------------------------
-
-	/**
-	 * The layout element Elementor stores for an inner section: a nested
-	 * container inside a container, an inner section with one column inside a
-	 * column. Null when the parent cannot hold one.
-	 *
-	 * @param array<int, array<string, mixed>> $tree
-	 * @param array<int, int>                  $parent_path
-	 * @return array<string, mixed>|null
-	 */
-	private static function inner_layout_element( array $tree, array $parent_path ): ?array {
-		$parent_type = (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' );
-		if ( 'container' === $parent_type ) {
-			return [
-				'id'       => ElementorData::generate_id(),
-				'elType'   => 'container',
-				'isInner'  => true,
-				'settings' => [],
-				'elements' => [],
-			];
-		}
-		if ( 'column' !== $parent_type ) {
-			return null;
-		}
-		return [
-			'id'       => ElementorData::generate_id(),
-			'elType'   => 'section',
-			'isInner'  => true,
-			'settings' => [],
-			'elements' => [
-				[
-					'id'       => ElementorData::generate_id(),
-					'elType'   => 'column',
-					'isInner'  => true,
-					'settings' => [ '_column_size' => 100 ],
-					'elements' => [],
-				],
-			],
-		];
-	}
 
 	/**
 	 * @param array<int, array<string, mixed>> $tree

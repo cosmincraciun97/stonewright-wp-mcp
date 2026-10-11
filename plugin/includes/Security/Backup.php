@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Support\Json;
 
 /**
@@ -15,6 +16,17 @@ final class Backup {
 
 	/** Option that stores option/theme_mod restore points. */
 	public const OPTION_SNAPSHOTS = 'stonewright_option_snapshots';
+
+	/**
+	 * The kit meta of the Elementor V4 global variables, and the legacy kit meta key of the global classes. A kit
+	 * snapshot covers them only when the caller passes this list; a restore never touches a kit key that is not on
+	 * it. From Elementor 4.3 the classes are e_global_class posts, which no kit meta key covers: a snapshot takes
+	 * them through Elementor's repository (GlobalClassesState, the $global_classes argument of snapshot_post()),
+	 * and the legacy key is only the fallback for versions without that repository.
+	 *
+	 * @var list<string>
+	 */
+	public const KIT_V4_META_KEYS = [ '_elementor_global_classes', '_elementor_global_variables' ];
 
 	/**
 	 * Snapshot named options and theme mods before a non-post write.
@@ -122,15 +134,18 @@ final class Backup {
 	 *
 	 * @param list<string> $keep Snapshot ids the history limit must not drop, for a caller that is about to restore one of them.
 	 * @param bool         $arm  Whether the snapshot arms a rescue entry for the write that follows. False for a snapshot that only saves the current state.
+	 * @param list<string> $extra_meta_keys Kit meta to cover as well; only the keys of KIT_V4_META_KEYS count, any other key is ignored.
+	 * @param bool         $global_classes Whether to capture the Elementor global classes through the repository as well (a kit snapshot of a class write).
 	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
 	 */
-	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true ): string {
+	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true, array $extra_meta_keys = [], bool $global_classes = false ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return '';
 		}
 
 		$snapshot_id = self::new_snapshot_id();
+		$covered     = array_values( array_unique( array_merge( self::tracked_meta_keys(), array_values( array_intersect( self::KIT_V4_META_KEYS, $extra_meta_keys ) ) ) ) );
 		$payload     = [
 			'snapshot_id'  => $snapshot_id,
 			'created_at'   => time(),
@@ -138,9 +153,13 @@ final class Backup {
 			'post_status'  => $post->post_status,
 			'post_content' => $post->post_content,
 			'post_excerpt' => $post->post_excerpt,
-			'meta'         => self::collect_meta( $post_id ),
+			'meta'         => self::collect_meta( $post_id, $covered ),
 		];
-		$payload['meta_absent'] = array_values( array_diff( self::tracked_meta_keys(), array_keys( $payload['meta'] ) ) );
+		$payload['meta_absent'] = array_values( array_diff( $covered, array_keys( $payload['meta'] ) ) );
+		$classes                = $global_classes ? GlobalClassesState::capture() : null;
+		if ( null !== $classes ) {
+			$payload['global_classes'] = $classes;
+		}
 
 		$snapshots                 = get_post_meta( $post_id, self::META_KEY, true );
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
@@ -216,6 +235,10 @@ final class Backup {
 		if ( null === $readback ) {
 			return false;
 		}
+		// The global classes live in Elementor's repository, not in the meta above: put them back and read them back.
+		if ( isset( $snapshot['global_classes'] ) && is_array( $snapshot['global_classes'] ) ) {
+			$operations_verified = GlobalClassesState::restore( $snapshot['global_classes'] ) && $operations_verified;
+		}
 
 		return $operations_verified
 			&& $expected === $readback
@@ -239,6 +262,12 @@ final class Backup {
 		$current = self::read_restore_state( $post_id, $expected['meta'] );
 		if ( null === $current ) {
 			return null;
+		}
+		if ( isset( $snapshot['global_classes'] ) && is_array( $snapshot['global_classes'] ) ) {
+			$classes = GlobalClassesState::capture();
+			if ( null === $classes || ! GlobalClassesState::same( $snapshot['global_classes'], $classes ) ) {
+				return true;
+			}
 		}
 		return ! hash_equals( Json::hash( $expected ), Json::hash( $current ) );
 	}
@@ -408,9 +437,9 @@ final class Backup {
 	/**
 	 * @return array<string, mixed>
 	 */
-	private static function collect_meta( int $post_id ): array {
+	private static function collect_meta( int $post_id, array $keys ): array {
 		$out  = [];
-		foreach ( self::tracked_meta_keys() as $key ) {
+		foreach ( $keys as $key ) {
 			if ( self::meta_exists( $post_id, $key ) ) {
 				$out[ $key ] = get_post_meta( $post_id, $key, true );
 			}
@@ -443,7 +472,7 @@ final class Backup {
 			)
 		);
 		$meta_state = [];
-		foreach ( self::tracked_meta_keys() as $key ) {
+		foreach ( array_merge( self::tracked_meta_keys(), self::KIT_V4_META_KEYS ) as $key ) {
 			if ( array_key_exists( $key, $meta ) ) {
 				$meta_state[ $key ] = [
 					'exists' => true,

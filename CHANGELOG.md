@@ -138,6 +138,12 @@ development builds were never stable releases.
 - Add a size cap of 25 MB to `media-upload`, `media-upload-batch` and
   `stock-image-import` (the `stonewright_media_max_bytes` filter changes it), and
   check edit access to the parent post when a `parent_post_id` is given.
+- Add the `add_inner_section` action to `stonewright-elementor-v3-batch-mutate`.
+  It adds a nested container to a container, or an inner section with one column
+  to a column, and registers `<op_id>.column` so a later operation of the same
+  batch can add into that column. It is the replacement of the deprecated
+  `stonewright-elementor-add-inner-section`; the `stonewright-elementor-add-widget`
+  refusal for `inner-section` now points at the action.
 
 ### Changed
 
@@ -199,6 +205,26 @@ development builds were never stable releases.
   does not read back as sent is an error.
 - `media-list` searches the whole library (title, caption, description, alt text
   and file name) instead of the newest 200 items.
+- `stonewright-elementor-v4-migrate` now returns its error codes with one
+  prefix (`stonewright_v4_migration_confirmation_required`,
+  `stonewright_v4_migration_has_loss`, `stonewright_v4_migration_write_failed`,
+  `stonewright_v4_migration_readback_failed`; they were
+  `stonewright_stonewright_...`), takes a `confirmation_token` bound to the post
+  and the other arguments in `production-safe` mode in addition to
+  `confirm_migration=true`, and returns `before_hash` and `rollback_status`.
+- The Elementor V4 feature-flag refusal of the V4 abilities and of
+  `design-spec-to-elementor-v4` now has the code `stonewright_feature_disabled`
+  (it was `feature_disabled`).
+- `stonewright-elementor-v4-update-node` states in its description that
+  `dry_run` defaults to false.
+- `stonewright-elementor-v4-atomic-widget-define` follows the Elementor V4
+  feature flag and `DISALLOW_FILE_MODS`, and its `slug`, `title` and `template`
+  have length limits.
+- The ability truth matrix shows `deprecated` as the status of the abilities
+  that report themselves deprecated (the `stonewright-elementor-add-*` widget
+  abilities), and its Backup column and the public API contract read the same
+  detector, so `stonewright-elementor-native-execute` shows a backup in both.
+  The `stonewright-elementor-add-*` abilities are annotated as not destructive.
 
 ### Fixed
 
@@ -285,6 +311,38 @@ development builds were never stable releases.
 - Fix `stock-image-import` rejecting image URLs that have no file extension. It
   downloads the file, reads its type, and sideloads it with the type's extension;
   a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
+- The snapshot returned by `stonewright-elementor-v4-create-class`,
+  `-update-class`, `-create-variable` and `-update-variable` now covers what the
+  write changes, so restoring it (`stonewright-change-restore`, the Changes page
+  undo) brings back a class or variable change. Variables are covered through the
+  kit meta that holds them. Classes are covered through Elementor's global
+  classes repository (items, order and labels of the frontend and preview, read
+  back after a restore), because from Elementor 4.3 a class is a post and not kit
+  meta; the kit meta key of older Elementor is the fallback. A variable write whose readback does not match is now rolled
+  back like a class write (the new variable is deleted, an updated one gets its
+  previous values back) and `rollback_status` says whether that was confirmed.
+- `stonewright-elementor-widget-define`, `-widget-register` and
+  `-create-custom-widget` now write their files through the sandbox writer, so
+  every write keeps a backup of the file it replaces, a change history entry
+  and the size cap. `create-custom-widget` passes `icon` and `keywords` to the
+  widget and returns the real class name; the registered-widgets list is saved
+  without autoload, only registered widgets are loaded into Elementor, and
+  uninstalling the plugin removes the list. The descriptions name the staged
+  `.pending.draft` file and `stonewright-elementor-widget-register`.
+- `stonewright-elementor-v4-migrate` takes the page write lock, refuses a page
+  that changed since the plan (`stonewright_elementor_revision_conflict`) and
+  reports the result of restoring its snapshot as `rollback_status`.
+- `stonewright-elementor-v4-update-node` in single mode and the per-widget
+  `stonewright-elementor-add-*` abilities read, change and write the page under
+  its write lock. Single mode refuses a page that changed since the plan, and
+  asks for the custom CSS approval the other Elementor writers ask for. The
+  widget abilities look up the parent before they take the snapshot, so a
+  refused call no longer stores one.
+- The backup failure of `stonewright-elementor-v4-render-from-spec` and of the
+  `stonewright-elementor-v4-update-node` batch carries the status 500 like the
+  other writers.
+- `stonewright-elementor-add-toggle` is no longer annotated as destructive: the
+  verb in its name made the annotation say so.
 
 ### Security
 

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorWidget;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\RegisteredWidgets;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -12,13 +13,11 @@ use Stonewright\WpMcp\Security\Permissions;
  *
  * Returns entries from:
  *  - stonewright_registered_widgets option (status: 'active').
- *  - Pending .pending.php files in the sandbox draft dir (status: 'sandboxed').
+ *  - Pending widget-<slug>.pending.draft files in the sandbox draft dir (status: 'sandboxed').
  *
  * @stonewright-status stable
  */
 final class WidgetList extends AbilityKernel {
-
-	private const OPTION_KEY = 'stonewright_registered_widgets';
 
 	public function name(): string {
 		return 'stonewright/elementor-widget-list';
@@ -29,7 +28,7 @@ final class WidgetList extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Enumerates Stonewright-managed Elementor widgets. Active widgets come from the registered-widgets option; sandboxed widgets are .pending.php files in the draft dir.', 'stonewright' );
+		return __( 'Enumerates Stonewright-managed Elementor widgets. Active widgets come from the registered-widgets option; sandboxed widgets are widget-<slug>.pending.draft files in the draft dir.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -69,12 +68,7 @@ final class WidgetList extends AbilityKernel {
 		$seen_slugs = [];
 
 		// 1. Active widgets from registry option.
-		$registered = (array) get_option( self::OPTION_KEY, [] );
-		foreach ( $registered as $slug ) {
-			$slug = (string) $slug;
-			if ( '' === $slug ) {
-				continue;
-			}
+		foreach ( RegisteredWidgets::all() as $slug ) {
 			$active_file = SandboxFiles::stored_path( 'widget-' . $slug . '.php' );
 			$seen_slugs[ $slug ] = true;
 
