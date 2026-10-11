@@ -336,6 +336,9 @@
 - Write `source_url` and titles of `stonewright-elementor-knowledge-refresh` as
   escaped frontmatter values.
 - Bound the orphan postmeta check of `stonewright-site-pulse` to 1000 rows.
+- The "Fix my connection" prompt in the prompt catalog names
+  `stonewright-site-info` for Plugin mode and `stonewright-site-discover` for
+  Direct mode.
 
 ### Fixed
 

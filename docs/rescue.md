@@ -2,7 +2,7 @@
 
 Rescue is Stonewright's way back from a change that leaves a site failing. Before a risky change is made, Stonewright records how to undo it. After the change, it asks the site whether it still loads. When the site does not load, it undoes the change, asks again, and tells the agent what happened. When it cannot undo the change, the incident stays open until an administrator or an agent finishes the job from **Stonewright > Activity > Rescue**, the `stonewright-rescue-rollback` ability, or WP-CLI.
 
-Rescue works on changes Stonewright makes through its abilities. It does not watch changes made by anything else.
+Rescue works on changes Stonewright makes through its abilities. It does not watch changes made by anything else. Writes made through Direct mode (no plugin) are not covered: Direct has no journal, probe, or rollback, only pre-images for some writes (see [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet)).
 
 ## What Rescue covers
 

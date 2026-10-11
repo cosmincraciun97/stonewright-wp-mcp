@@ -19,6 +19,7 @@ import {
 import { appendDirectAudit as appendDirectAuditRaw, type DirectAuditEntry } from '../src/direct/audit.js';
 import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
+import type { SitesConfig } from '../src/direct/sites-config.js';
 
 function appendDirectAudit(entry: DirectAuditEntry, path?: string) {
 	return appendDirectAuditRaw({
@@ -179,7 +180,20 @@ describe('direct self-improve tools', () => {
 		expect(start.target_context?.memory_visibility).toMatch(/local-only/i);
 	});
 
-	it('task-start returns ranked compact incident actions and the repair-first gate', () => {
+	it('one failed tool call does not lock task start', () => {
+		const c = ctx();
+		appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+		}, join(c.baseDir!, 'audit-direct.jsonl'));
+
+		const start = taskStart(c, { task: 'carry on', surface: 'content' });
+		expect(start.required_actions).toEqual([]);
+		expect(start.incident_actions).toHaveLength(1);
+		expect(start.incident_actions[0]?.state).toBe('observing');
+	});
+
+	it('keeps an incident Direct cannot close visible as information without blocking task start', () => {
 		const c = ctx();
 		const failure = {
 			tool: 'stonewright-content-update',
@@ -192,7 +206,30 @@ describe('direct self-improve tools', () => {
 		appendDirectAudit(failure, join(c.baseDir!, 'audit-direct.jsonl'));
 
 		const start = taskStart(c, { task: 'repair content write', surface: 'content' });
+		expect(start.incident_actions).toHaveLength(1);
+		expect(start.incident_actions[0]?.state).toBe('open');
+		expect(start.required_actions).toEqual([]);
+		expect(start.guidance.some((g) => g.includes('incident_actions') && /information/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => g.startsWith('Repair incident_actions first'))).toBe(false);
+	});
+
+	it('returns ranked compact incident actions and the repair-first gate where a verifier path exists', () => {
+		const c = ctx();
+		const failure = {
+			tool: 'stonewright-content-update',
+			site: '_global',
+			status: 'error' as const,
+			code: 'write_failed',
+			causeKey: 'content-update|write_failed',
+			resource: 'post:42',
+			changeSetId: 'change-set-42',
+		};
+		appendDirectAudit(failure, join(c.baseDir!, 'audit-direct.jsonl'));
+		appendDirectAudit(failure, join(c.baseDir!, 'audit-direct.jsonl'));
+
+		const start = taskStart(c, { task: 'repair content write', surface: 'content' });
 		expect(start.required_actions).toContain('repair_open_incidents_first');
+		expect(start.guidance.some((g) => g.startsWith('Repair incident_actions first'))).toBe(true);
 		expect(start.incident_actions).toHaveLength(1);
 		expect(Object.keys(start.incident_actions[0] ?? {}).sort()).toEqual([
 			'ability',
@@ -206,6 +243,72 @@ describe('direct self-improve tools', () => {
 			'retry_policy',
 			'state',
 		].sort());
+	});
+
+	it('does not let an unrepairable incident hide a repairable one', () => {
+		const c = ctx();
+		const auditPath = join(c.baseDir!, 'audit-direct.jsonl');
+		const plain = {
+			tool: 'stonewright-content-update', site: '_global', status: 'error' as const,
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+		};
+		for (let i = 0; i < 5; i += 1) appendDirectAudit(plain, auditPath);
+		const withPath = {
+			tool: 'stonewright-media-upload', site: '_global', status: 'error' as const,
+			code: 'upload_failed', causeKey: 'media-upload|upload_failed',
+			resource: 'media/9', changeSetId: 'change-set-9',
+		};
+		appendDirectAudit(withPath, auditPath);
+		appendDirectAudit(withPath, auditPath);
+
+		const start = taskStart(c, { task: 'carry on' });
+		expect(start.required_actions).toContain('repair_open_incidents_first');
+		expect(start.incident_actions[0]?.ability).toBe('stonewright-media-upload');
+	});
+
+	it('lets an incident with no new failure for seven days leave task start', () => {
+		const c = ctx();
+		const auditPath = join(c.baseDir!, 'audit-direct.jsonl');
+		const old = new Date(Date.now() - 8 * 86_400_000).toISOString();
+		const failure = {
+			tool: 'stonewright-content-update', site: '_global', status: 'error' as const,
+			code: 'write_failed', causeKey: 'content-update|write_failed', timestamp: old,
+		};
+		appendDirectAudit(failure, auditPath);
+		appendDirectAudit(failure, auditPath);
+
+		const start = taskStart(c, { task: 'carry on', surface: 'content' });
+		expect(start.incident_actions).toEqual([]);
+		expect(start.required_actions).toEqual([]);
+
+		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('direct-global:_global'));
+		expect(store.list()[0]?.state).toBe('resolved');
+
+		// A new matching failure reopens it and counts the reopening.
+		appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+		}, auditPath);
+		const again = taskStart(c, { task: 'carry on', surface: 'content' });
+		expect(again.incident_actions[0]?.state).toBe('open');
+		expect(store.list()[0]?.reopened_count).toBe(1);
+	});
+
+	it('keeps asking for repair when an old incident has a repair path', () => {
+		const c = ctx();
+		const auditPath = join(c.baseDir!, 'audit-direct.jsonl');
+		const old = new Date(Date.now() - 30 * 86_400_000).toISOString();
+		const failure = {
+			tool: 'stonewright-content-update', site: '_global', status: 'error' as const,
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+			resource: 'post:42', changeSetId: 'change-set-42', timestamp: old,
+		};
+		appendDirectAudit(failure, auditPath);
+		appendDirectAudit(failure, auditPath);
+
+		const start = taskStart(c, { task: 'carry on', surface: 'content' });
+		expect(start.required_actions).toContain('repair_open_incidents_first');
+		expect(start.incident_actions[0]?.state).toBe('open');
 	});
 
 	it('records one strictly correlated verified Direct repair and stales it on recurrence', () => {
@@ -420,5 +523,37 @@ describe('direct self-improve tools', () => {
 			}),
 		).rejects.toThrow(/target_context_changed/i);
 		expect(c.fetchImpl).toHaveBeenCalledTimes(1);
+	});
+	describe('task-start write_mode', () => {
+		function siteCtx(url: string, env: Record<string, string> = {}): SelfImproveContext {
+			const sitesConfig: SitesConfig = {
+				default: 'one',
+				source: 'env',
+				sites: { one: { url, username: 'admin', appPassword: 'x' } },
+			};
+			return {
+				env: { STONEWRIGHT_SITES_FILE: '/tmp/does-not-exist-sw-sites-writemode.json', ...env } as NodeJS.ProcessEnv,
+				baseDir: mkdtempSync(join(tmpdir(), 'sw-si-wm-')),
+				sitesConfig,
+			};
+		}
+
+		it('reports on for a .test site when the variable is unset', () => {
+			const start = taskStart(siteCtx('https://shop.test'), { task: 'carry on', site: 'one' });
+			expect(start.write_mode).toBe('on');
+		});
+
+		it('reports confirm for a remote site when the variable is unset', () => {
+			const start = taskStart(siteCtx('https://shop.example.com'), { task: 'carry on', site: 'one' });
+			expect(start.write_mode).toBe('confirm');
+		});
+
+		it('lets the variable win over the host rule', () => {
+			const start = taskStart(siteCtx('https://shop.test', { STONEWRIGHT_DIRECT_WRITES: 'off' }), {
+				task: 'carry on',
+				site: 'one',
+			});
+			expect(start.write_mode).toBe('off');
+		});
 	});
 });

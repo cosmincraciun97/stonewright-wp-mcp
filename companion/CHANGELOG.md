@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### Added
+
+- Refuse custom code in Direct writes. `stonewright-global-styles-update` refuses
+  theme.json `styles.css` and any per-block `css`. `stonewright-elementor-data-update`
+  refuses custom CSS setting keys (`custom_css`, `_custom_css`, `customcss`,
+  `page_custom_css`, `kit_custom_css`, `additional_custom_css`, `custom_css_pro`, and
+  any `custom_css` key with a suffix) that hold a value, HTML-type widgets
+  (`html`, `raw-html`, `raw_html`, `text-path`, and any widget type containing
+  `html`), and script, style, iframe, object, embed, link, or meta http-equiv markup in any setting. Content, template,
+  template part, blueprint, and widget (`stonewright-widget-manage`) writes, and autosaves, refuse `<script>`,
+  `<style>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta http-equiv>`, inline `on*=` event handlers, and `javascript:` URLs in
+  the title, content, description, widget instance, and meta (`_elementor_data` meta is checked as
+  an Elementor tree). `stonewright-widget-manage` also refuses HTML-type widgets (`custom_html`). Element and attribute names are matched case-insensitively,
+  entity-encoded and whitespace-split `javascript:` URLs are detected, and block
+  comment attributes are decoded before they are checked. A refusal sends nothing,
+  writes one blocked audit row, and returns the `stonewright-custom-css` envelope
+  (`approval_required`, `agent_must_stop`) with the offending paths; custom code
+  needs Plugin mode and its custom-code approval. The refusal text says that a page,
+  template, or widget that already holds custom code (an HTML widget, custom CSS, or
+  inline script) cannot be saved through Direct either.
+- Save a pre-image before a whole-document write. `stonewright-template-update`,
+  `stonewright-template-part-update`, `stonewright-global-styles-update`,
+  `stonewright-content-update`, and `stonewright-blueprint-apply` with `post_id`
+  read the current resource with `context=edit` and store it under
+  `~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json` (mode
+  0600 where the platform supports it) before they write. The result returns
+  `backup_path` and `backup_sha256` (SHA-256 of the stored file). When the resource
+  cannot be read or the file cannot be stored, the write is refused with
+  `preimage_unavailable` and nothing is sent. The last 20 backups per resource are
+  kept; the oldest are deleted. The file holds the REST resource only, never
+  request headers or credentials.
+
 ### Changed
 
 - Refuse more WP-CLI commands in the agent-facing runners (`stonewright-wp-cli-run`,
@@ -25,6 +57,75 @@
   arbitrary code.
 - Keep `stonewright-php-execute` on the `full` profile only, as in the plugin. This changes behavior: the offline profile lists of every other profile (bootstrap, essential-static, essential, low-tools, elementor-design, content-model, gutenberg, wp-cli, site-admin) no longer include it, and those profiles and `discover-execute` no longer keep it registered when the site lists it. A client on one of those profiles no longer sees it; switch to `full` to use it. The setup profile (notes, agent tool list, refresh list, inventory notes), the MCP instructions and the WP-CLI tool descriptions of those profiles no longer tell the agent to call it.
 - `stonewright-client-surface-check` without `expected_tool` checks `stonewright-php-execute` on the `full` profile and `stonewright-task-start` on every other profile, so a profile without php-execute is no longer reported as missing it.
+- Limit `stonewright-media-upload`. A local `path` is resolved first (symlinks
+  and `..` included) and must sit inside the working directory, the companion
+  media folder (`<state dir>/media`) or a root listed in the new
+  `STONEWRIGHT_DIRECT_MEDIA_ROOTS` (comma- or semicolon-separated); any other
+  file is refused unless the call passes `confirm: true`. A `url` must be http
+  or https and must resolve only to public addresses: private, loopback,
+  link-local, multicast and reserved IPv4 and IPv6 ranges are refused, whether
+  given as an address or reached through a name. Redirects are followed one hop
+  at a time (at most five) and each hop gets the same check. The tool takes a
+  new optional `confirm` argument.
+- Limit what `stonewright-media-upload` sends, for a path and for a URL. Only
+  image, audio, video, PDF, Office, OpenDocument, txt and csv extensions are
+  accepted; SVG, HTML, XML, PHP, scripts, executables and archives are refused
+  even with `confirm: true`. A file over 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES`
+  changes it, up to 512 MiB) is refused: a local file is measured before it is
+  read, and a download stops as soon as it passes the limit. For images and PDF
+  the first bytes must match the extension, and no file may start with markup or
+  contain a PHP open tag near its start. The upload name is reduced to one safe
+  file name (no directories, control or direction-override characters, or
+  characters WordPress drops; an inner `.php` is marked, as WordPress does), and
+  a name with no extension takes the source extension or the one the response
+  content type implies. A download now has a 60 second limit.
+- `stonewright-template-update` and `stonewright-template-part-update` take
+  `confirm` and need `confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the
+  site is remote, as destructive Direct tools do. `stonewright-blueprint-apply` over
+  an existing page (`post_id`) keeps that rule, and its schema and description now
+  say so.
+- Documentation: Direct mode docs state what it protects and what it does not do
+  yet (no restore tool for pre-images, no after-write verification, partial
+  custom-code screening, no DNS pinning for media URLs, unscreened
+  `stonewright-wp-cli-run`). The rule that the companion never calls WordPress
+  REST write endpoints now applies to Plugin mode, with Direct mode as the
+  documented exception.
+
+### Fixed
+
+- Direct `stonewright-task-start` reports the write mode the site's tools use.
+  `write_mode` (and `target_context.stonewright_mode`) was read from
+  `STONEWRIGHT_DIRECT_WRITES` alone, so a `localhost`, `.local` or `.test` site
+  showed `confirm` while its tools ran `on`. It now applies the same rule as the
+  tools: the variable when set, otherwise `on` for those hosts and `confirm` for
+  the rest. With no site resolved it is unchanged.
+- Direct `stonewright-site-discover` lists the plugin-only capabilities
+  accurately. `unavailable_without_plugin` (also shown in the setup profile and
+  connection status) now includes Rescue, change sets, section reuse, Design
+  Direction, site Context and Elementor V4 (Atomic) features, and its Elementor
+  entry says that Direct reads and writes raw `_elementor_data` over WP-CLI on
+  the local install or over core REST when the site exposes the meta, instead of
+  "only on local WP-CLI sites".
+- Stop Direct Elementor tools from using WP-CLI on the wrong site.
+  `stonewright-elementor-status`, `-data-get` and `-data-update` now compare
+  the `home` option (then `siteurl`) of the local WP-CLI install with the alias
+  URL before using WP-CLI for an alias. When they differ, or the local address
+  cannot be read, WP-CLI is not used: the tool answers through core REST and
+  returns `wp_cli_refused` ("the local WordPress is not the target site"),
+  without naming either host. The answer is cached per alias and local install
+  for the life of the process. Calls with no alias are unchanged.
+- Stop one tool error from blocking Direct task start for good.
+  `stonewright-task-start` returned `required_actions:
+  ["repair_open_incidents_first"]` for every incident, but Direct writes no
+  change set or verifier row, so `stonewright-incident-repair-record` could not
+  close it. Now only an open incident whose latest failure row carries a
+  resource and a change set requires repair first. Other incidents stay in
+  `incident_actions` as information, with a guidance line saying so. An open or
+  observing incident with no new matching failure for seven days is closed as
+  resolved at the end of that period and leaves `incident_actions`, unless its
+  latest failure carries a resource and a change set (those wait for a verified
+  repair, as write incidents do in Plugin mode); a later matching failure reopens
+  a closed incident and counts the reopening.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

@@ -327,6 +327,7 @@ describe('direct elementor tools', () => {
 			{ post_id: 9, data: tree, confirm: true },
 			cli as never,
 		);
+		if (!('backup_path' in result)) throw new Error('the write was refused');
 		expect(result.ok).toBe(true);
 		expect(result.backup_path).toContain('post-9-');
 		expect(existsSync(result.backup_path)).toBe(true);

@@ -657,12 +657,14 @@ export function taskStart(
       matched.push(hit);
     }
   }
-  const writeMode = resolveDirectWriteMode(ctx.env, undefined);
+  const writeMode = resolveDirectWriteMode(ctx.env, resolvedSite?.url);
   const recurring = recentRecurringErrors(baseDir, 3);
   const incidentStore = new DirectIncidentStore(
     baseDir,
     directIncidentFingerprint(normalizedUrl ?? `direct-global:${scope}`),
   );
+  // A quiet incident closes itself after seven days; see DirectIncidentStore.
+  incidentStore.expireStale();
   for (const incident of incidentStore.list()) {
     if (incident.learning_status === "stale" && incident.learning_memory_key) {
       setMemoryStatus({
@@ -677,6 +679,8 @@ export function taskStart(
     input.surface ?? input.intent ?? "",
     3,
   );
+  // Only an incident that incident-repair-record can close blocks task start.
+  const repairRequired = incidentStore.requiresRepair();
   const memory = memoryList(ctx, {
     limit: 5,
     activeOnly: true,
@@ -694,9 +698,13 @@ export function taskStart(
     "Load a matched skill body with stonewright-skill-get before acting on its topic.",
     "Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.",
   ];
-  if (incidentActions.length > 0) {
+  if (repairRequired) {
     guidance.unshift(
       "Repair incident_actions first. Record learning only through stonewright-incident-repair-record after an independent correlated verifier succeeds.",
+    );
+  } else if (incidentActions.length > 0) {
+    guidance.unshift(
+      "incident_actions are listed for information: Direct has no verifier path for them, so they do not block work. They close on their own after 7 days without a new failure.",
     );
   }
   if (!pointerOk) {
@@ -746,9 +754,7 @@ export function taskStart(
     })),
     recurring_errors: recurring,
     incident_actions: incidentActions,
-    required_actions: incidentActions.length > 0
-      ? ["repair_open_incidents_first"]
-      : [],
+    required_actions: repairRequired ? ["repair_open_incidents_first"] : [],
     setup: {
       agents_md: agentsPath,
       pointer_installed: pointerOk,

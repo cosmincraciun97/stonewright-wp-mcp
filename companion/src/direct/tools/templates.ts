@@ -1,5 +1,7 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanMarkupFields } from "../custom-code-guard.js";
+import { storePreImage } from "../preimage.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpTemplate = {
@@ -107,38 +109,60 @@ async function updateCollection(
     title?: string | undefined;
     content?: string | undefined;
     description?: string | undefined;
+    confirm?: boolean | undefined;
   },
 ) {
   assertToolEnabled(ctx.site, tool);
+  // Overwrites a stored template, so it follows the destructive-tool confirm rule.
   assertWriteAllowed({
     site: ctx.site,
     mode: ctx.writeMode,
-    destructive: false,
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool,
+  });
+  const resource = `${collection}/${input.id}`;
+  const refusal = refuseCustomCode(
+    ctx.site,
+    tool,
+    resource,
+    scanMarkupFields({
+      title: input.title,
+      content: input.content,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  const restPath = `/wp/v2/${collection}/${encodeURIComponent(input.id)}`;
+  const preImage = await storePreImage({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool,
+    restPath,
+    resourceId: input.id,
   });
   const body: Record<string, unknown> = {};
   if (input.title !== undefined) body.title = input.title;
   if (input.content !== undefined) body.content = input.content;
   if (input.description !== undefined) body.description = input.description;
   try {
-    const item = await ctx.client.post<WpTemplate>(
-      `/wp/v2/${collection}/${encodeURIComponent(input.id)}`,
-      { body },
-    );
+    const item = await ctx.client.post<WpTemplate>(restPath, { body });
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
       targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
+      resource,
       status: "ok",
     });
-    return compactTemplate(item, true);
+    return { ...compactTemplate(item, true), ...preImage };
   } catch (err) {
     appendDirectAudit({
       tool,
       site: ctx.site.alias,
       targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
+      resource,
       status: "error",
     });
     throw err;
@@ -170,6 +194,7 @@ export async function templateUpdate(
     title?: string | undefined;
     content?: string | undefined;
     description?: string | undefined;
+    confirm?: boolean | undefined;
   },
 ) {
   return updateCollection(
@@ -215,6 +240,7 @@ export async function templatePartUpdate(
     title?: string | undefined;
     content?: string | undefined;
     description?: string | undefined;
+    confirm?: boolean | undefined;
   },
 ) {
   return updateCollection(
@@ -243,6 +269,14 @@ export async function templateCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-template-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-template-create",
+    `templates/${input.slug}`,
+    scanMarkupFields({ title: input.title, content: input.content, description: input.description }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = { slug: input.slug };
   if (input.title !== undefined) body.title = input.title;
   if (input.content !== undefined) body.content = input.content;
@@ -310,6 +344,14 @@ export async function templatePartCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-template-part-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-template-part-create",
+    `template-parts/${input.slug}`,
+    scanMarkupFields({ title: input.title, content: input.content }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = { slug: input.slug };
   if (input.title !== undefined) body.title = input.title;
   if (input.content !== undefined) body.content = input.content;

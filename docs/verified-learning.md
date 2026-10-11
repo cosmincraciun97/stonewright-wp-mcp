@@ -57,7 +57,9 @@ The public ability contract is listed in the [ability truth matrix](ability-trut
 
 Direct incidents live in the companion's private per-site state directory. Rows contain bounded classifications and hashes, not raw arguments, URLs, credentials, or customer text. Writes use restrictive permissions and atomic replacement; different site bindings cannot read each other's incident files.
 
-Direct mode applies the same proof rule when its local audit contains an independent verifier tied to the same change set and resource. If that evidence is unavailable, the recorder returns `guidance_only: true`, leaves the incident open, and creates no lesson. Direct mode never invents Plugin-grade proof from a REST response.
+Direct mode applies the same proof rule when its local audit contains an independent verifier tied to the same change set and resource. If that evidence is unavailable, the recorder returns `guidance_only: true`, leaves the incident open, and creates no lesson. Direct mode never invents Plugin-grade proof from a REST response. No Direct tool writes a change set id or a `direct_verifier` audit row today, so in practice `stonewright-incident-repair-record` returns guidance only in Direct mode and no Direct incident is closed by a verified repair.
+
+Direct `stonewright-task-start` asks for `repair_open_incidents_first` only for an open incident whose latest failure row carries a resource and a change set, the evidence the recorder needs. Every other incident stays in `incident_actions` as information and does not block work. In Direct mode an incident closes after seven days without a new occurrence, unless its latest failure row carries a resource and a change set; those wait for a verified repair, as write incidents do in Plugin mode. A recurrence reopens a closed incident and counts the reopening.
 
 ## Repair recorder
 

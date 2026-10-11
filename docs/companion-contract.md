@@ -173,7 +173,11 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    `STONEWRIGHT_WP_ALLOWED_ROOTS`, or the companion process cwd fallback.
    `STONEWRIGHT_WP_ROOT` is optional and, when configured, is the absolute
    WordPress install folder containing `wp-config.php`.
-6. The companion never calls WordPress REST write endpoints.
+6. In Plugin mode the companion never calls WordPress REST write endpoints; it
+   proxies to the plugin's MCP endpoint. Direct mode (no plugin) is the
+   exception: it writes through core WordPress REST, and through local WP-CLI
+   where the target check passes, only through its typed Direct tools. See
+   [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
 
 ## Command Recipes v1
 

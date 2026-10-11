@@ -56,6 +56,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Largest file Direct `stonewright-media-upload` sends, in bytes; default 25 MiB, at most 512 MiB |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that Direct `stonewright-media-upload` may read local files from without `confirm: true` |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
 
 ## Direct mode private state
@@ -92,6 +94,60 @@ available. Companion updates and restarts preserve existing state.
 Credential-like memory and skill writes are rejected. Authorization headers,
 tokens, and Application Passwords are redacted from Direct audit diagnostics
 before persistence.
+
+Direct `stonewright-media-upload` limits where its bytes come from. A local
+`path` is resolved (symlinks and `..` included) and must sit inside the working
+directory, `<state dir>/media` or a folder in `STONEWRIGHT_DIRECT_MEDIA_ROOTS`;
+any other file needs `confirm: true`. A `url` must be http or https and resolve
+only to public addresses (private, loopback, link-local, multicast and reserved
+ranges are refused, for IPv4 and IPv6). Redirects are followed by hand, at most
+five, and each hop is checked again. The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies.
+
+Direct Elementor tools (`stonewright-elementor-status`, `-data-get`,
+`-data-update`) use local WP-CLI for a configured alias only when the local
+install's `home` (then `siteurl`) option matches the alias URL. Otherwise they
+use core REST and return `wp_cli_refused`, which says the local WordPress is not
+the target site and names neither host. The check runs once per alias and local
+install for the life of the process.
+
+Direct `stonewright-task-start` lists open incidents in `incident_actions`. It
+asks for `repair_open_incidents_first` in `required_actions` only for an open
+incident whose failure row carries a resource and a change set, because only
+such an incident can be closed with `stonewright-incident-repair-record`. Other
+incidents are information. An incident with no new matching failure for seven
+days is closed and leaves the list, unless its latest failure row carries a
+resource and a change set (those wait for a verified repair, as in Plugin mode);
+a later matching failure reopens a closed incident.
+Before `template-update`, `template-part-update`, `global-styles-update`,
+`content-update`, and `blueprint-apply` with a `post_id`, Direct saves the
+current resource (`context=edit`) to
+`~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
+(mode 0600 where supported, 20 kept per resource, oldest deleted) and returns
+`backup_path` and `backup_sha256`. When the resource cannot be read or the file
+cannot be stored, the write is refused and nothing is sent. The file holds the
+REST resource only, never request headers or credentials. No tool restores a
+backup yet.
+
+Direct never writes custom code. `global-styles-update` refuses theme.json
+`styles.css` and per-block `css`; `elementor-data-update` refuses Elementor
+custom CSS setting keys and HTML-type widgets; content, template, and blueprint
+writes refuse `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta http-equiv>`, inline `on*=` event handlers,
+and `javascript:` URLs (case-insensitive, entity-encoded and JSON-escaped forms
+included). A refusal is a normal result with `approval_required` and
+`agent_must_stop`, and nothing is written. `template-update`,
+`template-part-update`, and `blueprint-apply` over an existing page need
+`confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote.
+Only those writes are screened: `acf-fields-update`, `media-upload`,
+`media-update`, menu, comment, taxonomy-term, settings, and user writes are not.
+
+Direct mode has no restore tool for pre-images or Elementor backups, no
+after-write readback, probe, or rollback, no change sets or confirmation tokens,
+and no DNS pinning for `stonewright-media-upload` URLs. `stonewright-wp-cli-run`
+and `-batch-run` have no task-start latch, confirmation, or audit row. In Plugin
+mode the companion does not call WordPress REST write endpoints; Direct mode is
+the exception, through its typed tools only. See
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) for the
+full list.
 
 Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
 token pairs atomically with mode `0600`. Status reports use schema version 3.

@@ -345,6 +345,22 @@ development builds were never stable releases.
 - Write `source_url` and titles of `stonewright-elementor-knowledge-refresh` as
   escaped frontmatter values.
 - Bound the orphan postmeta check of `stonewright-site-pulse` to 1000 rows.
+- Limit Direct-mode `stonewright-media-upload`: a local path must sit inside the
+  working directory, the companion media folder or a root in
+  `STONEWRIGHT_DIRECT_MEDIA_ROOTS`, or the call needs `confirm: true`; a URL must
+  be http or https and resolve only to public addresses, on every redirect hop.
+  The file must be an allowed image, audio, video, document, txt or csv type (no
+  SVG, HTML or PHP), at most 25 MiB, and its first bytes must match its
+  extension. See the companion changelog.
+- Direct mode refuses custom code (theme.json CSS, Elementor custom CSS and HTML
+  widgets, script, style, iframe, object, embed, link and meta http-equiv markup, inline event handlers and
+  `javascript:` URLs), saves a pre-image before whole-document writes, and asks
+  for `confirm: true` on template and template-part updates; see the companion
+  changelog.
+- Documentation: Direct mode docs and `AGENTS.md` rule 7 state that the companion
+  writes through core REST in Direct mode only, list the protections it carries,
+  and list what it does not do yet (restore tool, after-write verification,
+  partial custom-code screening, DNS pinning for media URLs).
 
 ### Fixed
 
@@ -585,6 +601,21 @@ development builds were never stable releases.
   through a shared writer as backed up.
 - Annotate `elementor-v3-save-template` as additive, since every call creates a
   new template.
+- Direct `stonewright-task-start` reports the write mode the site's tools use
+  (`on` for `localhost`, `.local` and `.test` hosts unless
+  `STONEWRIGHT_DIRECT_WRITES` is set), and `stonewright-site-discover` lists
+  every plugin-only capability, including Rescue, change sets, section reuse,
+  Design Direction, site Context and Elementor V4 (Atomic) features; see the
+  companion changelog.
+- The "Fix my connection" prompt names `stonewright-site-info` for Plugin mode
+  and `stonewright-site-discover` for Direct mode.
+- Direct Elementor tools no longer use WP-CLI when the local WordPress install
+  is not the configured site; they answer through core REST and report
+  `wp_cli_refused`. See the companion changelog.
+- Direct `stonewright-task-start` asks for `repair_open_incidents_first` only for
+  an open incident that `stonewright-incident-repair-record` can close. Other
+  incidents stay listed as information and close after seven days without a new
+  failure. See the companion changelog.
 
 ### Security
 

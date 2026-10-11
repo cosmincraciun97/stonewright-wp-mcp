@@ -63,7 +63,8 @@ connection smoke test.
 skills/memory hints, and write-mode guidance. Then call
 `stonewright-site-discover` before choosing REST operations. Destructive tools
 require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`. Direct mode
-does not write custom PHP/CSS/JS/HTML.
+refuses custom PHP/CSS/JS/HTML, and it has no restore tool or after-write
+verification.
 
 Copy-paste wording for other clients: [install-prompts.md](../install-prompts.md)
 Option B.

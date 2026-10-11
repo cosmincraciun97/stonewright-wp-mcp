@@ -277,7 +277,7 @@ active owner/version separately without exposing filesystem paths.
 
 ### Companion exposure
 
-The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
+The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`. In Plugin mode the companion does not call WordPress REST write endpoints; it proxies to the plugin's MCP endpoint. Direct mode (no plugin) is the exception: it writes through core WordPress REST, and through local WP-CLI where the target check passes, using only its typed Direct tools.
 
 Direct writes require a recent task-start bound to the resolved alias and its
 canonical target identity. Repointing the alias invalidates that write latch;
@@ -286,6 +286,29 @@ other write against the new target. Direct audit idempotency and incidents use
 the same canonical identity rather than the alias. Audit-lock recovery checks
 boot/process-start ownership and quarantines a stale lock atomically before
 removing it, so PID reuse and replacement-lock races fail closed.
+
+Direct mode has no plugin and no authenticated wp-admin grant boundary, so its
+write protections are the companion's own and narrower than Plugin mode's:
+
+- It refuses custom code (theme.json and Elementor CSS, HTML widgets, script,
+  style, iframe, object, embed, link and meta http-equiv markup, inline event
+  handlers, `javascript:` URLs) in global styles, Elementor data, content,
+  template, blueprint and widget writes. Other write tools (ACF, media, menu,
+  comment, taxonomy-term, settings, user) are not screened.
+- It saves a pre-image before template, template-part, global-styles, content
+  and blueprint-over-page writes and refuses the write when that fails. No tool
+  restores a pre-image or an Elementor backup yet.
+- It asks for `confirm: true` on destructive tools in `confirm` write mode. That
+  flag is supplied by the caller and is not bound to the call's arguments; Direct
+  has no confirmation tokens.
+- `stonewright-media-upload` limits local paths, URL addresses, file types and
+  size. It does not pin the DNS answer, so rebinding between the check and the
+  download is not caught.
+- It does not read back or probe a site after a write, and `stonewright-wp-cli-run`
+  has no task-start latch, confirmation or audit row.
+
+[Direct mode E2E](direct-mode-e2e.md) lists each protection and what is not done
+yet.
 
 ### Plugin data when the plugin is deleted
 

@@ -126,8 +126,8 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Area | Tools (group) | Notes |
 |---|---|---|
 | Content & Gutenberg | list/get/create/update + compose + **validate** | Round-trip heuristics after writes |
-| Elementor (local WP-CLI) | **status / data-get / data-update** | Mandatory file backup; preserve CSS metadata, run no CSS flush, and require Plugin-mode guarded CSS closure |
-| Media, menus, taxonomy, templates, global styles | REST | Core endpoints |
+| Elementor (local WP-CLI) | **status / data-get / data-update** | File backup before every write (no restore tool); refuses custom CSS and HTML widgets; preserves CSS metadata, runs no CSS flush, and requires Plugin-mode guarded CSS closure |
+| Media, menus, taxonomy, templates, global styles | REST | Core endpoints; template, template-part and global-styles updates save a pre-image first |
 | Comments, users, app passwords, widgets | REST | Write-gated |
 | Plugins, themes, settings, health | REST | Destructive confirms |
 | WooCommerce | products/orders/sales | Read-only; catalog writes require Plugin mode |
@@ -135,7 +135,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Self-improvement | skill-*, memory, verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage |
 | Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
 | WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
-| Safety | write gating, confirm, audit JSONL, backups | Task-start required before writes (default) |
+| Safety | write gating, confirm, audit JSONL, pre-images and Elementor file backups | Task-start required before writes (default); no restore tool or after-write verification |
 
 ## What you can do with Stonewright
 
@@ -184,7 +184,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **101** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **101** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/` that no tool restores). This path has no Elementor schema validation and refuses custom CSS and HTML widgets — use Plugin mode `elementor-v3-batch-mutate` for production engines. What Direct mode protects, and what it does not do yet (no restore tool, no after-write verification, partial custom-code screening), is listed in [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md#what-direct-mode-protects). DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Advanced connection options
 
@@ -277,7 +277,7 @@ Example env for Direct mode:
 }
 ```
 
-Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode does not write custom PHP/CSS/JS/HTML (no authenticated wp-admin grant boundary).
+Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode refuses custom PHP/CSS/JS/HTML in the write tools that carry markup or CSS (no authenticated wp-admin grant boundary).
 
 </details>
 
@@ -488,8 +488,10 @@ profile for known clients.
 OAuth credentials remain inside the plugin grant/token boundary. Application
 Passwords stay in private client configuration or the OS-backed site registry;
 paste-to-agent prompts contain placeholders. Direct mode has no plugin approval
-boundary, so it cannot write arbitrary PHP, CSS, JavaScript, HTML, WPCode, Code
-Snippets, or theme files. Plugin-mode custom-code providers always stop after a
+boundary and no tool for WPCode, Code Snippets, or theme files, and its content,
+template, blueprint, widget, global-styles, and Elementor data writes refuse
+custom CSS, script, and HTML-type markup. Its other write tools (ACF, media,
+menu, comment, taxonomy-term, settings, user) are not screened. Plugin-mode custom-code providers always stop after a
 typed dry run until the user issues the exact one-time grant. Generic
 create/update/duplicate/bulk writers reject executable-code post types and
 route them to the approval-gated provider pipeline.
@@ -506,7 +508,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator, change sets, confirmation tokens, and Rescue, and has no restore tool or after-write verification; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -524,8 +526,9 @@ Companion status, doctor, and task-start reports use **schema version 3**.
 `stonewright-task-start` is the first call; on a degraded session it reconnects
 once and either continues or returns a truthful local result. Terminal OAuth
 failures set `reauthentication_required` with a model-visible `user_action`.
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+request once after some network errors.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more, a tool call included.
 
 Direct mode is a capability mode inside the companion, not a third transport.

@@ -25,9 +25,16 @@ tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
 Direct mode may inspect Customizer CSS when core exposes it, and
 `stonewright-custom-css` refuses updates because pluginless mode has no
-authenticated wp-admin one-time-grant boundary. Direct has no custom-code gate:
-its other write tools (content, templates, global styles, Elementor data) send
-what they are given and do not screen it for scripts, styles, or HTML.
+authenticated wp-admin one-time-grant boundary. The other Direct write tools
+(content, templates, blueprints, widgets, global styles, Elementor data) refuse custom
+code the same way and write nothing: theme.json `styles.css` and per-block
+`css`, Elementor custom CSS setting keys and HTML-type widgets, and script,
+style, iframe, object, embed, link, and `meta http-equiv` elements, inline event
+handlers (`on*=`), and `javascript:` URLs in content, template, and blueprint markup (element and attribute names are
+matched case-insensitively, and entity-encoded or JSON-escaped forms are
+detected). The check covers everything sent, so a page, template, or widget that
+already holds custom code cannot be saved through Direct either. The refusal is a normal result with `approval_required` and
+`agent_must_stop`; custom code needs Plugin mode and its custom-code approval.
 
 MIT License.
 
@@ -55,8 +62,9 @@ authorization. A refresh token expires after 30 days without use, and one
 presented again within 60 seconds of its use receives the grant's current
 refresh token.
 
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. The one exception is a token refresh that got no
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+request once after some network errors.) The one exception is a token refresh that got no
 response at all: it is sent once more with the same refresh credential, at most
 30 seconds after the first request and ended 50 seconds after it, inside the
 server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
@@ -112,12 +120,12 @@ site-hosted state.
 | Capability | Direct | Plugin |
 |---|---|---|
 | Content (posts/pages/CPT) list/get/create/update/delete | yes | yes |
-| Media list/upload/update | yes | yes |
+| Media list/upload/update | yes; upload limited to allowed folders, public URLs, allowed types, 25 MiB | yes |
 | Taxonomy terms | yes | yes |
 | Menus + menu items | yes | yes |
-| FSE templates / template parts | yes | yes |
-| Global styles (theme.json) | yes | yes |
-| Settings get/update | yes | yes |
+| FSE templates / template parts | yes; pre-image before update, `confirm: true` for updates in `confirm` mode, custom code refused | yes |
+| Global styles (theme.json) | yes; pre-image before update, custom CSS refused | yes |
+| Settings get/update | yes; no before-state saved | yes |
 | Plugins list/activate/deactivate/install | yes | yes |
 | Themes list | yes | yes |
 | Users list/get/me | yes | yes |
@@ -125,28 +133,86 @@ site-hosted state.
 | WooCommerce products/orders/sales read | yes | yes |
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
 | Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
-| WP-CLI tokenized tools | yes (local host only) | yes (local host only) |
+| WP-CLI tokenized tools | yes (local host only; `stonewright-wp-cli-run` has no task-start latch, confirmation or audit row) | yes (local host only) |
 | `stonewright/php-execute` | no | yes (`full` profile only) |
-| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
+| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup, no restore tool; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
 | Memory / skills store | yes — private local state | yes — site-hosted |
-| Production-safe confirmation tokens | no | yes |
+| Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
+| Change sets, Rescue (probe, rollback), backup restore | no | yes |
+| After-write readback and verification | no (local Elementor cache readback only) | yes |
 | Audit | local redacted JSONL; no server UI | server-side UI |
 
 Destructive Direct writes on remote sites require `confirm: true` when
-`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Only tools
-flagged destructive ask for it; content, template, and media updates do not.
-Direct takes no snapshot before a write; an Elementor data update saves a file backup that no tool restores.
+`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
+flagged destructive ask for it: deletes, template and template-part creates,
+`global-styles-update`, `elementor-data-update`, plugin, theme-activate, settings
+and user changes, `template-update`, `template-part-update`, and
+`blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
+and taxonomy writes do not.
+
+Before `template-update`, `template-part-update`, `global-styles-update`,
+`content-update`, and `blueprint-apply` with a `post_id`, Direct reads the
+current resource with `context=edit` and stores it under
+`~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
+(mode 0600 where the platform supports it; at most 20 per resource, the oldest
+deleted). The result carries `backup_path` and `backup_sha256` (SHA-256 of the
+stored file). When the current resource cannot be read or the file cannot be
+stored, the write is refused and nothing is sent. The file holds the REST
+resource only, never request headers or credentials. An Elementor data update
+keeps its own file backup under `backups/<site alias>/post-<id>-<timestamp>.json`.
+No tool restores a backup yet.
+
+`stonewright-media-upload` reads a local `path` only from the working directory,
+the companion media folder (`<state dir>/media`) or a root listed in
+`STONEWRIGHT_DIRECT_MEDIA_ROOTS`. The path is resolved first, so a symlink or a
+`..` that leaves those folders counts as outside them. Any other file needs
+`confirm: true` on the call. A `url` must be http or https and must resolve only
+to public addresses; private, loopback, link-local, multicast and reserved IPv4
+and IPv6 addresses are refused, and so is a redirect to one. Each redirect hop (at
+most five) is checked again. A name is resolved before the request is sent, so a
+host that changes its answer between the check and the download is not caught.
+The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies. The size is checked before a local file is read and while a download streams, and a download has a 60 second limit.
+
+For a configured site alias, the Elementor tools use WP-CLI only when the local
+install is that site: they compare the install's `home` option (then `siteurl`)
+with the alias URL, once per alias and process. When the addresses differ, or the
+local address cannot be read, the tool uses core REST instead and returns
+`wp_cli_refused` ("the local WordPress is not the target site"), without naming
+either host. Set `STONEWRIGHT_WP_ROOT` or `path` to the install of the alias site
+to use WP-CLI for it.
 
 Local WP-CLI Elementor updates invalidate only the post-scoped
-`_elementor_element_cache` after verified readback and preserve `_elementor_css`
+`_elementor_element_cache` (the deletion is read back) and preserve `_elementor_css`
 metadata. They never run Elementor's global CSS flush command; use Plugin mode
 for guarded target-post CSS closure. Their receipt still says
 `browser_required`: cache invalidation is not rendered visual acceptance.
 Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for
 the closed-loop `stonewright-elementor-post-write-verify` ability.
+
+### What Direct mode does not do yet
+
+- No tool restores a pre-image or an Elementor backup.
+- No after-write verification: REST writes are not read back, and there is no
+  front-end probe or rollback.
+- Custom-code screening covers global styles, Elementor data, content, template,
+  blueprint and widget writes. ACF, media, menu, comment, taxonomy-term, settings
+  and user writes are not screened.
+- Pre-images cover five tools; plugin, theme, settings, menu, media, ACF and
+  taxonomy writes save no before-state.
+- `stonewright-media-upload` does not pin the DNS answer, so rebinding between
+  the address check and the download is not caught.
+- Elementor raw writes have no schema validation, unique-id check, per-post
+  lease or base hash, and no readback of `_elementor_data`.
+- The REST client retries a request once after some network errors, for every
+  method.
+- Audit rows carry no change set id or hashes, and Direct writes no verifier row,
+  so `stonewright-incident-repair-record` returns guidance only.
+
+[docs/direct-mode-e2e.md](../docs/direct-mode-e2e.md) lists what Direct mode
+protects and what it does not do yet in full.
 
 ## Advanced companion setup
 
@@ -466,6 +532,8 @@ cp .env.example .env
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | optional | Largest file `stonewright-media-upload` sends, in bytes; default 26214400 (25 MiB), at most 536870912 |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | optional | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that `stonewright-media-upload` may read local files from without `confirm: true` |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |
 

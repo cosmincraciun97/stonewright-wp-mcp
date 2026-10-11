@@ -198,19 +198,26 @@ plugin-only capabilities that remain unavailable until you install Stonewright.
 
 | Capability | Direct | With plugin |
 |---|---|---|
-| Content / media / taxonomies | yes | yes |
-| Menus, FSE templates, global styles | yes | yes |
-| Settings, plugins, themes, users, search | yes | yes |
+| Content / media / taxonomies | yes (media upload limited to allowed folders, public URLs, allowed types, 25 MiB) | yes |
+| Menus, FSE templates, global styles | yes (pre-image before template, template-part, global-styles and page updates; custom code refused) | yes |
+| Settings, plugins, themes, users, search | yes (no before-state saved) | yes |
 | WP-CLI (local companion) | yes | yes |
 | PHP execute, Elementor engines, DesignSpec | no | yes |
-| Custom PHP/CSS/JS/HTML write (approval grant) | no | yes (human grant) |
+| Custom PHP/CSS/JS/HTML write (approval grant) | no (refused in content, template, blueprint, widget, global-styles and Elementor data writes) | yes (human grant) |
 | Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
-| Production-safe confirmation tokens | no | yes |
+| Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
+| Change sets, Rescue, backup restore, after-write verification | no | yes |
 
 Remote destructive Direct tools require `confirm: true` by default
-(`STONEWRIGHT_DIRECT_WRITES=confirm`). Local `.local`/`.test` hosts default to
-`on`. Optional per-site `disabledTools` in `~/.stonewright/sites.json` can block
-writes on production aliases.
+(`STONEWRIGHT_DIRECT_WRITES=confirm`), and so do template and template-part
+updates and a blueprint applied over an existing page. Local `.local`/`.test`
+hosts default to `on`. Optional per-site `disabledTools` in
+`~/.stonewright/sites.json` can block writes on production aliases.
+
+Direct mode saves pre-images and Elementor file backups under
+`~/.stonewright/backups/`, but no tool restores them, and it does not read a
+site back or probe it after a write. The full list of what Direct mode protects
+and does not do yet is in [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
 Copy the **Remote Streamable HTTP** snippet from **Stonewright > Setup**; it points
@@ -387,6 +394,8 @@ Optional env vars:
 |---|---|
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; used for `cwd`, `--path`, and LocalWP discovery. |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Direct mode: comma/semicolon list of folders, besides the working directory and the companion media folder, that `stonewright-media-upload` may read local files from without `confirm: true`. |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Direct mode: largest file `stonewright-media-upload` sends, in bytes. Default 25 MiB, at most 512 MiB. |
 | `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
 | `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
 | `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |

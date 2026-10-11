@@ -537,9 +537,10 @@
         "stonewright-task-start",
         "stonewright-ping",
         "stonewright-site-info",
+        "stonewright-site-discover",
         "stonewright-tool-profile"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start first. If the client cannot reach WordPress, run stonewright-ping and stonewright-site-info, then follow the Troubleshoot flow from Stonewright > Setup > Troubleshoot (sign-in addresses and connected OAuth clients are under Stonewright > Setup > Connections), or the companion connect verify/repair path for local stdio. Confirm the active alias, configured_mode, active_mode, companion_version, and that stonewright-task-start appears in tools/list after restart. If tools are truncated, call stonewright-tool-profile activate with the matching profile and re-list tools. Never print Application Passwords, OAuth tokens, or private client config.",
+      "prompt": "Use Stonewright. Call stonewright-task-start first. If the client cannot reach WordPress, run stonewright-ping and then read the site: stonewright-site-info in Plugin mode, stonewright-site-discover in Direct mode (Direct does not register stonewright-site-info). Then follow the Troubleshoot flow from Stonewright > Setup > Troubleshoot (sign-in addresses and connected OAuth clients are under Stonewright > Setup > Connections), or the companion connect verify/repair path for local stdio. Confirm the active alias, configured_mode, active_mode, companion_version, and that stonewright-task-start appears in tools/list after restart. If tools are truncated, call stonewright-tool-profile activate with the matching profile and re-list tools. Never print Application Passwords, OAuth tokens, or private client config.",
       "verification": "Connection mode and alias reported; stonewright-task-start visible after restart; no credentials or private config in output."
     },
     {

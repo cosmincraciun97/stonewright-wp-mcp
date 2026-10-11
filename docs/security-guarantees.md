@@ -134,9 +134,21 @@ composer test -- --filter SettingsSanitizer
 ## Rule 7 - Companion WP-CLI Stays Tokenized
 
 The companion may execute WP-CLI commands for WordPress operations, including
-write commands, but only through the tokenized runner. It must not call
-WordPress REST write endpoints. PHP snippets go through
+write commands, but only through the tokenized runner. PHP snippets go through
 `stonewright/php-execute`; WP-CLI PHP and shell entry points stay blocked.
+
+In Plugin mode the companion must not call WordPress REST write endpoints; it
+stays a thin proxy to the plugin's MCP endpoint.
+
+Direct mode is the exception. With no plugin installed, the companion writes
+through core WordPress REST (and through local WP-CLI where the target check
+passes), and only through the typed Direct tools; `stonewright-rest-request` is
+GET only. Those tools require a recent `stonewright-task-start`, honor
+`STONEWRIGHT_DIRECT_WRITES`, refuse custom code in the writes that carry
+markup or CSS, save a pre-image before whole-document writes, and limit
+`stonewright-media-upload`. They do not provide change sets, confirmation
+tokens, a restore tool, or after-write verification. See
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet).
 
 Enforced by:
 
@@ -144,6 +156,10 @@ Enforced by:
 - `plugin/includes/Abilities/WpCli/Run.php`
 - `plugin/tests/Unit/WpCli/WpCliAbilitiesTest.php`
 - `companion/tests/wp-cli.test.ts`
+- Direct mode: `companion/src/direct/writes.ts`,
+  `companion/src/direct/custom-code-guard.ts`, `companion/src/direct/preimage.ts`,
+  `companion/src/direct/elementor-target.ts`, `companion/src/direct/media-source.ts`
+  and `companion/src/direct/media-limits.ts`
 
 Verify:
 
